@@ -64,14 +64,13 @@ test('the AI family alternates per CI run (odd: OpenAI, even: Claude), never wit
   assert.throws(() => pickFamily({E2E_AI_FAMILY: 'gpt'}), /claude, openai or rotate/);
 });
 
-// Owner, 12 Oct 2026: each live run's AI cost shows apart in the Console and on /admin/ai-cost: the CI pool by hand and a PR's live proof each ask on their own key.
-test('live runs ask on their own key (a PR proof, a pool run by hand), the Tests key until it is set; the name is said, never the value', async () => {
+// Owner, 12 Oct 2026: each live run's AI cost shows apart in the Console and on /admin/ai-cost: the CI recording by hand asks on its own key (the PR key went on 15 Oct 2026).
+test('live runs ask on their own key (a recording run by hand), the Tests key until it is set; the name is said, never the value', async () => {
   const {liveKeyName, testKey} = await import('../lib/engine.mjs');
-  const env = {CI: 'true', E2E_ANTHROPIC_KEY: 'tests', LIVE_POOL_ANTHROPIC_KEY: 'pool', PR_PROOF_ANTHROPIC_KEY: 'proof'};
-  assert.deepEqual([liveKeyName({...env, JOB_PILOTTO_VISIT_KIND: 'proof'}), testKey({...env, JOB_PILOTTO_VISIT_KIND: 'proof'})], ['PR_PROOF_ANTHROPIC_KEY', 'proof']);
+  const env = {CI: 'true', E2E_ANTHROPIC_KEY: 'tests', LIVE_POOL_ANTHROPIC_KEY: 'pool'};
   assert.deepEqual([liveKeyName({...env, JOB_PILOTTO_VISIT_KIND: 'hand'}), testKey({...env, JOB_PILOTTO_VISIT_KIND: 'hand'})], ['LIVE_POOL_ANTHROPIC_KEY', 'pool']);
   assert.deepEqual([liveKeyName(env), testKey(env)], ['E2E_ANTHROPIC_KEY', 'tests'], 'an e2e suite (no visit kind): the Tests key');
-  const notYet = {CI: 'true', E2E_ANTHROPIC_KEY: 'tests', JOB_PILOTTO_VISIT_KIND: 'proof'};
+  const notYet = {CI: 'true', E2E_ANTHROPIC_KEY: 'tests', JOB_PILOTTO_VISIT_KIND: 'hand'};
   assert.deepEqual([liveKeyName(notYet), testKey(notYet)], ['E2E_ANTHROPIC_KEY', 'tests'], 'its own key not set yet: the Tests key');
   assert.equal(testKey({...env, CI: '', JOB_PILOTTO_VISIT_KIND: 'hand'}), '', 'never on a Mac');
   assert.equal(liveKeyName({...env, JOB_PILOTTO_VISIT_KIND: 'hand'}, 'openai'), 'E2E_OPENAI_KEY', 'an OpenAI engine keeps its own Tests key');

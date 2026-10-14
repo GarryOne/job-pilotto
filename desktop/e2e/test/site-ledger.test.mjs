@@ -116,19 +116,15 @@ test('live-check refuses a host at its limit before any lock, and counts nothing
   assert.equal(run('https://other.example.com/job').status, 0);
 });
 
-// Owner, 12 Oct 2026: on CI a by-hand pool run may use only 1 of a host's 2 daily visits; the 2nd is kept for a PR's live proof (that day Personio's 2 visits
-// went to #452's proof plus a by-hand run, and #455's proof got none). Each visit records its kind; a Mac run names no kind and keeps the plain limit.
-test('a by-hand CI run leaves the last visit of the day to a PR proof; a proof may take it; each visit says its kind', () => {
-  const env = {...fresh(), JOB_PILOTTO_SITE_LIMIT: '2', JOB_PILOTTO_SITE_RESERVE: '1'};
-  const hand = {...env, JOB_PILOTTO_VISIT_KIND: 'hand'}, proof = {...env, JOB_PILOTTO_VISIT_KIND: 'proof'};
-  assert.equal(visit('https://jobs.personio.example/1', {env: hand, now: day()}).count, 1, 'by hand: the first visit');
-  assert.throws(() => visit('https://jobs.personio.example/2', {env: hand, now: day()}),
-    error => error instanceof SiteLimitError && /1 live visit today; the other 1 is kept for a PR proof \(limit 2\)/.test(error.message), 'by hand at 1: refused');
-  assert.equal(visit('https://jobs.personio.example/3', {env: proof, now: day()}).count, 2, 'a proof at 1: admitted');
-  assert.throws(() => visit('https://jobs.personio.example/4', {env: proof, now: day()}), /2 live visits today \(limit 2\)/, 'a proof at 2: refused');
+// 15 Oct 2026: no visit is kept back for another run: a by-hand CI recording may use all of a host's daily visits, and each visit says its kind; a Mac run names no kind.
+test('a by-hand CI run may use all the day\'s visits; each visit says its kind', () => {
+  const env = {...fresh(), JOB_PILOTTO_SITE_LIMIT: '2', JOB_PILOTTO_VISIT_KIND: 'hand'};
+  assert.equal(visit('https://jobs.personio.example/1', {env, now: day()}).count, 1);
+  assert.equal(visit('https://jobs.personio.example/2', {env, now: day()}).count, 2, 'the second visit is allowed');
+  assert.throws(() => visit('https://jobs.personio.example/3', {env, now: day()}), /2 live visits today \(limit 2\)/, 'the third is refused');
   const ledger = JSON.parse(fs.readFileSync(path.join(env.JOB_PILOTTO_SITE_LEDGER_DIR, 'ledger.json'), 'utf8'));
-  assert.deepEqual(Object.values(ledger)[0]['jobs.personio.example'].visits.map(item => item.kind), ['hand', 'proof']);
-  const mac = {...fresh(), JOB_PILOTTO_SITE_LIMIT: '2', JOB_PILOTTO_SITE_RESERVE: '1'};   // no kind: the plain limit, as on the Mac
+  assert.deepEqual(Object.values(ledger)[0]['jobs.personio.example'].visits.map(item => item.kind), ['hand', 'hand']);
+  const mac = {...fresh(), JOB_PILOTTO_SITE_LIMIT: '2'};   // no kind, as on the Mac
   assert.equal(visit('https://mac.example/1', {env: mac, now: day()}).count, 1);
   assert.equal(visit('https://mac.example/2', {env: mac, now: day()}).count, 2);
 });

@@ -147,7 +147,7 @@ export const poolShapes = (repo = [], extra = []) => {
 const PERSONAL_KEY = /^(utm_.*|ref|referrer|source|src|token|.*email.*|.*mail|session|sid|.*user.*|uid|.*applicant.*|.*candidate.*|trk|.*track.*|campaign|gclid|fbclid)$/i;
 export const personalQueryKeys = url => [...new URL(url).searchParams.keys()].filter(key => PERSONAL_KEY.test(key));
 
-// The rows --only selects: a row's exact name selects that row alone (the PR live proof names one: lib/pool-proof.mjs), else every row matchesOnly holds.
+// The rows --only selects: a row's exact name selects that row alone (a one-row recording names one), else every row matchesOnly holds.
 export function selectRows(shapes, only = '') {
   const exact = only ? shapes.filter(item => item.shape === String(only).trim()) : [];
   return exact.length ? exact : shapes.filter(item => matchesOnly(item.shape, only));

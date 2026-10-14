@@ -46,7 +46,7 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 | "Confirmed offline" and the regression verdict (Our build / Site changed) | job-pilotto-8e PR; bisect to the first bad commit next |
 | The pool becomes a recorder; skill rename; re-record signals on the page | job-pilotto-cf, spec `docs/superpowers/specs/2026-10-15-record-once.md` (A) |
 | A CI recording never updates the pool table (`applying-report.mjs` refuses CI) and must reach the replay's records | job-pilotto-cf (A), its first PR |
-| Rules, skills and page words that still require a live proof | job-pilotto-cf (B), after 8e |
+| Rules, skills and e2e pieces that required a live proof (B1: e2e, workflow, docs; B2: the site's live-proof store and column) | job-pilotto-70 |
 | Recording past where the extension stops (full journey) | job-pilotto-cf (C) |
 | `fix-recorded-sites` still describes live runs, the heavy lock, `npm run row`, `twin:drive` | job-pilotto-cf (B) |
 </details>

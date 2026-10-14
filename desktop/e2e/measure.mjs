@@ -3,7 +3,7 @@
 // (lib/measure.mjs: parseLive, the ending, the shadow / acted / person tables). Nothing reaches a site, no site limit is used, $0: the kept answers only (memo); an ask the capture
 // never made is a miss, and a row with any miss is NOT MEASURED, the step and the differing part named (a prompt change shows at once) (an --ask through the plan's claude -p, capped, is a later step of the spec).
 // --compare: the captures' own live numbers, in their own table. Every line is labelled offline (memo|plan) and "unverified" until the positive control passed (spec PR 3).
-// A fix is proven only by a live run (Pool-row / live-proof): these numbers decide what to try. Spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md.
+// A fix is confirmed OFFLINE on a recording (the Fixed tab's "Confirmed offline"), never by a live run: these numbers decide what to try. Spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

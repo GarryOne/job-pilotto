@@ -42,26 +42,15 @@ test('no pool run is dropped: no concurrency group (GitHub cancels a pending run
   assert.ok(Number(smoke.match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
 });
 
-// The NOT RUN line also reaches the PR as a comment, so its author knows to run it again when the visit is possible.
-test('a PR whose row did not run gets the NOT RUN line as a comment, with how to run it again', () => {
-  const smoke = workflows['record-sites.yml'];
-  const step = smoke.match(/- name: [^\n]*did not run[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
-  assert.match(step, /if: always\(\) && github\.event_name == 'pull_request'/);
-  assert.match(step, /gh pr comment "\$PR_NUMBER"/);
-  assert.match(step, /NOT_RUN_FILE/);
-  assert.match(smoke, /NOT_RUN_FILE: \$\{\{ runner\.temp \}\}\/not-run\.txt/);
-  assert.match(smoke, /^ {2}pull-requests: write\b/m);
-});
-
 test('the pool run sets JP_APPLICANT (thin when started by hand)', () => {
   assert.match(workflows['record-sites.yml'], /^ +JP_APPLICANT: thin\b/m);
 });
 
-// Owner, 12 Oct 2026: a by-hand run keeps a host's last CI visit of the day for a PR proof (lib/site-ledger.mjs JOB_PILOTTO_SITE_RESERVE).
-test('the pool run names its visit kind (a PR proof or by hand) and keeps one visit a day for PR proofs', () => {
+// 15 Oct 2026: no PR proof keeps a visit back any more: a by-hand recording may use the host's whole day (limit 2), and each visit says it is by hand.
+test('the recording run names its visit kind (by hand) and keeps no visit back for a PR proof', () => {
   const smoke = workflows['record-sites.yml'];
-  assert.match(smoke, /JOB_PILOTTO_VISIT_KIND: \$\{\{ github\.event_name == 'pull_request' && 'proof' \|\| 'hand' \}\}/);
-  assert.match(smoke, /JOB_PILOTTO_SITE_RESERVE: '1'/);
+  assert.match(smoke, /JOB_PILOTTO_VISIT_KIND: hand\b/);
+  assert.doesNotMatch(smoke, /JOB_PILOTTO_SITE_RESERVE|pull_request|PR_PROOF/);
   assert.match(smoke, /JOB_PILOTTO_SITE_LIMIT: '2'/);
 });
 
@@ -81,11 +70,11 @@ test('the recording run sends its ladder moves, endings and (main only) its rows
 // Owner, 12 Oct 2026 (cost safety): live CI has its own Anthropic key with its own limit; the Tests key until it exists. Every run reports its spend to /admin/ai-cost.
 test('the pool run passes its live keys to the engine rule (which picks one, else the Tests key, and names it), and reports its spend to /admin/ai-cost without ever failing', () => {
   const smoke = workflows['record-sites.yml'];
-  for (const name of ['E2E_ANTHROPIC_KEY', 'LIVE_POOL_ANTHROPIC_KEY', 'PR_PROOF_ANTHROPIC_KEY']) assert.match(smoke, new RegExp(`\\b${name}: \\$\\{\\{ secrets\\.${name} \\}\\}`), `${name} reaches the run; lib/engine.mjs picks one`);
+  for (const name of ['E2E_ANTHROPIC_KEY', 'LIVE_POOL_ANTHROPIC_KEY']) assert.match(smoke, new RegExp(`\\b${name}: \\$\\{\\{ secrets\\.${name} \\}\\}`), `${name} reaches the run; lib/engine.mjs picks one`);
   assert.doesNotMatch(smoke, /AI_KEY_NAME|secrets\.LIVE_ANTHROPIC_KEY/, 'the choice is the engine rule\'s alone (lib/engine.mjs liveKeyName)');
   const step = smoke.match(/- name: Report the run's AI spend[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
   assert.match(step, /if: always\(\)/);
   assert.match(step, /AI_COST_PUBLISH_KEY: \$\{\{ secrets\.AI_COST_PUBLISH_KEY \}\}/);
-  assert.match(step, /github\.event_name == 'pull_request' && 'pr-live-proof' \|\| 'pool-live'/);
+  assert.match(step, /AI_COST_JOB: pool-live/);
   assert.match(step, /node desktop\/e2e\/pool-ai-cost\.mjs[^\n]*&& node desktop\/e2e\/ai-cost-report\.mjs --job "\$AI_COST_JOB" --file[^\n]*\|\| true/);
 });

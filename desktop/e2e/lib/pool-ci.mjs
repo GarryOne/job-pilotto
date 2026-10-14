@@ -64,12 +64,12 @@ const endingCell = item => (item.ending === 'unresolved' ? '❌ unresolved' : it
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
 // keyName: which Anthropic key the run used, by NAME (lib/engine.mjs liveKeyName); anything but a known name is never printed.
 const KEY_NAMES = [keySecret('api'), ...Object.values(LIVE_KEYS)];   // the names come from the engine rule, the only file that names keys (e2e/test/no-local-key.test.mjs)
-export function summary(report = {}, {baseline = {}, now = new Date(), proof = false, keyName = ''} = {}) {
+export function summary(report = {}, {baseline = {}, now = new Date(), keyName = ''} = {}) {
   const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
   const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
   const last = shape => { const base = baseline[shape]; return base ? `${base.reached}${base.filled != null ? ` ${base.filled} / ${base.left}` : ''} (run ${base.run}, ${base.branch})` : '–'; };
   const notRun = notRunLine(report, now);
-  const red = [...(notRun && !proof ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
+  const red = [...(notRun ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
     ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
     ...results.flatMap(([shape, item]) => (item.readings?.failures || []).map(line => `false reading: ${shape}: ${line}`)),   // lib/live-readings.mjs
     ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),

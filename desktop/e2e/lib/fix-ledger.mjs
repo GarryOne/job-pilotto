@@ -45,7 +45,7 @@ export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSyn
     memo[hash] ||= facts(git, hash);
     const {message, when, version, cases} = memo[hash];
     const guard = [...new Set([...cases.map(name => `recorded:${name}`), ...line(message, 'Fixture').flatMap(value => (/^none\b/i.test(value) ? [] : value.split(/\s*,\s*/).filter(id => /^[a-z0-9][a-z0-9-]{0,79}$/i.test(id)).map(id => `fixture:${id}`)))])];
-    const subject = cleanRow(message.split('\n')[0]) ? message.split('\n')[0].trim().slice(0, 120) : '';   // the PR's own build is matched to this fix by subject and row (site/src/applying-proven.js)
+    const subject = cleanRow(message.split('\n')[0]) ? message.split('\n')[0].trim().slice(0, 120) : '';   // the PR's own build is matched to this fix by subject and row (the Fixed tab's matching of a PR's build to a fix)
     for (const site of sites) ledger.push({site, commit: hash.slice(0, 7), subject, extensionVersion: version, rung: line(message, 'Rung')[0] || '', landedAt: when, guard});
   }
   if (git === defaultGit) saveMemo(memo);

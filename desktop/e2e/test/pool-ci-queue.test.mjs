@@ -1,6 +1,6 @@
 // The CI pool's queue (lib/pool-ci-queue.mjs, pool-ci-wait.mjs; .github/workflows/record-sites.yml): one pool run at a time, oldest first, and NONE is ever dropped.
 // GitHub's concurrency group keeps one pending run and cancels the older one (12 Oct 2026: the Ocado and FNAC dispatches of the same second; Ocado was cancelled,
-// and a dispatch could silently cancel a PR's live proof the same way). Strictly one at a time also keeps the site-ledger hand-over between runs free of races.
+// and a dispatch could silently cancel another run the same way). Strictly one at a time also keeps the site-ledger hand-over between runs free of races.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {runsAhead} from '../lib/pool-ci-queue.mjs';
