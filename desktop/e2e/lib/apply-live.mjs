@@ -22,7 +22,7 @@ import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
-import {pageLines, quietSeconds, signature, stillClock, stillSeconds} from './live-still.mjs';
+import {pageLines, quietSeconds, runEnded, signature, stillClock, stillSeconds} from './live-still.mjs';
 import {writeAtomic} from './run-artifacts.mjs';
 import {allowedValues, seedTestAccounts, testAccounts} from './test-accounts.mjs';
 export {livePosting} from './live-posting.mjs';
@@ -132,6 +132,7 @@ export async function runLive(ctx, h) {
       const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved, allow: allowedValues(accounts)}); if (!check.ok) return check.reason; } return ''; };
       let trip = '';
       const steps = stepShooter({tabOf: () => ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url())).at(-1), kindOf: () => kindFromLog(appLogLines(ctx.profile).join('\n')), dir: process.env.LIVE_CAPTURE_DIR || ''});   // one full-page picture per page or step reached (lib/step-shots.mjs)
+      let tabsAtEnd = null;
       while (Date.now() - started < seconds * 1000) {
         const tabs = ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url()));
         const states = await Promise.all(tabs.map(async tab => `${tab.url().split('#')[0].slice(0, 70)} [${(await fillState(tab).catch(() => null))?.state || '-'}]`));
@@ -147,7 +148,9 @@ export async function runLive(ctx, h) {
         // The page's shape (address, title, how many controls and buttons it shows) and the app's log feed the still-clock: a slow page changes one of them (lib/live-still.mjs).
         const shape = await tabs.at(-1)?.evaluate(() => `${location.href.split('#')[0].slice(0, 90)}|${document.title.slice(0, 40)}|${[...document.querySelectorAll('input, select, textarea, button, a')].filter(el => el.getClientRects().length).length}`).catch(() => '') || '';
         clock.see(signature({states, stage: session?.stage, status: session?.status, shape, logLines: pageLines(all)}), Date.now());
-        if (clock.over(Date.now(), {opened: ctx.browser.opened.length > 0, quiet: quietSeconds(stillSeconds(process.env, ctx.engine), all.join('\n'))})) { console.log(`  live ${at()}: nothing changed for ${stillSeconds(process.env, ctx.engine)} s: the watch ends here (limit ${seconds} s; LIVE_STILL_SECONDS=0 watches to the limit)`); break; }
+        const logText = all.join('\n');
+        tabsAtEnd = runEnded(logText) ? tabsAtEnd ?? tabs.length : null;   // the tab count when the end was first seen (live-still.mjs quietSeconds)
+        if (clock.over(Date.now(), {opened: ctx.browser.opened.length > 0, quiet: quietSeconds(stillSeconds(process.env, ctx.engine), logText, process.env, {now: tabs.length, atEnd: tabsAtEnd})})) { console.log(`  live ${at()}: nothing changed for ${stillSeconds(process.env, ctx.engine)} s: the watch ends here (limit ${seconds} s; LIVE_STILL_SECONDS=0 watches to the limit)`); break; }
         // A picture of every tab every 3 s (the newest is what a person sees now), named so they sort in time.
         if (frame++ % 2 === 0) for (const [index, tab] of tabs.entries()) await tab.screenshot({path: path.join(frames, `${String(frame).padStart(3, '0')}-tab${index}.png`)}).catch(() => {});
         if (!stalled && Date.now() - changedAt > 12000) {

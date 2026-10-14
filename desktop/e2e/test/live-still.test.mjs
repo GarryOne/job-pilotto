@@ -95,7 +95,7 @@ test('the deciding signal: the panel button busy or the floating step box, nothi
 test('live-row waits for the decision (the limit is the cap), uses the cli window, and live.mjs says "ended while deciding" as an error', () => {
   const row = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8'), cli = fs.readFileSync(new URL('../live.mjs', import.meta.url), 'utf8');
   assert.match(row, /isDeciding\(/);
-  assert.match(row, /clock\.over\(Date\.now\(\), \{opened: true, deciding, quiet: quietSeconds\(stillSeconds, app\.logText\(\)\)\}\)/);
+  assert.match(row, /clock\.over\(Date\.now\(\), \{opened: true, deciding, quiet: quietSeconds\(stillSeconds, logText, process\.env, \{now: open, atEnd: tabsAtEnd\}\)\}\)/);
   assert.match(row, /stillSecondsFor\(process\.env, 'cli'\)/);
   assert.match(cli, /ended while deciding[\s\S]*process\.exit\(1\)/);
 });
@@ -114,6 +114,10 @@ test('after the extension says its run ended, the quiet window shrinks; a progre
     assert.equal(quietSeconds(45, `${ended}\n${moved}`, {}), 45, 'the full window again');
   }
   assert.equal(runEnded(`${ended}\n[extension] account judgment form: needs_person {}`), true, 'a shadow check after the end keeps the short window');
+  // A tab opened after the end gives the full window back even before its page writes a line (the employer page was still "Reading this page…").
+  assert.equal(quietSeconds(45, ended, {}, {now: 2, atEnd: 1}), 45, 'a new tab after the end');
+  assert.equal(quietSeconds(45, ended, {}, {now: 1, atEnd: 1}), AFTER_END_SECONDS, 'the same tabs: the short window');
+  assert.equal(quietSeconds(45, ended, {}, {now: 2, atEnd: null}), AFTER_END_SECONDS, 'no end tab count yet: the log decides');
   assert.equal(quietSeconds(45, ended, {}), AFTER_END_SECONDS);
   assert.equal(quietSeconds(45, 'nothing ended', {}), 45);
   assert.equal(quietSeconds(10, ended, {}), 10, 'never longer than the window asked for');
