@@ -1,6 +1,6 @@
 // The owner's one decision on a red replay gate (owner, 14 Oct 2026: a label, no button): a PR merged into main since the baseline run, labeled `replay-accepted`, with a comment
 // `Replay-accept: <reason>` (all its worse rows) or `Replay-accept: <row name> — <reason>` (named rows only), accepts those rows. Only a comment by the repo's owner, a member or a collaborator counts.
-// Pure parts (guard: e2e/test/replay-accepts.test.mjs) + one gh reader. Run: node replay-accepts.mjs <baseline results.json | -> <out accepts.json>   (REPLAY_ACCEPTS_FAKE=<file>: a test's list of PRs instead of gh)
+// Two readers: the PRs merged since the baseline (the nightly) and the PR's own label + comments (readPrAccepts: the PR gate, site-replays-pr.yml). Pure parts (guard: e2e/test/replay-accepts.test.mjs) + one gh reader. Run: node replay-accepts.mjs <baseline results.json | -> <out accepts.json>   (REPLAY_ACCEPTS_FAKE=<file>: a test's list of PRs instead of gh)
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -14,8 +14,8 @@ export function entriesOf(prs) {
   const entries = [];
   for (const pr of prs) {
     if (!(pr.labels || []).map(label => label.name ?? label).includes(LABEL)) continue;
-    const found = (pr.comments || []).filter(comment => TRUSTED.includes(comment.authorAssociation)).flatMap(comment => [...String(comment.body || '').matchAll(/^\s*Replay-accept:\s*(.+?)\s*$/gim)].map(match => match[1]));
-    if (found.length) entries.push(...found.map(text => ({pr: pr.number, text}))); else entries.push({pr: pr.number, text: ''});
+    const found = (pr.comments || []).filter(comment => TRUSTED.includes(comment.authorAssociation)).flatMap(comment => [...String(comment.body || '').matchAll(/^\s*Replay-accept:\s*(.+?)\s*$/gim)].map(match => ({text: match[1], ...(comment.url ? {url: comment.url} : {})})));
+    if (found.length) entries.push(...found.map(one => ({pr: pr.number, ...one}))); else entries.push({pr: pr.number, text: ''});
   }
   return entries;
 }
@@ -24,10 +24,10 @@ export function entriesOf(prs) {
 // An entry naming a row ("<row> — <reason>") accepts that row only; any other text is the reason for all rows.
 export function acceptFor(name, entries = [], names = []) {
   let silent = null;
-  for (const {pr, text} of entries) {
+  for (const {pr, text, url} of entries) {
     const named = names.find(other => text.startsWith(other + DASH));
     if (!text) silent ||= {pr, reason: ''};
-    else if (named ? named === name : true) return {pr, reason: named ? text.slice(named.length + DASH.length).trim() : text};
+    else if (named ? named === name : true) return {pr, ...(url ? {url} : {}), reason: named ? text.slice(named.length + DASH.length).trim() : text};
   }
   return silent;
 }
@@ -44,11 +44,23 @@ export function readAccepts(sha, {env = process.env, fetcher} = {}) {
   } catch (error) { console.error(`replay-accepts: not read (${String(error.message).slice(0, 120)})`); return {merged: [], entries: []}; }
 }
 
+// The PR's OWN label and comments (the PR gate: an intended drop is accepted on the PR itself). Live state, read when the gate judges, so a re-run sees a label added since.
+export function readPrAccepts(number, {env = process.env, fetcher} = {}) {
+  if (env.REPLAY_ACCEPTS_PR_FAKE) return {merged: [], entries: entriesOf([JSON.parse(fs.readFileSync(env.REPLAY_ACCEPTS_PR_FAKE, 'utf8'))])};
+  if (!number) return {merged: [], entries: []};
+  try {
+    const pr = JSON.parse(run(['pr', 'view', String(number), '-R', env.GITHUB_REPOSITORY, '--json', 'number,labels,comments'], fetcher));
+    return {merged: [], entries: entriesOf([pr])};
+  } catch (error) { console.error(`replay-accepts: PR #${number} not read (${String(error.message).slice(0, 120)})`); return {merged: [], entries: []}; }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+  const at = process.argv.indexOf('--pr'), prNumber = at > 0 ? process.argv[at + 1] : '';
+  if (at > 0) process.argv.splice(at, 2);
   const [base, out] = process.argv.slice(2);
-  if (!base || !out) { console.error('usage: node replay-accepts.mjs <baseline results.json | -> <out accepts.json>'); process.exit(2); }
+  if (!base || !out) { console.error('usage: node replay-accepts.mjs <baseline results.json | -> <out accepts.json> [--pr <number>]'); process.exit(2); }
   let sha = ''; try { sha = base === '-' ? '' : JSON.parse(fs.readFileSync(base, 'utf8')).sha || ''; } catch { /* no baseline */ }
-  const result = readAccepts(sha);
+  const result = prNumber ? readPrAccepts(prNumber) : readAccepts(sha);
   fs.writeFileSync(out, `${JSON.stringify(result, null, 1)}\n`);
   console.log(`replay-accepts: ${result.merged.length} PR(s) merged since the baseline, ${result.entries.length} accept entr${result.entries.length === 1 ? 'y' : 'ies'}`);
 }

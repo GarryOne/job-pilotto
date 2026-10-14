@@ -63,7 +63,7 @@ const log = result.appLog || '', misses = log.split('\n').filter(line => /not in
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
-const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left}; };
+const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left, fields: (r.fieldList || []).slice(0, 40).map(item => ({label: item.label, outcome: item.outcome}))}; };   // fields: the gate's field-by-field diff (lib/replay-field-diff.mjs): labels and outcomes, never a value
 const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'misslog.jsonl'), 'utf8').split('\n')[0]); } catch { return null; } })();
 const summary = {pageSees: seen, firstMiss, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
