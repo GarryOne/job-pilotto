@@ -259,7 +259,8 @@ One row per cause, from the replay commits of those two days (`git log --since=2
 | An ask the recording lacks counted red | 29a6a43: waits for a Mac fill (`fill-memo`) | not found |
 | Late-loading or read-time page parts change the first ask | none: rows deferred (Deloitte cd5bc38, Datadog 27ed5ae, coreweave 4b7f55f) | Deloitte 3/4 then 1/4; Datadog |
 | Gate counted a flaky row (Databricks 8/8 then 1/8) | f44a56d: a deferred row never counts; 2 runs 100% in a row | Databricks |
-| Today (14 Oct 22:50): the extension asked 0.55 s after load, not ~8 s | open | Richemont Workday, 7 new records at 0/7 |
+| A recorded 3xx on a script, fetch or font was not followed (Chromium does not follow a fulfilled subresource redirect): Workday serves every asset through a 307, no script ran, the extension saw an empty shell 0.55 s after load | this PR: the chain is followed inside the record (`lib/net-record.mjs`, MAX_HOPS 10, the target's CORS headers) | Richemont 0/10 to 7/10 asks, outcome as live (account); Cloudera, Workday rows |
+| A page detail differs at read time (first miss in `user:line#4`) after the redirect fix: 4 extra asks on Richemont | open: not this cause, separate | Richemont (7/10, +4) |
 
 Churn seen in the same two days (why this log exists): Databricks was un-deferred (fa7d282), deferred again (c5aa2ec) and removed from the list (c80998b) within 1.5 h; `replay-net.mjs` changed 14 times,
 `live-row.mjs` and `replay-gate.mjs` 9 times each. Guard: `replay-deferred.json` rows carry an owner and a re-check date (`test/replay-records.test.mjs`).

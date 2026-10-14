@@ -60,6 +60,7 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
   return {settle, flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
 }
 
+const MAX_HOPS = 10;   // a redirect chain longer than this (a loop) is not followed
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // The echo rule: a reply that echoes a per-run value the page sent (an upload key built from the time and a random number) gets the replay's own value in place of
 // the live one. A value is per-run when it is long and mixes digits and letters; its live twin in the reply has the same shape (each run of letters/digits the same length,
@@ -90,15 +91,20 @@ export async function netReplay(context, {entries, bodies}, {slow = false, say =
   const byExact = group(entry => `${entry.method} ${entry.url} ${entry.bodyKey}`), byNorm = group(entry => `${entry.method} ${normUrl(entry.url)} ${entry.bodyKey}`), byPath = group(entry => `${entry.method} ${pathOf(entry.url)}`);
   const used = new Set();
   const take = (list, method) => { if (!list?.length) return null; const next = list.find(entry => !used.has(entry)); if (next) { used.add(next); return next; } return method === 'GET' ? list.at(-1) : null; };
+  // One lookup for a direct request and for a redirect's target: exact address, then the normalised one, then by path in order (the same rules, never a second path).
+  const lookup = (method, url, key) => {
+    let entry = take(byExact.get(`${method} ${url} ${key}`), method), rule = 'exact';
+    if (!entry) { entry = take(byNorm.get(`${method} ${normUrl(url)} ${key}`), method); rule = 'normalised'; }
+    if (!entry) { entry = take(byPath.get(`${method} ${pathOf(url)}`), method); rule = 'order'; }
+    return {entry, rule};
+  };
   await context.routeWebSocket(/.*/, ws => { counts.sockets += 1; ws.close(); });
   await context.route('**/*', async route => {
     const request = route.request(), url = request.url();
     if (!recordable(url)) return route.continue();
     const method = request.method(), sent0 = await request.allHeaders().catch(() => request.headers()), key = bodyKey(request.postDataBuffer(), sent0['content-type'] || '');
     if (process.env.JP_NET_LOG && method !== 'GET') { const raw = (request.postDataBuffer() || Buffer.alloc(0)).toString('latin1'); netLog(`body ${method} ${url.slice(0, 80)}: ${(raw.match(/name="key"\r\n\r\n[^\r]*/) || [''])[0].replace(/\r\n/g, ' ')}`); }
-    let entry = take(byExact.get(`${method} ${url} ${key}`), method), rule = 'exact';
-    if (!entry) { entry = take(byNorm.get(`${method} ${normUrl(url)} ${key}`), method); rule = 'normalised'; }
-    if (!entry) { entry = take(byPath.get(`${method} ${pathOf(url)}`), method); rule = 'order'; }
+    let {entry, rule} = lookup(method, url, key);
     if (!entry) {
       const first = firstParty.has(siteOf(new URL(url).host)) && ['document', 'script', 'fetch', 'xhr'].includes(request.resourceType());
       if (first) counts.notRecorded.push(`${method} ${pathOf(url)} (${request.resourceType()})`); else counts.thirdPartyMisses += 1;
@@ -117,6 +123,21 @@ export async function netReplay(context, {entries, bodies}, {slow = false, say =
     if (to && entry.status >= 300 && entry.status < 400 && request.isNavigationRequest()) {
       counts.redirects = (counts.redirects || 0) + 1;
       return route.fulfill({status: 200, contentType: 'text/html', body: `<!doctype html><script>location.replace(${JSON.stringify(new URL(to, url).href)} + location.hash)</script>`}).catch(() => {});
+    }
+    // A recorded redirect of a SUBRESOURCE (a script, a fetch, a font): Chromium does not follow a fulfilled 3xx there either (Workday sends every asset through a 307: the
+    // redirect's target was never asked, no script ran, the page stayed a shell; 14 Oct 2026, Richemont). The chain is followed INSIDE the record: each Location is resolved
+    // against the address it came from and looked up like a direct request; the original request is answered with the final entry (its status, headers, so its CORS ones, and body).
+    // A target the record lacks, or a chain longer than MAX_HOPS, counts as not recorded.
+    for (let hops = 0; entry.status >= 300 && entry.status < 400 && entry.headers?.location; hops++) {
+      let next = '';
+      try { next = new URL(headerText(entry.headers.location), entry.url).href; } catch { /* not an address */ }
+      const target = next && hops < MAX_HOPS ? lookup('GET', next, '') : {};
+      if (!target.entry) { counts.notRecorded.push(`GET ${pathOf(next || url)} (redirect target of ${request.resourceType()})`); netLog(`404 redirect target ${next.slice(0, 160)} of ${url.slice(0, 100)}`); return route.fulfill({status: 404, body: ''}); }
+      counts.redirects = (counts.redirects || 0) + 1;
+      netLog(`${target.rule} GET ${next.slice(0, 160)} -> ${target.entry.status} wait=${target.entry.waitMs} (redirect of ${url.slice(0, 100)})`);
+      await wait(Math.min(8000, target.entry.waitMs) * (slow ? 1.6 : 1));
+      entry = target.entry;
+      if (entry.failed) return route.abort().catch(() => {});
     }
     let body = bodies.get(entry.hash) || Buffer.alloc(0), headers = entry.headers?.location ? {...entry.headers, location: headerText(entry.headers.location)} : entry.headers;
     if (method !== 'GET' && body.length && body.length < 1e5) {
