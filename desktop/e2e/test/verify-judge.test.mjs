@@ -40,7 +40,7 @@ test('a regression: the older build going further on the same recording is ours;
   const further = rec(form(8, 2), stuck), also = rec(stuck, stuck);
   assert.equal(judgeRegression({control, runs: [further, further]}).verdict, 'ours');
   assert.equal(judgeRegression({control, runs: [also, also]}).verdict, 'site');
-  assert.equal(judgeRegression({control, runs: [further, rec(form(8, 2), stuck, {hit: 3})]}).verdict, 'live');
+  assert.equal(judgeRegression({control, runs: [further, rec(form(8, 2), stuck, {hit: 3, extra: 1})]}).verdict, 'live');
   assert.equal(judgeRegression({control: null, runs: [further, further]}).verdict, 'live');
 });
 

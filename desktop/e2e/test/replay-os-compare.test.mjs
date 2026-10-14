@@ -6,7 +6,7 @@ import {compare, markdown} from '../replay-os-compare.mjs';
 const rec = (name, hit, extra = 0, filled = 8) => ({name, live: {asks: 4}, network: {hit, extra, notRecorded: 0}, outcome: {reached: 'form', filled, left: 2}});
 
 test('per row: same as live on each runner, and where Linux misses a row the Mac gets', () => {
-  const result = compare([rec('a', 4), rec('b', 4), rec('c', 3), rec('d', 4)], [rec('a', 4), rec('b', 2), rec('c', 3)]);
+  const result = compare([rec('a', 4), rec('b', 4), rec('c', 3, 1), rec('d', 4)], [rec('a', 4), rec('b', 2, 1), rec('c', 3, 1)]);
   assert.deepEqual([result.total, result.macSame, result.linuxSame, result.both, result.ran], [4, 3, 1, 1, 3]);
   const text = markdown(result), table = text.split('\n').filter(line => /^\| [a-d] \|/.test(line));
   assert.match(text, /same as live on Mac 3, on Linux 1, on both 1 of 4 rows/);

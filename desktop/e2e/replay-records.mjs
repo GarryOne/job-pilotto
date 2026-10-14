@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {onOwnAsks} from './lib/own-asks.mjs';
 
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const slug = name => String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
@@ -49,8 +50,8 @@ export function shardOf(rows, spec = '') {
   return Number.isInteger(k) && Number.isInteger(n) && n > 0 && k >= 0 && k < n ? rows.filter((_, index) => index % n === k) : rows;
 }
 
-// One row 100% the same as live: every live ask answered, no extra ask, no site request missing. The summary line: "N of M rows same as live".
-export const isSame = row => !!(row.network && row.network.hit === row.live.asks && row.network.extra === 0 && row.network.notRecorded === 0);
+// One row on its recording: every ask the build makes answered, no extra ask, no site request missing (keys it never asks do not count: lib/own-asks.mjs). The summary line: "N of M rows same as live".
+export const isSame = row => onOwnAsks(row.network, row.live?.asks);   // lib/own-asks.mjs: the asks THIS build makes, not every key the memo keeps
 export const sameAsLive = rows => rows.filter(isSame).length;
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {

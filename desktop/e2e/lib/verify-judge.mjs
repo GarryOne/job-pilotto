@@ -1,13 +1,14 @@
 // The verdicts of "Confirmed offline" (owner, 14 Oct 2026): a landed fix or a regression row judged from replays of ONE recording, never from a live run. Pure: no browser, no git.
-// A replay counts only when it is on the recording (every ask answered, none extra, every site request served: replay-records.mjs isSame) and its CONTROL holds: the recording replayed on
+// A replay counts only when it is on the recording (every ask the build makes answered, none extra, every site request served: replay-records.mjs isSame) and its CONTROL holds: the recording replayed on
 // its own build comes out as live did (same asks, same outcome), so a difference later is the build's, not the replay's noise. Two agreeing replays are needed (owner, 11 Oct 2026:
 // one clean run was luck). Anything else is "live": a fix that changes the route or the asks goes off the recording, and only a live run can say. Guard: e2e/test/verify-judge.test.mjs.
 import {rank} from './smoke.mjs';
+import {onOwnAsks} from './own-asks.mjs';
 
 export const VERDICTS = {confirmed: 'Confirmed offline', notbetter: 'Not better offline', live: 'Needs a recording', ours: 'Our build', site: 'Site changed'};
 
 // A replay record ({outcome, liveOutcome, live: {asks}, network}) -> on the recording (the replay-records.mjs isSame rule, stated again to keep this file pure).
-export const onRecording = rec => !!(rec?.outcome && rec.network && rec.network.hit === rec.live?.asks && rec.network.extra === 0 && rec.network.notRecorded === 0);
+export const onRecording = rec => !!(rec?.outcome && onOwnAsks(rec.network, rec.live?.asks));
 
 // How outcome `a` compares with `b`: 1 further (a step later, more filled, fewer left), 0 the same, -1 less far, null when either side is missing.
 export function compare(a, b) {

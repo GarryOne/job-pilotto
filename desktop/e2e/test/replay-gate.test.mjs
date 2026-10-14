@@ -18,7 +18,7 @@ test('an outcome falls on an earlier step, fewer filled or more left; a missing 
 });
 
 test('only counted rows can be worse; a fix that goes further or only changes the asks passes as different', () => {
-  const result = judge([rec('a', form(8, 4)), rec('b', form(6, 6)), rec('c', form(1, 11)), rec('d', form(10, 2), {hit: 2}), rec('new', form(1, 1))], baseline);
+  const result = judge([rec('a', form(8, 4)), rec('b', form(6, 6)), rec('c', form(1, 11)), rec('d', form(10, 2), {hit: 2, extra: 1}), rec('new', form(1, 1))], baseline);
   assert.equal(result.rows.a.verdict, 'same');
   assert.equal(result.rows.b.verdict, 'worse');
   assert.equal(result.rows.c.verdict, 'not counted', 'a row not 100% same as live in the baseline never turns the gate red');
@@ -50,7 +50,7 @@ test('a deferred row never counts; a row counts only after 2 runs in a row 100% 
   const old = judge([rec('x', form(8, 4))], {rows: {x: {same: true, outcome: form(8, 4)}}});
   assert.deepEqual([old.rows.x.counted, old.rows.x.streak], [false, 2], 'a baseline kept before the streak counts as 1; this run makes 2');
   assert.equal(judge([rec('x', form(8, 4))], {rows: {x: {same: true, streak: STREAK, outcome: form(8, 4)}}}).rows.x.counted, true);
-  assert.equal(judge([rec('x', form(8, 4), {hit: 1})], {rows: {x: {same: true, streak: 5}}}).rows.x.streak, 0, 'a run not same resets it');
+  assert.equal(judge([rec('x', form(8, 4), {hit: 1, extra: 1})], {rows: {x: {same: true, streak: 5}}}).rows.x.streak, 0, 'a run not same resets it');
 });
 
 test('a merged PR labeled replay-accepted with a reason makes a worse row accepted; no reason stays red; named rows only', () => {
