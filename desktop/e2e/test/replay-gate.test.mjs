@@ -26,6 +26,11 @@ test('only counted rows can be worse; a fix that goes further or only changes th
   assert.equal(result.rows.new.verdict, 'not counted');
   assert.deepEqual([result.counted, result.worse, result.red], [3, 1, true]);
   assert.match(summary(result), /3 of 5 rows counted · 1 worse/);
+  const table = summary(result).split('\n').filter(line => /^\| \d+ \|/.test(line));
+  assert.equal(table.length, 5, 'every row has a line, the same ones too (owner: one table instead of a job per row)');
+  assert.match(table[0], /^\| 1 \| b \| 4\/4 \| form 6\/6 \| – \| ❌ worse \| filled 6, baseline 8 \|$/, 'the worst first, with its asks and outcome');
+  assert.match(table.at(-1), /✅ same/);
+  assert.match(summary(judge([{...rec('e', form(3, 1), {hit: 3, asks: 4, extra: 1}), liveOutcome: form(4, 0)}])), /\| e \| 3\/4 \+1 \| form 3\/1 \| form 4\/0 \|/);
 });
 
 test('a fall the retry does not repeat is noise; a repeated fall stays worse; no baseline is green', () => {

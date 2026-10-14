@@ -40,17 +40,26 @@ export function judge(records, baseline = {}, retry = []) {
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
-    rows[record.name] = {same, streak, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
+    rows[record.name] = {same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, red: worse > 0};
 }
 
-// The run's Markdown: one line "N of M rows counted · K worse", then the rows that matter.
+// The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
+// its asks answered of the live run's, its outcome beside the live one, its verdict and why.
+const MARK = {worse: '❌', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
+const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {
   const lines = [`## Replay gate: ${result.counted} of ${result.total} rows counted · ${result.worse} worse`, ''];
-  const shown = Object.entries(result.rows).filter(([, row]) => row.verdict !== 'same').sort(([a], [b]) => a.localeCompare(b));
-  if (shown.length) lines.push('| Row | Verdict | Why |', '|---|---|---|', ...shown.map(([name, row]) => `| ${name} | ${row.verdict} | ${row.why || '–'} |`));
+  const shown = Object.entries(result.rows).sort(([a, x], [b, y]) => ORDER.indexOf(x.verdict) - ORDER.indexOf(y.verdict) || a.localeCompare(b));
+  if (shown.length) {
+    lines.push('Asks: answered from the record / asked live (+ extra the live run never asked). Outcome: step, filled/left.', '',
+      '| # | Row | Asks | Outcome | Live | Verdict | Why |', '|---|---|---|---|---|---|---|',
+      ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict} | ${row.why || '–'} |`));
+  }
   // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
   const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
   if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);
