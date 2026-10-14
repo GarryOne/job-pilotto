@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 import os
 import threading
+from types import SimpleNamespace
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
@@ -234,7 +235,35 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
     return ordered[:limit]
 
 
+# Where each unknown-able part has a basis in the facts read from the posting: the AI may not answer "unknown" there.
+HAS_BASIS = {
+    'compensation': lambda facts: bool((facts.get('salary') or {}).get('stated')),
+    'growth': lambda facts: (facts.get('seniority') or {}).get('value') not in (None, 'unknown'),
+}
+
+
+def unread_parts(components, facts):
+    """The parts left null although the posting's facts give a basis for them (fixed answer, validated here)."""
+    return [part for part in UNKNOWN_OK if components.get(part) is None and HAS_BASIS[part](facts or {})]
+
+
 def score_one(client, model, job, profile, effort=None):
+    data, usage = _ask(client, model, job, profile, effort, '')
+    missing = unread_parts(data['components'], job.get('ai'))
+    if missing:   # never kept as sure: ask again once, naming the parts, with a number each
+        data, again = _ask(client, model, job, profile, effort,
+                           f"\n\nYour last answer left {', '.join(missing)} empty, but the posting and the extracted facts give a basis for "
+                           f"{'it' if len(missing) == 1 else 'them'}. Give a whole number 0-100 for {'it' if len(missing) == 1 else 'each'}.")
+        usage = _sum_usage(usage, again)
+    return data, usage
+
+
+def _sum_usage(first, second):
+    fields = ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens')
+    return SimpleNamespace(**{f: (getattr(first, f, 0) or 0) + (getattr(second, f, 0) or 0) for f in fields})
+
+
+def _ask(client, model, job, profile, effort, note):
     facts = json.dumps(job.get('ai') or {}, ensure_ascii=False)
     params = dict(
         model=model,
@@ -243,7 +272,7 @@ def score_one(client, model, job, profile, effort=None):
         system=[{'type': 'text', 'text': SYSTEM + profile + hints.text(hints.load()), 'cache_control': {'type': 'ephemeral'}}],
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
-            f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}")}],
+            f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}{note}")}],
         output_config=engine.structured(SCHEMA, model, effort or EFFORT),
     )
     response = client.messages.create(**params)
