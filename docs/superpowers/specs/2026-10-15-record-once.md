@@ -81,6 +81,7 @@ The gap: the harness presses nothing, so a route the extension did not take (or 
 
 Rules for both: never Submit, never captcha/bot check/login wall, never read a password field; 3 live visits a host a day (a recording is one visit); AI spend asked through cc with a measured cost; no site names or hosts in code, tests or fixtures.
 **When the tripwire trips during (a):** the capture is deleted, the row keeps its old record, and it falls back to (b) (a person's click-through). Plan-path `claude -p` knows the owner's identity even with the fake applicant, so a trip is expected sometimes, not an outage.
+**Identity (decided 15 Oct 2026):** no mechanism of this spec's own. #754's "never typed" checks the owner's values before a keystroke (inert without an owner list; the product cannot reach it) and probes the plan path's lean flag; recording through the app inherits it. The earlier "no recording runs its AI through the owner's account" rule is replaced by it. No API key on the Mac (owner).
 **Safety floor for (a):** an owner value anywhere in a field → tripwire deletes the capture (exists: `privacy-tripwire.mjs`); the record is refused if the run used a profile that is not the fake applicant.
 
 ### First case: the Aldi row
