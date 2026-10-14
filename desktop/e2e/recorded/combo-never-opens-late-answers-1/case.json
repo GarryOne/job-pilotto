@@ -3,7 +3,7 @@
  "shape": "a suggest-only address combobox whose list never opens, with two questions whose AI answers arrive after the first fill pass: the late answers are never typed",
  "why": "14 Oct 2026, the bake-off on a Teamtailor-shape form (and a local look-alike): fillOpenedTab awaited clickCombos for the box that never opens and never returned, 30-40 s of silence, then \"dead end: silent\"; the answers that had arrived meanwhile were never typed. Since 5afa5a8 (13 Oct)",
  "control": {
-  "guard": "new case 14 Oct 2026: on origin/main the fill waits on the combobox and the late questions stay empty"
+  "guard": "new case 14 Oct 2026: on origin/main the fill goes silent behind the combobox and ends in \"dead end: silent\" (30-48 s, any machine); only must-not-happen checks, so the whole window is watched"
  },
  "sample": "hand-made (the shape of the bake-off's form 4), no real site",
  "pages": [
@@ -14,24 +14,59 @@
  ],
  "cv": false,
  "ai": {
-  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.99},
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
   "/extension/answer": {
    "_delayMs": 6000,
    "ok": true,
    "eligible": true,
    "answers": [
-    {"field": "aws", "question": "How many years of experience do you have with AWS?", "value": "6", "confidence": "high", "note": "", "category": "other", "use": "fill"},
-    {"field": "k8s", "question": "How many years of experience do you have with Kubernetes and Docker?", "value": "5", "confidence": "high", "note": "", "category": "other", "use": "fill"},
-    {"field": "addr", "question": "Address", "value": "Bahnhofstrasse 1, 8001 Zurich", "confidence": "high", "note": "", "category": "other", "use": "fill"}
+    {
+     "field": "aws",
+     "question": "How many years of experience do you have with AWS?",
+     "value": "6",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "k8s",
+     "question": "How many years of experience do you have with Kubernetes and Docker?",
+     "value": "5",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "addr",
+     "question": "Address",
+     "value": "Bahnhofstrasse 1, 8001 Zurich",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
    ]
   }
  },
  "expect": {
-  "filled": ["#aws", "#k8s"],
-  "traced": ["How many years of experience do you have with AWS?:filled"],
-  "endAfter": 33000,
-  "notTold": ["pressed the submit"],
-  "seconds": 60
+  "kept": [
+   "#aws",
+   "#k8s"
+  ],
+  "keptAfter": 2500,
+  "notTold": [
+   "pressed the submit",
+   "dead end: silent"
+  ],
+  "seconds": 55
  },
  "start": "panel"
 }
