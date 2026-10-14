@@ -82,3 +82,10 @@ test('the CLI prints one line per row as it starts and ends, so a CI step is nev
   assert.match(ran.stderr, /replay-records: \[1\/1\] Row A: no result \(\d+ s\)/);
   fsm.rmSync(root, {recursive: true, force: true});
 });
+
+test('a replay\'s loose hits (kept answers served although the system side changed) go to the record, parts by name', () => {
+  const row = {name: 'Row A', record: {url: 'https://www.a.test/job'}};
+  const got = fidelityRecord(row, {liveAsks: 4, liveHit: 4, misses: 0, looseHits: 2, looseParts: ['system:0', 'model']});
+  assert.deepEqual([got.network.loose, got.network.looseParts], [2, ['system:0', 'model']]);
+  assert.equal(fidelityRecord(row, {liveAsks: 4, liveHit: 4, misses: 0}).network.loose, 0);
+});

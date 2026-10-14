@@ -59,7 +59,7 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
-    rows[record.name] = {same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0};
@@ -78,6 +78,9 @@ export function summary(result) {
       '| # | Row | Asks | Outcome | Live | Verdict | Why |', '|---|---|---|---|---|---|---|',
       ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict} | ${row.why || '–'} |`));
   }
+  // Kept answers served although the system side changed (cc, 14 Oct 2026): the replay cannot judge a prompt change, so it still hits; the line says which rows and which parts.
+  const looseRows = Object.entries(result.rows).filter(([, row]) => row.loose > 0);
+  if (looseRows.length) lines.push('', `### Answered although the system side changed: ${looseRows.length} row${looseRows.length === 1 ? '' : 's'}`, '', '| Row | Loose hits | Parts that differ |', '|---|---|---|', ...looseRows.map(([name, row]) => `| ${name} | ${row.loose} | ${row.looseParts.join(', ') || '–'} |`));
   // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
   const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
   if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);

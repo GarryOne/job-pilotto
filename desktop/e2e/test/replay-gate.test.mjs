@@ -103,3 +103,14 @@ test('a row whose only misses are asks the memo lacks is "ask changed", never wo
   assert.equal(askChanged({network: {extra: 0, notRecorded: 0}, firstMiss: {differs: ['user:form_fields']}}), false, 'no extra ask: nothing to fill');
   assert.equal(askChanged({network: {extra: 1, notRecorded: 0}, firstMiss: null}), false, 'no named part: not known');
 });
+
+test('a row answered from kept answers although the system prompt changed says so in the summary (loose hits), and still counts', () => {
+  const loose = (name, n, parts) => ({...rec(name, form(8, 4)), network: {hit: 4, extra: 0, notRecorded: 0, loose: n, looseParts: parts}});
+  const result = judge([loose('a', 3, ['system:0', 'model']), rec('b', form(8, 4))], baseline);
+  assert.equal(result.rows.a.verdict, 'same', 'a system-only change is not a miss, so the row stays on its recording');
+  assert.equal(result.rows.a.loose, 3);
+  const text = summary(result);
+  assert.match(text, /Answered although the system side changed: 1 row/);
+  assert.match(text, /\| a \| 3 \| system:0, model \|/);
+  assert.doesNotMatch(summary(judge([rec('b', form(8, 4))], baseline)), /Answered although/, 'no loose hit, no line');
+});
