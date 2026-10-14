@@ -3,7 +3,7 @@
  "shape": "a suggest-only address combobox whose list never opens, with two questions whose AI answers arrive after the first fill pass: the late answers are never typed",
  "why": "14 Oct 2026, the bake-off on a Teamtailor-shape form (and a local look-alike): fillOpenedTab awaited clickCombos for the box that never opens and never returned, 30-40 s of silence, then \"dead end: silent\"; the answers that had arrived meanwhile were never typed. Since 5afa5a8 (13 Oct)",
  "control": {
-  "guard": "new case 14 Oct 2026: on origin/main the fill goes silent behind the combobox and ends in \"dead end: silent\" (30-48 s, any machine); only must-not-happen checks, so the whole window is watched"
+  "guard": "new case 14 Oct 2026: on origin/main the fill goes silent behind the clicks on the optional combobox and ends in \"dead end: silent\"; the fix gives up on it at ~15 s, types the late answers and the run ends (the form judge says ready). kept #aws #k8s is the second check"
  },
  "sample": "hand-made (the shape of the bake-off's form 4), no real site",
  "pages": [
@@ -73,7 +73,7 @@
    "pressed the submit",
    "dead end: silent"
   ],
-  "seconds": 55
+  "seconds": 75
  },
  "start": "panel"
 }
