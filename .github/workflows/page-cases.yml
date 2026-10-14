@@ -23,6 +23,7 @@ on:
       - 'desktop/e2e/lib/end-shot.mjs'
       - 'desktop/e2e/lib/engine.mjs'
       - 'desktop/e2e/lib/evidence-bundle.mjs'
+      - 'desktop/e2e/lib/evidence-clean.mjs'
       - 'desktop/e2e/lib/extension.mjs'
       - 'desktop/e2e/lib/forms.mjs'
       - 'desktop/e2e/lib/journey.mjs'
