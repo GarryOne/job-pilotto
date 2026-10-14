@@ -10,6 +10,14 @@ on:
       - 'site/**'
       - 'tools/check.sh'
       - 'tools/check.py'
+      # Files outside site/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
+      - 'extension/alias-schema.js'
+      - 'extension/recipe-schema.js'
+      - 'src/ai/providers/anthropic_api.py'
+      - 'tools/applying-page-copy.mjs'
+      - 'tools/fixer-brief.mjs'
+      - 'tools/needs-fix-causes.mjs'
+      - 'tools/needs-fix-order.mjs'
       - '.github/workflows/tests-site.yml'
 
 permissions:

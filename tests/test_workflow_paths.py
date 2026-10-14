@@ -72,6 +72,27 @@ class TheClass(unittest.TestCase):
         self.assertFalse((ROOT / 'tools/ci-needed.sh').exists())
         self.assertFalse((ROOT / 'tools/affected-jobs.py').exists())
 
+    def test_a_suite_starts_on_every_file_its_tests_read(self):
+        # 14 Oct 2026: worker tests read extension/ files, but tests-worker.yml had no extension/** path; #731 changed extension/combo-click.js,
+        # its worker test never ran on the PR, and main went red. Every '../..' file a suite's tests name must start that suite.
+        for area in ('worker', 'site', 'desktop'):
+            missing = set()
+            for test in (ROOT / area / 'test').rglob('*'):
+                if test.suffix not in ('.js', '.mjs') or 'node_modules' in test.parts:
+                    continue
+                for ref in re.findall(r"""['"`]((?:\.\./)+[\w.-][^'"`$]*)['"`]""", test.read_text(errors='ignore')):
+                    for base in (test.parent, ROOT / area / 'test'):
+                        target = (base / ref).resolve()
+                        if target.exists() and ROOT in target.parents:
+                            break
+                    else:
+                        continue
+                    rel = target.relative_to(ROOT).as_posix()
+                    probe = f'{rel}/x.js' if target.is_dir() else rel
+                    if not rel.startswith(f'{area}/') and not starts(f'tests-{area}.yml', [probe]):
+                        missing.add(rel)
+            self.assertEqual(sorted(missing), [], f'tests-{area}.yml: files its tests read but its paths never start on')
+
     def test_ship_waits_for_every_check_the_pr_started(self):
         # With 3 required checks, a "green" that read only them would hand the owner a PR whose suites still run.
         self.assertNotIn('--required', (ROOT / 'tools/ship-pr.sh').read_text())
@@ -100,7 +121,7 @@ class TheShapes(unittest.TestCase):
         self.assertEqual(self.started(['docs/HOW-IT-RUNS.md', 'tools/ship.sh', 'CLAUDE.md']), {'tests-python.yml'})
 
     def test_the_apply_flow_starts_its_replays_and_desktop(self):
-        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'recorded-pages.yml', 'widget-zoo.yml', 'replay-pr.yml'})
+        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'recorded-pages.yml', 'widget-zoo.yml', 'replay-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
         self.assertIn('replay-pr.yml', self.started(['desktop/lib/server.js']))
 
     def test_the_harness_code_starts_the_harness(self):
@@ -109,7 +130,8 @@ class TheShapes(unittest.TestCase):
         self.assertNotIn('replay-pr.yml', started, 'only the apply flow\'s code (extension/, desktop/lib/) starts the PR replay gate')
 
     def test_a_worker_or_site_change_starts_only_its_suite(self):
-        self.assertEqual(self.started(['worker/src/report.js']), {'tests-worker.yml'})
+        self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})
+        self.assertEqual(self.started(['worker/src/report.js']), {'tests-worker.yml', 'tests-desktop.yml'}, 'a desktop test reads it')
         self.assertEqual(self.started(['site/src/aicost.js']), {'tests-site.yml'})
 
     def test_a_workflow_change_starts_that_workflow(self):
