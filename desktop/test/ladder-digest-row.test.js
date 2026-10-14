@@ -36,3 +36,11 @@ test('a row never carries a candidate\'s text, only its number and kind', () => 
   assert.deepEqual(row.chosen, ['1:button']);
   assert.equal(JSON.stringify(row).includes('Apply now'), false);
 });
+
+test('an embedded-frame page is a hit only when the digest names a listed frame (#715, 14 Oct 2026)', () => {
+  const framed = {id: 'x-greenhouse-embed', source: 'captured', trap: false, expect: {outcome: 'form_in_frame'}};
+  const named = digestRow(framed, {outcome: 'form', verb: 'none', numbers: [], confidence: 0.9, formFrame: 0, raw: {outcome: 'form', verb: 'none', numbers: []}});
+  assert.deepEqual([named.status, named.formFrame], ['hit', 0]);
+  const unnamed = digestRow(framed, {outcome: 'form', verb: 'none', numbers: [], confidence: 0.9, raw: {outcome: 'form', verb: 'none', numbers: []}});
+  assert.deepEqual([unnamed.status, unnamed.formFrame], ['wrong-confident', -1], 'form without a frame: the fill would never open it');
+});
