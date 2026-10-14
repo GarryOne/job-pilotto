@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {clickWithRetry} from '../../../extension/combo-retry.js';
 
 // A fake fill: `outcomes[label]` is the list of results per attempt ('gaveup' or 'picked'); a given-up menu is skipped until forgotten, as flow.js does.
-function fake(outcomes) {
+function fake(outcomes, starvedLabels = Object.keys(outcomes)) {
   const given = new Set(), tries = {}, retried = new Set();
   const pass = async () => {
     const results = [];
@@ -17,7 +17,7 @@ function fake(outcomes) {
     return results;
   };
   let quiets = 0;
-  const run = () => clickWithRetry({pass, gaveUp: () => [...given], forget: labels => labels.forEach(l => given.delete(l)), quiet: async () => { quiets++; }, retried});
+  const run = () => clickWithRetry({pass, gaveUp: () => [...given], starved: label => starvedLabels.includes(label), forget: labels => labels.forEach(l => given.delete(l)), quiet: async () => { quiets++; }, retried});
   return {run, tries, get quiets() { return quiets; }};
 }
 
@@ -41,4 +41,11 @@ test('a fill with no give-up is one pass and never waits for quiet', async () =>
   await f.run();
   assert.equal(f.quiets, 0);
   assert.equal(f.tries.A, 1);
+});
+
+test('a menu given up on while the page was quiet (a list that never opens) is not waited on twice', async () => {
+  const f = fake({Address: ['gaveup', 'picked']}, []);
+  await f.run();
+  assert.equal(f.tries.Address, 1);
+  assert.equal(f.quiets, 0);
 });

@@ -38,10 +38,12 @@ export const JOB_SITES = [
 // One at a time: a second call (the app's own ask for one field, the later pass) while a slow type-to-search menu is still being typed waits its turn,
 // instead of failing on "Another debugger is already attached" and leaving the menu empty.
 let comboQueue = Promise.resolve();
+const slowMs = new Map();   // tab -> label -> ms the menu lost to slow calls and asks, kept when it was given up on
+const noteSlow = (tabId, label, ms) => { if (!slowMs.has(tabId)) slowMs.set(tabId, new Map()); slowMs.get(tabId).set(label, ms || 0); };
 const retriedMenus = new Map();   // tab -> labels already retried in this fill (combo-retry.js)
 export function clickCombos(tabId) {
   if (!retriedMenus.has(tabId)) retriedMenus.set(tabId, new Set());
-  return debuggerTurn(() => clickWithRetry({pass: () => clickCombosNow(tabId), gaveUp: () => gaveUpOn(tabId), forget: labels => labels.forEach(label => givenUp.get(tabId)?.delete(label)), quiet: () => pageQuiet(tabId), retried: retriedMenus.get(tabId)}));
+  return debuggerTurn(() => clickWithRetry({pass: () => clickCombosNow(tabId), gaveUp: () => gaveUpOn(tabId), starved: label => (slowMs.get(tabId)?.get(label) || 0) >= 3000, forget: labels => { decide('fill', 'a starved dropdown is tried once more', {menus: labels.length}).catch(() => {}); labels.forEach(label => givenUp.get(tabId)?.delete(label)); }, quiet: () => pageQuiet(tabId), retried: retriedMenus.get(tabId)}));
 }
 // One debugger user at a time on this worker (the menus' clicks, the real typing of fill-verify.js, the fill ladder's repair clicks: ladder/fill-climb.js).
 export function debuggerTurn(work) {
@@ -53,7 +55,7 @@ export function debuggerTurn(work) {
 const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 20000, combo: 35000};
 // Menus given up on in this fill (a timeout, or the ceiling): a later pass does not wait on the same menu again, so one control costs the fill one wait, not one per pass (tab -> labels).
 const givenUp = new Map();
-export const forgetGivenUp = tabId => { givenUp.delete(tabId); retriedMenus.delete(tabId); };
+export const forgetGivenUp = tabId => { givenUp.delete(tabId); retriedMenus.delete(tabId); slowMs.delete(tabId); };
 export const gaveUpOn = tabId => [...(givenUp.get(tabId) || [])];   // the labels of the menus this tab's fill stopped waiting on (fill-flow.js hands a required one to the person)
 const giveUp = (tabId, label) => { if (!givenUp.has(tabId)) givenUp.set(tabId, new Set()); givenUp.get(tabId).add(label); };
 async function clickCombosNow(tabId) {
@@ -86,17 +88,18 @@ async function clickCombosNow(tabId) {
       if (givenUp.get(tabId)?.has(spot.label)) { skip += 1; continue; }
       const started = Date.now();
       let outcome;
-      const marks = [];
-      try { outcome = await within(STEP_MS.combo, 'dropdown', () => clickCombo({page, click, spot, skip, type, choose, marks})); }
+      const marks = [], stats = {};
+      try { outcome = await within(STEP_MS.combo, 'dropdown', () => clickCombo({page, click, spot, skip, type, choose, marks, stats})); }
       catch (error) {   // this menu never settled (a suggest-only box whose list never opens): given up, the others and the late answers go on
         gaveUp = true;
         giveUp(tabId, spot.label);
+        noteSlow(tabId, spot.label, stats.slow);
         decide('fill', 'a dropdown did not settle: given up', {step: error instanceof StepTimeout ? error.step : 'error', ms: error.ms ?? 0, field: spot.label.slice(0, 60), steps, last: lastStep?.label || '', lastAgo: lastStep ? Date.now() - lastStep.at : 0, lastDone: !!lastStep?.done, marks: marks.slice(-14).join(' ')}).catch(() => {});
         results.push({label: spot.label, picked: false, matched: null, ms: Date.now() - started, opened: null, found: null, selectedAfter: null, trusted: null});
         break;
       }
       const {picked, last} = outcome;
-      if (outcome.capped && !outcome.picked) giveUp(tabId, spot.label);
+      if (outcome.capped && !outcome.picked) { giveUp(tabId, spot.label); noteSlow(tabId, spot.label, stats.slow); }
       if (outcome.capped) decide('fill', 'a dropdown kept the wait going: stopped waiting', {field: spot.label.slice(0, 60), ms: Date.now() - started}).catch(() => {});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
       const matched = !picked || !last ? null : last.same === true || String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();

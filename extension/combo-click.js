@@ -12,14 +12,17 @@ const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceil
 // type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
 // page(func, args): runs func in the page (MAIN world). click(x, y): a trusted click. spot: the armed menu's spot from __jobPilottoNextCombo.
 // Returns {picked, last}: whether the armed count dropped, and what the page observed (__jobPilottoLastPick, read once the page is done).
-export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, marks = []}) {
+export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, marks = [], stats = {}}) {
   let picked = false, last = null, capped = false;
   const began = now();
   let busy = 0;   // ms spent inside calls that answered slowly (the page's main thread was blocked); only the excess over slowCall counts, so there is no cliff at the threshold. Calls are awaited one at a time here: run in parallel they would count twice, `hard` still bounds that
-  const timed = fn => async (...args) => { const t = now(); try { return await fn(...args); } finally { const d = now() - t; if (d > PATIENCE.slowCall) busy += d - PATIENCE.slowCall; } };
+  const timed = fn => async (...args) => { const t = now(); try { return await fn(...args); } finally { const d = now() - t; if (d > PATIENCE.slowCall) busy += d - PATIENCE.slowCall; stats.slow = busy + (stats.asked || 0); } };
   page = timed(page); click = timed(click);
+  // Time the extension's own asks took (the AI pick, real typing): not excluded from the waits, but said in stats.slow so flow.js can tell a starved menu (worth one retry, combo-retry.js) from an idle one that never opens.
+  const asking = fn => fn && (async (...args) => { const t = now(); try { return await fn(...args); } finally { stats.asked = (stats.asked || 0) + Math.max(0, now() - t - PATIENCE.slowCall); stats.slow = busy + stats.asked; } });
+  type = asking(type); choose = asking(choose);
   const sleepFor = sleep;
-  sleep = async ms => { const t = now(); await sleepFor(ms); const late = now() - t - ms; if (late > PATIENCE.slowCall) busy += late - PATIENCE.slowCall; };   // a starved worker wakes late too
+  sleep = async ms => { const t = now(); await sleepFor(ms); const late = now() - t - ms; if (late > PATIENCE.slowCall) busy += late - PATIENCE.slowCall; stats.slow = busy + (stats.asked || 0); };   // a starved worker wakes late too
   const over = () => now() - began >= PATIENCE.hard || now() - began - busy >= PATIENCE.ceiling;
   const mark = tag => { marks.push(`${tag}@${now() - began}`); if (marks.length > 40) marks.shift(); };   // where the time went, said when a menu is given up (flow.js)   // every wait below is REAL time: counting 100 ms ticks let a busy page (each call taking a second or more) stretch a 1.5 s wait to 30 s
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
