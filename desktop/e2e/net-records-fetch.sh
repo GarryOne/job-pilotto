@@ -7,14 +7,19 @@ out="${1:?usage: net-records-fetch.sh <records dir>}"; enc="${RUNNER_TEMP:-/tmp}
 mkdir -p "$out" "$enc"
 umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$key"
 mac_records() {   # the private repo first (its read-only token), then this repo's old public release
-  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && GH_TOKEN="$NET_RECORDS_READ_TOKEN" gh release download net-records -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" --pattern 'net-records.*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
-  gh release download net-records --pattern 'net-records.*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
+  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && GH_TOKEN="$NET_RECORDS_READ_TOKEN" gh release download net-records -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
+  gh release download net-records --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
   echo "net-records-fetch: no Mac records"; return 1
 }
+# every bundle on the release (records-publish.mjs adds one per publish; the first set is net-records.tgz.enc): each into mac/<bundle> (whereOf reads the mac/ folder), the newest record per row wins
 if mac_records; then
-  openssl pkeyutl -decrypt -inkey "$key" -pkeyopt rsa_padding_mode:oaep -in "$enc/mac/net-records.k.enc" -out "$enc/k" \
-    && mkdir -p "$out/mac" && openssl enc -d -aes-256-cbc -pbkdf2 -in "$enc/mac/net-records.tgz.enc" -pass "file:$enc/k" | tar xz -C "$out/mac" || true
-  rm -f "$enc/k"
+  for k in "$enc"/mac/net-records*.k.enc; do
+    [ -f "$k" ] || continue
+    name="$(basename "$k" .k.enc)"
+    openssl pkeyutl -decrypt -inkey "$key" -pkeyopt rsa_padding_mode:oaep -in "$k" -out "$enc/k" \
+      && mkdir -p "$out/mac/$name" && openssl enc -d -aes-256-cbc -pbkdf2 -in "$enc/mac/$name.tgz.enc" -pass "file:$enc/k" | tar xz -C "$out/mac/$name" || true
+    rm -f "$enc/k"
+  done
 fi
 since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-14d +%Y-%m-%dT%H:%M:%SZ)
 # the workflow was "CI · Pool smoke (by hand)" until 15 Oct 2026: its runs' records (14 days) are read too
