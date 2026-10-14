@@ -6,11 +6,11 @@
 //   GET    /api/report-form          the owner (Bearer = the scripts' key): the reports waiting, newest first
 //   GET    /api/report-form/<id>     the owner: the encrypted bundle, its wrapped key in X-Report-Key
 //   POST   /api/report-form/<id>?status=fetched   the owner marks it fetched
-// Limits: 8 MB per report, 3 per install per day. Without the bucket or the database: 503 "not configured" (nothing breaks). Guard: test/report-form.test.js.
+// Limits: 8 MB per report, 3 per install per day, and 50 reports / 200 MB per UTC day across ALL installs (a minted install id gets a fresh per-install quota, so only the total holds; one D1 row a day). Without the bucket or the database: 503 "not configured" (nothing breaks). Guard: test/report-form.test.js.
 import {authorize, flag} from './guard.js';
 import {isOwner} from './auth.js';
 
-export const MAX_BYTES = 8 * 1024 * 1024, PER_INSTALL_PER_DAY = 3, KEEP_DAYS = 30;
+export const MAX_BYTES = 8 * 1024 * 1024, PER_INSTALL_PER_DAY = 3, KEEP_DAYS = 30, ALL_REPORTS_PER_DAY = 50, ALL_BYTES_PER_DAY = 200 * 1024 * 1024;
 const bad = (status, error) => Response.json({ok: false, error}, {status});
 const bearerOf = request => (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -54,7 +54,12 @@ async function upload(request, env, now) {
   const day = dayOf(now);
   const {n} = await env.STATS.prepare('SELECT COUNT(*) AS n FROM form_reports WHERE day = ? AND who = ?').bind(day, access.who).first() || {n: 0};
   if (n >= PER_INSTALL_PER_DAY) { await flag(env, 'report-limit', access.who, '', now); return bad(429, 'limit reached for today'); }
-  await env.STATS.prepare('DELETE FROM form_reports WHERE day < ?').bind(dayOf(new Date(now.getTime() - KEEP_DAYS * 86400e3))).run();   // the rows follow the bucket's 30-day rule
+  // The day's total: one row, bumped only while both caps hold (the WHERE makes the bump and the check one step). 429 with the same words as the per-install limit.
+  const bumped = await env.STATS.prepare('INSERT INTO form_report_days (day, reports, bytes) VALUES (?, 1, ?) ON CONFLICT(day) DO UPDATE SET reports = reports + 1, bytes = bytes + excluded.bytes WHERE reports < ? AND bytes + excluded.bytes <= ?')
+    .bind(day, body.byteLength, ALL_REPORTS_PER_DAY, ALL_BYTES_PER_DAY).run();
+  if (((bumped.meta ?? bumped).changes ?? 0) < 1) { await flag(env, 'report-limit', 'all', 'day', now); return bad(429, 'limit reached for today'); }
+  await env.STATS.prepare('DELETE FROM form_reports WHERE day < ?').bind(dayOf(new Date(now.getTime() - KEEP_DAYS * 86400e3))).run();
+  await env.STATS.prepare('DELETE FROM form_report_days WHERE day < ?').bind(dayOf(new Date(now.getTime() - KEEP_DAYS * 86400e3))).run();   // the rows follow the bucket's 30-day rule
   const id = crypto.randomUUID(), [bin, key] = objects(day, id);
   await env.REPORTS.put(bin, body);
   await env.REPORTS.put(key, wrapped);

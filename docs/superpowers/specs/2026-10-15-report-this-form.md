@@ -73,6 +73,7 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 |---|---|
 | Size per report | 8 MB encrypted (over it: drop fonts, then say "too large", nothing sent) |
 | Reports per install per day | 3 (D1 count) |
+| All installs together | 50 reports and 200 MB per UTC day, one D1 row a day (a new install id gets a fresh per-install quota, so only the total holds) |
 | Token mints for `report` | 5 per address per day (existing KV counter, 1 write each) |
 | Writes per report | 1 R2 put (2 objects), 1 D1 insert, 1 D1 count read, 0 new KV writes |
 | Stored | ≤ 3 × 8 MB per install per day, gone after 30 days; R2 free 10 GB |
