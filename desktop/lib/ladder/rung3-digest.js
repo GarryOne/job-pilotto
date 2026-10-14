@@ -11,11 +11,12 @@ export const MODEL = model('small');
 const PRICE = {input: 0.1, output: 0.5};   // USD per million tokens, as page-kind.js
 const MAX_NUMBERS = 4;
 
-export const DIGEST_SCHEMA = {type: 'object', additionalProperties: false, required: ['outcome', 'verb', 'numbers', 'press_kind', 'confidence'], properties: {
+export const DIGEST_SCHEMA = {type: 'object', additionalProperties: false, required: ['outcome', 'verb', 'numbers', 'press_kind', 'form_frame', 'confidence'], properties: {
   outcome: {type: 'string', enum: OUTCOMES, description: 'How the candidate applies to this job, from the page\'s own text'},
   verb: {type: 'string', enum: VERBS, description: 'tell_person: the person must act, quote the numbered candidates; press: press the one numbered button or link; open: open the one numbered link; not_listed: the page clearly offers a way to apply that is NOT in the numbered list; none'},
   numbers: {type: 'array', items: {type: 'integer'}, maxItems: MAX_NUMBERS, description: 'The numbers of the candidates the verb is about (tell_person: the ones that say how to apply; press/open: exactly one), else []'},
   press_kind: {type: 'string', enum: BUTTON_KINDS, description: 'For verb press or open: what the numbered button or link does: apply = starts or continues THIS job application; sign_in; sign_up; third_party = signs in or applies through another site\'s account; other. "" for any other verb'},
+  form_frame: {type: 'integer', description: 'When Frame candidates are listed and the application form is inside one of them: that frame\'s index; -1 for none'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
 }};
 
@@ -44,6 +45,8 @@ export const layerLine = layer => (layer ? `ON TOP of the page: ${layer.shape} (
 const COVERED_RULE = 'Candidates marked covered are drawn under another layer (a dialog or banner on top): a person cannot reach them until that layer is dealt with. Judge the application from the page itself, never from the layer\'s own buttons, and never name a covered candidate when an uncovered one does the same.';
 const cleanLine = (text, max) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // What the AI is shown for the candidates: numbered, with kind, position and host, no query string (candidates carry none).
+// Said only when the page lists frames (every other page is asked as before): an embedded application form is named by its frame index, checked against the listed frames.
+export const FRAME_RULE = 'When the application form sits inside one of the listed frames (a hosted job board embedded in the page) and the page itself has no other way to apply, answer outcome form, verb none, numbers [] and form_frame = that frame\'s index. A frame that is not clearly the application: form_frame -1.';
 export const digestMessage = (page = {}, candidates = []) => [
   `Address path: ${cleanLine(page.path, 120) || '(none)'}`,
   `Title: ${cleanLine(page.title, 160) || '(none)'}`,
@@ -51,6 +54,7 @@ export const digestMessage = (page = {}, candidates = []) => [
   `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''}${item.covered ? ' · covered' : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
   ...(cleanLayer(page.onTop) ? [layerLine(cleanLayer(page.onTop))] : []),
   ...(cleanLayer(page.onTop) || candidates.some(item => item.covered) ? [COVERED_RULE] : []),
+  ...((page.frameCandidates || []).length ? [`Frame candidates (index · host · path · size):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n')}`, FRAME_RULE] : []),
   ...((page.noEffect || []).length ? [`Pressed already and nothing happened (never name these again; name another way to start the application): ${page.noEffect.join(' | ')}`] : []),
 ].join('\n');
 
@@ -61,7 +65,7 @@ const none = (answer, _claimed, dropped) => ({outcome: 'other', verb: 'none', nu
 const WORD = value => (/^[a-z_]{1,24}$/.test(String(value ?? '')) ? String(value) : '-');
 export const digestLine = ({outcome, verb, numbers, pressKind, dropped} = {}) => `digest: outcome=${WORD(outcome)} verb=${WORD(verb)} numbers=[${(Array.isArray(numbers) ? numbers : []).filter(Number.isInteger).join(',')}] press_kind=${WORD(pressKind)} dropped=${/^[a-z ]{1,60}$/.test(String(dropped || '')) ? dropped : '-'}`;
 
-export function validateDigest(raw, candidates = []) {
+export function validateDigest(raw, candidates = [], frameCount = 0) {
   const answer = {confidence: Math.max(0, Math.min(1, Number(raw?.confidence) || 0))};
   if (!OUTCOMES.includes(raw?.outcome)) return none(answer, 'other', 'outcome');
   const outcome = raw.outcome;
@@ -79,7 +83,8 @@ export function validateDigest(raw, candidates = []) {
   if ((verb === 'none' || verb === 'not_listed') && numbers.length) return none(answer, outcome, `${verb} takes no number`);
   // An address or a call outcome stands only on a candidate of that kind (the address is on the page by construction).
   if ((outcome === 'email' || outcome === 'phone') && !chosen.some(item => item.kind === outcome)) return none(answer, 'other', 'outcome without its candidate');
-  return {outcome, verb, numbers, confidence: answer.confidence, chosen};
+  const formFrame = outcome === 'form' && verb === 'none' && Number.isInteger(raw.form_frame) && raw.form_frame >= 0 && raw.form_frame < frameCount ? raw.form_frame : -1;   // only an index into the listed frames
+  return {outcome, verb, numbers, confidence: answer.confidence, chosen, ...(formFrame >= 0 ? {formFrame} : {})};
 }
 
 // Ask the model (a client with the Messages API's shape) and validate. -> the validated answer plus {usd}, or {error}.
@@ -96,7 +101,7 @@ export async function askDigest(client, page, candidates, {model: modelName = MO
     try { raw = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { return {error: 'not JSON'}; }
     const usage = response.usage || {};
     const usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
-    return {...validateDigest(raw, candidates), usd, raw};
+    return {...validateDigest(raw, candidates, (page.frameCandidates || []).length), usd, raw};
   } catch (error) {
     return {error: cleanLine(error?.message || 'AI failed', 120)};
   }

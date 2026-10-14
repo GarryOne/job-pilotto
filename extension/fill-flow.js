@@ -346,15 +346,21 @@ export async function consider(tab, jobUrl) {
     else { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   }
   // The application form is inside a frame of this page (Datadog, 10 Oct 2026): the page-kind AI named it by index; its stored address is opened in this same tab, https only, once per tab and page.
-  if (role === 'no-form' && Number.isInteger(kind?.form_frame) && kind.form_frame >= 0) {
-    const src = frameSrcOf(tab.id, kind.form_frame);
-    if (src && claimFrame(key)) { decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname}); await chrome.tabs.update(tab.id, {url: src}); started.delete(key); return; }
-  }
+  // The numbered digest names a frame too (rung 2 unsure, 14 Oct 2026: a posting with its form in a frame got no frame from the unsure rung): the same opening, from the answer that carries it.
+  const openFormFrame = async answer => {
+    if (role !== 'no-form' || !Number.isInteger(answer?.form_frame) || answer.form_frame < 0) return false;
+    const src = frameSrcOf(tab.id, answer.form_frame);
+    if (!src || !claimFrame(key)) return false;
+    decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname, by: answer.by || 'ai'});
+    await chrome.tabs.update(tab.id, {url: src}); started.delete(key); return true;
+  };
+  if (await openFormFrame(kind)) return;
   // Nothing to press and no form: the numbered digest looks once (ladder/climb.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
   let stall = null;
   if (role === 'no-form' && kind?.botCheck !== true && !emailReport(kind) && !toldReport(kind)) {
     stall = await climbOnStall(tab, askKind, key, kind);
     if (late(tab, gen, 'stall climb')) return;
+    if (await openFormFrame(stall)) return;
     if (stall?.applyButton) {
       applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
       const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: stall.applyButton}], stall.applyButton, '', noEffectOf(key));
