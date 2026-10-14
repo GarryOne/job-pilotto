@@ -5,7 +5,7 @@ import http from 'node:http';
 import {freePort} from './extension.mjs';
 
 export async function frontOf(app) {
-  const port = await freePort(), requests = [], front = {requests, beforeRespond: null};   // beforeRespond(route, body): awaited before an answer goes back (row-replay: a page state that followed an ask)
+  const port = await freePort(), requests = [], front = {requests, replies: [], beforeRespond: null};   // replies: the AI routes' answers, in memory only (lib/wrong-values.mjs reads the values the app decided)   // beforeRespond(route, body): awaited before an answer goes back (row-replay: a page state that followed an ask)
   const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'};
   const server = http.createServer((request, response) => {
     if (request.method === 'OPTIONS') { response.writeHead(204, cors); response.end(); return; }
@@ -20,6 +20,7 @@ export async function frontOf(app) {
         const upstream = await fetch(`${app.url}${request.url}`, {method: request.method, headers: {'content-type': request.headers['content-type'] || 'application/json',
           authorization: `Bearer ${app.token}`, origin: `chrome-extension://${app.extensionId}`}, ...(['GET', 'HEAD'].includes(request.method) ? {} : {body})});
         const answer = Buffer.from(await upstream.arrayBuffer());
+        if (/^\/extension\/(answer|pick-choice)$/.test(route)) front.replies.push({route, body: answer.toString().slice(0, 200000)});
         await Promise.resolve(front.beforeRespond?.(route, text)).catch(() => {});
         response.writeHead(upstream.status, {...cors, 'Content-Type': upstream.headers.get('content-type') || 'application/json'});
         response.end(answer);

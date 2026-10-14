@@ -12,6 +12,8 @@ import {netReplay} from './lib/net-record.mjs';
 import {forceScrollbar} from './lib/scrollbar.mjs';
 import {seedRandom} from './lib/seeded-random.mjs';
 import {outputOfLog, parseLive} from './lib/smoke.mjs';
+import {CONTACT} from './lib/apply-fixtures.mjs';
+import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
@@ -50,12 +52,14 @@ if (recordedEligibility(record, liveLog) === 'off') process.env[ELIGIBILITY_ENV]
 // reported. It is a cap, not a length: a row that finished still ends on its quiet window.
 export const replaySeconds = text => { const times = String(text).split('\n').map(line => Date.parse(line.slice(0, 24))).filter(Number.isFinite);
   return times.length > 1 ? Math.min(300, Math.max(120, Math.round((times.at(-1) - times[0]) / 1000) + 90)) : 120; };
-const result = await runLiveRow({posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
+let wrong = null;   // the typed values that are not the decided ones, and the decided ones that are not the applicant's (lib/wrong-values.mjs): at the last tab, before the browser closes
+const result = await runLiveRow({atEnd: async (tab, replies) => { wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left}; };
-const summary = {outcome: outcomeOf(log), liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
+const summary = {outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
+for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);

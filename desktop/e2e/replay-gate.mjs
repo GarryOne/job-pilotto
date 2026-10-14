@@ -16,6 +16,7 @@ export function fell(before, now) {
   if (rank(now.reached) < rank(before.reached)) return `reached ${now.reached}, baseline ${before.reached}`;
   if (before.filled != null && now.filled != null && now.filled < before.filled) return `filled ${now.filled}, baseline ${before.filled}`;
   if (before.left != null && now.left != null && now.left > before.left) return `left ${now.left}, baseline ${before.left}`;
+  if (before.wrong != null && now.wrong != null && now.wrong > before.wrong) return `wrong values ${now.wrong}, baseline ${before.wrong}`;   // a baseline without the count never counts
   return '';
 }
 const rose = (before, now) => !!(before && now && (rank(now.reached) > rank(before.reached) || (now.filled ?? 0) > (before.filled ?? 0)));
@@ -34,7 +35,7 @@ export function judge(records, baseline = {}, retry = []) {
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
-    rows[record.name] = {same, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || ''};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {same, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, red: worse > 0};
@@ -45,6 +46,9 @@ export function summary(result) {
   const lines = [`## Replay gate: ${result.counted} of ${result.total} rows counted · ${result.worse} worse`, ''];
   const shown = Object.entries(result.rows).filter(([, row]) => row.verdict !== 'same').sort(([a], [b]) => a.localeCompare(b));
   if (shown.length) lines.push('| Row | Verdict | Why |', '|---|---|---|', ...shown.map(([name, row]) => `| ${name} | ${row.verdict} | ${row.why || '–'} |`));
+  // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
+  const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
+  if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);
   return `${lines.join('\n')}\n`;
 }
 
