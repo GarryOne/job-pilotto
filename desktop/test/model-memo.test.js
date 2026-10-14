@@ -272,6 +272,10 @@ test('a frame\'s pixel size is layout, not meaning: a replay on another machine 
   assert.notEqual(memoKey(page(6993)), memoKey(page(6869)), 'the exact key is unchanged, so every record made before this still matches as before');
   assert.equal(layoutKey(page(6993)), layoutKey(page(6869)));
   assert.notEqual(layoutKey(page(6993)), layoutKey(ask('frames: []')), 'the rest of the ask still counts');
+  // The frame line as the page-kind prompt writes it (coreweave, 14 Oct 2026): "0 · job-boards.greenhouse.io · /embed/job_app · 1140x6869".
+  const line = height => ask(`Frames:\n0 · job-boards.greenhouse.io · /embed/job_app · 1140x${height}`);
+  assert.equal(layoutKey(line(6993)), layoutKey(line(6869)));
+  assert.notEqual(layoutKey(line(6993)), layoutKey(ask('Frames:\n0 · other.example · /embed/job_app · 1140x6993')), 'the host still counts');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), file = path.join(dir, 'model-memo.json'), hits = path.join(dir, 'hits.txt');
   let calls = 0;
   const reply = {content: [{type: 'text', text: '{"kind":"form"}'}], stop_reason: 'end_turn', usage: {input_tokens: 9, output_tokens: 3}};

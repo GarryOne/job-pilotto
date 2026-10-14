@@ -30,10 +30,13 @@ export function memoKey(params = {}) {
 // The same request with every pixel size ("width"/"height" in the page's JSON) taken out: a frame's size follows the machine's fonts (14 Oct 2026, coreweave: the
 // runner's Greenhouse frame was 6869 px, the Mac's live run 6993, and the replay found no kept answer). Kept as a second key beside the exact one, so a record made
 // before it keeps matching by its exact key and a new one also matches on another machine. -> hex
-const SIZES = /(\\*"(?:width|height)\\*":)\d+(?:\.\d+)?/g;
+// Both shapes a size takes in a prompt: JSON fields ("height":6993) and the frame line's text (1140x6993; 14 Oct 2026: #713 missed this one, and the same frame
+// measured 6993 px live and 6869 in a replay on the same Mac: the size follows when the web fonts land, not the machine alone).
+const SIZES = [[/(\\*"(?:width|height)\\*":)\d+(?:\.\d+)?/g, '$1<px>'], [/\b\d{2,5}x\d{2,5}\b/g, '<px>x<px>']];
+export const layoutText = text => SIZES.reduce((out, [pattern, to]) => out.replace(pattern, to), text);
 export function layoutKey(params = {}) {
   const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null};
-  return crypto.createHash('sha256').update(normalise(JSON.stringify(asked)).replace(SIZES, '$1<px>')).digest('hex');
+  return crypto.createHash('sha256').update(layoutText(normalise(JSON.stringify(asked)))).digest('hex');
 }
 
 // The request's PARTS, as short hashes (never text): the model, each system block, and the user message cut by its <tag> blocks (or, for a message without tags, by its "Label:" lines).
