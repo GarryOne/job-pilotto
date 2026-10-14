@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   rejudge:
-    name: re-judge the replay gate
+    name: re-judge the site replays gate
     # a label change names replay-accepted; a comment is from a PR (not an issue), from the owner, a member or a collaborator, and has the line
     if: >-
       (github.event_name == 'pull_request_target' && github.event.label.name == 'replay-accepted') ||

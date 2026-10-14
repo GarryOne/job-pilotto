@@ -125,7 +125,7 @@ jobs:
           if-no-files-found: ignore
 
   verdict:
-    name: replay gate
+    name: site replays gate
     needs: [pick, replay]
     if: always()
     runs-on: ubuntu-24.04
