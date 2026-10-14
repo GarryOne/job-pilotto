@@ -64,9 +64,8 @@ export function guardLiveVisit(url, {env = process.env, now = new Date(), who = 
   const site = siteOf(url);
   if (!site) return null;
   const limit = Number(env.JOB_PILOTTO_SITE_LIMIT) > 0 ? Number(env.JOB_PILOTTO_SITE_LIMIT) : DEFAULT_LIMIT;
-  // CI (owner, 12 Oct 2026): each visit says its kind (JOB_PILOTTO_VISIT_KIND: hand | proof); a by-hand run leaves the last JOB_PILOTTO_SITE_RESERVE visits of
-  // the day to a PR's live proof. No kind (a Mac): the plain limit.
-  const kind = String(env.JOB_PILOTTO_VISIT_KIND || ''), reserve = kind === 'hand' ? Math.max(0, Math.min(limit - 1, Number(env.JOB_PILOTTO_SITE_RESERVE) || 0)) : 0;
+  // CI: each visit says its kind (JOB_PILOTTO_VISIT_KIND: hand). A by-hand recording may use all the day's visits (record-once spec, 15 Oct 2026: no PR proof keeps one back any more).
+  const kind = String(env.JOB_PILOTTO_VISIT_KIND || '');
   const day = dayOf(now), at = now.getTime(), runId = String(process.pid);
   return withLedger(env, ledger => {
     for (const old of Object.keys(ledger)) if (old !== day) delete ledger[old];   // a new day starts clean
@@ -84,7 +83,6 @@ export function guardLiveVisit(url, {env = process.env, now = new Date(), who = 
     };
     if (entry.blocked) refuse(`it showed a block page at ${clock(entry.blocked.at)} today (${entry.blocked.why}), so it rests until tomorrow`, {blocked: true});
     else if (entry.visits.length >= limit) refuse(`${entry.visits.length} live visits today (limit ${limit}), the last at ${clock(last.at)}${last.who ? ` by ${last.who}` : ''}`, {count: entry.visits.length, limit});
-    else if (entry.visits.length >= limit - reserve) refuse(`${entry.visits.length} live visit${entry.visits.length === 1 ? '' : 's'} today; the other ${reserve} ${reserve === 1 ? 'is' : 'are'} kept for a PR proof (limit ${limit}), the last at ${clock(last.at)}${last.who ? ` by ${last.who}` : ''}`, {count: entry.visits.length, limit, reserved: reserve});
     if (record) entry.visits.push({at, run: runId, ...(who ? {who} : {}), ...(kind ? {kind} : {})});
     return {site, count: entry.visits.length, limit, overridden};
   });

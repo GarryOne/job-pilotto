@@ -1,5 +1,5 @@
 // npm run captures -- pull [--days N] | list: the captures library on this Mac (lib/capture-library.mjs). pull: each CI pool run's pool-captures-<run> artifact (record-sites.yml,
-// pool-proof.yml; 30 days on GitHub) copied into <QA folder>/captures/<day>/<row>/, once per run (pulled.json); list: rows x days x build. Reads GitHub only, never a site.
+// ; 30 days on GitHub) copied into <QA folder>/captures/<day>/<row>/, once per run (pulled.json); list: rows x days x build. Reads GitHub only, never a site.
 // Spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md. Guard: e2e/test/captures.test.mjs (mergePulled).
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ if (verb === 'pull') {
   const days = Number(flag('days')) || 7, since = new Date(Date.now() - days * 86400000).toISOString();
   const pulledFile = path.join(root, 'pulled.json'), pulled = new Set((() => { try { return JSON.parse(fs.readFileSync(pulledFile, 'utf8')); } catch { return []; } })());
   const ids = new Set();
-  for (const workflow of ['record-sites.yml', 'pool-smoke.yml', 'pool-proof.yml']) {
+  for (const workflow of ['record-sites.yml', 'pool-smoke.yml']) {
     try { for (const run of JSON.parse(gh('run', 'list', '--workflow', workflow, '--limit', '60', '--json', 'databaseId,createdAt'))) if (run.createdAt >= since) ids.add(String(run.databaseId)); } catch (error) { console.log(`captures: ${workflow}: ${String(error.stderr || error.message).trim().slice(0, 160)}`); }
   }
   let added = 0;

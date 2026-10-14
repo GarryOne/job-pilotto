@@ -9,7 +9,6 @@ import {stampedAt} from '../../scripts/extension-stamp.mjs';
 
 export const SITE = 'https://www.jobpilotto.top/admin/applying';
 export const REPLAYS = 'https://www.jobpilotto.top/applying/replays';
-export const PROVEN = 'https://www.jobpilotto.top/applying/proven';
 // desktop/e2e (not imported from app.mjs: that pulls playwright-core into the desktop unit job, which does not install it; main was red 11 Oct 2026).
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const extensionVersion = () => stampedAt();   // the version this checkout's build stamps (scripts/extension-stamp.mjs)
@@ -100,17 +99,3 @@ export async function uploadReplays(rows, {env = process.env, fetcher = fetch} =
   } catch (error) { return `replays report: not sent (${String(error?.message || error).slice(0, 80)})`; }
 }
 
-// The "proven live" records of a CI pool run (lib/pool-proven.mjs; site/src/applying-proven.js): one PUT, Bearer REPLAYS_PUBLISH_KEY (it writes only the replays and these records).
-// CI only: a Mac's run is not a CI proof. JP_PROVEN_DRY=1|true: say it, send nothing. -> one line.
-export async function uploadProven(records, {env = process.env, fetcher = fetch} = {}) {
-  if (!records.length) return 'proven report: nothing to send (no row really ran)';
-  if (['1', 'true'].includes(String(env.JP_PROVEN_DRY || '').toLowerCase())) return `proven report: dry run: would send ${records.length} record(s)`;
-  const why = env.REAL_EXTENSION_DIR ? 'a control run on another build' : !env.CI ? 'a local run: only CI proves a fix live' : !env.REPLAYS_PUBLISH_KEY ? 'REPLAYS_PUBLISH_KEY not set up' : '';
-  if (why) return `proven report: not sent (${why})`;
-  try {
-    const answer = await fetcher(PROVEN, {method: 'PUT', headers: {Authorization: `Bearer ${env.REPLAYS_PUBLISH_KEY}`, 'Content-Type': 'application/json', 'X-Caller': 'proven-upload'},
-      body: JSON.stringify({records}), signal: AbortSignal.timeout(20000)});
-    const body = await answer.json().catch(() => ({}));
-    return answer.ok ? `proven report: ${records.length} record(s) sent (${body.stored ?? 0} new)` : `proven report: refused (${answer.status} ${body.error || ''})`;
-  } catch (error) { return `proven report: not sent (${String(error?.message || error).slice(0, 80)})`; }
-}

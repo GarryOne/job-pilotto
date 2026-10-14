@@ -83,7 +83,7 @@ test('the summary shows only the rows this run ran (the day report may hold othe
   assert.match(summary(day).markdown, /\| – \| \$0\.0300/);
 });
 
-// 12 Oct 2026: #455's live proof was green in 1 minute and ran nothing (the site limit had refused its row); the owner rightly asked whether it works at all.
+// 12 Oct 2026: a CI recording run (#455) was green in 1 minute and ran nothing (the site limit had refused its row); the owner rightly asked whether it works at all.
 const LIMIT = 'site-ledger: seitenbau-gmbh.jobs.personio.de is not visited: 2 live visits today (limit 2), the last at 11:20 by record-sites CI run 38242323673. Counted from the machine-wide ledger (/x); the owner can allow it with JOB_PILOTTO_SITE_LIMIT_OVERRIDE=seitenbau-gmbh.jobs.personio.de.';
 const nothingRan = extra => ({day: '2026-10-12', results: {}, thisRun: {ran: [], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0, maxUsd: 0.5, maxRows: 1, ...extra}});
 test('a run where no row ran is never a pass: red, and its FIRST line says NOT RUN, why, and when the next visit is possible', () => {
@@ -107,23 +107,23 @@ test('a run where a row did run is judged by its rows: a skipped neighbour is li
   assert.match(markdown, /Skipped by CI's site limit: Personio form in German/);
 });
 
-test('the summary names each row\'s applicant (grown on a PR proof, thin by hand)', () => {
+test('the summary names each row\'s applicant (grown or thin)', () => {
   const day = {day: '2026-10-12', results: {'Lever: single page, no account': {reached: 'ready', filled: 18, left: 0, url: 'u', usd: 0.06, seconds: 70, applicant: 'grown'}},
     thisRun: {ran: ['Lever: single page, no account'], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0.06, maxUsd: 0.5, maxRows: 1}};
   assert.match(summary(day).markdown, /\| Lever: single page, no account \| grown \| ready \| – \| 18 \/ 0 \|/);
 });
 
-test('a by-hand run refused because the last visit is kept for a PR proof says so in its NOT RUN line', () => {
-  const kept = 'site-ledger: jobs.personio.example is not visited: 1 live visit today; the other 1 is kept for a PR proof (limit 2), the last at 11:20 by record-sites CI run 9. Counted from x';
+test('a run refused by the site limit says so in its NOT RUN line', () => {
+  const kept = 'site-ledger: jobs.personio.example is not visited: 2 live visits today (limit 2), the last at 11:20 by record-sites CI run 9. Counted from x';
   assert.match(summary(nothingRan({skipped: [{shape: 'Personio form in German', why: kept}]}), {now: new Date('2026-10-12T12:30:00Z')}).notRun,
-    /^NOT RUN: Personio form in German: the site limit \(jobs\.personio\.example: 1 live visit today; the other 1 is kept for a PR proof \(limit 2\)/);
+    /^NOT RUN: Personio form in German: the site limit \(jobs\.personio\.example: 2 live visits today \(limit 2\)/);
 });
 
 test('the summary names the Anthropic key the run used (its name, never its value): the live key when set, else the Tests key', () => {
   const report = {day: '2026-10-12', thisRun: {ran: ['A'], usd: 0.05, maxUsd: 0.5}, results: {A: {reached: 'form', filled: 3, left: 1, usd: 0.05}}};
   assert.match(summary(report).markdown, /AI spend: \$0\.0500 of the \$0\.50 cap \(key: E2E_ANTHROPIC_KEY\)\./);
   assert.match(summary(report, {keyName: 'LIVE_POOL_ANTHROPIC_KEY'}).markdown, /\(key: LIVE_POOL_ANTHROPIC_KEY\)\./);
-  assert.match(summary(report, {keyName: 'PR_PROOF_ANTHROPIC_KEY'}).markdown, /\(key: PR_PROOF_ANTHROPIC_KEY\)\./);
+  assert.match(summary(report, {keyName: 'LIVE_POOL_ANTHROPIC_KEY'}).markdown, /\(key: LIVE_POOL_ANTHROPIC_KEY\)\./);
   assert.match(summary(report, {keyName: 'sk-ant-api03-secret'}).markdown, /\(key: E2E_ANTHROPIC_KEY\)\./, 'anything but a known key name is never printed');
 });
 

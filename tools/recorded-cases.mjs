@@ -52,13 +52,13 @@ Add to the fix's commit message: "Pool-row: <the row's name as /admin/applying s
 }
 
 // Any push that changes a file the app acts on pages with names its row too, not only one that adds a case (12 Oct 2026: the prompt fix #424 and a
-// harness fix landed with none, so the Fixed tab and the PR's live proof never saw them). "Pool-row: none <why>" for a refactor, a log line, a pure move.
+// harness fix landed with none, so the Fixed tab never saw them). "Pool-row: none <why>" for a refactor, a log line, a pure move.
 export function untaggedActing(commits, covered) {
   const cover = new Set(covered);
   const acting = [...new Set(commits.flatMap(commit => commit.files.filter(file => cover.has(file))))];
   if (!acting.length) return '';
   return untaggedNewCases(['__acting__'], commits.map(commit => commit.message)) ? `this push changes how the app acts on pages (${acting.slice(0, 3).join(', ')}${acting.length > 3 ? ', …' : ''}) but no commit names the pool row it fixes.
-Add to a commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab and the PR's live proof read it), or "Pool-row: none <why>" (a refactor, a log line, no row behind it).` : '';
+Add to a commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab reads it), or "Pool-row: none <why>" (a refactor, a log line, no row behind it).` : '';
 }
 
 // -> '' when fine, else the message. commits: [{files, message}] of the push; covered: the files a replay loads.

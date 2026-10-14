@@ -50,10 +50,10 @@ export function pickEngine({env = process.env, suiteEngine = '', installed = cla
 // The family of an engine, and the CI secret its API key comes from.
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');
 export const keySecret = engine => (familyOf(engine) === 'openai' ? 'E2E_OPENAI_KEY' : 'E2E_ANTHROPIC_KEY');
-// Live runs on real sites ask on their own Anthropic keys, so each one's cost shows apart in the Console and on /admin/ai-cost (owner, 12 Oct 2026): a PR's live proof
-// (JOB_PILOTTO_VISIT_KIND=proof) on PR_PROOF_ANTHROPIC_KEY, a CI pool run by hand (hand) on LIVE_POOL_ANTHROPIC_KEY; until the owner has set one, the Tests key. -> the NAME
+// Live runs on real sites ask on their own Anthropic keys, so each one's cost shows apart in the Console and on /admin/ai-cost (owner, 12 Oct 2026): a CI recording
+// run by hand (JOB_PILOTTO_VISIT_KIND=hand) on LIVE_POOL_ANTHROPIC_KEY; until the owner has set one, the Tests key. -> the NAME
 // the key comes from (for the job summary), never its value. The one place that picks it (e2e/test/no-local-key.test.mjs).
-export const LIVE_KEYS = {proof: 'PR_PROOF_ANTHROPIC_KEY', hand: 'LIVE_POOL_ANTHROPIC_KEY'};
+export const LIVE_KEYS = {hand: 'LIVE_POOL_ANTHROPIC_KEY'};
 export const liveKeyName = (env = process.env, engine = 'api') => { const own = familyOf(engine) === 'claude' ? LIVE_KEYS[env.JOB_PILOTTO_VISIT_KIND] : ''; return own && env[own] ? own : keySecret(engine); };
 export const appSecretName = engine => (familyOf(engine) === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY');
 

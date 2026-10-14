@@ -105,5 +105,6 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 - [x] PR 2 (option a, Claude finishes the page) DROPPED: rung 5 starts a Claude CLI session on the person's own Chrome (`startClaude` → `apply.claudeOne`); the harness's test browser has no such command, driving it would be a new mechanism. The Aldi stop is not the extension's 8 s wait either: main fills a form inserted after a press answered 20 s late (proof: desktop/e2e/recorded/slow-answer-after-press-1/case.json)
 - [x] PR 3a: skills renamed, fix skill trimmed, the filling-review skill folded in (proof: desktop/test/skill-names.test.js)
 - [ ] PR 3b: signal 1 on /admin/applying
-- [ ] PR 4: live-proof pieces retired after 8e, class test, memories updated
+- [x] PR 4a: the e2e, workflow, tool, doc and skill pieces of the live proof retired, and a class test that fails on their return (proof: desktop/test/live-proof-retired.test.js)
+- [ ] PR 4b: the site's "Proven live" store, route, column and cost job retired (the class test's site list empties); memories updated with cc's OK
 - [ ] Aldi recorded to its form; old vs new build compared offline

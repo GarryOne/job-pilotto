@@ -1,16 +1,16 @@
 # Record sites: this workflow's ONE job is recording (owner, 14 Oct 2026: record each site once, then test offline; renamed from "Pool smoke" on 15 Oct 2026, spec
 # docs/superpowers/specs/2026-10-15-record-once.md). It visits the pool's sites on a GitHub runner, started BY HAND (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
 # start simple, grow it over time, report to the coordinator before growing it). By hand ONLY: never a schedule, a push or a pull request (owner, 13 Oct 2026:
-# "I don't want PR to generate an AI cost": the PR live proof and the flow canary that called this were removed). Guard: e2e/test/pool-ci-triggers.test.mjs.
+# "I don't want PR to generate an AI cost"; a fix is confirmed OFFLINE on a recording, never by a live run: record-once spec 15 Oct 2026). Guard: e2e/test/pool-ci-triggers.test.mjs.
 # - Rows: the pool list in the repo (desktop/e2e/smoke-sites.json: every row since 12 Oct 2026; postings are public pages, the owner's details never enter a run).
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
 #   (lib/applying-report.mjs refuses CI) but what the last step sends with the narrow REPLAYS_PUBLISH_KEY: the rows' results (a run on main only), their endings, and the ladder moves the rows' pages
 #   confirmed (desktop/e2e/pool-moves.mjs: fixed values per page shape, marked source 'ci' so they never pose as a user's; spec 2026-10-12-one-next-move.md).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
 #   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it). Its own key, so its cost shows apart:
-#   LIVE_POOL_ANTHROPIC_KEY by hand, PR_PROOF_ANTHROPIC_KEY on a PR (lib/engine.mjs liveKeyName), else the Tests key; the summary names the one used. Every run reports its spend to /admin/ai-cost (pool-live, or pr-live-proof on a PR).
-# - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day;
-#   a by-hand run may use only 1 of the 2: the last is kept for a PR's live proof (owner, 12 Oct 2026).
+#   LIVE_POOL_ANTHROPIC_KEY by hand (lib/engine.mjs liveKeyName), else the Tests key; the summary names the one used. Every run reports its spend to /admin/ai-cost (pool-live).
+# - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs, a host that showed a block page rests the day;
+#   a by-hand run may use both (no PR proof keeps one back since 15 Oct 2026).
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
 #   CI visits are NOT in the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
@@ -38,7 +38,6 @@ on:
 permissions:
   contents: read
   actions: read   # the earlier CI runs' state artifacts (site ledger, last results)
-  pull-requests: write   # a PR proof whose row did not run says so on the PR
 
 jobs:
   smoke:
@@ -55,14 +54,12 @@ jobs:
       SHARE: ${{ inputs.share }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}               # the Tests key: the fallback while a live run's own key is not set
       LIVE_POOL_ANTHROPIC_KEY: ${{ secrets.LIVE_POOL_ANTHROPIC_KEY }}   # a pool run by hand (owner, 12 Oct 2026: each live run's cost apart)
-      PR_PROOF_ANTHROPIC_KEY: ${{ secrets.PR_PROOF_ANTHROPIC_KEY }}     # a PR's live proof; lib/engine.mjs liveKeyName picks by JOB_PILOTTO_VISIT_KIND
       JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
       JP_APPLICANT: thin   # the thin test applicant: runs are by hand only (the PR proof that ran the grown one was removed on 13 Oct 2026)
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
       JOB_PILOTTO_SESSION: record-sites CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'
-      JOB_PILOTTO_VISIT_KIND: ${{ github.event_name == 'pull_request' && 'proof' || 'hand' }}   # each visit says its kind (lib/site-ledger.mjs)
-      JOB_PILOTTO_SITE_RESERVE: '1'   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
+      JOB_PILOTTO_VISIT_KIND: hand   # each visit says its kind (lib/site-ledger.mjs; lib/engine.mjs liveKeyName)
       JP_NET_RECORD_DIR: ${{ github.workspace }}/net-records   # each row's network record (lib/net-record.mjs): uploaded encrypted below, never in the plain captures
       JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/record-sites-out/site-ledger
       SMOKE_PAIRED: '0'
@@ -160,8 +157,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}   # the narrow key: it writes only the replays, test-source ladder moves, the rows' endings and (main only) the rows' results
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           node desktop/e2e/pool-moves.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
           node desktop/e2e/pool-endings.mjs "$SMOKE_REPORTS"   # each row's ending: main's feed /admin/applying's Resolution tile (phase 1a)
@@ -171,19 +166,8 @@ jobs:
         if: always()
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
-          AI_COST_JOB: ${{ github.event_name == 'pull_request' && 'pr-live-proof' || 'pool-live' }}
+          AI_COST_JOB: pool-live
         run: node desktop/e2e/pool-ai-cost.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
-      - name: Tell the PR when its row did not run (when to run it again)
-        if: always() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          NOT_RUN_FILE: ${{ runner.temp }}/not-run.txt
-        run: |
-          [ -s "$NOT_RUN_FILE" ] || exit 0
-          # shellcheck disable=SC2016  # the backticks are Markdown code in the comment, not a shell expansion
-          printf '%s\n\nRun it again when the visit is possible: `gh run rerun %s`, or remove and add the `live-proof` label. Run: %s\n' "$(cat "$NOT_RUN_FILE")" "$GITHUB_RUN_ID" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > "$RUNNER_TEMP/not-run-comment.md"
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/not-run-comment.md" || echo "record-sites: could not comment on the PR"
       - name: Every row's capture (capture once, measure many)
         if: always()
         uses: actions/upload-artifact@v6
