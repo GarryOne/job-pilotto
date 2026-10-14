@@ -22,9 +22,9 @@ Per answer, by the answer's own `fact` key (fixed list, `worker/src/answer-facts
 `replay.json` outcome gets `wrong` (count) and `wrongValues` (field, held value, answer; fake data). `replay-gate.mjs fell()`: `wrong` above the baseline's = worse, why `wrong values N (baseline M)`. A baseline without `wrong` never counts (its first run only records it). The run summary LISTS every wrong field (row, field, fake expected vs typed) every run, so a value wrong since the baseline stays visible.
 
 ## Progress
-- [x] lib/wrong-values.mjs + unit test
-- [x] app-front replies, runLiveRow hook, replay-net summary
-- [x] gate: fell() + test
+- [x] lib/wrong-values.mjs + unit test (proof: desktop/e2e/test/wrong-values.test.mjs)
+- [x] app-front replies, runLiveRow hook, replay-net summary (proof: desktop/e2e/test/wrong-values.test.mjs)
+- [x] gate: fell() + test (proof: desktop/e2e/test/wrong-values.test.mjs)
 - [ ] by-hand replay on main and branch, rows listed
 - [ ] Yes/no facts (work permit, sponsorship): needs the question's direction: AI-only, not in CI
 - [ ] PR, link in Discussion #650
