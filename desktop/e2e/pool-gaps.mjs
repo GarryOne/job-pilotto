@@ -1,5 +1,5 @@
 // node pool-gaps.mjs <smoke reports folder>...: the gaps between progress notes on CI pool rows (lib/pool-gaps.mjs), the numbers the silent dead-end rule's T is chosen from
-// (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 2 box 2). One folder per downloaded run (gh run download <id> --name pool-smoke-<id>); reads the latest day
+// (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 2 box 2). One folder per downloaded run (gh run download <id> --name record-sites-<id>); reads the latest day
 // report and each row's app log; prints the quantiles, one line per row (slowest gap, its tail, its ending), slowest first, then the dead-end detector at each candidate T (recall on
 // rows stopped before the form, false fires on rows that reached it: phase 2 box 3). Reads only: never sends anything.
 import fs from 'node:fs';

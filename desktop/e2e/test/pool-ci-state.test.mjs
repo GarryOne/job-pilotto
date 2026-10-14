@@ -10,12 +10,12 @@ const visit = (at, who) => ({at, run: '4242', who});
 const state = (run, branch, at, ledger = {}, results = {}) => ({run, branch, at, ledger, results});
 
 test('today\'s ledger is every CI run\'s visits of today, each counted once, from main and every PR', () => {
-  const mainRun = state('1', 'main', '2026-10-12T09:00:00Z', {'2026-10-12': {'jobs.lever.co': {visits: [visit(1, 'pool-smoke CI run 1')]}}});
-  const prRun = state('2', 'fix-upload', '2026-10-12T10:00:00Z', {'2026-10-12': {'jobs.lever.co': {visits: [visit(1, 'pool-smoke CI run 1'), visit(2, 'pool-smoke CI run 2')], blocked: {at: 2, why: 'bot check'}},
-    'join.com': {visits: [visit(3, 'pool-smoke CI run 2')]}}, '2026-10-11': {'join.com': {visits: [visit(0, 'pool-smoke CI run 0')]}}});
+  const mainRun = state('1', 'main', '2026-10-12T09:00:00Z', {'2026-10-12': {'jobs.lever.co': {visits: [visit(1, 'record-sites CI run 1')]}}});
+  const prRun = state('2', 'fix-upload', '2026-10-12T10:00:00Z', {'2026-10-12': {'jobs.lever.co': {visits: [visit(1, 'record-sites CI run 1'), visit(2, 'record-sites CI run 2')], blocked: {at: 2, why: 'bot check'}},
+    'join.com': {visits: [visit(3, 'record-sites CI run 2')]}}, '2026-10-11': {'join.com': {visits: [visit(0, 'record-sites CI run 0')]}}});
   assert.deepEqual(mergeLedgers([mainRun, prRun], '2026-10-12'), {'2026-10-12': {
-    'jobs.lever.co': {visits: [visit(1, 'pool-smoke CI run 1'), visit(2, 'pool-smoke CI run 2')], blocked: {at: 2, why: 'bot check'}},
-    'join.com': {visits: [visit(3, 'pool-smoke CI run 2')]}}});
+    'jobs.lever.co': {visits: [visit(1, 'record-sites CI run 1'), visit(2, 'record-sites CI run 2')], blocked: {at: 2, why: 'bot check'}},
+    'join.com': {visits: [visit(3, 'record-sites CI run 2')]}}});
   assert.deepEqual(mergeLedgers([], '2026-10-12'), {});
 });
 

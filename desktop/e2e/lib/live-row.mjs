@@ -40,7 +40,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // posting: {url, title, company}; captureDir: where the journey, the AI calls and the asks go; ask: false keeps the AI to kept answers (a test), true asks live.
 // aiProxy: a started lib/ai-proxy.mjs (a test's canned one). On CI one is started here: the runner has no Claude Code, so the app's API engine asks through it on the
-// test key (.github/workflows/pool-smoke.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
+// test key (.github/workflows/record-sites.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null, atEnd = null} = {}) {   // atEnd(tab, replies): a replay's own reading of the last tab (replay-net.mjs: lib/wrong-values.mjs)
   if (ask && isCi() && !aiProxy && !testKey()) throw new Error(`live row on CI: no ${keySecret('api')} (the Tests key); the app has no other way to ask the AI on a runner`);
   guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live row'});   // the per-site daily limit (lib/site-ledger.mjs): refused before anything starts
@@ -65,7 +65,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
-  const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now()}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/pool-smoke.yml)
+  const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now()}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/record-sites.yml)
   if (net) await seedRandom(run.context, netStart);   // the replay draws the same random numbers (lib/seeded-random.mjs)
   const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)

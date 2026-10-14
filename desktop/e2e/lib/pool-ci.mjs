@@ -1,4 +1,4 @@
-// The pool's smoke on a GitHub runner (owner, 12 Oct 2026: by hand only, start simple; .github/workflows/pool-smoke.yml): the hard caps the workflow sets (rows,
+// The pool's smoke on a GitHub runner (owner, 12 Oct 2026: by hand only, start simple; .github/workflows/record-sites.yml): the hard caps the workflow sets (rows,
 // AI dollars), no Electron leg there (never a second visit after a block page; the runner has no Electron), and the job summary: one table row per run row, a bot
 // wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, red only for a row that did not finish (a harness error), the tripwire, or a
 // refused AI (12 Oct 2026: the Tests key had no credit and the row ran without AI, which is no result).
@@ -74,7 +74,7 @@ export function summary(report = {}, {baseline = {}, now = new Date(), proof = f
     ...results.flatMap(([shape, item]) => (item.readings?.failures || []).map(line => `false reading: ${shape}: ${line}`)),   // lib/live-readings.mjs
     ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),
     ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];
-  const lines = [...(notRun ? [notRun, ''] : []), `## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
+  const lines = [...(notRun ? [notRun, ''] : []), `## Record sites ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
     '| Row | Applicant | Reached | Ending | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|---|---|',
     ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.applicant || 'thin')} | ${cell(item.reached)} | ${cell(endingCell(item))} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),

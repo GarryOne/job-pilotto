@@ -1,4 +1,4 @@
-// What CI pool runs hand each other (.github/workflows/pool-smoke.yml): each run uploads a small state artifact, its site ledger and the results of the rows it ran.
+// What CI pool runs hand each other (.github/workflows/record-sites.yml): each run uploads a small state artifact, its site ledger and the results of the rows it ran.
 // GitHub's cache is per branch (a PR's saves are invisible to main and to other PRs), so the next run reads the states of every branch instead:
 //   mergeLedgers  today's CI-wide ledger (lib/site-ledger.mjs format): every run's visits of today, each counted once; a block page rests the host for all
 //   baselines     each row's newest usable CI result on main or on this PR, of the same test applicant (never another PR's build, never this run)

@@ -1,5 +1,5 @@
 // node tools/unproven-fixes.mjs: the Fixed tab's fixes that no CI run has proven live yet, one ready-to-dispatch line each (owner, 12 Oct 2026; the coordinator runs them the
-// next day, when a site's CI visits are back): "<row>\t<commit>\tgh workflow run pool-smoke.yml --ref main -f only='<row>' -f share=1". Reads /admin/applying?json (the owner
+// next day, when a site's CI visits are back): "<row>\t<commit>\tgh workflow run record-sites.yml --ref main -f only='<row>' -f share=1". Reads /admin/applying?json (the owner
 // key from the Keychain item job-pilotto.site.api_key, never printed). Guard: desktop/e2e/test/pool-proven.test.mjs.
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -8,7 +8,7 @@ const quote = text => `'${String(text).replace(/'/g, "'\\''")}'`;
 
 // fixed: the page JSON's fixed.rows ({site, commit, landedAt, proven}) -> [line], newest landing first.
 export const dispatchLines = fixed => [...fixed].filter(row => !row.proven).sort((a, b) => String(b.landedAt).localeCompare(String(a.landedAt)))
-  .map(row => `${row.site}\t${row.commit}\tgh workflow run pool-smoke.yml --ref main -f only=${quote(row.site)} -f share=1`);
+  .map(row => `${row.site}\t${row.commit}\tgh workflow run record-sites.yml --ref main -f only=${quote(row.site)} -f share=1`);
 
 async function main() {
   const key = execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8'}).trim();   // never printed

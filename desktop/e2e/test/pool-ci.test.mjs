@@ -1,4 +1,4 @@
-// The pool on a CI runner (.github/workflows/pool-smoke.yml, lib/pool-ci.mjs): hard caps on rows and AI dollars, no Electron leg (never a second visit after a
+// The pool on a CI runner (.github/workflows/record-sites.yml, lib/pool-ci.mjs): hard caps on rows and AI dollars, no Electron leg (never a second visit after a
 // block page), a bot wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, and a red job only for a harness error or the tripwire.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -84,12 +84,12 @@ test('the summary shows only the rows this run ran (the day report may hold othe
 });
 
 // 12 Oct 2026: #455's live proof was green in 1 minute and ran nothing (the site limit had refused its row); the owner rightly asked whether it works at all.
-const LIMIT = 'site-ledger: seitenbau-gmbh.jobs.personio.de is not visited: 2 live visits today (limit 2), the last at 11:20 by pool-smoke CI run 38242323673. Counted from the machine-wide ledger (/x); the owner can allow it with JOB_PILOTTO_SITE_LIMIT_OVERRIDE=seitenbau-gmbh.jobs.personio.de.';
+const LIMIT = 'site-ledger: seitenbau-gmbh.jobs.personio.de is not visited: 2 live visits today (limit 2), the last at 11:20 by record-sites CI run 38242323673. Counted from the machine-wide ledger (/x); the owner can allow it with JOB_PILOTTO_SITE_LIMIT_OVERRIDE=seitenbau-gmbh.jobs.personio.de.';
 const nothingRan = extra => ({day: '2026-10-12', results: {}, thisRun: {ran: [], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0, maxUsd: 0.5, maxRows: 1, ...extra}});
 test('a run where no row ran is never a pass: red, and its FIRST line says NOT RUN, why, and when the next visit is possible', () => {
   const now = new Date('2026-10-12T12:30:00Z');
   const {markdown, red, notRun} = summary(nothingRan({skipped: [{shape: 'Personio form in German', why: LIMIT}]}), {now});
-  assert.equal(notRun, 'NOT RUN: Personio form in German: the site limit (seitenbau-gmbh.jobs.personio.de: 2 live visits today (limit 2), the last at 11:20 by pool-smoke CI run 38242323673), next visit possible after 2026-10-13 00:00 UTC');
+  assert.equal(notRun, 'NOT RUN: Personio form in German: the site limit (seitenbau-gmbh.jobs.personio.de: 2 live visits today (limit 2), the last at 11:20 by record-sites CI run 38242323673), next visit possible after 2026-10-13 00:00 UTC');
   assert.equal(markdown.split('\n')[0], notRun);
   assert.deepEqual(red, [notRun]);
   const gone = {...nothingRan(), results: {'Join: form on join.com': {reached: 'none', url: 'u', note: 'posting gone (HTTP 404)'}}};
@@ -114,7 +114,7 @@ test('the summary names each row\'s applicant (grown on a PR proof, thin by hand
 });
 
 test('a by-hand run refused because the last visit is kept for a PR proof says so in its NOT RUN line', () => {
-  const kept = 'site-ledger: jobs.personio.example is not visited: 1 live visit today; the other 1 is kept for a PR proof (limit 2), the last at 11:20 by pool-smoke CI run 9. Counted from x';
+  const kept = 'site-ledger: jobs.personio.example is not visited: 1 live visit today; the other 1 is kept for a PR proof (limit 2), the last at 11:20 by record-sites CI run 9. Counted from x';
   assert.match(summary(nothingRan({skipped: [{shape: 'Personio form in German', why: kept}]}), {now: new Date('2026-10-12T12:30:00Z')}).notRun,
     /^NOT RUN: Personio form in German: the site limit \(jobs\.personio\.example: 1 live visit today; the other 1 is kept for a PR proof \(limit 2\)/);
 });

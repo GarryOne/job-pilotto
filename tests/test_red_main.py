@@ -26,7 +26,7 @@ CLASSIFIED = {
     'CI · Site replays · PR (10 rows)': 'ignored: pull requests only (required there as "replay gate")',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
-    'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
+    'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Record sites (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
     'Release · Build, test, beta': 'ignored: the release run, its own gates and rollback (pipeline gates)', 'Release · Promote to stable': 'ignored: release', 'CI · Promotion dry run': 'ignored: release rehearsal',
     'CI · Release to beta': 'ignored: release', 'CI · Stable canary': 'ignored: release', 'Release · Website': 'ignored: site deploy', 'Release · Website preview (next)': 'ignored: site deploy',
     'Release · Worker': 'ignored: worker deploy', 'CI · Judge exam': 'ignored: AI eval', 'CI · Control tests (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',

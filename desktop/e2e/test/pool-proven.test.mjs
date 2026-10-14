@@ -46,8 +46,8 @@ test('the list for the coordinator: one ready-to-dispatch line per fix that is n
   const fixed = [{site: 'Lever: single page, no account', commit: 'abc1234', landedAt: '2026-10-12T12:00:00Z', proven: null}, {site: 'Recruitee form', commit: 'def5678', landedAt: '2026-10-12T11:00:00Z', proven: {at: 'x', run: '9', by: 'main'}},
     {site: 'Join: form on join.com', commit: '0011223', landedAt: '2026-10-12T13:00:00Z', proven: null}];
   assert.deepEqual(dispatchLines(fixed), [
-    "Join: form on join.com\t0011223\tgh workflow run pool-smoke.yml --ref main -f only='Join: form on join.com' -f share=1",
-    "Lever: single page, no account\tabc1234\tgh workflow run pool-smoke.yml --ref main -f only='Lever: single page, no account' -f share=1"]);
+    "Join: form on join.com\t0011223\tgh workflow run record-sites.yml --ref main -f only='Join: form on join.com' -f share=1",
+    "Lever: single page, no account\tabc1234\tgh workflow run record-sites.yml --ref main -f only='Lever: single page, no account' -f share=1"]);
   assert.deepEqual(dispatchLines([]), []);
-  assert.deepEqual(dispatchLines([{site: "Odd 'name'", commit: 'a', landedAt: '2026-10-12T12:00:00Z', proven: null}]).map(line => line.split('\t')[2]), ["gh workflow run pool-smoke.yml --ref main -f only='Odd '\\''name'\\''' -f share=1"]);
+  assert.deepEqual(dispatchLines([{site: "Odd 'name'", commit: 'a', landedAt: '2026-10-12T12:00:00Z', proven: null}]).map(line => line.split('\t')[2]), ["gh workflow run record-sites.yml --ref main -f only='Odd '\\''name'\\''' -f share=1"]);
 });
