@@ -104,6 +104,51 @@ class EveryRequiredJobDecidesFirst(unittest.TestCase):
             on = (ROOT / '.github/workflows' / name).read_text().split('\njobs:')[0]
             self.assertNotRegex(on, r'(?m)^\s+paths(-ignore)?:', name)
 
+    def test_no_required_check_lives_in_a_workflow_with_paths(self):
+        # The class: a workflow that `on: paths:` skips never reports, so a required check in it blocks the PR for ever (harness.yml since 14 Oct 2026).
+        checks = required()
+        filtered = [(wf, pattern) for wf, _, pattern, _ in workflow_jobs() if re.search(r'(?m)^\s+paths(-ignore)?:', (ROOT / '.github/workflows' / wf).read_text().split('\njobs:')[0])]
+        self.assertIn('harness.yml', {wf for wf, _ in filtered}, 'positive control: the harness workflow is filtered by paths')
+        self.assertEqual([(wf, c) for wf, pattern in filtered for c in checks if pattern.match(c)], [])
+
+
+def gh_paths(workflow):
+    """-> a function file -> does this workflow's `on: pull_request: paths:` take it (GitHub's rule: the last pattern that matches wins, `!` excludes)."""
+    on = (ROOT / '.github/workflows' / workflow).read_text().split('\njobs:')[0]
+    block = on.split('    paths:\n', 1)[1]
+    patterns = [m.group(1) for m in re.finditer(r"(?m)^      - '([^']+)'", block.split('\n  push:')[0])]
+    def regex(glob):
+        out = re.escape(glob).replace(r'\*\*', '\0').replace(r'\*', '[^/]*').replace('\0', '.*')
+        return re.compile(f'^{out}$')
+    rules = [(p.startswith('!'), regex(p.lstrip('!'))) for p in patterns]
+    def takes(file):
+        verdict = False
+        for negated, rule in rules:
+            if rule.match(file):
+                verdict = not negated
+        return verdict
+    return takes
+
+
+class TheHarnessRunsOnlyForItsOwnCode(unittest.TestCase):
+    # Owner, 14 Oct 2026, on #700 (a PR that changed only a recorded case ran the harness tests): "drop your shared pick logic, rely fully on gh workflow paths".
+    def test_a_pr_that_changes_only_recorded_cases_or_fixtures_skips_the_harness(self):
+        takes = gh_paths('harness.yml')
+        for f in ('desktop/e2e/recorded/combo-never-opens-late-answers-1/case.json', 'desktop/e2e/recorded/combo-never-opens-late-answers-1/form.html',
+                  'desktop/e2e/recorded-pending/x/case.json', 'desktop/e2e/fixtures/forms/a.html', 'desktop/e2e/ladder-fixtures/a.json', 'desktop/e2e/widget-zoo/a.html',
+                  'extension/fill-flow.js', 'desktop/lib/analytics.js', 'docs/HOW-IT-RUNS.md', 'site/src/aicost.js', 'tools/ci-needed.sh'):
+            self.assertFalse(takes(f), f)
+
+    def test_a_pr_that_changes_the_harness_code_runs_it(self):
+        takes = gh_paths('harness.yml')
+        for f in ('desktop/e2e/lib/forms.mjs', 'desktop/e2e/test/replay-pick.test.mjs', 'desktop/e2e/replay-records.mjs', 'desktop/e2e/package.json',
+                  'desktop/scripts/stage.mjs', 'desktop/package.json', '.github/workflows/harness.yml'):
+            self.assertTrue(takes(f), f)
+
+    def test_the_pick_no_longer_knows_the_harness(self):
+        self.assertNotIn('harness', jobs.JOBS)
+        self.assertNotIn('harness', (ROOT / '.github/workflows/pr-gate.yml').read_text().split('\njobs:')[1].split('flow-fresh:')[0])
+
 
 class TheShapesItWasMeasuredOn(unittest.TestCase):
     def ran(self, files):
@@ -119,27 +164,8 @@ class TheShapesItWasMeasuredOn(unittest.TestCase):
         # PR #486
         ran = self.ran(['CLAUDE.md', 'desktop/e2e/recorded/email-first-no-step-1/case.json', 'desktop/e2e/recorded/email-first-no-step-1/login.html',
                         'extension/fill-flow.js', 'extension/fingerprint.json', 'extension/manifest.json'])
-        self.assertLessEqual({'replays', 'harness', 'desktop', 'zoo'}, ran)
+        self.assertLessEqual({'replays', 'desktop', 'zoo'}, ran)
         self.assertTrue(jobs.reasons(['extension/fill-flow.js'])['replays'])
-
-    def test_a_harness_lib_change_runs_the_harness_tests(self):
-        # PR #509
-        ran = self.ran(['.github/workflows/pool-smoke.yml', 'desktop/e2e/lib/pool-ci.mjs', 'desktop/e2e/lib/smoke.mjs', 'desktop/e2e/pool-ai-cost.mjs',
-                        'desktop/e2e/pool-ci-summary.mjs', 'desktop/e2e/test/pool-ai-cost.test.mjs', 'site/src/jobcost.js'])
-        self.assertIn('harness', ran)
-
-    def test_the_harness_runs_on_a_pull_request_only_for_its_own_paths(self):
-        # Owner, 14 Oct 2026: it ran on ~91% of PRs, mostly because a test names or reads a file elsewhere; its 17 failures on PRs since 12 Oct were all
-        # on PRs touching its own paths (3 more touched only Python tests: not theirs). "can't we just use 'paths'": a product change elsewhere skips it.
-        for f in ('desktop/lib/analytics.js', 'extension/page/coverage.js', 'docs/HOW-IT-RUNS.md', 'site/src/aicost.js', 'something/new.bin'):
-            self.assertIsNone(jobs.reason('harness', [f]), f)
-        for f in ('desktop/e2e/lib/forms.mjs', 'desktop/scripts/stage.mjs', 'desktop/package.json', 'tools/ci-needed.sh', '.github/workflows/pr-gate.yml', 'package.json'):
-            self.assertTrue(jobs.reason('harness', [f]), f)
-
-    def test_a_harness_lib_change_or_plumbing_runs_every_harness_test(self):
-        self.assertIsNone(jobs.tests_reached('harness', ['desktop/e2e/lib/smoke.mjs']), 'its own folder: all of them')
-        self.assertIsNone(jobs.tests_reached('harness', ['tools/affected-jobs.py']), 'the pick itself: all of them')
-        self.assertEqual(jobs.tests_reached('harness', ['docs/rules/files.md']), [], 'nothing reached: none')
 
     def test_docs_alone_run_no_replay_and_no_harness_lib(self):
         self.assertFalse(self.ran(['docs/rules/files.md']) & {'replays', 'zoo', 'worker', 'site'})
@@ -182,7 +208,7 @@ class WhenInDoubtItRuns(unittest.TestCase):
 
     def test_what_the_stage_step_copies_counts_for_the_jobs_that_stage(self):
         self.assertLessEqual({'worker/src/', 'extension/alias-schema.js'}, set(jobs.staged()))
-        self.assertTrue(jobs.reasons(['worker/src/report.js'])['harness'])
+        self.assertTrue(jobs.reasons(['worker/src/report.js'])['zoo'])
 
     def test_a_replay_job_runs_for_what_the_replay_loads_and_the_scripts_it_starts_by_path(self):
         replays = jobs.loads('replays')
@@ -228,15 +254,6 @@ class TheStepInTheJob(unittest.TestCase):
     def test_a_pull_request_the_pick_reaches_runs(self):
         self.merge_commit()
         self.assertEqual(self.verdict('pull_request', 'print("run: x reads y")')[0], 'run=true')
-
-    def test_the_harness_gets_only_the_tests_the_pick_names(self):
-        # Owner, 13 Oct 2026, on #553: one harness guard test was reached and all 190 ran.
-        self.merge_commit()
-        stand_in = 'import sys\nprint("test/a.test.mjs test/b.test.mjs" if "--tests" in sys.argv else "run: test/a.test.mjs reads desktop/lib/")'
-        self.assertEqual(self.verdict('pull_request', stand_in, 'harness')[0], 'run=true\ntests=test/a.test.mjs test/b.test.mjs')
-        all_tests = 'import sys\nprint("all" if "--tests" in sys.argv else "run: x reads y")'
-        self.assertEqual(self.verdict('pull_request', all_tests, 'harness')[0], 'run=true', '"all": no list, the job runs every test')
-        self.assertEqual(self.verdict('push', stand_in, 'harness')[0], 'run=true', 'main runs everything')
 
     def test_a_push_to_main_always_runs(self):
         self.merge_commit()

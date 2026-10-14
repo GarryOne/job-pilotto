@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A required CI job's first step (owner, 12 Oct 2026: "why do we run this test harness, if not relevant code has been changed"): can this pull request break the job?
 # It writes run=true|false to $GITHUB_OUTPUT and prints why; the job's later steps run only on run=true, and the job still reports (a skipped step passes).
-#   bash tools/ci-needed.sh <job>     (a job of tools/affected-jobs.py: python desktop worker site harness replays zoo)
+#   bash tools/ci-needed.sh <job>     (a job of tools/affected-jobs.py: python desktop worker site replays zoo replaygate)
 # The answer is tools/affected-jobs.py on what the merge commit changes (HEAD^1..HEAD, checkout fetch-depth 2). Not a pull request (a push to main, a manual run: the
 # backstop runs everything), no merge commit to compare, or the pick failing: the job runs. Guarded by tests/test_affected_jobs.py.
 set -u
@@ -22,8 +22,3 @@ fi
 case "$verdict" in skip:*) run=false ;; *) run=true ;; esac
 echo "$job: $verdict"
 echo "run=$run" >>"$out"
-# Which of the job's tests to run (harness only, owner 13 Oct 2026 on #553: one guard test reached, all 190 ran): tests=<files> when the pick names them; empty = all.
-if [ "$run" = true ] && [ "$job" = harness ] && [ -n "${py:-}" ] && [[ "$verdict" != *"runs every job"* ]] && [[ "$verdict" != *"is its own"* ]]; then
-  picked="$("$py" tools/affected-jobs.py --job "$job" --tests --base 'HEAD^1' 2>/dev/null | tail -n 1)"
-  case "$picked" in ''|all) ;; *) echo "tests=$picked" >>"$out"; echo "$job: runs only $(wc -w <<<"$picked" | tr -d ' ') of its tests: $picked" | cut -c1-400 ;; esac
-fi
