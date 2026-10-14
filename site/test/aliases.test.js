@@ -10,7 +10,7 @@ import {controls, installToken} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql', '0014_intelligence.sql', '0016_intel_signals.sql', '0023_intel_fix_days.sql', '0017_alias_proposals.sql', '0022_form_required.sql', '0044_family_counts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql', '0014_intelligence.sql', '0016_intel_signals.sql', '0023_intel_fix_days.sql', '0017_alias_proposals.sql', '0022_form_required.sql', '0044_family_counts.sql', '0053_form_starred.sql', '0069_exposure_source.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -169,7 +169,6 @@ test('the learning tables keep what still decides something: old outcomes, decid
 
 test('a fill report carries the star count into the board\'s exposure row, clamped, and an old app sends none', async () => {
   const e = env();
-  e.STATS.db.exec(readFileSync(new URL('../migrations/0053_form_starred.sql', import.meta.url), 'utf8'));
   const send = exposure => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-aaaa-1111', exposure})}), e, now);
   await send([{board: 'recruitingapp-662.umantis.com', n: 2, required: 0, starred: 12}]);
   await send([{board: 'recruitingapp-662.umantis.com', n: 1, required: 0, starred: 999999}, {board: 'ashby', n: 1, required: 5}]);

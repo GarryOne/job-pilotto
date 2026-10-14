@@ -10,7 +10,7 @@ import {page, report} from '../src/formlearning.js';
 function d1() {
   const db = new DatabaseSync(':memory:');
   for (const file of ['0002_telemetry.sql', '0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0009_knowledge.sql', '0017_alias_proposals.sql',
-    '0022_form_required.sql', '0044_family_counts.sql', '0046_form_answers.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+    '0022_form_required.sql', '0044_family_counts.sql', '0053_form_starred.sql', '0069_exposure_source.sql', '0046_form_answers.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args) ?? null});
   return {db, d1: {prepare: sql => statement(sql)}};
