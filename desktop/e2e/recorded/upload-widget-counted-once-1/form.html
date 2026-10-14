@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field-wrapper{margin:14px 0} label,.label{display:block;font-weight:600;margin-bottom:4px} .required{color:#c00}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .btn{display:block;width:300px;margin:6px 0;padding:8px}</style></head><body>
+<form id="application">
+<div class="field-wrapper"><label for="first_name">First Name<span class="required">*</span></label><input id="first_name" aria-required="true"></div>
+<div class="field-wrapper"><label for="email">Email<span class="required">*</span></label><input id="email" type="text" aria-required="true"></div>
+<div class="field-wrapper"><div role="group" aria-labelledby="upload-label-resume" aria-required="true" class="file-upload"><div id="upload-label-resume" class="label upload-label">Resume/CV<span class="required">*</span></div><div class="file-upload__wrapper"><div class="button-container"><div class="secondary-button"><div><button type="button" class="btn">Attach</button><label class="visually-hidden" for="resume">Attach</label><input id="resume" class="visually-hidden" type="file" accept=".pdf,.doc,.docx,.txt,.rtf"></div></div><div class="secondary-button"><button type="button" class="btn">Dropbox</button></div><div class="secondary-button"><button type="button" class="btn">Enter manually</button><label class="visually-hidden" for="resume_text">Enter manually</label></div></div><p class="file-upload__filetypes">Accepted file types: pdf, doc, docx, txt, rtf</p></div></div></div>
+<div class="field-wrapper"><div role="group" aria-labelledby="upload-label-cover_letter" aria-required="false" class="file-upload"><div id="upload-label-cover_letter" class="label upload-label">Cover Letter</div><div class="file-upload__wrapper"><div class="button-container"><div class="secondary-button"><div><button type="button" class="btn">Attach</button><label class="visually-hidden" for="cover_letter">Attach</label><input id="cover_letter" class="visually-hidden" type="file" accept=".pdf,.doc,.docx,.txt,.rtf"></div></div><div class="secondary-button"><button type="button" class="btn">Dropbox</button></div><div class="secondary-button"><button type="button" class="btn">Enter manually</button><label class="visually-hidden" for="cover_letter_text">Enter manually</label></div></div><p class="file-upload__filetypes">Accepted file types: pdf, doc, docx, txt, rtf</p></div></div></div>
+<button type="submit">Submit application</button>
+</form>
+<script>
+// As the hosted form does: once a file is in, the field drops its buttons and input, and draws the file's chip after its upload answers (a gap of a few seconds).
+document.getElementById('resume').addEventListener('change', event => {
+  const name = event.target.files[0]?.name || 'file', wrapper = event.target.closest('.file-upload__wrapper');
+  wrapper.innerHTML = '';
+  setTimeout(() => { wrapper.innerHTML = '<div class="file-upload__filename"><p class="body">' + name + '</p><button type="button" aria-label="Remove file">&times;</button></div>'; }, 6000);
+});
+</script></body></html>

@@ -12,7 +12,7 @@ export const WIDGETS = ['text', 'masked_text', 'native_select', 'custom_select',
 // The checks that say a value is in its control (page-replay.mjs judgeCase); `asked` says the reader saw the question.
 export const COMMIT_CHECKS = ['attached', 'filled', 'kept', 'valueHas', 'pressed', 'chosen', 'present'];
 // The checks that say the extension's own claims match the page (one truth per control, amendment 4): the fill's record, the panel's report, what the judge was shown.
-export const TRUTH_CHECKS = ['traced', 'pending', 'notPending', 'judged', 'notJudged'];
+export const TRUTH_CHECKS = ['traced', 'notTraced', 'pending', 'notPending', 'judged', 'notJudged'];
 export const MAX_PAGE_BYTES = 6 * 1024;
 
 export const loadZoo = (dir = ZOO_DIR) => loadCases(dir);
