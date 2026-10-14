@@ -69,5 +69,11 @@ class ReplayOfflineShards(unittest.TestCase):
         self.assertIn('pattern: replay-shard-${{ github.run_id }}-*', WORKFLOW)
         self.assertIn('rows from the shards', WORKFLOW)
 
+    def test_each_row_keeps_its_unmatched_asks_whole(self):
+        # 14 Oct 2026: coreweave missed its first ask on the runner only; the app log cut the line before the part that differed.
+        replay = (ROOT / 'desktop' / 'e2e' / 'replay-net.mjs').read_text()
+        self.assertIn("JOB_PILOTTO_MODEL_MEMO_MISSLOG = path.join(out, 'misses.jsonl')", replay)
+        self.assertIn('replay-out/replays/*/misses.jsonl', WORKFLOW)
+
     def test_a_broken_shard_is_told_on_telegram(self):
         self.assertIn("needs.replay.result }}\" != success", WORKFLOW)
