@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {MAX_BYTES, reportForm} from '../src/report-form.js';
+import {ALL_BYTES_PER_DAY, ALL_REPORTS_PER_DAY, MAX_BYTES, reportForm} from '../src/report-form.js';
 import {tokenFor} from '../src/guard.js';
 
 function d1() {
@@ -67,4 +67,18 @@ test('only the owner lists, downloads and marks reports', async () => {
   assert.equal((await owner(e, 'POST', `/api/report-form/${id}?status=fetched`)).status, 200);
   assert.deepEqual((await (await owner(e, 'GET', '/api/report-form')).json()).reports, [], 'a fetched report is no longer waiting');
   assert.equal((await owner(e, 'GET', '/api/report-form/nope')).status, 404);
+});
+
+test('the day\'s total holds when every install id is new: 50 reports and 200 MB across all installs, one counter row a day', async () => {
+  const e = env();
+  for (let i = 0; i < ALL_REPORTS_PER_DAY; i++) assert.equal((await upload(e, {install: `install-${String(i).padStart(4, '0')}-abcd`, size: 10})).status, 200, `report ${i}`);
+  const over = await upload(e, {install: 'install-fresh-0001', size: 10});
+  assert.equal(over.status, 429); assert.equal((await over.json()).error, 'limit reached for today');
+  assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM form_reports').get().n, ALL_REPORTS_PER_DAY, 'the refused one stored nothing');
+  assert.equal(e.REPORTS.kept.size, ALL_REPORTS_PER_DAY * 2);
+  assert.deepEqual(e.STATS.db.prepare('SELECT reports FROM form_report_days').all().map(row => row.reports), [ALL_REPORTS_PER_DAY], 'one counter row, not one per request');
+  assert.equal((await upload(e, {install: 'install-tomorrow-1', size: 10, now: new Date('2026-10-16T00:00:00Z')})).status, 200, 'the next UTC day starts again');
+  const bytes = env(), full = ALL_BYTES_PER_DAY / MAX_BYTES;
+  for (let i = 0; i < full; i++) assert.equal((await upload(bytes, {install: `install-big-${String(i).padStart(4, '0')}`, size: MAX_BYTES})).status, 200, `big ${i}`);
+  assert.equal((await upload(bytes, {install: 'install-big-extra', size: 1000})).status, 429, 'the byte cap holds with new install ids too');
 });

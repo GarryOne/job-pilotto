@@ -10,3 +10,10 @@ CREATE TABLE IF NOT EXISTS form_reports (
   status TEXT NOT NULL DEFAULT 'new'
 );
 CREATE INDEX IF NOT EXISTS form_reports_day_who ON form_reports(day, who);
+
+-- The day's total across ALL installs (one row a day, bumped once per report): a new install id gets a new per-install quota, so this is the cap that holds (spec §6).
+CREATE TABLE IF NOT EXISTS form_report_days (
+  day TEXT PRIMARY KEY,
+  reports INTEGER NOT NULL,
+  bytes INTEGER NOT NULL
+);
