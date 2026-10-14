@@ -5,6 +5,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {outputOfLog, parseLive} from './smoke.mjs';
 
+const KEPT_LOG = 'app.log';   // the live run's log KEPT in the record folder (not the app's own logs/app.log, which app-log.mjs reads)
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
 // Every record of every row, oldest first: {name, dir, startMs, at, log, outcome (the live run's: reached, filled, left)}. byUrl: pool row by posting address, as replay-records.mjs newestPerRow.
@@ -15,7 +16,7 @@ export function recordsByRow(root, byUrl = new Map()) {
       if (!entry.isDirectory()) continue;
       const here = path.join(dir, entry.name), record = json(path.join(here, 'record.json'));
       if (!record) { walk(here); continue; }
-      let log = ''; try { log = fs.readFileSync(path.join(here, 'app.log'), 'utf8'); } catch { /* an old record has none */ }
+      let log = ''; try { log = fs.readFileSync(path.join(here, KEPT_LOG), 'utf8'); } catch { /* an old record has none */ }
       const first = record.entries?.find(item => item.type === 'document')?.url || record.url, live = log.trim() ? parseLive(outputOfLog(log, first)) : null;
       const name = record.name || byUrl.get(String(record.url || '').split('#')[0]) || new URL(record.url).host;
       if (!rows.has(name)) rows.set(name, []);
