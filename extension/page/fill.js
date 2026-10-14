@@ -118,7 +118,11 @@
     }
     // The files (page/upload.js): each upload slot is operated by what it asks for; a miss is reported by fingerprint like any control's.
     const uploads = !(await gate()) ? [] : await window.__jobPilottoUpload.fill({resume: resume?.data ? resume : null, coverLetter: resume?.coverLetterFile || null}).catch(() => []);
-    const resumeAttached = uploads.some(item => item.meaning === 'resume' && item.ok);
+    // What a pass on this page attached, by meaning: its slot's title. A field the page redraws after the file went in has no slot for a while (the live chip came 4.5 s
+    // or more after the file), so a later pass then keeps the file as given; a slot that comes back empty is a slot again, and the upload above gives it the file.
+    const given = window.__jobPilottoUploadsGiven ||= {};
+    for (const item of uploads) if (item.ok && item.meaning && item.label) given[item.meaning] = item.label;
+    const resumeAttached = uploads.some(item => item.meaning === 'resume' && item.ok) || (!uploads.some(item => item.meaning === 'resume') && !!given.resume);
     const letterFileAttached = uploads.some(item => item.meaning === 'cover_letter' && item.ok);
     window.__jobPilottoOperated = [...(window.__jobPilottoOperated || []), ...uploads.filter(item => item.ok !== undefined)
       .map(({fp, recipe, ok, why}) => ({kind: 'upload', fp, recipe: recipe || 0, ok, why: why || ''}))];
@@ -167,7 +171,7 @@
       // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on
       // the page (and in the audit) without its question ever having been asked.
       // The upload slots' titles too (page/upload.js): their own rows say filled or left, even while the page redraws a field after the file went in.
-      const read = [...form.map(row => row.label), ...(window.__jobPilottoOperatedQuestions || []), ...uploads.map(item => item.label).filter(Boolean)];
+      const read = [...form.map(row => row.label), ...(window.__jobPilottoOperatedQuestions || []), ...uploads.map(item => item.label).filter(Boolean), ...Object.values(given)];
       for (const item of window.__jobPilottoCoverage.unread(document, read, visible)) {
         item.area.setAttribute('data-jobpilotto-unread', item.question);
         unread.push(item);
