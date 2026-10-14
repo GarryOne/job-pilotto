@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
+import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, layoutKey, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -38,7 +38,7 @@ test('a hit answers without asking; a miss asks once and is kept on disk for the
   withMemo(again, file);
   assert.deepEqual((await again.messages.create(ask('a form page'))).content, first.content);
   const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(Object.keys(stored).filter(name => !/#(parts|lines|volatile|ms)$/.test(name)).length, 1, 'one answer, and beside it its parts (hashes) and how long the ask took');
+  assert.equal(Object.keys(stored).filter(name => !/#(parts|lines|volatile|ms|layout)$/.test(name)).length, 1, 'one answer, and beside it its parts (hashes) and how long the ask took');
   assert.ok(!JSON.stringify(stored).includes('a form page'), 'the request text is not stored, only its hash and the answer');
 });
 
@@ -264,4 +264,22 @@ test('ordinal picks, among the kept answers of the kind, the one whose parts dif
   const create = withMemo({messages: {create: async () => { throw new Error('never asked'); }}}, file, {only: true, ordinal: note}).messages.create;
   const got = async params => JSON.parse((await create(params)).content[0].text).v;
   assert.equal(await got(variant('fields B', 'page with something new')), 'fields B', 'the fields part matches variant B: the 1st ask of the kind still gets B, not the 1st kept');
+});
+
+test('a frame\'s pixel size is layout, not meaning: a replay on another machine still finds the answer kept for it (old records keep their exact key)', async () => {
+  // 14 Oct 2026, coreweave: the runner's fonts made the embedded Greenhouse frame 6869 px tall, the Mac's live run 6993: one number, no kept answer, 3/11 asks.
+  const page = height => ask(`frames: ${JSON.stringify([{host: 'job-boards.greenhouse.io', path: '/embed/job_app', width: 1140, height}])}`);
+  assert.notEqual(memoKey(page(6993)), memoKey(page(6869)), 'the exact key is unchanged, so every record made before this still matches as before');
+  assert.equal(layoutKey(page(6993)), layoutKey(page(6869)));
+  assert.notEqual(layoutKey(page(6993)), layoutKey(ask('frames: []')), 'the rest of the ask still counts');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), file = path.join(dir, 'model-memo.json'), hits = path.join(dir, 'hits.txt');
+  let calls = 0;
+  const reply = {content: [{type: 'text', text: '{"kind":"form"}'}], stop_reason: 'end_turn', usage: {input_tokens: 9, output_tokens: 3}};
+  const live = withMemo({engine: 'cli', messages: {create: async () => { calls += 1; return reply; }}}, file, {only: false});
+  await live.messages.create(page(6993));
+  const env = {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_HITS: hits};
+  const replay = withMemo({engine: 'cli', messages: {create: async () => { throw new Error('never asked'); }}}, file, {only: true, env});
+  assert.deepEqual(await replay.messages.create(page(6869)), reply);
+  assert.equal(calls, 1);
+  assert.equal(fs.readFileSync(hits, 'utf8').trim(), memoKey(page(6993)), 'the hit counts as the live ask it stands for');
 });

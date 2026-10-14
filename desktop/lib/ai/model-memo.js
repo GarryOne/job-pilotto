@@ -27,6 +27,15 @@ export function memoKey(params = {}) {
   return crypto.createHash('sha256').update(normalise(JSON.stringify(asked))).digest('hex');
 }
 
+// The same request with every pixel size ("width"/"height" in the page's JSON) taken out: a frame's size follows the machine's fonts (14 Oct 2026, coreweave: the
+// runner's Greenhouse frame was 6869 px, the Mac's live run 6993, and the replay found no kept answer). Kept as a second key beside the exact one, so a record made
+// before it keeps matching by its exact key and a new one also matches on another machine. -> hex
+const SIZES = /(\\*"(?:width|height)\\*":)\d+(?:\.\d+)?/g;
+export function layoutKey(params = {}) {
+  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null};
+  return crypto.createHash('sha256').update(normalise(JSON.stringify(asked)).replace(SIZES, '$1<px>')).digest('hex');
+}
+
 // The request's PARTS, as short hashes (never text): the model, each system block, and the user message cut by its <tag> blocks (or, for a message without tags, by its "Label:" lines).
 // Kept beside each answer, so a replay's miss can say WHICH part differs from the live ask ("job differs", "system:1 differs") instead of only "not in its kept answers" (12 Oct 2026, Ashby).
 const TAGGED = /<([a-z_]+)>([\s\S]*?)<\/\1>/g;
@@ -92,7 +101,7 @@ export function nearestDiffers(parts, kept, lines = {}) {
     return changed.length ? `${part} (lines ${changed.length > 3 ? `${changed[0]}-${changed.at(-1)}, ${changed.length} in all` : changed.join(', ')} of ${mine.length})` : part;
   });
 }
-const PARTS = '#parts', LINES = '#lines', VOLATILE = '#volatile', MS = '#ms';
+const PARTS = '#parts', LINES = '#lines', VOLATILE = '#volatile', MS = '#ms', LAYOUT = '#layout';   // <layoutKey>#layout -> the exact key
 
 const insideRealData = file => (path.resolve(file) + path.sep).startsWith(path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto') + path.sep);
 
@@ -145,7 +154,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
   const served = {};   // asks made per kind (ordinal)
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
-    const key = memoKey(params), kept = read(file), parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
+    const exact = memoKey(params), kept = read(file), alias = kept[layoutKey(params) + LAYOUT], key = kept[exact] || !alias || !kept[alias] ? exact : alias, parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
     if (ordinal) served[kind] = (served[kind] || 0) + 1;
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
@@ -181,7 +190,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params), [key + MS]: tookMs, ...(volatileParts(params).length ? {[key + VOLATILE]: volatileParts(params)} : {})}));
+      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [layoutKey(params) + LAYOUT]: key, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params), [key + MS]: tookMs, ...(volatileParts(params).length ? {[key + VOLATILE]: volatileParts(params)} : {})}));
       fs.renameSync(tmp, file);
     } catch { /* the cache is only a speed-up */ }
     return answer;
