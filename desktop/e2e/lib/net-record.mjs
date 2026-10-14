@@ -2,7 +2,7 @@
 // got (never cookies, request headers or request bodies); the replayer serves it back by the spec's rules. Guard: e2e/test/net-record.test.mjs.
 import fs from 'node:fs';
 import {normalise} from '../../lib/ai/model-memo.js';
-import {keepRecord, normUrl, prefetchedCode, recordable, sha, siteOf} from '../../lib/net-keep.js';
+import {KEEP_HEADER, keepRecord, normUrl, prefetchedCode, recordable, sha, siteOf} from '../../lib/net-keep.js';
 export {keepRecord, normUrl, prefetchedCode, recordable};   // the keep rules live in desktop/lib/net-keep.js (shared with the product's report)
 const pathOf = url => { const u = new URL(url); return `${u.protocol}//${u.host}${normalise(u.pathname)}`; };
 // The request body as a key, never the body: multipart parts by name (a file part by its bytes' hash, text normalised), a binary body by hash, text normalised.
@@ -19,7 +19,6 @@ export function bodyKey(buf, contentType = '') {
   if (buf.includes(0) || /octet-stream|pdf/.test(contentType)) return `bin:${sha(buf).slice(0, 16)}`;
   return `txt:${sha(normalise(buf.toString('utf8'))).slice(0, 16)}`;
 }
-const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;
 // A header the site sent as raw UTF-8 bytes (a redirect to ".../Genève/...") reaches the recorder read as Latin-1 ("GenÃ¨ve"); the live browser read
 // the bytes as UTF-8. The replay hands them back the browser's way, or it follows a double-encoded address that was never recorded (14 Oct 2026,
 // Breitling: the fill never started). A value that is not valid UTF-8 that way is kept as it is. -> string

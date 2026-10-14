@@ -41,14 +41,14 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 | Page with a password field (any frame) | ❌ nothing | recording stops: "This page needs you to sign in; it cannot be reported" (never past a login wall) |
 | URLs | ✅ scrubbed | host and path kept; **every query value → `<v>`**, fragment dropped; a path segment that is an e-mail or a long id-like token → `<id>`. `Location` headers the same |
 | HTML, JSON, text responses | ✅ scrubbed | (a) `value=`, `<textarea>` text and selected options blanked; (b) **the person's own values** (name words, e-mail, phone, place, CV file names, from the app's profile and CV facts: the same list the tripwire builds, through `worker/src/owner-guard.js`'s matcher) replaced by `<name>`, `<email>`...; (c) any e-mail address or phone-like number → `x@example.invalid` / `<phone>` |
-| JS, CSS, fonts | ✅ | public site code; (b) and (c) still run (a bootstrapped JSON blob can sit in a script) |
+| JS, CSS, fonts | ✅ | public site code; (c) still runs, and (b) with the full values only (an e-mail, a phone, two or more name words in a row, a "City, Country"): a single name word that is also an identifier is left in code so a script never breaks. The last gate uses the same rule |
 | `record.json` fields | ✅ | entries, hosts, sizes, timings, app version, cause word (fixed list), `source: "person"`; **no free text, no profile, no install id** |
 - **Last gate (the tripwire check, before upload):** the scrubbed bundle is scanned again with the owner values; **one hit = nothing is sent**, the person sees "Could not remove everything safely; nothing was sent", only kinds are logged, never values.
 - Known limit, said in the preview: a site that keeps the person's data under a label the lists do not know (a nickname) is not matched by (b). Hence the preview, hosts the person can drop, and refusing login pages. Dropping a host removes its responses (the report may then not replay; the preview says so).
 
 ### 3. Consent UI
 - **Button:** "Report this form" on the Needs-your-attention card of a stuck application (reuse the card's action row) and in ⌘K ("Report this form"). Setting **Settings → Privacy → "Show Report this form"** (default on: the button existing collects nothing).
-- **Flow:** press → one sentence ("We'll reload this tab and record what the site sends while you repeat the step. Nothing leaves until you press Send.") → **Start recording** → **Stop and review** → preview → **Send** / **Cancel** (Cancel is the focused default, Esc cancels).
+- **Flow:** press → one sentence ("The page will reload; answers on this page may be cleared. We'll record what the site sends while you repeat the step. Nothing leaves until you press Send.") → **Start recording** (**the reload happens only on this press**; nothing records or reloads before it) → **Stop and review** → preview → **Send** / **Cancel** (Cancel is the focused default, Esc cancels).
 - **Preview (readable, not a dump):** hosts with a remove toggle; "N responses, X MB"; "Removed: N typed-value fields, N of your own values, N e-mails/phones, N images, cookies and headers"; a "Show me an example page" toggle (one scrubbed HTML head, so the person sees what a scrubbed page looks like). Built from the common components (skill `ui-look-and-feel`); screenshots in the UI PR.
 - After Send: one line "Sent. Delete it any time: Settings → Privacy → Reported forms".
 
@@ -99,9 +99,9 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 
 ## Progress
 - [x] History read; design weighed (proof: none: this spec)
-- [ ] Owner approves the spec (privacy-sensitive: no build before)
-- [ ] 1. Shared keep-rules module (proof: desktop/e2e/test/net-record.test.mjs)
-- [ ] 2. Scrub, owner values, last gate (proof: desktop/test/report-scrub.test.js)
+- [x] Owner approves the spec and its 3 answers (14 Oct 2026: reload only on the press, with the wording above; R2 bucket `form-reports`, 30 days; cause word only) (proof: #789 merged)
+- [x] 1. Shared keep-rules module (#793) (proof: desktop/e2e/test/net-record.test.mjs)
+- [x] 2. Scrub, owner values, last gate (proof: desktop/test/report-scrub.test.js)
 - [ ] 3. Extension collector and handoff
 - [ ] 4. Consent UI, setting, ⌘K
 - [ ] 5. Worker upload, storage, limits
