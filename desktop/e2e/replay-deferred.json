@@ -1,8 +1,7 @@
 {
  "about": "Pool rows put aside from the offline replay on purpose, by row name -> the reason (a few words, no address). replay-records.mjs sends it with each row to /admin/applying \"Replay vs live\" (Next: Deferred). Remove a row when its work resumes.",
  "rows": {
-  "Databricks (found 2026-10-10)": "Replay asks ~2 s late on the embedded form (height 1426 vs 1430); a reply-timeline fix did not help (14 Oct 2026)",
-  "coreweave (found 2026-10-10)": "Replay 8/11: fill takes another path mid-form, never reaches self-ID, final check, right-to-work note; trace in app.log (14 Oct)",
+  "Databricks (found 2026-10-10)": "The replay shows the OneTrust cookie banner the live page never rendered; the first page ask then differs and all later ones miss (14 Oct)",
   "jobs.ch -> Deloitte: email-first account, email code, CV choice step": "Replay timing: first ask lands before or after a late section loads (3/4 then 1/4); fix with Databricks timing (14 Oct)"
  }
 }
