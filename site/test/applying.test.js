@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {needsFixGroups} from '../src/applying-groups.js';
 import {PAGE, data, ingest, shortOf} from '../src/applying.js';
+import {STATES, STATE_WORD, rowStatus} from '../src/applying-status.js';
 import {storeReplays} from '../src/applying-replays.js';
 
 function d1() {
@@ -34,7 +35,7 @@ test('the page data: each site\'s last step and last runs, regressions first; ca
   assert.deepEqual(d.sites.map(site => [site.name, site.reached, site.regression, site.history]), [['jobs.ch account', 'posting', true, ['code/bot', 'posting']], ['Lever form', 'ready', false, ['ready']]]);
   assert.deepEqual(d.cases.map(item => [item.name, item.ok, item.note]), [['cv-choice-step-1', false, 'attached: #resumeFile'], ['cookie-banner-links-1', true, null]]);
   assert.deepEqual([d.tiles.cases, d.tiles.casesFailing, d.tiles.sites, d.tiles.regressions, d.tiles.reachedForm], [2, 1, 2, 1, 50]);
-  assert.deepEqual(d.nights.map(night => [night.day, night.counts['code/bot'], night.counts.ready, night.counts.posting]), [['2026-10-10', 1, 1, 0], ['2026-10-11', 0, 0, 1]]);
+  assert.deepEqual(d.nights.map(night => [night.day, night.counts.held, night.counts.works, night.counts.fix]), [['2026-10-10', 1, 1, 0], ['2026-10-11', 0, 0, 1]]);   // a code or bot check is held, not a miss
 });
 
 test('the pool: every site is listed, also one never run; platform and flow come from the host and signature; a path or query never gets in', async () => {
@@ -120,15 +121,16 @@ test('the colors legend is the foot of the pool table, not a section of its own'
   assert.ok(PAGE.indexOf('The AI ladder') < PAGE.indexOf('What the colors mean'));
 });
 
-test('the Nights chart sits right under the tiles: one row per night, newest first, a labelled segment per step, a key and a reached-the-form share', () => {
-  const nights = PAGE.slice(PAGE.indexOf('Nights · where each site got to'));
-  assert.ok(PAGE.indexOf('Nights · where each site got to') < PAGE.indexOf('The pool · every smoke site'), 'the chart is at the top');
-  assert.ok(PAGE.indexOf("className: 'tiles'") < PAGE.indexOf('Nights · where each site got to'));
+test('the by-hand runs chart sits right under the tiles: one row per day, newest first, a labelled segment per status, a key and a works share that leaves holds out', () => {
+  const title = 'By-hand runs · where each site got to', nights = PAGE.slice(PAGE.indexOf(title));
+  assert.ok(PAGE.indexOf(title) < PAGE.indexOf('The pool · every smoke site'), 'the chart is at the top');
+  assert.ok(PAGE.indexOf("className: 'tiles'") < PAGE.indexOf(title));
+  assert.ok(!PAGE.includes('Nights · where'), 'the pool has had no nights since 11 Oct 2026');
   assert.doesNotMatch(PAGE, /className: 'bars'/);   // the old thin vertical bars are gone
-  assert.match(nights, /\.slice\(-14\)\.reverse\(\)/);   // the last 14 nights, newest first
+  assert.match(nights, /\.slice\(-14\)\.reverse\(\)/);   // the last 14 days, newest first
   assert.match(nights, /textContent: count/);   // the count is written in its segment
-  assert.match(nights, /reached the form/);
-  assert.match(nights, /pill\(step\)/);   // a key of the steps
+  assert.match(nights, /held or site problem left out/);   // the share says what it leaves out
+  assert.match(nights, /d\.states\.map\(state => el\('span', \{className: 'pill st-'/);   // a key of the statuses
 });
 
 test('the page explains its colors: a legend row for every step the page draws', () => {
@@ -156,7 +158,7 @@ test('a form reached with under half of its fields filled is a shortfall: red on
 
 test('no column but the first breaks its text over lines, and the badge and its date share one line (owner, 10 Oct 2026)', () => {
   assert.ok(PAGE.includes('table td:not(:first-child),table th:not(:first-child){white-space:nowrap}'), 'cells after the first never wrap');
-  assert.ok(PAGE.includes('.legend td:last-child{white-space:normal}'), 'the legend\'s long meaning column may wrap');
+  assert.ok(PAGE.includes('details table td,details table th,.legend td:last-child{white-space:normal;overflow-wrap:anywhere}'), 'the legend\'s long meaning column and every table in a details box (the AI ladder\'s paths) may wrap');
   assert.ok(!PAGE.includes("s.day ? el('div', {className: 'muted', textContent: s.day})"), 'the date is a span beside the badge, not a block under it');
 });
 
@@ -179,8 +181,8 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
   const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
     append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
     text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
-  const row = (name, platform, reached, extra = {}) => ({name, platform, flow: '', start: 'x.com', end: '', reached, history: [reached], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null, ...extra});
-  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
+  const row = (name, platform, reached, extra = {}) => ({name, platform, flow: '', start: 'x.com', end: '', reached, history: [reached], status: rowStatus({reached, ...extra}), states: [{...rowStatus({reached, ...extra}), step: reached}], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null, ...extra});
+  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], states: STATES, stateWords: STATE_WORD, sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
     pool: [row('Aaa small site', 'Custom', 'posting'), row('Bbb big platform', 'Greenhouse', 'posting'), row('Ccc regressed', 'Custom', 'account', {regression: true}), row('Ddd big form', 'Greenhouse', 'form', {short: {done: 9, total: 12, unexplained: 3}}), row('Eee other big', 'Greenhouse', 'account')],
     scorecard: [{platform: 'Greenhouse', verdict: 'Fine', matchShare: 54}, {platform: 'Custom', verdict: 'Fine', matchShare: 1}]};
   const app = make('div');
@@ -210,10 +212,10 @@ test('the owner can delete one smoke run row (a run that should never have been 
 test('the pool search matches words in any order over name, platform, host, flow and result, and combines with the filters', () => {
   const snippet = PAGE.slice(PAGE.indexOf('/*search*/'), PAGE.indexOf('/*end search*/'));
   assert.ok(snippet.length > 100, 'the search code is on the page');
-  const matches = new Function('flowText', 'STAGE', 'shortText', 'blocked', `${snippet}; return poolMatches;`)(s => s.flow || '—', {posting: 'Posting reached', form: 'Form reached'}, s => `${s.short.unexplained} unexplained of ${s.short.total}`, s => s.reached === 'posting' && s.rung != null);
-  const aldi = {name: 'Aldi Suisse jobs', platform: 'Custom', start: 'www.jobs.aldi.ch', flow: 'Posting', reached: 'posting', rung: 2};
-  const bulgari = {name: 'Bulgari', platform: 'Custom', start: 'recruitmentplatform.com', flow: 'Posting → form', reached: 'form', short: {unexplained: 1, total: 14}, rung: 2};
-  const ashby = {name: 'Ashby form in an embedded app', platform: 'Ashby', start: 'jobs.ashbyhq.com', flow: 'Posting → form', reached: 'form', regression: true};
+  const matches = new Function('flowText', 'STAGE', 'shortText', 'blocked', 'd', `${snippet}; return poolMatches;`)(s => s.flow || '—', {posting: 'Posting reached', form: 'Form reached'}, s => `${s.short.unexplained} unexplained of ${s.short.total}`, s => s.reached === 'posting' && s.rung != null, {stateWords: STATE_WORD});
+  const aldi = {name: 'Aldi Suisse jobs', platform: 'Custom', start: 'www.jobs.aldi.ch', flow: 'Posting', reached: 'posting', rung: 2, status: rowStatus({reached: 'posting'})};
+  const bulgari = {name: 'Bulgari', platform: 'Custom', start: 'recruitmentplatform.com', flow: 'Posting → form', reached: 'form', short: {unexplained: 1, total: 14}, rung: 2, status: {state: 'fix', rule: ''}};
+  const ashby = {name: 'Ashby form in an embedded app', platform: 'Ashby', start: 'jobs.ashbyhq.com', flow: 'Posting → form', reached: 'form', regression: true, status: {state: 'fix', rule: ''}};
   assert.equal(matches(aldi, ''), true); assert.equal(matches(aldi, '   '), true);                       // nothing typed: every site
   assert.equal(matches(aldi, 'ALDI'), true); assert.equal(matches(aldi, 'suisse aldi'), true);         // case and word order do not matter
   assert.equal(matches(aldi, 'aldi.ch'), true); assert.equal(matches(aldi, 'jobs.aldi'), true);       // the host
@@ -244,8 +246,9 @@ test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and s
   assert.deepEqual([d.tiles.gone, d.tiles.held, d.tiles.needFix], [1, 2, 1]);
   assert.equal(d.tiles.reachedForm, 33, 'holds are live sites: 1 of 3 reached the form (the posting gone is not counted)');
   assert.deepEqual(needsFixGroups(d.pool, d.scorecard, d.steps, d.fixed.rows).flatMap(group => group.rows.map(row => row.shape)), ['Stuck']);
-  assert.ok(PAGE.includes("s.hold ? 'Documented hold'") && PAGE.includes('"Documented hold", not a fix'), 'the pool row and the legend name a hold as its own status');
-  assert.ok(PAGE.includes("s.hold ? 'stack hold'"), 'the pool row draws a hold as a hold, not as a gone posting');
+  assert.deepEqual([by.Hornbach.status.state, by.Eligible.status.state, by.Gone.status.state, by.Stuck.status.state], ['held', 'held', 'site', 'fix']);
+  assert.ok(PAGE.includes("'pill st-' + s.status.state") && PAGE.includes('d.stateWords[state]'), 'the pool row and the legend name a hold as its own status');
+  assert.ok(PAGE.includes("s.status.state === 'held' ? 'stack hold'"), 'the pool row draws a hold as a hold, not as a gone posting');
 });
 
 // The digest's own stops (desktop/e2e/lib/smoke.mjs SITE_REFUSED, LOGIN_WALL) are documented holds like the account-first one, but only account-first is a clean run.

@@ -5,6 +5,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data, ingest} from '../src/applying.js';
+import {STATES, STATE_WORD, rowStatus} from '../src/applying-status.js';
 import {storeReplays} from '../src/applying-replays.js';
 
 function d1() {
@@ -179,8 +180,8 @@ test('pressing a row opens that row only, even when two pool sites share a displ
   const make = tag => { const node = {tag, children: [], hidden: false, style: {}, className: '', set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
     append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
     text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }}; all.push(node); return node; };
-  const row = shape => ({name: 'Twin', shape, platform: 'Custom', flow: '', start: 'x.com', end: '', reached: 'posting', history: ['posting'], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null});
-  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
+  const row = shape => ({name: 'Twin', shape, platform: 'Custom', flow: '', start: 'x.com', end: '', reached: 'posting', history: ['posting'], status: rowStatus({reached: 'posting'}), states: [{...rowStatus({reached: 'posting'}), step: 'posting'}], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null});
+  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], states: STATES, stateWords: STATE_WORD, sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
     pool: [row('posting@x.com (found 2026-10-10)'), row('other@x.com (found 2026-10-10)')], scorecard: []};
   const app = make('div'), document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
   new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => body}), () => ({}), {escape: x => x}, () => 0, Object);
