@@ -7,7 +7,7 @@
 // The panel itself never types, ticks or clicks anything in the form: filling goes through the extension's fill.
 (() => {
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
-  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'ReviewPayload'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
+  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
   let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
