@@ -22,12 +22,16 @@ const digits = text => String(text || '').replace(/\D/g, '');
 
 // Layer 2. answers: typed answers ({field, value, fact}); contact: the fake applicant's. -> [line] (a value that differs from the applicant's own)
 export function knownFailures(answers, contact = {}) {
-  const home = new Set(words([contact.location, contact.street, contact.postal_code].join(' ')));
+  // location_forms: the fake applicant's own place in the languages forms use (14 Oct 2026: "Schweiz" for Switzerland was called wrong); applicant data, not a word list.
+  const home = new Set(words([contact.location, contact.street, contact.postal_code, ...(contact.location_forms || [])].join(' ')));
   const own = new Set([...home, ...words([contact.first_name, contact.last_name, contact.full_name].join(' '))]);
   const out = [];
   for (const one of answers) {
     const value = String(one.value || '').trim();
     if (!value || !['contact', 'home_location'].includes(one.fact)) continue;
+    // A choice control (radio, checkbox, select) holds one of the page's own options, often a yes/no ABOUT the fact, not the fact: layer 1 already checks it
+    // holds the decided answer (14 Oct 2026: a yes/no radio citing home_location read "No" and was called wrong against the whole address).
+    if (/^(radio|checkbox|select)[:[]/i.test(String(one.field || ''))) continue;
     let right = true, want = '';
     if (one.fact === 'contact' && /^\S+@\S+$/.test(value)) { want = contact.email; right = sameAnswer(contact.email, [value]) && value.toLowerCase() === String(contact.email).toLowerCase(); }
     else if (one.fact === 'contact' && /^[+\d][\d\s()./-]{6,}$/.test(value)) { want = contact.phone; right = digits(value).slice(-9) === digits(contact.phone).slice(-9); }
