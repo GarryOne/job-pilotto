@@ -15,6 +15,10 @@ on:
         description: 'Started on time by the Worker cron'
         type: boolean
         default: false
+      linux:
+        description: 'Also replay on Linux (measurement, as the scheduled runs do)'
+        type: boolean
+        default: false
       test_worse:
         description: 'Test only (never on main): a row name whose outcome is lowered by one box, to prove the accept label'
         default: ''
@@ -122,10 +126,88 @@ jobs:
             replay-out/replays/*/ai-calls.json
           retention-days: 7
           if-no-files-found: ignore
-  gate:
+  replay-linux:
+    # Runner measurement (owner, 14 Oct 2026: spread CI over Linux too): the same rows replayed on Linux, per row "same as live" beside the macOS one in the gate's summary
+    # (replay-os-compare.mjs). Never gating, never judged against the baseline: a Linux failure changes nothing. Scheduled runs only (the Worker cron's too), or by hand with `linux`.
+    needs: check
+    if: needs.check.outputs.go == '1' && (github.event_name == 'schedule' || inputs.scheduled || inputs.linux)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4]
+    env:
+      JOB_PILOTTO_HEAVY: '0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - name: The pool's newest records (14 days), decrypted on the runner only
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
+      - name: Replay each row offline on Linux
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY_SHARD: ${{ matrix.shard }}/5
+        run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" > /dev/null
+      - name: This shard's rows (for the comparison; no record, no key)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-linux-${{ github.run_id }}-${{ matrix.shard }}
+          path: replay-out/step4/*.json
+          retention-days: 7
+          if-no-files-found: ignore
+  prejudge:
+    # Which rows came out worse (the gate's first look, no accepts, no retry): only those are replayed again, on a Mac. Linux: the judge is pure Node, so the verdict does not wait for a macOS runner.
     needs: [check, replay]
     if: always() && needs.check.outputs.go == '1'
-    runs-on: macos-latest   # a worse row is replayed once more here (the same runner kind as the baseline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      worse: ${{ steps.first.outputs.worse }}
+      any: ${{ steps.first.outputs.any }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: replay-shard-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/shards
+      - name: The rows that came out worse
+        id: first
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_TEST_WORSE: ${{ inputs.test_worse }}
+        run: |
+          out="$RUNNER_TEMP/first"; mkdir -p "$out/step4"
+          for d in "$RUNNER_TEMP"/shards/*/; do cp "$d"step4/*.json "$out/step4/" 2>/dev/null || true; done
+          baseline=$(bash replay-baseline.sh "$out/baseline")
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" > /dev/null || true
+          { echo "any=$([ -s "$out/results.json.worse" ] && echo 1 || echo 0)"; echo "worse<<EOF"; cat "$out/results.json.worse" 2>/dev/null || true; echo; echo EOF; } >> "$GITHUB_OUTPUT"
+  retry:
+    # A worse row is replayed once more, on a macOS runner (the same kind as the baseline), only when there is one.
+    needs: [check, prejudge]
+    if: always() && needs.check.outputs.go == '1' && needs.prejudge.outputs.any == '1'
+    runs-on: macos-latest
     timeout-minutes: 30
     env:
       JOB_PILOTTO_HEAVY: '0'
@@ -137,10 +219,49 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Replay the worse rows again
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          WORSE: ${{ needs.prejudge.outputs.worse }}
+        run: |
+          echo "retry: $(echo "$WORSE" | tr '\n' ',')"
+          (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install chromium
+          bash "$GITHUB_WORKSPACE/.github/replay-records-fetch.sh"
+          JP_REPLAY_ONLY="$WORSE" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/retry" > /dev/null
+      - uses: actions/upload-artifact@v6
+        with:
+          name: replay-retry-${{ github.run_id }}
+          path: retry/step4/*.json
+          retention-days: 7
+          if-no-files-found: ignore
+  gate:
+    needs: [check, replay, prejudge, retry, replay-linux]
+    if: always() && needs.check.outputs.go == '1'
+    runs-on: ubuntu-24.04   # the judge is pure Node (a macOS runner queued for 30 min); the retry replay is its own macOS job
+    timeout-minutes: 30
+    env:
+      JOB_PILOTTO_HEAVY: '0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
       - uses: actions/download-artifact@v7
         with:
           pattern: replay-shard-${{ github.run_id }}-*
           path: ${{ runner.temp }}/shards
+      - uses: actions/download-artifact@v7   # the macOS retry's rows, when a row came out worse
+        continue-on-error: true
+        with:
+          name: replay-retry-${{ github.run_id }}
+          path: replay-out/retry/step4
+      - uses: actions/download-artifact@v7   # the Linux measurement's rows (scheduled runs)
+        continue-on-error: true
+        with:
+          pattern: replay-linux-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/linux
       - name: Compare with the last green run (the baseline)
         id: gate
         working-directory: desktop/e2e
@@ -162,17 +283,14 @@ jobs:
           # the owner's accept: a PR merged since the baseline, labeled replay-accepted, with a "Replay-accept: <reason>" comment (replay-accepts.mjs)
           if [ -n "$TEST_ACCEPTS" ]; then printf '%s' "$TEST_ACCEPTS" > "$out/fake-prs.json"; export REPLAY_ACCEPTS_FAKE="$out/fake-prs.json"; fi
           node replay-accepts.mjs "$baseline" "$out/accepts.json"
+          retry=(); [ -n "$(ls "$out/retry/step4" 2>/dev/null)" ] && retry=(--retry "$out/retry/step4") && echo "retry: replayed again on a Mac"
           set +e
-          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
-          if [ "$code" = 1 ] && [ -s "$out/results.json.worse" ]; then
-            echo "retry: $(tr '\n' ',' < "$out/results.json.worse")"
-            (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install chromium
-            bash "$GITHUB_WORKSPACE/.github/replay-records-fetch.sh"
-            JP_REPLAY_ONLY="$(cat "$out/results.json.worse")" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$out/retry" > /dev/null
-            node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --retry "$out/retry/step4" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
-          fi
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" "${retry[@]}" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
           set -e
           cat "$out/gate.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          # the runner measurement (never gating): the same rows on Linux beside the Mac's
+          mkdir -p "$out/linux-step4"; for d in "$RUNNER_TEMP"/linux/*/; do cp "$d"*.json "$out/linux-step4/" 2>/dev/null || true; done
+          [ -n "$(ls "$out/linux-step4")" ] && node replay-os-compare.mjs "$out/step4" "$out/linux-step4" | tee -a "$GITHUB_STEP_SUMMARY" || true
           { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; echo EOF; echo "merged=$(node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).merged||[];console.log(m.map(p=>"#"+p.number).join(", "))' "$out/accepts.json")"; } >> "$GITHUB_OUTPUT"
       - name: Keep this run's results (the next run's baseline when green)
         if: always() && steps.gate.outcome == 'success'
