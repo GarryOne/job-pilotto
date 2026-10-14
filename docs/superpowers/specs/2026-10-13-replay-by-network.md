@@ -229,9 +229,9 @@ nearest kept one part by part (`memoParts` in `desktop/lib/ai/model-memo.js`): t
 | A live recording that ended too early | live `app.log` has no `fill: fields:`; the replay asks form questions the live run never did | Re-record with a longer live window (`SMOKE_SECONDS`) |
 | A real regression in the build | Replay on main: `Claude answered` after `first fields filled`, then never `fill: fields:` (Starling, Duolingo live 2/2; the coreweave replay stall was the fake timers, not this) | Not a replay gap. Fixed by job-pilotto-combo-stall (#690) |
 | Upload recorded as failed | The storage POST kept as `failed` with no reply (recorder before #670) | #670 + a re-record |
-| Fake timers on the replay page | Databricks: the OneTrust banner in the first ask, never live (0/8); coreweave stalls after its answers (8-9/11) | #696: Date only, real timers: Databricks 8/8, coreweave 11/11 (2/2), both as live |
+| Fake timers on the replay page | Databricks: the OneTrust banner in the first ask, never live (0/8); coreweave stalls after its answers (8-9/11) | #696: Date only, real timers: as live **on the Mac** (Databricks 8/8, coreweave 11/11 ×2). The macOS runner still shows the banner (Databricks 1/8, coreweave 3/11, run 38497942530): see the runner row |
 | A late-loading part of the page | Deloitte: "Others have also looked at" box in or out of the first ask (3/4, then 1/4) | Open (deferred): timing |
-| The macOS runner disagrees with the Mac | Datadog 9/9 on the Mac, stops at the posting on the runner; Recruitee | Open; not a gate risk (a row not faithful on the runner never counts) |
+| The macOS runner disagrees with the Mac | Databricks: the OneTrust banner on the runner even with the date-only clock (Mac and live: none); coreweave 3/11; Datadog 9/9 on the Mac, stops at the posting on the runner; Recruitee | Open; not a gate risk (a row not faithful on the runner never counts) |
 
 Rule: a row that is not "same as live" is a replay question first; only when the live run and the replay saw the same page and the build alone changed the outcome is it a product regression (and then the replay is the cheapest reproducer).
 
