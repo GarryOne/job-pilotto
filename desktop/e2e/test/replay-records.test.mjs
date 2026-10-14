@@ -52,3 +52,17 @@ test('a shard "k/n" takes every n-th row from the k-th; no or a bad spec takes a
   assert.deepEqual([0, 1, 2, 3, 4].flatMap(k => shardOf(rows, `${k}/5`)).sort(), rows, 'every row once');
   for (const spec of ['', '5/5', 'x', '1/0']) assert.deepEqual(shardOf(rows, spec), rows);
 });
+
+test('the CLI prints one line per row as it starts and ends, so a CI step is never silent for minutes', async () => {
+  const {spawnSync} = await import('node:child_process');
+  const os = await import('node:os');
+  const fsm = await import('node:fs');
+  const pathm = await import('node:path');
+  const root = fsm.mkdtempSync(pathm.join(os.tmpdir(), 'replay-records-'));
+  fsm.mkdirSync(pathm.join(root, 'records', 'row-a'), {recursive: true});
+  fsm.writeFileSync(pathm.join(root, 'records', 'row-a', 'record.json'), JSON.stringify({name: 'Row A', url: 'https://jobs.example.com/a', startMs: 1}));
+  const ran = spawnSync(process.execPath, [new URL('../replay-records.mjs', import.meta.url).pathname, pathm.join(root, 'records'), pathm.join(root, 'out')], {encoding: 'utf8', timeout: 60000});
+  assert.match(ran.stderr, /replay-records: \[1\/1\] Row A: replaying/);
+  assert.match(ran.stderr, /replay-records: \[1\/1\] Row A: no result \(\d+ s\)/);
+  fsm.rmSync(root, {recursive: true, force: true});
+});

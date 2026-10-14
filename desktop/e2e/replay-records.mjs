@@ -59,11 +59,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   const only = new Set(String(process.env.JP_REPLAY_ONLY || '').split('\n').map(line => line.trim()).filter(Boolean));
   const here = path.dirname(new URL(import.meta.url).pathname), rows = shardOf(newestPerRow(root).filter(row => !only.size || only.has(row.name)), process.env.JP_REPLAY_SHARD), records = [], deferred = deferredRows();
   fs.mkdirSync(path.join(out, 'step4'), {recursive: true});
-  for (const row of rows) {
-    const work = path.join(out, 'replays', slug(row.name));
+  // One line per row as it starts and ends, on stderr (owner, 14 Oct 2026: a CI step that replays for minutes showed no line at all; stdout stays the summary).
+  for (const [index, row] of rows.entries()) {
+    const work = path.join(out, 'replays', slug(row.name)), started = Date.now();
+    console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: replaying`);
     const ran = spawnSync(process.execPath, [path.join(here, 'replay-net.mjs'), row.dir, work], {encoding: 'utf8', timeout: 6 * 60 * 1000});
     const replay = json(path.join(work, 'replay.json'));
     if (!replay) console.error(`replay-records: ${row.name}: no result (${(ran.stderr || ran.error?.message || '').trim().split('\n').filter(line => /error|Error|throw/.test(line)).slice(-2).join(' | ').slice(0, 300)})`);
+    console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: ${replay ? `${replay.outcome || 'no outcome'}, ${replay.liveHit ?? 0}/${replay.liveAsks ?? 0} asks as live` : 'no result'} (${Math.round((Date.now() - started) / 1000)} s)`);
     const record = fidelityRecord(row, replay, {sha: process.env.GITHUB_SHA?.slice(0, 7) || '', branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || '', deferred});
     records.push(record);
     if (record.network) fs.writeFileSync(path.join(out, 'step4', `${slug(row.name)}.json`), `${JSON.stringify(record, null, 1)}\n`);
