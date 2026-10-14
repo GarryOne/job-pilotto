@@ -49,5 +49,8 @@ test('the replay runs in the live run\'s time zone: saved in the record, set as 
   const replay = read('../replay-net.mjs');
   assert.ok(replay.indexOf('process.env.TZ = zoneOf(record)') > 0 && replay.indexOf('process.env.TZ = zoneOf(record)') < replay.indexOf('startRealExtension('), 'TZ is set before the browser starts');
   assert.match(read('../lib/live-row.mjs'), /timezone: hereZone\(\)/);
+  assert.match(replay, /startRealExtension\(\{\.\.\.options, offline: true, timezoneId: zoneOf\(record\)\}\)/, 'the browser\'s own zone setting too (TZ alone did not reach the runner\'s page)');
+  assert.match(replay, /pageSees: seen/);
+  assert.match(read('../lib/real-extension.mjs'), /\.\.\.\(timezoneId \? \{timezoneId\} : \{\}\)/);
   assert.match(read('../records-publish.mjs'), /stampZone\(record\)/);
 });
