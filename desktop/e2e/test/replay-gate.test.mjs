@@ -2,11 +2,11 @@
 // changes the asks or goes further passes as "different", and a fall the retry does not repeat is noise. Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {fell, judge, summary} from '../replay-gate.mjs';
+import {STREAK, fell, judge, summary} from '../replay-gate.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const rec = (name, outcome, {hit = 4, asks = 4, extra = 0} = {}) => ({name, outcome, live: {asks}, network: {hit, extra, notRecorded: 0}});
-const baseline = {rows: {a: {same: true, outcome: form(8, 4)}, b: {same: true, outcome: form(8, 4)}, c: {same: false, outcome: form(8, 4)}, d: {same: true, outcome: form(8, 4)}}};
+const baseline = {rows: {a: {same: true, streak: 2, outcome: form(8, 4)}, b: {same: true, streak: 2, outcome: form(8, 4)}, c: {same: false, streak: 0, outcome: form(8, 4)}, d: {same: true, streak: 3, outcome: form(8, 4)}}};
 
 test('an outcome falls on an earlier step, fewer filled or more left; a missing number never counts', () => {
   assert.equal(fell(form(8, 4), {reached: 'account', filled: null, left: null}), 'reached account, baseline form');
@@ -33,4 +33,16 @@ test('a fall the retry does not repeat is noise; a repeated fall stays worse; no
   assert.equal(judge([rec('b', form(6, 6))], baseline, [rec('b', form(6, 6))]).rows.b.verdict, 'worse');
   const first = judge([rec('a', form(8, 4))], {});
   assert.deepEqual([first.counted, first.red], [0, false]);
+});
+
+test('a deferred row never counts; a row counts only after 2 runs in a row 100% same as live (14 Oct 2026: Databricks 8/8 then 1/8 turned the gate red)', () => {
+  const deferred = judge([{...rec('a', {reached: 'posting', filled: null, left: null}), deferred: 'cookie banner'}], baseline);
+  assert.deepEqual([deferred.rows.a.counted, deferred.rows.a.verdict, deferred.red], [false, 'not counted', false]);
+  assert.match(deferred.rows.a.why, /^deferred: cookie banner/);
+  const once = judge([rec('x', {reached: 'posting', filled: null, left: null})], {rows: {x: {same: true, streak: 1, outcome: form(8, 4)}}});
+  assert.deepEqual([once.rows.x.counted, once.red], [false, false], 'one same run is not enough');
+  const old = judge([rec('x', form(8, 4))], {rows: {x: {same: true, outcome: form(8, 4)}}});
+  assert.deepEqual([old.rows.x.counted, old.rows.x.streak], [false, 2], 'a baseline kept before the streak counts as 1; this run makes 2');
+  assert.equal(judge([rec('x', form(8, 4))], {rows: {x: {same: true, streak: STREAK, outcome: form(8, 4)}}}).rows.x.counted, true);
+  assert.equal(judge([rec('x', form(8, 4), {hit: 1})], {rows: {x: {same: true, streak: 5}}}).rows.x.streak, 0, 'a run not same resets it');
 });
