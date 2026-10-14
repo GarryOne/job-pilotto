@@ -130,3 +130,8 @@ test('a session opens its job in Chrome before Claude starts, once per job', asy
     term: {hookSettings: () => '{}', start: async ({url}) => { order.push(`start ${url}`); return {}; }}});
   assert.deepEqual(order, ['open https://a/1', 'start https://a/1', 'open https://b/2', 'start https://b/2']);
 });
+
+test('Claude is told to put the fill mark on every address it navigates the tab to (an address handed in from outside is no longer carried by the extension, #742)', () => {
+  const text = session.prompt('https://jobs.example.com/1', {auditFile: 'a.json', session: 'abc123'});
+  assert.match(text, /whenever you navigate that tab to another address yourself, put #jobpilotto-fill=abc123 at the end of that address too/);
+});
