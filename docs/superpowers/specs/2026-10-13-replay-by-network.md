@@ -236,6 +236,34 @@ nearest kept one part by part (`memoParts` in `desktop/lib/ai/model-memo.js`): t
 
 Rule: a row that is not "same as live" is a replay question first; only when the live run and the replay saw the same page and the build alone changed the outcome is it a product regression (and then the replay is the cheapest reproducer).
 
+### Replay-fix log (13-14 Oct 2026): every cause fixed in the mechanism, and the row that shows it
+One row per cause, from the replay commits of those two days (`git log --since=2026-10-13 -i --grep=replay`). Before changing `replay-net.mjs`, `live-row.mjs`, `replay-gate.mjs`, `replay-records.mjs` or the recorder
+(`lib/net-record.mjs`), find your cause here: a fix that undoes one of these rows needs its proving row replayed first. New cause: add its row in the same PR (cause, fix commit, proving row).
+"Not found" = the commit body names no row; fill it when you know. Product fixes found through a replay (#690 combo stall, 615d5b7, cf4b04d, 0ae22fd, 8cb07e8) are not replay-mechanism causes and are not listed.
+
+| Cause (what the replay did that live did not) | Fix commit | Row that proves it |
+|---|---|---|
+| Eligibility stop left on, so a kept "not a fit" stopped the fill | 5b698ef (#681) | Teamtailor (2 of 6 asks, 7 filled) |
+| Prefetched third-party code dropped as a beacon | 9b0b242 (#686) | Starling (phone +1 vs +41) |
+| Replay cut by its time cap | 9b0b242 (#686): live length + 90 s | Starling |
+| A reply that came before its request failed was dropped (upload shown as failed) | 59d94f2 | Ashby (4 of 5 asks) |
+| Upload POST recorded as failed with no reply (recorder before #670) | #670 + re-record | not found |
+| Fake timers on the page showed a cookie banner never shown live | 8f1c5aa (#696) | Databricks 0/8 to 8/8; coreweave stall |
+| Runner in UTC drew a banner the Zurich live run never drew | 56d14f1 (#706), 2e31f06 (#709), c80998b | Databricks 1/8 to 7/8 on the runner |
+| Frame pixel size differs with the runner's fonts | e6ede59 (#713), 7687c2d, b6acd99 | coreweave 3/11 (frame 6869 vs 6993 px), Databricks 1430 vs 1426 |
+| Redirect to a non-ASCII address double-encoded | 6e5adb8 | Breitling (0/8, "Genève") |
+| Random draws (survey, variant) differ from the live run | c5e89b6 | a job board's survey (row not named in the commit) |
+| Watch kept running ~45 s after the extension ended | c1aaf17 | first CI replay run (~93 s a row) |
+| Prompt change makes old recordings miss (not a replay bug) | 014a784: "out of date", never red | Swatch, Join, jobup, Deloitte after 997af1f |
+| Claude's answers arriving late lost the fill (no check saw it) | 5b39a7b: second replay with answers +4 s | 5afa5a8 (Hadrian) |
+| An ask the recording lacks counted red | 29a6a43: waits for a Mac fill (`fill-memo`) | not found |
+| Late-loading or read-time page parts change the first ask | none: rows deferred (Deloitte cd5bc38, Datadog 27ed5ae, coreweave 4b7f55f) | Deloitte 3/4 then 1/4; Datadog |
+| Gate counted a flaky row (Databricks 8/8 then 1/8) | f44a56d: a deferred row never counts; 2 runs 100% in a row | Databricks |
+| Today (14 Oct 22:50): the extension asked 0.55 s after load, not ~8 s | open | Richemont Workday, 7 new records at 0/7 |
+
+Churn seen in the same two days (why this log exists): Databricks was un-deferred (fa7d282), deferred again (c5aa2ec) and removed from the list (c80998b) within 1.5 h; `replay-net.mjs` changed 14 times,
+`live-row.mjs` and `replay-gate.mjs` 9 times each. Guard: `replay-deferred.json` rows carry an owner and a re-check date (`test/replay-records.test.mjs`).
+
 ## Schedule, gate and alerts (owner, 14 Oct 2026, via cc: "an E2E-like schedule, 4 times a day, once before the nightly beta as a gate"; Telegram on every failure)
 
 ```

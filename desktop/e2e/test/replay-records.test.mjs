@@ -46,6 +46,20 @@ test('every deferred row names a real pool row', () => {
   for (const name of Object.keys(deferredRows())) assert.ok(shapes.has(name), `replay-deferred.json: "${name}" is not a pool row`);
 });
 
+// A deferral is a dated promise (14 Oct 2026: Databricks was deferred, un-deferred and deferred again in 1.5 h; a parked row was never looked at again).
+const deferralProblems = (rows, watch) => Object.keys(rows).flatMap(name => {
+  const w = watch?.[name] || {};
+  return [...(String(w.owner || '').trim() ? [] : [`"${name}" has no owner`]), ...(/^\d{4}-\d{2}-\d{2}$/.test(w.recheck || '') && !Number.isNaN(Date.parse(w.recheck)) ? [] : [`"${name}" has no re-check date (YYYY-MM-DD)`])];
+});
+
+test('every deferred row carries an owner and a re-check date, and the check refuses a row without them', () => {
+  const file = JSON.parse(fs.readFileSync(new URL('../replay-deferred.json', import.meta.url), 'utf8'));
+  assert.deepEqual(deferralProblems(file.rows, file.watch), []);
+  assert.equal(deferralProblems({a: 'why'}, {}).length, 2);
+  assert.equal(deferralProblems({a: 'why'}, {a: {owner: 'x', recheck: 'soon'}}).length, 1);
+  assert.equal(deferralProblems({a: 'why'}, {a: {owner: '', recheck: '2026-10-21'}}).length, 1);
+});
+
 test('a shard "k/n" takes every n-th row from the k-th; no or a bad spec takes all (the scheduled replay\'s 5 runners)', async () => {
   const {shardOf} = await import('../replay-records.mjs');
   const rows = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
