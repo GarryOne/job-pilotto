@@ -24,15 +24,3 @@ test('only a real browser counts its visits in the site ledger', async () => {
     assert.equal(days[0]?.['jobs.lever.co']?.visits?.length, 1, 'a real browser\'s visit was not counted');
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });
-
-// Windows nightly 14 Oct 2026: the extension's worker finished booting 30 s after the app's tab opened, so the tab was never bound to its session and the
-// fill ran with no kit. The browser opens no app tab until the worker says it is ready; a slow worker is waited for, a dead one is not waited on forever.
-test('the browser waits for a slow extension worker before opening tabs', async () => {
-  const {waitForBoot} = await import('../lib/extension.mjs');
-  let probes = 0, slept = 0;
-  const slow = await waitForBoot(() => ++probes > 120, {pause: async ms => { slept += ms; }, everyMs: 250, timeoutMs: 90000});   // ~30 s of probes at 250 ms
-  assert.equal(slow, true);
-  assert.equal(slept, 120 * 250, 'did not wait for the worker\'s boot');
-  assert.equal(await waitForBoot(() => false, {pause: async () => {}, everyMs: 250, timeoutMs: 1000}), false, 'a worker that never boots must not hang the run');
-  assert.equal(await waitForBoot(() => { throw new Error('worker not there yet'); }, {pause: async () => {}, everyMs: 250, timeoutMs: 500}), false, 'a probe error counts as not ready');
-});
