@@ -125,7 +125,7 @@ class ShipPrTest(ShipFixture):
         self.change(self.tree, 'mine.txt', 'x\n', 'My change')
         result = self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/9'}}, SHIP_REVIEW='1')
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("required check 'python' failed", result.stdout + result.stderr)
+        self.assertIn("check 'python' failed", result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

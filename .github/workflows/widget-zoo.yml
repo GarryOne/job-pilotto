@@ -3,10 +3,18 @@ name: CI · Widget zoo (measure, not required)
 # extension, offline. It MEASURES how many pages the fill reads and keeps committed; a miss never fails it (pages that fail today are the fill ladder's found bugs). It fails only when the
 # replay broke or a page pressed a submit. NOT a required check: a page moves to desktop/e2e/recorded/ (the required replay shards) only once it passes.
 on:
-  # A REQUIRED check (owner, 12 Oct 2026): it reports on every PR. A required check whose workflow an `on: paths:` filter skips never reports, and the PR waits for ever; so
-  # there is no paths filter here: the job's first step asks tools/ci-needed.sh (what tools/replay-files.mjs says the zoo loads) and skips the rest when nothing of it changed.
-  pull_request:
+  pull_request:   # GitHub's paths decide on a pull request (owner, 14 Oct 2026: "rely fully on gh workflow paths"); not required (a skipped workflow never reports); main runs it on every push
     branches: [main]
+    paths:
+      - 'extension/**'
+      - 'desktop/e2e/widget-zoo/**'
+      - 'desktop/e2e/lib/**'
+      - 'desktop/e2e/package.json'
+      - 'desktop/e2e/package-lock.json'
+      - 'desktop/scripts/stage.mjs'
+      - 'desktop/package.json'
+      - 'desktop/package-lock.json'
+      - '.github/workflows/widget-zoo.yml'
   push:
     branches: [main]
   workflow_dispatch:
@@ -22,35 +30,23 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break the widget zoo?
-        run: bash tools/ci-needed.sh zoo
-      - if: steps.needed.outputs.run == 'true'
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the tests
+      - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the app's own packages
+      - name: Install the app's own packages
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
       # desktop/shared is generated (gitignored): the replay's app imports it (lib/ladder/rung2-sketch.js -> shared/alias-schema.js); without it the job died before any page (12 Oct 2026).
-      - if: steps.needed.outputs.run == 'true'
-        name: Stage the app's shared files
+      - name: Stage the app's shared files
         working-directory: desktop
         run: node scripts/stage.mjs --files-only
-      - if: steps.needed.outputs.run == 'true'
-        name: Chromium (the real extension needs the full browser, not the headless shell)
+      - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
-      - if: steps.needed.outputs.run == 'true'
-        name: Replay the zoo
+      - name: Replay the zoo
         working-directory: desktop/e2e
         env:
           JP_REPLAY: 1
@@ -58,7 +54,7 @@ jobs:
           REPLAY_LOG: 1   # the extension's decision lines per page: why a miss happened
         run: node widget-zoo.mjs --json widget-zoo.json
       - uses: actions/upload-artifact@v6
-        if: always() && steps.needed.outputs.run == 'true'
+        if: always()
         with:
           name: widget-zoo
           path: desktop/e2e/widget-zoo.json

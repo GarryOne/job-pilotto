@@ -20,15 +20,15 @@ test('the rows spread round robin over at most 5 runners', () => {
   assert.deepEqual(split([]), []);
 });
 
-test('the PR workflow: always starts (a required check), replays only when extension/ or desktop/lib/ changed, red when worse or unfinished, no AI key', () => {
+test('the PR workflow: starts only when extension/ or desktop/lib/ changed (GitHub paths), red when worse or unfinished, no AI key', () => {
   const flow = fs.readFileSync(new URL('../../../.github/workflows/replay-pr.yml', import.meta.url), 'utf8');
-  assert.match(flow, /on:\n  pull_request:\s+#/, 'no paths filter: a required check that never starts blocks the PR');
-  assert.equal((flow.match(/run: bash tools\/ci-needed\.sh replaygate/g) || []).length, 2, 'the pick and the required job decide through the shared pick');
+  assert.match(flow, /on:\n  pull_request:\n    paths:\n      - 'extension\/\*\*'\n      - 'desktop\/lib\/\*\*'\n/, 'owner, 14 Oct 2026: only the apply flow\'s code, decided by GitHub');
+  assert.doesNotMatch(flow, /ci-needed/, 'no shared pick');
   assert.match(flow, /name: replay gate/);
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
   assert.match(flow, /JP_REPLAY_ONLY: \$\{\{ matrix\.group \}\}/);
   assert.doesNotMatch(flow, /ANTHROPIC|OPENAI|claude -p|secrets: inherit/);
   const settings = fs.readFileSync(new URL('../../../tools/pr-settings.sh', import.meta.url), 'utf8');
-  assert.match(settings, /replay\\ gate/, 'required on main');
+  assert.doesNotMatch(settings, /replay\\ gate/, 'not required: a workflow paths skip never reports');
 });

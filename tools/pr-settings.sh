@@ -5,13 +5,12 @@
 # No "require up to date": parallel PRs merge at once; CI on main (build.yml, recorded-pages.yml) still catches a rare clash and the red-main rule applies as before.
 # The repository admin role bypasses the ruleset only through a pull request (bypass_mode "pull_request", 12 Oct 2026, once every worktree had the PR ship): nobody pushes to main.
 # "cases fail before the fix" (was "hole 3", renamed 12 Oct 2026) is required since 12 Oct 2026 (owner): it caught 4 cases that passed on the old code; a follow-up names its fix with "Fix-commit: <sha>".
-# The required checks are the job names of pr-gate.yml, build.yml, recorded-pages.yml, widget-zoo.yml and replay-pr.yml ("replay gate": owner, 14 Oct 2026, required only when the apply flow's code changed; it always reports). "widget zoo" and "replays to /admin/applying" are required since
-# 12 Oct 2026 (owner: "required always, but not triggered as long as we didn't modify the code they're interested in"): each workflow always reports; a job with nothing to
-# check is SKIPPED, which counts as passed (no `on: paths:` filter: a required check that never reports leaves the PR waiting for ever).
-# The harness tests are not required since 14 Oct 2026 (owner: "rely fully on gh workflow paths"): harness.yml runs them only for the harness's own paths.
+# The required checks are the jobs of pr-gate.yml that start on EVERY pull request: "pr gates", "flow-fresh", "cases fail before the fix" (owner, 14 Oct 2026:
+# "drop your shared pick logic, rely fully on gh workflow paths"). Every other PR workflow starts only when GitHub's `on: paths:` says the PR changed its area, and a workflow
+# that paths skip never reports, so none of them can be required; their red shows on the PR. Main runs them all on every push (tests/test_workflow_paths.py).
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh cases\ fail\ before\ the\ fix widget\ zoo replays\ to\ /admin/applying replay\ gate'
+checks='pr\ gates flow-fresh cases\ fail\ before\ the\ fix'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])

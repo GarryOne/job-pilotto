@@ -1,10 +1,9 @@
 name: CI · Tests
 
-# Run the Python, Worker and desktop test suites on pushes and pull requests to the default branch.
+# Every test suite on every push to main (the backstop: red main, tools/red-main.sh; the release gates read this workflow's verdict on a commit). A pull request
+# runs each area's workflow by itself, when GitHub's `paths:` says it changed (tests-python.yml, tests-worker.yml, tests-site.yml, tests-desktop.yml).
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
 
 permissions:
@@ -12,117 +11,10 @@ permissions:
 
 jobs:
   python:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      JOB_PILOTTO_PY_JOBS: 6   # the runner's 4 cores / 2 check slots gave 2 shards (157 s, the slowest required PR check); the slow modules wait on git and sleep, so 6 overlap well (12 Oct 2026)
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0   # the PR's changed files: the lock tests run only when one is a lock path (tools/py-shards.py LOCK_PATHS)
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break python?
-        run: bash tools/ci-needed.sh python
-      - uses: actions/setup-python@v6
-        if: steps.needed.outputs.run == 'true'
-        with:
-          python-version: '3.12'
-      - name: Changed files (pull requests only; a push to main runs every test)
-        if: github.event_name == 'pull_request' && steps.needed.outputs.run == 'true'
-        run: git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" > "$RUNNER_TEMP/changed.txt" || rm -f "$RUNNER_TEMP/changed.txt"
-      - if: steps.needed.outputs.run == 'true'
-        run: |
-          [ -s "$RUNNER_TEMP/changed.txt" ] && export JOB_PILOTTO_PY_CHANGED_FILE="$RUNNER_TEMP/changed.txt"
-          bash tools/check.sh --area python
-
+    uses: ./.github/workflows/tests-python.yml
   worker:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break worker?
-        run: bash tools/ci-needed.sh worker
-      - uses: actions/setup-python@v6
-        if: steps.needed.outputs.run == 'true'
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v5
-        if: steps.needed.outputs.run == 'true'
-        with:
-          node-version: '22'
-      - if: steps.needed.outputs.run == 'true'
-        run: npm ci
-        working-directory: worker
-      - if: steps.needed.outputs.run == 'true'
-        run: bash tools/check.sh --area worker
-
+    uses: ./.github/workflows/tests-worker.yml
   site:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break site?
-        run: bash tools/ci-needed.sh site
-      - uses: actions/setup-python@v6
-        if: steps.needed.outputs.run == 'true'
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v5
-        if: steps.needed.outputs.run == 'true'
-        with:
-          node-version: '22'
-      - if: steps.needed.outputs.run == 'true'
-        run: npm ci
-        working-directory: site
-      - if: steps.needed.outputs.run == 'true'
-        run: bash tools/check.sh --area site
-
+    uses: ./.github/workflows/tests-site.yml
   desktop:
-    # Both platforms, on every push: Windows is where the app's platform branches really run (Credential
-    # Manager instead of the Keychain, python.exe, node-pty, Git Bash for Claude Code). The release
-    # workflow tests Windows too, but only on pushes that touch the app — this catches a Windows break
-    # in any change, before a build is made. fail-fast off, so both platforms report.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    defaults:
-      run:
-        shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break desktop?
-        run: bash tools/ci-needed.sh desktop
-      - uses: actions/setup-python@v6
-        if: steps.needed.outputs.run == 'true'
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v5
-        if: steps.needed.outputs.run == 'true'
-        with:
-          node-version: '22'
-      # Install exactly what a developer (and the release workflow) has, dev dependencies included:
-      # `npm test` runs scripts/stage.mjs, which needs esbuild. Only Electron's large binary is skipped,
-      # as the tests don't start it. tools/pre-push-check.sh blocks `--omit` here.
-      - if: steps.needed.outputs.run == 'true'
-        run: npm ci
-        working-directory: desktop
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - if: steps.needed.outputs.run == 'true'
-        run: bash tools/check.sh --area desktop
+    uses: ./.github/workflows/tests-desktop.yml

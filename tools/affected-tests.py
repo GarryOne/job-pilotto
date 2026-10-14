@@ -1,4 +1,4 @@
-"""Which tests a change can break: the local push check runs only these. Guarded by tests/test_affected_tests.py. CI asks it per job through tools/affected-jobs.py.
+"""Which tests a change can break: the local push check runs only these. Guarded by tests/test_affected_tests.py. CI does not use it: GitHub's `paths:` decides there (tests/test_workflow_paths.py).
 
   python3 tools/affected-tests.py --base origin/main            (JSON on stdout: per area a list of test files, or "all")
   python3 tools/affected-tests.py --files src/store.py desktop/lib/x.js

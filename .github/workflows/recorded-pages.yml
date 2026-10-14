@@ -5,8 +5,16 @@ name: CI · Recorded pages (all cases, real extension, Linux)
 on:
   push:
     branches: [main]
-  pull_request:   # a required check of every PR (owner, 12 Oct 2026: landing through pull requests; the replays left the Mac's heavy lock)
+  pull_request:   # GitHub's paths decide on a pull request (owner, 14 Oct 2026: "rely fully on gh workflow paths"); not required (a skipped workflow never reports); main runs it on every push
     branches: [main]
+    paths:
+      - 'extension/**'
+      - 'desktop/lib/**'
+      - 'desktop/e2e/**'
+      - '!desktop/e2e/widget-zoo/**'
+      - 'desktop/package.json'
+      - 'desktop/package-lock.json'
+      - '.github/workflows/recorded-pages.yml'
   workflow_dispatch:
 
 concurrency:
@@ -21,39 +29,26 @@ jobs:
     name: replay shard ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    outputs:
-      ran: ${{ steps.needed.outputs.run }}   # every shard decides the same: the report below sends nothing when no shard replayed
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break a recorded replay?
-        run: bash tools/ci-needed.sh replays
-      - if: steps.needed.outputs.run == 'true'
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the tests
+      - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
       # A row case starts the offline app, which imports desktop/lib/server.js and its packages (@anthropic-ai/sdk).
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the app's own packages
+      - name: Install the app's own packages
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
-      - if: steps.needed.outputs.run == 'true'
-        name: Chromium (the real extension needs the full browser, not the headless shell)
+      - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
-      - if: steps.needed.outputs.run == 'true'
-        name: Replay this shard's recorded cases
+      - name: Replay this shard's recorded cases
         working-directory: desktop/e2e
         env:
           JP_REPLAY: 1
@@ -62,7 +57,7 @@ jobs:
           JP_REPLAY_RESULTS: replay-results-${{ matrix.shard }}.json
         run: node --test --test-concurrency=1 test/recorded-pages.test.mjs
       - name: Keep this shard's results for the report
-        if: always() && steps.needed.outputs.run == 'true'
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: replay-results-${{ matrix.shard }}
@@ -75,7 +70,7 @@ jobs:
   report:
     name: replays to /admin/applying
     needs: replay
-    if: always() && needs.replay.result != 'cancelled' && needs.replay.outputs.ran != 'false'   # no shard replayed (this PR cannot change a replay): nothing to send, skipped = passed
+    if: always() && needs.replay.result != 'cancelled'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

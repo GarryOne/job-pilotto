@@ -1,0 +1,43 @@
+name: CI · Tests · python
+# On a pull request, GitHub's `paths:` below decides whether it runs (owner, 14 Oct 2026: "drop your shared pick logic, rely fully on gh workflow paths"). Not a required
+# check: a workflow `paths:` skips never reports, and a required one would block the PR (tests/test_workflow_paths.py). On main, build.yml (CI · Tests) calls it on
+# every push: the backstop for a break from outside these paths.
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'config/**'
+      - 'templates/**'
+      - 'requirements*.txt'
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
+      - '.github/**'
+      - '.github/workflows/tests-python.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      JOB_PILOTTO_PY_JOBS: 6   # the runner's 4 cores / 2 check slots gave 2 shards (157 s, the slowest required PR check); the slow modules wait on git and sleep, so 6 overlap well (12 Oct 2026)
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the PR's changed files: the lock tests run only when one is a lock path (tools/py-shards.py LOCK_PATHS)
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Changed files (pull requests only; a push to main runs every test)
+        if: github.event_name == 'pull_request'
+        run: git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" > "$RUNNER_TEMP/changed.txt" || rm -f "$RUNNER_TEMP/changed.txt"
+      - run: |
+          [ -s "$RUNNER_TEMP/changed.txt" ] && export JOB_PILOTTO_PY_CHANGED_FILE="$RUNNER_TEMP/changed.txt"
+          bash tools/check.sh --area python
