@@ -50,6 +50,13 @@ LINKEDIN_CLIENT_ID = "77cda0c4oymws4"
 
 # Website stats (src/stats.js): page views, Download clicks, the private /stats page. Tables: migrations/ (apply: npx wrangler@4 d1 migrations apply www-stats --remote).
 # Secrets: STATS_KEY (opens /stats; Keychain job-pilotto.site.stats_key) and STATS_SALT (hashes visitors).
+# "Report this form" (docs/superpowers/specs/2026-10-15-report-this-form.md §4): the private bucket for encrypted reports. OWNER STEP, then uncomment: create the bucket
+# (`npx wrangler r2 bucket create form-reports`), add a 30-day expiry rule (`npx wrangler r2 bucket lifecycle add form-reports expire-30d --expire-days 30`). Until then
+# /api/report-form answers 503 "not configured" and the app's Report button stays hidden; a binding to a bucket that does not exist would fail the deploy.
+# [[r2_buckets]]
+# binding = "REPORTS"
+# bucket_name = "form-reports"
+
 [[d1_databases]]
 binding = "STATS"
 database_name = "www-stats"

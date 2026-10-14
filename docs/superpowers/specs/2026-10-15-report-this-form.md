@@ -105,6 +105,6 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 - [x] 1. Shared keep-rules module (#793) (proof: desktop/lib/net-keep.js @ce592f4)
 - [x] 2. Scrub, owner values, last gate (proof: desktop/test/report-scrub.test.js)
 - [x] 3. Extension collector and the app side that scrubs, gates and holds it (proof: desktop/test/report-recorder.test.js)
-- [ ] 4. Consent UI, setting, ⌘K
-- [ ] 5. Worker upload, storage, limits
+- [x] 4. Consent UI, setting, ⌘K, the panel flag (proof: desktop/test/report-panel.test.js)
+- [x] 5. Worker upload, storage, limits, the app's encrypted upload (proof: site/test/report-form.test.js); the R2 bucket is the owner's step (wrangler.toml says how)
 - [ ] 6. Fetch tool, "Reported by a person", offline replay

@@ -35,6 +35,7 @@ import {playbook} from './playbook.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
+import {reportForm} from './report-form.js';
 import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {trial} from './trial.js';
@@ -167,6 +168,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/contributions') return pool.aggregate(request, env);
   if (pathname === '/api/signals') return signals(request, env);
   if (pathname === '/api/feedback') return feedback(request, env);
+  if (pathname === '/api/report-form' || pathname.startsWith('/api/report-form/')) return reportForm(request, env, pathname);   // "Report this form": an encrypted recording from an install (src/report-form.js)
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return trial(request, env);
   if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
