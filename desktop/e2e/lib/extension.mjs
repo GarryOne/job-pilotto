@@ -83,17 +83,6 @@ export const visitGuard = real => (real ? (url, options) => guardLiveVisit(url, 
 // `real`: a live-test twin's window (e2e/twin.mjs): real sites (no fixture host mapping), always visible.
 // `profile`: a browser profile kept between runs (the twin's: site sign-ins and cookies survive); else a fresh temp one.
 // `debugPort`: the browser's own debugging port (the twin's: its tabs can be seen and driven from outside, like its app window).
-// The extension's worker has settled its boot when session storage holds the run id (extension/background.js memoryReady). A tab the app opens before that
-// is a page "nobody had looked at": the session is lost and the fill runs with no kit (Windows nightly 14 Oct 2026: the worker came up 30 s after the tab).
-// `probe` -> true once booted; polled until then, at most `timeoutMs` (then the run goes on and the app's own tab report says what happened).
-export async function waitForBoot(probe, {pause = ms => new Promise(resolve => setTimeout(resolve, ms)), timeoutMs = 90000, everyMs = 250} = {}) {
-  for (let waited = 0; waited <= timeoutMs; waited += everyMs) {
-    if (await Promise.resolve().then(probe).catch(() => false)) return true;
-    await pause(everyMs);
-  }
-  return false;
-}
-
 export async function launchBrowser({port, spool, extensionDir, real = false, profile: kept = '', debugPort = 0}) {
   if (kept) fs.mkdirSync(kept, {recursive: true});
   const profile = kept || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
@@ -110,9 +99,7 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
   // That tab is made blank, and the first page a test opens reuses the blank tab instead of adding one.
   const blank = page => /^(about:blank|chrome:\/\/new-?tab|chrome-search:)/.test(page.url());
   const quietSettings = page => { if (page.url().endsWith('/options.html')) page.goto('about:blank').catch(() => {}); };
-  const booted = () => context.serviceWorkers()[0]?.evaluate(() => chrome.storage.session.get('boot').then(kept => !!kept.boot));
   const watcher = (async () => {
-    await waitForBoot(booted).catch(() => false);   // no tab opens before the extension is ready to see it
     while (!stopped) {
       for (const page of context.pages()) quietSettings(page);   // checked on every tick: the install opens it whenever the worker starts
       for (const file of fs.readdirSync(spool).filter(name => name.endsWith('.url'))) {

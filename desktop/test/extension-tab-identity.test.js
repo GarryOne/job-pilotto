@@ -32,3 +32,17 @@ test('one owner: no extension file but tab-identity.js builds a session:/job:/fr
     .filter(name => /`(session|job|from):\$\{/.test(fs.readFileSync(new URL(name, dir), 'utf8')));
   assert.deepEqual(offenders, [], 'use KEY / the helpers of extension/tab-identity.js');
 });
+
+// A worker that boots after the app's tab opened (a cold Chrome, a worker waking: 14 Oct 2026, Windows e2e: the tab's mark event was missed): its settling pass binds the tab's
+// posting and session from the mark, so the page the tab moves to next still has its job (and its kit). A tab that already has its job is left alone.
+test('a slow-boot worker takes the posting and session from the mark of a tab it never saw open', async () => {
+  const {createSettleOpenTabs} = await import('../../extension/settle-tabs.js');
+  const marked = 'https://boards.example/jobs/1#jobpilotto-fill=ca582c3c', armedTabs = [];
+  chrome.tabs = {query: async () => [{id: 21, url: marked}, {id: 22, url: 'https://boards.example/jobs/2#jobpilotto-fill=feedbeef'}]};
+  store['from:22'] = 'https://boards.example/jobs/OTHER';
+  await createSettleOpenTabs({arm: async id => { armedTabs.push(id); }, memoryReady: () => Promise.resolve()})();
+  assert.deepEqual(armedTabs, [21, 22]);
+  assert.equal(store['from:21'], 'https://boards.example/jobs/1', 'the posting the tab was opened for');
+  assert.equal(store['session:21'], 'ca582c3c', 'the session the app opened it for');
+  assert.equal(store['from:22'], 'https://boards.example/jobs/OTHER', 'a tab with its job is not rewritten');
+});

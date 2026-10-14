@@ -2,7 +2,8 @@
 // other page (Calendly, a job site you were reading). The old script's listeners die with the reload; the pill they drew does not.
 import {decide} from './log.js';
 import {sessionGet} from './tab-memory.js';
-import {tabArmed} from './tab-pages.js';
+import {stripMark, tabArmed} from './tab-pages.js';
+import {bindMark, fromOf, startJob} from './tab-identity.js';
 
 // memoryReady: a function returning the promise of background.js's tab memory (the armed: marks of the worker before a reload); arm: background.js's.
 export function createSettleOpenTabs({arm, memoryReady}) {
@@ -13,7 +14,12 @@ export function createSettleOpenTabs({arm, memoryReady}) {
       if (tab.id == null || !/^https:/.test(tab.url || '')) continue;
       const key = `armed:${tab.id}`;
       const armed = tabArmed({url: tab.url, armed: (await sessionGet(key).catch(() => ({})))[key]});
-      if (armed) { await arm(tab.id, 'still open'); continue; }
+      if (armed) {
+        // A tab the app opened while this worker was still booting (a Chrome the app started, a worker waking): its mark event was missed, so nobody bound its session or posting;
+        // its next page (the form after Apply) then had no job and no kit (e2e Windows, 14 Oct 2026). The mark in its address names both: taken now.
+        if (String(tab.url).includes('#jobpilotto-fill') && !(await fromOf(tab.id))) { await startJob(tab.id, stripMark(tab.url)); await bindMark(tab.id, tab.url); }
+        await arm(tab.id, 'still open'); continue;
+      }
       const frames = await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, func: () => {
         let removed = 0;
         for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note', 'jobpilotto-stop-host']) {
