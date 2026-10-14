@@ -7,7 +7,7 @@ description: Run, grow and coordinate the pool of real sites the applying flow i
 
 The pool is ~50 real postings, one per **flow shape**, run live and HELD (never an account button, never Submit) with the real extension in the
 e2e harness. It answers "did a real site change under us, and how far does each flow get?". This skill **runs, grows and coordinates** it. It does
-not fix shapes: a failing one goes to `/fix-failing-forms`; one that needs the owner's real state goes to `/fix-live-applying-in-twin`.
+not fix shapes: a failing one goes to `/fix-failing-forms`; one that needs the owner's real state is reproduced on the twin, on demand (docs/live-test.md).
 Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four layers); flows map: `docs/flows/applying.md`.
 
 ## Taking the role (do this first)
@@ -93,7 +93,7 @@ A row that stops at the posting keeps no folder (nothing to replay). A capture m
    Compare with the last report; a site that failed once is run again before it counts.
 4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). The ready prompt per cause: `node tools/needs-fix-causes.mjs --brief "<cause>"` (docs/rules/rounds.md step 3). Several sessions may each take a different shape:
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
-   A shape that needs the owner's accounts or Gmail goes to `/fix-live-applying-in-twin`.
+   A shape that needs the owner's accounts or Gmail goes to the twin, on demand (docs/live-test.md).
    **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step
    reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (the pool is only ever started by hand); a recorded page passing does not clear it.
 5. **Grow the pool** (when asked or after a profile change): `--discover`; read what it added to `desktop/e2e/smoke-sites.json` and why (the new signature), then commit it. A gone posting (HTTP 404/410, "posting gone", never red): replace its url with a posting of the same shape (discover lists candidates from the profile's jobs).
