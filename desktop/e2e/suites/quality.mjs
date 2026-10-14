@@ -14,7 +14,7 @@ import {failures, judge} from '../lib/factjudge.mjs';
 import {plainTextOf, rewriteTextLines} from '../lib/seed-texts.mjs';
 import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
 import {clearData} from '../lib/start-state.mjs';
-import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
+import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, mayBeEmptyFor, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {quiet} from '../lib/activity-steps.mjs';
 
@@ -174,7 +174,7 @@ export async function run(ctx) {
 
     await ctx.run('every Notion column the app promises is filled, and no text shows a programming accident', async () => {
       const problems = [];
-      for (const row of rows) { const item = matchRows(truth, [row]).byId; const posting = truth.find(entry => item[entry.id]); const missing = missingColumns(row, posting?.mayBeEmpty); if (missing.length) problems.push(`${row.props.Job}: empty ${missing.join(', ')}`); }
+      for (const row of rows) { const item = matchRows(truth, [row]).byId; const posting = truth.find(entry => item[entry.id]); const missing = missingColumns(row, mayBeEmptyFor(posting)); if (missing.length) problems.push(`${row.props.Job}: empty ${missing.join(', ')}`); }
       for (const dirty of dirtyRows(rows)) problems.push(`${dirty.where} shows ${dirty.problems.join(', ')}`);
       if (notKeptNote(rows)) console.log(`  ${notKeptNote(rows)}`);
       // What a person reads: the Jobs page and the app's own list.

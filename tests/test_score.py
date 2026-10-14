@@ -32,6 +32,43 @@ class PayUnknownTest(unittest.TestCase):
         self.assertNotIn('give 50', score.SYSTEM)
 
 
+class UnreadPartTest(unittest.TestCase):
+    """A part the posting gives a basis for is never saved empty: the scorer asks again, naming it."""
+    FACTS = {'salary': {'stated': True, 'text': 'CHF 100k'}, 'seniority': {'value': 'senior', 'evidence': 'Senior'}}
+
+    def client(self, first_empty):
+        answers = []
+        def create(**params):
+            answers.append(params)
+            comps = dict(fit(70)['components'])
+            if len(answers) == 1:
+                comps[first_empty] = None
+            data = {**fit(70), 'components': comps}
+            return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(data))],
+                                   usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0))
+        client = SimpleNamespace(messages=SimpleNamespace(create=create))
+        client.requests = answers
+        return client
+
+    def test_every_unknown_ok_part_with_a_basis_is_asked_again(self):
+        self.assertEqual(set(score.HAS_BASIS), set(score.UNKNOWN_OK))   # a new nullable part needs a basis rule here
+        for part in score.UNKNOWN_OK:
+            with self.subTest(part=part):
+                client = self.client(part)
+                data, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd', 'ai': self.FACTS}, 'p')
+                self.assertEqual(2, len(client.requests))
+                self.assertIn(part, client.requests[1]['messages'][0]['content'])
+                self.assertEqual(fit(70)['components'][part], data['components'][part])
+
+    def test_a_part_with_no_basis_stays_unknown_without_a_second_call(self):
+        for part in score.UNKNOWN_OK:
+            with self.subTest(part=part):
+                client = self.client(part)
+                data, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd', 'ai': {'salary': {'stated': False, 'text': ''}, 'seniority': {'value': 'unknown'}}}, 'p')
+                self.assertEqual(1, len(client.requests))
+                self.assertIsNone(data['components'][part])
+
+
 class FakeClient:
     def __init__(self, value=80):
         self.value, self.requests = value, []

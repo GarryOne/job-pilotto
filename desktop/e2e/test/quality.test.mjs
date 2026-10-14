@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import {blockLine} from '../lib/notion.mjs';
-import {HARD_JUMP, allowedMisses, judgeVerdict, stabilityVerdict, checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
+import {HARD_JUMP, allowedMisses, judgeVerdict, stabilityVerdict, checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, mayBeEmptyFor, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
 
 const truth = JSON.parse(fs.readFileSync(new URL('../fixtures/golden/truth.json', import.meta.url), 'utf8'));
 const sre = truth.find(item => item.id === 3001);
@@ -124,4 +124,11 @@ test('a Notion block becomes a line: text, and table rows as their cells (the Pr
   assert.equal(blockLine({type: 'table_row', table_row: {cells: [text('Seniority'), text('Senior or Staff')]}}), 'Seniority | Senior or Staff');
   assert.equal(blockLine({type: 'divider', divider: {}}), '');
   assert.equal(blockLine({type: 'child_page', child_page: {title: 'Answers'}}), 'Answers');
+});
+
+test('Compensation fit may be empty only for a posting that states no salary; Growth never', () => {
+  assert.deepEqual(mayBeEmptyFor({salary: []}), ['Compensation fit']);
+  assert.deepEqual(mayBeEmptyFor({mayBeEmpty: ['Technologies']}), ['Technologies', 'Compensation fit']);
+  assert.deepEqual(mayBeEmptyFor({salary: ['95000', '120000']}), []);
+  assert.deepEqual(missingColumns(withProps({'Compensation fit': null, Growth: null}), mayBeEmptyFor({salary: []})), ['Growth']);
 });
