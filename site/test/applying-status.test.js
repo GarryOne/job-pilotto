@@ -90,3 +90,18 @@ test('two rows with one name on one host are told apart by their shape; every ta
   assert.ok(PAGE.includes('twinTag(s)'), 'the pool table and Needs a fix tell twins apart');
   assert.ok(PAGE.includes('details table td:not(:first-child)'), 'the colors legend\'s paths wrap inside their card');
 });
+
+test('the pool\'s Status filter: one option per status (from STATES), counted, and a row matches by the status its badge shows', () => {
+  const snippet = PAGE.slice(PAGE.indexOf('/*filter*/'), PAGE.indexOf('/*end filter*/'));
+  assert.ok(snippet.length > 50, 'the filter code is on the page');
+  const inPool = new Function('poolMatches', `${snippet}; return inPool;`)(() => true);
+  assert.match(PAGE, /pick\('status', statusItems, 'Status', 'All statuses'\)/);
+  assert.match(PAGE, /d\.states\.map\(state => \(\{name: state, label: d\.stateWords\[state\]/);   // the options come from the one list, never a copy
+  const pool = STATES.map(state => ({platform: 'P', flow: 'F', status: {state, rule: ''}}));
+  for (const state of STATES) {
+    assert.deepEqual(pool.filter(s => inPool(s, {status: state})).map(s => s.status.state), [state], state + ' shows only its own rows');
+    assert.ok(STATE_WORD[state], state + ' has a word for its option');
+  }
+  assert.equal(pool.filter(s => inPool(s, {status: null})).length, STATES.length, 'All statuses shows every row');
+  assert.equal(pool.filter(s => inPool(s, {status: 'works', platform: 'Q'})).length, 0, 'the status combines with the platform');
+});
