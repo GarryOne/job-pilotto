@@ -12,6 +12,7 @@ import {endingOfStuck} from '../../../extension/ladder/endings.js';
 import {movesFromRequests, repairsFromRequests} from './ladder-moves.mjs';
 import {falseReadings} from './replay-truth.mjs';
 import {fillSeconds} from './replay-time.mjs';
+import {linesOfCase} from './replay-lines.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -120,8 +121,11 @@ export async function judgeCase(item, scope) {
   const tabs = scope.pages().length, opened = scope.opened();
   if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
   if (expect.maxNewTabs != null && opened > expect.maxNewTabs) failures.push(`maxNewTabs: ${opened} > ${expect.maxNewTabs}`);
-  if (process.env.REPLAY_LOG || failures.length) for (const request of mine().filter(one => one.route === '/extension/log')) {   // REPLAY_LOG=1, or any failed case (CI too, 14 Oct 2026): the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
-    try { for (const entry of JSON.parse(request.body).entries) console.log(`  [extension ${item.name}] ${entry.text} ${JSON.stringify(entry.fields)}`); } catch { /* a body cut at the recording limit */ }
+  if (process.env.REPLAY_LOG || failures.length) {   // REPLAY_LOG=1, or any failed case (CI too, 14 Oct 2026): the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
+    const entries = mine().filter(one => one.route === '/extension/log').flatMap(request => { try { return JSON.parse(request.body).entries; } catch { return []; } });   // a body cut at the recording limit: none
+    const {mine: lines, unplaced} = scope.otherHosts ? linesOfCase(entries, {own: caseHosts(item), others: scope.otherHosts}) : {mine: entries, unplaced: 0};   // in a shared browser only this case's lines (lib/replay-lines.mjs)
+    for (const entry of lines) console.log(`  [extension ${item.name}] ${entry.text} ${JSON.stringify(entry.fields)}`);
+    if (unplaced) console.log(`  [extension ${item.name}] (${unplaced} more line(s) no case could be told apart on: left out)`);
   }
   // A check that only a line no case's host names satisfied (it could be another tab's): the pass must be confirmed alone before it counts.
   const confirm = [];
