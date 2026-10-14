@@ -100,6 +100,8 @@ jobs:
         shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v5
+      - name: The PR paths list everything this workflow loads
+        run: node tools/replay-files.mjs --check page-cases.yml
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
