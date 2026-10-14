@@ -52,7 +52,7 @@ def required():
 class TheClass(unittest.TestCase):
     def test_every_required_check_is_a_job_of_a_workflow_with_no_paths(self):
         checks = required()
-        self.assertEqual(checks, ['pr gates', 'flow-fresh', 'cases fail before the fix'])
+        self.assertEqual(checks, ['pr gates', 'flow-fresh', 'cases fail before the fix', 'replay gate status'])
         gate = (WORKFLOWS / 'pr-gate.yml').read_text()
         self.assertIsNone(pr_paths('pr-gate.yml'), 'the required checks start on every pull request')
         for check in checks:

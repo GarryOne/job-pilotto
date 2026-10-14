@@ -1,6 +1,6 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "cases fail before the fix" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
+# recorded-page replays (recorded-pages.yml), which start by `on: paths:`. Required on main: "pr gates", "flow-fresh", "cases fail before the fix", "replay gate status" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
 # Every job here always starts (a required workflow that never starts blocks the PR forever); "cases fail before the fix" ends in seconds when the PR brings no recorded case.
 on:
   pull_request:
@@ -88,3 +88,20 @@ jobs:
         env:
           JOB_PILOTTO_HEAVY: '0'   # the Mac's one-at-a-time lock means nothing on a runner of its own
         run: node tools/recorded-fails-on-old.mjs --base origin/main
+
+  # The PR replay gate (replay-pr.yml) starts only when the PR changes the apply flow's code (`on: paths:`), so it cannot be required itself (owner, 14 Oct 2026:
+  # "why is the PR mergeable if replay gate is still running?"). This job starts on every PR and reports its result: none started -> passes; started -> waits for it.
+  replay-gate-status:
+    name: replay gate status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      actions: read   # the replay gate's run for this commit
+    steps:
+      - uses: actions/checkout@v5
+      - name: The replay gate's result for this commit (passes when it did not start)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash tools/replay-gate-status.sh "$GITHUB_REPOSITORY" "$HEAD_SHA"
