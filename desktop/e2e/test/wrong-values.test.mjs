@@ -47,3 +47,10 @@ test('the gate: a rise of the wrong count is worse; no count in the baseline nev
   assert.equal(result.rows.a.verdict, 'same');
   assert.match(summary(result), /Wrong values \(1\)[\s\S]*\| a \| country \| Switzerland \| Israel \| typed \|/);
 });
+
+test('no false alarm on the two shapes of 14 Oct 2026: a yes/no choice citing the place, and the place in the form\'s language', () => {
+  const fill = (field, value, fact) => ({field, value, fact, use: 'fill'});
+  assert.deepEqual(knownFailures([fill('radio:candidate[answers_attributes][1][boolean]', 'No', 'home_location'), fill('input_3621', 'Schweiz', 'home_location'),
+    fill('city', 'Zürich', 'home_location')], CONTACT), []);
+  assert.equal(knownFailures([fill('country', 'Israel', 'home_location')], CONTACT).length, 1, 'a wrong country is still wrong');
+});
