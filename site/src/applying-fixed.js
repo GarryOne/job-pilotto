@@ -161,7 +161,7 @@ export const FIXED_SCRIPT = `
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
   const showTab = () => { const hash = typeof location !== 'undefined' ? location.hash : '', which = hash === '#fixed' ? 'fixed' : hash === '#by-cause' ? 'cause' : 'needs'; fixBox.hidden = which !== 'needs'; fixedBox.hidden = which !== 'fixed'; causeBox.hidden = which !== 'cause';
     const tab = (id, name, text, title) => el('a', {href: '#' + id, role: 'tab', 'aria-selected': String(which === name), className: which === name ? 'on' : '', title: title || '', textContent: text});
-    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('fixed', 'fixed', 'Fixed · ' + d.fixed.rows.length, 'Sites with a landed fix. The recorded replays are in the Fixed-site replays table below.'),
+    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('fixed', 'fixed', 'Fixed · ' + d.fixed.rows.length, 'Sites with a landed fix. The recorded replays are in the Replays tab.'),
       tab('by-cause', 'cause', 'By cause · ' + causeGroups().length, 'The Needs a fix rows grouped by top cause, and the rows that need a pool run first')); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;

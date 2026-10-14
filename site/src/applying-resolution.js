@@ -90,13 +90,13 @@ export const RESOLUTION_SCRIPT = `
     if (!r) return;
     const redraw = () => drawResolution(box, r);
     const UNRESOLVED_GET = [item => item.row.toLowerCase(), item => item.platform, item => item.day], WEEK_GET = [week => week.week, week => week.measured, week => week.raw];
-    box.append(el('h2', {textContent: 'Resolution · how each application ends'}),
+    box.append(...[el('h2', {textContent: 'Resolution · how each application ends'}),   // filtered: append() writes a null as the text "null"
       el('p', {className: 'muted', textContent: r.measured ? r.resolved + ' of ' + r.measured + ' pool rows resolved (' + r.raw + '%)' + (r.weighted == null ? '' : '; weighted by real demand ' + r.weighted + '%') + '. ' + r.held + ' held by the test (an account the pool never creates, a bot wall on a CI address): not measured.' : 'No ending uploaded yet: the next pool run sends them.'}),
       el('div', {className: 'endings'}, ...Object.entries(r.endings).map(([ending, n]) => el('span', {className: 'pill ' + ENDING_TONE[ending], textContent: ending.replace('_', ' ') + ' ' + n}))),
       r.unresolved.length ? el('table', {className: 'fit'}, el('tr', {}, ...heads('resolution', ['Unresolved (the work list)', 'Platform', 'Last run'], redraw)),
         ...sortRows('resolution', r.unresolved, UNRESOLVED_GET).map(item => el('tr', {}, el('td', {textContent: item.row}), el('td', {className: 'muted', textContent: item.platform}), el('td', {className: 'muted', textContent: item.day + ' · ' + (item.source === 'ci' ? 'CI' : 'Mac')})))) : el('p', {className: 'muted', textContent: 'Nothing unresolved.'}),
       r.samples.length ? el('p', {className: 'muted sample', textContent: 'Weighted by the share of matched jobs per platform; rows behind it: ' + r.samples.map(item => item.platform + ' ' + item.share + '%: ' + item.rows).join(' · ') + '. A platform with few rows moves the weighted number a lot.'}) : null,
       r.weeks.length > 1 ? el('table', {className: 'fit'}, el('tr', {}, ...heads('weeks', ['Week of', 'Rows', 'Resolved'], redraw)),
-        ...sortRows('weeks', r.weeks, WEEK_GET).map(week => el('tr', {}, el('td', {textContent: week.week}), el('td', {className: 'muted', textContent: week.measured}), el('td', {textContent: week.raw == null ? '–' : week.raw + '%'})))) : null);
+        ...sortRows('weeks', r.weeks, WEEK_GET).map(week => el('tr', {}, el('td', {textContent: week.week}), el('td', {className: 'muted', textContent: week.measured}), el('td', {textContent: week.raw == null ? '–' : week.raw + '%'})))) : null].filter(Boolean));
   }
 `;
