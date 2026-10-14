@@ -25,8 +25,10 @@ export async function storeReplays(db, body, now = new Date()) {
   for (const row of rows) { const name = nameOf(row?.name); if (name) cases[name] = [row.ok ? 1 : 0, rungOf(row.rung), row.ok ? '' : text(row.note, 200), ORIGINS.includes(row.origin) ? row.origin : null]; }
   if (!Object.keys(cases).length) return {ok: false, error: 'no valid rows'};
   const runs = await readReplays(db), last = runs.at(-1);
-  if (last?.sha === sha && JSON.stringify(last.cases) === JSON.stringify(cases)) return {ok: true, stored: Object.keys(cases).length};
-  const run = {sha, at: now.toISOString(), version: text(body.version, 20) || null, cases};
+  const count = value => (Number.isInteger(value) && value >= 0 && value <= 5000 ? value : null);   // what the repo holds to test with, counted by structure by CI (desktop/e2e/lib/repo-counts.mjs)
+  const repo = body?.repo && typeof body.repo === 'object' ? {recorded: count(body.repo.recorded), zoo: count(body.repo.zoo)} : null;
+  if (last?.sha === sha && JSON.stringify(last.cases) === JSON.stringify(cases) && JSON.stringify(last.repo || null) === JSON.stringify(repo)) return {ok: true, stored: Object.keys(cases).length};
+  const run = {sha, at: now.toISOString(), version: text(body.version, 20) || null, cases, ...(repo ? {repo} : {})};
   const next = [...(last?.sha === sha ? runs.slice(0, -1) : runs), run].slice(-KEEP);
   await db.prepare('INSERT INTO applying_replays (key, at, body) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET at = excluded.at, body = excluded.body').bind('main', run.at, JSON.stringify(next)).run();
   return {ok: true, stored: Object.keys(cases).length};

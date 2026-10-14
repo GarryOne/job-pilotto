@@ -86,7 +86,7 @@ export const replayReason = (env = process.env) => (env.REAL_EXTENSION_DIR ? 'a 
   : !env.CI ? 'a local run: the replay table shows CI on main only' : env.GITHUB_EVENT_NAME === 'push' && env.GITHUB_REF === 'refs/heads/main' ? '' : 'CI, not a push to main');
 
 // One PUT for the whole run (every shard), with the build's sha, Bearer REPLAYS_PUBLISH_KEY (a key that can only write this table). JP_REPLAYS_DRY=1|true: say it, send nothing. -> one line.
-export async function uploadReplays(rows, {env = process.env, fetcher = fetch} = {}) {
+export async function uploadReplays(rows, {env = process.env, fetcher = fetch, repo = null} = {}) {   // repo: what the repo holds to test with (lib/repo-counts.mjs), for the lab page's "What we test on"
   const sha = String(env.GITHUB_SHA || ''), short = sha.slice(0, 7);
   if (['1', 'true'].includes(String(env.JP_REPLAYS_DRY || '').toLowerCase())) return `replays report: dry run: would send ${rows.length} replay row(s) for ${short}`;
   const why = replayReason(env);
@@ -94,7 +94,7 @@ export async function uploadReplays(rows, {env = process.env, fetcher = fetch} =
   if (!env.REPLAYS_PUBLISH_KEY) return 'replays report: not sent (REPLAYS_PUBLISH_KEY not set up: the owner adds the GitHub secret)';
   try {
     const answer = await fetcher(REPLAYS, {method: 'PUT', headers: {Authorization: `Bearer ${env.REPLAYS_PUBLISH_KEY}`, 'Content-Type': 'application/json', 'X-Caller': 'replays-upload'},
-      body: JSON.stringify({sha, version: extensionVersion(), rows}), signal: AbortSignal.timeout(20000)});
+      body: JSON.stringify({sha, version: extensionVersion(), rows, ...(repo ? {repo} : {})}), signal: AbortSignal.timeout(20000)});
     const body = await answer.json().catch(() => ({}));
     return answer.ok ? `replays report: ${body.stored ?? 0} replay row(s) sent for ${short}` : `replays report: refused (${answer.status} ${body.error || ''})`;
   } catch (error) { return `replays report: not sent (${String(error?.message || error).slice(0, 80)})`; }

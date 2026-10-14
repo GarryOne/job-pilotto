@@ -21,6 +21,9 @@ export const GROUP_OF = {
   not_taken: 'control', menu_not_clicked: 'control', menu_not_opened: 'control', menu_not_selected: 'control', menu_other_choice: 'control', not_kept_after_tries: 'control', real_click: 'control', no_option: 'control',
   other: 'other',
 };
+// The reason words a learned fix (a recipe: which element is the option, which attribute says "on", the date order and separator) can express; the rest of the control group needs code (a menu that
+// empties on typing, loads page by page, redraws after an upload). Today only no_option names the option element; the control cause words (menu_not_selected, ...) join here once they are measured. Used by src/best-case.js.
+export const RECIPE_EXPRESSIBLE = ['no_option'];
 export const KNOWN_WORDS = [...new Set([...LEFT_REASONS, ...CAUSES])];
 
 const since = (now, days) => new Date(now.getTime() - (days - 1) * 86400000).toISOString().slice(0, 10);
@@ -54,16 +57,26 @@ export async function leftEmpty(db, now = new Date(), side = 'real') {
 }
 
 const share = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
-// The section's inner HTML (heading, headline, table). wrap 'card': the form-filling pages' card; 'bare': for a page that already boxes its sections (Lab Form Filling).
-export function leftEmptySection(model, {wrap = 'card'} = {}) {
-  const thin = model.side === 'real' && isThin(model.sample);
-  const where = model.side === 'lab' ? 'the pool\'s fills (the owner\'s fake applicant)' : 'real installs that send technical reports';
+const isThinModel = model => model.side === 'real' && isThin(model.sample);
+
+// The one-line headline over all the required fields: "N required fields · X% filled · Y% left with no answer · Z% lost to controls · W% not read" (counts only while real use is thin).
+export function leftEmptyHeadline(model) {
+  if (!model.required) return '';
   const of = key => model.groups.find(group => group.key === key)?.ofRequired;
-  const headline = !model.required ? '' : thin ? `<p class="muted">${model.required} required fields on those forms · ${model.total} left</p>`
+  return isThinModel(model) ? `<p class="muted">${model.required} required fields on those forms · ${model.total} left (too few real fills to judge)</p>`
     : `<p><b>${model.required} required fields · ${share(model.filledShare)} filled · ${share(of('answer'))} left with no answer · ${share(of('control'))} lost to controls · ${share(of('read'))} not read</b></p>`;
-  const inner = `<h2>🕳️ Why fields were left empty</h2><small class="muted">Last ${model.days} days: ${where}, per required field. Four groups from one fixed table of reason words; real use and the lab are never added together.</small>
+}
+
+// The headline alone, in a card (the very top of Real Form Filling); nothing when no required field was reported.
+export const leftEmptyHeadlineCard = model => { const line = leftEmptyHeadline(model); return line ? `<section class="card">${line}</section>` : ''; };
+
+// The section's inner HTML (heading, headline, table). wrap 'card': the form-filling pages' card; 'bare': for a page that already boxes its sections (Lab Form Filling). headline false: the page shows it elsewhere.
+export function leftEmptySection(model, {wrap = 'card', headline = true} = {}) {
+  const thin = isThinModel(model);
+  const where = model.side === 'lab' ? 'the pool\'s fills (the owner\'s fake applicant)' : 'real installs that send technical reports';
+  const inner = `<h2>🕳️ Why fields were left empty</h2><small class="muted">Last ${model.days} days: ${where}, per required field. Source: the fill cards (cause words, required and filled counts), so the shares add up; the older per-field reasons table (fill_reasons) counts more than the cards and is not used here. Four groups from one fixed table of reason words; real use and the lab are never added together.</small>
 ${thin ? `<p><b>Too few real fills to judge: ${model.sample.forms} form${model.sample.forms === 1 ? '' : 's'} from ${model.sample.installs} install${model.sample.installs === 1 ? '' : 's'} in ${model.days} days (needs ${MIN_INSTALLS}+ installs).</b> <span class="muted">Counts only, no shares.</span></p>` : ''}
-${headline}
+${headline ? leftEmptyHeadline(model) : ''}
 <div class="wrap"><table><tr><th>Group</th><th class="n">Fields</th><th class="n">Of left</th><th class="n">Of required</th><th>Reason words</th></tr>
 ${model.total ? model.groups.map(group => `<tr${thin ? ' class="muted"' : ''}><td>${esc(group.title)}<br><small class="muted">${esc(group.note)}</small></td><td class="n">${group.count}</td><td class="n">${thin ? '–' : share(group.share)}</td><td class="n">${thin ? '–' : share(group.ofRequired)}</td>
 <td>${group.words.map(item => `${esc(item.word)} <span class="muted">${item.count}</span>`).join(' · ') || '<span class="muted">none</span>'}</td></tr>`).join('\n')
