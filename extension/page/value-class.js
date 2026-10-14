@@ -7,7 +7,7 @@
 (() => {
   if (window.__jobPilottoValueClass) return;
   const CLASSES = ['dial_code', 'country_name', 'email_shaped', 'phone', 'date', 'number', 'url', 'free_text', 'none'];
-  const fold = text => String(text ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const fold = window.__jobPilottoFold;   // page/fold-text.js, loaded first
   let countries = null;
   // Every country name of the dial-code table's regions, in the page's language and in English (built once, on first use).
   const countryNames = () => {

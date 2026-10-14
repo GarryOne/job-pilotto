@@ -5,7 +5,7 @@
 (() => {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\s*\*+\s*$/, '').trim();
-  const norm = text => clean(text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const norm = text => (window.__jobPilottoFold ? window.__jobPilottoFold(clean(text)) : clean(text).toLowerCase()).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // accents ignored (page/fold-text.js)
 
   // ---- answers -> what a control can take ----
   const YES = new Set(['yes', 'y', 'true', 'ja', 'oui', 'si', 'sim', 'da']);
