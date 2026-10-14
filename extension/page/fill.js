@@ -228,7 +228,8 @@
       const source = contactFields.has(row.field) ? 'your details' : answer ? (answer.source || 'kit') : '';
       let outcome = row.filled ? 'filled' : 'left';
       let reason = '';
-      if (row.type === 'file') { if (!row.filled) reason = 'upload: no file for this question'; }   // an upload slot that is not the CV (the CV has its own row below): counted like any required control, left unless it holds a file
+      if (row.type === 'file') { if (!row.filled) reason = 'upload: no file for this question'; }
+      else if (row.type === 'password' && !row.filled) { outcome = 'left'; reason = 'password: never typed, yours to set'; }   // a safety rule (CLAUDE.md: never a password field): left for you, never "no answer"   // an upload slot that is not the CV (the CV has its own row below): counted like any required control, left unless it holds a file
       else if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
       else if (row.written && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'written: your own words to write'; }   // the AI's reading (category written), any language
       else if (row.demographic && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'demographic: your own choice'; }   // a salutation or gender nothing given states: never guessed

@@ -213,6 +213,9 @@ test('a left field is expected when a suggestion was shown or the choice is the 
   assert.equal(verdictOf(left('proposed for you to confirm')), 'expected');
   assert.equal(verdictOf(left('legal/consent: always your choice', 'checkbox')), 'expected');
   assert.equal(verdictOf(left(NO_ANSWER)), 'no_suggestion');
+  // A password is never typed (safety rule): expected, by the field's type, also in a record from before its own reason (a SuccessFactors-like account step, 14 Oct 2026).
+  assert.equal(verdictOf(left('password: never typed, yours to set', 'password')), 'expected');
+  assert.equal(verdictOf(left(NO_ANSWER, 'password')), 'expected');
   assert.equal(verdictOf(left(NO_ANSWER), {aiOff: true}), 'unknown');   // the AI was not asked: no suggestion could exist
   assert.equal(verdictOf(left('answer given, but the field did not take it')), 'miss');
   assert.equal(verdictOf(left('question text not found on the page', 'radio')), 'miss');

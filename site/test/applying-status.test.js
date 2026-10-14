@@ -30,6 +30,11 @@ const ROWS = [
   ['Fix early', 'fix', {reached: 'posting', rung: 2, signal: 'failed'}],
   ['Fix regression', 'fix', {reached: 'form', filled: 9, left: 0, regression: true}],
   ['Fix short', 'fix', {reached: 'form', filled: 5, left: 12, asked: 17, unexplained: 6}],
+  // Fewer filled than the last run, but every empty asked field is left by a rule (proposed, written, a consent, a password): not a fix (owner, 14 Oct 2026; a pool row
+  // whose location moved from typed to proposed read red). One field of ours unexplained keeps it red.
+  ['Works rule holds', 'works', {reached: 'form', filled: 8, left: 4, regression: true, asked: 7, unexplained: 0}],
+  ['Fix one of ours', 'fix', {reached: 'form', filled: 12, left: 8, regression: true, asked: 14, unexplained: 1}],
+  ['Fix regression, old run', 'fix', {reached: 'form', filled: 7, left: 2, regression: true}],
 ];
 
 test('rowStatus: works, held on purpose (says which rule), site problem, needs a fix, not run', () => {
@@ -52,8 +57,8 @@ test('every view of a row reads its one status: Result, Rung, run dots, By-hand 
   const total = ROWS.length, counts = json.nights[0].counts;
   assert.deepEqual(Object.keys(counts), STATES);
   assert.equal(Object.values(counts).reduce((sum, count) => sum + count, 0), total, 'a bar holds every run');
-  assert.deepEqual([counts.works, counts.held, counts.site, counts.fix], [1, 6, 2, 3]);
-  assert.deepEqual([json.tiles.needFix, json.tiles.held, json.tiles.gone], [3, 6, 2]);
+  assert.deepEqual([counts.works, counts.held, counts.site, counts.fix], [2, 6, 2, 5]);
+  assert.deepEqual([json.tiles.needFix, json.tiles.held, json.tiles.gone], [5, 6, 2]);
   // the page: its own script on a tiny DOM
   const script = PAGE.split('<script>')[1].split('</script>')[0];
   const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
