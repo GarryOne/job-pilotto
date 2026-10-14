@@ -5,6 +5,7 @@
 import {LEFT_REASONS} from './knowledge.js';   // the words the site accepts from the apps (it mirrors desktop/lib/question-labels.js)
 import {CAUSES} from '../../extension/fill-card.js';
 import {esc} from './stats.js';
+import {splitGaps, gapsTable} from './answer-gaps.js';
 import {MIN_INSTALLS, isThin, sampleOf} from './thin-data.js';
 
 export const DAYS = 14;
@@ -45,6 +46,9 @@ export function withRequired(model, required, filled) {
   return {...model, required, filled, filledShare: of(filled), groups: model.groups.map(group => ({...group, ofRequired: of(group.count)}))};
 }
 
+// The card's meaning counts (fill_cards.gaps, 0071) summed over the period for one source, split into buckets (src/answer-gaps.js).
+const gapsOf = async (db, from, source) => splitGaps(Object.fromEntries(((await db.prepare("SELECT j.key AS word, SUM(j.value) AS n FROM fill_cards c, json_each(c.gaps) j WHERE c.day >= ? AND c.source = ? GROUP BY j.key").bind(from, source).all().catch(() => ({results: []}))).results || []).map(row => [row.word, row.n])));
+
 // side 'real': real installs; 'lab': the owner's pool. Both from the fill cards of the last 14 days (their cause words, required and filled counts: one source, so the shares add up).
 // -> {side, days, required, filled, filledShare, total, groups, sample} (sample: only real use, for the thin-data rule).
 export async function leftEmpty(db, now = new Date(), side = 'real') {
@@ -53,7 +57,7 @@ export async function leftEmpty(db, now = new Date(), side = 'real') {
   const rows = (await db.prepare('SELECT j.key AS word, SUM(j.value) AS n FROM fill_cards c, json_each(c.causes) j WHERE c.day >= ? AND c.source = ? GROUP BY j.key').bind(from, source).all().catch(() => none)).results || [];
   const cards = (await db.prepare('SELECT required, filled, install FROM fill_cards WHERE day >= ? AND source = ?').bind(from, source).all().catch(() => none)).results || [];
   const model = withRequired(tally(Object.fromEntries(rows.map(row => [row.word, row.n]))), cards.reduce((sum, card) => sum + card.required, 0), cards.reduce((sum, card) => sum + card.filled, 0));
-  return {side, days: DAYS, ...model, sample: side === 'lab' ? null : sampleOf(cards)};
+  return {side, days: DAYS, ...model, sample: side === 'lab' ? null : sampleOf(cards), gaps: await gapsOf(db, from, source)};
 }
 
 const share = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
@@ -80,6 +84,7 @@ ${headline ? leftEmptyHeadline(model) : ''}
 <div class="wrap"><table><tr><th>Group</th><th class="n">Fields</th><th class="n">Of left</th><th class="n">Of required</th><th>Reason words</th></tr>
 ${model.total ? model.groups.map(group => `<tr${thin ? ' class="muted"' : ''}><td>${esc(group.title)}<br><small class="muted">${esc(group.note)}</small></td><td class="n">${group.count}</td><td class="n">${thin ? '–' : share(group.share)}</td><td class="n">${thin ? '–' : share(group.ofRequired)}</td>
 <td>${group.words.map(item => `${esc(item.word)} <span class="muted">${item.count}</span>`).join(' · ') || '<span class="muted">none</span>'}</td></tr>`).join('\n')
-  : '<tr><td colspan="5" class="muted">No left fields reported in this period.</td></tr>'}</table></div>`;
+  : '<tr><td colspan="5" class="muted">No left fields reported in this period.</td></tr>'}</table></div>
+${gapsTable(model.gaps, thin)}`;
   return wrap === 'card' ? `<section class="card">${inner}</section>` : inner;
 }
