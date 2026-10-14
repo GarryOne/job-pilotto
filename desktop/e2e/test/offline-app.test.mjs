@@ -76,7 +76,7 @@ test('the harness drives the app as its window would: settings, the contact, App
   } finally { await app.close(); }
 });
 
-// The pool on a CI runner (.github/workflows/pool-smoke.yml): no Claude Code there, so the app asks through its own API engine, to the harness's metering proxy on
+// The pool on a CI runner (.github/workflows/record-sites.yml): no Claude Code there, so the app asks through its own API engine, to the harness's metering proxy on
 // this computer (lib/live-row.mjs), never straight to the internet. Here the proxy answers itself (canned) and the key is the placeholder: nothing is paid.
 test('with an AI proxy the offline app asks through its API engine and the proxy on this computer, never claude -p', async () => {
   const proxy = await startAiProxy();

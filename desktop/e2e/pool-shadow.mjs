@@ -1,5 +1,5 @@
 // node pool-shadow.mjs <smoke reports folder>...: the shadow question's agree / would_act / worse table over CI pool runs (lib/pool-shadow.mjs; spec 2026-10-12-one-next-move.md, the switch-on criteria per
-// dead end): one folder per downloaded run (gh run download <id> --name pool-smoke-<id>); reads every row's app log. Prints, per kind of stop, how the fallback compared to the real stop, the rows
+// dead end): one folder per downloaded run (gh run download <id> --name record-sites-<id>); reads every row's app log. Prints, per kind of stop, how the fallback compared to the real stop, the rows
 // that would have been WORSE (the switch-on needs none), the rows where it would act where the stop did not (WOULD ACT: a candidate until the CI pool acts), and the question's cost. Reads only.
 import fs from 'node:fs';
 import path from 'node:path';

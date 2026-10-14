@@ -57,7 +57,7 @@ test('the build stamp names a commit and the extension version', () => {
 // The class: every live runner keeps its capture (a new runner without it fails here).
 test('every live runner keeps its capture in the library', () => {
   for (const file of ['smoke.mjs', 'live.mjs']) assert.match(fs.readFileSync(path.join(here, '..', file), 'utf8'), /keepCapture\(/, `${file} keeps no capture`);
-  assert.match(fs.readFileSync(path.join(here, '../../../.github/workflows/pool-smoke.yml'), 'utf8'), /SMOKE_CAPTURES[\s\S]*name: pool-captures-\$\{\{ github\.run_id \}\}[\s\S]*retention-days: 30/, 'CI uploads the captures for 30 days');
+  assert.match(fs.readFileSync(path.join(here, '../../../.github/workflows/record-sites.yml'), 'utf8'), /SMOKE_CAPTURES[\s\S]*name: pool-captures-\$\{\{ github\.run_id \}\}[\s\S]*retention-days: 30/, 'CI uploads the captures for 30 days');
 });
 
 test('a pulled CI artifact merges into the library once; a capture already there stays as it is', async () => {

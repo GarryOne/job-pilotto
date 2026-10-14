@@ -1,5 +1,5 @@
 // node pool-acted.mjs <smoke reports folder>...: the acted presses of CI pool runs (lib/pool-acted.mjs; spec 2026-10-12-one-next-move.md phase 3 step 2 "press": >= 10 presses acted, 0 worse by effect, the unblock
-// rate and the cost shown). One folder per downloaded run (gh run download <id> --name pool-smoke-<id>). Reads only.
+// rate and the cost shown). One folder per downloaded run (gh run download <id> --name record-sites-<id>). Reads only.
 import fs from 'node:fs';
 import path from 'node:path';
 import {actedTable, resultsOf, slugOf} from './lib/pool-acted.mjs';

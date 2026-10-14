@@ -40,7 +40,7 @@ test('a live row runs on the app\'s own path without Electron: Apply opens the p
   assert.ok(journey.some(page => page.url.startsWith('https://jobs.example.org/job/42') && page.ask), JSON.stringify(journey.map(page => [page.url, page.ask])));
 });
 
-// The pool on a CI runner (.github/workflows/pool-smoke.yml): the app asks through its API engine and the harness's metering proxy, and the row reports its spend
+// The pool on a CI runner (.github/workflows/record-sites.yml): the app asks through its API engine and the harness's metering proxy, and the row reports its spend
 // (lib/smoke.mjs parseLive reads it for the dollar cap). Here the proxy answers itself (canned, the placeholder key): nothing is paid, so the spend is 0.
 test('a live row with an AI proxy asks through it from the real extension and reports its spend', {skip}, async () => {
   const proxy = await startAiProxy();

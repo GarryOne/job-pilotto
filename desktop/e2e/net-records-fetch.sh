@@ -17,7 +17,10 @@ if mac_records; then
   rm -f "$enc/k"
 fi
 since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-14d +%Y-%m-%dT%H:%M:%SZ)
-gh run list --workflow "CI · Pool smoke (by hand)" --limit 60 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" | while read -r id; do
+# the workflow was "CI · Pool smoke (by hand)" until 15 Oct 2026: its runs' records (14 days) are read too
+for workflow in "CI · Record sites (by hand)" "CI · Pool smoke (by hand)"; do
+  gh run list --workflow "$workflow" --limit 60 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null || true
+done | sort -u | while read -r id; do
   gh run download "$id" --name "net-records-$id" --dir "$enc/$id" >/dev/null 2>&1 || continue
   openssl pkeyutl -decrypt -inkey "$key" -pkeyopt rsa_padding_mode:oaep -in "$enc/$id/k.enc" -out "$enc/k" || continue
   mkdir -p "$out/$id" && openssl enc -d -aes-256-cbc -pbkdf2 -in "$enc/$id/net.tgz.enc" -pass "file:$enc/k" | tar xz -C "$out/$id" || true
