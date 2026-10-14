@@ -163,7 +163,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
   const { ms, engine, provider, billing, model, ...trace } = traces[0];
   assert.deepEqual([engine, provider], ['api', 'anthropic']);   // a client with no .engine is the raw Anthropic SDK
-  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, emptyKinds: ['q2:'], profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {}, retried: 0, stillMissing: [] });
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, emptyKinds: ['q2:'], profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, guessed: 0, floored: [], categories: {}, retried: 0, stillMissing: [] });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
@@ -273,7 +273,7 @@ test('the fill line keeps a field\'s pack meaning key and the recipes count; a v
   assert.deepEqual([kept.fields[0].alias, kept.fields[1].alias, kept.recipes], ['location', undefined, 2]);
 });
 
-test('a likely answer the profile does not state comes back as a proposal (a knockout one too, to be checked); a preference too (an SMS opt-in); never for a legal or demographic question', async () => {
+test('a likely answer the profile does not state is typed as a guess; a knockout or preference (an SMS opt-in) one is a proposal; never for a legal or demographic question', async () => {
   const { answerForm } = await import('../src/extension.js');
   const answers = [
     { field: 'hours', value: 'Oui', confidence: 'medium', note: 'applying to this 50% role', category: 'normal', use: 'propose' },
@@ -289,8 +289,9 @@ test('a likely answer the profile does not state comes back as a proposal (a kno
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
   const result = await answerForm({ PROFILE_TEXT: 'Email: ada@example.com', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
-  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill'], ['terms', 'kind']]);   // the floored legal one still says it is legal (a kind, no value)
-  assert.equal(traces[0].proposed, 3);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'fill'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill'], ['terms', 'kind']]);   // the floored legal one still says it is legal (a kind, no value)
+  assert.equal(traces[0].proposed, 2);
+  assert.equal(traces[0].guessed, 1);
   assert.deepEqual(traces[0].floored, ['demographic', 'legal']);   // the log says what the floor took out (9 Oct 2026: Coop's SMS opt-in, no trace)
   assert.equal(traces[0].categories.preference, 1);
 });

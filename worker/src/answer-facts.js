@@ -1,5 +1,5 @@
 // Answers from saved facts: the closed list of facts a form answer may rest on, the prompt rule that sets (not proposes) an answer that follows
-// from one, and the floor the code applies (a typed answer that names no saved fact is only proposed). Used by worker/src/extension.js answerForm.
+// from one, and what the code does with a guess (typed and marked, unless it is a contact detail or a link). Used by worker/src/extension.js answerForm.
 // Guarded by worker/test/answer-facts.test.js; measured on real captures by desktop/e2e/answer-reask.mjs (12 Oct 2026: 70% of the required
 // fields the pool left were answers, many with the fact saved, e.g. the languages spoken, the work permit for a role in its own region).
 
@@ -12,13 +12,19 @@ export const FACT_RULE = `use: "fill" when <profile>, <standard_answers>, the CV
 fact: the saved fact the answer rests on, one of the listed keys ("other_saved" for a stated fact no key names); "none" when nothing saved settles it.
 When nothing saved settles it (a place the permit does not name, another currency or period than the stated target, a date, or whether they worked for this company, know someone there or how they heard of the job, when nothing saved says so), still give your most plausible answer for this applicant and this job, with use: "propose" and fact "none": the applicant sees it as a suggestion and confirms it; it is never typed for them.`;
 
-// The floor beside the rule: a typed answer must name a saved fact. One that says "none" is a guess, so it is proposed, never typed
-// (a wrong typed answer is worse than an empty one). An answer with no fact field at all (an older reply shape) is left as it was.
-// Legal and demographic questions keep their own rules (never proposed; a "decline to answer" choice is typed): this floor never touches them
-// (12 Oct 2026: it turned Lever's typed decline-to-answer into a proposal, which the demographic floor then dropped).
-export function floorUnfounded(answer, {test = false} = {}) {
-  if (test || answer.use === 'propose' || answer.fact !== 'none' || answer.value === '' || ['legal', 'demographic'].includes(answer.category)) return answer;
-  return {...answer, use: 'propose'};
+// A guess is typed (owner, 14 Oct 2026, after the bake-off: "Ok, let's change this policy. I allow it"; until then a guess was only proposed,
+// 12 Oct 2026). The AI still marks it (use "propose" or fact "none"); the code types it and keeps guess: true so the app can say so.
+// Still only proposed: a contact detail or a link (the identity and link floors below decide those), a preference (whether the applicant
+// is kept informed) and a knockout guess (owner, 9 Oct 2026; f519229: an unplaced sponsorship question typed "No sponsorship needed" on a
+// UK role): a knockout that follows from a saved fact is typed by the rule above, a guessed one is the employer's reason to reject. Legal, demographic and own-words (written) questions keep their own rules: never touched here (12 Oct 2026: a floor here
+// turned Lever's typed decline-to-answer into a proposal, which the demographic floor then dropped).
+const KEPT_PROPOSED = ['legal', 'demographic', 'written', 'contact', 'preference', 'knockout'];
+export function typeGuess(answer) {
+  const guess = answer.use === 'propose' || answer.fact === 'none';
+  if (!guess || answer.value === '' || ['legal', 'demographic', 'written'].includes(answer.category)) return answer;
+  const kept = KEPT_PROPOSED.includes(answer.category) || ['contact', 'home_location', 'links'].includes(answer.fact)
+    || /^(https?:\/\/|www\.)\S+$/i.test(String(answer.value || '').trim());
+  return kept ? {...answer, use: 'propose'} : {...answer, use: 'fill', guess: true};
 }
 // The identity floor (12 Oct 2026: with no profile sent, a plan-path model typed the signed-in account holder's country, city and surname into a test form).
 // A contact answer (name, e-mail, phone, address) or one resting on the home location is typed only when its value is in what the ask was given (the

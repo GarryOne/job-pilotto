@@ -2,7 +2,7 @@
 // none is only proposed, and on this Mac's store the ask gets the job and its drafted kit (before, a SQLite user's ask got neither).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FACT_KEYS, FACT_RULE, floorUnfounded } from '../src/answer-facts.js';
+import { FACT_KEYS, FACT_RULE, typeGuess } from '../src/answer-facts.js';
 
 const reply = (answers) => ({ stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5, billing: 'subscription' },
   content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] });
@@ -33,23 +33,37 @@ test('the prompt sets an answer that follows from a saved fact and proposes only
   assert.match(FACT_RULE, /referred or recommended them[^.]*when the saved facts state how they heard of the job/);
 });
 
-test('floor: a typed answer that names no saved fact is proposed, never typed; one that names a fact is typed', () => {
-  assert.equal(floorUnfounded({ use: 'fill', fact: 'none', value: 'Website' }).use, 'propose');
-  assert.equal(floorUnfounded({ use: 'fill', fact: 'work_permit', value: 'No' }).use, 'fill');
-  assert.equal(floorUnfounded({ use: 'fill', value: 'No' }).use, 'fill', 'an older reply shape with no fact is left as it was');
-  assert.equal(floorUnfounded({ use: 'fill', fact: 'none', value: 'x' }, { test: true }).use, 'fill', 'test mode types invented values on purpose');
-  for (const category of ['legal', 'demographic']) {
-    assert.equal(floorUnfounded({ use: 'fill', fact: 'none', value: 'Decline to self-identify', category }).use, 'fill', `${category}: its own rule decides (a decline choice is typed)`);
+test('a guess is typed and marked (owner, 14 Oct 2026); a guessed knockout, contact, link or preference stays a proposal', () => {
+  const typed = (a) => typeGuess(a);
+  for (const a of [{ use: 'propose', fact: 'none', value: '120000', category: 'normal' }, { use: 'fill', fact: 'none', value: 'Yes', category: 'normal' },
+    { use: 'propose', fact: 'years_experience', value: '8', category: 'normal' }]) {
+    assert.deepEqual([typed(a).use, typed(a).guess], ['fill', true], JSON.stringify(a));
   }
+  assert.equal(typed({ use: 'fill', fact: 'work_permit', value: 'No', category: 'knockout' }).use, 'fill', 'a knockout that follows from a saved fact is typed');
+  assert.equal(typed({ use: 'fill', fact: 'work_permit', value: 'No' }).guess, undefined, 'a fact-backed answer is not a guess');
+  assert.equal(typed({ use: 'fill', value: 'No' }).use, 'fill', 'an older reply shape with no fact is left as it was');
+  for (const a of [{ category: 'knockout' }, { category: 'contact' }, { category: 'preference' }, { fact: 'contact' }, { fact: 'home_location' },
+    { fact: 'links' }, { value: 'https://github.com/ada' }]) {
+    for (const use of a.fact ? ['propose'] : ['propose', 'fill']) {   // a typed answer resting on a contact, home or link fact: the identity and link floors decide
+      const out = typed({ use, fact: 'none', value: 'x', category: 'normal', ...a });
+      assert.deepEqual([out.use, out.guess], ['propose', undefined], `${use} ${JSON.stringify(a)}`);
+    }
+  }
+  for (const category of ['legal', 'demographic', 'written']) {
+    assert.deepEqual(typed({ use: 'fill', fact: 'none', value: 'Decline to self-identify', category }), { use: 'fill', fact: 'none', value: 'Decline to self-identify', category }, `${category}: its own rule decides`);
+    assert.equal(typed({ use: 'propose', fact: 'none', value: 'Female', category }).use, 'propose', `${category}: its own floor decides`);
+  }
+  assert.equal(typed({ use: 'propose', fact: 'none', value: '', category: 'normal' }).use, 'propose', 'an empty answer is not typed');
 });
 
-test('answerForm: the saved-fact answer is typed, the unfounded one comes back as a proposal', async () => {
+test('answerForm: the saved-fact answer is typed, the guess is typed and marked', async () => {
   const { answerForm } = await import('../src/extension.js');
   const out = await answerForm(env, { url: 'https://example.test/job/1', fields }, fakeClient([
     { field: 'permit', value: 'No', confidence: 'high', note: '', category: 'knockout', use: 'fill', fact: 'sponsorship' },
     { field: 'heard', value: 'Website', confidence: 'medium', note: 'guess', category: 'normal', use: 'fill', fact: 'none' }]));
   const use = Object.fromEntries(out.answers.map((a) => [a.field, a.use]));
-  assert.deepEqual(use, { permit: 'fill', heard: 'propose' });
+  assert.deepEqual(use, { permit: 'fill', heard: 'fill' });
+  assert.equal(out.answers.find((a) => a.field === 'heard').guess, true);
   assert.equal(out.answers.find((a) => a.field === 'permit').fact, 'sponsorship');
 });
 
