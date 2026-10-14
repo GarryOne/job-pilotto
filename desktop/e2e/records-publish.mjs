@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {newestPerRow} from './replay-records.mjs';
+import {stampZone} from './lib/replay-date.mjs';
 
 export const TAG = 'net-records', BUNDLE = 'net-records.tgz.enc', KEY = 'net-records.k.enc', REPO = process.env.NET_RECORDS_REPO || 'GarryOne/job-pilotto-internal';
 
@@ -17,7 +18,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   const rows = newestPerRow(root), here = path.dirname(new URL(import.meta.url).pathname), work = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
   try {
     const stage = path.join(work, 'net-records');
-    for (const row of rows) fs.cpSync(row.dir, path.join(stage, path.basename(row.dir)), {recursive: true});
+    for (const row of rows) {
+      const into = path.join(stage, path.basename(row.dir)), file = path.join(into, 'record.json');
+      fs.cpSync(row.dir, into, {recursive: true});
+      const record = JSON.parse(fs.readFileSync(file, 'utf8')), stamped = stampZone(record);   // a Mac record from before the zone was saved: this Mac's zone
+      if (stamped !== record) fs.writeFileSync(file, JSON.stringify(stamped));
+    }
     console.log(`records-publish: ${rows.length} rows: ${rows.map(row => row.name).join(', ')}`);
     if (dry || !rows.length) process.exit(0);
     const run = (cmd, args) => execFileSync(cmd, args, {cwd: work, stdio: ['ignore', 'pipe', 'inherit']});
