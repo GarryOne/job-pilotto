@@ -2,6 +2,7 @@
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
 import {attachDebugger} from './stop-state.js';
+import {StepTimeout, within} from './step-bound.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
@@ -45,33 +46,54 @@ export function debuggerTurn(work) {
   comboQueue = turn.catch(() => {});
   return turn;
 }
+// Every awaited step of the clicks has a deadline, and a whole menu too: a control that never answers is given up on, the rest of the fill goes on (step-bound.js).
+const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 20000, combo: 20000};
+// Menus given up on in this fill (a timeout, or the ceiling): a later pass does not wait on the same menu again, so one control costs the fill one wait, not one per pass (tab -> labels).
+const givenUp = new Map();
+export const forgetGivenUp = tabId => { givenUp.delete(tabId); };
+const giveUp = (tabId, label) => { if (!givenUp.has(tabId)) givenUp.set(tabId, new Set()); givenUp.get(tabId).add(label); };
 async function clickCombosNow(tabId) {
-  const page = (func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
-    .then(([r]) => r?.result);
+  let gaveUp = false, lastStep = null, steps = 0;   // a step timed out: the work still running behind it stops at its next step (the debugger is detached below)
+  const bound = (label, fn) => (...args) => { if (gaveUp) return Promise.reject(new Error('given up')); steps += 1; const at = Date.now(); lastStep = {label, at, done: 0}; const mine = lastStep; return within(STEP_MS[label], label, () => fn(...args)).finally(() => { mine.done = Date.now(); if (Date.now() - at > 1500) decide('fill', 'a dropdown step was slow', {step: label, ms: Date.now() - at}).catch(() => {}); }); };
+  const page = bound('page', (func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
+    .then(([r]) => r?.result));
   const results = [];
   if (!(await page(() => window.__jobPilottoArmedCount?.() || 0))) return results;
   const target = {tabId};
-  await attachDebugger(tabId);
-  const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
-    {type, x, y, button: 'left', clickCount: 1});
+  await within(STEP_MS.attach, 'attach', () => attachDebugger(tabId));
+  const mouse = bound('mouse', (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
+    {type, x, y, button: 'left', clickCount: 1}));
   const click = async (x, y) => { await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [x, y]).catch(() => {}); await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };   // the extension's own press: marked first (page/submit-press.js markAt)
   // A type-to-search box (page/fill-menus.js typeToSearch): the text typed over the box's content for real, and the AI's pick by meaning among the options it showed.
-  const type = async text => {
+  const type = bound('type', async text => {
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
     await chrome.debugger.sendCommand(target, 'Input.insertText', {text});
-  };
-  const choose = async ({label, asked, choices}) => {
+  });
+  const choose = bound('choose', async ({label, asked, choices}) => {
     const config = await settings().catch(() => null);
     return config ? (await apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label, value: asked, options: choices})}).catch(() => null))?.choice || '' : '';
-  };
+  });
   let skip = 0;
   try {
     for (let i = 0; i < 40; i++) {
       const spot = await page(n => window.__jobPilottoNextCombo(n), [skip]);
       if (!spot) break;
+      if (givenUp.get(tabId)?.has(spot.label)) { skip += 1; continue; }
       const started = Date.now();
-      const {picked, last} = await clickCombo({page, click, spot, skip, type, choose});
+      let outcome;
+      const marks = [];
+      try { outcome = await within(STEP_MS.combo, 'dropdown', () => clickCombo({page, click, spot, skip, type, choose, marks})); }
+      catch (error) {   // this menu never settled (a suggest-only box whose list never opens): given up, the others and the late answers go on
+        gaveUp = true;
+        giveUp(tabId, spot.label);
+        decide('fill', 'a dropdown did not settle: given up', {step: error instanceof StepTimeout ? error.step : 'error', ms: error.ms ?? 0, field: spot.label.slice(0, 60), steps, last: lastStep?.label || '', lastAgo: lastStep ? Date.now() - lastStep.at : 0, lastDone: !!lastStep?.done, marks: marks.slice(-14).join(' ')}).catch(() => {});
+        results.push({label: spot.label, picked: false, matched: null, ms: Date.now() - started, opened: null, found: null, selectedAfter: null, trusted: null});
+        break;
+      }
+      const {picked, last} = outcome;
+      if (outcome.capped && !outcome.picked) giveUp(tabId, spot.label);
+      if (outcome.capped) decide('fill', 'a dropdown kept the wait going: stopped waiting', {field: spot.label.slice(0, 60), ms: Date.now() - started}).catch(() => {});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
       const matched = !picked || !last ? null : last.same === true || String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.

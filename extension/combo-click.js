@@ -2,22 +2,32 @@
 // The page opens the menu, filters it and picks the answer after the click, which can take seconds (the menu's own wait, then the typing wait of a
 // search field). A second click before it finished toggled the menu shut and the result was read before the page wrote it (Ocado, right to work:
 // "no option matched" on one run, "menu did not open" on the next). Guarded by desktop/e2e/test/combo-click.test.mjs.
-const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000};
+// ceiling: the most one menu may take in all (14 Oct 2026, 5afa5a8's look-alike: a suggest-only address box whose list never opens kept asking for typing / kept "picking", each ask pushed the
+// limit out another 9 s, and the wait never ended: 30-40 s of silence, then "dead end: silent" with the late answers behind it).
+const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000};
 
 // type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
 // page(func, args): runs func in the page (MAIN world). click(x, y): a trusted click. spot: the armed menu's spot from __jobPilottoNextCombo.
 // Returns {picked, last}: whether the armed count dropped, and what the page observed (__jobPilottoLastPick, read once the page is done).
-export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms))}) {
-  let picked = false, last = null;
+export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, marks = []}) {
+  let picked = false, last = null, capped = false;
+  const began = now();
+  const mark = tag => { marks.push(`${tag}@${now() - began}`); if (marks.length > 40) marks.shift(); };   // where the time went, said when a menu is given up (flow.js)   // every wait below is REAL time: counting 100 ms ticks let a busy page (each call taking a second or more) stretch a 1.5 s wait to 30 s
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
     const before = await page(() => window.__jobPilottoArmedCount());
     const at = attempt === 1 ? spot : await page(n => window.__jobPilottoNextCombo(n), [skip]);
     if (!at) break;
+    mark(`click${attempt}`);
     await click(at.x, at.y);
+    mark(`clicked${attempt}`);
     const loading = () => page(() => !!document.querySelector('[class*=loading-indicator], [class*=loadingIndicator], [class*=menu-notice--loading], [class*=loadingMessage]'));
     let spotClicked = false;
-    for (let waited = 0, limit = PATIENCE.first; waited < limit; waited += 100) {
+    const lookStart = now();
+    for (let waited = 0, limit = PATIENCE.first; waited < limit; waited = now() - lookStart) {
+      if (now() - began >= PATIENCE.ceiling) { capped = true; break; }
+      mark('turn');
       await sleep(100);
+      waited = now() - lookStart;
       if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
       // The menu ignored a scripted click on its option: the page left the option's spot, clicked here for real once (page/fill-menus.js armCombo).
       const spotAt = spotClicked ? null : await page(() => window.__jobPilottoPickSpot || null);
@@ -25,6 +35,7 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
       // The page needs what only the extension can do (page/fill-menus.js typeToSearch): type for real, or have the AI pick from the options shown.
       const needed = await page(() => { const need = window.__jobPilottoNeed; window.__jobPilottoNeed = null; return need || null; });
       if (needed) {
+        mark(`need-${needed.kind}`);
         const value = needed.kind === 'type' ? await type?.(needed.text).then(() => true, () => false) : await choose?.(needed).catch(() => '');
         await page(done => { window.__jobPilottoNeedDone = done; }, [value ?? false]);
         limit = Math.max(limit, waited + PATIENCE.deciding);
@@ -39,8 +50,8 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
     // the second pick overwrites the true observation with "did not open" (the Ocado runs). Retry only when the page never opened it.
     last = await page(() => window.__jobPilottoLastPick || null);
     await click(5, 5).catch(() => {}); await sleep(100);  // close the menu
-    if (last?.opened) break;
+    if (last?.opened || capped) break;
   }
   last = await page(() => { const pick = window.__jobPilottoLastPick || null; window.__jobPilottoLastPick = null; return pick; }) || last;
-  return {picked, last};
+  return {picked, last, capped};
 }
