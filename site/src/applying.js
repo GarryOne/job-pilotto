@@ -11,6 +11,7 @@ import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './
 import {topCauses} from './applying-cause.js';
 import {readReplays, replayCases} from './applying-replays.js';
 import {CASES_SCRIPT} from './applying-cases.js';
+import {PAGETABS_CSS, PAGETABS_SCRIPT} from './applying-pagetabs.js';
 import {RESOLUTION_CSS, RESOLUTION_SCRIPT, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
 import {FIDELITY_CSS, FIDELITY_SCRIPT, fidelity as fidelityOf, readFidelity} from './applying-fidelity.js';
 import {nextToAdd} from './nextsites.js';
@@ -187,7 +188,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick.search{min-width:240px}.pick input[type=search],.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 table td:not(:first-child),table th:not(:first-child){white-space:nowrap}.legend td:last-child{white-space:normal}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
-.flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}${RESOLUTION_CSS}${FIDELITY_CSS}.muted{color:var(--muted)}
+.flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}${PAGETABS_CSS}${RESOLUTION_CSS}${FIDELITY_CSS}.muted{color:var(--muted)}
 .pooltable,.fit{table-layout:fixed}.pooltable td,.pooltable th,.fit td,.fit th{white-space:normal!important;overflow-wrap:anywhere}.pooltable tr.site{cursor:pointer}.pooltable tr.site:hover td,.pooltable tr.site.open td{background:var(--card)}.pooltable tr.site td{vertical-align:middle;padding:10px 10px 10px 0}
 .sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}.stack.hold{color:var(--violet)}
 .rungbox{display:inline-block;min-width:32px;text-align:center;padding:3px 8px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-weight:600}.pooltable td.c-rung,.pooltable th.c-rung{text-align:center}
@@ -226,8 +227,8 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
     tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
     tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
     tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
-  const resolutionBox = el('section', {className: 'resolution'}); app.append(resolutionBox); const fidelityBox = el('section', {className: 'fidelity'}); app.append(fidelityBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
-  const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); app.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
+${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'}); panels.resolution.append(resolutionBox); const fidelityBox = el('section', {className: 'fidelity'}); panels.replays.append(fidelityBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
+  const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); panels.fixes.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
   if (d.nights.length) {
@@ -236,7 +237,7 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
         el('div', {className: 'nightbar'}, ...d.steps.filter(step => night.counts[step]).map(step => { const count = night.counts[step];
           return el('i', {className: 's-' + step, title: step + ': ' + count + ' of ' + total, style: 'flex:' + count + ' 1 0', textContent: count}); })),
         el('span', {className: 'muted', textContent: total + (total === 1 ? ' site' : ' sites') + ' · ' + (total ? Math.round(100 * form / total) : 0) + '% reached the form'})); });
-    app.append(el('section', {className: 'nights'}, el('h2', {textContent: 'Nights · where each site got to'}),
+    panels.pool.append(el('section', {className: 'nights'}, el('h2', {textContent: 'Nights · where each site got to'}),
       el('p', {className: 'muted', textContent: 'Each bar is the sites of one night, split by the step they reached (the colors are explained under the pool table); the last 14 nights, the latest first.'}),
       el('div', {className: 'key'}, ...d.steps.map(step => pill(step))), ...rows));
   }
@@ -244,7 +245,7 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   const RUNGS = [[0, 'Structure rule, no AI', 'free', 'extension/tab-pages.js pageRole'], [1, 'Kept answer per page shape', 'free', 'page-kinds.json, kept by desktop/lib/server-pages.js'], [2, 'Text sketch to the small model', 'about 600 tokens', 'desktop/lib/page-kind.js'],
     [3, 'Numbered digest to a small or middle model', 'about 1,500 to 2,500 tokens', 'desktop/lib/ladder/rung3-digest.js, extension/ladder/rung3-candidates.js'], [4, 'Screenshot plus sketch to the strongest model, one action', 'about 1.5k tokens plus the sketch, capped', 'desktop/lib/ladder/rung4-picture.js'],
     [5, 'Claude takes over the page', 'a full agent session', 'desktop/lib/ladder/rung5-takeover.js'], [6, 'The person, with the page\\'s sentence quoted', 'the person\\'s time', 'the session card']];
-  app.append(el('details', {className: 'ladder'}, el('summary', {textContent: 'The AI ladder · which rung decides a page'}),
+  panels.pool.append(el('details', {className: 'ladder'}, el('summary', {textContent: 'The AI ladder · which rung decides a page'}),
     el('table', {}, el('tr', {}, ...['Rung', 'What it is', 'Cost', 'Where it lives'].map(h => el('th', {textContent: h}))),
       ...RUNGS.map(([n, what, cost, where]) => el('tr', {}, el('td', {textContent: n}), el('td', {textContent: what}), el('td', {className: 'muted', textContent: cost}), el('td', {className: 'muted', textContent: where})))),
     el('p', {className: 'muted', textContent: 'A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'})));
@@ -338,7 +339,7 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
           el('td', {className: 'muted', textContent: s.installs + ' installs'}), el('td', {className: 'muted', textContent: s.uses}), el('td', {className: 'muted', textContent: s.readyShare + '%'}),
           el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
         'Nothing yet: a site shows once 3 installs applied on it', undefined, [s => s.host, s => s.platform, s => s.installs, s => s.uses, s => s.readyShare, s => s.countries.length])].filter(Boolean)); };   // append() writes a null as the text "null"
-  app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
+  panels.coverage.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
     el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (Feed installs: installs whose crawl reads the feeds of that platform, not installs that filled a form; Applications: real forms filled) (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
   const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
@@ -390,16 +391,16 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
-  app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
+  panels.coverage.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution); drawFidelity(fidelityBox, d.fidelity);
-${CASES_SCRIPT}  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
+${CASES_SCRIPT}  panels.pool.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
   // The server keeps the data for up to 10 minutes (src/applying-store.js), so a faster refresh would only repeat the same answer.
   let fetchedAt = Date.now();
-  const refresh = () => { if (document.hidden) return; fetchedAt = Date.now(); fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); if (d.cases.length) drawCases(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); };
+  const refresh = () => { if (document.hidden) return; fetchedAt = Date.now(); fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); if (d.cases.length) drawCases(); drawFix(); drawFixed(); drawCauses(); showTab(); showPage(); drawNext(); drawScore(); }).catch(() => {}); };
   setInterval(refresh, 300000);
   document.addEventListener?.('visibilitychange', () => { if (!document.hidden && Date.now() - fetchedAt > 300000) refresh(); });
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });

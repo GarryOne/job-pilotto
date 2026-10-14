@@ -30,7 +30,7 @@ export const CASES_SCRIPT = `  // The replays of CI on main after each merge (sr
     ...shown.map(c => el('tr', {}, el('td', {className: 'c-case', textContent: c.name}), el('td', {className: 'muted c-rung', textContent: c.rung ?? '—'}), el('td', {className: 'muted c-origin', textContent: c.origin || '—'}), el('td', {className: 'c-result'}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
       c.note ? el('div', {className: 'muted clamp', title: c.note, textContent: c.note}) : null), el('td', {className: 'c-runs'}, dots(c.history)), el('td', {className: 'muted c-last'}, shaLink(c.sha, c.at)),
       el('td', {className: 'muted c-since'}, shaLink(c.since.sha, c.since.at))))) : el('p', {className: 'muted', textContent: 'No case matches.'})); };
-  app.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'}),
+  panels.replays.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'}),
     el('p', {className: 'muted', textContent: 'Each case checks one mechanism on a small page with a stubbed AI answer; a green row means the mechanism still works, not that the site works. ' + originCount('captured') + ' captured from a real page · ' + originCount('hand-cut') + ' hand-cut. Proven live comes only from the live layer (the Fixed tab: a PR\\u2019s live proof or a later CI pool run), never from a case.'}),
     d.cases.length ? caseBox
     : el('p', {className: 'muted', textContent: 'No replay from CI on main yet: the next merge to main uploads one (.github/workflows/recorded-pages.yml).'}))); if (d.cases.length) drawCases();

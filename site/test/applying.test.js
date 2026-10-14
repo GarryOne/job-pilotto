@@ -98,7 +98,7 @@ test('the page shows the ladder as a legend collapsed by default, a Rung column 
 });
 
 test('every file the ladder legend names exists on disk, so the legend cannot drift (a rung not built yet says so instead of naming a file)', () => {
-  const rungs = PAGE.slice(PAGE.indexOf('const RUNGS'), PAGE.indexOf('app.append(el(\'details\''));
+  const rungs = PAGE.slice(PAGE.indexOf('const RUNGS'), PAGE.indexOf('panels.pool.append(el(\'details\''));
   const files = [...rungs.matchAll(/[\w./-]+\.(?:js|json)\b/g)].map(match => match[0]).filter(file => file !== 'page-kinds.json');   // page-kinds.json is a per-install file, named with the code that keeps it
   assert.ok(files.length >= 7);
   for (const file of files) assert.ok(existsSync(new URL('../../' + file, import.meta.url)), file + ' is not in the repo');
@@ -191,7 +191,7 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
   const order = ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Ddd big form', 'Aaa small site'].map(name => section.indexOf(name));
   assert.ok(order.every(at => at > 0), 'every row is listed: ' + order);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'regression first, then the big platform by its earliest stop (posting, account, then the form), then the small site');
-  assert.ok(section.includes('54%'), 'the platform use is shown');
+  assert.ok(text.includes('54%'), 'the platform use is shown');   // by the scorecard (Coverage tab): a Needs a fix row shows it only when opened
 });
 
 test('the owner can delete one smoke run row (a run that should never have been sent): by kind, name and day; a missing name or an unknown kind removes nothing', async () => {
