@@ -266,3 +266,18 @@ test('a publish writes only the feeds that changed (11 Oct 2026: the full rewrit
   const got = await (await sliced(e, 'europe', await holder())).json();
   assert.equal(got.generated, store.get('index:generated'), 'the slice says when the LAST publish was, not when its newest row changed');
 });
+
+test('a feed is rewritten only for a real change, never for a new date or a small count drift (14 Oct 2026: 23k rows written a day)', async () => {
+  const {worthWriting} = await import('../src/employers.js');
+  const base = {company: 'Acme', ats: 'greenhouse', slug: 'acme', jobs: 40, relevant: 10, checked: '2026-10-10', fresh: {ok: '2026-10-10', fails: 0, jobs: 40, trend: 'flat', new: null}, regions: ['europe']};
+  assert.equal(worthWriting(null, base), true, 'a new feed');
+  assert.equal(worthWriting(base, {...base, checked: '2026-10-12', fresh: {...base.fresh, ok: '2026-10-12'}}), false, 'dates 2 days later');
+  assert.equal(worthWriting(base, {...base, checked: '2026-10-17'}), true, 'a date 7 days later');
+  assert.equal(worthWriting(base, {...base, jobs: 44, relevant: 11}), false, 'counts within 25%');
+  assert.equal(worthWriting(base, {...base, jobs: 60}), true, 'a count moved more than 25%');
+  assert.equal(worthWriting(base, {...base, relevant: 0}), true, 'a count fell to zero');
+  assert.equal(worthWriting(base, {...base, fresh: {...base.fresh, fails: 2}}), true, 'the feed started failing');
+  assert.equal(worthWriting(base, {...base, fresh: {...base.fresh, fails: 3}}), true);
+  assert.equal(worthWriting({...base, fresh: {...base.fresh, fails: 2}}, {...base, fresh: {...base.fresh, fails: 3}}), false, 'still failing');
+  assert.equal(worthWriting(base, {...base, company: 'Acme AG'}), true, 'any other field');
+});

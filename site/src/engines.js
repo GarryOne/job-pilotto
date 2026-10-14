@@ -6,9 +6,9 @@
 export const ENGINES = {api: 'Anthropic API key', cli: 'Claude Code (Claude plan)', openai: 'OpenAI API key', codex: 'Codex (ChatGPT plan)'};
 export const FAMILIES = {claude: 'Claude', openai: 'OpenAI'};
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : engine === 'api' || engine === 'cli' ? 'claude' : 'unknown');
-// The SQL of each install's latest engine, as a CTE body (install, engine).
-export const LATEST_ENGINE = `SELECT t.install, json_extract(t.data, '$.aiEngine') AS engine FROM telemetry t
-  WHERE t.kind = 'health' AND t.at = (SELECT MAX(at) FROM telemetry WHERE install = t.install AND kind = 'health')`;
+// The SQL of each install's latest engine, as a CTE body (install, engine). One grouped pass over the health rows (SQLite takes the bare `data` from the row that
+// holds MAX(at)), served by the partial index telemetry_health_latest (migration 0065). 14 Oct 2026: a correlated MAX per health row read ~120k rows a call.
+export const LATEST_ENGINE = `SELECT install, json_extract(data, '$.aiEngine') AS engine FROM (SELECT install, data, MAX(at) FROM telemetry WHERE kind = 'health' GROUP BY install)`;
 // The same, as a family per install: join a per-install table on it and filter "WHERE fam.family = ?".
 export const LATEST_FAMILY = `SELECT install, CASE WHEN engine IN ('openai', 'codex') THEN 'openai' WHEN engine IN ('api', 'cli') THEN 'claude'
   ELSE 'unknown' END AS family FROM (${LATEST_ENGINE})`;
@@ -26,8 +26,8 @@ export async function familyOfInstall(db, install) {
 
 // Installs seen since `from`, by engine (their latest health report): [{engine, label, family, n}], the four engines always listed.
 export async function installsByEngine(db, from) {
-  const rows = (await db.prepare(`WITH latest AS (${LATEST_ENGINE}) SELECT COALESCE(latest.engine, 'unknown') AS engine, COUNT(DISTINCT t.install) AS n
-    FROM telemetry t LEFT JOIN latest ON latest.install = t.install WHERE t.day >= ? GROUP BY 1`).bind(from).all()).results || [];
+  const rows = (await db.prepare(`WITH latest AS (${LATEST_ENGINE}), seen AS (SELECT DISTINCT install FROM telemetry WHERE day >= ?)
+    SELECT COALESCE(latest.engine, 'unknown') AS engine, COUNT(*) AS n FROM seen LEFT JOIN latest ON latest.install = seen.install GROUP BY 1`).bind(from).all()).results || [];
   const count = engine => rows.filter(row => (ENGINES[row.engine] ? row.engine : 'unknown') === engine).reduce((sum, row) => sum + (row.n || 0), 0);
   return [...Object.keys(ENGINES), 'unknown'].map(engine => ({engine, label: ENGINES[engine] || 'Not reported yet', family: familyOf(engine), n: count(engine)}));
 }
