@@ -225,3 +225,8 @@ test('a menu on a busy page that never opens is still given up, by the hard cap'
   assert.equal(out.capped, true);
   assert.ok(out.t < 50000, `took ${out.t} ms`);
 });
+test('a machine where every call takes 200 ms does not stretch the first look: a never-opening menu is left within a few seconds', async () => {
+  const out = await fakeRun({callMs: 200, opensAt: Infinity});
+  assert.equal(out.picked, false);
+  assert.ok(out.t < 9000, `took ${out.t} ms`);
+});
