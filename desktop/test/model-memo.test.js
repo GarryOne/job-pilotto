@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, layoutKey, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
+import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, layoutKey, memoFile, nearSizeKey, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -286,4 +286,23 @@ test('a frame\'s pixel size is layout, not meaning: a replay on another machine 
   assert.deepEqual(await replay.messages.create(page(6869)), reply);
   assert.equal(calls, 1);
   assert.equal(fs.readFileSync(hits, 'utf8').trim(), memoKey(page(6993)), 'the hit counts as the live ask it stands for');
+});
+
+test('a record made before the size-free key still matches when one frame size moved a little; nothing else may differ', async () => {
+  // 14 Oct 2026: Databricks' embedded frame was 1430 px on the runner, 1426 in its live run: 1/8 asks. Old records have only exact keys.
+  const json = height => ask(`frames: ${JSON.stringify([{host: 'job-boards.greenhouse.io', path: '/embed/job_app', width: 1080, height}])}`);
+  const text = height => ask(`Frames:\n0 · job-boards.greenhouse.io · /embed/job_app · 1080x${height}`);
+  for (const page of [json, text]) {
+    const kept = {[memoKey(page(1426))]: {kind: 'form'}};
+    assert.equal(nearSizeKey(page(1430), kept), memoKey(page(1426)));
+    assert.equal(nearSizeKey(page(1426 + 201), kept), '', 'more than 200 px away: no match');
+  }
+  const kept = {[memoKey(text(1426))]: {kind: 'form'}};
+  assert.equal(nearSizeKey(ask('Frames:\n0 · other.example · /embed/job_app · 1080x1430'), kept), '', 'the rest of the ask must match exactly');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), file = path.join(dir, 'model-memo.json'), hits = path.join(dir, 'hits.txt');
+  const reply = {content: [{type: 'text', text: '{"kind":"form"}'}], stop_reason: 'end_turn', usage: {input_tokens: 9, output_tokens: 3}};
+  fs.writeFileSync(file, JSON.stringify({[memoKey(text(1426))]: reply}));
+  const replay = withMemo({engine: 'cli', messages: {create: async () => { throw new Error('never asked'); }}}, file, {only: true, env: {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_HITS: hits}});
+  assert.deepEqual(await replay.messages.create(text(1430)), reply);
+  assert.equal(fs.readFileSync(hits, 'utf8').trim(), memoKey(text(1426)), 'the hit counts as the live ask');
 });

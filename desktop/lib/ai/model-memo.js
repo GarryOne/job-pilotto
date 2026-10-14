@@ -39,6 +39,30 @@ export function layoutKey(params = {}) {
   return crypto.createHash('sha256').update(layoutText(normalise(JSON.stringify(asked)))).digest('hex');
 }
 
+// A record made before the size-free key has only exact keys: on a miss, the replay tries the same ask with ONE frame size moved by up to NEAR px (each number of
+// each size, one at a time); everything else must match exactly (14 Oct 2026: Databricks' frame 1430 px on the runner, 1426 live; coreweave 6869 vs 6993).
+// Runs on a miss only: at most a few thousand hashes. -> the kept key, or ''
+export const NEAR = 200;
+const SIZE_NUMBERS = /(\\*"(?:width|height)\\*":)(\d+)|\b(\d{2,5})x(\d{2,5})\b/g;
+export function nearSizeKey(params = {}, kept = {}, near = NEAR) {
+  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null};
+  const text = normalise(JSON.stringify(asked)), spots = [];
+  for (const found of text.matchAll(SIZE_NUMBERS)) {
+    if (found[1]) spots.push({at: found.index + found[1].length, value: found[2]});
+    else { spots.push({at: found.index, value: found[3]}); spots.push({at: found.index + found[3].length + 1, value: found[4]}); }
+  }
+  for (const spot of spots.slice(0, 8)) {
+    for (let step = 1; step <= near; step++) {
+      for (const moved of [Number(spot.value) - step, Number(spot.value) + step]) {
+        if (moved < 0) continue;
+        const key = crypto.createHash('sha256').update(text.slice(0, spot.at) + moved + text.slice(spot.at + spot.value.length)).digest('hex');
+        if (kept[key]) return key;
+      }
+    }
+  }
+  return '';
+}
+
 // The request's PARTS, as short hashes (never text): the model, each system block, and the user message cut by its <tag> blocks (or, for a message without tags, by its "Label:" lines).
 // Kept beside each answer, so a replay's miss can say WHICH part differs from the live ask ("job differs", "system:1 differs") instead of only "not in its kept answers" (12 Oct 2026, Ashby).
 const TAGGED = /<([a-z_]+)>([\s\S]*?)<\/\1>/g;
@@ -157,7 +181,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
   const served = {};   // asks made per kind (ordinal)
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
-    const exact = memoKey(params), kept = read(file), alias = kept[layoutKey(params) + LAYOUT], key = kept[exact] || !alias || !kept[alias] ? exact : alias, parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
+    const exact = memoKey(params), kept = read(file), alias = kept[layoutKey(params) + LAYOUT], sized = kept[exact] ? exact : alias && kept[alias] ? alias : only ? nearSizeKey(params, kept) : '', key = sized || exact, parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
     if (ordinal) served[kind] = (served[kind] || 0) + 1;
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
