@@ -2,11 +2,12 @@
 // against the baseline (the last green run: same recordings, same runner), never against live. A row COUNTS only when it was 100% the same as live in the baseline
 // ("only count the 100% same as live"); a counted row whose OUTCOME (step reached, boxes filled, boxes left) fell is worse; one whose outcome rose or only its
 // asks changed is "different": it passes and says "re-record to confirm". A worse row replayed again (--retry) that matches the baseline is noise.
-// Guard: e2e/test/replay-gate.test.mjs. Run: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>]
+// Guard: e2e/test/replay-gate.test.mjs. Run: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>]
 import fs from 'node:fs';
 import path from 'node:path';
 import {rank} from './lib/smoke.mjs';
 import {isSame} from './replay-records.mjs';
+import {acceptFor, HINT} from './replay-accepts.mjs';
 
 const json = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -24,8 +25,8 @@ const rose = (before, now) => !!(before && now && (rank(now.reached) > rank(befo
 export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
 
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
-export function judge(records, baseline = {}, retry = []) {
-  const again = new Map(retry.map(record => [record.name, record])), rows = {};
+export function judge(records, baseline = {}, retry = [], accepts = {}) {
+  const names = records.map(record => record.name), again = new Map(retry.map(record => [record.name, record])), rows = {};
   for (const record of records) {
     // Counted (14 Oct 2026, a red gate on Databricks: 8/8 then 1/8 on the same code): never a deferred row, and only a row 100% same as live in the baseline AND
     // the run before it (streak >= 2); a baseline from before the streak was kept counts as 1.
@@ -38,22 +39,24 @@ export function judge(records, baseline = {}, retry = []) {
       if (down) {
         const second = again.get(record.name), retried = second && fell(before.outcome, second.outcome);
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
+        const accept = verdict === 'worse' && acceptFor(record.name, accepts.entries, names);   // the owner's label + reason on a merged PR (replay-accepts.mjs)
+        if (accept?.reason) { verdict = 'accepted'; why = `${down}; PR #${accept.pr}: ${accept.reason}`; } else if (accept) why = `${down}; add the reason: comment "Replay-accept: <reason>" on PR #${accept.pr}`;
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
     rows[record.name] = {same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
-  const list = Object.values(rows), worse = list.filter(row => row.verdict === 'worse').length;
-  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, red: worse > 0};
+  const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
+  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0};
 }
 
 // The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
 // its asks answered of the live run's, its outcome beside the live one, its verdict and why.
-const MARK = {worse: '❌', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const MARK = {worse: '❌', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {
-  const lines = [`## Replay gate: ${result.counted} of ${result.total} rows counted · ${result.worse} worse`, ''];
+  const lines = [`## Replay gate: ${result.counted} of ${result.total} rows counted · ${result.worse} worse${result.accepted ? ` · ${result.accepted} accepted` : ''}`, ''];
   const shown = Object.entries(result.rows).sort(([a, x], [b, y]) => ORDER.indexOf(x.verdict) - ORDER.indexOf(y.verdict) || a.localeCompare(b));
   if (shown.length) {
     lines.push('Asks: answered from the record / asked live (+ extra the live run never asked). Outcome: step, filled/left.', '',
@@ -63,15 +66,18 @@ export function summary(result) {
   // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
   const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
   if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);
+  if (result.worse) lines.push('', `> ${HINT}.`);
   return `${lines.join('\n')}\n`;
 }
 
 const recordsIn = dir => (dir && fs.existsSync(dir) ? fs.readdirSync(dir).filter(file => file.endsWith('.json')).map(file => json(path.join(dir, file), null)).filter(Boolean) : []);
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  const [dir, base, out] = process.argv.slice(2), at = process.argv.indexOf('--retry'), retryDir = at > 0 ? process.argv[at + 1] : '';
-  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>]'); process.exit(2); }
-  const result = judge(recordsIn(dir), base === '-' ? {} : json(base, {}), recordsIn(retryDir));
+  const [dir, base, out] = process.argv.slice(2), at = process.argv.indexOf('--retry'), retryDir = at > 0 ? process.argv[at + 1] : '', ac = process.argv.indexOf('--accepts'), accepts = ac > 0 ? json(process.argv[ac + 1], {}) : {};
+  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>]'); process.exit(2); }
+  const force = list => list.map(record => (record.name === process.env.REPLAY_TEST_WORSE && process.env.GITHUB_REF_NAME !== 'main' && record.outcome   // a test-only fall (the end-to-end proof of an accept), also on the retry: never on main
+    ? {...record, outcome: {...record.outcome, filled: Math.max(0, (record.outcome.filled ?? 1) - 1)}} : record));
+  const result = judge(force(recordsIn(dir)), base === '-' ? {} : json(base, {}), force(recordsIn(retryDir)), accepts);
   fs.writeFileSync(out, `${JSON.stringify({at: new Date().toISOString(), sha: process.env.GITHUB_SHA || '', ...result}, null, 1)}\n`);
   if (!retryDir) fs.writeFileSync(`${out}.worse`, Object.entries(result.rows).filter(([, row]) => row.verdict === 'worse').map(([name]) => name).join('\n'));
   process.stdout.write(summary(result));

@@ -15,6 +15,12 @@ on:
         description: 'Started on time by the Worker cron'
         type: boolean
         default: false
+      test_worse:
+        description: 'Test only (never on main): a row name whose outcome is lowered by one box, to prove the accept label'
+        default: ''
+      test_accepts:
+        description: 'Test only: a fake list of merged PRs as JSON [{number,title,labels:[{name}],comments:[{body,authorAssociation}]}]'
+        default: ''
   schedule:
     - cron: '50 0 * * *'
     - cron: '17 10,14,18 * * *'
@@ -22,6 +28,7 @@ on:
 permissions:
   contents: read
   actions: read   # the pool runs' encrypted records, the baseline run's results
+  pull-requests: read   # the PRs merged since the baseline: their replay-accepted label and comment (replay-accepts.mjs)
 
 concurrency:   # each commit keeps its own run (tests/test_main_runs_finish.py)
   group: replay-offline-${{ github.sha }}
@@ -140,6 +147,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          REPLAY_TEST_WORSE: ${{ inputs.test_worse }}
+          TEST_ACCEPTS: ${{ inputs.test_accepts }}
         run: |
           out="$GITHUB_WORKSPACE/replay-out"; mkdir -p "$out/baseline" "$out/step4" "$out/replays"
           # the shards' rows, merged (each shard's artifact: step4/*.json and replays/<row>/)
@@ -150,18 +159,21 @@ jobs:
             if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
           done
           [ "$baseline" = - ] && echo "baseline: none yet (this run becomes the first)"
+          # the owner's accept: a PR merged since the baseline, labeled replay-accepted, with a "Replay-accept: <reason>" comment (replay-accepts.mjs)
+          if [ -n "$TEST_ACCEPTS" ]; then printf '%s' "$TEST_ACCEPTS" > "$out/fake-prs.json"; export REPLAY_ACCEPTS_FAKE="$out/fake-prs.json"; fi
+          node replay-accepts.mjs "$baseline" "$out/accepts.json"
           set +e
-          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" > "$out/gate.md"; code=$?
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
           if [ "$code" = 1 ] && [ -s "$out/results.json.worse" ]; then
             echo "retry: $(tr '\n' ',' < "$out/results.json.worse")"
             (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install chromium
             bash "$GITHUB_WORKSPACE/.github/replay-records-fetch.sh"
             JP_REPLAY_ONLY="$(cat "$out/results.json.worse")" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$out/retry" > /dev/null
-            node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --retry "$out/retry/step4" > "$out/gate.md"; code=$?
+            node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --retry "$out/retry/step4" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
           fi
           set -e
           cat "$out/gate.md" | tee -a "$GITHUB_STEP_SUMMARY"
-          { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; echo EOF; } >> "$GITHUB_OUTPUT"
+          { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; echo EOF; echo "merged=$(node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).merged||[];console.log(m.map(p=>"#"+p.number).join(", "))' "$out/accepts.json")"; } >> "$GITHUB_OUTPUT"
       - name: Keep this run's results (the next run's baseline when green)
         if: always() && steps.gate.outcome == 'success'
         uses: actions/upload-artifact@v6
@@ -196,8 +208,9 @@ jobs:
           CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
           RED: ${{ steps.gate.outputs.red }}
           WHAT: ${{ steps.gate.outputs.what }}
+          MERGED: ${{ steps.gate.outputs.merged }}
         run: |
-          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Rows worse than the last green run: ${WHAT:-see the run}"
+          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Rows worse than the last green run: ${WHAT:-see the run}. PRs merged since then: ${MERGED:-none}. If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
           elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
           else node ci-alert.mjs success; fi
       - name: Red when a counted row got worse

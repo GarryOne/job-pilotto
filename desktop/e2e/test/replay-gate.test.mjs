@@ -51,3 +51,19 @@ test('a deferred row never counts; a row counts only after 2 runs in a row 100% 
   assert.equal(judge([rec('x', form(8, 4))], {rows: {x: {same: true, streak: STREAK, outcome: form(8, 4)}}}).rows.x.counted, true);
   assert.equal(judge([rec('x', form(8, 4), {hit: 1})], {rows: {x: {same: true, streak: 5}}}).rows.x.streak, 0, 'a run not same resets it');
 });
+
+test('a merged PR labeled replay-accepted with a reason makes a worse row accepted; no reason stays red; named rows only', () => {
+  const worse = [rec('a', form(7, 5)), rec('b', form(6, 6)), rec('d', form(8, 4))];
+  const red = judge(worse, baseline);
+  assert.deepEqual([red.worse, red.red], [2, true]);
+  const all = judge(worse, baseline, [], {entries: [{pr: 7, text: 'the form dropped a box on purpose'}]});
+  assert.deepEqual([all.rows.a.verdict, all.rows.b.verdict, all.worse, all.accepted, all.red], ['accepted', 'accepted', 0, 2, false]);
+  assert.match(all.rows.a.why, /PR #7: the form dropped a box on purpose/);
+  assert.match(summary(all), /2 accepted/);
+  const named = judge(worse, baseline, [], {entries: [{pr: 8, text: 'b — new required field'}]});
+  assert.deepEqual([named.rows.a.verdict, named.rows.b.verdict, named.red], ['worse', 'accepted', true]);
+  const silent = judge(worse, baseline, [], {entries: [{pr: 9, text: ''}]});
+  assert.equal(silent.red, true);
+  assert.match(silent.rows.a.why, /add the reason: comment "Replay-accept: <reason>" on PR #9/);
+  assert.match(summary(red), /label the PR `replay-accepted`/, 'a red summary says how to accept');
+});
