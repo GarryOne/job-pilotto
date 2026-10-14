@@ -24,6 +24,7 @@
 - At most 3 live visits per host per day (CI's ledger: a by-hand run uses 1 of 2).
 - No site names or hosts in code, tests or PR bodies; a fix is universal and lands with a recorded case that fails on the old build.
 - No live run to test or to prove a fix; no AI spend without the owner's OK and a measured cost.
+- No many-row replay on the Mac: a before/after over more than 3 rows runs in CI (`gh workflow run site-replays.yml --ref <branch>`, ~14 min in parallel, $0; owner, 15 Oct 2026); `replay-records.mjs` refuses it locally (`desktop/e2e/lib/wide-local.mjs`).
 
 ## An intended replay drop: accepted on the PR (owner, 14 Oct 2026)
 - A fix can make a counted row "worse" on purpose (an upload counted once, not twice). The PR gate's summary shows that row's **field-by-field diff** (label, baseline outcome, PR outcome; never a value) and a copy-ready line.
