@@ -41,7 +41,7 @@ export function fidelityRecord({name, dir = '', record}, replay, {sha = '', bran
   const own = (replay?.counts?.notRecorded || []).filter(line => { try { return new URL(line.split(' ')[1]).host.endsWith(host); } catch { return false; } }).length;
   return {name, sha, branch, at, seconds: Number.isFinite(replay?.seconds) ? Math.round(replay.seconds) : null, site: host.split('.').slice(-2).join('.'), outcome: replay?.outcome || null, wrongValues: replay?.wrongValues?.wrong || [], liveOutcome: replay?.liveOutcome || null, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
     firstMiss: replay?.firstMiss ? {differs: (replay.firstMiss.differs || []).slice(0, 12)} : null,   // part names only (replay-gate.mjs outdated)
-    network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
+    network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, loose: replay.looseHits || 0, looseParts: replay.looseParts || [], orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
 }
 
 // JP_REPLAY_SHARD "k/n" (the scheduled replay's matrix, site-replays.yml: owner, 14 Oct 2026, one runner took 25+ min): every n-th row from the k-th, by name order.
