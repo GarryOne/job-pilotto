@@ -12,6 +12,7 @@ const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceil
 export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, marks = []}) {
   let picked = false, last = null, capped = false;
   const began = now();
+  const over = () => now() - began >= PATIENCE.ceiling;
   const mark = tag => { marks.push(`${tag}@${now() - began}`); if (marks.length > 40) marks.shift(); };   // where the time went, said when a menu is given up (flow.js)   // every wait below is REAL time: counting 100 ms ticks let a busy page (each call taking a second or more) stretch a 1.5 s wait to 30 s
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
     const before = await page(() => window.__jobPilottoArmedCount());
@@ -24,11 +25,12 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
     let spotClicked = false;
     const lookStart = now();
     for (let waited = 0, limit = PATIENCE.first; waited < limit; waited = now() - lookStart) {
-      if (now() - began >= PATIENCE.ceiling) { capped = true; break; }
+      if (over()) { capped = true; break; }
       mark('turn');
       await sleep(100);
       waited = now() - lookStart;
       if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
+      if (over()) { capped = true; break; }   // after every slow call, not once a turn: a busy page makes a turn many seconds long
       // The menu ignored a scripted click on its option: the page left the option's spot, clicked here for real once (page/fill-menus.js armCombo).
       const spotAt = spotClicked ? null : await page(() => window.__jobPilottoPickSpot || null);
       if (spotAt) { spotClicked = true; await click(spotAt.x, spotAt.y); limit = Math.max(limit, waited + PATIENCE.option); }
@@ -40,6 +42,7 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
         await page(done => { window.__jobPilottoNeedDone = done; }, [value ?? false]);
         limit = Math.max(limit, waited + PATIENCE.deciding);
       }
+      if (over()) { capped = true; break; }
       if (limit < PATIENCE.loading && await loading()) limit = PATIENCE.loading;
       // The page is still deciding (page/fill-menus.js __jobPilottoPicking): its answer comes before any second click.
       if (limit < PATIENCE.deciding && await page(() => !!window.__jobPilottoPicking)) limit = PATIENCE.deciding;
