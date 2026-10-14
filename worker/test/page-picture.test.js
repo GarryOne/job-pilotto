@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {JSDOM} from 'jsdom';
+import {readFileSync} from 'node:fs';
 import {hideValues, showValues} from '../../extension/ladder/rung4-page-picture.js';
 import {unsureTwice} from '../../extension/ladder/rung4-picture.js';
 
@@ -16,6 +17,20 @@ test('values are hidden by one style and shown again by removing it; nothing els
   assert.equal(document.getElementById('e').value, 'ada@example.com');   // the value itself is untouched: only its paint
   showValues();
   assert.equal(document.querySelectorAll('#jobpilotto-hide-values').length, 0);
+});
+
+test('hideValues and showValues work injected alone, as executeScript runs them: no module scope (a module const threw in the page from 10 to 14 Oct)', () => {
+  const dom = new JSDOM('<body><input id="e" value="ada@example.com"></body>', {runScripts: 'outside-only'});
+  const hide = dom.window.eval(`(${hideValues.toString()})`), show = dom.window.eval(`(${showValues.toString()})`);
+  assert.equal(hide(), true);
+  assert.equal(dom.window.document.querySelectorAll('#jobpilotto-hide-values').length, 1);
+  assert.equal(show(), true);
+  assert.equal(dom.window.document.querySelectorAll('#jobpilotto-hide-values').length, 0);
+});
+
+test('the closer look takes no picture when the values could not be hidden', () => {
+  const source = readFileSync(new URL('../../extension/ladder/rung4-picture.js', import.meta.url), 'utf8');
+  assert.match(source, /if \(await run\(tab, frameId, hideValues\) !== true\)[^\n]*return null;/);
 });
 
 test('a closer look is wanted the second time a page state is unsure, once; a changed state starts again', () => {
