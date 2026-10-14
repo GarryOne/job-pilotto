@@ -29,6 +29,12 @@ const rose = (before, now) => !!(before && now && (rank(now.reached) > rank(befo
 const INSTRUCTION = /^(system(:\d+)?|output|tools)$/;
 export const outdated = firstMiss => { const parts = (firstMiss?.differs || []).map(name => String(name).replace(/#\d+$/, '')); return parts.length > 0 && parts.every(name => INSTRUCTION.test(name)); };
 
+// An ask the recording does not have (spec record-once, 15 Oct 2026): a fix changed what the app asks the model, so the replay's ask has no kept answer. The row has extra asks, no site
+// request missing, and its first miss differs in a PAGE-SIDE part (what the ask carries: user:*, assistant:*; the output schema alone is "out of date"), never only the instructions (that is "out of date"). Its outcome
+// cannot be judged (the model was refused): the row waits for a local replay that fills the memo (npm run fill-memo, desktop/e2e), never "not faithful" or red.
+const PAGE_SIDE = /^(user|assistant):/;
+export const askChanged = record => !!(record.network && record.network.extra > 0 && !record.network.notRecorded && (record.firstMiss?.differs || []).some(name => PAGE_SIDE.test(String(name).replace(/#\d+$/, '').replace(/ \(lines.*$/, ''))));
+
 export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
 
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
@@ -41,6 +47,7 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
     const counted = !record.deferred && before?.same === true && beforeStreak >= STREAK, streak = same ? beforeStreak + 1 : 0;
     let verdict = counted ? 'same' : 'not counted', why = counted ? '' : record.deferred ? `deferred: ${record.deferred}` : before?.same ? `same as live ${beforeStreak} run(s) before, needs ${STREAK}` : before ? 'replay not faithful in the baseline' : 'no baseline yet';
     if (outdated(record.firstMiss)) { verdict = 'out of date'; why = `re-record: the prompt changed (the first miss differs only in ${record.firstMiss.differs.join(', ')})`; }
+    else if (askChanged(record)) { verdict = 'ask changed'; why = `needs a local replay: the ask changed (differs in ${record.firstMiss.differs.slice(0, 3).join(', ')}); on the Mac: npm run fill-memo -- <records dir> "${record.name}"`; }
     else if (counted && !record.network) { verdict = 'worse'; why = 'no replay result'; }
     else if (counted) {
       const down = fell(before.outcome, outcome);
@@ -60,7 +67,7 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
 
 // The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
 // its asks answered of the live run's, its outcome beside the live one, its verdict and why.
-const MARK = {worse: '❌', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const MARK = {worse: '❌', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs';
-import {STREAK, fell, judge, outdated, summary} from '../replay-gate.mjs';
+import {STREAK, askChanged, fell, judge, outdated, summary} from '../replay-gate.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const rec = (name, outcome, {hit = 4, asks = 4, extra = 0} = {}) => ({name, outcome, live: {asks}, network: {hit, extra, notRecorded: 0}});
@@ -86,4 +86,20 @@ test('a recording made before a prompt change is "out of date": never red, liste
   assert.equal(judge([fallen], baseline).red, false);
   assert.match(summary(result), /🔁 out of date/);
   assert.match(fs.readFileSync(new URL('../replay-net.mjs', import.meta.url), 'utf8'), /JOB_PILOTTO_MODEL_MEMO_MISSLOG = path\.join\(out, 'misslog\.jsonl'\)/, 'replay-net keeps the whole list of differing parts');
+});
+
+test('a row whose only misses are asks the memo lacks is "ask changed", never worse or red (the gate waits for a local replay)', () => {
+  const missing = (name, differs, extra = 2, notRecorded = 0) => ({...rec(name, form(6, 6), {hit: 2, extra}), network: {hit: 2, extra, notRecorded}, firstMiss: {differs}});
+  const result = judge([missing('b', ['user:form_fields']), missing('a', ['user:rest', 'output']), missing('d', ['user:job'], 2, 3), missing('c', ['system:1'])], baseline);
+  assert.equal(result.rows.b.verdict, 'ask changed', 'a counted row that fell because its ask has no kept answer');
+  assert.match(result.rows.b.why, /needs a local replay.*user:form_fields/);
+  assert.equal(result.rows.a.verdict, 'ask changed');
+  assert.equal(result.rows.d.verdict, 'worse', 'site requests missing too: not only an ask change');
+  assert.equal(result.rows.c.verdict, 'out of date', 'a prompt-only change stays out of date');
+  assert.deepEqual([result.worse, result.red], [1, true], 'only d turns it red');
+  assert.equal(judge([missing('b', ['user:form_fields'])], baseline).red, false);
+  assert.match(summary(judge([missing('b', ['user:form_fields'])], baseline)), /🖥 ask changed/);
+  assert.equal(askChanged({network: {extra: 1, notRecorded: 0}, firstMiss: {differs: ['user:form_fields#2']}}), true, 'a repeated part name');
+  assert.equal(askChanged({network: {extra: 0, notRecorded: 0}, firstMiss: {differs: ['user:form_fields']}}), false, 'no extra ask: nothing to fill');
+  assert.equal(askChanged({network: {extra: 1, notRecorded: 0}, firstMiss: null}), false, 'no named part: not known');
 });

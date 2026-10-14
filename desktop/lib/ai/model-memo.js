@@ -142,6 +142,11 @@ export function memoFile(env = process.env) {
 // a form answer guessed the owner's name from it), so an offline replay answers only what the live run already asked.
 export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_ONLY === '1';
 
+// Fill (an ask the recording lacks, spec record-once "An ask the recording does not have"): a memo-only replay on the MAC that asks the model for the asks the memo lacks
+// (a fix changed what the app asks) and keeps each answer in the memo, so the next replay hits it; a kept ask is still served as before, never asked again.
+// e2e env + memo-only + JOB_PILOTTO_MODEL_MEMO_FILL=1, never on CI (no claude -p there). The plan path carries the owner's identity: the caller's tripwire and the fake applicant stay on.
+export const fillOn = (env = process.env) => memoOnly(env) && env.JOB_PILOTTO_MODEL_MEMO_FILL === '1' && !env.CI && !env.GITHUB_ACTIONS;
+
 // Loose lookup (owner, 12 Oct 2026): the CI replay of a row case (e2e/lib/row-case-run.mjs) and `npm run row --loose` serve a kept answer whose USER-message parts and output schema match although the system side
 // (instructions, profile, search, knowledge) or the model changed since the capture: a prompt or seed change would otherwise turn every row case's answer asks cold, and CI has no claude -p. Each such hit is
 // appended to the file named by JOB_PILOTTO_MODEL_MEMO_LOOSE (e2e only) with the parts that differ. A changed job / form_fields block is still a miss.
@@ -176,7 +181,7 @@ export function looseMatch(parts, kept) {
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn(), env = process.env, ordinal = ordinalFile(env)} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), fill = fillOn(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn(), env = process.env, ordinal = ordinalFile(env)} = {}) {
   if (!client || !file) return client;
   const served = {};   // asks made per kind (ordinal)
   const ask = client.messages.create.bind(client.messages);
@@ -206,7 +211,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
         return JSON.parse(fakeContacts(JSON.stringify(kept[taken])));
       }
     }
-    if (only) {
+    if (only && !fill) {
       // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
       if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }
       const differs = nearestDiffers(memoParts(params), kept, memoLines(params)), volatile = volatileParts(params);

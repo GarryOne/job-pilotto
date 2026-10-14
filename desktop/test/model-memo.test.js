@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, layoutKey, memoFile, nearSizeKey, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
+import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, layoutKey, memoFile, nearSizeKey, memoKey, fillOn, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -305,4 +305,25 @@ test('a record made before the size-free key still matches when one frame size m
   const replay = withMemo({engine: 'cli', messages: {create: async () => { throw new Error('never asked'); }}}, file, {only: true, env: {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_HITS: hits}});
   assert.deepEqual(await replay.messages.create(text(1430)), reply);
   assert.equal(fs.readFileSync(hits, 'utf8').trim(), memoKey(text(1426)), 'the hit counts as the live ask');
+});
+
+test('fill (an ask the recording lacks, Mac only): a kept answer is served, a miss is asked once and kept, the next memo-only replay hits it', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), 'model-memo.json');
+  const first = {messages: {create: async () => ({content: [{type: 'text', text: 'kept'}]})}};
+  withMemo(first, file);
+  await first.messages.create(ask('a kept page'));
+  let asked = 0;
+  const filling = {messages: {create: async () => { asked += 1; return {content: [{type: 'text', text: 'new'}]}; }}};
+  withMemo(filling, file, {only: true, fill: true});
+  assert.deepEqual((await filling.messages.create(ask('a kept page'))).content, [{type: 'text', text: 'kept'}]);
+  assert.equal(asked, 0, 'a kept ask is never asked again');
+  assert.deepEqual((await filling.messages.create(ask('a page with a new field'))).content, [{type: 'text', text: 'new'}]);
+  assert.equal(asked, 1, 'only the missed ask goes to the model');
+  const offline = {messages: {create: async () => { throw new Error('must not ask'); }}};
+  withMemo(offline, file, {only: true});
+  assert.deepEqual((await offline.messages.create(ask('a page with a new field'))).content, [{type: 'text', text: 'new'}], 'the filled answer is in the memo');
+  assert.equal(fillOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_ONLY: '1', JOB_PILOTTO_MODEL_MEMO_FILL: '1'}), true);
+  assert.equal(fillOn({JOB_PILOTTO_MODEL_MEMO_ONLY: '1', JOB_PILOTTO_MODEL_MEMO_FILL: '1'}), false, 'only under the e2e env');
+  assert.equal(fillOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_FILL: '1'}), false, 'only with memo-only: a fill is a replay that may ask');
+  assert.equal(fillOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_ONLY: '1', JOB_PILOTTO_MODEL_MEMO_FILL: '1', CI: 'true'}), false, 'never on CI: no claude -p there');
 });
