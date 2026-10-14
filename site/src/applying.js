@@ -104,13 +104,13 @@ export const shortOf = (reached, filled, left, asked = null, unexplained = null)
 };
 const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 ? Math.round((100 * filled) / (filled + left)) : null);
 // Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
-const runNeedsFix = run => { const status = rowStatus({reached: run.reached, note: run.note, regression: run.regression, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)});
+const runNeedsFix = run => { const status = rowStatus({reached: run.reached, note: run.note, regression: run.regression, asked: run.asked, unexplained: run.unexplained, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)});
   return status.state === 'fix' ? true : status.state === 'works' || isCleanHold(status) ? false : null; };   // an eligibility stop or a site problem says nothing; every other hold is a clean run (applying-status.js)
 // A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
 // or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
 export {isHold};   // the list of hold notes lives in src/applying-status.js
 // Each run's one status (src/applying-status.js) with the step it reached kept beside it (a dot's title says both).
-const stateOf = run => ({...rowStatus({reached: run.reached, note: run.note, regression: run.regression, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)}), step: run.reached || 'none'});
+const stateOf = run => ({...rowStatus({reached: run.reached, note: run.note, regression: run.regression, asked: run.asked, unexplained: run.unexplained, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)}), step: run.reached || 'none'});
 const needsFix = site => site.status.state === 'fix';
 
 // slow(key, fn): the big readers' results kept for an hour (src/applying-store.js); the default computes them every time.
