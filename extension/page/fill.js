@@ -9,7 +9,7 @@
   window.__jobPilottoFillLoaded = true;
 
   const {LEGAL, asksQuestion, clean, norm, once, sleep, visible, labelOf, questionOf, radioOps, PROFILE_LABELS, aliasFor, DIAL, dialOf, armCombo,
-    pickCheckboxOption, setCheckbox, tickConsents, markAttention} = window.__jobPilottoFillKit;
+    pickCheckboxOption, setCheckbox, wantsChecked, tickConsents, markAttention} = window.__jobPilottoFillKit;
 
   // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
   const fillCoverLetter = async letter => {
@@ -232,6 +232,8 @@
       // filled, but the person must check it (browser-form-fastpath.js __jobPilottoAtPageDefault).
       else if (row.filled && !source && (el => el?.tagName === 'SELECT' && window.__jobPilottoAtPageDefault?.(el))(document.getElementById(row.field) || document.querySelector(`select[name="${CSS.escape(row.field)}"]`))) reason = 'preselected by the page: check it';
       else if (row.unread && !row.filled) reason = 'question on the page not read';
+      // A two-state control (checkbox, switch, toggle) answered "no" that holds its state already: the answer is kept, nothing to type (it stays "left" for a required one: the page may still want it ticked).
+      else if (!row.filled && row.type === 'checkbox' && answer && !wantsChecked(answer.value)) { outcome = 'left'; reason = 'answered no: left unchecked'; }
       else if (!row.filled && proposedOf[row.field]) reason = 'proposed for you to confirm';
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
       // The question read as one of its own choices (or nothing): the page's title wasn't found, so no answer could be right.
