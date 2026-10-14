@@ -43,7 +43,7 @@ test('the gate: a rise of the wrong count is worse; no count in the baseline nev
   assert.equal(fell(form(2), form(2)), '');
   assert.equal(fell({reached: 'form', filled: 8, left: 4}, form(3)), '');
   const rec = {name: 'a', outcome: form(1), live: {asks: 1}, network: {hit: 1, extra: 0, notRecorded: 0}, wrongValues: [{field: 'country', answer: 'Switzerland', held: 'Israel', layer: 'typed'}]};
-  const result = judge([rec], {rows: {a: {same: true, outcome: form(1)}}});
+  const result = judge([rec], {rows: {a: {same: true, streak: 2, outcome: form(1)}}});
   assert.equal(result.rows.a.verdict, 'same');
   assert.match(summary(result), /Wrong values \(1\)[\s\S]*\| a \| country \| Switzerland \| Israel \| typed \|/);
 });
