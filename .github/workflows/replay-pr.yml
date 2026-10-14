@@ -159,4 +159,4 @@ jobs:
           node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
           set -e
           [ "$REPLAY" = success ] || { echo "::error::a replay runner did not finish ($REPLAY): the gate cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
-          [ "$code" = 0 ] || { echo "::error::a counted row got worse than the last green scheduled replay (see the summary)"; exit 1; }
+          [ "$code" = 0 ] || { echo "::error::a counted row got worse than the last green scheduled replay (see the summary). If intended: after the merge, label this PR replay-accepted and comment 'Replay-accept: <reason>', so the nightly gate accepts it"; exit 1; }
