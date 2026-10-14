@@ -1,7 +1,7 @@
 // The PR replay gate's rows (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
 // will run on a schedule"). From the baseline (the last green scheduled run's results, replay-gate.mjs) only the rows 100% same as live there (only those can be judged
 // worse), quickest first, one per posting site before a second from the same site, at most MAX; split into GROUPS runner groups (newline-joined names: JP_REPLAY_ONLY).
-// No baseline yet: no rows (the PR gate says so; the first scheduled run makes one). Guard: e2e/test/replay-pick.test.mjs.
+// No baseline yet: no rows (the PR gate says so; any green replay on main makes one, e.g. by hand: gh workflow run replay-offline.yml --ref main). Guard: e2e/test/replay-pick.test.mjs.
 //   node replay-pick.mjs <baseline results.json | ->   -> {"groups": ["name\nname", ...], "line": "..."}
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +32,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   try { baseline = file === '-' ? {} : JSON.parse(fs.readFileSync(file, 'utf8')); } catch { baseline = {}; }
   const names = pickRows(baseline), groups = split(names);
   const line = names.length ? `## Replay gate (PR): ${names.length} rows on ${groups.length} runners: ${names.join(', ')}`
-    : '## Replay gate (PR): no baseline with rows 100% same as live yet: nothing to replay (the scheduled run makes one)';
+    : '## Replay gate (PR): no baseline with rows 100% same as live yet: nothing to replay (start one on main by hand: gh workflow run replay-offline.yml --ref main)';
   process.stdout.write(`${JSON.stringify({groups: groups.map(group => group.join('\n')), line})}\n`);
 }
