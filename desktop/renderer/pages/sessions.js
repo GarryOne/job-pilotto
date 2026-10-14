@@ -8,7 +8,7 @@ import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions
 import {$, show} from './core.js';
 import {pageKey} from './jobs.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage} from './session-log.js';
-import {checkingTab, silentChrome, formGone, formReady} from './session-needs.js';
+import {checkingTab, silentChrome, tabLost, formGone, formReady} from './session-needs.js';
 import {cancelSession, closeSession, pauseSession, removeSession, restartSession, resumeSession, skipSession} from './session-actions.js';
 export {renderNextStep} from './session-next-step.js';   // the next-step card, moved out as a pure move (13 Oct 2026)
 export {cancelSession, removeSession, restartSession, resumeSession, skipSession};
@@ -16,7 +16,7 @@ export {cancelSession, removeSession, restartSession, resumeSession, skipSession
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
 const closedForm = item => formGone(item);  // its Chrome tab was closed (a form or a Claude session's)
-const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
+const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : tabLost(item) ? ['Tab not found', 'warn'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};

@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
 import {renderSteps} from './session-steps.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
-import {checkingTabs, chromeSilent, tabClosed} from '../session-state.js';
+import {checkingTabs, chromeSilent, tabClosed, tabNotFound} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
 import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js'; import {markKnockout} from './need-knockout.js';
@@ -77,6 +77,8 @@ export const formReady = item => !formGone(item) && !!reviewStates.get(item.id)?
 // seen before, so a form never opened is not "closed"). Its cached count and "Ready to submit" are then stale.
 // Still checking Chrome (just after the app started): the card shows a loading state, not the session's last state.
 export const checkingTab = item => checkingTabs(item, shared.formsOpen, performance.now());
+// Chrome reports, but no tab is known for the session after the first look: "Tab not found", with Open it again (neither open nor closed).
+export const tabLost = item => tabNotFound(item, shared.formsOpen, performance.now());
 // Chrome hasn't reported in time: nobody can say whether the session's tab is there.
 export const silentChrome = item => chromeSilent(item, shared.formsOpen, performance.now());
 export const formGone = item => tabClosed(item, shared.formsOpen, !!reviewStates.get(item.id)?.total);

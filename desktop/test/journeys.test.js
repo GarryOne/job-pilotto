@@ -251,7 +251,7 @@ test('scenario: Reopen opens the form again for the SAME session: its new tab\'s
 test('scenario: the sessions page opens after a restart: a session with no evidence of its tab says "checking", one Chrome shows is open, one the extension saw leave is closed (12 Oct 2026)', async () => {
   const review = await import('../lib/review.js');
   const {sessionsWithTab} = await import('../lib/session-tab.js');
-  const {checkingTabs} = await import('../renderer/session-state.js');
+  const {checkingTabs, tabNotFound} = await import('../renderer/session-state.js');
   review._reset();
   const ids = ['a1', 'b2', 'c3'];
   const items = ids.map(id => ({id, kind: 'form', status: 'done', url: `https://forms.example/${id}`}));
@@ -261,7 +261,8 @@ test('scenario: the sessions page opens after a restart: a session with no evide
   const {ids: open, unsure} = review.formStates(ids, live);
   assert.deepEqual([open, unsure], [['a1'], ['b2']]);                                // c3: closed (known gone); b2: nothing says either
   const forms = {known: true, ids: open, unsure};
-  assert.deepEqual(items.map(item => checkingTabs(item, forms, 1e9)), [false, true, false]);
+  assert.deepEqual(items.map(item => checkingTabs(item, forms, 1000)), [false, true, false]);     // the first look: b2 checks
+  assert.deepEqual(items.map(item => tabNotFound(item, forms, 1e9)), [false, true, false]);       // after it: b2 says "Tab not found", never checking for ever
 });
 
 test('scenario: Apply on an Ashby job opens the form address; its first report with no session id still lands on the session (12 Oct 2026, the owner\'s stale "Form open")', async () => {
