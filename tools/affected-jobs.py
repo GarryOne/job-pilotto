@@ -36,6 +36,7 @@ JOBS = {
     'harness': (('desktop/e2e/test', '*.test.mjs'), ('desktop/e2e/', 'desktop/scripts/stage.mjs') + APP_INSTALL),
     'replays': (None, APP_INSTALL + E2E_INSTALL),
     'zoo': (None, ('desktop/scripts/stage.mjs',) + APP_INSTALL + E2E_INSTALL),
+    'replaygate': (None, ('extension/', 'desktop/lib/')),   # the PR replay gate (replay-pr.yml): the apply flow's code only (owner, 14 Oct 2026); PATHS_ONLY below
 }
 # Jobs that run ONLY for what they load and their own files (owner, 13 Oct 2026: "only the specific cases, when it's really relevant"): never for the plumbing,
 # root dependencies, lock files or an unknown file that run every other job whole. Main's schedule is their backstop for those.
@@ -43,7 +44,7 @@ OWN_ONLY = ()   # empty since 13 Oct 2026: the flow e2e's pick served only the P
 # Jobs that run on a pull request ONLY for their own paths (folders, installs, staged copies) and the pick's plumbing (owner, 14 Oct 2026: harness ran on ~91% of PRs,
 # mostly because a test names or reads a changed file elsewhere: "can't we just use 'paths' on the GH workflows?"). A required job can't use `paths:` (it would never
 # report and block the PR), so the same rule lives here. Main's push runs them whole: the backstop for a break from outside their paths.
-PATHS_ONLY = ('harness',)
+PATHS_ONLY = ('harness', 'replaygate')   # replaygate: owner, 14 Oct 2026: "only if we touched the apply flow logic code"
 STAGES = ('harness', 'zoo')   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
 # What runs the jobs themselves: a change to one runs every job whole.
 PLUMBING = re.compile(r'^(tools/(affected-(tests|jobs)\.py|replay-files\.mjs|ci-needed\.sh|check\.(sh|py)|py-shards\.py)|\.github/workflows/(build|pr-gate|recorded-pages|widget-zoo)\.yml)$')
