@@ -68,6 +68,10 @@ export function workflowFiles(workflow, root = ROOT) {
     const run = line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);
     if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
   }
+  // desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: worker/src (shared/worker) and the extension (the rest).
+  const usesShared = [...files].some(file => /^desktop\//.test(file) && /\.m?js$/.test(file) && fs.existsSync(path.join(root, file)) && /shared\/worker\//.test(fs.readFileSync(path.join(root, file), 'utf8')));
+  for (const file of [...files]) if (file.startsWith('desktop/shared/')) files.delete(file);
+  if (usesShared) files.add('worker/src/');
   return files;
 }
 

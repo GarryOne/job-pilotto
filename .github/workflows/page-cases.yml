@@ -66,6 +66,7 @@ on:
       - 'desktop/renderer/store-name.js'
       - 'desktop/scripts/extension-stamp.mjs'
       - 'extension/**'
+      - 'worker/src/**'
       - 'desktop/e2e/package.json'
       - 'desktop/e2e/package-lock.json'
       - 'desktop/package.json'
