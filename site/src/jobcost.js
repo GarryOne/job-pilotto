@@ -21,7 +21,7 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'weekly-self-review': ['Weekly self-review', 'Self-heal'],
   'product-brain': ['Product brain', 'Product brain'],
   'pool-live': ['Pool live runs', 'Live tests'],   // the CI pool on real sites (.github/workflows/record-sites.yml)
-  'pr-live-proof': ['PR live proof', 'Live tests'],   // one pool row on a PR's own build (.github/workflows/pool-proof.yml)
+  'pr-live-proof': ['PR live proof', 'Live tests'],   // retired 15 Oct 2026 (no live run on a PR): kept so old cost rows keep their label
 };
 const day = at => String(at).slice(0, 10);
 // The range filter (?range=): runs keep their full timestamp, so every range is exact for them. The per-key and billed figures are stored per UTC day:

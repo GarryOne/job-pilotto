@@ -4,7 +4,6 @@
 // Fixed values only: a site name without an address or query, a short hash, a version, a rung, guard ids. Owns FIXED_SCRIPT, the tab's client code, which
 // src/applying.js puts inside its page (it uses that page's el, heads/block, dots, ago). Guard: test/applying-fixed.test.js.
 
-import {provenFor, readProven} from './applying-proven.js';
 import {readVerify, verifyFor} from './applying-verify.js';
 
 export const FIX_KINDS = ['fixes', 'claims'];
@@ -56,10 +55,9 @@ const shareOf = run => (!run.hold && Number.isInteger(run.filled) && Number.isIn
 // one clean run is "landed" with cleanRuns 1. Back = confirmed, then a later run lists the row again.
 // A hold (run.cleanHold: every on-purpose hold but the eligibility stop, applying-status.js isCleanHold) is the site's accepted end, so it is a clean run (owner, 11 Oct 2026: "hold = clean", 14 Oct 2026: every hold);
 // heldRuns counts them. An eligibility stop is about the posting, not the site: it stays neither (it once made Ashby "Regressed": a stop before any field, read as a clean run, 7e38ed8).
-// A passing live proof (proven: {at}, src/applying-proven.js) after the landing counts as one clean run (owner, 14 Oct 2026).
-export function statusOf(runs, landedAt, proven = null) {
-  const landed = Date.parse(landedAt), proof = proven && Date.parse(proven.at) > landed ? [{at: proven.at, needsFix: false, proof: true}] : [];
-  const after = runs.map(run => (run.cleanHold ? {...run, needsFix: false} : run)).concat(proof).filter(run => Date.parse(run.at) > landed && run.needsFix != null).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+export function statusOf(runs, landedAt) {
+  const landed = Date.parse(landedAt);
+  const after = runs.map(run => (run.cleanHold ? {...run, needsFix: false} : run)).filter(run => Date.parse(run.at) > landed && run.needsFix != null).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const clean = after.filter(run => run.needsFix === false), heldRuns = clean.filter(run => run.cleanHold).length;
   const filledBefore = runs.filter(run => Date.parse(run.at) <= landed).slice(-3).map(shareOf), filledAfter = after.slice(-3).map(shareOf);
   if (clean.length < 2) return {status: 'landed', failingRuns: after.length - clean.length, cleanRuns: after.at(-1)?.needsFix === false ? clean.length : 0, heldRuns, filledBefore, filledAfter};
@@ -81,16 +79,16 @@ export async function fixedData(db, pool, cases, now = new Date()) {
   const fixes = await all(db, 'SELECT * FROM applying_fixes ORDER BY landed_at');
   const snapshots = Object.fromEntries((await all(db, 'SELECT kind, at FROM applying_snapshots')).map(row => [row.kind, row.at]));
   const claims = await all(db, 'SELECT site, since FROM applying_claims ORDER BY since');
-  const proven = await readProven(db), offline = await readVerify(db);   // CI runs that really ran a row (src/applying-proven.js); the offline replays' verdicts (src/applying-verify.js)
+  const offline = await readVerify(db);   // the offline replays' verdicts (src/applying-verify.js)
   const bySite = fixes.reduce((out, fix) => ((out[rowName(fix.site, pool)] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item]));
   const rows = Object.entries(bySite).map(([site, list]) => {
     const last = list.at(-1), item = pool.find(row => row.name === site || row.shape === site);
     const guard = [...new Set(list.flatMap(fix => JSON.parse(fix.guard || '[]')))];
     const linked = guard.filter(id => id.startsWith('recorded:')).map(id => caseByName.get(id.slice(9))).filter(Boolean);
-    const provenOf = provenFor({site, landedAt: last.landed_at, subject: last.subject}, proven), landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), hold: !!run.hold, needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
+    const landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), hold: !!run.hold, needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
     return {site, platform: item?.platform ?? '—', host: item?.start || '', commit: last.commit_hash, commits: list.map(fix => fix.commit_hash), extensionVersion: last.version, rung: last.rung, landedAt: last.landed_at,
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
-      proven: provenOf, offline: verifyFor(offline, 'fixed', site), ...statusOf(item?.runs || [], last.landed_at, provenOf), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
+      offline: verifyFor(offline, 'fixed', site), ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
   const claimed = new Map(claims.map(row => [rowName(row.site, pool), row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
   for (const item of pool) { item.offline = verifyFor(offline, 'regression', item.shape) || verifyFor(offline, 'regression', item.name); item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); }
@@ -119,9 +117,7 @@ export const FIXED_SCRIPT = `
   const FIX_TONE = {landed: 'account', failing: 'posting', better: 'form', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['back', 'failing', 'better', 'landed', 'confirmed'];
   const lastShare = list => (list || []).filter(value => value != null).at(-1);
   const fixKind = r => (r.status === 'landed' && r.failingRuns ? (lastShare(r.filledAfter) > lastShare(r.filledBefore) ? 'better' : 'failing') : r.status);   // a share that rose is better, not yet there (a missing share compares false)
-  // CI really ran this fix's row (src/applying-proven.js): on main after the landing, or on the PR's own build. Plain quotes only.
-  const provenLine = r => (r.proven ? 'Proven live ' + ago(r.proven.at) + ' - run ' + r.proven.run + (r.proven.by === 'pr' ? ' (PR #' + r.proven.pr + ')' : ' (main)') : 'Not proven live');
-  // The offline replay's own word, beside "Proven live" and never merged into it (src/applying-verify.js; owner, 14 Oct 2026). Plain quotes only.
+  // The offline replay's own word (src/applying-verify.js; owner, 14 Oct 2026): a fix is confirmed offline on a recording, never by a live run. Plain quotes only.
   const OFFLINE_WORD = {confirmed: 'Confirmed offline', notbetter: 'Not better offline', live: 'Needs live', ours: 'Our build', site: 'Site changed'};
   const offlineLine = r => (r.offline ? (OFFLINE_WORD[r.offline.verdict] || r.offline.verdict) + ' ' + ago(r.offline.at) + (r.offline.why ? ' - ' + r.offline.why : '') : 'No offline replay yet');
   const fixReason = r => ({landed: r.cleanRuns ? 'One clean run: one more confirms' : 'No confirming run yet', failing: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix', better: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix · filled ' + fixFilled(r), confirmed: (r.confirmedAt ? 'Cleared ' + ago(r.confirmedAt) : 'Cleared') + (r.heldRuns ? ' · documented hold' : ''),
@@ -136,7 +132,7 @@ export const FIXED_SCRIPT = `
     el('div', {}, fixShort(r.site) !== r.site ? el('div', {}, el('h4', {textContent: 'Scenario'}), el('div', {textContent: r.site})) : null,
       el('div', {className: 'narrow'}, el('h4', {textContent: 'Filled before → after'}), el('div', {textContent: fixFilled(r)})),
       el('h4', {textContent: 'Fix'}), r.fixes.length ? el('dl', {}, ...r.fixes.flatMap(f => [el('dt', {}, el('code', {className: 'hash', textContent: f.commit})), el('dd', {className: 'muted', textContent: [f.extensionVersion, fixDate(f.landedAt), f.rung != null ? 'rung ' + f.rung : ''].filter(Boolean).join(' · ')})])) : el('div', {className: 'muted', textContent: 'No fix names this replay'}),
-      // A shape test guards the mechanism on a small page; only the live layer proves the site (owner, 12 Oct 2026): "mechanism guarded", never "passed" or "proven".
+      // A shape test guards the mechanism on a small page, not the site: "mechanism guarded", never "passed" or "proven".
       el('h4', {textContent: 'Mechanism guarded · shape tests'}), el('ul', {className: 'fixguard'}, ...r.guard.map(id => { const found = (r.cases || []).find(c => 'recorded:' + c.name === id);
         return el('li', {}, id.replace(':', ' '), found ? el('span', {}, ' ', dots(found.history), ' ', found.ok ? 'mechanism guarded' : 'mechanism broken', found.day ? ' · last ' + found.day : '') : el('span', {className: 'muted', textContent: id.startsWith('fixture:') ? ' (ladder fixture)' : ' (not replayed in the last uploaded run)'})); }))),
     el('div', {}, el('h4', {textContent: 'Runs · filled' + (r.runs.length ? '' : '')}), r.runs.length ? el('ul', {className: 'fixguard'}, ...r.runs.map(run => el('li', {}, run.day + ' · ' + (STAGE[run.reached] || run.reached || 'Nothing reached') + (run.share != null ? ' · ' + run.share + '% filled' : ''), run.after ? el('span', {className: 'muted', textContent: ' · after the fix'}) : null)))
@@ -144,7 +140,7 @@ export const FIXED_SCRIPT = `
   const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { toggleOpen(fixOpen, r.site); drawFixed(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(r.site)}), el('span', {className: 'muted', textContent: r.platform + (r.host ? ' (' + r.host + ')' : '')}))),
-      el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), el('span', {className: 'stack ' + (r.proven ? 'muted' : 'warn'), textContent: provenLine(r)}), el('span', {className: 'stack ' + (r.offline && r.offline.verdict === 'confirmed' ? 'muted' : 'warn'), textContent: offlineLine(r)})),
+      el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), el('span', {className: 'stack ' + (r.offline && r.offline.verdict === 'confirmed' ? 'muted' : 'warn'), textContent: offlineLine(r)})),
       el('td', {className: 'c-fill', textContent: fixFilled(r)}),
       el('td', {className: 'c-fix'}, r.commit ? el('code', {className: 'hash', title: r.fixes.map(f => f.commit + ' ' + (f.extensionVersion || '')).join(', '), textContent: r.commit + (r.commits.length > 1 ? ' +' + (r.commits.length - 1) : '')}) : '—', r.commit ? el('span', {className: 'stack muted', textContent: fixDate(r.landedAt) + (r.rung != null ? ' · rung ' + r.rung : '')}) : null),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.site, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
@@ -154,8 +150,8 @@ export const FIXED_SCRIPT = `
   const HOW = [['Awaiting verification', 'The fix landed and no uploaded run since then has cleared the site: none yet, or the runs say nothing.'], ['Still failing', 'Runs uploaded after the fix still list the site under Needs a fix; the count is those runs.'], ['Better, not there yet', 'Still failing, but the share of fields filled rose since the fix.'],
     ['Confirmed', 'Two uploaded runs after the fix no longer list the site under Needs a fix (one clean run can be luck: the AI picks its route). It does not say how much more was filled: read the filled column for that. A run that ends in an on-purpose hold (an account first, a login wall, an application by email, a page that tells how to apply, a code or bot check) counts as clean: that hold is the accepted end. A passing live proof after the landing counts as one clean run. An eligibility stop says nothing about the site and counts as neither.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
     ['Filled before → after', 'The share of fields filled in the last run before the fix and in the last run after it; the expander lists every run.'],
-    ['Confirmed offline', 'An offline replay of the row\\u2019s recording from before the fix, on main, twice: it went further than the live run did, and the recording replays as live on its own build. Its own word: only a live run proves the site. A fix that changes the route or asks goes off the recording: Needs live.'],
-    ['Proven live', 'Only the live layer: a CI pool run that really ran the row, on main after the landing or on the PR\\u2019s own build. A shape test only guards the mechanism on a small page.'],
+    ['Confirmed offline', 'An offline replay of the row\\u2019s recording from before the fix, on main, twice: it went further than the live run did, and the recording replays as live on its own build. A fix that changes the route or asks goes off the recording: Needs live (record that row\u2019s full journey; no live run proves a fix).'],
+    ['Shape tests', 'A shape test only guards the mechanism on a small page; it never says the site works.'],
     ['Source', 'Git trailers (Pool-row, Rung, Fixture) and the uploaded smoke runs, as of ' + (d.fixed.fixesAt ? ago(d.fixed.fixesAt) : 'no upload yet') + '.']];
   const drawFixed = () => { fixedBox.textContent = '';
     const all = fixedList().sort((a, b) => FIX_ORDER.indexOf(fixKind(a)) - FIX_ORDER.indexOf(fixKind(b)) || String(b.landedAt || '').localeCompare(String(a.landedAt || ''))), rows = sortRows('fixed', all, FIX_GET);

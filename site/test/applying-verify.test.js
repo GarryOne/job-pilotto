@@ -1,5 +1,5 @@
 // "Confirmed offline" on /admin/applying (src/applying-verify.js): only the publish key writes, a verdict keeps fixed words only, the newest verdict of a row replaces its old one,
-// an identical upload writes nothing, and the Fixed tab's data carries each fix's verdict beside "proven live".
+// an identical upload writes nothing, and the Fixed tab's data carries each fix's verdict.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -48,13 +48,13 @@ test('the newest verdict of a row replaces its old one; the same upload again wr
   assert.equal(verifyFor(kept, 'regression', ROW), null);
 });
 
-test('the Fixed tab carries a fix\'s offline verdict beside proven live, and a pool row its regression verdict', async () => {
+test('the Fixed tab carries a fix\'s offline verdict, and a pool row its regression verdict', async () => {
   const {fixedData, ingestFixes} = await import('../src/applying-fixed.js'), db = d1();
   await ingestFixes(db, {kind: 'fixes', rows: [{site: ROW, commit: 'abc1234', landedAt: '2026-10-13T10:00:00Z', guard: []}]}, NOW);
   await storeVerify(db, {sha: 'abc1234', rows: [item(), item({kind: 'regression', verdict: 'site', why: 'the older build stops where the newer one does on the same recording'})]}, NOW);
   const pool = [{name: ROW, shape: ROW, platform: 'Lever', runs: []}], fixed = await fixedData(db, pool, [], NOW);
   assert.equal(fixed.rows[0].offline.verdict, 'confirmed');
-  assert.equal(fixed.rows[0].proven, null, 'a replay never becomes "proven live"');
+  assert.equal(fixed.rows[0].proven, undefined, 'no live-proof field any more');
   assert.equal(pool[0].offline.verdict, 'site');
 });
 

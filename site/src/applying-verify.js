@@ -1,6 +1,5 @@
 // /admin/applying's "Confirmed offline" (owner, 14 Oct 2026): the verdict of an offline replay of a pool row's recording, for a landed fix ("Confirmed offline" / "Not better offline" /
-// "Needs live") and for a row that got less far than before ("Our build" / "Site changed" / "Needs live"). Its OWN word beside "Proven live", never merged into it: only the live layer
-// proves a site (owner, 12 Oct 2026), the replay shows what the build does on a page that no longer changes. CI (.github/workflows/fix-verdicts.yml) sends the verdicts of a run:
+// "Needs live") and for a row that got less far than before ("Our build" / "Site changed" / "Needs live"). It is the page's only proof of a fix (owner, 14 Oct 2026: no live run proves a fix); the replay shows what the build does on a page that no longer changes. CI (.github/workflows/fix-verdicts.yml) sends the verdicts of a run:
 // PUT /applying/verify, Bearer REPLAYS_PUBLISH_KEY, stored as ONE row, a row's newest verdict replacing its old one by (kind, name). Guard: test/applying-verify.test.js.
 import {dropSnapshot} from './applying-store.js';
 import {equal} from './guard.js';
