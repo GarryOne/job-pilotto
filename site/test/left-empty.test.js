@@ -15,9 +15,10 @@ function d1() {
   return {db, prepare: sql => statement(sql)};
 }
 const now = new Date('2026-10-14T12:00:00Z');
-const reason = (e, word, n, source = 'user', day = '2026-10-10') => e.db.prepare("INSERT INTO fill_reasons (day, board, reason, ai_family, source, n) VALUES (?, 'ashby', ?, 'claude', ?, ?)").run(day, word, source, n);
-const card = (e, id, causes, {source = 'user', install = '', day = '2026-10-10'} = {}) => e.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, seconds, source, install)
-  VALUES (?, ?, 'ashby', '0.9.1', 5, 3, 2, 0, ?, '{}', 30, ?, ?)`).run(id, day, JSON.stringify(causes), source, install);
+// A card: `required` fields, of which the causes name the left ones; filled = required - left.
+const left = causes => Object.values(causes).reduce((a, b) => a + b, 0);
+const card = (e, id, causes, {source = 'user', install = '', day = '2026-10-10', required = 100} = {}) => e.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, seconds, source, install)
+  VALUES (?, ?, 'ashby', '0.9.1', ?, ?, ?, 0, ?, '{}', 30, ?, ?)`).run(id, day, required, required - left(causes), left(causes), JSON.stringify(causes), source, install);
 
 test('every reason word the apps and the fill cards can send has a group: a new word fails here, never lands in Other by silence', () => {
   assert.deepEqual(KNOWN_WORDS.filter(word => !GROUP_OF[word]), [], 'add the word to GROUP_OF in src/left-empty.js');
@@ -36,34 +37,45 @@ test('the four groups, their counts, shares and words; an unknown word is counte
   assert.equal(tally({}).groups[0].share, null, 'no fields: no share');
 });
 
-test('real use reads the apps\' reason words and the lab reads the pool\'s cause words, never added together', async () => {
+test('real use and the lab each read their own cards, never added together; the shares are of ALL required fields', async () => {
   const e = d1();
-  reason(e, 'no_answer', 40); reason(e, 'real_click', 10); reason(e, 'no_answer', 99, 'pool'); reason(e, 'no_answer', 5, 'user', '2026-09-01');   // a pool row and an old row stay out
-  card(e, 'u1', {no_data: 3}, {install: 'a'}); card(e, 'p1', {ai_declined: 7, real_click: 2}, {source: 'pool'});
+  card(e, 'u1', {no_data: 30, real_click: 10, unread: 10}, {install: 'a'});   // 100 required: 50 filled, 50 left
+  card(e, 'p1', {ai_declined: 466, real_click: 49}, {source: 'pool', required: 1264}); card(e, 'p2', {no_data: 1}, {source: 'pool', required: 100, day: '2026-09-01'});   // an old card stays out
   const real = await leftEmpty(e, now, 'real'), lab = await leftEmpty(e, now, 'lab');
-  assert.deepEqual([real.total, real.groups[0].count, real.groups[2].count], [50, 40, 10]);
-  assert.deepEqual([lab.total, lab.groups[0].count, lab.groups[2].count], [9, 7, 2]);
+  assert.deepEqual([real.required, real.filled, real.total, real.filledShare], [100, 50, 50, 0.5]);
+  assert.deepEqual(real.groups.map(group => [group.key, group.count, group.share, group.ofRequired]), [['answer', 30, 0.6, 0.3], ['read', 10, 0.2, 0.1], ['control', 10, 0.2, 0.1], ['other', 0, 0, 0]]);
+  assert.deepEqual([lab.required, lab.filled, lab.total], [1264, 749, 515]);   // the pool's 14 days on 15 Oct: 1264 required, 749 filled, 515 left
+  assert.equal(Math.round(lab.filledShare * 100), 59);
+  assert.equal(Math.round(lab.groups.find(group => group.key === 'control').ofRequired * 100), 4, 'the lab: 49 of 1264 required fields lost to controls');
   assert.equal(lab.sample, null);
+});
+
+test('the headline reads "N required fields · X% filled · Y% no answer · Z% lost to controls · W% not read" on fixture data', async () => {
+  const e = d1();
+  for (const install of ['a', 'b', 'c']) card(e, `u-${install}`, {no_data: 30, real_click: 10, unread: 10}, {install});
+  const html = leftEmptySection(await leftEmpty(e, now, 'real'));
+  assert.match(html, /300 required fields · 50% filled · 30% left with no answer · 10% lost to controls · 10% not read/);
+  assert.match(html, /<td class="n">60%<\/td><td class="n">30%<\/td>/, 'a group\'s share of left next to its share of required');
 });
 
 test('under 3 installs the real column shows counts muted with "too few to judge" and no share; the lab never does', async () => {
   const e = d1();
-  reason(e, 'no_answer', 40); reason(e, 'real_click', 10); card(e, 'u1', {no_data: 1}, {install: 'a'}); card(e, 'u2', {no_data: 1}, {install: 'b'}); card(e, 'p1', {ai_declined: 7}, {source: 'pool'});
+  card(e, 'u1', {no_data: 40, real_click: 10}, {install: 'a'}); card(e, 'u2', {no_data: 1}, {install: 'b'}); card(e, 'p1', {ai_declined: 7}, {source: 'pool'});
   const thin = leftEmptySection(await leftEmpty(e, now, 'real'));
   assert.match(thin, /Too few real fills to judge: 2 forms from 2 installs in 14 days \(needs 3\+ installs\)/);
-  assert.doesNotMatch(thin, /\d+%/);
-  assert.match(thin, /<td class="n">40<\/td>/);
+  assert.doesNotMatch(thin, /\d+%/, 'no share while thin, headline included');
+  assert.match(thin, /<td class="n">41<\/td>/);
   card(e, 'u3', {no_data: 1}, {install: 'c'});
   const enough = leftEmptySection(await leftEmpty(e, now, 'real'));
   assert.doesNotMatch(enough, /Too few/);
-  assert.match(enough, /80%/);
+  assert.match(enough, /% filled/);
   assert.doesNotMatch(leftEmptySection(await leftEmpty(e, now, 'lab')), /Too few/);
 });
 
 test('both admin pages show the section: Real Form Filling its real-use column, Lab Form Filling the pool column', async () => {
   const env = {STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   const today = new Date().toISOString().slice(0, 10);
-  reason(env.STATS, 'no_answer', 40, 'user', today); card(env.STATS, 'p1', {ai_declined: 7}, {source: 'pool', day: today});
+  card(env.STATS, 'u1', {no_answer: 40}, {install: 'a', day: today}); card(env.STATS, 'p1', {ai_declined: 7}, {source: 'pool', day: today});
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/real-form-filling', {headers: {Cookie: 'jp_stats=k3y'}}), env, {})).text();
   assert.match(html, /Why fields were left empty/);
   assert.match(html, /no_answer <span class="muted">40<\/span>/);
