@@ -200,3 +200,28 @@ test('a menu that showed its choices is never typed at: one pick by meaning, no 
     assert.deepEqual({picked, typed, asked}, {picked: true, typed: 0, asked: 1});
   } finally { await browser.close(); }
 });
+
+// A loaded machine (14 Oct 2026): the page's main thread is blocked after the click, every call to it takes seconds. The wall-clock ceiling gave up on a menu that was only slow.
+// Fake clock: each call to the page costs `callMs`; the armed count drops (the page picked) once the clock passes `opensAt`.
+function fakeRun({callMs, opensAt}) {
+  let t = 0;
+  const now = () => t, sleep = async ms => { t += ms; };
+  const page = async func => { t += callMs; const src = func.toString(); return src.includes('ArmedCount') ? (t >= opensAt ? 0 : 1) : null; };
+  return clickCombo({page, click: async () => { t += callMs; }, spot: {x: 1, y: 1}, now, sleep}).then(out => ({...out, t}));
+}
+test('a menu on a busy page (every call takes 3 s) that settles after 30 s is waited for, not given up', async () => {
+  const out = await fakeRun({callMs: 3000, opensAt: 30000});
+  assert.equal(out.picked, true);
+  assert.equal(out.capped, false);
+});
+test('a menu on a quiet page that never opens is still given up, quickly', async () => {
+  const out = await fakeRun({callMs: 10, opensAt: Infinity});
+  assert.equal(out.picked, false);
+  assert.ok(out.t < 20000, `took ${out.t} ms`);
+});
+test('a menu on a busy page that never opens is still given up, by the hard cap', async () => {
+  const out = await fakeRun({callMs: 3000, opensAt: Infinity});
+  assert.equal(out.picked, false);
+  assert.equal(out.capped, true);
+  assert.ok(out.t < 60000, `took ${out.t} ms`);
+});
