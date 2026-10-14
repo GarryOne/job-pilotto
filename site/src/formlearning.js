@@ -3,6 +3,7 @@
 //     per 100 forms for apps older than 0.8.96, which send no count)
 //   2 the recipe funnel (candidate -> canary -> verified, disabled).
 // Counts and the forms' own public wording only. Guard: site/test/digest.test.js, thin-data.test.js.
+import {slowCache} from './applying-store.js';
 import {leftEmpty} from './left-empty.js';
 import {answersByFamily} from './answer-metrics.js';
 import {digest} from './digest.js';
@@ -106,7 +107,7 @@ export async function report(db, now = new Date(), family = '') {
   const families = await byFamily(db, thisWeek).catch(() => null);
   const answers = await answersByFamily(db, thisWeek, lastWeek).catch(() => null);   // the AI's own answers, per family (migration 0046)
   return {family, families, answers, results, learning, marks,
-    use: {...use, unitNow: per('now').unit, reasons}, recipes, misses, leftEmpty: await leftEmpty(db, now, 'real'), from: lastWeek, to: day(now)};
+    use: {...use, unitNow: per('now').unit, reasons}, recipes, misses, leftEmpty: await leftEmpty(db, now, 'real'), bestCase: await slowCache(db, now)('left-empty', () => leftEmpty(db, now, 'lab')).catch(() => null), from: lastWeek, to: day(now)};
 }
 
 // The cross-check: forms whose labels carry far more "*" marks than the required rule counted. A board is flagged when it shows at least 3 marks
