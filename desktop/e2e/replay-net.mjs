@@ -1,5 +1,7 @@
 // Replays a live row from its network record (lib/net-record.mjs), the site's own scripts running, memo-only AI.
-//   node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]
+//   node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock] [--fill-memo]
+// --fill-memo (a Mac, by hand; e2e/fill-memo.mjs): the asks the memo lacks (a fix changed what the app asks) are answered by the plan's claude -p and the NEW answers are
+// merged into <record dir>/model-memo.json (never the network record); the privacy tripwire and the fake applicant stay on, a tripped run keeps nothing, never on CI.
 // The row runs exactly as live (lib/live-row.mjs runLiveRow: the app, Apply, the real extension), but its browser resolves no host (offline) and every
 // request is served from the record; the AI answers only from the live run's kept answers, at their live latency; a miss is refused and counted.
 // Writes <out>/replay.json (requests by rule, not recorded, misses by step) beside the run's own end.png and step-*.png.
@@ -16,9 +18,11 @@ import {CONTACT} from './lib/apply-fixtures.mjs';
 import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
 import {shiftDate, zoneOf} from './lib/replay-date.mjs';
+import {keepFilled} from './lib/fill-memo.mjs';
 
-const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
-if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
+const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FILL = process.argv.includes('--fill-memo'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
+if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock] [--fill-memo]'); process.exit(2); }
+if (FILL && process.env.CI) { console.error('replay-net: --fill-memo asks the plan\'s claude -p: a Mac only, never CI'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
 if (zoneOf(record)) process.env.TZ = zoneOf(record);   // the live run's time zone for the whole browser, before it starts (lib/replay-date.mjs)
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
@@ -58,14 +62,15 @@ export const replaySeconds = text => { const times = String(text).split('\n').ma
   return times.length > 1 ? Math.min(300, Math.max(120, Math.round((times.at(-1) - times[0]) / 1000) + 90)) : 120; };
 let seen = null;   // the zone and date the page itself read at the end (replay.json pageSees): proof the live run's zone reached it
 let wrong = null;   // the typed values that are not the decided ones, and the decided ones that are not the applicant's (lib/wrong-values.mjs): at the last tab, before the browser closes
-const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await tab.evaluate(() => ({zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})).catch(() => null); wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
+const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await tab.evaluate(() => ({zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})).catch(() => null); wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog), fill: FILL});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left, fields: (r.fieldList || []).slice(0, 40).map(item => ({label: item.label, outcome: item.outcome}))}; };   // fields: the gate's field-by-field diff (lib/replay-field-diff.mjs): labels and outcomes, never a value
 const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'misslog.jsonl'), 'utf8').split('\n')[0]); } catch { return null; } })();
-const summary = {pageSees: seen, firstMiss, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
+const filled = FILL && !result.tripped ? keepFilled(recordDir, out) : [];   // a tripped run keeps nothing
+const summary = {filled: FILL ? filled.length : undefined, pageSees: seen, firstMiss, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);

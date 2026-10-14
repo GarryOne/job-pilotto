@@ -22,6 +22,7 @@
     "apply": "node suite.mjs apply",
     "quality": "node suite.mjs quality",
     "all": "node run-all.mjs",
+    "fill-memo": "node fill-memo.mjs",
     "row": "bash ../../tools/heavy-lock.sh row-replay node row.mjs",
     "rows": "bash ../../tools/heavy-lock.sh row-replay node row.mjs --all",
     "measure": "bash ../../tools/heavy-lock.sh row-replay node measure.mjs",
