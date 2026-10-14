@@ -1,13 +1,16 @@
 # The replay's quick PR gate (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
 # will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays at most 10 pool rows offline
 # (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 5 macOS runners at once, then judges
-# them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). REQUIRED as "replay gate" (owner, 14 Oct 2026: "they should be required
-# (not mergeable) if not finished and success, but only if we touched the apply flow logic code"): a PR that changes extension/ or desktop/lib/ is red when a counted
-# row got worse or a runner did not finish; any other PR passes in seconds. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
+# them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). It starts only when a PR changes extension/ or desktop/lib/ (GitHub's `paths:`,
+# owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"): red when a counted row got worse or a runner did not finish.
+# Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
 name: CI · Replay gate (PR, 10 rows)
 
 on:
-  pull_request:   # always starts: "replay gate" is a required check (owner, 14 Oct 2026); it replays only when the PR changes the apply flow's code (the pick job)
+  pull_request:
+    paths:
+      - 'extension/**'
+      - 'desktop/lib/**'
 
 permissions:
   contents: read
@@ -22,22 +25,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      needed: ${{ steps.needed.outputs.run == 'true' && '1' || '0' }}
       groups: ${{ steps.pick.outputs.groups }}
       count: ${{ steps.pick.outputs.count }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this PR changes (tools/ci-needed.sh)
-      - id: needed
-        name: Does this PR change the apply flow's code (extension/, desktop/lib/)?
-        run: bash tools/ci-needed.sh replaygate
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: The rows (from the last green scheduled replay)
         id: pick
-        if: steps.needed.outputs.run == 'true'
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,7 +46,7 @@ jobs:
 
   replay:
     needs: pick
-    if: needs.pick.outputs.needed == '1' && needs.pick.outputs.count != '0'
+    if: needs.pick.outputs.count != '0'
     runs-on: macos-latest   # the records are made on the owner's Mac: the same fonts and scrollbar as the live page
     timeout-minutes: 15
     strategy:
@@ -134,31 +130,24 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2
-      - id: needed
-        name: Does this PR change the apply flow's code? (the required check decides first)
-        run: bash tools/ci-needed.sh replaygate
-      - name: No apply-flow change, or no baseline yet
-        if: steps.needed.outputs.run != 'true' || needs.pick.outputs.count == '0'
+      - name: No baseline yet
+        if: needs.pick.outputs.count == '0'
         env:
-          NEEDED: ${{ steps.needed.outputs.run == 'true' && '1' || '0' }}
           PICK: ${{ needs.pick.result }}
         run: |
           [ "$PICK" = success ] || { echo "::error::the pick job did not finish ($PICK)"; exit 1; }
-          if [ "$NEEDED" != 1 ]; then echo "replay gate: no apply-flow code changed: passes" | tee -a "$GITHUB_STEP_SUMMARY"
-          else echo "replay gate: no baseline with rows 100% same as live yet: passes (a by-hand replay on main makes one)" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          echo "replay gate: no baseline with rows 100% same as live yet: passes (a by-hand replay on main makes one)" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v5
-        if: steps.needed.outputs.run == 'true' && needs.pick.outputs.count != '0'
+        if: needs.pick.outputs.count != '0'
         with:
           node-version: '22'
       - uses: actions/download-artifact@v7
-        if: steps.needed.outputs.run == 'true' && needs.pick.outputs.count != '0'
+        if: needs.pick.outputs.count != '0'
         with:
           pattern: replay-pr-${{ github.run_id }}-*
           path: ${{ runner.temp }}/shards
       - name: Judge the rows against the last green scheduled run (red when worse or unfinished)
-        if: steps.needed.outputs.run == 'true' && needs.pick.outputs.count != '0'
+        if: needs.pick.outputs.count != '0'
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}

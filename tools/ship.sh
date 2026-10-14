@@ -73,7 +73,7 @@ on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && kill
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (required checks green; the owner reviews and merges)"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (every check green; the owner reviews and merges)"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 # Several sessions fetch into one shared repo: a fetch can lose the race for a ref lock ("cannot lock ref 'refs/remotes/origin/main'", 12 Oct 2026, a merged PR reported FAILED). Try again.
 ship_fetch() { local try; for try in 1 2 3 4 5; do git fetch -q origin 2>/dev/null && return 0; sleep 1; done; git fetch -q origin; }

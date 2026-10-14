@@ -39,7 +39,7 @@ ship_pr_land() {
   else
     step "the branch already has pull request #$n: reusing it"
   fi
-  local review=""; if ship_review; then review=1; step "review mode: the owner reviews and merges #$n by hand; waiting for its required checks only"
+  local review=""; if ship_review; then review=1; step "review mode: the owner reviews and merges #$n by hand; waiting for every check it started"
   elif ! out="$(gh pr merge "$n" --auto --rebase 2>&1)"; then
     case "$out" in
       *"clean status"*) out="$(gh pr merge "$n" --rebase 2>&1)" || ship_pr_fail "could not merge pull request #$n: $(echo "$out" | tail -n 1)" ;;   # no check to wait for: merge now
@@ -55,7 +55,8 @@ ship_pr_land() {
               step "pull request #$n is merged: $sha"; return 0 ;;
       CLOSED) ship_pr_fail "pull request #$n was closed without merging: $(jq -r '.url' <<<"$view")" ;;
     esac
-    checks="$(gh pr checks "$n" --required --json name,bucket,link 2>/dev/null || true)"
+    # Every check the PR started, not only the required ones (14 Oct 2026: only the 3 checks that start on every PR are required; the suites start by `paths:`).
+    checks="$(gh pr checks "$n" --json name,bucket,link 2>/dev/null || true)"
     failing="$(jq -r '[.[]? | select(.bucket == "fail" or .bucket == "cancel")] | first // empty | "\(.name)\t\(.link)"' <<<"${checks:-[]}" 2>/dev/null)" || failing=""
     if [ -n "$failing" ] || [ "$mergeable" = CONFLICTING ]; then
       name="${failing%%$'\t'*}"; link="${failing#*$'\t'}"
@@ -64,12 +65,12 @@ ship_pr_land() {
         step "main moved under files this PR changes (${name:-conflict}): rebasing again ($tries/5) and pushing it again"
         rebase; ship_pr_push; files="$(git diff --name-only origin/main HEAD)"
       else
-        ship_pr_fail "required check '$name' failed: $link . Pull request #$n stays open: fix it, commit, run tools/ship.sh again"
+        ship_pr_fail "check '$name' failed: $link . Pull request #$n stays open: fix it, commit, run tools/ship.sh again"
       fi
     fi
-    # Review mode ends when every required check passed (none pending, none failing): the PR waits for the owner, nothing has landed on main.
+    # Review mode ends when every check the PR started passed (none pending, none failing): the PR waits for the owner, nothing has landed on main.
     if [ -n "$review" ] && [ -z "$failing" ] && jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1; then
-      review_n="$n"; review_url="$(jq -r '.url // empty' <<<"$view")"; step "#$n: every required check is green: open for the owner's review"; return 0
+      review_n="$n"; review_url="$(jq -r '.url // empty' <<<"$view")"; step "#$n: every check is green: open for the owner's review"; return 0
     fi
     if [ "$waited" -ge "$limit" ]; then ship_pr_fail "pull request #$n is not merged after ${limit}s (it merges by itself when the checks pass): $(jq -r '.url' <<<"$view")"; fi
     [ $((waited - last_say)) -lt 60 ] || { step "still waiting for #$n (${waited}s)"; last_say=$waited; }

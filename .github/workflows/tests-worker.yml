@@ -1,0 +1,32 @@
+name: CI · Tests · worker
+# On a pull request, GitHub's `paths:` below decides whether it runs (owner, 14 Oct 2026: "drop your shared pick logic, rely fully on gh workflow paths"). Not a required
+# check: a workflow `paths:` skips never reports, and a required one would block the PR (tests/test_workflow_paths.py). On main, build.yml (CI · Tests) calls it on
+# every push: the backstop for a break from outside these paths.
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'tools/check.sh'
+      - 'tools/check.py'
+      - '.github/workflows/tests-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: worker
+      - run: bash tools/check.sh --area worker

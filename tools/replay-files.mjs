@@ -47,7 +47,7 @@ export function harnessFiles(entry, root = ROOT) {
 
 // FLOW_FILES as written in desktop/e2e/flows.mjs (read, not imported: this file stays synchronous): every quoted repo path of the list.
 
-// What each replay job of a pull request loads (tools/affected-jobs.py asks, a folder ends with /): the whole extension (its manifest and data files load too),
+// What each replay job of a pull request loads (a folder ends with /): the whole extension (its manifest and data files load too),
 // the app modules above, the job's pages and its runner's files. A change to none of them cannot change what the job replays.
 export function jobFiles(job, root = ROOT) {
   const loaded = ['extension/', ...replayFiles(root)];

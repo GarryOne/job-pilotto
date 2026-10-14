@@ -1,0 +1,52 @@
+name: CI · Tests · desktop
+# On a pull request, GitHub's `paths:` below decides whether it runs (owner, 14 Oct 2026: "drop your shared pick logic, rely fully on gh workflow paths"). Not a required
+# check: a workflow `paths:` skips never reports, and a required one would block the PR (tests/test_workflow_paths.py). On main, build.yml (CI · Tests) calls it on
+# every push: the backstop for a break from outside these paths.
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - '!desktop/e2e/recorded/**'
+      - '!desktop/e2e/recorded-pending/**'
+      - '!desktop/e2e/fixtures/**'
+      - '!desktop/e2e/ladder-fixtures/**'
+      - '!desktop/e2e/widget-zoo/**'
+      - 'extension/**'
+      - 'eslint.config.mjs'
+      - 'tools/check.sh'
+      - 'tools/check.py'
+      - '.github/workflows/tests-desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    # Both platforms: Windows is where the app's platform branches really run (Credential Manager instead of the Keychain, python.exe, node-pty, Git Bash for
+    # Claude Code). fail-fast off, so both platforms report.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # Install exactly what a developer (and the release workflow) has, dev dependencies included: `npm test` runs scripts/stage.mjs, which needs esbuild.
+      # Only Electron's large binary is skipped, as the tests don't start it. tools/pre-push-check.sh blocks `--omit` here.
+      - run: npm ci
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: bash tools/check.sh --area desktop

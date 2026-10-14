@@ -93,8 +93,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test`, `cd desktop && npm test` (`tools/check.sh` runs them as CI does).
-- **On a PR push (`SHIP_PR=1`, what ship.sh does) the hook runs only the fast pure checks** (subjects, trailers, file size, recorded cases, rung trailer; seconds); the suites, journey/ladder gates and replays run in CI on the PR (`pr-gate.yml`, `build.yml`, `recorded-pages.yml`), where the same script runs with `CI_GATES=1`.
-  Each required job's first step asks `tools/ci-needed.sh <job>` and skips its heavy steps when the PR cannot break it (`tools/affected-jobs.py`: the pick, per job; a new required job without the step fails `tests/test_affected_jobs.py`).
+- **On a PR push (`SHIP_PR=1`, what ship.sh does) the hook runs only the fast pure checks** (subjects, trailers, file size, recorded cases, rung trailer; seconds); the suites, journey/ladder gates and replays run in CI on the PR (`pr-gate.yml`, the `tests-*.yml` suites, `recorded-pages.yml`), where the same script runs with `CI_GATES=1`.
+  Which workflows a PR starts is GitHub's `on: pull_request: paths:` alone (owner, 14 Oct 2026: no shared pick); only `pr gates`, `flow-fresh` and "cases fail before the fix" are required (they start on every PR); main runs every suite on each push (`tests/test_workflow_paths.py`).
   Otherwise (the direct push) the pre-push hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches on a clean checkout
   (`PUSH_FULL=1`: all), lints workflows, proves `npm ci` when a lock file changed, and blocks a push on a red main (AGENTS.md "Red main").
   The e2e harness's own unit tests (`desktop/e2e` npm test) run on CI only (owner, 11 Oct 2026); `JP_E2E_UNIT=1` runs them before a push.
