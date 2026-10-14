@@ -25,6 +25,11 @@
 - No site names or hosts in code, tests or PR bodies; a fix is universal and lands with a recorded case that fails on the old build.
 - No live run to test or to prove a fix; no AI spend without the owner's OK and a measured cost.
 
+## An intended replay drop: accepted on the PR (owner, 14 Oct 2026)
+- A fix can make a counted row "worse" on purpose (an upload counted once, not twice). The PR gate's summary shows that row's **field-by-field diff** (label, baseline outcome, PR outcome; never a value) and a copy-ready line.
+- The owner labels the PR `replay-accepted` and comments `Replay-accept: <row name> — <reason>` (or a bare `Replay-accept: <reason>` for every worse row). The gate **re-judges by itself** (`site-replays-accept.yml` re-runs the failed verdict and "all checks green"; no replay re-run, $0) and passes only the named rows; any other worse or unfinished row stays red. After the merge the nightly moves the baseline (`replay-accepts.mjs`).
+- **Never accept your own drop.** Every session posts as the owner, so its comment would count as the owner's. Show the owner the gate's diff and wait; the hook `tools/replay-accept-guard.py` blocks the post unless the command has `REPLAY_ACCEPT_OK=1`, which you set only when the owner asked for that accept in your own chat.
+
 ## App bugs (not form bugs)
 The Desktop App's own screens (session cards, review panel, tabs) are not in the replay. A bug you see yourself → skill `desktop-change`
 with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md) reproduces it on demand; it is never a loop.

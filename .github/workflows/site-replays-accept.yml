@@ -1,0 +1,51 @@
+# The owner's accept on a PR, applied without a replay re-run (owner, 14 Oct 2026: an intended replay drop is accepted on the PR itself, no admin override). When the label
+# `replay-accepted` is added or removed, or a trusted person comments `Replay-accept:` on a PR, this re-runs only the FAILED jobs of that PR's last "CI · Site replays · PR"
+# run (its verdict job reads the label and comments live and judges the same replay artifacts: seconds, $0) and then of its "CI · Pull request" run ("all checks green" must
+# see the re-judged result). It runs main's copy of this file (pull_request_target / issue_comment) and NEVER checks out or runs the PR's code; its only write is `actions: write`
+# (re-run). A new push still replays everything. Guard: tests/test_site_replays_accept_workflow.py.
+name: CI · Site replays · accept
+
+on:
+  pull_request_target:
+    types: [labeled, unlabeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  pull-requests: read
+
+concurrency:
+  group: replay-accept-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  rejudge:
+    name: re-judge the replay gate
+    # a label change names replay-accepted; a comment is from a PR (not an issue), from the owner, a member or a collaborator, and has the line
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'replay-accepted') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+       contains(github.event.comment.body, 'Replay-accept:'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+    steps:
+      - name: Re-run the failed gate, then the aggregate
+        run: |
+          sha="$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)"
+          latest() { gh run list -R "$REPO" --workflow "$1" --commit "$sha" --event pull_request --limit 1 --json databaseId,status,conclusion -q '.[0] | "\(.databaseId // "") \(.status // "") \(.conclusion // "")"'; }
+          read -r id status conclusion <<<"$(latest site-replays-pr.yml)"
+          if [ -z "$id" ]; then echo "no replay gate run for ${sha:0:7}: nothing to re-judge"; exit 0; fi
+          if [ "$status" != completed ]; then echo "the replay gate of ${sha:0:7} still runs: its verdict reads the label and comments when it gets there"; exit 0; fi
+          if [ "$conclusion" = success ]; then echo "the replay gate of ${sha:0:7} is green: nothing to re-judge"; exit 0; fi
+          gh run rerun "$id" -R "$REPO" --failed
+          echo "re-ran the verdict of run $id (${sha:0:7})"
+          # "all checks green" waits for every other run of this commit to end: re-run it once the gate shows as running again (a bounded wait), so it never reads the old red.
+          for _ in $(seq 1 12); do read -r _ now _ <<<"$(latest site-replays-pr.yml)"; [ "$now" != completed ] && break; sleep 5; done
+          read -r gate gstatus gconclusion <<<"$(latest pr-gate.yml)"
+          if [ -n "$gate" ] && [ "$gstatus" = completed ] && [ "$gconclusion" != success ]; then gh run rerun "$gate" -R "$REPO" --failed; echo "re-ran 'all checks green' (run $gate)"; fi

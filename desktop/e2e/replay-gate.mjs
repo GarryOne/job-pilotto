@@ -8,6 +8,7 @@ import path from 'node:path';
 import {rank} from './lib/smoke.mjs';
 import {isSame} from './replay-records.mjs';
 import {acceptFor, HINT} from './replay-accepts.mjs';
+import {fieldDiff, evidence} from './lib/replay-field-diff.mjs';
 
 const json = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -47,11 +48,11 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
         const second = again.get(record.name), retried = second && fell(before.outcome, second.outcome);
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
         const accept = verdict === 'worse' && acceptFor(record.name, accepts.entries, names);   // the owner's label + reason on a merged PR (replay-accepts.mjs)
-        if (accept?.reason) { verdict = 'accepted'; why = `${down}; PR #${accept.pr}: ${accept.reason}`; } else if (accept) why = `${down}; add the reason: comment "Replay-accept: <reason>" on PR #${accept.pr}`;
+        if (accept?.reason) { verdict = 'accepted'; why = `${down}; PR #${accept.pr}${accept.url ? ` (${accept.url})` : ''}: ${accept.reason}`; } else if (accept) why = `${down}; add the reason: comment "Replay-accept: <reason>" on PR #${accept.pr}`;
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
-    rows[record.name] = {same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0};
@@ -73,7 +74,10 @@ export function summary(result) {
   // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
   const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
   if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);
-  if (result.worse) lines.push('', `> ${HINT}.`);
+  // The evidence the owner reads before accepting (owner, 14 Oct 2026): each worse row's field-by-field diff against the baseline, with the accept line to copy.
+  const bad = Object.entries(result.rows).filter(([, row]) => row.verdict === 'worse');
+  if (bad.length) lines.push('', `### What changed in the ${bad.length} worse row${bad.length === 1 ? '' : 's'}`, '', ...bad.flatMap(([name, row]) => [...evidence(name, row, row.diff, row.baseOutcome), '']));
+  if (result.worse) lines.push(`> ${HINT}. The gate then re-judges by itself (no replay re-run).`);
   return `${lines.join('\n')}\n`;
 }
 
