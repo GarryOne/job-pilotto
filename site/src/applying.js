@@ -2,6 +2,7 @@
 // the recorded pages (each case, passed or failed, by run) and the nightly live smoke (each site: the step it reached, its last runs, regressions), plus the
 // fleet's dropped boards (layer 4, src/digest.js). The owner's Mac uploads each run (POST here, the owner key; desktop/e2e/lib/applying-report.mjs): the
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
+import {leftEmpty, leftEmptySection} from './left-empty.js';
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
 import {ORDER_SOURCE} from './applying-order.js';
@@ -144,6 +145,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.status.state === 'site').length, held: sites.filter(site => site.status.state === 'held').length, dropped: dropped.length},
+    leftEmpty: leftEmptySection(await slow('left-empty', () => leftEmpty(db, now, 'lab')).catch(() => null) || {side: 'lab', days: 14, total: 0, groups: [], sample: null}, {wrap: 'bare'}),   // why the pool's fields were left empty (src/left-empty.js, shared with Real Form Filling); a scan of fill_cards, so behind the hour cache
     resolution, fidelity: fidelityOf(await readFidelity(db).catch(() => []), pool), sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, states: STATES, stateWords: STATE_WORD, now: now.toISOString()};
 }
 
@@ -358,6 +360,7 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
           el('td', {className: 'muted', textContent: s.installs + ' installs'}), el('td', {className: 'muted', textContent: s.uses}), el('td', {className: 'muted', textContent: s.readyShare + '%'}),
           el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
         'Nothing yet: a site shows once 3 installs applied on it', undefined, [s => s.host, s => s.platform, s => s.installs, s => s.uses, s => s.readyShare, s => s.countries.length])].filter(Boolean)); };   // append() writes a null as the text "null"
+  if (d.leftEmpty) { const box = el('section', {className: 'leftempty'}); box.innerHTML = d.leftEmpty; panels.pool.append(box); }   // the shared section, rendered by the server (src/left-empty.js)
   panels.coverage.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
     el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (Feed installs: installs whose crawl reads the feeds of that platform, not installs that filled a form; Applications: real forms filled) (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
