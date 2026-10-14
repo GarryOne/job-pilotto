@@ -209,8 +209,8 @@ function fakeRun({callMs, opensAt}) {
   const page = async func => { t += callMs; const src = func.toString(); return src.includes('ArmedCount') ? (t >= opensAt ? 0 : 1) : null; };
   return clickCombo({page, click: async () => { t += callMs; }, spot: {x: 1, y: 1}, now, sleep}).then(out => ({...out, t}));
 }
-test('a menu on a busy page (every call takes 3 s) that settles after 30 s is waited for, not given up', async () => {
-  const out = await fakeRun({callMs: 3000, opensAt: 30000});
+test('a menu on a busy page (every call takes 3 s) that settles after 24 s is waited for, not given up', async () => {
+  const out = await fakeRun({callMs: 3000, opensAt: 24000});
   assert.equal(out.picked, true);
   assert.equal(out.capped, false);
 });
@@ -223,5 +223,5 @@ test('a menu on a busy page that never opens is still given up, by the hard cap'
   const out = await fakeRun({callMs: 3000, opensAt: Infinity});
   assert.equal(out.picked, false);
   assert.equal(out.capped, true);
-  assert.ok(out.t < 60000, `took ${out.t} ms`);
+  assert.ok(out.t < 50000, `took ${out.t} ms`);
 });
