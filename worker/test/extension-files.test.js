@@ -130,7 +130,7 @@ test('a kit fill starts at once: kit and contact details prefetched, no fixed wa
   assert.match(background, /Date\.now\(\) - ready\.meAt > ME_FRESH_MS/);
   const flow = read('extension/flow.js');
   assert.match(flow, /const me = early \|\| await apiFor\(tab\.id, /);
-  assert.match(read('extension/combo-click.js'), /limit = PATIENCE\.first; waited < limit; waited \+= 100/);   // the quick wait moved with the menu click (combo-click.js)
+  assert.match(read('extension/combo-click.js'), /limit = PATIENCE\.first; waited < limit; waited = now\(\) - lookStart/);   // the quick wait moved with the menu click (combo-click.js); real time since 14 Oct 2026, never counted ticks
 });
 
 test('a CV tailored after the first fill replaces the one the extension attached, never one the person chose', () => {
