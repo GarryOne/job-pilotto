@@ -6,7 +6,8 @@ import {test} from 'node:test';
 import worker from '../src/index.js';
 import {digest, markdown} from '../src/digest.js';
 import {report} from '../src/formlearning.js';
-import {page} from '../src/form-page.js';
+import {page} from '../src/real-form-filling.js';
+import {page as learningPage} from '../src/form-learning.js';
 import {MIN_INSTALLS, sampleOf} from '../src/thin-data.js';
 
 function d1() {
@@ -27,10 +28,10 @@ function seed(installs) {
   return db;
 }
 // Each place that shows a user-count rate or ranking: [name, text of the page or the digest .md that holds it, a pattern for its percentage / ranking].
-const places = (html, md) => {
+const places = (html, md, learning) => {
   const part = (text, from, to) => text.slice(text.indexOf(from), to ? text.indexOf(to, text.indexOf(from)) : undefined);
   return [
-    ['page: By AI family, fields left per 100', part(html, 'By AI family, this week', 'The AI'), /<td class="n">\d+(\.\d)?<\/td><\/tr>/],
+    ['page: By AI family, fields left per 100', part(learning, 'By AI family, this week', 'The AI'), /<td class="n">\d+(\.\d)?<\/td><\/tr>/],
     ['page: Filled headline', part(html, 'Filled (real use)', 'Blind spots'), /\d+%/],
     ['page: Blind spots headline', part(html, 'Blind spots (real use)', 'Recipes'), /\d+(\.\d)?<\/b>|▲|▼/],
     ['page: Efficiency day by day', part(html, 'Efficiency, day by day', 'Top weaknesses'), /\d+%/],
@@ -47,20 +48,20 @@ test('under 3 installs every place says too few, with raw counts and no rate or 
   const db = seed(2);
   const data = await report(db, now), md = markdown(await digest(db, now));
   assert.deepEqual([data.learning.sample.forms, data.learning.sample.installs, data.learning.sample.enough], [6, 2, false]);
-  const html = page(data);
+  const html = page(data), learning = learningPage(data);
   assert.match(html, /Too few real fills to judge: 6 forms from 2 installs this week \(needs 3\+ installs\)/);
   assert.match(md, /Too few real fills to judge: 6 forms from 2 installs this week/);
-  for (const [name, text, shown] of places(html, md)) { assert.ok(text.length > 20, `${name}: section found`); assert.doesNotMatch(text, shown, name); }
+  for (const [name, text, shown] of places(html, md, learning)) { assert.ok(text.length > 20, `${name}: section found`); assert.doesNotMatch(text, shown, name); }
 });
 
 test('with 3 installs the same places show their rates and the ranking', async () => {
   const db = seed(MIN_INSTALLS);
   const data = await report(db, now), md = markdown(await digest(db, now));
   assert.equal(data.learning.sample.enough, true);
-  const html = page(data);
+  const html = page(data), learning = learningPage(data);
   assert.doesNotMatch(html, /Too few real fills/);
   assert.doesNotMatch(md, /Too few real fills/);
-  for (const [name, text, shown] of places(html, md)) assert.match(text, shown, name);
+  for (const [name, text, shown] of places(html, md, learning)) assert.match(text, shown, name);
 });
 
 test('cards from before the install column are never counted as an install', () => {

@@ -54,7 +54,7 @@ test('the recording run names its visit kind (by hand) and keeps no visit back f
   assert.match(smoke, /JOB_PILOTTO_SITE_LIMIT: '2'/);
 });
 
-// Owner, 14 Oct 2026: the CI workflow's one job is recording, so its rows move /admin/applying (main only, the narrow key); it sends no "proven live" record any more.
+// Owner, 14 Oct 2026: the CI workflow's one job is recording, so its rows move /admin/lab-form-filling (main only, the narrow key); it sends no "proven live" record any more.
 test('the recording run sends its ladder moves, endings and (main only) its rows with the narrow key, on that step only, never the site key', () => {
   const smoke = workflows['record-sites.yml'];
   const step = smoke.match(/- name: The ladder moves, the rows' endings[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';

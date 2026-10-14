@@ -33,7 +33,7 @@ export function proposalLines(p) {
     ...p.byVersion.map(v => `| ${v.version} | ${v.shown} | ${pct(v.usedShare)} | ${pct(v.editedShare)} | ${pct(v.ignoredShare)} |`)];
 }
 
-// The same numbers as a card on /admin/form-filling (src/formlearning.js), beside "How applications ended".
+// The same numbers as a card on /admin/real-form-filling (src/formlearning.js), beside "How applications ended".
 export function proposalCard(p, esc) {
   const row = (name, t, before) => `<tr><td>${esc(name)}</td><td class="n">${t.shown}</td><td class="n">${pct(t.usedShare)}</td><td class="n">${pct(t.editedShare)}</td><td class="n">${pct(t.ignoredShare)}</td>${before ? `<td class="n muted">${pct(before.usedShare)}</td>` : '<td></td>'}</tr>`;
   const empty = !p || (!p.thisWeek.shown && !p.lastWeek.shown);

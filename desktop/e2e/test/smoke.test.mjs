@@ -168,7 +168,7 @@ test('the fields line the app writes (far longer than 230 characters) becomes on
   assert.deepEqual(fieldLines('fill: fields: 4 filled, 8 left {"fields":[{"label":"Full name","type"'), []);   // a cut line gives none, never a wrong one
 });
 
-// The AI ladder (docs/flows/ladder.md): the rung that made the run's last decision, read from the log; /admin/applying shows it as "Rung" (rung 0 to 6, signal unsure|contradicted|stalled|failed).
+// The AI ladder (docs/flows/ladder.md): the rung that made the run's last decision, read from the log; /admin/lab-form-filling shows it as "Rung" (rung 0 to 6, signal unsure|contradicted|stalled|failed).
 const rungOf = text => { const {rung, signal} = parseLive(text); return [rung, signal]; };
 test('parseLive: the rung of the last decision comes from how the page kind was decided', () => {
   assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"ai"}'), [2, null]);

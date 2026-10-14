@@ -6,7 +6,7 @@
 | # | Step | Who / what | Live? | Cost |
 |---|---|---|---|---|
 | 1 | **Record** a new site once, all the way to the form; re-record only on a signal | skill `record-applying-sites`; `record-sites.yml`, whose single job is recording | ✅ the only live step | cents per row |
-| 2 | **Detect**: replay every recording on the build | CI: `site-replays-pr.yml` on every PR, `site-replays.yml` nightly → `/admin/applying` | no | $0 |
+| 2 | **Detect**: replay every recording on the build | CI: `site-replays-pr.yml` on every PR, `site-replays.yml` nightly → `/admin/lab-form-filling` | no | $0 |
 | 3 | **Fix** the top 🔴 row | skill `/fix-recorded-sites` | no | $0 + the fix session |
 | 4 | **Verify** the fix | CI after merge: "Confirmed offline" on the Fixed tab (2 agreeing replays) | no | $0 |
 | 5 | **Benchmark** (occasional) | bake-off: the extension vs other agents on the same forms (repo job-pilotto-bakeoff) | yes | dollars: owner's OK |
@@ -15,7 +15,7 @@
 - **Record (1):** a new site on the pool list; installs' outcomes on a job board dropping against its own last 14 days (counts only, k ≥ 3); a person's report;
   a "Blind spot" on the platform scorecard (real fills miss what the pool reaches: record that site).
   Never a schedule. A replay that changed is our build, never a reason to re-record.
-- **Fix (3):** a 🔴 row on `/admin/applying` → Fixes → Needs a fix (one status per row: 🟢 works · 🟣 held on purpose · ⚪ site problem · 🔴 needs a fix).
+- **Fix (3):** a 🔴 row on `/admin/lab-form-filling` → Fixes → Needs a fix (one status per row: 🟢 works · 🟣 held on purpose · ⚪ site problem · 🔴 needs a fix).
   A "regression" row says whether it is **Our build** or **Site changed** (the same recording replayed on two builds).
 - **Verify (4):** a merge. "Needs a recording" means the fix took a route the recording never had: re-record that row with the full journey (step 1).
 

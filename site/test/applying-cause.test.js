@@ -1,4 +1,4 @@
-// The pool's top cause per shape for /admin/applying (src/applying-cause.js): found by the site name's hash, applicant gaps skipped, nothing but fixed words shown.
+// The pool's top cause per shape for /admin/lab-form-filling (src/applying-cause.js): found by the site name's hash, applicant gaps skipped, nothing but fixed words shown.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';

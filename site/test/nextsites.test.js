@@ -1,4 +1,4 @@
-// "Next sites to add" on /admin/applying (src/nextsites.js): the hosts real users' applications ended on that the pool lacks, ranked by volume, from the k>=3 aggregate only.
+// "Next sites to add" on /admin/lab-form-filling (src/nextsites.js): the hosts real users' applications ended on that the pool lacks, ranked by volume, from the k>=3 aggregate only.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';

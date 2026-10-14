@@ -1,4 +1,4 @@
-// /admin/applying's Fixed tab (src/applying-fixed.js): the fix ledger the Mac uploads (desktop/e2e/lib/fix-ledger.mjs), joined with the smoke runs already uploaded:
+// /admin/lab-form-filling's Fixed tab (src/applying-fixed.js): the fix ledger the Mac uploads (desktop/e2e/lib/fix-ledger.mjs), joined with the smoke runs already uploaded:
 // a fix is "landed" until an uploaded run after it clears the row ("confirmed"), and "back" when a later run lists it again. Claims show "In progress" on the Needs a fix tab.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';

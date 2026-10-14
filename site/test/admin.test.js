@@ -27,10 +27,10 @@ const now = new Date('2026-10-12T12:00:00Z');
 
 test('the old addresses send the owner to /admin (query kept); anyone else still gets a 404', async () => {
   const e = env();
-  for (const page of PAGES.filter(p => p.old)) {
-    assert.equal((await get(e, page.old)).status, 404, page.old);
-    const moved = await get(e, `${page.old}?days=7`, owner);
-    assert.deepEqual([moved.status, moved.headers.get('Location')], [301, `${page.path}?days=7`], page.old);
+  for (const page of PAGES.filter(p => p.old)) for (const old of [page.old].flat()) {
+    assert.equal((await get(e, old)).status, 404, old);
+    const moved = await get(e, `${old}?days=7`, owner);
+    assert.deepEqual([moved.status, moved.headers.get('Location')], [301, `${page.path}?days=7`], old);
   }
   // What the workflows call is not a page and does not move.
   assert.notEqual((await get(e, '/self-heal/data', {method: 'PUT', body: '{}'})).status, 301);

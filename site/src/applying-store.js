@@ -1,4 +1,4 @@
-// The read budget of /admin/applying (D1's free plan counts every row a query reads: 11 Oct 2026 the page alone read 4M of 5M rows a day). Owns: applying_latest (each site's last
+// The read budget of /admin/lab-form-filling (D1's free plan counts every row a query reads: 11 Oct 2026 the page alone read 4M of 5M rows a day). Owns: applying_latest (each site's last
 // runs as ONE row, rewritten when a run is uploaded or forgotten, so the page never scans applying_runs) and applying_view (computed snapshots: the page's data, and the big readers
 // behind it, served until they expire; an upload drops the page's snapshot). Guard: test/applying-budget.test.js.
 export const KEEP_RUNS = 30;       // runs kept per (kind, name); the page shows the last 20, and the nights are counted from them

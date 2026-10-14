@@ -1,4 +1,4 @@
-// /admin/applying: are applications reliable? Layers 2 and 3 of the applying reliability spec (docs/superpowers/specs/2026-10-10-applying-reliability-layers.md):
+// /admin/lab-form-filling: are applications reliable? Layers 2 and 3 of the applying reliability spec (docs/superpowers/specs/2026-10-10-applying-reliability-layers.md):
 // the recorded pages (each case, passed or failed, by run) and the nightly live smoke (each site: the step it reached, its last runs, regressions), plus the
 // fleet's dropped boards (layer 4, src/digest.js). The owner's Mac uploads each run (POST here, the owner key; desktop/e2e/lib/applying-report.mjs): the
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
@@ -195,7 +195,7 @@ export async function view(request, env, now = new Date()) {
 }
 
 export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Applying tests · Admin</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>Lab Form Filling · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--green:#5ec47a;--red:#e5484d;--blue:#6aa8ff;--violet:#b48cff}
 *{box-sizing:border-box}.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;margin:14px 0;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}@media (max-width:1000px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -220,7 +220,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 .nightbar{display:flex;gap:2px;height:28px;border-radius:7px;overflow:hidden}.nightbar i{display:flex;align-items:center;justify-content:center;min-width:0;font-style:normal;font-size:12px;font-weight:600;color:#0b0d10;overflow:hidden}
 @media (max-width:640px){.night{grid-template-columns:44px minmax(0,1fr)}.night>span{grid-column:2}}
 </style></head><body><main>
-<header><h1>🛡️ Applying tests</h1></header>
+<header><h1>🛡️ Lab Form Filling</h1></header>
 <p class="muted">Is applying reliable? <b>Fixed</b> (tab): every site we fixed, whether a run after the fix confirmed it, and its replay offline with the real extension (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
 live, stopped before any account button or Submit, a rotating share each run. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
@@ -412,7 +412,7 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   panels.coverage.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
-    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
+    el('p', {className: 'muted'}, 'Per platform: its share of the matched jobs and how well real forms are filled (', el('a', {href: '/admin/real-form-filling', textContent: 'Real Form Filling'}), '), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution); drawFidelity(fidelityBox, d.fidelity);
 ${CASES_SCRIPT}  panels.pool.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)

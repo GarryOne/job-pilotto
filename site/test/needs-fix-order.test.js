@@ -1,4 +1,4 @@
-// The Needs a fix order (site/src/applying-order.js) is ONE function: /admin/applying embeds its source and tools/needs-fix-order.mjs imports it, so the page and
+// The Needs a fix order (site/src/applying-order.js) is ONE function: /admin/lab-form-filling embeds its source and tools/needs-fix-order.mjs imports it, so the page and
 // the command cannot disagree. Seeded data through the real ingest and data(); the page's own script runs on a tiny DOM; the command reads the same JSON.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';

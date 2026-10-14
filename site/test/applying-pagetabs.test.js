@@ -1,4 +1,4 @@
-// Guards /admin/applying's page tabs (src/applying-pagetabs.js): every section of the page is drawn inside a tab's panel, never straight under the tiles,
+// Guards /admin/lab-form-filling's page tabs (src/applying-pagetabs.js): every section of the page is drawn inside a tab's panel, never straight under the tiles,
 // one panel shows at a time, and the Fixed tab's #hash links still open the Fixes tab.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +23,7 @@ const render = async hash => {
 };
 const walk = (node, found = []) => { for (const kid of node.children || []) if (typeof kid === 'object') { found.push(kid); walk(kid, found); } return found; };
 
-test('every section of /admin/applying sits in a tab panel; only the tiles and the tab bar are outside', async () => {
+test('every section of /admin/lab-form-filling sits in a tab panel; only the tiles and the tab bar are outside', async () => {
   const app = await render('');
   const panels = app.children.filter(kid => kid.className === 'panel'), outside = app.children.filter(kid => kid.className !== 'panel' && !kid.hidden);   // the hidden legend only lends its colors
   assert.deepEqual(outside.map(kid => kid.className), ['tiles', 'tabs pagetabs'], 'a block drawn straight into #app, outside every tab');

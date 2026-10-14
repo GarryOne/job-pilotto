@@ -1,4 +1,4 @@
-// The "Needs a fix" order of /admin/applying, in ONE place: the page embeds ORDER_SOURCE (the function's own source) into its script, and tools/needs-fix-order.mjs imports the
+// The "Needs a fix" order of /admin/lab-form-filling, in ONE place: the page embeds ORDER_SOURCE (the function's own source) into its script, and tools/needs-fix-order.mjs imports the
 // function, so the page and the command can never disagree. Self-contained on purpose (no outer names, no backticks, no template or backslash characters): it is pasted into the page.
 // Guard: test/needs-fix-order.test.js (same seeded data through the page and the command).
 

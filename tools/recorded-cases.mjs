@@ -5,7 +5,7 @@
 // A push that changes one adds or changes a recorded page (desktop/e2e/recorded/, layer 2) or a journey scenario (desktop/test/journeys.test.js, layer 1), or each such commit says "Recorded-unneeded: <why>".
 // "Recorded-unneeded:" is only for a change that fixes no failure seen: a commit that touches a covered file AND names a pool row ("Pool-row:") or an issue ("Fixes/Closes/Resolves/Refs #N") cannot use it.
 // A recorded page the push adds or changes must FAIL on the code before the push (tools/recorded-fails-on-old.mjs, a replay on origin/main's code): a case that passes on the old code proves nothing.
-// A field-level fill replay (worker/test/fixtures/fill/) is NOT proof (owner, 10 Oct 2026): it never reaches the Fixed-site replays list on /admin/applying.
+// A field-level fill replay (worker/test/fixtures/fill/) is NOT proof (owner, 10 Oct 2026): it never reaches the Fixed-site replays list on /admin/lab-form-filling.
 //   node tools/recorded-cases.mjs [--base origin/main]      exit 1 with the reason. Guard: desktop/test/recorded-cases.test.js.
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
@@ -42,13 +42,13 @@ export function commitFiles(git, sha) {
 }
 
 // A push that ADDS a recorded case names the pool row it fixes ("Pool-row: <row>"), or "Pool-row: none <why>" (a hand-made shape, no row):
-// /admin/applying's Fixed tab lists fixes by that line (12 Oct 2026: 6 of 8 round-1 fixes had none, the tab showed 2 of 8). -> '' or the message.
+// /admin/lab-form-filling's Fixed tab lists fixes by that line (12 Oct 2026: 6 of 8 round-1 fixes had none, the tab showed 2 of 8). -> '' or the message.
 export function untaggedNewCases(added, messages) {
   if (!added.length) return '';
   const values = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()));
   if (values.some(value => value && !/^none\b/i.test(value)) || values.some(value => /^none\s+\S/i.test(value))) return '';
   return `this push adds the recorded case${added.length > 1 ? 's' : ''} ${added.join(', ')} but no commit says which pool row ${added.length > 1 ? 'they fix' : 'it fixes'}.
-Add to the fix's commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab lists fixes by it), or "Pool-row: none <why>" for a hand-made shape no row showed.`;
+Add to the fix's commit message: "Pool-row: <the row's name as /admin/lab-form-filling shows it>" (the Fixed tab lists fixes by it), or "Pool-row: none <why>" for a hand-made shape no row showed.`;
 }
 
 // Any push that changes a file the app acts on pages with names its row too, not only one that adds a case (12 Oct 2026: the prompt fix #424 and a
@@ -58,7 +58,7 @@ export function untaggedActing(commits, covered) {
   const acting = [...new Set(commits.flatMap(commit => commit.files.filter(file => cover.has(file))))];
   if (!acting.length) return '';
   return untaggedNewCases(['__acting__'], commits.map(commit => commit.message)) ? `this push changes how the app acts on pages (${acting.slice(0, 3).join(', ')}${acting.length > 3 ? ', …' : ''}) but no commit names the pool row it fixes.
-Add to a commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab reads it), or "Pool-row: none <why>" (a refactor, a log line, no row behind it).` : '';
+Add to a commit message: "Pool-row: <the row's name as /admin/lab-form-filling shows it>" (the Fixed tab reads it), or "Pool-row: none <why>" (a refactor, a log line, no row behind it).` : '';
 }
 
 // -> '' when fine, else the message. commits: [{files, message}] of the push; covered: the files a replay loads.

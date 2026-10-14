@@ -1,4 +1,4 @@
-// The AI's own answers to form questions, per AI family, for /admin/form-filling (owner, 9 Oct 2026: compare the AI itself, Claude vs
+// The AI's own answers to form questions, per AI family, for /admin/real-form-filling (owner, 9 Oct 2026: compare the AI itself, Claude vs
 // OpenAI, not the user mix). Reads form_answers (migration 0046, stored by src/knowledge.js from the apps' counts, desktop/lib/answer-counts.js).
 // Counts only. Guarded by site/test/answer-metrics.test.js.
 import {MS_BUCKETS} from '../../desktop/lib/answer-counts.js';

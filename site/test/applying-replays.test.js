@@ -1,4 +1,4 @@
-// /admin/applying's Fixed-site replays come from CI on main only (src/applying-replays.js): one PUT per merge (Bearer REPLAYS_PUBLISH_KEY) with the build's sha,
+// /admin/lab-form-filling's Fixed-site replays come from CI on main only (src/applying-replays.js): one PUT per merge (Bearer REPLAYS_PUBLISH_KEY) with the build's sha,
 // stored as ONE row (the D1 free plan: 11 Oct 2026), the last 10 runs. A local upload of kind 'recorded' is refused: it showed work-in-progress branches as "failed".
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';

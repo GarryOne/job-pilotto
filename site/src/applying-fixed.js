@@ -1,4 +1,4 @@
-// /admin/applying's Fixed tab (owner, 11 Oct 2026: "a view to see what was fixed"): the fix ledger and the claims the owner's Mac uploads as snapshots
+// /admin/lab-form-filling's Fixed tab (owner, 11 Oct 2026: "a view to see what was fixed"): the fix ledger and the claims the owner's Mac uploads as snapshots
 // (desktop/e2e/lib/fix-ledger.mjs: git trailers "Pool-row:", "Rung:", "Fixture:" plus desktop/e2e/pool-fixes.json; tools/claim-shape.mjs list), joined at view
 // time with the smoke runs already uploaded: a fix is "landed" until an uploaded run after it clears the row ("confirmed"), "back" when a later run lists it again.
 // Fixed values only: a site name without an address or query, a short hash, a version, a rung, guard ids. Owns FIXED_SCRIPT, the tab's client code, which
