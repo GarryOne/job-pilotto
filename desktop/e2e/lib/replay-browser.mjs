@@ -51,7 +51,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     const ours = open => !isExtensionPage(open) && open !== run.page && (open === tab || state.shared === false || hosts.some(host => open.url().includes(host)) || !/^https?:/.test(open.url()));   // alone: every tab is the case's
     try {
       await tab.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
-      const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? loose() : run.requests.slice(first)), strict: state.shared ? strict : null,
+      const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? loose() : run.requests.slice(first)), strict: state.shared ? strict : null, otherHosts: state.shared ? allHosts.filter(host => !hosts.includes(host)) : null,
         all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => everyOpened.filter(one => one.page !== tab && one.at >= state.from && ours(one.page)).length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
       return {name: item.name, ...result, seconds: (Date.now() - began) / 1000, fillTime: () => fillSeconds(run.requests.slice(first), hosts)};   // read after the tab settled (lib/replay-time.mjs)
     } finally {
