@@ -19,8 +19,8 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 4. UI: `npm run shot -- jobs --select '<css>' --eval "(async()=>{…click…; await new Promise(r=>setTimeout(r,500)); return 'ok'})()"`
    then Read the printed PNG. Pages other than the first: reach them by clicking (`.nav[data-view=settings]`, `[data-settings-go=…]`).
    State instead of pixels: `--eval "…JSON.stringify(…)" --no-picture`.
-5. Commit (trailer from the session), `git fetch && git rebase origin/main`, test again, `git push origin HEAD:main`,
-   then `git -C ~/job-pilotto pull --ff-only`.
+5. Commit (trailers from the session), then `tools/ship.sh --background --body=<file>` (rebase, fast checks, a PR; CI runs the suites)
+   and a Monitor on `^ship: (DONE|FAILED|REVIEW)`. The owner merges every PR by hand: never push to main, never merge.
 6. Tell the owner **⌘R** (window only) or **restart** (main.js, lib/, preload.cjs, Python changed).
 
 ## Traps that caused real bugs
