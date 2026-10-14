@@ -33,6 +33,7 @@ export const prefetchedCode = entry => entry.method === 'GET' && entry.size > 0 
 
 // What is kept (§9-§11): beacons and pings the page cannot read are dropped (third-party no-cors, not a script/style/font/image/document); an image becomes a same-size
 // empty SVG; media dropped. -> {entries, bodies, stats}
+export const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;   // the only response headers a record holds
 export function keepRecord({entries, bodies}) {
   const firstParty = new Set(entries.filter(entry => entry.type === 'document').map(entry => siteOf(new URL(entry.url).host)));
   const kept = new Map(), out = [], stats = {requests: entries.length, rawBytes: 0, keptBytes: 0, dropped: {}, blanked: 0};

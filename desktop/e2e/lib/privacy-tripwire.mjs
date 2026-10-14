@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {CONTACT} from './apply-fixtures.mjs';
 import {appProfileTexts, personalValues} from './capture-page.mjs';
+import {placesOf as placesIn} from '../../lib/owner-values.js';
 import {matchesOwner} from '../../../worker/src/owner-guard.js';
 
 // The signed-in Claude account on this Mac (~/.claude.json oauthAccount): read here only, never printed. -> {email, names}
@@ -23,17 +24,8 @@ export function claudeAccount(file = path.join(os.homedir(), '.claude.json')) {
 }
 
 const wordsOf = text => String(text).toLowerCase().split(/[^\p{L}]+/u).filter(word => word.length >= 3);
-const plain = text => String(text || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
-
-// The person's place from their files: each part of a location, city, country or street line ("Port Vale, Atlantis" -> both), accents and case aside. A part
-// with no letters (a postal code alone) is left out, and so is a place the fake applicant shares (a typed one is the fake's). -> [part]
-// A line of the person's files: "Location: …", "- City: …", or the Profile template's table row "| Home base | Zurich; open to relocating |" (its place is
-// what comes before the first ";" or dash). "Countries" there is where they look for work, not where they live: not read.
-const PLACE_LINE = /^\W*(?:home\s*)?(?:location|city|country|street(?:\s*address)?|address|place\s*of\s*residence|based\s*in)\W*:\s*(.+)$/gim;
-const HOME_ROW = /^\|\s*home\s*base\s*\|\s*([^|;—–]+)/gim;
-const partsOf = text => String(text).replace(/\([^)]*\)/g, ',').split(/[,;/|·]/).map(plain).filter(part => (part.match(/\p{L}/gu) || []).length >= 3);
-const FAKE_PLACES = new Set([CONTACT.location, CONTACT.street, 'Zurich, Switzerland'].flatMap(partsOf));
-export const placesOf = texts => [...new Set([PLACE_LINE, HOME_ROW].flatMap(line => [...texts.join('\n').matchAll(line)]).flatMap(([, value]) => partsOf(value)))].filter(part => !FAKE_PLACES.has(part));
+const FAKE_PLACES = new Set([CONTACT.location, CONTACT.street, 'Zurich, Switzerland'].flatMap(place => placesIn([`location: ${place}`])));   // the fake applicant's own places are not the person's
+export const placesOf = texts => placesIn(texts, FAKE_PLACES);
 
 // -> Map(value -> kind): kind is email, phone (digits), name (a word) or account (the account e-mail). texts: the owner's app files; account: claudeAccount().
 export function ownerValues({texts = appProfileTexts(), accountEmail, accountNames} = {}) {
