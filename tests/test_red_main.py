@@ -22,6 +22,7 @@ CLASSIFIED = {
     'CI · Tests · desktop': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Replay vs live (offline)': 'ignored: pull requests only, informational, never required',
+    'CI · Confirmed offline (replay verdicts)': 'ignored: informational verdicts for /admin/applying after the nightly replay, never required',
     'CI · Replay gate (PR, 10 rows)': 'ignored: pull requests only (required there as "replay gate")',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
