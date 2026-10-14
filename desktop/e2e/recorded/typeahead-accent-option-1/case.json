@@ -1,0 +1,58 @@
+{
+ "origin": "hand-cut",
+ "shape": "a required Location search box whose list offers the answer with an accent (answer \"Zurich, Switzerland\", option \"Z\u00fcrich, Switzerland\"): the free match ignores accents, no AI pick is needed",
+ "why": "14 Oct 2026, pool row (offline replay of its recording): a required Location typeahead stayed empty; the list showed \"Z\u00fcrich, Switzerland\" for the typed \"Zurich\", the accent-blind option match missed it and the app's AI pick returned none.",
+ "control": {
+  "build": "0.9.491",
+  "failed": "filled: #location_code"
+ },
+ "sample": "hand-cut page (a search-as-you-type box with an accented option, 14 Oct 2026; no real site text)",
+ "pages": [
+  {
+   "url": "https://careers.example.test/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "location",
+     "value": "Zurich, Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": ""
+  }
+ },
+ "expect": {
+  "filled": [
+   "#location_code"
+  ],
+  "asked": [
+   "Location"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 150
+ },
+ "start": "panel"
+}

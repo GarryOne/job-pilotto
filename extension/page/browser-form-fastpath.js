@@ -273,7 +273,7 @@
   // so use this instead. Returns the live coordinates too, for a trusted click if a site ignores
   // a JS click; verify with the audit afterwards.
   window.__jobPilottoClickOption = wanted => {
-    const norm = t => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const norm = t => (window.__jobPilottoFold || (x => String(x ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()))(t);   // accents and case ignored, as page/fold-text.js (this file also runs alone in the agents' pages)
     const options = Array.from(document.querySelectorAll('[class*="option"]'))
       .filter(el => el.offsetParent !== null && !el.children?.length);
     const exact = options.filter(el => norm(el.textContent) === norm(wanted));

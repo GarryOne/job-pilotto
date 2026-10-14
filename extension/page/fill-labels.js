@@ -9,7 +9,7 @@
   const LEGAL = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
   const R = window.__jobPilottoRequired;
   const clean = text => R.clean(text, {leading: false});   // a group's name keeps its leading "*": the radios read it with `has`
-  const norm = text => clean(text).toLowerCase();
+  const norm = text => (window.__jobPilottoFold || (x => x.toLowerCase()))(clean(text));   // accents and case ignored (page/fold-text.js)
   // Audit labels can repeat themselves (label text + aria-label): "First Name First Name" -> "First Name".
   const once = text => clean(text).replace(/^(.+?)\s+\1$/i, '$1');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
