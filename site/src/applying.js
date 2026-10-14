@@ -71,8 +71,23 @@ async function ingestRows(db, body, now) {
     touched.push({kind, name});
     stored += 1;
   }
+  if (kind === 'pool') await syncRetired(db, rows, body.full === true, at);
   await refreshLatest(db, touched);
   return {ok: true, stored};
+}
+
+// A FULL pool upload (body.full, the uploader sends the whole pool list) is the pool's membership: a stored name it lacks was renamed or removed, so it leaves the pool table (hidden: its
+// runs stay in the history). Names uploaded again come back. A partial upload never drops anything, and a "full" one holding under half the stored pool is ignored (a bad upload cannot empty the page).
+async function syncRetired(db, rows, full, at) {
+  const names = [...new Set(rows.map(row => text(row?.name, 120)).filter(Boolean))];
+  for (const name of names) await db.prepare('DELETE FROM applying_pool_retired WHERE name = ?').bind(name).run();
+  if (!full) return;
+  const stored = ((await db.prepare('SELECT name FROM applying_pool').all()).results || []).map(row => row.name), listed = new Set(names);
+  if (names.length < Math.ceil(stored.length / 2)) return;
+  for (const name of stored.filter(item => !listed.has(item))) {
+    await db.prepare('INSERT INTO applying_pool_retired (name, at) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET at = excluded.at').bind(name, at).run();
+    await db.prepare('DELETE FROM applying_pool WHERE name = ?').bind(name).run();
+  }
 }
 
 const knownPool = async db => new Map(((await db.prepare('SELECT name, start_host, signature, version FROM applying_pool').all()).results || []).map(row => [row.name, row]));
@@ -139,8 +154,10 @@ const counts = (pool, key, other) => Object.entries(pool.reduce((out, item) => (
 // Every pool site (also one never run), joined with its smoke runs by name; a site that ran before it was uploaded as pool still shows, by its run host.
 async function poolRows(db, sites, now) {
   const uploaded = await all(db, 'SELECT * FROM applying_pool ORDER BY name'), known = new Map(uploaded.map(row => [row.name, row]));
-  const names = [...new Set([...uploaded.map(row => row.name), ...sites.map(site => site.name)])];
-  const byName = Object.fromEntries(sites.map(site => [site.name, site])), fresh = new Date(now.getTime() - RUNNING_MINUTES * 60000).toISOString();
+  const retired = new Map(((await db.prepare('SELECT name, at FROM applying_pool_retired').all().catch(() => null))?.results || []).map(row => [row.name, row.at]));   // dropped by a full upload
+  const byName = Object.fromEntries(sites.map(site => [site.name, site]));
+  const names = [...new Set([...uploaded.map(row => row.name), ...sites.map(site => site.name)])].filter(name => !retired.has(name) || (byName[name]?.at || '') > retired.get(name));   // a retired name returns when it runs again
+  const fresh = new Date(now.getTime() - RUNNING_MINUTES * 60000).toISOString();
   const running = new Set((await all(db, 'SELECT name FROM applying_running WHERE at > ?', fresh)).map(row => row.name));
   return names.map(name => {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';

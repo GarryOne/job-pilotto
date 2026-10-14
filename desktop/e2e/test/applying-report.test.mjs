@@ -48,6 +48,9 @@ test('the pool upload: every site with its start host and signature, never a pos
   assert.ok(!/[?=]|\/(acme|x)|token|secret/.test(JSON.stringify(rows)));
   let sent; await (await import('../lib/applying-report.mjs')).upload('pool', rows, {env: {}, key: 'K', fetcher: async (url, init) => { sent = init.body; return {ok: true, json: async () => ({stored: 3})}; }});
   assert.equal(JSON.parse(sent).kind, 'pool');
+  assert.equal(JSON.parse(sent).full, undefined, 'a plain upload is not the whole pool');
+  await (await import('../lib/applying-report.mjs')).upload('pool', rows, {env: {}, key: 'K', full: true, fetcher: async (url, init) => { sent = init.body; return {ok: true, json: async () => ({stored: 3})}; }});
+  assert.equal(JSON.parse(sent).full, true, 'the whole pool list says so: the site drops the names it lacks');
 });
 
 test('the running ping: a site starts or ends its run, sent as fixed words and the site name only; never from CI; a failed send never throws', async () => {

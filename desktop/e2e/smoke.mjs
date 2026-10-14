@@ -75,7 +75,7 @@ function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
 
 // The whole pool to /admin/applying, also sites never run: each shape's newest known flow signature (this run, else the last report, else the one stored with it).
 const sendPool = (shapes, reports, results = {}) => upload('pool', poolRows(shapes, {...Object.fromEntries(shapes.filter(item => item.signature).map(item => [item.shape, item.signature])),
-  ...Object.fromEntries(Object.entries(lastSeen(reports)).map(([shape, item]) => [shape, item.signature])), ...Object.fromEntries(Object.entries(results).map(([shape, item]) => [shape, item.signature]))}));
+  ...Object.fromEntries(Object.entries(lastSeen(reports)).map(([shape, item]) => [shape, item.signature])), ...Object.fromEntries(Object.entries(results).map(([shape, item]) => [shape, item.signature]))}), {full: true});   // `shapes` is the whole pool list, not this run's share: the site drops the names it lacks
 
 function droppedBoards() {
   try {
