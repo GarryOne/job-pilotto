@@ -12,7 +12,7 @@ const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/ap
 const HTML = '<h1>Welcome back, Rosalind</h1><form><input name="first" value="Rosalind"><input name="mail" type="email" value="rosalind.quill@mailbox.test"><input type="submit" value="Send application">'
   + '<textarea name="why">I live in Port Vale and love QUILL things</textarea><select><option>A</option><option selected>Port Vale</option></select></form><p>Call +41 79 555 01 23 or hr@company.test</p>';
 const JSON_REPLY = JSON.stringify({user: {name: 'Rosalind Quill', cv: 'Quill_Rosalind_CV.pdf', city: 'Port Vale'}});
-const SCRIPT = 'const quill = 1; const boot = {"mail":"rosalind.quill@mailbox.test","who":"Rosalind Quill"};';
+const SCRIPT = 'const q = 1; const boot = {"mail":"rosalind.quill@mailbox.test","who":"Rosalind Quill"};';
 const record = () => {
   const bodies = new Map([['h', Buffer.from(HTML)], ['j', Buffer.from(JSON_REPLY)], ['s', Buffer.from(SCRIPT)]]);
   return {bodies, entries: [entry({hash: 'h', size: HTML.length}),
@@ -32,7 +32,7 @@ test('the page keeps its shape: a button\'s own wording, a script\'s identifiers
   const out = scrubRecord(record(), values), page = out.bodies.get(out.entries[0].hash).toString('utf8'), script = out.bodies.get(out.entries[2].hash).toString('utf8');
   assert.match(page, /value="Send application"/);
   assert.match(page, /<select><option>A<\/option><option>/);
-  assert.match(script, /const quill = 1/, 'a name word that is also an identifier is left in code');
+  assert.match(script, /const q = 1/, 'a script\'s code is left as it was');
   assert.equal(out.entries[0].url, 'https://jobs.example.test/apply?token=<v>&lang=<v>');
   assert.ok(out.entries.every(one => one.bodyKey === '' && !('set-cookie' in one.headers)), 'no body key, no cookie');
 });
@@ -48,4 +48,45 @@ test('scrubUrl: query values and fragment gone, e-mail and id-like path parts na
   assert.equal(scrubUrl('https://a.example.test/u/jane.doe@mail.test/x?a=1&b=2#frag'), 'https://a.example.test/u/<id>/x?a=<v>&b=<v>');
   assert.equal(scrubUrl('https://a.example.test/o/9f8e7d6c5b4a3b2c1d/apply'), 'https://a.example.test/o/<id>/apply');
   assert.equal(scrubUrl('/relative/path?x=1'), '/relative/path?x=<v>');
+});
+
+// Review of #798 (job-pilotto-cc, 15 Oct 2026): the scrub fails closed.
+const one = (type, body, over = {}) => ({bodies: new Map([['b', Buffer.isBuffer(body) ? body : Buffer.from(body)]]), entries: [entry({type: 'fetch', url: 'https://jobs.example.test/x', headers: type ? {'content-type': type} : {}, hash: 'b', size: 9, ...over})]});
+const gone = out => out.entries.every(item => item.hash === '' && item.size === 0) && out.bodies.size === 0;
+
+test('1. a body whose type the scrub does not understand is dropped, the entry kept with size 0', () => {
+  const cv = Buffer.from('%PDF-1.4 Rosalind Quill CV');
+  const b64 = Buffer.from('Rosalind Quill, Port Vale, my CV. '.repeat(2)).toString('base64');
+  for (const type of ['', 'application/octet-stream', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']) {
+    const out = scrubRecord(one(type, cv), values);
+    assert.ok(gone(out), `kept a ${type || 'typeless'} body`);
+    assert.equal(out.stats.removed.binary, 1);
+    assert.equal(out.entries.length, 1);
+  }
+  const wrapped = scrubRecord(one('application/json', JSON.stringify({file: b64})), values);
+  assert.ok(lastGate(wrapped, values).length > 0, 'base64 inside JSON is decoded and searched; the record is refused');
+  const fine = scrubRecord(one('font/woff2', Buffer.from([0, 1, 2, 3])), values);
+  assert.equal(fine.entries[0].size, 4, 'a font stays');
+});
+
+test('2. encoded copies are replaced or refused: URL-encoded, + for a space, JSON-escaped, HTML entities', () => {
+  const page = '<p>rosalind.quill&#64;mailbox.test and rosalind.quill%40mailbox.test and rosalind.quill\\u0040mailbox.test</p><a href="/x?n=Rosalind+Quill&amp;c=Port%20Vale">x</a>'
+    + '<p>Rosalind &amp; co, Port&nbsp;Vale, call 41&nbsp;79&nbsp;555&nbsp;01&nbsp;23</p>';
+  const out = scrubRecord(one('text/html', page), values), text = everything(out);
+  assert.ok(!/rosalind|quill|mailbox|port.?vale|555/i.test(text), `left: ${text}`);
+  assert.deepEqual(lastGate(out, values), []);
+  const raw = one('font/woff2', 'x Quill%20Rosalind x rosalind.quill%40mailbox.test x &#82;osalind x Port+Vale');
+  const kinds = lastGate(raw, values).map(hit => hit.kind);
+  for (const kind of ['name', 'email', 'location']) assert.ok(kinds.includes(kind), `the gate missed ${kind} in an encoded form: ${kinds}`);
+});
+
+test('3. the gate searches every kept body, as UTF-8 and as latin1, whatever its type', () => {
+  for (const type of ['', 'application/pdf', 'font/woff2', 'image/avif']) assert.ok(lastGate(one(type, Buffer.from('xx Rosalind xx', 'latin1')), values).length > 0, `a ${type || 'typeless'} body was not searched`);
+  assert.ok(lastGate(one('font/woff2', Buffer.from('José Rosalind'.replace('José', 'Jos\xe9'), 'latin1')), values).length > 0);
+});
+
+test('4. a lone name word in code is left by the scrub but blocks the send as name-in-code', () => {
+  const out = scrubRecord(one('application/javascript', 'const quill = 1;'), values);
+  assert.match(out.bodies.get(out.entries[0].hash).toString(), /const quill = 1/);
+  assert.deepEqual(lastGate(out, values).map(hit => hit.kind), ['name-in-code']);
 });
