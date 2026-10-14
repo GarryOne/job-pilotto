@@ -64,8 +64,8 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 ### 5. Into the loop
 1. `tools/reports-fetch.sh` (owner's Mac, Keychain private key, admin key): lists `new`, downloads, decrypts into the records dir as `reported-<id6>-<registrable domain>/record.json` (`source: "person"`), marks `fetched`. **By hand or on the owner's say, never a schedule.**
 2. `newestPerRow` already walks that dir; `npm run row` replays it offline ($0), like any record. A report that does not replay (the site changed, a page that needed a login) is marked "cannot replay" with the replay's reason.
-3. `records-publish.mjs` adds it to a new bundle, so the PR replay (`site-replays.yml`) and `/admin/applying` see it.
-4. `/admin/applying` shows a **"Reported by a person"** tag on the row (from `source`), with the cause; it goes to **Needs a fix** under the usual rule. `fix-recorded-sites` takes it like any row (record-once's open item 1, "site may have changed", applies: a stale report is closed with that reason).
+3. `records-publish.mjs` adds it to a new bundle, so the PR replay (`site-replays.yml`) and `/admin/lab-form-filling` see it.
+4. `/admin/lab-form-filling` (the recorded sites; the page was renamed on 14 Oct) shows a **"Reported by a person"** tag on the row (from `source`), with the cause; it goes to **Needs a fix** under the usual rule. `fix-recorded-sites` takes it like any row (record-once's open item 1, "site may have changed", applies: a stale report is closed with that reason).
 5. **Telling the person it was fixed: later, optional** (needs the report id kept on their Mac and a one-line status check); not in this build.
 
 ### 6. Abuse and cost
@@ -90,9 +90,9 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 1. Shared keep-rules module `desktop/lib/net-keep.js` (pure move; `net-record.mjs` imports it).
 2. Scrub + owner values (shared with the tripwire) + last gate, with the fixture tests.
 3. Extension collector + handoff to the app, password-field stop (fixture page, no site).
-4. Consent UI, setting, ⌘K entry (before/after images).
+4. Consent UI, setting, ⌘K entry, and the **flag icon in the extension panel** (open state, only on a tab the app opened after a stopped or left-for-you fill; it only asks the app, which brings its window forward and owns the dialog; hidden by the same setting) (before/after images).
 5. Worker: token purpose, `POST/DELETE /api/report-form`, R2, D1 migration, limits (owner creates the bucket first).
-6. Fetch/decrypt tool, `source: "person"`, the `/admin/applying` tag, one end-to-end test (report → fetch → offline replay).
+6. Fetch/decrypt tool, `source: "person"`, the `/admin/lab-form-filling` tag and one count line on `/admin/real-form-filling` (reports received / replayable / fixed, counts only, no hosts), one end-to-end test (report → fetch → offline replay).
 
 ## Open for the owner
 - **Reload on start** (§1) means a mid-journey step needs the person to click through again. The alternative (snapshotting the page's DOM at the press) is not replayable by our replay, so it is not offered. OK?
@@ -104,7 +104,7 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 - [x] Owner approves the spec and its 3 answers (14 Oct 2026: reload only on the press, with the wording above; R2 bucket `form-reports`, 30 days; cause word only) (proof: none: the owner's go, relayed by cc and shown by #789 merged)
 - [x] 1. Shared keep-rules module (#793) (proof: desktop/lib/net-keep.js @ce592f4)
 - [x] 2. Scrub, owner values, last gate (proof: desktop/test/report-scrub.test.js)
-- [ ] 3. Extension collector and handoff
+- [x] 3. Extension collector and the app side that scrubs, gates and holds it (proof: desktop/test/report-recorder.test.js)
 - [ ] 4. Consent UI, setting, ⌘K
 - [ ] 5. Worker upload, storage, limits
 - [ ] 6. Fetch tool, "Reported by a person", offline replay
