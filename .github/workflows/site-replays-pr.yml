@@ -40,6 +40,8 @@ jobs:
       count: ${{ steps.pick.outputs.count }}
     steps:
       - uses: actions/checkout@v5
+      - name: The PR paths list everything this workflow loads
+        run: node tools/replay-files.mjs --check site-replays-pr.yml
       - uses: actions/setup-node@v5
         with:
           node-version: '22'

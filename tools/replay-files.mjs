@@ -65,7 +65,7 @@ export function workflowFiles(workflow, root = ROOT) {
   for (const line of fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8').split('\n')) {
     const at = line.match(/working-directory:\s*(\S+)/);
     if (at) dir = at[1];
-    const run = line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);
+    const run = !line.includes('replay-files.mjs --check') && line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);   // its own list check is not what it replays
     if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
   }
   return withSharedSources(files, root);
@@ -91,7 +91,26 @@ export function pathEntries(files) {
   return [...entries].sort();
 }
 
+// A workflow's `on: pull_request: paths:` as written (the install files beside the generated list: package.json/lock, the workflow itself).
+export const INSTALL = /^(desktop\/(e2e\/)?package(-lock)?\.json|\.github\/workflows\/[\w-]+\.yml)$/;
+export function listedPaths(workflow, root = ROOT) {
+  const text = fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8');
+  const start = text.indexOf('  pull_request:'), end = text.slice(start).search(/\n  [a-z_]+:/);
+  return [...text.slice(start, end < 0 ? undefined : start + end).matchAll(/^\s+- '([^']+)'/gm)].map(found => found[1]);
+}
+
 const [flag, value] = process.argv.slice(2);
 const entries = workflow => (workflow === 'site-replays-pr.yml' ? pathEntries(appFiles()) : pathEntries(workflowFiles(workflow)));
 if (import.meta.url === `file://${process.argv[1]}` && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
+// --check <workflow>: the workflow's first step (owner, 14 Oct 2026: "wouldn't we miss newly added modules?"). A new file loads only through an edit to a
+// listed one, which starts the workflow, which then checks its own list: missing or extra entries fail with the line to run.
+if (import.meta.url === `file://${process.argv[1]}` && flag === '--check') {
+  const listed = listedPaths(value), wanted = entries(value);
+  const missing = wanted.filter(entry => !listed.includes(entry)), extra = listed.filter(entry => !wanted.includes(entry) && !INSTALL.test(entry));
+  if (missing.length || extra.length) {
+    console.log(`${value}: its pull_request paths drifted from what it loads. Missing: ${missing.join(', ') || 'none'}. Extra: ${extra.join(', ') || 'none'}.\nRun: node tools/replay-files.mjs --paths ${value} and put the list in its paths.`);
+    process.exit(1);
+  }
+  console.log(`${value}: its pull_request paths list everything it loads (${wanted.length} entries)`);
+}
 if (import.meta.url === `file://${process.argv[1]}` && flag === '--paths') console.log(entries(value).map(entry => `      - '${entry}'`).join('\n'));
