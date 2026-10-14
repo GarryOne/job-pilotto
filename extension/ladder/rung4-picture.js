@@ -38,7 +38,8 @@ async function shot(live) {
 async function picture(tab, frameId) {
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live?.active) return null;
-  await run(tab, frameId, hideValues);
+  // No picture unless the values are hidden: the page answers true only when the hiding style is in place (a failed injection is undefined).
+  if (await run(tab, frameId, hideValues) !== true) { decide('fill', 'closer look: no picture', {why: 'values could not be hidden'}); return null; }
   try {
     await new Promise(resolve => setTimeout(resolve, 120));   // the style paints before the capture
     const url = await shot(live);
