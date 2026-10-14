@@ -8,7 +8,7 @@
 //  2. A popup is closed before the page is read, and a link that leaves the page is never pressed (fdd9638; worker/test/visit-consent.test.js, worker/test/popup-page.test.js).
 //  3. A fill that put nothing in climbs the closer-look ladder, then reports 'incomplete', kept until something is filled (c1a2fcc; desktop/test/session-flow.test.js).
 //  4. After a fill the AI is asked what the page needs next; a middle step's Next is pressed under the Submit floors, Submit never (worker/test/form-ready.test.js).
-import {PAGE_FILES, apiFor, askEarly, clickCombos, settings} from './flow.js';
+import {PAGE_FILES, apiFor, askEarly, clickCombos, forgetGivenUp, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
@@ -399,6 +399,7 @@ export async function consider(tab, jobUrl) {
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }
+  forgetGivenUp(tab.id);   // a new fill: its menus are tried afresh
   decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
   if (late(tab, gen, 'fill start')) return;   // the closer looks above wait too: only the tab's current read fills it
   const fillToken = crypto.randomUUID(); await writeState(tab.id, {state: 'running'}, fillToken);
