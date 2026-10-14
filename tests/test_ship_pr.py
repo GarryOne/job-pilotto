@@ -127,6 +127,22 @@ class ShipPrTest(ShipFixture):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("check 'python' failed", result.stdout + result.stderr)
 
+    def test_draft_stays_a_draft_until_every_check_is_green(self):
+        # Owner, 14 Oct 2026: a PR showed "Rebase and merge" while its checks still ran; --draft keeps it unmergeable until ship sees them all green.
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        result = self.pr_ship({}, '--draft', SHIP_REVIEW='1')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        state = json.loads(self.state.read_text())
+        self.assertTrue(any(call.startswith('pr create') and '--draft' in call for call in state['calls']), 'opened as a draft')
+        self.assertFalse(state['draft'], 'marked ready once green')
+        self.assertIn('marked ready for review', result.stdout)
+
+    def test_draft_with_a_red_check_stays_a_draft(self):
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        result = self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/9'}}, '--draft', SHIP_REVIEW='1')
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(json.loads(self.state.read_text())['draft'], 'a red PR is never marked ready')
+
 
 if __name__ == '__main__':
     unittest.main()

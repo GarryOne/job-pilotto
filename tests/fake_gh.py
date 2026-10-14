@@ -45,8 +45,10 @@ if argv[:1] == ['api']:
 elif argv[:2] == ['pr', 'list']:
     print(json.dumps([{'number': 1}] if state.get('state') == 'OPEN' else []))
 elif argv[:2] == ['pr', 'create']:
-    state.update(state='OPEN', head=flag('--head'), auto=False)
+    state.update(state='OPEN', head=flag('--head'), auto=False, draft='--draft' in argv)
     print('https://example.test/pull/1')
+elif argv[:2] == ['pr', 'ready']:
+    state['draft'] = '--undo' in argv
 elif argv[:2] == ['pr', 'merge']:
     state['auto'] = '--auto' in argv
 elif argv[:2] == ['pr', 'view']:
