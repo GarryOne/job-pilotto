@@ -4,11 +4,13 @@
 // (desktop/lib/report-scrub.js), shows the person what would be sent and asks. Not wired to a button yet (the panel icon and the app's dialog come together, PR 4).
 // Guard: desktop/test/report-recorder.test.js (also pins that this file never touches request bodies, cookies or request headers beyond the fetch mode).
 
+import {attachDebugger, isStopped} from './stop-state.js';
+
 const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;   // the response headers a record holds (net-keep.js KEEP_HEADER)
 const TYPES = {Document: 'document', Script: 'script', Stylesheet: 'stylesheet', Image: 'image', Font: 'font', Media: 'media', XHR: 'xhr', Fetch: 'fetch', Ping: 'ping'};
 const FLOOR = {maxBytes: 40e6, maxMs: 10 * 60e3, passwordEveryMs: 2000};
 
-export function createRecorder({chrome, now = Date.now, hasPassword = async () => false, setTimer = setTimeout, clearTimer = clearTimeout, limits = {}}) {
+export function createRecorder({chrome, attach = attachDebugger, stopped = isStopped, now = Date.now, hasPassword = async () => false, setTimer = setTimeout, clearTimer = clearTimeout, limits = {}}) {
   const {maxBytes, maxMs, passwordEveryMs} = {...FLOOR, ...limits};
   let run = null;
 
@@ -67,6 +69,7 @@ export function createRecorder({chrome, now = Date.now, hasPassword = async () =
   const watchPassword = () => {
     run.watch = setTimer(async () => {
       if (!run) return;
+      if (stopped()) { run.refused = 'stopped'; run.entries = []; run.requests.clear(); return; }   // the person pressed Stop: nothing more is kept
       if (await hasPassword(run.tabId).catch(() => false)) { run.refused = 'login'; run.entries = []; run.requests.clear(); } else watchPassword();   // a sign-in page: what was kept is dropped at once
     }, passwordEveryMs);
   };
@@ -82,7 +85,7 @@ export function createRecorder({chrome, now = Date.now, hasPassword = async () =
       chrome.debugger.onEvent.addListener(onEvent);
       run.timer = setTimer(() => { run.refused = run.refused || 'time'; }, maxMs);
       try {
-        await chrome.debugger.attach({tabId}, '1.3');
+        await attach(tabId);   // the one place the debugger is attached (stop-state.js): never while the person pressed Stop, and only on a tab the app opened
         await send('Network.enable');
         await send('Network.setCacheDisabled', {cacheDisabled: true});   // the reload asks for everything again: the replay needs every response
         await send('Page.enable');
@@ -94,10 +97,11 @@ export function createRecorder({chrome, now = Date.now, hasPassword = async () =
     // Stop and review (or Cancel with {keep: false}): detaches and hands over what was kept. A sign-in page or the time cap seen meanwhile = nothing kept. -> {ok, entries, truncated} or {ok: false, refused}
     async stop({keep = true} = {}) {
       if (!run) return {ok: false, refused: 'idle'};
+      if (!run.refused && stopped()) run.refused = 'stopped';
       if (!run.refused && await hasPassword(run.tabId).catch(() => false)) run.refused = 'login';
       const current = run;
       await end(); run = null;
-      if (current.refused === 'login' || !keep) return {ok: false, refused: current.refused || 'cancelled'};
+      if (current.refused === 'login' || current.refused === 'stopped' || !keep) return {ok: false, refused: current.refused || 'cancelled'};
       return {ok: true, entries: current.entries.sort((a, b) => a.startMs - b.startMs), truncated: current.truncated, timedOut: current.refused === 'time'};
     },
   };

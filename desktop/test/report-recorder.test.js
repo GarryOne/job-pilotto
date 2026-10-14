@@ -24,10 +24,11 @@ const got = (fake, tab, id, url, {type = 'Document', status = 200, headers = {'C
   fake.emit(tab, 'Network.responseReceived', {requestId: id, response: {status, headers}});
   fake.emit(tab, 'Network.loadingFinished', {requestId: id});
 };
+const attach = fake => async tabId => { await fake.chrome.debugger.attach({tabId}, '1.3'); };
 const manual = () => { const timers = []; return {setTimer: (fn, ms) => { timers.push({fn, ms}); return timers.length; }, clearTimer: () => {}, timers}; };
 
 test('nothing is attached, recorded or reloaded before the press; the press attaches, listens, then reloads', async () => {
-  const fake = fakeChrome(), recorder = createRecorder({chrome: fake.chrome, ...manual()});
+  const fake = fakeChrome(), recorder = createRecorder({chrome: fake.chrome, attach: attach(fake), ...manual()});
   assert.deepEqual(fake.calls, []);
   assert.equal(fake.listeners.size, 0);
   assert.equal(recorder.isRecording(), false);
@@ -42,11 +43,11 @@ test('nothing is attached, recorded or reloaded before the press; the press atta
 
 test('a page with a password field is refused at the press, and one that gets it later keeps nothing', async () => {
   const fake = fakeChrome(), timers = manual();
-  const early = createRecorder({chrome: fake.chrome, hasPassword: async () => true, ...timers});
+  const early = createRecorder({chrome: fake.chrome, attach: attach(fake), hasPassword: async () => true, ...timers});
   assert.deepEqual(await early.start(7), {ok: false, refused: 'login'});
   assert.deepEqual(fake.calls, [], 'no attach, no reload');
   let login = false;
-  const later = createRecorder({chrome: fake.chrome, hasPassword: async () => login, ...timers});
+  const later = createRecorder({chrome: fake.chrome, attach: attach(fake), hasPassword: async () => login, ...timers});
   await later.start(7);
   got(fake, 7, 'r1', 'https://jobs.example.test/apply'); await tick();
   login = true;
@@ -55,8 +56,18 @@ test('a page with a password field is refused at the press, and one that gets it
   assert.deepEqual(await later.stop(), {ok: false, refused: 'login'});
 });
 
+test('the Stop button ends a recording and keeps nothing; a stopped extension refuses the press', async () => {
+  const fake = fakeChrome(), timers = manual(); let stopped = false;
+  const recorder = createRecorder({chrome: fake.chrome, attach: attach(fake), stopped: () => stopped, ...timers});
+  await recorder.start(7); got(fake, 7, 'r1', 'https://jobs.example.test/apply'); await tick();
+  stopped = true; await timers.timers.at(-1).fn(); await tick();
+  assert.deepEqual(await recorder.stop(), {ok: false, refused: 'stopped'});
+  const refused = createRecorder({chrome: fakeChrome().chrome, attach: async () => { throw new Error('stopped: the person pressed Stop'); }, ...manual()});
+  assert.equal((await refused.start(7)).refused, 'debugger');
+});
+
 test('what is kept: responses of this tab only, allowed headers only, no body key, no cookie flag; a redirect, a failure with a reply, a non-http address', async () => {
-  const fake = fakeChrome({r1: {body: '<form>hi é</form>', base64Encoded: false}, r2: {body: Buffer.from('alert(1)').toString('base64'), base64Encoded: true}}), recorder = createRecorder({chrome: fake.chrome, ...manual()});
+  const fake = fakeChrome({r1: {body: '<form>hi é</form>', base64Encoded: false}, r2: {body: Buffer.from('alert(1)').toString('base64'), base64Encoded: true}}), recorder = createRecorder({chrome: fake.chrome, attach: attach(fake), ...manual()});
   await recorder.start(7);
   got(fake, 7, 'r1', 'https://jobs.example.test/apply');
   got(fake, 7, 'r2', 'https://jobs.example.test/app.js', {type: 'Script', headers: {'content-type': 'application/javascript', 'set-cookie': 'a=b'}});
@@ -84,7 +95,7 @@ test('what is kept: responses of this tab only, allowed headers only, no body ke
 });
 
 test('the raw size is capped: a body over the cap is not kept and the result says so', async () => {
-  const fake = fakeChrome({r1: {body: 'x'.repeat(200), base64Encoded: false}}), recorder = createRecorder({chrome: fake.chrome, limits: {maxBytes: 100}, ...manual()});
+  const fake = fakeChrome({r1: {body: 'x'.repeat(200), base64Encoded: false}}), recorder = createRecorder({chrome: fake.chrome, attach: attach(fake), limits: {maxBytes: 100}, ...manual()});
   await recorder.start(7); got(fake, 7, 'r1', 'https://jobs.example.test/big'); await tick(); await tick();
   const result = await recorder.stop();
   assert.equal(result.truncated, true); assert.equal(result.entries[0].body, null);
