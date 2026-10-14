@@ -1,6 +1,6 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests 1", "harness tests 2", "cases fail before the fix" (tools/pr-settings.sh has the list).
+# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "cases fail before the fix" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
 # Every job here always starts (a required workflow that never starts blocks the PR forever); "cases fail before the fix" ends in seconds when the PR brings no recorded case.
 on:
   pull_request:
@@ -31,50 +31,6 @@ jobs:
         run: |
           git fetch -q origin main
           jq -n --arg cwd "$PWD" '{tool_input: {command: "CI_GATES=1 git push origin pr"}, cwd: $cwd}' | bash tools/pre-push-check.sh
-
-  # The e2e harness's own unit tests (owner, 12 Oct 2026): they ran only in the scheduled e2e plan job, which broke silently for ~11 h (ERR_MODULE_NOT_FOUND
-  # after 3394c2e) while every suite was skipped. Here they gate the change that would break them. The same steps as e2e.yml's plan job
-  # (test/recorded-ci-deps.test.mjs checks every job that runs them installs the app's own packages).
-  harness:
-    name: harness tests ${{ matrix.shard }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]   # the tests take ~105 s on one runner (one test alone is 48 s): two shards, each ~55 s; required as "harness tests 1" and "harness tests 2"
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
-      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
-      - id: needed
-        name: Can this change break the harness tests?
-        run: bash tools/ci-needed.sh harness
-      - if: steps.needed.outputs.run == 'true'
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the tests
-        working-directory: desktop/e2e
-        run: npm ci || npm install
-      - if: steps.needed.outputs.run == 'true'
-        name: Install the app's own packages
-        working-directory: desktop
-        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
-      - if: steps.needed.outputs.run == 'true'
-        name: Stage the app's shared files
-        working-directory: desktop
-        run: node scripts/stage.mjs --files-only
-      - if: steps.needed.outputs.run == 'true'
-        name: A headless browser for the tests' own tests
-        working-directory: desktop/e2e
-        run: npx playwright install --with-deps chromium --only-shell
-      - if: steps.needed.outputs.run == 'true'
-        name: The tests' own tests (layout check, review parser, triage rules, which suites run)
-        working-directory: desktop/e2e
-        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 ${{ steps.needed.outputs.tests || 'test/*.test.mjs' }}   # only the tests this PR can break, when the pick names them (tools/ci-needed.sh)   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
 
   flow-fresh:
     name: flow-fresh

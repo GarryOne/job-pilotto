@@ -33,7 +33,6 @@ JOBS = {
     'desktop': (('desktop/test', '*.test.*'), ('desktop/', 'extension/')),   # its lint reads all of desktop/ and extension/
     'worker': (('worker/test', '*.test.*'), ('worker/',)),
     'site': (('site/test', '*.test.*'), ('site/',)),
-    'harness': (('desktop/e2e/test', '*.test.mjs'), ('desktop/e2e/', 'desktop/scripts/stage.mjs') + APP_INSTALL),
     'replays': (None, APP_INSTALL + E2E_INSTALL),
     'zoo': (None, ('desktop/scripts/stage.mjs',) + APP_INSTALL + E2E_INSTALL),
     'replaygate': (None, ('extension/', 'desktop/lib/')),   # the PR replay gate (replay-pr.yml): the apply flow's code only (owner, 14 Oct 2026); PATHS_ONLY below
@@ -41,11 +40,12 @@ JOBS = {
 # Jobs that run ONLY for what they load and their own files (owner, 13 Oct 2026: "only the specific cases, when it's really relevant"): never for the plumbing,
 # root dependencies, lock files or an unknown file that run every other job whole. Main's schedule is their backstop for those.
 OWN_ONLY = ()   # empty since 13 Oct 2026: the flow e2e's pick served only the PR live canary, removed (owner: no AI cost from a PR)
+# The harness tests left this pick on 14 Oct 2026 (owner: "rely fully on gh workflow paths"): .github/workflows/harness.yml's `on: paths:` decides, not required.
 # Jobs that run on a pull request ONLY for their own paths (folders, installs, staged copies) and the pick's plumbing (owner, 14 Oct 2026: harness ran on ~91% of PRs,
 # mostly because a test names or reads a changed file elsewhere: "can't we just use 'paths' on the GH workflows?"). A required job can't use `paths:` (it would never
 # report and block the PR), so the same rule lives here. Main's push runs them whole: the backstop for a break from outside their paths.
-PATHS_ONLY = ('harness', 'replaygate')   # replaygate: owner, 14 Oct 2026: "only if we touched the apply flow logic code"
-STAGES = ('harness', 'zoo')   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
+PATHS_ONLY = ('replaygate',)   # replaygate: owner, 14 Oct 2026: "only if we touched the apply flow logic code"
+STAGES = ('zoo',)   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
 # What runs the jobs themselves: a change to one runs every job whole.
 PLUMBING = re.compile(r'^(tools/(affected-(tests|jobs)\.py|replay-files\.mjs|ci-needed\.sh|check\.(sh|py)|py-shards\.py)|\.github/workflows/(build|pr-gate|recorded-pages|widget-zoo)\.yml)$')
 
@@ -225,26 +225,6 @@ def first_test(job, changed):
     return next((why for _, why in _reached(job, changed)), None)
 
 
-def tests_reached(job, changed):
-    """-> the job's tests a change reaches, as the job runs them (relative to its test folder's parent: test/x.test.mjs), or None: run them all (its own folder,
-    plumbing, a test this pick cannot read). [] when none (the job skips). Owner, 13 Oct 2026, on #553: one guard test reached, the whole harness ran."""
-    changed = sorted(set(changed))
-    why = reason(job, changed)
-    if why is None:
-        return []
-    folder = JOBS[job][0]
-    if folder is None or why != first_test(job, changed):
-        return None
-    base = posixpath.dirname(folder[0]) + '/'
-    out = []
-    for name, _ in _reached(job, changed):
-        if name is ALL:
-            return None
-        if name.startswith(base) and name[len(base):] not in out:
-            out.append(name[len(base):])
-    return out
-
-
 def reason(job, changed):
     """-> why this change can break the job, or None: it may skip."""
     changed = sorted(set(changed))
@@ -283,13 +263,8 @@ def main(argv=None):
     ap.add_argument('--job', choices=sorted(JOBS), help='one job: prints "run: <why>" or "skip: <why>"')
     ap.add_argument('--base', help='compare HEAD with this ref (merge base)')
     ap.add_argument('--files', nargs='*', help='changed files, instead of git')
-    ap.add_argument('--tests', action='store_true', help='with --job: print the tests it should run, space-separated, or "all"')
     args = ap.parse_args(argv)
     changed = args.files if args.files is not None else pick.git_changed(args.base or 'origin/main')
-    if args.job and args.tests:
-        picked = None if changed is None else tests_reached(args.job, changed)
-        print('all' if picked is None else ' '.join(picked))
-        return 0
     if not args.job:
         print(json.dumps({job: 'git diff failed: run' for job in JOBS} if changed is None else reasons(changed), indent=1))
         return 0

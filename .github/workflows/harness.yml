@@ -1,0 +1,58 @@
+name: CI · Harness tests
+# The e2e harness's own unit tests, on a pull request that changes the harness's code. GitHub's `on: paths:` below decides (owner, 14 Oct 2026: "rely fully on gh workflow
+# paths"; the shared pick ran them on a PR that changed only a recorded case). Not a required check: a required check whose workflow `paths:` skips never reports and
+# blocks the PR (tests/test_affected_jobs.py checks no required check lives in a workflow with `paths:`). The backstop for a break from outside these paths is e2e.yml's plan job.
+# History: they ran only in that scheduled plan job, which broke silently for ~11 h (12 Oct 2026, ERR_MODULE_NOT_FOUND after 3394c2e); here they gate the change that would
+# break them (test/recorded-ci-deps.test.mjs checks every job that runs them installs the app's own packages and stages desktop/shared).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/e2e/**'
+      # Data that other jobs replay, not harness code: recorded cases (recorded-pages.yml, "cases fail before the fix"), fixture pages, the widget zoo (widget-zoo.yml).
+      - '!desktop/e2e/recorded/**'
+      - '!desktop/e2e/recorded-pending/**'
+      - '!desktop/e2e/fixtures/**'
+      - '!desktop/e2e/ladder-fixtures/**'
+      - '!desktop/e2e/widget-zoo/**'
+      - 'desktop/scripts/stage.mjs'
+      - 'desktop/package.json'
+      - 'desktop/package-lock.json'
+      - '.github/workflows/harness.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    name: harness tests ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]   # the tests take ~105 s on one runner (one test alone is 48 s): two shards, each ~55 s
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      - name: Stage the app's shared files
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
+      - name: A headless browser for the tests' own tests
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium --only-shell
+      - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
+        working-directory: desktop/e2e
+        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
