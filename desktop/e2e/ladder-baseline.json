@@ -104,12 +104,16 @@
   {
    "date": "2026-10-13",
    "reason": "two fixtures from the 13 Oct pool's Richemont Create Account page (pool-richemont-create-account: rung 2's account-form read, exact; pool-richemont-create-account-digest: the digest's page, a miss offline by design: rung 2 was unsure before the page drew); the stale-judgment guard (read-gen.js) keeps the digest's late answer from replacing the read"
+  },
+  {
+   "date": "2026-10-14",
+   "reason": "digest rung lists frame candidates and answers form_frame (14 Oct 2026, embedded frame with rung 2 unsure)"
   }
  ],
  "promptFingerprint": {
   "rung2": "f195b59f9e204185",
   "rung2-frames": "062eb0c3862f408e",
-  "rung3": "8cfa43b88247741a",
+  "rung3": "a67ae2addd085090",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "09fcc69c9a99924a",
   "fill-verify": "fe0e393f3680f14e",

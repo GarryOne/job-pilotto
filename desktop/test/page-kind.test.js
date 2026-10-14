@@ -307,6 +307,19 @@ test('a digest request is answered from the numbered candidates by number, never
   assert.equal(cache.get(pageShape(emailPages.de.url) + '|' + pageBuild([])), null, 'a digest answer is about this posting: not kept for the shape');
 });
 
+test('a digest request names an embedded form frame by index, only an index into the listed frames (rung 2 unsure, 14 Oct 2026)', async () => {
+  const frames = [{host: 'boards.example.net', path: '/embed/job_app', width: 650, height: 2400}], calls = [];
+  const ask = async (answer, page) => pageKind(seq([{outcome: 'form', verb: 'none', numbers: [], press_kind: '', confidence: 0.9, ...answer}], calls), {...emailPages.de, candidates, ...page}, cacheIn(), {digest: true});
+  const named = await ask({form_frame: 0}, {frameCandidates: frames});
+  assert.deepEqual([named.by, named.rung, named.formFrame], ['digest', 3, 0], 'the digest carries the frame the posting\'s form sits in');
+  assert.match(calls[0].messages[0].content, /Frame candidates[\s\S]*boards\.example\.net · \/embed\/job_app/, 'the AI saw the listed frames');
+  for (const bad of [5, -3, 1.5, 'zero', null]) assert.equal((await ask({form_frame: bad}, {frameCandidates: frames})).formFrame, -1, `form_frame ${bad} is no listed frame`);
+  assert.equal((await ask({form_frame: 0}, {})).formFrame, -1, 'no frame listed: nothing to name');
+  assert.notEqual((await ask({outcome: 'phone', form_frame: 0, verb: 'tell_person', numbers: [2, 3]}, {frameCandidates: frames})).formFrame, 0, 'only the outcome form with no control names a frame');
+  const plain = []; await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [2], press_kind: '', form_frame: -1, confidence: 0.9}], plain), {...emailPages.de, candidates}, cacheIn(), {digest: true});
+  assert.doesNotMatch(plain[0].messages[0].content, /Frame candidates/, 'a page with no frames is asked exactly as before');
+});
+
 test('a digest request: an unsure answer, an answer outside the candidates, or no candidates all say so with a signal, never a guess', async () => {
   const page = {...emailPages.de, candidates};
   const unsure = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [3], confidence: 0.3}]), page, cacheIn(), {digest: true});

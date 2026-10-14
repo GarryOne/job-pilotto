@@ -239,5 +239,5 @@ async function digestKind(client, raw, shape) {
   if (pressed && pressedBefore(page.noEffect, pressed.text)) return failed('digest named a control already pressed', {usd: got.usd, digestSaid});   // pressed with no effect: never again, the ladder ends at the person
   const applyButton = pressed && got.raw?.press_kind === 'apply' ? applyButtonOf(pressed.text, [pressed.text]) : '';   // AND with the digest's judgment of what the button does (press_kind): a sign-in, sign-up or third-party control is dropped in any language
   return {kind: 'posting', role: ROLE.posting, confidence: got.confidence, by: 'digest', rung: 3, signal: 'confident', shape, usd: got.usd, applyButton, applyRoute: '',
-    applyBy: email ? 'email' : '', applyEmail: email ? email.text : '', digestSaid, digest: {outcome: got.outcome, verb: got.verb, numbers: got.numbers, chosen: got.chosen}};
+    applyBy: email ? 'email' : '', applyEmail: email ? email.text : '', formFrame: got.formFrame ?? -1, digestSaid, digest: {outcome: got.outcome, verb: got.verb, numbers: got.numbers, chosen: got.chosen}};
 }
