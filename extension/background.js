@@ -9,6 +9,7 @@ import {createSubmitWatch} from './submit-watch.js';
 import {createTabReport} from './tab-report.js';
 import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
+import {createReportMessages} from './messages-report.js';
 import {claimAppTab, closePosting, followOpener, noteSource, movedByUs} from './tabs.js';
 import {createSettleOpenTabs} from './settle-tabs.js';
 import {createStopMessages} from './stop-messages.js';
@@ -95,7 +96,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/required-mark.js', 'page/typed-check.js', 'page/read-back.js', 'page/label-before.js', 'page/coverage.js', 'page/option-groups.js', 'page/review-payload.js', 'hook.js', 'panel-claude.js', 'page/submit-press.js', 'review.js', 'panel-stop.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/required-mark.js', 'page/typed-check.js', 'page/read-back.js', 'page/label-before.js', 'page/coverage.js', 'page/option-groups.js', 'page/review-payload.js', 'hook.js', 'panel-claude.js', 'page/submit-press.js', 'review.js', 'panel-stop.js', 'panel-report.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
@@ -476,3 +477,4 @@ messageHandlers.push(createStopMessages());   // stop-messages.js: first, so a s
 messageHandlers.push(createLearningMessages({arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js
 messageHandlers.push(createPanelMessages({fillOpenedTab, jobOf, prefetch, started}));   // messages-panel.js
 messageHandlers.push(createAppMessages({bootId, jobOf}));   // messages-app.js
+messageHandlers.push(createReportMessages());   // messages-report.js: the panel's "Report this form" flag

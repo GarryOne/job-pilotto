@@ -441,7 +441,7 @@
           <div class="ss-title-row"><h1 id="ss-title">Application sessions</h1><span id="ss-status"></span><span class="muted small" id="ss-refreshing" hidden>Updating…</span></div>
           <div class="ss-subtitle"><span class="muted" id="ss-role"></span></div>
         </div>
-        <div class="head-actions"><button class="danger-outline" id="ss-stop" title="Stops everything the Job Pilotto extension does, on every tab, until you press Reopen form on an application">Stop the extension</button><span id="ss-more"></span></div>
+        <div class="head-actions"><button class="secondary" id="ss-report" hidden title="Send this form to be fixed: you read exactly what would be sent first">Report this form…</button><button class="danger-outline" id="ss-stop" title="Stops everything the Job Pilotto extension does, on every tab, until you press Reopen form on an application">Stop the extension</button><span id="ss-more"></span></div>
       </header>
       <div class="ss-tips" id="ss-tips" hidden aria-label="Tips while you apply"></div>
       <!-- Until the app answers, a spinner: the two-pane shell (message box, session log) used to paint first and
@@ -1423,6 +1423,11 @@
             <details class="telemetry-shown"><summary>See what's sent</summary><pre class="log" id="telemetry-events">Nothing sent yet.</pre></details>
             <details class="telemetry-shown"><summary>See the shared counts and shapes sent</summary><pre class="log" id="shared-sent">Nothing sent yet.</pre></details>
           </div>
+          <div class="setting panel" id="setting-report-form" hidden>
+            <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Report this form</h3></div>
+              <label class="switch-row"><input type="checkbox" id="report-form-on"><span>Show</span></label></div>
+            <p class="muted panel-lead">When an application gets stuck, a flag appears on its Chrome page. Pressing it records what the site sends while you repeat the step, shows you exactly what would be sent, and sends nothing until you press Send. Never sent: what you typed, passwords, your CV or profile.</p>
+          </div>
           <div class="setting panel" id="setting-pool">
             <div class="panel-top"><div class="summary-head"><i data-icon="globe"></i><h3>Help the pool grow</h3></div>
               <label class="switch-row"><input type="checkbox" id="pool-share-on"><span>Share</span></label></div>
@@ -1602,6 +1607,16 @@
 
 <!-- Apply dialog -->
 <!-- Replacing a strategy after setup: what happens, then an explicit confirmation -->
+<!-- Report this form: how to start it, and what would be sent (pages/report-form.js) -->
+<dialog id="report-dialog" class="save-dialog panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="flag"></i></span><h2>Report this form</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
+    <div id="report-body"></div>
+    <div class="dialog-foot" id="report-foot"></div>
+  </form>
+</dialog>
+
 <dialog id="replace-dialog" class="save-dialog panel-dialog">
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2>Review what this rebuild changes</h2>
