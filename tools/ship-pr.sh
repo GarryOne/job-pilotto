@@ -33,11 +33,12 @@ ship_pr_land() {
     [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
     body="$(bash "$here/tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
     rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
-    out="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" 2>&1)" || ship_pr_fail "could not open the pull request: $(echo "$out" | tail -n 1)"
+    out="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" ${SHIP_PR_DRAFT:+--draft} 2>&1)" || ship_pr_fail "could not open the pull request: $(echo "$out" | tail -n 1)"
     if [ -n "$rows" ]; then gh label create pool-fix --color 1D76DB --description "fixes a row of the applying pool (from its Pool-row lines)" >/dev/null 2>&1 || true; gh pr edit "$(echo "$out" | tail -n 1)" --add-label pool-fix >/dev/null 2>&1 || true; fi   # a missing label never fails a landing
     n="${out##*/}"; step "opened the pull request: $(echo "$out" | tail -n 1)"
   else
     step "the branch already has pull request #$n: reusing it"
+    if [ -n "${SHIP_PR_DRAFT:-}" ]; then gh pr ready "$n" --undo >/dev/null 2>&1 && step "#$n is a draft again until its new checks are green" || true; fi   # --draft: a new push restarts the checks
   fi
   local review=""; if ship_review; then review=1; step "review mode: the owner reviews and merges #$n by hand; waiting for every check it started"
   elif ! out="$(gh pr merge "$n" --auto --rebase 2>&1)"; then
@@ -70,6 +71,7 @@ ship_pr_land() {
     fi
     # Review mode ends when every check the PR started passed (none pending, none failing): the PR waits for the owner, nothing has landed on main.
     if [ -n "$review" ] && [ -z "$failing" ] && jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1; then
+      if [ -n "${SHIP_PR_DRAFT:-}" ]; then gh pr ready "$n" >/dev/null 2>&1 && step "#$n: marked ready for review (it was a draft until green)" || step "#$n: could not mark it ready: do it by hand (gh pr ready $n)"; fi
       review_n="$n"; review_url="$(jq -r '.url // empty' <<<"$view")"; step "#$n: every check is green: open for the owner's review"; return 0
     fi
     if [ "$waited" -ge "$limit" ]; then ship_pr_fail "pull request #$n is not merged after ${limit}s (it merges by itself when the checks pass): $(jq -r '.url' <<<"$view")"; fi
