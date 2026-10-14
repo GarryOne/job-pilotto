@@ -5,6 +5,7 @@
 import {replaysIngest} from './applying-replays.js';
 import {provenIngest} from './applying-proven.js';
 import {fidelityIngest} from './applying-fidelity.js';
+import {verifyIngest} from './applying-verify.js';
 import {endingsIngest} from './applying-resolution.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
@@ -141,6 +142,7 @@ async function route(request, env, ctx) {
   if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
   if (pathname === '/report/telemetry') return telemetry.collect(request, env);
   if (pathname === '/applying/proven' && request.method === 'PUT') return provenIngest(request, env);
+  if (pathname === '/applying/verify' && request.method === 'PUT') return verifyIngest(request, env);   // "Confirmed offline" verdicts (Bearer REPLAYS_PUBLISH_KEY, src/applying-verify.js)
   if (pathname === '/applying/fidelity' && request.method === 'PUT') return fidelityIngest(request, env);   // a prototype's replay-vs-live records (Bearer REPLAYS_PUBLISH_KEY, src/applying-fidelity.js)
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);   // CI's pool rows' endings (Bearer REPLAYS_PUBLISH_KEY, src/applying-resolution.js)   // CI's proof records (Bearer REPLAYS_PUBLISH_KEY, src/applying-proven.js)
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)

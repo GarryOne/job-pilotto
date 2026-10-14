@@ -1,0 +1,151 @@
+# "Confirmed offline" (owner, 14 Oct 2026): each landed fix and each row that got less far is judged by replaying a pool row's recording offline, at $0 and without waiting for by-hand
+# pool runs. A fix: the recording made BEFORE it, replayed on main twice, after a control (the recording on its own build must come out as live did). A regression: the newest recording
+# replayed on the older build that got further ("Our build") or not ("Site changed"). verify-plan.mjs picks the rows, verify-row.mjs replays one, lib/verify-judge.mjs judges, verify-report.mjs
+# sends the verdicts to /admin/applying (own word beside "Proven live", never merged into it). Starts after the nightly offline replay on main and by hand; never on a PR, never a required check.
+name: CI · Confirmed offline (replay verdicts)
+run-name: Confirmed offline
+
+on:
+  workflow_run:
+    workflows: ['CI · Replay vs live (offline)']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read   # the by-hand pool runs' encrypted records
+
+concurrency:   # each commit keeps its own run (tests/test_main_runs_finish.py)
+  group: replay-verify-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    # Only when something it replays changed since the last green run of this workflow: the app and extension code, this workflow, or new recordings (as replay-offline.yml).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      go: ${{ steps.dup.outputs.skip != '1' && steps.key.outputs.ok == '1' && '1' || '0' }}
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+      - name: The record key is set
+        id: key
+        env:
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: |
+          if [ -z "$NET_RECORD_KEY" ]; then echo "replay-verify: key not set (NET_RECORD_KEY): nothing replayed" | tee -a "$GITHUB_STEP_SUMMARY"; echo "ok=0" >> "$GITHUB_OUTPUT"; else echo "ok=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.key.outputs.ok == '1'
+        with:
+          fetch-depth: 0
+      - name: Anything changed since the last green run?
+        if: steps.key.outputs.ok == '1'
+        id: dup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BY_HAND: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          [ "$BY_HAND" = true ] && { echo "replay-verify: started by hand: replaying"; exit 0; }
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-verify.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
+            --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0] | \"\(.headSha) \(.createdAt)\"" 2>/dev/null || true)
+          read -r sha at <<< "${last:-}"
+          [ -z "${sha:-}" ] && { echo "replay-verify: no green run yet: replaying"; exit 0; }
+          records=$(gh release view net-records -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].updatedAt] | max // ""' 2>/dev/null || true)
+          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension src worker/src .github/workflows/replay-verify.yml ':!desktop/test' ':!desktop/e2e/test' \
+             && { [ -z "$records" ] || [[ "$records" < "$at" ]]; }; then
+            echo "replay-verify: nothing changed since the last green run (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
+          else echo "replay-verify: changed since ${sha::7}: replaying"; fi
+      - uses: actions/setup-node@v5
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
+        with:
+          node-version: '22'
+      - name: Which rows to replay
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
+        id: plan
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: |
+          (npm ci || npm install) >/dev/null 2>&1
+          bash net-records-fetch.sh "$RUNNER_TEMP/records"
+          node verify-plan.mjs "$RUNNER_TEMP/records" "$RUNNER_TEMP/plan.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "jobs=$(node -e 'process.stdout.write(JSON.stringify({include: JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).jobs.map((job, index) => ({index, job}))}))' "$RUNNER_TEMP/plan.json")" >> "$GITHUB_OUTPUT"
+          cp "$RUNNER_TEMP/plan.json" "$GITHUB_WORKSPACE/plan.json"
+      - uses: actions/upload-artifact@v6   # the plan holds row names, build ids and the verdicts answered without a replay: no recording, no key
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
+        with:
+          name: verify-plan-${{ github.run_id }}
+          path: plan.json
+          retention-days: 7
+  replay:
+    needs: plan
+    if: needs.plan.outputs.go == '1' && fromJSON(needs.plan.outputs.jobs).include[0] != null
+    runs-on: macos-latest   # the records are made on the owner's Mac: the same fonts and scrollbar as the live page
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    env:
+      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install chromium)
+      - name: The pool's records, decrypted on the runner only
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash net-records-fetch.sh "$RUNNER_TEMP/records"
+      - name: Replay this row (control, then the build to judge, twice)
+        working-directory: desktop/e2e
+        env:
+          JOB: ${{ toJSON(matrix.job) }}
+        run: |
+          set -o pipefail
+          printf '%s' "$JOB" > "$RUNNER_TEMP/job.json"
+          node verify-row.mjs "$RUNNER_TEMP/records" "$RUNNER_TEMP/job.json" "$GITHUB_WORKSPACE/verify-out" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6   # the verdict only: fixed words, no record, no key
+        if: always()
+        with:
+          name: verify-row-${{ github.run_id }}-${{ matrix.index }}
+          path: verify-out/verdict.json
+          retention-days: 7
+          if-no-files-found: ignore
+  report:
+    needs: [plan, replay]
+    if: always() && needs.plan.outputs.go == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: verify-*-${{ github.run_id }}*
+          path: ${{ runner.temp }}/in
+      - name: Send the verdicts to /admin/applying (main only)
+        if: github.ref == 'refs/heads/main'
+        working-directory: desktop/e2e
+        env:
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+        run: node verify-report.mjs "$(find "$RUNNER_TEMP/in" -name plan.json | head -1)" "$RUNNER_TEMP/in" | tee -a "$GITHUB_STEP_SUMMARY"
