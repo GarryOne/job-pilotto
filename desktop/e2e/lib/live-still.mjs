@@ -9,7 +9,11 @@ export const stillSeconds = (env = process.env, engine = '') => (env.LIVE_STILL_
 // handed to the person) the quiet window is shorter: what may still come is a shadow check's one AI ask (an offline replay keeps the live AI's time, capped at 20 s). Measured
 // 14 Oct 2026 on the first CI replay run: ~45 of a row's ~93 s was this window after the last line. A progress note after the end means the run went on: the full window again.
 export const AFTER_END_SECONDS = 25;   // 20 s (the replayed AI's cap) + a margin for the watch's own 1.5 s turns
-export const runEnded = (logText = '') => { const text = String(logText); return text.lastIndexOf('fill: run ended') > text.lastIndexOf('fill: progress:'); };
+// What says the application moved on after an end (14 Oct 2026, arbeitnow board -> employer: the board tab's end cut the row to 46 s while the employer
+// page, opened by its press, was still being read): a progress note, the mark carried to a next page, a panel on another tab, a new page's kind.
+const MOVED_ON = /fill: progress:|panel: mark carried|panel: panel on a tab|\] page kind: |fill: page kind: /g;
+const lastMove = text => { let at = -1; for (const found of text.matchAll(MOVED_ON)) at = found.index; return at; };
+export const runEnded = (logText = '') => { const text = String(logText); return text.lastIndexOf('fill: run ended') > lastMove(text); };
 export const quietSeconds = (seconds, logText = '', env = process.env) => {
   const after = env.LIVE_AFTER_END_SECONDS === undefined || env.LIVE_AFTER_END_SECONDS === '' ? AFTER_END_SECONDS : Math.max(0, Number(env.LIVE_AFTER_END_SECONDS) || 0);
   return seconds > 0 && runEnded(logText) ? Math.min(seconds, after) : seconds;
