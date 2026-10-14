@@ -107,6 +107,13 @@ test('after the extension says its run ended, the quiet window shrinks; a progre
   assert.equal(runEnded(ended), true);
   assert.equal(runEnded(`${ended}\n[extension] fill: progress: navigated {}`), false, 'the run went on: a new page');
   assert.equal(runEnded('[extension] fill: progress: navigated {}'), false);
+  // 14 Oct 2026, arbeitnow board -> employer: the board tab ended, its press opened the employer page, and the row was cut to 46 s.
+  for (const moved of ['[extension] panel: mark carried to the next page {"host":"apply.workable.com"}', '[extension] panel: panel on a tab the app opened {"host":"apply.workable.com"}',
+    '[extension] page kind: posting {"shape":"apply.workable.com/x/*|0"}', '[extension] fill: page kind: posting {"host":"apply.workable.com"}']) {
+    assert.equal(runEnded(`${ended}\n${moved}`), false, `the application moved on: ${moved.slice(12, 40)}`);
+    assert.equal(quietSeconds(45, `${ended}\n${moved}`, {}), 45, 'the full window again');
+  }
+  assert.equal(runEnded(`${ended}\n[extension] account judgment form: needs_person {}`), true, 'a shadow check after the end keeps the short window');
   assert.equal(quietSeconds(45, ended, {}), AFTER_END_SECONDS);
   assert.equal(quietSeconds(45, 'nothing ended', {}), 45);
   assert.equal(quietSeconds(10, ended, {}), 10, 'never longer than the window asked for');
