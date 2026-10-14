@@ -38,7 +38,7 @@ test('one owner: no extension file but tab-identity.js builds a session:/job:/fr
 test('a slow-boot worker takes the posting and session from the mark of a tab it never saw open', async () => {
   const {createSettleOpenTabs} = await import('../../extension/settle-tabs.js');
   const marked = 'https://boards.example/jobs/1#jobpilotto-fill=ca582c3c', armedTabs = [];
-  chrome.tabs = {query: async () => [{id: 21, url: marked}, {id: 22, url: 'https://boards.example/jobs/2#jobpilotto-fill=feedbeef'}]};
+  globalThis.chrome.tabs = {query: async () => [{id: 21, url: marked}, {id: 22, url: 'https://boards.example/jobs/2#jobpilotto-fill=feedbeef'}]};
   store['from:22'] = 'https://boards.example/jobs/OTHER';
   await createSettleOpenTabs({arm: async id => { armedTabs.push(id); }, memoryReady: () => Promise.resolve()})();
   assert.deepEqual(armedTabs, [21, 22]);
