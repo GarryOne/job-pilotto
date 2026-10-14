@@ -300,7 +300,7 @@ export async function consider(tab, jobUrl) {
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
-  let pressed = false, buttonsSeen = [];
+  let pressed = false, buttonsSeen = [], lookAfterPress = null;   // lookAfterPress: the fresh page-kind answer asked after an Apply that brought no form (the frame it lists may have come with the press)
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
     // The shared phrases, and the button the page-kind AI named on this page (any language; already checked against the page and the schema).
@@ -324,7 +324,7 @@ export async function consider(tab, jobUrl) {
       else {
         noteNoEffect(key, label);   // pressed, nothing came: never pressed again on this page, and the AI's next look is told so (no-effect.js)
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
-        const chosen = await startRoute(key, {ask: () => askKind(tab, {fresh: true}), press: async routePhrases => {
+        const chosen = await startRoute(key, {ask: async () => (lookAfterPress = await askKind(tab, {fresh: true})), press: async routePhrases => {
           applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
           const next = await pressApply(tab.id, routePhrases, routePhrases[0]?.phrase || '', '', noEffectOf(key));
           if (!next.pressed) applyPressed.delete(tab.id);
@@ -354,7 +354,7 @@ export async function consider(tab, jobUrl) {
     decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname, by: answer.by || 'ai'});
     await moveTab(tab.id, src); started.delete(key); return true;
   };
-  if (await openFormFrame(kind)) return;
+  if (await openFormFrame(lookAfterPress) || await openFormFrame(kind)) return;   // the look after the press first: the form frame often loads only after Apply (14 Oct 2026)
   // Nothing to press and no form: the numbered digest looks once (ladder/climb.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
   let stall = null;
   if (role === 'no-form' && kind?.botCheck !== true && !emailReport(kind) && !toldReport(kind)) {
