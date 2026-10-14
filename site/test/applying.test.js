@@ -256,3 +256,25 @@ test('a refusing site and a login wall are holds, not fixes, and not clean runs'
   assert.deepEqual(['account-first: held', 'login wall: held', 'applies by email: told', 'page tells how to apply: told', 'eligibility stop: the role is in Sydney', 'site refused: retry later'].map(note => isCleanHold(rowStatus({reached: 'form', note}))), [true, true, true, true, false, false]);
   assert.equal(isCleanHold(rowStatus({reached: 'code/bot'})), true);
 });
+
+// 14 Oct 2026 (record-once spec): a renamed pool row stayed on the page for ever (applying_pool was upsert-only): three rows named "Hm". A FULL pool upload is the pool's membership.
+test('a full pool upload drops the names it lacks (hidden, runs kept); a partial one drops nothing; a dropped name returns when uploaded or run again', async () => {
+  const db = d1(), later = new Date('2026-10-13T12:00:00Z'), names = async () => (await data(db, later)).pool.map(item => item.shape).sort();
+  const pool = list => list.map(name => ({name, start_host: 'career.hm.com'}));
+  const base = Array.from({length: 6}, (_, index) => `Row ${index}`);
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: pool([...base, 'old@career.hm.com (found 2026-10-10)'])}, now);
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'old@career.hm.com (found 2026-10-10)', reached: 'posting'}]}, now);
+  assert.ok((await names()).includes('old@career.hm.com (found 2026-10-10)'));
+  await ingest(db, {kind: 'pool', day: '2026-10-13', rows: pool(base.slice(0, 2))}, later);   // partial: drops nothing
+  assert.equal((await names()).length, 7, 'a partial upload never drops');
+  await ingest(db, {kind: 'pool', day: '2026-10-13', full: true, rows: pool(base.slice(0, 1))}, later);   // "full" but under half the stored pool: ignored
+  assert.equal((await names()).length, 7, 'a full upload holding under half the pool is ignored');
+  await ingest(db, {kind: 'pool', day: '2026-10-13', full: true, rows: pool([...base, 'Renamed row'])}, later);   // the real full list: the old name is gone
+  assert.ok(!(await names()).includes('old@career.hm.com (found 2026-10-10)'), 'the renamed row disappears');
+  assert.equal(db.db.prepare("SELECT COUNT(*) AS n FROM applying_runs WHERE name LIKE 'old@%'").get().n, 1, 'its run history stays');
+  await ingest(db, {kind: 'smoke', day: '2026-10-14', rows: [{name: 'old@career.hm.com (found 2026-10-10)', reached: 'posting'}]}, new Date('2026-10-14T12:00:00Z'));
+  assert.ok((await data(db, new Date('2026-10-14T12:00:00Z'))).pool.some(item => item.shape.startsWith('old@')), 'a dropped name runs again: it is back');
+  await ingest(db, {kind: 'pool', day: '2026-10-14', full: true, rows: pool([...base, 'Renamed row'])}, new Date('2026-10-14T13:00:00Z'));   // a later full upload: it stays visible only because it ran after being dropped
+  await ingest(db, {kind: 'pool', day: '2026-10-15', rows: pool(['old@career.hm.com (found 2026-10-10)'])}, new Date('2026-10-15T12:00:00Z'));   // listed again
+  assert.ok((await data(db, new Date('2026-10-15T12:00:00Z'))).pool.some(item => item.shape.startsWith('old@')), 'a dropped name uploaded again comes back');
+});

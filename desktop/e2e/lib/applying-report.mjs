@@ -53,14 +53,15 @@ export function uploadable(results, current) {
 }
 
 // -> a one-line outcome, for the run's own output.
-export async function upload(kind, rows, {env = process.env, key, fetcher = fetch, day = new Date().toISOString().slice(0, 10), onMain = buildOnMain} = {}) {
+// full: the rows are the WHOLE pool list (a pool upload only): the site then drops the names it lacks from the pool table (renamed or removed rows; hidden, not deleted).
+export async function upload(kind, rows, {env = process.env, key, fetcher = fetch, day = new Date().toISOString().slice(0, 10), onMain = buildOnMain, full = false} = {}) {
   const why = skipReason(env);
   if (why) return `applying report: not sent (${why})`;
   const token = ownerKey(key);
   if (!token) return 'applying report: not sent (no site key in the Keychain)';
   try {
     const answer = await fetcher(SITE, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Caller': 'applying-upload'},
-      body: JSON.stringify({kind, day, version: extensionVersion(), onMain: onMain(), rows}), signal: AbortSignal.timeout(20000)});
+      body: JSON.stringify({kind, day, version: extensionVersion(), onMain: onMain(), rows, ...(full ? {full: true} : {})}), signal: AbortSignal.timeout(20000)});
     const body = await answer.json().catch(() => ({}));
     return answer.ok ? `applying report: ${body.stored ?? 0} ${kind} row(s) sent to /admin/applying` : `applying report: refused (${answer.status} ${body.error || ''})`;
   } catch (error) { return `applying report: not sent (${String(error?.message || error).slice(0, 80)})`; }
