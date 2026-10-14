@@ -13,7 +13,7 @@ import {initOptional, showOptional} from './session-optional.js';
 import {jobsChanged} from './jobs.js';
 import {richText} from './rich-text.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, tabLost, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 import {pauseSession, removeSession, resumeSession, skipSession} from './session-actions.js';
 import {storeName} from '../store-words.js';
@@ -85,9 +85,18 @@ function renderSilent() {
     if (!result?.opened) toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Job Pilotto extension reports.');
   }, 'link'));
 }
+// The first look is over and no tab is known for the session: it says so and offers the one way forward, the same reopen every closed-tab button uses.
+function renderLost(item) {
+  renderChecking();
+  $('ss-decision').className = 'ss-next tone-warn';
+  $('ss-next-title').textContent = 'Tab not found';
+  $('ss-question').replaceChildren(el('p', 'rich-p', 'Job Pilotto can\'t find this application\'s tab in Chrome. It may still be open under another address. Open it again and the extension fills it from your kit; if the tab shows up by itself, this card updates.'));
+  $('ss-actions').replaceChildren(sessionButton('Open it again', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
+}
 export function renderNextStep(item) {
   if (checkingTab(item)) { renderChecking(); return; }
   if (silentChrome(item)) { renderSilent(); return; }
+  if (tabLost(item)) { renderLost(item); return; }
   const submitted = isSubmitted(item);
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
   const stopped = !submitted && item.kind === 'form' && item.stuck === 'stopped';   // the person pressed Stop: Reopen form starts it again

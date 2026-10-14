@@ -133,10 +133,34 @@ test('just after the app starts, a session waiting on its Chrome tab is "checkin
   assert.equal(checkingTabs(form, {known: true, ids: []}, 500), false);       // known: closed or open, the card says which
   assert.equal(checkingTabs(form, null, CHECK_MS + 1), false);                // no answer in time: the last state again
   // 12 Oct 2026 (owner: "the state is not reflecting the reality"): a tab nothing confirms is never "Form open", however long ago the app started.
-  assert.equal(checkingTabs(form, {known: true, ids: [], unsure: [form.id]}, CHECK_MS + 1), true);
+  assert.equal(checkingTabs(form, {known: true, ids: [], unsure: [form.id]}, 500), true);                // restart: unsure sessions check for CHECK_MS ...
+  assert.equal(checkingTabs(form, {known: true, ids: [], unsure: [form.id]}, CHECK_MS + 1), false);     // ... and no longer (14 Oct 2026: "Checking…" never ended)
   assert.equal(checkingTabs(form, {known: true, ids: [form.id], unsure: []}, 500), false);
   assert.equal(checkingTabs({...claude, live: true, status: 'running'}, null, 500), false);
   assert.equal(checkingTabs({...form, outcome: 'submitted', live: false}, null, 500), false);
+});
+
+test('after the first look an unsure session says "Tab not found": never checking for ever, never closed, open again once a tab shows up (14 Oct 2026)', async () => {
+  const {checkingTabs, tabClosed, tabNotFound, CHECK_MS} = await import('../renderer/session-state.js');
+  const items = [{id: 'f1', kind: 'form', status: 'done'}, {id: 'c1', kind: 'claude', live: false, status: 'input'}];
+  const restart = {known: true, ids: [], unsure: ['f1', 'c1']};
+  for (const item of items) {
+    assert.deepEqual([checkingTabs(item, restart, 1000), tabNotFound(item, restart, 1000)], [true, false], 'first look: checking');
+    assert.deepEqual([checkingTabs(item, restart, CHECK_MS + 1), tabNotFound(item, restart, CHECK_MS + 1)], [false, true], 'after it: tab not found');
+    assert.equal(tabClosed(item, restart, true), false, 'never "closed" for an unsure tab');
+    const found = {known: true, ids: [item.id], unsure: []};   // its tab showed up: by address or the extension's report
+    assert.deepEqual([checkingTabs(item, found, CHECK_MS + 1), tabNotFound(item, found, CHECK_MS + 1)], [false, false]);
+    assert.equal(tabNotFound(item, {known: true, ids: [], unsure: []}, CHECK_MS + 1), false, 'known gone is "closed", not "not found"');
+    assert.equal(tabNotFound(item, {known: false, ids: []}, CHECK_MS + 1), false, 'Chrome silent is its own state');
+    assert.equal(tabNotFound({...item, outcome: 'submitted'}, restart, CHECK_MS + 1), false);
+  }
+});
+
+test('every view of the tab state (list, dock, session title, next-step card) draws "Tab not found" from the one function', () => {
+  for (const file of ['sessions.js', 'session-log.js', 'session-next-step.js']) {
+    const source = fs.readFileSync(new URL(`../renderer/pages/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /tabLost\(item\)/, `${file} draws the state without tabLost`);
+  }
 });
 
 test('Applying in the menu counts every card in the list, whatever its state; the colour is the most urgent one', async () => {
