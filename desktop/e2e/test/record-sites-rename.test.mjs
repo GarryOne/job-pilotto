@@ -8,7 +8,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const ROOT = path.resolve(new URL('../../..', import.meta.url).pathname);
-const READERS = ['.github/replay-records-fetch.sh', '.github/workflows/record-sites.yml', 'desktop/e2e/captures.mjs', 'desktop/e2e/net-records-fetch.sh', 'desktop/e2e/pool-ci-wait.mjs'];
+const READERS = ['.github/workflows/record-sites.yml', 'desktop/e2e/captures.mjs', 'desktop/e2e/net-records-fetch.sh', 'desktop/e2e/pool-ci-wait.mjs'];
 const ALLOWED = [...READERS, 'tests/test_red_main.py', 'desktop/e2e/test/record-sites-rename.test.mjs'];
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
