@@ -68,10 +68,12 @@ export function workflowFiles(workflow, root = ROOT) {
     const run = line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);
     if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
   }
-  // desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: worker/src (shared/worker) and the extension (the rest).
-  const usesShared = [...files].some(file => /^desktop\//.test(file) && /\.m?js$/.test(file) && fs.existsSync(path.join(root, file)) && /shared\/worker\//.test(fs.readFileSync(path.join(root, file), 'utf8')));
+  // desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: shared/worker/<f> is worker/src/<f> (and what it imports),
+  // the rest are extension files (extension/** is listed whole).
+  const texts = [...files].filter(file => /\.m?js$/.test(file) && fs.existsSync(path.join(root, file))).map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+  const worker = [...texts.matchAll(/shared\/worker\/([\w./-]+\.js)/g)].map(found => `worker/src/${found[1]}`);
   for (const file of [...files]) if (file.startsWith('desktop/shared/')) files.delete(file);
-  if (usesShared) files.add('worker/src/');
+  for (const file of closure(root, worker, (spec, from) => [path.posix.join(path.posix.dirname(from), spec)], file => file.startsWith('worker/src/'))) files.add(file);
   return files;
 }
 
