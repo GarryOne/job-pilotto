@@ -83,3 +83,14 @@ export function settleRefusal(node, electron) {
   const fields = Object.fromEntries(ADOPTED.map(key => [key, electron[key]]));
   return {...fields, pathDifference: `plain node ${brief(node)}, Electron ${brief(electron)} (the site refused the plain path)`};
 }
+
+// A by-hand single-row recording (--only) visits its site ONCE (owner, 15 Oct 2026: an approved single visit became two when the paired Electron sample ran, and the host hit its
+// daily limit). A second visit (the paired sample, or the Electron re-run of a fallen or refused row) is for a pass over many rows, or asked for: SMOKE_PAIRED=<n> or SMOKE_ELECTRON_LEG=1.
+export const pairedSize = (env = process.env, only = '') => (env.SMOKE_PAIRED !== undefined && env.SMOKE_PAIRED !== '' ? Math.max(0, Number(env.SMOKE_PAIRED) || 0) : only ? 0 : 2);
+export const secondVisitsAllowed = (env = process.env, only = '') => !only || env.SMOKE_ELECTRON_LEG === '1' || pairedSize(env, only) > 0;
+// The line said before the run starts: how many hosts and visits it will make (a re-run of a fallen row is one more, only where second visits are allowed).
+export function visitPlan(chosen, pairs = new Set(), allowed = true) {
+  const host = item => { try { return new URL(item.urls?.[0] || '').hostname; } catch { return ''; } };
+  const hosts = new Set(chosen.map(host).filter(Boolean)), visits = chosen.length + chosen.filter(item => pairs.has(item.shape)).length;
+  return {hosts: hosts.size, visits, line: `smoke: this run will visit ${hosts.size} host(s) ${visits} time(s)${allowed ? ' (a row that falls below its last result is visited once more on Electron)' : ' (no second visit: a single-row run)'}`};
+}

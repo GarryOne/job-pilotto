@@ -124,6 +124,8 @@ test('settle waits for a request still in flight, so a press the site answers la
   context.emit('request', stuck);
   const capped = await rec.settle(80, {pollMs: 10});
   assert.equal(capped.unfinished, 1);
+  assert.deepEqual(capped.kinds, {fetch: 1}, 'the open request by its resource type, never its address');
+  assert.ok(!JSON.stringify(capped).includes('/api/never'));
   assert.ok(capped.waitedMs < 400, 'capped');
   assert.equal((await rec.settle(0)).unfinished, 1);
 });
