@@ -76,5 +76,25 @@ class PrBodyTest(unittest.TestCase):
             self.assertIn(missing, result.stderr)
 
 
+    def test_a_pr_that_changes_a_screen_is_refused_without_images(self):
+        # Owner, 28 Sep / 13 Oct 2026: a UI PR opens WITH before/after images; #774 (14 Oct) opened without them. The class: every screen folder.
+        ok = '### ✅ X\n\n- **Why:** the owner saw it\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n'
+        summary = self.tmp / 'summary.md'
+        def run(text):
+            summary.write_text(text)
+            return subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
+        for screen in ('desktop/renderer/pages/jobs.js', 'site/src/applying.js', 'site/public/index.html', 'extension/popup.css', 'desktop/renderer/styles.css'):
+            git(self.repo, 'reset', '-q', '--hard', self.base)
+            (self.repo / screen).parent.mkdir(parents=True, exist_ok=True); (self.repo / screen).write_text('x\n')
+            git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a screen')
+            result = run(ok)
+            self.assertEqual(result.returncode, 2, screen); self.assertIn('no before/after image', result.stderr)
+            self.assertEqual(run(ok + '\n| Before | After |\n|---|---|\n| ![before](https://x/b.png) | ![after](https://x/a.png) |\n').returncode, 0, screen)
+            self.assertEqual(run(ok + 'No screenshots: an API route, nothing drawn changed\n').returncode, 0, screen)
+        git(self.repo, 'reset', '-q', '--hard', self.base)
+        (self.repo / 'site' / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'site' / 'test' / 'a.test.js').write_text('x\n')
+        git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a test')
+        self.assertEqual(run(ok).returncode, 0, 'a change to no screen needs no image')
+
 if __name__ == '__main__':
     unittest.main()
