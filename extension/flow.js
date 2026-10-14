@@ -47,7 +47,7 @@ export function debuggerTurn(work) {
   return turn;
 }
 // Every awaited step of the clicks has a deadline, and a whole menu too: a control that never answers is given up on, the rest of the fill goes on (step-bound.js).
-const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 20000, combo: 45000};
+const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 20000, combo: 35000};
 // Menus given up on in this fill (a timeout, or the ceiling): a later pass does not wait on the same menu again, so one control costs the fill one wait, not one per pass (tab -> labels).
 const givenUp = new Map();
 export const forgetGivenUp = tabId => { givenUp.delete(tabId); };

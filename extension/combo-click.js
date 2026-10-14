@@ -7,7 +7,7 @@
 // busy time (14 Oct 2026, a loaded machine: the page's main thread was blocked 10-15 s after the click, so the extension's own calls hung and the wall clock ran out on a menu
 // that was only slow, "given up" and left): a call that took longer than slowCall (or a 100 ms sleep that woke later than that) is the page being busy, not the menu being dead; that time does not count against the waits or
 // the ceiling. `hard` bounds the whole menu in real time anyway (a page that never answers is still given up on; flow.js STEP_MS.combo is above it).
-const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000, hard: 40000, slowCall: 150};
+const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000, hard: 30000, slowCall: 150};
 
 // type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
 // page(func, args): runs func in the page (MAIN world). click(x, y): a trusted click. spot: the armed menu's spot from __jobPilottoNextCombo.

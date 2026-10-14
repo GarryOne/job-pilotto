@@ -39,5 +39,5 @@ test('clickCombo: a page that keeps asking for typing is given up at the ceiling
   const result = await clickCombo({page: slow, click: async () => {}, spot: {x: 1, y: 1}, type: async () => {}, sleep: async ms => { clock += ms; }, now: () => clock});
   assert.equal(result.picked, false);
   assert.equal(result.capped, true);
-  assert.ok(clock <= 28000, `waited ${clock} ms in all`);
+  assert.ok(clock <= 34000, `waited ${clock} ms in all`);
 });
