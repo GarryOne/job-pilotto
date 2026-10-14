@@ -28,7 +28,7 @@ import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
 import {capRows, ciLimits, electronLegs, stopReason} from './lib/pool-ci.mjs';
 import {endingOf, endingWord} from './lib/ending.mjs';
 import {isCi} from './lib/engine.mjs';
-import {electronLegRefused, visitsLeft, settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
+import {electronLegRefused, visitsLeft, settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pairedSize, pathDifferenceLine, secondVisitsAllowed, visitPlan} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -160,10 +160,11 @@ async function main() {
   console.log(engineLine(smokeEngine()));
   console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
   // The pool runs on plain node; a few rows each pass run on Electron too, the least recently paired first (lib/smoke-paths.mjs; SMOKE_PAIRED=0 skips).
-  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(chosen, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2), item => visitsLeft(item.urls?.[0] || '', guardLiveVisit) >= 2) : []);
+  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(chosen, lastPaired([...earlierList, ...today]), pairedSize(process.env, only), item => visitsLeft(item.urls?.[0] || '', guardLiveVisit) >= 2) : []);
   console.log(`smoke: paired sample this pass (plain node and Electron): ${[...pairs].join(', ') || 'none'}`);
-  const legs = electronLegs();   // CI: no second visit after a block page, and the runner has no Electron (lib/pool-ci.mjs)
-  if (!legs) console.log('smoke: no Electron leg on CI: a refused or fallen row is not visited again from the runner');
+  const legs = electronLegs() && secondVisitsAllowed(process.env, only);   // CI: no second visit after a block page, and the runner has no Electron (lib/pool-ci.mjs); a single-row run: none (lib/smoke-paths.mjs)
+  console.log(visitPlan(chosen, pairs, legs).line);   // before anything starts: the hosts and how many visits (a single-row recording is one)
+  if (!legs) console.log(`smoke: no Electron leg ${electronLegs() ? 'in a single-row run (SMOKE_ELECTRON_LEG=1 asks for one)' : 'on CI'}: a refused or fallen row is not visited again`);
   for (const {shape, like = [], urls = []} of chosen) {
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const aiDown = Object.entries(results).find(([, item]) => item.aiRefused);   // a refused AI: every later row would run without AI too

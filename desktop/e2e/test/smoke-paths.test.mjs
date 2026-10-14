@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 import os from 'node:os';
 import {guardLiveVisit} from '../lib/site-ledger.mjs';
 import {SITE_REFUSED, compare} from '../lib/smoke.mjs';
-import {agree, electronLegRefused, visitsLeft, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
+import {agree, electronLegRefused, visitsLeft, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pairedSize, pathDifferenceLine, secondVisitsAllowed, settleRefusal, visitPlan} from '../lib/smoke-paths.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL = 'https://jobs.example.org/1';
@@ -139,4 +139,22 @@ test('the paired sample picks only rows whose site has two visits left today; a 
 });
 test('smoke.mjs picks its paired sample by the visits left', () => {
   assert.match(fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8'), /pairedSample\([^\n]*visitsLeft\(/);
+});
+
+// 15 Oct 2026: the owner approved ONE Aldi visit; the smoke added its paired Electron sample and made two. A by-hand single row visits once and says so before it starts.
+test('a single-row run (--only) pairs nothing and allows no second visit unless asked; a pass over many rows keeps its paired sample', () => {
+  assert.equal(pairedSize({}, 'Aldi Suisse jobs'), 0);
+  assert.equal(secondVisitsAllowed({}, 'Aldi Suisse jobs'), false);
+  assert.equal(pairedSize({SMOKE_PAIRED: '1'}, 'Aldi Suisse jobs'), 1, 'asked for explicitly');
+  assert.equal(secondVisitsAllowed({SMOKE_ELECTRON_LEG: '1'}, 'x'), true);
+  assert.equal(pairedSize({}, ''), 2);
+  assert.equal(secondVisitsAllowed({}, ''), true);
+  assert.equal(pairedSize({SMOKE_PAIRED: '0'}, ''), 0);
+});
+test('the plan line names hosts and visits before anything starts', () => {
+  const rows = [{shape: 'A', urls: ['https://jobs.one.example/a']}, {shape: 'B', urls: ['https://jobs.one.example/b']}, {shape: 'C', urls: ['https://two.example/c']}];
+  assert.equal(visitPlan(rows.slice(0, 1), new Set(), false).line, 'smoke: this run will visit 1 host(s) 1 time(s) (no second visit: a single-row run)');
+  const plan = visitPlan(rows, new Set(['C']), true);
+  assert.deepEqual([plan.hosts, plan.visits], [2, 4]);
+  assert.match(plan.line, /^smoke: this run will visit 2 host\(s\) 4 time\(s\)/);
 });

@@ -37,7 +37,7 @@ export const headerText = value => { const text = String(value ?? ''); if (!/[\u
 
 // The live side. -> {flush(), settle(maxMs), result(): {entries, bodies}}
 // settle: a request still in flight when the window ends is never recorded (no 'finished' or 'failed' event yet), so a press the site had not answered left the record
-// stopping at a spinning button (15 Oct 2026, record-once spec). settle waits for the open ones, capped; -> {waitedMs, unfinished}.
+// stopping at a spinning button (15 Oct 2026, record-once spec). settle waits for the open ones, capped; -> {waitedMs, unfinished, kinds: {resource type: count}}.
 export function netRecorder(context, {startedAt = Date.now()} = {}) {
   const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
   context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
@@ -62,7 +62,9 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
   const settle = async (maxMs = 0, {pollMs = 200} = {}) => {
     const began = Date.now();
     while (inFlight.size && Date.now() - began < maxMs) await new Promise(resolve => setTimeout(resolve, pollMs));
-    return {waitedMs: Date.now() - began, unfinished: inFlight.size};
+    const kinds = {};   // the open requests by resource type (fetch, xhr, script, document...): a kind only, never an address
+    for (const request of inFlight) { const kind = String((typeof request.resourceType === 'function' && request.resourceType()) || 'other'); kinds[kind] = (kinds[kind] || 0) + 1; }
+    return {waitedMs: Date.now() - began, unfinished: inFlight.size, kinds};
   };
   return {settle, flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
 }

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {STILL_SECONDS, pageLines, signature, stillClock, stillSeconds} from '../lib/live-still.mjs';
+import {STILL_SECONDS, hardCapMs, pageLines, signature, stillClock, stillSeconds} from '../lib/live-still.mjs';
 
 // The run's loop in miniature: one reading a second, `at` seconds after the start; -> the second the run ends (or the limit).
 const watch = (readingAt, {limit = 90, seconds = STILL_SECONDS, opened = () => true} = {}) => {
@@ -136,4 +136,15 @@ test('every still-clock watch (live row, live e2e, row replay) uses the shorter 
     const source = fs.readFileSync(new URL(`../lib/${file}`, import.meta.url), 'utf8');
     if (/stillClock\(/.test(source)) assert.match(source, /quietSeconds\(/, `${file} watches with stillClock but ignores the run's end`);
   }
+});
+
+// 15 Oct 2026: a recording ended at 90 s while the extension was still on a step (plan-path asks ~28 s each). While it decides the run goes on, up to a hard cap.
+test('the hard cap is twice the limit while the extension is deciding, settable, never below the limit', () => {
+  assert.equal(hardCapMs(90, {}), 180000);
+  assert.equal(hardCapMs(90, {LIVE_HARD_SECONDS: '240'}), 240000);
+  assert.equal(hardCapMs(90, {LIVE_HARD_SECONDS: '10'}), 90000, 'never below the limit');
+  assert.equal(hardCapMs(90, {LIVE_HARD_SECONDS: '0'}), 90000, '0 = no extra time');
+  const source = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8');
+  assert.match(source, /ended by cap while the extension was still deciding/);
+  assert.match(source, /age >= hardMs \|\| \(age >= seconds \* 1000 && !deciding\)/);
 });

@@ -19,7 +19,7 @@ import {cssRecorder, personalValues, scrubPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {isDeciding} from './deciding.mjs';
-import {PAGE_LINE, quietSeconds, runEnded, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
+import {PAGE_LINE, hardCapMs, quietSeconds, runEnded, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {applyPoolEligibility, eligibilityOff} from './pool-eligibility.mjs';
@@ -101,7 +101,13 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     await run.page.goto(url, {waitUntil: 'domcontentloaded'}).catch(() => {});
     const clock = stillClock({seconds: stillSeconds, startedAt: Date.now()});
     let deciding = false, tabsAtEnd = null;
-    for (let turn = 0; Date.now() - started < seconds * 1000; turn++) {
+    // The limit is `seconds`; while the extension is still on a step (deciding) the run goes on up to a hard cap of twice that (record-once spec, 15 Oct 2026: a plan-path
+    // ask takes ~28 s and a press climbs 3-5 asks, so a 90 s end cut a recording while the extension still worked). LIVE_HARD_SECONDS sets it; 0 = no extra time.
+    const hardMs = hardCapMs(seconds);
+    let endedByCap = '';
+    for (let turn = 0; ; turn++) {
+      const age = Date.now() - started;
+      if (age >= hardMs || (age >= seconds * 1000 && !deciding)) { endedByCap = deciding ? `ended by cap while the extension was still deciding (${Math.round(hardMs / 1000)} s)` : ''; break; }
       const lines = app.logText().split('\n').filter(line => PAGE_LINE.test(line)).length;
       // Still = the page and its decisions stopped changing (as lib/apply-live.mjs: the extension's own check-ins to the app every few seconds are no news).
       const shape = await run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1)?.evaluate(() => `${location.href.split('#')[0]}|${document.querySelectorAll('input, select, textarea, button, a').length}`).catch(() => '');
@@ -116,6 +122,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       await wait(1500);
     }
     clearInterval(asks);
+    if (endedByCap) say(`live: ${endedByCap}`);
     const endedWhileDeciding = deciding;   // the limit came while the extension was still on a step: an error, not a finished run
     shotAsked = true;
     // The false readings at the end (lib/live-readings.mjs: contact boxes hold the applicant's values, the panel's count agrees with the page): pool-ci.mjs makes them red.
@@ -139,13 +146,13 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     else if (contradicted) say(`live: ${contradicted}: the site stays open (lib/site-ledger.mjs)`);
     if (net && !blocked) {   // a bot-check row keeps no record (spec); the record never goes into the plain captures
       const settled = await net.settle(Number(process.env.JP_NET_SETTLE_SECONDS ?? 20) * 1000);   // an answer still on its way is part of the journey
-      say(`live: network settled after ${(settled.waitedMs / 1000).toFixed(1)} s${settled.unfinished ? `, ${settled.unfinished} request(s) never answered` : ''}`);
+      say(`live: network settled after ${(settled.waitedMs / 1000).toFixed(1)} s${settled.unfinished ? `, ${settled.unfinished} request(s) never answered (${Object.entries(settled.kinds || {}).map(([kind, count]) => `${count} ${kind}`).join(', ')})` : ''}`);
       await net.flush();
       const kept = keepRecord(net.result()), dir = path.join(process.env.JP_NET_RECORD_DIR, `${(posting.title || new URL(url).host).replace(/\W+/g, '-')}-${Date.now()}`);
       fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
       for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
       const scrollbar = await run.page.evaluate(() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; }).catch(() => null);   // the replay draws the same (lib/scrollbar.mjs)
-      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, entries: kept.entries, stats: kept.stats}));
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, unfinishedKinds: settled.kinds || {}, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
     }

@@ -41,7 +41,7 @@ export function ownerValues({texts = appProfileTexts(), accountEmail, accountNam
   const values = personalValues(texts);
   for (const place of placesOf(texts)) if (!values.has(place)) values.set(place, 'location');
   for (const word of [...wordsOf(account.email.split('@')[0]), ...(account.names || []).flatMap(wordsOf)]) if (!values.has(word)) values.set(word, 'name');
-  if (account.email) values.set(account.email.toLowerCase(), 'account');
+  if (account.email && values.get(account.email.toLowerCase()) !== 'email') values.set(account.email.toLowerCase(), 'account');   // the same address as a profile e-mail stays 'email': one value, one kind, and the coverage line then says the e-mail is checked (15 Oct 2026: it said "NOT FOUND: email" while the address WAS checked, as 'account')
   return values;
 }
 

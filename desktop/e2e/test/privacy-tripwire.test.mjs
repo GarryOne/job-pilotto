@@ -9,7 +9,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 import {appProfileTexts} from '../lib/capture-page.mjs';
-import {coverageLine, matchesOwner, ownerValues, pageFields, tripwire} from '../lib/privacy-tripwire.mjs';
+import {coverage, coverageLine, matchesOwner, ownerValues, pageFields, tripwire} from '../lib/privacy-tripwire.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // An invented owner (never the real one): what his app's files and his Claude account would give.
@@ -134,4 +134,17 @@ test('a match deletes the end-of-run screenshot with the capture folder and says
   assert.equal(result.ok, false);
   assert.equal(fs.existsSync(path.join(capture, 'end.png')), false);
   assert.match(result.reason, /screenshots/);
+});
+
+// 15 Oct 2026: a Mac whose profile e-mail IS the signed-in account's printed "NOT FOUND on this computer: email" while the address was checked (stored as kind 'account'). The value
+// is the same, so the kind stays 'email'; and a different account e-mail still adds its own 'account'.
+test('the profile e-mail that is also the account e-mail is reported as checked, and is still matched', () => {
+  const same = ownerValues({texts: ['Email: ana.popescu@gmail.com\nName: Ana Popescu'], accountEmail: 'ana.popescu@gmail.com'});
+  assert.equal(same.get('ana.popescu@gmail.com'), 'email');
+  assert.ok(!coverage(same).missing.includes('email'), coverageLine(same));
+  assert.equal(matchesOwner([{label: 'Contact', value: 'Ana.Popescu@gmail.com'}], same).length > 0, true, 'still a hit');
+  const apart = ownerValues({texts: ['Email: ana.popescu@gmail.com'], accountEmail: 'anapopescu88@gmail.com'});
+  assert.equal(apart.get('ana.popescu@gmail.com'), 'email');
+  assert.equal(apart.get('anapopescu88@gmail.com'), 'account');
+  assert.ok(!coverage(ownerValues({texts: [], accountEmail: 'x.y@example.org'})).checks.includes('email'), 'an account e-mail alone is not claimed as a profile e-mail');
 });

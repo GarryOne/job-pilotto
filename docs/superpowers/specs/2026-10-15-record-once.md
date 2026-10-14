@@ -101,7 +101,7 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 - [x] History read; options weighed (proof: none: this spec)
 - [x] cc's go (15 Oct 2026: spec PR + PR 1; PR 2 on fixtures) (proof: none: this spec)
 - [x] PR 1: settle before ending a recording: an in-flight request is waited for (cap 20 s), the unfinished count is kept in record.json (proof: desktop/e2e/test/net-record.test.mjs). Found in code: a request still open at the end was never recorded.
-- [ ] PR 1b: Aldi's existing record read for the pending press (needs the Mac's records; $0)
+- [x] PR 1b: Aldi recorded once (15 Oct 2026, 2 visits by mistake): the run ended while the extension was still deciding, 3 requests never answered; the recorder now says its visits, records unanswered kinds and runs on while deciding (proof: desktop/e2e/test/smoke-paths.test.mjs)
 - [x] PR 2 (option a, Claude finishes the page) DROPPED: rung 5 starts a Claude CLI session on the person's own Chrome (`startClaude` → `apply.claudeOne`); the harness's test browser has no such command, driving it would be a new mechanism. The Aldi stop is not the extension's 8 s wait either: main fills a form inserted after a press answered 20 s late (proof: desktop/e2e/recorded/slow-answer-after-press-1/case.json)
 - [x] PR 3a: skills renamed, fix skill trimmed, the filling-review skill folded in (proof: desktop/test/skill-names.test.js)
 - [ ] PR 3b: signal 1 on /admin/applying

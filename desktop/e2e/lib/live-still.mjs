@@ -38,3 +38,7 @@ export function stillClock({seconds = STILL_SECONDS, startedAt = 0} = {}) {
 // How many of the app's log lines are about the page and the fill (the extension's, the review's, the page-kind's): the app's own heartbeat (a store call every 15 s) is not news.
 export const PAGE_LINE = /\[(extension|review|page-kind|applied|misses)\]/;
 export const pageLines = lines => lines.filter(line => PAGE_LINE.test(line)).length;
+
+// The most a live row runs while the extension is still on a step: twice its limit (record-once spec, 15 Oct 2026: a plan-path ask takes ~28 s and a press climbs 3-5 asks, so the
+// 90 s limit cut a recording while the extension still worked). LIVE_HARD_SECONDS sets it (never below the limit; 0 or below = no extra time).
+export const hardCapMs = (seconds, env = process.env) => (env.LIVE_HARD_SECONDS === undefined || env.LIVE_HARD_SECONDS === '' ? seconds * 2 : Math.max(seconds, Number(env.LIVE_HARD_SECONDS) || 0)) * 1000;
