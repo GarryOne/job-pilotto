@@ -11,6 +11,7 @@ import {digest, markdown} from './digest.js';
 import {proposalCard} from './proposal-digest.js';
 import {RESULT_STATES} from '../../desktop/lib/application-result.js';
 import {isOwner, esc, remember} from './stats.js';
+import {gate, isThin, thinWords} from './thin-data.js';
 
 export const WEEK = 7;
 // Real-use reasons (desktop/lib/question-labels.js LEFT_REASONS) in the order the page shows them, with what each means.
@@ -139,15 +140,17 @@ ${rows.map(row => `<tr><td>${esc(row.board)}</td><td class="n">${row.forms}</td>
 // From the learning digest (src/digest.js): efficiency day by day from every fill's record, and the top weaknesses.
 function learningSections(d) {
   if (!d) return '';
-  const p = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
+  const sample = d.sample, p = value => gate(sample, value, v => (v == null ? '–' : `${Math.round(v * 100)}%`));
+  const thin = isThin(sample);
   const days = d.daily.slice(-14).reverse();
   return `<section class="card"><h2>📈 Efficiency, day by day</h2><small class="muted">One anonymous record per fill (apps from 0.8.97). Filled = required questions the fill answered; needing nothing = forms complete with nothing answered by hand.</small>
 <div class="wrap"><table><tr><th>Day</th><th class="n">Forms</th><th class="n">Filled</th><th class="n">Needing nothing</th><th class="n">Never read /100</th><th class="n">Submitted</th><th class="n">Median time</th></tr>
-${days.map(x => `<tr><td>${esc(x.day)}</td><td class="n">${x.forms}</td><td class="n">${p(x.filledShare)}</td><td class="n">${p(x.formsNeedingNothing)}</td><td class="n">${x.unreadPer100 ?? '–'}</td><td class="n">${p(x.submittedShare)}</td><td class="n">${x.medianSeconds == null ? '–' : `${x.medianSeconds} s`}</td></tr>`).join('')
+${days.map(x => `<tr><td>${esc(x.day)}</td><td class="n">${x.forms}</td><td class="n">${p(x.filledShare)}</td><td class="n">${p(x.formsNeedingNothing)}</td><td class="n">${gate(sample, x.unreadPer100, v => v ?? '–')}</td><td class="n">${p(x.submittedShare)}</td><td class="n">${x.medianSeconds == null ? '–' : `${x.medianSeconds} s`}</td></tr>`).join('')
   || '<tr><td colspan="7" class="muted">No fill records yet: they start with extension 0.8.97.</td></tr>'}</table></div></section>
 <section class="card"><h2>🎯 Top weaknesses</h2><small class="muted">Ranked by impact (forms affected × required questions lost). The full digest, with evidence per release, for people and the weekly AI pass:
 <a href="/admin/form-filling/digest.md">Markdown</a> · <a href="/admin/form-filling/digest.json">JSON</a></small>
-<ol>${d.weaknesses.slice(0, 5).map(w => `<li><b>${esc(w.title)}</b> <span class="muted">· impact ${w.impact} · ${esc(w.area.split(':')[0])}</span></li>`).join('') || '<li class="muted">Nothing ranked yet.</li>'}</ol></section>`;
+${thin ? `<p><b>${esc(thinWords(sample))}.</b> <span class="muted">Not ranked; ${d.thisWeek.forms} forms · ${d.thisWeek.required} required questions this week.</span></p>`
+  : `<ol>${d.weaknesses.slice(0, 5).map(w => `<li><b>${esc(w.title)}</b> <span class="muted">· impact ${w.impact} · ${esc(w.area.split(':')[0])}</span></li>`).join('') || '<li class="muted">Nothing ranked yet.</li>'}</ol>`}</section>`;
 }
 
 const WORDS = {'submitted-clean': ['✅ Submitted, nothing changed by you', 'the extension filled every required field'], 'submitted-assisted': ['✍️ Submitted, you fixed fields', 'you answered or corrected at least one field'],
@@ -166,12 +169,12 @@ ${results.boards.map(b => `<tr><td>${esc(b.board)}</td><td class="n">${b.finishe
 }
 
 // This week per AI family, side by side (owner, 9 Oct 2026: Claude users and Codex/OpenAI users told apart).
-function familySection(families) {
+function familySection(families, sample) {
   if (!families) return '';
   const cell = value => (value === null || value === undefined ? '–' : value);
   const row = (key, label) => {
     const f = families[key];
-    return `<tr><td>${label}</td><td class="n">${f.fills}</td><td class="n">${f.finished ? `${pct({rate: f.successRate})} (${f.submitted}/${f.finished})` : '–'}</td><td class="n">${cell(f.leftPer100 === null ? null : num(f.leftPer100))}</td></tr>`;
+    return `<tr><td>${label}</td><td class="n">${f.fills}</td><td class="n">${f.finished ? `${pct({rate: f.successRate})} (${f.submitted}/${f.finished})` : '–'}</td><td class="n">${cell(f.leftPer100 === null || isThin(sample) ? null : num(f.leftPer100))}</td></tr>`;
   };
   return `<section class="card"><h2>🤖 By AI family, this week</h2><small class="muted">From each reporting install's latest health report: Claude = Claude Code or an Anthropic key; OpenAI = Codex or an OpenAI key. Unknown = counted before 9 Oct 2026, or no health report yet.</small>
 <div class="scroll"><table><tr><th>Family</th><th>Forms filled</th><th>Success (submitted ÷ finished)</th><th>Fields left empty per 100</th></tr>
@@ -186,7 +189,8 @@ export function page(data, url = new URL('https://www.jobpilotto.top/admin/form-
     : w?.filledShare == null ? null : {now: w.filledShare, before: l?.filledShare ?? null, words: 'this week vs last'};
   const blind = data.use.reasons.filter(x => x.group === 'blind spot');
   const blindNow = blind.reduce((s, x) => s + (x.rateNow || 0), 0), blindBefore = blind.reduce((s, x) => s + (x.rateBefore || 0), 0);
-  const haveUse = data.use.now.fills || data.use.before.fills;
+  const sample = data.learning?.sample, thin = isThin(sample);
+  const haveUse = (data.use.now.fills || data.use.before.fills) && !thin;
   const tile = (title, value, change, note) => `<section class="card tile"><small class="muted">${title}</small><b>${value} ${change}</b><small class="muted">${note}</small></section>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Form filling · Admin</title><link rel="icon" href="/favicon-32.png">
@@ -203,20 +207,20 @@ td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{t
 </style></head><body><main>
 <header><h1>📝 Form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last${data.family ? ` · ${esc(FAMILIES[data.family])} installs only` : ''}</span></header>
 ${familyLinks(url, data.family || '')}
-${familySection(data.families)}
+${familySection(data.families, data.learning?.sample)}
 ${answersSection(data.answers, trend)}
 <div class="tiles">
-${tile('✅ Filled (real use)', f ? `${Math.round(f.now * 100)}%` : '–', f ? trend(f.now, f.before) : '', `required questions the fill answered · ${f?.words || 'this week vs last'}: ${f?.before == null ? '–' : `${Math.round(f.before * 100)}%`} before · ${data.learning?.thisWeek?.forms || 0} forms this week`)}
-${tile('🕳️ Blind spots (real use)', haveUse ? num(blindNow) : '–', haveUse ? trend(blindNow, blindBefore, false) : '', `per 100 ${esc(data.use.unitNow)}: questions the fill never read · ${data.use.now.fills} forms this week`)}
+${thin ? tile('✅ Filled (real use)', 'Too few', '', esc(thinWords(sample))) : tile('✅ Filled (real use)', f ? `${Math.round(f.now * 100)}%` : '–', f ? trend(f.now, f.before) : '', `required questions the fill answered · ${f?.words || 'this week vs last'}: ${f?.before == null ? '–' : `${Math.round(f.before * 100)}%`} before · ${data.learning?.thisWeek?.forms || 0} forms this week`)}
+${tile('🕳️ Blind spots (real use)', thin ? 'Too few' : haveUse ? num(blindNow) : '–', haveUse ? trend(blindNow, blindBefore, false) : '', thin ? `${esc(thinWords(sample))} · ${data.use.now.fills} forms reported` : `per 100 ${esc(data.use.unitNow)}: questions the fill never read · ${data.use.now.fills} forms this week`)}
 ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${data.recipes.canary.n} canary</span>`, `verified · ${data.recipes.candidate.n} candidates (${data.recipes.candidate.fresh} new this week) · ${data.recipes.disabled.n} retired`)}
 </div>
 ${resultsSection(data.results)}
 ${proposalCard(data.learning?.proposals, esc)}
 ${learningSections(data.learning)}
 ${marksSection(data.marks)}
-<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. Per platform, against the pool's tests: <a href="/admin/applying">Applying tests → platform scorecard</a>.</small>
+<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. ${thin ? `<b>${esc(thinWords(sample))}:</b> counts only, no rate. ` : ''}Per platform, against the pool's tests: <a href="/admin/applying">Applying tests → platform scorecard</a>.</small>
 <div class="wrap"><table><tr><th>Why</th><th>Kind</th><th class="n">This week</th><th class="n">Per 100</th><th></th><th class="n">Last week</th></tr>
-${data.use.reasons.filter(x => x.now || x.before).map(x => `<tr><td>${esc(x.text)}</td><td class="muted">${esc(x.group)}</td><td class="n">${x.now}</td><td class="n">${num(x.rateNow)}</td><td>${trend(x.rateNow, x.rateBefore, false)}</td><td class="n muted">${num(x.rateBefore)}</td></tr>`).join('')
+${data.use.reasons.filter(x => x.now || x.before).map(x => `<tr><td>${esc(x.text)}</td><td class="muted">${esc(x.group)}</td><td class="n">${x.now}</td><td class="n">${thin ? '–' : num(x.rateNow)}</td><td>${thin ? '' : trend(x.rateNow, x.rateBefore, false)}</td><td class="n muted">${thin ? '–' : num(x.rateBefore)}</td></tr>`).join('')
   || '<tr><td colspan="6" class="muted">Nothing reported yet.</td></tr>'}</table></div></section>
 <section class="card"><h2>🧩 Recipe funnel</h2><small class="muted">Learned fixes for widgets, as data: proposed by a small model, rolled out by canary.</small>
 <table><tr><th class="n">Candidate</th><th class="n">Canary</th><th class="n">Verified</th><th class="n">Retired</th></tr><tr>${['candidate', 'canary', 'verified', 'disabled'].map(s => `<td class="n">${data.recipes[s].n}${data.recipes[s].fresh ? ` <span class="muted">(+${data.recipes[s].fresh})</span>` : ''}</td>`).join('')}</tr></table></section>

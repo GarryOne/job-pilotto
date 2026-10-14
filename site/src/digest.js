@@ -6,6 +6,7 @@
 
 import {proposalLines, proposalSection} from './proposal-digest.js';
 import {poolMarkdown, poolSection} from './digest-pool.js';
+import {gate, isThin, sampleOf, thinWords} from './thin-data.js';
 
 const DAY = 86400000;
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -112,7 +113,7 @@ export async function digest(db, now = new Date()) {
   }
   weaknesses.sort((a, b) => b.impact - a.impact);
   const proposals = proposalSection(await rows(db, 'SELECT * FROM proposal_use WHERE day >= ?', month), weekAgo, twoWeeks, byVersion);
-  return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
+  return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, sample: sampleOf(thisWeek), thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
     recent: {from: recentFrom, ...summarize(recent)}, earlier: summarize(earlier),
     daily, versions, boards, proposals, weaknesses: weaknesses.slice(0, 25),
     pool: poolSection(await rows(db, "SELECT * FROM fill_cards WHERE source = 'pool' AND day >= ?", weekAgo), thisWeek, AREA),
@@ -121,14 +122,17 @@ export async function digest(db, now = new Date()) {
       'filledShare = required questions the fill answered / required questions; formsNeedingNothing = forms left complete with nothing answered by hand.']};
 }
 
-const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 export function markdown(d) {
-  const t = d.thisWeek, l = d.lastWeek;
-  const lines = [`# Form-filling learning digest, ${d.period.from} → ${d.period.to}`, '',
-    `**This week:** ${t.forms} forms · required questions filled ${pct(t.filledShare)} (last week ${pct(l.filledShare)}) · proposed to confirm ${pct(t.proposedShare)} (${pct(l.proposedShare)}) · truly missing ${pct(t.missingShare)} (${pct(l.missingShare)}) · forms needing nothing from the person ${pct(t.formsNeedingNothing)} (${pct(l.formsNeedingNothing)}) · questions never read per 100 required ${t.unreadPer100 ?? '–'} (${l.unreadPer100 ?? '–'}) · submitted ${pct(t.submittedShare)}.`, '',
+  const t = d.thisWeek, l = d.lastWeek, thin = isThin(d.sample);
+  const pct = value => gate(d.sample, value, v => (v == null ? '–' : `${Math.round(v * 100)}%`));
+  const per100 = value => gate(d.sample, value, v => v ?? '–');
+  const lines = [`# Form-filling learning digest, ${d.period.from} → ${d.period.to}`, ''];
+  if (thin) lines.push(`> **${thinWords(d.sample)}.** Counts only below; no rate or ranking until then.`, '');
+  lines.push(`**This week:** ${t.forms} forms · required questions filled ${pct(t.filledShare)} (last week ${pct(l.filledShare)}) · proposed to confirm ${pct(t.proposedShare)} (${pct(l.proposedShare)}) · truly missing ${pct(t.missingShare)} (${pct(l.missingShare)}) · forms needing nothing from the person ${pct(t.formsNeedingNothing)} (${pct(l.formsNeedingNothing)}) · questions never read per 100 required ${per100(t.unreadPer100)} (${per100(l.unreadPer100)}) · submitted ${pct(t.submittedShare)}.`, '',
     `**Recent vs earlier** (since ${d.recent.from} vs the days before, this week): ${d.recent.forms} vs ${d.earlier.forms} forms · filled ${pct(d.recent.filledShare)} vs ${pct(d.earlier.filledShare)} · proposed ${pct(d.recent.proposedShare)} vs ${pct(d.earlier.proposedShare)} · truly missing ${pct(d.recent.missingShare)} vs ${pct(d.earlier.missingShare)}.`, '',
-    '## Top weaknesses (by impact)', ''];
-  d.weaknesses.forEach((w, i) => {
+    '## Top weaknesses (by impact)', '');
+  if (thin) lines.push(`Not ranked: ${thinWords(d.sample).toLowerCase()}.`);
+  else d.weaknesses.forEach((w, i) => {
     lines.push(`${i + 1}. **${w.title}** · impact ${w.impact} · id \`${w.id}\``, `   - area: ${w.area}`);
     if (w.now) lines.push(`   - this week: ${JSON.stringify(w.now)}${w.before ? ` · last week: ${JSON.stringify(w.before)}` : ''}`);
     if (w.recent) lines.push(`   - recent vs earlier (per 100 required): ${w.recent.per100 ?? '–'} (${w.recent.forms} forms) vs ${w.earlier.per100 ?? '–'} (${w.earlier.forms} forms)`);
@@ -137,9 +141,9 @@ export function markdown(d) {
     if (w.evidence) lines.push(`   - evidence: ${JSON.stringify(w.evidence)}`);
   });
   lines.push('', '## Per release', '', '| Version | Forms | Filled | Proposed | Missing | Needing nothing | Never read /100 |', '|---|---|---|---|---|---|---|',
-    ...d.versions.map(v => `| ${v.version} | ${v.forms} | ${pct(v.filledShare)} | ${pct(v.proposedShare)} | ${pct(v.missingShare)} | ${pct(v.formsNeedingNothing)} | ${v.unreadPer100 ?? '–'} |`),
+    ...d.versions.map(v => `| ${v.version} | ${v.forms} | ${pct(v.filledShare)} | ${pct(v.proposedShare)} | ${pct(v.missingShare)} | ${pct(v.formsNeedingNothing)} | ${per100(v.unreadPer100)} |`),
     '', '## Per board (this week)', '', '| Board | Forms | Filled | Needing nothing |', '|---|---|---|---|',
-    ...d.boards.map(b => `| ${b.board}${b.dropped ? ` ⚠ dropped (${pct(b.earlierFilledShare)} → ${pct(b.recentFilledShare)})` : ''} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
+    ...d.boards.map(b => `| ${b.board}${b.dropped && !thin ? ` ⚠ dropped (${pct(b.earlierFilledShare)} → ${pct(b.recentFilledShare)})` : ''} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
     '', '## Day by day', '', '| Day | Forms | Filled | Proposed | Missing | Needing nothing | Submitted |', '|---|---|---|---|---|---|---|',
     ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.proposedShare)} | ${pct(x.missingShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
     ...proposalLines(d.proposals), ...poolMarkdown(d.pool),
