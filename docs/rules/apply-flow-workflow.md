@@ -17,7 +17,7 @@
   Never a schedule. A replay that changed is our build, never a reason to re-record.
 - **Fix (3):** a 🔴 row on `/admin/applying` → Fixes → Needs a fix (one status per row: 🟢 works · 🟣 held on purpose · ⚪ site problem · 🔴 needs a fix).
   A "regression" row says whether it is **Our build** or **Site changed** (the same recording replayed on two builds).
-- **Verify (4):** a merge. "Needs live" means the fix took a route the recording never had: re-record that row with the full journey (step 1).
+- **Verify (4):** a merge. "Needs a recording" means the fix took a route the recording never had: re-record that row with the full journey (step 1).
 
 ## What a step never does
 - Never Submit, never a captcha or bot check, never past a login wall, never read a password field; the fake applicant only; the privacy tripwire on.

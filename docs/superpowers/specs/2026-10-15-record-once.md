@@ -109,6 +109,10 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 - **Floors:** the fake applicant, #754's guard and the tripwire on every plan-path call; no live site visit (the network is replayed); AI spend asked through cc with the measured cost, as for any paid run.
 - **Not built.** Open for the owner: whether the Mac replay is by hand (`npm run row -- --fill-memo "<row>"`) or runs by itself after a merge that changed an ask (a trigger, never a schedule).
 
+## Open items (not built)
+- **Replay fidelity, Datadog careers** (job-pilotto-cc, 14 Oct 2026): the row is out of replay (27ed5ae) because its nav links vary at read time, so the first ask differs from the recording. A kind of the "ask the recording lacks" problem from the page side: the recording holds one reading of a page that reads differently each time. Candidate directions: a read-time normalisation the memo key already has (loose keys), or recording the page's nav with the ask. Measured first, then decided.
+- **Stale pool names on /admin/applying** (14 Oct 2026, cc OK): a full pool upload drops the names it lacks (hidden, not deleted); tests: a renamed row disappears, a partial upload drops nothing, a dropped name returns if it runs again.
+
 ## Plan (PRs, each its own worktree `record-once-<part>`)
 1. **PR 1, Part C step 0 + settle:** measure the Aldi record; if a short window, wait for network quiet before ending a recording (all rows). Test: a fake site whose answer arrives at +20 s.
 2. **PR 2, Part C (a):** record-time takeover driver in the live row harness, flagged in the record, tripwire kept; test on a fixture shape (hand-made page, stub AI).

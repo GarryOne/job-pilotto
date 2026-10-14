@@ -8,7 +8,7 @@ const record = (day, outcome) => ({dir: `r/${day}`, at: at(day), startMs: Date.p
 const stuck = {reached: 'account', filled: null, left: null}, far = {reached: 'form', filled: 8, left: 2};
 const history = {commits: [{hash: 'abc', at: at('01')}], versions: []};
 
-test('a fix is replayed against the newest recording before it; without one the verdict is Needs live now', () => {
+test('a fix is replayed against the newest recording before it; without one the verdict is Needs a recording now', () => {
   const rows = new Map([['a', [record('10', stuck), record('13', far)]], ['b', [record('13', stuck)]]]);
   const ledger = [{site: 'a', commit: 'aaa1111', landedAt: at('12')}, {site: 'b', commit: 'bbb2222', landedAt: at('12')}, {site: 'c', commit: 'ccc3333', landedAt: at('12')}];
   const {jobs, verdicts} = plan({rows, ledger, history});

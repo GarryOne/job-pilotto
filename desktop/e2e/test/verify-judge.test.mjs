@@ -1,4 +1,4 @@
-// Verdicts of "Confirmed offline" (lib/verify-judge.mjs): a fix is confirmed only by two agreeing on-recording replays whose control holds; everything else says "Needs live". Pure: no browser.
+// Verdicts of "Confirmed offline" (lib/verify-judge.mjs): a fix is confirmed only by two agreeing on-recording replays whose control holds; everything else says "Needs a recording". Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {buildOf, compare, judgeFixed, judgeRegression} from '../lib/verify-judge.mjs';
