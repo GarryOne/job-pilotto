@@ -60,6 +60,7 @@ export function parseLive(output) {
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
     if (/fill: the posting asks for the application by email: reported to the app/.test(line)) digestHold = APPLY_BY_EMAIL;
     if (/fill: the page tells what to do: reported to the app/.test(line)) digestHold = PAGE_TELLS;
+    if (/fill: a broken page: reported as site_broken/.test(line)) digestHold = SITE_REFUSED;   // a page that never loads or answers 5xx (extension/ladder/site-broken.js): the site's own state, a hold like a refusal, not an unclear flow
     // The run's summary prints the digest line again after the fill lines, with a bare clock time ("  18:46:46 [extension] digest: ..."): the same line, not a later digest, so it never resets a hold.
     const digestOutcome = /^\s+\d\d:\d\d:\d\d \[/.test(line) ? null : line.match(/\bdigest: outcome=(\w+)/);
     if (digestOutcome) digestHold = DIGEST_HOLD[digestOutcome[1]] || '';

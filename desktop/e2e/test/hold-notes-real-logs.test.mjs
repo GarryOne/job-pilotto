@@ -23,6 +23,12 @@ const HOLDS = [
   {name: 'eligibility', output: log('none', 'did not fill: not eligible, needs a work permit {"host":"example.org"}'), note: 'eligibility stop: not eligible, needs a work permit'},
   {name: 'account first', output: ['page kind: account {"host":"example.org"}', 'fill: "a form came" after the press'].join('\n'), note: ACCOUNT_HELD},
 ];
+// A page that never loads (the site's own 5xx, "Error 500 – Technical issue"): the extension's fixed line is all the run has, no page kind was decided (Digitec, 13 Oct 2026: the pool said "Unclear").
+const BROKEN = [`  live +  0s: ${P}`,
+  '      log 23:09:36.600Z [extension] fill: the page could not be read {"host":"example.org","version":"0.9.468"}',
+  '      log 23:09:47.098Z [extension] fill: a broken page: reported as site_broken {"fromForm":false,"host":"example.org","kind":"unreadable","status":0,"tries":1,"version":"0.9.468"}',
+  'pageKind:', '  (none in the app log)'].join('\n');
+HOLDS.push({name: 'site error (a page that never loads)', output: BROKEN, note: SITE_REFUSED});
 test('every documented hold keeps its note when the summary reprints the digest line', () => {
   for (const hold of HOLDS) assert.equal(parseLive(hold.output).note, hold.note, hold.name);
 });
