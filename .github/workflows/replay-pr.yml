@@ -92,6 +92,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}   # read-only, job-pilotto-internal only (the Mac's records)
         run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
       - name: Replay this runner's rows with the PR's build
         if: steps.key.outputs.ok == '1'
