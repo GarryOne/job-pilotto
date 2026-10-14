@@ -15,8 +15,9 @@ import {outputOfLog, parseLive} from './lib/smoke.mjs';
 import {CONTACT} from './lib/apply-fixtures.mjs';
 import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
+import {shiftDate} from './lib/replay-date.mjs';
 
-const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
+const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
@@ -36,7 +37,8 @@ const browser = async options => {
   await run.context.addInitScript({path: path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'upload-events.js')});   // a fulfilled upload fires no upload events (lib/upload-events.js)
   // The live browser's scrollbar width (the record's own, else --linux-scrollbar for a record made before it: a CI runner draws 15 px, a Mac none)
   await forceScrollbar(run.context, Number.isFinite(record.scrollbar) ? record.scrollbar : SCROLLBAR ? 15 : undefined);
-  if (!NO_CLOCK) await run.context.clock.install({time: record.startMs});
+  // The live run's date with real timers (lib/replay-date.mjs); --fake-timers is the old Playwright clock (it also fakes timers), --no-clock leaves the date alone.
+  if (!NO_CLOCK) await (FAKE_TIMERS ? run.context.clock.install({time: record.startMs}) : shiftDate(run.context, record.startMs));
   if (CPU > 1) await (await run.context.newCDPSession(run.page)).send('Emulation.setCPUThrottlingRate', {rate: CPU});   // a CI runner is slower than a Mac: --cpu=4 slows this browser to about its pace
   const pageLog = page => { page.on('pageerror', error => fs.appendFileSync(path.join(out, 'page-errors.txt'), `pageerror ${String(error.message).slice(0, 300)}\n`)); page.on('console', message => { if (['error', 'warning'].includes(message.type())) fs.appendFileSync(path.join(out, 'page-errors.txt'), `${message.type()} ${message.text().slice(0, 300)}\n`); }); };
   run.context.pages().forEach(pageLog); run.context.on('page', pageLog);
