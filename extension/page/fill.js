@@ -166,7 +166,8 @@
     if (window.__jobPilottoCoverage) {
       // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on
       // the page (and in the audit) without its question ever having been asked.
-      const read = [...form.map(row => row.label), ...(window.__jobPilottoOperatedQuestions || [])];
+      // The upload slots' titles too (page/upload.js): their own rows say filled or left, even while the page redraws a field after the file went in.
+      const read = [...form.map(row => row.label), ...(window.__jobPilottoOperatedQuestions || []), ...uploads.map(item => item.label).filter(Boolean)];
       for (const item of window.__jobPilottoCoverage.unread(document, read, visible)) {
         item.area.setAttribute('data-jobpilotto-unread', item.question);
         unread.push(item);
