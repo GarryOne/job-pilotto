@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {CONTACT} from './apply-fixtures.mjs';
 import {appProfileTexts, personalValues} from './capture-page.mjs';
+import {matchesOwner} from '../../../worker/src/owner-guard.js';
 
 // The signed-in Claude account on this Mac (~/.claude.json oauthAccount): read here only, never printed. -> {email, names}
 export function claudeAccount(file = path.join(os.homedir(), '.claude.json')) {
@@ -44,24 +45,7 @@ export function ownerValues({texts = appProfileTexts(), accountEmail, accountNam
   return values;
 }
 
-const lastNine = digits => digits.slice(-9);
-const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-// typed: [{label, value}] -> [{kind, label}] for each field holding one of the owner's values (one hit per field; never the value).
-export function matchesOwner(typed, values) {
-  const hits = [];
-  for (const {label, value} of typed) {
-    const text = String(value || '').toLowerCase(), digits = text.replace(/\D/g, '');
-    if (!text.trim()) continue;
-    for (const [owned, kind] of values) {
-      const hit = kind === 'phone' ? digits.length >= 9 && owned.length >= 9 && lastNine(digits) === lastNine(owned)
-        : kind === 'name' || kind === 'location' ? new RegExp(`(^|[^\\p{L}\\p{N}])${escape(plain(owned))}($|[^\\p{L}\\p{N}])`, 'u').test(plain(text))
-          : text.includes(owned);
-      if (hit) { hits.push({kind, label: String(label || '').slice(0, 60)}); break; }
-    }
-  }
-  return hits;
-}
+export {matchesOwner};   // the matcher is shared with the answer step (worker/src/owner-guard.js): the same list is checked before a keystroke and after
 
 // Runs in each frame: every field the page holds a value in, with its label (a password field is never read).
 function fieldsInPage() {

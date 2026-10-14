@@ -2,6 +2,7 @@
 // Launch the real Job Pilotto app (Electron) with a throwaway profile, like a first-time user, and drive it through Playwright.
 // Nothing here touches the real user's data: JOB_PILOTTO_USER_DATA points at a fresh temp folder and no .env is read.
 import {journey} from './journey.mjs';
+import {ownerGuardEnv} from './owner-guard-env.mjs';
 import {_electron as electron} from 'playwright-core';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -40,7 +41,7 @@ export async function launch({env = {}, executablePath, args, profile: again, la
     // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
     // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
     // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
-    env: withoutWrappers({...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: hidden(), ...env}),
+    env: withoutWrappers({...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', ...ownerGuardEnv(), JOB_PILOTTO_E2E_HIDDEN: hidden(), ...env}),
     timeout: 90000,
   });
   const page = await app.firstWindow();

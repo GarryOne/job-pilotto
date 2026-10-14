@@ -141,7 +141,7 @@ export async function runLive(ctx, h) {
         if (now !== last) { console.log(`  live ${at()}: session ${session?.stage || '-'}/${session?.status || '-'}; ${states.join(' | ') || 'no tab'}`); last = now; changedAt = Date.now(); stalled = false; }
         // The app's own lines, as they arrive (what the extension decided and why).
         const all = appLogLines(ctx.profile);
-        for (const line of all.slice(seen.lines).filter(item => /\[(extension|review|page-kind)\]/.test(item))) { const shown = line.slice(11, 230), same = shown.replace(/^\S+ /, ''); if (same !== lastLine) console.log(`      log ${shown}`); lastLine = same; }   // a repeated line is said once
+        for (const line of all.slice(seen.lines).filter(item => /\[(extension|review|page-kind|privacy)\]/.test(item))) { const shown = line.slice(11, 230), same = shown.replace(/^\S+ /, ''); if (same !== lastLine) console.log(`      log ${shown}`); lastLine = same; }   // a repeated line is said once
         // The fill's field list, whole, one line a field (lib/smoke.mjs fieldLines); parseLive reads them.
         for (const line of all.slice(seen.lines)) for (const text of fieldLines(line)) console.log(text);
         seen.lines = all.length;
