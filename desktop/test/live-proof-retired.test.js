@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const RETIRED = /pool-proven|unproven-fixes|uploadProven|pool-proof\.yml|PR_PROOF_ANTHROPIC_KEY|pr-live-proof|applying\/proven|applying-proven|JOB_PILOTTO_SITE_RESERVE|\bProven live\b/;
+const RETIRED = /pool-proven|unproven-fixes|uploadProven|pool-proof\.yml|PR_PROOF_ANTHROPIC_KEY|pr-live-proof|applying\/proven|applying-proven|JOB_PILOTTO_SITE_RESERVE|\bProven live\b|\bNeeds live\b/;   // "Needs live" became "Needs a recording" (15 Oct 2026): no verdict word may ask for a live run
 const KEEP = [/^docs\/superpowers\//, /^docs\/rules\/why\.md$/, /^site\/migrations\//, /^desktop\/test\/live-proof-retired\.test\.js$/, /^desktop\/e2e\/test\/pool-ci-triggers\.test\.mjs$/, /^site\/test\/applying-replays\.test\.js$/];   // history, and the guards that name what must not return
 const KEPT_FOR_OLD_ROWS = [/^site\/src\/jobcost\.js$/];   // an old /admin/ai-cost row keeps its job's label
 
@@ -26,5 +26,7 @@ test('no tracked file still uses a retired live-proof piece', () => {
 test('the reader finds a retired piece (positive control)', () => {
   assert.match('lib/pool-proven.mjs', RETIRED);
   assert.match('Not Proven live', RETIRED);
+  assert.match('Needs live', RETIRED);
+  assert.doesNotMatch('Needs a recording', RETIRED);
   assert.doesNotMatch('Confirmed offline', RETIRED);
 });
