@@ -16,13 +16,14 @@ When nothing saved settles it (a place the permit does not name, another currenc
 // 12 Oct 2026). The AI still marks it (use "propose" or fact "none"); the code types it and keeps guess: true so the app can say so.
 // Still only proposed: a contact detail or a link (the identity and link floors below decide those), a preference (whether the applicant
 // is kept informed) and a knockout guess (owner, 9 Oct 2026; f519229: an unplaced sponsorship question typed "No sponsorship needed" on a
-// UK role): a knockout that follows from a saved fact is typed by the rule above, a guessed one is the employer's reason to reject. Legal, demographic and own-words (written) questions keep their own rules: never touched here (12 Oct 2026: a floor here
+// UK role): a knockout that follows from a saved fact is typed by the rule above, a guessed one is the employer's reason to reject; and a guess
+// the AI rates low (its scale: "low when the applicant should check it"; owner, 14 Oct 2026: "still proposing where we have a lower confidence"). Legal, demographic and own-words (written) questions keep their own rules: never touched here (12 Oct 2026: a floor here
 // turned Lever's typed decline-to-answer into a proposal, which the demographic floor then dropped).
 const KEPT_PROPOSED = ['legal', 'demographic', 'written', 'contact', 'preference', 'knockout'];
 export function typeGuess(answer) {
   const guess = answer.use === 'propose' || answer.fact === 'none';
   if (!guess || answer.value === '' || ['legal', 'demographic', 'written'].includes(answer.category)) return answer;
-  const kept = KEPT_PROPOSED.includes(answer.category) || ['contact', 'home_location', 'links'].includes(answer.fact)
+  const kept = KEPT_PROPOSED.includes(answer.category) || ['contact', 'home_location', 'links'].includes(answer.fact) || answer.confidence === 'low'
     || /^(https?:\/\/|www\.)\S+$/i.test(String(answer.value || '').trim());
   return kept ? {...answer, use: 'propose'} : {...answer, use: 'fill', guess: true};
 }
