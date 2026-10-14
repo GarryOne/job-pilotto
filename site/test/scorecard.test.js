@@ -1,4 +1,4 @@
-// The platform scorecard on /admin/applying (src/scorecard.js): one row per platform joining real use (matched jobs, the fill cards the form-filling digest reads) with the
+// The platform scorecard on /admin/lab-form-filling (src/scorecard.js): one row per platform joining real use (matched jobs, the fill cards the form-filling digest reads) with the
 // pool's tests, and one fixed verdict that says what to do next. Guard: this file.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';

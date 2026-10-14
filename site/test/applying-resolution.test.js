@@ -1,4 +1,4 @@
-// The Resolution tile of /admin/applying (src/applying-resolution.js; the outcome contract, spec docs/superpowers/specs/2026-10-12-one-next-move.md phase 1a): each pool row's newest
+// The Resolution tile of /admin/lab-form-filling (src/applying-resolution.js; the outcome contract, spec docs/superpowers/specs/2026-10-12-one-next-move.md phase 1a): each pool row's newest
 // ending (the owner's Mac uploads and CI's runs on main), the share resolved raw and weighted by real demand with its sample per platform, the rows held by the test apart, the
 // unresolved rows first, and a weekly trend. CI's endings arrive with the narrow key, in one write.
 import assert from 'node:assert/strict';

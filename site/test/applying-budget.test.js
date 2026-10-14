@@ -1,4 +1,4 @@
-// D1 budget guard (11 Oct 2026, the free plan's daily limit was hit): one /admin/applying load, cold and warm, touches no big table and reads few rows; an upload drops the snapshot.
+// D1 budget guard (11 Oct 2026, the free plan's daily limit was hit): one /admin/lab-form-filling load, cold and warm, touches no big table and reads few rows; an upload drops the snapshot.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';

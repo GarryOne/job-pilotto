@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prints the "Needs a fix" order of /admin/applying, worst first, with the page's own sort (site/src/applying-order.js: the page embeds the same function, so they cannot disagree).
+// Prints the "Needs a fix" order of /admin/lab-form-filling, worst first, with the page's own sort (site/src/applying-order.js: the page embeds the same function, so they cannot disagree).
 // Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: a saved copy of the page's data at most 15 minutes old (--refresh fetches it again).
 // Usage: node tools/needs-fix-order.mjs [--json <file>]   (--json reads a saved copy of the page's ?json instead of the site)
 // Columns: rank, shape (the pool row's name), platform, reached, filled/left of the last run, claimed (when a session took the shape: its time only, never the session).

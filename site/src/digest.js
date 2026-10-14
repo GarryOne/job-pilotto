@@ -1,7 +1,7 @@
 // The form-filling learning digest: how well the filling does, day by day and per release, and its weaknesses ranked by impact,
 // each with its evidence and the area a fix belongs to. Built from what the site keeps (fill_cards, control_outcomes,
 // control_samples, question_labels): counts, fixed words and the forms' own public wording only. Served as JSON and Markdown on
-// /admin/form-filling/digest.json|.md (any admin; the scripts' key too), read by the weekly LLM pass in the private repo
+// /admin/real-form-filling/digest.json|.md (any admin; the scripts' key too), read by the weekly LLM pass in the private repo
 // (digest/propose.mjs) that turns the top weaknesses into proposals. Design: Notion "The self-learning loop".
 
 import {proposalLines, proposalSection} from './proposal-digest.js';

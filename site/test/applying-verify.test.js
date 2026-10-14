@@ -1,4 +1,4 @@
-// "Confirmed offline" on /admin/applying (src/applying-verify.js): only the publish key writes, a verdict keeps fixed words only, the newest verdict of a row replaces its old one,
+// "Confirmed offline" on /admin/lab-form-filling (src/applying-verify.js): only the publish key writes, a verdict keeps fixed words only, the newest verdict of a row replaces its old one,
 // an identical upload writes nothing, and the Fixed tab's data carries each fix's verdict.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';

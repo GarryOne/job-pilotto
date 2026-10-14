@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prints the "Needs a fix" rows grouped by cause, as /admin/applying's "By cause" tab does (site/src/applying-groups.js: the page embeds the same function, so they cannot disagree):
+// Prints the "Needs a fix" rows grouped by cause, as /admin/lab-form-filling's "By cause" tab does (site/src/applying-groups.js: the page embeds the same function, so they cannot disagree):
 // "Run first" (never run, or the last run is older than a fix landed for that row: a pool run, not a fix), one group per top cause, then the rows with no cause recorded.
 // Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: a saved copy of the page's data at most 15 minutes old (--refresh fetches it again).
 // Usage: node tools/needs-fix-causes.mjs [--rows] [--json <file>] [--brief "<cause>" [--note "<one line>"]]   (--brief prints a ready fixer prompt for that cause: tools/fixer-brief.mjs; "Run first" refuses, exit 1)

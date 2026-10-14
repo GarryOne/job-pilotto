@@ -1,4 +1,4 @@
-// /admin/applying's Resolution tile, the page's headline (the outcome contract, owner 12 Oct 2026; spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): every application
+// /admin/lab-form-filling's Resolution tile, the page's headline (the outcome contract, owner 12 Oct 2026; spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): every application
 // ends in one fixed ending (extension/ladder/endings.js); this is each pool row's NEWEST ending, from the owner's Mac uploads of main's build (applying_runs.ending, on_main = 1: a
 // branch's run never counts, migration 0061) and CI's pool runs on main
 // (PUT /applying/endings, the narrow REPLAYS_PUBLISH_KEY, one row of the last 600 records), the share resolved raw and weighted by real demand (the scorecard's match share, with the

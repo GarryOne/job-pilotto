@@ -61,7 +61,7 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.AI_COST_PUBLISH_KEY != ''
         working-directory: site
         run: ../tools/cf-retry.sh bash -c 'printf "%s" "$AI_COST_PUBLISH_KEY" | npx --yes wrangler@4 secret put AI_COST_PUBLISH_KEY --config wrangler.toml'
-      # The key CI uses to send the recorded replays of main to /admin/applying (page-cases.yml, desktop/e2e/replays-report.mjs): it can write that table only.
+      # The key CI uses to send the recorded replays of main to /admin/lab-form-filling (page-cases.yml, desktop/e2e/replays-report.mjs): it can write that table only.
       - name: The publish key of the Fixed-site replays
         if: env.CLOUDFLARE_API_TOKEN != '' && env.REPLAYS_PUBLISH_KEY != ''
         working-directory: site

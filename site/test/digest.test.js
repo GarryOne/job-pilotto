@@ -6,7 +6,8 @@ import {test} from 'node:test';
 import worker from '../src/index.js';
 import {byVersion, digest, markdown} from '../src/digest.js';
 import {report} from '../src/formlearning.js';
-import {page} from '../src/form-page.js';
+import {page} from '../src/real-form-filling.js';
+import {page as learningPage} from '../src/form-learning.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -66,7 +67,7 @@ test('proposed answers: the app\'s counts arrive through /api/controls and the d
   assert.deepEqual(d.proposals.byVersion.map(v => [v.version, v.shown]), [['0.6.0', 5]]);
   const md = markdown(d);
   assert.ok(md.includes('## Proposed answers') && md.includes('| fill_guess | 4 | 50% | 25% | 25% |'), md.slice(md.indexOf('## Proposed')));
-  const html = page(await report(e.STATS, new Date()), new URL('https://www.jobpilotto.top/admin/form-filling'));
+  const html = learningPage(await report(e.STATS, new Date()), new URL('https://www.jobpilotto.top/admin/form-learning'));
   assert.match(html, /🎯 Proposed answers: used as proposed/);
   assert.match(html, /<td>fill_guess<\/td><td class="n">4<\/td><td class="n">50%<\/td>/);
 });
@@ -79,9 +80,9 @@ test('fill records and their Submit arrive through /api/controls; the digest is 
   const row = e.STATS.db.prepare('SELECT * FROM fill_cards').get();
   assert.deepEqual([row.board, row.version, row.required, row.filled, row.causes, row.submitted, row.by_you], ['ashby', '0.8.97', 5, 4, '{"ai_unsure":1}', 1, 1]);
   const get = (path, headers = {}) => worker.fetch(new Request(`https://w.dev${path}`, {headers}), e, {});
-  assert.equal((await get('/admin/form-filling/digest.json')).status, 404);
-  assert.equal((await get('/admin/form-filling/digest.json', {Authorization: 'Bearer api'})).status, 200);
-  assert.match(await (await get('/admin/form-filling/digest.md', {Authorization: 'Bearer api'})).text(), /^# Form-filling learning digest/);
+  assert.equal((await get('/admin/real-form-filling/digest.json')).status, 404);
+  assert.equal((await get('/admin/real-form-filling/digest.json', {Authorization: 'Bearer api'})).status, 200);
+  assert.match(await (await get('/admin/real-form-filling/digest.md', {Authorization: 'Bearer api'})).text(), /^# Form-filling learning digest/);
 });
 
 // The form lab was retired 9 Oct 2026 (owner): its endpoint (runs in, plan out) is gone.

@@ -1,11 +1,11 @@
-// The owner's /smart-form-filling page (src/formlearning.js): real-use misses per 100 required questions and the recipe funnel, this
+// The owner's /admin/real-form-filling page (src/formlearning.js): real-use misses per 100 required questions and the recipe funnel, this
 // week vs last, from the tables the site already keeps. The form lab was retired 9 Oct 2026: nothing of it is shown.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {report, resultsFrom} from '../src/formlearning.js';
-import {page, view} from '../src/form-page.js';
+import {page, view} from '../src/real-form-filling.js';
 import {FLOW_STATES} from '../src/knowledge.js';
 
 function d1() {
@@ -32,7 +32,7 @@ test('this week vs last: real-use misses per 100 required questions and recipes;
   assert.deepEqual([unread.rateNow, unread.rateBefore, data.use.unitNow], [6, 15, 'required questions']);
   assert.deepEqual([data.recipes.verified.n, data.recipes.candidate.n, data.recipes.candidate.fresh], [1, 1, 1]);
   const html = page(data);
-  for (const text of ['Form filling', 'Filled (real use)', 'Required question on the page, not read']) assert.ok(html.includes(text), text);
+  for (const text of ['Real Form Filling', 'Filled (real use)', 'Required question on the page, not read']) assert.ok(html.includes(text), text);
   for (const text of ['(lab)', 'The lab, per board', 'the lab could not read']) assert.ok(!html.includes(text), text);
 });
 
@@ -45,8 +45,8 @@ test('an app that sends no required count is measured per 100 forms', async () =
 });
 
 test('owner-only: the page is a 404 without the stats key', async () => {
-  assert.equal((await view(new Request('https://x.dev/smart-form-filling'), {STATS_KEY: 'secret', STATS: d1()}, now)).status, 404);
-  const ok = await view(new Request('https://x.dev/smart-form-filling', {headers: {Authorization: 'Bearer secret'}}), {STATS_KEY: 'secret', STATS: d1()}, now);
+  assert.equal((await view(new Request('https://x.dev/admin/real-form-filling'), {STATS_KEY: 'secret', STATS: d1()}, now)).status, 404);
+  const ok = await view(new Request('https://x.dev/admin/real-form-filling', {headers: {Authorization: 'Bearer secret'}}), {STATS_KEY: 'secret', STATS: d1()}, now);
   assert.equal(ok.status, 200);
   assert.ok((await ok.text()).includes('Filled (real use)'));
 });
@@ -74,7 +74,7 @@ test('the results block is honest when nothing was reported yet, and the site ac
 });
 
 test('the page links to the applying scorecard, where real use meets the pool\'s tests', () => {
-  assert.match(readFileSync(new URL('../src/form-page.js', import.meta.url), 'utf8'), /href="\/admin\/applying">Applying tests → platform scorecard/);
+  assert.match(readFileSync(new URL('../src/form-sections.js', import.meta.url), 'utf8'), /href="\/admin\/lab-form-filling">Lab Form Filling → platform scorecard/);
 });
 
 test('the "*" cross-check flags a board whose marks far exceed the required count', async () => {

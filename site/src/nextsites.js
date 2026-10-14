@@ -1,4 +1,4 @@
-// "Next sites to add" on /admin/applying: first the PLATFORMS (a fixed public list) most matched jobs are on that the pool covers too little, from any number of installs (owner,
+// "Next sites to add" on /admin/lab-form-filling: first the PLATFORMS (a fixed public list) most matched jobs are on that the pool covers too little, from any number of installs (owner,
 // 10 Oct 2026: most of the matches on Workday and no Workday site in the pool comes first, even from one install); then the hosts real users' applications ended on that the smoke pool lacks, from the k >= 3 aggregate only (src/hostuse.js: a host with
 // fewer than 3 installs is never listed, no install is ever named). Ranked by installs, then uses; each row says its platform, how many pool sites that platform already has,
 // and the countries of the installs that used it (a country with fewer than 3 installs is "other"). Guard: test/nextsites.test.js.

@@ -51,7 +51,7 @@ export async function report(db, now = new Date()) {
   const fresh = await rows(db, `SELECT COUNT(*) AS n FROM (SELECT fingerprint FROM telemetry WHERE kind IN ${PROBLEMS} GROUP BY fingerprint HAVING MIN(day) >= ?)`, weekAgo);
   if (fresh[0]?.n) attention.push({page: '/admin/app', text: `${fresh[0].n} new problem${fresh[0].n === 1 ? '' : 's'} reported by the apps this week`, tone: 'bad'});
   const r = cards['form-filling'][0].values;
-  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/form-filling', text: `Required questions filled fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
+  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/real-form-filling', text: `Required questions filled fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
   if (recall && recall.planted && recall.caught < recall.planted) attention.push({page: '/admin/self-healing', text: `Self-healing missed ${recall.planted - recall.caught} of ${recall.planted} planted bugs`, tone: 'bad'});
   const c = cards['ai-cost'][0].values;
   if (last(c) != null && prev(c) && last(c) > 1.5 * prev(c) && last(c) - prev(c) > 1) attention.push({page: '/admin/ai-cost', text: `AI cost up from ${usd(prev(c))} to ${usd(last(c))} this week`, tone: 'warn'});

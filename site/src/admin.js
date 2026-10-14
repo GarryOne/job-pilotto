@@ -12,15 +12,18 @@ export const PAGES = [
   {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
   {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
-  {path: '/admin/form-filling', group: 'Intelligence', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
+  {path: '/admin/form-learning', group: 'Intelligence', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', name: 'Form Learning', icon: '🧬'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
   {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
-  {path: '/admin/applying', group: 'Operations', question: 'Is applying reliable: do the sites we fixed stay fixed, and did a real site change?', name: 'Applying tests', icon: '🛡️'},
+  {path: '/admin/real-form-filling', group: 'Operations', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], name: 'Real Form Filling', icon: '📝'},
+  {path: '/admin/lab-form-filling', group: 'Operations', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', name: 'Lab Form Filling', icon: '🛡️'},
   {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
-const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));
+// Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
+const OLD = {...Object.fromEntries(PAGES.flatMap(page => [page.old].flat().filter(Boolean).map(old => [old, page.path]))),
+  '/admin/form-filling/digest.json': '/admin/real-form-filling/digest.json', '/admin/form-filling/digest.md': '/admin/real-form-filling/digest.md'};
 
 // An old address: the owner is sent to the new one (query kept, so ?key= and ?days= still work); anyone else gets the 404 they got.
 export async function redirectOld(request, env) {

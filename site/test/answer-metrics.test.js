@@ -6,7 +6,8 @@ import {test} from 'node:test';
 import {medianBucket, ratesOf} from '../src/answer-metrics.js';
 import {store, tidy} from '../src/knowledge.js';
 import {report} from '../src/formlearning.js';
-import {page} from '../src/form-page.js';
+import {page} from '../src/real-form-filling.js';
+import {page as learningPage} from '../src/form-learning.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -50,7 +51,7 @@ test('the rates: kept and left empty per question, wrong field per answer return
   assert.equal(ratesOf(undefined).keptRate, null);
 });
 
-test('/admin/form-filling shows the answers per family, this week against last', async () => {
+test('/admin/real-form-filling shows the answers per family, this week against last', async () => {
   const {d1: STATS} = d1();
   const now = new Date('2026-10-09T12:00:00Z');
   await store({STATS}, {answers: [entry('cli', {kept: 6})]}, 'install-a0001', new Date('2026-10-01T12:00:00Z'));   // last week
@@ -59,7 +60,7 @@ test('/admin/form-filling shows the answers per family, this week against last',
   assert.equal(data.answers.claude.now.keptRate, 0.8);
   assert.equal(data.answers.claude.before.keptRate, 0.6);
   assert.equal(data.answers.openai.now.keptRate, 0.5);
-  const html = page(data);
+  const html = learningPage(data);
   assert.match(html, /The AI's answers, by family, this week/);
   assert.match(html, /<td>Claude<\/td><td class="n">2<\/td><td class="n">10<\/td><td class="n">80% <span class="up">/);
   assert.match(html, /<td>OpenAI<\/td>/);

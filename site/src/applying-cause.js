@@ -1,4 +1,4 @@
-// "Top cause per shape" for /admin/applying's Needs a fix (docs/superpowers/specs/2026-10-10-pool-feeds-learning.md, step 2): the mechanism cause that left the most required
+// "Top cause per shape" for /admin/lab-form-filling's Needs a fix (docs/superpowers/specs/2026-10-10-pool-feeds-learning.md, step 2): the mechanism cause that left the most required
 // questions empty in a pool site's cards this week. A pool card's id ends with the first 8 hex of sha256(site name) (desktop/e2e/lib/pool-card.mjs), so a name finds its own
 // cards without the card ever carrying the name. The test applicant's gap causes are skipped (site/src/digest-pool.js). Read-only. Guard: site/test/applying-cause.test.js.
 import {APPLICANT_GAPS} from './digest-pool.js';

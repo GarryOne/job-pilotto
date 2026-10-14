@@ -31,14 +31,14 @@ test('the caller is the X-Caller word, else the kind of client; the route never 
   assert.equal(call({'x-caller': 'Bad Caller!', 'user-agent': 'curl/8.7.1'}), 'curl');   // anything but a short fixed word is ignored
   assert.equal(call({'user-agent': 'Mozilla/5.0 (Macintosh)'}), 'browser');
   assert.equal(call({'user-agent': 'node'}), 'node');
-  assert.equal(routeOf('/admin/applying'), '/admin/applying');
+  assert.equal(routeOf('/admin/lab-form-filling'), '/admin/lab-form-filling');
   assert.equal(routeOf('/api/index/9f8e7d6c5b4a39281716'), '/api/index/:x');
 });
 
 test('a request that touched D1 gets one line with its rows; one that did not is silent unless it failed', () => {
-  const request = new Request('https://www.jobpilotto.workers.dev/admin/applying?json', {headers: {'x-caller': 'page-tab'}});
+  const request = new Request('https://www.jobpilotto.workers.dev/admin/lab-form-filling?json', {headers: {'x-caller': 'page-tab'}});
   const line = JSON.parse(requestLine(request, 200, {queries: 2, read: 40, written: 0, unmetered: 1}));
-  assert.deepEqual(line, {kind: 'req', route: '/admin/applying', method: 'GET', status: 200, caller: 'page-tab', host: 'www.jobpilotto.workers.dev', queries: 2, rows_read: 40, rows_written: 0, unmetered: 1});
+  assert.deepEqual(line, {kind: 'req', route: '/admin/lab-form-filling', method: 'GET', status: 200, caller: 'page-tab', host: 'www.jobpilotto.workers.dev', queries: 2, rows_read: 40, rows_written: 0, unmetered: 1});
   assert.equal(requestLine(request, 200, newTally()), null);
   assert.ok(requestLine(request, 503, newTally()));
 });

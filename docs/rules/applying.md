@@ -87,12 +87,12 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
    The live smoke pool (by hand only, owner 11 Oct 2026) now only RE-RECORDS a row: on the Mac first, on a GitHub runner (`record-sites.yml`, capped) only when the Mac is blocked (bot check, site limit). No live run on a PR (owner, 13 Oct 2026: no AI cost on a PR).
    - **Signing in** (owner, 13 Oct 2026): the pool may sign in only with a test account listed in the Keychain (`job-pilotto.test-account.<host>.*`), never a person's own data, through the product's saved-password sign-in; still never Submit, never a captcha / SMS / email code, never "create account", and a refused sign-in is never retried.
    - **A row not "same as live" is diagnosed before it is re-recorded** (owner, 14 Oct 2026): find the first missed AI ask, then the cause in the spec table "Why a row does not replay as live" (`docs/superpowers/specs/2026-10-13-replay-by-network.md`); a new cause is added there. A build that really got worse is the product's bug (the replay is its reproducer), never a replay gap.
-4. Per-board drops in the digest (`/admin/form-filling/digest.json`, `boards[].dropped`).
+4. Per-board drops in the digest (`/admin/real-form-filling/digest.json`, `boards[].dropped`).
 - **A push changing a file a recorded replay loads (the extension's files, the app's `desktop/lib` modules the offline app runs; found by structure, `tools/replay-files.mjs`, plus every `FLOW_FILES` file: a journey scenario proves the ones no replay loads) must add a recorded page or a scenario**, and each page it adds or changes
   must FAIL on origin/main's code (`tools/recorded-cases.mjs`, `tools/recorded-fails-on-old.mjs`, push hook). `Recorded-unneeded: <why>` only for a change with no failure seen: never with a `Pool-row:` or `Fixes/Refs #N`.
   `Recorded-pins: <why>` for a case that only pins behaviour that already works (same refusal); a follow-up that only corrects the case of a fix
   already on main says `Fix-commit: <sha>`, and the case is replayed on the code before that fix. A push that adds a recorded case names its row: `Pool-row: <row>` (the Fixed tab lists fixes by it) or `Pool-row: none <why>`. A field replay (`worker/test/fixtures/fill/`) is a second layer, never the proof.
-- **The Fixed tab** on `/admin/applying` (`#fixed`) holds each fix's status and guard. Optional commit trailer `Pool-row: <the pool row's exact name
+- **The Fixed tab** on `/admin/lab-form-filling` (`#fixed`) holds each fix's status and guard. Optional commit trailer `Pool-row: <the pool row's exact name
   in the pool>` fills it (the commit hook and push gate refuse a value that is no row name, e.g. a capture folder's slug: `tools/pool-rows.mjs`). Close a fix only when the Fixed tab shows
   Confirmed, never on "it clears by itself".
 

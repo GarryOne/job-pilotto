@@ -1,4 +1,4 @@
-// The platform scorecard on /admin/applying: one row per platform that real use or the pool knows, joining REAL use (its share of the matched jobs, and the real fills the form-filling
+// The platform scorecard on /admin/lab-form-filling: one row per platform that real use or the pool knows, joining REAL use (its share of the matched jobs, and the real fills the form-filling
 // digest reads: forms and the share of required questions filled) with the pool's TESTS (its sites and how many of them reached the form), and ONE fixed verdict saying what to do
 // next. Platform names only, no employer and no install. The two pages stay apart; this is the one place their data meet. Guard: test/scorecard.test.js.
 import {digest} from './digest.js';
