@@ -75,3 +75,21 @@ test('a card arriving through /api/controls stores the hashed install, so instal
   assert.equal(new Set(rows).size, 2);
   assert.ok(rows.every(x => /^[0-9a-f]{16}$/.test(x)), 'a hash, never the install id');
 });
+
+// The owner's pool sends form counts too (source 'pool', migration 0069): they are stored apart and never reach a real-use number (the page's table, tiles, marks, the overview and trends).
+test('a pool report never reaches the real-use queries; a plain install does', async () => {
+  const e = {STATS: d1(), STATS_KEY: 'k', STATS_API_KEY: 'api', WAITLIST: {get: async () => null, put: async () => {}}};
+  const body = {exposure: [{board: 'ashby', n: 7, required: 70, starred: 5}], unfilled: [{board: 'ashby', reason: 'unread', n: 9}]};
+  const send = (extra, headers = {}) => worker.fetch(new Request('https://w.dev/api/controls', {method: 'POST', body: JSON.stringify({install: 'pool-qa-smoke', ...body, ...extra}), headers: {'Content-Type': 'application/json', ...headers}}), e, {});
+  await send({source: 'pool'}, {Authorization: 'Bearer api'});   // the owner's pool
+  await send({source: 'pool'});                                  // someone else claiming it: counted as that install's own, never as the pool
+  await send({});                                                // a plain install
+  const stored = table => e.STATS.db.prepare(`SELECT source, SUM(n) AS n FROM ${table} GROUP BY source ORDER BY source`).all().map(r => [r.source, r.n]);
+  assert.deepEqual(stored('form_exposure'), [['pool', 7], ['user', 14]]);
+  assert.deepEqual(stored('fill_reasons'), [['pool', 9], ['user', 18]]);
+  const data = await report(e.STATS, new Date());
+  assert.equal(data.use.now.fills, 14, 'the real-use table counts the two user reports only');
+  assert.equal(data.use.reasons.find(r => r.reason === 'unread').now, 18);
+  assert.equal(data.marks[0].starred, 10);
+  assert.equal(data.families.unknown.fills + data.families.claude.fills + data.families.openai.fills, 14);
+});

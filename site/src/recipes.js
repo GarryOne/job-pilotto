@@ -164,7 +164,9 @@ export async function controls(request, env, now = new Date()) {
   if (kv) await kv.put(countKey, String(count + samples.length + outcomes.length + extra), {expirationTtl: 2 * 86400});
   let storedSamples = 0, storedOutcomes = 0;
   // One row per fill (extension/fill-card.js, checked again here), then what Submit added to it: the learning digest's material.
-  const owner = (Array.isArray(body.cards) && body.cards.some(c => c?.source === 'pool')) ? await isOwner(request, env) : false;
+  const poolBody = body.source === 'pool' || (Array.isArray(body.cards) && body.cards.some(c => c?.source === 'pool'));
+  const owner = poolBody ? await isOwner(request, env) : false;
+  const source = poolBody && owner ? 'pool' : 'user';   // the owner's pool never merges into the users' counts (form_exposure, fill_reasons: migration 0069)
   for (const raw of (Array.isArray(body.cards) ? body.cards : []).slice(0, 20)) {
     const card = cleanCard(raw), board = text(raw?.board, 40).toLowerCase();
     if (!card || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board)) continue;
@@ -190,8 +192,8 @@ export async function controls(request, env, now = new Date()) {
     const required = Math.max(0, Math.min(200 * n, Math.round(Number(item?.required)) || 0));   // required questions on those forms (0: an older app)
     const starred = Math.max(0, Math.min(200 * n, Math.round(Number(item?.starred)) || 0));   // labels those forms mark with a "*", counted apart from the rule (0: an older app)
     if (!/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board) || !n) continue;
-    await env.STATS.prepare('INSERT INTO form_exposure (day, board, ai_family, n, required, starred) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (day, board, ai_family) DO UPDATE SET n = n + excluded.n, required = required + excluded.required, starred = starred + excluded.starred')
-      .bind(day(now), board, family, n, required, starred).run();
+    await env.STATS.prepare('INSERT INTO form_exposure (day, board, ai_family, source, n, required, starred) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (day, board, ai_family, source) DO UPDATE SET n = n + excluded.n, required = required + excluded.required, starred = starred + excluded.starred')
+      .bind(day(now), board, family, source, n, required, starred).run();
   }
   for (const item of samples) {
     const fingerprint = String(item?.fingerprint || '');
@@ -219,7 +221,7 @@ export async function controls(request, env, now = new Date()) {
   await storeIntelligence(env, body.intel, now, install).catch(() => ({}));   // what the installs teach about the job search (src/intelligence.js)
   await storeAliasUse(env, body.aliasUse, now).catch(() => 0);
   await storeAliasProposals(env, body.proposals, install, now).catch(() => ({}));   // what learned notes say a wording means (src/aliases.js)   // how the service's label meanings fared (src/aliases.js)
-  const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
+  const learned = await storeKnowledge(env, body, install, now, source).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
   const ladder = Array.isArray(body.ladder) && body.ladder.length ? await storeMoves(env.STATS, body.ladder.slice(0, 40), {source: 'user', who: await hashed(env, install), now}) : 0;   // the moves its pages confirmed (src/ladder-moves.js)
   const repairs = Array.isArray(body.repairs) && body.repairs.length ? await storeRepairs(env.STATS, body.repairs.slice(0, 40), {source: 'user', who: await hashed(env, install), now}) : 0;   // what its control repairs did (src/repair-evidence.js)
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned, ladder, repairs});

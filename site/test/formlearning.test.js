@@ -9,7 +9,7 @@ import {FLOW_STATES} from '../src/knowledge.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0017_alias_proposals.sql', '0022_form_required.sql', '0009_knowledge.sql', '0044_family_counts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0017_alias_proposals.sql', '0022_form_required.sql', '0009_knowledge.sql', '0044_family_counts.sql', '0053_form_starred.sql', '0069_exposure_source.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -78,7 +78,6 @@ test('the page links to the applying scorecard, where real use meets the pool\'s
 
 test('the "*" cross-check flags a board whose marks far exceed the required count', async () => {
   const db = d1();
-  db.db.exec(readFileSync(new URL('../migrations/0053_form_starred.sql', import.meta.url), 'utf8'));
   db.db.prepare("INSERT INTO form_exposure (day, board, n, required, starred) VALUES ('2026-10-09', 'recruitingapp-662.umantis.com', 2, 0, 12), ('2026-10-09', 'ashby', 5, 50, 52), ('2026-10-09', 'small', 1, 0, 2)").run();
   const data = await report(db, now);
   const by = Object.fromEntries(data.marks.map(row => [row.board, row.blind]));

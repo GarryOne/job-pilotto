@@ -63,8 +63,8 @@ const FAMILY_SQL = " AND (? = '' OR ai_family = ?)";
 export async function byFamily(db, thisWeek) {
   const out = {};
   for (const family of ['claude', 'openai', 'unknown']) {
-    const use = await db.prepare('SELECT SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ? AND ai_family = ?').bind(thisWeek, family).first().catch(() => null);
-    const left = await db.prepare('SELECT SUM(n) AS n FROM fill_reasons WHERE day >= ? AND ai_family = ?').bind(thisWeek, family).first().catch(() => null);
+    const use = await db.prepare('SELECT SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ? AND ai_family = ? AND source = \'user\'').bind(thisWeek, family).first().catch(() => null);
+    const left = await db.prepare('SELECT SUM(n) AS n FROM fill_reasons WHERE day >= ? AND ai_family = ? AND source = \'user\'').bind(thisWeek, family).first().catch(() => null);
     const flows = (await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? AND ai_family = ? GROUP BY day, board, state')
       .bind(thisWeek, family).all().catch(() => ({results: []}))).results || [];
     const results = resultsFrom(flows, thisWeek, thisWeek).now;
@@ -79,10 +79,10 @@ export async function report(db, now = new Date(), family = '') {
   const thisWeek = back(now, WEEK - 1), lastWeek = back(now, 2 * WEEK - 1);
   const period = d => (d >= thisWeek ? 'now' : d >= lastWeek ? 'before' : null);
 
-  const exposure = (await db.prepare('SELECT day, SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day').bind(lastWeek, family, family).all()).results || [];
+  const exposure = (await db.prepare('SELECT day, SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ? AND source = \'user\'' + FAMILY_SQL + ' GROUP BY day').bind(lastWeek, family, family).all()).results || [];
   const use = {now: {fills: 0, required: 0}, before: {fills: 0, required: 0}};
   for (const row of exposure) { const when = period(row.day); if (when) { use[when].fills += row.fills || 0; use[when].required += row.required || 0; } }
-  const reasonRows = (await db.prepare('SELECT day, reason, SUM(n) AS n FROM fill_reasons WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, reason').bind(lastWeek, family, family).all()).results || [];
+  const reasonRows = (await db.prepare('SELECT day, reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? AND source = \'user\'' + FAMILY_SQL + ' GROUP BY day, reason').bind(lastWeek, family, family).all()).results || [];
   const counts = {now: {}, before: {}};
   for (const row of reasonRows) { const when = period(row.day); if (when) counts[when][row.reason] = (counts[when][row.reason] || 0) + row.n; }
   // Per 100 required questions when the apps sent the count, else per 100 forms.
@@ -111,7 +111,7 @@ export async function report(db, now = new Date(), family = '') {
 // and more than twice as many as required questions: the rule missed a layout there (a recorded page and a shape test are due).
 export const MARKS_MIN = 3;
 export async function marksCheck(db, since, family = '') {
-  const rows = (await db.prepare('SELECT board, SUM(n) AS forms, SUM(required) AS required, SUM(starred) AS starred FROM form_exposure WHERE day >= ? AND starred > 0' + FAMILY_SQL + ' GROUP BY board ORDER BY starred DESC LIMIT 30')
+  const rows = (await db.prepare('SELECT board, SUM(n) AS forms, SUM(required) AS required, SUM(starred) AS starred FROM form_exposure WHERE day >= ? AND source = \'user\' AND starred > 0' + FAMILY_SQL + ' GROUP BY board ORDER BY starred DESC LIMIT 30')
     .bind(since, family, family).all()).results || [];
   return rows.map(row => ({board: row.board, forms: row.forms || 0, required: row.required || 0, starred: row.starred || 0,
     blind: (row.starred || 0) >= MARKS_MIN && (row.starred || 0) > 2 * (row.required || 0)}));

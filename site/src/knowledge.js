@@ -26,7 +26,7 @@ const merge = (json, value, max) => {
 };
 
 // -> {questions, flows} stored.
-export async function store(env, body, install, now = new Date()) {
+export async function store(env, body, install, now = new Date(), source = 'user') {
   let questions = 0, flows = 0, applications = 0, answers = 0;
   if (!env.STATS) return {questions, flows};
   const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
@@ -64,8 +64,8 @@ export async function store(env, body, install, now = new Date()) {
     const board = String(item?.board || ''), reason = String(item?.reason || '');
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
     if (!BOARD.test(board) || !LEFT_REASONS.includes(reason) || !n) continue;
-    await env.STATS.prepare('INSERT INTO fill_reasons (day, board, reason, ai_family, n) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, reason, ai_family) DO UPDATE SET n = n + excluded.n')
-      .bind(day(now), board, reason, family, n).run();
+    await env.STATS.prepare('INSERT INTO fill_reasons (day, board, reason, ai_family, source, n) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (day, board, reason, ai_family, source) DO UPDATE SET n = n + excluded.n')
+      .bind(day(now), board, reason, family, source, n).run();
   }
   // The AI's answers to form questions, per engine -> per family (migration 0046): the call's own engine is the truth; an install
   // that switched engine mid-day is still counted right.

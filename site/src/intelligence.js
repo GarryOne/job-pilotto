@@ -183,7 +183,7 @@ export async function report(db, days = 30, now = new Date()) {
       goodShare: row.seen ? row.good / row.seen : null, hours: row.hours_n ? row.hours_sum / row.hours_n : null}));
   const fixes = (await rows(db, 'SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 ORDER BY CAST(corrected AS REAL) / filled DESC, filled DESC LIMIT 20'))
     .filter(row => { try { return JSON.parse(row.installs).length >= MIN_PEOPLE; } catch { return false; } }).map(({installs, ...row}) => ({...row, rate: row.corrected / row.filled}));
-  const left = await rows(db, 'SELECT reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? GROUP BY reason', from).catch(() => []);
+  const left = await rows(db, 'SELECT reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? AND source = \'user\' GROUP BY reason', from).catch(() => []);
   const leftTotal = left.reduce((sum, row) => sum + row.n, 0);
   const reasons = LEFT_REASONS.filter(reason => left.some(row => row.reason === reason)).map(reason => {
     const n = left.find(row => row.reason === reason).n;
