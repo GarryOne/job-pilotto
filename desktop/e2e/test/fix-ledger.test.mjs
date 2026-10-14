@@ -11,7 +11,7 @@ const HASH = 'a'.repeat(40), OTHER = 'b'.repeat(40);
 const fakeGit = (...args) => {
   const [command, ...rest] = args, last = rest.at(-1);
   if (command === 'rev-parse') return (rest.find(arg => /^(fdbdc23|nothere)/.test(arg)) || '').startsWith('fdbdc23') ? HASH + '\n' : (() => { throw new Error('unknown'); })();
-  if (command === 'log' && rest.includes('--grep=^Pool-row:')) return `${OTHER}\0Apply: a thing\n\nPool-row: Swatch Group careers\nPool-row: https://x.com/job?id=1\nRung: 3\nFixture: cand-swatch, none\x01`;
+  if (command === 'log' && rest.includes('--grep=^Pool-row:')) return `${OTHER}\0Apply: a thing\n\nPool-row: Swatch Group careers\nPool-row: https://x.com/job?id=1\nPool-row: none no fill change\nRung: 3\nFixture: cand-swatch, none\x01`;
   if (command === 'log' && rest.includes('--format=%cI')) return last === HASH ? '2026-10-11T00:41:50+02:00\n' : '2026-10-11T01:00:00+02:00\n';
   if (command === 'log') return last === HASH ? 'Fix\n\nRung: 2\nFixture: hornbach-successfactors\n' : 'Fix\n\nRung: 3\nFixture: cand-swatch-group-careers, none: nothing\n';
   if (command === 'show' && rest[0] === '--name-only') return last === HASH ? 'desktop/e2e/recorded/named-control-absent-1/case.json\ndesktop/e2e/recorded/named-control-absent-1/form.html\nextension/x.js\n' : '';
@@ -80,4 +80,14 @@ test('each fix carries its commit subject (the first line), blank when it holds 
   assert.deepEqual(buildLedger({git: fakeGit, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}]}).map(item => item.subject), ['Fix', 'Fix']);
   const leaky = (...args) => (args[0] === 'log' && args.includes('-1') && args.includes('--format=%B') ? 'See https://x.test/a?b=1\n\nRung: 2\n' : fakeGit(...args));
   assert.deepEqual(buildLedger({git: leaky, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}]}).map(item => item.subject), ['', '']);
+});
+
+test('a commit\'s facts are read from git once: a second build with the memo asks git only for the list (smoke looked hung for minutes, 14 Oct 2026)', () => {
+  const calls = [], counting = (...args) => { calls.push(args[0] === 'log' && args.includes('--grep=^Pool-row:') ? 'list' : args[0]); return fakeGit(...args); };
+  const memo = {}, fixes = [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}];
+  const first = buildLedger({git: counting, fixes, memo});
+  calls.length = 0;
+  assert.deepEqual(buildLedger({git: counting, fixes, memo}), first);
+  assert.deepEqual(calls.filter(call => call !== 'rev-parse'), ['list']);
+  assert.ok(!first.some(entry => /^none\b/i.test(entry.site)), '"Pool-row: none <why>" is not a fix');
 });
