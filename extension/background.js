@@ -9,7 +9,7 @@ import {createSubmitWatch} from './submit-watch.js';
 import {createTabReport} from './tab-report.js';
 import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
-import {claimAppTab, closePosting, followOpener, noteSource} from './tabs.js';
+import {claimAppTab, closePosting, followOpener, noteSource, movedByUs} from './tabs.js';
 import {createSettleOpenTabs} from './settle-tabs.js';
 import {createStopMessages} from './stop-messages.js';
 import {consider, initFillFlow} from './fill-flow.js';
@@ -151,7 +151,7 @@ if (chrome.webNavigation) {
     if (!(await sessionGet(key))[key] || String(details.url).includes(`#${FILL_MARK}`)) return;
     let host = '';
     try { host = new URL(details.url).hostname; } catch { /* not a url */ }
-    if (navigationKind(details) === 'by-hand') {
+    if (navigationKind(details, movedByUs(details.tabId)) === 'by-hand') {
       await forget(details.tabId);
       decide('panel', 'tab left by hand: no longer the application', {host});
       return;

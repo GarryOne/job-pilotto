@@ -17,7 +17,7 @@ import {sweepConsent} from './consent-sweep.js';
 import {closerLook, lastLook} from './ladder/rung4-picture.js';
 import {formNext, handGivenUpToPerson} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
-import {applyPressed} from './tabs.js';
+import {applyPressed, moveTab} from './tabs.js';
 import {noJobPage} from './page-kind-final.js';
 import {isStopped} from './stop-state.js';
 import {pageStill} from './page-still.js';
@@ -352,7 +352,7 @@ export async function consider(tab, jobUrl) {
     const src = frameSrcOf(tab.id, answer.form_frame);
     if (!src || !claimFrame(key)) return false;
     decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname, by: answer.by || 'ai'});
-    await chrome.tabs.update(tab.id, {url: src}); started.delete(key); return true;
+    await moveTab(tab.id, src); started.delete(key); return true;
   };
   if (await openFormFrame(kind)) return;
   // Nothing to press and no form: the numbered digest looks once (ladder/climb.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
