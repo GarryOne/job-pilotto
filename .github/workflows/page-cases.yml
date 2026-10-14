@@ -47,6 +47,7 @@ on:
       - 'desktop/e2e/lib/replay-shard.mjs'
       - 'desktop/e2e/lib/replay-time.mjs'
       - 'desktop/e2e/lib/replay-truth.mjs'
+      - 'desktop/e2e/lib/repo-counts.mjs'
       - 'desktop/e2e/lib/row-case-run.mjs'
       - 'desktop/e2e/lib/row-end.mjs'
       - 'desktop/e2e/lib/row-follow.mjs'
