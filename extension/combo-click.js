@@ -15,11 +15,11 @@ const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceil
 export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, marks = []}) {
   let picked = false, last = null, capped = false;
   const began = now();
-  let busy = 0;   // ms spent inside calls that answered slowly (the page's main thread was blocked)
-  const timed = fn => async (...args) => { const t = now(); try { return await fn(...args); } finally { const d = now() - t; if (d > PATIENCE.slowCall) busy += d; } };
+  let busy = 0;   // ms spent inside calls that answered slowly (the page's main thread was blocked); only the excess over slowCall counts, so there is no cliff at the threshold. Calls are awaited one at a time here: run in parallel they would count twice, `hard` still bounds that
+  const timed = fn => async (...args) => { const t = now(); try { return await fn(...args); } finally { const d = now() - t; if (d > PATIENCE.slowCall) busy += d - PATIENCE.slowCall; } };
   page = timed(page); click = timed(click);
   const sleepFor = sleep;
-  sleep = async ms => { const t = now(); await sleepFor(ms); const late = now() - t - ms; if (late > PATIENCE.slowCall) busy += late; };   // a starved worker wakes late too
+  sleep = async ms => { const t = now(); await sleepFor(ms); const late = now() - t - ms; if (late > PATIENCE.slowCall) busy += late - PATIENCE.slowCall; };   // a starved worker wakes late too
   const over = () => now() - began >= PATIENCE.hard || now() - began - busy >= PATIENCE.ceiling;
   const mark = tag => { marks.push(`${tag}@${now() - began}`); if (marks.length > 40) marks.shift(); };   // where the time went, said when a menu is given up (flow.js)   // every wait below is REAL time: counting 100 ms ticks let a busy page (each call taking a second or more) stretch a 1.5 s wait to 30 s
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
