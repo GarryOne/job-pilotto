@@ -3,7 +3,7 @@
 # scripts from the record, the AI only from the live run's kept answers, never a site, never a model call). replay-gate.mjs then compares each row with the last
 # green run (same recordings, same runner): only rows 100% same as live there count, and a counted row whose outcome fell is worse (after one retry). Red = a counted
 # row worse; that run never becomes the baseline. The rows run on 5 macOS runners at once (JP_REPLAY_SHARD, owner 14 Oct 2026: one runner took 25+ min), one gate job after them. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
-name: CI · Replay vs live (offline)
+name: CI · Site replays · all (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
 # When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
@@ -65,12 +65,12 @@ jobs:
           BY_HAND: ${{ github.event_name == 'workflow_dispatch' && !inputs.scheduled }}
         run: |
           [ "$BY_HAND" = true ] && { echo "replay-offline: started by hand: replaying"; exit 0; }
-          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-offline.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow site-replays.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
             --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0] | \"\(.headSha) \(.createdAt)\"" 2>/dev/null || true)
           read -r sha at <<< "${last:-}"
           [ -z "${sha:-}" ] && { echo "replay-offline: no green run yet: replaying"; exit 0; }
           records=$(gh release view net-records -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].updatedAt] | max // ""' 2>/dev/null || true)
-          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension worker/src .github/workflows/replay-offline.yml ':!desktop/test' ':!desktop/e2e/test' \
+          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension worker/src .github/workflows/site-replays.yml ':!desktop/test' ':!desktop/e2e/test' \
              && { [ -z "$records" ] || [[ "$records" < "$at" ]]; }; then
             echo "replay-offline: nothing changed since the last green replay (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
           else echo "replay-offline: changed since ${sha::7}: replaying"; fi
@@ -276,7 +276,7 @@ jobs:
           for d in "$RUNNER_TEMP"/shards/*/; do cp "$d"step4/*.json "$out/step4/" 2>/dev/null || true; cp -R "$d"replays/. "$out/replays/" 2>/dev/null || true; done
           echo "replay-offline: $(ls "$out/step4" | wc -l | tr -d ' ') rows from the shards"
           baseline=-   # the newest green run that kept results (one that stopped on "nothing changed" kept none)
-          for base in $(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-offline.yml --branch main --status success --limit 20 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId"); do
+          for base in $(for wf in site-replays.yml replay-offline.yml; do gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" --branch main --status success --limit 20 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId"; done); do   # replay-offline.yml: the old file name, read until 28 Oct 2026
             if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
           done
           [ "$baseline" = - ] && echo "baseline: none yet (this run becomes the first)"

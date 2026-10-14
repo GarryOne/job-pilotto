@@ -2,7 +2,7 @@
 # The repository settings that landing through pull requests needs (owner, 12 Oct 2026): auto-merge OFF since 12 Oct evening (the owner reviews and merges every PR by hand; tools/ship.sh stops at `ship: REVIEW`), branches deleted on merge, one ruleset on main that requires the PR checks and
 # forbids direct pushes. It prints the gh api calls and changes nothing unless run with --apply (outward-facing: the owner says yes first).
 #   tools/pr-settings.sh            show the calls         tools/pr-settings.sh --apply   make them
-# No "require up to date": parallel PRs merge at once; CI on main (build.yml, recorded-pages.yml) still catches a rare clash and the red-main rule applies as before.
+# No "require up to date": parallel PRs merge at once; CI on main (build.yml, page-cases.yml) still catches a rare clash and the red-main rule applies as before.
 # The repository admin role bypasses the ruleset only through a pull request (bypass_mode "pull_request", 12 Oct 2026, once every worktree had the PR ship): nobody pushes to main.
 # "cases fail before the fix" (was "hole 3", renamed 12 Oct 2026) is required since 12 Oct 2026 (owner): it caught 4 cases that passed on the old code; a follow-up names its fix with "Fix-commit: <sha>".
 # The required checks are the jobs of pr-gate.yml that start on EVERY pull request: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (every other PR workflow's result: tools/all-checks-green.sh) (owner, 14 Oct 2026:

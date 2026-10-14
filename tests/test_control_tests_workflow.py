@@ -3,7 +3,7 @@ on gh workflow paths"); it is not a required check (a skipped workflow never rep
 import unittest
 from pathlib import Path
 
-WORKFLOW = Path(__file__).resolve().parents[1] / '.github' / 'workflows' / 'widget-zoo.yml'
+WORKFLOW = Path(__file__).resolve().parents[1] / '.github' / 'workflows' / 'control-tests.yml'
 
 
 class WidgetZooWorkflowTests(unittest.TestCase):

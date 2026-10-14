@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The pool's newest network records, decrypted on the CI runner only (the Mac's on the release net-records of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026),
 # read with NET_RECORDS_READ_TOKEN, the public repo's old release as a fallback; records-publish.mjs; then the by-hand pool runs' of 14 days,
-# net-records-<run>): bash net-records-fetch.sh <records dir>. Needs NET_RECORD_KEY, GH_TOKEN and NET_RECORDS_READ_TOKEN. Used by replay-pr.yml and replay-offline.yml.
+# net-records-<run>): bash net-records-fetch.sh <records dir>. Needs NET_RECORD_KEY, GH_TOKEN and NET_RECORDS_READ_TOKEN. Used by site-replays-pr.yml and site-replays.yml.
 set -u
 out="${1:?usage: net-records-fetch.sh <records dir>}"; enc="${RUNNER_TEMP:-/tmp}/enc"; key="${RUNNER_TEMP:-/tmp}/key.pem"
 mkdir -p "$out" "$enc"

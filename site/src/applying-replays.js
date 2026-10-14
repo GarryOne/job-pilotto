@@ -1,4 +1,4 @@
-// /admin/applying's Fixed-site replays: the recorded pages replayed by CI on main after each merge (.github/workflows/recorded-pages.yml, desktop/e2e/replays-report.mjs),
+// /admin/applying's Fixed-site replays: the recorded pages replayed by CI on main after each merge (.github/workflows/page-cases.yml, desktop/e2e/replays-report.mjs),
 // never a local run (12 Oct 2026: fixers' work-in-progress branches and a loaded Mac showed main as broken). PUT /applying/replays (Bearer REPLAYS_PUBLISH_KEY) writes
 // ONE row with the last 10 runs (the D1 free plan: 11 Oct 2026); the page reads that one row. Names, a short note and the build's sha only. Guard: test/applying-replays.test.js.
 import {dropSnapshot} from './applying-store.js';

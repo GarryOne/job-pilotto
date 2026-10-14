@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const workflow = fs.readFileSync(path.join(root, '.github/workflows/recorded-pages.yml'), 'utf8');
+const workflow = fs.readFileSync(path.join(root, '.github/workflows/page-cases.yml'), 'utf8');
 
 test('the recorded-pages workflow installs desktop/ packages, and the offline app\'s bare imports are all among them', () => {
   assert.match(workflow, /working-directory: desktop\n\s+run: npm (ci|install)\b/, 'a step installs desktop/ packages (the 34 old cases never started the app; the first row case did and died with ERR_MODULE_NOT_FOUND on 11 Oct 2026)');

@@ -3,8 +3,8 @@
 # (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 5 macOS runners at once, then judges
 # them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). It starts only when a PR changes extension/ or desktop/lib/ (GitHub's `paths:`,
 # owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"): red when a counted row got worse or a runner did not finish.
-# Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
-name: CI · Replay gate (PR, 10 rows)
+# Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: site-replays.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
+name: CI · Site replays · PR (10 rows)
 
 on:
   pull_request:

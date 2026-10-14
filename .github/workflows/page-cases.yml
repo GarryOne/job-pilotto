@@ -1,4 +1,4 @@
-name: CI · Recorded pages (all cases, real extension, Linux)
+name: CI · Page cases (all cases, real extension, Linux)
 # The net under the local push gate (owner, 11 Oct 2026, "CI heavy, local light"): every push to main replays ALL recorded cases (desktop/e2e/recorded) with the real extension,
 # offline, sharded across the matrix, 4 tabs at a time in one browser per job (desktop/e2e/lib/replay-browser.mjs). The local pre-push replays only the cases a change can affect.
 # A failing case fails the run; the push hook then treats main as red (tools/pre-push-check.sh, AGENTS.md "Red main"). No AI, no network: the pages and answers come from the cases.
@@ -14,7 +14,7 @@ on:
       - '!desktop/e2e/widget-zoo/**'
       - 'desktop/package.json'
       - 'desktop/package-lock.json'
-      - '.github/workflows/recorded-pages.yml'
+      - '.github/workflows/page-cases.yml'
   workflow_dispatch:
 
 concurrency:
@@ -100,6 +100,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow recorded-pages.yml --branch main --event push --status success --limit 1 --json databaseId -q '.[0].databaseId' || true)
+          id=$(for wf in page-cases.yml recorded-pages.yml; do gh run list --repo "$GITHUB_REPOSITORY" --workflow "$wf" --branch main --event push --status success --limit 1 --json databaseId -q '.[0].databaseId' || true; done | head -n 1)   # recorded-pages.yml: the old file name, read until 17 Oct 2026 (3-day artifacts)
           if [ -n "$id" ]; then gh run download "$id" --repo "$GITHUB_REPOSITORY" --pattern 'replay-results-*' --dir main-results || echo "fill time: main's results of run $id could not be read"; fi
           node replay-time.mjs --pr results/replay-results-*.json --main main-results/*/*.json   # one folder per artifact; an unmatched pattern is a missing file, skipped

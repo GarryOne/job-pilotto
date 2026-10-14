@@ -91,7 +91,7 @@ test('layout: the replays table has fixed columns that add up to the page, a not
   assert.ok(widths.reduce((sum, [, width]) => sum + width, 0) <= 100);
   assert.match(css, /\.clamp\{[^}]*-webkit-line-clamp:2/);
   assert.match(css, /@media \(max-width:640px\)\{table td,table th\{white-space:normal!important;overflow-wrap:anywhere\}/, 'at phone width no table keeps cells on one line');
-  const cases = PAGE.slice(PAGE.indexOf('const drawCases'), PAGE.indexOf("panels.replays.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'"));
+  const cases = PAGE.slice(PAGE.indexOf('const drawCases'), PAGE.indexOf("panels.replays.append(el('section', {}, el('h2', {textContent: 'Page cases'"));
   assert.match(cases, /className: 'fit'/);
   assert.match(cases, /className: 'muted clamp', title: c\.note/);
   for (const name of ['c-case', 'c-rung', 'c-origin', 'c-result', 'c-runs', 'c-last', 'c-since']) assert.ok(cases.includes(name), name);
@@ -113,7 +113,7 @@ test('the replays search matches words in any order over the case name, its resu
 });
 
 test('the replays table has the pool\'s filter bar: search, Result, Rung and Origin filters, a count, Clear and 15 rows a page', () => {
-  const cases = PAGE.slice(PAGE.indexOf('const caseBox'), PAGE.indexOf("panels.replays.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'"));
+  const cases = PAGE.slice(PAGE.indexOf('const caseBox'), PAGE.indexOf("panels.replays.append(el('section', {}, el('h2', {textContent: 'Page cases'"));
   assert.match(cases, /className: 'filters'/);
   assert.match(cases, /type: 'search'[^}]*'aria-label': 'Search the replays'/);
   assert.match(cases, /pick\('result', [^;]*'Result'/);

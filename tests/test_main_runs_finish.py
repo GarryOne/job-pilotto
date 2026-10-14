@@ -1,6 +1,6 @@
 """A workflow that runs on a push to main never cancels an older run of main (owner, 12 Oct 2026: main's commits showed red crosses, "1 cancelled and 10
 successful checks", because the widget zoo cancelled its older main run when the next commit landed; GitHub draws a cancelled run as a failure).
-Cancelling stays allowed on pull requests: cancel-in-progress is false, or true only for pull_request events (as recorded-pages.yml does)."""
+Cancelling stays allowed on pull requests: cancel-in-progress is false, or true only for pull_request events (as page-cases.yml does)."""
 import re
 import unittest
 from pathlib import Path

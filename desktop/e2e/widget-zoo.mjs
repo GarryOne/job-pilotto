@@ -2,7 +2,7 @@
 // `npm run widget-zoo`: replays every widget-zoo page (e2e/widget-zoo/) with the real extension, offline, and prints per page whether the fill READ the question and whether the value
 // stayed COMMITTED, then the totals per widget. A measure: a miss never fails the run (exit 1 only when the replay itself broke, or a page pressed a submit). --json <file> writes the
 // verdicts; REPLAY_ONLY=<part of a name> runs those pages. --model (a Mac, plan path, $0, never an API key): the fill check (spec 2026-10-12-fill-ladder, PR 3's shadow) is answered by the real model and its
-// verdicts are printed per page: the zoo pass of the short shadow mode. Lib: lib/widget-zoo.mjs. CI: .github/workflows/widget-zoo.yml (not a required check).
+// verdicts are printed per page: the zoo pass of the short shadow mode. Lib: lib/widget-zoo.mjs. CI: .github/workflows/control-tests.yml (not a required check).
 import fs from 'node:fs';
 import {replayInTabs} from './lib/replay-browser.mjs';
 import {harnessLine, loadZoo, summarizeZoo, verdictOf} from './lib/widget-zoo.mjs';

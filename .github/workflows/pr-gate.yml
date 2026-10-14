@@ -1,6 +1,6 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which start by `on: paths:`. Required on main: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
+# recorded-page replays (page-cases.yml), which start by `on: paths:`. Required on main: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
 # Every job here always starts (a required workflow that never starts blocks the PR forever); "cases fail before the fix" ends in seconds when the PR brings no recorded case.
 on:
   pull_request:

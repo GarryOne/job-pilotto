@@ -1,4 +1,4 @@
-// Publishes this Mac's pool network records for the PR replay (.github/workflows/replay-offline.yml): the newest record per row in <records dir> is packed,
+// Publishes this Mac's pool network records for the PR replay (.github/workflows/site-replays.yml): the newest record per row in <records dir> is packed,
 // encrypted with the repo's public key (desktop/e2e/net-record.pub.pem: only the owner's Keychain key and the NET_RECORD_KEY secret open it) and put on the
 // GitHub release `net-records` of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026; CI reads it with NET_RECORDS_READ_TOKEN, net-records-fetch.sh), replacing the
 // last set. Re-recording is by hand on the Mac (owner, 13 Oct 2026).
@@ -37,6 +37,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     gh(['release', 'upload', TAG, '-R', REPO, path.join(work, BUNDLE), path.join(work, KEY), '--clobber']);
     console.log(`records-publish: ${rows.length} rows uploaded to ${REPO} release ${TAG}`);
     // New recordings: main's replay runs again at once, so /admin/applying shows them (the workflow publishes from main only).
-    try { gh(['workflow', 'run', 'CI · Replay vs live (offline)', '--ref', 'main']); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Replay vs live (offline)" --ref main)'); }
+    try { gh(['workflow', 'run', 'CI · Site replays · all (offline)', '--ref', 'main']); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Site replays · all (offline)" --ref main)'); }
   } finally { fs.rmSync(work, {recursive: true, force: true}); }
 }

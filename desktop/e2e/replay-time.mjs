@@ -1,4 +1,4 @@
-// CI's report job of .github/workflows/recorded-pages.yml, on a pull request: the PR's fill time per recorded case against main's last replays (lib/replay-time.mjs).
+// CI's report job of .github/workflows/page-cases.yml, on a pull request: the PR's fill time per recorded case against main's last replays (lib/replay-time.mjs).
 // Fails (exit 1) when the median slowdown is SLOWER_SECONDS or more; no baseline or too few cases in both: it says so and passes.
 // Run: node replay-time.mjs --pr <results.json>... --main <results.json>...
 import fs from 'node:fs';

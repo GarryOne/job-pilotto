@@ -1,11 +1,11 @@
-"""Confirmed offline (.github/workflows/replay-verify.yml; owner, 14 Oct 2026): never on a PR and never a required check, starts after the nightly offline replay on main or by hand,
+"""Confirmed offline (.github/workflows/fix-verdicts.yml; owner, 14 Oct 2026): never on a PR and never a required check, starts after the nightly offline replay on main or by hand,
 stops when nothing it replays changed, sends only fixed-word verdicts with the narrow publish key (main only), never calls a model, and keeps each commit's own run."""
 import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / '.github' / 'workflows' / 'replay-verify.yml').read_text()
+WORKFLOW = (ROOT / '.github' / 'workflows' / 'fix-verdicts.yml').read_text()
 TRIGGER = re.search(r'(?m)^on:\n((?:  .*\n|\n)+?)(?=^\S)', WORKFLOW).group(1)
 
 
@@ -13,14 +13,14 @@ class ReplayVerifyWorkflow(unittest.TestCase):
     def test_never_on_a_pr_after_the_nightly_replay_or_by_hand(self):
         self.assertNotIn('pull_request', TRIGGER)
         self.assertIn('workflow_run:', TRIGGER)
-        self.assertIn("'CI · Replay vs live (offline)'", TRIGGER)
+        self.assertIn("'CI · Site replays · all (offline)'", TRIGGER)
         self.assertIn('workflow_dispatch:', TRIGGER)
         self.assertIn("branches: [main]", TRIGGER)
         required = (ROOT / 'tools/pr-settings.sh').read_text()
         self.assertNotIn('Confirmed offline', required)
 
     def test_the_trigger_names_a_workflow_that_exists(self):
-        self.assertIn('name: CI · Replay vs live (offline)', (ROOT / '.github/workflows/replay-offline.yml').read_text())
+        self.assertIn('name: CI · Site replays · all (offline)', (ROOT / '.github/workflows/site-replays.yml').read_text())
 
     def test_it_stops_when_nothing_it_replays_changed(self):
         self.assertIn('Anything changed since the last green run?', WORKFLOW)

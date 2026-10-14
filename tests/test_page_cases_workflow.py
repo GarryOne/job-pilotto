@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / '.github' / 'workflows' / 'recorded-pages.yml').read_text()
+WORKFLOW = (ROOT / '.github' / 'workflows' / 'page-cases.yml').read_text()
 
 
 class RecordedPagesWorkflow(unittest.TestCase):
@@ -30,7 +30,7 @@ class RecordedPagesWorkflow(unittest.TestCase):
 
     def test_a_failing_run_is_seen_by_the_red_main_rule(self):
         hook = (ROOT / 'tools' / 'pre-push-check.sh').read_text()
-        self.assertIn('recorded-pages.yml', hook, 'the push hook treats a red recorded-pages run on main like a red build')
+        self.assertIn('page-cases.yml', hook, 'the push hook treats a red recorded-pages run on main like a red build')
 
 
 if __name__ == '__main__':

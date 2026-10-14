@@ -1,17 +1,24 @@
-// Telegram alerts for the scheduled CI checks (owner, 14 Oct 2026): every failure of e2e.yml (scheduled and gate runs) and replay-offline.yml sends 🔴, and the
+// Telegram alerts for the scheduled CI checks (owner, 14 Oct 2026): every failure of e2e.yml (scheduled and gate runs) and site-replays.yml sends 🔴, and the
 // first success after a failure sends 🟢. Bot @jobpilotto_ci_alerts_bot: CI_ALERTS_TELEGRAM_BOT_TOKEN + CI_ALERTS_TELEGRAM_CHAT_ID (missing: one line, no send).
 // The token is never printed; no AI. Guard: e2e/test/ci-alert.test.mjs.
 //   node ci-alert.mjs <failure|success> "<what failed>"      (GITHUB_* and GH_TOKEN from the runner)
 import path from 'node:path';
 
 // The previous finished run of this workflow on the same branch (not this one) -> its conclusion, or ''.
+// Until 28 Oct 2026 a renamed workflow's old file is read too (replay-offline.yml → site-replays.yml, 14 Oct 2026).
+export const OLD_FILES = {'site-replays.yml': 'replay-offline.yml'};
 export async function previousConclusion(env = process.env, fetcher = fetch) {
-  const url = `${env.GITHUB_API_URL || 'https://api.github.com'}/repos/${env.GITHUB_REPOSITORY}/actions/workflows/${path.basename(String(env.GITHUB_WORKFLOW_REF || '').split('@')[0])}/runs?branch=${encodeURIComponent(env.GITHUB_REF_NAME || 'main')}&status=completed&per_page=10`;
-  try {
-    const answer = await fetcher(url, {headers: {Authorization: `Bearer ${env.GH_TOKEN || ''}`, Accept: 'application/vnd.github+json'}, signal: AbortSignal.timeout(15000)});
-    const body = await answer.json();
-    return (body.workflow_runs || []).find(run => String(run.id) !== String(env.GITHUB_RUN_ID))?.conclusion || '';
-  } catch { return ''; }
+  const file = path.basename(String(env.GITHUB_WORKFLOW_REF || '').split('@')[0]);
+  for (const name of [file, OLD_FILES[file]].filter(Boolean)) {
+    const url = `${env.GITHUB_API_URL || 'https://api.github.com'}/repos/${env.GITHUB_REPOSITORY}/actions/workflows/${name}/runs?branch=${encodeURIComponent(env.GITHUB_REF_NAME || 'main')}&status=completed&per_page=10`;
+    try {
+      const answer = await fetcher(url, {headers: {Authorization: `Bearer ${env.GH_TOKEN || ''}`, Accept: 'application/vnd.github+json'}, signal: AbortSignal.timeout(15000)});
+      const body = await answer.json();
+      const found = (body.workflow_runs || []).find(run => String(run.id) !== String(env.GITHUB_RUN_ID))?.conclusion;
+      if (found) return found;
+    } catch { /* try the next name */ }
+  }
+  return '';
 }
 
 // -> the message, or '' when there is nothing to say (a success after a success).

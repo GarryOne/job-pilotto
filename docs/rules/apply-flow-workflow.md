@@ -6,7 +6,7 @@
 | # | Step | Who / what | Live? | Cost |
 |---|---|---|---|---|
 | 1 | **Record** a new site once, all the way to the form; re-record only on a signal | skill `record-applying-sites` (today `run-applying-smoke-pool`); `pool-smoke.yml`, whose single job is recording | ✅ the only live step | cents per row |
-| 2 | **Detect**: replay every recording on the build | CI: `replay-pr.yml` on every PR, `replay-offline.yml` nightly → `/admin/applying` | no | $0 |
+| 2 | **Detect**: replay every recording on the build | CI: `site-replays-pr.yml` on every PR, `site-replays.yml` nightly → `/admin/applying` | no | $0 |
 | 3 | **Fix** the top 🔴 row | skill `/fix-failing-forms` | no | $0 + the fix session |
 | 4 | **Verify** the fix | CI after merge: "Confirmed offline" on the Fixed tab (2 agreeing replays) | no | $0 |
 | 5 | **Benchmark** (occasional) | bake-off: the extension vs other agents on the same forms (repo job-pilotto-bakeoff) | yes | dollars: owner's OK |

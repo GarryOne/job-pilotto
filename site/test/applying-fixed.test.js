@@ -110,7 +110,7 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   assert.match(PAGE, /tab\('needs-fix'/); assert.match(PAGE, /tab\('fixed'/); assert.match(PAGE, /hash === '#fixed'/); assert.match(PAGE, /hashchange/);   // tabs by URL hash
   assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
   assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Origin', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the replays table, with each case's origin (owner, 12 Oct 2026)
-  assert.match(PAGE, /'Shape regression tests'/);   // renamed from "Fixed-site replays · every fixed site, replayed", which overclaimed (owner, 12 Oct 2026)
+  assert.match(PAGE, /'Page cases'/);   // renamed from "Fixed-site replays · every fixed site, replayed", which overclaimed (owner, 12 Oct 2026)
   assert.doesNotMatch(PAGE, /every fixed site, replayed/);
   assert.doesNotMatch(PAGE, /'Guard'/);   // the Guard column is the expander now
   assert.match(PAGE, /Every landed fix is "Awaiting verification" until two uploaded runs clear it\./);
