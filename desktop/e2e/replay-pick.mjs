@@ -2,9 +2,11 @@
 // will run on a schedule"). From the baseline (the last green scheduled run's results, replay-gate.mjs) only the rows 100% same as live there (only those can be judged
 // worse), quickest first, one per posting site before a second from the same site, at most MAX; split into GROUPS runner groups (newline-joined names: JP_REPLAY_ONLY).
 // No baseline yet: no rows (the PR gate says so; any green replay on main makes one, e.g. by hand: gh workflow run site-replays.yml --ref main). Guard: e2e/test/replay-pick.test.mjs.
-//   node replay-pick.mjs <baseline results.json | ->   -> {"groups": ["name\nname", ...], "line": "..."}
+// Since 15 Oct 2026 (the ratchet, lib/replay-ratchet.mjs): with replay-faithful.json pinning rows, EVERY pinned row is replayed (no cap of 10): a replay-machinery or apply-flow PR can lose none.
+//   node replay-pick.mjs <baseline results.json | -> [--pinned <replay-faithful.json>]   -> {"groups": ["name\nname", ...], "line": "..."}
 import fs from 'node:fs';
 import path from 'node:path';
+import {load, pinned} from './lib/replay-ratchet.mjs';
 
 export const MAX = 10, GROUPS = 5;
 
@@ -30,8 +32,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   if (!file) { console.error('usage: node replay-pick.mjs <baseline results.json | ->'); process.exit(2); }
   let baseline = {};
   try { baseline = file === '-' ? {} : JSON.parse(fs.readFileSync(file, 'utf8')); } catch { baseline = {}; }
-  const names = pickRows(baseline), groups = split(names);
-  const line = names.length ? `## Replay gate (PR): ${names.length} rows on ${groups.length} runners: ${names.join(', ')}`
+  const at = process.argv.indexOf('--pinned'), pins = at > 0 ? pinned(load(process.argv[at + 1])) : [];
+  const names = pins.length ? pins : pickRows(baseline), groups = split(names);
+  const line = pins.length ? `## Replay gate (PR): every pinned row (${names.length}) on ${groups.length} runners: ${names.join(', ')}` : names.length ? `## Replay gate (PR): ${names.length} rows on ${groups.length} runners: ${names.join(', ')}`
     : '## Replay gate (PR): no baseline with rows 100% same as live yet: nothing to replay (start one on main by hand: gh workflow run site-replays.yml --ref main)';
   process.stdout.write(`${JSON.stringify({groups: groups.map(group => group.join('\n')), line})}\n`);
 }

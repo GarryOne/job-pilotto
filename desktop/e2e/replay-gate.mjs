@@ -7,8 +7,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {rank} from './lib/smoke.mjs';
 import {isSame} from './replay-records.mjs';
-import {acceptFor, HINT} from './replay-accepts.mjs';
+import {acceptFor, acceptNamed, DASH, HINT} from './replay-accepts.mjs';
 import {fieldDiff, evidence} from './lib/replay-field-diff.mjs';
+import {load as loadPins, pinned} from './lib/replay-ratchet.mjs';
 
 const json = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -38,13 +39,15 @@ export const askChanged = record => !!(record.network && record.network.extra > 
 export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
 
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
-export function judge(records, baseline = {}, retry = [], accepts = {}) {
-  const names = records.map(record => record.name), again = new Map(retry.map(record => [record.name, record])), rows = {};
+// pins (replay-faithful.json, lib/replay-ratchet.mjs): the pinned names. Given, the file IS the baseline (owner, 15 Oct 2026): every pinned row must be same as live, whatever else
+// its verdict was (ask changed, different, out of date, not replayed): red, unless the owner's Replay-accept names that row; a row same and not pinned is "newly same" (ratchet up).
+export function judge(records, baseline = {}, retry = [], accepts = {}, pins = null) {
+  const pinSet = pins ? new Set(pins) : null, names = records.map(record => record.name), again = new Map(retry.map(record => [record.name, record])), rows = {};
   for (const record of records) {
     // Counted (14 Oct 2026, a red gate on Databricks: 8/8 then 1/8 on the same code): never a deferred row, and only a row 100% same as live in the baseline AND
     // the run before it (streak >= 2); a baseline from before the streak was kept counts as 1.
     const before = baseline.rows?.[record.name], same = isSame(record), outcome = record.outcome || null, beforeStreak = before ? before.streak ?? (before.same ? 1 : 0) : 0;
-    const counted = !record.deferred && before?.same === true && beforeStreak >= STREAK, streak = same ? beforeStreak + 1 : 0;
+    let counted = !record.deferred && before?.same === true && beforeStreak >= STREAK; const streak = same ? beforeStreak + 1 : 0;
     let verdict = counted ? 'same' : 'not counted', why = counted ? '' : record.deferred ? `deferred: ${record.deferred}` : before?.same ? `same as live ${beforeStreak} run(s) before, needs ${STREAK}` : before ? 'replay not faithful in the baseline' : 'no baseline yet';
     if (outdated(record.firstMiss)) { verdict = 'out of date'; why = `re-record: the prompt changed (the first miss differs only in ${record.firstMiss.differs.join(', ')})`; }
     else if (askChanged(record)) { verdict = 'ask changed'; why = `needs a local replay: the ask changed (differs in ${record.firstMiss.differs.slice(0, 3).join(', ')}); on the Mac: npm run fill-memo -- <records dir> "${record.name}"`; }
@@ -58,20 +61,35 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
         if (accept?.reason) { verdict = 'accepted'; why = `${down}; PR #${accept.pr}${accept.url ? ` (${accept.url})` : ''}: ${accept.reason}`; } else if (accept) why = `${down}; add the reason: comment "Replay-accept: <reason>" on PR #${accept.pr}`;
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
+    if (pinSet) {   // the ratchet: the pinned file decides what counts
+      const held = pinSet.has(record.name) && !record.deferred;
+      counted = held;
+      if (!held) { if (same && !record.deferred) { verdict = 'newly same'; why = 'ratchet up: pin it with node lib/replay-ratchet.mjs pin <results.json>'; } else if (verdict === 'same') verdict = 'not counted'; }
+      else if (same) { verdict = 'same'; why = ''; }
+      else {
+        const second = again.get(record.name), noise = second && isSame(second), was = verdict === 'not counted' ? 'not same as live' : verdict, reason = `pinned same as live, now ${was}${why ? `: ${why.replace(/^[a-z ]*: /, '')}` : ''}`;
+        const accept = noise ? null : acceptNamed(record.name, accepts.entries, names);
+        if (noise) { verdict = 'noise'; why = `${reason}; the retry was same as live`; }
+        else if (accept?.reason) { verdict = 'accepted'; why = `${reason}; PR #${accept.pr}${accept.url ? ` (${accept.url})` : ''}: ${accept.reason}`; }
+        else { verdict = 'worse'; why = reason; }
+      }
+    }
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
     rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
+  if (pinSet) for (const name of pinSet) if (!rows[name]) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: true, verdict: 'worse', why: 'pinned same as live, but this run did not replay it (no result)', seconds: null, site: '', wrongValues: []};
   const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
-  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0};
+  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0, ...(pinSet ? {pinned: pinSet.size, sameCount: list.filter(row => row.same).length, newlySame: list.filter(row => row.verdict === 'newly same').length} : {})};
 }
 
 // The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
 // its asks answered of the live run's, its outcome beside the live one, its verdict and why.
-const MARK = {worse: '❌', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const MARK = {worse: '❌', 'newly same': '🆙', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {
-  const lines = [`## Replay gate: ${result.counted} of ${result.total} rows counted · ${result.worse} worse${result.accepted ? ` · ${result.accepted} accepted` : ''}`, ''];
+  const head = result.pinned != null ? `${result.sameCount} of ${result.total} same as live (pinned ${result.pinned})` : `${result.counted} of ${result.total} rows counted`;
+  const lines = [`## Replay gate: ${head} · ${result.worse} worse${result.accepted ? ` · ${result.accepted} accepted` : ''}${result.newlySame ? ` · ${result.newlySame} newly same: ratchet up` : ''}`, ''];
   const shown = Object.entries(result.rows).sort(([a, x], [b, y]) => ORDER.indexOf(x.verdict) - ORDER.indexOf(y.verdict) || a.localeCompare(b));
   if (shown.length) {
     lines.push('Asks: answered from the record / asked live (+ extra the live run never asked). Outcome: step, filled/left.', '',
@@ -87,7 +105,7 @@ export function summary(result) {
   // The evidence the owner reads before accepting (owner, 14 Oct 2026): each worse row's field-by-field diff against the baseline, with the accept line to copy.
   const bad = Object.entries(result.rows).filter(([, row]) => row.verdict === 'worse');
   if (bad.length) lines.push('', `### What changed in the ${bad.length} worse row${bad.length === 1 ? '' : 's'}`, '', ...bad.flatMap(([name, row]) => [...evidence(name, row, row.diff, row.baseOutcome), '']));
-  if (result.worse) lines.push(`> ${HINT}. The gate then re-judges by itself (no replay re-run).`);
+  if (result.worse) lines.push(`> ${HINT}. The gate then re-judges by itself (no replay re-run).${result.pinned != null ? ` A pinned row needs its own name in the line (\`Replay-accept: <row name>${DASH}<reason>\`): a bare reason accepts none.` : ''}`);
   return `${lines.join('\n')}\n`;
 }
 
@@ -95,10 +113,13 @@ const recordsIn = dir => (dir && fs.existsSync(dir) ? fs.readdirSync(dir).filter
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [dir, base, out] = process.argv.slice(2), at = process.argv.indexOf('--retry'), retryDir = at > 0 ? process.argv[at + 1] : '', ac = process.argv.indexOf('--accepts'), accepts = ac > 0 ? json(process.argv[ac + 1], {}) : {};
-  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>]'); process.exit(2); }
+  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>] [--pinned <replay-faithful.json> [--base-pinned <the base branch copy>]]'); process.exit(2); }
   const force = list => list.map(record => (record.name === process.env.REPLAY_TEST_WORSE && process.env.GITHUB_REF_NAME !== 'main' && record.outcome   // a test-only fall (the end-to-end proof of an accept), also on the retry: never on main
     ? {...record, outcome: {...record.outcome, filled: Math.max(0, (record.outcome.filled ?? 1) - 1)}} : record));
-  const result = judge(force(recordsIn(dir)), base === '-' ? {} : json(base, {}), force(recordsIn(retryDir)), accepts);
+  // --pinned: the ratchet is the baseline (lib/replay-ratchet.mjs); --base-pinned (the PR's base branch copy) keeps a row the PR unpinned held, until a Replay-accept names it.
+  const flag = name => { const index = process.argv.indexOf(name); return index > 0 ? process.argv[index + 1] : ''; };
+  const pins = flag('--pinned') ? [...new Set([...pinned(loadPins(flag('--pinned'))), ...(flag('--base-pinned') ? pinned(loadPins(flag('--base-pinned'))) : [])])] : null;
+  const result = judge(force(recordsIn(dir)), base === '-' ? {} : json(base, {}), force(recordsIn(retryDir)), accepts, pins);
   fs.writeFileSync(out, `${JSON.stringify({at: new Date().toISOString(), sha: process.env.GITHUB_SHA || '', ...result}, null, 1)}\n`);
   if (!retryDir) fs.writeFileSync(`${out}.worse`, Object.entries(result.rows).filter(([, row]) => row.verdict === 'worse').map(([name]) => name).join('\n'));
   process.stdout.write(summary(result));

@@ -32,6 +32,15 @@ export function acceptFor(name, entries = [], names = []) {
   return silent;
 }
 
+// The ratchet's accept (owner, 15 Oct 2026): only an entry that NAMES the row ("<row> — <reason>") counts; a bare "Replay-accept: <reason>" accepts nothing for a pinned row.
+export function acceptNamed(name, entries = [], names = []) {
+  for (const {pr, text, url} of entries) {
+    const named = names.find(other => text.startsWith(other + DASH));
+    if (named === name) return {pr, ...(url ? {url} : {}), reason: text.slice(named.length + DASH.length).trim()};
+  }
+  return null;
+}
+
 const run = (args, fetcher) => (fetcher || (list => execFileSync('gh', list, {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024})))(args);
 // (the baseline results' sha) -> {merged: [{number, title}], entries}: the PRs merged into main after that sha. No sha, no accepts.
 export function readAccepts(sha, {env = process.env, fetcher} = {}) {
