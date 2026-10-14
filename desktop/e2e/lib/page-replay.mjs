@@ -67,8 +67,6 @@ export async function judgeCase(item, scope) {
   // The "can't reach" reports the extension sent the app (/extension/event, type stuck): {why, needs}.
   const stuckReports = list => list().filter(request => request.route === '/extension/event').map(request => { try { return JSON.parse(request.body); } catch { return null; } }).filter(body => body?.type === 'stuck');
   const requestChecks = list => ({
-    // reported: ["run"]: the fill reached its end and told the app (/extension/run) within the case's seconds: a fill held back by one control reports late or never.
-    reported: () => list().some(request => request.route === '/extension/run'),
     told: word => list().some(request => request.body.includes(word)),
     // stuck: ["<why>"] or ["<why>|<the start of what the person is told>"]: a "can't reach" report with that reason (and need).
     stuck: spec => { const [why, needs = ''] = spec.split('|'); return stuckReports(list).some(body => body.why === why && String(body.needs || '').startsWith(needs)); },

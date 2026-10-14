@@ -28,7 +28,8 @@
  },
  "expect": {
   "filled": ["#aws", "#k8s"],
-  "reported": ["run"],
+  "traced": ["How many years of experience do you have with AWS?:filled"],
+  "endAfter": 33000,
   "notTold": ["pressed the submit"],
   "seconds": 60
  },
