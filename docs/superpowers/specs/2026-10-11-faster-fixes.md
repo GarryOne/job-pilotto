@@ -34,7 +34,7 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] Heavy runs wait when the machine's load is high (c93ed10)
 - Dropped (11 Oct, job-pilotto-ac): A one-minute local check before the gate (the touched area's unit tests, e2e harness tests) — it repeats the gate's own tests, and sharing the gate cache from a working tree with git-ignored leftovers is unsound
 
-### 5. The skill (fix-failing-forms)
+### 5. The skill (fix-recorded-sites)
 - [x] Asked / answered / done before any guess (e87c82a)
 - [x] Skip rows that are not failures; check main for a landed fix (e87c82a)
 - [x] Claim files only once the cause is proven (e87c82a)

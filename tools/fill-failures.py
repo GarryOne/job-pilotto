@@ -6,7 +6,7 @@
 Reads the extension's rows in 🎏 Job Apply — Agent Runs (Agent = Extension) from the Notion workspace the
 desktop app is connected to (its NOTION_TOKEN and NOTION_AGENT_RUNS_DB, or env vars), parses each run's
 field log and debug JSON, and groups every field left by reason, job site and extension version, most
-frequent first. Read-only. Used by the improve-filling skill (.claude/skills/improve-filling/SKILL.md).
+frequent first. Read-only. Used by the record-applying-sites skill (.claude/skills/record-applying-sites/SKILL.md).
 """
 import argparse
 import collections

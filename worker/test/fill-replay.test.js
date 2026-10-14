@@ -1,6 +1,6 @@
 // Replay tests: every form-fill failure becomes a fixture (worker/test/fixtures/fill/<name>.html + .json, made from its
 // issue's snapshot by tools/fill-fixture.mjs), and the extension's real fill (extension/page/fill.js) runs on it here.
-// A fix is proven against the form that failed, not a guess. How: .claude/skills/improve-filling/SKILL.md.
+// A fix is proven against the form that failed, not a guess. How: .claude/skills/record-applying-sites/SKILL.md.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

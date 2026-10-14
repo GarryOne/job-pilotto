@@ -28,7 +28,7 @@ the wrong cause for the waiting ([why.md](why.md)).
 - **A worktree name is not an owner:** before telling a session to cancel, change or wait because of a run, a lock waiter or a claim, name the session that owns that pid
   (parent pids -> `~/.claude/sessions/<pid>.json`; `node tools/round-status.mjs` prints it). 11 Oct: a run in worktree `fix-combobox-state` was blamed on the wrong session.
 - **A new tool is proven on a small fixture with a known answer first, a real capture second** (a replay, `row-to-case`, a harness step). A fix keeps
-  the fix order (the real capture, fix-failing-forms 0a). 11 Oct: proving `row-to-case` on the hardest capture first (taken after the fix, a French
+  the fix order (the real capture, fix-recorded-sites 0a). 11 Oct: proving `row-to-case` on the hardest capture first (taken after the fix, a French
   posting, autofill after upload) took ~2 h of "no difference" from three replay flaws before one yes. **No yes or no after 30 minutes: stop**, land what
   is tested, report to the coordinator.
 - **One session owns a row's live visits for the day** (owner, 12 Oct 2026): the per-site limit is 3 live visits a day, and on 12 Oct HelloFresh's were spent by

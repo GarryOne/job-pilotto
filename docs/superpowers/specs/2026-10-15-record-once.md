@@ -27,12 +27,12 @@ So: reversing "Proven live" is the **last step** of a move that is mostly done. 
 
 | Today | After |
 |---|---|
-| Skill `run-applying-smoke-pool`: "run live, did a site change under us" | `record-applying-sites`: record a NEW site once to its form; re-record only on a signal (below) |
+| The pool-running skill: "run live, did a site change under us" | `record-applying-sites`: record a NEW site once to its form; re-record only on a signal (below) |
 | `pool-smoke.yml` "Pool smoke (by hand)" with a "proven live" record step | by hand, records only (`net-records-<run>` kept 14 days); no proven record |
 | A fix is closed when the Fixed tab says "Proven live" | closed when it says "Confirmed offline" (8e) |
 | Re-run the row live after a fix | never: replay it (`npm run row`), the PR replay and the schedule |
 
-Skill name: verb + object + where. `run-applying-smoke-pool` no longer fits (it does not run a smoke); proposal **`record-applying-sites`**, old name to `RETIRED` in `desktop/test/skill-names.test.js`. Other skills that name it (`fix-failing-forms`) updated in the same PR.
+Skill name: verb + object + where. The old pool-running name no longer fits (it does not run a smoke); proposal **`record-applying-sites`**, old name to `RETIRED` in `desktop/test/skill-names.test.js`. Other skills that name it (`fix-recorded-sites`) updated in the same PR.
 
 ### Signals for a re-recording (never a schedule)
 1. **Installs' outcomes.** Installs already report `flow_outcomes` (day, board, state, ai_family, n: `site/src/knowledge.js`, `formlearning.js`). A board whose reach drops against its own previous 14 days (e.g. filled share down by a stated amount, k ≥ 3 installs) raises "site may have changed" on `/admin/applying`; the coordinator re-records that board's pool rows (bounded: 3 live visits a host a day).
@@ -48,9 +48,9 @@ Land after 8e. "Retire" = the live-proof piece goes, the file's other duty stays
 
 | Where | What it says | Verdict |
 |---|---|---|
-| `.claude/skills/run-applying-smoke-pool/SKILL.md` "Proven live" bullet, hand-run bullets | proven records, Fixed tab "Proven live" | **retire**; rename skill (A) |
+| `.claude/skills/record-applying-sites/SKILL.md` "Proven live" bullet, hand-run bullets | proven records, Fixed tab "Proven live" | **retire**; rename skill (A) |
 | same, "No live run on a PR" + "Testing is offline; the pool only RE-RECORDS" | already the target rule | **keep**, becomes the skill's lead |
-| `.claude/skills/fix-failing-forms/SKILL.md` description ("re-run to confirm it reached further"), lines 23, 162-164 | re-run live to confirm | **retire** the re-run; keep the `Pool-row:` trailer (it names the row for the fix ledger, not a live proof) |
+| `.claude/skills/fix-recorded-sites/SKILL.md` description ("re-run to confirm it reached further"), lines 23, 162-164 | re-run live to confirm | **retire** the re-run; keep the `Pool-row:` trailer (it names the row for the fix ledger, not a live proof) |
 | `docs/rules/applying.md` l.96 "Close a fix only when the Fixed tab shows ..." | live proof closes a fix | **change** to "Confirmed offline" |
 | `docs/HOW-IT-RUNS.md` l.35 pool-smoke row | by hand, live | **change** wording: records |
 | `site/src/applying-cases.js` header ("Proven comes only from the live layer") | the 12 Oct reversal | **retire** (8e rewrites the Fixed tab; I reword the comment) |
@@ -103,6 +103,7 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 - [x] PR 1: settle before ending a recording: an in-flight request is waited for (cap 20 s), the unfinished count is kept in record.json (proof: desktop/e2e/test/net-record.test.mjs). Found in code: a request still open at the end was never recorded.
 - [ ] PR 1b: Aldi's existing record read for the pending press (needs the Mac's records; $0)
 - [ ] PR 2: record-time takeover driver, flagged, tripwire kept
-- [ ] PR 3: skill renamed (RETIRED entry), signal 1 on /admin/applying
+- [x] PR 3a: skills renamed, fix skill trimmed, the filling-review skill folded in (proof: desktop/test/skill-names.test.js)
+- [ ] PR 3b: signal 1 on /admin/applying
 - [ ] PR 4: live-proof pieces retired after 8e, class test, memories updated
 - [ ] Aldi recorded to its form; old vs new build compared offline

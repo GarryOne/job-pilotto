@@ -5,9 +5,9 @@
 
 | # | Step | Who / what | Live? | Cost |
 |---|---|---|---|---|
-| 1 | **Record** a new site once, all the way to the form; re-record only on a signal | skill `record-applying-sites` (today `run-applying-smoke-pool`); `record-sites.yml`, whose single job is recording | ✅ the only live step | cents per row |
+| 1 | **Record** a new site once, all the way to the form; re-record only on a signal | skill `record-applying-sites`; `record-sites.yml`, whose single job is recording | ✅ the only live step | cents per row |
 | 2 | **Detect**: replay every recording on the build | CI: `site-replays-pr.yml` on every PR, `site-replays.yml` nightly → `/admin/applying` | no | $0 |
-| 3 | **Fix** the top 🔴 row | skill `/fix-failing-forms` | no | $0 + the fix session |
+| 3 | **Fix** the top 🔴 row | skill `/fix-recorded-sites` | no | $0 + the fix session |
 | 4 | **Verify** the fix | CI after merge: "Confirmed offline" on the Fixed tab (2 agreeing replays) | no | $0 |
 | 5 | **Benchmark** (occasional) | bake-off: the extension vs other agents on the same forms (repo job-pilotto-bakeoff) | yes | dollars: owner's OK |
 
@@ -32,9 +32,9 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 ## Skills for this workflow
 | Skill | Step | State |
 |---|---|---|
-| `run-applying-smoke-pool` → `record-applying-sites` | 1 | being renamed and trimmed to recording |
-| `improve-filling` | 1 | being folded into `record-applying-sites` as the real-use signal, then retired |
-| `fix-failing-forms` | 3-4 | being trimmed to the offline loop |
+| `record-applying-sites` | 1 | renamed from the pool-running skill (15 Oct 2026), recording only |
+| (the filling-review skill, retired) | 1 | folded into `record-applying-sites` as the real-use signal |
+| `fix-recorded-sites` | 3-4 | offline loop, under 150 lines (renamed 15 Oct 2026) |
 | `apply-to-job` | not testing: the instructions the app gives Claude when it finishes a page (rung 5), a backup we aim never to need | kept |
 | `desktop-change` | app bugs | kept |
 | ~~the live twin loop skill~~ | removed 14 Oct 2026 | — |
@@ -48,5 +48,5 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 | A CI recording never updates the pool table (`applying-report.mjs` refuses CI) and must reach the replay's records | job-pilotto-cf (A), its first PR |
 | Rules, skills and page words that still require a live proof | job-pilotto-cf (B), after 8e |
 | Recording past where the extension stops (full journey) | job-pilotto-cf (C) |
-| `fix-failing-forms` still describes live runs, the heavy lock, `npm run row`, `twin:drive` | job-pilotto-cf (B) |
+| `fix-recorded-sites` still describes live runs, the heavy lock, `npm run row`, `twin:drive` | job-pilotto-cf (B) |
 </details>

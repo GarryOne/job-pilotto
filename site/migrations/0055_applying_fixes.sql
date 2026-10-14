@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS applying_fixes (
   at TEXT NOT NULL,            -- when the snapshot was uploaded
   PRIMARY KEY (site, commit_hash)
 );
--- The shapes a /fix-failing-forms session holds right now (tools/claim-shape.mjs list): names and since only, a snapshot per upload.
+-- The shapes a /fix-recorded-sites session holds right now (tools/claim-shape.mjs list): names and since only, a snapshot per upload.
 CREATE TABLE IF NOT EXISTS applying_claims (
   site TEXT PRIMARY KEY,
   since TEXT NOT NULL

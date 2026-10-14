@@ -1,6 +1,6 @@
 # Speed-5x: a failing pool row replayed offline in seconds
 
-Owner, 11 Oct 2026: the fix-failing-forms loop 5x faster. Seven fixer sessions spent 9.9 h and confirmed 0 rows because each layer of a bug showed only in a
+Owner, 11 Oct 2026: the fix-recorded-sites loop 5x faster. Seven fixer sessions spent 9.9 h and confirmed 0 rows because each layer of a bug showed only in a
 live run hours later. The fix: a failing pool row becomes an offline replay on the app's own path (the real extension, the app's own server under plain node,
 the row's recorded pages and model answers), proven to show what the live run showed; live runs stay to confirm a fix once.
 
@@ -27,7 +27,7 @@ Owner decisions: landing 1 (11 Oct), step 0 then landing 2 (11 Oct), the privacy
 ### 3. Safety for live runs
 - [x] The harness never runs a terminal's claude wrapper (7d8b948)
 - [x] The privacy tripwire on what is typed into real pages (e0fce93)
-- [x] Skill fix-failing-forms: journey candidates, privacy, 4-tab replays (5110a39)
+- [x] Skill fix-recorded-sites: journey candidates, privacy, 4-tab replays (5110a39)
 
 ### 4. Fresh captures (each state in order, the presses, the window size)
 - [x] The capture keeps each settled state, each page at the extension's ask, the live presses (presses.json), the window size and document (this landing)
@@ -44,7 +44,7 @@ Owner decisions: landing 1 (11 Oct), step 0 then landing 2 (11 Oct), the privacy
 - [x] Rows in 4 tabs at once, rows sharing a host apart, a diverged row re-run alone (this landing)
 
 ### 7. Skill step
-- [x] fix-failing-forms: replay the row offline first, confirm live once (this landing)
+- [x] fix-recorded-sites: replay the row offline first, confirm live once (this landing)
 
 ### 8. Land landing 2
 - [x] Offline app, memo-only, npm run row/rows, the follow, the trust check on main (this landing)

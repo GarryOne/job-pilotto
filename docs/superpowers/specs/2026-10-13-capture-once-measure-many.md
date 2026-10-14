@@ -24,7 +24,7 @@ the tables already read (`<day>.json` + `<row>.app.log`), so `pool-shadow`, `poo
 ## Design
 
 1. **Keep every row's capture** (smoke.mjs, Mac and CI): `saveCandidate(..., always: true)` into a captures library, beside today's
-   failing-only candidates (unchanged, fix-failing-forms reads them). Each capture also records the build that made it (commit, extension version),
+   failing-only candidates (unchanged, fix-recorded-sites reads them). Each capture also records the build that made it (commit, extension version),
    the run's result row (reached / filled / left / usd / ending) and its app.log: the positive control's "live" side.
    - Mac: `<QA folder>/captures/<day>/<row>/` (outside the repo, as today).
    - CI: an artifact `pool-captures-<run id>` (see **Owner decision 1**).
@@ -66,7 +66,7 @@ The acting batch's **effect** column therefore still needs live visits, but only
 | 1 | Every line `measure` prints is labelled **`offline (memo)`** or **`offline (plan)`**; an offline and a live number never share a table (`--compare` prints two tables side by side, each labelled). |
 | 2 | **Any miss = not measured** (changed 13 Oct 2026 from "over 10 % of asks": HelloFresh's ONE missed page-kind ask of 16 took the fill from 5 to 1). The row names the step and the differing part; the top line counts the reasons (`page kind: use differs x4`), so a prompt change shows at once. |
 | 3 | A press no capture saw is **"unseen"**, never "worked" or "failed". |
-| 4 | **A fix is "proven" only by a live run** (Pool-row / live-proof, as today). Offline numbers decide what to try, never what is done (this spec + skills fix-failing-forms, run-applying-smoke-pool). |
+| 4 | **A fix is "proven" only by a live run** (Pool-row / live-proof, as today). Offline numbers decide what to try, never what is done (this spec + skills fix-recorded-sites, record-applying-sites). |
 | 5 | **Gate:** until the positive control (PR 3) passes, every `measure` output carries **"unverified"**. |
 
 ## Owner decisions (13 Oct 2026)
@@ -99,7 +99,7 @@ The acting batch's **effect** column therefore still needs live visits, but only
 1. **Keep every capture** (smoke.mjs + pool-smoke.yml artifact + build stamp + result row in the capture); test: a passing row keeps its capture.
 2. **`npm run measure`** (+ `captures pull/list`), reusing `replayRows` (lib/row-replay.mjs) and `parseLive` (lib/smoke.mjs) as they are, no second replayer: replay → report folder of the live shape → the existing tables; tests on a fixture capture
    (a fake site, memo-only) that measure writes the same `<day>.json` keys the tables read, and that a miss is counted, never asked.
-3. **Positive control** on one CI batch, numbers in this spec; skill steps (fix-failing-forms, run-applying-smoke-pool, fill-ladder's
+3. **Positive control** on one CI batch, numbers in this spec; skill steps (fix-recorded-sites, record-applying-sites, fill-ladder's
    measuring) say "measure offline first, one live visit for the proof".
 
 ## Progress

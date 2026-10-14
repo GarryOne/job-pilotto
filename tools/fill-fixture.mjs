@@ -85,7 +85,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const fixture = fromIssue(issue, { answer: option('--answer') ?? null, expect });
   if (!fixture) {
     console.error(`Issue #${number} has no snapshot (only reports sent since snapshots were added carry one). Build the fixture by hand from the ` +
-      'public form (mark it "source": "synthetic"), see .claude/skills/improve-filling/SKILL.md.');
+      'public form (mark it "source": "synthetic"), see .claude/skills/record-applying-sites/SKILL.md.');
     process.exit(1);
   }
   const base = write(fixture, { force: args.includes('--force') });

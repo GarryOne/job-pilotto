@@ -2,7 +2,7 @@
 
 **Verdict (5 s):** a page decision climbs from the cheapest rung to the next only when unsure. **Fix a site at the lowest rung where the information exists, and fix it as data
 (a kept answer, a recipe, a prompt example) before code.** Never fix a site in a higher rung than needed, never in a rung that already answered right.
-Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is built). Applying flows: `docs/flows/applying.md`. Skill for the work: `.claude/skills/fix-failing-forms/SKILL.md`.
+Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is built). Applying flows: `docs/flows/applying.md`. Skill for the work: `.claude/skills/fix-recorded-sites/SKILL.md`.
 
 ## The rungs
 | Rung | What | Owner (file) | Fixed answers | Built |
