@@ -3,7 +3,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PAGE} from '../src/applying.js';
-import {PAGE_TABS, FIX_HASHES} from '../src/applying-pagetabs.js';
+import {PAGE_TABS, FIX_HASHES, PAGETABS_CSS} from '../src/applying-pagetabs.js';
 
 const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
   append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
@@ -54,4 +54,11 @@ test('no block writes a missing part as the text "null" (a raw append() does; el
   const app = await render(''), texts = walk(app).flatMap(node => node.children.filter(kid => typeof kid === 'string'));
   assert.ok(texts.length > 20, 'the page drew text');
   assert.deepEqual(texts.filter(text => /^(null|undefined)$/.test(text)), []);
+});
+
+test('the page bar looks unlike the Fixes tab\'s folder tabs: an underline nav, styled after them so it wins', () => {
+  assert.match(PAGETABS_CSS, /\.tabs\.pagetabs a\{[^}]*border:0[^}]*background:none/);
+  assert.match(PAGETABS_CSS, /\.tabs\.pagetabs a\.on\{[^}]*inset 0 -3px 0 var\(--amber\)/);
+  const css = PAGE.slice(PAGE.indexOf('<style>'), PAGE.indexOf('</style>'));
+  assert.ok(css.indexOf('.tabs a.on{') < css.indexOf('.tabs.pagetabs a.on{'), 'the folder-tab rules come first');
 });
