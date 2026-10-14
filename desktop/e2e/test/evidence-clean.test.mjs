@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {writeBundle, saveElectronLeg} from '../lib/evidence-bundle.mjs';
-import {KEEP_DAYS, keepsSteps, removeOldEvidence} from '../lib/evidence-clean.mjs';
+import {STATUS_FILE, keepsSteps, removeOldEvidence} from '../lib/evidence-clean.mjs';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-clean-'));
 function capture() {
@@ -34,16 +34,33 @@ test('a run that works or is held keeps end.png only; a run that needs a fix or 
   }
 });
 
-test('day folders older than 14 days go (15 removed, 13 kept), and nothing outside the evidence folder is touched', () => {
-  const root = tmp(), dir = path.join(root, 'evidence'), now = new Date('2026-10-30T12:00:00Z');
+// The follow-up (owner, 15 Oct 2026: "if we don't fix the issue in 14 days, we lose evidence"): the newest folder of a row stays however old; others go at 30 days, or at once when the newest run works.
+test('the newest folder of every row stays, an older duplicate goes after 30 days, a working row keeps only its newest', () => {
+  const root = tmp(), dir = path.join(root, 'evidence'), now = new Date('2026-12-31T12:00:00Z');
   const day = ago => new Date(now.getTime() - ago * 86400000).toISOString().slice(0, 10);
-  for (const ago of [15, 13, 0]) { fs.mkdirSync(path.join(dir, day(ago)), {recursive: true}); fs.writeFileSync(path.join(dir, day(ago), 'x'), '1'); }
-  fs.mkdirSync(path.join(dir, 'notes-old')); fs.mkdirSync(path.join(root, '2020-01-01'));   // not a day folder; a day folder outside
+  const make = (ago, row, state) => { const f = path.join(dir, day(ago), row); fs.mkdirSync(f, {recursive: true}); fs.writeFileSync(path.join(f, 'end.png'), '1'); if (state) fs.writeFileSync(path.join(f, STATUS_FILE), JSON.stringify({state})); };
+  make(60, 'old-row', 'fix');                                       // a row's only folder, 60 days old: kept
+  make(31, 'dup-row', 'fix'); make(5, 'dup-row', 'fix');            // an older duplicate at 31 days: goes; its newest stays
+  make(20, 'dup-young', 'fix'); make(5, 'dup-young', 'fix');        // 20 days and the row still fails: kept (evidence for the fix)
+  make(10, 'ok-row', 'fix'); make(3, 'ok-row', 'works');           // the row works now: its older folder goes at once
+  make(40, 'ok-old', 'fix'); make(2, 'ok-old');                     // a newest run with no status word (an older build): not known to work, so only the 30 days rule
   const lines = [];
-  const removed = removeOldEvidence(dir, now, line => lines.push(line));
-  assert.deepEqual(removed, [day(15)]);
-  assert.deepEqual(fs.readdirSync(dir).sort(), ['notes-old', day(0), day(13)].sort());
-  assert.ok(fs.existsSync(path.join(root, '2020-01-01')));
-  assert.deepEqual(lines, [`evidence: removed 1 folders older than ${KEEP_DAYS} days`]);
-  assert.throws(() => removeOldEvidence(root, now, () => {}), /not an evidence folder/);
+  const removed = removeOldEvidence(dir, now, line => lines.push(line)).sort();
+  assert.deepEqual(removed, [`${day(10)}/ok-row`, `${day(31)}/dup-row`, `${day(40)}/ok-old`].sort());
+  const left = fs.readdirSync(dir).flatMap(d => fs.readdirSync(path.join(dir, d)).map(r => `${d}/${r}`)).sort();
+  assert.deepEqual(left, [`${day(60)}/old-row`, `${day(5)}/dup-row`, `${day(20)}/dup-young`, `${day(5)}/dup-young`, `${day(3)}/ok-row`, `${day(2)}/ok-old`].sort());
+  assert.match(lines[0], /^evidence: removed 3 folders/);
+});
+
+test('nothing outside the evidence folder is touched: any other folder is refused', () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, '2020-01-01', 'row'), {recursive: true});
+  assert.throws(() => removeOldEvidence(root, new Date(), () => {}), /not an evidence folder/);
+  assert.ok(fs.existsSync(path.join(root, '2020-01-01', 'row')));
+});
+
+test('a bundle records its row status for the cleanup', () => {
+  const root = tmp(), dir = path.join(root, 'evidence');
+  const folder = writeBundle({dir, day: '2026-10-14', shape: 'a/b', result: {reached: 'form', filled: 5, left: 0}, state: 'works'});
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(folder, STATUS_FILE), 'utf8')), {state: 'works'});
 });

@@ -7,7 +7,7 @@ import path from 'node:path';
 import {stepFilesIn} from './step-shots.mjs';
 import {slug} from './replay-candidate.mjs';
 import {WORKER_CONSOLE} from './worker-console.mjs';
-import {dropSteps} from './evidence-clean.mjs';
+import {STATUS_FILE, dropSteps} from './evidence-clean.mjs';
 
 // The capture files a fixer reads, kept by both bundle writers (the plain run's and the Electron leg's): the app's log, its AI calls, the extension's console.
 export const CAPTURE_FILES = ['app.log', 'ai-calls.json', WORKER_CONSOLE];
@@ -34,7 +34,7 @@ export function evidenceLines(appLog) {
 const section = (title, list) => `## ${title}\n${list.length ? list.map(line => `- ${line}`).join('\n') : '- (none in the app log)'}\n`;
 
 // -> the folder. A part that is missing (no app log, no AI calls) is skipped, never an empty file.
-export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}, captureDir = '', keepSteps = true}) {
+export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}, captureDir = '', keepSteps = true, state = ''}) {
   const folder = path.join(dir, day, slug(shape)), lines = evidenceLines(appLog);
   fs.mkdirSync(folder, {recursive: true});
   const shot = captureDir && fs.existsSync(path.join(captureDir, 'end.png')) ? path.join(captureDir, 'end.png') : '';   // the last picture of the application tab (apply-live.mjs): fake applicant only, local, never uploaded
@@ -47,6 +47,7 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
     section('The eligibility verdict (the AI\'s own: aiEligible; what passed a "no": forced)', lines.verdict)].join('\n');
   fs.writeFileSync(path.join(folder, 'evidence.md'), text);
   fs.writeFileSync(path.join(folder, 'run.log'), output);
+  if (state) fs.writeFileSync(path.join(folder, STATUS_FILE), JSON.stringify({state}));   // the row's status word, read by the cleanup (lib/evidence-clean.mjs)
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);
   if (aiCalls) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls);
   if (captureDir) for (const name of CAPTURE_FILES.filter(name => !fs.existsSync(path.join(folder, name)))) { try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the run did not leave it */ } }
