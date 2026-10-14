@@ -129,3 +129,47 @@ test('settle waits for a request still in flight, so a press the site answers la
   assert.ok(capped.waitedMs < 400, 'capped');
   assert.equal((await rec.settle(0)).unfinished, 1);
 });
+
+// A fake context: the replay's one route handler, driven with fake requests (no browser).
+async function replayOf(entries, bodies = new Map()) {
+  const {netReplay} = await import('../lib/net-record.mjs');
+  let handler = null;
+  const context = {routeWebSocket: async () => {}, route: async (_pattern, fn) => { handler = fn; }};
+  const {counts} = await netReplay(context, {entries, bodies}, {});
+  const serve = async (url, type = 'script') => {
+    const done = {};
+    await handler({request: () => ({url: () => url, method: () => 'GET', allHeaders: async () => ({}), headers: () => ({}), postDataBuffer: () => null, resourceType: () => type, isNavigationRequest: () => false}),
+      fulfill: async reply => { done.reply = reply; }, continue: async () => { done.continued = true; }, abort: async () => { done.aborted = true; }});
+    return done;
+  };
+  return {counts, serve};
+}
+const reply = (url, status, headers = {}, hash = '', type = 'script') => ({method: 'GET', url, status, headers, hash, type, bodyKey: '', waitMs: 0, startMs: 0});
+
+test('a recorded redirect of a script, a fetch and a font is followed inside the record: the original request gets the final reply, its CORS headers included (Workday, 14 Oct 2026)', async () => {
+  const bodies = new Map([['aaa', Buffer.from('window.ran=1')], ['bbb', Buffer.from('{"lang":"en"}')]]);
+  const {counts, serve} = await replayOf([
+    reply('https://cdn.example.test/app.js', 307, {location: '/v2/app.js'}),
+    reply('https://cdn.example.test/v2/app.js', 200, {'content-type': 'text/javascript'}, 'aaa'),
+    reply('https://api.example.test/lang.json', 307, {location: 'https://static.example.test/v2/lang.json'}, '', 'fetch'),
+    reply('https://static.example.test/v2/lang.json', 200, {'content-type': 'application/json', 'access-control-allow-origin': '*'}, 'bbb', 'fetch'),
+  ], bodies);
+  const script = await serve('https://cdn.example.test/app.js');
+  assert.deepEqual([script.reply.status, script.reply.body.toString()], [200, 'window.ran=1'], 'a relative Location, resolved against the request');
+  const fetched = await serve('https://api.example.test/lang.json', 'fetch');
+  assert.equal(fetched.reply.status, 200);
+  assert.equal(fetched.reply.headers['access-control-allow-origin'], '*', 'the cross-origin target\'s CORS header is on the reply');
+  assert.deepEqual(counts.notRecorded, []);
+  assert.equal(counts.redirects, 2);
+});
+
+test('a redirect whose target is not in the record, or that loops, is counted as not recorded and answered 404', async () => {
+  const {counts, serve} = await replayOf([
+    reply('https://cdn.example.test/gone.js', 307, {location: '/v9/gone.js'}),
+    reply('https://cdn.example.test/loop.js', 307, {location: '/loop.js'}),
+  ]);
+  assert.equal((await serve('https://cdn.example.test/gone.js')).reply.status, 404);
+  assert.equal((await serve('https://cdn.example.test/loop.js')).reply.status, 404);
+  assert.equal(counts.notRecorded.length, 2);
+  assert.match(counts.notRecorded[0], /redirect target of script/);
+});
