@@ -51,6 +51,7 @@ const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 2000
 // Menus given up on in this fill (a timeout, or the ceiling): a later pass does not wait on the same menu again, so one control costs the fill one wait, not one per pass (tab -> labels).
 const givenUp = new Map();
 export const forgetGivenUp = tabId => { givenUp.delete(tabId); };
+export const gaveUpOn = tabId => [...(givenUp.get(tabId) || [])];   // the labels of the menus this tab's fill stopped waiting on (fill-flow.js hands a required one to the person)
 const giveUp = (tabId, label) => { if (!givenUp.has(tabId)) givenUp.set(tabId, new Set()); givenUp.get(tabId).add(label); };
 async function clickCombosNow(tabId) {
   let gaveUp = false, lastStep = null, steps = 0;   // a step timed out: the work still running behind it stops at its next step (the debugger is detached below)

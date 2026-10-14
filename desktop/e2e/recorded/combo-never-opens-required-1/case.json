@@ -1,0 +1,82 @@
+{
+ "origin": "hand-cut",
+ "shape": "a suggest-only address combobox that is REQUIRED and whose list never opens, with two questions answered late: the fill gives up on it and the page is handed to the person",
+ "why": "14 Oct 2026, the required variant of the combo stall (#700 made Address optional to stay deterministic): the fill typed everything else, then no hand-off; \"dead end: silent\" fired ~31 s later",
+ "control": {
+  "guard": "new case 14 Oct 2026: on origin/main the run has no end (the judge here says ready on a middle step, which hands nothing over); the fix hands the page to the person naming Address"
+ },
+ "sample": "hand-made (the shape of the bake-off's form 4), no real site",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/apply/combo-never-opens",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "_delayMs": 6000,
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aws",
+     "question": "How many years of experience do you have with AWS?",
+     "value": "6",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "k8s",
+     "question": "How many years of experience do you have with Kubernetes and Docker?",
+     "value": "5",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "addr",
+     "question": "Address",
+     "value": "Bahnhofstrasse 1, 8001 Zurich",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/account-judge": {
+   "ok": true,
+   "answer": "ready",
+   "step": "middle",
+   "rung": 2,
+   "signal": "confident"
+  }
+ },
+ "expect": {
+  "kept": [
+   "#aws",
+   "#k8s"
+  ],
+  "keptAfter": 2500,
+  "notTold": [
+   "pressed the submit",
+   "dead end: silent"
+  ],
+  "seconds": 75,
+  "told": [
+   "a required field the fill gave up on: handed to the person"
+  ]
+ },
+ "start": "panel"
+}

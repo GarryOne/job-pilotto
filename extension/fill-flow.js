@@ -15,7 +15,7 @@ import {expandSections} from './sections.js';
 import {closeConsentEverywhere} from './consent.js';
 import {sweepConsent} from './consent-sweep.js';
 import {closerLook, lastLook} from './ladder/rung4-picture.js';
-import {formNext} from './form-ready.js';
+import {formNext, handGivenUpToPerson} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {noJobPage} from './page-kind-final.js';
@@ -443,6 +443,7 @@ export async function consider(tab, jobUrl) {
     decide('fill', 'nothing filled, required fields left: the person is told, Claude is offered', {host, left: open.length, aiNamed: !!named});
     deadEndHere(tab, jobUrl, host, 'incomplete', [...new Set(open)].slice(0, 3).join(', ') + (named ? ` · try "${named}"` : ''), {left: open.length, aiNamed: !!named});
   }
+  if (!result?.error && !accountPage) handGivenUpToPerson(live, 0, result?.trace).catch(() => {});   // a required menu the fill gave up on is the person's (form-ready.js)
   if (!result?.error && !accountPage) formNext(live, 0).catch(() => {});   // the AI says what this page needs next, and a middle step's Continue is pressed (next-step.js)
   if (accountAfterFill) accountStep(tab, 0).catch(() => {});   // the account page, now with your details in (above)
 }
