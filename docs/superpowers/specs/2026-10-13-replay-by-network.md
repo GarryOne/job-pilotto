@@ -86,8 +86,8 @@ First party = a host whose registrable domain (public suffix list) served a docu
 - Server-sent events and streamed fetches: one whole body, served after its live time.
 
 ### 6. Clock and Math.random
-- `context.clock.install({time: <the capture's start>})` before the first page: `Date` and timers start at the live run's time and flow
-  ("posted 3 days ago", a token's expiry check read as live). P0 checks that time flows after install.
+- Only `Date` is shifted to the capture's start and flows on (`lib/replay-date.mjs`, #696); the timers stay real ("posted 3 days ago",
+  a token's expiry check read as live). `clock.install` (fake timers) made Databricks show a cookie banner it never showed live; `--fake-timers` keeps it for comparison.
 - Main world only: the extension's isolated world keeps the real clock (its code and timing unchanged).
 - `Math.random` and `crypto` are not seeded (the live run was not); the ids they make are normalised (rule 2). Replay-to-replay sameness is measured in P0 (5 runs).
 
@@ -227,9 +227,9 @@ nearest kept one part by part (`memoParts` in `desktop/lib/ai/model-memo.js`): t
 | Prefetched code dropped as a beacon | Third-party `/…chunk.js` served the dropped entry (404); a widget stays in its default (Starling: phone +1 vs live +41) | #686: a GET whose reply is code is kept; old records need a re-record |
 | Replay cut by its time cap | `filled: null`, the watch ended before `fill: fields:`; the replay starts ~25-35 s late and drifts | #686: the cap is the live run's length + 90 s |
 | A live recording that ended too early | live `app.log` has no `fill: fields:`; the replay asks form questions the live run never did | Re-record with a longer live window (`SMOKE_SECONDS`) |
-| A real regression in the build | Replay on main: `Claude answered` after `first fields filled`, then never `fill: fields:` (coreweave on the Mac; the live 5afa5a8 stall, intermittent) | Not a replay gap: the replay is right. Fixed by job-pilotto-combo-stall |
+| A real regression in the build | Replay on main: `Claude answered` after `first fields filled`, then never `fill: fields:` (Starling, Duolingo live 2/2; the coreweave replay stall was the fake timers, not this) | Not a replay gap. Fixed by job-pilotto-combo-stall (#690) |
 | Upload recorded as failed | The storage POST kept as `failed` with no reply (recorder before #670) | #670 + a re-record |
-| A cookie banner only on the replay | Databricks: the OneTrust banner text in the first page ask; the live page never rendered it though it loaded `otBannerSdk.js` | Open (deferred): maybe consent kept in the live profile's storage |
+| Fake timers on the replay page | Databricks: the OneTrust banner in the first ask, never live (0/8); coreweave stalls after its answers (8-9/11) | #696: Date only, real timers: Databricks 8/8, coreweave 11/11 (2/2), both as live |
 | A late-loading part of the page | Deloitte: "Others have also looked at" box in or out of the first ask (3/4, then 1/4) | Open (deferred): timing |
 | The macOS runner disagrees with the Mac | Datadog 9/9 on the Mac, stops at the posting on the runner; Recruitee | Open; not a gate risk (a row not faithful on the runner never counts) |
 
