@@ -478,7 +478,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) for (const session of terminals.list()) { const record = terminals.record(session.id); if (record) saveConversation(record); }
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
-  registerExtServerHandlers({DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry: () => telemetry, toWindow, getWindow: () => window,
+  registerExtServerHandlers({DEMO, app, createWindow, cvOf, flow, ipcMain, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry: () => telemetry, toWindow, getWindow: () => window,
     setRecipeReporter: value => { recipeReporterRef = value; }});   // lib/ext-server-handlers.js
   registerBackgroundHandlers({DEMO, announceRuns, app, backupNow, checkForUpdate, cloud, focusReminder, log, notify, powerMonitor, restartTelegram, resumeQueue, skipUntilNotion, storage, syncCv, toWindow});   // lib/background-handlers.js
 }});
