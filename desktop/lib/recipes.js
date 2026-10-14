@@ -11,7 +11,7 @@
 //   "repairs": [{"fp": "k3x9a1", "verb": "retype", "ok": 2, "failed": 0}, ...]   // what the fill ladder's control repairs did per control fingerprint (lib/ladder/repair-feed.js), the same delta rule, at most 40
 // The site stores them per source (site/src/ladder-moves.js: 'user' here; the CI pool and the replays send theirs marked 'ci' / 'replay'); serving them (k>=3 installs) is not built.
 import {validateAlias} from '../shared/alias-schema.js';
-import {validateRecipe} from '../shared/recipe-schema.js';
+import {validateRecipe, whyWord} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
 import {cleanHost} from './host-clean.js';
 import {RESULT_STATES} from './application-result.js';
@@ -115,14 +115,14 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     }
   } catch { /* an unreadable queue starts empty */ }
   return {
-    // items [{fp, ok, recipe}] from the operators.
+    // items [{fp, ok, recipe, why}] from the operators (a control left empty with no answer matched comes with ok false).
     outcome(items) {
       if (!enabled(storage)) return;
       for (const item of Array.isArray(items) ? items.slice(0, 20) : []) {
         if (!/^[a-z0-9]{6,16}$/.test(String(item?.fp || ''))) continue;
         const key = `${item.fp}|${Number(item.recipe) || 0}`;
         const entry = outcomes.get(key) || {fp: item.fp, recipe: Number(item.recipe) || 0, ok: 0, failed: 0};
-        if (item.ok) entry.ok++; else entry.failed++;
+        if (item.ok) entry.ok++; else { entry.failed++; entry.why = whyWord(item.why); }   // a fixed word, never the operator's own message
         outcomes.set(key, entry);
       }
       schedule();

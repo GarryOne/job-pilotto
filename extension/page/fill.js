@@ -110,10 +110,11 @@
     if (window.__jobPilottoControls && await gate()) {
       const operated = await window.__jobPilottoControls.fill(answers, {skip: question => LEGAL.test(question)}).catch(() => []);
       for (const result of operated) {
+        if (result.unmatched) continue;   // a control no answer fit: only counted for learning (page/controls.js), no row to the person
         if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
       }
       // Which kind of control and fingerprint worked or not: no question, no answer.
-      window.__jobPilottoOperatedQuestions = operated.map(result => result.question);
+      window.__jobPilottoOperatedQuestions = operated.filter(result => !result.unmatched).map(result => result.question);
       window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
     // The files (page/upload.js): each upload slot is operated by what it asks for; a miss is reported by fingerprint like any control's.

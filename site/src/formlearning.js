@@ -92,13 +92,20 @@ export async function report(db, now = new Date(), family = '') {
     return [status, {n: row?.n || 0, fresh: row?.fresh || 0}];
   }));
 
+  // The funnel's first stages: controls the operators missed this week, real use and lab (pool, replays) apart (control_outcomes.source, migration 0070).
+  const missRows = (await db.prepare("SELECT source = 'user' AS real, COUNT(DISTINCT CASE WHEN failed > 0 THEN fingerprint END) AS controls, SUM(failed) AS failed, SUM(ok + failed) AS attempts FROM control_outcomes WHERE day >= ? GROUP BY real").bind(thisWeek).all().catch(() => ({results: []}))).results || [];
+  const misses = Object.fromEntries([['user', 1], ['lab', 0]].map(([group, real]) => {
+    const row = missRows.find(r => r.real === real);
+    return [group, {controls: row?.controls || 0, failed: row?.failed || 0, attempts: row?.attempts || 0}];
+  }));
+
   const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, board, state').bind(lastWeek, family, family).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
   const learning = await digest(db, now).catch(() => null);
   const marks = await marksCheck(db, thisWeek, family).catch(() => []);   // the star count against the required count, per board (migration 0053)
   const families = await byFamily(db, thisWeek).catch(() => null);
   const answers = await answersByFamily(db, thisWeek, lastWeek).catch(() => null);   // the AI's own answers, per family (migration 0046)
   return {family, families, answers, results, learning, marks,
-    use: {...use, unitNow: per('now').unit, reasons}, recipes, from: lastWeek, to: day(now)};
+    use: {...use, unitNow: per('now').unit, reasons}, recipes, misses, from: lastWeek, to: day(now)};
 }
 
 // The cross-check: forms whose labels carry far more "*" marks than the required rule counted. A board is flagged when it shows at least 3 marks

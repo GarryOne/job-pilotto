@@ -349,3 +349,12 @@ test('a waiting batch survives a restart: a new reporter on the same folder send
   assert.equal(timers.length, 1);   // sent: nothing waits any more
   assert.deepEqual(await again.flush(), {sent: 0});
 });
+
+test('a failed outcome carries a fixed reason word, never the operator\'s own message', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const reporter = createReporter(storage, {fetcher: async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; }, base: 'https://site.test', setTimer: () => ({})});
+  reporter.outcome([{fp: 'aaaaaa1', ok: false, why: 'no_answer'}, {fp: 'aaaaaa2', ok: false, why: 'no option "Igor Mardari"'}, {fp: 'aaaaaa3', ok: false, why: 'the list did not open'}, {fp: 'aaaaaa4', ok: false, why: 'wording unknown'}, {fp: 'aaaaaa5', ok: true, why: 'x'}]);
+  await reporter.flush();
+  assert.deepEqual(sent.at(-1).outcomes.map(o => [o.fp, o.why]), [['aaaaaa1', 'no_answer'], ['aaaaaa2', 'no_option'], ['aaaaaa3', 'not_opened'], ['aaaaaa4', 'other'], ['aaaaaa5', undefined]]);
+});

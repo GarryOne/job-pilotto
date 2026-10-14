@@ -22,6 +22,7 @@ import {store as storeIntelligence} from './intelligence.js';
 import {store as storeKnowledge} from './knowledge.js';
 import {storeMoves} from './ladder-moves.js';
 import {storeRepairs} from './repair-evidence.js';
+import {failuresSince, storeOutcomes} from './control-outcomes.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];                  // a canary's rollout, in order
@@ -152,7 +153,8 @@ export async function controls(request, env, now = new Date()) {
     const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!((env.REPLAYS_PUBLISH_KEY && equal(given, env.REPLAYS_PUBLISH_KEY)) || await isOwner(request, env))) { await flag(env, 'ladder-source', await digestOf(install), 'test moves without the key', now); return Response.json({ok: true, ladder: 0}); }
     const who = body.source === 'ci' ? `ci:${/^\d{1,20}$/.test(String(body.run || '')) ? body.run : 'none'}` : 'replay';
-    return Response.json({ok: true, ladder: await storeMoves(env.STATS, body.ladder, {source: body.source, who, now}), repairs: await storeRepairs(env.STATS, body.repairs, {source: body.source, who, now})});
+    return Response.json({ok: true, ladder: await storeMoves(env.STATS, body.ladder, {source: body.source, who, now}), repairs: await storeRepairs(env.STATS, body.repairs, {source: body.source, who, now}),
+      outcomes: await storeOutcomes(env.STATS, body.outcomes, {source: body.source === 'ci' ? 'pool' : 'replay', day: day(now)})});
   }
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
@@ -207,17 +209,7 @@ export async function controls(request, env, now = new Date()) {
       .bind(fingerprint, text(item.kind, 24), json, text(item.question, 120), now.toISOString()).run();
     storedSamples++;
   }
-  for (const item of outcomes) {
-    const fingerprint = String(item?.fp || '');
-    if (!/^[a-z0-9]{6,16}$/.test(fingerprint)) continue;
-    const num = value => Math.max(0, Math.min(1000, Math.round(Number(value)) || 0));
-    const ok = num(item.ok), failed = num(item.failed), recipe = Math.min(9999, num(item.recipe));
-    if (!ok && !failed) continue;
-    await env.STATS.prepare(`INSERT INTO control_outcomes (day, fingerprint, recipe, ok, failed) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (day, fingerprint, recipe) DO UPDATE SET ok = ok + excluded.ok, failed = failed + excluded.failed`)
-      .bind(day(now), fingerprint, recipe, ok, failed).run();
-    storedOutcomes++;
-  }
+  storedOutcomes = await storeOutcomes(env.STATS, outcomes, {source, day: day(now)});   // pool outcomes of the owner's key stay apart from users' (control_outcomes.source)
   await storeIntelligence(env, body.intel, now, install).catch(() => ({}));   // what the installs teach about the job search (src/intelligence.js)
   await storeAliasUse(env, body.aliasUse, now).catch(() => 0);
   await storeAliasProposals(env, body.proposals, install, now).catch(() => ({}));   // what learned notes say a wording means (src/aliases.js)   // how the service's label meanings fared (src/aliases.js)
@@ -239,13 +231,9 @@ export async function targets(request, env, now = new Date(), limit = 20, days =
   const db = env.STATS, from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const asked = Number(new URL(request.url).searchParams.get('limit'));
   const max = Math.max(1, Math.min(50, Number.isFinite(asked) && asked > 0 ? Math.round(asked) : limit));
-  const found = new Map();
-  const entry = fingerprint => { if (!found.has(fingerprint)) found.set(fingerprint, {fingerprint, userFailed: 0, userAttempts: 0}); return found.get(fingerprint); };
-  for (const row of (await db.prepare('SELECT fingerprint, SUM(failed) AS failed, SUM(ok + failed) AS n FROM control_outcomes WHERE day >= ? GROUP BY fingerprint HAVING SUM(failed) > 0').bind(from).all()).results || []) {
-    Object.assign(entry(row.fingerprint), {userFailed: row.failed, userAttempts: row.n});
-  }
+  const found = await failuresSince(db, from);   // real users' failures and the lab's (pool, replays) apart: src/control-outcomes.js
   const out = [];
-  const ranked = [...found.values()].sort((a, b) => b.userFailed - a.userFailed);
+  const ranked = [...found.values()].sort((a, b) => b.userFailed - a.userFailed || b.labFailed - a.labFailed);   // a real miss first, a lab one only after them
   for (const item of ranked) {
     if (out.length >= max) break;
     const tried = (await db.prepare('SELECT version, status, note, body FROM recipes WHERE fingerprint = ? ORDER BY version').bind(item.fingerprint).all()).results || [];
@@ -253,7 +241,7 @@ export async function targets(request, env, now = new Date(), limit = 20, days =
     const samples = ((await db.prepare('SELECT kind, skeleton, question FROM control_samples WHERE fingerprint = ? ORDER BY seen_at DESC LIMIT 3').bind(item.fingerprint).all()).results || [])
       .map(row => { try { return {kind: row.kind, question: row.question, skeleton: JSON.parse(row.skeleton)}; } catch { return null; } }).filter(Boolean);
     if (!samples.length) continue;   // nothing to show the proposer
-    out.push({...item, kind: samples[0].kind, question: samples[0].question, samples: samples.map(sample => sample.skeleton), whys: [],
+    out.push({...item, kind: samples[0].kind, question: samples[0].question, samples: samples.map(sample => sample.skeleton), whys: item.whys,
       version: (tried.length ? Math.max(...tried.map(row => row.version)) : 0) + 1,
       previous: tried.map(row => ({version: row.version, status: row.status, note: row.note, recipe: (() => { try { return JSON.parse(row.body); } catch { return null; } })()}))});
   }
@@ -279,7 +267,7 @@ export async function evaluateCanary(db, now = new Date()) {
   const running = (await db.prepare("SELECT fingerprint, version, rollout, updated_at FROM recipes WHERE status = 'canary'").all()).results || [];
   for (const recipe of running) {
     const since = recipe.updated_at.slice(0, 10);
-    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ?')
+    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ? AND source = \'user\'')
       .bind(recipe.fingerprint, recipe.version, since).first();
     const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed;
     const rate = attempts ? failed / attempts : 0;
@@ -304,7 +292,7 @@ export async function evaluateVerified(db, now = new Date()) {
   const from = day(new Date(now.getTime() - 6 * 86400000));
   const actions = [];
   for (const recipe of (await db.prepare("SELECT fingerprint, version FROM recipes WHERE status = 'verified'").all()).results || []) {
-    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ?').bind(recipe.fingerprint, recipe.version, from).first();
+    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ? AND source = \'user\'').bind(recipe.fingerprint, recipe.version, from).first();
     const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed, rate = attempts ? failed / attempts : 0;
     if (attempts >= MIN_FAIL_CHECK && rate > HALT_ABOVE) {
       await db.prepare("UPDATE recipes SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE fingerprint = ? AND version = ?")
@@ -322,6 +310,6 @@ export async function controlStats(db, days = 7, now = new Date()) {
       (SELECT kind FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS kind,
       (SELECT question FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS question,
       (SELECT status || ' v' || version || ' (' || rollout || '%)' FROM recipes r WHERE r.fingerprint = o.fingerprint ORDER BY version DESC LIMIT 1) AS recipe
-    FROM control_outcomes o WHERE o.day >= ? GROUP BY o.fingerprint ORDER BY failed DESC, ok DESC LIMIT 30`).bind(from).all()).results || [];
+    FROM control_outcomes o WHERE o.day >= ? AND o.source = 'user' GROUP BY o.fingerprint ORDER BY failed DESC, ok DESC LIMIT 30`).bind(from).all()).results || [];
   return rows;
 }

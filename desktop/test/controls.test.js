@@ -95,7 +95,9 @@ test('fill offers only matched, permitted controls to the operators and reports 
   const answers = [{question: 'Are you authorized to work in the country where the job is located?', value: 'Yes'},
     {question: 'I agree to the privacy policy', value: 'Yes'}];
   const results = await ops.fill(answers, {doc, kit, skip: question => /agree|privacy/i.test(question)});
-  assert.deepEqual(results.map(r => [r.question.slice(0, 12), r.ok]), [['Are you auth', true]]);
+  assert.deepEqual(results.filter(r => !r.unmatched).map(r => [r.question.slice(0, 12), r.ok]), [['Are you auth', true]]);
+  // An empty control no answer fit is reported for learning with a fixed reason word and no text; an off-limits one (consent) is not reported at all.
+  assert.deepEqual(results.filter(r => r.unmatched).map(r => [r.kind, r.ok, r.why, r.question, r.value]), [['toggle-group', false, 'no_answer', '', '']]);
   assert.equal(consent.buttons.some(b => b.getAttribute('aria-pressed') === 'true'), false);   // consent never touched
   assert.equal(stranger.buttons.some(b => b.getAttribute('aria-pressed') === 'true'), false);  // no answer, no action
 });
@@ -147,4 +149,15 @@ test('the fingerprints a form shows are listed for the app to ask recipes for', 
   const kit = {widgets: () => [{el: {}, kind: 'toggle-group'}, {el: {}, kind: 'slider'}, {el: {}, kind: 'custom-select'}], skeleton: () => ({}), fingerprint: (() => { let n = 0; return () => `fp${++n}aaaa`; })()};
   const doc = {querySelectorAll: () => []};
   assert.deepEqual(ops.fingerprints({doc, kit}), ['fp1aaaa', 'fp2aaaa']);   // a slider has no operator here, so no recipe is asked for
+});
+
+test('an empty toggle or date field no answer fits is a miss with a reason word; a custom select, which cannot be told empty, is not', async () => {
+  const noTitle = Object.assign(toggleBox(), {parentElement: null, closest: () => null, idsList: []});
+  const stranger = entry('Do you like cats today?', toggleBox());
+  const pressed = entry('Remote?', toggleBox(['Yes', 'No'], ['Yes']));   // already answered: never a miss
+  const select = entry('Country', {textContent: 'Select', getClientRects: () => [1], querySelector: () => null, click: noop});
+  const kit = {widgets: () => [{el: noTitle, kind: 'toggle-group'}, {el: stranger, kind: 'toggle-group'}, {el: pressed, kind: 'toggle-group'}, {el: select, kind: 'custom-select'}], skeleton: () => ({}), fingerprint: () => 'fp12345'};
+  pressed.querySelector = () => pressed.buttons[0];
+  const results = await ops.fill([], {doc: {querySelectorAll: () => []}, kit});
+  assert.deepEqual(results.map(r => [r.kind, r.why, r.unmatched, r.fp]), [['toggle-group', 'no_question', true, 'fp12345'], ['toggle-group', 'no_answer', true, 'fp12345']]);
 });
