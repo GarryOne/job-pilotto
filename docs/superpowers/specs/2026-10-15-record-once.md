@@ -87,6 +87,28 @@ Rules for both: never Submit, never captcha/bot check/login wall, never read a p
 ### First case: the Aldi row
 Record it to its form (Step 0, then (a)); then replay old and new build offline and compare. Its live A/B stays on hold until this lands.
 
+## An ask the recording does not have (from job-pilotto-50, after #755; 15 Oct 2026)
+**The problem:** a recording keeps the site's network and the app's AI answers (the memo), keyed by the ask's body. A fix that changes what the app asks the model (new fields in a sketch, a new question) makes that ask a **miss**: the memo has the old ask's answer, not the new one. After #755 three rows (Databricks, the Greenhouse board form, coreweave) replay as "not faithful" for that reason only. If every ask change forces a re-record, "record once" is not true for the part that changes most.
+
+**What a miss means, by cause** (the replay already tells them apart: `memoParts` names the one differing part):
+| Cause | Today | Right answer |
+|---|---|---|
+| Only the system prompt or the seed changed, the ask's input is the same | a **loose hit**: the kept answer is used and counted as a warning (`looseHits`, `row-case-run.mjs`) | keep (this is option C, and it exists) |
+| The ask's **input** changed because the fix changed it (a new field in the sketch, a new question) | a miss: "not faithful" | the old answer cannot judge the new ask; only a model can |
+| The site changed | live visit needed | signal 1 or 2 (Part A), a re-record |
+
+**Options for the second row:**
+| Option | What it does | Cost | Against |
+|---|---|---|---|
+| A. A plan-path model call at replay time, **on the Mac only** | the missed ask is answered by `claude -p`, and the answer is **added to the row's memo** and published with the records, so the next replay hits | the plan path, no API key: about $0.06 a row asked (the pool's measured $0.056), one or two changed asks a row, so about $0.1 for the 3 rows above, **once per changed ask, not per replay** | the answer is not deterministic (live is not either); identity: the plan path carries the owner's identity, so #754's never-typed guard stays on and the replay uses the fake applicant; never on CI (no key) |
+| B. CI marks the row "**ask changed: needs a local replay**" instead of "not faithful" | the gate does not fail, the verdict waits | $0, a label and a count | a fix that changes an ask has no CI verdict until someone replays on the Mac |
+| C. Answers keyed by the ask's **meaning** | the memo key drops the parts that are not the ask's input (already done for the system prompt and seed: loose hits) | $0 | cannot cover a changed input: it would replay a stale answer and hide whether the new ask is answered right |
+
+**Recommendation: B on CI, then A once on the Mac, as one mechanism.** CI says "ask changed: needs a local replay" ($0; the row is neither green nor "not faithful": its fix verdict is "waiting for a local replay"). The Mac then replays the row with the plan path for the missed asks only, **writes the new answers into the memo** and publishes it with the records (`records-publish.mjs`). From then on the row replays offline at $0 on CI too, with the new ask in its memo. The network record is never touched: "record once" holds for the site; only the model's answers grow, once per changed ask.
+- **Not C for this case** (it exists for prompt-only changes and stays).
+- **Floors:** the fake applicant, #754's guard and the tripwire on every plan-path call; no live site visit (the network is replayed); AI spend asked through cc with the measured cost, as for any paid run.
+- **Not built.** Open for the owner: whether the Mac replay is by hand (`npm run row -- --fill-memo "<row>"`) or runs by itself after a merge that changed an ask (a trigger, never a schedule).
+
 ## Plan (PRs, each its own worktree `record-once-<part>`)
 1. **PR 1, Part C step 0 + settle:** measure the Aldi record; if a short window, wait for network quiet before ending a recording (all rows). Test: a fake site whose answer arrives at +20 s.
 2. **PR 2, Part C (a):** record-time takeover driver in the live row harness, flagged in the record, tripwire kept; test on a fixture shape (hand-made page, stub AI).
