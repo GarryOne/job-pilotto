@@ -26,6 +26,7 @@ fs.mkdirSync(out, {recursive: true});
 if (fs.existsSync(path.join(recordDir, 'model-memo.json'))) fs.copyFileSync(path.join(recordDir, 'model-memo.json'), path.join(out, 'model-memo.json')); else fs.writeFileSync(path.join(out, 'model-memo.json'), '{}');   // a live run whose AI was refused kept no answers: every ask is reported missing   // a copy: the live run's kept answers stay as they were
 process.env.JOB_PILOTTO_SITE_LEDGER_DIR = path.join(out, 'ledger');   // no site is visited: never a visit in the Mac's ledger
 delete process.env.JP_NET_RECORD_DIR;
+process.env.JOB_PILOTTO_MODEL_MEMO_MISSLOG = path.join(out, 'misslog.jsonl');   // each miss's whole list of differing parts (the app log cuts it): the gate's "recording out of date" (replay-gate.mjs)
 process.env.JOB_PILOTTO_MODEL_MEMO_HITS = path.join(out, 'hits.txt');   // each kept answer the replay used (lib/ai/model-memo.js): test (a), every live ask hits
 process.env.JOB_PILOTTO_MODEL_MEMO_LATENCY_CAP_MS ||= '20000';   // the live AI's own time, not capped at 3 s: the replay keeps the live pace (P0b's gap)
 const SW_BLOCK = () => { if (navigator.serviceWorker) navigator.serviceWorker.register = async () => {}; };
@@ -63,7 +64,8 @@ const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.j
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left}; };
-const summary = {pageSees: seen, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
+const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'misslog.jsonl'), 'utf8').split('\n')[0]); } catch { return null; } })();
+const summary = {pageSees: seen, firstMiss, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);

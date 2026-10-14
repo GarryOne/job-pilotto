@@ -23,6 +23,8 @@ test('a row is the same as live only with every live ask answered, no extra ask 
   assert.equal(same.network.notRecorded, 0);
   assert.equal(off.network.notRecorded, 1);
   assert.equal(fidelityRecord(row, null).network, null, 'a replay with no result is reported, never counted as a pass');
+  assert.deepEqual(fidelityRecord(row, {liveAsks: 4, liveHit: 1, misses: 3, firstMiss: {differs: ['output'], volatile: []}}).firstMiss, {differs: ['output']}, 'the first miss\'s differing parts go to the gate (names only)');
+  assert.equal(fidelityRecord(row, {liveAsks: 4, liveHit: 4}).firstMiss, null);
   assert.equal(sameAsLive([same, off, fidelityRecord(row, null)]), 1);
 });
 
