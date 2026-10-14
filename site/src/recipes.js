@@ -171,9 +171,9 @@ export async function controls(request, env, now = new Date()) {
     // A pool card (the owner's nightly smoke) is stored only for the owner's key; from anyone else it is dropped and counted, never stored as a user's (pool-feeds-learning spec).
     const pool = raw?.source === 'pool';
     if (pool && (!owner || !/^pool-[\w-]{3,35}$/.test(card.id))) { if (!owner) await flag(env, 'pool-source', await digestOf(install), 'pool card from a non-owner', now); continue; }
-    const added = await env.STATS.prepare(`INSERT OR IGNORE INTO fill_cards (id, day, board, version, required, filled, left_n, unread, optional, optional_filled, causes, kinds, ai, kit, seconds, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(card.id, day(now), board, card.v, card.required, card.filled, card.left, card.unread, card.optional,
-      card.optionalFilled, JSON.stringify(card.causes), JSON.stringify(card.kinds), card.ai, card.kit ? 1 : 0, card.seconds, pool ? 'pool' : 'user').run();
+    const added = await env.STATS.prepare(`INSERT OR IGNORE INTO fill_cards (id, day, board, version, required, filled, left_n, unread, optional, optional_filled, causes, kinds, ai, kit, seconds, source, install)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(card.id, day(now), board, card.v, card.required, card.filled, card.left, card.unread, card.optional,
+      card.optionalFilled, JSON.stringify(card.causes), JSON.stringify(card.kinds), card.ai, card.kit ? 1 : 0, card.seconds, pool ? 'pool' : 'user', pool ? '' : await hashed(env, install)).run();
     // The host the application ended on, counted once per card (a resent card adds nothing), under the hashed install: only ever served as an aggregate of >= 3 installs (src/hostuse.js).
     if (!pool && (added?.meta?.changes ?? added?.changes ?? 0) > 0 && raw?.host) await recordUse(env.STATS, {install: await hashed(env, install), day: day(now), host: raw.host, ready: card.left === 0 && card.required > 0});
   }

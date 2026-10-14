@@ -16,8 +16,8 @@ function d1() {
 }
 const now = new Date('2026-10-12T12:00:00Z');
 const card = (db, id, day, version, {required = 10, filled = 8, causes = {}, unread = 0, submitted = 1, by_you = 0} = {}) =>
-  db.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds)
-    VALUES (?, ?, 'ashby', ?, ?, ?, ?, ?, ?, '{"radio":1}', ?, ?, 40)`).run(id, day, version, required, filled, required - filled, unread, JSON.stringify(causes), submitted, by_you);
+  db.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds, install)
+    VALUES (?, ?, 'ashby', ?, ?, ?, ?, ?, ?, '{"radio":1}', ?, ?, 40, ?)`).run(id, day, version, required, filled, required - filled, unread, JSON.stringify(causes), submitted, by_you, `install-${id.length % 3}-${id.charCodeAt(id.length - 1) % 3}`);   // 3+ installs: enough to judge (src/thin-data.js)
 
 test('efficiency per day and per release, and weaknesses ranked by impact with their area and per-release rate', async () => {
   const db = d1();
@@ -102,15 +102,15 @@ test('recent vs earlier: the last 3 days against the days before, in the totals 
   assert.deepEqual([d.recent.from, d.recent.forms, d.recent.filledShare, d.earlier.forms, d.earlier.filledShare], ['2026-10-10', 1, 0.9, 1, 0.5]);
   const w = d.weaknesses.find(item => item.id === 'cause:no_data:ashby');
   assert.deepEqual([w.recent.per100, w.earlier.per100], [10, 50]);
-  const md = markdown(d);
+  const md = markdown({...d, sample: {...d.sample, enough: true}});   // two cards from two installs: judged here as if enough (the thin case: thin-data.test.js)
   assert.ok(md.includes('**Recent vs earlier** (since 2026-10-10') && md.includes('recent vs earlier (per 100 required): 10 (1 forms) vs 50 (1 forms)'));
 });
 
 // Layer 4 of the applying reliability spec (10 Oct 2026): a board whose fill rate fell by more than 10 points (5+ forms on each side) is flagged.
 test('per board: recent vs earlier fill rate, and a drop flagged only with enough forms on each side', async () => {
   const db = d1();
-  const on = (board, id, day, filled) => db.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds)
-    VALUES (?, ?, ?, '0.9.1', 10, ?, ?, 0, '{}', '{}', 0, 0, 30)`).run(id, day, board, filled, 10 - filled);
+  const on = (board, id, day, filled) => db.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds, install)
+    VALUES (?, ?, ?, '0.9.1', 10, ?, ?, 0, '{}', '{}', 0, 0, 30, ?)`).run(id, day, board, filled, 10 - filled, `install-${id.charCodeAt(id.length - 1) % 3}`);
   for (let i = 0; i < 5; i++) { on('greenhouse', `g-old-${i}`, '2026-10-07', 9); on('greenhouse', `g-new-${i}`, '2026-10-11', 6); }
   for (let i = 0; i < 5; i++) on('workday', `w-old-${i}`, '2026-10-07', 9);
   for (let i = 0; i < 3; i++) on('workday', `w-new-${i}`, '2026-10-11', 2);   // a big drop, but only 3 recent forms: not flagged yet
