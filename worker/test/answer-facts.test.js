@@ -33,7 +33,7 @@ test('the prompt sets an answer that follows from a saved fact and proposes only
   assert.match(FACT_RULE, /referred or recommended them[^.]*when the saved facts state how they heard of the job/);
 });
 
-test('a guess is typed and marked (owner, 14 Oct 2026); a guessed knockout, contact, link or preference stays a proposal', () => {
+test('a guess is typed and marked (owner, 14 Oct 2026); a low-confidence, knockout, contact, link or preference guess stays a proposal', () => {
   const typed = (a) => typeGuess(a);
   for (const a of [{ use: 'propose', fact: 'none', value: '120000', category: 'normal' }, { use: 'fill', fact: 'none', value: 'Yes', category: 'normal' },
     { use: 'propose', fact: 'years_experience', value: '8', category: 'normal' }]) {
@@ -43,7 +43,7 @@ test('a guess is typed and marked (owner, 14 Oct 2026); a guessed knockout, cont
   assert.equal(typed({ use: 'fill', fact: 'work_permit', value: 'No' }).guess, undefined, 'a fact-backed answer is not a guess');
   assert.equal(typed({ use: 'fill', value: 'No' }).use, 'fill', 'an older reply shape with no fact is left as it was');
   for (const a of [{ category: 'knockout' }, { category: 'contact' }, { category: 'preference' }, { fact: 'contact' }, { fact: 'home_location' },
-    { fact: 'links' }, { value: 'https://github.com/ada' }]) {
+    { fact: 'links' }, { value: 'https://github.com/ada' }, { confidence: 'low' }]) {
     for (const use of a.fact ? ['propose'] : ['propose', 'fill']) {   // a typed answer resting on a contact, home or link fact: the identity and link floors decide
       const out = typed({ use, fact: 'none', value: 'x', category: 'normal', ...a });
       assert.deepEqual([out.use, out.guess], ['propose', undefined], `${use} ${JSON.stringify(a)}`);
