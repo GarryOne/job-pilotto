@@ -28,7 +28,7 @@ const summary = summarizeZoo(verdicts);
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);
 const lines = [];
 const say = line => { lines.push(line); console.log(line); };   // the table also goes to CI's step summary (GITHUB_STEP_SUMMARY), without the decision lines REPLAY_LOG=1 prints
-say(`widget zoo: ${summary.total} pages, read ${summary.read}, committed ${summary.committed}, truthful ${summary.truthful}`);   // truthful: the fill's record, the panel and the judge say what the page holds
+say(`control tests: ${summary.total} pages, read ${summary.read}, committed ${summary.committed}, truthful ${summary.truthful}`);   // truthful: the fill's record, the panel and the judge say what the page holds
 for (const one of verdicts) say(`  ${pad(one.name, 26)} ${pad(one.widget, 19)} read ${one.read ? 'yes' : 'NO '}  committed ${one.committed ? 'yes' : 'NO '}  truthful ${one.truthful ? 'yes' : 'NO '}  bounded ${one.bounded ? 'yes' : 'NO '}${one.failures.length ? `  (${one.failures.join('; ').slice(0, 160)})` : ''}`);
 say('Per widget (committed / pages):');
 for (const [widget, entry] of Object.entries(summary.byWidget)) say(`  ${pad(widget, 19)} ${entry.committed}/${entry.total}`);

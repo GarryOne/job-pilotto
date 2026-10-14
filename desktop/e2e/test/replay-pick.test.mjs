@@ -24,7 +24,7 @@ test('the PR workflow: starts only when extension/ or desktop/lib/ changed (GitH
   const flow = fs.readFileSync(new URL('../../../.github/workflows/site-replays-pr.yml', import.meta.url), 'utf8');
   assert.match(flow, /on:\n  pull_request:\n    paths:\n      - 'extension\/\*\*'\n      - 'desktop\/lib\/\*\*'\n/, 'owner, 14 Oct 2026: only the apply flow\'s code, decided by GitHub');
   assert.doesNotMatch(flow, /ci-needed/, 'no shared pick');
-  assert.match(flow, /name: replay gate/);
+  assert.match(flow, /name: site replays gate/);
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
   assert.match(flow, /JP_REPLAY_ONLY: \$\{\{ matrix\.group \}\}/);

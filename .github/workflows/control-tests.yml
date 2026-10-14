@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   zoo:
-    name: widget zoo
+    name: control tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -46,7 +46,7 @@ jobs:
       - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
-      - name: Replay the zoo
+      - name: Replay the control pages
         working-directory: desktop/e2e
         env:
           JP_REPLAY: 1
