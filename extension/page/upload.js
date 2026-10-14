@@ -38,10 +38,14 @@
     if (!kit()?.uploadSlots) return [];
     return kit().uploadSlots(doc, visible).map(slot => {
       const start = slot.input || slot.trigger;
+      // Wrappers that hold only the widget and no words of their own are stepped through: the label sits beside the widget further in (a field > group > label + widget).
+      const ownWords = el => Array.from(el.childNodes).some(node => node.nodeType === 3 && node.textContent.trim());
+      let box = slot.el;
+      while (box.children.length === 1 && box.children[0] !== start && box.children[0].contains(start) && !ownWords(box)) box = box.children[0];
       let child = start;
-      while (child.parentElement && child.parentElement !== slot.el) child = child.parentElement;
+      while (child.parentElement && child.parentElement !== box) child = child.parentElement;
       // The title is the field's text outside the widget itself; a widget alone in its field has only its own words.
-      const title = clean(Array.from(slot.el.children).filter(el => el !== child).map(textOf).join(' ')) || clean(textOf(slot.el));
+      const title = clean(Array.from(box.children).filter(el => el !== child).map(textOf).join(' ')) || clean(textOf(slot.el));
       const hints = slot.input ? `${slot.input.getAttribute('aria-label') || ''} ${slot.input.name || ''} ${slot.input.id || ''}` : '';
       // Holds a file: the one reading (page/read-back.js): the input's file, or a file name the slot shows; this extension's own mark alone is not a file (one truth with the panel).
       const holds = slot.input ? window.__jobPilottoReadBack?.fileState(slot.input) === 'committed'

@@ -99,7 +99,8 @@
     for (const el of root.querySelectorAll('[role=button], button')) {
       if (el.type === 'submit' || apart(el) || !shown(el)) continue;
       const group = namedPart(el);
-      if (group && !named.has(group)) named.set(group, el);
+      // A group that holds a slot's file input is that widget (its Attach, Dropbox… buttons): the input stands for it, never a second slot (two starts stop each other's climb).
+      if (group && !named.has(group) && !starts.some(item => group.contains(item.input))) named.set(group, el);
     }
     for (const [group, trigger] of named) starts.push({input: null, trigger, start: group});
     const slots = [];
