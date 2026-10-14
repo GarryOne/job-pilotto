@@ -31,7 +31,7 @@ test('each page is in its menu group under its name, and Real and Lab sit side b
 test('each section lives on exactly the page the owner named, and Real and Lab link to each other', async () => {
   const e = env(), html = async path => (await get(e, path, owner)).text();
   const real = await html('/admin/real-form-filling'), learning = await html('/admin/form-learning'), lab = await html('/admin/lab-form-filling');
-  const where = {'Top weaknesses': real, 'Real use: what the fill missed': real, 'How applications ended': real, 'Efficiency, day by day': real, 'Required marks: seen vs counted': real,
+  const where = {'Top weaknesses': real, 'Real use: what the fill missed': real, 'Why fields were left empty': real, 'How applications ended': real, 'Efficiency, day by day': real, 'Required marks: seen vs counted': real,
     'Recipe funnel': learning, 'By AI family': learning, 'Proposed answers': learning};
   for (const [section, page] of Object.entries(where)) for (const other of [real, learning]) assert.equal(other.includes(section), other === page, `${section} on ${other === real ? 'Real' : 'Learning'}`);
   assert.ok(lab.includes('<h1>🛡️ Lab Form Filling</h1>'));

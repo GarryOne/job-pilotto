@@ -4,9 +4,10 @@ import {viewer} from './auth.js';
 import {digest, markdown} from './digest.js';
 import {efficiencySection, marksSection, realTiles, realUseSection, resultsSection, weaknessesSection} from './form-sections.js';
 import {pageView, shell} from './form-shell.js';
+import {leftEmptySection} from './left-empty.js';
 
 export const page = (data, url = new URL('https://www.jobpilotto.top/admin/real-form-filling')) => shell({title: 'Real Form Filling', icon: '📝', data, url,
-  inner: d => [realTiles(d), weaknessesSection(d.learning), realUseSection(d), resultsSection(d.results), efficiencySection(d.learning), marksSection(d.marks)].join('\n')});
+  inner: d => [realTiles(d), weaknessesSection(d.learning), realUseSection(d), leftEmptySection(d.leftEmpty), resultsSection(d.results), efficiencySection(d.learning), marksSection(d.marks)].join('\n')});
 
 export const view = pageView(page);
 
