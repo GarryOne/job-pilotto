@@ -120,7 +120,7 @@ export async function judgeCase(item, scope) {
   const tabs = scope.pages().length, opened = scope.opened();
   if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
   if (expect.maxNewTabs != null && opened > expect.maxNewTabs) failures.push(`maxNewTabs: ${opened} > ${expect.maxNewTabs}`);
-  if (process.env.REPLAY_LOG) for (const request of mine().filter(one => one.route === '/extension/log')) {   // REPLAY_LOG=1: the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
+  if (process.env.REPLAY_LOG || failures.length) for (const request of mine().filter(one => one.route === '/extension/log')) {   // REPLAY_LOG=1, or any failed case (CI too, 14 Oct 2026): the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
     try { for (const entry of JSON.parse(request.body).entries) console.log(`  [extension ${item.name}] ${entry.text} ${JSON.stringify(entry.fields)}`); } catch { /* a body cut at the recording limit */ }
   }
   // A check that only a line no case's host names satisfied (it could be another tab's): the pass must be confirmed alone before it counts.
