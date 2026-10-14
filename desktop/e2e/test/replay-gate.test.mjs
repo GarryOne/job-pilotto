@@ -2,7 +2,8 @@
 // changes the asks or goes further passes as "different", and a fall the retry does not repeat is noise. Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {STREAK, fell, judge, summary} from '../replay-gate.mjs';
+import fs from 'node:fs';
+import {STREAK, fell, judge, outdated, summary} from '../replay-gate.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const rec = (name, outcome, {hit = 4, asks = 4, extra = 0} = {}) => ({name, outcome, live: {asks}, network: {hit, extra, notRecorded: 0}});
@@ -66,4 +67,23 @@ test('a merged PR labeled replay-accepted with a reason makes a worse row accept
   assert.equal(silent.red, true);
   assert.match(silent.rows.a.why, /add the reason: comment "Replay-accept: <reason>" on PR #9/);
   assert.match(summary(red), /label the PR `replay-accepted`/, 'a red summary says how to accept');
+});
+
+test('a recording made before a prompt change is "out of date": never red, listed to re-record; a run that diverged stays worse', () => {
+  // 14 Oct 2026: 997af1f changed the digest's answer format; Swatch's first miss differed only in "output" and the row fell 9/9 -> 1/9.
+  assert.equal(outdated({differs: ['output']}), true);
+  assert.equal(outdated({differs: ['system', 'system:1#2', 'output']}), true);
+  assert.equal(outdated({differs: ['system', 'user:line', 'output']}), false, 'a page-side part too: the run diverged (Greenhouse), not a prompt change');
+  assert.equal(outdated({differs: ['model']}), false, 'another model is another question');
+  assert.equal(outdated({differs: []}), false);
+  assert.equal(outdated(null), false);
+  const fallen = {...rec('a', form(1, 11)), firstMiss: {differs: ['output']}};
+  const result = judge([fallen, {...rec('b', form(6, 6)), firstMiss: {differs: ['system', 'user:line']}}], baseline);
+  assert.equal(result.rows.a.verdict, 'out of date');
+  assert.match(result.rows.a.why, /re-record: the prompt changed/);
+  assert.equal(result.rows.b.verdict, 'worse');
+  assert.deepEqual([result.worse, result.red], [1, true], 'only b turns the gate red');
+  assert.equal(judge([fallen], baseline).red, false);
+  assert.match(summary(result), /🔁 out of date/);
+  assert.match(fs.readFileSync(new URL('../replay-net.mjs', import.meta.url), 'utf8'), /JOB_PILOTTO_MODEL_MEMO_MISSLOG = path\.join\(out, 'misslog\.jsonl'\)/, 'replay-net keeps the whole list of differing parts');
 });

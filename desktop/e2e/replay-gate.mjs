@@ -22,6 +22,12 @@ export function fell(before, now) {
 }
 const rose = (before, now) => !!(before && now && (rank(now.reached) > rank(before.reached) || (now.filled ?? 0) > (before.filled ?? 0)));
 
+// A recording made before a prompt change (owner via cc, 14 Oct 2026: 997af1f changed the digest's answer format; Swatch, Join, jobup and Deloitte "fell"): the row's
+// FIRST miss is the same question about the same page with other instructions, its nearest kept ask differing ONLY in system blocks or the output schema (never the
+// model, never a page-side part: a run that already diverged differs there too, Greenhouse). Such a row is "out of date": never red, listed to re-record.
+const INSTRUCTION = /^(system(:\d+)?|output|tools)$/;
+export const outdated = firstMiss => { const parts = (firstMiss?.differs || []).map(name => String(name).replace(/#\d+$/, '')); return parts.length > 0 && parts.every(name => INSTRUCTION.test(name)); };
+
 export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
 
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
@@ -33,7 +39,8 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
     const before = baseline.rows?.[record.name], same = isSame(record), outcome = record.outcome || null, beforeStreak = before ? before.streak ?? (before.same ? 1 : 0) : 0;
     const counted = !record.deferred && before?.same === true && beforeStreak >= STREAK, streak = same ? beforeStreak + 1 : 0;
     let verdict = counted ? 'same' : 'not counted', why = counted ? '' : record.deferred ? `deferred: ${record.deferred}` : before?.same ? `same as live ${beforeStreak} run(s) before, needs ${STREAK}` : before ? 'replay not faithful in the baseline' : 'no baseline yet';
-    if (counted && !record.network) { verdict = 'worse'; why = 'no replay result'; }
+    if (outdated(record.firstMiss)) { verdict = 'out of date'; why = `re-record: the prompt changed (the first miss differs only in ${record.firstMiss.differs.join(', ')})`; }
+    else if (counted && !record.network) { verdict = 'worse'; why = 'no replay result'; }
     else if (counted) {
       const down = fell(before.outcome, outcome);
       if (down) {
@@ -52,7 +59,7 @@ export function judge(records, baseline = {}, retry = [], accepts = {}) {
 
 // The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
 // its asks answered of the live run's, its outcome beside the live one, its verdict and why.
-const MARK = {worse: '❌', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const MARK = {worse: '❌', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {
