@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {seedRandom, sequence} from '../lib/seeded-random.mjs';
+import {repairUnlabeledText} from '../../lib/net-keep.js';
 import {bodyKey, echo, headerText, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
@@ -172,4 +173,44 @@ test('a redirect whose target is not in the record, or that loops, is counted as
   assert.equal((await serve('https://cdn.example.test/loop.js')).reply.status, 404);
   assert.equal(counts.notRecorded.length, 2);
   assert.match(counts.notRecorded[0], /redirect target of script/);
+});
+
+// What Chrome's inspector hands the recorder for a text reply with no charset in its Content-Type: the bytes read as windows-1252, then re-encoded as UTF-8
+// (Aldi's server-action reply, 15 Oct 2026: the page title became "dÃ©tail â€“" on the replay, live it read "détail –").
+const asRecorded = real => Buffer.from(new TextDecoder('windows-1252').decode(real), 'utf8');
+const REAL = Buffer.from('{"title":"Apprenti(e) du commerce de détail (CFC ou AFP) – ALDI SUISSE ✓ ü"}', 'utf8');
+
+test('an unlabeled text reply the inspector double-encoded gets its real bytes back; labeled, genuine Latin-1, binary and clean replies are left alone, and a second repair changes nothing', () => {
+  const stored = asRecorded(REAL);
+  assert.ok(stored.toString().includes('dÃ©tail'), 'the fixture is the double-encoded shape');
+  for (const type of ['text/x-component', 'application/json', 'text/html', 'application/javascript', '']) {
+    const fixed = repairUnlabeledText(stored, type || 'text/plain');
+    assert.deepEqual(fixed, REAL, type);
+    assert.deepEqual(repairUnlabeledText(fixed, type || 'text/plain'), REAL, `${type}: idempotent`);
+  }
+  assert.equal(repairUnlabeledText(stored, 'text/x-component; charset=utf-8'), stored, 'a labeled reply was decoded right: left alone');
+  assert.equal(repairUnlabeledText(stored, 'image/png'), stored, 'binary types are never touched');
+  const latin1 = Buffer.from([0x63, 0x61, 0x66, 0xe9]);   // "café" as one byte each: not the image of valid UTF-8
+  assert.equal(repairUnlabeledText(latin1, 'text/plain'), latin1, 'a genuinely Latin-1 reply stays as it is');
+  const ascii = Buffer.from('{"a":1}');
+  assert.equal(repairUnlabeledText(ascii, 'application/json'), ascii);
+  assert.equal(repairUnlabeledText(null, 'text/plain'), null);
+});
+
+test('the recorder stores the real bytes of an unlabeled text reply; the replay hands the same bytes back even from an older record, and counts the repair', async () => {
+  const {EventEmitter} = await import('node:events');
+  const context = new EventEmitter(), rec = netRecorder(context, {startedAt: 0});
+  const request = {url: () => 'https://conv.example.test/application/1', method: () => 'POST', resourceType: () => 'fetch', postDataBuffer: () => null, allHeaders: async () => ({}), headers: () => ({}),
+    response: async () => ({status: () => 200, body: async () => asRecorded(REAL), allHeaders: async () => ({'content-type': 'text/x-component'}), headers: () => ({})}), failure: () => null};
+  context.emit('request', request); context.emit('requestfinished', request);
+  await rec.flush();
+  const {entries, bodies} = rec.result();
+  assert.deepEqual(bodies.get(entries[0].hash), REAL, 'recorded right');
+  assert.equal(entries[0].size, REAL.length);
+  // an older record (published before the repair) holds the double-encoded bytes; the replay serves the real ones
+  const old = {method: 'GET', url: 'https://conv.example.test/application/1', status: 200, headers: {'content-type': 'text/x-component'}, hash: 'old', type: 'fetch', bodyKey: '', waitMs: 0, startMs: 0};
+  const {counts, serve} = await replayOf([old], new Map([['old', asRecorded(REAL)]]));
+  const served = await serve('https://conv.example.test/application/1', 'fetch');
+  assert.deepEqual(served.reply.body, REAL);
+  assert.equal(counts.repaired, 1, 'the replay counts the replies it repaired');
 });
