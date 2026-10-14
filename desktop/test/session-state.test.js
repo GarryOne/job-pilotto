@@ -156,6 +156,18 @@ test('after the first look an unsure session says "Tab not found": never checkin
   }
 });
 
+test('a new session opened after the app has been up for minutes gets its own first look: "Checking…", then "Tab not found" (review of #741)', async () => {
+  const {checkingTabs, tabNotFound, CHECK_MS} = await import('../renderer/session-state.js');
+  const now = Date.now(), up = 10 * 60 * 1000, restart = {known: true, ids: [], unsure: ['n1', 'n2']};
+  for (const kind of ['form', 'claude']) {
+    const fresh = {id: 'n1', kind, live: false, status: 'input', startedAt: new Date(now - 5000).toISOString()};
+    assert.deepEqual([checkingTabs(fresh, restart, up, now), tabNotFound(fresh, restart, up, now)], [true, false], 'started 5 s ago: checking');
+    assert.deepEqual([checkingTabs(fresh, restart, up, now + CHECK_MS), tabNotFound(fresh, restart, up, now + CHECK_MS)], [false, true], '45 s after its own start: not found');
+    const old = {...fresh, id: 'n2', startedAt: new Date(now - 3600e3).toISOString()};
+    assert.deepEqual([checkingTabs(old, restart, up, now), tabNotFound(old, restart, up, now)], [false, true], 'an old session on an old window: not found');
+  }
+});
+
 test('every view of the tab state (list, dock, session title, next-step card) draws "Tab not found" from the one function', () => {
   for (const file of ['sessions.js', 'session-log.js', 'session-next-step.js']) {
     const source = fs.readFileSync(new URL(`../renderer/pages/${file}`, import.meta.url), 'utf8');
