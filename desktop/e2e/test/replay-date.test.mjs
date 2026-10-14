@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
-import {dateShiftScript, shiftDate} from '../lib/replay-date.mjs';
+import {dateShiftScript, hereZone, shiftDate, stampZone, zoneOf} from '../lib/replay-date.mjs';
 
 test('Date reads the record\'s time and flows on; a date with arguments is untouched; timers are the real ones', async () => {
   const sandbox = {setTimeout, Date};
@@ -32,4 +32,22 @@ test('shiftDate adds one init script with a fixed offset; replay-net uses it unl
   const replay = fs.readFileSync(new URL('../replay-net.mjs', import.meta.url), 'utf8');
   assert.match(replay, /shiftDate\(run\.context, record\.startMs\)/);
   assert.match(replay, /FAKE_TIMERS \? .*clock\.install/);
+});
+
+test('the replay runs in the live run\'s time zone: saved in the record, set as TZ before the browser starts, stamped on old Mac records at publish', () => {
+  // 14 Oct 2026: the runner (UTC) showed Databricks' OneTrust banner the Zurich live run never drew (1/8); TZ=UTC on the Mac reproduced it, Zurich 8/8.
+  assert.equal(zoneOf({timezone: 'Europe/Zurich'}), 'Europe/Zurich');
+  assert.equal(zoneOf({timezone: 'America/Argentina/Buenos_Aires'}), 'America/Argentina/Buenos_Aires');
+  for (const bad of [undefined, '', 'Europe/Zurich; rm -rf', 42]) assert.equal(zoneOf({timezone: bad}), '', String(bad));
+  assert.match(hereZone(), /^[A-Za-z]/);
+  assert.deepEqual(stampZone({where: 'mac', name: 'x'}, 'Europe/Zurich'), {where: 'mac', name: 'x', timezone: 'Europe/Zurich'});
+  assert.deepEqual(stampZone({name: 'old'}, 'Europe/Zurich'), {name: 'old', timezone: 'Europe/Zurich'}, 'the oldest Mac records have no "where"');
+  const ci = {where: 'ci'}, kept = {where: 'mac', timezone: 'Asia/Tokyo'};
+  assert.equal(stampZone(ci, 'Europe/Zurich'), ci, 'a CI record is not stamped with this Mac\'s zone');
+  assert.equal(stampZone(kept, 'Europe/Zurich'), kept, 'a saved zone is kept');
+  const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
+  const replay = read('../replay-net.mjs');
+  assert.ok(replay.indexOf('process.env.TZ = zoneOf(record)') > 0 && replay.indexOf('process.env.TZ = zoneOf(record)') < replay.indexOf('startRealExtension('), 'TZ is set before the browser starts');
+  assert.match(read('../lib/live-row.mjs'), /timezone: hereZone\(\)/);
+  assert.match(read('../records-publish.mjs'), /stampZone\(record\)/);
 });

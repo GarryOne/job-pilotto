@@ -15,11 +15,12 @@ import {outputOfLog, parseLive} from './lib/smoke.mjs';
 import {CONTACT} from './lib/apply-fixtures.mjs';
 import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
-import {shiftDate} from './lib/replay-date.mjs';
+import {shiftDate, zoneOf} from './lib/replay-date.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
+if (zoneOf(record)) process.env.TZ = zoneOf(record);   // the live run's time zone for the whole browser, before it starts (lib/replay-date.mjs)
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
 fs.mkdirSync(out, {recursive: true});
 if (fs.existsSync(path.join(recordDir, 'model-memo.json'))) fs.copyFileSync(path.join(recordDir, 'model-memo.json'), path.join(out, 'model-memo.json')); else fs.writeFileSync(path.join(out, 'model-memo.json'), '{}');   // a live run whose AI was refused kept no answers: every ask is reported missing   // a copy: the live run's kept answers stay as they were
