@@ -55,8 +55,8 @@ export function judgeRegression({control, runs}) {
   const pair = agreed(runs);
   if (!pair.outcome) return {verdict: 'live', why: pair.why};
   const against = compare(pair.outcome, control.liveOutcome);
-  if (against > 0) return {verdict: 'ours', why: 'the older build gets further on the same recording'};
-  return {verdict: 'site', why: 'the older build stops where the newer one does on the same recording'};
+  if (against > 0) return {verdict: 'ours', why: 'the older extension gets further on the same recording'};
+  return {verdict: 'site', why: 'the older extension stops where the newer one does on the same recording'};
 }
 
 // The build of a recording: its stamped extension version when the log has one, else the last main commit before it was made (the page says which).
