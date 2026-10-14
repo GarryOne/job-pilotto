@@ -117,18 +117,20 @@ export const CHECK_MS = 45 * 1000;
 const waitsOnTab = item => !!item && !isSubmitted(item) && !item.outcome && (item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item)));
 // Chrome is heard and nothing says this session's tab is open or closed (the app restarted: the binding is gone, no tab matches by look).
 const unsureTab = (item, formsOpen) => !!formsOpen?.known && !!formsOpen.unsure?.includes(item.id) && !formsOpen.ids.includes(item.id);
-export function checkingTabs(item, formsOpen, sinceStart) {
+// The first look is over for this session: CHECK_MS since the window started AND since the session did (a session opened later needs its own first look while its tab binds).
+const lookOver = (item, sinceStart, now) => sinceStart > CHECK_MS && !(now - Date.parse(item.startedAt || '') <= CHECK_MS);
+export function checkingTabs(item, formsOpen, sinceStart, now = Date.now()) {
   if (!waitsOnTab(item)) return false;
   // Heard from Chrome, yet nothing says this tab is open or closed: never "Form open" (owner, 12 Oct 2026); it checks for CHECK_MS, then tabNotFound says so.
-  if (formsOpen?.known) return unsureTab(item, formsOpen) && sinceStart <= CHECK_MS;
+  if (formsOpen?.known) return unsureTab(item, formsOpen) && !lookOver(item, sinceStart, now);
   return sinceStart <= CHECK_MS;
 }
 
 // After the first look the tab is still unknown (owner, 14 Oct 2026: older sessions said "Checking…" for ever after a restart): the card says "Tab not found" and offers
 // to open the form again. It claims neither open nor closed (12 Oct: never "Form open" unproven; 8 Oct: never "closed" for a form open on another address); when a tab
 // shows up (its address, the extension's report) the session is in `ids` and this is false again.
-export function tabNotFound(item, formsOpen, sinceStart) {
-  return waitsOnTab(item) && unsureTab(item, formsOpen) && sinceStart > CHECK_MS;
+export function tabNotFound(item, formsOpen, sinceStart, now = Date.now()) {
+  return waitsOnTab(item) && unsureTab(item, formsOpen) && lookOver(item, sinceStart, now);
 }
 
 // The session's Chrome tab as the card shows it: host and path (no query, no www), cut in the middle of the path when long;
