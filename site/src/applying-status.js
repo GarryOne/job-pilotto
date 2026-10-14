@@ -9,7 +9,11 @@ const HOLDS = [[/^account-first: held/, 'account-first'], [/^eligibility stop:/,
 const SITE_REFUSED = /^site refused: retry later/;
 const EARLY = ['none', 'posting', 'account'];
 
-// A documented hold: the run stopped here on purpose. A site that refused us (retry later) is a site problem, not a hold, but stays "live" for the share that reached the form.
+// A hold that verifies a fix on the Fixed tab (owner, 14 Oct 2026): every hold is the accepted end of a run except the eligibility stop, which is about the posting against the profile and says
+// nothing about the site (7e38ed8, 11 Oct 2026: counted as clean, it made Ashby "Regressed": a stop before any field read as a clean run).
+export const isCleanHold = status => status.state === 'held' && status.rule !== 'eligibility';
+
+// A documented hold: the run stopped here on purpose. A site that refused us (retry later) is a site problem (the notes of one hold list are the notes of one status), never a fix.
 export const isHold = note => SITE_REFUSED.test(note || '') || HOLDS.some(([pattern]) => pattern.test(note || ''));
 
 // run: {reached, note, regression, short}. -> {state, rule}: rule says which hold or which site problem (a few words), '' when there is none.

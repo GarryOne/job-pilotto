@@ -14,7 +14,7 @@ import {CASES_SCRIPT} from './applying-cases.js';
 import {PAGETABS_CSS, PAGETABS_SCRIPT} from './applying-pagetabs.js';
 import {RESOLUTION_CSS, RESOLUTION_SCRIPT, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
 import {FIDELITY_CSS, FIDELITY_SCRIPT, fidelity as fidelityOf, readFidelity} from './applying-fidelity.js';
-import {STATES, STATE_WORD, isHold, rowStatus} from './applying-status.js';
+import {STATES, STATE_WORD, isCleanHold, isHold, rowStatus} from './applying-status.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
@@ -89,13 +89,10 @@ export const shortOf = (reached, filled, left, asked = null, unexplained = null)
 const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 ? Math.round((100 * filled) / (filled + left)) : null);
 // Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
 const runNeedsFix = run => { const status = rowStatus({reached: run.reached, note: run.note, regression: run.regression, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)});
-  return status.state === 'fix' ? true : status.state === 'works' || status.rule === 'code or bot check' ? false : null; };   // a held or gone run says nothing; a code or bot check is a clean run
+  return status.state === 'fix' ? true : status.state === 'works' || isCleanHold(status) ? false : null; };   // an eligibility stop or a site problem says nothing; every other hold is a clean run (applying-status.js)
 // A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
 // or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
 export {isHold};   // the list of hold notes lives in src/applying-status.js
-// The site's own lasting property (it asks for an account first), unlike an eligibility stop (the posting against the profile, says nothing about the site):
-// only this hold verifies a fix on the Fixed tab (applying-fixed.js statusOf).
-export const isAccountHold = note => /^account-first: held/.test(note || '');
 // Each run's one status (src/applying-status.js) with the step it reached kept beside it (a dot's title says both).
 const stateOf = run => ({...rowStatus({reached: run.reached, note: run.note, regression: run.regression, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)}), step: run.reached || 'none'});
 const needsFix = site => site.status.state === 'fix';
@@ -107,7 +104,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), accountHold: isAccountHold(run.note), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
+    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), cleanHold: isCleanHold(stateOf(run)), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n, last.asked, last.unexplained), status: stateOf(last), states: list.slice(-10).map(stateOf), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none'), days: list.slice(-10).map(run => run.day)};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = replayCases(await readReplays(db));   // CI on main's last runs, one row (src/applying-replays.js)
@@ -191,7 +188,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 .st-works{background:var(--green)}.st-held{background:var(--violet)}.st-site{background:var(--muted)}.st-fix{background:var(--red)}.st-unrun{background:var(--line)}.s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick.search{min-width:240px}.pick input[type=search],.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
-table td:not(:first-child),table th:not(:first-child){white-space:nowrap}details table td,details table th,.legend td:last-child{white-space:normal;overflow-wrap:anywhere}.stw{font-weight:600}.stw-held{color:var(--violet)}.stw-site,.stw-unrun{color:var(--muted)}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
+table td:not(:first-child),table th:not(:first-child){white-space:nowrap}details table td:not(:first-child),details table th:not(:first-child),.legend td:last-child{white-space:normal;overflow-wrap:anywhere}.quiet{color:var(--amber);font-weight:600}.stw{font-weight:600}.stw-held{color:var(--violet)}.stw-site,.stw-unrun{color:var(--muted)}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
 .flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}${PAGETABS_CSS}${RESOLUTION_CSS}${FIDELITY_CSS}.muted{color:var(--muted)}
 .pooltable,.fit{table-layout:fixed}.pooltable td,.pooltable th,.fit td,.fit th{white-space:normal!important;overflow-wrap:anywhere}.pooltable tr.site{cursor:pointer}.pooltable tr.site:hover td,.pooltable tr.site.open td{background:var(--card)}.pooltable tr.site td{vertical-align:middle;padding:10px 10px 10px 0}
 .sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}.stack.hold{color:var(--violet)}
@@ -207,7 +204,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 </style></head><body><main>
 <header><h1>🛡️ Applying tests</h1></header>
 <p class="muted">Is applying reliable? <b>Fixed</b> (tab): every site we fixed, whether a run after the fix confirmed it, and its replay offline with the real extension (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
-live, stopped before any account button or Submit, a rotating share each night. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
+live, stopped before any account button or Submit, a rotating share each run. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
 const __name = target => target;   // the bundler wraps inner functions in __name(...) (esbuild keepNames); a pasted function source calls it, so the page defines it (test/needs-fix-order.test.js)
@@ -226,7 +223,7 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   const t = d.tiles;
 ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
-    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 nights', 'Smoke sites run in the last 10 nights'),
+    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 days', 'Smoke sites run in the last 10 days'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', t.reachedForm >= 70 ? 'good' : '', 'Of live smoke sites', 'Sites that reached the application form'),
     tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
     tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
@@ -240,7 +237,7 @@ ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'
       return el('div', {className: 'night'}, el('b', {textContent: night.day.slice(5)}),
         el('div', {className: 'nightbar'}, ...d.states.filter(state => night.counts[state]).map(state => { const count = night.counts[state];
           return el('i', {className: 'st-' + state, title: d.stateWords[state] + ': ' + count + ' of ' + total, style: 'flex:' + count + ' 1 0', textContent: count}); })),
-        el('span', {className: 'muted', textContent: total + (total === 1 ? ' run' : ' runs') + ' · ' + (measured ? Math.round(100 * night.counts.works / measured) + '% work' + (apart ? ' (of ' + measured + ' measured; ' + apart + ' held or site problem left out)' : '') : 'none measured')})); });
+        el('span', {className: 'muted', textContent: total + (total === 1 ? ' run' : ' runs') + ' · ' + (measured ? Math.round(100 * night.counts.works / measured) + '% work' + (apart ? ' · ' + apart + ' left out' : '') : 'none measured'), title: measured ? 'Works against needs a fix: ' + apart + ' held on purpose or site problem left out of the share' : ''})); });
     panels.pool.append(el('section', {className: 'nights'}, el('h2', {textContent: 'By-hand runs · where each site got to'}),
       el('p', {className: 'muted', textContent: 'Each bar is the pool runs of one day, split by each run\\'s one status (explained under the pool table). The % counts works against needs a fix only: held on purpose and site problems are left out, so a day with more of them does not read as a drop. The last 14 days, the latest first.'}),
       el('div', {className: 'key'}, ...d.states.map(state => el('span', {className: 'pill st-' + state, textContent: d.stateWords[state]}))), ...rows));
@@ -271,6 +268,7 @@ ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'
     const flip = () => { sorts[key] = !on ? {col, dir: 'asc'} : pick.dir === 'asc' ? {col, dir: 'desc'} : null; redraw(); };
     return el('th', {className: 'sortable' + (on ? ' on' : ''), tabIndex: 0, title: 'Sort by ' + label, textContent: label + (on ? (pick.dir === 'asc' ? ' ▲' : ' ▼') : ''), onclick: flip, onkeydown: event => { if (event.key === 'Enter') flip(); }}); });
   // The pool: every smoke site, also one never run; filters by platform and by flow combine.
+  const SMALL_MISS = 2;   // a form with this many unexplained fields or fewer is a small miss: drawn quietly on Needs a fix
   const PER = 15, chosen = {platform: null, flow: null, query: '', page: 0}, table = el('div'), bars = {};
   // A filter's select; the pool's by default, another table passes its own state, redraw and unit (the replays: 'case').
   const pick = (key, list, label, all, {state = chosen, redraw = () => draw(), unit = 'site'} = {}) => el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: label}), Object.assign(el('select', {onchange: event => { state[key] = event.target.value || null; state.page = 0; redraw(); }},
@@ -295,7 +293,9 @@ ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'
   // The pool table (owner mockup, 10 Oct 2026: five columns that fit the page, the route and the exact time in an expandable row). The site name carries its host in brackets: it moves under the name, next to the platform.
   const toggleOpen = (set, key) => { const was = set.has(key); set.clear(); if (!was) set.add(key); };   // one row open at a time in every expandable table; the key is unique (a pool row's shape, never its display name)
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
-  const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '')}; };
+  // Two rows with one display name and one start host (a custom row beside its platform row) are told apart by the shape name, in every list that shows a row.
+  const twins = d.pool.reduce((out, s) => ((out[s.name + '|' + s.start] = (out[s.name + '|' + s.start] || 0) + 1), out), {}), twinTag = s => (twins[s.name + '|' + s.start] > 1 ? ' · ' + s.shape : '');
+  const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '') + twinTag(s)}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
   const resultOf = s => [el('span', {className: 'pill st-' + s.status.state, title: s.status.rule, textContent: d.stateWords[s.status.state] + (s.status.rule && s.status.state !== 'fix' ? ' · ' + s.status.rule : '')}),
     s.reached ? el('span', {className: 'stack muted', textContent: STAGE[s.reached] || s.reached}) : null,
@@ -305,7 +305,7 @@ ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'
   const route = s => el('div', {}, el('h4', {textContent: 'Route'}), el('dl', {}, el('dt', {textContent: 'Start'}), el('dd', {}, s.start || '…', s.start ? copy(s.start) : null), ...(s.end && s.end !== s.start ? [el('dt', {textContent: 'End'}), el('dd', {}, s.end, copy(s.end))] : [])));
   const lastRun = s => el('div', {}, el('h4', {textContent: s.at ? 'Last completed run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last completed run'}),
     el('div', {}, ...resultOf(s)), s.signal ? el('div', {className: 'muted', textContent: 'rung ' + s.rung + ' handed on: ' + s.signal}) : null,
-    s.cause ? el('div', {className: 'muted', textContent: 'Top cause: ' + s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's')}) : null);
+    s.cause ? el('div', {className: 'muted', textContent: 'Top cause: ' + s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' day' + (s.cause.nights === 1 ? '' : 's')}) : null);
   const siteRows = s => { const on = open.has(s.shape), flip = () => { toggleOpen(open, s.shape); draw(); }, parts = split(s), runs = () => (s.states.length ? dots(s.states, s.days) : el('span', {className: 'muted', textContent: '—'}));
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {className: 'c-site'}, el('div', {className: 'sitecell'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + parts.title, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }}), el('div', {className: 'sitename'}, el('b', {textContent: parts.title}), el('span', {className: 'muted', textContent: parts.sub})))),
@@ -357,20 +357,20 @@ ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'
   const needDetail = s => el('div', {className: 'detail'},
     el('div', {}, fixShort(s.name) !== s.name ? el('div', {}, el('h4', {textContent: 'Scenario'}), el('div', {textContent: s.name})) : null,
       el('h4', {textContent: 'Platform use'}), el('div', {textContent: useOf(s) ? useOf(s) + '% of the matched jobs' : '—'}),
-      el('h4', {textContent: 'Top cause'}), el('div', {textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'})),
+      el('h4', {textContent: 'Top cause'}), el('div', {textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' day' + (s.cause.nights === 1 ? '' : 's') : '—'})),
     el('div', {}, el('h4', {textContent: 'Filled, last runs'}), el('div', {textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}),
       el('h4', {textContent: s.at ? 'Last run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last run'}), el('div', {textContent: s.at ? ago(s.at) : '—'})));
   const needRow = s => { const on = needOpen.has(s.shape), flip = () => { toggleOpen(needOpen, s.shape); drawFix(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
-      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '')}))),
-      el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
+      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '') + twinTag(s)}))),
+      el('td', {}, el('span', {className: s.short && !s.regression && s.short.unexplained != null && s.short.unexplained <= SMALL_MISS ? 'quiet' : 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
         s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null),
       el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'}),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + s.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 4}, needDetail(s)))] : [main]; };
   const drawFix = () => { fixBox.textContent = ''; ORDER = needsFixOrder(d.pool, d.scorecard, d.steps);
     fixBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'Needs a fix · where applying stops'}),
-      el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there the next night.'})),
+      el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there after the site\\'s next run.'})),
       ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', ORDER.rows, ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
         'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => ORDER.rank.get(s.shape), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
   // By cause (owner, 11 Oct 2026): the Needs a fix rows grouped by their top cause, biggest first, after "Run first" (rows that need a pool run, not a fix); src/applying-groups.js, shared with

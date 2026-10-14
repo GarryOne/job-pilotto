@@ -90,7 +90,7 @@ test('each pool row carries its own runs (last 20: day, at, reached, filled, lef
   const [item] = (await data(db, at('2026-10-23T08:00:00Z'))).pool;
   assert.equal(item.shape, 'Hornbach SuccessFactors');
   assert.equal(item.runs.length, 20);
-  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['accountHold', 'at', 'day', 'filled', 'hold', 'left', 'needsFix', 'reached', 'version']);
+  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['at', 'cleanHold', 'day', 'filled', 'hold', 'left', 'needsFix', 'reached', 'version']);
 });
 
 test('each fixed row carries what the expander shows: its host, every commit, and its runs with the ones after the landing marked', async () => {

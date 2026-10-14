@@ -55,7 +55,7 @@ async function pageOrder(json, names) {
 test('the page and the command give the same Needs a fix order on the same data', async () => {
   const json = await seeded(), names = json.pool.map(row => row.name);
   const fromCommand = rankRows(json).map(row => row.name), fromPage = await pageOrder(json, names);
-  assert.deepEqual(fromCommand, ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Ddd big form', 'Aaa small site']);   // regression; then Greenhouse (54% of real use) by earliest stop (posting, account, a form with unexplained fields last); then the small platform
+  assert.deepEqual(fromCommand, ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Aaa small site', 'Ddd big form']);   // regression; then every stop before the form, Greenhouse (54% of real use) first; then the forms with fields left; the small platform
   assert.deepEqual(fromPage, fromCommand, 'the page draws the order the command prints');
   assert.ok(!fromCommand.includes('Fff gone') && !fromCommand.includes('Ggg ready') && !fromCommand.includes('Hhh bot check'), 'a gone posting, a ready form and a documented bot check are not on the list');
 });
@@ -75,7 +75,8 @@ test('the command prints rank, shape, platform, reached, filled/left and claimed
   assert.match(lines[1], /^1\s+Ccc regressed\s+Custom\s+account\s+—\s+—$/);
   assert.match(lines[2], /^2\s+Bbb big platform\s+Greenhouse\s+posting\s+—\s+—$/);
   assert.match(lines[3], /^3\s+Eee other big\s+Greenhouse\s+account\s+—\s+2026-10-12 10:00$/);   // the claim's since, never the session
-  assert.match(lines[4], /^4\s+Ddd big form\s+Greenhouse\s+form\s+5\/12\s+—$/);
+  assert.match(lines[4], /^4\s+Aaa small site\s+Custom\s+posting\s+—\s+—$/);
+  assert.match(lines[5], /^5\s+Ddd big form\s+Greenhouse\s+form\s+5\/12\s+—$/);
   assert.equal(lines.length, 6);
   assert.doesNotMatch(lines.join('\n'), /job-pilotto-\d|token|key/i);
 });

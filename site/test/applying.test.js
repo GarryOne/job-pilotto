@@ -129,7 +129,7 @@ test('the by-hand runs chart sits right under the tiles: one row per day, newest
   assert.doesNotMatch(PAGE, /className: 'bars'/);   // the old thin vertical bars are gone
   assert.match(nights, /\.slice\(-14\)\.reverse\(\)/);   // the last 14 days, newest first
   assert.match(nights, /textContent: count/);   // the count is written in its segment
-  assert.match(nights, /held or site problem left out/);   // the share says what it leaves out
+  assert.match(nights, /left out/);   // the share says what it leaves out
   assert.match(nights, /d\.states\.map\(state => el\('span', \{className: 'pill st-'/);   // a key of the statuses
 });
 
@@ -158,7 +158,7 @@ test('a form reached with under half of its fields filled is a shortfall: red on
 
 test('no column but the first breaks its text over lines, and the badge and its date share one line (owner, 10 Oct 2026)', () => {
   assert.ok(PAGE.includes('table td:not(:first-child),table th:not(:first-child){white-space:nowrap}'), 'cells after the first never wrap');
-  assert.ok(PAGE.includes('details table td,details table th,.legend td:last-child{white-space:normal;overflow-wrap:anywhere}'), 'the legend\'s long meaning column and every table in a details box (the AI ladder\'s paths) may wrap');
+  assert.ok(PAGE.includes('details table td:not(:first-child),details table th:not(:first-child),.legend td:last-child{white-space:normal;overflow-wrap:anywhere}'), 'the legend\'s long meaning column and every table in a details box (the AI ladder\'s paths) may wrap');
   assert.ok(!PAGE.includes("s.day ? el('div', {className: 'muted', textContent: s.day})"), 'the date is a span beside the badge, not a block under it');
 });
 
@@ -190,9 +190,9 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
   new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => body}), () => ({}), {escape: x => x}, () => 0, Object);
   await new Promise(resolve => setTimeout(resolve, 20));
   const text = app.text(), section = text.slice(text.indexOf('Needs a fix'), text.indexOf('The pool'));
-  const order = ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Ddd big form', 'Aaa small site'].map(name => section.indexOf(name));
+  const order = ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Aaa small site', 'Ddd big form'].map(name => section.indexOf(name));
   assert.ok(order.every(at => at > 0), 'every row is listed: ' + order);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'regression first, then the big platform by its earliest stop (posting, account, then the form), then the small site');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'regression first, then every stop before the form (the big platform first), then the forms with fields left, even on the big platform');
   assert.ok(text.includes('54%'), 'the platform use is shown');   // by the scorecard (Coverage tab): a Needs a fix row shows it only when opened
 });
 
@@ -253,7 +253,9 @@ test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and s
 
 // The digest's own stops (desktop/e2e/lib/smoke.mjs SITE_REFUSED, LOGIN_WALL) are documented holds like the account-first one, but only account-first is a clean run.
 test('a refusing site and a login wall are holds, not fixes, and not clean runs', async () => {
-  const {isHold, isAccountHold} = await import('../src/applying.js');
+  const {isHold} = await import('../src/applying.js'), {isCleanHold, rowStatus} = await import('../src/applying-status.js');
   for (const note of ['site refused: retry later', 'login wall: held', 'applies by email: told', 'page tells how to apply: told', 'account-first: held']) assert.equal(isHold(note), true, note);
-  assert.deepEqual(['site refused: retry later', 'login wall: held', 'applies by email: told', 'page tells how to apply: told'].map(isAccountHold), [false, false, false, false]);
+  // Fixed tab (owner, 14 Oct 2026): every hold but the eligibility stop is a clean run; a site problem is neither.
+  assert.deepEqual(['account-first: held', 'login wall: held', 'applies by email: told', 'page tells how to apply: told', 'eligibility stop: the role is in Sydney', 'site refused: retry later'].map(note => isCleanHold(rowStatus({reached: 'form', note}))), [true, true, true, true, false, false]);
+  assert.equal(isCleanHold(rowStatus({reached: 'code/bot'})), true);
 });
