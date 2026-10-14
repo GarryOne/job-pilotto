@@ -254,6 +254,7 @@
       if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer || proposedOf[row.field], (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
+        fact: (answer || proposedOf[row.field])?.fact || '', category: (answer || proposedOf[row.field])?.category || '', known: knownKey(row),   // fixed words for the fill card's meaning (fill-meaning.js)
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};
     });
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
