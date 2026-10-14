@@ -39,7 +39,7 @@ def job_names():
 class RequiredChecksTest(unittest.TestCase):
     def test_every_required_check_is_a_job_some_workflow_runs(self):
         names, checks = job_names(), required()
-        self.assertGreater(len(checks), 10, 'positive control: the list is read')
+        self.assertGreaterEqual(len(checks), 3, 'positive control: the list is read (3 since 14 Oct 2026: only checks that start on every PR)')
         self.assertTrue(any(name.match('desktop (ubuntu-24.04)') for name in names), 'positive control: a matrix job name is matched')
         self.assertEqual([check for check in checks if not any(name.match(check) for name in names)], [],
                          'a required check no job reports blocks every PR: rename it in tools/pr-settings.sh too, then run tools/pr-settings.sh --apply')
