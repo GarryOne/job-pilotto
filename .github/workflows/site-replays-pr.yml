@@ -54,6 +54,7 @@ on:
       - 'desktop/e2e/lib/replay-candidate.mjs'
       - 'desktop/e2e/lib/replay-date.mjs'
       - 'desktop/e2e/lib/replay-field-diff.mjs'
+      - 'desktop/e2e/lib/replay-ratchet.mjs'
       - 'desktop/e2e/lib/replay-truth.mjs'
       - 'desktop/e2e/lib/run-logs.mjs'
       - 'desktop/e2e/lib/scrollbar.mjs'
@@ -73,6 +74,7 @@ on:
       - 'desktop/e2e/replay-accepts.mjs'
       - 'desktop/e2e/replay-baseline.sh'
       - 'desktop/e2e/replay-deferred.json'
+      - 'desktop/e2e/replay-faithful.json'
       - 'desktop/e2e/replay-gate.mjs'
       - 'desktop/e2e/replay-late.mjs'
       - 'desktop/e2e/replay-net.mjs'
@@ -125,7 +127,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
-          node replay-pick.mjs "$base" > "$RUNNER_TEMP/pick.json"
+          node replay-pick.mjs "$base" --pinned replay-faithful.json > "$RUNNER_TEMP/pick.json"
           jq -r .line "$RUNNER_TEMP/pick.json" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.groups | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
@@ -239,14 +241,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPLAY: ${{ needs.replay.result }}
           PR: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           # The owner's accept on THIS PR (label replay-accepted + comment "Replay-accept: ..."), read live: a re-run of this job (site-replays-accept.yml re-runs it on a label or comment) sees it.
           node replay-accepts.mjs - "$RUNNER_TEMP/accepts.json" --pr "$PR" || echo '{"entries":[]}' > "$RUNNER_TEMP/accepts.json"
           mkdir -p "$RUNNER_TEMP/step4" && find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
           base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
+          # the ratchet: the pinned file is the baseline; the base branch's copy keeps a row this PR unpinned held until a Replay-accept names it
+          git fetch --depth=1 origin "$BASE_REF" && git show "origin/$BASE_REF:desktop/e2e/replay-faithful.json" > "$RUNNER_TEMP/base-pins.json" 2>/dev/null || echo '{"rows":{}}' > "$RUNNER_TEMP/base-pins.json"
           set +e
-          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
+          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
           set -e
           [ "$REPLAY" = success ] || { echo "::error::a replay runner did not finish ($REPLAY): the gate cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
-          [ "$code" = 0 ] || { echo "::error::a counted row got worse than the last green scheduled replay (see the summary). If intended: label this PR replay-accepted and comment 'Replay-accept: <row> — <reason>' (the summary has the line): the gate re-judges by itself, and the nightly takes the new baseline after the merge"; exit 1; }
+          [ "$code" = 0 ] || { echo "::error::a pinned row is no longer same as live (see the summary). If intended: label this PR replay-accepted and comment 'Replay-accept: <row> — <reason>' (the summary has the line): the gate re-judges by itself, and the nightly takes the new baseline after the merge"; exit 1; }

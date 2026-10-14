@@ -202,7 +202,7 @@ jobs:
           out="$RUNNER_TEMP/first"; mkdir -p "$out/step4"
           for d in "$RUNNER_TEMP"/shards/*/; do cp "$d"step4/*.json "$out/step4/" 2>/dev/null || true; done
           baseline=$(bash replay-baseline.sh "$out/baseline")
-          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" > /dev/null || true
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --pinned replay-faithful.json > /dev/null || true
           { echo "any=$([ -s "$out/results.json.worse" ] && echo 1 || echo 0)"; echo "worse<<EOF"; cat "$out/results.json.worse" 2>/dev/null || true; echo; echo EOF; } >> "$GITHUB_OUTPUT"
   retry:
     # A worse row is replayed once more, on a macOS runner (the same kind as the baseline), only when there is one.
@@ -287,7 +287,7 @@ jobs:
           node replay-accepts.mjs "$baseline" "$out/accepts.json"
           retry=(); [ -n "$(ls "$out/retry/step4" 2>/dev/null)" ] && retry=(--retry "$out/retry/step4") && echo "retry: replayed again on a Mac"
           set +e
-          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" "${retry[@]}" --accepts "$out/accepts.json" > "$out/gate.md"; code=$?
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" "${retry[@]}" --accepts "$out/accepts.json" --pinned replay-faithful.json > "$out/gate.md"; code=$?
           set -e
           cat "$out/gate.md" | tee -a "$GITHUB_STEP_SUMMARY"
           # the runner measurement (never gating): the same rows on Linux beside the Mac's
@@ -330,7 +330,7 @@ jobs:
           WHAT: ${{ steps.gate.outputs.what }}
           MERGED: ${{ steps.gate.outputs.merged }}
         run: |
-          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Rows worse than the last green run: ${WHAT:-see the run}. PRs merged since then: ${MERGED:-none}. If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
+          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Pinned rows no longer same as live: ${WHAT:-see the run}. PRs merged since then: ${MERGED:-none}. If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
           elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
           else node ci-alert.mjs success; fi
       - name: Red when a counted row got worse
