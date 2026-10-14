@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {WORKFLOW_JOB, workflowFiles, pathEntries} from '../../tools/replay-files.mjs';
+import {WORKFLOW_JOB, workflowFiles, pathEntries, appFiles} from '../../tools/replay-files.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const INSTALL = /^(desktop\/(e2e\/)?package(-lock)?\.json|\.github\/workflows\/[\w-]+\.yml)$/;
@@ -26,4 +26,9 @@ for (const workflow of Object.keys(WORKFLOW_JOB)) test(`${workflow}: a PR starts
 test('a script a step starts is part of its workflow\'s files (the replays report imports the upload code)', () => {
   assert.ok(workflowFiles('page-cases.yml').has('desktop/e2e/lib/applying-report.mjs'));
   assert.ok(!workflowFiles('page-cases.yml').has('desktop/e2e/smoke.mjs'), 'the recorder is not a page case');
+});
+
+test('site-replays-pr.yml: a PR starts it for the apply flow\'s code only: the extension, the app and the worker files it copies in (#778 changed the answer prompt and started none)', () => {
+  assert.deepEqual(prPaths('site-replays-pr.yml'), pathEntries(appFiles()));
+  assert.ok(prPaths('site-replays-pr.yml').includes('worker/src/answer-facts.js'));
 });
