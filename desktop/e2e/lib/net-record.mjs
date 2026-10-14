@@ -29,6 +29,11 @@ export function bodyKey(buf, contentType = '') {
   return `txt:${sha(normalise(buf.toString('utf8'))).slice(0, 16)}`;
 }
 const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;
+// A header the site sent as raw UTF-8 bytes (a redirect to ".../Genève/...") reaches the recorder read as Latin-1 ("GenÃ¨ve"); the live browser read
+// the bytes as UTF-8. The replay hands them back the browser's way, or it follows a double-encoded address that was never recorded (14 Oct 2026,
+// Breitling: the fill never started). A value that is not valid UTF-8 that way is kept as it is. -> string
+export const headerText = value => { const text = String(value ?? ''); if (!/[\u0080-\u00ff]/.test(text) || /[^\u0000-\u00ff]/.test(text)) return text;
+  const utf8 = Buffer.from(text, 'latin1').toString('utf8'); return utf8.includes('\ufffd') ? text : utf8; };
 
 // The live side. -> {flush(), result(): {entries, bodies}}
 export function netRecorder(context, {startedAt = Date.now()} = {}) {
@@ -152,12 +157,12 @@ export async function netReplay(context, {entries, bodies}, {slow = false, say =
     if (entry.failed) return route.abort().catch(() => {});
     // A recorded redirect of a page load: Chromium does not follow a fulfilled 3xx on a navigation (the load fails, the page is loaded again), so it is
     // served as a page that moves on at once, keeping the address's #fragment (the fill mark) as a real redirect does.
-    const to = entry.headers?.location;
+    const to = entry.headers?.location ? headerText(entry.headers.location) : '';
     if (to && entry.status >= 300 && entry.status < 400 && request.isNavigationRequest()) {
       counts.redirects = (counts.redirects || 0) + 1;
       return route.fulfill({status: 200, contentType: 'text/html', body: `<!doctype html><script>location.replace(${JSON.stringify(new URL(to, url).href)} + location.hash)</script>`}).catch(() => {});
     }
-    let body = bodies.get(entry.hash) || Buffer.alloc(0), headers = entry.headers;
+    let body = bodies.get(entry.hash) || Buffer.alloc(0), headers = entry.headers?.location ? {...entry.headers, location: headerText(entry.headers.location)} : entry.headers;
     if (method !== 'GET' && body.length && body.length < 1e5) {
       const sent = parts(request.postDataBuffer(), sent0['content-type']), echoed = echo(body, sent);
       if (echoed !== body) { counts.echoed = (counts.echoed || 0) + 1; netLog(`echo ${method} ${url.slice(0, 80)}`); body = echoed; headers = Object.fromEntries(Object.entries(headers).map(([name, v]) => [name, echo(Buffer.from(String(v)), sent).toString()])); }

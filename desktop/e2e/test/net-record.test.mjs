@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {seedRandom, sequence} from '../lib/seeded-random.mjs';
-import {bodyKey, echo, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
+import {bodyKey, echo, headerText, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
 const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', mode: 'navigate', startMs: 0, waitMs: 10, bodyKey: '', status: 200, failed: false, headers: {'content-type': 'text/html'}, hadCookie: false, hash: 'h1', size: 3, ...over});
@@ -97,4 +97,14 @@ test('a third-party prefetch of code is kept (the page runs it from the prefetch
   assert.equal(by[chunk.url], 'kept', 'Starling, 14 Oct 2026: 25 Workable chunks dropped, then 404 on the replay');
   assert.equal(by[ping.url], 'beacon');
   assert.equal(by[gif.url], 'beacon');
+});
+
+test('a redirect sent as raw UTF-8 is handed back as the browser read it, not double-encoded (Breitling, 14 Oct 2026)', () => {
+  // The recorder reads header bytes as Latin-1: "Genève" arrives as "GenÃ¨ve"; the live browser followed /Genève/ (%C3%A8).
+  assert.equal(headerText('/job/Geneva-Universal-GenÃ¨ve-Grand-Vendeur/1432-en_GB/'), '/job/Geneva-Universal-Genève-Grand-Vendeur/1432-en_GB/');
+  assert.equal(new URL(headerText('/job/GenÃ¨ve/'), 'https://careers.example.com/').pathname, '/job/Gen%C3%A8ve/');
+  assert.equal(headerText('/job/plain-ascii/?a=1'), '/job/plain-ascii/?a=1', 'ASCII untouched');
+  assert.equal(headerText('/café'), '/café', 'a lone Latin-1 byte that is not UTF-8 is kept as it was');
+  assert.equal(headerText('/already/Genève'), '/already/Genève', 'a real character above Latin-1 is never re-read');
+  assert.equal(headerText(undefined), '');
 });
