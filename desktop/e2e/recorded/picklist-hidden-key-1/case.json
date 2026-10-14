@@ -1,0 +1,61 @@
+{
+ "shape": "type-to-search picklists (SuccessFactors) that keep the choice in a labelled hidden input as a numeric key and show the chosen option's words in the combobox box itself",
+ "origin": "hand-cut",
+ "why": "14 Oct 2026, pool row Breitling SuccessFactors (0.9.478): Country and preferred language were picked, yet the read back said mismatch 2 and the fields line left both ('the page changed what was typed'). Since ad30229 the one reader compared the hidden key ('688') with the picked option's words",
+ "control": {
+  "build": "0.9.488",
+  "failed": "traced: Country:filled (the fill's record says left); traced: What is your preferred language?:filled (the fill's record says left)"
+ },
+ "sample": "two picklists of a SuccessFactors application form, markup cut from the capture of 2026-10-14 (names and values removed); the answers' values are scrubbed in the capture, the box's title showed Switzerland",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/picklist-hidden-key/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "9:_input",
+     "question": "Country",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    },
+    {
+     "field": "13:_input",
+     "question": "What is your preferred language?",
+     "value": "English",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "traced": [
+   "Country:filled",
+   "What is your preferred language?:filled"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

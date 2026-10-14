@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Application: Sales Advisor</title>
+<style>body{font:15px system-ui;margin:24px;max-width:720px} th{text-align:left;font-weight:600;padding:8px 12px 8px 0;vertical-align:top} td{padding:8px 0}
+.required{color:#c00} .fd-input-group{display:inline-flex;border:1px solid #888} .fd-input-group input{border:0;padding:6px} .fd-input-group button{border:0;background:#eee;width:28px}
+.picklist-list{list-style:none;margin:0;padding:0;border:1px solid #888;background:#fff;position:absolute;max-height:180px;overflow:auto} .picklist-list li{padding:5px 8px} [hidden]{display:none!important}</style></head><body>
+<h1>Create your candidate profile</h1>
+<!-- Cut from a SuccessFactors application form (capture of 14 Oct 2026, names and values removed): a type-to-search picklist is a combobox input in its own control
+     group, plus a hidden input that a <label for> points to. Picking an option writes the option's words into the box and its KEY (a number) into the hidden input. -->
+<form id="application" onsubmit="return false"><table>
+<tr><th><label id="label_tor__ffirstName" for="tor__ffirstName">First Name<span class="required">*</span></label></th><td><input type="text" name="tor__ffirstName" id="tor__ffirstName" aria-label="First Name"></td></tr>
+<tr class=""><th class="formFieldLabel col-sm-4"><label id="label_tor__fcountry" for="tor__fcountry" title="Required">Country<span class="required">*</span></label></th>
+<td><div class="displayInlineBlock" id="picklist_country"><span id="8:" class="sfCascadingPicklist"><div id="9:_selectContainer" class="paginatedPicklistContainer fd-input-group fd-input-group--compact fd-input-group--control" data-opens="0">
+<input aria-label="Country" autocomplete="off" type="text" placeholder="No Selection" aria-owns="10:_listSelect" role="combobox" aria-required="true" aria-expanded="false" class="rcmpaginatedselectinput fd-input" id="9:_input" size="20">
+<button aria-label="Country" tabindex="-1" class="rcmpaginatedselectbutton fd-select__button" type="button" id="9:_selectButton"></button></div>
+<ul id="10:_listSelect" class="picklist-list" role="listbox" hidden></ul></span></div>
+<input id="tor__fcountry" name="tor__fcountry" type="hidden" aria-hidden="true" class=" appFieldRequired" title="Country is required "></td></tr>
+<tr class=""><th class="formFieldLabel col-sm-4"><label id="label_tor__fCUST_preferredlanguage" for="tor__fCUST_preferredlanguage" title="Required">What is your preferred language?<span class="required">*</span></label></th>
+<td><div class="displayInlineBlock" id="picklist_CUST_preferredlanguage"><span id="12:" class="sfCascadingPicklist"><div id="13:_selectContainer" class="paginatedPicklistContainer fd-input-group fd-input-group--compact fd-input-group--control" data-opens="0">
+<input aria-label="What is your preferred language?" autocomplete="off" type="text" placeholder="No Selection" aria-owns="14:_listSelect" role="combobox" aria-required="true" aria-expanded="false" class="rcmpaginatedselectinput fd-input" id="13:_input" size="20">
+<button aria-label="What is your preferred language?" tabindex="-1" class="rcmpaginatedselectbutton fd-select__button" type="button" id="13:_selectButton"></button></div>
+<ul id="14:_listSelect" class="picklist-list" role="listbox" hidden></ul></span></div>
+<input id="tor__fCUST_preferredlanguage" name="tor__fCUST_preferredlanguage" type="hidden" aria-hidden="true" class=" appFieldRequired" title="What is your preferred language? is required "></td></tr>
+</table><button type="submit">Apply</button></form>
+<script>
+// The picklist's behaviour as the site's script draws it: a mousedown on the group opens the list; typing filters it; a mousedown on an option writes its words into
+// the box (and its title) and its key into the labelled hidden input, then closes the list.
+const LISTS = {
+  '9:_input': {hidden: 'tor__fcountry', options: [['Afghanistan', '1'], ['France', '211'], ['Germany', '412'], ['Italy', '509'], ['Switzerland', '688'], ['United Kingdom', '901']]},
+  '13:_input': {hidden: 'tor__fCUST_preferredlanguage', options: [['English', '30101'], ['French', '30102'], ['German', '30103'], ['Italian', '30104']]},
+};
+for (const [id, {hidden, options}] of Object.entries(LISTS)) {
+  const input = document.getElementById(id), group = input.parentElement, list = document.getElementById(input.getAttribute('aria-owns')), key = document.getElementById(hidden);
+  const draw = () => {
+    const typed = input.value.trim().toLowerCase();
+    list.innerHTML = options.filter(([words]) => !typed || words.toLowerCase().includes(typed)).map(([words, value]) => `<li role="option" data-key="${value}">${words}</li>`).join('');
+  };
+  group.addEventListener('mousedown', event => {
+    if (event.target.closest('[role=option]')) return;
+    group.dataset.opens = String(Number(group.dataset.opens) + 1);
+    draw(); list.hidden = false; input.setAttribute('aria-expanded', 'true');
+  });
+  input.addEventListener('input', () => { key.value = ''; draw(); list.hidden = false; input.setAttribute('aria-expanded', 'true'); });
+  list.addEventListener('mousedown', event => {
+    const option = event.target.closest('[role=option]'); if (!option) return;
+    event.preventDefault();
+    input.value = option.textContent; input.title = option.textContent; key.value = option.dataset.key;
+    list.hidden = true; input.setAttribute('aria-expanded', 'false');
+  });
+  list.addEventListener('click', event => {   // a scripted click lands here when no mousedown came first
+    const option = event.target.closest('[role=option]'); if (!option || key.value === option.dataset.key) return;
+    input.value = option.textContent; input.title = option.textContent; key.value = option.dataset.key;
+    list.hidden = true; input.setAttribute('aria-expanded', 'false');
+  });
+}
+</script></body></html>

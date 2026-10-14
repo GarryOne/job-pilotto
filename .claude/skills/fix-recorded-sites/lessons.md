@@ -27,6 +27,10 @@ Each lesson: what to do, the incident (date, row) and how sure it is. **verified
 - **The capture's own markup in a jsdom unit test is the fastest repro of a reading bug:** `pages/<n>.html` of the capture, cut to the field, reproduced the live row strings ("Dropbox Enter manually…") in seconds, before any replay finished. 14 Oct 2026, verified.
 - **A network replay that stops at the posting on a loaded Mac is no evidence:** its first `page kind:` line says `frames: 0` (the form frame not loaded yet) and the ask misses the kept answer. `uptime` first; at load > ~100 two of three replays of the same build did this, at a normal load the same record matched 8/8 (14 Oct 2026, verified). Never run a replay beside a suite.
 
+- **A "mismatch" on a control the fill picked: first ask what the reader compares.** A hidden input holds a key ("688"), not words; comparing it with the picked option's words
+  called every correct SuccessFactors pick another one (ad30229, found 14 Oct 2026 from the Breitling row: `read back {mismatch: 2}` and "the page changed what was typed" on two
+  comboboxes). The capture's markup in a jsdom test showed it in one run; a pick is kept only when the box shows it (cc: an empty box beside a key proves nothing). Verified.
+
 ## Designing the fix
 - **A floor or a list can sit in two places; fix every copy.** "Easy apply / apply with" is refused in `extension/alias-schema.js`, `extension/tab-pages.js`, `desktop/shared/alias-schema.js` (a staged copy) and the rung-2 prompt text: fixing the AI side alone would never press the button (second-hand; copies confirmed in code, 11 Oct 2026). Grep the refusal before editing.
 - **Two places that decide the same thing with different thresholds leave a gap.** The sketch listed every `a`, the press finder `a[href]` (Hornbach, verified); the frame watch counts 40 px, the candidate finder 300x200 (second-hand; both numbers confirmed in code). What the AI is shown must be findable by the code that acts: one shared constant.

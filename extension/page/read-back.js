@@ -80,12 +80,16 @@
   // back to its own (cc's review of #507: a country menu on the page's default read as answered).
   const alnum = text => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const pickedOther = (el, shown) => { const picked = el.getAttribute('data-jobpilotto-picked'), now = alnum(shown); return !!picked && now !== picked && !(/^\d{1,4}$/.test(now) && picked.endsWith(now)); };   // a picker that shows the picked option's calling code only ("Switzerland +41" -> "+41") is that option
+  // What a custom dropdown shows of its choice: a chip's words; for a labelled hidden input, which holds a key ("688", SuccessFactors), the words in the box itself. A pick
+  // counts as kept only when the box shows it: an empty box beside a key proves nothing (cc, 14 Oct 2026). Since ad30229 the key itself was compared with the picked option,
+  // so every correct pick read as another one (Breitling: Country and language left). Guard: worker/test/picklist-hidden-key.test.js.
+  const comboShown = (el, value) => (value.type === 'hidden' ? el.value : value.textContent || value.value);
   const stateOf = el => {
     if (!el) return 'empty';
     if (el.type === 'file') return fileState(el);
     if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? 'committed' : 'empty';
     if (el.tagName === 'SELECT') return !chosen(el) ? 'empty' : pickedOther(el, el.options[el.selectedIndex]?.text) ? 'mismatch' : 'committed';
-    if (el.getAttribute('role') === 'combobox') { const value = comboValue(el); return !value ? 'empty' : pickedOther(el, value.textContent || value.value) ? 'mismatch' : 'committed'; }
+    if (el.getAttribute('role') === 'combobox') { const value = comboValue(el); return !value ? 'empty' : pickedOther(el, comboShown(el, value)) ? 'mismatch' : 'committed'; }
     return boxState(el);
   };
 
