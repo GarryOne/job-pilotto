@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {seedRandom, sequence} from '../lib/seeded-random.mjs';
-import {bodyKey, echo, keepRecord, netRecorder, normUrl, recordable} from '../lib/net-record.mjs';
+import {bodyKey, echo, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
 const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', mode: 'navigate', startMs: 0, waitMs: 10, bodyKey: '', status: 200, failed: false, headers: {'content-type': 'text/html'}, hadCookie: false, hash: 'h1', size: 3, ...over});
@@ -81,4 +81,20 @@ test('a request reported failed after its reply came keeps that reply (an upload
   assert.equal(kept.error, 'net::ERR_ABORTED');
   assert.equal(lost.failed, true);
   assert.equal(lost.status, 0);
+});
+
+test('a third-party prefetch of code is kept (the page runs it from the prefetch cache); a real ping is still dropped', () => {
+  const doc = {method: 'GET', url: 'https://apply.jobs.test/j/1', type: 'document', mode: 'navigate', status: 200, size: 3, hash: 'd', headers: {'content-type': 'text/html'}};
+  const chunk = {method: 'GET', url: 'https://cdn.other.test/releases/job.abc.chunk.js', type: 'other', mode: 'no-cors', status: 200, size: 9, hash: 'c', headers: {'content-type': 'application/javascript'}};
+  const ping = {method: 'POST', url: 'https://bat.bing.test/action', type: 'ping', mode: 'no-cors', status: 204, size: 0, hash: '', headers: {}};
+  const gif = {method: 'GET', url: 'https://ads.other.test/conv;id=1', type: 'fetch', mode: 'no-cors', status: 200, size: 43, hash: 'g', headers: {'content-type': 'image/gif'}};
+  assert.equal(prefetchedCode(chunk), true);
+  assert.equal(prefetchedCode({...chunk, headers: {}, url: 'https://cdn.other.test/x.css?v=2'}), true, 'by its file name when no content type was kept');
+  assert.equal(prefetchedCode(ping), false);
+  assert.equal(prefetchedCode(gif), false);
+  const {entries} = keepRecord({entries: [doc, chunk, ping, gif], bodies: new Map([['d', Buffer.from('<p>')], ['c', Buffer.from('let a = 1;')], ['g', Buffer.from('GIF89a')]])});
+  const by = Object.fromEntries(entries.map(entry => [entry.url, entry.dropped || 'kept']));
+  assert.equal(by[chunk.url], 'kept', 'Starling, 14 Oct 2026: 25 Workable chunks dropped, then 404 on the replay');
+  assert.equal(by[ping.url], 'beacon');
+  assert.equal(by[gif.url], 'beacon');
 });

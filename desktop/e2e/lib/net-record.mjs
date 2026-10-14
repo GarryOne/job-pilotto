@@ -68,6 +68,10 @@ function imageSize(buf) {
   return null;
 }
 
+// A GET whose reply is code (JavaScript, CSS, a font) by its content type or its file name, with a body.
+export const prefetchedCode = entry => entry.method === 'GET' && entry.size > 0 && entry.status >= 200 && entry.status < 300
+  && (/javascript|ecmascript|text\/css|font\//i.test(entry.headers?.['content-type'] || '') || /\.(m?js|css|woff2?|ttf|otf)(\?|$)/i.test(new URL(entry.url).pathname));
+
 // What is kept (§9-§11): beacons and pings the page cannot read are dropped (third-party no-cors, not a script/style/font/image/document); an image becomes a same-size
 // empty SVG; media dropped. -> {entries, bodies, stats}
 export function keepRecord({entries, bodies}) {
@@ -77,7 +81,9 @@ export function keepRecord({entries, bodies}) {
   for (const entry of entries) {
     stats.rawBytes += entry.size;
     const third = !firstParty.has(siteOf(new URL(entry.url).host));
-    if (third && (entry.type === 'ping' || entry.mode === 'no-cors') && !['script', 'stylesheet', 'font', 'image', 'document'].includes(entry.type)) { drop(entry, 'beacon'); continue; }
+    // A prefetch of the page's own code (<link rel=prefetch>: type "other", no-cors) is not a beacon: the page later runs it from the prefetch cache, so no second request
+    // is recorded (Starling, 14 Oct 2026: 25 Workable chunks dropped, then served 404 on the replay; the phone widget stayed on +1 where live showed +41).
+    if (third && (entry.type === 'ping' || entry.mode === 'no-cors') && !['script', 'stylesheet', 'font', 'image', 'document'].includes(entry.type) && !prefetchedCode(entry)) { drop(entry, 'beacon'); continue; }
     if (entry.type === 'media') { drop(entry, 'media'); continue; }
     let body = bodies.get(entry.hash), headers = entry.headers;
     // An image is blanked only when its size is known: a format this cannot measure (AVIF, SVG, a CDN's own) is kept whole, else a 40 px logo became 1 px
