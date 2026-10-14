@@ -29,7 +29,7 @@ Moved from SKILL.md sections 0a and 1 (15 Oct 2026); the live-confirm steps are 
    run), and `DIVERGED: press k: pressed "X"; live pressed "Y"` where the extension did otherwise: that line, or the evidence lines matching the live failure, is the repro.
    A fix is first SHOWN here, never proven: the row must now reach further and `--old <old extension/>` must still fail (a differential on the same capture and machine); the live run (step 4) proves it: offline replay is unverified (spec `docs/superpowers/specs/2026-10-13-capture-once-measure-many.md`: 0 rows matched live; a row with a CV upload, 17 of 39, misses the account judgment after it; compare like with like: a CI capture replayed on a Mac misses page-kind asks from the page width alone, whatever the build). `npm run rows` replays every row of the newest day in one browser.
    Its limits: a page the live run never reached cannot be replayed, and a changed ask (a new sketch or prompt) is not in the row's kept answers: confirm live once (step 3).
-   **A capture from before the replay format (11 Oct 2026) is refused as STALE** (exit 3, it says so): capture the row once (`npm run smoke -- --only "<row>"`; it keeps a
+   **A capture from before the replay format (11 Oct 2026) is refused as STALE** (exit 3, it says so): capture the row once (`npm run record-sites -- --only "<row>"`; it keeps a
    failing row's capture, `SMOKE_KEEP_CANDIDATES=1` keeps it either way), then replay. Never debug from a stale capture's replay.
    **`captured with an older applicant seed`** (the capture recorded another e2e applicant, or none: before 9f6ff67): its fill asks miss the kept answers, so its fill
    result is not your fix's; re-capture the row live first. Page kinds and presses still replay.

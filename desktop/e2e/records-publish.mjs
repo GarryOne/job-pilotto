@@ -3,7 +3,7 @@
 // GitHub release `net-records` of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026; CI reads it with NET_RECORDS_READ_TOKEN, net-records-fetch.sh) as a NEW bundle
 // beside the others (14 Oct 2026: a publish that replaced the set would have dropped 11 of 18 rows; adding needs only the public key). The reader keeps the newest record per row
 // across bundles. Decrypting (to edit a record's answers): the Keychain item job-pilotto.capture.key. Re-recording is by hand on the Mac (owner, 13 Oct 2026).
-//   node records-publish.mjs <records dir> [--dry]      (record a row: JP_NET_RECORD_DIR=<records dir> npm run smoke -- --only "<row>")
+//   node records-publish.mjs <records dir> [--dry]      (record a row: JP_NET_RECORD_DIR=<records dir> npm run record-sites -- --only "<row>")
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

@@ -14,7 +14,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four l
 Whoever owns the pool and its run queue writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
 
 ## What exists
-- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (every mode orders through `lib/smoke-order.mjs` `orderPool`: never run first, then the fewest runs in 14 days, then the oldest last run, then the pool's order; rested rows are skipped and listed; only `--only` is the fixer's own choice; a share is the front `runShare`; `parseLive`, `signature`, `compare`,
+- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run record-sites`), logic in `lib/smoke.mjs` (every mode orders through `lib/smoke-order.mjs` `orderPool`: never run first, then the fewest runs in 14 days, then the oldest last run, then the pool's order; rested rows are skipped and listed; only `--only` is the fixer's own choice; a share is the front `runShare`; `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
 - **On a GitHub runner, still by hand** (owner, 12 Oct 2026: start simple, grow it, report to the coordinator before growing): `.github/workflows/record-sites.yml`,
   workflow_dispatch only (`e2e/test/pool-ci-triggers.test.mjs` fails on a schedule, a push, a PR trigger or any caller). every row of the repo's pool list; default = bot-tolerant rows; `gh workflow run record-sites.yml -f only='<row words>|<more>' -f share=<n>`.
@@ -28,7 +28,7 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 - **Testing is offline; the pool only RE-RECORDS** (owner, 13 Oct 2026, #657): every PR touching `desktop/`, `extension/` or `worker/` replays each row's newest network record
   with its own build (`.github/workflows/site-replays.yml`, `replay-records.mjs`: no site, no model call, $0) and shows "N of M rows same as live" (job summary, /admin/lab-form-filling "Replay vs live").
   A live pool visit is for a NEW record only: a row whose record is old, missing, or not "same as live".
-  - **Record on the Mac first** (`cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run smoke -- --only "<row>"`: plan `claude -p`, no API cost, the replay runner's fonts);
+  - **Record on the Mac first** (`cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run record-sites -- --only "<row>"`: plan `claude -p`, no API cost, the replay runner's fonts);
     **CI only when the Mac is blocked** (a bot check, the Mac's site limit; say which): `record-sites.yml` keeps its records encrypted as `net-records-<run>` for 14 days.
   - **Publish the Mac's records:** `node desktop/e2e/records-publish.mjs <dir>` (the newest per row, encrypted with `net-record.pub.pem`, ADDED to the pre-release `net-records` as its own bundle; the other bundles stay, the newest record per row wins); the PR job reads it first. Publish only your new records: no need to fetch the set first.
   - **Decrypting the set** (only to edit a record, e.g. its kept answers): the private key is the Keychain item `job-pilotto.capture.key` (account `job-pilotto`); write it to a temp file for the openssl step and delete it at once; never print it.
@@ -50,10 +50,10 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 ## Commands (all from `desktop/e2e`, in your own worktree: `tools/worktree.sh smoke-<topic>`)
 | What | Command |
 |---|---|
-| A run's share (`SMOKE_SHARE`, default 10: the shapes least recently run first; `SMOKE_PER_NIGHT` is its old name) | `npm run smoke` |
-| Some shapes | `npm run smoke -- --only <words of the shape>` |
-| The whole pool (~55 x 2 min; least tested first, so a stopped pass is resumed by running it again) | `npm run smoke -- --all` |
-| Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run smoke -- --discover --limit 30` (~45 min) |
+| A run's share (`SMOKE_SHARE`, default 10: the shapes least recently run first; `SMOKE_PER_NIGHT` is its old name) | `npm run record-sites` |
+| Some shapes | `npm run record-sites -- --only <words of the shape>` |
+| The whole pool (~55 x 2 min; least tested first, so a stopped pass is resumed by running it again) | `npm run record-sites -- --all` |
+| Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run record-sites -- --discover --limit 30` (~45 min) |
 
 `--discover` also asks /admin/lab-form-filling for "Next sites to add" (hosts real users apply on that the pool lacks, each used by >= 3 installs; `lib/wanted-hosts.mjs`, owner key from the Keychain) and tries postings on those hosts first; a suggested host with no posting among the profile's jobs is printed and put in the discover report (`noPosting`), never skipped silently. A shape discovery finds goes into the repo's `smoke-sites.json` (commit it so CI runs it; test guard). The site list is empty until 3 installs share a host.
 
@@ -139,7 +139,7 @@ Every extension fill writes a record (Notion "Job Apply — Agent Runs", Agent =
 
 ## When a row must be captured again (12 Oct 2026)
 A row capture (the pool's candidate, on this Mac: `~/Library/Application Support/Job Pilotto QA/replay-candidates/<day>/<row>/`, never in the repo) is only as good as the build and applicant that made it.
-- **Capture again** (one held run: `SMOKE_KEEP_CANDIDATES=1 JP_NO_REPORT=1 npm run smoke -- --only "<row>"`, heavy-lock class proof, fake applicant, never Submit) when: the capture predates the offline app's full applicant (9f6ff67, 11 Oct 17:07 +02) or the live row's contact fix (6b857a6): its form-answer asks miss; or the prompt of an AI ask changed (the answers prompt: 34b349d 16:50 and 279556b 17:28 +02) and your fix does not need that change.
+- **Capture again** (one held run: `SMOKE_KEEP_CANDIDATES=1 JP_NO_REPORT=1 npm run record-sites -- --only "<row>"`, heavy-lock class proof, fake applicant, never Submit) when: the capture predates the offline app's full applicant (9f6ff67, 11 Oct 17:07 +02) or the live row's contact fix (6b857a6): its form-answer asks miss; or the prompt of an AI ask changed (the answers prompt: 34b349d 16:50 and 279556b 17:28 +02) and your fix does not need that change.
 - **What refuses a stale one:** `npm run row` says STALE (before the replay format); `npm run row-to-case` refuses a thin-profile capture (before 9f6ff67) with the command above, and a cold ask says "run again with --ask-cold"
   (the new build's own model asks, once on the plan path, kept in the case); a replay whose memo misses names the differing parts ("system:1:profile (lines 30-37 of 36)": `lib/ai/model-memo.js`).
 - **The case:** `cd desktop/e2e && npm run row-to-case -- "<row>" <case-name> --old-commit <hash of the fix> [--ask-cold] [--fixed]` (`--old <extension folder>` instead of `--old-commit` when you built the old one; `--fixed`: the capture was taken on a build that already has the fix, so expect = the live run and the old build must fail it) (exit 3: the old build passes; exit 4: not provable). Its `expect` is the tool's, never typed.

@@ -44,7 +44,7 @@ test('a page is first served as the extension saw it at its ask, when the live r
 test('a capture from before the replay format (no window size or ask state on its pages) is named stale, with what to do; a current one is not', () => {
   const old = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-old-'));
   caseIn(old, [{url: 'https://a.example/p', file: 'page.html'}]);
-  assert.match(staleCapture(old), /predates the replay format.*npm run smoke -- --only/);
+  assert.match(staleCapture(old), /predates the replay format.*npm run record-sites -- --only/);
   const current = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-new-'));
   write(path.join(current, 'pages/1.html'), '<p>x</p>');
   write(path.join(current, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'pages/1.html', at: 1, state: 0, ask: true, view: {width: 1200, height: 818, doc: 5}}]}));

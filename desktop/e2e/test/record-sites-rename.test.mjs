@@ -28,3 +28,16 @@ test('every reader of earlier runs reads the new name AND the old one', () => {
   }
   assert.match(read('.github/workflows/record-sites.yml'), /pool-smoke-state-\$id/, 'the old state artifact name');
 });
+
+// The command followed on 15 Oct 2026 (owner: "`npm run smoke` shouldn't be `npm run record-sites`?"): `smoke` only prints the new name and fails; no doc, skill, page or message says the old one.
+test('the recording command is npm run record-sites; npm run smoke only says so', () => {
+  const scripts = JSON.parse(read('desktop/e2e/package.json')).scripts;
+  assert.equal(scripts['record-sites'], 'node smoke.mjs');
+  assert.match(scripts.smoke, /renamed: npm run record-sites/);
+  assert.doesNotMatch(scripts.smoke, /smoke\.mjs/, 'the old command no longer runs a visit');
+  let found = '';
+  // pool-ci-triggers.test.mjs names the old command on purpose: no workflow may run a visit under either name.
+  try { found = execFileSync('git', ['grep', '-l', 'npm run smoke', '--', '.', ':!docs/superpowers/specs', ':!desktop/e2e/test/record-sites-rename.test.mjs', ':!desktop/e2e/test/pool-ci-triggers.test.mjs'], {cwd: ROOT, encoding: 'utf8'}); } catch (error) { if (error.status !== 1) throw error; }   // 1 = no match
+  const files = found.split('\n').filter(Boolean);
+  assert.deepEqual(files, [], 'the old command in docs or code');
+});

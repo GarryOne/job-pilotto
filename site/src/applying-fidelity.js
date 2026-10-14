@@ -117,7 +117,7 @@ export const FIDELITY_SCRIPT = `
   const fidOpen = new Set();
   const fidDetail = r => { const n = r.network, line = text => el('div', {textContent: text});
     if (!r.live) return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ')}), line('Not recorded yet. ' + (r.next ? r.next.why : '')),
-      line('Record on the Mac: cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run smoke -- --only "' + r.name + '", then node records-publish.mjs <dir>.'));
+      line('Record on the Mac: cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run record-sites -- --only "' + r.name + '", then node records-publish.mjs <dir>.'));
     return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ') + ' · comparison details'}), el('div', {className: 'fidgroups'},
       el('div', {}, el('h4', {textContent: 'Live baseline'}), line('Recording: ' + recorded(r) + ' · ' + r.live.asks + ' live asks'), r.next ? line('Next: ' + r.next.why) : null, line(outcome(r.live)), line('Stage: ' + (r.live.ending || '—')), line(r.live2 ? 'Second live: ' + r.live2.asks + ' asks · ' + (r.live2.extraVsLive1 ?? '–') + ' extra' : 'Second live: none')),
       el('div', {}, el('h4', {textContent: 'Replay diagnostics'}), n ? line('By order: ' + (n.orderMatched ?? '–') + ' OK · ' + (n.orderWrong || 0) + ' wrong · ' + (n.echoed || 0) + ' echoed') : line('Network replay: not recorded yet'),

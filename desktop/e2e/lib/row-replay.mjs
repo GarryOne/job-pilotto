@@ -67,7 +67,7 @@ export function rowFiles(caseDir) {
 export function staleCapture(caseDir) {
   const item = readJson(path.join(caseDir, 'case.json'), null);
   const current = (item?.pages || []).some(page => !page.frameOf && (page.view || page.ask));
-  return current ? '' : `this row's capture predates the replay format (no per-page states, presses or window size): capture it once with npm run smoke -- --only "<row>" (or npm run live -- <posting url>) and replay again`;
+  return current ? '' : `this row's capture predates the replay format (no per-page states, presses or window size): capture it once with npm run record-sites -- --only "<row>" (or npm run live -- <posting url>) and replay again`;
 }
 
 // A pool row by its case folder, or by its name (as smoke prints it): the newest day's candidate whose folder name holds it. -> the folder, or ''.

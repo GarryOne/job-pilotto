@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {CONTACT} from './apply-fixtures.mjs';
 
 export const SEED_FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'demo', 'draft.json');
-export const OLD_SEED = 'captured with an older applicant seed: fill asks will miss; re-capture the row live (npm run smoke -- --only "<row>") before trusting its fill';
+export const OLD_SEED = 'captured with an older applicant seed: fill asks will miss; re-capture the row live (npm run record-sites -- --only "<row>") before trusting its fill';
 
 // The grown applicant (applicants/grown.json): the thin one plus the recurring questions answered once, as a real user grows their data. JP_APPLICANT=grown
 // picks it everywhere an app is seeded (seed.mjs, offline-app-child.mjs, answer-reask.mjs); thin stays the default so the pool and the recorded cases stay comparable.
