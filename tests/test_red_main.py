@@ -24,6 +24,7 @@ CLASSIFIED = {
     'CI · Site replays · all (offline)': 'ignored: pull requests only, informational, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/applying after the nightly replay, never required',
     'CI · Site replays · PR (10 rows)': 'ignored: pull requests only (required there as "replay gate")',
+    'CI · Site replays · accept': 'ignored: pull requests only, re-runs the failed replay gate and aggregate when the owner accepts a drop',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
     'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Record sites (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
