@@ -21,12 +21,17 @@ export function fell(before, now) {
 }
 const rose = (before, now) => !!(before && now && (rank(now.reached) > rank(before.reached) || (now.filled ?? 0) > (before.filled ?? 0)));
 
+export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
+
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
 export function judge(records, baseline = {}, retry = []) {
   const again = new Map(retry.map(record => [record.name, record])), rows = {};
   for (const record of records) {
-    const before = baseline.rows?.[record.name], counted = before?.same === true, same = isSame(record), outcome = record.outcome || null;
-    let verdict = counted ? 'same' : 'not counted', why = counted ? '' : before ? 'replay not faithful in the baseline' : 'no baseline yet';
+    // Counted (14 Oct 2026, a red gate on Databricks: 8/8 then 1/8 on the same code): never a deferred row, and only a row 100% same as live in the baseline AND
+    // the run before it (streak >= 2); a baseline from before the streak was kept counts as 1.
+    const before = baseline.rows?.[record.name], same = isSame(record), outcome = record.outcome || null, beforeStreak = before ? before.streak ?? (before.same ? 1 : 0) : 0;
+    const counted = !record.deferred && before?.same === true && beforeStreak >= STREAK, streak = same ? beforeStreak + 1 : 0;
+    let verdict = counted ? 'same' : 'not counted', why = counted ? '' : record.deferred ? `deferred: ${record.deferred}` : before?.same ? `same as live ${beforeStreak} run(s) before, needs ${STREAK}` : before ? 'replay not faithful in the baseline' : 'no baseline yet';
     if (counted && !record.network) { verdict = 'worse'; why = 'no replay result'; }
     else if (counted) {
       const down = fell(before.outcome, outcome);
@@ -35,7 +40,7 @@ export function judge(records, baseline = {}, retry = []) {
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
-    rows[record.name] = {same, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {same, streak, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || []};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, red: worse > 0};
