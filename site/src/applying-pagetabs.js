@@ -6,7 +6,9 @@
 export const PAGE_TABS = [['resolution', 'Resolution'], ['fixes', 'Fixes'], ['pool', 'Pool'], ['replays', 'Replays'], ['coverage', 'Coverage']];
 export const FIX_HASHES = ['#needs-fix', '#fixed', '#by-cause'];
 
-export const PAGETABS_CSS = `.panel[hidden]{display:none}.panel>section:first-child,.panel>details:first-child{margin-top:18px;padding-top:0;border-top:0}`;
+// The page bar is an underline nav (owner, 14 Oct 2026: the two bars should not look the same); the Fixes tab's own folder tabs keep their look, attached to their panel.
+export const PAGETABS_CSS = `.tabs.pagetabs{gap:2px;margin:22px 0 0;padding:0}.tabs.pagetabs a{border:0;border-radius:0;background:none;padding:10px 16px 12px;font-size:15px}
+.tabs.pagetabs a.on{background:none;border:0;box-shadow:inset 0 -3px 0 var(--amber);color:var(--text);font-weight:600}.panel[hidden]{display:none}.panel>section:first-child,.panel>details:first-child{margin-top:18px;padding-top:0;border-top:0}`;
 
 export const PAGETABS_SCRIPT = `
   const PAGE_TABS = ${JSON.stringify(PAGE_TABS)}, FIX_HASHES = ${JSON.stringify(FIX_HASHES)};
