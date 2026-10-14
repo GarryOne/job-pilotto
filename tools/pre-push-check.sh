@@ -157,7 +157,7 @@ case "$command" in *E2E_ISSUE_OK=1*) ;; *)
   fi ;;
 esac
 # A push to a pull request branch (tools/ship.sh, 12 Oct 2026: `SHIP_PR=1 git push`) stops here: everything above is seconds. The suites, the journey and ladder gates and the
-# recorded-page replays run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, recorded-pages.yml), in parallel, not on this Mac behind the heavy lock.
+# recorded-page replays run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, page-cases.yml), in parallel, not on this Mac behind the heavy lock.
 # CI runs this same script for the pure checks above: CI_GATES=1 (no red-main look, no AI place check, no local-run proof of new e2e steps). Only the workflow lint stays local.
 case "$command" in *SHIP_PR=1*|*CI_GATES=1*)
   if git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null | grep -q '^\.github/workflows/' && command -v actionlint >/dev/null; then
@@ -330,7 +330,7 @@ for ((i = 0; i < ${#gate_pids[@]}; i++)); do
   else { echo "Push blocked: the ${gate_names[$i]} gate failed:"; cat "${gate_outs[$i]}"; } >&2; gate_failed=1; fi
   rm -f "${gate_outs[$i]}" "${gate_outs[$i]}.code"
 done
-[ -n "$deferred_names" ] && echo "pre-push: DEFERRED TO CI (still running at the $(gate_budget) s budget, not failed, not dropped): $deferred_names. CI runs them on main (build.yml suites, recorded-pages.yml replays); JP_GATE_FULL=1 runs them here." >&2
+[ -n "$deferred_names" ] && echo "pre-push: DEFERRED TO CI (still running at the $(gate_budget) s budget, not failed, not dropped): $deferred_names. CI runs them on main (build.yml suites, page-cases.yml replays); JP_GATE_FULL=1 runs them here." >&2
 slot_release
 for tree in ${trees[@]+"${trees[@]}"}; do
   git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"

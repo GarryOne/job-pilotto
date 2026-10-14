@@ -26,7 +26,7 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 - **No live run on a PR** (owner, 13 Oct 2026: "I don't want PR to generate an AI cost"): the PR live proof (`pool-proof.yml`) and the flow canary were removed;
   a live CI run is `pool-smoke.yml` started by hand only (`only` = row words), on any branch: `gh workflow run pool-smoke.yml --ref <branch> -f only="<row>"`.
 - **Testing is offline; the pool only RE-RECORDS** (owner, 13 Oct 2026, #657): every PR touching `desktop/`, `extension/` or `worker/` replays each row's newest network record
-  with its own build (`.github/workflows/replay-offline.yml`, `replay-records.mjs`: no site, no model call, $0) and shows "N of M rows same as live" (job summary, /admin/applying "Replay vs live").
+  with its own build (`.github/workflows/site-replays.yml`, `replay-records.mjs`: no site, no model call, $0) and shows "N of M rows same as live" (job summary, /admin/applying "Replay vs live").
   A live pool visit is for a NEW record only: a row whose record is old, missing, or not "same as live".
   - **Record on the Mac first** (`cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run smoke -- --only "<row>"`: plan `claude -p`, no API cost, the replay runner's fonts);
     **CI only when the Mac is blocked** (a bot check, the Mac's site limit; say which): `pool-smoke.yml` keeps its records encrypted as `net-records-<run>` for 14 days.

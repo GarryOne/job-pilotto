@@ -9,11 +9,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / 'tools' / 'red-main.sh'
-TESTS, PAGES = 'CI · Tests', 'CI · Recorded pages (all cases, real extension, Linux)'
+TESTS, PAGES = 'CI · Tests', 'CI · Page cases (all cases, real extension, Linux)'
 
 # Every workflow of .github/workflows, counted for red main or ignored with the reason (a new workflow fails the last test until it is put here: a conscious choice).
 CLASSIFIED = {
-    'CI · Tests': 'counted', 'CI · Recorded pages (all cases, real extension, Linux)': 'counted',
+    'CI · Tests': 'counted', 'CI · Page cases (all cases, real extension, Linux)': 'counted',
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
     'CI · Harness tests': 'ignored: pull requests that change the harness only (on: paths:)',
     'CI · Tests · python': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
@@ -21,15 +21,15 @@ CLASSIFIED = {
     'CI · Tests · site': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · desktop': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
-    'CI · Replay vs live (offline)': 'ignored: pull requests only, informational, never required',
-    'CI · Confirmed offline (replay verdicts)': 'ignored: informational verdicts for /admin/applying after the nightly replay, never required',
-    'CI · Replay gate (PR, 10 rows)': 'ignored: pull requests only (required there as "replay gate")',
+    'CI · Site replays · all (offline)': 'ignored: pull requests only, informational, never required',
+    'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/applying after the nightly replay, never required',
+    'CI · Site replays · PR (10 rows)': 'ignored: pull requests only (required there as "replay gate")',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
     'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
     'Release · Build, test, beta': 'ignored: the release run, its own gates and rollback (pipeline gates)', 'Release · Promote to stable': 'ignored: release', 'CI · Promotion dry run': 'ignored: release rehearsal',
     'CI · Release to beta': 'ignored: release', 'CI · Stable canary': 'ignored: release', 'Release · Website': 'ignored: site deploy', 'Release · Website preview (next)': 'ignored: site deploy',
-    'Release · Worker': 'ignored: worker deploy', 'CI · Judge exam': 'ignored: AI eval', 'CI · Widget zoo (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',
+    'Release · Worker': 'ignored: worker deploy', 'CI · Judge exam': 'ignored: AI eval', 'CI · Control tests (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',
     'CI · AI code review': 'ignored: advice on a PR', 'CI · AI cost billed': 'ignored: report', 'CI · Schedule watchdog': 'ignored: report', 'CI · Self-heal stats': 'ignored: report',
     'CI · UI findings': 'ignored: UI loop', 'CI · UI fixer': 'ignored: UI loop', 'CI · UI verdicts': 'ignored: UI loop', 'CI · Top issues list': 'ignored: UI loop', 'CI · Bug Tracker rows': 'ignored: UI loop', 'CI · Fixed-issue labels': 'ignored: UI loop',
     'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',
@@ -85,6 +85,10 @@ class RedMainTest(unittest.TestCase):
 
     def test_green_when_the_newest_commit_with_a_verdict_is_green(self):
         self.green_at(3)
+        self.assertEqual(self.state(), (f'green {self.shas[3][:7]}', 0))
+
+    def test_the_old_name_of_page_cases_still_counts_until_28_oct_2026(self):
+        self.run_at(3, TESTS); self.run_at(3, 'CI · Recorded pages (all cases, real extension, Linux)')
         self.assertEqual(self.state(), (f'green {self.shas[3][:7]}', 0))
 
     def test_red_names_the_commit_workflow_url_and_time(self):

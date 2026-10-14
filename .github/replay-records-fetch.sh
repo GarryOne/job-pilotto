@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The pool's newest records for a retry in the scheduled replay's gate job (the same lines as replay-offline.yml's records step). Needs NET_RECORD_KEY, GH_TOKEN.
+# The pool's newest records for a retry in the scheduled replay's gate job (the same lines as site-replays.yml's records step). Needs NET_RECORD_KEY, GH_TOKEN.
 set -u
 cd "$GITHUB_WORKSPACE"
 mkdir -p records "$RUNNER_TEMP/enc"

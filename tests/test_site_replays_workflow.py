@@ -1,4 +1,4 @@
-"""The offline replay of the pool rows (.github/workflows/replay-offline.yml; owner, 14 Oct 2026): never on a PR, started on time by the Worker (GitHub's schedule as
+"""The offline replay of the pool rows (.github/workflows/site-replays.yml; owner, 14 Oct 2026): never on a PR, started on time by the Worker (GitHub's schedule as
 the backup, which stops on a commit already replayed), compared with the last green run (replay-gate.mjs, with a retry), its results kept as the next baseline,
 red when a counted row got worse, Telegram on failure, only main updates /admin/applying, and it never asks an AI."""
 import re
@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / '.github' / 'workflows' / 'replay-offline.yml').read_text()
+WORKFLOW = (ROOT / '.github' / 'workflows' / 'site-replays.yml').read_text()
 TRIGGER = re.search(r'(?m)^on:\n((?:  .*\n|\n)+?)(?=^\S)', WORKFLOW).group(1)
 
 
@@ -47,12 +47,26 @@ class ReplayOfflineWorkflow(unittest.TestCase):
         fetch = (ROOT / 'desktop' / 'e2e' / 'net-records-fetch.sh').read_text()
         self.assertIn('GarryOne/job-pilotto-internal', fetch)
         self.assertIn('NET_RECORDS_READ_TOKEN', fetch)
-        for name in ('replay-offline.yml', 'replay-pr.yml'):
+        for name in ('site-replays.yml', 'site-replays-pr.yml'):
             flow = (ROOT / '.github' / 'workflows' / name).read_text()
             self.assertIn('bash net-records-fetch.sh', flow, name)
             self.assertIn('secrets.NET_RECORDS_READ_TOKEN', flow, name)
             self.assertNotIn('gh release download net-records', flow, f'{name}: one fetch, in net-records-fetch.sh')
         self.assertIn("'GarryOne/job-pilotto-internal'", (ROOT / 'desktop' / 'e2e' / 'records-publish.mjs').read_text())
+
+
+class BaselineReadsOldRuns(unittest.TestCase):
+    def test_the_baseline_reads_runs_of_the_old_file_name_too_until_28_oct_2026(self):
+        import os, subprocess, tempfile
+        fake = '#!/usr/bin/env bash\n' \
+               'if [ "$1 $2" = "run list" ]; then case "$*" in *"--workflow replay-offline.yml"*) echo 55;; esac; exit 0; fi\n' \
+               'if [ "$1 $2" = "run download" ]; then exit 0; fi\nexit 1\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'gh').write_text(fake); os.chmod(Path(tmp) / 'gh', 0o755)
+            env = {**os.environ, 'PATH': f"{tmp}{os.pathsep}{os.environ['PATH']}", 'GITHUB_REPOSITORY': 'o/r', 'GH_TOKEN': 'x'}
+            out = subprocess.run(['bash', str(ROOT / 'desktop' / 'e2e' / 'replay-baseline.sh'), str(Path(tmp) / 'dir')], capture_output=True, text=True, env=env, timeout=30)
+            self.assertTrue(out.stdout.strip().endswith('results.json'), out.stdout + out.stderr)
+        self.assertIn('replay-offline.yml', (ROOT / '.github' / 'workflows' / 'site-replays.yml').read_text(), 'the workflow\'s own baseline step reads the old name too')
 
 
 if __name__ == '__main__':

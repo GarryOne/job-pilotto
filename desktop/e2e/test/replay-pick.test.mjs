@@ -21,7 +21,7 @@ test('the rows spread round robin over at most 5 runners', () => {
 });
 
 test('the PR workflow: starts only when extension/ or desktop/lib/ changed (GitHub paths), red when worse or unfinished, no AI key', () => {
-  const flow = fs.readFileSync(new URL('../../../.github/workflows/replay-pr.yml', import.meta.url), 'utf8');
+  const flow = fs.readFileSync(new URL('../../../.github/workflows/site-replays-pr.yml', import.meta.url), 'utf8');
   assert.match(flow, /on:\n  pull_request:\n    paths:\n      - 'extension\/\*\*'\n      - 'desktop\/lib\/\*\*'\n/, 'owner, 14 Oct 2026: only the apply flow\'s code, decided by GitHub');
   assert.doesNotMatch(flow, /ci-needed/, 'no shared pick');
   assert.match(flow, /name: replay gate/);

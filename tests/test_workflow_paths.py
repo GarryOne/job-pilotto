@@ -103,7 +103,7 @@ class TheClass(unittest.TestCase):
         for area in ('python', 'worker', 'site', 'desktop'):
             self.assertIn(f'uses: ./.github/workflows/tests-{area}.yml', build, area)
             self.assertIn('workflow_call:', on_block(f'tests-{area}.yml'), area)
-        for name in ('recorded-pages.yml', 'widget-zoo.yml'):
+        for name in ('page-cases.yml', 'control-tests.yml'):
             push = on_block(name).split('\n  push:', 1)[1].split('\n  ', 1)[0]
             self.assertNotIn('paths', push, f'{name}: main replays everything')
 
@@ -115,19 +115,19 @@ class TheShapes(unittest.TestCase):
     def test_a_recorded_case_only_starts_the_recorded_replays(self):
         # #700 (14 Oct 2026): a new case.json and form.html ran the harness tests
         self.assertEqual(self.started(['desktop/e2e/recorded/combo-never-opens-late-answers-1/case.json', 'desktop/e2e/recorded/combo-never-opens-late-answers-1/form.html']),
-                         {'recorded-pages.yml'})
+                         {'page-cases.yml'})
 
     def test_docs_and_tools_start_python_only(self):
         self.assertEqual(self.started(['docs/HOW-IT-RUNS.md', 'tools/ship.sh', 'CLAUDE.md']), {'tests-python.yml'})
 
     def test_the_apply_flow_starts_its_replays_and_desktop(self):
-        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'recorded-pages.yml', 'widget-zoo.yml', 'replay-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
-        self.assertIn('replay-pr.yml', self.started(['desktop/lib/server.js']))
+        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'page-cases.yml', 'control-tests.yml', 'site-replays-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
+        self.assertIn('site-replays-pr.yml', self.started(['desktop/lib/server.js']))
 
     def test_the_harness_code_starts_the_harness(self):
         started = self.started(['desktop/e2e/lib/forms.mjs'])
-        self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'recorded-pages.yml', 'widget-zoo.yml'}, started)
-        self.assertNotIn('replay-pr.yml', started, 'only the apply flow\'s code (extension/, desktop/lib/) starts the PR replay gate')
+        self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'page-cases.yml', 'control-tests.yml'}, started)
+        self.assertNotIn('site-replays-pr.yml', started, 'only the apply flow\'s code (extension/, desktop/lib/) starts the PR replay gate')
 
     def test_a_worker_or_site_change_starts_only_its_suite(self):
         self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})
@@ -137,7 +137,7 @@ class TheShapes(unittest.TestCase):
     def test_a_workflow_change_starts_that_workflow(self):
         for name in pr_workflows():
             if pr_paths(name) is not None:
-                self.assertTrue(starts(name, [f'.github/workflows/{name}']) or name == 'replay-pr.yml', name)
+                self.assertTrue(starts(name, [f'.github/workflows/{name}']) or name == 'site-replays-pr.yml', name)
 
 
 if __name__ == '__main__':

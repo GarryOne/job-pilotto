@@ -1,5 +1,5 @@
 // Replays every pool row's newest network record offline on this build (replay-net.mjs, one row after another) and writes one "Replay vs live" record per row
-// for desktop/e2e/fidelity-report.mjs, plus a Markdown summary on stdout. CI: .github/workflows/replay-offline.yml. Guard: e2e/test/replay-records.test.mjs.
+// for desktop/e2e/fidelity-report.mjs, plus a Markdown summary on stdout. CI: .github/workflows/site-replays.yml. Guard: e2e/test/replay-records.test.mjs.
 //   node replay-records.mjs <records dir> <out dir>   (<records dir>: unpacked net-records-<run> folders, each row a folder with record.json)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,7 +43,7 @@ export function fidelityRecord({name, dir = '', record}, replay, {sha = '', bran
     network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
 }
 
-// JP_REPLAY_SHARD "k/n" (the scheduled replay's matrix, replay-offline.yml: owner, 14 Oct 2026, one runner took 25+ min): every n-th row from the k-th, by name order.
+// JP_REPLAY_SHARD "k/n" (the scheduled replay's matrix, site-replays.yml: owner, 14 Oct 2026, one runner took 25+ min): every n-th row from the k-th, by name order.
 export function shardOf(rows, spec = '') {
   const [k, n] = String(spec).split('/').map(Number);
   return Number.isInteger(k) && Number.isInteger(n) && n > 0 && k >= 0 && k < n ? rows.filter((_, index) => index % n === k) : rows;

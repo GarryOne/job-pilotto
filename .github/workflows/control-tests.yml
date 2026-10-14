@@ -1,4 +1,4 @@
-name: CI · Widget zoo (measure, not required)
+name: CI · Control tests (measure, not required)
 # The fill ladder's widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 1): one hand-made page per control shape (desktop/e2e/widget-zoo), replayed with the real
 # extension, offline. It MEASURES how many pages the fill reads and keeps committed; a miss never fails it (pages that fail today are the fill ladder's found bugs). It fails only when the
 # replay broke or a page pressed a submit. NOT a required check: a page moves to desktop/e2e/recorded/ (the required replay shards) only once it passes.
@@ -14,7 +14,7 @@ on:
       - 'desktop/scripts/stage.mjs'
       - 'desktop/package.json'
       - 'desktop/package-lock.json'
-      - '.github/workflows/widget-zoo.yml'
+      - '.github/workflows/control-tests.yml'
   push:
     branches: [main]
   workflow_dispatch:

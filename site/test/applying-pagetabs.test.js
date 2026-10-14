@@ -48,7 +48,7 @@ test('one panel shows at a time; a #hash opens its tab, and the Fixed tab links 
 test('each tab holds its sections', async () => {
   const app = await render(''), panels = Object.fromEntries(app.children.filter(kid => kid.className === 'panel').map((panel, at) => [PAGE_TABS[at][0], panel.text()]));
   for (const [tab, words] of Object.entries({fixes: ['Needs a fix · where applying stops'], pool: ['By-hand runs · where each site got to', 'The AI ladder', 'The pool · every smoke site'],
-    replays: ['Shape regression tests'], coverage: ['Next sites to add', 'Platform scorecard']})) for (const word of words) assert.ok(panels[tab].includes(word), word + ' is not in the ' + tab + ' tab');
+    replays: ['Page cases'], coverage: ['Next sites to add', 'Platform scorecard']})) for (const word of words) assert.ok(panels[tab].includes(word), word + ' is not in the ' + tab + ' tab');
 });
 
 test('no block writes a missing part as the text "null" (a raw append() does; el() filters it)', async () => {

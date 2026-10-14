@@ -2,12 +2,12 @@
 # pool runs. A fix: the recording made BEFORE it, replayed on main twice, after a control (the recording on its own build must come out as live did). A regression: the newest recording
 # replayed on the older build that got further ("Our build") or not ("Site changed"). verify-plan.mjs picks the rows, verify-row.mjs replays one, lib/verify-judge.mjs judges, verify-report.mjs
 # sends the verdicts to /admin/applying (own word beside "Proven live", never merged into it). Starts after the nightly offline replay on main and by hand; never on a PR, never a required check.
-name: CI · Confirmed offline (replay verdicts)
+name: CI · Fix verdicts (offline replays)
 run-name: Confirmed offline
 
 on:
   workflow_run:
-    workflows: ['CI · Replay vs live (offline)']
+    workflows: ['CI · Site replays · all (offline)']
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -22,7 +22,7 @@ concurrency:   # each commit keeps its own run (tests/test_main_runs_finish.py)
 
 jobs:
   plan:
-    # Only when something it replays changed since the last green run of this workflow: the app and extension code, this workflow, or new recordings (as replay-offline.yml).
+    # Only when something it replays changed since the last green run of this workflow: the app and extension code, this workflow, or new recordings (as site-replays.yml).
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -48,12 +48,12 @@ jobs:
           BY_HAND: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           [ "$BY_HAND" = true ] && { echo "replay-verify: started by hand: replaying"; exit 0; }
-          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-verify.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow fix-verdicts.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
             --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0] | \"\(.headSha) \(.createdAt)\"" 2>/dev/null || true)
           read -r sha at <<< "${last:-}"
           [ -z "${sha:-}" ] && { echo "replay-verify: no green run yet: replaying"; exit 0; }
           records=$(gh release view net-records -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].updatedAt] | max // ""' 2>/dev/null || true)
-          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension src worker/src .github/workflows/replay-verify.yml ':!desktop/test' ':!desktop/e2e/test' \
+          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension src worker/src .github/workflows/fix-verdicts.yml ':!desktop/test' ':!desktop/e2e/test' \
              && { [ -z "$records" ] || [[ "$records" < "$at" ]]; }; then
             echo "replay-verify: nothing changed since the last green run (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
           else echo "replay-verify: changed since ${sha::7}: replaying"; fi

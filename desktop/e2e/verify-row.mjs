@@ -1,4 +1,4 @@
-// Replays ONE planned row for "Confirmed offline" (verify-plan.mjs job; .github/workflows/replay-verify.yml) and writes its verdict: the recording on its own build (the control), then on
+// Replays ONE planned row for "Confirmed offline" (verify-plan.mjs job; .github/workflows/fix-verdicts.yml) and writes its verdict: the recording on its own build (the control), then on
 // the build to judge (main for a fix, the older build for a regression), twice. A build other than this checkout is a git worktree of that commit with THIS harness laid over desktop/e2e
 // (an older commit may predate it); any step that fails leaves a missing replay, which the judge reads as "Needs live". Never a site, never a model call.
 // Run: node verify-row.mjs <records dir> <job json> <out dir>. Guard: e2e/test/verify-judge.test.mjs (the verdicts), the workflow run (the replays).

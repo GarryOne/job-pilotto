@@ -1,4 +1,4 @@
-// Splits the recorded cases across the CI matrix's jobs (.github/workflows/recorded-pages.yml): JP_REPLAY_SHARD="i/n" runs the i-th of n slices.
+// Splits the recorded cases across the CI matrix's jobs (.github/workflows/page-cases.yml): JP_REPLAY_SHARD="i/n" runs the i-th of n slices.
 // Balanced by what a case costs (a case with only "must not happen" checks waits its whole window), every case in exactly one slice. Guard: e2e/test/replay-shard.test.mjs.
 const POSITIVE = ['told', 'filled', 'attached', 'judged', 'asked', 'pressed', 'gone'];
 export const caseCost = item => (POSITIVE.some(kind => (item.expect?.[kind] || []).length) ? 0.3 : 1) * (item.expect?.seconds || 40);   // a case with a positive check usually ends early

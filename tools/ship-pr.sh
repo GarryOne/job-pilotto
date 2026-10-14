@@ -1,5 +1,5 @@
 # Source it from tools/ship.sh: land the branch through a pull request with auto-merge instead of pushing to main (owner, 12 Oct 2026).
-# Guarded by tests/test_ship_pr.py (a fake gh: tests/fake_gh.py). The checks that must pass run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, recorded-pages.yml);
+# Guarded by tests/test_ship_pr.py (a fake gh: tests/fake_gh.py). The checks that must pass run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, page-cases.yml);
 # the local push hook runs only its fast pure checks (SHIP_PR=1 in tools/pre-push-check.sh).
 #   ship_mode                 prints pr (origin is on GitHub and gh answers: main takes pull requests only) or direct (any other origin: the old push to main); SHIP_MODE=pr|direct forces one
 #   ship_review               true while the owner reviews every PR by hand (owner, 12 Oct 2026): the repository does not allow auto-merge (tools/pr-settings.sh), or SHIP_REVIEW=1; SHIP_REVIEW=0 = auto-merge
