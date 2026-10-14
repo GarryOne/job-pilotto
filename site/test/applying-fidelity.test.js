@@ -90,6 +90,10 @@ test('every pool row is listed: a row with no record says "Record", an off repla
   assert.deepEqual(by.b.next, {word: 'deferred', why: 'replay lags'});
   assert.equal(by['never recorded'].next.word, 'record');
   assert.equal(fidelity([row('c', {...good, hit: 1})]).rows[0].next.word, 're-record');
+  // A record under a name the pool lacks (an older one named by host, a retired row) is not a pool row: the count matches the Pool tab.
+  const leftovers = fidelity([row('a', good), row('a.example.com', good), row('retired row', good)], pool);
+  assert.deepEqual(leftovers.rows.map(item => item.name).sort(), ['a', 'b', 'never recorded']);
+  assert.equal(leftovers.summary.total, pool.length);
   const db = d1();
   await put(db, {rows: [row('m', good, {recording: {where: 'mac', at: '2026-10-13T22:00:00Z'}, deferred: 'see https://x.test/a?b=1'}), row('n', good, {recording: {where: 'cloud'}})]});
   const kept = Object.fromEntries((await readFidelity(db)).map(item => [item.name, item]));

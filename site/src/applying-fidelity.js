@@ -81,9 +81,11 @@ export function nextOf(row) {
 // (records, the page's pool rows) -> {rows: [{...record, snapshotVerdict, networkVerdict, next}], summary: {total, recorded, network, snapshot}}: every pool row, a row with no record says so
 // (network and snapshot: rows that are "same as live").
 export function fidelity(records, pool = []) {
-  const rows = records.map(item => ({...item, snapshotVerdict: verdictOf(item.live, item.snapshot, item.live2), networkVerdict: verdictOf(item.live, item.network, item.live2)}));
+  // With a pool, only its rows (owner, 14 Oct 2026: "87 here, 77 in the Pool tab"): a record under another name (an older one named by host, a retired row) is a leftover.
+  const names = new Set(pool.map(item => item.shape).filter(Boolean));
+  const rows = records.filter(item => !names.size || names.has(item.name)).map(item => ({...item, snapshotVerdict: verdictOf(item.live, item.snapshot, item.live2), networkVerdict: verdictOf(item.live, item.network, item.live2)}));
   const have = new Set(rows.map(item => item.name));
-  for (const name of new Set(pool.map(item => item.shape).filter(Boolean))) if (!have.has(name)) rows.push({name, live: null, snapshot: null, network: null, recording: null, deferred: null, snapshotVerdict: null, networkVerdict: null});
+  for (const name of names) if (!have.has(name)) rows.push({name, live: null, snapshot: null, network: null, recording: null, deferred: null, snapshotVerdict: null, networkVerdict: null});
   for (const item of rows) item.next = nextOf(item);
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return {rows, summary: {total: rows.length, recorded: rows.filter(item => item.live).length, network: rows.filter(item => item.networkVerdict === 'same').length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length}};
