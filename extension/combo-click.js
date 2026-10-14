@@ -5,9 +5,9 @@
 // ceiling: the most one menu may take in all (14 Oct 2026, 5afa5a8's look-alike: a suggest-only address box whose list never opens kept asking for typing / kept "picking", each ask pushed the
 // limit out another 9 s, and the wait never ended: 30-40 s of silence, then "dead end: silent" with the late answers behind it).
 // busy time (14 Oct 2026, a loaded machine: the page's main thread was blocked 10-15 s after the click, so the extension's own calls hung and the wall clock ran out on a menu
-// that was only slow, "given up" and left): a call that took longer than SLOW_CALL is the page being busy, not the menu being dead; that time does not count against the waits or
+// that was only slow, "given up" and left): a call that took longer than slowCall (or a 100 ms sleep that woke later than that) is the page being busy, not the menu being dead; that time does not count against the waits or
 // the ceiling. `hard` bounds the whole menu in real time anyway (a page that never answers is still given up on; flow.js STEP_MS.combo is above it).
-const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000, hard: 40000, slowCall: 400};
+const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000, hard: 40000, slowCall: 150};
 
 // type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
 // page(func, args): runs func in the page (MAIN world). click(x, y): a trusted click. spot: the armed menu's spot from __jobPilottoNextCombo.
@@ -18,6 +18,8 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
   let busy = 0;   // ms spent inside calls that answered slowly (the page's main thread was blocked)
   const timed = fn => async (...args) => { const t = now(); try { return await fn(...args); } finally { const d = now() - t; if (d > PATIENCE.slowCall) busy += d; } };
   page = timed(page); click = timed(click);
+  const sleepFor = sleep;
+  sleep = async ms => { const t = now(); await sleepFor(ms); const late = now() - t - ms; if (late > PATIENCE.slowCall) busy += late; };   // a starved worker wakes late too
   const over = () => now() - began >= PATIENCE.hard || now() - began - busy >= PATIENCE.ceiling;
   const mark = tag => { marks.push(`${tag}@${now() - began}`); if (marks.length > 40) marks.shift(); };   // where the time went, said when a menu is given up (flow.js)   // every wait below is REAL time: counting 100 ms ticks let a busy page (each call taking a second or more) stretch a 1.5 s wait to 30 s
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
