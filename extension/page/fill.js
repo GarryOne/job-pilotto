@@ -255,7 +255,7 @@
       const row = rowOf[item.field];
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;
       const long = row.type === 'textarea' || String(item.value || '').length > 80;
-      const unsure = item.confidence && item.confidence !== 'high';
+      const unsure = item.guess || (item.confidence && item.confidence !== 'high');   // a typed guess at any confidence (worker typeGuess, 14 Oct 2026)
       if (long || unsure) markAttention(item.field, row.label || item.question || item.field);
     }
     const letterBox = Array.from(document.querySelectorAll('textarea')).find(el => /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
