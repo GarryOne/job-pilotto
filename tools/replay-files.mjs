@@ -56,4 +56,27 @@ export function jobFiles(job, root = ROOT) {
   throw new Error(`no replay job ${job}: replays or zoo`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--job') console.log([...jobFiles(process.argv[3])].sort().join('\n'));
+// A replay workflow's files (owner, 14 Oct 2026: a PR that changed the recorder and the upload ran every page case, `desktop/e2e/**`): its job's files plus every script
+// its steps start with `node` (read from the workflow, in the step's working-directory). Its `on: pull_request: paths:` lists exactly these, as written by pathEntries.
+export const WORKFLOW_JOB = {'page-cases.yml': 'replays', 'control-tests.yml': 'zoo'};
+export function workflowFiles(workflow, root = ROOT) {
+  const files = new Set(jobFiles(WORKFLOW_JOB[workflow], root));
+  let dir = '';
+  for (const line of fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8').split('\n')) {
+    const at = line.match(/working-directory:\s*(\S+)/);
+    if (at) dir = at[1];
+    const run = line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);
+    if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
+  }
+  return files;
+}
+
+// The `paths:` entries for a set of files: the extension and the app modules as whole folders (all of them load), a folder as `<folder>**`, any other file by name.
+export function pathEntries(files) {
+  const entries = new Set([...files].map(file => (/^(extension|desktop\/lib)\//.test(file) ? file.split('/').slice(0, file.startsWith('extension') ? 1 : 2).join('/') + '/**' : file.endsWith('/') ? `${file}**` : file)));
+  return [...entries].sort();
+}
+
+const [flag, value] = process.argv.slice(2);
+if (import.meta.url === `file://${process.argv[1]}` && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
+if (import.meta.url === `file://${process.argv[1]}` && flag === '--paths') console.log(pathEntries(workflowFiles(value)).map(entry => `      - '${entry}'`).join('\n'));
