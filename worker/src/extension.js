@@ -12,6 +12,7 @@
 import { anthropicClient, priceOf } from './ai.js';
 import { cleanFields } from './extension-log.js';
 import { askAgainForGaps, unanswered } from './answer-missing.js';
+import { withholdOwner } from './owner-guard.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
@@ -230,8 +231,10 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // A typed name, e-mail, phone, address or home place must be in what this ask was given, never the signed-in account's (answer-facts.js floorUngrounded).
   const given = [profile, standard, search, cvFacts, kit ? JSON.stringify(kit) : ''].join('\n');
   const labelOf = Object.fromEntries(fields.map((f) => [f.field, f.label || '']));
-  const all = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }));
-  await env.onAnswerCall?.({ url, fields, answers: all });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
+  const floorsApplied = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }));
+  // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
+  const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
+  await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
   const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
   // A written question (the person's own words) is never answered or proposed here, whatever value the AI gave: it comes back as an empty kind (owner, 11 Oct 2026).
   const raw = all.filter((a) => !floored(a) && a.category !== 'written');
@@ -253,6 +256,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     model: String(response.model || '').slice(0, 40),
     // A proposal the floor took out, by category (9 Oct 2026: a Coop SMS opt-in got no proposal, and the log could not say whether the AI left it or the floor did).
     floored: all.filter(floored).map((a) => a.category),
+    ...(withheld.length ? { withheld } : {}),   // the owner's own values the guard kept out (field + kind, never the value; test harness only)
     retried, stillMissing: stillMissing.slice(0, 10).map((f) => String(f).slice(0, 60)),
     categories: Object.fromEntries(['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal', 'written'].map((c) => [c, all.filter((a) => a.category === c).length]).filter(([, n]) => n)) });
   return {
