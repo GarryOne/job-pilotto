@@ -17,9 +17,9 @@
 <script>
 // Typing asks a service; it answers with no choice, so the list never opens and a value is only accepted when picked from it.
 const a = document.getElementById('addr'), err = document.getElementById('aerr');
-// Using the box makes the page busy (its suggestion widget keeps the main thread ~85% occupied), so every call the extension makes into the page waits about a second, on any machine:
+// Using the box makes the page busy (its suggestion widget keeps the main thread half occupied), so every call the extension makes into the page waits about a second, on any machine:
 // the shape that stretched the old wait, which counted 100 ms ticks, from 1.5 s to 30 s+.
-a.addEventListener('mousedown', () => { if (window.__busy) return; window.__busy = setInterval(() => { const t = Date.now(); while (Date.now() - t < 850) { /* busy */ } }, 1000); });
+a.addEventListener('mousedown', () => { if (window.__busy) return; window.__busy = setInterval(() => { const t = Date.now(); while (Date.now() - t < 500) { /* busy */ } }, 1000); });
 a.addEventListener('input', () => { err.textContent = 'No matching address found.'; });
 </script>
 </body></html>
