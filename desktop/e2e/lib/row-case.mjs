@@ -1,4 +1,4 @@
-// A pool row's capture becomes a case folder for the recorded-pages job (npm run row-to-case, skill fix-failing-forms): every page scrubbed again (the fake applicant's contact), shrunk
+// A pool row's capture becomes a case folder for the recorded-pages job (npm run row-to-case, skill fix-recorded-sites): every page scrubbed again (the fake applicant's contact), shrunk
 // (lib/row-case-shrink.mjs), the row's model answers (with their part hashes) and presses scrubbed, `baseline` = what the LIVE run did (its evidence lines without times), `replay: "row"` so the recorded test
 // replays it on the row path (lib/row-replay.mjs). `expect` stays empty: the proof (row-to-case.mjs) fills it from the new build's replay, never the fixer. Refused, nothing written, when the privacy gate
 // (lib/row-case-gates.mjs, the recorded-privacy test's own function) or the size gate fails. Guard: e2e/test/row-case.test.mjs.

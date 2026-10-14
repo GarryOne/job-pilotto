@@ -1,13 +1,13 @@
 ---
-name: run-applying-smoke-pool
-description: Run, grow and coordinate the pool of real sites the applying flow is tested on (layer 3 of the applying reliability spec): the hand-started smoke, discovery of new flow shapes, the report on /admin/applying, the heavy-lock slot that sessions queue for, and the hand-off of failing shapes to fix-failing-forms. Use when the owner says "run the smoke pool", "/run-applying-smoke-pool", "grow the pool", "run discovery", or when taking over the applying test pool from another session.
+name: record-applying-sites
+description: Record, grow and coordinate the pool of real sites the applying flow is tested on: record a NEW site once to its form, re-record only on a signal (never a schedule), discover new flow shapes, read real use (what installs' fills miss), the report on /admin/applying, and the hand-off of failing shapes to fix-recorded-sites. Use when the owner says "record sites", "run the smoke pool", "grow the pool", "run discovery", "improve filling", "review extension failures", or when taking over the applying test pool from another session.
 ---
 
-# Run the applying smoke pool
+# Record the applying sites (the pool)
 
 The pool is ~50 real postings, one per **flow shape**, run live and HELD (never an account button, never Submit) with the real extension in the
 e2e harness. It answers "did a real site change under us, and how far does each flow get?". This skill **runs, grows and coordinates** it. It does
-not fix shapes: a failing one goes to `/fix-failing-forms`; one that needs the owner's real state is reproduced on the twin, on demand (docs/live-test.md).
+not fix shapes: a failing one goes to `/fix-recorded-sites`; one that needs the owner's real state is reproduced on the twin, on demand (docs/live-test.md).
 Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four layers); flows map: `docs/flows/applying.md`.
 
 ## Taking the role (do this first)
@@ -92,7 +92,7 @@ A row that stops at the posting keeps no folder (nothing to replay). A capture m
 2. **Run** (a run's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
 3. **Read the result:** regressions first (a shape that reached less than its last run), then the sites that reached the earliest step, then bot/code holds (documented, left alone).
    Compare with the last report; a site that failed once is run again before it counts.
-4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). The ready prompt per cause: `node tools/needs-fix-causes.mjs --brief "<cause>"` (docs/rules/rounds.md step 3). Several sessions may each take a different shape:
+4. **Hand off** each failing shape, one line each, to `/fix-recorded-sites` (the shape, the log path, the frame folder, what the log cannot tell). The ready prompt per cause: `node tools/needs-fix-causes.mjs --brief "<cause>"` (docs/rules/rounds.md step 3). Several sessions may each take a different shape:
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
    A shape that needs the owner's accounts or Gmail goes to the twin, on demand (docs/live-test.md).
    **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step
@@ -106,14 +106,20 @@ A row that stops at the posting keeps no folder (nothing to replay). A capture m
 | Scorecard verdict | It means | Do | Skill |
 |---|---|---|---|
 | Not in the pool | real use, no pool site on that platform | add a site on it: `--discover` (suggested hosts are tried first), or a public-feed posting; never a user's posting into the public file | this skill |
-| Weak in both | tests and real fills both fall short | fix first: it costs users most | `fix-failing-forms` |
-| Blind spot | the pool reaches the form, real users' fills do not | the pool tests the wrong shape: find what real fills miss, then add a recorded page | `improve-filling`, then `fix-failing-forms` |
-| Test failing | real use is fine, pool sites fall short | reproduce, and check the site did not change | `fix-failing-forms` |
+| Weak in both | tests and real fills both fall short | fix first: it costs users most | `fix-recorded-sites` |
+| Blind spot | the pool reaches the form, real users' fills do not | the pool tests the wrong shape: find what real fills miss, then add a recorded page | the real-use section below, then `fix-recorded-sites` |
+| Test failing | real use is fine, pool sites fall short | reproduce, and check the site did not change | `fix-recorded-sites` |
 | Fine | | nothing | |
 
 - **Rank by demand, not by install count:** a platform with most of the matched jobs and no pool site comes first, even from one install ("Of matched jobs" against "Of the pool"). Hosts ("Sites") are only listed once 3 installs used them; countries under 3 installs show as "other".
 - **Under 5 real forms is no evidence** (the scorecard shows "—"): judge by the pool alone, and say so. Workday has no real forms until an app with the board names (720f344) is in use.
 - Say in the report which platform rows you acted on and which you left, with the verdict. The data is counts and platform names only: never quote a host as an install's.
+
+## Real-use signal: what installs' fills miss (was the skill `record-applying-sites`, folded in 15 Oct 2026)
+Every extension fill writes a record (Notion "Job Apply — Agent Runs", Agent = Extension): a field-by-field table and a Debug data JSON (the form as read, each answer and its source, dropdown attempts, errors, extension version).
+1. **Collect:** `python3 tools/fill-failures.py --days 14` (`--json` for detail): fields left unfilled, grouped by reason and job site, most frequent first. Ignore groups whose latest version is older than main's stamped version unless they still occur.
+2. **Diagnose** the top groups from 1-2 example runs (`debug.form` against `debug.answers` and `debug.dropdowns`): no answer in the kit/profile is a data gap, not code; a dropdown with no matching option is `matchOption`; an answer the field did not take needs real input; an unrecognised field type is `__jobPilottoDescribeForm`.
+3. **Hand the shape on:** a "Blind spot" platform needs a **recording of the failing shape** (re-record on this signal, bounded by the site limit) and a recorded page; the fix is `fix-recorded-sites`. Fixtures are public: only a scrubbed snapshot or public form structure (`worker/test/fill-replay.test.js` rejects emails, URLs, phone-like numbers). Never make the extension click Submit or change what counts as a consent box.
 
 ## Open threads to carry (10 Oct 2026; drop each when closed)
 - Discovery is serial (~90 s a candidate, ~45 min per 30) because the whole smoke holds the one heavy lock (not because of Notion or ports: each run already has its own). A `--workers` option is not built: it needs a second lock slot or workers inside one locked process, only when free memory covers two runs (measure first; two runs also double the `claude -p` page-kind calls on the owner's plan), and one shared results object so the report and the upload do not race.
@@ -141,5 +147,5 @@ A row capture (the pool's candidate, on this Mac: `~/Library/Application Support
 ## Stop conditions
 - The heavy lock is held by a peer, or a peer asks for your slot back: stop your own run by PID and say so.
 - A run shows the isolation assertion failing, or lines in the live app's log: stop everything, say what was reached, fix the isolation first.
-- Two rounds in a row with the same shape failing for the same reason: stop re-running, write what is known and hand it to `/fix-failing-forms`; do not loop the pool to see it again.
+- Two rounds in a row with the same shape failing for the same reason: stop re-running, write what is known and hand it to `/fix-recorded-sites`; do not loop the pool to see it again.
 - The owner says stop.

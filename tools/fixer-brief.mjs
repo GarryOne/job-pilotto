@@ -1,5 +1,5 @@
 // Builds the fixer brief for one cause from the By-cause groups: a ready, self-contained prompt (pure: fed the groups and a capture-folder listing, no network, no disk).
-// Used by tools/needs-fix-causes.mjs --brief "<cause>". The recipe it prints is docs/rules/rounds.md step 3-4 and skill fix-failing-forms section 0a. Guard: site/test/needs-fix-causes.test.js.
+// Used by tools/needs-fix-causes.mjs --brief "<cause>". The recipe it prints is docs/rules/rounds.md step 3-4 and skill fix-recorded-sites section 0a. Guard: site/test/needs-fix-causes.test.js.
 
 const slugOf = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const when = at => (at ? new Date(at).toISOString().slice(0, 16).replace('T', ' ') : 'never run');
@@ -36,7 +36,7 @@ export function buildBrief(groups, cause, listing, {oneLine = ''} = {}) {
     '', `CAUSE: "${group.label}" (${group.count} row${group.count === 1 ? '' : 's'}, ${group.claimed} claimed). Rows, as /admin/applying shows them:`,
     ...rowBlocks, '',
     'TARGET: rows of this cause Confirmed by a pool run (two clean runs by the pool owner on main). You land after the live row (step 3) and go idle; you never queue for the batch.', '',
-    'Start with: tools/worktree.sh ' + slug + '; read .claude/skills/fix-failing-forms/SKILL.md (section 0a) and docs/rules/rounds.md. Say the tier and the test method first. One fix for the shape of the cause, never a site (no site names, hosts or word lists).', '',
+    'Start with: tools/worktree.sh ' + slug + '; read .claude/skills/fix-recorded-sites/SKILL.md (section 0a) and docs/rules/rounds.md. Say the tier and the test method first. One fix for the shape of the cause, never a site (no site names, hosts or word lists).', '',
     'ORDER OF PROOF, fastest first (10 minutes per step, then use the real capture or tell job-pilotto-cc):',
     '1. The failing unit test, then 3 of 3 real asks of the app\'s AI on the saved page (`ladder-score`, plan path).',
     '2. The row replayed offline with its command above (15-90 s): it must reach further, and `--old` must not.',

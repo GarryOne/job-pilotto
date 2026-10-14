@@ -37,7 +37,7 @@ Reference, read when the task touches these areas. Linked from CLAUDE.md. For an
   `templates/github-actions/` (the owner's: `GarryOne/job-pilotto-private`).
 - `desktop/lib/github.js`: **Always on** as a GitHub App on one repo (`<user>/job-pilotto-private` from template `GarryOne/job-pilotto-starter`,
   published by `tools/publish-starter.sh`); the Jobs list then comes from the latest `job-pilotto-jobs-db` artifact.
-- Form-filling improvement: each fill logs to Agent Runs; `tools/fill-failures.py` groups what was left; skill `improve-filling`. Fill failures
+- Form-filling improvement: each fill logs to Agent Runs; `tools/fill-failures.py` groups what was left; skill `record-applying-sites`. Fill failures
   are fixed by recipes (the proposer and the canary); triage lives in `job-pilotto-internal`.
 - Notion IDs have no defaults in code: `.env`, repository variables, or the Desktop App.
 - **The terminal follows the Desktop App** (`src/paths.py` `follow_app`): terminal runs use the app's Notion IDs and `data/` + `config/`; `.env`

@@ -1,4 +1,4 @@
-// The proof behind `npm run row-to-case -- "<row>" <case>` (skill fix-failing-forms): a pool row's capture becomes a case in the recorded cases folder ONLY when it proves itself.
+// The proof behind `npm run row-to-case -- "<row>" <case>` (skill fix-recorded-sites): a pool row's capture becomes a case in the recorded cases folder ONLY when it proves itself.
 //   1. the capture is built into a staging folder (lib/row-case.mjs: scrubbed, shrunk, privacy and size gates);
 //   2. --ask-cold: the NEW build's model calls the case does not keep yet are asked ONCE on the plan path and kept in the case's memo (a prompt change makes new asks; CI has no claude -p);
 //   3. the NEW build replays it with no cold ask; its signature (page kinds, presses, per-field outcome and reason) against the LIVE run's gives `expect` (lib/row-signature.mjs): the tool's, never the fixer's;

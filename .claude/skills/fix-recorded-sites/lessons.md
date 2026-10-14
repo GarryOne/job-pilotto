@@ -1,4 +1,4 @@
-# Lessons of /fix-failing-forms (read once per session; add yours: see "Self-improve" in SKILL.md)
+# Lessons of /fix-recorded-sites (read once per session; add yours: see "Self-improve" in SKILL.md)
 
 Each lesson: what to do, the incident (date, row) and how sure it is. **verified** = shown by a log, a count or a failing case in a session that wrote it down;
 **second-hand** = reported by another session's summary, code spot-checked where noted. A lesson that turns out wrong is deleted, not kept.

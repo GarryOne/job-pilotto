@@ -98,7 +98,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
 
 ## The ladder: fix a site at its rung (owner, 10 Oct 2026)
 - A page decision climbs rung 0 structure rule, 1 kept answer, 2 text sketch, 3 numbered digest, 4 closer look (screenshot), 5 Claude takeover,
-  6 the person; a rung that is unsure or contradicted hands the page up, never guesses (`extension/ladder/core.js`). Skill `fix-failing-forms`;
+  6 the person; a rung that is unsure or contradicted hands the page up, never guesses (`extension/ladder/core.js`). Skill `fix-recorded-sites`;
   progress: skill `report-progress`.
 - **Fix at the LOWEST rung that has the information, data before code** (a kept answer, a recipe, a prompt example).
 - **A fix cannot break another site:** `desktop/e2e/ladder-fixtures/` + `desktop/e2e/ladder-baseline.json`; `cd desktop && npm run ladder-score`

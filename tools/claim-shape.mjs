@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// A claim per pool row, so parallel /fix-failing-forms sessions never take the same shape (owner, 11 Oct 2026). One file per row in the Mac's QA folder
+// A claim per pool row, so parallel /fix-recorded-sites sessions never take the same shape (owner, 11 Oct 2026). One file per row in the Mac's QA folder
 // (~/Library/Application Support/Job Pilotto QA/claims/<slug>.json: session, start time); created with O_EXCL, so of many sessions asking at once exactly one wins.
 // A claim is stale (anyone may take it over) when it is older than TTL_MS or its session is not in the `--alive` list the skill passes from ListAgents.
 // The same tool holds the other locks by fixed name: "e2e-page" (an old lock, no run needs it since 11 Oct 2026) and "flow-core" (--ttl 180); the holder renews by claiming again.
