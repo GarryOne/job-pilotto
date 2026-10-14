@@ -18,7 +18,7 @@ the wrong cause for the waiting ([why.md](why.md)).
 4. **Prove a fix in four steps, fastest first** (owner, 11 Oct 2026: proof used to take hours): (1) 3 of 3 real asks of the app's AI on the saved page
    (`ladder-score`, plan path); (2) the row replayed offline (`npm run row -- "<pool row>"`, 15-90 s: its pages, the live run's AI answers, the app's own server, the real
    extension; it must reach further, and `--old` must not: a differential only, offline replay is unverified (spec `docs/superpowers/specs/2026-10-13-capture-once-measure-many.md`: 0 rows matched live; a row with a CV upload, 17 of 39, misses the account judgment after it; compare like with like: a CI capture replayed on a Mac misses page-kind asks from the page width alone, whatever the build), so step 3 proves it); (3) ONE live run of the single row from the fixer's own worktree before landing, held, ~1 min
-   (`npm run live -- <url>`, no Electron, or `npm run smoke -- --only`), through the fair heavy lock (never uploaded); (4) the scoreboard: the pool owner runs all fixed rows in one
+   (`npm run live -- <url>`, no Electron, or `npm run record-sites -- --only`), through the fair heavy lock (never uploaded); (4) the scoreboard: the pool owner runs all fixed rows in one
    batch on main, and "Confirmed" needs two clean runs. A fixer lands after step 3 and then goes idle; it never queues for the batch.
 5. **No new tooling during the round.** A gap goes on a list for after, unless it blocks the fix itself (then say so to the owner).
 

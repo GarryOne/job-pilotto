@@ -416,7 +416,7 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution); drawFidelity(fidelityBox, d.fidelity);
 ${CASES_SCRIPT}  panels.pool.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
-    : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
+    : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run record-sites'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
   // The server keeps the data for up to 10 minutes (src/applying-store.js), so a faster refresh would only repeat the same answer.
   let fetchedAt = Date.now();

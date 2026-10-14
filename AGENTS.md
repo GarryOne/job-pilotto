@@ -166,7 +166,7 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 | Does the **job drawer** (any tab, any state: none, loading, failed, filtered) look right? | `cd desktop && npm run drawer-shots` (25 states on the demo's fictional jobs, cropped to the drawer, six to a contact sheet; `-- --only 20,21` for some); add a state in `scripts/drawer-shots.mjs`, seed it in `demo/job-pages.json` | ~1 min |
 | Does a page script handle this control's **shape**? | fixture shape test (`e2e/test/upload-slot.test.mjs` style) | seconds |
 | **Does my fix change what this pool row does?** (a failing row, a fix) | `cd desktop/e2e && npm run row -- "<pool row>"` (offline: the row's own pages and AI answers, the app's own server, the real extension; same evidence lines as live; `--old <extension/>` for the build before) | 15-90 s |
-| Does a fix hold on the real site? (once, after `npm run row`) | `npm run live -- <posting url>` (held, no Electron, the tripwire) or `npm run smoke -- --only <shape>` | ~1 min |
+| Does a fix hold on the real site? (once, after `npm run row`) | `npm run live -- <posting url>` (held, no Electron, the tripwire) or `npm run record-sites -- --only <shape>` | ~1 min |
 | Does the real extension work on a real site, without the app's flow? | `cd desktop/e2e && npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
 | Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix, on demand; on CI its steps run with every e2e, no push gate since 9 Oct 2026) | ~5 min |
 | Does a new producer feed an existing screen with all its features? | parity test (one test, every producer) | seconds |
