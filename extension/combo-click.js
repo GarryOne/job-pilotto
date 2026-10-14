@@ -7,6 +7,7 @@
 // busy time (14 Oct 2026, a loaded machine: the page's main thread was blocked 10-15 s after the click, so the extension's own calls hung and the wall clock ran out on a menu
 // that was only slow, "given up" and left): a call that took longer than slowCall (or a 100 ms sleep that woke later than that) is the page being busy, not the menu being dead; that time does not count against the waits or
 // the ceiling. `hard` bounds the whole menu in real time anyway (a page that never answers is still given up on; flow.js STEP_MS.combo is above it).
+// Known leftover (14 Oct 2026, coreweave replay on a Mac at load 100+): the AI pick (choose) took 16-30 s on a starved worker (its own 20 s timer fired at 30 s) and ate the menu's 35 s, so the menu read "No options" and was given up. A retry of the menu was tried (#735) and dropped: it doubles a never-opens menu's wait and trips "dead end: silent".
 const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000, ceiling: 15000, hard: 30000, slowCall: 150};
 
 // type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
