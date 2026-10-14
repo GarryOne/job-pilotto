@@ -1,0 +1,52 @@
+name: CI · Candidate recipe check (measure, not required)
+# The learning loop's gate for a proposed recipe (desktop/e2e/lib/candidate-check.mjs): a candidate is filled on the recorded forms that hold its fingerprint, with and without it, in a real
+# browser with the real extension, offline, no AI key, $0. This job runs the check's own tests (a recipe that keeps a working widget working passes, one that breaks it is refused, a fingerprint
+# no form holds is "not checked"). NOT a required check; PR paths are only what the check reads on its own; main runs it on every push.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/e2e/lib/candidate-check.mjs'
+      - 'desktop/e2e/candidate-check.mjs'
+      - 'desktop/e2e/test/candidate-check.test.mjs'
+      - 'extension/page/controls.js'
+      - 'extension/page/skeleton.js'
+      - 'extension/page/upload.js'
+      - 'extension/recipe-schema.js'
+      - '.github/workflows/candidate-check.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: candidate-check-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: candidate check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      - name: Stage the app's shared files
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
+      - name: Chromium (the real extension needs the full browser, not the headless shell)
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Check the candidate check
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY: 1
+          JOB_PILOTTO_HEAVY: 0
+        run: node --test --test-concurrency=1 test/candidate-check.test.mjs
