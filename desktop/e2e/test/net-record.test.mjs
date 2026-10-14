@@ -108,3 +108,22 @@ test('a redirect sent as raw UTF-8 is handed back as the browser read it, not do
   assert.equal(headerText('/already/Genève'), '/already/Genève', 'a real character above Latin-1 is never re-read');
   assert.equal(headerText(undefined), '');
 });
+
+test('settle waits for a request still in flight, so a press the site answers late is recorded; a never-answered one is counted, not waited for forever', async () => {
+  const {EventEmitter} = await import('node:events');
+  const context = new EventEmitter(), rec = netRecorder(context, {startedAt: 0});
+  const request = url => ({url: () => url, method: () => 'POST', resourceType: () => 'fetch', postDataBuffer: () => null, allHeaders: async () => ({}), headers: () => ({}),
+    response: async () => ({status: () => 200, body: async () => Buffer.from('{}'), allHeaders: async () => ({'content-type': 'application/json'}), headers: () => ({})}), failure: () => null});
+  const slow = request('https://jobs.example.test/api/apply'), stuck = request('https://jobs.example.test/api/never');
+  context.emit('request', slow); setTimeout(() => context.emit('requestfinished', slow), 60);
+  const settled = await rec.settle(1000, {pollMs: 10});
+  await rec.flush();
+  assert.equal(settled.unfinished, 0);
+  assert.ok(settled.waitedMs >= 50, 'it waited for the late answer');
+  assert.ok(rec.result().entries.some(one => one.url.endsWith('/api/apply')), 'the late answer is in the record');
+  context.emit('request', stuck);
+  const capped = await rec.settle(80, {pollMs: 10});
+  assert.equal(capped.unfinished, 1);
+  assert.ok(capped.waitedMs < 400, 'capped');
+  assert.equal((await rec.settle(0)).unfinished, 1);
+});

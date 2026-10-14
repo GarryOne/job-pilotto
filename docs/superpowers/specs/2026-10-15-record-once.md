@@ -99,7 +99,8 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 ## Progress
 - [x] History read; options weighed (proof: none: this spec)
 - [x] cc's go (15 Oct 2026: spec PR + PR 1; PR 2 on fixtures) (proof: none: this spec)
-- [ ] PR 1: Aldi record measured; settle before ending a recording
+- [x] PR 1: settle before ending a recording: an in-flight request is waited for (cap 20 s), the unfinished count is kept in record.json (proof: desktop/e2e/test/net-record.test.mjs). Found in code: a request still open at the end was never recorded.
+- [ ] PR 1b: Aldi's existing record read for the pending press (needs the Mac's records; $0)
 - [ ] PR 2: record-time takeover driver, flagged, tripwire kept
 - [ ] PR 3: skill renamed (RETIRED entry), signal 1 on /admin/applying
 - [ ] PR 4: live-proof pieces retired after 8e, class test, memories updated

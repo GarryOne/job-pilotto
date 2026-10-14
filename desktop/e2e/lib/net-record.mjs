@@ -35,11 +35,14 @@ const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;
 export const headerText = value => { const text = String(value ?? ''); if (!/[\u0080-\u00ff]/.test(text) || /[^\u0000-\u00ff]/.test(text)) return text;
   const utf8 = Buffer.from(text, 'latin1').toString('utf8'); return utf8.includes('\ufffd') ? text : utf8; };
 
-// The live side. -> {flush(), result(): {entries, bodies}}
+// The live side. -> {flush(), settle(maxMs), result(): {entries, bodies}}
+// settle: a request still in flight when the window ends is never recorded (no 'finished' or 'failed' event yet), so a press the site had not answered left the record
+// stopping at a spinning button (15 Oct 2026, record-once spec). settle waits for the open ones, capped; -> {waitedMs, unfinished}.
 export function netRecorder(context, {startedAt = Date.now()} = {}) {
-  const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set();
-  context.on('request', request => { if (recordable(request.url())) t0.set(request, Date.now()); });
+  const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
+  context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
   const done = async (request, failed) => {
+    inFlight.delete(request);
     if (!recordable(request.url())) return;
     // A request reported failed AFTER its reply came (the page stopped reading it, e.g. a CV upload to storage: Ashby, 14 Oct 2026) keeps that reply: replayed as failed, the
     // site shows "failed to upload" where live went on. Only a request with no reply at all is replayed as failed.
@@ -56,7 +59,12 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
   const track = promise => { pending.add(promise); promise.finally(() => pending.delete(promise)); };
   context.on('requestfinished', request => track(done(request, false)));
   context.on('requestfailed', request => track(done(request, true)));
-  return {flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
+  const settle = async (maxMs = 0, {pollMs = 200} = {}) => {
+    const began = Date.now();
+    while (inFlight.size && Date.now() - began < maxMs) await new Promise(resolve => setTimeout(resolve, pollMs));
+    return {waitedMs: Date.now() - began, unfinished: inFlight.size};
+  };
+  return {settle, flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
 }
 
 // An image's size from its header (PNG, GIF, JPEG): -> {width, height} or null.

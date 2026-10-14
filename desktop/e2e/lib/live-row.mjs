@@ -138,12 +138,14 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     if (blocked) { markBlocked(url, blocked); say(`live: the site blocked us (${blocked}): not visited again today (lib/site-ledger.mjs)`); }
     else if (contradicted) say(`live: ${contradicted}: the site stays open (lib/site-ledger.mjs)`);
     if (net && !blocked) {   // a bot-check row keeps no record (spec); the record never goes into the plain captures
+      const settled = await net.settle(Number(process.env.JP_NET_SETTLE_SECONDS ?? 20) * 1000);   // an answer still on its way is part of the journey
+      say(`live: network settled after ${(settled.waitedMs / 1000).toFixed(1)} s${settled.unfinished ? `, ${settled.unfinished} request(s) never answered` : ''}`);
       await net.flush();
       const kept = keepRecord(net.result()), dir = path.join(process.env.JP_NET_RECORD_DIR, `${(posting.title || new URL(url).host).replace(/\W+/g, '-')}-${Date.now()}`);
       fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
       for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
       const scrollbar = await run.page.evaluate(() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; }).catch(() => null);   // the replay draws the same (lib/scrollbar.mjs)
-      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, entries: kept.entries, stats: kept.stats}));
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
     }
