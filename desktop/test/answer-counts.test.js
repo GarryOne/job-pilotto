@@ -28,7 +28,7 @@ test('a failed send is merged back into what came in meanwhile', () => {
 
 test('the answer trace reaches the reporter, never from a test run (a twin counts: owner, 9 Oct 2026)', () => {
   const env = fs.readFileSync(new URL('../lib/server-env.js', import.meta.url), 'utf8');
-  assert.match(env, /onAnswer: trace => \{\n.*appLog\(.fill.*\n\s*answerReporter\(trace\);/);
+  assert.match(env, /onAnswer: trace => \{\n.*appLog\(.fill.*\n(.*withheld.*\n)?\s*answerReporter\(trace\);/);
   const handlers = fs.readFileSync(new URL('../lib/ext-server-handlers.js', import.meta.url), 'utf8');
   assert.match(handlers, /setAnswerReporter\(trace => \{ if \(!testRun\(\)\) recipeReporter\.answer\(trace\)/);
   assert.match(handlers, /const testRun = \(\) => !!process\.env\.JOB_PILOTTO_E2E;/);
