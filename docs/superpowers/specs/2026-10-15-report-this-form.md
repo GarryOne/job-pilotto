@@ -100,7 +100,7 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 ## Progress
 - [x] History read; design weighed (proof: none: this spec)
 - [x] Owner approves the spec and its 3 answers (14 Oct 2026: reload only on the press, with the wording above; R2 bucket `form-reports`, 30 days; cause word only) (proof: none: the owner's go, relayed by cc and shown by #789 merged)
-- [x] 1. Shared keep-rules module (#793) (proof: desktop/e2e/test/net-record.test.mjs @ce592f4)
+- [x] 1. Shared keep-rules module (#793) (proof: desktop/lib/net-keep.js @ce592f4; net-record.test.mjs unchanged and green)
 - [x] 2. Scrub, owner values, last gate (proof: desktop/test/report-scrub.test.js)
 - [ ] 3. Extension collector and handoff
 - [ ] 4. Consent UI, setting, ⌘K
