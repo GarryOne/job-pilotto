@@ -33,7 +33,7 @@ const SW_BLOCK = () => { if (navigator.serviceWorker) navigator.serviceWorker.re
 
 let replay = null;
 const browser = async options => {
-  const run = await startRealExtension({...options, offline: true});
+  const run = await startRealExtension({...options, offline: true, timezoneId: zoneOf(record)});   // the browser's own zone setting too: TZ alone left the runner's page in UTC (Databricks, 14 Oct 2026)
   await run.context.addInitScript(SW_BLOCK);
   await seedRandom(run.context, record.seed);   // the live run's own seed (a record made before it: the page's own random)
   await run.context.addInitScript({path: path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'upload-events.js')});   // a fulfilled upload fires no upload events (lib/upload-events.js)
@@ -56,14 +56,15 @@ if (recordedEligibility(record, liveLog) === 'off') process.env[ELIGIBILITY_ENV]
 // reported. It is a cap, not a length: a row that finished still ends on its quiet window.
 export const replaySeconds = text => { const times = String(text).split('\n').map(line => Date.parse(line.slice(0, 24))).filter(Number.isFinite);
   return times.length > 1 ? Math.min(300, Math.max(120, Math.round((times.at(-1) - times[0]) / 1000) + 90)) : 120; };
+let seen = null;   // the zone and date the page itself read at the end (replay.json pageSees): proof the live run's zone reached it
 let wrong = null;   // the typed values that are not the decided ones, and the decided ones that are not the applicant's (lib/wrong-values.mjs): at the last tab, before the browser closes
-const result = await runLiveRow({atEnd: async (tab, replies) => { wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
+const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await tab.evaluate(() => ({zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})).catch(() => null); wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left}; };
-const summary = {outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
+const summary = {pageSees: seen, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);

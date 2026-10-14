@@ -22,7 +22,7 @@ export const FAKE_CONTACT = {first_name: 'Test', last_name: 'Candidate', email: 
 
 // options: {extensionDir (default: this checkout's extension/), cv: true|false (the CV the app has), letter: true|false (an approved cover letter file),
 // contact (fake details)}. -> {context, page, port, requests, assertIsolated, panel, fillWithPanel, told, controlReports, close}
-export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT, answer = {}, allowAllSites = false, offline = false, appPort = 0, cdp = false} = {}) {   // answer: {route: () => body} the stub app gives instead of {} (e.g. the page-kind AI's word)
+export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT, answer = {}, allowAllSites = false, offline = false, appPort = 0, cdp = false, timezoneId = ''} = {}) {   // answer: {route: () => body} the stub app gives instead of {} (e.g. the page-kind AI's word)
   const port = appPort || await freePort();   // appPort: the caller's own stand-in app answers on it (row replay): this file starts no stub, and `answer`/`requests` stay unused
   const copy = copyExtension(port, extensionDir);
   // allowAllSites: a fresh test Chrome has not pressed the extension's Allow (the optional "any site" permission a person has granted once), so a site outside the
@@ -50,7 +50,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   if (stub) await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-real-ext-'));
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
+    ...browserChannel(), headless: false, locale: 'en-US', ...(timezoneId ? {timezoneId} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
     args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...(cdp ? ['--remote-debugging-port=0'] : []),   // cdp: lib/replay-coverage.mjs reads <profile>/DevToolsActivePort
       // offline: a replay's pages come from routes; any host they do not serve resolves to nothing (11 Oct 2026: a route set while another tab loaded let one request out)
       ...(offline ? ['--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'] : [])],
