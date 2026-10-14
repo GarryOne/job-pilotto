@@ -90,5 +90,5 @@ test('the Fixed tab: every hold but the eligibility stop and a passing live proo
 
 test('two rows with one name on one host are told apart by their shape; every table inside a details box wraps its text', () => {
   assert.ok(PAGE.includes('twinTag(s)'), 'the pool table and Needs a fix tell twins apart');
-  assert.ok(PAGE.includes('details table td:not(:first-child)'), 'the AI ladder\'s paths wrap inside their card');
+  assert.ok(PAGE.includes('details table td:not(:first-child)'), 'the colors legend\'s paths wrap inside their card');
 });
