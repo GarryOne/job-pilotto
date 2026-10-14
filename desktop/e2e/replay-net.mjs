@@ -45,7 +45,12 @@ const first = record.entries.find(entry => entry.type === 'document')?.url || re
 const liveLog = (() => { try { return fs.readFileSync(path.join(recordDir, 'app.log'), 'utf8'); } catch { return ''; } })();
 // The eligibility stop as the live run had it (a pool run turns it off: lib/pool-eligibility.mjs); left on, the kept "not a fit" answer ends the fill early.
 if (recordedEligibility(record, liveLog) === 'off') process.env[ELIGIBILITY_ENV] = 'off';
-const result = await runLiveRow({posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log});
+// The replay's watch may last as long as the live run did (its app log's first to last line) plus 90 s, 120-300 s: the replay starts ~25-35 s later (the offline app)
+// and drifts further behind as it goes (coreweave, 14 Oct 2026: 22 s late at the first page, 43 s at the AI's answers), so a flat 120 s cut it before its form was
+// reported. It is a cap, not a length: a row that finished still ends on its quiet window.
+export const replaySeconds = text => { const times = String(text).split('\n').map(line => Date.parse(line.slice(0, 24))).filter(Number.isFinite);
+  return times.length > 1 ? Math.min(300, Math.max(120, Math.round((times.at(-1) - times[0]) / 1000) + 90)) : 120; };
+const result = await runLiveRow({posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog)});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
