@@ -2,7 +2,7 @@
 // everything is filled, the AI reads the page's real state (a consent that is a link, a custom picklist, an error shown) and may say "needs you: <label>"; the worker then sets the page's
 // data-jobpilotto-needs, which the panel shows instead of "Ready". It only ever VETOES a ready claim: it never accepts a consent, never presses Submit, and without AI nothing changes.
 // The answer is kept per tab for the sketch it was given (asked again only when the page changed), one look at a time. Guards: worker/test/form-ready.test.js, desktop/test/form-judge.test.js.
-import {apiFor, settings} from './flow.js';
+import {apiFor, gaveUpOn, settings} from './flow.js';
 import {decide} from './log.js';
 import {flagAccount} from './account-fill.js';
 import {sketchOf} from './judge-sketch.js';
@@ -79,4 +79,18 @@ async function askForm(tab, frameId, again = false) {
     if (answer.answer === 'blocked' && !again) setTimeout(() => { judged.delete(tab.id); askForm(tab, frameId, true).catch(() => {}); }, timing.recheckMs);
     await pressNext(tab, frameId, answer, sig);   // a multi-step form's next step, when the person turned it on (next-step.js)
   } finally { looking.delete(tab.id); }
+}
+
+// A fill that gave up on a REQUIRED control it can never settle (a suggest-only combobox whose list never offers a match) ends at the person, whatever the AI judge says or whether it answers
+// (14 Oct 2026, the combo stall's required variant: the run had no end, "dead end: silent" fired 31 s after the fill): the same hand-off as the judge's needs_person (the page flag
+// names the field, the silent clock ends). `trace`: the fill's own rows. -> the labels handed over. Guard: worker/test/form-ready.test.js.
+export async function handGivenUpToPerson(tab, frameId, trace) {
+  const gaveUp = new Set(gaveUpOn(tab.id));
+  const owed = [...new Set((trace || []).filter(row => row.required && row.outcome === 'left' && gaveUp.has(row.label)).map(row => String(row.label).replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  if (!owed.length) return [];
+  let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
+  decide('panel', 'a required field the fill gave up on: handed to the person', {host, left: owed.length, needs: owed[0].slice(0, 60)});
+  endSilence(tab.id);
+  await run(tab, frameId, flagAccount, [owed.slice(0, 3).join(', ')]);
+  return owed;
 }

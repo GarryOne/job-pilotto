@@ -102,3 +102,18 @@ test('the fill check is asked on a miss or a contradiction, never otherwise, and
   try { await formNext({id: 91, url: 'https://apply.example/v'}, 0); await new Promise(resolve => setTimeout(resolve, 50)); } finally { Object.assign(globalThis, keep); }
   assert.deepEqual(asked.filter(phase => phase === 'form' || phase === 'fill'), ['form', 'fill']);
 });
+
+// 14 Oct 2026, the combo stall's required variant: the fill gave up on a required suggest-only menu and nothing ended the run ("dead end: silent" 31 s later). The fill's own rows hand the page
+// to the person, naming the field, without the AI; a menu given up on that is optional, or a required one not given up on, hands nothing over.
+test('nothing given up on hands nothing to the person (the given-up case is the recorded page combo-never-opens-required-1)', async () => {
+  const {handGivenUpToPerson} = await import('../../extension/form-ready.js');
+  const {gaveUpOn} = await import('../../extension/flow.js');
+  assert.deepEqual(gaveUpOn(81), []);
+  const flagged = [];
+  const keep = {chrome: globalThis.chrome};
+  globalThis.chrome = {scripting: {executeScript: async ({args}) => { if (args?.length) flagged.push(args[0]); return [{result: undefined}]; }}};
+  try {
+    assert.deepEqual(await handGivenUpToPerson({id: 81, url: 'https://apply.example/m'}, 0, [{label: 'Address', required: true, outcome: 'left'}]), []);   // nothing given up on
+  } finally { Object.assign(globalThis, keep); }
+  assert.deepEqual(flagged, []);
+});

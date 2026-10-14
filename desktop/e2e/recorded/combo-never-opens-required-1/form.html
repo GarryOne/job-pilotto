@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Infrastructure Engineer</title></head>
+<body>
+<!-- Hand-made: a suggest-only address box (typing asks a service that answers with no choice, so its list never opens) above two questions whose answers come from the AI after the first fill pass. -->
+<h1>Senior Infrastructure Engineer</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name *</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name *</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email *</label> <input id="mail" name="email" type="email" required>
+<label for="phone">Phone *</label> <input id="phone" name="phone" type="tel" required>
+<label for="aws">How many years of experience do you have with AWS? *</label> <textarea id="aws" name="aws" rows="2" required></textarea>
+<label for="k8s">How many years of experience do you have with Kubernetes and Docker? *</label> <textarea id="k8s" name="k8s" rows="2" required></textarea>
+<label id="al">Address *</label>
+<input id="addr" name="address" role="combobox" aria-labelledby="al" aria-autocomplete="list" aria-expanded="false" aria-controls="lb" placeholder="Start typing your address" autocomplete="off" required>
+<ul id="lb" role="listbox" hidden></ul><div id="aerr"></div>
+</form>
+<script>
+// Typing asks a service; it answers with no choice, so the list never opens and a value is only accepted when picked from it.
+const a = document.getElementById('addr'), err = document.getElementById('aerr');
+// Using the box makes the page busy (its suggestion widget keeps the main thread half occupied), so every call the extension makes into the page waits about a second, on any machine:
+// the shape that stretched the old wait, which counted 100 ms ticks, from 1.5 s to 30 s+.
+a.addEventListener('mousedown', () => { if (window.__busy) return; window.__busy = setInterval(() => { const t = Date.now(); while (Date.now() - t < 500) { /* busy */ } }, 1000); });
+a.addEventListener('blur', () => { clearInterval(window.__busy); window.__busy = 0; });   // the widget is only busy while the box is in use: the extension's click elsewhere (it closes the menu) frees the page
+a.addEventListener('input', () => { err.textContent = 'No matching address found.'; });
+</script>
+</body></html>
