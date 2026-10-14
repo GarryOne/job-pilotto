@@ -225,9 +225,9 @@ test('the pool search matches words in any order over name, platform, host, flow
 test('the pool search is an input of the filter bar, resets the page, is combined with the two filters and is emptied by Clear', () => {
   assert.match(PAGE, /el\('input', \{type: 'search', placeholder: 'Site, platform, host or result'/);
   assert.match(PAGE, /oninput: event => \{ chosen\.query = event\.target\.value; chosen\.page = 0; draw\(\); \}/);
-  assert.match(PAGE, /\(!chosen\.flow \|\| s\.flow === chosen\.flow\) && poolMatches\(s, chosen\.query\)/);
+  assert.match(PAGE, /\(!c\.flow \|\| s\.flow === c\.flow\) && poolMatches\(s, c\.query\)/);
   assert.match(PAGE, /chosen\.query = ''; chosen\.page = 0;[\s\S]{0,160}search\.value = ''/);                    // Clear
-  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.query/);
+  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.status && !chosen\.query/);
   assert.match(PAGE, /\.pick input\[type=search\]/);
 });
 
