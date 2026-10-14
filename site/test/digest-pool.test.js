@@ -64,3 +64,9 @@ test('a pool-only weakness says no user has hit it yet', async () => {
   assert.equal(d.pool.weaknesses[0].poolOnly, true);
   assert.match(markdown(d), /pool only: no user has hit it yet/);
 });
+
+test('a card stores its meaning counts (fixed words only); a wording or an unknown word is dropped', async () => {
+  const e = env();
+  await send(e, {cards: [pool('pool-2026-10-12-gaps0001', {gaps: {'salary:proposed:gap': 2, 'What is your salary?:proposed:gap': 5, 'salary:made_up:gap': 1}})]}, owner);
+  assert.deepEqual(JSON.parse(e.STATS.db.prepare("SELECT gaps FROM fill_cards WHERE id = 'pool-2026-10-12-gaps0001'").get().gaps), {'salary:proposed:gap': 2});
+});

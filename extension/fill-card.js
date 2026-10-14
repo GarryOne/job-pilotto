@@ -17,6 +17,7 @@
 //   unread        a required question on the page the reader did not read
 //   other         anything else (its first words go nowhere: only this word is counted)
 import {menuCause} from './menu-reason.js';
+import {meaningOf, designOf, gapKey, validGapKey} from './fill-meaning.js';
 export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'menu_other_choice', 'not_kept_after_tries', 'real_click', 'no_option', 'unread', 'other'];
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
@@ -50,11 +51,13 @@ export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiErr
   const left = required.filter(row => row.outcome !== 'filled');
   const context = {sent: new Set(sent), ai, aiError, useAI};
   const causes = count(left, row => causeOf(row, context));
+  // What each left field was about and whether it was left on purpose (fill-meaning.js): fixed words only, "meaning:cause:design|gap".
+  const gaps = count(left, row => { const cause = causeOf(row, context), meaning = meaningOf(row); return gapKey(meaning, cause, designOf(row, meaning, cause)); });
   return {
     id: String(id || ''), v: String(version || '').slice(0, 20),
     required: required.length, filled: required.length - left.length, left: left.length, unread: causes.unread || 0,
     optional: rows.length - required.length, optionalFilled: rows.filter(row => !row.required && row.outcome === 'filled').length,
-    causes, kinds: count(left, row => String(row.type || 'other').replace(/[^a-z-]/g, '').slice(0, 20) || 'other'),
+    causes, gaps, kinds: count(left, row => String(row.type || 'other').replace(/[^a-z-]/g, '').slice(0, 20) || 'other'),
     ai: aiError ? 'error' : ai ? 'used' : useAI ? 'none' : 'off', kit: !!kit,
     seconds: startedAt ? Math.max(0, Math.round((endedAt - new Date(startedAt)) / 1000)) : 0,
     marks: left.filter(row => row.field).map(row => ({field: row.field, cause: causeOf(row, context)})),   // the worker writes each onto its control and drops this (ladder/control-marks.js): the panel's reason per left control
@@ -66,8 +69,9 @@ export function cleanCard(card) {
   const n = (value, max = 500) => Math.max(0, Math.min(max, Math.round(Number(value)) || 0));
   const counts = (object, allowed) => Object.fromEntries(Object.entries(object && typeof object === 'object' ? object : {})
     .filter(([key, value]) => (allowed ? allowed.includes(key) : /^[a-z-]{1,20}$/.test(key)) && n(value) > 0).slice(0, 12).map(([key, value]) => [key, n(value)]));
+  const gapCounts = (object) => Object.fromEntries(Object.entries(object && typeof object === 'object' ? object : {}).filter(([key, value]) => validGapKey(key, CAUSES) && n(value) > 0).slice(0, 20).map(([key, value]) => [key, n(value)]));
   if (!/^[\w-]{8,40}$/.test(String(card?.id || ''))) return null;
   return {id: card.id, v: /^[\w.+-]{1,20}$/.test(String(card.v || '')) ? card.v : '', required: n(card.required), filled: n(card.filled), left: n(card.left),
-    unread: n(card.unread), optional: n(card.optional), optionalFilled: n(card.optionalFilled), causes: counts(card.causes, CAUSES), kinds: counts(card.kinds),
+    unread: n(card.unread), optional: n(card.optional), optionalFilled: n(card.optionalFilled), causes: counts(card.causes, CAUSES), gaps: gapCounts(card.gaps), kinds: counts(card.kinds),
     ai: ['used', 'none', 'off', 'error'].includes(card.ai) ? card.ai : 'none', kit: !!card.kit, seconds: n(card.seconds, 3600)};
 }
