@@ -6,6 +6,7 @@ import {StepTimeout, within} from './step-bound.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
+import {clickWithRetry, pageQuiet} from './combo-retry.js';
 import {typeNotTakenOnTab} from './fill-verify.js';
 import {climbFill} from './ladder/fill-climb.js';
 import {kitStance} from './tab-pages.js';
@@ -37,8 +38,10 @@ export const JOB_SITES = [
 // One at a time: a second call (the app's own ask for one field, the later pass) while a slow type-to-search menu is still being typed waits its turn,
 // instead of failing on "Another debugger is already attached" and leaving the menu empty.
 let comboQueue = Promise.resolve();
+const retriedMenus = new Map();   // tab -> labels already retried in this fill (combo-retry.js)
 export function clickCombos(tabId) {
-  return debuggerTurn(() => clickCombosNow(tabId));
+  if (!retriedMenus.has(tabId)) retriedMenus.set(tabId, new Set());
+  return debuggerTurn(() => clickWithRetry({pass: () => clickCombosNow(tabId), gaveUp: () => gaveUpOn(tabId), forget: labels => labels.forEach(label => givenUp.get(tabId)?.delete(label)), quiet: () => pageQuiet(tabId), retried: retriedMenus.get(tabId)}));
 }
 // One debugger user at a time on this worker (the menus' clicks, the real typing of fill-verify.js, the fill ladder's repair clicks: ladder/fill-climb.js).
 export function debuggerTurn(work) {
@@ -50,7 +53,7 @@ export function debuggerTurn(work) {
 const STEP_MS = {attach: 8000, page: 8000, mouse: 8000, type: 8000, choose: 20000, combo: 35000};
 // Menus given up on in this fill (a timeout, or the ceiling): a later pass does not wait on the same menu again, so one control costs the fill one wait, not one per pass (tab -> labels).
 const givenUp = new Map();
-export const forgetGivenUp = tabId => { givenUp.delete(tabId); };
+export const forgetGivenUp = tabId => { givenUp.delete(tabId); retriedMenus.delete(tabId); };
 export const gaveUpOn = tabId => [...(givenUp.get(tabId) || [])];   // the labels of the menus this tab's fill stopped waiting on (fill-flow.js hands a required one to the person)
 const giveUp = (tabId, label) => { if (!givenUp.has(tabId)) givenUp.set(tabId, new Set()); givenUp.get(tabId).add(label); };
 async function clickCombosNow(tabId) {
