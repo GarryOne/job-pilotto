@@ -9,9 +9,18 @@ name: CI · Site replays · PR (10 rows)
 
 on:
   pull_request:
-    paths:
-      - 'extension/**'
+    paths:   # the apply flow's code: tools/replay-files.mjs appFiles (desktop/test/replay-workflow-paths.test.js)
       - 'desktop/lib/**'
+      - 'extension/**'
+      - 'worker/src/ai-prices.js'
+      - 'worker/src/ai.js'
+      - 'worker/src/answer-facts.js'
+      - 'worker/src/answer-missing.js'
+      - 'worker/src/cv-facts.js'
+      - 'worker/src/extension-log.js'
+      - 'worker/src/extension-run-record.js'
+      - 'worker/src/extension.js'
+      - 'worker/src/owner-guard.js'
 
 permissions:
   contents: read

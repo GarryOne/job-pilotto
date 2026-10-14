@@ -68,8 +68,16 @@ export function workflowFiles(workflow, root = ROOT) {
     const run = line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);
     if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
   }
-  // desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: shared/worker/<f> is worker/src/<f> (and what it imports),
-  // the rest are extension files (extension/** is listed whole).
+  return withSharedSources(files, root);
+}
+
+// The apply flow's own code (the PR site replays, owner 14 Oct 2026: "only if we touched the apply flow logic code"): the extension, the app, and the worker
+// files the app copies in (#778 changed the answer prompt in worker/src and started no replay).
+export const appFiles = (root = ROOT) => withSharedSources(replayFiles(root), root);
+
+// desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: shared/worker/<f> is worker/src/<f> (and what it imports),
+// the rest are extension files (extension/** is listed whole).
+export function withSharedSources(files, root = ROOT) {
   const texts = [...files].filter(file => /\.m?js$/.test(file) && fs.existsSync(path.join(root, file))).map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
   const worker = [...texts.matchAll(/shared\/worker\/([\w./-]+\.js)/g)].map(found => `worker/src/${found[1]}`);
   for (const file of [...files]) if (file.startsWith('desktop/shared/')) files.delete(file);
@@ -84,5 +92,6 @@ export function pathEntries(files) {
 }
 
 const [flag, value] = process.argv.slice(2);
+const entries = workflow => (workflow === 'site-replays-pr.yml' ? pathEntries(appFiles()) : pathEntries(workflowFiles(workflow)));
 if (import.meta.url === `file://${process.argv[1]}` && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
-if (import.meta.url === `file://${process.argv[1]}` && flag === '--paths') console.log(pathEntries(workflowFiles(value)).map(entry => `      - '${entry}'`).join('\n'));
+if (import.meta.url === `file://${process.argv[1]}` && flag === '--paths') console.log(entries(value).map(entry => `      - '${entry}'`).join('\n'));
