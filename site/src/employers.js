@@ -211,9 +211,24 @@ async function publish(request, env) {
   return Response.json({ok: true, feeds: feeds.length, d1: !!env.STATS, legacy: kept ? 'updated' : 'too large, unchanged'});
 }
 
+// Is a feed worth rewriting? (14 Oct 2026: 11.7k feed writes a day, 23k rows, though most feeds only had a new "checked"/"ok" date or a drifting job count.)
+// Rewritten when anything else changed, a date moved 7+ days past the stored one, a count crossed zero or moved more than 25%, or failing started or stopped.
+const DATES_DAYS = 7, COUNT_SHARE = 0.25;
+const stablePart = feed => JSON.stringify({...feed, checked: undefined, jobs: undefined, relevant: undefined,
+  fresh: feed.fresh ? {failing: (feed.fresh.fails || 0) > 0, trend: feed.fresh.trend, new: feed.fresh.new} : undefined});
+const daysApart = (a, b) => (a && b ? (Date.parse(b) - Date.parse(a)) / 86400000 : a === b ? 0 : Infinity);
+const countMoved = (a, b) => ((a || 0) === 0) !== ((b || 0) === 0) || Math.abs((b || 0) - (a || 0)) > COUNT_SHARE * Math.max(a || 0, b || 0);
+export function worthWriting(stored, feed) {
+  if (!stored) return true;
+  if (stablePart(stored) !== stablePart(feed)) return true;
+  if (daysApart(stored.checked, feed.checked) >= DATES_DAYS || daysApart(stored.fresh?.ok, feed.fresh?.ok) >= DATES_DAYS) return true;
+  return countMoved(stored.jobs, feed.jobs) || countMoved(stored.relevant, feed.relevant) || countMoved(stored.fresh?.jobs, feed.fresh?.jobs);
+}
+
 // Make the D1 index this list, writing only what differs (11 Oct 2026: a full rewrite of ~4.3k feeds, three times a day, wrote 8.5k rows a time and spent a quarter of the free plan's daily
 // writes): one read of the stored feeds, then an INSERT for a feed that is new or whose body changed, a DELETE for one no longer listed. A same-list publish writes nothing.
 // In batches (D1 runs a batch as one transaction).
+const parsed = text => { try { return JSON.parse(text); } catch { return null; } };
 const regionsOf_ = feed => `,${feed.regions.join(',')}${feed.regions.length ? ',' : ''}`;
 async function store(db, feeds, generated) {
   const old = new Map((((await db.prepare('SELECT ats, slug, regions, body FROM index_feeds').all()).results) || []).map(row => [`${row.ats}\n${row.slug}`, row]));
@@ -221,8 +236,10 @@ async function store(db, feeds, generated) {
   for (const feed of feeds) {
     const key = `${feed.ats}\n${feed.slug}`, body = JSON.stringify(feed), regions = regionsOf_(feed), was = old.get(key);
     keep.add(key);
-    if (was && was.body === body && was.regions === regions) continue;
-    statements.push(db.prepare('INSERT OR REPLACE INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)').bind(feed.ats, feed.slug, regions, body, generated));
+    if (was && was.regions === regions && (was.body === body || !worthWriting(parsed(was.body), feed))) continue;
+    // An upsert, not INSERT OR REPLACE: a replace is a delete plus an insert (2 rows written per feed, 14 Oct 2026).
+    statements.push(db.prepare('INSERT INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?) ON CONFLICT(ats, slug) DO UPDATE SET regions = excluded.regions, body = excluded.body, generated = excluded.generated')
+      .bind(feed.ats, feed.slug, regions, body, generated));
   }
   for (const [key, row] of old) if (!keep.has(key)) statements.push(db.prepare('DELETE FROM index_feeds WHERE ats = ? AND slug = ?').bind(row.ats, row.slug));
   if (!statements.length) return 0;

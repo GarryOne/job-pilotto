@@ -10,7 +10,7 @@ import {page, report} from '../src/formlearning.js';
 function d1() {
   const db = new DatabaseSync(':memory:');
   for (const file of ['0002_telemetry.sql', '0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0009_knowledge.sql', '0017_alias_proposals.sql',
-    '0022_form_required.sql', '0044_family_counts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+    '0022_form_required.sql', '0044_family_counts.sql', '0065_telemetry_health_index.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args) ?? null});
   return {db, d1: {prepare: sql => statement(sql)}};
@@ -55,4 +55,14 @@ test('a Codex install\'s form results land in the OpenAI row and under the OpenA
   const html = page(all, new URL('https://www.jobpilotto.top/admin/form-filling'));
   assert.match(html, /By AI family, this week/);
   assert.match(html, /href="\/admin\/form-filling\?family=openai"/);
+});
+
+test('the latest engine per install is one indexed pass over the health rows, never a MAX per row (14 Oct 2026: 730k rows read a day)', async () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync(new URL('../migrations/0002_telemetry.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0065_telemetry_health_index.sql', import.meta.url), 'utf8'));
+  const {LATEST_ENGINE} = await import('../src/engines.js');
+  const plan = db.prepare(`EXPLAIN QUERY PLAN ${LATEST_ENGINE}`).all().map(row => row.detail).join(' | ');
+  assert.match(plan, /telemetry_health_latest/, plan);
+  assert.doesNotMatch(plan, /CORRELATED/, plan);
 });
