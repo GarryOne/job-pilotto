@@ -37,7 +37,7 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 | `fix-failing-forms` | 3-4 | being trimmed to the offline loop |
 | `apply-to-job` | not testing: the instructions the app gives Claude when it finishes a page (rung 5), a backup we aim never to need | kept |
 | `desktop-change` | app bugs | kept |
-| ~~`fix-live-applying-in-twin`~~ | removed 14 Oct 2026 | — |
+| ~~the live twin loop skill~~ | removed 14 Oct 2026 | — |
 
 <details><summary>Gaps being closed (14 Oct 2026) and where</summary>
 
