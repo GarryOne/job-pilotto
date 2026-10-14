@@ -5,6 +5,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data, ingest} from '../src/applying.js';
+import {rowStatus} from '../src/applying-status.js';
 import {replaysIngest} from '../src/applying-replays.js';
 
 function d1() {
@@ -130,16 +131,17 @@ test('the replays table has the pool\'s filter bar: search, Result, Rung and Ori
 test('the run-dots sort: more recent failures first on the first click, more successes first on the second, in the pool and the replays', () => {
   const snippet = PAGE.slice(PAGE.indexOf('/*runs score*/'), PAGE.indexOf('/*end runs score*/'));
   const {runsScore, poolRunGood} = new Function(`${snippet}; return {runsScore, poolRunGood};`)();
-  const pool = list => runsScore(list, poolRunGood), asc = (rows, get) => [...rows].sort((a, b) => get(a) - get(b)).map(row => row.name);
+  const states = steps => steps.map(step => ({...rowStatus({reached: step}), step})), pool = list => runsScore(states(list), poolRunGood), asc = (rows, get) => [...rows].sort((a, b) => get(a) - get(b)).map(row => row.name);
   const rows = [{name: 'ten red', history: Array(10).fill('posting')}, {name: 'one red', history: ['posting']}, {name: 'ten blue', history: Array(10).fill('form')}, {name: 'one blue', history: ['form']},
     {name: 'mixed', history: ['form', 'form', 'posting', 'form', 'form', 'form']}, {name: 'red then green', history: ['posting', 'ready']}, {name: 'green then red', history: ['ready', 'posting']}];
   assert.deepEqual(asc(rows, row => pool(row.history)), ['ten red', 'one red', 'green then red', 'red then green', 'one blue', 'mixed', 'ten blue']);
   assert.equal(pool(['code/bot', 'code/bot']), 0, 'a documented hold is neither');
+  assert.equal(runsScore([{state: 'held'}, {state: 'site'}, {state: 'unrun'}], poolRunGood), 0, 'a hold, a site problem and a run not made are neither');
   assert.equal(pool(['none']) < 0 && pool(['account']) < 0, true, 'nothing reached and an account wall are failures');
   assert.equal(runsScore([], poolRunGood), null, 'never run: last in either order');
   const cases = [{name: 'all red', history: [0, 0, 0]}, {name: 'one red', history: [1, 1, 0]}, {name: 'all green', history: [1, 1, 1]}];
   assert.deepEqual(asc(cases, row => runsScore(row.history, run => run === 1)), ['all red', 'one red', 'all green']);
-  assert.match(PAGE, /s => runsScore\(s\.history, poolRunGood\)\]/, 'the pool\'s Recent runs column sorts by it');
+  assert.match(PAGE, /s => runsScore\(s\.states, poolRunGood\)\]/, 'the pool\'s Recent runs column sorts by it');
   assert.match(PAGE, /c => runsScore\(c\.history, run => run === 1\)/, 'the replays\' Last 10 runs column sorts by it');
 });
 

@@ -52,7 +52,7 @@ async function pageText(json) {
   new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => json}), () => ({}), {escape: x => x}, () => 0, Object);
   await new Promise(resolve => setTimeout(resolve, 20));
   const text = app.text(), from = text.indexOf('By cause · what to fix first');
-  return text.slice(from, text.indexOf('Nights', from));
+  return text.slice(from, text.indexOf('By-hand runs', from));
 }
 
 test('only the Needs a fix rows are grouped: every row in exactly one group, the groups add up to the Needs a fix count, a row that never ran and is not on the list is not shown', async () => {

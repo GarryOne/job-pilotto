@@ -3,14 +3,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PAGE} from '../src/applying.js';
+import {STATES, STATE_WORD, rowStatus} from '../src/applying-status.js';
 import {PAGE_TABS, FIX_HASHES, PAGETABS_CSS} from '../src/applying-pagetabs.js';
 
 const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
   append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
   text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
-const row = (name, reached) => ({name, platform: 'Custom', flow: '', start: 'x.com', end: '', reached, history: [reached], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null});
+const row = (name, reached) => ({name, platform: 'Custom', flow: '', start: 'x.com', end: '', reached, history: [reached], status: rowStatus({reached}), states: [{...rowStatus({reached}), step: reached}], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null});
 const body = {tiles: {}, cases: [{name: 'case-1', rung: 1, origin: 'hand-cut', ok: 1, history: [1], at: '2026-10-10T10:00:00Z', since: {sha: 'abc1234', at: '2026-10-10T10:00:00Z'}, sha: 'abc1234'}], fixed: {rows: [], inProgress: []}, platforms: [], flows: [],
-  nights: [{day: '2026-10-10', counts: {none: 0, posting: 1, account: 0, 'code/bot': 0, form: 1, ready: 0}}], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z',
+  nights: [{day: '2026-10-10', counts: {works: 1, held: 0, site: 0, fix: 1, unrun: 0}}], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], states: STATES, stateWords: STATE_WORD, sites: [], dropped: [], now: '2026-10-10T12:00:00Z',
   next: {platforms: [], sites: [], hidden: {hosts: 0}}, resolution: {measured: 0, endings: {ready: 0}, unresolved: [], samples: [], weeks: []}, pool: [row('Aaa site', 'posting'), row('Bbb site', 'form')], scorecard: []};
 
 const render = async hash => {
@@ -46,7 +47,7 @@ test('one panel shows at a time; a #hash opens its tab, and the Fixed tab links 
 
 test('each tab holds its sections', async () => {
   const app = await render(''), panels = Object.fromEntries(app.children.filter(kid => kid.className === 'panel').map((panel, at) => [PAGE_TABS[at][0], panel.text()]));
-  for (const [tab, words] of Object.entries({fixes: ['Needs a fix · where applying stops'], pool: ['Nights · where each site got to', 'The AI ladder', 'The pool · every smoke site'],
+  for (const [tab, words] of Object.entries({fixes: ['Needs a fix · where applying stops'], pool: ['By-hand runs · where each site got to', 'The AI ladder', 'The pool · every smoke site'],
     replays: ['Shape regression tests'], coverage: ['Next sites to add', 'Platform scorecard']})) for (const word of words) assert.ok(panels[tab].includes(word), word + ' is not in the ' + tab + ' tab');
 });
 
