@@ -215,6 +215,26 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - **Not the cause** (measured): the page clock, slower replies (×1.6), a 4× CPU slowdown.
 - **Key:** generated with openssl into a 700-mode scratch folder, then the Keychain, then `rm -P`. For the build, generate it straight into the Keychain through a pipe.
 
+## Why a row does not replay as live (found 13-14 Oct 2026; read this first when a row is "off")
+
+Find the first AI ask that missed: replay with `JOB_PILOTTO_MODEL_MEMO_MISSES=<file>` (+ `JP_NET_LOG=<file>` for the network), then compare each missed ask with the
+nearest kept one part by part (`memoParts` in `desktop/lib/ai/model-memo.js`): the ONE line that differs names the cause. Compare live and replay `app.log` timelines
+(`fill: filling`, `Claude answered`, `fill: fields:`) and the live capture's `pages/*.html` with the replay's.
+
+| Cause | How it shows | Fix / status |
+|---|---|---|
+| Eligibility stop on in the replay | `fill: did not fill: <not a fit>` on the replay; live had `"forced":"check off"` | #681: the replay runs with the stop as the live run had it (record `eligibility`) |
+| Prefetched code dropped as a beacon | Third-party `/…chunk.js` served the dropped entry (404); a widget stays in its default (Starling: phone +1 vs live +41) | #686: a GET whose reply is code is kept; old records need a re-record |
+| Replay cut by its time cap | `filled: null`, the watch ended before `fill: fields:`; the replay starts ~25-35 s late and drifts | #686: the cap is the live run's length + 90 s |
+| A live recording that ended too early | live `app.log` has no `fill: fields:`; the replay asks form questions the live run never did | Re-record with a longer live window (`SMOKE_SECONDS`) |
+| A real regression in the build | Replay on main: `Claude answered` after `first fields filled`, then never `fill: fields:` (coreweave on the Mac; the live 5afa5a8 stall, intermittent) | Not a replay gap: the replay is right. Fixed by job-pilotto-combo-stall |
+| Upload recorded as failed | The storage POST kept as `failed` with no reply (recorder before #670) | #670 + a re-record |
+| A cookie banner only on the replay | Databricks: the OneTrust banner text in the first page ask; the live page never rendered it though it loaded `otBannerSdk.js` | Open (deferred): maybe consent kept in the live profile's storage |
+| A late-loading part of the page | Deloitte: "Others have also looked at" box in or out of the first ask (3/4, then 1/4) | Open (deferred): timing |
+| The macOS runner disagrees with the Mac | Datadog 9/9 on the Mac, stops at the posting on the runner; Recruitee | Open; not a gate risk (a row not faithful on the runner never counts) |
+
+Rule: a row that is not "same as live" is a replay question first; only when the live run and the replay saw the same page and the build alone changed the outcome is it a product regression (and then the replay is the cheapest reproducer).
+
 ## Schedule, gate and alerts (owner, 14 Oct 2026, via cc: "an E2E-like schedule, 4 times a day, once before the nightly beta as a gate"; Telegram on every failure)
 
 ```
