@@ -123,3 +123,14 @@ test('a session bound by its page keeps its tab even when the tab report carries
   assert.equal(review.olderTab('s1', 700, RUN), true);
   assert.equal(review.tabOpen('s1'), true);
 });
+
+// A worker waking with empty session storage (idle ~30 s, or a reload): the posting a tab was opened for (from:) and its session come back with the memory, so the page
+// after Apply still has its kit. Held on 14 Oct 2026 when the sibling gap (a tab opened while the worker booted, settle-tabs.js) was fixed.
+test('a worker waking with empty storage gets each tab\'s posting and session back', () => {
+  const items = {boot: RUN, 'from:7': 'https://boards.example/jobs/1', 'session:7': 'ca582c3c', 'armed:7': true};
+  const tabs = [{id: 7, url: 'https://boards.example/jobs/1#jobpilotto-fill=ca582c3c'}];
+  const run = startRun({kept: snapshot(items, tabs, 1000), tabsNow: tabs});
+  assert.equal(run.boot, RUN);
+  assert.equal(run.restore['from:7'], 'https://boards.example/jobs/1');
+  assert.equal(run.restore['session:7'], 'ca582c3c');
+});
