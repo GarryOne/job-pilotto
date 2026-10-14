@@ -89,27 +89,24 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
   assert.deepEqual(d.cases.map(item => [item.name, item.rung]).sort(), [['case-1', 2], ['case-2', null], ['case-3', null]]);
 });
 
-test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Details expander in the Fixed tab', () => {
-  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
-  assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
-  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/ladder/rung3-digest.js', 'extension/ladder/rung3-candidates.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/ladder/rung5-takeover.js', 'the session card']) assert.ok(legend.includes(where), where);
-  assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
+test('the page shows the ladder card always open, a Rung column in the pool and a Details expander in the Fixed tab', () => {
+  const card = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
+  assert.doesNotMatch(card, /'details'/);   // always open: no expander around the ladder
+  assert.ok(card.includes('a rung never guesses.') && card.includes('A rung that is unsure or contradicted hands the page to the next'));
   assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/); assert.match(PAGE, /heads\('fixed', \[[^\]]*'Details'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
   assert.match(PAGE, /blocked at /);
 });
 
-test('every file the ladder legend names exists on disk, so the legend cannot drift (a rung not built yet says so instead of naming a file)', () => {
-  const rungs = PAGE.slice(PAGE.indexOf('const RUNGS'), PAGE.indexOf('panels.pool.append(el(\'details\''));
-  const files = [...rungs.matchAll(/[\w./-]+\.(?:js|json)\b/g)].map(match => match[0]).filter(file => file !== 'page-kinds.json');   // page-kinds.json is a per-install file, named with the code that keeps it
-  assert.ok(files.length >= 7);
-  for (const file of files) assert.ok(existsSync(new URL('../../' + file, import.meta.url)), file + ' is not in the repo');
+test('the by-hand bars name each day as "14 Oct", say each day runs other sites and explain "held or site"', () => {
+  assert.ok(PAGE.includes('dayWord(night.day)') && !PAGE.includes('night.day.slice(5)'));
+  assert.ok(PAGE.includes('so compare a site') && PAGE.includes(' held or site'));
 });
 
 test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
   // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
-  // The exceptions are the two fixed legends, the AI ladder and the colors (7 and 6 rows, nothing to sort): their headers are plain, and they are the only tables allowed to build them.
-  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = (list'));   // the two fixed legends: the ladder at the top, the colors (the pool table's foot)
-  assert.equal(legend.split("el('th'").length - 1, 2, 'a legend lost its plain headers');
+  // The exceptions are the colors legend (6 rows, nothing to sort): their headers are plain, and they are the only tables allowed to build them.
+  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = (list'));   // the ladder card (no table) and the colors legend (the pool table's foot)
+  assert.equal(legend.split("el('th'").length - 1, 1, 'the colors legend lost its plain headers');
   assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
   for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
   assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it

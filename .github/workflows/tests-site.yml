@@ -12,6 +12,9 @@ on:
       - 'tools/check.py'
       # Files outside site/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
       - 'extension/alias-schema.js'
+      - 'extension/ladder/**'
+      - 'extension/tab-pages.js'
+      - 'desktop/lib/ladder/**'
       - 'extension/recipe-schema.js'
       - 'src/ai/providers/anthropic_api.py'
       - 'tools/applying-page-copy.mjs'
