@@ -2,7 +2,9 @@
 // (desktop/e2e/widget-zoo). CI on main sends these with the replay upload it already does (replays-report.mjs) so /admin/lab-form-filling's "What we test on" can show them: the site cannot read the repo. Guard: test/repo-counts.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
-import {E2E} from './app.mjs';
+import {fileURLToPath} from 'node:url';
+
+const E2E = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');   // not lib/app.mjs: the report job installs no browser packages
 
 const casesIn = dir => (fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => fs.existsSync(path.join(dir, name, 'case.json'))).length : 0);
 
