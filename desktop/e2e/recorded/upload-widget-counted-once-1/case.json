@@ -1,0 +1,45 @@
+{
+ "shape": "upload fields drawn as a group (a label block, then Attach / Dropbox / Enter manually buttons, the file input hidden under Attach, in a wrapper whose class names uploading); the CV field drops its buttons once the file is in and draws the file's chip a few seconds later",
+ "origin": "hand-cut",
+ "why": "14 Oct 2026, pool row Databricks (found 2026-10-10), offline replay of its network record on main: 8 filled, 5 left where the page leaves 3. Each widget was two upload slots (the input and the wrapper's buttons stopped each other's climb), so the Cover Letter gave a phantom row 'Dropbox Enter manually…'; and the CV's own title was a required 'question on the page not read' while the field was empty between its buttons and its chip",
+ "control": {
+  "build": "0.9.485",
+  "failed": "traced: CV:filled (the fill's record says left); traced: Cover Letter:left (the fill's record says nothing); notTraced: the fill's record has a row \"Resume/CV\" (left, question on the page not read)"
+ },
+ "sample": "a hosted application form's two upload fields (Resume/CV required, Cover Letter optional), markup cut from the capture, names and values removed",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/upload-widget-group/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "traced": [
+   "CV:filled",
+   "Cover Letter:left"
+  ],
+  "notTraced": [
+   "Resume/CV"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

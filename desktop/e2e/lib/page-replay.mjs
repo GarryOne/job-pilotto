@@ -109,10 +109,11 @@ export async function judgeCase(item, scope) {
   // The end state, once (the panel reports before the fill too): after the page settled, the fill's settled record and the panel's last report must say the same as the case
   // (spec 2026-10-12-fill-ladder, amendment 4: one truth per control). traced: "<label>:<outcome>" in /extension/run's trace; pending: in /extension/review's pending;
   // notPending: not in it AND in its filled list (a required field the panel reports filled).
-  if (['traced', 'pending', 'notPending', 'atMost'].some(kind => (expect[kind] || []).length)) {
+  if (['traced', 'notTraced', 'pending', 'notPending', 'atMost'].some(kind => (expect[kind] || []).length)) {
     await wait(expect.endAfter || 3000);
     const run = lastBody(mine, '/extension/run'), review = lastBody(mine, '/extension/review');
     for (const spec of expect.traced || []) if (!(run?.trace || []).some(row => `${row.label}:${row.outcome}` === spec)) failures.push(`traced: ${spec} (the fill's record says ${(run?.trace || []).filter(row => spec.startsWith(`${row.label}:`)).map(row => row.outcome).join('/') || 'nothing'})`);
+    for (const label of expect.notTraced || []) if ((run?.trace || []).some(row => row.label === label)) failures.push(`notTraced: the fill's record has a row "${label}" (${(run?.trace || []).filter(row => row.label === label).map(row => `${row.outcome}, ${row.reason || 'no reason'}`).join('/')})`);   // a row the page does not have (a phantom: one control counted twice)
     for (const label of expect.pending || []) if (!(review?.pending || []).includes(label)) failures.push(`pending: ${label} is not left in the panel's report`);
     for (const label of expect.notPending || []) if (!review || (review.pending || []).includes(label) || !(review.filled || []).includes(label)) failures.push(`notPending: ${label} is ${(review?.pending || []).includes(label) ? 'left in' : 'not listed as filled by'} the panel's report`);   // listed as filled: a label the panel names otherwise is no pass
     // atMost: "<selector>|<attribute>|<n>": a number the page counts on an element (how often a menu was opened) stays at or under n (the attempt log's bound, amendment 1).
