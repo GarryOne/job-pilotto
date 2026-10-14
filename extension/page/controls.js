@@ -150,11 +150,15 @@
     const open = (answers || []).filter(answer => answer && answer.value !== undefined && answer.value !== '');
     const visible = el => !!(el.getClientRects().length && (typeof getComputedStyle !== 'function' || getComputedStyle(el).visibility !== 'hidden'));
     const used = new Set();
-    const attempt = async (el, kind, run) => {
+    // A control still empty that no answer was matched to is a miss the learning loop must see (fixed reason word, no text): `left` is true only where the caller has
+    // checked the control is empty (a custom select has no such check, so it is reported only when an answer was tried).
+    const unmatched = (el, kind, why) => results.push({question: '', kind, fp: fingerprintOf(el, kit), recipe: 0, value: '', ok: false, why, unmatched: true});
+    const attempt = async (el, kind, run, left = false) => {
       const question = titleOf(el);
-      if (!question || skip(question)) return;
+      if (!question) { if (left) unmatched(el, kind, 'no_question'); return; }
+      if (skip(question)) return;
       const answer = matchAnswer(open.filter(a => !used.has(a)), {ids: idsOf(el), question});
-      if (!answer) return;
+      if (!answer) { if (left) unmatched(el, kind, 'no_answer'); return; }
       used.add(answer);
       const fp = fingerprintOf(el, kit);
       const recipe = recipes[fp] && recipes[fp].operator === OPERATOR_OF[kind] ? recipes[fp] : null;
@@ -167,12 +171,12 @@
       results.push({question, kind, fp, recipe: recipe ? recipe.version : 0, value: answer.value, ...result});
     };
     for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) {
-      if (kind === 'toggle-group' && !el.querySelector('[aria-pressed="true"], [aria-checked="true"]')) await attempt(el, kind, (value, params) => setToggleGroup(el, value, params));
+      if (kind === 'toggle-group' && !el.querySelector('[aria-pressed="true"], [aria-checked="true"]')) await attempt(el, kind, (value, params) => setToggleGroup(el, value, params), true);
       if (kind === 'custom-select') await attempt(el, kind, (value, params) => setCustomSelect(el, value, doc, params));
     }
     for (const input of doc.querySelectorAll('input')) {
       if (!looksLikeDate(input) || input.value || !visible(input)) continue;
-      await attempt(input, 'date', (value, params) => setDate(input, value, params));
+      await attempt(input, 'date', (value, params) => setDate(input, value, params), true);
     }
     return results;
   }

@@ -7,6 +7,11 @@ export const OPERATORS = ['toggle', 'select', 'date', 'upload'];
 export const ON_ATTRS = ['aria-pressed', 'aria-checked', 'aria-selected', 'data-state', 'data-selected'];
 export const DATE_ORDERS = ['mdy', 'dmy', 'ymd'];
 export const DATE_SEPS = ['/', '.', '-'];
+// Why an operator left a control or failed on it, as a fixed word (never the page's or the person's text): what the proposer reads next to a failing
+// fingerprint. page/controls.js names the first two itself; desktop/lib/recipes.js turns an operator's own message into one with whyWord.
+export const CONTROL_WHYS = ['no_answer', 'no_question', 'not_opened', 'no_option', 'not_shown', 'tries_used', 'other'];
+const WHY_OF = [[/did not open/i, 'not_opened'], [/^no option/i, 'no_option'], [/did not show/i, 'not_shown'], [/tries are used/i, 'tries_used']];
+export const whyWord = text => CONTROL_WHYS.includes(text) ? text : (WHY_OF.find(([pattern]) => pattern.test(String(text || '')))?.[1] || 'other');
 const SELECTOR = /^[\w\s[\]="'.:#>,*()~+^$|-]{1,160}$/;
 const FORBIDDEN = /submit|button\[type|input\[type=(?:submit|image)|\bform\b|<|>{2}|javascript:|expression\(/i;
 

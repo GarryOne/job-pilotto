@@ -101,7 +101,7 @@ export async function digest(db, now = new Date()) {
   for (const row of await rows(db, `SELECT o.fingerprint, SUM(o.failed) AS failed, SUM(o.ok) AS ok,
       (SELECT kind FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS kind,
       (SELECT question FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS question
-    FROM control_outcomes o WHERE o.day >= ? GROUP BY o.fingerprint HAVING SUM(o.failed) > 0 ORDER BY failed DESC LIMIT 15`, weekAgo)) {
+    FROM control_outcomes o WHERE o.day >= ? AND o.source = 'user' GROUP BY o.fingerprint HAVING SUM(o.failed) > 0 ORDER BY failed DESC LIMIT 15`, weekAgo)) {
     weaknesses.push({id: `widget:${row.fingerprint}`, kind: 'widget', cause: 'widget', area: AREA.widget, impact: row.failed,
       title: `A ${row.kind || 'widget'} failed ${row.failed} time${row.failed === 1 ? '' : 's'} (${row.ok} worked)`, now: {failed: row.failed, ok: row.ok},
       evidence: {fingerprint: row.fingerprint, kind: row.kind || '', question: row.question || ''}});
