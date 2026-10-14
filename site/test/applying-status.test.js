@@ -77,12 +77,10 @@ test('every view of a row reads its one status: Result, Rung, run dots, By-hand 
   assert.ok(!PAGE.includes("color(step)") || PAGE.includes("step.state ? ''"), 'a status dot has no step colour');
 });
 
-test('the Fixed tab: every hold but the eligibility stop and a passing live proof are clean runs', () => {
+test('the Fixed tab: every hold but the eligibility stop is a clean run', () => {
   const run = (at, needsFix, extra = {}) => ({at, needsFix, ...extra}), landed = '2026-10-10T00:00:00Z';
   assert.equal(statusOf([run('2026-10-11T00:00:00Z', false, {cleanHold: true}), run('2026-10-12T00:00:00Z', null, {hold: true})], landed).cleanRuns, 1, 'an eligibility stop (needsFix null) is neither');
   assert.equal(statusOf([run('2026-10-11T00:00:00Z', null, {cleanHold: true}), run('2026-10-12T00:00:00Z', null, {cleanHold: true})], landed).status, 'confirmed', 'two clean holds confirm');
-  assert.equal(statusOf([run('2026-10-11T00:00:00Z', false)], landed, {at: '2026-10-12T00:00:00Z'}).status, 'confirmed', 'a clean run plus a passing live proof confirms');
-  assert.equal(statusOf([run('2026-10-11T00:00:00Z', false)], landed, {at: '2026-10-09T00:00:00Z'}).status, 'landed', 'a proof from before the landing proves nothing');
   assert.equal(isCleanHold(rowStatus({reached: 'form', note: 'eligibility stop: x'})), false);
   assert.ok(PAGE.includes('Better, not there yet'), 'a failing fix whose filled share rose reads as better');
   assert.ok(!PAGE.includes("'rung ' + (f.rung ?? '?')") && !PAGE.includes("rung ' + (r.rung ?? '?')"), 'an unknown rung is not drawn as "rung ?"');

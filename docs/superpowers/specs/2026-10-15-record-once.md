@@ -128,5 +128,5 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 - [x] PR 3a: skills renamed, fix skill trimmed, the filling-review skill folded in (proof: desktop/test/skill-names.test.js)
 - [ ] PR 3b: signal 1 on /admin/applying
 - [x] PR 4a: the e2e, workflow, tool, doc and skill pieces of the live proof retired, and a class test that fails on their return (proof: desktop/test/live-proof-retired.test.js)
-- [ ] PR 4b: the site's "Proven live" store, route, column and cost job retired (the class test's site list empties); memories updated with cc's OK
+- [x] PR 4b: the site's "Proven live" store, route and Fixed-tab column retired, the class test now covers site/ (proof: desktop/test/live-proof-retired.test.js); memories updated with cc's OK (14 Oct 2026). The applying_proven table stays unread until a later migration drops it
 - [ ] Aldi recorded to its form; old vs new build compared offline
