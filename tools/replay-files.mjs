@@ -3,7 +3,7 @@
 // tools/recorded-cases.mjs asks a recorded page for a change to any of them. No hand list: a new file is covered once something imports it. Guard: desktop/test/recorded-cases.test.js.
 import fs from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -100,11 +100,12 @@ export function listedPaths(workflow, root = ROOT) {
 }
 
 const [flag, value] = process.argv.slice(2);
+const MAIN = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;   // run directly (a file URL, so Windows paths compare too)
 const entries = workflow => (workflow === 'site-replays-pr.yml' ? pathEntries(appFiles()) : pathEntries(workflowFiles(workflow)));
-if (import.meta.url === `file://${process.argv[1]}` && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
+if (MAIN && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
 // --check <workflow>: the workflow's first step (owner, 14 Oct 2026: "wouldn't we miss newly added modules?"). A new file loads only through an edit to a
 // listed one, which starts the workflow, which then checks its own list: missing or extra entries fail with the line to run.
-if (import.meta.url === `file://${process.argv[1]}` && flag === '--check') {
+if (MAIN && flag === '--check') {
   const listed = listedPaths(value), wanted = entries(value);
   const missing = wanted.filter(entry => !listed.includes(entry)), extra = listed.filter(entry => !wanted.includes(entry) && !INSTALL.test(entry));
   if (missing.length || extra.length) {
@@ -113,4 +114,4 @@ if (import.meta.url === `file://${process.argv[1]}` && flag === '--check') {
   }
   console.log(`${value}: its pull_request paths list everything it loads (${wanted.length} entries)`);
 }
-if (import.meta.url === `file://${process.argv[1]}` && flag === '--paths') console.log(entries(value).map(entry => `      - '${entry}'`).join('\n'));
+if (MAIN && flag === '--paths') console.log(entries(value).map(entry => `      - '${entry}'`).join('\n'));
