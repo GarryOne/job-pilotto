@@ -11,6 +11,13 @@ const button = (label, kind, onClick, extra = {}) => Object.assign(el('button', 
 const open = () => { if (!$('report-dialog').open) $('report-dialog').showModal(); };
 const close = () => $('report-dialog').close();
 
+// The line in Settings about what this install has sent (and may delete).
+async function sent() {
+  const {count} = await window.pilot.reportFormSent().catch(() => ({count: 0}));
+  $('report-sent-row').hidden = !count;
+  $('report-sent-count').textContent = `${plural(count, 'report')} you sent ${count === 1 ? 'is' : 'are'} kept on our server for up to 30 days.`;
+}
+
 function howTo() {
   $('report-body').replaceChildren(
     el('p', 'dialog-lead', 'When an application gets stuck, a flag appears at the bottom left of its page in Chrome, next to Stop. Press it, read what will happen, and repeat the step that gets stuck while Job Pilotto records what the site sends.'),
@@ -45,6 +52,7 @@ function preview({id, preview: data}) {
     const answer = await window.pilot.reportFormSend([...dropped]).catch(error => ({ok: false, error: error.message}));
     $('report-body').replaceChildren(el('p', 'dialog-lead', answer?.ok ? 'Sent. Thank you: it is encrypted, and you can delete it any time in Settings.' : (answer?.error || 'It could not be sent.')));
     foot(button('OK', 'primary', close));
+    sent();
   });
   foot(button('Cancel', 'primary', async () => { await window.pilot.reportFormCancel(); close(); }, {autofocus: true}), send);
   open();
@@ -56,6 +64,8 @@ export async function init() {
   show(state.on, state.ready);
   $('report-form-on').checked = state.on;
   $('report-form-on').addEventListener('change', async event => { const {on} = await window.pilot.reportFormSet(event.target.checked); show(on, true); });
+  $('report-delete').addEventListener('click', async () => { $('report-delete').disabled = true; await window.pilot.reportFormDeleteAll().catch(() => null); $('report-delete').disabled = false; sent(); });
+  sent();
   $('ss-report').addEventListener('click', howTo);
   window.pilot.onReportFormReady(preview);
   if (state.shown) preview(state.shown);

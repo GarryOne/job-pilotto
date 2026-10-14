@@ -11,7 +11,8 @@ const code = file => read(file).split('\n').filter(line => !/^\s*\/\//.test(line
 const TEXTS = ['full name: Rosalind Quill\nemail: rosalind.quill@mailbox.test\n'];
 const entry = (url, body, type = 'text/html') => ({method: 'GET', url, type: 'document', mode: 'navigate', startMs: 0, waitMs: 5, bodyKey: '', status: 200, failed: false, headers: {'content-type': type}, hadCookie: false, body: Buffer.from(body).toString('base64'), size: body.length});
 
-function harness({uploader = async () => ({ok: true}), settings = {}} = {}) {
+const okUploader = {send: async () => ({ok: true}), count: () => 0, deleteAll: async () => ({ok: true, deleted: 0})};
+function harness({uploader = okUploader, settings = {}} = {}) {
   const handlers = {}, sent = [], saved = {};
   const ipcMain = {handle: (name, fn) => { handlers[name] = fn; }};
   registerReportHandlers({ipcMain, uploader, texts: () => TEXTS, toWindow: (...args) => sent.push(args), getWindow: () => null,
@@ -52,7 +53,7 @@ test('the manifest\'s permissions are what they were: debugger stays a normal pe
 });
 
 test('a submitted recording is scrubbed and held, shown to the window, and sent only after the gate once more, without the hosts the person dropped', async () => {
-  const uploads = [], h = harness({uploader: async record => { uploads.push(record); return {ok: true}; }});
+  const uploads = [], h = harness({uploader: {...okUploader, send: async record => { uploads.push(record); return {ok: true}; }}});
   const answer = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/apply', '<h1>Hi Rosalind</h1>'), entry('https://cdn.example.test/w.html', '<p>x</p>')], truncated: false});
   assert.deepEqual(answer, {ok: true});
   const [channel, shown] = h.sent[0];
