@@ -54,6 +54,13 @@
      "use": "fill"
     }
    ]
+  },
+  "/extension/account-judge": {
+   "ok": true,
+   "answer": "ready",
+   "step": "final",
+   "rung": 2,
+   "signal": "confident"
   }
  },
  "expect": {
