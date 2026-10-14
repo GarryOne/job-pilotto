@@ -6,8 +6,8 @@ description: Fix the applying flow's failing or low-reaching shapes one at a tim
 # Fix failing forms: one shape at a time, from the pool's numbers
 
 Goal (owner, 9-10 Oct 2026): from the posting to a filled form, stopped before Submit, on any site, and **never fix the same website twice**; one failure at a time: validate, fix, close, score.
-This skill works on the pool (real postings, layer 3 of `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`). Live sessions on the
-owner's twin are `fix-live-applying-in-twin`. The pool's own upkeep (running, growing, coordinating it) is the skill `run-applying-smoke-pool`, which hands failing shapes to this one.
+This skill works on the pool (real postings, layer 3 of `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`). An app bug the owner saw
+is reproduced on the twin, on demand (docs/live-test.md). The pool's own upkeep (running, growing, coordinating it) is the skill `run-applying-smoke-pool`, which hands failing shapes to this one.
 
 Where the next shape comes from: the platform scorecard on `/admin/applying` names the platforms to fix, in this order: **Weak in both**, **Blind spot** (start with `improve-filling` to see what real fills miss),
 **Test failing**. **Not in the pool** is `run-applying-smoke-pool`'s to add first. Rank by "Of matched jobs": the most-used platform that fails comes first (skill `run-applying-smoke-pool` "Reading real use").

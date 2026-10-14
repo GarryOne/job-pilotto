@@ -363,7 +363,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
       {url: page, ineligible: !!result.ineligible, aiEligible: result.aiEligible ?? null, forced: result.forced || ''});   // the AI's own verdict and who passed a "no" (eligibility-verdict.js)
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.
     // One row per field: a later pass (Claude on the page) wins.
-    logFieldsLine(decide, result.trace, {page, recipes: sharedFixes(result.operated).count});   // with `required`, so an optional field left empty is not a failure (extension/fill-fields.js); recipes: did the learned layer act (fix-live-applying-in-twin, 9 Oct 2026)
+    logFieldsLine(decide, result.trace, {page, recipes: sharedFixes(result.operated).count});   // with `required`, so an optional field left empty is not a failure (extension/fill-fields.js); recipes: did the learned layer act (the live twin loop, 9 Oct 2026)
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {

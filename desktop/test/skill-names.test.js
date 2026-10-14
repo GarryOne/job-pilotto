@@ -7,12 +7,12 @@ import path from 'node:path';
 import {test} from 'node:test';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const RETIRED = [{old: /twin-loop/, now: 'fix-live-applying-in-twin'}, {old: /triage-issues(?!\.mjs)/, now: 'triage-github-open-issues'}];
+const RETIRED = [{old: /twin-loop|fix-live-applying-in-twin/, now: 'removed 14 Oct 2026 (offline replay); the twin itself: docs/live-test.md'}, {old: /triage-issues(?!\.mjs)/, now: 'triage-github-open-issues'}];
 const tracked = () => execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).split('\n').filter(Boolean);
 
 test('every skill folder holds a SKILL.md whose name: is the folder', () => {
   const dirs = fs.readdirSync(path.join(root, '.claude/skills'), {withFileTypes: true}).filter(item => item.isDirectory()).map(item => item.name);
-  assert.ok(dirs.includes('fix-failing-forms') && dirs.includes('run-applying-smoke-pool') && dirs.includes('fix-live-applying-in-twin') && dirs.includes('triage-github-open-issues'));
+  assert.ok(dirs.includes('fix-failing-forms') && dirs.includes('run-applying-smoke-pool') && dirs.includes('triage-github-open-issues'));
   for (const dir of dirs) {
     const text = fs.readFileSync(path.join(root, '.claude/skills', dir, 'SKILL.md'), 'utf8');
     assert.equal(/^name:\s*(\S+)/m.exec(text)?.[1], dir, dir);

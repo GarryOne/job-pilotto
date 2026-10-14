@@ -32,6 +32,6 @@ export function fieldRows(rows) {
       // Whether the page marks it required (a boolean, never a value): without it the smoke report counted an optional field left empty as a failure
       // on every site (11 Oct 2026, Datadog "Website"; the extension kept it since c67f153, this boundary dropped it).
       ...(typeof row.required === 'boolean' ? {required: row.required} : {}),
-      // The pack meaning that placed the field (a field key such as "location", never a value), only when there was one (fix-live-applying-in-twin, 9 Oct 2026).
+      // The pack meaning that placed the field (a field key such as "location", never a value), only when there was one (the live twin loop, 9 Oct 2026).
       ...(typeof row.alias === 'string' && /^[a-z_]{1,30}$/.test(row.alias) ? {alias: row.alias} : {})}));
 }
