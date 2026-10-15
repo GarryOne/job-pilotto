@@ -23,7 +23,7 @@ const formOrder = (a, b) => a.localeCompare(b, 'en', {numeric: true});
 
 // rows -> {segments: {'thin:user': {tools, forms, grid, trend}}}: tools = our newest build first, then the others best raw score first.
 // How objective the numbers are, from the stored runs: the days each side ran, the runs behind each number, the mode, the held-out forms. Text the data cannot show is the page's.
-export function objectivity({mine, current, others, forms, mode}) {
+export function objectivity({mine, current, others, forms, mode, shown = []}) {
   const day = row => row.at.slice(0, 10), ourDay = current ? current.at.slice(0, 10) : '';
   const otherDays = others.map(tool => tool.at.slice(0, 10)).sort(), counts = [];
   for (const form of forms) {
@@ -32,7 +32,7 @@ export function objectivity({mine, current, others, forms, mode}) {
   }
   const pointed = new Set(forms.filter(form => mine.some(row => row.form === form && row.heldout)));
   return {ourDay, firstOtherDay: otherDays[0] || '', lastOtherDay: otherDays.at(-1) || '', sameDay: Boolean(ourDay) && otherDays.every(d => d === ourDay), minRuns: counts.length ? Math.min(...counts) : 0,
-    heldout: pointed.size, forms: forms.length, userMode: mode === 'user'};
+    heldout: pointed.size, oldTrail: shown.filter(row => row.oldtrail).length, shown: shown.length, forms: forms.length, userMode: mode === 'user'};
 }
 
 export function summarize(rows) {
@@ -55,7 +55,7 @@ export function summarize(rows) {
     const forms = [...keep].sort(formOrder);
     const grid = Object.fromEntries(tools.map(tool => [tool.tool, Object.fromEntries(tool.rows.map(row => [row.form, {required: row.required, right: row.right, wrong: row.wrong, empty: row.empty}]))]));
     out[segmentKey(applicant, mode)] = {
-      tools: tools.map(({rows: _rows, ...tool}) => tool), forms, grid, objectivity: objectivity({mine, current, others, forms, mode}),
+      tools: tools.map(({rows: _rows, ...tool}) => tool), forms, grid, objectivity: objectivity({mine, current, others, forms, mode, shown: tools.flatMap(tool => tool.rows)}),
       trend: builds.map(({rows: _rows, build, forms: count, at, raw, product, wrong, ceiling}) => ({build, at, forms: count, raw, product, wrong, ceiling})),
     };
   }

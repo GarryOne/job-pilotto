@@ -63,6 +63,7 @@ const METHOD = `<section class="card"><details><summary>How this is measured</su
 <li>Each required field is judged right, wrong or empty by an AI judge reading the filled page; a field the facts cannot answer counts against nobody in the product score.</li>
 <li>Thin and grown applicants, and user mode and harness mode, are separate views and are never added together.</li>
 <li>User mode is what real users run; harness mode has the test harness's repair rung on and is not comparable.</li>
+<li>Runs scored before the trail fix are marked "old trail rule" above; the old rule can count a value that was typed and then cleared as filled, for every tool alike.</li>
 <li>A tool's total counts its newest run on each form. A single live run varies by about ±1 field: read a 1-2 field difference as noise.</li></ul></details></section>`;
 
 export function page(snapshot, {segment} = {}) {

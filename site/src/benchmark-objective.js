@@ -19,6 +19,7 @@ export function objectiveBlock(view) {
     ['📅 Different days', o.sameDay ? `All tools ran on ${esc(o.ourDay)}.` : `Ours ran ${esc(o.ourDay || 'on no day')}; the others ${esc(days(o))}.`],
     ['⚙️ Their settings', 'We chose the other tools\' models and settings.'],
     ['🎲 Noise', gap ? `Single runs vary by about ±1 field per form: ${gap.noise} forms, so about ±${gap.noise} fields. The product gap, ${gap.ours}% against ${gap.best}%, is ${gap.fields} fields.` : 'Single runs vary by about ±1 field per form.'],
+    ['🧾 Old trail rule', o.oldTrail ? `${o.oldTrail} of the ${o.shown} runs behind these numbers were scored before the bake-off's trail fix (a field the final page shows empty now counts as empty). The old rule applied to every tool the same way, so older scores can be slightly high for all of them.` : 'Every run behind these numbers was scored with the current trail rule (a field the final page shows empty counts as empty).'],
     ['🔧 Mode', o.userMode ? 'Ours runs in user mode, as real users do.' : 'Ours runs in harness mode (the test harness\'s repair rung is on); real users do not get it yet.'],
   ];
   const ok = (done, yes, no) => `${done ? '✅' : '❌'} ${done ? yes : no}`;

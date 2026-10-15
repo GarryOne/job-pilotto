@@ -157,3 +157,15 @@ test('the held-out flag travels through the ingest into the snapshot', async () 
   const snapshot = JSON.parse(e.STATS.db.prepare('SELECT body FROM benchmark_snapshot').get().body);
   assert.equal(snapshot.segments['thin:harness'].objectivity.heldout, 1);
 });
+
+test('runs scored before the trail fix are counted and named "old trail rule" for every tool; none old says so', async () => {
+  const e = env();
+  await put(e, {runs: FIXTURE.map(row => ({...row, oldTrail: row.tool === 'Tool X'}))});
+  const snapshot = JSON.parse(e.STATS.db.prepare('SELECT body FROM benchmark_snapshot').get().body);
+  const o = snapshot.segments['thin:harness'].objectivity;
+  assert.ok(o.oldTrail > 0 && o.oldTrail < o.shown, 'some, not all');
+  const html = page(snapshot, {segment: 'thin:harness'});
+  assert.ok(html.includes('🧾 Old trail rule') && html.includes('every tool the same way') && html.includes('old trail rule'));
+  await put(e, {runs: FIXTURE.map(row => ({...row, oldTrail: false}))});
+  assert.match(page(JSON.parse(e.STATS.db.prepare('SELECT body FROM benchmark_snapshot').get().body), {segment: 'thin:harness'}), /scored with the current trail rule/);
+});
