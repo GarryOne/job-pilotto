@@ -2,36 +2,28 @@
 // prints why and what to run. Per record, on its own: its page text decodes cleanly (no UTF-8 read as Latin-1), it carries the live run's kept answers, and its own replay reaches
 // the step live reached. Against the record it replaces: it must reach at least that one's step or outcome, and a PINNED row (replay-faithful.json) must replay same as live
 // before it replaces anything. Only the owner's "<row> — <reason>" (passed as --accept) overrides, for that row only (the replay-accepts.mjs format; never posted by a session).
-// The mojibake definition is a6's (15 Oct 2026, the charset fix in net-keep.js): text with only chars <= U+00FF, some >= U+0080, whose Latin-1 bytes are valid UTF-8; never a grep for "Ã".
+// The garbled-page definition is the charset repair's own (desktop/lib/net-keep.js repairUnlabeledText, 15 Oct 2026): windows-1252 as well as Latin-1; never a grep for "Ã".
 // Pure but for the two folder readers; the replays are run by records-publish.mjs and passed in. Guard: e2e/test/record-guard.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
 import {isSame} from '../replay-records.mjs';
 import {acceptNamed} from '../replay-accepts.mjs';
 import {rank} from './smoke.mjs';
+import {repairUnlabeledText} from '../../lib/net-keep.js';
 
-const strict = new TextDecoder('utf-8', {fatal: true});
-
-// text -> true when it is the Latin-1 image of valid UTF-8 (a double-encoded page).
-export function latin1Image(text) {
-  let high = false;
-  for (let at = 0; at < text.length; at += 1) { const code = text.charCodeAt(at); if (code > 0xff) return false; if (code >= 0x80) high = true; }
-  if (!high) return false;
-  try { strict.decode(Buffer.from(text, 'latin1')); return true; } catch { return false; }
-}
-
-// A record folder -> the kept bodies (hash names) whose text is double-encoded. Binary bodies (not valid UTF-8 as a whole, or with NUL) are not text and are skipped.
+// A record folder -> the kept bodies (hash names) that are double-encoded: a text reply with no charset whose stored bytes are the windows-1252 image of its UTF-8 ("dÃ©tail â€“").
+// The definition is the repair's own (desktop/lib/net-keep.js repairUnlabeledText, a6's charset fix #812): a body is garbled when repairing it changes it. A missing entry list means no check.
 export function mojibakeBodies(dir) {
   const folder = path.join(dir, 'bodies');
-  if (!fs.existsSync(folder)) return [];
-  const bad = [];
-  for (const hash of fs.readdirSync(folder)) {
-    const bytes = fs.readFileSync(path.join(folder, hash));
-    if (bytes.includes(0)) continue;
-    let text; try { text = strict.decode(bytes); } catch { continue; }
-    if (latin1Image(text)) bad.push(hash);
+  let entries = [];
+  try { entries = JSON.parse(fs.readFileSync(path.join(dir, 'record.json'), 'utf8')).entries || []; } catch { return []; }
+  const bad = new Set();
+  for (const entry of entries) {
+    if (!entry.hash || bad.has(entry.hash)) continue;
+    let body; try { body = fs.readFileSync(path.join(folder, entry.hash)); } catch { continue; }
+    if (repairUnlabeledText(body, entry.headers?.['content-type'] || '') !== body) bad.add(entry.hash);
   }
-  return bad;
+  return [...bad];
 }
 
 // A record folder -> '' or why its kept answers are missing: the live run asked (asks.jsonl has lines) but model-memo.json has no answers.
@@ -62,7 +54,7 @@ export function judgeRecords(items, {pins = [], accepts = []} = {}) {
   for (const {name, dir, replay, replaced} of items) {
     const add = (check, why, run = '') => refusals.push({row: name, check, why, run});
     const bad = mojibakeBodies(dir);
-    if (bad.length) add('text', `${bad.length} kept page(s) are double-encoded (UTF-8 read as Latin-1, e.g. ${bad[0].slice(0, 10)}…)`, 'fix the charset at record time (net-keep.js) and re-record this row');
+    if (bad.length) add('text', `${bad.length} kept page(s) are double-encoded (UTF-8 text stored as a single-byte charset, e.g. body ${bad[0].slice(0, 10)}…)`, 'fix the charset at record time (net-keep.js) and re-record this row');
     const memo = memoProblem(dir);
     if (memo) add('answers', memo, 're-record this row: the live run\'s kept answers must travel with it');
     const accepted = acceptNamed(name, entries, names);   // the owner's named word: it lifts the pinned and worse refusals of this row (acceptedFor), nothing else
