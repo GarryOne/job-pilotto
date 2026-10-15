@@ -8,7 +8,7 @@ description: Coordinator's round-up of every running Job Pilotto session - one t
 Owner, 15 Oct 2026: "when triggered, present me this report". One table, read in 5 seconds; facts measured now, never from memory.
 
 ## 1. Gather (one round, in parallel, ~1 min)
-- **Who runs:** `ListAgents`. Leave out sessions the owner already closed and any not in the list. Short name = the part after `job-pilotto-`.
+- **Who runs:** `ListAgents`, called fresh for THIS round-up. **Only sessions it lists go in the table**: one missing from it is closed, even if it was in the last table or just finished (owner, 15 Oct 2026: 42 was reported "close now" after the owner had closed it). A finished session still listed gets "close now"; never carry a row over from memory. Short name = the part after `job-pilotto-`.
 - **PRs:** `gh pr list --state all --limit 20 --json number,state,headRefName,title,statusCheckRollup` and count each open PR's checks: green / running / failing. A failing "all checks green" summary next to running checks is the old result: say "re-run running", not "red".
 - **CI the sessions wait on:** the runs they named (recordings `record-sites.yml`, `fix-verdicts.yml`, refills): `gh run view <id> --json status,conclusion`. A run `pending`/`queued` for >10 min: say why (GitHub's parallel-job limit full, a concurrency group) after one check (`gh api repos/<repo>/actions/runs/<id>`), never a guess.
 - **The Mac:** `uptime`. Load above ~20: name the cause before reporting it (memory feedback-no-artificial-load-on-mac: orphaned loops first).
@@ -32,6 +32,6 @@ Owner, 15 Oct 2026: "when triggered, present me this report". One table, read in
 - A refill publishes each group as soon as it is refilled, never all at the end.
 
 ## Never
-- List a closed session, or invent a status for a session that did not reply ("no reply" is a status).
+- List a session `ListAgents` did not list (closed), or invent a status for a session that did not reply ("no reply" is a status).
 - Count a PR's stale red summary as failing while its re-run runs.
 - Narrate peers' coordination: the owner sees only the table and what needs them.
