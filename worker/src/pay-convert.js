@@ -45,7 +45,8 @@ export async function applyPay(answers, asks, fields, env = {}) {
   return answers.map((a) => {
     const ask = list.find((x) => x.field === a.field);
     if (unlisted(a)) return { ...a, use: 'propose' };
-    if (!ask || ask.currency === ask.asked_currency && ask.per === ask.asked_per) return a;
+    if (!ask) return a;
+    if (ask.currency === ask.asked_currency && ask.per === ask.asked_per) return a.fact === 'salary' ? a : { ...a, fact: 'salary' };   // listed = a salary answer, whatever fact the AI named
     const value = convertPay(ask, byId[a.field], today);
     return value ? { ...a, value, use: 'fill', fact: 'salary', converted: { from: ask.currency, to: ask.asked_currency, rates: today.source } } : { ...a, use: 'propose' };
   });
