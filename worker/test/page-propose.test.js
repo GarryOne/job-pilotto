@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadJsdom, openPage, PAGE_SCRIPTS } from './helpers/page.js';
 import { PAGE_FILES } from '../../extension/page-files.js';
+import { readPanel } from './helpers/panel.js';
 
 const JSDOM = await loadJsdom();
 const skip = JSDOM ? false : 'jsdom is not installed here (run npm install in worker/)';
@@ -43,7 +44,7 @@ test('propose.js is loaded with the page scripts, before fill.js, as the extensi
     assert.ok(PAGE_FILES.indexOf(before) > 0 && PAGE_FILES.indexOf(before) < PAGE_FILES.indexOf('page/fill.js'), `${before} is injected before fill.js`);
   }
   assert.deepEqual(PAGE_SCRIPTS, PAGE_FILES.map(file => `extension/${file}`), 'the tests load the page scripts the extension injects');
-  const panel = fs.readFileSync(new URL('../../extension/review.js', import.meta.url), 'utf8');
+  const panel = readPanel();
   assert.match(fs.readFileSync(new URL('../../extension/page/review-payload.js', import.meta.url), 'utf8'), /proposals: state\.list\.filter/);   // the report moved out of review.js
   assert.match(panel, /if \(command\.fill\) \{ send\(\{type: 'panelFillOne', \.\.\.command\.fill\}\)/);
   const worker = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');

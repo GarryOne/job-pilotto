@@ -34,6 +34,6 @@ test('a box holding only a calling code is empty for the panel and the readers; 
   // The one control reader holds the rule (page/read-back.js, amendment 4 of the fill ladder); every reader of a box's state asks it, or the rule itself (coverage.js).
   const source = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
   assert.match(source('extension/page/read-back.js'), /__jobPilottoBoxGiven/, 'the one reader treats a calling code alone as empty');
-  for (const file of ['extension/review.js', 'extension/page/fill-read.js', 'extension/account-fill.js', 'tools/browser-form-fastpath.js']) assert.match(source(file), /__jobPilottoReadBack/, `${file} reads a box through the one reader`);
+  for (const file of ['extension/panel-form.js', 'extension/page/fill-read.js', 'extension/account-fill.js', 'tools/browser-form-fastpath.js']) assert.match(source(file), /__jobPilottoReadBack/, `${file} reads a box through the one reader`);
   assert.match(source('extension/page/coverage.js'), /__jobPilottoBoxGiven/, 'coverage.js treats a calling code alone as empty');
 });

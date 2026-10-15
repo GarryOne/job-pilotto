@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadJsdom, openPage } from './helpers/page.js';
+import { evalPanel } from './helpers/panel.js';
 
 const read = (path) => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const JSDOM = await loadJsdom();
@@ -19,7 +20,7 @@ async function panel(html, after) {
   const { window } = openPage(JSDOM, html);
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   const read2 = () => {
     const root = window.document.getElementById('jobpilotto-review-host')?.shadowRoot;
@@ -86,7 +87,7 @@ test('a required question nothing read is listed; answering it yourself is repor
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/coverage.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   const pill = () => window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.pill b').textContent;
   assert.equal(pill(), '1 left');

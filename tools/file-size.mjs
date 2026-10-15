@@ -10,9 +10,7 @@ export const LIMIT = 500;
 export const WARN = 450;   // split before you reach it (owner, 11 Oct 2026): a warning, never a block
 // Files that stay over the limit on purpose, with the reason (owner, 8 Oct 2026). Chrome injects each as ONE classic content script (no import
 // without a build step, or without exposing modules to every page): they may not grow, and a new one needs the owner's yes.
-export const EXCEPTIONS = {
-  'extension/review.js': 'the page panel: injected as one classic script (background.js `files: [..., \'review.js\']`); no static imports in a content script',
-};
+export const EXCEPTIONS = {};   // none since 15 Oct 2026: the page panel is split into classic scripts injected in order (extension/panel-files.js)
 export const SOURCE = /\.(?:js|mjs|cjs|py)$/;
 export const SKIP = /^desktop\/shared\/|node_modules\/|\/vendor\/|\.min\.|^site\/public\//;
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');

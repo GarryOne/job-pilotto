@@ -4,10 +4,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadJsdom, openPage } from './helpers/page.js';
+import { readPanel } from './helpers/panel.js';
 
 const read = (path) => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const JSDOM = await loadJsdom();
-const SOURCE = read('extension/review.js');
+const SOURCE = readPanel();
 const HELPERS = [...new Set([...SOURCE.matchAll(/__jobPilotto(\w+)/g)].map((match) => match[1]))].filter((name) => name !== 'ReviewAlive');
 const FORM = `<form><label for="a">First name *</label><input id="a" required value="Ada"><fieldset><legend>Pick *</legend><input type="checkbox" name="q[]"><input type="checkbox" name="q[]"></fieldset></form>`;
 

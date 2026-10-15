@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { FILL_FILES } from '../../extension/page-files.js';
+import { readPanel } from './helpers/panel.js';
 
 const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -96,7 +97,7 @@ test('the Submit guard can be loaded twice on a page (a second fill) without thr
 });
 
 test('the panel (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
-  const ring = read('extension/review.js');
+  const ring = readPanel();
   // Only its own ring and panel get click handlers; the form's fields are scrolled to, outlined and focused.
   assert.doesNotMatch(ring, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|dispatchEvent|\.submit\(|requestSubmit/);
   assert.match(ring, /attachShadow/);
@@ -113,11 +114,11 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js', 'panel-stop\.js', 'panel-report\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', \.\.\.PANEL_FILES, 'panel-stop\.js', 'panel-report\.js'\], injectImmediately: true\}\)/);
   assert.match(background, /jobpilotto-review-host/);
-  assert.match(read('extension/review.js'), /send\(\{type: 'panelAllowed'\}\)/);
+  assert.match(readPanel(), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.
-  assert.match(read('extension/review.js'), /__jobPilottoReviewAlive\?\.\(\)/);
+  assert.match(readPanel(), /__jobPilottoReviewAlive\?\.\(\)/);
   assert.match(read('extension/hook.js'), /__jobPilottoHookAlive\?\.\(\)/);
 });
 
@@ -137,14 +138,14 @@ test('a CV tailored after the first fill replaces the one the extension attached
   const fill = read('extension/page/upload.js');   // page/upload.js owns attaching a file
   assert.match(fill, /input\.dataset\.jobPilottoFile = file\.name/);
   assert.match(fill, /ours && input\.files\[0\]\.name === ours && ours !== file\.name/);
-  const review = read('extension/review.js');
+  const review = readPanel();
   assert.match(review, /panelTailor/);                                          // the panel offers a CV tailored to the job
   assert.match(review, /ready && !filling && !readyNow/);                       // and the Fill button stays to attach it
   assert.match(readBackground(), /type: 'tailor-cv'/);
 });
 
 test('the form panel marks the questions a hiring system can reject on, first', () => {
-  const review = read('extension/review.js');
+  const review = readPanel();
   assert.match(review, /const KNOCKOUT = /);
   assert.match(review, /const knockout = field => KNOCKOUT\.test\(field\.label\) \|\| field\.category === 'knockout'/);   // English words or the AI's reading
   assert.match(review, /sort\(\(a, b\) => knockout\(b\) - knockout\(a\)\)/);   // knockouts sorted to the top
@@ -156,13 +157,13 @@ test('the form panel marks the questions a hiring system can reject on, first', 
 
 test('the app and the form panel mark the same knockout questions', () => {
   const regex = text => text.match(/const KNOCKOUT = (\/.*\/i);/)[1];
-  assert.equal(regex(read('desktop/renderer/knockout.js')), regex(read('extension/review.js')));
+  assert.equal(regex(read('desktop/renderer/knockout.js')), regex(readPanel()));
 });
 
 test('the form panel\'s tip line draws from the same pool as the app (run extension/sync.sh after changing it)', () => {
   assert.equal(read('extension/tips-pool.js'), read('desktop/renderer/tips-pool.js'));
   assert.match(readBackground(), /message\?\.type === 'panelTip'/);
-  assert.match(read('extension/review.js'), /type: 'panelTip'/);
+  assert.match(readPanel(), /type: 'panelTip'/);
 });
 
 test('the form report sends the AI-read knockouts: its key is code, not the tail of a // comment', () => {
@@ -173,11 +174,11 @@ test('the form report sends the AI-read knockouts: its key is code, not the tail
 });
 
 test('the panel\'s Claude offer (panel-claude.js) shows only when Claude is ready and the extension stuck; the app sends both, and the panel hands the offer its facts', () => {
-  const panel = read('extension/review.js');
+  const panel = readPanel();
   assert.match(panel, /__jobPilottoClaude\?\.render\(\{on: [^}]*!!claudeAsk\.help, stuck: !!session\?\.stuck/);
   assert.match(panel, /claudeAsk = \{help: !!reply\?\.claudeHelp, always: !!reply\?\.claudeAlways, auto: !!reply\?\.claudeAuto, consent: !!reply\?\.claudeConsent\};/);
   assert.match(panel, /__jobPilottoClaude\?\.mount\(root, send\)/);
-  assert.match(read('extension/background.js'), /'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js'/);   // the offer's script is there before the panel mounts
+  assert.match(read('extension/background.js'), /'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', \.\.\.PANEL_FILES/);   // the offer's script is there before the panel mounts
   assert.match(read('desktop/lib/review.js'), /kind: session\.kind \|\| 'claude', stuck: session\.stuck \|\| ''\}/);
   assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: claudeOffered\(storage\), claudeAlways: !!storage\.settings\(\)\.claudeAuto/);
 });
