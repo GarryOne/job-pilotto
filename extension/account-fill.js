@@ -98,6 +98,8 @@ export function accountSketch() {
   // Did the control keep what the fill gave it? Measured here, from the fill's own marks (what it typed, as letters and digits: page/browser-form-fastpath.js; that it set it: page/fill.js);
   // the value never leaves the page. yes | no | '' (the fill did not touch it). Read by the fill ladder's fill_verify (desktop/lib/ladder/fill-verify.js); the other judges ignore it.
   const matchOf = el => {
+    // A radio question is one answer: an option the fill did not pick is not a miss while another option of its group is chosen (the repair rung would click it and flip a right answer).
+    if (el.type === 'radio' && !el.checked && el.name && Array.from((el.form || document).querySelectorAll('input[type=radio]')).some(other => other.name === el.name && other.checked)) return '';
     const state = read(el);
     if (el.hasAttribute('data-jobpilotto-typed') && state !== 'unknown') return state === 'committed' ? 'yes' : 'no';
     if (el.hasAttribute('data-jobpilotto-nottaken')) return 'no';   // the fill gave it an answer and the page did not take it (page/fill-verify.js)
