@@ -3,7 +3,7 @@
  "shape": "a place box whose suggestions never include the applicant's own place: only a place nearby (the visitor's network, not the applicant)",
  "why": "15 Oct 2026 (7c's arbeitnow finding): a location box's own suggestion put a place that is not the applicant's into a test run; the extension must never pick a page-suggested place that is not the applicant's own, and a cleared box must never read as filled",
  "control": {
-  "guard": "pins what must never regress (a guard, it passes on the older build too): a place box whose suggestions never include the applicant's own place is left empty, never filled with the nearby place the page offers first; the two suggest-only-place cases beside it fail on the older build"
+  "guard": "new case; fails on the build before this change (it never offers the page's list to the AI, so nothing says that no suggestion matched the applicant); on this build the box stays empty and the log says so"
  },
  "sample": "hand-cut page of the shape (invented place names; the page's own script stands in for its server)",
  "start": "panel",
@@ -44,7 +44,10 @@
   "notTold": [
    "pressed the submit"
   ],
-  "seconds": 60
+  "seconds": 60,
+  "told": [
+   "a menu showed no choice that matched"
+  ]
  },
  "pages": [
   {
