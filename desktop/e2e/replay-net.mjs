@@ -21,6 +21,7 @@ import {shiftDate, zoneOf} from './lib/replay-date.mjs';
 import {keepFilled} from './lib/fill-memo.mjs';
 import {usage, apiErrors} from './lib/ai-meter.mjs';
 import {outOfCredits, creditsLine} from './lib/refill.mjs';
+import {slotsLeftOf} from './lib/upload-slots.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FILL = process.argv.includes('--fill-memo'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock] [--fill-memo]'); process.exit(2); }
@@ -69,7 +70,7 @@ const log = result.appLog || '', misses = log.split('\n').filter(line => /not in
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/record-sites.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
-const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left, fields: (r.fieldList || []).slice(0, 40).map(item => ({label: item.label, outcome: item.outcome}))}; };   // fields: the gate's field-by-field diff (lib/replay-field-diff.mjs): labels and outcomes, never a value
+const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left, slotsLeft: slotsLeftOf(r.fieldList), fields: (r.fieldList || []).slice(0, 40).map(item => ({label: item.label, outcome: item.outcome}))}; };   // fields: the gate's field-by-field diff (lib/replay-field-diff.mjs): labels and outcomes, never a value
 const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'misslog.jsonl'), 'utf8').split('\n')[0]); } catch { return null; } })();
 const filled = FILL && !result.tripped ? keepFilled(recordDir, out) : [];   // a tripped run keeps nothing
 const looseLines = (() => { try { return fs.readFileSync(path.join(out, 'loose.jsonl'), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { return []; } })();   // each loose hit with the parts that differ (lib/ai/model-memo.js)
