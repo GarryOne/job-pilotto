@@ -1,0 +1,57 @@
+{
+ "origin": "hand-cut",
+ "shape": "a required free-text preference question (preferred messenger and its handle) the profile does not state, beside a text field the AI answers",
+ "why": "Greenhouse board form, pool run of 15 Oct 2026 (replay of its network record: 8 filled, 5 left): the AI answered \"preferred messenger\" with value \"\" and category preference (applicant must choose); the empty preference answer was dropped, so the field read \"no answer in the kit\" and counted as the row's one unexplained field. It now comes back as a kind only (value \"\", category preference, use kind) and the extension holds it as the person's own choice. Hand-made page; the stubbed answer is the kept real answer of that run's record.",
+ "control": {
+  "build": "0.9.502",
+  "failed": "told: the messenger question traced as \"no answer in the kit, Profile or your details\" instead of demographic: your own choice"
+ },
+ "sample": "hand-made from the Greenhouse board form's question wording (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://job-boards.example.com/company/jobs/1",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "input_place",
+     "value": "Zurich, Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    },
+    {
+     "field": "question_messenger",
+     "value": "",
+     "category": "preference",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "told": [
+   "\"outcome\":\"left\",\"reason\":\"demographic: your own choice\",\"required\":true"
+  ],
+  "notTold": [
+   "pressed the submit",
+   "no answer in the kit"
+  ],
+  "seconds": 60
+ }
+}
