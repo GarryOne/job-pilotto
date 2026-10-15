@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<div id="contact">
+<p><label for="__input1-inner">Team name *</label> <input id="__input1-inner" name="__input1-inner" type="text" aria-required="true"></p>
+<p><label for="__input2-inner">Project code *</label> <input id="__input2-inner" name="__input2-inner" type="text" aria-required="true"></p>
+<p><label for="__input3-inner">Favourite tool *</label> <input id="__input3-inner" name="__input3-inner" type="text" aria-required="true"></p>
+</div>
+<p><label for="country">Country *</label> <select id="country" aria-required="true"><option value="">-- choose --</option><option value="CH">Switzerland</option><option value="DE">Germany</option></select></p>
+<p><button type="button">Apply</button></p>
+</form>
+<script>
+// A toolkit that draws a section again when a menu changes (SAP UI5 re-creates the controls, each with a NEW generated id, and the section starts empty again):
+// picking the country re-renders the contact boxes above it, so what was typed in them is gone and the old boxes are no longer on the page.
+var next = 10;
+document.getElementById('country').addEventListener('change', function () {
+  var box = document.getElementById('contact');
+  var labels = ['Team name', 'Project code', 'Favourite tool'];
+  box.innerHTML = labels.map(function (text) { next += 1; return '<p><label for="__input' + next + '-inner">' + text + ' *</label> <input id="__input' + next + '-inner" name="__input' + next + '-inner" type="text" aria-required="true"></p>'; }).join('');
+});
+</script></body></html>

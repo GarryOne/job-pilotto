@@ -1,0 +1,76 @@
+{
+ "origin": "hand-cut",
+ "shape": "boxes typed first, then a menu below them is set and the page draws their section again: new elements with new generated ids, empty",
+ "why": "The owner's real SuccessFactors fill of 15 Oct 2026 (SAP UI5): Second Phone, Address, Postal Code and City were typed, then Country was picked, the section was re-created with new auto ids and the boxes were empty again at the end of the fill. The retype followed a box by its old id or name only, so it never found the new ones. Hand-cut page: the toolkit's re-render, not its markup.",
+ "control": {
+  "build": "0.9.533",
+  "failed": "traced: the three boxes were left, 'empty again at the end of the fill'"
+ },
+ "sample": "hand-cut: a section that is drawn again with new ids when a menu changes (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/portalcareer",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "__input1-inner",
+     "value": "Platform",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    },
+    {
+     "field": "__input2-inner",
+     "value": "P4711",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    },
+    {
+     "field": "__input3-inner",
+     "value": "Terraform",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    },
+    {
+     "field": "country",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "traced": [
+   "Team name:filled",
+   "Project code:filled",
+   "Favourite tool:filled"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}
