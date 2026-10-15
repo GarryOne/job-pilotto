@@ -5,7 +5,7 @@
 // Guard: e2e/test/replay-gate.test.mjs. Run: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>]
 import fs from 'node:fs';
 import path from 'node:path';
-import {rank} from './lib/smoke.mjs';
+import {rank} from './lib/record-sites.mjs';
 import {isSame} from './replay-records.mjs';
 import {acceptFor, acceptNamed, DASH, HINT} from './replay-accepts.mjs';
 import {fieldDiff, evidence} from './lib/replay-field-diff.mjs';

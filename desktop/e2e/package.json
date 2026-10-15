@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test --test-reporter=spec test/*.test.mjs",
     "real-extension": "JP_LIVE=1 bash ../../tools/heavy-lock.sh real-extension node --test test/real-extension.test.mjs",
-    "record-sites": "node smoke.mjs",
+    "record-sites": "node record-sites.mjs",
     "smoke": "node -e \"console.error('renamed: npm run record-sites'); process.exit(1)\"",
     "eligibility-cases": "node eligibility-cases.mjs",
     "cv-facts-cases": "node cv-facts-cases.mjs",

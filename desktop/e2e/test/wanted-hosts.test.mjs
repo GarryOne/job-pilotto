@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {candidates} from '../lib/smoke.mjs';
+import {candidates} from '../lib/record-sites.mjs';
 import {fetchWanted, wantedFirst} from '../lib/wanted-hosts.mjs';
 
 const answer = sites => ({ok: true, json: async () => ({next: {sites}})});
@@ -39,7 +39,7 @@ test('postings on a wanted host come first (a few each), the rest keep their ord
 test('a posting already in the pool is not a candidate, and discovery writes the repo\'s pool list (CI runs every row), never a Mac\'s extra list', () => {
   const jobs = [{url: 'https://careers.acme.md/job/1', company: 'x'}];
   assert.deepEqual(wantedFirst(jobs, [{host: 'careers.acme.md'}], new Set(['https://careers.acme.md/job/1'])).chosen, []);
-  const source = fs.readFileSync(new URL('../smoke.mjs', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../record-sites.mjs', import.meta.url), 'utf8');
   assert.match(source, /writeFileSync\(POOL_SITES\b/, 'a discovered shape goes into desktop/e2e/smoke-sites.json');
   assert.ok(!/writeFileSync\(LOCAL_SITES\b/.test(source), 'a Mac\'s extra list is read, never written');
 });

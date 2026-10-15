@@ -21,6 +21,6 @@ export async function takeEndShot(context, captureDir) {
   return Array.isArray(layer) && layer.length ? {...shot, layer} : shot;
 }
 
-// What the run prints about it (lib/smoke.mjs parseLive turns the second form into an error).
+// What the run prints about it (lib/record-sites.mjs parseLive turns the second form into an error).
 export const endShotLine = shot => (shot.file ? `live: end screenshot kept${shot.why ? ` (${shot.why})` : ''}` : `live: no end screenshot: ${shot.why}`)
-  + (shot.layer?.length ? `\n  live: cookie layer still open at the end: ${shot.layer.slice(0, 4).join(' | ').slice(0, 100)}` : '');   // lib/smoke.mjs parseLive turns it into an error
+  + (shot.layer?.length ? `\n  live: cookie layer still open at the end: ${shot.layer.slice(0, 4).join(' | ').slice(0, 100)}` : '');   // lib/record-sites.mjs parseLive turns it into an error

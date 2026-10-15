@@ -1,7 +1,8 @@
 // Layer 3 of applying reliability (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): the hand-started live smoke's logic, no browser here.
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
-// rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
+// rotates through the owner's postings of each site shape. Runner: e2e/record-sites.mjs. Guard: e2e/test/record-sites.test.mjs.
 import {causeOf} from '../../../extension/fill-card.js';
+import {recordVar} from '../../../tools/record-env.mjs';
 import {PAGE_LINE} from './live-still.mjs';
 import {parseReadings} from './live-readings.mjs';
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
@@ -125,7 +126,7 @@ export function compare(previous = {}, current = {}) {
   const out = [];
   for (const [shape, now] of Object.entries(current)) {
     const before = previous[shape];
-    if (!before || now.note || before.note || now.pathDifference) continue;   // a posting gone, or no posting: not a regression of ours; nor a fall Electron did not show (lib/smoke-paths.mjs)
+    if (!before || now.note || before.note || now.pathDifference) continue;   // a posting gone, or no posting: not a regression of ours; nor a fall Electron did not show (lib/record-sites-paths.mjs)
     if (rank(now.reached) < rank(before.reached)) out.push({shape, why: `reached ${now.reached}, last time ${before.reached}`, url: now.url});
     else if (now.url === before.url && before.filled != null && now.filled != null && now.filled < before.filled) out.push({shape, why: `filled ${now.filled}, last time ${before.filled}`, url: now.url});
   }
@@ -153,10 +154,10 @@ export function selectRows(shapes, only = '') {
   return exact.length ? exact : shapes.filter(item => matchesOnly(item.shape, only));
 }
 
-// A run's share of the ordered pool (lib/smoke-order.mjs orderPool: the least tested first): the first `size` rows; a share bigger than the pool is the pool.
+// A run's share of the ordered pool (lib/record-sites-order.mjs orderPool: the least tested first): the first `size` rows; a share bigger than the pool is the pool.
 export const runShare = (ordered, size = 10) => ordered.slice(0, size);
-// How many shapes a run takes: SMOKE_SHARE (SMOKE_PER_NIGHT, its old name, still read), default 10.
-export const shareSize = (env = process.env) => Number(env.SMOKE_SHARE || env.SMOKE_PER_NIGHT || 10);
+// How many shapes a run takes: RECORD_SHARE (SMOKE_PER_NIGHT, its old name, still read), default 10.
+export const shareSize = (env = process.env) => Number(recordVar('SHARE', env, {old: 'PER_NIGHT'}) || 10);
 
 // Each shape's most recent result across all earlier reports (a shape runs every few pool runs, so its "last time" may be days ago).
 export function lastSeen(reports) {
@@ -257,8 +258,8 @@ export function verdictFields(result) {
   return {asked, unexplained: short ? short.miss + short.noSuggestion : 0};
 }
 
-// Which path a smoke row runs on (owner, 11 Oct 2026: "make SMOKE_NO_ELECTRON the default"): the app's own server under plain node (live.mjs, speed-5x landing 3:
-// ~35-65 s a row instead of 69-97 s, no 27 s app start, the same reached and filled on the paired rows) unless SMOKE_ELECTRON=1 or SMOKE_NO_ELECTRON=0 asks for the
+// Which path a smoke row runs on (owner, 11 Oct 2026: "make RECORD_NO_ELECTRON the default"): the app's own server under plain node (live.mjs, speed-5x landing 3:
+// ~35-65 s a row instead of 69-97 s, no 27 s app start, the same reached and filled on the paired rows) unless RECORD_ELECTRON=1 or RECORD_NO_ELECTRON=0 asks for the
 // Electron app (a row that needs the real app). The privacy tripwire runs on both. -> 'node' | 'electron'
-export const smokeEngine = (env = process.env) => (env.SMOKE_ELECTRON === '1' || env.SMOKE_NO_ELECTRON === '0' ? 'electron' : 'node');
-export const engineLine = engine => (engine === 'node' ? 'smoke: rows run on the app\'s own path without Electron (SMOKE_ELECTRON=1 runs the Electron app)' : 'smoke: rows run in the Electron app (SMOKE_ELECTRON=1)');
+export const smokeEngine = (env = process.env) => (recordVar('ELECTRON', env) === '1' || recordVar('NO_ELECTRON', env) === '0' ? 'electron' : 'node');
+export const engineLine = engine => (engine === 'node' ? 'record-sites: rows run on the app\'s own path without Electron (RECORD_ELECTRON=1 runs the Electron app)' : 'record-sites: rows run in the Electron app (RECORD_ELECTRON=1)');

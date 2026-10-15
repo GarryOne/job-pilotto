@@ -2,7 +2,7 @@
 // block page), a bot wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, and a red job only for a harness error or the tripwire.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {SITE_REFUSED} from '../lib/smoke.mjs';
+import {SITE_REFUSED} from '../lib/record-sites.mjs';
 import {capRows, ciLimits, electronLegs, overBudget, stopReason, summary} from '../lib/pool-ci.mjs';
 
 test('the row cap runs the first rows and names the rest; no cap (a Mac run) leaves the list as it is', () => {
@@ -18,12 +18,12 @@ test('the dollar cap stops the run between rows once the spend reaches it; no ca
 });
 
 test('on CI both caps must come from the workflow: a run without them is refused before any site is visited', () => {
-  assert.deepEqual(ciLimits({CI: 'true', SMOKE_MAX_ROWS: '3', SMOKE_MAX_USD: '0.50'}), {maxRows: 3, maxUsd: 0.5});
-  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_USD: '0.50'}), /SMOKE_MAX_ROWS/);
-  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_ROWS: '3'}), /SMOKE_MAX_USD/);
-  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_ROWS: '0', SMOKE_MAX_USD: '0.50'}), /SMOKE_MAX_ROWS/);
+  assert.deepEqual(ciLimits({CI: 'true', RECORD_MAX_ROWS: '3', RECORD_MAX_USD: '0.50'}), {maxRows: 3, maxUsd: 0.5});
+  assert.throws(() => ciLimits({CI: 'true', RECORD_MAX_USD: '0.50'}), /RECORD_MAX_ROWS/);
+  assert.throws(() => ciLimits({CI: 'true', RECORD_MAX_ROWS: '3'}), /RECORD_MAX_USD/);
+  assert.throws(() => ciLimits({CI: 'true', RECORD_MAX_ROWS: '0', RECORD_MAX_USD: '0.50'}), /RECORD_MAX_ROWS/);
   assert.deepEqual(ciLimits({}), {maxRows: 0, maxUsd: 0}, 'a Mac run has no caps unless it sets them');
-  assert.deepEqual(ciLimits({SMOKE_MAX_ROWS: '2'}), {maxRows: 2, maxUsd: 0});
+  assert.deepEqual(ciLimits({RECORD_MAX_ROWS: '2'}), {maxRows: 2, maxUsd: 0});
 });
 
 test('no Electron leg on CI: a refused or fallen row is never visited a second time from the runner', () => {

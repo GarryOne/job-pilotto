@@ -1,12 +1,12 @@
-// lib/smoke-record.mjs: a smoke site's result is saved to the day's report the moment the site ends, so stopping a run loses only the site in progress.
+// lib/record-sites-record.mjs: a smoke site's result is saved to the day's report the moment the site ends, so stopping a run loses only the site in progress.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {earlierReports, recordSite} from '../lib/smoke-record.mjs';
+import {earlierReports, recordSite} from '../lib/record-sites-record.mjs';
 
-const temp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-record-'));
+const temp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'record-sites-record-'));
 const read = (dir, day) => JSON.parse(fs.readFileSync(path.join(dir, `${day}.json`), 'utf8'));
 
 test('each site is in the day report as soon as it is recorded; a run stopped after two sites keeps both', () => {

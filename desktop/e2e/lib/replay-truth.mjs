@@ -14,7 +14,7 @@ import {FALSE_READINGS} from './recorded-false-readings.mjs';
 // extension's own content scripts are not (and a plain page has none: e2e/test/replay-truth-page.test.mjs).
 const OPTION_GROUPS = fs.readFileSync(new URL('../../../extension/page/option-groups.js', import.meta.url), 'utf8');
 
-// The file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf')), named here, not imported: that file loads playwright, and lib/smoke.mjs (desktop's unit
+// The file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf')), named here, not imported: that file loads playwright, and lib/record-sites.mjs (desktop's unit
 // tests import it) reaches this file through lib/live-readings.mjs (test/unit-tests-no-playwright.test.js).
 const CV_NAME = 'cv.pdf';
 
@@ -189,7 +189,7 @@ export async function readTab(page, keys, cvName = CV_NAME) {
 
 const parsed = request => { try { return JSON.parse(request.body); } catch { return null; } };
 // The case's last fill record and the panel's last report from the requests the case's tab sent the stand-in app. The record is the fill's /extension/run, as the extension LATER corrected it:
-// the rows of its last "fields (updated after a late retype)" log line (extension/ladder/record-update.js; the same rows the pool's ending takes, lib/smoke.mjs) replace its trace.
+// the rows of its last "fields (updated after a late retype)" log line (extension/ladder/record-update.js; the same rows the pool's ending takes, lib/record-sites.mjs) replace its trace.
 export function recordsOf(requests) {
   const runs = requests.filter(request => request.route === '/extension/run'), reviews = requests.filter(request => request.route === '/extension/review');
   const run = runs.length ? parsed(runs.at(-1)) : null;

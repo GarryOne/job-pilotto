@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {outputOfLog, parseLive} from './smoke.mjs';
+import {outputOfLog, parseLive} from './record-sites.mjs';
 
 const KEPT_LOG = 'app.log';   // the live run's log KEPT in the record folder (not the app's own logs/app.log, which app-log.mjs reads)
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };

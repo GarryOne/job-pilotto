@@ -1,11 +1,11 @@
-// Tests of the pool's one order (lib/smoke-order.mjs) and that every smoke.mjs mode goes through it.
+// Tests of the pool's one order (lib/record-sites-order.mjs) and that every record-sites.mjs mode goes through it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {orderPool, testedCounts} from '../lib/smoke-order.mjs';
-import {runShare} from '../lib/smoke.mjs';
+import {orderPool, testedCounts} from '../lib/record-sites-order.mjs';
+import {runShare} from '../lib/record-sites.mjs';
 
 const pool = ['a', 'b', 'c', 'd', 'e'].map(shape => ({shape})), names = list => list.map(item => item.shape);
 const report = (day, ...shapes) => ({day, results: Object.fromEntries(shapes.map(shape => [shape, {reached: 'form'}]))});
@@ -38,9 +38,9 @@ test('a row resting today is skipped and listed, not counted as tested', () => {
   assert.match(out.lines[0], /b: 0 run\(s\).*never run/);
 });
 
-test('a share takes the front of the same order; every mode in smoke.mjs orders through orderPool, --only is the fixer\'s own', () => {
+test('a share takes the front of the same order; every mode in record-sites.mjs orders through orderPool, --only is the fixer\'s own', () => {
   assert.deepEqual(names(runShare(orderPool(pool, [report('2026-10-11', 'a', 'b')], '2026-10-12').order, 2)), ['c', 'd']);
-  const source = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'smoke.mjs'), 'utf8');
+  const source = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'record-sites.mjs'), 'utf8');
   assert.match(source, /const ranked = only \? \{order: pool[^}]*\} : orderPool\(/, '--only keeps the pool as asked, everything else is ordered');
   assert.match(source, /const chosen = only \|\| process\.argv\.includes\('--all'\) \? ranked\.order : runShare\(ranked\.order/, 'share and --all take the one order');
   assert.doesNotMatch(source, /runShare\(pool/, 'no mode orders rows another way');

@@ -232,7 +232,7 @@ test('the pool search is an input of the filter bar, resets the page, is combine
 });
 
 // A documented hold (owner, 11 Oct 2026): an account-first site (the smoke never creates the account) and an eligibility stop are deliberate stops, not a fix
-// and not a posting gone. The runner notes them (desktop/e2e/lib/smoke.mjs parseLive); only "posting gone" and "no posting" notes are gone.
+// and not a posting gone. The runner notes them (desktop/e2e/lib/record-sites.mjs parseLive); only "posting gone" and "no posting" notes are gone.
 test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and stays a live site', async () => {
   const db = d1();
   await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Hornbach', host: 'h.com', reached: 'account', note: 'account-first: held'},
@@ -248,7 +248,7 @@ test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and s
   assert.ok(PAGE.includes("s.status.state === 'held' ? 'stack hold'"), 'the pool row draws a hold as a hold, not as a gone posting');
 });
 
-// The digest's own stops (desktop/e2e/lib/smoke.mjs SITE_REFUSED, LOGIN_WALL) are documented holds like the account-first one, but only account-first is a clean run.
+// The digest's own stops (desktop/e2e/lib/record-sites.mjs SITE_REFUSED, LOGIN_WALL) are documented holds like the account-first one, but only account-first is a clean run.
 test('a refusing site and a login wall are holds, not fixes, and not clean runs', async () => {
   const {isHold} = await import('../src/applying.js'), {isCleanHold, rowStatus} = await import('../src/applying-status.js');
   for (const note of ['site refused: retry later', 'login wall: held', 'applies by email: told', 'page tells how to apply: told', 'account-first: held']) assert.equal(isHold(note), true, note);

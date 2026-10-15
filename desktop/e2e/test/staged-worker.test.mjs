@@ -30,5 +30,5 @@ test('a stale copy is re-staged once, with one line saying so; a fresh one runs 
 });
 
 test('the live row and the smoke start both check the staged worker first', () => {
-  for (const file of ['../lib/live-row.mjs', '../smoke.mjs']) assert.match(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), /ensureStagedWorker\(/, file);
+  for (const file of ['../lib/live-row.mjs', '../record-sites.mjs']) assert.match(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), /ensureStagedWorker\(/, file);
 });

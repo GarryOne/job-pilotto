@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {poolCard, sendPoolCard, endHost} from '../lib/pool-card.mjs';
-import {fieldLines, parseLive} from '../lib/smoke.mjs';
+import {fieldLines, parseLive} from '../lib/record-sites.mjs';
 
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
 const result = {reached: 'form', signature: 'other>form@acme.wd3.myworkdayjobs.com#form', fieldList: [

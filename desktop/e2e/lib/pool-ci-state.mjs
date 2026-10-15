@@ -2,9 +2,9 @@
 // GitHub's cache is per branch (a PR's saves are invisible to main and to other PRs), so the next run reads the states of every branch instead:
 //   mergeLedgers  today's CI-wide ledger (lib/site-ledger.mjs format): every run's visits of today, each counted once; a block page rests the host for all
 //   baselines     each row's newest usable CI result on main or on this PR, of the same test applicant (never another PR's build, never this run)
-//   fallsBelow    this run's row against its baseline, by lib/smoke.mjs compare; a bot wall or refusal on the CI IP, a gone posting or a run without AI never counts
+//   fallsBelow    this run's row against its baseline, by lib/record-sites.mjs compare; a bot wall or refusal on the CI IP, a gone posting or a run without AI never counts
 // CLI: pool-ci-state.mjs. Guard: e2e/test/pool-ci-state.test.mjs.
-import {SITE_REFUSED, compare} from './smoke.mjs';
+import {SITE_REFUSED, compare} from './record-sites.mjs';
 
 export function mergeLedgers(states, day) {
   const out = {};

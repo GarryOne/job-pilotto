@@ -107,7 +107,7 @@ export function mergeMoves(lists) {
   return [...sum.values()].sort((a, b) => (a.shape < b.shape ? -1 : a.shape > b.shape ? 1 : a.rung - b.rung));
 }
 
-// A CI pool run (desktop/e2e/smoke.mjs's day report + each row's saved app log `<day>-<row>.app.log`): the moves per row that ran in THIS run, and how many rows that reached
+// A CI pool run (desktop/e2e/record-sites.mjs's day report + each row's saved app log `<day>-<row>.app.log`): the moves per row that ran in THIS run, and how many rows that reached
 // a form have a confirmed move (the phase-1 proof). readLog(name) -> the text, '' when missing. -> {rows: [{row, reached, moves}], formRows: {reached, withMove}, moves, lines}.
 const FORM = new Set(['form', 'ready']);
 const said = moves => moves.map(move => `rung ${move.rung} ${move.kind}→${move.outcome} ×${move.hits}${move.misses ? ` (${move.misses} missed)` : ''}`).join(', ') || '-';

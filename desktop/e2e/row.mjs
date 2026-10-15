@@ -1,8 +1,9 @@
 // npm run row -- "<pool row name or case folder>" [--old <extension dir>]: one pool row replayed offline on the app's own path (lib/row-replay.mjs): seconds, the
 // page-kind asks (and how many the row's kept answers did not cover), the live presses it followed (or where it pressed otherwise), any address the run never
 // recorded, and the evidence lines a live run prints. npm run rows [--old <dir>]: every row of the newest day, one after another in one browser, one line each.
-// Rows come from the pool's candidates (SMOKE_CANDIDATES, default <QA folder>/replay-candidates). Runs under the heavy lock (package.json). Nothing reaches a site.
+// Rows come from the pool's candidates (RECORD_CANDIDATES, default <QA folder>/replay-candidates). Runs under the heavy lock (package.json). Nothing reaches a site.
 import fs from 'node:fs';
+import {recordVar} from '../../tools/record-env.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import {askDiff} from './lib/ask-diff.mjs';
@@ -12,7 +13,7 @@ import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs
 
 const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all'), loose = args.includes('--loose');   // --loose: as CI replays a row case (a changed system prompt is a counted warning)
 const extensionDir = at >= 0 ? path.resolve(args[at + 1]) : undefined, name = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && arg !== '--all' && arg !== '--loose').join(' ');
-const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
+const root = recordVar('CANDIDATES') || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
 const line = r => (r.error ? `row: ${r.row}: ERROR ${r.error}` : `row: ${r.row}: ${r.seconds} s${r.endedBy ? ` (ended: ${r.endedBy})` : ''}, ${r.asks} asks (${r.misses} not in its kept answers${r.missParts?.length ? `; the nearest kept ask differs in ${r.missParts.join(', ')}` : ''}${r.missVolatile?.length ? `; a clock time or date in ${r.missVolatile.join(', ')} can never match` : ''}), followed ${r.followed}/${r.livePresses} live presses${r.divergence ? `, DIVERGED: ${r.divergence}` : ''}${r.unrecorded.length ? `, ${r.unrecorded.length} addresses not recorded` : ''}`);
 
 if (all) {

@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {appLogLines} from './app-log.mjs';
 import {fillState} from './extension.mjs';
-import {fieldLines} from './smoke.mjs';
+import {fieldLines} from './record-sites.mjs';
 import {appProfileTexts, cssRecorder, personalValues, scrubPage, snapshotInPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
 import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
@@ -142,7 +142,7 @@ export async function runLive(ctx, h) {
         // The app's own lines, as they arrive (what the extension decided and why).
         const all = appLogLines(ctx.profile);
         for (const line of all.slice(seen.lines).filter(item => /\[(extension|review|page-kind|privacy)\]/.test(item))) { const shown = line.slice(11, 230), same = shown.replace(/^\S+ /, ''); if (same !== lastLine) console.log(`      log ${shown}`); lastLine = same; }   // a repeated line is said once
-        // The fill's field list, whole, one line a field (lib/smoke.mjs fieldLines); parseLive reads them.
+        // The fill's field list, whole, one line a field (lib/record-sites.mjs fieldLines); parseLive reads them.
         for (const line of all.slice(seen.lines)) for (const text of fieldLines(line)) console.log(text);
         seen.lines = all.length;
         // The page's shape (address, title, how many controls and buttons it shows) and the app's log feed the still-clock: a slow page changes one of them (lib/live-still.mjs).

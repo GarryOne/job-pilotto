@@ -1,11 +1,12 @@
-// The pool runs on the plain-node path (lib/smoke.mjs smokeEngine), real users on Electron: two guards that a path difference is never read as the product's
+// The pool runs on the plain-node path (lib/record-sites.mjs smokeEngine), real users on Electron: two guards that a path difference is never read as the product's
 // (owner via the coordinator, 11 Oct 2026, after a kit seeded on one path only split the Teamtailor verdict):
 //  - a row that reaches less than its last result on plain node is re-run once on Electron at once (same posting): a regression only when Electron shows it
 //    too, else a "path difference" said at the top of the report;
 //  - a paired sample each pass: a few rows run on both paths, the least recently paired first; the report's first line says whether they agree within +-1.
-// "Less than its last result" is lib/smoke.mjs compare() itself, so the re-run covers every kind of regression the pool counts. Used by smoke.mjs.
-// Guard: e2e/test/smoke-paths.test.mjs.
-import {SITE_REFUSED, compare, rank} from './smoke.mjs';
+// "Less than its last result" is lib/record-sites.mjs compare() itself, so the re-run covers every kind of regression the pool counts. Used by record-sites.mjs.
+// Guard: e2e/test/record-sites-paths.test.mjs.
+import {SITE_REFUSED, compare, rank} from './record-sites.mjs';
+import {recordVar} from '../../../tools/record-env.mjs';
 
 // An Electron leg is a second live visit of the same site: asked of the site ledger before it starts (jobs.ch, 12 Oct 2026: the plain leg took the day's last
 // visit, the Electron leg ran ~190 s of app start, was refused inside the suite and read as "Electron reached nothing", a false path difference).
@@ -85,12 +86,12 @@ export function settleRefusal(node, electron) {
 }
 
 // A by-hand single-row recording (--only) visits its site ONCE (owner, 15 Oct 2026: an approved single visit became two when the paired Electron sample ran, and the host hit its
-// daily limit). A second visit (the paired sample, or the Electron re-run of a fallen or refused row) is for a pass over many rows, or asked for: SMOKE_PAIRED=<n> or SMOKE_ELECTRON_LEG=1.
-export const pairedSize = (env = process.env, only = '') => (env.SMOKE_PAIRED !== undefined && env.SMOKE_PAIRED !== '' ? Math.max(0, Number(env.SMOKE_PAIRED) || 0) : only ? 0 : 2);
-export const secondVisitsAllowed = (env = process.env, only = '') => !only || env.SMOKE_ELECTRON_LEG === '1' || pairedSize(env, only) > 0;
+// daily limit). A second visit (the paired sample, or the Electron re-run of a fallen or refused row) is for a pass over many rows, or asked for: RECORD_PAIRED=<n> or RECORD_ELECTRON_LEG=1.
+export const pairedSize = (env = process.env, only = '') => (recordVar('PAIRED', env) !== undefined && recordVar('PAIRED', env) !== '' ? Math.max(0, Number(recordVar('PAIRED', env)) || 0) : only ? 0 : 2);
+export const secondVisitsAllowed = (env = process.env, only = '') => !only || recordVar('ELECTRON_LEG', env) === '1' || pairedSize(env, only) > 0;
 // The line said before the run starts: how many hosts and visits it will make (a re-run of a fallen row is one more, only where second visits are allowed).
 export function visitPlan(chosen, pairs = new Set(), allowed = true) {
   const host = item => { try { return new URL(item.urls?.[0] || '').hostname; } catch { return ''; } };
   const hosts = new Set(chosen.map(host).filter(Boolean)), visits = chosen.length + chosen.filter(item => pairs.has(item.shape)).length;
-  return {hosts: hosts.size, visits, line: `smoke: this run will visit ${hosts.size} host(s) ${visits} time(s)${allowed ? ' (a row that falls below its last result is visited once more on Electron)' : ' (no second visit: a single-row run)'}`};
+  return {hosts: hosts.size, visits, line: `record-sites: this run will visit ${hosts.size} host(s) ${visits} time(s)${allowed ? ' (a row that falls below its last result is visited once more on Electron)' : ' (no second visit: a single-row run)'}`};
 }

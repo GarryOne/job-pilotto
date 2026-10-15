@@ -12,7 +12,7 @@ export async function settleDialogs(tabId, {close, look, settleMs = 600}) {
   const left = await look(tabId).catch(() => null);
   return {closed: closed || '', left: left?.buttons?.length ? {text: String(left.text || '').slice(0, 200), buttons: left.buttons.slice(0, 6)} : null};
 }
-// The fill's own end: close what opened, say what is still there (a log line the smoke reads: desktop/e2e/lib/smoke.mjs parseLive).
+// The fill's own end: close what opened, say what is still there (a log line the smoke reads: desktop/e2e/lib/record-sites.mjs parseLive).
 export async function closeFillDialogs(tab, {close, look, decide}) {
   const dialogs = await settleDialogs(tab.id, {close, look});
   if (dialogs.closed) decide('fill', 'closed a dialog opened by the fill', {label: dialogs.closed.slice(0, 40)});
@@ -43,7 +43,7 @@ export async function clearBeforeFill(tabId, {close, look, tries = 3, settleMs =
   return {held: !!layer && coversForm(layer), closed, layer: layer || null};
 }
 
-// A held fill, said everywhere: the log line the pool reads (smoke.mjs parseLive), and the person told on the page.
+// A held fill, said everywhere: the log line the pool reads (record-sites.mjs parseLive), and the person told on the page.
 export async function holdFill(tab, page, result, {decide, progress, note}) {
   const why = String(result.layer?.text || '').slice(0, 120);
   decide('fill', `held: ${result.note}`, {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), text: why, buttons: result.layer?.buttons?.length || 0});

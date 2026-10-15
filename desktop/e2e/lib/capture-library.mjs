@@ -1,9 +1,10 @@
 // The captures library (capture once, measure many: spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md): EVERY live pool visit, passing or
 // failing, keeps its whole journey (lib/replay-candidate.mjs saveCandidate: pages, styles, model answers, presses, AI calls) plus its app log, the build that
 // made it and the live result, under <root>/<day>/<row>/, so `npm run measure` can re-run any build on it offline, with no site visit. Mac: <QA folder>/captures
-// (outside the repo); CI: SMOKE_CAPTURES, uploaded as the 30-day artifact pool-captures-<run> (owner, 13 Oct 2026). Days older than 30 are pruned (owner).
-// Used by smoke.mjs and live.mjs. Guard: e2e/test/capture-library.test.mjs.
+// (outside the repo); CI: RECORD_CAPTURES, uploaded as the 30-day artifact pool-captures-<run> (owner, 13 Oct 2026). Days older than 30 are pruned (owner).
+// Used by record-sites.mjs and live.mjs. Guard: e2e/test/capture-library.test.mjs.
 import {execFileSync} from 'node:child_process';
+import {recordVar} from '../../../tools/record-env.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +13,7 @@ import {extensionVersion} from './applying-report.mjs';
 import {saveCandidate, slug} from './replay-candidate.mjs';
 
 export const KEEP_DAYS = 30;
-export const capturesRoot = () => process.env.SMOKE_CAPTURES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'captures');
+export const capturesRoot = () => recordVar('CAPTURES') || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'captures');
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 // The build a capture was made with: the commit (CI's GITHUB_SHA first) and the extension's stamped version.

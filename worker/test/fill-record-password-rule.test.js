@@ -1,5 +1,5 @@
 // A password field is never typed (a safety rule): the fill's record says so, never "no answer in the kit" (a made-up account step; 14 Oct 2026, a pool row whose two
-// password boxes read as unexplained and kept a form red although every empty field was left by a rule). The runner's verdict reads the type (desktop/e2e/lib/smoke.mjs verdictOf).
+// password boxes read as unexplained and kept a form red although every empty field was left by a rule). The runner's verdict reads the type (desktop/e2e/lib/record-sites.mjs verdictOf).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadJsdom, openPage } from './helpers/page.js';

@@ -129,7 +129,7 @@ class TheShapes(unittest.TestCase):
         self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'page-cases.yml', 'control-tests.yml'}, started)
         self.assertIn('site-replays-pr.yml', started, 'owner, 14 Oct 2026: the replay machinery starts the PR site replays too')
         self.assertIn('site-replays-pr.yml', self.started(['desktop/e2e/replay-gate.mjs']))
-        self.assertNotIn('site-replays-pr.yml', self.started(['desktop/e2e/smoke.mjs']), 'the recorder is not a replay')
+        self.assertNotIn('site-replays-pr.yml', self.started(['desktop/e2e/record-sites.mjs']), 'the recorder is not a replay')
 
     def test_a_worker_or_site_change_starts_only_its_suite(self):
         self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})

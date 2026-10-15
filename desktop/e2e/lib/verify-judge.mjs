@@ -2,7 +2,7 @@
 // A replay counts only when it is on the recording (every ask the build makes answered, none extra, every site request served: replay-records.mjs isSame) and its CONTROL holds: the recording replayed on
 // its own build comes out as live did (same asks, same outcome), so a difference later is the build's, not the replay's noise. Two agreeing replays are needed (owner, 11 Oct 2026:
 // one clean run was luck). Anything else is "live": a fix that changes the route or the asks goes off the recording, and only a live run can say. Guard: e2e/test/verify-judge.test.mjs.
-import {rank} from './smoke.mjs';
+import {rank} from './record-sites.mjs';
 import {onOwnAsks} from './own-asks.mjs';
 
 export const VERDICTS = {confirmed: 'Confirmed offline', notbetter: 'Not better offline', live: 'Needs a recording', ours: 'Our build', site: 'Site changed'};
