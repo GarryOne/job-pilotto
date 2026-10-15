@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply: Sales Associate | Example Careers</title>
+<style>body{font-family:sans-serif;margin:0}form{padding:24px;max-width:520px}label{display:block;margin-top:12px}input,textarea{width:100%;padding:6px;box-sizing:border-box}
+.dropdown-container{border:1px solid #ccc;background:#fff}.dropdown-location{padding:6px 10px;cursor:pointer}.dropdown-location-active{background:#eef}.dropdown-no-results{padding:6px 10px;color:#a00}</style></head>
+<body>
+<!-- Hand-cut (15 Oct 2026): a place box that ONLY takes a suggestion the page offers, the way a job board's own location widget works (invented names, no real site text).
+     The box searches only on a keydown (debounced), like a job board whose script listens for keys, not for input.
+     A place is accepted only by pressing one of its suggestions (or Enter on an active one), which fills the hidden field; leaving the box while the list is still open clears it,
+     and the page leaves the box itself a few seconds in (a person moving on). The first suggestion is always a place nearby (the visitor's own network, not the applicant's). -->
+<form id="apply" onsubmit="return false">
+<h1>Apply: Sales Associate</h1>
+<label for="first_name">First name *</label><input id="first_name" name="first_name" required>
+<label for="email">Email *</label><input id="email" name="email" type="email" required>
+<label for="loc">Current location *</label>
+<input id="loc" name="loc" class="location-input" type="text" autocomplete="off" required>
+<input type="hidden" id="selected-location" name="selected-location">
+<div class="dropdown-container" style="display:none"><div class="dropdown-no-results" style="display:none">No location found. Try entering a different location.</div><div class="dropdown-results"></div></div>
+<button type="submit">Submit application</button>
+</form>
+<script>
+var PLACES = ["Zürich, Zürich, Switzerland", "Zurich, Illinois, United States", "Zurzach, Aargau, Switzerland", "Bern, Bern, Switzerland"];
+var found;
+var fold = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+var box = document.getElementById('loc'), hidden = document.getElementById('selected-location');
+var container = document.querySelector('.dropdown-container'), results = document.querySelector('.dropdown-results'), none = document.querySelector('.dropdown-no-results');
+var show = function (el, on) { el.style.display = on ? 'block' : 'none'; };
+var empty = function () { results.innerHTML = ''; show(none, false); found = undefined; };
+var timer;
+var search = function () {
+  empty();
+  var q = box.value;
+  if (!q || q.length < 2) return;
+  setTimeout(function () {   // the page's own server, a moment later
+    var matches = PLACES.filter(function (p) { return fold(p).indexOf(fold(q.split(',')[0].trim())) === 0 && fold(q.trim()) === fold(q.split(',')[0].trim()) || fold(p).indexOf(fold(q)) === 0; });
+    found = ['Basel, Basel-Stadt, Switzerland'].concat(matches);   // a nearby place first, whatever was typed
+    found.forEach(function (name, at) { var d = document.createElement('div'); d.className = 'break-word dropdown-location width-full'; d.id = 'location-' + at; d.textContent = name; results.appendChild(d); });
+  }, 300);
+};
+box.addEventListener('input', function () { show(container, true);  });
+box.addEventListener('keydown', function (event) {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') return;
+  clearTimeout(timer); timer = setTimeout(search, 500);
+});
+box.addEventListener('blur', function () {
+  if (container.style.display !== 'none') { show(container, false); empty(); box.value = ''; hidden.value = ''; }
+});
+document.addEventListener('mousedown', function (event) {
+  if (!event.target.classList || !event.target.classList.contains('dropdown-location')) return;
+  show(container, false);
+  box.value = event.target.textContent;
+  hidden.value = JSON.stringify({name: found[Number(event.target.id.split('-')[1])]});
+  empty();
+});
+setTimeout(function () { if (document.activeElement) document.activeElement.blur(); }, 6000);   // a person moves on
+</script></body></html>
