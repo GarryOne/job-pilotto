@@ -11,7 +11,7 @@ import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from
 // The trace words the classifier reads, as the code named writes them (no structured code travels in the report; a guard test checks each is still written there, so a reworded
 // reason fails a test instead of silently moving rows: e2e/test/ending.test.mjs). The rest goes through the fill card's causeOf (extension/fill-card.js).
 export const REASONS = {legal: 'legal/consent: always your choice', written: 'written: your own words to write', demographic: 'demographic: your own choice',   // extension/page/fill.js
-  noSlot: 'no place to attach it was found on this page', details: 'your details'};   // extension/page/fill.js
+  noSlot: 'no place to attach it was found on this page', noFile: 'upload: no file for this question', details: 'your details'};   // extension/page/fill.js
 export const RUN_ERRORS = {dialogLeft: 'a dialog was left open over the form', dialogCovers: 'held: a dialog covers the form', blocked: 'form judge: the page is blocked',
   unreported: 'form fill did not report'};   // desktop/e2e/lib/record-sites.mjs parseLive
 const PERSONS = [REASONS.legal, REASONS.written, REASONS.demographic];
@@ -26,6 +26,7 @@ export const fieldCause = row => {
   if (row?.type === 'password' || PERSONS.some(words => reason.startsWith(words))) return 'persons';   // a password is the person's to type (never read by us)
   if (answeredNoOf(row)) return 'persons';   // a "no" kept on an unchecked two-state control is an answer, the same as record-sites verdictOf counts it (15 Oct 2026, Migros)
   if (row?.type === 'file' && reason.startsWith(REASONS.noSlot)) return 'no_slot';   // the upload slot was not seen
+  if (row?.type === 'file' && reason.startsWith(REASONS.noFile)) return 'no_data';   // a document we do not have (a motivation letter): the person's to attach, not a slot we missed (Recruitee, 15 Oct 2026)
   return causeOf(row);
 };
 export function fieldEnding(row) {
