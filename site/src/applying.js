@@ -252,7 +252,7 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   const t = d.tiles, T = d.tileTones || {}, R = new Proxy(d.tileRules || {}, {get: (rules, key) => rules[key] || ''});   // an older snapshot has no tones: no colour
 ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
-    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Sites recorded', '', 'Recorded in the last 10 days', 'Pool sites recorded in the last 10 days, out of every site recorded (npm run record-sites). A count, not good or bad: no colour.'),
+    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Sites run live', '', 'A live test run in the last 10 days', 'Pool sites with a live test run in the last 10 days, out of every site ever run (npm run record-sites). Not the same as a network copy for offline replay (the Replay vs live table). A count, not good or bad: no colour.'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', T.reached, 'Of recorded live sites', 'Share of live sites that reached the application form. ' + R.reached),
     tile(t.regressions, 'Open regressions', T.regressions, t.regressionsApart ? 'Not ours: ' + t.regressionsApart + ' on a closed or refusing site' : 'Reached less than before', 'Sites that reached less than their last run, on a site that is still open: ours to fix. ' + (t.regressionsApart ? t.regressionsApart + ' more on a posting that is gone or a site that refused us are not counted. ' : '') + R.regressions),
     tile(t.needFix, 'Sites needing a fix', T.needFix, 'The Needs a fix list', 'The same sites as the Needs a fix list: stopped early, unexplained fields, or a regression. ' + R.needFix),
