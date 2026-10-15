@@ -92,7 +92,7 @@
   "confidence": 0.8,
   "apply_button": "",
   "apply_button_kind": "",
-  "apply_route": "",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
   "form_frame": 0,

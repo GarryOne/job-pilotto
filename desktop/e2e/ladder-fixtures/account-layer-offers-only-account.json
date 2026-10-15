@@ -51,11 +51,11 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.85,
+  "confidence": 0.8,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",
-  "apply_by": "other",
+  "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,
   "account_step": "",

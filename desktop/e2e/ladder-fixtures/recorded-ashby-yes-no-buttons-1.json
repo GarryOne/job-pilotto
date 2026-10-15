@@ -41,7 +41,7 @@
  },
  "answer": {
   "kind": "form",
-  "confidence": 0.9,
+  "confidence": 0.85,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",

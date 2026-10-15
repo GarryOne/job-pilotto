@@ -161,7 +161,7 @@
   "confidence": 0.93,
   "apply_button": "Jetzt bewerben",
   "apply_button_kind": "apply",
-  "apply_route": "manual",
+  "apply_route": "",
   "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,

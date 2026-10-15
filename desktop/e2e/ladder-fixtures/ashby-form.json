@@ -39,10 +39,10 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.93,
+  "confidence": 0.95,
   "apply_button": "Apply for this Job",
   "apply_button_kind": "apply",
-  "apply_route": "",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,

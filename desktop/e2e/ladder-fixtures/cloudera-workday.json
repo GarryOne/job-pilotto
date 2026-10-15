@@ -51,7 +51,7 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.9,
+  "confidence": 0.85,
   "apply_button": "Apply",
   "apply_button_kind": "apply",
   "apply_route": "",

@@ -34,10 +34,10 @@
  },
  "answer": {
   "kind": "form",
-  "confidence": 0.8,
+  "confidence": 0.7,
   "apply_button": "",
   "apply_button_kind": "",
-  "apply_route": "",
+  "apply_route": "manual",
   "apply_by": "",
   "apply_email": "",
   "form_frame": -1,

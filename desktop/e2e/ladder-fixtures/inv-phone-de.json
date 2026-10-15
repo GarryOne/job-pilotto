@@ -34,7 +34,7 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.75,
+  "confidence": 0.8,
   "apply_button": "Start",
   "apply_button_kind": "apply",
   "apply_route": "manual",
