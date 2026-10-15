@@ -23,6 +23,6 @@ export function findPopup(want = null) {
   const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && stays(node) && words(node) && words(node).length < 60);
   const withButtons = boxes.filter(box => buttonsOf(box).length);
   if (want?.list) { const box = withButtons[0]; return box ? {text: words(box).slice(0, 600), buttons: [...new Set(buttonsOf(box).map(words))].slice(0, 20)} : null; }
-  if (want?.press) { const button = withButtons.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) (globalThis.__jobPilottoPress?.(button) || button.click()); return button ? words(button) : ''; }
+  if (want?.press) { const button = withButtons.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) (globalThis.__jobPilottoPress?.(button) || button.click()); return button && !window.__jobPilottoRefused ? words(button) : ''; }   // a press the floor refused (page/submit-press.js) is no press
   return null;
 }

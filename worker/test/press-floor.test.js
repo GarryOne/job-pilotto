@@ -11,6 +11,7 @@ const JSDOM = await loadJsdom();
 // [what it is, dialog markup, the button's label, is it pressed?]
 const CASES = [
   ['a privacy consent statement\'s Decline', '<div role="dialog"><p>Data Privacy Consent Statement. I consent to the processing of my personal data.</p><button>Accept</button><button>Decline</button><button>Print</button></div>', 'Decline', false],
+  ['a statement that speaks of cookies and tracking too', '<div role="dialog"><h2>Data Privacy Consent Statement</h2><p>We process your personal data, cookies and tracking identifiers (GDPR).</p><button>Accept</button><button>Decline</button></div>', 'Decline', false],
   ['a reject in a terms dialog', '<div role="dialog"><p>Terms of use for applicants</p><button>Reject</button></div>', 'Reject', false],
   ['the follow-up "Delete All Data"', '<div role="dialog"><p>Warning! This action will permanently delete your account.</p><button>Delete All Data</button><button>Cancel</button></div>', 'Delete All Data', false],
   ['withdraw the application', '<div role="dialog"><p>Are you sure?</p><button>Withdraw application</button></div>', 'Withdraw application', false],
@@ -43,10 +44,6 @@ test('every page-side press path ends in the marked press, which holds the floor
     .map((file) => (fs.existsSync(new URL(`../../${file}`, import.meta.url)) ? file : file.replace('extension/page/visit-page.js', 'extension/visit-page.js')));
   for (const file of paths) assert.match(read(file), /__jobPilottoPress\?\.\(/, `${file} presses through the marked press`);
   assert.match(read('extension/page/submit-press.js'), /refused\(el\)/, 'the marked press checks the floor');
-});
-
-test('a dialog that is no cookie notice is never closed by an AI pick when only cookies are wanted', () => {
-  assert.match(read('extension/consent.js'), /cookiesOnly \? '' : closePopup/);
 });
 
 // The cookie closer of the application flow (visit-page.js closeConsent, cookiesOnly): a privacy statement of the form is no cookie banner, a real banner still closes.
