@@ -5,7 +5,7 @@
 import {rank} from './record-sites.mjs';
 import {onOwnAsks} from './own-asks.mjs';
 
-export const VERDICTS = {confirmed: 'Confirmed offline', notbetter: 'Not better offline', live: 'Needs a recording', ours: 'Our build', site: 'Site changed'};
+export const VERDICTS = {confirmed: 'Confirmed offline', holds: 'Holds offline', notbetter: 'Not better offline', live: 'Needs a recording', ours: 'Our build', site: 'Site changed'};
 
 // A replay record ({outcome, liveOutcome, live: {asks}, network}) -> on the recording (the replay-records.mjs isSame rule, stated again to keep this file pure).
 export const onRecording = rec => !!(rec?.outcome && onOwnAsks(rec.network, rec.live?.asks));
@@ -42,7 +42,15 @@ export function judgeFixed({recordedAt, landedAt, control, runs, before}) {
   const after = Date.parse(recordedAt) >= Date.parse(landedAt);
   const bad = controlWhy(control);
   if (bad) return {verdict: 'live', why: bad};
-  if (after && !onRecording(before)) return {verdict: 'live', why: before ? 'the build before the fix asks or fetches what the recording lacks' : 'the recording did not replay on the build before the fix'};
+  if (after && !onRecording(before)) {
+    // The build before the fix replayed but asks or fetches what the recording lacks: the fix changes what the AI is asked, so before/after cannot be told offline. If today's build (main, twice) still matches live on the
+    // recording, that is "Holds offline" (owner, 15 Oct 2026), apart from "Confirmed offline". A before that failed for any other reason (no replay, no outcome) never holds.
+    if (before?.outcome) {
+      const pair = agreed(runs);
+      if (pair.outcome && compare(pair.outcome, control.liveOutcome) === 0) return {verdict: 'holds', why: "the fix changes what the AI is asked, so the build before it can't run on this recording; today's build still matches live"};
+    }
+    return {verdict: 'live', why: before ? 'the build before the fix asks or fetches what the recording lacks' : 'the recording did not replay on the build before the fix'};
+  }
   const pair = agreed(runs);
   if (!pair.outcome) return {verdict: 'live', why: pair.why};
   const base = after ? before.outcome : control.liveOutcome, against = compare(pair.outcome, base), what = after ? 'the build before the fix did on the same recording' : 'the live run did';

@@ -75,3 +75,18 @@ test('slotsLeftOf counts only left, optional file fields', () => {
   assert.equal(slotsLeftOf(fields), 2);
   assert.equal(slotsLeftOf(undefined), 0);
 });
+
+test('holds offline: the control and today\'s build match live, the build before the fix asks what the recording lacks', () => {
+  const late = {...fixed, recordedAt: '2026-10-14T10:00:00Z'}, now = rec(form(8, 2), form(8, 2)), ctl = rec(form(8, 2), form(8, 2));
+  const asksMore = rec(stuck, form(8, 2), {extra: 1});
+  assert.equal(judgeFixed({...late, control: ctl, runs: [now, now], before: asksMore}).verdict, 'holds');
+  assert.equal(judgeFixed({...late, control: ctl, runs: [now, now], before: rec(stuck, form(8, 2), {notRecorded: 1})}).verdict, 'holds', 'a site fetch the recording lacks counts the same');
+  assert.match(judgeFixed({...late, control: ctl, runs: [now, now], before: asksMore}).why, /changes what the AI is asked/);
+  // never holds:
+  assert.equal(judgeFixed({...late, control: ctl, runs: [now, now], before: null}).verdict, 'live', 'the before replay failed altogether');
+  assert.equal(judgeFixed({...late, control: ctl, runs: [now, now], before: {outcome: null, network: {hit: 0, extra: 0, notRecorded: 0}}}).verdict, 'live', 'the before replay gave no outcome');
+  assert.equal(judgeFixed({...late, control: rec(stuck, form(8, 2)), runs: [now, now], before: asksMore}).verdict, 'live', 'the control does not match live');
+  assert.equal(judgeFixed({...late, control: ctl, runs: [rec(form(3, 7), form(8, 2)), now], before: asksMore}).verdict, 'live', 'two replays of today\'s build disagree');
+  assert.equal(judgeFixed({...late, control: ctl, runs: [rec(stuck, form(8, 2)), rec(stuck, form(8, 2))], before: asksMore}).verdict, 'live', 'today\'s build does not match live');
+  assert.equal(judgeFixed({...late, control: ctl, runs: [now, now], before: rec(stuck, form(8, 2))}).verdict, 'confirmed', 'a before that replays on the recording is still Confirmed offline');
+});
