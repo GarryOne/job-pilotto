@@ -58,3 +58,31 @@ test('a change to the page-side field read triggers the refill', () => assert.eq
 test('a ladder prompt fingerprint change still triggers it', () => assert.equal(triggerFor((write, baseline) => write(LADDER_BASELINE, baseline(1).replace('"a"', '"a2"'))).at(-1), 'changed'));
 test('a score-only baseline change does not trigger it', () => assert.deepEqual(triggerFor((write, baseline) => write(LADDER_BASELINE, baseline(2))), ['same']));
 test('a change to an unrelated file does not trigger it', () => assert.deepEqual(triggerFor(write => write('worker/src/scheduler.js', '// cron\n')), ['same']));
+
+// A hand-kept list goes stale the next time someone adds a prompt file (today's incident again): a file under worker/src or extension/ that BUILDS an AI ask must be in PROMPT_SOURCES.
+// "Builds an ask" = its code (comments stripped) defines a prompt or rule constant, an output schema, a system/messages array or a prompt tag the AI reads. A file that only mentions those words is no source.
+const BUILDS_AN_ASK = [/\b[A-Z][A-Z0-9_]*(INSTRUCTIONS|_RULE|_PROMPT|_SCHEMA)\s*=/, /\bconst\s+(SCHEMA|schema)\s*=/, /\boutput_config\b/, /\bsystem\s*:\s*[\[`'"]/, /\bmessages\s*:\s*\[/, /<(profile|standard_answers|cv_facts|search_preferences)>/];
+const codeOf = text => text.split('\n').filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line)).map(line => line.replace(/\s\/\/ .*$/, '')).join('\n');
+function walk(dir, found = []) {
+  for (const item of fs.readdirSync(path.join(repoRoot, dir), {withFileTypes: true})) {
+    const rel = `${dir}/${item.name}`;
+    if (item.isDirectory()) { if (!['node_modules', 'test', 'tests', 'vendor', 'icons'].includes(item.name)) walk(rel, found); } else if (/\.m?js$/.test(item.name)) found.push(rel);
+  }
+  return found;
+}
+
+test('a file under worker/src or extension/ that builds an AI ask is a prompt source (a new prompt file cannot slip past the refill trigger)', () => {
+  const builders = [...walk('worker/src'), ...walk('extension')].filter(file => { const code = codeOf(fs.readFileSync(path.join(repoRoot, file), 'utf8')); return BUILDS_AN_ASK.some(pattern => pattern.test(code)); });
+  assert.ok(builders.includes('worker/src/extension.js') && builders.includes('worker/src/answer-facts.js'), `the detector must see the known builders (found ${builders.join(', ')})`);
+  const missing = builders.filter(file => !PROMPT_SOURCES.includes(file));
+  assert.deepEqual(missing, [], `${missing.join(', ')} build an AI ask but are not in PROMPT_SOURCES (desktop/e2e/lib/prompt-sources.mjs) nor the workflow's push paths: a change to them would not refill the recordings`);
+});
+
+test('the detector itself: a prompt constant, a schema and a system array count; a comment or a word in prose does not', () => {
+  const hits = text => BUILDS_AN_ASK.some(pattern => pattern.test(codeOf(text)));
+  assert.equal(hits('export const FACT_RULE = `use`;'), true);
+  assert.equal(hits('const schema = {type: "object"};'), true);
+  assert.equal(hits('const call = {system: [{type: "text"}]};'), true);
+  assert.equal(hits('// FACT_RULE = in a comment\nconst x = 1;'), false);
+  assert.equal(hits('const label = "the system is fine";'), false);
+});
