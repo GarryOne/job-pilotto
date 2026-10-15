@@ -124,3 +124,9 @@ test('the replay reads a label key only for its test\'s title and failure messag
   assert.deepEqual(found.filter(line => !allowed.test(line)), [], 'a label key now decides a replay: take it out of LABEL_KEYS (tools/recorded-cases.mjs)');
   assert.equal(found.length, 2, 'the title and the failure message');
 });
+
+test('a ladder fixture is the proof of a decision fix (owner, 15 Oct 2026: row-to-case dropped)', () => {
+  assert.equal(missingCase([commit(['extension/fill-flow.js', 'desktop/e2e/ladder-fixtures/fr-yes-no-step-1.json'], 'Digest: a disabled control is never named\n\nPool-row: Aldi Suisse jobs')], covered), '');
+  assert.match(missingCase([commit(['extension/fill-flow.js'], 'Digest: a disabled control is never named\n\nPool-row: Aldi Suisse jobs')], covered), /ladder fixture/);
+  assert.doesNotMatch(missingCase([commit(['extension/fill-flow.js'], 'x')], covered), /row-to-case --/);
+});
