@@ -18,9 +18,12 @@ export const floorClicks = source => source.split('\n').flatMap((line, i) => {
   const text = code(line);
   return [...text.matchAll(/([\w$.\]\[]+|\([^()]*\))\.click\(\)/g)].filter(m => !text.slice(0, m.index).includes('__jobPilottoPress?.(')).map(() => i + 1);
 });
-// Presses the floor cannot see by element: counted per file so a new one fails (the list shrinks as they are routed).
-export const OPEN = {
-  'extension/fill-verify.js': 1, 'extension/flow.js': 1, 'extension/ladder/fill-climb.js': 1, 'extension/visit-page.js': 3,
+// Presses that are not an element's `.click()` (a debugger mouse event at a point, a dispatched MouseEvent, requestSubmit). OPEN: nobody has looked at them (the list is empty; a new one fails until it is
+// routed). ROUTED: the file's presses ask the floor first, and the marker proves it (markAt = the point's control is checked, false = no click; refused = the element is checked; searchSubmit = only a search-shaped form is sent).
+export const OPEN = {};
+export const ROUTED = {
+  'extension/fill-verify.js': /markAt\([^)]*\)[^\n]*=== false/, 'extension/flow.js': /markAt\([^)]*\)[^\n]*=== false/, 'extension/ladder/fill-climb.js': /markAt\([^)]*\)[^\n]*\.result === false|result === false/,
+  'extension/visit-page.js': /^(?=[\s\S]*const searchSubmit = form =>)(?=[\s\S]*__jobPilottoSubmitPress\?\.refused\(option\))/,
 };
 const OPEN_PRESS = /Input\.dispatchMouseEvent|dispatchEvent\(new (?:Mouse|Pointer)Event|\.requestSubmit\??\.?\(/;
 // Not the page's controls: the floor itself, and the guard that wraps the page's own requestSubmit.
@@ -36,11 +39,13 @@ test('every .click() in the extension goes through the press floor', () => {
   assert.deepEqual(found, []);
 });
 
-test('presses the floor cannot see by element are exactly the listed ones', () => {
+test('presses that are not an element click ask the floor first, or are on the OPEN list', () => {
   const seen = {};
   for (const file of SOURCES().filter(name => !NOT_PAGE.has(name))) {
     const n = readFileSync(join(repo, file), 'utf8').split('\n').filter(line => OPEN_PRESS.test(code(line))).length;
     if (n) seen[file] = n;
   }
+  const routed = Object.fromEntries(Object.entries(seen).filter(([file]) => ROUTED[file]));
+  for (const file of Object.keys(routed)) { assert.match(readFileSync(join(repo, file), 'utf8'), ROUTED[file], `${file} asks the floor before its press`); delete seen[file]; }
   assert.deepEqual(seen, OPEN);
 });
