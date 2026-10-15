@@ -34,7 +34,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
    - **A row the gate marks 🖥 "ask changed"** (your fix changed what the app asks; its first miss differs in a `user:*` part): fill the memo on the Mac, once per changed ask: `cd desktop/e2e && npm run fill-memo -- <records dir> "<row>"` (plan `claude -p` for the missed asks only, about $0.06 an ask, fake applicant, tripwire on; say the cost to cc first), then `node records-publish.mjs <full fetched set>` (it REPLACES the whole release: fetch it first, `--dry` first). The network record is never touched.
    Its numbers count only for a row whose replay is "same as live" (/admin/lab-form-filling "Replay vs live"); a row that is not: read the spec table "Why a row does not replay as live"
    (`docs/superpowers/specs/2026-10-13-replay-by-network.md`) first. It may be your build's regression (then the replay is your reproducer) or a recording out of date (then ask for a re-record).
-3. **Prove the repro:** the SAME signature as the failure (the same `page kind:`/`ladder:` lines); the stub really called; the case FAILS on the old build (`REAL_EXTENSION_DIR=<old extension/>`). `npm run row -- "<row>"` is a differential only.
+3. **Prove the repro:** the SAME signature as the failure (the same `page kind:`/`ladder:` lines); the stub really called; the case FAILS on the old build (`REAL_EXTENSION_DIR=<old extension/>`). Debug with the network replay (step 2); `npm run row -- "<row>"` only for a row without a network record, and then as a differential only (owner, 15 Oct 2026).
 4. **Time box:** 10 minutes on a probe, 30 on one proof step with no yes or no: stop, land what is tested, tell the coordinator.
 
 ## 3. Say what the fix is, then fix it (one block, before coding)

@@ -23,7 +23,7 @@ Moved from SKILL.md sections 0a and 1 (15 Oct 2026); the live-confirm steps are 
    `page kind:`, `page kind: none (<error>)`, `ladder:`; (b) the shape's `.log` (the extension's `fill:` lines, the STALL dump with `controls` and `buttons`); (c) `live-frames/*.png` (check the host in the log vs the picture: the folder is overwritten);
    (d) the report's reached step. **Pair each extension line with the app's line for the same request** (an extension answer with no app line: the request never arrived or the extension returned first).
    **`grep` the code for a log message before adding one** (a duplicate was written once).
-2. **Replay the row offline first (seconds, no site, no AI cost):** `cd desktop/e2e && npm run row -- "<pool row name>"` replays the row's own candidate (its pages, frames, CSS and
+2. **Only for a row without a network record** (debug with the network replay above first; owner, 15 Oct 2026). **The older snapshot replay (seconds, no site, no AI cost):** `cd desktop/e2e && npm run row -- "<pool row name>"` replays the row's own candidate (its pages, frames, CSS and
    the app's AI answers of that run) on the app's own server under plain node, with the real extension, the fake applicant and memo-only AI (a question the live run never asked is
    reported, never sent to claude -p). It prints the same evidence lines as a live run, `followed N/M live presses` (the site's reaction to each press is played back from the live
    run), and `DIVERGED: press k: pressed "X"; live pressed "Y"` where the extension did otherwise: that line, or the evidence lines matching the live failure, is the repro.
