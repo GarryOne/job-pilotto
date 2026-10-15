@@ -115,7 +115,7 @@ export function writeState(tabId, value, token = '') {
 }
 // A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
 export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills after it';   // said in the session (desktop/lib/terminals.js noteStuck)
-export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas;
+export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas && !counts.choices;
 // After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
 // whole decision again). null when neither happens in time.
 async function formAfterPress(tabId, url, ms = 8000) {
@@ -273,7 +273,7 @@ export async function consider(tab, jobUrl) {
   let kind = asked;
   let role = kind?.role || ruled, noted = '';   // noted: what the page is called to the app and the learning, when the fill below treats it as something else
   // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
-  const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
+  const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0) + (Number(counts.choices) || 0);
   if (kind && role === 'form' && controls === 0) {
     await forgetKind(tab, kind, 'a form with no fields'); role = ruled;
     if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; if (late(tab, gen, 'contradicted page')) return; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder/climb.js)

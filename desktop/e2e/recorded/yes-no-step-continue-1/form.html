@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Apprenti(e) du commerce de détail – Example</title></head>
+<body>
+<!-- Rebuilt small from the structure of an application start page (15 Oct 2026): a question sentence, two plain buttons (no aria state, no form), and a "Continuer" that stays disabled until one is chosen.
+     The script does what the page's React does: a choice switches the waiting control on. No values, no links. -->
+<main><div class="step"><div class="title"><span>Tu postules pour une place d’apprentissage. En es-tu conscient ?<br><br>Veux-tu continuer ta candidature pour une place d’apprentissage ?</span><p>Veuillez sélectionner une des options.</p></div>
+<div class="choices"><button type="button" id="yes">Oui</button><button type="button" id="no">Non</button></div>
+<div class="nav"><button type="button" id="back">Retour</button><button type="button" id="next" disabled>Continuer</button></div></div></main>
+<script>
+  for (const id of ['yes', 'no']) document.getElementById(id).addEventListener('click', () => { document.getElementById('next').disabled = false; });
+</script>
+</body></html>

@@ -1,0 +1,41 @@
+{
+ "origin": "hand-cut",
+ "shape": "a question step: a sentence, two plain buttons (no aria state, no form) and a Continue switched off until one is chosen",
+ "why": "15 Oct 2026, Aldi's application start: the page asks 'do you want to continue?', the answer buttons were not a field, so the page was 'no form' and the journey stopped with the question told. The reader now lists such a group while a control waits for an answer (extension/page/radios.js); the answer goes the normal path and presses the button it names",
+ "sample": "an application start page, rebuilt small, no values and no links",
+ "pages": [
+  {
+   "url": "https://apply.example.test/application/00000000/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Tu postules pour une place d’apprentissage. En es-tu conscient ? Veux-tu continuer ta candidature pour une place d’apprentissage ?",
+     "value": "Oui"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "present": [
+   "#next:not([disabled])"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

@@ -113,13 +113,14 @@ const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|sign_in|authwall|uas\/login
 // or a text box (a cover letter), the page is the application with its account made on the way ('form': owner, 8 Oct 2026, Coop on
 // SuccessFactors: CV, email, password, name, date of birth on one page); its password boxes stay account fields (filled from the
 // Keychain, never learned, never a fill miss).
-export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, anyFiles = 0} = {}, url = '') {
+export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, anyFiles = 0, choices = 0} = {}, url = '') {
   if ((Number(passwords) || 0) > 0) {
     const applying = (Number(files) || 0) > 0 || (Number(anyFiles) || 0) > 0 || (Number(textareas) || 0) > 0;
     return applying ? 'form' : 'account';
   }
   try { if (SIGN_IN_PATH.test(new URL(String(url)).pathname)) return 'account'; } catch { /* not a url */ }
   if ((Number(files) || 0) > 0 || (Number(textareas) || 0) > 0 || (Number(fields) || 0) >= 3) return 'form';
+  if ((Number(choices) || 0) > 0) return 'form';   // a step that asks a question with plain buttons while a control waits for its answer (page/choice-step.js): the application goes on here
   return 'no-form';
 }
 
