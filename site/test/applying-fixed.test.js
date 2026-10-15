@@ -117,6 +117,11 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   assert.match(PAGE, /How verification works/);
   for (const word of ['Awaiting verification', 'Still failing', 'Confirmed', 'Regressed', 'No confirming run yet']) assert.ok(PAGE.includes(word), word);
   for (const old of ['Landed, unconfirmed', 'Landed, not better yet']) assert.ok(!PAGE.includes(old), old + ' is gone');
+  // "Holds offline" (owner, 15 Oct 2026): its own word, pill colour and explanation; the "Fixes confirmed" tile only names the count in its note, never adds it
+  assert.ok(PAGE.includes("Holds offline"));
+  assert.ok(PAGE.includes('he fix changes what the AI is asked, so the build before it cannot run on this recording; today\\u2019s build still matches live'));
+  assert.match(PAGE, /s-holds/);
+  assert.match(PAGE, /hold offline/);
   assert.match(PAGE, /does not say how much more was filled/);   // Confirmed never implies the fill went up
   assert.match(PAGE, /Sites with a landed fix/);   // the tab's tooltip says what it counts
   assert.doesNotMatch(PAGE, /Replay only|replay-only/);   // the replays are their own table again, never rows here

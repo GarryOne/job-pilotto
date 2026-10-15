@@ -48,6 +48,13 @@ test('the newest verdict of a row replaces its old one; the same upload again wr
   assert.equal(verifyFor(kept, 'regression', ROW), null);
 });
 
+test('"holds" is a stored fixed verdict, never a regression one', async () => {
+  const db = d1();
+  await storeVerify(db, {sha: 'abc1234', rows: [item({verdict: 'holds', why: 'the fix changes what the AI is asked, so the build before it cannot run on this recording; today\'s build still matches live'}), item({kind: 'regression', row: 'Other', verdict: 'holds'})]}, NOW);
+  const stored = await readVerify(db);
+  assert.deepEqual(stored.map(row => [row.kind, row.row, row.verdict]), [['fixed', ROW, 'holds']]);
+});
+
 test('the Fixed tab carries a fix\'s offline verdict, and a pool row its regression verdict', async () => {
   const {fixedData, ingestFixes} = await import('../src/applying-fixed.js'), db = d1();
   await ingestFixes(db, {kind: 'fixes', rows: [{site: ROW, commit: 'abc1234', landedAt: '2026-10-13T10:00:00Z', guard: []}]}, NOW);

@@ -5,7 +5,7 @@ import {dropSnapshot} from './applying-store.js';
 import {equal} from './guard.js';
 
 const KEEP = 300;
-const KINDS = ['fixed', 'regression'], VERDICTS = {fixed: ['confirmed', 'notbetter', 'live'], regression: ['ours', 'site', 'live']};
+const KINDS = ['fixed', 'regression'], VERDICTS = {fixed: ['confirmed', 'holds', 'notbetter', 'live'], regression: ['ours', 'site', 'live']};
 const HASH = /^[0-9a-f]{7,40}$/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const nameOf = value => { const name = text(value, 120); return name && !/[?=@]|:\/\/|https?:/i.test(name) ? name : null; };
