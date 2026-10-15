@@ -43,6 +43,8 @@ export const cleanLayer = raw => (['dialog', 'overlay'].includes(raw?.shape) ? {
 export const layerLine = layer => (layer ? `ON TOP of the page: ${layer.shape} (${layer.role || layer.shape}): ${layer.text || '(no text)'} · buttons: [${layer.buttons.join(' | ')}]` : '');
 // Said only when a layer or a covered candidate exists (the system prompt stays as it was for every other page): a covered candidate is drawn under another layer and cannot be reached until it is dealt with.
 const COVERED_RULE = 'Candidates marked covered are drawn under another layer (a dialog or banner on top): a person cannot reach them until that layer is dealt with. Judge the application from the page itself, never from the layer\'s own buttons, and never name a covered candidate when an uncovered one does the same.';
+// Said only when a candidate is disabled: its own state says it cannot be pressed now (a button a choice on the page switches on). Never named; a question the page asks stays the person's.
+const DISABLED_RULE = 'Candidates marked disabled cannot be pressed now: never name one with press or open. When the page asks a question and the way on stays disabled until it is answered, that answer is the person\'s choice: answer verb tell_person with the number of the sentence that asks it (or verb none), never press an answer to unlock the button.';
 const cleanLine = (text, max) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // What the AI is shown for the candidates: numbered, with kind, position and host, no query string (candidates carry none).
 // Said only when the page lists frames (every other page is asked as before): an embedded application form is named by its frame index, checked against the listed frames.
@@ -51,9 +53,10 @@ export const digestMessage = (page = {}, candidates = []) => [
   `Address path: ${cleanLine(page.path, 120) || '(none)'}`,
   `Title: ${cleanLine(page.title, 160) || '(none)'}`,
   `Headings: ${(page.headings || []).map(text => cleanLine(text, 100)).filter(Boolean).slice(0, 8).join(' | ') || '(none)'}`,
-  `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''}${item.covered ? ' · covered' : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
+  `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''}${item.covered ? ' · covered' : ''}${item.disabled ? ' · disabled' : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
   ...(cleanLayer(page.onTop) ? [layerLine(cleanLayer(page.onTop))] : []),
   ...(cleanLayer(page.onTop) || candidates.some(item => item.covered) ? [COVERED_RULE] : []),
+  ...(candidates.some(item => item.disabled) ? [DISABLED_RULE] : []),
   ...((page.frameCandidates || []).length ? [`Frame candidates (index · host · path · size):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n')}`, FRAME_RULE] : []),
   ...((page.noEffect || []).length ? [`Pressed already and nothing happened (never name these again; name another way to start the application): ${page.noEffect.join(' | ')}`] : []),
 ].join('\n');
@@ -78,6 +81,7 @@ export function validateDigest(raw, candidates = [], frameCount = 0) {
   if ((verb === 'press' || verb === 'open') && !['form', 'link'].includes(outcome)) return none(answer, outcome, 'verb does not fit the outcome');
   if (verb === 'tell_person' && !numbers.length) return none(answer, outcome, 'tell_person needs a number');
   if ((verb === 'press' || verb === 'open') && numbers.length !== 1) return none(answer, outcome, `${verb} needs one number`);
+  if ((verb === 'press' || verb === 'open') && chosen[0].disabled) return none(answer, outcome, 'disabled candidate');   // the floor: a control that cannot be pressed is never the way on
   if (verb === 'press' && !['button', 'link'].includes(chosen[0].kind)) return none(answer, outcome, 'press needs a button or link');
   if (verb === 'open' && !(chosen[0].kind === 'link' && chosen[0].host)) return none(answer, outcome, 'open needs a link');
   if ((verb === 'none' || verb === 'not_listed') && numbers.length) return none(answer, outcome, `${verb} takes no number`);

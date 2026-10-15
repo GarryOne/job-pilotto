@@ -108,6 +108,10 @@
   {
    "date": "2026-10-14",
    "reason": "digest rung lists frame candidates and answers form_frame (14 Oct 2026, embedded frame with rung 2 unsure)"
+  },
+  {
+   "date": "2026-10-15",
+   "reason": "new fixture: a yes/no step with Continue disabled (digest never names it)"
   }
  ],
  "promptFingerprint": {
@@ -716,6 +720,16 @@
    },
    "outcome": "ask_person",
    "status": "exact"
+  },
+  "fr-yes-no-step-continue-disabled": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
   },
   "fv-de-select-placeholder": {
    "question": "fill_verify",

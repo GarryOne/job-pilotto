@@ -122,3 +122,13 @@ test('Hornbach shape: an Apply control without href is a candidate (kind button,
   assert.ok(texts.includes('Merken') && texts.includes('Teilen'), 'onclick and tabindex anchors are clickable by structure');
   assert.ok(!texts.includes('Seitenanfang'), 'a plain <a name> anchor is not a control');
 });
+
+// 15 Oct 2026: a yes/no step whose "Continue" is disabled until a choice is made: the candidate says so by the element's own state (disabled attribute or aria-disabled), never by a word.
+test('a disabled button or one marked aria-disabled carries disabled: true; an enabled one does not', { skip: !JSDOM }, () => {
+  const found = of('<main><p>Do you want to go on?</p><button>Yes</button><button>No</button><button disabled>Continue</button><div role="button" aria-disabled="true">Back</div></main>');
+  const by = (text) => found.find((item) => item.text === text);
+  assert.equal(by('Continue').disabled, true);
+  assert.equal(by('Back').disabled, true);
+  assert.equal(by('Yes').disabled, undefined);
+  assert.equal(by('No').disabled, undefined);
+});
