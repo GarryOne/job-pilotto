@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<p><label for="first_name">First Name *</label> <input id="first_name" name="first_name" type="text" required aria-required="true"></p>
+<div id="sec">
+<p><label for="__input1-inner">Team name *</label> <input id="__input1-inner" name="__input1-inner" type="text" aria-required="true"></p>
+<p><label for="__input2-inner">Project code *</label> <input id="__input2-inner" name="__input2-inner" type="text" aria-required="true"></p>
+</div>
+<p><button type="button">Apply</button></p>
+</form>
+<script>
+// A toolkit that draws a section again the first time anything is typed (SAP UI5 re-creates controls, each with a NEW generated id): the questions asked about the old ids
+// come back to ids that no longer exist, and the answers must find their rows by the question.
+var next = 10, done = false;
+document.getElementById('first_name').addEventListener('input', function () {
+  if (done) return; done = true;
+  setTimeout(function () {
+    document.getElementById('sec').innerHTML = ['Team name', 'Project code'].map(function (text) { next += 1; return '<p><label for="__input' + next + '-inner">' + text + ' *</label> <input id="__input' + next + '-inner" name="__input' + next + '-inner" type="text" aria-required="true"></p>'; }).join('');
+  }, 150);
+});
+</script></body></html>

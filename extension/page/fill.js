@@ -39,7 +39,8 @@
     // The popup guard (page/guard-gate.js): between the stages a layer that opened over the form is closed by the extension, or the fill is held and types nothing more.
     let held = false;
     const gate = async () => { if (!held && await (window.__jobPilottoGate?.() ?? true) === false) held = true; return !held; };
-    const answers = (all || []).filter(a => a.use !== 'propose' && a.use !== 'kind'), proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
+    const answers = (all || []).filter(a => a.use !== 'propose' && a.use !== 'kind');
+    let proposedOf = {};   // built below, once the answers' fields are matched to the rows
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
       form.push({field: `group:${group.question}`, question: group.question, label: group.question, type: 'checkbox-group', options: group.options,
@@ -53,6 +54,16 @@
       const group = form.find(row => row.type === 'checkbox-group' && norm(row.question) === norm(item.question));
       if (group) item.field = group.field;
     }
+    // The ids the AI was asked about are gone when the page re-created its controls in between (SAP UI5 gives every re-created control a new generated id): the answer
+    // goes to the one row with the same question. Counts only, for the log: how many answers there were, how many found a row, how many by their question, how many none.
+    const reach = {asked: 0, matched: 0, byQuestion: 0, lost: 0};
+    for (const item of (all || []).filter(a => a.use !== 'kind')) {
+      reach.asked++;
+      if (rowOf[item.field]) { reach.matched++; continue; }
+      const rows = item.question ? form.filter(row => row.type !== 'checkbox-group' && norm(row.label || '') === norm(item.question)) : [];
+      if (rows.length === 1 && !(all || []).some(other => other !== item && other.field === rows[0].field)) { item.field = rows[0].field; reach.byQuestion++; } else reach.lost++;
+    }
+    proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
     const contact = window.__jobPilottoProfileEntries(form, profile || {});
     const contactFields = new Set(contact.map(entry => entry.field));
     const todo = [], review = [], armed = []; document.querySelectorAll('.job-pilotto-badge').forEach(badge => badge.remove());
@@ -269,7 +280,7 @@
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
       reason: resumeAttached ? '' : resume?.data ? 'no place to attach it was found on this page' : 'no CV in the app'});
     window.__jobPilottoValueClass?.mark([...contact, ...answers]);   // each answered control's kind of value, never the value: the fill check and the repair see it (page/value-class.js)
-    const summary = {filled, unfilledRequired, starred: window.__jobPilottoRequired.starred(document), contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], unknownUploads: window.__jobPilottoUnknownUploads || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    const summary = {reach, filled, unfilledRequired, starred: window.__jobPilottoRequired.starred(document), contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], unknownUploads: window.__jobPilottoUnknownUploads || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;

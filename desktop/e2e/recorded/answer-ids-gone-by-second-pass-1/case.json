@@ -1,0 +1,28 @@
+{
+ "origin": "hand-cut",
+ "shape": "the AI's answers are keyed by the field ids it was asked about, and the page drew those boxes again with new generated ids before the second pass applied them",
+ "why": "The owner's real SuccessFactors fill of 15 Oct 2026 (SAP UI5): the newsletter and talent-pool selects were asked, answered and proposed, then read 'no answer in the kit' because the second pass looked for their old ids. The answer now finds its row by the question it was asked about. Hand-cut page: the toolkit's re-creation of controls, not its markup.",
+ "control": {
+  "build": "0.9.534",
+  "failed": "traced: the two boxes were left, 'no answer in the kit, Profile or your details'"
+ },
+ "sample": "hand-cut: a section drawn again with new ids after the first typed value (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/portalcareer",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.95, "rung": 2},
+  "/extension/answer": {"ok": true, "eligible": true, "eligibility_note": "", "answers": [
+   {"field": "__input1-inner", "value": "Platform", "confidence": "high", "note": "", "category": "normal", "use": "fill"},
+   {"field": "__input2-inner", "value": "P4711", "confidence": "high", "note": "", "category": "normal", "use": "fill"}
+  ]}
+ },
+ "expect": {
+  "traced": ["Team name:filled", "Project code:filled"],
+  "notTold": ["pressed the submit"],
+  "seconds": 60
+ }
+}
