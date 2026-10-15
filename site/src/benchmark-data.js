@@ -4,6 +4,8 @@
 export const APPLICANTS = ['thin', 'grown'];
 // user = what real users run (the repair rung off); harness = the test harness's repair rung on (ladderAct); unknown = the run did not say. Only our extension has a mode; the other tools' rows carry 'any'. The page's headline is user mode.
 export const MODES = ['user', 'harness', 'unknown'];
+// Bake-off harness fixes made after some runs were scored (saved runs cannot be re-read); a run lists the ones it predates. Each hits every tool the same way.
+export const FIX_KEYS = ['trail', 'select'];
 export const segmentKey = (applicant, mode) => `${applicant}:${mode}`;
 const sum = (rows, key) => rows.reduce((total, row) => total + (Number(row[key]) || 0), 0);
 export const countable = row => Math.max(0, row.required - row.unans - row.holds - row.dups);
@@ -32,7 +34,7 @@ export function objectivity({mine, current, others, forms, mode, shown = []}) {
   }
   const pointed = new Set(forms.filter(form => mine.some(row => row.form === form && row.heldout)));
   return {ourDay, firstOtherDay: otherDays[0] || '', lastOtherDay: otherDays.at(-1) || '', sameDay: Boolean(ourDay) && otherDays.every(d => d === ourDay), minRuns: counts.length ? Math.min(...counts) : 0,
-    heldout: pointed.size, oldTrail: shown.filter(row => row.oldtrail).length, shown: shown.length, forms: forms.length, userMode: mode === 'user'};
+    heldout: pointed.size, fixes: Object.fromEntries(FIX_KEYS.map(key => [key, shown.filter(row => String(row.fixes || '').split(',').includes(key)).length])), shown: shown.length, forms: forms.length, userMode: mode === 'user'};
 }
 
 export function summarize(rows) {
