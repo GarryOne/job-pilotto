@@ -64,6 +64,7 @@ const METHOD = `<section class="card"><details><summary>How this is measured</su
 <li>Thin and grown applicants, and user mode and harness mode, are separate views and are never added together.</li>
 <li>User mode is what real users run; harness mode has the test harness's repair rung on and is not comparable.</li>
 <li>Runs scored before a bake-off harness fix (the trail rule, the dropdown reader) are counted and named above; each old behaviour hit every tool alike, so older scores can be off in level more than in ranking.</li>
+<li>A required upload the harness's safety guard stopped (the page posts to its own upload address first, and the guard refuses every write to the form site) counts as a hold for every tool, like a consent box. It is recomputed from each run's saved guard log, so no run predates it.</li>
 <li>A tool's total counts its newest run on each form. A single live run varies by about ±1 field: read a 1-2 field difference as noise.</li></ul></details></section>`;
 
 export function page(snapshot, {segment} = {}) {
