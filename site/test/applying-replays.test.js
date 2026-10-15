@@ -156,7 +156,7 @@ test('each case\'s origin (captured from a real page or hand-cut) is kept from C
 test('the Fixed tab: a shape test guards the mechanism, only the live layer proves a fix (owner, 12 Oct 2026)', () => {
   assert.match(PAGE, /'Mechanism guarded · shape tests'/);
   assert.match(PAGE, /found\.ok \? 'mechanism guarded' : 'mechanism broken'/);
-  assert.match(PAGE, /\['Shape tests', 'A shape test only guards the mechanism on a small page/);
+  assert.match(PAGE, /\['Shape tests', 'Guard the mechanism on a small page; they never prove the site works\.'\]/);
   assert.doesNotMatch(PAGE, /Proven live/);
   assert.doesNotMatch(PAGE, /Guard · replay results/);
 });
