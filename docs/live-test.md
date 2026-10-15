@@ -81,3 +81,10 @@ The twin is for looking at the REAL app on a REAL site while you build. The loop
 Pitfalls found on 9 Oct 2026: `chrome.runtime.reload()` leaves the extension disabled in Chrome 153 (use `refresh`); killing only the `node .bin/electron` shim leaves the real Electron on the ports; a
 `//` comment in the middle of a line can swallow the code after it (the knockouts key never reached the app).
 
+
+## Post-merge check (`npm run twin-check`, 15 Oct 2026)
+After merges that touch `extension/` or the fill, one command runs 5 real forms (Ashby, SuccessFactors, Greenhouse, Workday, Lever: pool rows, `desktop/e2e/lib/twin-check.mjs` PLATFORMS) HELD on main, with the grown applicant, and prints one table.
+- **Needs the owner's yes in the session's window each time.** `cd desktop/e2e && npm run twin-check` prints the one-line ask (sha, forms, minutes, cost) and starts nothing; `-- --yes` runs it (background + Monitor on its log).
+- It runs the rows through `npm run live` (the app's path without Electron: the real extension of this checkout on the real site, the privacy tripwire, the per-site daily limit, never Submit), not the twin's window: one machinery, no second one to keep.
+- **Red** on: a fill error (an error line, a thrown error in the app log or the extension's console), a press the safety floor refuses (Submit words, or "Decline/Reject…" as a press), the tripwire, or a drop vs that row's last check (a step less, fewer fields filled). A popup close that says no is shown yellow.
+- Reports: `~/Library/Application Support/Job Pilotto QA/twin-checks/<time>-<sha>.json` + `table.md` + each row's `end.png` (the panel picture). Guard: `desktop/e2e/test/twin-check.test.mjs`.
