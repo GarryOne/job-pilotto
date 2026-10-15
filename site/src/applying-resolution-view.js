@@ -16,7 +16,8 @@ export const RESOLUTION_SCRIPT = `
   let endingPick = null, poolRedraw = () => {}, syncEnding = () => {};   // the pool table sets the last two once it exists (src/applying.js)
   const endingRows = new Map(((d.resolution && d.resolution.rows) || []).map(item => [item.row, item]));
   const endingOf = s => endingRows.get(s.shape) || endingRows.get(s.name) || null;
-  const endingWordOf = s => (endingOf(s) ? endingOf(s).ending : s.status.state === 'held' ? 'held' : null);   // a held row with no ending is still held by the test
+  // ONE definition of an ending (owner, 15 Oct 2026: "held" counted 20, 17 and 12): a row's ending is its newest main run's, the same list the Outcomes pills count; a row with none is "no ending yet", never guessed from its status.
+  const NO_ENDING = 'none', endingWordOf = s => (endingOf(s) ? endingOf(s).ending : NO_ENDING);
   const endingMatch = s => !endingPick || endingWordOf(s) === endingPick;
   const runOf = item => item.source === 'ci' ? (item.run ? el('a', {href: 'https://github.com/GarryOne/job-pilotto/actions/runs/' + item.run, target: '_blank', rel: 'noopener', textContent: item.day + ' · CI', onclick: event => event.stopPropagation()}) : item.day + ' · CI') : item.day + ' · Mac';
   const endingLine = s => { const item = endingOf(s); return item ? el('span', {className: 'stack muted endline', title: ENDING_MEANS[item.ending] + (item.since ? ' · since the previous run: ' + (SINCE[item.since] || '') : '')},
@@ -34,7 +35,7 @@ export const RESOLUTION_SCRIPT = `
     const pill = word => el('button', {className: 'pill ' + ENDING_TONE[word] + (endingPick === word ? ' on' : ''), title: ENDING_MEANS[word] + ' (a press shows only these rows in the Sites tab)',
       textContent: word.replace('_', ' ') + ' ' + counts[word], onclick: () => { endingPick = word; syncEnding(); poolRedraw(); redraw(); if (typeof location !== 'undefined') location.hash = '#sites'; }});
     box.append(...[el('h2', {textContent: 'Resolution · how each application ends'}),   // filtered: append() writes a null as the text "null"
-      el('p', {className: 'muted', textContent: r.measured ? r.resolved + ' of ' + r.measured + ' pool rows resolved (' + r.raw + '%)' + (r.weighted == null ? '' : '; weighted by real demand ' + r.weighted + '%') + '. ' + r.held + ' held by the test, not measured. A press on an ending shows its rows in the Sites tab; each row carries its ending there.' : 'No ending uploaded yet: the next pool run sends them.'}),
+      el('p', {className: 'muted', textContent: r.measured ? r.resolved + ' of ' + r.measured + ' pool rows resolved (' + r.raw + '%)' + (r.weighted == null ? '' : '; weighted by real demand ' + r.weighted + '%') + '. ' + r.held + ' held by the test, not measured. A press on an ending shows its rows in the Sites tab (its Ending filter has the same counts, plus the rows with no ending yet: ' + (d.pool.length - r.measured - r.held) + ' of ' + d.pool.length + ').' : 'No ending uploaded yet: the next pool run sends them.'}),
       el('div', {className: 'endings'}, ...WORST_FIRST.map(pill)),
       el('p', {className: 'muted key'}, ...WORST_FIRST.flatMap((word, at) => [at ? ' · ' : '', el('b', {textContent: word.replace('_', ' ')}), ' ' + ENDING_MEANS[word]])),
       r.weeks.length > 1 ? el('h3', {className: 'rhead', textContent: 'Week by week'}) : null,
