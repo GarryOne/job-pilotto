@@ -17,6 +17,7 @@ import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './ex
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
 import { FACT_KEYS, FACT_RULE, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
+import { applyPay } from './pay-convert.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -125,10 +126,23 @@ export function anthropicKey(env) {
 const ANSWER_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['eligible', 'eligibility_note', 'answers'],
+  required: ['eligible', 'eligibility_note', 'answers', 'pay_asks'],
   properties: {
     eligible: { type: 'boolean' },
     eligibility_note: { type: 'string' },
+    // A salary question asked in another currency or period than the saved target: what the target states and what the form asks; the code converts (pay-convert.js). Empty when none.
+    pay_asks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['field', 'amount', 'currency', 'per', 'asked_currency', 'asked_per', 'basis_clear'],
+        properties: {
+          field: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string' }, per: { type: 'string', enum: ['year', 'month', ''] },
+          asked_currency: { type: 'string' }, asked_per: { type: 'string', enum: ['year', 'month', ''] }, basis_clear: { type: 'boolean' },
+        },
+      },
+    },
     answers: {
       type: 'array',
       items: {
@@ -231,7 +245,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // A typed name, e-mail, phone, address or home place must be in what this ask was given, never the signed-in account's (answer-facts.js floorUngrounded).
   const given = [profile, standard, search, cvFacts, kit ? JSON.stringify(kit) : ''].join('\n');
   const labelOf = Object.fromEntries(fields.map((f) => [f.field, f.label || '']));
-  const floorsApplied = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }));
+  const paid = await applyPay(Array.isArray(result.answers) ? result.answers : [], result.pay_asks, fields, { fetchFn: env.fetchFn || globalThis.fetch });   // a salary in another currency or period, converted by the code
+  const floorsApplied = paid.map((a) => floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }));
   // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
