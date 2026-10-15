@@ -75,7 +75,7 @@ export function tableOf(rows, {sha = '', applicant = 'grown'} = {}) {
     if (item.skipped) { lines.push(`| ${item.platform} | skipped: ${cell(item.skipped)} | | | | | |`); continue; }
     const {check, verdict, last} = item;
     const fields = check.filled == null ? 'n/a' : `${check.filled} / ${check.left}`;
-    lines.push(`| ${item.platform} | ${check.reached}${check.note ? ` (${cell(check.note)})` : ''} | ${fields} | ${check.errors.length ? `🔴 ${cell(check.errors[0])}` : '🟢 none'} | ${check.presses.length ? `🔴 ${cell(check.presses[0])}` : check.popups.length ? `🟡 ${cell(check.popups[0])}` : '🟢 ok'} | ${verdict.red && verdict.why.some(w => /^(reached|filled)/.test(w)) ? `🔴 ${cell(verdict.why.find(w => /^(reached|filled)/.test(w)))}` : last ? '🟢 same or better' : '⚪ first check'} | ${check.panel ? cell(check.panel) : 'no picture'} |`);
+    lines.push(`| ${item.platform} | ${check.reached}${check.note ? ` (${cell(check.note)})` : ''} | ${fields} | ${check.errors.length ? `🔴 ${cell(check.errors[0])}` : '🟢 none'} | ${check.presses.length ? `🔴 ${cell(check.presses[0])}` : check.popups.length ? `🟡 ${cell(check.popups[0])}` : '🟢 ok'} | ${verdict.red && verdict.why.some(w => /^(reached|filled)/.test(w)) ? `🔴 ${cell(verdict.why.find(w => /^(reached|filled)/.test(w)))}` : last ? '🟢 same or better' : '⚪ first check'} | ${check.panel ? `${cell(check.platform.toLowerCase())}/end.png` : 'no picture'} |`);
   }
   const red = rows.filter(item => item.verdict?.red).length;
   return `${head}\n\n${lines.join('\n')}\n\n${red ? `🔴 ${red} of ${rows.length} red` : `🟢 no red (${rows.filter(item => !item.skipped).length} of ${rows.length} ran)`}\n`;
