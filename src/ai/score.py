@@ -58,7 +58,7 @@ _open_component = {'type': ['integer', 'null'], 'description': '0-100, or null w
 SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
-    'required': ['score', 'tier', 'components', 'reason', 'strengths', 'gaps', 'confidence'],
+    'required': ['score', 'tier', 'components', 'basis', 'reason', 'strengths', 'gaps', 'confidence'],
     'properties': {
         'score': {'type': 'integer', 'description': 'Overall fit 0-100'},
         'tier': {'type': 'string', 'enum': ['A', 'B', 'C'],
@@ -70,6 +70,14 @@ SCHEMA = {
                 'role_fit': _component, 'location': _component, 'compensation': _open_component,
                 'growth': _open_component,
                 'risk': {'type': 'integer', 'description': '0-100, higher = more risk or uncertainty'},
+            },
+        },
+        # What the posting itself states, answered with the score: a refresh scores before the facts are read (src/daily_search.py).
+        'basis': {
+            'type': 'object', 'additionalProperties': False, 'required': ['salary_stated', 'level_stated'],
+            'properties': {
+                'salary_stated': {'type': 'boolean', 'description': 'The posting states a salary or pay range, in any currency'},
+                'level_stated': {'type': 'boolean', 'description': "The posting states the role's level or scope"},
             },
         },
         'reason': {'type': 'string', 'description': 'One line, at most 90 characters, why it fits or not'},
@@ -95,7 +103,8 @@ Credit the candidate only with skills, tools and experience the profile names: a
 and never say a posting's level matches a level the profile does not state.
 - Compensation: compare only an advertised salary with the target. If no salary is stated, give null (shown as N/A) \
 and list it as a gap; the overall score then ignores pay entirely, as if it were not a factor. Never invent a figure or a net amount. The profile's minimum and the target are different \
-figures: say which one you compare with. Do not compute percentages or convert currencies; say "below your \
+figures: say which one you compare with. A salary in another currency than the profile's is still a stated salary: give a number from the posting's own figures. \
+Do not compute percentages or convert currencies; say "below your \
 minimum" or "above your target" and quote the posting's own numbers. Call a salary "in the target range" only \
 when it lies between the profile's own figures.
 - Growth covers scope, technical depth and seniority relative to the candidate's level. If the posting gives no basis \
@@ -241,19 +250,22 @@ HAS_BASIS = {
     'compensation': lambda facts: bool((facts.get('salary') or {}).get('stated')),
     'growth': lambda facts: (facts.get('seniority') or {}).get('value') not in (None, 'unknown'),
 }
+# The same basis in the scorer's own answer (SCHEMA 'basis'), for a job scored before its facts are read.
+BASIS = {'compensation': 'salary_stated', 'growth': 'level_stated'}
 
 
-def unread_parts(components, facts):
-    """The parts left null although the posting's facts give a basis for them (fixed answer, validated here)."""
-    return [part for part in UNKNOWN_OK if components.get(part) is None and HAS_BASIS[part](facts or {})]
+def unread_parts(components, facts, basis=None):
+    """The parts left null although the posting's facts, or the answer's own basis, give a basis for them (fixed answer, validated here)."""
+    return [part for part in UNKNOWN_OK if components.get(part) is None
+            and (HAS_BASIS[part](facts or {}) or (basis or {}).get(BASIS[part]) is True)]
 
 
 def score_one(client, model, job, profile, effort=None):
     data, usage = _ask(client, model, job, profile, effort, '', SCHEMA)
-    missing = unread_parts(data['components'], job.get('ai'))
+    missing = unread_parts(data['components'], job.get('ai'), data.get('basis'))
     if missing:   # never kept as sure: ask again once, naming the parts, and the answer's shape no longer allows null for them
         data, again = _ask(client, model, job, profile, effort,
-                           f"\n\nYour last answer left {', '.join(missing)} unknown, but the posting and the extracted facts give a basis for "
+                           f"\n\nYour last answer left {', '.join(missing)} unknown, but the posting gives a basis for "
                            f"{'it' if len(missing) == 1 else 'them'} (a stated salary in another currency is still a stated salary: judge it from the "
                            f"posting's own figures, without converting). Give a whole number 0-100 for {'it' if len(missing) == 1 else 'each'}.",
                            _whole(missing))

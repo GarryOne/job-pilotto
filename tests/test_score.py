@@ -36,7 +36,7 @@ class UnreadPartTest(unittest.TestCase):
     """A part the posting gives a basis for is never saved empty: the scorer asks again, naming it."""
     FACTS = {'salary': {'stated': True, 'text': 'EUR 95,000 - 120,000'}, 'seniority': {'value': 'senior', 'evidence': 'Senior'}, 'work_mode': {'value': 'remote'}}
 
-    def client(self, first_empty):
+    def client(self, first_empty, basis=None):
         answers = []
         def create(**params):
             answers.append(params)
@@ -45,7 +45,7 @@ class UnreadPartTest(unittest.TestCase):
             allowed = 'null' in schema['properties']['components']['properties'][first_empty]['type']
             if allowed:   # the model answers null whenever the answer's shape lets it (a EUR range against a CHF target)
                 comps[first_empty] = None
-            data = {**fit(70), 'components': comps}
+            data = {**fit(70), 'components': comps, **({'basis': basis} if basis is not None else {})}
             return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(data))],
                                    usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0))
         client = SimpleNamespace(messages=SimpleNamespace(create=create))
@@ -62,6 +62,23 @@ class UnreadPartTest(unittest.TestCase):
                 self.assertIn(part, client.requests[1]['messages'][0]['content'])
                 self.assertNotIn('null', client.requests[1]['output_config']['format']['schema']['properties']['components']['properties'][part]['type'])
                 self.assertEqual(fit(70)['components'][part], data['components'][part])
+
+    def test_scored_before_the_facts_are_read_the_answer_own_basis_asks_again(self):
+        # A refresh scores first and reads the facts after (src/daily_search.py): the scorer's own answer says what the posting states
+        # (nightly beta 15 Oct 2026: "EUR 95,000-120,000" against a CHF target came back null, no facts yet, no second ask).
+        self.assertEqual(set(score.BASIS), set(score.UNKNOWN_OK))
+        self.assertEqual(set(score.BASIS.values()), set(score.SCHEMA['properties']['basis']['required']))
+        for part in score.UNKNOWN_OK:
+            with self.subTest(part=part):
+                client = self.client(part, basis={key: True for key in score.BASIS.values()})
+                data, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd'}, 'p')
+                self.assertEqual(2, len(client.requests))
+                self.assertIn(part, client.requests[1]['messages'][0]['content'])
+                self.assertEqual(fit(70)['components'][part], data['components'][part])
+                client = self.client(part, basis={key: False for key in score.BASIS.values()})
+                data, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd'}, 'p')
+                self.assertEqual(1, len(client.requests))
+                self.assertIsNone(data['components'][part])
 
     def test_a_part_with_no_basis_stays_unknown_without_a_second_call(self):
         for part in score.UNKNOWN_OK:
