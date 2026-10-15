@@ -7,6 +7,7 @@ import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
 import {summarize, totals} from '../src/benchmark-data.js';
 import {page} from '../src/benchmark-page.js';
+import {gapFields} from '../src/benchmark-objective.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -84,7 +85,7 @@ test('the page shows both scores, the ceiling, the grid, the trend and the folde
   for (const word of ['Raw score', 'Product score', 'Ceiling', 'Tool X', 'Tool Y', 'Form A', 'bbb2222', 'aaa1111', 'How this is measured', '±1 field']) assert.ok(html.includes(word), word);
   assert.match(html, /<details><summary>How this is measured/);
   assert.ok(!html.includes('ddd4444'), 'harness runs are not in the user view');
-  assert.ok(!/class="banner"/.test(html));
+  assert.ok(!html.includes('harness mode: not what real users run'), 'no harness banner in user mode');
   const ours = totals([{required: 10, right: 5, wrong: 1, empty: 4, unans: 2, holds: 1, dups: 0, at: 'x'}, {required: 16, right: 10, wrong: 0, empty: 6, unans: 2, holds: 1, dups: 0, at: 'x'}]);
   assert.ok(html.includes('58%') && ours.raw === 58, 'raw 15/26');
   assert.ok(html.includes('?view=thin%3Aharness'), 'the other views are one click away');
@@ -122,4 +123,37 @@ test('the page is in the Operations menu beside Real and Lab, with a question, a
     const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
     assert.ok(!/https?:\/\/|\.(com|io|ai|org)\b/.test(source.replace(/\/\/.*$/gm, '')), `${file} has a host`);
   }
+});
+
+test('the top says it is an internal trend, lists what tilts it toward us and what would make it objective, ticked from the stored runs', () => {
+  const view = rows => summarize(rows.map(row => ({...row, ours: row.ours ? 1 : 0}))).segments;
+  const html = page({at: '2026-10-15T12:00:00.000Z', segments: view(FIXTURE.map(row => (row.ours ? row : {...row, at: '2026-10-14T10:00:00Z'})))}, {segment: 'thin:harness'});
+  assert.match(html, /⚠️ Internal trend, not independent yet/);
+  for (const word of ['What tilts it toward us', '🏠 Home field', '🔍 Lopsided scrutiny', '📅 Different days', '⚙️ Their settings', '🎲 Noise', '🔧 Mode', 'What would make it objective']) assert.ok(html.includes(word), word);
+  assert.match(html, /<li>❌ [^<]*held out/);                       // no form is marked held out in the fixture
+  assert.match(html, /<li>❌ Same day and 3 runs per form[^<]*different days/);   // ours ran 15 Oct, the others 14 Oct
+  assert.match(html, /harness mode \(the test harness's repair rung is on\)|harness mode \(the test harness&#39;s repair rung is on\)/);
+  assert.match(html, /<li>❌ Ours in user mode/);
+  // Everything ticked: held-out forms, one day, three runs per form, user mode.
+  const good = FIXTURE.flatMap(row => [0, 1, 2].map(n => ({...row, id: `${row.id}#${n}`, at: '2026-10-15T10:00:00Z', mode: 'user', heldout: 1, applicant: 'thin'}))).filter(row => row.applicant === 'thin');
+  const done = page({at: '2026-10-15T12:00:00.000Z', segments: view(good)}, {segment: 'thin:user'});
+  assert.match(done, /<li>✅ All \d forms were held out/);
+  assert.match(done, /<li>✅ Every tool ran on the same day, 3 runs or more per form/);
+  assert.match(done, /<li>✅ Ours in user mode/);
+  assert.match(done, /All tools ran on 2026-10-15/);
+});
+
+test('the noise line compares the gap in fields with the noise of single runs (about one field per form)', () => {
+  const s = summarize(FIXTURE.map(row => ({...row, ours: row.ours ? 1 : 0}))).segments['thin:harness'];
+  const gap = gapFields(s);
+  assert.equal(gap.noise, s.forms.length);
+  assert.equal(gap.fields, Math.abs(s.tools[0].right - s.tools[1].right));
+  assert.equal(gapFields({tools: [], forms: []}), null);
+});
+
+test('the held-out flag travels through the ingest into the snapshot', async () => {
+  const e = env();
+  await put(e, {runs: FIXTURE.map(row => ({...row, heldout: row.form === 'Form A'}))});
+  const snapshot = JSON.parse(e.STATS.db.prepare('SELECT body FROM benchmark_snapshot').get().body);
+  assert.equal(snapshot.segments['thin:harness'].objectivity.heldout, 1);
 });
