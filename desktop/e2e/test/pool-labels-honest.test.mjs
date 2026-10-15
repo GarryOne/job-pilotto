@@ -41,3 +41,10 @@ test('a menu that showed no choice is an explained field; with choices shown, or
   assert.equal(verdictFields(parseLive(FORM('["Zurich","Bern"]'))).unexplained, 1);
   assert.equal(verdictFields(parseLive(FORM(null))).unexplained, 1);
 });
+
+// The real log's shape (a pool run, 12 Oct 2026, scrubbed): choices is a joined string, empty when none, and the keys come in the app's own order.
+test('the real menu line (choices as an empty string, keys in the app\'s order) explains the field; a non-empty string does not', () => {
+  const real = choices => FORM('[]').replace(/.*a menu showed no choice.*\n/, line(`fill: a menu showed no choice that matched {"choices":${choices},"field":"Location","peek":" | selected","version":"0.9.229"}`) + '\n');
+  assert.equal(verdictFields(parseLive(real('""'))).unexplained, 0);
+  assert.equal(verdictFields(parseLive(real('"Zurich | Bern"'))).unexplained, 1);
+});
