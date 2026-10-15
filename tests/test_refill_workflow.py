@@ -1,5 +1,5 @@
 """The CI refill (.github/workflows/replay-refill.yml; owner, 15 Oct 2026: its own workflow, its own Anthropic key). Pins: the key has NO fallback to any other key, a missing key
-stops the job, a fork PR never gets it, it starts only by hand or the `refill` label (never every PR), and the spend is reported."""
+stops the job, a fork PR never gets it, it starts only by hand, and the spend is reported."""
 import re
 import unittest
 from pathlib import Path
@@ -21,16 +21,14 @@ class TheRefillWorkflow(unittest.TestCase):
 
     def test_a_fork_pr_never_gets_the_key(self):
         self.assertIn('isCrossRepository', CODE)
-        self.assertIn('github.event.pull_request.head.repo.full_name == github.repository', CODE)
         pick = CODE.split('\n  refill:')[0]
         self.assertLess(pick.index('isCrossRepository'), pick.index('actions/checkout'), 'the fork check runs before any PR code is checked out')
 
-    def test_it_starts_by_hand_or_by_the_label_only(self):
+    def test_it_starts_by_hand_only_never_from_a_pull_request(self):
         on = CODE.split('\npermissions:')[0]
         self.assertIn('workflow_dispatch:', on)
-        self.assertRegex(on, r'(?s)pull_request:\s+types: \[labeled\]')
-        self.assertIn("github.event.label.name == 'refill'", CODE)
-        self.assertNotRegex(on, r'(?m)^  (push|schedule):')
+        self.assertNotRegex(on, r'(?m)^  (push|schedule|pull_request|pull_request_target):', 'no PR-started workflow may reach an AI key (pool-ci-triggers.test.mjs)')
+        self.assertNotIn('github.event.pull_request', CODE)
 
     def test_the_key_is_given_to_one_step_only(self):
         self.assertEqual(len(re.findall(r'secrets\.REPLAY_REFILL_ANTHROPIC_KEY', CODE)), 2, 'the presence check and the fill step, nothing else')

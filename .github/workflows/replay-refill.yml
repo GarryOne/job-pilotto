@@ -2,7 +2,8 @@
 # A PR that changes what the app asks the AI makes the site replays gate say "ask changed" / "out of date" for the pinned rows whose stored answers no longer match. This refills only those
 # asks, one pinned row per runner in parallel (fill-memo.mjs: the network record is replayed, no site visit, the fake applicant, the privacy tripwire on, old answers never changed),
 # publishes the refilled rows through the guard (records-publish.mjs, desktop/e2e/lib/record-guard.mjs: worse, garbled or pinned-breaking rows refused), then re-runs the PR's gate.
-# By hand only: workflow_dispatch with the PR number, or the PR label `refill`. Never a fork PR: the key is never given to it. Never every PR.
+# By hand only: workflow_dispatch with the PR number. NOT a pull_request trigger (owner rule, 13 Oct 2026: no workflow a PR starts can reach an AI key; desktop/e2e/test/pool-ci-triggers.test.mjs).
+# Never a fork PR: the key is never given to it. Never every PR.
 # Key: REPLAY_REFILL_ANTHROPIC_KEY, its own workspace and spend limit, NO fallback to ANTHROPIC_API_KEY or any other key: missing = the job says so and stops (lib/refill.mjs).
 # Money: the estimate is printed first (pick job), above max_asks (default 40) or $3 the run does not start, a row stops at 30 paid calls, each row's spend is in the job summary and on /admin/ai-cost (job replay-refill).
 # Needs also: NET_RECORD_KEY, NET_RECORDS_READ_TOKEN (as the replay), NET_RECORDS_WRITE_TOKEN (contents:write on the private job-pilotto-internal: only the publish job reads it), AI_COST_PUBLISH_KEY.
@@ -23,8 +24,6 @@ on:
       max_asks:
         description: 'Refuse to start above this many asks'
         default: '40'
-  pull_request:
-    types: [labeled]
 
 permissions:
   contents: read
@@ -32,16 +31,14 @@ permissions:
   pull-requests: read   # the PR's head repo (never a fork)
 
 concurrency:
-  group: replay-refill-${{ github.event.pull_request.number || inputs.pr }}
+  group: replay-refill-${{ inputs.pr }}
   cancel-in-progress: false
 
 env:
-  PR: ${{ github.event.pull_request.number || inputs.pr }}
+  PR: ${{ inputs.pr }}
 
 jobs:
   pick:
-    # the label route: only the label `refill`, only a PR from this repository (a fork's run gets no secret anyway; this says so)
-    if: github.event_name == 'workflow_dispatch' || (github.event.label.name == 'refill' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
