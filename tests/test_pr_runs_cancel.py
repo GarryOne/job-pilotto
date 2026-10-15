@@ -45,6 +45,12 @@ class PrRunsCancel(unittest.TestCase):
             text = (WORKFLOWS / name).read_text(encoding='utf-8')
             self.assertIn('github.sha', re.search(r'(?ms)^concurrency:[^\n]*\n(.*?)(?=^\S)', text).group(1), name)
 
+    def test_the_big_matrices_are_capped_at_four(self):
+        # owner, 15 Oct 2026: verdicts + refills held 23 queued jobs of the 20 runners; the replay matrices run at most 4 at a time
+        for name in ('fix-verdicts.yml', 'replay-refill.yml', 'site-replays.yml'):
+            text = (WORKFLOWS / name).read_text(encoding='utf-8')
+            self.assertRegex(text, r'max-parallel: [1-4]\b', name)
+
     def test_the_by_hand_exceptions_still_exist(self):
         for name in NOT_CANCELLED: self.assertTrue((WORKFLOWS / name).exists(), name)
 
