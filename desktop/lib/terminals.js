@@ -110,18 +110,18 @@ export async function available() {
 // A session is live while its process runs; a restored or ended one is not (but can be resumed with its claudeId).
 const isLive = s => !!s.term && !s.endedAt;
 // Claude's asks of a session that is not running (closed with the app, ended) are frozen: with the takeover off they must not reach any screen (owner, 15 Oct 2026, "I told you a million
-// times": "Click 'Please sign in'…" and "reply continue" rows, with Tell Claude buttons). So the question and its brief are dropped and a waiting-for-you status reads as done, at the ONE
+// times": "Click 'Please sign in'…" and "reply continue" rows, with Tell Claude buttons). So the question and its brief are dropped and a waiting-for-you status reads as ended, at the ONE
 // place every screen, list, tray and notice reads sessions from. A form session never had a Claude ask. Guard: test/claude-asks-hidden.test.js.
 let asksOff = false;   // set by main.js from the ONE flag of Claude's takeover (renderer/claude-help.js SHOW_RESUME_CLAUDE); false: as before (tests, the twin)
 export const hideAsks = on => { asksOff = !!on; };
 const asksHidden = s => asksOff && (s.kind || 'claude') !== 'form' && !isLive(s);
-const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: s.url, title: s.title || '', company: s.company || '', status: asksHidden(s) && s.status === 'input' ? 'done' : s.status, note: s.note || '',
+const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: s.url, title: s.title || '', company: s.company || '', status: asksHidden(s) && s.status === 'input' ? 'ended' : s.status, note: asksHidden(s) && s.status === 'input' ? '' : s.note || '',   // Claude Code's own "waiting for your input" note
   outcome: s.outcome || '',
   live: isLive(s), resumable: !!s.claudeId && !isLive(s) && s.outcome !== 'submitted',
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', accountStep: s.accountStep || '', accountNeeds: s.accountNeeds || '', accountTerms: s.accountTerms || [], accountCode: !!s.accountCode, question: asksHidden(s) ? '' : s.question || '', brief: briefly(asksHidden(s) ? s.note : s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', accountStep: s.accountStep || '', accountNeeds: s.accountNeeds || '', accountTerms: s.accountTerms || [], accountCode: !!s.accountCode, question: asksHidden(s) ? '' : s.question || '', brief: asksHidden(s) ? '' : briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';

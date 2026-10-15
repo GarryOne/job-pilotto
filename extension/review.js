@@ -54,14 +54,14 @@
     written.update(list);
     const needed = list.filter(f => f.required || f.ai || f.changed || f.draft);
     shown = needed.filter(f => !f.filled);
-    const total = needed.length, left = shown.length, pageMark = document.documentElement.getAttribute('data-jobpilotto-page') || '', ready = !moved && !pageMark && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
+    const total = needed.length, left = shown.length, pageMark = (m => (m === 'form' || m === 'account' ? '' : m || 'reading'))(document.documentElement.getAttribute('data-jobpilotto-page') || ''), ready = !moved && !pageMark && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
     $('.ring span').textContent = moved ? '↗' : pageMark ? '…' : ready && !needsYou ? '✓' : total ? String(left) : '–';
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
-    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? 'Apply button detected. Redirecting…' : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'reading' ? 'Reading this page…' : 'Apply button detected. Redirecting…') : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
@@ -74,7 +74,7 @@
     $('.job-meta').replaceChildren(...[company && Object.assign(document.createElement('span'), {textContent: company}),
       job?.stage && Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job.stage) ? 'good' : ''}`, textContent: job.stage})].filter(Boolean));
     $('.go-there').hidden = !(moved && Number.isInteger(movedTab));
-    const claude = moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
+    const claude = pageMark ? '' : moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
       : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
       : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
       : session?.live && session.status === 'input' ? 'Claude is waiting for you in Job Pilotto.'
@@ -82,14 +82,14 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? 'Apply button detected. Redirecting…' : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'reading' ? 'Reading this page…' : 'Apply button detected. Redirecting…') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
     $('.progress-line span').textContent = moved || pageMark ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
     $('.bar i').style.width = `${moved || pageMark ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
     const claudeFilling = session?.live && session.status === 'running';
     // A tailored CV written after the form was filled still has to be attached: the button stays for that.
     // A sign-in or sign-up page (a password box) is not the application: no CV goes there, so no "Tailor my CV" (owner, 8 Oct 2026).
-    const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv && !account;
+    const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv && !account && !pageMark;
     const readyNow = canTailor && cv.tailored && asked;
     $('.fill-box').hidden = moved || claudeFilling || (ready && !filling && !readyNow);  // nothing left to fill
     $('.fill').disabled = filling;

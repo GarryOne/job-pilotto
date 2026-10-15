@@ -11,7 +11,7 @@ import * as terminals from '../lib/terminals.js';
 const ASK = 'Click "Please sign in" in the open Chrome tab, sign in with your email, then reply "ok".\n\n- **Needs you:**\n  - Or allow clicks on this site\'s sign-in pages and reply "continue", and I\'ll sign in myself';
 const now = new Date().toISOString();
 const producers = {
-  'waiting for you, closed with the app': {status: 'input', question: ASK, note: 'Claude closed with the app'},
+  'waiting for you, closed with the app': {status: 'input', question: ASK, note: 'Claude is waiting for your input'},
   'finished with a list of what is left': {status: 'done', question: ASK, note: ''},
   'ended with its last message': {status: 'ended', question: ASK, note: ''},
   'a failed run that said what it needed': {status: 'failed', question: ASK, note: 'exit 1'},
@@ -34,7 +34,7 @@ test('flag off: no field of a stopped Claude session carries its frozen ask, wha
   assert.equal(views.length, Object.keys(producers).length);
   for (const view of views) {
     const text = JSON.stringify(view);
-    assert.doesNotMatch(text, /sign in|reply|Please sign|allow clicks|Needs you/i, `${view.id}: ${text.slice(0, 120)}`);
+    assert.doesNotMatch(text, /sign in|reply|Please sign|allow clicks|Needs you|waiting for your input/i, `${view.id}: ${text.slice(0, 120)}`);
     assert.equal(view.question, '');
     assert.notEqual(view.status, 'input', `${view.id} is not "waiting for you": nothing asks`);
   }
@@ -52,6 +52,7 @@ test('flag on, or the session is running: the ask is shown as before', () => {
 
 test('main.js sets it from the one flag, so the window and the app agree', () => {
   const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
-  assert.match(main, /import \{SHOW_RESUME_CLAUDE\} from '\.\/renderer\/claude-help\.js'/);
-  assert.match(main, /terminals\.hideAsks\(!SHOW_RESUME_CLAUDE\)/);
+  assert.match(main, /import \{takeoverOffered, takeoverOn\} from '\.\/lib\/claude-ready\.js'/);
+  assert.match(main, /terminals\.hideAsks\(!takeoverOn\)/);
+  assert.match(fs.readFileSync(new URL('../lib/claude-ready.js', import.meta.url), 'utf8'), /export const takeoverOn = SHOW_RESUME_CLAUDE;/);
 });
