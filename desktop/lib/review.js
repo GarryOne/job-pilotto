@@ -202,6 +202,17 @@ let bindLog = () => {};
 // Told each time a session takes a tab as its own: which, the one before, and how it was decided (see pick).
 export function onBind(fn) { bindLog = fn; }
 const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+// A report that shows the application form (fields, not a sign-in page) while the tab the session follows shows none: the reporting tab is further along.
+const showsForm = payload => Number(payload?.total) > 0 && !(payload.role ? payload.role === 'account' : payload.account);
+const furtherThanBound = (id, payload) => {
+  const own = last.get(id);
+  return showsForm(payload) && (!own || own.account || !(own.total > 0));
+};
+// ...and the reverse: a newer tab that shows no application form does not take the session from the tab that holds one.
+const behindBound = (id, tab, boot, payload) => {
+  const own = last.get(id), held = tabOf(id, boot);
+  return held !== '' && held !== tab && !!own && own.tab === held && !own.account && own.total > 0 && !showsForm(payload);
+};
 export function report(sessions, payload, now = Date.now()) {
   const page = {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || ''), session: String(payload?.session || '')};
   const tab = Number(payload?.tab), boot = String(payload?.boot || bootId || '');   // the run that tab id belongs to
@@ -209,7 +220,8 @@ export function report(sessions, payload, now = Date.now()) {
   if (!session) return {matched: null, session: null, watch: [], commands: []};
   if (Number.isInteger(tab)) {
     // A session follows its newest tab (tab ids only grow within a browser run): an older tab of it goes quiet and is told so.
-    if (olderTab(session.id, tab, boot)) return {matched: null, moved: true, session: null, watch: [], commands: []};
+    // Unless this older tab holds the live application form and the newer one does not (the app opened a second tab, 15 Oct 2026): the page that is further wins.
+    if ((olderTab(session.id, tab, boot) && !furtherThanBound(session.id, payload)) || behindBound(session.id, tab, boot, payload)) return {matched: null, moved: true, session: null, watch: [], commands: []};
     bind(session.id, tab, boot, by, hostOf(page.url), false);
   }
   // The session's tab, and when it first reported (Chrome gives no tab's creation time; its first report comes as its page

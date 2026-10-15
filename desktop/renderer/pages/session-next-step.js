@@ -5,7 +5,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {accountProgress, asksYou, leftForYou, firstLine, isLive, isSubmitted, panelAnswered, sessionReview, sessionStage, accountRecordLine} from '../session-state.js';
+import {accountProgress, askOutdated, asksYou, leftForYou, firstLine, isLive, isSubmitted, panelAnswered, sessionReview, sessionStage, accountRecordLine} from '../session-state.js';
 import {claudeHelp} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
 import {$, osText, show} from './core.js';
@@ -120,8 +120,10 @@ export function renderNextStep(item) {
   const stopped = !submitted && item.kind === 'form' && item.stuck === 'stopped';   // the person pressed Stop: Reopen form starts it again
   const gone = !submitted && formGone(item);
   const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone && !stopped;   // the extension can't reach this form
-  const review = !submitted && !stuck && !stopped && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !stopped && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome && leftForYou(item))), running = !submitted && item.status === 'running';
-  const open = !submitted && !stuck && !stopped && !review && !asking && (item.kind === 'form' || item.inChrome) && item.status === 'done';
+  // Claude closed with the app, and the form's own tab since reported an application page with fields: the frozen ask is outdated, the live page leads (owner, 15 Oct 2026).
+  const liveForm = reviewStates.get(item.id), outdatedAsk = !submitted && askOutdated(item, liveForm);
+  const review = !submitted && !stuck && !stopped && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !stopped && !review && !outdatedAsk && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome && leftForYou(item))), running = !submitted && item.status === 'running';
+  const open = !submitted && !stuck && !stopped && !review && !asking && (item.kind === 'form' || item.inChrome || outdatedAsk) && (item.status === 'done' || outdatedAsk);
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck || stopped ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;

@@ -323,3 +323,19 @@ test('a tab opened at a form address that differs from the posting still belongs
     assert.equal(review.tabOf('k1'), 7, `${posting}: the session is bound to its tab`);
   }
 });
+
+// Owner, 15 Oct 2026: Reopen opened a second tab; the live signed-in tab (older) then reported the application form and was ignored as "older".
+test('when two tabs carry a session, the one showing the application form wins over a newer tab that shows none', () => {
+  review._reset();
+  const job = {id: 'a1', url: 'https://careers.example.test/job/1', company: 'Adnovum', status: 'input'};
+  const page = (tab, extra = {}) => ({url: 'https://career74.example.test/apply#jobpilotto-fill=a1', title: 'Apply', tab, session: 'a1', total: 0, left: 0, ...extra});
+  review.report([job], page(1825));                                              // the newer, empty tab binds first
+  assert.equal(review.tabOf('a1'), 1825);
+  const live = review.report([job], page(1728, {total: 6, left: 2}));            // the older tab holds the form
+  assert.equal(live.matched, 'a1');
+  assert.equal(review.tabOf('a1'), 1728);
+  assert.deepEqual(review.allStates().map(state => [state.id, state.total]), [['a1', 6]]);
+  review.report([job], page(1825));                                // the empty newer tab no longer takes it back
+  assert.equal(review.tabOf('a1'), 1728);
+  assert.deepEqual(review.allStates().map(state => [state.id, state.total]), [['a1', 6]]);
+});
