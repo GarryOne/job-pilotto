@@ -15,6 +15,11 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
   # a "**Impact:**" line (what it solves or unblocks, for whom, which number moves) and a visual: an image, a ```mermaid diagram of before -> after,
   # or "No visual: <why>" (a docs-only or data-only change). A PR that changes a screen still needs its before/after images (below).
   grep -qiE '\*\*impact\b' "$summary" || { echo 'pr-body: the summary has no "**Impact:**" line: say exactly what it solves or unblocks (who gains, which number or step moves)' >&2; exit 2; }
+  # The impact table (owner, 15 Oct 2026: "Impact with colour, high/medium/low, and for what: form filling? real users? the harness? our speed? the offline machinery?"):
+  # one row per area, its level (🟢 High · 🟡 Medium · ⚪ Low · — None) and in what way. Missing an area: refused, naming it.
+  for area in 'Real users' 'Form filling' 'Offline replays' 'Tests & harness' 'Development speed' 'Cost'; do
+    grep -qiE "^\|[^|]*${area}[^|]*\|[^|]*(High|Medium|Low|None)" "$summary" || { echo "pr-body: the impact table has no row for \"$area\": | $area | 🟢 High / 🟡 Medium / ⚪ Low / — None | in what way |" >&2; exit 2; }
+  done
   # A PR that changes a screen opens WITH its before/after images (owner, 28 Sep and 13 Oct 2026; #774 opened without them, 14 Oct): an image in the body, or a line
   # "No screenshots: <why>" when nothing visible changed (an API route in site/src). Screens: the app's window, the site's pages, the extension's pages and styles.
   screens="$(git diff --name-only "$base"..HEAD | grep -E '^(desktop/renderer/|site/src/|site/public/)|^(desktop|extension)/.*\.(html|css)$' | head -3 | paste -sd ' ' - || true)"
