@@ -14,7 +14,7 @@ export const onRecording = rec => !!(rec?.outcome && onOwnAsks(rec.network, rec.
 export function compare(a, b) {
   if (!a || !b || rank(a.reached) < 0 || rank(b.reached) < 0) return null;
   if (rank(a.reached) !== rank(b.reached)) return rank(a.reached) > rank(b.reached) ? 1 : -1;
-  const fill = (a.filled ?? 0) - (b.filled ?? 0), left = (b.left ?? 0) - (a.left ?? 0);
+  const fill = (a.filled ?? 0) - (b.filled ?? 0), left = ((b.left ?? 0) - (b.slotsLeft ?? 0)) - ((a.left ?? 0) - (a.slotsLeft ?? 0));   // an optional upload slot left is not a left field (lib/upload-slots.mjs)
   if (fill < 0 || left < 0) return -1;
   return fill > 0 || left > 0 ? 1 : 0;
 }

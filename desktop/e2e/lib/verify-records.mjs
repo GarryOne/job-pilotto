@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {outputOfLog, parseLive} from './record-sites.mjs';
+import {slotsLeftOf} from './upload-slots.mjs';
 
 const KEPT_LOG = 'app.log';   // the live run's log KEPT in the record folder (not the app's own logs/app.log, which app-log.mjs reads)
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
@@ -20,7 +21,7 @@ export function recordsByRow(root, byUrl = new Map()) {
       const first = record.entries?.find(item => item.type === 'document')?.url || record.url, live = log.trim() ? parseLive(outputOfLog(log, first)) : null;
       const name = record.name || byUrl.get(String(record.url || '').split('#')[0]) || new URL(record.url).host;
       if (!rows.has(name)) rows.set(name, []);
-      rows.get(name).push({name, dir: here, rel: path.relative(root, here), startMs: record.startMs, at: new Date(record.startMs).toISOString(), log, outcome: live ? {reached: live.reached, filled: live.filled, left: live.left} : null});
+      rows.get(name).push({name, dir: here, rel: path.relative(root, here), startMs: record.startMs, at: new Date(record.startMs).toISOString(), log, outcome: live ? {reached: live.reached, filled: live.filled, left: live.left, slotsLeft: slotsLeftOf(live.fieldList)} : null});
     }
   };
   walk(root);

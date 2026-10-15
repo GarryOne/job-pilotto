@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {buildOf, compare, judgeFixed, judgeRegression} from '../lib/verify-judge.mjs';
+import {slotsLeftOf} from '../lib/upload-slots.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const rec = (outcome, liveOutcome, {hit = 4, asks = 4, extra = 0, notRecorded = 0} = {}) => ({outcome, liveOutcome, live: {asks}, network: {hit, extra, notRecorded}});
@@ -59,4 +60,18 @@ test('a recording after the fix: confirmed when main goes further than the build
   assert.equal(judgeFixed({...late, runs: [run, run], before: rec(form(8, 2), form(8, 2))}).verdict, 'notbetter');
   assert.equal(judgeFixed({...late, runs: [run, run], before: rec(stuck, form(8, 2), {extra: 1})}).verdict, 'live', 'the older build asks what the recording lacks');
   assert.equal(judgeFixed({...late, runs: [run, run], before: old, control: rec(stuck, form(8, 2))}).verdict, 'live', 'the control fails');
+});
+
+test('an optional upload slot the page lists is not a left field: listing two more of them is not "goes less far"', () => {
+  // Valora (15 Oct 2026): the fixed build lists "Weitere Dokumente" and "Maximal 50 MB" (type file, required false, "upload: no file for this question") as left: 9 filled, 6 left against 9 filled, 4 left.
+  const before = {reached: 'form', filled: 9, left: 4, slotsLeft: 0}, after = {reached: 'form', filled: 9, left: 6, slotsLeft: 2};
+  assert.equal(compare(after, before), 0);
+  assert.equal(compare({...after, left: 7}, before), -1, 'a real extra left field still counts');
+  assert.equal(compare({reached: 'form', filled: 9, left: 6}, before), -1, 'an outcome with no slot count (an older record) is read as before');
+});
+
+test('slotsLeftOf counts only left, optional file fields', () => {
+  const fields = [{outcome: 'left', type: 'file', required: false}, {outcome: 'left', type: 'file', required: null}, {outcome: 'left', type: 'file', required: true}, {outcome: 'filled', type: 'file', required: false}, {outcome: 'left', type: 'text', required: false}];
+  assert.equal(slotsLeftOf(fields), 2);
+  assert.equal(slotsLeftOf(undefined), 0);
 });
