@@ -34,7 +34,7 @@ class PrBodyTest(unittest.TestCase):
 
     def test_the_summary_comes_first_and_the_commit_message_is_folded(self):
         summary = self.tmp / 'summary.md'
-        summary.write_text('### ✅ Ocado: menus picked by meaning\n\n- **Why:** the 11 Oct pool run left 3 menus empty\n\n| | Before | After |\n|---|---|---|\n| filled | 8 | 11 |\n')
+        summary.write_text('### ✅ Ocado: menus picked by meaning\n\n- **Why:** the 11 Oct pool run left 3 menus empty\n- **Impact:** 3 more required menus filled on Ocado-like forms\n\nNo visual: a one-line fix\n\n| | Before | After |\n|---|---|---|\n| filled | 8 | 11 |\n')
         text = self.body(f'--body={summary}')
         self.assertTrue(text.startswith('### ✅ Ocado: menus picked by meaning'), text[:200])
         details = text.index('<details>')
@@ -59,7 +59,7 @@ class PrBodyTest(unittest.TestCase):
 
     def test_a_pr_body_line_the_ci_reads_stays_in_the_body(self):
         summary = self.tmp / 'summary.md'
-        summary.write_text('### Fix\n\n- **Why:** the owner saw it\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\nlive-row: Personio form in German\nlive-applicant: thin\n')
+        summary.write_text('### Fix\n\n- **Why:** the owner saw it\n- **Impact:** unblocks the live row\n\nNo visual: a one-line fix\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\nlive-row: Personio form in German\nlive-applicant: thin\n')
         text = self.body(f'--body={summary}')
         self.assertIn('\nlive-row: Personio form in German\n', text)
         self.assertIn('\nlive-applicant: thin\n', text)
@@ -78,7 +78,7 @@ class PrBodyTest(unittest.TestCase):
 
     def test_a_pr_that_changes_a_screen_is_refused_without_images(self):
         # Owner, 28 Sep / 13 Oct 2026: a UI PR opens WITH before/after images; #774 (14 Oct) opened without them. The class: every screen folder.
-        ok = '### ✅ X\n\n- **Why:** the owner saw it\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n'
+        ok = '### ✅ X\n\n- **Why:** the owner saw it\n- **Impact:** the page reads right\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n'
         summary = self.tmp / 'summary.md'
         def run(text):
             summary.write_text(text)
@@ -94,7 +94,19 @@ class PrBodyTest(unittest.TestCase):
         git(self.repo, 'reset', '-q', '--hard', self.base)
         (self.repo / 'site' / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'site' / 'test' / 'a.test.js').write_text('x\n')
         git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a test')
-        self.assertEqual(run(ok).returncode, 0, 'a change to no screen needs no image')
+        self.assertEqual(run(ok + 'No visual: a test only\n').returncode, 0, 'a change to no screen needs no image')
+
+    def test_a_summary_without_an_impact_or_a_visual_is_refused(self):
+        # Owner, 15 Oct 2026: "improve the PR description, add also an impact, and some visual messaging of the fix... and exactly what it solves/unblocks".
+        why = '### ✅ X\n\n- **Why:** the owner saw it\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n'
+        summary = self.tmp / 's.md'
+        def run(text):
+            summary.write_text(text)
+            return subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
+        result = run(why + 'No visual: a test only\n'); self.assertEqual(result.returncode, 2); self.assertIn('Impact', result.stderr)
+        result = run(why + '- **Impact:** unblocks #824\n'); self.assertEqual(result.returncode, 2); self.assertIn('visual', result.stderr)
+        for visual in ('```mermaid\nflowchart LR\n  A --> B\n```\n', '![after](https://x/a.png)\n', 'No visual: data only change\n'):
+            self.assertEqual(run(why + '- **Impact:** unblocks #824\n\n' + visual).returncode, 0, visual)
 
 if __name__ == '__main__':
     unittest.main()
