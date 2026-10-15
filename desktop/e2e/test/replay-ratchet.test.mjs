@@ -81,3 +81,11 @@ test('a pin lowered in a PR stays held by the base copy; newly faithful rows are
   const result = judge([rec('a'), rec('b', {hit: 3, extra: 1})], {}, [], {}, [...new Set([...pinned(now), ...pinned(base)])]);
   assert.equal(result.rows.b.verdict, 'worse');
 });
+
+test('linux is a place: a row pinned on Linux is held like one pinned on the runner; the Mac place is a record, never held', () => {
+  const data = pin({rows: {a: {same: true}}}, pin({rows: {b: {same: true}}}, pin({rows: {m: {same: true}}}, {rows: {}}, {place: 'mac', commit: 'm'}), {place: 'linux', commit: 'l'}), {place: 'runner', commit: 'r'});
+  assert.deepEqual(pinned(data), ['a', 'b']);
+  assert.equal(data.rows.b.linux, true);
+  assert.equal(data.rows.m.mac, true);
+  assert.equal(judge([rec('b', {hit: 3, extra: 1})], {}, [], {}, pinned(data)).rows.b.verdict, 'worse');
+});

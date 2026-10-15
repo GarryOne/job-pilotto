@@ -4,7 +4,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data} from '../src/applying.js';
-import {FIDELITY_SCRIPT, fidelity, fidelityIngest, readFidelity, verdictOf} from '../src/applying-fidelity.js';
+import {FIDELITY_SCRIPT, cleanRecord, fidelity, fidelityIngest, readFidelity, verdictOf} from '../src/applying-fidelity.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:'), log = {written: 0};
@@ -68,6 +68,14 @@ test('the page carries the section and its data', async () => {
   assert.equal(d.fidelity.rows.length, 1);
   assert.match(PAGE, /Replay vs live \(prototype\)/);
   assert.match(PAGE, /drawFidelity\(fidelityBox, d\.fidelity\)/);
+});
+
+test('a pinned row is counted: "N of M same as live (pinned K)" shows when any row is pinned, and a lost pin is visible', () => {
+  const f = fidelity([{...row('a', good), pinned: true}, {...row('b', {...good, extra: 3}), pinned: true}, row('c', good)]);
+  assert.deepEqual(f.summary, {total: 3, recorded: 3, network: 2, snapshot: 0, pinned: 2, pinnedSame: 1});
+  assert.equal(cleanRecord({...row('a', good), pinned: true}).pinned, true);
+  assert.equal('pinned' in cleanRecord(row('a', good)), false);
+  assert.match(FIDELITY_SCRIPT, /still same/);
 });
 
 test('the details row spans every column, and a long name is split into a title and a sub line for the 64px summary row', () => {

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {onOwnAsks} from './lib/own-asks.mjs';
+import {load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
 import {wideLocalRefusal} from './lib/wide-local.mjs';
 
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
@@ -37,12 +38,12 @@ export const whereOf = (record, dir) => (['mac', 'ci'].includes(record.where) ? 
 export const deferredRows = (file = new URL('./replay-deferred.json', import.meta.url)) => json(file, {}).rows || {};
 
 // One row's replay -> its "Replay vs live" record (the shape /admin/lab-form-filling reads: site/src/applying-fidelity.js).
-export function fidelityRecord({name, dir = '', record}, replay, {sha = '', branch = '', at = new Date().toISOString(), deferred = {}} = {}) {
+export function fidelityRecord({name, dir = '', record}, replay, {sha = '', branch = '', at = new Date().toISOString(), deferred = {}, pins = pinnedRows(loadPins())} = {}) {
   const host = new URL(record.url).host.replace(/^www\./, '');
   const own = (replay?.counts?.notRecorded || []).filter(line => { try { return new URL(line.split(' ')[1]).host.endsWith(host); } catch { return false; } }).length;
   return {name, sha, branch, at, seconds: Number.isFinite(replay?.seconds) ? Math.round(replay.seconds) : null, site: host.split('.').slice(-2).join('.'), outcome: replay?.outcome || null, wrongValues: replay?.wrongValues?.wrong || [], liveOutcome: replay?.liveOutcome || null, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
     firstMiss: replay?.firstMiss ? {differs: (replay.firstMiss.differs || []).slice(0, 12)} : null,   // part names only (replay-gate.mjs outdated)
-    network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, loose: replay.looseHits || 0, looseParts: replay.looseParts || [], orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
+    network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, loose: replay.looseHits || 0, looseParts: replay.looseParts || [], orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null, ...(pins.includes(name) ? {pinned: true} : {})};
 }
 
 // JP_REPLAY_SHARD "k/n" (the scheduled replay's matrix, site-replays.yml: owner, 14 Oct 2026, one runner took 25+ min): every n-th row from the k-th, by name order.
@@ -71,7 +72,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     const ran = spawnSync(process.execPath, [path.join(here, 'replay-net.mjs'), row.dir, work], {encoding: 'utf8', timeout: 6 * 60 * 1000});
     const replay = json(path.join(work, 'replay.json'));
     if (!replay) console.error(`replay-records: ${row.name}: no result (${(ran.stderr || ran.error?.message || '').trim().split('\n').filter(line => /error|Error|throw/.test(line)).slice(-2).join(' | ').slice(0, 300)})`);
-    console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: ${replay ? `${replay.outcome || 'no outcome'}, ${replay.liveHit ?? 0}/${replay.liveAsks ?? 0} asks as live` : 'no result'} (${Math.round((Date.now() - started) / 1000)} s)`);
+    console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: ${replay ? `${replay.outcome ? `${replay.outcome.reached}${replay.outcome.filled != null ? ` ${replay.outcome.filled}/${replay.outcome.left ?? '?'}` : ''}` : 'no outcome'}, ${replay.liveHit ?? 0}/${replay.liveAsks ?? 0} asks as live` : 'no result'} (${Math.round((Date.now() - started) / 1000)} s)`);
     const record = fidelityRecord(row, replay, {sha: process.env.GITHUB_SHA?.slice(0, 7) || '', branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || '', deferred});
     records.push(record);
     if (record.network) fs.writeFileSync(path.join(out, 'step4', `${slug(row.name)}.json`), `${JSON.stringify(record, null, 1)}\n`);
