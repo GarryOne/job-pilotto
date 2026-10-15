@@ -24,9 +24,17 @@
   // field's), or a hidden input a <label for> points to there (a type-to-search picklist; SuccessFactors, 8 Oct 2026), else a chip in the nearest "container" that holds no other
   // field (a wrapper around the whole form is not this field's: its chips are other fields'). -> the element that holds it, or null.
   const CHIP = '[class*=single-value], [class*=multi-value]', FIELDS = 'input:not([type=hidden]), select, textarea';
+  // A select-only combobox that is no input (ARIA's pattern, OpenUI5's sap.m.Select: <div role=combobox> holding the shown choice, and a hidden input with its key beside it): its own
+  // words ARE the choice. A key beside it that is empty means the first, "nothing chosen" item is the one shown ("No Selection"): empty. Structure only; no word is read.
+  const selectOnly = el => {
+    if (el.matches('input, textarea, select') || !String(el.textContent || '').trim()) return null;
+    const keys = [...(el.parentElement?.querySelectorAll('input[type=hidden], input[aria-hidden=true]') || [])];
+    return keys.length === 1 && !String(keys[0].value || '').trim() ? null : el;
+  };
   const comboValue = el => {
     const own = el.closest('[class*=select__container]')?.querySelector(CHIP);
     if (own) return own;
+    if (!el.matches('input, textarea, select') && String(el.textContent || '').trim()) return selectOnly(el);   // shown words: the choice (or the placeholder item); none: the chip search below
     for (let box = el.parentElement, i = 0; box && i < 4 && box.querySelectorAll(FIELDS).length <= 1; box = box.parentElement, i++) {
       const found = box.querySelector(CHIP) || [...box.querySelectorAll('input[type=hidden][id]')].find(hidden => hidden.value && document.querySelector(`label[for="${CSS.escape(hidden.id)}"]`));
       if (found) return found;

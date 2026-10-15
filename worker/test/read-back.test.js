@@ -122,3 +122,22 @@ test('the record takes rung 0\'s last read: a field the fill answered that holds
   const stale = settleTrace(trace.slice(0, 1), final.slice(0, 1), [], [{field: 'first', type: 'text', state: 'empty'}], '');
   assert.equal(stale[0].outcome, 'left', 'empty at the last read: left, as before');
 });
+
+// A select-only combobox that is no input (ARIA's own pattern: <div role="combobox"> whose text IS the choice). The markup below is what OpenUI5's sap.m.SelectRenderer writes, copied from
+// the renderer's code that a SuccessFactors career site ships (not captured from a live page): a pseudo-invisible role=combobox div holding the selected item's text, a hidden input holding the
+// selected key, and the visible label span. 15 Oct 2026, the owner's real fill: Country showed "Switzerland", the newsletter select "No", the panel listed both as left for you.
+const UI5 = (id, text, key) => `<div id="${id}" class="sapMSlt sapMSltDefault"><div id="${id}-hiddenSelect" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-required="true" class="sapUiPseudoInvisibleText sapMSltHiddenSelect" tabindex="0">${text}</div>` +
+  `<input id="${id}-hiddenInput" name="${id}" value="${key}" aria-readonly="true" tabindex="-1" aria-hidden="true" class="sapUiPseudoInvisibleText"><span id="${id}-label" aria-hidden="true" class="sapMSltLabel"><span class="sapMSelectListItemText">${text}</span></span><span class="sapMSltArrow"></span></div>`;
+for (const [name, html, expected] of [
+  ['the placeholder item selected, key empty', UI5('title', 'No Selection', ''), 'empty'],
+  ['a country chosen, key set', UI5('country', 'Switzerland', 'CH'), 'committed'],
+  ['a yes/no chosen by the person, key set', UI5('news', 'No', 'false'), 'committed'],
+  ['nothing shown at all', UI5('blank', '', ''), 'empty'],
+]) {
+  test(`a select-only combobox div is read by its shown choice (OpenUI5 sap.m.Select markup): ${name}`, {skip: !JSDOM}, () => {
+    const window = openPage(JSDOM, `<form>${html}</form>`);
+    const el = window.document.querySelector('[role=combobox]');
+    assert.equal(window.__jobPilottoReadBack.stateOf(el), expected);
+    assert.equal(window.__jobPilottoReadBack.holds(el), expected === 'committed');
+  });
+}
