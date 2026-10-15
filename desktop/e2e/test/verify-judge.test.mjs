@@ -32,7 +32,7 @@ test('every other case says live or not better, never confirmed', () => {
   for (const [name, [runs, verdict]] of Object.entries(cases)) assert.equal(judgeFixed({...fixed, runs}).verdict, verdict, name);
   assert.equal(judgeFixed({...fixed, runs: [run, run], control: rec(form(8, 2), stuck)}).verdict, 'live', 'the control replays to another outcome than live');
   assert.equal(judgeFixed({...fixed, runs: [run, run], control: null}).verdict, 'live', 'no control');
-  assert.equal(judgeFixed({...fixed, runs: [run, run], recordedAt: '2026-10-14T00:00:00Z'}).verdict, 'live', 'recorded after the fix');
+  assert.equal(judgeFixed({...fixed, runs: [run, run], recordedAt: '2026-10-14T00:00:00Z'}).verdict, 'live', 'recorded after the fix, no replay on the build before it');
   assert.equal(judgeFixed({...fixed, runs: [run, run], recordedAt: null}).verdict, 'live', 'no recording');
 });
 
@@ -51,4 +51,12 @@ test('a recording builds from its stamped version, else from the time it was mad
   assert.deepEqual(buildOf({log: 'x "version":"0.9.10" y', startMs, versions, commits}), {commit: 'bbb', by: 'version'});
   assert.deepEqual(buildOf({log: 'no stamp', startMs, versions, commits}), {commit: 'bbb', by: 'time'});
   assert.equal(buildOf({log: '', startMs: Date.parse('2026-01-01'), versions, commits}), null);
+});
+
+test('a recording after the fix: confirmed when main goes further than the build before the fix on it; same or off the recording is not', () => {
+  const late = {...fixed, recordedAt: '2026-10-14T10:00:00Z'}, run = rec(form(8, 2), form(8, 2)), old = rec(stuck, form(8, 2));
+  assert.equal(judgeFixed({...late, runs: [run, run], before: old}).verdict, 'confirmed');
+  assert.equal(judgeFixed({...late, runs: [run, run], before: rec(form(8, 2), form(8, 2))}).verdict, 'notbetter');
+  assert.equal(judgeFixed({...late, runs: [run, run], before: rec(stuck, form(8, 2), {extra: 1})}).verdict, 'live', 'the older build asks what the recording lacks');
+  assert.equal(judgeFixed({...late, runs: [run, run], before: old, control: rec(stuck, form(8, 2))}).verdict, 'live', 'the control fails');
 });

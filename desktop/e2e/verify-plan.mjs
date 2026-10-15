@@ -1,5 +1,5 @@
-// What "Confirmed offline" will replay (owner, 14 Oct 2026; .github/workflows/fix-verdicts.yml): per landed fix, the row's newest recording made BEFORE the fix; per row whose newest
-// recording got less far than an older one, the newest recording and the older one's build. A row without such a recording gets its verdict now ("Needs a recording"). Writes <out>:
+// What "Confirmed offline" will replay (owner, 14 Oct 2026; .github/workflows/fix-verdicts.yml): per landed fix, the row's newest recording made BEFORE the fix (else its newest recording, replayed on the build before the fix as "before"); per row whose newest
+// recording got less far than an older one, the newest recording and the older one's build. A row without any recording with a live outcome gets its verdict now ("Needs a recording"). Writes <out>:
 // {jobs: [{kind, row, ...}], verdicts: [...]}. Run: node verify-plan.mjs <records dir> <out file>. Guard: e2e/test/verify-plan.test.mjs.
 import fs from 'node:fs';
 import {buildLedger} from './lib/fix-ledger.mjs';
@@ -17,7 +17,12 @@ export function plan({rows, ledger, history}) {
   for (const fix of ledger) if (!landed.has(fix.site) || Date.parse(fix.landedAt) > Date.parse(landed.get(fix.site).landedAt)) landed.set(fix.site, fix);
   for (const [row, fix] of landed) {
     const before = (rows.get(row) || []).filter(record => record.startMs < Date.parse(fix.landedAt) && record.outcome).at(-1);
-    if (!before) { verdicts.push({kind: 'fixed', row, commit: fix.commit, verdict: 'live', why: (rows.get(row) || []).length ? 'no recording from before the fix' : 'no recording of this row'}); continue; }
+    if (!before) {   // only a recording made after the fix: replay it on the build just before the fix (the parent of the fix commit) as "before" (owner, 15 Oct 2026)
+      const newest = (rows.get(row) || []).filter(record => record.outcome).at(-1);
+      if (newest) jobs.push({kind: 'fixed', row, commit: fix.commit, landedAt: fix.landedAt, record: strip(newest, history), beforeBuild: `${fix.commit}^`});
+      else verdicts.push({kind: 'fixed', row, commit: fix.commit, verdict: 'live', why: (rows.get(row) || []).length ? 'no recording with a live outcome' : 'no recording of this row'});
+      continue;
+    }
     jobs.push({kind: 'fixed', row, commit: fix.commit, landedAt: fix.landedAt, record: strip(before, history)});
   }
   for (const [row, list] of rows) {
