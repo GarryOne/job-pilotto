@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs';
-import {STREAK, askChanged, fell, judge, outdated, summary} from '../replay-gate.mjs';
+import {STREAK, askChanged, fell, judge, outdated, refillLine, summary} from '../replay-gate.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const rec = (name, outcome, {hit = 4, asks = 4, extra = 0} = {}) => ({name, outcome, live: {asks}, network: {hit, extra, notRecorded: 0}});
@@ -113,4 +113,16 @@ test('a row answered from kept answers although the system prompt changed says s
   assert.match(text, /Answered although the system side changed: 1 row/);
   assert.match(text, /\| a \| 3 \| system:0, model \|/);
   assert.doesNotMatch(summary(judge([rec('b', form(8, 4))], baseline)), /Answered although/, 'no loose hit, no line');
+});
+
+test('a pinned row whose ask changed or prompt changed prints the refill next step, red or not; a row that is fine does not', () => {
+  const missing = (name, differs) => ({name, outcome: form(8, 4), live: {asks: 4}, network: {hit: 2, extra: 2, notRecorded: 0}, firstMiss: {differs}});
+  const pinnedRows = judge([missing('a', ['user:form_fields']), missing('b', ['system:0']), rec('c', form(8, 4))], {}, [], {}, ['a', 'b', 'c']);
+  assert.equal(pinnedRows.rows.a.verdict, 'worse', 'a pinned row that is not same as live is red');
+  assert.deepEqual([pinnedRows.rows.a.refill, pinnedRows.rows.b.refill, pinnedRows.rows.c.refill], [true, true, false]);
+  const text = summary(pinnedRows, {pr: 824});
+  assert.ok(text.includes('gh workflow run replay-refill.yml -f pr=824  (by hand, on the owner\'s go)'), 'the next step line');
+  assert.match(text, /2 rows need their answers refilled \(a, b\)/);
+  assert.equal(refillLine(), "gh workflow run replay-refill.yml -f pr=<n>  (by hand, on the owner's go)");
+  assert.doesNotMatch(summary(judge([rec('c', form(8, 4))], {}, [], {}, ['c']), {pr: 824}), /replay-refill/, 'no line when nothing is stale');
 });
