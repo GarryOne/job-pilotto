@@ -339,3 +339,16 @@ test('when two tabs carry a session, the one showing the application form wins o
   assert.equal(review.tabOf('a1'), 1728);
   assert.deepEqual(review.allStates().map(state => [state.id, state.total]), [['a1', 6]]);
 });
+
+// Owner, 15 Oct 2026: Reopen opened the posting, and the card said "Ready to submit · 1 of 1" over it.
+test('a posting page reports no counts and no ready, and the form page\'s own address is kept for Reopen', () => {
+  review._reset();
+  const job = {id: 'p1', url: 'https://careers.example.test/job/1', company: 'Adnovum', status: 'input'};
+  const page = (url, extra = {}) => ({url, title: 'Apply', tab: 7, session: 'p1', total: 0, left: 0, ...extra});
+  review.report([job], page('https://career74.example.test/apply?x=1#jobpilotto-fill=p1', {total: 6, left: 0}));
+  assert.equal(review.allStates().find(state => state.id === 'p1').formUrl, 'https://career74.example.test/apply');
+  review.report([job], page('https://careers.example.test/job/1#jobpilotto-fill=p1', {total: 1, left: 0, page: 'opening', needs: 'x', filled: ['Email']}));
+  const state = review.allStates().find(entry => entry.id === 'p1');
+  assert.deepEqual([state.page, state.total, state.left, state.ready, state.filled], ['opening', 0, 0, false, []]);   // a posting is never Ready, never counts
+  assert.equal(state.formUrl, 'https://career74.example.test/apply', 'the form address survives the posting visit');
+});

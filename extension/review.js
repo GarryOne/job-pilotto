@@ -59,7 +59,7 @@
     $('.ring span').textContent = moved ? '↗' : pageMark ? '…' : ready && !needsYou ? '✓' : total ? String(left) : '–';
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
-    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'opening' ? 'Opening the form…' : 'Press Apply to open the form') : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? 'Apply button detected. Redirecting…' : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
@@ -80,7 +80,7 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'opening' ? 'Opening the form…' : 'Press Apply to open the form') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? 'Apply button detected. Redirecting…' : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
     $('.progress-line span').textContent = moved || pageMark ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
     $('.bar i').style.width = `${moved || pageMark ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)

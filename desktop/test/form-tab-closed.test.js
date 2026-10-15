@@ -13,6 +13,7 @@ function setup({choice = null, tab = 'none'} = {}) {
   terminals._reset();
   terminals.usePty(async () => ({spawn: () => ({onData: () => {}, onExit: () => {}, write: () => {}, resize: () => {}, kill: () => {}})}));
   const handles = new Map(), calls = [], logs = [], dialogs = [];
+  let states = [];
   registerSessionHandlers({ipcMain: {handle: (name, fn) => handles.set(name, fn)}, appLog: (area, message) => logs.push(`${area}: ${message}`),
     storage: {}, getWindow: () => null, here, DEMO: false, nativeImage: {createFromPath: () => ({})},
     dialog: {showMessageBox: async (_window, options) => { dialogs.push(options); return {response: choice}; }},
@@ -20,9 +21,9 @@ function setup({choice = null, tab = 'none'} = {}) {
       applyOne: async (_storage, url) => { calls.push(`chrome ${url}`); return {ok: true}; },
       claudeOne: async (_storage, url) => { calls.push(`claude ${url}`); return {ok: true}; }},
     focusTab: async ({id}) => { calls.push(`look ${id}`); return tab; },   // never Chrome itself: the scripting is a fake
-    review: {forget: id => calls.push(`forget ${id}`), tabOf: () => ''}, pipeline: {}, server: {}, notion: {}, claudeConsent: async () => true});
+    review: {forget: id => calls.push(`forget ${id}`), tabOf: () => '', allStates: () => states}, pipeline: {}, server: {}, notion: {}, claudeConsent: async () => true});
   const reopen = (id, stale) => handles.get('sessionReopen')({}, id, stale);
-  return {reopen, calls, logs, dialogs};
+  return {reopen, calls, logs, dialogs, setStates: next => { states = next; }};
 }
 
 test('nothing from the closed tab on the page: the form reopens without a question', async () => {
@@ -86,4 +87,16 @@ test('the tab lookup finds a redirected tab by its mark on any host and window',
   const tabs = [{id: '1', win: 1, url: 'https://news.example.test/'}, {id: '9', win: 2, url: 'https://career74.other-host.test/apply#jobpilotto-fill=f1'}];
   assert.equal(tabOfSession('f1', tabs, '')?.id, '9');
   assert.equal(tabOfSession('f2', tabs, ''), null);
+});
+
+test('Reopen goes back to the form page the application was on, not the posting', async () => {
+  const s = setup();
+  const {id} = terminals.startForm({id: 'f9', url: URL, company: 'Acme'});
+  s.setStates([{id, formUrl: 'https://career74.example.test/apply'}]);
+  await s.reopen(id, true);
+  assert.ok(s.calls.includes('open https://career74.example.test/apply'), s.calls.join(' | '));
+  const t = setup();
+  const {id: other} = terminals.startForm({id: 'f8', url: URL, company: 'Acme'});
+  await t.reopen(other, true);
+  assert.ok(t.calls.includes(`open ${URL}`), 'no form seen yet: the posting');
 });

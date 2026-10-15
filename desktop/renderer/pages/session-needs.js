@@ -1,6 +1,6 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {renderSteps} from './session-steps.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
 import {checkingTabs, chromeSilent, chromeWaiting, tabClosed, tabNotFound} from '../session-state.js';
@@ -83,6 +83,8 @@ export const tabLost = item => tabNotFound(item, shared.formsOpen, performance.n
 export const silentChrome = item => chromeSilent(item, shared.formsOpen, performance.now());
 // Chrome has not reported yet, but the app only just started: a neutral wait, not the warning.
 export const waitingChrome = item => chromeWaiting(item, shared.formsOpen, performance.now());
+// The session's tab is on a posting (or its Apply was just pressed): the extension marked it so, and the card says only that (owner, 15 Oct 2026: "Apply button detected. Redirecting…").
+export const redirecting = item => !!item && item.outcome !== 'submitted' && !!reviewStates.get(item.id)?.page;
 export const formGone = item => tabClosed(item, shared.formsOpen, !!reviewStates.get(item.id)?.total);
 // What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
 // pill's tooltip — the rows themselves say which is which.
@@ -287,7 +289,7 @@ export function needRow(need, item) {
   // What an answer is about: the field's label, else the item itself. "this" alone told Claude nothing (8 Oct 2026: "Change this in the form: Yes").
   const name = need.label ? unbold(need.label) : `"${title}"`;
   const reply = need.kind !== 'agree' && replyOf(title);
-  if (reply && claudeHelp()) {   // "Reply ok, and I'll click Create an account" (a reply to Claude: only with Claude help on, claude-help.js): one button that sends it, not a field to review
+  if (reply && resumeOffered()) {   // "Reply ok, and I'll click Create an account" (a reply to Claude: only with Claude help on, claude-help.js): one button that sends it, not a field to review
     actions.append(smallButton(`Reply "${reply}"`, 'primary', () => { queue(item, key, reply, {last: true}); doneRow(li, key, `To send: ${reply}`); }, offline(item)));
     li.append(badge(), body, actions);
     if (handled.has(key)) doneRow(li, key, handled.get(key));
@@ -302,7 +304,7 @@ export function needRow(need, item) {
     // A judgement call: Claude's proposed answer is chosen; the list holds the other answers you saved for the same
     // question, and the last entry asks Claude for a different one instead.
     loadAnswers();
-    const choices = answerOptions(need, knownAnswers, {claude: claudeHelp()});   // "Change with Claude…" only with Claude help on
+    const choices = answerOptions(need, knownAnswers, {claude: resumeOffered()});   // "Change with Claude…" only with Claude help on
     const chip = el('span', 'ss-answer');
     // Only "Change with Claude…" to pick (Claude proposed nothing, and none is saved): a lone dropdown under the label
     // "Proposed answer" proposes nothing, so the row gets one plain button instead.
