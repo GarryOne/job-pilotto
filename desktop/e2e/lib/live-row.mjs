@@ -30,7 +30,7 @@ import {livePresses} from './replay-candidate.mjs';
 import {blockVerdict, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
 import {keyRefusal, refillCap, refillKey} from './refill.mjs';
-import {allowedValues, seedTestAccounts, testAccounts} from './test-accounts.mjs';
+import {allowedValues, contactFor, seedTestAccounts, testAccounts} from './test-accounts.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
 import {keepRecord, netRecorder} from './net-record.mjs';
@@ -88,7 +88,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   };
   try {
     await applyPoolEligibility(run.context.serviceWorkers()[0] || await run.context.waitForEvent('serviceworker', {timeout: 30000}), {say});   // before Apply: a pool run measures filling
-    await app.call('saveContact', CONTACT);
+    await app.call('saveContact', contactFor(CONTACT, accounts, posting.url));   // a host with a test account: that account's email (lib/test-accounts.mjs contactFor)
     // The posting as the Electron path has it (suites/apply.mjs): tracked, Saved, no kit, in this app's own store (lib/seed-data.mjs seedLivePosting).
     const store = {store: 'sqlite', profile: app.dir};
     await seedLivePosting({...store, data: (entity, method, kwargs) => storeCall(store, entity, method, kwargs)}, posting);
