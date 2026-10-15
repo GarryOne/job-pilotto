@@ -68,7 +68,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
-  const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now()}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/record-sites.yml)
+  const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now(), owner: new Map([...owner, ...values])}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/record-sites.yml)
   if (net) await seedRandom(run.context, netStart);   // the replay draws the same random numbers (lib/seeded-random.mjs)
   const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
