@@ -20,6 +20,8 @@ import {menuCause} from './menu-reason.js';
 import {meaningOf, designOf, gapKey, validGapKey} from './fill-meaning.js';
 export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'menu_other_choice', 'not_kept_after_tries', 'real_click', 'no_option', 'unread', 'other'];
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
+// A required two-state control the answer said "no" to and the page already holds unchecked: an answer kept, never a loss (extension/page/fill.js, 0ae22fd).
+export const answeredNoOf = row => /^answered no/.test(String(row?.reason || ''));   // words-ok: our own trace reason
 
 export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI = true} = {}) {
   const reason = String(row?.reason || '');
@@ -46,6 +48,7 @@ const count = (list, key) => list.reduce((out, item) => { const k = key(item); i
 export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiError = '', useAI = true, kit = false, version = '', startedAt, endedAt = new Date()}) {
   const fieldOf = new Map(form.map(row => [String(row.label || '').trim(), row.field]));
   const rows = trace.filter(row => row && row.type !== 'file' && !/^(legal|written|demographic)/.test(String(row.reason || '')))   // words-ok: our own trace reasons (extension/page/fill.js), not page text
+    .map(row => answeredNoOf(row) ? {...row, outcome: 'filled'} : row)
     .map(row => ({...row, field: row.field || fieldOf.get(String(row.label || '').trim())}));
   const required = rows.filter(row => row.required);
   const left = required.filter(row => row.outcome !== 'filled');
