@@ -199,8 +199,9 @@ test("a session's Chrome tab on its card: host and path, no query or www, long p
 test('after the first look, a session waiting on its tab says Chrome is not reporting until the extension does', async () => {
   const {chromeSilent, CHECK_MS} = await import('../renderer/session-state.js');
   const claude = {id: 'c1', kind: 'claude', live: false, status: 'input'}, form = {id: 'f1', kind: 'form'};
-  assert.equal(chromeSilent(form, {known: false, ids: []}, CHECK_MS + 1), true);
-  assert.equal(chromeSilent(claude, null, CHECK_MS + 1), true);                         // the app never heard back at all
+  const {WAIT_MS} = await import('../renderer/session-state.js');
+  assert.equal(chromeSilent(form, {known: false, ids: []}, WAIT_MS + 1), true);
+  assert.equal(chromeSilent(claude, null, WAIT_MS + 1), true);                         // the app never heard back at all
   assert.equal(chromeSilent(form, {known: false, ids: []}, 500), false);                // still the first look ("Checking…")
   assert.equal(chromeSilent(form, {known: true, ids: []}, CHECK_MS + 1), false);        // reporting: closed or open, the card says which
   assert.equal(chromeSilent({...claude, live: true, status: 'running'}, null, CHECK_MS + 1), false);
@@ -314,4 +315,15 @@ test('Claude stopped on an account page with things for you: "Needs you", never 
   assert.doesNotMatch(page, /What Claude needs from you:'/, 'the list is the card below, not a second copy in the top card');
   const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');
   assert.match(needs, /if \(item\.stage !== 'account'\) actions\.append\(smallButton\('Review in form'/, 'no form to review on the account step');
+});
+
+test('right after the app starts a silent Chrome is a neutral wait; the warning comes after WAIT_MS', async () => {
+  const {chromeSilent, chromeWaiting, CHECK_MS, WAIT_MS} = await import('../renderer/session-state.js');
+  const form = {id: 'f1', kind: 'form'}, none = {known: false, ids: []};
+  assert.equal(chromeWaiting(form, none, CHECK_MS + 1), true);
+  assert.equal(chromeSilent(form, none, CHECK_MS + 1), false);          // 45-60 s: no warning yet
+  assert.equal(chromeWaiting(form, none, 500), false);                   // the first look is "Checking…"
+  assert.equal(chromeSilent(form, none, WAIT_MS + 1), true);
+  assert.equal(chromeWaiting(form, none, WAIT_MS + 1), false);
+  assert.equal(chromeWaiting(form, {known: true, ids: []}, CHECK_MS + 1), false);
 });

@@ -9,6 +9,7 @@ import * as review from './review.js';
 import * as server from './server.js';
 import path from 'node:path';
 import {reloadFormTab} from './form-tab.js';
+import {launchOnce} from './chrome-launch-once.js';
 
 export function registerBrowserHandlers(ctx) {
   const {app, clipboard, ipcMain, openNotion, shell, showForm, storage} = ctx;
@@ -85,11 +86,11 @@ export function registerBrowserHandlers(ctx) {
   });
   // The extension's own options page: its "Connect to the Job Pilotto app" is what starts it reporting. The ID the
   // browser recorded is authoritative (a manifest "key" makes it differ from the folder path's hash).
-  ipcMain.handle('extensionOptions', async () => {
+  // Every "Open Chrome" / Connect press comes here: one launch while Chrome is starting (lib/chrome-launch-once.js).
+  ipcMain.handle('extensionOptions', launchOnce(async () => {
     const found = extensionInstall.installed({folder: extensionFolder()});
     const copy = found.find(entry => entry.current) || found[0] || null;
-    const opened = copy?.id ? await extensionInstall.openInChrome(`chrome-extension://${copy.id}/options.html`, {browser: copy.app})
+    return copy?.id ? await extensionInstall.openInChrome(`chrome-extension://${copy.id}/options.html`, {browser: copy.app})
       : await extensionInstall.openOptionsPage(copy?.folder || extensionFolder());
-    return {opened};
-  });
+  }, () => server.extensionSeen()?.at || 0));
 }

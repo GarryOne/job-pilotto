@@ -10,6 +10,7 @@ import {launchInApp, resumeInApp} from '../lib/claude-session.js';
 import {registerSessionHandlers} from '../lib/session-handlers.js';
 import {installQuitHandling} from '../lib/lifecycle.js';
 import {sessionState} from '../renderer/session-state.js';
+import {launchOnce, START_MS} from '../lib/chrome-launch-once.js';
 import {rememberSessions, rememberedSessions} from '../renderer/sessions-cache.js';
 
 const URL = 'https://jobs.example.test/engineer';
@@ -279,4 +280,25 @@ test('journey: a permission blocker survives restart without a false review hand
   assert.equal(restored.question, report);
   assert.equal(s.status(), 'applying');
   assert.ok(!s.commands.includes('Notion applied'));
+});
+
+test('journey: Open Chrome five times in seven seconds launches Chrome once; it can be pressed again once Chrome failed to report (owner, 15 Oct 2026)', async () => {
+  let launches = 0, clock = 1000, reportedAt = 0;
+  const press = launchOnce(async () => { launches++; return true; }, () => reportedAt, () => clock);
+  const answers = [];
+  for (let i = 0; i < 5; i++) { answers.push(await press()); clock += 1500; }
+  assert.equal(launches, 1);
+  assert.deepEqual(answers.map(a => a.starting), [true, true, true, true, true]);
+  clock += START_MS;                              // Chrome never reported: offered again
+  await press();
+  assert.equal(launches, 2);
+  reportedAt = clock + 1; clock += 2000;          // reported after the launch: the next press is a fresh launch
+  await press();
+  assert.equal(launches, 3);
+});
+test('journey: a launch that failed does not block the next press', async () => {
+  let launches = 0;
+  const press = launchOnce(async () => { launches++; return false; }, () => 0, () => 5000);
+  await press(); await press();
+  assert.equal(launches, 2);
 });
