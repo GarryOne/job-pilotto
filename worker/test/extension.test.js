@@ -426,6 +426,7 @@ test('the CV\'s employers and schools go to the AI as <cv_facts>, and a form tha
   assert.match(system, /<cv_facts>/);
   for (const word of ['Acme Cloud', 'Senior SRE', '2022 – Present', 'Example University', 'BSc Computer Science', '2014 – 2018']) assert.match(system, new RegExp(word));
   assert.match(system, /current employer|current job|most recent/i, 'the instructions say how to use the block');
+  assert.match(system, /earliest role whose skills or what-was-done name the tool/, 'a tool\'s years are counted from the roles that name it, not the career');
   // no CV, no block
   system = '';
   await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields: [{ field: 'x', label: 'x', type: 'text' }], page_text: '' }, client);
