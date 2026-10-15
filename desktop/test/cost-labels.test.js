@@ -18,7 +18,7 @@ const files = () => execFileSync('git', ['ls-files', '-z'], {cwd: repo, maxBuffe
 
 test('no price in a button, hint, tooltip or dialog before the action: the words say what it does, not what it costs', () => {
   const all = files();
-  for (const folder of ['desktop/renderer', 'desktop/lib', 'extension', 'site/public', 'site-next/public']) assert.ok(all.some(file => file.startsWith(`${folder}/`)), `${folder} is scanned`);
+  for (const folder of [/^desktop\/renderer\//, /^desktop\/lib\//, /^extension\//, /^site\/public\//, /^site-[a-z]+\/public\//]) assert.ok(all.some(file => folder.test(file)), `${folder} is scanned`);
   const found = all.flatMap(file => readFileSync(join(repo, file), 'utf8').split('\n').map((line, i) => [file, i + 1, line.trim()])
     .filter(([name, , line]) => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('<!--') && PRICE.test(line)
       && !INFORMATION.some(([page, said]) => name.endsWith(page) && said.test(line))).map(([f, n]) => `${f}:${n}`));
