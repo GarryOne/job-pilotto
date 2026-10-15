@@ -14,8 +14,8 @@ mkdir -p "$out" "$enc"
 [ -z "${NET_RECORD_KEY:-}" ] && [ -z "${CI:-}" ] && command -v security >/dev/null && NET_RECORD_KEY="$(security find-generic-password -s job-pilotto.capture.key -w 2>/dev/null || true)"
 umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$key"
 mac_records() {   # the private repo first (its read-only token), then this repo's old public release
-  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && GH_TOKEN="$NET_RECORDS_READ_TOKEN" gh release download net-records -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
-  gh release download net-records --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
+  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && GH_TOKEN="$NET_RECORDS_READ_TOKEN" gh release download net-records -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>>"$work/gh.err" && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
+  gh release download net-records --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>>"$work/gh.err" && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
   echo "net-records-fetch: no Mac records"; return 1
 }
 # every bundle on the release (records-publish.mjs adds one per publish; the first set is net-records.tgz.enc): each into mac/<bundle> (whereOf reads the mac/ folder), the newest record per row wins
@@ -28,4 +28,11 @@ if mac_records; then
     rm -f "$enc/k"
   done
 fi
-echo "net-records-fetch: $(find "$out" -name record.json | wc -l | tr -d ' ') records"
+count="$(find "$out" -name record.json | wc -l | tr -d ' ')"
+echo "net-records-fetch: $count records"
+# Nothing fetched is a failure, never an empty set for a gate to judge (15 Oct 2026: gh failed, its error went to /dev/null and the gate called all 16 pinned rows "worse: no result"). gh's own words are shown.
+if [ "$count" = 0 ]; then
+  echo "net-records-fetch: FAILED: no record fetched (gh said:)" >&2
+  tail -n 5 "$work/gh.err" >&2 2>/dev/null || true
+  exit 1
+fi
