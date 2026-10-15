@@ -73,4 +73,7 @@ export function judgeRecords(items, {pins = [], accepts = []} = {}) {
 // The owner's named accept covers the pinned and worse checks of that row, never a double-encoded page or missing answers (those cannot be intended).
 const acceptedFor = (refusal, entries, names) => ['pinned', 'worse'].includes(refusal.check) && !!acceptNamed(refusal.row, entries, names);
 
+// (the rows, judgeRecords' answer) -> {publish: [rows that passed], refused: [names]}: a refused row never keeps the others back; the caller publishes `publish` and still ends red when `refused` is not empty.
+export const partition = (rows, judged) => { const refused = [...new Set(judged.refusals.map(one => one.row))]; return {publish: rows.filter(row => !refused.includes(row.name)), refused}; };
+
 export const report = ({refusals, notes}) => [...refusals.map(one => `refused: ${one.row}: ${one.check}: ${one.why}\n  to proceed: ${one.run}`), ...notes.map(text => `note: ${text}`)].join('\n');

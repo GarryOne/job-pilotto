@@ -183,11 +183,13 @@ const REAL = Buffer.from('{"title":"Apprenti(e) du commerce de détail (CFC ou A
 test('an unlabeled text reply the inspector double-encoded gets its real bytes back; labeled, genuine Latin-1, binary and clean replies are left alone, and a second repair changes nothing', () => {
   const stored = asRecorded(REAL);
   assert.ok(stored.toString().includes('dÃ©tail'), 'the fixture is the double-encoded shape');
-  for (const type of ['text/x-component', 'application/json', 'text/html', 'application/javascript', '']) {
-    const fixed = repairUnlabeledText(stored, type || 'text/plain');
-    assert.deepEqual(fixed, REAL, type);
-    assert.deepEqual(repairUnlabeledText(fixed, type || 'text/plain'), REAL, `${type}: idempotent`);
+  for (const type of ['text/x-component', 'application/json', 'text/html', 'application/javascript', '', undefined, null]) {   // '' / undefined: a reply served with no Content-Type at all
+    const fixed = repairUnlabeledText(stored, type);
+    assert.deepEqual(fixed, REAL, String(type));
+    assert.deepEqual(repairUnlabeledText(fixed, type), REAL, `${type}: idempotent`);
   }
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xc3, 0xa9, 0xff, 0xfe]);
+  assert.equal(repairUnlabeledText(png, ''), png, 'a binary body with no type is never rewritten');
   assert.equal(repairUnlabeledText(stored, 'text/x-component; charset=utf-8'), stored, 'a labeled reply was decoded right: left alone');
   assert.equal(repairUnlabeledText(stored, 'image/png'), stored, 'binary types are never touched');
   const latin1 = Buffer.from([0x63, 0x61, 0x66, 0xe9]);   // "café" as one byte each: not the image of valid UTF-8
@@ -207,6 +209,13 @@ test('the recorder stores the real bytes of an unlabeled text reply; the replay 
   const {entries, bodies} = rec.result();
   assert.deepEqual(bodies.get(entries[0].hash), REAL, 'recorded right');
   assert.equal(entries[0].size, REAL.length);
+  // the same reply served with no Content-Type header at all (a UTF-8 page without a charset header or a type)
+  const bare = netRecorder(context, {startedAt: 0});
+  const noType = {...request, url: () => 'https://conv.example.test/application/2', response: async () => ({status: () => 200, body: async () => asRecorded(REAL), allHeaders: async () => ({}), headers: () => ({})})};
+  context.emit('request', noType); context.emit('requestfinished', noType);
+  await bare.flush();
+  const second = bare.result();
+  assert.deepEqual(second.bodies.get(second.entries.find(one => one.url.endsWith('/2')).hash), REAL, 'recorded right with no Content-Type');
   // an older record (published before the repair) holds the double-encoded bytes; the replay serves the real ones
   const old = {method: 'GET', url: 'https://conv.example.test/application/1', status: 200, headers: {'content-type': 'text/x-component'}, hash: 'old', type: 'fetch', bodyKey: '', waitMs: 0, startMs: 0};
   const {counts, serve} = await replayOf([old], new Map([['old', asRecorded(REAL)]]));
