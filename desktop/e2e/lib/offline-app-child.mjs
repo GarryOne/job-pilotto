@@ -50,7 +50,7 @@ if (process.env.E2E_IMPORT_VIA_UPLOAD) {   // the app's own upload path: setCv o
 const {start, PORT, EXTENSION_ID} = await import('../../lib/server.js');
 const {extensionToken} = await import('../../lib/server-env.js');
 if (String(PORT) !== process.env.JOB_PILOTTO_PORT) throw new Error(`offline app: the server took port ${PORT}, not ${process.env.JOB_PILOTTO_PORT}`);
-(await import('../../lib/server-hooks.js')).setSitePasswordHandler((await import('./offline-site-password.mjs')).offlineSitePassword(storage));   // a seeded test account signs in; nothing is made (lib/offline-site-password.mjs)
+(await import('../../lib/server-hooks.js')).setSitePasswordHandler((await import('./offline-site-password.mjs')).offlineSitePassword(storage, {email: async () => (await import('../../lib/contact.js')).read(storage)}));   // a seeded test account signs in; nothing is made (lib/offline-site-password.mjs)
 const server = start(storage, error => console.error(`offline app: server error ${error?.message || error}`));
 await new Promise(resolve => server.once('listening', resolve));
 console.log(JSON.stringify({ready: true, guarded, port: PORT, token: extensionToken(storage), extensionId: EXTENSION_ID, dir}));
