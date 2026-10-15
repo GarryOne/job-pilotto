@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {judgeRecords, latin1Image, memoProblem, mojibakeBodies, notWorse, report} from '../lib/record-guard.mjs';
+import {judgeRecords, memoProblem, mojibakeBodies, notWorse, report} from '../lib/record-guard.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const replay = ({hit = 4, asks = 4, extra = 0, outcome = form(8, 4), live = form(8, 4)} = {}) => ({outcome, liveOutcome: live, live: {asks}, network: {hit, extra, notRecorded: 0}});
@@ -12,28 +12,37 @@ const replay = ({hit = 4, asks = 4, extra = 0, outcome = form(8, 4), live = form
 function folder({bodies = {}, asks = 2, memo = {a: 1, b: 2}} = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-guard-'));
   fs.mkdirSync(path.join(dir, 'bodies'));
-  for (const [hash, bytes] of Object.entries(bodies)) fs.writeFileSync(path.join(dir, 'bodies', hash), bytes);
+  const entries = [];
+  for (const [hash, body] of Object.entries(bodies)) { const {bytes, type = 'text/x-component'} = Buffer.isBuffer(body) ? {bytes: body} : body; fs.writeFileSync(path.join(dir, 'bodies', hash), bytes); entries.push({url: `https://x.test/${hash}`, hash, headers: {'content-type': type}}); }
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: 'fixture', entries}));
   fs.writeFileSync(path.join(dir, 'asks.jsonl'), Array.from({length: asks}, (_, at) => JSON.stringify({at})).join('\n'));
   if (memo !== null) fs.writeFileSync(path.join(dir, 'model-memo.json'), JSON.stringify(memo));
   return dir;
 }
-const doubled = text => Buffer.from(Buffer.from(text, 'utf8').toString('latin1'), 'utf8');   // UTF-8 read as Latin-1, stored as UTF-8 again
+const CP1252 = new Map(Array.from({length: 256}, (_, byte) => [byte, new TextDecoder('windows-1252').decode(Uint8Array.of(byte))]));
+// a reply with no charset, decoded as windows-1252 and stored as UTF-8 again: the Aldi shape "dÃ©tail â€“" (the dash becomes a euro sign)
+const doubled = text => Buffer.from([...Buffer.from(text, 'utf8')].map(byte => CP1252.get(byte)).join(''), 'utf8');
 const item = (name, over = {}) => ({name, dir: folder(), replay: replay(), replaced: undefined, ...over});
 const checks = result => result.refusals.map(one => `${one.row}:${one.check}`);
 
-test('mojibake is the Latin-1 image of valid UTF-8, never a grep for "Ã"', () => {
-  assert.equal(latin1Image(doubled('détail – Zürich').toString('utf8')), true);
-  assert.equal(latin1Image('détail – Zürich'), false, 'real accents are faithful');
-  assert.equal(latin1Image('Ã'), false, 'a lone A-tilde is not valid UTF-8 as Latin-1 bytes');
-  assert.equal(latin1Image('plain ascii'), false);
-  assert.equal(latin1Image('日本語'), false);
-  assert.deepEqual(mojibakeBodies(folder({bodies: {good: Buffer.from('détail', 'utf8'), bad: doubled('détail'), bin: Buffer.from([0xff, 0x00, 0xc3, 0x28])}})), ['bad']);
+test('garbled is what the charset repair changes, the Aldi windows-1252 shape included, never a grep for "Ã"', () => {
+  assert.equal(doubled('détail – Zürich').toString('utf8'), 'dÃ©tail â€“ ZÃ¼rich');
+  assert.deepEqual(mojibakeBodies(folder({bodies: {
+    aldi: doubled('détail – Zürich'),
+    latin1: {bytes: Buffer.from(Buffer.from('détail', 'utf8').toString('latin1'), 'utf8')},
+    good: Buffer.from('détail – Zürich', 'utf8'),
+    labeled: {bytes: doubled('détail'), type: 'text/html; charset=utf-8'},
+    lone: Buffer.from('Ã', 'utf8'),
+    ascii: Buffer.from('plain', 'utf8'),
+    binary: {bytes: Buffer.from([0xff, 0x00, 0xc3, 0x28]), type: 'application/octet-stream'},
+  }})).sort(), ['aldi', 'latin1']);
+  assert.deepEqual(mojibakeBodies(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-guard-'))), [], 'a folder without record.json has nothing to check');
 });
 
 test('a record with a double-encoded page, or without the live run\'s kept answers, is refused', () => {
   const result = judgeRecords([item('mojibake', {dir: folder({bodies: {bad: doubled('Cloudera Careers – détail')}})}), item('no memo', {dir: folder({memo: null})}), item('empty memo', {dir: folder({memo: {}})}), item('no asks, no memo needed', {dir: folder({asks: 0, memo: null})})]);
   assert.deepEqual(checks(result), ['mojibake:text', 'no memo:answers', 'empty memo:answers']);
-  assert.match(report(result), /refused: mojibake: text: 1 kept page\(s\) are double-encoded/);
+  assert.match(report(result), /refused: mojibake: text: 1 kept page\(s\) are double-encoded \(UTF-8 text stored as a single-byte charset/);
   assert.match(report(result), /to proceed: /);
   assert.match(memoProblem(folder({memo: {}})), /keeps no answer/);
 });
