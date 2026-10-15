@@ -16,6 +16,20 @@ test('each pool row replays its newest record; a record without a name goes by i
   assert.deepEqual(rows.map(row => [row.name, row.record.startMs]), [['Row A', 5], ['www.b.test', 3]]);
 });
 
+test('two copies of one recording (a refill changes only the answers, not startMs): the later bundle wins, whatever order the folder lists in', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
+  const put = (dir, record, memo) => { fs.mkdirSync(path.join(root, dir), {recursive: true}); fs.writeFileSync(path.join(root, dir, 'record.json'), JSON.stringify(record)); fs.writeFileSync(path.join(root, dir, 'model-memo.json'), JSON.stringify(memo)); };
+  const record = {name: 'Row A', url: 'https://a.test/job', startMs: 7};
+  put('mac/net-records-20261015T075956Z/a', record, {old: 1});
+  put('mac/net-records-20261015T110251Z/a', record, {old: 1, refilled: 2});
+  put('mac/net-records-20261015T081300Z/other', {name: 'Row B', url: 'https://b.test/job', startMs: 9}, {});
+  const [a] = newestPerRow(root).filter(row => row.name === 'Row A');
+  assert.match(a.dir, /net-records-20261015T110251Z/, 'the refilled copy of the same recording is the one replayed');
+  const orig = fs.readdirSync;   // a file system that lists the newest folder first (Linux does not sort): the same row wins
+  fs.readdirSync = (dir, ...rest) => { const list = orig(dir, ...rest); return Array.isArray(list) ? [...list].reverse() : list; };
+  try { assert.match(newestPerRow(root).find(row => row.name === 'Row A').dir, /net-records-20261015T110251Z/, 'listing order does not decide'); } finally { fs.readdirSync = orig; }
+});
+
 test('a row is the same as live only with every live ask answered, no extra ask and no site request missing; a third party miss does not count', () => {
   const row = {name: 'Row A', record: {url: 'https://www.a.test/job'}};
   const same = fidelityRecord(row, {liveAsks: 4, liveHit: 4, misses: 0, counts: {order: 2, notRecorded: ['GET https://tracker.other.test/x (script)']}});
