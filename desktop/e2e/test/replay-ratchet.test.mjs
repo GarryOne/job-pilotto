@@ -138,6 +138,7 @@ test('a pinned row that passes only on its retry is "noise (passed on retry)", n
 test('the rows a runner replays once more are its pinned rows that are not same; a crash is not noise', () => {
   assert.deepEqual(unsame([rec('a'), rec('b', {hit: 3, extra: 1}), rec('c', {hit: 3, extra: 1}), {name: 'd', outcome: null}], ['a', 'b', 'd']), ['b'], 'same, unpinned and result-less rows are not retried');
   assert.deepEqual(unsame([], ['a']), []);
+});
 
 test('a deferred row is never pinned, whether the run\'s record says deferred or the gate\'s row says "deferred: ..." in its why', () => {
   const data = pin({rows: {a: {same: true}, b: {same: true, deferred: 'x'}, c: {same: true, why: 'deferred: varies run to run'}, d: {same: true, why: ''}}}, {rows: {}}, {commit: 'c', at: 'T'});
