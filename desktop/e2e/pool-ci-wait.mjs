@@ -4,7 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import {runsAhead} from './lib/pool-ci-queue.mjs';
 
-const WORKFLOWS = ['record-sites.yml'], LEGACY = ['pool-smoke.yml'];   // LEGACY: the name until 15 Oct 2026; best effort (a deleted workflow file may not list), a run already queued under it still counts.
+const OTHER = process.env.POOL_WAIT_WORKFLOWS, WORKFLOWS = OTHER ? OTHER.split(',') : ['record-sites.yml'], LEGACY = OTHER ? [] : ['pool-smoke.yml'], WHAT = process.env.POOL_WAIT_WHAT || 'pool';   // POOL_WAIT_WORKFLOWS: another queue (the replay refills take turns the same way)   // LEGACY: the name until 15 Oct 2026; best effort (a deleted workflow file may not list), a run already queued under it still counts.
 const me = process.env.GITHUB_RUN_ID, poll = Number(process.env.POOL_WAIT_POLL || 20), max = Number(process.env.POOL_WAIT_MAX || 3600);
 const sleep = seconds => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 const legacy = () => LEGACY.flatMap(workflow => { try { return JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', workflow, '--limit', '60', '--json', 'databaseId,status'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})); } catch { return []; } });
@@ -20,7 +20,7 @@ for (;;) {
   const runs = list();
   const ahead = runs.includes(null) ? null : runsAhead([...runs, ...legacy()], me);
   if (ahead && !ahead.length) { console.log(`pool-ci-wait: run ${me}'s turn${said ? ` after ${Math.round((Date.now() - started) / 1000)} s` : ''}`); process.exit(0); }
-  const now = ahead ? `waiting for ${ahead.length} earlier pool run(s): ${ahead.join(', ')}` : 'waiting: the run list did not answer';
+  const now = ahead ? `waiting for ${ahead.length} earlier ${WHAT} run(s): ${ahead.join(', ')}` : 'waiting: the run list did not answer';
   if (now !== said) { console.log(`pool-ci-wait: ${now}`); said = now; }
   if ((Date.now() - started) / 1000 > max) { console.log(`pool-ci-wait: still not my turn after ${max} s: stopping (a harness error, never a run beside another)`); process.exit(1); }
   await sleep(poll);

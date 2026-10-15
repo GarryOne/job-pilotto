@@ -2,29 +2,36 @@
 # A PR that changes what the app asks the AI makes the site replays gate say "ask changed" / "out of date" for the pinned rows whose stored answers no longer match. This refills only those
 # asks, one pinned row per runner in parallel (fill-memo.mjs: the network record is replayed, no site visit, the fake applicant, the privacy tripwire on, old answers never changed),
 # publishes the refilled rows through the guard (records-publish.mjs, desktop/e2e/lib/record-guard.mjs: worse, garbled or pinned-breaking rows refused), then re-runs the PR's gate.
-# By hand only: workflow_dispatch with the PR number. NOT a pull_request trigger (owner rule, 13 Oct 2026: no workflow a PR starts can reach an AI key; desktop/e2e/test/pool-ci-triggers.test.mjs).
-# Never a fork PR: the key is never given to it. Never every PR.
+# Two ways in. (1) By hand with a PR number (workflow_dispatch, as before): that PR's pinned rows. (2) AUTOMATICALLY on main (owner, 15 Oct 2026): a push to main that changes a ladder prompt fingerprint
+# (desktop/e2e/ladder-baseline.json, compared by refill-trigger.mjs with the file before the push; a score update alone does not count), or a by-hand run with no PR number: EVERY recorded row, pinned or not.
+# NOT a pull_request trigger (owner rule, 13 Oct 2026: no workflow a PR starts can reach an AI key; desktop/e2e/test/pool-ci-triggers.test.mjs): a push to main is merged code the owner reviewed.
+# Never a fork PR: the key is never given to it. Never every PR. Refill runs take their turn one at a time (pool-ci-wait.mjs), so two never publish the same rows.
+# On main the publish works in groups of 3 rows (records-publish.mjs refuses more at once), one runner per group, and a failed or cap-refused run tells the owner on Telegram (ci-alert.mjs).
 # Key: REPLAY_REFILL_ANTHROPIC_KEY, its own workspace and spend limit, NO fallback to ANTHROPIC_API_KEY or any other key: missing = the job says so and stops (lib/refill.mjs).
 # Money: the estimate is printed first (pick job), above max_asks (default 40) or $3 the run does not start, a row stops at 30 paid calls, each row's spend is in the job summary and on /admin/ai-cost (job replay-refill).
 # The tree: main's tools + the PR's head merged on the runner (tools/refill-merge-main.sh; a branch older than this workflow still runs; one that conflicts with main stops with "rebase it").
 # Needs also: NET_RECORD_KEY, NET_RECORDS_READ_TOKEN (as the replay), NET_RECORDS_WRITE_TOKEN (contents:write on the private job-pilotto-internal: only the publish job reads it), AI_COST_PUBLISH_KEY.
 # Guard: tests/test_refill_workflow.py, desktop/e2e/test/refill.test.mjs. Never posts a Replay-accept line.
-name: CI · Replay refill (by hand)
+name: CI · Replay refill
 
 on:
+  push:
+    branches: [main]
+    paths: ['desktop/e2e/ladder-baseline.json']   # only a merged change to the ladder baseline can be a prompt change; the first job compares the fingerprints
   workflow_dispatch:
     inputs:
       pr:
-        description: 'PR number whose pinned rows get their missing answers refilled'
-        required: true
+        description: 'PR number whose pinned rows get their missing answers refilled; empty = main: every recorded row'
+        required: false
+        default: ''
       rows:
         description: 'changed = only the pinned rows its gate marked ask changed / out of date; all = every pinned row'
         default: changed
         type: choice
         options: [changed, all]
       max_asks:
-        description: 'Refuse to start above this many asks'
-        default: '40'
+        description: 'Refuse to start above this many asks (empty: 40 for a PR, 200 for main)'
+        default: ''
 
 permissions:
   contents: read
@@ -32,19 +39,79 @@ permissions:
   pull-requests: read   # the PR's head repo (never a fork)
 
 concurrency:
-  group: replay-refill-${{ inputs.pr }}
-  cancel-in-progress: false
+  # The newest main commit wins (owner, 15 Oct 2026; tests/test_main_runs_finish.py): a push shares ONE group on main and cancels the older commit's run (only the newest prompt matters; a publish is additive per group, nothing half-written).
+  # A by-hand run is its own group and never cancelled. Whatever runs, the trigger job makes the runs take turns, so two never publish the same rows.
+  group: replay-refill-${{ github.event_name == 'push' && 'main' || format('hand-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   PR: ${{ inputs.pr }}
 
 jobs:
+  trigger:
+    # Is this run wanted, and is it its turn? A by-hand run always; a push to main only when it changed a ladder prompt fingerprint.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75   # up to 60 minutes waiting for the earlier refill runs
+    outputs:
+      run: ${{ steps.what.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the commit before the push, to read its ladder baseline
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Did the merge change a prompt fingerprint?
+        id: what
+        working-directory: desktop/e2e
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            if git show "$BEFORE:desktop/e2e/ladder-baseline.json" > "$RUNNER_TEMP/baseline-before.json" 2>/dev/null; then before="$RUNNER_TEMP/baseline-before.json"; else before=-; fi
+            verdict="$(node refill-trigger.mjs "$before" ladder-baseline.json 2>/dev/null | tail -n 1)"
+            if [ "$verdict" = changed ]; then run=1; else run=0; fi
+            echo "refill (main): the push $verdict the ladder prompt fingerprint: run=$run" | tee -a "$GITHUB_STEP_SUMMARY"
+          else run=1; fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - name: Wait for its turn (earlier refill runs finish first)
+        if: steps.what.outputs.run == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POOL_WAIT_WORKFLOWS: replay-refill.yml
+          POOL_WAIT_WHAT: replay refill
+        run: node desktop/e2e/pool-ci-wait.mjs
+
+  bundles:
+    # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
+    needs: trigger
+    if: needs.trigger.outputs.run == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5   # the workflow's own ref (main): its tools
+      - name: The release's bundles, still encrypted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
+          retention-days: 1
+
   pick:
+    needs: [trigger, bundles]
+    if: needs.trigger.outputs.run == '1'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      rows: ${{ steps.pick.outputs.rows }}
-      count: ${{ steps.pick.outputs.count }}
+      rows: ${{ steps.pick.outputs.rows || steps.pickmain.outputs.rows }}
+      groups: ${{ steps.pick.outputs.groups || steps.pickmain.outputs.groups }}
+      count: ${{ steps.pick.outputs.count || steps.pickmain.outputs.count }}
+      line: ${{ steps.pick.outputs.line || steps.pickmain.outputs.line }}
     steps:
       - name: The key is set, and the PR is not from a fork
         env:
@@ -52,14 +119,17 @@ jobs:
           REFILL_KEY: ${{ secrets.REPLAY_REFILL_ANTHROPIC_KEY }}
         run: |
           if [ -z "$REFILL_KEY" ]; then echo "refill: no REPLAY_REFILL_ANTHROPIC_KEY secret: nothing was asked (this workflow never runs on another key)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
-          cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository -q .isCrossRepository)"
-          if [ "$cross" != "false" ]; then echo "refill: PR $PR is from a fork or unknown: the key is never given to it" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          if [ -n "$PR" ]; then
+            cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository -q .isCrossRepository)"
+            if [ "$cross" != "false" ]; then echo "refill: PR $PR is from a fork or unknown: the key is never given to it" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          fi
       - uses: actions/checkout@v5   # the workflow's own ref (main): its tools, never the PR's code
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: The rows the PR's gate marked, the estimate, the caps
         id: pick
+        if: inputs.pr != ''
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,26 +148,33 @@ jobs:
           { echo "### Replay refill: PR $PR"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
           [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
           echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
-
-  bundles:
-    # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
-    needs: pick
-    if: needs.pick.outputs.count != '0'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5   # the workflow's own ref (main): its tools
-      - name: The release's bundles, still encrypted
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
-        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
-      - uses: actions/upload-artifact@v6
+          echo "line=$(jq -r .line "$RUNNER_TEMP/pick.json" | head -n 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v7
+        if: inputs.pr == ''
         with:
           name: net-bundles-${{ github.run_id }}
           path: ${{ runner.temp }}/bundles
-          retention-days: 1
+      - name: Every recorded row, the estimate, the caps (main)
+        id: pickmain
+        if: inputs.pr == ''
+        working-directory: desktop/e2e
+        env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+          MAX_ASKS: ${{ inputs.max_asks || '200' }}
+        run: |
+          bash net-records-fetch.sh "$RUNNER_TEMP/records"
+          node refill-pick.mjs --main "$RUNNER_TEMP/records" --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
+          { echo "### Replay refill: main (every recorded row)"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "line=$(jq -r .line "$RUNNER_TEMP/pick.json" | head -n 1)" >> "$GITHUB_OUTPUT"
+          [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
+          echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
 
   refill:
     needs: [pick, bundles]
@@ -118,6 +195,7 @@ jobs:
         with:
           fetch-depth: 0   # main's tools first; the PR's build is brought in by the next step
       - name: The PR's build with main's tools (merged on this runner, never pushed)
+        if: inputs.pr != ''
         run: |
           cp tools/refill-merge-main.sh "$RUNNER_TEMP/refill-merge-main.sh"
           git fetch --quiet origin "refs/pull/$PR/head"
@@ -173,10 +251,17 @@ jobs:
           { echo "#### ${{ matrix.row }}"; echo '```'; grep -E "^(fill-memo|replay-net: refill)" "$RUNNER_TEMP/fill.log" 2>/dev/null | cut -c1-300 || echo "no result"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
   publish:
+    # Groups of 3 rows, one runner each: records-publish.mjs refuses more at once (its guard replays each refilled row twice). Each group is its own bundle (NET_RECORDS_BUNDLE_SUFFIX).
     needs: [pick, refill, bundles]
-    if: always() && needs.pick.outputs.count != '0'
+    if: always() && needs.pick.result == 'success' && needs.pick.outputs.count != '0'
+    name: publish group ${{ matrix.group }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 60   # the guard replays each refilled row once, one after another
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4   # as the refill matrix: one workflow never holds most of the 20 runners
+      matrix:
+        group: ${{ fromJSON(needs.pick.outputs.groups) }}
     env:
       JOB_PILOTTO_HEAVY: '0'
     steps:
@@ -184,6 +269,7 @@ jobs:
         with:
           fetch-depth: 0   # main's tools first; the PR's build is brought in by the next step
       - name: The PR's build with main's tools (merged on this runner, never pushed)
+        if: inputs.pr != ''
         run: |
           cp tools/refill-merge-main.sh "$RUNNER_TEMP/refill-merge-main.sh"
           git fetch --quiet origin "refs/pull/$PR/head"
@@ -232,17 +318,45 @@ jobs:
           mkdir -p "$RUNNER_TEMP/packs-flat"
           find "$RUNNER_TEMP/packs" -name meta.json | while read -r meta; do d="$(dirname "$meta")"; cp -r "$d" "$RUNNER_TEMP/packs-flat/$(basename "$(dirname "$d")")-$(basename "$d")"; done
           { echo "#### Merged"; node refill-merge.mjs "$GITHUB_WORKSPACE/records" "$RUNNER_TEMP/packs-flat" "$RUNNER_TEMP/staged"; } | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Publish the refilled rows through the guard
+      - name: This group's rows (at most 3)
+        id: group
         if: steps.packs.outputs.packs != '0'
+        working-directory: desktop/e2e
+        run: |
+          node refill-group.mjs "$RUNNER_TEMP/staged" "${{ matrix.group }}" "$RUNNER_TEMP/staged-group" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -d "$RUNNER_TEMP/staged-group" ] && [ -n "$(ls -A "$RUNNER_TEMP/staged-group")" ]; then echo "rows=1" >> "$GITHUB_OUTPUT"; else echo "rows=0" >> "$GITHUB_OUTPUT"; fi
+      - name: Publish this group's rows through the guard
+        if: steps.packs.outputs.packs != '0' && steps.group.outputs.rows == '1'
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}   # contents:write on job-pilotto-internal only
           NET_RECORDS_WRITE_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}
+          NET_RECORDS_BUNDLE_SUFFIX: -g${{ matrix.group }}   # two groups in the same second never write the same asset
         run: |
           if [ -z "$NET_RECORDS_WRITE_TOKEN" ]; then echo "refill: no NET_RECORDS_WRITE_TOKEN secret: the rows are refilled but not published (the owner adds it, then run again)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
-          node records-publish.mjs "$RUNNER_TEMP/staged" --against "$GITHUB_WORKSPACE/records" 2>&1 | tee -a "$RUNNER_TEMP/publish.log"; code=${PIPESTATUS[0]}
-          { echo "#### Publish"; echo '```'; tail -n 40 "$RUNNER_TEMP/publish.log" | cut -c1-300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          node records-publish.mjs "$RUNNER_TEMP/staged-group" --against "$GITHUB_WORKSPACE/records" 2>&1 | tee -a "$RUNNER_TEMP/publish.log"; code=${PIPESTATUS[0]}
+          { echo "#### Publish group ${{ matrix.group }}"; echo '```'; tail -n 40 "$RUNNER_TEMP/publish.log" | cut -c1-300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$code"
+  finish:
+    # Once, after every group: the spend (job summary and /admin/ai-cost) and, for a PR run, the PR's gate again.
+    needs: [pick, refill, publish]
+    if: always() && needs.pick.result == 'success' && needs.pick.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: refill-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/packs
+      - name: The rows that were refilled
+        id: packs
+        run: |
+          n="$(find "$RUNNER_TEMP/packs" -name meta.json | wc -l | tr -d ' ')"
+          echo "packs=$n" >> "$GITHUB_OUTPUT"
       - name: Spend (job summary and /admin/ai-cost)
         if: always() && steps.packs.outputs.packs != '0'
         env:
@@ -254,10 +368,33 @@ jobs:
           echo "**Refill spend: \$$(jq -r '.usd | . * 10000 | round / 10000' "$RUNNER_TEMP/refill-cost.json") in $(jq -r .calls "$RUNNER_TEMP/refill-cost.json") call(s)** (the pick job's estimate is above)" | tee -a "$GITHUB_STEP_SUMMARY"
           node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/refill-cost.json" || true
       - name: Re-run the PR's site replays gate (the new bundle is read by its replay)
-        if: success() && steps.packs.outputs.packs != '0'
+        if: inputs.pr != '' && needs.publish.result == 'success' && steps.packs.outputs.packs != '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           head="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefName -q .headRefName)"
           run="$(gh run list -R "$GITHUB_REPOSITORY" -w site-replays-pr.yml -b "$head" -L 1 --json databaseId -q '.[0].databaseId // empty')"
           if [ -n "$run" ]; then gh run rerun "$run" -R "$GITHUB_REPOSITORY" && echo "refill: the PR's site replays gate (run $run) started again" | tee -a "$GITHUB_STEP_SUMMARY"; else echo "refill: no gate run found for $head: push or re-run it by hand" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+
+  notify:
+    # A failed or cap-refused run on main says so on Telegram (the replay's bot: ci-alert.mjs), and the first good one after it says "back to green". A by-hand PR run does not (its own gate says).
+    needs: [trigger, pick, bundles, refill, publish, finish]
+    if: always() && inputs.pr == '' && needs.trigger.outputs.run == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Tell the owner on Telegram (a failure or a capped run, or back to green)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+          RESULTS: pick=${{ needs.pick.result }} bundles=${{ needs.bundles.result }} refill=${{ needs.refill.result }} publish=${{ needs.publish.result }} finish=${{ needs.finish.result }}
+          PICK: ${{ needs.pick.outputs.line }}
+        run: |
+          if echo "$RESULTS" | grep -qE '=(failure|cancelled)'; then node ci-alert.mjs failure "The replay refill on main did not finish (${RESULTS}). ${PICK:-the estimate is above the cap, or the key is missing: see the run}. The recorded rows stay stale until it is run again: gh workflow run replay-refill.yml (no pr)"
+          else node ci-alert.mjs success; fi
