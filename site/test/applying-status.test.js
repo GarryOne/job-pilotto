@@ -25,7 +25,9 @@ const ROWS = [
   ['Held email', 'held', {reached: 'posting', note: 'applies by email: told'}],
   ['Held tells', 'held', {reached: 'posting', note: 'page tells how to apply: told'}],
   ['Held bot', 'held', {reached: 'code/bot'}],
+  ['Held closed', 'held', {reached: 'posting', note: 'posting closed: held'}],
   ['Site refused', 'site', {reached: 'posting', note: 'site refused: retry later'}],
+  ['Site CI blocked', 'site', {reached: 'posting', note: 'blocked in CI: needs a Mac recording'}],
   ['Site gone', 'site', {reached: 'none', note: 'posting gone (HTTP 404)'}],
   ['Fix early', 'fix', {reached: 'posting', rung: 2, signal: 'failed'}],
   ['Fix regression', 'fix', {reached: 'form', filled: 9, left: 0, regression: true}],
@@ -57,8 +59,8 @@ test('every view of a row reads its one status: Result, Rung, run dots, By-hand 
   const total = ROWS.length, counts = json.nights[0].counts;
   assert.deepEqual(Object.keys(counts), STATES);
   assert.equal(Object.values(counts).reduce((sum, count) => sum + count, 0), total, 'a bar holds every run');
-  assert.deepEqual([counts.works, counts.held, counts.site, counts.fix], [2, 6, 2, 5]);
-  assert.deepEqual([json.tiles.needFix, json.tiles.held, json.tiles.gone], [5, 6, 2]);
+  assert.deepEqual([counts.works, counts.held, counts.site, counts.fix], [2, 7, 3, 5]);
+  assert.deepEqual([json.tiles.needFix, json.tiles.held, json.tiles.gone], [5, 7, 3]);
   // the page: its own script on a tiny DOM
   const script = PAGE.split('<script>')[1].split('</script>')[0];
   const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
@@ -87,6 +89,7 @@ test('the Fixed tab: every hold but the eligibility stop is a clean run', () => 
   assert.equal(statusOf([run('2026-10-11T00:00:00Z', false, {cleanHold: true}), run('2026-10-12T00:00:00Z', null, {hold: true})], landed).cleanRuns, 1, 'an eligibility stop (needsFix null) is neither');
   assert.equal(statusOf([run('2026-10-11T00:00:00Z', null, {cleanHold: true}), run('2026-10-12T00:00:00Z', null, {cleanHold: true})], landed).status, 'confirmed', 'two clean holds confirm');
   assert.equal(isCleanHold(rowStatus({reached: 'form', note: 'eligibility stop: x'})), false);
+  assert.equal(isCleanHold(rowStatus({reached: 'posting', note: 'posting closed: held'})), false, 'a closed posting says nothing about the site');
   assert.ok(PAGE.includes('Better, not there yet'), 'a failing fix whose filled share rose reads as better');
   assert.ok(!PAGE.includes("'rung ' + (f.rung ?? '?')") && !PAGE.includes("rung ' + (r.rung ?? '?')"), 'an unknown rung is not drawn as "rung ?"');
 });

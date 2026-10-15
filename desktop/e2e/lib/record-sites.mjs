@@ -32,7 +32,12 @@ export const LOGIN_WALL = 'login wall: held';
 // The extension's own fixed lines for a posting that says how to apply without a form (the app tells the person: fill-flow.js `decide('fill', ...)`): documented holds too.
 export const APPLY_BY_EMAIL = 'applies by email: told';
 export const PAGE_TELLS = 'page tells how to apply: told';
-const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
+// The posting is closed: the digest's own fixed outcome "expired" (desktop/lib/ladder/rung3-digest.js OUTCOMES), never words from its free text. A hold about the posting, not the site (like an eligibility stop).
+export const POSTING_CLOSED = 'posting closed: held';
+const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL, expired: POSTING_CLOSED};
+// A menu the page opened and that showed no choice at all (extension/flow.js: "a menu showed no choice that matched", choices []): the site offered nothing to pick, so the field is left for the person (an explained field).
+const EMPTY_MENU = /fill: a menu showed no choice that matched \{"field":"((?:[^"\\]|\\.)*)","choices":\[\]/;
+const labelKey = text => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
 // The page a fill's report line belongs to (its "url", cut by the app's log): the path, or '' when the line has none.
 const reportPage = line => { const url = (line.match(/"url":"([^"]*)"/) || [])[1] || ''; return url.replace(/^https?:\/\/[^/]*/, '').split(/[?#]/)[0]; };
 const samePage = (open, page) => !!page && (open === page || (page.length > 1 && open.startsWith(page)));
@@ -44,6 +49,7 @@ export function parseLive(output) {
   let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
+  const emptyMenus = new Set();   // labels of the menus that showed no choice
   let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, aiCalls = null, tripped = false, aiRefused = null;
   const openFills = new Map();   // page -> the line its fill started on, while it has not reported (fill: filling {page})
   let countPage = '', lastReport = '', countAt = -1;   // the page the counted "fields:" line belongs to
@@ -61,6 +67,9 @@ export function parseLive(output) {
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
     if (/fill: the posting asks for the application by email: reported to the app/.test(line)) digestHold = APPLY_BY_EMAIL;
     if (/fill: the page tells what to do: reported to the app/.test(line)) digestHold = PAGE_TELLS;
+    if (/fill: no form on this page .*"applyBy":"email"/.test(line)) digestHold = APPLY_BY_EMAIL;   // the page-kind AI's fixed answer apply_by=email, with no address to name (extension/fill-flow.js decide data): the posting still asks for an e-mail
+    const emptyMenu = line.match(EMPTY_MENU);
+    if (emptyMenu) emptyMenus.add(labelKey(emptyMenu[1]));
     if (/fill: a broken page: reported as site_broken/.test(line)) digestHold = SITE_REFUSED;   // a page that never loads or answers 5xx (extension/ladder/site-broken.js): the site's own state, a hold like a refusal, not an unclear flow
     // The run's summary prints the digest line again after the fill lines, with a bare clock time ("  18:46:46 [extension] digest: ..."): the same line, not a later digest, so it never resets a hold.
     const digestOutcome = /^\s+\d\d:\d\d:\d\d \[/.test(line) ? null : line.match(/\bdigest: outcome=(\w+)/);
@@ -77,7 +86,7 @@ export function parseLive(output) {
     if (markLine && !onAccount && !/account page/.test(line)) marks = {starred: Number(markLine[1]), required: Number(markLine[2])};
     const fields = line.match(new RegExp(FIELDS_LINE));
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
-    if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
+    if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5], ...(emptyMenus.has(labelKey(field[3])) ? {noOptions: true} : {})});
     if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); countPage = reportPage(line) || lastReport; countAt = index; reach('form'); digestHold = ''; if (left === 0 && filled > 0) reach('ready'); }
     // Each fill opens on its page ("fill: filling {page}") and closes with its own report (filled the form / did not fill / fields: the line's url) or a hold.
     const opened = !onAccount && line.match(/fill: filling \{.*?"page":"([^"]*)"/);
@@ -216,6 +225,7 @@ export function verdictOf(field, {aiOff = false} = {}) {
   if (field.outcome === 'filled' || answeredNoOf(field)) return 'filled';   // a "no" kept on an unchecked two-state control is the answer
   const reason = String(field.reason || '');
   if (/^(legal|written|demographic)/.test(reason)) return 'expected';   // written: the AI read an open question of the person's own words (category written)
+  if (field.noOptions) return 'expected';   // a menu that showed no choice at all: the site offered nothing to pick, left for the person (parseLive emptyMenus)
   if (field.type === 'password' || /^password:/.test(reason)) return 'expected';   // a password is never typed (a safety rule), whatever an older record's reason says
   const cause = causeOf({reason, field: field.label});
   if (cause === 'proposed') return 'expected';

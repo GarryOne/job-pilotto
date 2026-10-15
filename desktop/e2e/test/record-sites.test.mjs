@@ -361,7 +361,7 @@ test('the digest outcome refused is the hold "site refused: retry later"; login_
     assert.deepEqual([result.reached, result.note], ['posting', note], outcome);
   }
   assert.equal(parseLive(DIGEST('other').join('\n')).note, undefined, 'an outcome that names no stop is no hold');
-  assert.equal(parseLive(DIGEST('expired').join('\n')).note, undefined);
+  assert.equal(parseLive(DIGEST('expired').join('\n')).note, 'posting closed: held', 'the digest\'s fixed expired is a closed posting, a hold (owner, 15 Oct 2026)');
 });
 
 test('a form reached after the refusal clears the hold (the block came and went); an account-first hold keeps its own note', () => {

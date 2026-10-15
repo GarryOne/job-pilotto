@@ -5,16 +5,22 @@
 export const STATES = ['works', 'held', 'site', 'fix', 'unrun'];
 export const STATE_WORD = {works: 'Works', held: 'Held on purpose', site: 'Site problem', fix: 'Needs a fix', unrun: 'Not run yet'};
 // The notes the runner writes on purpose (desktop/e2e/lib/record-sites.mjs parseLive): each is a rule the site or the posting set, never a fix.
-const HOLDS = [[/^account-first: held/, 'account-first'], [/^eligibility stop:/, 'eligibility'], [/^login wall: held/, 'login wall'], [/^applies by email: told/, 'applies by email'], [/^page tells how to apply: told/, 'page tells how']];
+const HOLDS = [[/^account-first: held/, 'account-first'], [/^eligibility stop:/, 'eligibility'], [/^login wall: held/, 'login wall'], [/^applies by email: told/, 'applies by email'], [/^page tells how to apply: told/, 'page tells how'], [/^posting closed: held/, 'posting closed']];
 const SITE_REFUSED = /^site refused: retry later/;
+// A CI run the data-centre IP could not get past (the site refused it or never answered; the CI upload rewrites the refusal note, src/applying-ci-rows.js): the Mac or a real visitor likely gets through, so it is
+// no failure of ours and no site problem: the next step is a recording from a Mac.
+export const CI_BLOCKED = 'blocked in CI: needs a Mac recording';
+export const isRefusal = note => SITE_REFUSED.test(note || '');
+const CI_RULE = {rule: 'blocked in CI (data-centre IP)', next: 'needs a Mac recording'};
 const EARLY = ['none', 'posting', 'account'];
 
 // A hold that verifies a fix on the Fixed tab (owner, 14 Oct 2026): every hold is the accepted end of a run except the eligibility stop, which is about the posting against the profile and says
 // nothing about the site (7e38ed8, 11 Oct 2026: counted as clean, it made Ashby "Regressed": a stop before any field read as a clean run).
-export const isCleanHold = status => status.state === 'held' && status.rule !== 'eligibility';
+// A closed posting is about the posting too (the site may work), so it verifies nothing either.
+export const isCleanHold = status => status.state === 'held' && !['eligibility', 'posting closed'].includes(status.rule);
 
 // A documented hold: the run stopped here on purpose. A site that refused us (retry later) is a site problem (the notes of one hold list are the notes of one status), never a fix.
-export const isHold = note => SITE_REFUSED.test(note || '') || HOLDS.some(([pattern]) => pattern.test(note || ''));
+export const isHold = note => SITE_REFUSED.test(note || '') || note === CI_BLOCKED || HOLDS.some(([pattern]) => pattern.test(note || ''));
 
 // A form whose every empty asked field is left by a rule (the runner's verdict counts none unexplained: desktop/e2e/lib/record-sites.mjs verdictOf: proposed, written, legal,
 // demographic, a password) is not a fix when it filled fewer than its last run (owner, 14 Oct 2026: a field that moved from typed to a rule hold is a hold, not a regression).
@@ -26,6 +32,7 @@ export function rowStatus(run) {
   const note = run.note || '';
   const hold = HOLDS.find(([pattern]) => pattern.test(note));
   if (hold) return {state: 'held', rule: hold[1]};
+  if (note === CI_BLOCKED) return {state: 'site', ...CI_RULE};
   if (SITE_REFUSED.test(note)) return {state: 'site', rule: 'site refused'};
   if (note) return {state: 'site', rule: 'posting gone'};   // any other note: a posting gone, or no posting
   if (!run.reached) return {state: 'unrun', rule: ''};
