@@ -410,12 +410,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         // the first pass's rows go with the stop, so its fields are logged as on every other end (the smoke counted them as none, 11 Oct 2026).
         if (!ai.eligible && !force && config.checkEligibility !== false) return {...summary, ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd, ...verdictFields({ai})};
       }
-      const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
+      const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, question: a.question || later.find(f => f.field === a.field)?.label, source: 'Claude (on the page)'})));
       if (extra.length) {
         // Only Claude's answers this time: no contact details or CV again (they're in already).
         const more = await inPage(tab.id, (list, letter, consents) => window.__jobPilottoExtensionFill(list, {}, null, letter, consents),
           [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', config.acceptConsents === true]);
         if (more?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // the same, in the later pass
+        const reach = more?.reach; if (reach) decide('fill', 'answers reached rows', reach).catch(() => {});   // counts only: asked, matched an id, matched by question, none (a page that re-created its controls)
         let clickError = '';
         const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(error => { clickError = error.message; return []; }) : [];
         debug.laterDropdowns = combos;
