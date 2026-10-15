@@ -1,0 +1,25 @@
+{
+ "origin": "hand-cut",
+ "shape": "a radio group that names its question by aria-labelledby and marks itself aria-required; the page already shows a selected choice",
+ "why": "The owner's real SuccessFactors fill of 15 Oct 2026: the work-permit question was logged filled and the panel still listed it as left (named by its first choice's own label, not required by the group's own mark). Markup written from OpenUI5's sap.m.RadioButtonRenderer code, NOT captured from a live page.",
+ "control": {
+  "build": "0.9.533",
+  "failed": "notPending: the question is not in the panel's filled list (the row carries the first choice's label)"
+ },
+ "sample": "OpenUI5 sap.m.RadioButtonGroup markup written from its renderer (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/portalcareer",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.95, "rung": 2},
+  "/extension/answer": {"ok": true, "eligible": true, "eligibility_note": "", "answers": []}
+ },
+ "expect": {
+  "notPending": ["To be eligible to work in Switzerland, which applies to you?"],
+  "notTold": ["pressed the submit"],
+  "seconds": 60
+ }
+}
