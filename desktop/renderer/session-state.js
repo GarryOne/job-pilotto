@@ -27,6 +27,7 @@ export const askOutdated = (item, liveForm) => !!item && item.kind !== 'form' &&
 // "Reading this page" → "Apply button detected. Redirecting…" → "Sign in form detected" → "Logging in…" → the form's own state). [the card's line, the list's short word]
 export const PAGE_LINES = {reading: ['Reading this page\u2026', 'Reading\u2026'], posting: ['Apply button detected. Redirecting\u2026', 'Redirecting\u2026'],
   opening: ['Apply button detected. Redirecting\u2026', 'Redirecting\u2026'], account: ['Sign in form detected', 'Sign-in page'], 'sign-up': ['Sign-up form detected', 'Sign-up page'],
+  other: ['This page shows no application', 'No application here'],
   'signing-in': ['Logging in\u2026', 'Logging in\u2026'], 'signing-up': ['Creating your account\u2026', 'Creating account\u2026']};
 export const pageLine = (page, short = false) => (PAGE_LINES[page] || PAGE_LINES.reading)[short ? 1 : 0];
 export const sessionReview = (item, formReady = false) => {

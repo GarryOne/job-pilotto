@@ -89,14 +89,11 @@ test('the tab lookup finds a redirected tab by its mark on any host and window',
   assert.equal(tabOfSession('f2', tabs, ''), null);
 });
 
-test('Reopen goes back to the form page the application was on, not the posting', async () => {
+test('Reopen starts from the job posting, even when a form page was seen (owner, 16 Oct 2026)', async () => {
   const s = setup();
   const {id} = terminals.startForm({id: 'f9', url: URL, company: 'Acme'});
   s.setStates([{id, formUrl: 'https://career74.example.test/apply'}]);
   await s.reopen(id, true);
-  assert.ok(s.calls.includes('open https://career74.example.test/apply'), s.calls.join(' | '));
-  const t = setup();
-  const {id: other} = terminals.startForm({id: 'f8', url: URL, company: 'Acme'});
-  await t.reopen(other, true);
-  assert.ok(t.calls.includes(`open ${URL}`), 'no form seen yet: the posting');
+  assert.ok(s.calls.includes(`open ${URL}`), s.calls.join(' | '));
 });
+

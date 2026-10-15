@@ -214,7 +214,7 @@ const behindBound = (id, tab, boot, payload) => {
   return held !== '' && held !== tab && !!own && own.tab === held && !own.account && own.total > 0 && !showsForm(payload);
 };
 // The steps a card shows as one line, with no counts (extension/page-mark.js): being read, a posting, Apply pressed, a sign-in or sign-up form, its button pressed.
-export const LINE_PAGES = ['reading', 'posting', 'opening', 'account', 'sign-up', 'signing-in', 'signing-up'];
+export const LINE_PAGES = ['reading', 'posting', 'opening', 'other', 'account', 'sign-up', 'signing-in', 'signing-up'];
 const EMPTY = {total: 0, left: 0, ready: false, needs: '', missing: [], pending: [], reasons: [], optional: [], knockouts: [], proposals: [], filled: []};
 // The extension's word for a session's page, as it happens (the worker sends it, so a page with no panel moves the card too). 'form': the line goes, the panel's report brings the counts.
 export function notePage(id, page, now = Date.now()) {
@@ -273,7 +273,6 @@ export function report(sessions, payload, now = Date.now()) {
     .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy && !(Array.isArray(payload.ours) && payload.ours.includes(label)) ? 'you' : 'fill'});
   // A page the AI judged to have no form (posting; its Apply was pressed): no counts, no ready, no attention items: the card says what is happening (owner, 15 Oct 2026).
   if (LINE_PAGES.includes(payload.page)) Object.assign(state, {...EMPTY, page: payload.page});
-  state.formUrl = state.total > 0 && !state.account && !state.page ? state.url : before?.formUrl || '';   // where the application form itself was last seen: Reopen goes back there, not to the posting
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); for (const fn of stateListeners) { try { fn(state); } catch {} } }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);
