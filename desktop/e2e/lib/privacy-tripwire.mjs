@@ -13,7 +13,7 @@ import path from 'node:path';
 import {CONTACT} from './apply-fixtures.mjs';
 import {appProfileTexts, personalValues} from './capture-page.mjs';
 import {placesOf as placesIn} from '../../lib/owner-values.js';
-import {matchesOwner} from '../../../worker/src/owner-guard.js';
+import {matchesOwner, plain} from '../../../worker/src/owner-guard.js';
 
 // The signed-in Claude account on this Mac (~/.claude.json oauthAccount): read here only, never printed. -> {email, names}
 export function claudeAccount(file = path.join(os.homedir(), '.claude.json')) {
@@ -44,8 +44,9 @@ function fieldsInPage() {
   const all = [], walk = root => { all.push(...root.querySelectorAll('input, textarea, select, [contenteditable=""], [contenteditable=true]')); for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot); };
   walk(document);
   const labelOf = el => (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || el.id || '').replace(/\s+/g, ' ').trim();
+  const isAutocomplete = el => el.getAttribute('role') === 'combobox' || (el.getAttribute('aria-autocomplete') || 'none') !== 'none' || el.hasAttribute('list') || !!el.closest('[role=combobox]');   // a control that offers suggestions
   return all.filter(el => !['hidden', 'password', 'submit', 'button', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(el.type))
-    .map(el => ({label: labelOf(el), value: el.tagName === 'SELECT' ? el.selectedOptions?.[0]?.textContent || '' : el.isContentEditable ? el.textContent : el.value}))
+    .map(el => ({label: labelOf(el), control: isAutocomplete(el) ? 'autocomplete' : 'input', value: el.tagName === 'SELECT' ? el.selectedOptions?.[0]?.textContent || '' : el.isContentEditable ? el.textContent : el.value}))
     .filter(field => String(field.value || '').trim());
 }
 // Runs in each frame: empties the fields with these labels (the tripwire's hits), as a person would.
@@ -76,12 +77,20 @@ export function coverageLine(values) {
   return `privacy tripwire: checks ${checks.join(', ') || 'nothing'}${missing.length ? `; NOT FOUND on this computer: ${missing.join(', ')}` : ''}`;
 }
 
+// Where a typed value came from (never the value): 'answer' (one the extension was told to type), 'kit' (the fake applicant's own), 'page suggestion' (a control that
+// offers suggestions, here an autocomplete's IP-based pick, holds something nobody typed), else 'unknown'. answers/kit: the strings the run supplied.
+export function sourceOf(field, {answers = [], kit = []} = {}) {
+  const same = list => list.some(item => plain(item) === plain(field.value));
+  return same(answers) ? 'answer' : same(kit) ? 'kit' : field.control === 'autocomplete' ? 'page suggestion' : 'unknown';
+}
+
 // source: {typed(), clear?(labels)}; saved: the run's folders to delete on a match. -> {ok, checked, missing, reason?}
 // allow: values a listed test account brings (lib/test-accounts.mjs allowedValues: its email), never a trip.
-export async function tripwire(source, {values = ownerValues(), saved = [], allow = []} = {}) {
+// answers, kit: what the run knows the extension typed, to say where a hit's value came from (the reason names the control and the source, before the files are deleted).
+export async function tripwire(source, {values = ownerValues(), saved = [], allow = [], answers = [], kit = []} = {}) {
   const typed = (await source.typed()).filter(({value}) => !allow.includes(String(value || '').trim().toLowerCase())), hits = matchesOwner(typed, values), {missing} = coverage(values);
   if (!hits.length) return {ok: true, checked: typed.length, missing};
   for (const dir of saved.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});
   await source.clear?.([...new Set(hits.map(hit => hit.label))]);
-  return {ok: false, checked: typed.length, missing, reason: `privacy tripwire: ${hits.map(hit => `${hit.kind} typed into "${hit.label}"`).join(', ')}; the run's saved files (screenshots included) were deleted and those fields cleared`};
+  return {ok: false, checked: typed.length, missing, reason: `privacy tripwire: ${hits.map(hit => { const field = typed.find(item => String(item.label || '').slice(0, 60) === hit.label) || {}; return `${hit.kind} typed into "${hit.label}" (${field.control || 'input'}, from ${sourceOf(field, {answers, kit})})`; }).join(', ')}; the run's saved files (screenshots included) were deleted and those fields cleared`};
 }
