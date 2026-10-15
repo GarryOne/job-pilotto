@@ -1,4 +1,4 @@
-// The PR replay's late-answer pass verdict (lib/lost-answers.mjs over each row's app log): one line per row that lost Claude's answers. Report only.
+// The scheduled replay's late-answer pass verdict (lib/lost-answers.mjs over each row's app log): one line per row that lost Claude's answers. Report only.
 //   node replay-late.mjs <replays dir>   (replay-records.mjs's <out>/replays: a folder per row with its app.log)
 import fs from 'node:fs';
 import path from 'node:path';

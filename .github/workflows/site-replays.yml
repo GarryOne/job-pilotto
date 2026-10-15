@@ -113,6 +113,16 @@ jobs:
         run: |
           set -o pipefail
           node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The late-answer pass (owner, 15 Oct 2026: moved here from the PR check, "edge-case or costly checks will be caught hours later on the scheduled runs"): this shard's rows again with
+      # every kept answer delayed 4 s; judged only by "no answer lost" (lib/lost-answers.mjs), never against live. A row that lost them alerts like a drop (the gate job).
+      - name: Late-answer pass (answers delayed 4 s)
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY_SHARD: ${{ matrix.shard }}/5
+          JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS: '4000'
+        run: |
+          node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-late" > /dev/null || true
+          node replay-late.mjs "$GITHUB_WORKSPACE/replay-late/replays" | tee "$GITHUB_WORKSPACE/replay-out/late.md" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: This shard's rows (for the gate; no record, no key)
         if: always()
         uses: actions/upload-artifact@v6
@@ -125,6 +135,7 @@ jobs:
             replay-out/replays/*/replay.json
             replay-out/replays/*/app.log
             replay-out/replays/*/ai-calls.json
+            replay-out/late.md
           retention-days: 7
           if-no-files-found: ignore
   replay-linux:
@@ -293,7 +304,10 @@ jobs:
           # the runner measurement (never gating): the same rows on Linux beside the Mac's
           mkdir -p "$out/linux-step4"; for d in "$RUNNER_TEMP"/linux/*/; do cp "$d"*.json "$out/linux-step4/" 2>/dev/null || true; done
           [ -n "$(ls "$out/linux-step4")" ] && node replay-os-compare.mjs "$out/step4" "$out/linux-step4" | tee -a "$GITHUB_STEP_SUMMARY" || true
-          { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; echo EOF; echo "merged=$(node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).merged||[];console.log(m.map(p=>"#"+p.number).join(", "))' "$out/accepts.json")"; } >> "$GITHUB_OUTPUT"
+          # the late-answer pass of each shard (late.md): a row that lost Claude's answers is red like a drop, and named in the alert
+          : > "$out/late-lost.txt"; for d in "$RUNNER_TEMP"/shards/*/; do grep '^- ' "$d"late.md >> "$out/late-lost.txt" 2>/dev/null || true; done
+          [ -s "$out/late-lost.txt" ] && { code=1; echo "### Late answers: rows that lost Claude's answers" | tee -a "$GITHUB_STEP_SUMMARY"; cat "$out/late-lost.txt" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; sed -E 's/^- /late answers lost: /' "$out/late-lost.txt" | head -10; echo EOF; echo "merged=$(node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).merged||[];console.log(m.map(p=>"#"+p.number).join(", "))' "$out/accepts.json")"; } >> "$GITHUB_OUTPUT"
       - name: Keep this run's results (the next run's baseline when green)
         if: always() && steps.gate.outcome == 'success'
         uses: actions/upload-artifact@v6

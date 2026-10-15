@@ -179,7 +179,7 @@ class RedMainTest(unittest.TestCase):
 
     def test_every_workflow_is_classified_and_the_counted_ones_are_the_scripts_list(self):
         names = {re.search(r'^name:\s*(.+?)\s*$', p.read_text(), re.M).group(1).strip('"\'') for p in (ROOT / '.github' / 'workflows').glob('*.yml')}
-        names = {re.sub(r'\(\d+ pinned rows\)', '(N pinned rows)', n) for n in names}   # the PR replay check's name carries its pinned count
+        names = {re.sub(r'\((\d+ of )?\d+ pinned rows\)', '(N pinned rows)', n) for n in names}   # the PR replay check's name carries its counts ("<k> of <n> pinned rows")
         self.assertEqual(sorted(names - set(CLASSIFIED)), [], 'a workflow with no classification: add it to CLASSIFIED (counted or ignored with a reason)')
         listed = re.search(r'RED_WORKFLOWS=\(([^)]*)\)', SCRIPT.read_text()).group(1)
         counted = sorted(re.findall(r'"([^"]+)"', listed))
