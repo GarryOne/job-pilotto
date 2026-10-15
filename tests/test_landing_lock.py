@@ -6,6 +6,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from tests.heavy_wait import gate_loop
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'landing-lock.sh'
@@ -22,7 +23,7 @@ class LandingLockTest(unittest.TestCase):
     def landing(self, label, **env):
         """A landing that holds its turn until the test lets it go (a file), not for a guessed time."""
         gate = (self.tmp / f'go-{label}').as_posix()
-        body = f'source "{LOCK}"; landing_acquire {label}; echo "{label} in" >> "{self.trace}"; while [ ! -f {gate} ]; do sleep 0.05; done; echo "{label} out" >> "{self.trace}"; landing_release'
+        body = f'source "{LOCK}"; landing_acquire {label}; echo "{label} in" >> "{self.trace}"; {gate_loop(gate, 0.05)}; echo "{label} out" >> "{self.trace}"; landing_release'
         err_path = self.tmp / f'err-{label}'
         with open(err_path, 'w') as err:
             proc = subprocess.Popen(['bash', '-c', body], cwd=self.tmp, env={**os.environ, **env}, stdout=subprocess.PIPE, stderr=err, text=True)

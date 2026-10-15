@@ -5,6 +5,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from tests.heavy_wait import gate_loop
 
 SCRIPT = str(Path(__file__).resolve().parent.parent / 'tools/check-slot.sh')
 
@@ -21,7 +22,7 @@ def held_by(slot_dir, proc, timeout=60):
 
 def gated(gate):
     """A command that holds its slot until the test writes the gate file."""
-    return ['bash', '-c', f'while [ ! -f {Path(gate).as_posix()} ]; do sleep 0.05; done']
+    return ['bash', '-c', f'{gate_loop(Path(gate).as_posix(), 0.05)}']
 
 
 def said(path, text, proc, timeout=60):

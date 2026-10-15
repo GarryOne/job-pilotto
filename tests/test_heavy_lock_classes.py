@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_in_books
+from tests.heavy_wait import wait_in_books, wait_read_queue, gate_loop
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -29,11 +29,12 @@ class HeavyLockClassesTest(unittest.TestCase):
     def order(self, waiters, **env):
         """A gated holder runs until every waiter is queued; the waiters (what, name, extra env) then run in the order the lock picks; returns the run order."""
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
-        procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.05; done', **env)]
+        procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; {gate_loop(go, 0.05)}', **env)]
         wait_in_books(heavy, procs[0], ('holds',), env=self.env)
         for what, name, extra in waiters:
             procs.append(self.start(what, name, **{**env, **extra}))
             wait_in_books(heavy, procs[-1], ('waits',), procs=procs, env=self.env)   # its ticket is queued: the next one reads a later clock
+        wait_read_queue(heavy, procs[1:], env=self.env)   # every waiter has read the full queue: the holder may end
         Path(go).write_text('go')
         for p in procs:
             p.communicate(timeout=60)

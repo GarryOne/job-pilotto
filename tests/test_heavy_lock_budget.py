@@ -131,7 +131,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         bin_dir = Path(self.env['PATH'].split(os.pathsep)[0])
         real_stat = shutil.which('stat')
         (bin_dir / 'stat').write_text('#!/bin/sh\nif [ "$1" = -f ]; then printf \'  File: "%s"\\n    ID: 0 Namelen: 255 Type: ext4\\n\' "$3"; exit 0; fi\n'
-                                      f'if [ "$1" = -c ]; then exec {real_stat} -f %m "$3"; fi\nexec {real_stat} "$@"\n')
+                                      f'if [ "$1" = -c ]; then {real_stat} -c "$2" "$3" 2>/dev/null && exit 0; exec {real_stat} -f %m "$3"; fi\nexec {real_stat} "$@"\n')   # -c: the real GNU stat where there is one (CI), else the macOS form (15 Oct 2026: on Linux it ran GNU `stat -f %m`, fs text, and the timing run never started)
         (bin_dir / 'stat').chmod(0o755)
         self.launch('recorded-replay', 'a')
         self.launch('apply-latency-x', 'timing')

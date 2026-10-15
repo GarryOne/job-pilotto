@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import evidence, wait_in_books, wait_said
+from tests.heavy_wait import evidence, wait_in_books, wait_said, gate_loop
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'heavy-lock.sh'
@@ -44,7 +44,7 @@ class HeavyLockFixture(unittest.TestCase):
     def hold(self, what='holder', **env):
         """A run that holds the lock until the returned function is called; returns once THIS run holds a slot (the lock's own state, not a guessed nap)."""
         go = self.tmp / f'go-{what.replace(" ", "-")}'
-        proc = self.start(what, 'bash', '-c', f'while [ ! -f {go.as_posix()} ]; do sleep 0.05; done', **env)
+        proc = self.start(what, 'bash', '-c', f'{gate_loop(go.as_posix(), 0.05)}', **env)
         self.addCleanup(lambda: (go.write_text('go'), proc.poll() is None and proc.communicate(timeout=30)))
         wait_in_books(env.get('JOB_PILOTTO_HEAVY_DIR', self.env['JOB_PILOTTO_HEAVY_DIR']), proc, ('holds',), env={**self.env, **env})
         def let_go():

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import evidence, wait_in_books, wait_said
+from tests.heavy_wait import evidence, wait_in_books, wait_read_queue, wait_said, gate_loop
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'heavy-lock.sh'
@@ -29,12 +29,13 @@ class HeavyLockShortFirstTest(unittest.TestCase):
     def order(self, **env):
         """A gated holder runs until a longer run (real-extension) and a row replay are queued; returns the order they ran in."""
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
-        holder = self.start('recorded-replay-holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.05; done', **env)
+        holder = self.start('recorded-replay-holder', f'echo holder >> {self.trace}; {gate_loop(go, 0.05)}', **env)
         wait_in_books(heavy, holder, ('holds',), env=self.env)
         longer = self.start('real-extension', f'echo long >> {self.trace}', **env)
         wait_in_books(heavy, longer, ('waits',), procs=[holder], env=self.env)
         row = self.start('row-replay', f'echo row >> {self.trace}', **env)
         wait_in_books(heavy, row, ('waits',), procs=[holder, longer], env=self.env)
+        wait_read_queue(heavy, [longer, row], env=self.env)   # both have read the full queue: the holder may end
         Path(go).write_text('go')
         for p in (holder, longer, row):
             p.communicate(timeout=30)
@@ -65,7 +66,7 @@ class HeavyLockShortFirstTest(unittest.TestCase):
 
     def test_the_wait_message_names_the_session_that_holds_the_lock_and_the_one_ahead(self):
         go = (self.tmp / 'go').as_posix()
-        holder = self.start('e2e-smoke', f'while [ ! -f {go} ]; do sleep 0.05; done', JOB_PILOTTO_SESSION='session-a')
+        holder = self.start('e2e-smoke', f'{gate_loop(go, 0.05)}', JOB_PILOTTO_SESSION='session-a')
         wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], holder, ('holds',), env=self.env)   # it holds: not a guessed 0.4 s
         err_path = self.tmp / 'err-waiter'
         with open(err_path, 'w') as err_out:

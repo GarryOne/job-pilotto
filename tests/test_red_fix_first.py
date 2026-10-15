@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_in_books
+from tests.heavy_wait import wait_in_books, gate_loop
 from tests.ship_fixture import ShipFixture
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,7 +61,7 @@ class HeavyLockFixClassTest(unittest.TestCase):
 
     def order(self, fix_env, **env):
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
-        procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.1; done', **env)]
+        procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; {gate_loop(go, 0.1)}', **env)]
         wait_in_books(heavy, procs[0], ('holds',), env=self.env)
         for what, name, extra in (('real-extension', 'proof', {}), ('e2e-smoke', 'pool', {})):
             procs.append(self.start(what, name, **{**env, **extra}))

@@ -119,6 +119,34 @@ def wait_in_books(heavy_dir, proc, states=('holds', 'waits', 'loadwait'), timeou
         time.sleep(0.05)   # clock: a poll of the lock's state
 
 
+def _ticket_stamp(heavy_dir, pid):
+    """(inode, mtime_ns) of run `pid`'s queue ticket, None when it has none: every poll of a waiter rewrites its ticket aside and renames it over, so the stamp changes once per poll."""
+    for ticket in _tickets(heavy_dir):
+        lines = _lines(ticket)
+        if lines and lines[0].split()[:1] == [str(pid)]:
+            try:
+                st = ticket.stat()
+            except OSError:
+                return None
+            return (st.st_ino, st.st_mtime_ns)
+    return None
+
+
+def wait_read_queue(heavy_dir, procs, timeout=90, env=None):
+    """Call it once the LAST waiter is queued and before the holder is released: waits until every queued run has polled again, i.e. its next look at the queue includes every ticket.
+    'waits' only says a ticket exists, not that the others have read it: a waiter whose poll began before the last ticket and reached its take after the holder ended took the lock
+    ahead of a higher class (CI, 15 Oct 2026: ['holder', 'pool', 'proof', 'explore']; reproduced 4 of 90 under load 400). Each poll marks its ticket (new inode) before it reads the queue."""
+    seen = {p.pid: _ticket_stamp(heavy_dir, p.pid) for p in procs}
+    deadline = time.monotonic() + timeout
+    while True:
+        waiting = [pid for pid, stamp in seen.items() if stamp is not None and _ticket_stamp(heavy_dir, pid) == stamp]
+        if not waiting:
+            return
+        if time.monotonic() >= deadline:
+            raise AssertionError(f'runs {waiting} did not poll the queue again after {timeout}s\n{evidence(heavy_dir, procs, env)}')
+        time.sleep(0.05)   # clock: a poll of the lock's state
+
+
 def wait_said(err_path, text, proc=None, timeout=90, why=lambda: ''):
     """Wait until a run's stderr file says `text` (the lock's own words: "waits", "runs"); fail at once if the run ended without saying it."""
     deadline = time.monotonic() + timeout
@@ -132,10 +160,18 @@ def wait_said(err_path, text, proc=None, timeout=90, why=lambda: ''):
         time.sleep(0.05)   # clock: a poll of what the run said
 
 
+def gate_loop(path, nap=0.05, or_path=None, seconds=120):
+    """The ONE shell loop of the lock tests that waits for a gate file the test creates; it ends by itself after `seconds` (15 Oct 2026: ~136 bare `while [ ! -f gate ]` loops were orphaned for days
+    when runs were cut off, their temp dir gone, and drove the Mac's load to ~400). tests/test_heavy_lock_waits.py fails on a bare one."""
+    more = f' && [ ! -f {Path(or_path).as_posix()} ]' if or_path else ''
+    return f'e=$((SECONDS+{seconds})); while [ ! -f {Path(path).as_posix()} ]{more} && [ $SECONDS -lt $e ]; do sleep {nap}; done'
+
+
 def gated(trace, name, gate_dir):
     """A run body that logs "+name", waits until the test releases it (a file gate_dir/<name>, or gate_dir/all), logs "-name": no fixed naps, so the test takes as long as the lock needs."""
     gate = Path(gate_dir).as_posix()
-    return f'echo +{name} >> {Path(trace).as_posix()}; while [ ! -f {gate}/{name} ] && [ ! -f {gate}/all ]; do sleep 0.1; done; echo -{name} >> {Path(trace).as_posix()}'
+    wait = gate_loop(f'{gate}/{name}', 0.1, f'{gate}/all')
+    return f'echo +{name} >> {Path(trace).as_posix()}; {wait}; echo -{name} >> {Path(trace).as_posix()}'
 
 
 def release(gate_dir, *names):

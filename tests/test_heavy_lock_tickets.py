@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import registered, wait_in_books
+from tests.heavy_wait import registered, wait_in_books, gate_loop
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -21,7 +21,7 @@ class HeavyLockTicketsTest(unittest.TestCase):
         heavy, go = (tmp / 'heavy').as_posix(), (tmp / 'go').as_posix()
         env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': heavy, 'JOB_PILOTTO_HEAVY_LOAD': '0',
                'JOB_PILOTTO_HEAVY_POLL': '0.02', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK), 'JOB_PILOTTO_HEAVY_SLOTS': '1'}
-        procs = [subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', f'while [ ! -f {go} ]; do sleep 0.05; done'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)]
+        procs = [subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', f'{gate_loop(go, 0.05)}'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)]
         self.addCleanup(lambda: [p.kill() for p in procs])
         wait_in_books(heavy, procs[0], ('holds',), env=env)
         for n in range(2, 7):
@@ -42,7 +42,7 @@ class HeavyLockTicketsTest(unittest.TestCase):
         heavy, go = tmp / 'heavy', (tmp / 'go').as_posix()
         env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': heavy.as_posix(), 'JOB_PILOTTO_HEAVY_LOAD': '0',
                'JOB_PILOTTO_HEAVY_POLL': '0.02', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK), 'JOB_PILOTTO_HEAVY_SLOTS': '1'}
-        holder = subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', f'while [ ! -f {go} ]; do sleep 0.05; done'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        holder = subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', f'{gate_loop(go, 0.05)}'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         sleeper = subprocess.Popen(['sleep', '60'])
         self.addCleanup(lambda: (holder.kill(), sleeper.kill()))
         wait_in_books(heavy.as_posix(), holder, ('holds',), env=env)

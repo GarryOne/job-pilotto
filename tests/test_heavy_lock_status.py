@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import status, wait_in_books
+from tests.heavy_wait import status, wait_in_books, gate_loop
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -36,7 +36,7 @@ class HeavyLockStatusTest(unittest.TestCase):
     def test_holders_and_waiters_are_listed_with_session_class_and_an_expected_wait(self):
         self.log.write_text('# 2026-10-11T10:00:00Z heavy lock run=100s wait=0s exit=0 what=real-extension class=proof\n# 2026-10-11T10:05:00Z heavy lock run=300s wait=0s exit=0 what=real-extension class=proof\n')
         go = (self.tmp / 'go').as_posix()
-        hold = f'while [ ! -f {go} ]; do sleep 0.1; done'
+        hold = f'{gate_loop(go, 0.1)}'
         heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         holder = self.start('real-extension', hold, JOB_PILOTTO_SESSION='session-a')
         wait_in_books(heavy, holder, ('holds',), env=self.env)
