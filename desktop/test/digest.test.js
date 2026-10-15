@@ -96,3 +96,18 @@ test('not_listed: the way to apply is not in the numbered list: no number, never
   assert.deepEqual(validateDigest({outcome: 'form', verb: 'not_listed', numbers: [], press_kind: '', confidence: 0.9}, candidates), {outcome: 'form', verb: 'not_listed', numbers: [], confidence: 0.9, chosen: []});
   assert.equal(validateDigest({outcome: 'form', verb: 'not_listed', numbers: [1], press_kind: '', confidence: 0.9}, candidates).dropped, 'not_listed takes no number');
 });
+
+// 15 Oct 2026: a yes/no step before the form. The way on ("Continue") is disabled until a choice is made; naming it led nowhere (the press floor refuses a disabled control). The list says
+// "disabled", the message carries the rule only then, and the validator drops a press or open on a disabled candidate; the question stays the person's.
+test('a disabled candidate is marked, never pressed, and its rule is said only when one exists', () => {
+  const list = [{n: 1, kind: 'sentence', position: 'main', text: 'Do you want to continue?'}, {n: 2, kind: 'button', position: 'main', text: 'Yes'}, {n: 3, kind: 'button', position: 'main', text: 'No'}, {n: 4, kind: 'button', position: 'main', text: 'Continue', disabled: true}];
+  const text = messageOf({path: '/apply', title: 'T', headings: []}, list);
+  assert.match(text, /4 · button · main · disabled · Continue/);
+  assert.ok(!/[23] · button · main · disabled/.test(text));
+  assert.match(text, /Candidates marked disabled cannot be pressed now/);
+  assert.ok(!/disabled/.test(messageOf({path: '/apply', title: 'T', headings: []}, list.slice(0, 3))), 'no disabled candidate: the message is unchanged');
+  assert.ok(!/disabled/.test(RULES), 'the system prompt is unchanged');
+  for (const verb of ['press', 'open']) assert.equal(validateDigest({outcome: 'form', verb, numbers: [4], confidence: 0.9}, list).dropped, 'disabled candidate');
+  assert.equal(validateDigest({outcome: 'form', verb: 'press', numbers: [2], confidence: 0.9}, list).verb, 'press', 'an enabled control is still pressed');
+  assert.deepEqual(validateDigest({outcome: 'other', verb: 'tell_person', numbers: [1], confidence: 0.9}, list).numbers, [1]);
+});

@@ -96,7 +96,7 @@
       if (link) {
         try { const url = new URL(href, doc.location?.href || undefined); if (!/^https?:$/.test(url.protocol)) continue; host = url.hostname; } catch { continue; }
       }
-      const item = {kind: link ? 'link' : 'button', text, ...(host ? {host} : {}), position, ...(coveredByLayer(el, doc) ? {covered: true} : {})};
+      const item = {kind: link ? 'link' : 'button', text, ...(host ? {host} : {}), position, ...(coveredByLayer(el, doc) ? {covered: true} : {}), ...(el.disabled === true || el.getAttribute('aria-disabled') === 'true' ? {disabled: true} : {})};   // disabled: by the element's own state (a button a choice on the page enables)
       // Which actions come first, by structure: a real button or a link to ANOTHER site (an application system) before a link of the same site; a link inside a menu (a list of 5+ links) last.
       const menu = el.closest('ul, ol, nav, [role="menu"], [role="list"]');
       const rank = (overlay(el) ? 4 : 0) + (menu && menu.querySelectorAll('a[href]').length >= 5 ? 2 : 0) + (item.kind === 'button' || (host && host !== (doc.location?.hostname || '')) || drawnAsButton(el) || repeated.has(item.text.toLowerCase()) ? 0 : 1);

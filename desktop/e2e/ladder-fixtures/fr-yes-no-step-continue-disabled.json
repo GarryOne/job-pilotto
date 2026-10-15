@@ -1,0 +1,181 @@
+{
+ "schemaVersion": 1,
+ "id": "fr-yes-no-step-continue-disabled",
+ "source": "captured",
+ "lang": "fr",
+ "capture": {
+  "url": "https://apply.example.net/application/1/apply"
+ },
+ "why": "a yes/no step before the form: Continue is disabled until a choice is made; the digest named it (0.8) and nothing was pressed (15 Oct 2026). Never press Continue, never press an answer to unlock it: the question is the person's (outcome other, tell_person).",
+ "trap": true,
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://apply.example.net/application/1/apply",
+  "title": "Apprenti(e) du commerce de détail – Example",
+  "headings": [
+   "Apprenti(e) du commerce de détail"
+  ],
+  "controls": [],
+  "buttons": [
+   "Powered by",
+   "https://www.jobs.example.ch.",
+   "Oui",
+   "Non",
+   "Continuer",
+   "Retour",
+   "Annuler la candidature"
+  ],
+  "mails": [],
+  "frames": [],
+  "frameCandidates": [],
+  "onTop": null,
+  "candidates": [
+   {
+    "host": "www.jobs.example.ch",
+    "kind": "link",
+    "n": 1,
+    "position": "main",
+    "text": "https://www.jobs.example.ch."
+   },
+   {
+    "kind": "button",
+    "n": 2,
+    "position": "main",
+    "text": "Oui"
+   },
+   {
+    "kind": "button",
+    "n": 3,
+    "position": "main",
+    "text": "Non"
+   },
+   {
+    "kind": "button",
+    "n": 4,
+    "position": "main",
+    "text": "Continuer",
+    "disabled": true
+   },
+   {
+    "kind": "button",
+    "n": 5,
+    "position": "main",
+    "text": "Retour"
+   },
+   {
+    "kind": "button",
+    "n": 6,
+    "position": "main",
+    "text": "Annuler la candidature"
+   },
+   {
+    "n": 7,
+    "kind": "sentence",
+    "position": "main",
+    "text": "Tu postules pour une place d'apprentissage. Veux-tu continuer ta candidature ?"
+   },
+   {
+    "kind": "sentence",
+    "n": 8,
+    "position": "main",
+    "text": "Veuillez sélectionner une des options."
+   },
+   {
+    "kind": "sentence",
+    "n": 9,
+    "position": "main",
+    "text": "Oui Non"
+   },
+   {
+    "host": "pastahr.com",
+    "kind": "link",
+    "n": 10,
+    "position": "other",
+    "text": "Powered by"
+   }
+  ]
+ },
+ "candidates": [
+  {
+   "host": "www.jobs.example.ch",
+   "kind": "link",
+   "n": 1,
+   "position": "main",
+   "text": "https://www.jobs.example.ch."
+  },
+  {
+   "kind": "button",
+   "n": 2,
+   "position": "main",
+   "text": "Oui"
+  },
+  {
+   "kind": "button",
+   "n": 3,
+   "position": "main",
+   "text": "Non"
+  },
+  {
+   "kind": "button",
+   "n": 4,
+   "position": "main",
+   "text": "Continuer",
+   "disabled": true
+  },
+  {
+   "kind": "button",
+   "n": 5,
+   "position": "main",
+   "text": "Retour"
+  },
+  {
+   "kind": "button",
+   "n": 6,
+   "position": "main",
+   "text": "Annuler la candidature"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "position": "main",
+   "text": "Tu postules pour une place d'apprentissage. Veux-tu continuer ta candidature ?"
+  },
+  {
+   "kind": "sentence",
+   "n": 8,
+   "position": "main",
+   "text": "Veuillez sélectionner une des options."
+  },
+  {
+   "kind": "sentence",
+   "n": 9,
+   "position": "main",
+   "text": "Oui Non"
+  },
+  {
+   "host": "pastahr.com",
+   "kind": "link",
+   "n": 10,
+   "position": "other",
+   "text": "Powered by"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.5,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "other",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}
