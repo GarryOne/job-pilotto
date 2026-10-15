@@ -9,7 +9,7 @@
  "sample": "OpenUI5 sap.m.Select markup written from its renderer (structure only, no real data)",
  "pages": [
   {
-   "url": "https://careers.example.com/portalcareer?company=example",
+   "url": "https://careers.example.com/portalcareer",
    "file": "form.html"
   }
  ],
