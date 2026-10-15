@@ -128,7 +128,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '', applyBy: answer.applyBy || '', applyEmail: answer.applyEmail || '',
       accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || '',
       ...ladder, ...(answer.digest ? {digest: answer.digest} : {}), form_frame: answer.formFrame ?? -1,
-      ...(answer.botCheck ? {botCheck: true} : {})};   // a check in front of the page: the extension hands it to the person (fill-flow.js)
+      ...(answer.stillDrawing ? {stillDrawing: true} : {}), ...(answer.botCheck ? {botCheck: true} : {})};   // stillDrawing: the extension reads again (ladder/still-drawing.js); a check in front of the page: the extension hands it to the person (fill-flow.js)
 }
 
 

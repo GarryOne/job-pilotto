@@ -45,7 +45,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "candidates": [
   {

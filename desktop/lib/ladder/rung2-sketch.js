@@ -41,7 +41,7 @@ export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and
 export const KEEP_FROM = 0.8;
 export const sureToKeep = entry => Number(entry?.confidence) >= KEEP_FROM && !(entry?.kind === 'account' && !entry?.accountStep);
 
-export const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'form_frame', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
+export const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'form_frame', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check', 'still_drawing'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
   apply_button_kind: {type: 'string', enum: BUTTON_KINDS, description: 'What the apply_button does: apply = starts or continues THIS job application; sign_in = logs in to an existing account; sign_up = creates an account; third_party = signs in or applies through another site\'s account (Google, LinkedIn, Apple, Indeed...); other. "" when apply_button is ""'},
@@ -55,6 +55,7 @@ export const SCHEMA = {type: 'object', additionalProperties: false, required: ['
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
   form_frame: {type: 'integer', description: 'For a posting whose application form sits in one of the listed Frame candidates: that frame\'s index; -1 for none, and for any other kind'},
   bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a puzzle or image test, a verification step, a challenge in a frame) stands in front of the page'},
+  still_drawing: {type: 'boolean', description: 'true when the page is still being drawn: a placeholder or empty shell, a loading notice, or a cover over content that has not appeared yet, so the real page is not on screen'},
 }};
 
 export const INSTRUCTIONS = `You classify one page of a job application journey on any employer or job-board site, in any language.
@@ -68,6 +69,8 @@ Answer one kind:
 Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
 bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
+still_drawing: true when what is on screen is not the finished page: a loading notice or spinner, an empty shell with only the site's header or search box, a cover with no content under it; the
+page is read again a moment later, so say true only when the content is plainly still on its way, in any language; the kind is then other.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site's account (LinkedIn, Indeed, Google); a quick or easy apply of the board's own that starts THIS application on its own site counts, in any language; "" when
 there is none or for any other kind. apply_button_kind: judge what that button DOES, in any language, not by its words: apply only when it starts or continues this application
@@ -192,6 +195,8 @@ async function pageKindOnce(client, raw, cache, {now = Date.now(), fresh = false
       : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
     const confidence = Math.max(0, Math.min(1, Number(answer?.confidence) || 0));
     if (!KINDS.includes(answer?.kind)) return {error: 'not a kind', shape, usd};
+    // A page still being drawn is a passing state, said before the confidence gate (a placeholder is rarely a sure kind): read again by the extension (extension/ladder/still-drawing.js), never kept for the shape.
+    if (answer.still_drawing === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, stillDrawing: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: '', applyRoute: ''};
     if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd, rung: 2, signal: 'unsure'};   // the extension climbs (extension/ladder/core.js), it does not fall down to the structure rule
     const applyRoute = answer.kind === 'posting' && ROUTES.includes(answer.apply_route) ? answer.apply_route : '';
     // Floor: the named button is kept only for an ordinary Apply or the manual route; reuse and a third-party sign-in are never pressed, whatever the AI names.

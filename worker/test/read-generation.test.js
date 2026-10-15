@@ -22,7 +22,7 @@ test('a newer read of the tab makes the older one stale; another tab is not touc
 
 test('class: every ask consider() waits on is checked right after, and the read is begun once the call is not skipped', () => {
   assert.match(consider, /if \(started\.has\(key\)\) return;\s*started\.add\(key\);\s*notePage\([^\n]*\n\s*const gen = beginRead\(tab\.id\);/, 'a call that returns at once is not a read');
-  const waits = [...consider.matchAll(/await (kindAsk|outcomeLook|climbOnUnsure\(|climbOnStall\()/g)];
+  const waits = [...consider.matchAll(/await (kindAsk|outcomeLook|readWhileDrawing\(|climbOnUnsure\(|climbOnStall\()/g)];
   assert.ok(waits.length >= 4, `${waits.length} awaited asks found: the list of late-answer sites changed, update this test`);
   for (const wait of waits) {
     const after = consider.slice(wait.index, wait.index + 520);

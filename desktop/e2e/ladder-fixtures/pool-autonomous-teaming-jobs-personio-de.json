@@ -124,7 +124,7 @@
  ],
  "answer": {
   "kind": "posting",
-  "confidence": 0.93,
+  "confidence": 0.9,
   "apply_button": "Apply for this job",
   "apply_button_kind": "apply",
   "apply_route": "",
@@ -135,7 +135,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "answer_path": "app"
 }

@@ -112,10 +112,14 @@
   {
    "date": "2026-10-15",
    "reason": "new fixture: a yes/no step with Continue disabled (digest never names it)"
+  },
+  {
+   "date": "2026-10-15",
+   "reason": "page-kind gains still_drawing (a page still being drawn is read again); page_kind answers re-recorded on the plan path"
   }
  ],
  "promptFingerprint": {
-  "rung2": "f195b59f9e204185",
+  "rung2": "47d4da04a4c8b216",
   "rung2-frames": "062eb0c3862f408e",
   "rung3": "a67ae2addd085090",
   "account-judge": "82bb54b889d5f14d",
@@ -385,8 +389,8 @@
      "posting"
     ]
    },
-   "outcome": "posting",
-   "status": "exact"
+   "outcome": "other",
+   "status": "wrong-confident"
   },
   "aldi-suisse": {
    "expect": {
@@ -618,8 +622,8 @@
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "unsure",
+   "status": "miss"
   },
   "formlabs-greenhouse-embed": {
    "expect": {
@@ -720,16 +724,6 @@
    },
    "outcome": "ask_person",
    "status": "exact"
-  },
-  "fr-yes-no-step-continue-disabled": {
-   "expect": {
-    "outcome": "posting",
-    "accept": [
-     "posting"
-    ]
-   },
-   "outcome": "unsure",
-   "status": "miss"
   },
   "fv-de-select-placeholder": {
    "question": "fill_verify",
@@ -846,8 +840,8 @@
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "unsure",
+   "status": "miss"
   },
   "inv-closed-it": {
    "expect": {
@@ -899,7 +893,7 @@
     ]
    },
    "outcome": "posting",
-   "status": "wrong-confident"
+   "status": "miss"
   },
   "inv-inperson-fr": {
    "expect": {
@@ -920,8 +914,8 @@
      "other"
     ]
    },
-   "outcome": "unsure",
-   "status": "miss"
+   "outcome": "other",
+   "status": "ok"
   },
   "inv-login-wall-en": {
    "expect": {
@@ -932,8 +926,8 @@
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "unsure",
+   "status": "miss"
   },
   "inv-phone-de": {
    "expect": {
@@ -954,8 +948,8 @@
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "unsure",
+   "status": "miss"
   },
   "jobs-ch-apply-not-found": {
    "expect": {
@@ -1367,8 +1361,8 @@
      "form"
     ]
    },
-   "outcome": "form",
-   "status": "exact"
+   "outcome": "account",
+   "status": "wrong-confident"
   },
   "pool-richemont-create-account-digest": {
    "expect": {
@@ -1379,8 +1373,8 @@
      "other"
     ]
    },
-   "outcome": "unsure",
-   "status": "miss"
+   "outcome": "account",
+   "status": "ok"
   },
   "pool-richemont-wd3-myworkdayjobs-com": {
    "expect": {
@@ -1494,7 +1488,7 @@
     ]
    },
    "outcome": "form",
-   "status": "miss"
+   "status": "wrong-confident"
   },
   "recorded-email-application-1": {
    "expect": {
@@ -1534,7 +1528,7 @@
     ]
    },
    "outcome": "posting",
-   "status": "miss"
+   "status": "exact"
   },
   "step-de-final": {
    "question": "form_step",
@@ -1751,6 +1745,16 @@
    },
    "outcome": "posting",
    "status": "exact"
+  },
+  "fr-yes-no-step-continue-disabled": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
   }
  }
 }

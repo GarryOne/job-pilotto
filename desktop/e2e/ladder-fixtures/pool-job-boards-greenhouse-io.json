@@ -340,7 +340,7 @@
  ],
  "answer": {
   "kind": "form",
-  "confidence": 0.9,
+  "confidence": 0.93,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",
@@ -351,7 +351,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "answer_path": "app"
 }

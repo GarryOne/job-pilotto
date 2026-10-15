@@ -21,6 +21,7 @@ import {applyPressed, moveTab} from './tabs.js';
 import {noJobPage} from './page-kind-final.js';
 import {isStopped} from './stop-state.js';
 import {pageStill} from './page-still.js';
+import {STILL_MS, readWhileDrawing} from './ladder/still-drawing.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole} from './tab-pages.js';
 import {applyPhrases, pressApply, wouldPress} from './apply-press.js';
@@ -259,8 +260,11 @@ export async function consider(tab, jobUrl) {
   const lookedAt = Date.now();
   sayStep(tab.id, 'Reading this page…');
   const kindAsk = askKind(tab), outcomeLook = accountOutcome(tab).catch(() => {});
-  const asked = (await kindAsk) || await climbOnUnsure(tab, askKind);   // unsure: the numbered digest (rung 3), not the structure rule
+  const firstAsked = (await kindAsk) || await climbOnUnsure(tab, askKind);   // unsure: the numbered digest (rung 3), not the structure rule
   if (late(tab, gen, 'page kind')) return;
+  // The AI says the page is still being drawn (a placeholder, a cover over an empty shell): read it again once it is still, never plan a fill from it (ladder/still-drawing.js).
+  const asked = await readWhileDrawing(firstAsked, {again: () => askKind(tab, {fresh: true}), still: () => pageStill(tab.id, STILL_MS), log: decide, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+  if (late(tab, gen, 'page kind, read again')) return;
   // The application form: fill it now; what became of the sign-up before it is the account AI's word a moment later, for the card only (owner, 9 Oct 2026: the fill
   // waited 40 s on it on Migros while the page was already the form). Any other page (an account page, a posting, nothing known) waits for it, as the sign-in →
   // sign-up switch and the account step go by it. Guard: worker/test/account-step.test.js.

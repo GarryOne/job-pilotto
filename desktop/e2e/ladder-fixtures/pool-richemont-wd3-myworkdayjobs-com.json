@@ -119,7 +119,7 @@
   "confidence": 0.9,
   "apply_button": "Apply",
   "apply_button_kind": "apply",
-  "apply_route": "",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,
@@ -127,7 +127,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "answer_path": "app"
 }
