@@ -26,7 +26,8 @@ test('a login swaps the key for a signed session that expires; the key itself ne
   assert.equal(await isOwner(req('/admin', {Cookie: `jp_admin=${session}`}), env, now), true);
   assert.equal(await isOwner(req('/admin', {Cookie: `jp_admin=${session}`}), env, now + (SESSION_DAYS + 1) * 86400000), false);   // expired
   assert.equal(await isOwner(req('/admin', {Cookie: `jp_admin=${session}`}), {...env, STATS_KEY: 'rotated'}, now), false);   // a new key ends it
-  assert.equal(await isOwner(req('/admin', {Cookie: `jp_admin=${session.slice(0, -2)}xx`}), env, now), false);   // tampered
+  const tampered = session.slice(0, -2) + (session.endsWith('xx') ? 'yy' : 'xx');   // always a different value
+  assert.equal(await isOwner(req('/admin', {Cookie: `jp_admin=${tampered}`}), env, now), false);   // tampered
   assert.equal(await validSession(env, `v1.${Math.floor(now / 1000) + 999999}.forged-signature-forged-signature-forged-sig`, now), false);
 });
 
