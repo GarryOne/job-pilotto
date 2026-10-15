@@ -65,7 +65,7 @@ test('a pinned row not same shows the fidelity number and the named-accept hint'
 test('pin raises only: same rows are pinned with the commit, a row not same stays as it was, a deferred row is never pinned', () => {
   const first = pin({rows: {a: {same: true}, b: {same: false}, c: {same: true, deferred: 'x'}}}, {rows: {}}, {commit: 'abc1234', at: 'T1'});
   assert.deepEqual(Object.keys(first.rows), ['a']);
-  assert.deepEqual(first.rows.a, {mac: null, runner: true, runnerCommit: 'abc1234', runnerAt: 'T1'});
+  assert.deepEqual(first.rows.a, {mac: null, kind: 'a', runner: true, runnerCommit: 'abc1234', runnerAt: 'T1'});   // kind: a row on no known platform is its own kind
   const second = pin({rows: {a: {same: false}, b: {same: true}}}, first, {commit: 'def5678', at: 'T2'});
   assert.equal(second.rows.a.runner, true, 'a row that is not same this time is never lowered by the tool');
   assert.equal(second.rows.a.runnerCommit, 'abc1234', 'the commit it was first proven on stays');
@@ -88,4 +88,23 @@ test('linux is a place: a row pinned on Linux is held like one pinned on the run
   assert.equal(data.rows.b.linux, true);
   assert.equal(data.rows.m.mac, true);
   assert.equal(judge([rec('b', {hit: 3, extra: 1})], {}, [], {}, pinned(data)).rows.b.verdict, 'worse');
+});
+
+test('a PR judges only the rows its pick replayed: an unpicked pinned row is "not replayed on PRs", never worse; the scheduled run still needs every pinned row', () => {
+  const pins = ['a', 'b', 'c'], records = [rec('a'), rec('b')];
+  const pr = judge(records, {}, [], {}, pins, new Set(['a', 'b']));
+  assert.equal(pr.rows.c.verdict, 'not counted');
+  assert.match(pr.rows.c.why, /not replayed on PRs/);
+  assert.equal(pr.red, false);
+  const scheduled = judge(records, {}, [], {}, pins);
+  assert.equal(scheduled.rows.c.verdict, 'worse');
+  assert.equal(scheduled.red, true);
+  assert.equal(judge([rec('a'), rec('b', {hit: 3, extra: 1})], {}, [], {}, pins, new Set(['a', 'b'])).rows.b.verdict, 'worse', 'a picked row that is not same is still red');
+  assert.equal(judge(records, {}, [], {}, pins, new Set(['a', 'b', 'c'])).rows.c.verdict, 'worse', 'a picked row that was not replayed is red');
+});
+
+test('pin keeps each row\'s kind from the host its form was on; a later pin without the host keeps it', () => {
+  const first = pin({rows: {a: {same: true, formHost: 'job-boards.greenhouse.io'}}}, {rows: {}}, {commit: 'c1', at: 'T'});
+  assert.equal(first.rows.a.kind, 'Greenhouse');
+  assert.equal(pin({rows: {a: {same: true}}}, first, {commit: 'c2', at: 'T2'}).rows.a.kind, 'Greenhouse');
 });

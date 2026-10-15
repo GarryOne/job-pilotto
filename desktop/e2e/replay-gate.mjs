@@ -41,7 +41,7 @@ export const STREAK = 2;   // runs in a row a row must be 100% same as live befo
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
 // pins (replay-faithful.json, lib/replay-ratchet.mjs): the pinned names. Given, the file IS the baseline (owner, 15 Oct 2026): every pinned row must be same as live, whatever else
 // its verdict was (ask changed, different, out of date, not replayed): red, unless the owner's Replay-accept names that row; a row same and not pinned is "newly same" (ratchet up).
-export function judge(records, baseline = {}, retry = [], accepts = {}, pins = null) {
+export function judge(records, baseline = {}, retry = [], accepts = {}, pins = null, picked = null) {
   const pinSet = pins ? new Set(pins) : null, names = records.map(record => record.name), again = new Map(retry.map(record => [record.name, record])), rows = {};
   for (const record of records) {
     // Counted (14 Oct 2026, a red gate on Databricks: 8/8 then 1/8 on the same code): never a deferred row, and only a row 100% same as live in the baseline AND
@@ -75,8 +75,10 @@ export function judge(records, baseline = {}, retry = [], accepts = {}, pins = n
       }
     }
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
-    rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', formHost: record.formHost || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
+  // A PR replays one pinned row per kind (replay-pick.mjs): a pinned row it did not pick is not judged there ("not replayed on PRs"), never worse; the scheduled run (no picked list) still needs every one.
+  if (pinSet && picked) for (const name of pinSet) if (!rows[name] && !picked.has(name)) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: false, verdict: 'not counted', why: 'not replayed on PRs (the scheduled runs check it)', seconds: null, site: '', wrongValues: []};
   if (pinSet) for (const name of pinSet) if (!rows[name]) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: true, verdict: 'worse', why: 'pinned same as live, but this run did not replay it (no result)', seconds: null, site: '', wrongValues: []};
   const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0, ...(pinSet ? {pinned: pinSet.size, sameCount: list.filter(row => row.same).length, newlySame: list.filter(row => row.verdict === 'newly same').length} : {})};
@@ -113,13 +115,14 @@ const recordsIn = dir => (dir && fs.existsSync(dir) ? fs.readdirSync(dir).filter
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [dir, base, out] = process.argv.slice(2), at = process.argv.indexOf('--retry'), retryDir = at > 0 ? process.argv[at + 1] : '', ac = process.argv.indexOf('--accepts'), accepts = ac > 0 ? json(process.argv[ac + 1], {}) : {};
-  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>] [--pinned <replay-faithful.json> [--base-pinned <the base branch copy>]]'); process.exit(2); }
+  if (!dir || !base || !out) { console.error('usage: node replay-gate.mjs <step-4 dir> <baseline results.json | -> <out results.json> [--retry <step-4 dir>] [--accepts <accepts.json>] [--pinned <replay-faithful.json> [--base-pinned <the base branch copy>] [--picked <names file>]]'); process.exit(2); }
   const force = list => list.map(record => (record.name === process.env.REPLAY_TEST_WORSE && process.env.GITHUB_REF_NAME !== 'main' && record.outcome   // a test-only fall (the end-to-end proof of an accept), also on the retry: never on main
     ? {...record, outcome: {...record.outcome, filled: Math.max(0, (record.outcome.filled ?? 1) - 1)}} : record));
   // --pinned: the ratchet is the baseline (lib/replay-ratchet.mjs); --base-pinned (the PR's base branch copy) keeps a row the PR unpinned held, until a Replay-accept names it.
   const flag = name => { const index = process.argv.indexOf(name); return index > 0 ? process.argv[index + 1] : ''; };
   const pins = flag('--pinned') ? [...new Set([...pinned(loadPins(flag('--pinned'))), ...(flag('--base-pinned') ? pinned(loadPins(flag('--base-pinned'))) : [])])] : null;
-  const result = judge(force(recordsIn(dir)), base === '-' ? {} : json(base, {}), force(recordsIn(retryDir)), accepts, pins);
+  const picked = flag('--picked') ? new Set(fs.readFileSync(flag('--picked'), 'utf8').split('\n').map(line => line.trim()).filter(Boolean)) : null;   // a PR: the rows its pick replayed
+  const result = judge(force(recordsIn(dir)), base === '-' ? {} : json(base, {}), force(recordsIn(retryDir)), accepts, pins, picked);
   fs.writeFileSync(out, `${JSON.stringify({at: new Date().toISOString(), sha: process.env.GITHUB_SHA || '', ...result}, null, 1)}\n`);
   if (!retryDir) fs.writeFileSync(`${out}.worse`, Object.entries(result.rows).filter(([, row]) => row.verdict === 'worse').map(([name]) => name).join('\n'));
   process.stdout.write(summary(result));

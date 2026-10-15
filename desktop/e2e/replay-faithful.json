@@ -7,7 +7,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Personio"
   },
   "Bulgari (recruitmentplatform.com)": {
    "mac": true,
@@ -18,7 +19,8 @@
    "linuxCommit": "ba6120c",
    "linuxAt": "2026-10-15T06:19:14.049Z",
    "macCommit": "df70a90",
-   "macAt": "2026-10-15T06:19:14.196Z"
+   "macAt": "2026-10-15T06:19:14.196Z",
+   "kind": "Bulgari (recruitmentplatform.com)"
   },
   "Cloudera (found 2026-10-10)": {
    "mac": null,
@@ -27,7 +29,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Workday"
   },
   "coreweave (found 2026-10-10)": {
    "mac": null,
@@ -36,7 +39,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Greenhouse"
   },
   "Databricks (found 2026-10-10)": {
    "mac": null,
@@ -45,7 +49,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Greenhouse"
   },
   "Digitec job offers": {
    "mac": null,
@@ -54,7 +59,8 @@
    "runnerAt": "2026-10-14T23:29:39.379Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Digitec job offers"
   },
   "FNAC Suisse jobs, French": {
    "mac": null,
@@ -63,7 +69,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "FNAC Suisse jobs, French"
   },
   "Greenhouse board form": {
    "mac": null,
@@ -72,7 +79,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Greenhouse"
   },
   "jobup.ch posting, then the employer's site": {
    "mac": null,
@@ -81,7 +89,8 @@
    "runnerAt": "2026-10-14T23:29:39.379Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "jobup.ch posting, then the employer's site"
   },
   "Join: form on join.com": {
    "mac": null,
@@ -90,7 +99,8 @@
    "runnerAt": "2026-10-14T23:29:39.379Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Join"
   },
   "Migros group site (jobs.migros.ch), German and French": {
    "mac": true,
@@ -101,7 +111,8 @@
    "linuxCommit": "ba6120c",
    "linuxAt": "2026-10-15T06:19:14.049Z",
    "macCommit": "df70a90",
-   "macAt": "2026-10-15T06:19:14.196Z"
+   "macAt": "2026-10-15T06:19:14.196Z",
+   "kind": "Umantis"
   },
   "Recruitee form": {
    "mac": null,
@@ -110,7 +121,8 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Recruitee form"
   },
   "Recruitee: one-page form on recruitee.com": {
    "mac": null,
@@ -119,7 +131,8 @@
    "runnerAt": "2026-10-14T23:29:39.379Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Recruitee"
   },
   "Swatch Group careers": {
    "mac": true,
@@ -130,7 +143,8 @@
    "linuxCommit": "ba6120c",
    "linuxAt": "2026-10-15T06:19:14.049Z",
    "macCommit": "df70a90",
-   "macAt": "2026-10-15T06:19:14.196Z"
+   "macAt": "2026-10-15T06:19:14.196Z",
+   "kind": "Swatch Group careers"
   },
   "Teamtailor: form on teamtailor.com": {
    "mac": null,
@@ -139,13 +153,15 @@
    "runnerAt": "2026-10-15T06:19:13.877Z",
    "linux": true,
    "linuxCommit": "ba6120c",
-   "linuxAt": "2026-10-15T06:19:14.049Z"
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "kind": "Teamtailor"
   },
   "Valora careers, German": {
    "mac": true,
    "runner": null,
    "macCommit": "df70a90",
-   "macAt": "2026-10-15T06:19:14.196Z"
+   "macAt": "2026-10-15T06:19:14.196Z",
+   "kind": "Valora careers, German"
   }
  }
 }

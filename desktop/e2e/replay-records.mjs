@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {onOwnAsks} from './lib/own-asks.mjs';
-import {load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
+import {formHostOf, load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
 import {wideLocalRefusal} from './lib/wide-local.mjs';
 
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
@@ -74,6 +74,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     if (!replay) console.error(`replay-records: ${row.name}: no result (${(ran.stderr || ran.error?.message || '').trim().split('\n').filter(line => /error|Error|throw/.test(line)).slice(-2).join(' | ').slice(0, 300)})`);
     console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: ${replay ? `${replay.outcome ? `${replay.outcome.reached}${replay.outcome.filled != null ? ` ${replay.outcome.filled}/${replay.outcome.left ?? '?'}` : ''}` : 'no outcome'}, ${replay.liveHit ?? 0}/${replay.liveAsks ?? 0} asks as live` : 'no result'} (${Math.round((Date.now() - started) / 1000)} s)`);
     const record = fidelityRecord(row, replay, {sha: process.env.GITHUB_SHA?.slice(0, 7) || '', branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || '', deferred});
+    try { const host = formHostOf(fs.readFileSync(path.join(work, 'app.log'), 'utf8')); if (host) record.formHost = host; } catch { /* no log */ }   // the host the form was on: the row's kind of form (lib/replay-ratchet.mjs)
     records.push(record);
     if (record.network) fs.writeFileSync(path.join(out, 'step4', `${slug(row.name)}.json`), `${JSON.stringify(record, null, 1)}\n`);
   }
