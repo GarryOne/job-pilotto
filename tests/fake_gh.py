@@ -60,7 +60,7 @@ elif argv[:2] == ['pr', 'view']:
 elif argv[:2] == ['pr', 'checks']:
     if pending:
         state['step_red'] = bool(pending.get('step_red'))
-        print(json.dumps([{'name': pending['name'], 'bucket': 'fail', 'link': pending['link']}]))
+        print(json.dumps([{'name': pending['name'], 'bucket': pending.get('bucket', 'fail'), 'link': pending['link']}]))
         state.pop('fail_check_once', None)
     else:
         print(json.dumps([{'name': 'python', 'bucket': 'pass', 'link': ''}]))

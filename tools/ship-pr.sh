@@ -64,6 +64,11 @@ ship_pr_land() {
     # Every check the PR started, not only the required ones (14 Oct 2026: only the 3 checks that start on every PR are required; the suites start by `paths:`).
     checks="$(gh pr checks "$n" --json name,bucket,link 2>/dev/null || true)"
     failing="$(jq -r '[.[]? | select(.bucket == "fail" or .bucket == "cancel")] | first // empty | "\(.name)\t\(.link)"' <<<"${checks:-[]}" 2>/dev/null)" || failing=""
+    # A run the next push superseded shows as cancelled (every PR workflow cancels its older run, 15 Oct 2026): not a failure while a newer run may be starting. Only a check that
+    # stays cancelled over 3 more looks (about a minute) counts, as one that failed.
+    if [ -n "$failing" ] && ! jq -e 'any(.[]?; .bucket == "fail")' <<<"${checks:-[]}" >/dev/null 2>&1 && [ "${cancel_looks:-0}" -lt 3 ]; then
+      cancel_looks=$(( ${cancel_looks:-0} + 1 )); step "a check was cancelled (a newer push replaces its run): looking again ($cancel_looks/3)"; sleep "$poll"; waited=$((waited + poll + 1)); continue
+    fi
     if [ -n "$failing" ] || [ "$mergeable" = CONFLICTING ]; then
       name="${failing%%$'\t'*}"; link="${failing#*$'\t'}"
       if { [ -n "$failing" ] && ship_flow_step_red "${link%%[?#]*}"; } || { [ -z "$failing" ] && [ "$mergeable" = CONFLICTING ]; }; then
