@@ -119,10 +119,10 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   for (const old of ['Landed, unconfirmed', 'Landed, not better yet']) assert.ok(!PAGE.includes(old), old + ' is gone');
   // "Holds offline" (owner, 15 Oct 2026): its own word, pill colour and explanation; the "Fixes confirmed" tile only names the count in its note, never adds it
   assert.ok(PAGE.includes("Holds offline"));
-  assert.ok(PAGE.includes('he fix changes what the AI is asked, so the build before it cannot run on this recording; today\\u2019s build still matches live'));
+  assert.ok(PAGE.includes('still replays as live; the old build cannot be compared'));   // short since 15 Oct 2026 (owner: not an essay)
   assert.match(PAGE, /s-holds/);
   assert.match(PAGE, /hold offline/);
-  assert.match(PAGE, /does not say how much more was filled/);   // Confirmed never implies the fill went up
+  assert.match(PAGE, /not a measure of how much more was filled/);   // Confirmed never implies the fill went up
   assert.match(PAGE, /Sites with a landed fix/);   // the tab's tooltip says what it counts
   assert.doesNotMatch(PAGE, /Replay only|replay-only/);   // the replays are their own table again, never rows here
   assert.match(PAGE, /padding:12px 16px/);
@@ -293,4 +293,15 @@ test('a fix whose newest run fails is on Needs a fix with "Fix didn\'t hold (com
   assert.match(PAGE, /Fix didn’t hold \(/);   // the Needs a fix row says so
   assert.match(PAGE, /back on Needs a fix/);   // the Fixed row is a short grey link, not a red pill
   assert.match(PAGE, /const FAILED = \['back', 'failing', 'better'\]/);
+});
+
+// Owner, 15 Oct 2026: "How verification works" was "too verbose, hard to read, an essay". Both explainers (Fixed, Replays) are a pill and one short line per word.
+test('the How explainers are short: one line of at most 110 characters per word, led by the status pill', () => {
+  for (const name of ['const HOW = [', 'const FID_HOW = [']) {
+    const block = PAGE.slice(PAGE.indexOf(name), PAGE.indexOf(']];', PAGE.indexOf(name)) + 3);
+    const lines = [...block.matchAll(/\['([^']+)', '((?:[^'\\]|\\.)*)'/g)];
+    assert.ok(lines.length >= 3, name);
+    for (const [, word, text] of lines) assert.ok(text.length <= 110, word + ' is ' + text.length + ' characters');
+  }
+  assert.match(PAGE, /tone \? el\('span', \{className: 'pill ' \+ tone, textContent: word\}\) : word/);
 });

@@ -139,10 +139,9 @@ export const FIDELITY_SCRIPT = `
       el('td', {}, verdictPill(r.networkVerdict)),
       el('td', {title: r.next ? r.next.why : ''}, r.next ? el('div', {}, el('b', {className: 'one', textContent: NEXT_WORD[r.next.word]}), el('span', {className: 'muted one', textContent: r.next.why})) : el('span', {className: 'muted', textContent: '—'})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 6}, fidDetail(r)))] : [main]; };
-  const FID_HOW = [['Same', 'Every live ask answered from the memo, 0 extra, the same filled and left (compared only when both sides say them: the snapshot replay does not).'],
-    ['Close', 'Every live ask answered and the extras within the live-vs-live spread (a second live run on the same build); with no second live run, one miss at most.'], ['Off', 'Otherwise.'],
-    ['Snapshot replay', 'Today\\'s replay (in the details), judged on its asks only.'], ['Recording', 'Where the row\\'s newest network record was made (Mac or CI) and when.'],
-    ['Next', 'Record: never recorded. Re-record: the replay is not the same as live (on the Mac first; CI only when the Mac is blocked). Deferred: put aside, with its reason (desktop/e2e/replay-deferred.json).'], ['Network replay', 'The new design; its verdict is the row\\'s verdict.'], ['Source', 'A prototype\\'s numbers from a branch: every row names its branch and sha in its details.']];
+  // How verdicts work (owner, 15 Oct 2026: short, not an essay): the verdict's own pill and one line each.
+  const FID_HOW = [['Same', 'Every live ask answered, nothing extra, same filled and left.', 's-ready'], ['Close', 'Within the spread of two live runs (one miss at most).', 's-form'], ['Off', 'Otherwise.', 's-posting'],
+    ['Next', 'Record (no copy) \\u00b7 Re-record (off) \\u00b7 Deferred (its reason shown).'], ['Recording', 'Where and when the newest copy was made (Mac or CI).'], ['Snapshot replay', 'The older replay, judged on its asks only.']];
   function drawFidelity(box, f) {
     box.textContent = '';
     if (!f || !f.rows.length) return;
@@ -158,7 +157,7 @@ export const FIDELITY_SCRIPT = `
       el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
           el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
           el('p', {className: 'muted', textContent: 'Experimental results: excluded from Resolution, the scorecard and the Fixed tab.'})),
-        el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), el('dl', {}, ...FID_HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
+        el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), howList(FID_HOW))),
       el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), verdict,
         el('span', {className: 'muted count', textContent: f.rows.length + (f.rows.length === 1 ? ' pool row' : ' pool rows')})),
       rows.length ? el('table', {className: 'fidtable'}, el('tr', {}, ...heads('fidelity', ['', 'Scenario', 'Recording', 'Network replay', 'Verdict', 'Next'], redraw).map((th, at) => Object.assign(th, at ? {className: th.className + ' ' + ['', 'c-name', 'c-rec', 'c-net', 'c-verdict', 'c-next'][at]} : {className: 'c-chev', title: '', tabIndex: -1, onclick: null, onkeydown: null, 'aria-label': 'Details'}))),
