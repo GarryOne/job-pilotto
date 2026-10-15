@@ -10,7 +10,7 @@ import {ownerGuardEnv} from './owner-guard-env.mjs';
 import {withoutWrappers} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 const REAL = path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto');
-const DROPPED = ['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'OPENAI_API_KEY', 'JOB_PILOTTO_TWIN', 'JOB_PILOTTO_PORT'];
+const DROPPED = ['REPLAY_REFILL_ANTHROPIC_KEY', 'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'OPENAI_API_KEY', 'JOB_PILOTTO_TWIN', 'JOB_PILOTTO_PORT'];
 
 export function offlineEnv(dir, parent = process.env) {
   if ((path.resolve(dir) + path.sep).startsWith(REAL + path.sep)) throw new Error(`refusing the app's real folder for a test app: ${dir}`);

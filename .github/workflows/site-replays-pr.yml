@@ -51,6 +51,7 @@ on:
       - 'desktop/e2e/lib/python.mjs'
       - 'desktop/e2e/lib/real-claude.mjs'
       - 'desktop/e2e/lib/real-extension.mjs'
+      - 'desktop/e2e/lib/refill.mjs'
       - 'desktop/e2e/lib/recorded-false-readings.mjs'
       - 'desktop/e2e/lib/replay-candidate.mjs'
       - 'desktop/e2e/lib/replay-date.mjs'

@@ -1,0 +1,222 @@
+# Refill the replays' missing AI answers in CI, not on the Mac (owner, 15 Oct 2026: "Let's have a separate CI workflow only for that, with a separate Anthropic API Key").
+# A PR that changes what the app asks the AI makes the site replays gate say "ask changed" / "out of date" for the pinned rows whose stored answers no longer match. This refills only those
+# asks, one pinned row per runner in parallel (fill-memo.mjs: the network record is replayed, no site visit, the fake applicant, the privacy tripwire on, old answers never changed),
+# publishes the refilled rows through the guard (records-publish.mjs, desktop/e2e/lib/record-guard.mjs: worse, garbled or pinned-breaking rows refused), then re-runs the PR's gate.
+# By hand only: workflow_dispatch with the PR number, or the PR label `refill`. Never a fork PR: the key is never given to it. Never every PR.
+# Key: REPLAY_REFILL_ANTHROPIC_KEY, its own workspace and spend limit, NO fallback to ANTHROPIC_API_KEY or any other key: missing = the job says so and stops (lib/refill.mjs).
+# Money: the estimate is printed first (pick job), above max_asks (default 40) or $3 the run does not start, a row stops at 30 paid calls, each row's spend is in the job summary and on /admin/ai-cost (job replay-refill).
+# Needs also: NET_RECORD_KEY, NET_RECORDS_READ_TOKEN (as the replay), NET_RECORDS_WRITE_TOKEN (contents:write on the private job-pilotto-internal: only the publish job reads it), AI_COST_PUBLISH_KEY.
+# Guard: tests/test_refill_workflow.py, desktop/e2e/test/refill.test.mjs. Never posts a Replay-accept line.
+name: CI · Replay refill (by hand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR number whose pinned rows get their missing answers refilled'
+        required: true
+      rows:
+        description: 'changed = only the pinned rows its gate marked ask changed / out of date; all = every pinned row'
+        default: changed
+        type: choice
+        options: [changed, all]
+      max_asks:
+        description: 'Refuse to start above this many asks'
+        default: '40'
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  actions: write        # re-run the PR's gate after the publish
+  pull-requests: read   # the PR's head repo (never a fork)
+
+concurrency:
+  group: replay-refill-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: false
+
+env:
+  PR: ${{ github.event.pull_request.number || inputs.pr }}
+
+jobs:
+  pick:
+    # the label route: only the label `refill`, only a PR from this repository (a fork's run gets no secret anyway; this says so)
+    if: github.event_name == 'workflow_dispatch' || (github.event.label.name == 'refill' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      rows: ${{ steps.pick.outputs.rows }}
+      count: ${{ steps.pick.outputs.count }}
+    steps:
+      - name: The key is set, and the PR is not from a fork
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFILL_KEY: ${{ secrets.REPLAY_REFILL_ANTHROPIC_KEY }}
+        run: |
+          if [ -z "$REFILL_KEY" ]; then echo "refill: no REPLAY_REFILL_ANTHROPIC_KEY secret: nothing was asked (this workflow never runs on another key)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository -q .isCrossRepository)"
+          if [ "$cross" != "false" ]; then echo "refill: PR $PR is from a fork or unknown: the key is never given to it" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ env.PR }}/merge   # the build the gate judged
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The rows the PR's gate marked, the estimate, the caps
+        id: pick
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ inputs.rows || 'changed' }}
+          MAX_ASKS: ${{ inputs.max_asks || '40' }}
+        run: |
+          head="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefName -q .headRefName)"
+          run="$(gh run list -R "$GITHUB_REPOSITORY" -w site-replays-pr.yml -b "$head" -L 1 --json databaseId -q '.[0].databaseId // empty')"
+          mkdir -p "$RUNNER_TEMP/shards" "$RUNNER_TEMP/step4"
+          if [ -n "$run" ]; then gh run download "$run" -R "$GITHUB_REPOSITORY" -p "replay-pr-$run-*" -D "$RUNNER_TEMP/shards" || true; fi
+          find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
+          all=""; [ "$ROWS" = all ] && all="--all"
+          node refill-pick.mjs replay-faithful.json "$RUNNER_TEMP/step4" $all --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
+          { echo "### Replay refill: PR $PR"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
+          echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+
+  refill:
+    needs: pick
+    if: needs.pick.outputs.count != '0'
+    name: refill ${{ matrix.row }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        row: ${{ fromJSON(needs.pick.outputs.rows) }}
+    env:
+      JOB_PILOTTO_HEAVY: '0'
+      JP_REFILL_CI: '1'   # the fill replay may ask the API on CI (lib/ai/model-memo.js fillOn); the key itself is given to the one step below
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ env.PR }}/merge
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            desktop/e2e/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - name: The pool's newest records, decrypted on the runner only
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
+      - name: Fill this row's missing answers (the network record replayed, the API asked for the missed asks only)
+        id: fill
+        working-directory: desktop/e2e
+        env:
+          REPLAY_REFILL_ANTHROPIC_KEY: ${{ secrets.REPLAY_REFILL_ANTHROPIC_KEY }}   # no fallback: lib/refill.mjs keyRefusal
+        run: node fill-memo.mjs "$GITHUB_WORKSPACE/records" "${{ matrix.row }}" --out "$RUNNER_TEMP/fill" 2>&1 | tee -a "$RUNNER_TEMP/fill.log"; exit "${PIPESTATUS[0]}"
+      - name: Pack the refilled memo (encrypted with the public key; the page parts never sit in the clear)
+        if: success()
+        working-directory: desktop/e2e
+        run: node refill-pack.mjs "$GITHUB_WORKSPACE/records" "${{ matrix.row }}" "$RUNNER_TEMP/fill" "$RUNNER_TEMP/pack/row"
+      - uses: actions/upload-artifact@v6
+        if: success()
+        with:
+          name: refill-${{ github.run_id }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/pack
+          retention-days: 3
+      - name: This row's line
+        if: always()
+        run: |
+          if grep -q "OUT OF CREDITS" "$RUNNER_TEMP/fill.log" 2>/dev/null; then echo "::error::refill: OUT OF CREDITS (the refill key's balance or workspace limit): add credit in the Anthropic console, then run it again"; fi
+          { echo "#### ${{ matrix.row }}"; echo '```'; grep -E "^(fill-memo|replay-net: refill)" "$RUNNER_TEMP/fill.log" 2>/dev/null | cut -c1-300 || echo "no result"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: [pick, refill]
+    if: always() && needs.pick.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60   # the guard replays each refilled row once, one after another
+    env:
+      JOB_PILOTTO_HEAVY: '0'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ env.PR }}/merge
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            desktop/e2e/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: refill-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/packs
+      - name: The rows that were refilled
+        id: packs
+        run: |
+          n="$(find "$RUNNER_TEMP/packs" -name meta.json | wc -l | tr -d ' ')"
+          echo "packs=$n" >> "$GITHUB_OUTPUT"
+          [ "$n" != 0 ] || echo "refill: no row was refilled: nothing to publish" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The records now, each refilled memo merged in (old answers never changed)
+        if: steps.packs.outputs.packs != '0'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: |
+          bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
+          mkdir -p "$RUNNER_TEMP/packs-flat"
+          find "$RUNNER_TEMP/packs" -name meta.json | while read -r meta; do d="$(dirname "$meta")"; cp -r "$d" "$RUNNER_TEMP/packs-flat/$(basename "$(dirname "$d")")-$(basename "$d")"; done
+          { echo "#### Merged"; node refill-merge.mjs "$GITHUB_WORKSPACE/records" "$RUNNER_TEMP/packs-flat" "$RUNNER_TEMP/staged"; } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publish the refilled rows through the guard
+        if: steps.packs.outputs.packs != '0'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}   # contents:write on job-pilotto-internal only
+          NET_RECORDS_WRITE_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}
+        run: |
+          if [ -z "$NET_RECORDS_WRITE_TOKEN" ]; then echo "refill: no NET_RECORDS_WRITE_TOKEN secret: the rows are refilled but not published (the owner adds it, then run again)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          node records-publish.mjs "$RUNNER_TEMP/staged" --against "$GITHUB_WORKSPACE/records" 2>&1 | tee -a "$RUNNER_TEMP/publish.log"; code=${PIPESTATUS[0]}
+          { echo "#### Publish"; echo '```'; tail -n 40 "$RUNNER_TEMP/publish.log" | cut -c1-300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"
+      - name: Spend (job summary and /admin/ai-cost)
+        if: always() && steps.packs.outputs.packs != '0'
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+          AI_COST_JOB: replay-refill
+        run: |
+          total="$(find "$RUNNER_TEMP/packs" -name meta.json -exec cat {} + | jq -s '{usd: (map(.usd) | add), calls: (map(.calls) | add)}')"
+          echo "$total" > "$RUNNER_TEMP/refill-cost.json"
+          echo "**Refill spend: \$$(jq -r '.usd | . * 10000 | round / 10000' "$RUNNER_TEMP/refill-cost.json") in $(jq -r .calls "$RUNNER_TEMP/refill-cost.json") call(s)** (the pick job's estimate is above)" | tee -a "$GITHUB_STEP_SUMMARY"
+          node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/refill-cost.json" || true
+      - name: Re-run the PR's site replays gate (the new bundle is read by its replay)
+        if: success() && steps.packs.outputs.packs != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefName -q .headRefName)"
+          run="$(gh run list -R "$GITHUB_REPOSITORY" -w site-replays-pr.yml -b "$head" -L 1 --json databaseId -q '.[0].databaseId // empty')"
+          if [ -n "$run" ]; then gh run rerun "$run" -R "$GITHUB_REPOSITORY" && echo "refill: the PR's site replays gate (run $run) started again" | tee -a "$GITHUB_STEP_SUMMARY"; else echo "refill: no gate run found for $head: push or re-run it by hand" | tee -a "$GITHUB_STEP_SUMMARY"; fi
