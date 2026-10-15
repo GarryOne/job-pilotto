@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<p><label for="first_name">First Name *</label> <input id="first_name" name="first_name" type="text" required aria-required="true"></p>
+<p><label for="last_name">Last Name *</label> <input id="last_name" name="last_name" type="text" required aria-required="true"></p>
+<!-- OpenUI5 sap.m.RadioButtonGroup shape (written from the sap.m.RadioButtonRenderer code, NOT captured from a live page): a role=radiogroup that names the question by aria-labelledby,
+     each choice a div role=radio holding a native radio input (name = the group) and its label. The page shows the person's choice already. -->
+<span id="permit-q">To be eligible to work in Switzerland, which applies to you? *</span>
+<div id="permit" class="sapMRbG" role="radiogroup" aria-labelledby="permit-q" aria-required="true">
+<div id="permit-0" class="sapMRb sapMRbSel" role="radio" aria-checked="true" aria-labelledby="permit-0-label" tabindex="0"><div class="sapMRbB"><input id="permit-0-RB" type="radio" tabindex="-1" name="permit" checked></div><label id="permit-0-label" for="permit-0-RB">I am a Swiss or EU citizen</label></div>
+<div id="permit-1" class="sapMRb" role="radio" aria-checked="false" aria-labelledby="permit-1-label" tabindex="0"><div class="sapMRbB"><input id="permit-1-RB" type="radio" tabindex="-1" name="permit"></div><label id="permit-1-label" for="permit-1-RB">I need a work permit</label></div>
+</div>
+<p><button type="button">Apply</button></p>
+</form></body></html>
