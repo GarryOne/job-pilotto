@@ -5,7 +5,7 @@ import {pickDismiss} from '../lib/popup-pick.js';
 import {pickPopup} from '../lib/server-pages.js';
 
 const memory = () => { const files = {}; return {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }}; };
-const claude = (button, sent = []) => ({messages: {create: async request => { sent.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({button})}]}; }}});
+const claude = (button, sent = [], effect = 'closes_only') => ({messages: {create: async request => { sent.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({button, effect})}]}; }}});
 const popup = {text: 'Bleiben Sie auf dem Laufenden mit unserem Newsletter!', buttons: ['Jetzt anmelden', 'Nein, danke']};
 
 test('the closing button is picked from the popup\'s own, asked once, kept', async () => {
@@ -42,4 +42,14 @@ test('a dialog that would replace what the applicant typed: the prompt tells to 
   assert.equal((await pickDismiss(memory(), dialog, {client: claude('CANCELAR', sent)})).button, 'CANCELAR');
   assert.match(sent[0].system, /replace|overwrite/i);
   assert.match(sent[0].system, /cancel/i);
+});
+
+// The press floor (15 Oct 2026: "Decline" of a Data Privacy Consent Statement opened "Delete All Data"): a pick whose effect is not a plain close is never returned, never kept.
+test('a pick that declines a consent, deletes or leaves is not pressed and not kept', async () => {
+  for (const effect of ['declines_consent', 'deletes_or_leaves', 'other']) {
+    const storage = memory();
+    const statement = {text: 'Data Privacy Consent Statement', buttons: ['Accept', 'Decline', 'Print']};
+    assert.deepEqual(await pickDismiss(storage, statement, {client: claude('Decline', [], effect)}), {button: '', how: 'ai'}, effect);
+    assert.equal(storage.readText('popup-picks.json')?.includes('Decline') ?? false, false, `${effect} kept`);
+  }
 });

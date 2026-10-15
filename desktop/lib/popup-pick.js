@@ -5,6 +5,7 @@
 import {forget, keep, keptValue, readKept} from './kept-decisions.js';
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'popup-picks.json';
+const EFFECTS = ['closes_only', 'declines_consent', 'deletes_or_leaves', 'other'];
 const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 const INSTRUCTIONS = `A popup is in the way of a web page the applicant is using to apply for a job. You see its text and its buttons. Return the one button that
@@ -12,7 +13,9 @@ gets rid of it WITHOUT agreeing to, accepting, subscribing to, signing in to, su
 "Not now", "x", "Close"), or, on a cookie notice, the button that refuses optional cookies or keeps only the necessary ones; only when the notice offers
 neither, the one that merely accepts cookies. Copy the button exactly. Return "" when the popup is part of the task (an application form or question that
 needs the person's answer, a sign-in, a robot check) or when no button simply closes it. A dialog that asks whether to continue with something that would replace or overwrite what the applicant already typed or attached ("your fields may be replaced, continue?") is closed with its cancel or close button, never its continue button. Never pick a button that agrees to terms, a privacy policy or the
-processing of application data.`;
+processing of application data.
+Also say what pressing that button does: "closes_only" (it just closes the popup, or refuses optional cookies on a cookie notice), "declines_consent" (it declines or refuses a privacy statement, terms or the processing of application data),
+"deletes_or_leaves" (it deletes or removes an account or data, withdraws or cancels an application, or signs out) or "other". Only a button that "closes_only" is ever pressed; when none does, return "".`;
 
 const keyOf = (text, choices) => `${norm(text).slice(0, 120)}|${choices.map(item => norm(String(item).trim())).filter(Boolean).sort().join('|')}`;
 // The page contradicted the kept answer (the popup is still there after its button was pressed): dropped, asked again next time.
@@ -29,11 +32,11 @@ export async function pickDismiss(storage, {text = '', buttons = []}, {client, l
   try {
     const response = await client.messages.create({model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,
       messages: [{role: 'user', content: JSON.stringify({popup: String(text).slice(0, 600), buttons: choices})}],
-      output_config: {format: {type: 'json_schema', schema: {type: 'object', additionalProperties: false, required: ['button'],
-        properties: {button: {type: 'string', enum: [...choices, '']}}}}}});
+      output_config: {format: {type: 'json_schema', schema: {type: 'object', additionalProperties: false, required: ['button', 'effect'],
+        properties: {button: {type: 'string', enum: [...choices, '']}, effect: {type: 'string', enum: EFFECTS}}}}}});
     if (response.stop_reason === 'max_tokens') throw new Error('answer cut short');
-    const button = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '{}').button;
-    const picked = choices.includes(button) ? button : '';
+    const answer = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '{}');
+    const picked = choices.includes(answer.button) && answer.effect === 'closes_only' ? answer.button : '';   // the floor: a pick whose effect is not a plain close is not pressed, and not kept
     keep(storage, FILE, kept, key, picked);
     log('extension', picked ? 'popup: a button closes it' : 'popup: left alone', {buttons: choices.length, ms: Date.now() - started});
     return {button: picked, how: 'ai'};
