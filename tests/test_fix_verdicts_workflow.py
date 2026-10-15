@@ -42,6 +42,10 @@ class ReplayVerifyWorkflow(unittest.TestCase):
         self.assertNotIn('macos', WORKFLOW)   # macOS runners queued for hours (15 Oct 2026); Linux replays Mac-made rows as live (site-replays-pr.yml)
         self.assertIn('install --with-deps chromium', WORKFLOW)
 
+    def test_the_plan_fails_when_the_fetch_returns_no_record(self):
+        # 15 Oct 2026: a fetch right after the API limit gave no records and the run went green with "28 rows: no recording"
+        self.assertRegex(WORKFLOW, r'net-records-fetch\.sh[^\n]*\n(?:[^\n]*\n)*?[^\n]*find "\$RUNNER_TEMP/records" -name record\.json[^\n]*exit 1')
+
 
 if __name__ == '__main__':
     unittest.main()

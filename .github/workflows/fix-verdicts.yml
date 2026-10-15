@@ -72,6 +72,8 @@ jobs:
         run: |
           (npm ci || npm install) >/dev/null 2>&1
           bash net-records-fetch.sh "$RUNNER_TEMP/records"
+          # no record at all means the fetch failed (the shared 5,000/h API limit, a token), not that every row has none: fail here, never plan "no recording" for each row (15 Oct 2026)
+          [ -n "$(find "$RUNNER_TEMP/records" -name record.json -print -quit)" ] || { echo "::error::replay-verify: the records fetch returned no recording (GitHub API limit or token?): nothing planned" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
           node verify-plan.mjs "$RUNNER_TEMP/records" "$RUNNER_TEMP/plan.json" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "jobs=$(node -e 'process.stdout.write(JSON.stringify({include: JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).jobs.map((job, index) => ({index, job}))}))' "$RUNNER_TEMP/plan.json")" >> "$GITHUB_OUTPUT"
           cp "$RUNNER_TEMP/plan.json" "$GITHUB_WORKSPACE/plan.json"
