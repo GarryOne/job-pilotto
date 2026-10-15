@@ -27,7 +27,9 @@
     .head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--navy); color: #fff; }
     .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; font: 800 10px/1 system-ui; }
     .head b { font-size: 13px; }
-    .head .x { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
+    .head .report-flag { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 6px; }
+    .head .report-flag:hover { color: #fff; background: rgba(255,255,255,.1); }
+    .head .x { background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
     .head .x:hover { color: #fff; background: rgba(255,255,255,.1); }
     .body { padding: 14px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
     .job-title { font-weight: 650; font-size: 14px; line-height: 1.3; }
@@ -77,7 +79,7 @@
   </style>
   <div class="jp">
     <div class="card" hidden>
-      <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="x" title="Hide">×</button></div>
+      <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="report-flag" type="button" title="Report this form" aria-label="Report this form">⚑</button><button class="x" title="Hide">×</button></div>
       <div class="body">
         <div class="job" hidden><div class="job-title"></div><div class="job-meta"></div></div>
         <div class="claude" hidden><i>🤖</i><span></span></div>

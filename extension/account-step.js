@@ -17,6 +17,7 @@ import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
 import {pageStill} from './page-still.js';
 import {notePress} from './tabs.js';
 import {mayAct} from './stop-state.js';
+import {markPage} from './page-mark.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -251,6 +252,7 @@ async function accountStepOnce(tab, frameId) {
       if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await flag(tab, frameId, need); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
       else if (pressMove(result) === 'person') { await flag(tab, frameId, kind?.accountButton || ''); await giveUp(tab, host, PRESS_REASONS[result] || 'the account button was not pressed', kind?.accountButton || ''); }   // the floor refused: the page is the person's, with why
       if (result === 'pressed') {
+        markPage(tab.id, 'signing', false, {accountStep: step});   // "Logging in…" on the panel and the desktop (page-mark.js)
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
         await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form, signin: step === 'sign_in'}}).catch(() => {});
         sayStep(tab.id, 'Waiting for the site to accept it…');

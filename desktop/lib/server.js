@@ -16,14 +16,14 @@ import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
-  accountPressedHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
+  accountPressedHandler, pageHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
 export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation} from './server-pages.js';
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
-  setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setTakeOverHandler,
+  setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setPageHandler, setTakeOverHandler,
   setTailorHandler, setErrorWatcher, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
@@ -258,7 +258,8 @@ export function start(storage, onError = () => {}) {
         res.end(JSON.stringify({ok}));
         if (ok) {
           const event = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
-          if (event.type === 'stopped') { stopHeard(); stoppedHandler(event); return; }   // the extension stopped: no job lookup, nothing else to do (the person's Stop)
+          if (event.type === 'stopped') { stopHeard(); stoppedHandler(event); return; }
+          if (event.type === 'page') { pageHandler(event); return; }   // the page's step, as it happens (extension/page-mark.js)   // the extension stopped: no job lookup, nothing else to do (the person's Stop)
           // The page the panel reports may be the posting's form (Ashby /application, Lever /apply), not the posting itself.
           const find = jobs => jobs.find(j => pageKey(j.url) === pageKey(event.url)) || jobs.find(j => j.url && isFormOf(event.url, j.url));
           // The Jobs screen's last list first: a fresh read takes 10-15 s, and Take over waited on it (9 Oct 2026). A job not in it: the fresh read.

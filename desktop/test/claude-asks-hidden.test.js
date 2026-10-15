@@ -30,13 +30,14 @@ function restored(extra = {}) {
 test('flag off: no field of a stopped Claude session carries its frozen ask, whatever produced it', () => {
   terminals.hideAsks(true);
   restored();
-  const views = terminals.list().filter(view => view.kind === 'claude');
+  const views = terminals.list().filter(view => view.id.startsWith('c'));
   assert.equal(views.length, Object.keys(producers).length);
   for (const view of views) {
     const text = JSON.stringify(view);
     assert.doesNotMatch(text, /sign in|reply|Please sign|allow clicks|Needs you|waiting for your input/i, `${view.id}: ${text.slice(0, 120)}`);
     assert.equal(view.question, '');
     assert.notEqual(view.status, 'input', `${view.id} is not "waiting for you": nothing asks`);
+    assert.deepEqual([view.kind, view.status], ['form', 'done'], `${view.id} reads as a form session the extension drives, never "The session ended"`);
   }
   assert.equal(terminals.list().find(view => view.id === 'f1').note, 'Form open in Chrome', 'a form session is untouched');
   terminals.hideAsks(false); terminals._reset();

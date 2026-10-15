@@ -141,3 +141,26 @@ test('a small sign-in page has no panel, unless the AI says it needs the person:
   const flagged = await panel(SIGN_IN, document => document.documentElement.setAttribute('data-jobpilotto-needs', 'Check the code we sent you'));
   assert.match(flagged.after?.pill || '', /^Needs you: Check the code we sent you/);
 });
+
+// Owner, 16 Oct 2026, "I'd expect to see the button in the extension panel. ALWAYS", "a small icon that will trigger Report this form": the panel's header carries ⚑ in every state.
+test('the panel shows its ⚑ "Report this form" icon in every state: reading, posting, opening, form left, form ready, account page', { skip: !JSDOM }, async () => {
+  const states = [['reading', '', FORM(SLIDER)], ['posting', 'posting', FORM('')], ['opening', 'opening', FORM('')], ['form, a field left', 'form', FORM(SLIDER)],
+    ['form, ready', 'form', FORM('')], ['account page', 'account', FORM('<label>Password <input type="password" required></label>')]];
+  for (const [name, mark, html] of states) {
+    const { window } = openPage(JSDOM, html);
+    if (mark) window.document.documentElement.setAttribute('data-jobpilotto-page', mark);
+    window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+    window.eval(read('extension/page/skeleton.js'));
+    evalPanel(window);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const root = window.document.getElementById('jobpilotto-review-host')?.shadowRoot;
+    root?.querySelector('.pill')?.click();   // opened, as a person does
+    const icon = root?.querySelector('.head .report-flag');
+    const seen = { name, there: !!icon && !icon.hidden && icon.getAttribute('aria-label') === 'Report this form' };
+    window.close();
+    assert.deepEqual(seen, { name, there: true });
+  }
+  const panel = read('extension/review.js');
+  assert.match(panel, /\$\('\.report-flag'\)\.onclick = event => \{ if \(event\.isTrusted\) window\.__jobPilottoReportOpen\?\.\(\); \};/);
+  assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReportOpen = \(\) => \{ if \(card\.hidden\) confirm\(\); \};/, 'the same card as the corner ⚑');
+});

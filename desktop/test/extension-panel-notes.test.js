@@ -29,18 +29,13 @@ test('class: every toast the worker draws asks the panel first, and the panel an
 test('a page mark of posting or opening is never Ready and never counts; the fill flow sets it from the AI\'s kind', async () => {
   const panel = read('review.js');
   assert.match(panel, /ready = !moved && !pageMark && total > 0 && left === 0/);
-  assert.match(panel, /pageMark \? \(pageMark === 'reading' \? 'Reading this page…' : 'Apply button detected\. Redirecting…'\)/g);   // the owner's own words for a posting; a page not judged yet is only being read
-  assert.match(panel, /pageMark = \(m => \(m === 'form' \|\| m === 'account' \? '' : m \|\| 'reading'\)\)\(document\.documentElement\.getAttribute\('data-jobpilotto-page'\) \|\| ''\)/, 'default-deny: Ready only on a page judged to be a form');
+  assert.match(panel, /pageMark \? \(MARK_WORDS\[pageMark\] \|\| 'Apply button detected\. Redirecting…'\)/g);   // the owner's own words for a posting; a page not judged yet is only being read
+  assert.match(panel, /pageMark = \(m => \(\['form', 'account', 'sign-up'\]\.includes\(m\) \? '' : m \|\| 'reading'\)\)\(document\.documentElement\.getAttribute\('data-jobpilotto-page'\) \|\| ''\)/, 'default-deny: Ready only on a page judged to be a form');
   assert.match(panel, /!account && !pageMark;/, 'no CV tip on a page that is not a form');
-  assert.match(read('page/review-payload.js'), /mark === 'form' \|\| mark === 'account' \? mark : mark \|\| 'reading'/, 'the app hears the same: an unjudged page reports no counts');
-  assert.match(read('fill-flow.js'), /markPage\(tab\.id, role\);/);
+  assert.match(read('page/review-payload.js'), /page: \(mark => mark \|\| 'reading'\)/, 'the app hears the same: an unjudged page reports no counts');
+  assert.match(read('fill-flow.js'), /markPage\(tab\.id, role, false, kind\);/);
   assert.match(read('fill-flow.js'), /markPage\(tab\.id, role, pressed\);/);
-  const attrs = new Map();
-  globalThis.document = {documentElement: {setAttribute: (key, value) => attrs.set(key, value), removeAttribute: key => attrs.delete(key)}};
-  globalThis.chrome = {scripting: {executeScript: async ({func, args}) => func(...args)}};
-  const {markPage} = await import('../../extension/page-mark.js');
-  await markPage(1, 'no-form'); assert.equal(attrs.get('data-jobpilotto-page'), 'posting');
-  await markPage(1, 'no-form', true); assert.equal(attrs.get('data-jobpilotto-page'), 'opening');
-  await markPage(1, 'form'); assert.equal(attrs.get('data-jobpilotto-page'), 'form', 'a judged form: the panel may count');
-  await markPage(1, 'account'); assert.equal(attrs.get('data-jobpilotto-page'), 'account');
+  const {markOf} = await import('../../extension/tab-pages.js');
+  assert.deepEqual([markOf('no-form'), markOf('no-form', true), markOf('form'), markOf('account'), markOf('account', false, 'sign_up'), markOf('reading'), markOf('signing-in'), markOf('other')],
+    ['posting', 'opening', 'form', 'account', 'sign-up', 'reading', 'signing-in', '']);
 });

@@ -84,7 +84,7 @@ export const silentChrome = item => chromeSilent(item, shared.formsOpen, perform
 // Chrome has not reported yet, but the app only just started: a neutral wait, not the warning.
 export const waitingChrome = item => chromeWaiting(item, shared.formsOpen, performance.now());
 // The session's tab is on a posting (or its Apply was just pressed): the extension marked it so, and the card says only that (owner, 15 Oct 2026: "Apply button detected. Redirecting…").
-export const redirecting = item => !!item && item.outcome !== 'submitted' && !!reviewStates.get(item.id)?.page && !formGone(item) && !tabLost(item);   // a closed or lost tab redirects nothing (owner, 15 Oct 2026: "No tab open")
+export const redirecting = item => !!item && item.outcome !== 'submitted' && !!reviewStates.get(item.id)?.page && !item.stuck && !formGone(item) && !tabLost(item);   // a stop that needs the person keeps its own card   // a closed or lost tab redirects nothing (owner, 15 Oct 2026: "No tab open")
 export const formGone = item => tabClosed(item, shared.formsOpen, !!reviewStates.get(item.id)?.total);
 // What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
 // pill's tooltip — the rows themselves say which is which.

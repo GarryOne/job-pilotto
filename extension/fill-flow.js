@@ -260,7 +260,7 @@ export async function consider(tab, jobUrl) {
   // this page is filled as a form (flow.js askEarly, early-answers.js). A count of controls only starts a question early: it never decides what the page is.
   if (counts.fields + counts.textareas >= 2 && !counts.passwords) askEarly(live, await settings(), jobUrl).catch(() => {});
   const lookedAt = Date.now();
-  sayStep(tab.id, 'Reading this page…');
+  sayStep(tab.id, 'Reading this page…'); markPage(tab.id, 'reading');   // the panel and the desktop say so at once (page-mark.js)
   const kindAsk = askKind(tab), outcomeLook = accountOutcome(tab).catch(() => {});
   const firstAsked = (await kindAsk) || await climbOnUnsure(tab, askKind);   // unsure: the numbered digest (rung 3), not the structure rule
   if (late(tab, gen, 'page kind')) return;
@@ -297,7 +297,7 @@ export async function consider(tab, jobUrl) {
   if (late(tab, gen, 'account details')) return;   // the peek waits on the app: the person may have pressed on meanwhile (beta run 38383983490: a sign-up's read filled the form after it)
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
-  await markPage(tab.id, role);   // a page with no form says so to the panel: never Ready, never counts (page-mark.js)
+  await markPage(tab.id, role, false, kind);   // a page with no form says so to the panel: never Ready, never counts (page-mark.js)
   const carried = takePressed(tab.id);   // the Apply press that brought the tab here: confirmed below only if this page takes the fill (ladder/climb.js)
   await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
   // Event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick. One filled with your details is looked at AFTER

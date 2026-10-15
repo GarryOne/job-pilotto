@@ -5,7 +5,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {accountProgress, askOutdated, asksYou, leftForYou, firstLine, isLive, isSubmitted, panelAnswered, sessionReview, sessionStage, accountRecordLine} from '../session-state.js';
+import {accountProgress, askOutdated, pageLine, asksYou, leftForYou, firstLine, isLive, isSubmitted, panelAnswered, sessionReview, sessionStage, accountRecordLine} from '../session-state.js';
 import {resumeOffered} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
 import {$, osText, show} from './core.js';
@@ -86,7 +86,7 @@ function renderWaiting() {
 // The tab is on a posting whose Apply the extension presses (or just pressed): nothing else of the session is true for this page, so no counts, no ready, no asks (owner, 15 Oct 2026).
 function renderRedirecting(item) {
   renderChecking();
-  $('ss-next-title').textContent = reviewStates.get(item.id)?.page === 'reading' ? 'Reading this page\u2026' : 'Apply button detected. Redirecting\u2026';
+  $('ss-next-title').textContent = pageLine(reviewStates.get(item.id)?.page);
   $('ss-question').replaceChildren();
   $('ss-actions').replaceChildren();
 }

@@ -62,7 +62,8 @@
 
   // Drawn only when the switch is on; a page that reloaded while recording (the reload is the start) goes straight back to the recording card.
   // The panel's full-width "Report this form" (panel-claude.js, where Claude's offer used to be) opens the same card; only while the switch is on.
-  window.addEventListener('jobpilotto-report-open', () => { if (!flag.hidden && card.hidden) confirm(); });
+  window.__jobPilottoReportOpen = () => { if (card.hidden) confirm(); };   // the panel's ⚑ (review.js), always shown
+  window.addEventListener('jobpilotto-report-open', () => window.__jobPilottoReportOpen());   // the panel's ⚑ (always shown) and the stuck page's button: the card asks before anything is recorded
   ask({type: 'report-state'}).then(state => { if (!state?.enabled) return; flag.hidden = false; window.__jobPilottoReportOn = true; if (state.recording) recording(); });
   document.documentElement.append(host);
 })();
