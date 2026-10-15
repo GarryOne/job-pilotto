@@ -1,7 +1,8 @@
 // The network recorder and replayer of a live row (spec docs/superpowers/specs/2026-10-13-replay-by-network.md): the recorder keeps every response the browser
-// got (never cookies, request headers or request bodies); the replayer serves it back by the spec's rules. Guard: e2e/test/net-record.test.mjs.
+// got (request headers and request bodies never; cookies only the kind a page script reads, see cookiesOf); the replayer serves it back by the spec's rules. Guard: e2e/test/net-record.test.mjs.
 import fs from 'node:fs';
 import {normalise} from '../../lib/ai/model-memo.js';
+import {EMAIL, PHONE} from '../../lib/live-capture.js';
 import {KEEP_HEADER, keepRecord, normUrl, prefetchedCode, recordable, repairUnlabeledText, sha, siteOf} from '../../lib/net-keep.js';
 export {keepRecord, normUrl, prefetchedCode, recordable, repairUnlabeledText};   // the keep rules live in desktop/lib/net-keep.js (shared with the product's report)
 const pathOf = url => { const u = new URL(url); return `${u.protocol}//${u.host}${normalise(u.pathname)}`; };
@@ -28,7 +29,7 @@ export const headerText = value => { const text = String(value ?? ''); if (!/[\u
 // The live side. -> {flush(), settle(maxMs), result(): {entries, bodies}}
 // settle: a request still in flight when the window ends is never recorded (no 'finished' or 'failed' event yet), so a press the site had not answered left the record
 // stopping at a spinning button (15 Oct 2026, record-once spec). settle waits for the open ones, capped; -> {waitedMs, unfinished, kinds: {resource type: count}}.
-export function netRecorder(context, {startedAt = Date.now()} = {}) {
+export function netRecorder(context, {startedAt = Date.now(), owner = new Map()} = {}) {
   const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
   context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
   const done = async (request, failed) => {
@@ -45,7 +46,7 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
     if (body) bodies.set(hash, body);
     entries.push({method: request.method(), url: request.url(), type: request.resourceType(), mode: sent['sec-fetch-mode'] || '', startMs: began - startedAt, waitMs: ended - began,
       bodyKey: bodyKey(request.postDataBuffer(), sent['content-type'] || ''), status: response?.status() ?? 0, failed: !response, ...(failed ? {error: String(request.failure()?.errorText || '').slice(0, 80)} : {}),
-      headers: Object.fromEntries(Object.entries(headers).filter(([name]) => KEEP_HEADER.test(name))), hadCookie: 'set-cookie' in headers, hash, size: body?.length || 0});
+      headers: Object.fromEntries(Object.entries(headers).filter(([name]) => KEEP_HEADER.test(name))), hadCookie: 'set-cookie' in headers, cookies: cookiesOf(headers['set-cookie'], request.url(), owner), hash, size: body?.length || 0});
   };
   const track = promise => { pending.add(promise); promise.finally(() => pending.delete(promise)); };
   context.on('requestfinished', request => track(done(request, false)));
@@ -82,6 +83,30 @@ export function echo(body, sentValues) {
   }
   return changed ? Buffer.from(text) : body;
 }
+// Cookies (owner decision 15 Oct 2026: "record first-party cookies that are NOT HttpOnly, never HttpOnly"; before it a record kept no cookie at all, and a site that picks
+// an A/B variant from a cookie the server set replayed with the default: jobs.ch's survey box, 3 of 3 replays). Kept: the name, value, path, secure flag and the
+// Domain of a cookie a page script can read. Never kept: an HttpOnly cookie (a login, a session), a Domain outside the request's own site, a deleted one (Max-Age 0 or a past
+// Expires), a value over 1024 characters, an e-mail address, a phone number or any value of the person (`owner`: the app's personal values, as a Map). The record is
+// encrypted like the rest; keepRecord drops a third party's. Guard: test/net-record.test.mjs. -> [{name, value, path, secure, domain?}]
+export function cookiesOf(header, url, owner = new Map()) {
+  const host = new URL(url).hostname, out = [];
+  for (const line of String(header || '').split('\n')) {
+    const [pair, ...rest] = line.split(';').map(part => part.trim()), at = pair.indexOf('=');
+    if (at < 1) continue;
+    const name = pair.slice(0, at), value = pair.slice(at + 1), attr = {};
+    for (const part of rest) { const eq = part.indexOf('='); attr[(eq < 0 ? part : part.slice(0, eq)).toLowerCase()] = eq < 0 ? true : part.slice(eq + 1); }
+    if (attr.httponly) continue;
+    if (attr['max-age'] !== undefined && Number(attr['max-age']) <= 0) continue;
+    if (attr.expires && Date.parse(attr.expires) < Date.now()) continue;
+    const domain = typeof attr.domain === 'string' ? attr.domain.replace(/^\./, '').toLowerCase() : '';
+    if (domain && siteOf(domain) !== siteOf(host)) continue;
+    const text = `${name}=${value}`.toLowerCase();
+    if (value.length > 1024 || /@/.test(value) || new RegExp(EMAIL.source).test(text) || new RegExp(PHONE.source).test(value) || [...owner.keys()].some(mine => mine && text.includes(String(mine).toLowerCase()))) continue;
+    out.push({name, value, path: typeof attr.path === 'string' ? attr.path : '/', secure: !!attr.secure, ...(domain ? {domain} : {})});
+  }
+  return out.slice(0, 30);
+}
+
 const netLog = line => { if (process.env.JP_NET_LOG) try { fs.appendFileSync(process.env.JP_NET_LOG, `${Date.now()} ${line}\n`); } catch { /* a report only */ } };
 // The replay side (§2-§7): one route serves the record. -> {counts}
 export async function netReplay(context, {entries, bodies}, {slow = false, say = () => {}} = {}) {
@@ -115,6 +140,7 @@ export async function netReplay(context, {entries, bodies}, {slow = false, say =
     netLog(`${rule} ${method} ${url.slice(0, 160)} key=${key.slice(0, 40)} -> ${entry.status}${entry.failed ? ' failed' : ''} wait=${entry.waitMs} served=${entry.method} ${entry.url.slice(0, 160)} @${entry.startMs} hash=${(entry.hash || '').slice(0, 12)}`);
     if (rule === 'order') say(`loose: ${method} ${url} served the recording of ${entry.url}`);
     await wait(Math.min(8000, entry.waitMs) * (slow ? 1.6 : 1));
+    if (entry.cookies?.length && context.addCookies) await context.addCookies(entry.cookies.map(({domain, ...cookie}) => ({...cookie, domain: domain || new URL(url).hostname}))).catch(() => {});   // the reply that set them, as live
     if (entry.dropped) { counts.dropped += 1; return route.fulfill({status: 404, body: ''}); }
     if (entry.failed) return route.abort().catch(() => {});
     // A recorded redirect of a page load: Chromium does not follow a fulfilled 3xx on a navigation (the load fails, the page is loaded again), so it is

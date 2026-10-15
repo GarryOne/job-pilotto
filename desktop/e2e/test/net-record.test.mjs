@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {seedRandom, sequence} from '../lib/seeded-random.mjs';
 import {repairUnlabeledText} from '../../lib/net-keep.js';
-import {bodyKey, echo, headerText, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
+import {bodyKey, cookiesOf, echo, headerText, keepRecord, netRecorder, normUrl, prefetchedCode, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
 const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', mode: 'navigate', startMs: 0, waitMs: 10, bodyKey: '', status: 200, failed: false, headers: {'content-type': 'text/html'}, hadCookie: false, hash: 'h1', size: 3, ...over});
@@ -213,4 +213,32 @@ test('the recorder stores the real bytes of an unlabeled text reply; the replay 
   const served = await serve('https://conv.example.test/application/1', 'fetch');
   assert.deepEqual(served.reply.body, REAL);
   assert.equal(counts.repaired, 1, 'the replay counts the replies it repaired');
+});
+
+// Cookies (owner decision, 15 Oct 2026): a record keeps the first-party cookies a page script can read (an A/B flag), never an HttpOnly one (a login, a session).
+test('a non-HttpOnly first-party cookie is kept; an HttpOnly one, a third-party domain, a person\'s value, a deleted one and an over-long one never are', () => {
+  const header = ['ab_experiments=CHI-2258=off; Path=/; Secure', 'sid=SECRET; Path=/; HttpOnly', 'track=1; Domain=.ads.other.test; Path=/', 'who=ada.owner@gmail.com; Path=/',
+    'gone=x; Path=/; Max-Age=0', `long=${'a'.repeat(2000)}; Path=/`, 'site=yes; Domain=.jobs.example.test; Path=/en'].join('\n');
+  const kept = cookiesOf(header, 'https://www.jobs.example.test/vacancy', new Map([['ada.owner@gmail.com', 'email']]));
+  assert.deepEqual(kept.map(one => one.name), ['ab_experiments', 'site']);
+  assert.deepEqual(kept[0], {name: 'ab_experiments', value: 'CHI-2258=off', path: '/', secure: true});
+  assert.equal(kept[1].domain, 'jobs.example.test');
+  assert.ok(!JSON.stringify(kept).includes('SECRET'), 'an HttpOnly value never reaches the record');
+});
+
+test('keepRecord keeps a first-party entry\'s cookies and drops a third party\'s', () => {
+  const cookies = [{name: 'ab', value: '1', path: '/', secure: false}];
+  const {entries} = keepRecord({bodies: new Map(), entries: [entry({cookies, hash: ''}), entry({url: 'https://cdn.other.test/x.js', type: 'script', cookies, hash: ''})]});
+  assert.deepEqual(entries.find(one => one.type === 'document').cookies, cookies);
+  assert.equal(entries.find(one => one.type === 'script').cookies, undefined);
+});
+
+test('the replay sets a recorded cookie in the browser when it serves the reply that set it', async () => {
+  const {netReplay} = await import('../lib/net-record.mjs');
+  let handler = null; const set = [];
+  const context = {routeWebSocket: async () => {}, route: async (_p, fn) => { handler = fn; }, addCookies: async list => { set.push(...list); }};
+  await netReplay(context, {entries: [{...reply('https://www.jobs.example.test/vacancy', 200, {'content-type': 'text/html'}, '', 'document'), cookies: [{name: 'ab', value: 'off', path: '/', secure: true}]}], bodies: new Map()}, {});
+  await handler({request: () => ({url: () => 'https://www.jobs.example.test/vacancy', method: () => 'GET', allHeaders: async () => ({}), headers: () => ({}), postDataBuffer: () => null, resourceType: () => 'document', isNavigationRequest: () => false}),
+    fulfill: async () => {}, continue: async () => {}, abort: async () => {}});
+  assert.deepEqual(set, [{name: 'ab', value: 'off', domain: 'www.jobs.example.test', path: '/', secure: true}]);
 });

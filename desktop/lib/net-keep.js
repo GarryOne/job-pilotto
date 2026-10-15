@@ -1,5 +1,5 @@
 // The keep rules of a network record, shared by the harness recorder (e2e/lib/net-record.mjs) and the product's "Report this form" (spec docs/superpowers/specs/2026-10-15-report-this-form.md):
-// what a recorded page keeps (never cookies, request headers or request bodies; images blanked; beacons and media dropped). One copy, so a pool record and a person's report cannot drift.
+// what a recorded page keeps (never request headers or request bodies; cookies only a first-party one a page script reads, recorded by the harness, never in a person's report; images blanked; beacons and media dropped). One copy, so a pool record and a person's report cannot drift.
 // Guard: desktop/e2e/test/net-record.test.mjs.
 import crypto from 'node:crypto';
 import {normalise} from './ai/model-memo.js';
@@ -72,7 +72,7 @@ export function keepRecord({entries, bodies}) {
     }
     const hash = body ? sha(body) : '';
     if (body && !kept.has(hash)) { kept.set(hash, body); stats.keptBytes += body.length; }
-    out.push({...entry, headers, hash});
+    out.push({...entry, headers, hash, ...(third ? {cookies: undefined} : {})});
   }
   return {entries: out, bodies: kept, stats};
 }
