@@ -64,7 +64,7 @@ export async function runSuite(name, report = null) {
       try { (await import('./ai-meter.mjs')).writeUsage(ctx.ARTIFACTS); } catch (error) { console.log(`  (AI usage not written: ${error.message})`); }   // what this suite paid, for /ai-cost (e2e.yml reports it)
       if (ctx.runner.summary()) code = 1;
       report?.decided?.(code);   // the exit code is known: lib/report.mjs stops a Playwright runner that stays open long after this (6 Oct 2026: wander hung 10 min)
-      // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e.js reads it out of the e2e-view-<suite> artifact).
+      // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e-report.js reads it out of the e2e-view-<suite> artifact).
       try { fs.writeFileSync(path.join(ctx.ARTIFACTS, 'steps.json'), JSON.stringify({v: 1, suite: name, results: ctx.runner.results, traces: traceFiles()}, null, 1)); } catch (error) { console.log(`  (steps.json not written: ${error.message})`); }
       // The steps as a table on the run's Summary page (lib/step-summary.mjs), after the close so the kept trace is named.
       if (process.env.GITHUB_STEP_SUMMARY) {

@@ -1,6 +1,6 @@
 // The owner's page /admin/sentry: the app's unresolved Sentry issues (org job-pilotto, project job-pilotto-app, EU region), read live,
 // and what the Sentry fixer (.github/workflows/sentry-fix.yml) did with each: a pull request, or a verdict that it needs no change.
-// Needs SENTRY_AUTH_TOKEN (a read-only token, the fixer's: Keychain job-pilotto.sentry.auth_token); GITHUB_TOKEN/GITHUB_REPO as for /admin/e2e.
+// Needs SENTRY_AUTH_TOKEN (a read-only token, the fixer's: Keychain job-pilotto.sentry.auth_token); GITHUB_TOKEN/GITHUB_REPO as for the e2e report (src/e2e-report.js).
 // Sentry answers are cached 5 minutes (the page is opened often; Sentry rate-limits). Guarded by test/sentry.test.js.
 import {esc} from './stats.js';
 import {viewer} from './auth.js';

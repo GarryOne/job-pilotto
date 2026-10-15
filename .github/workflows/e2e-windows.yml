@@ -260,7 +260,7 @@ jobs:
           path: blob-report
           if-no-files-found: ignore
           retention-days: 3
-      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      # Steps and a failed suite's trace as data (the /admin/e2e runs page that read them was dropped on 15 Oct 2026; the artifact stays for download).
       - name: Steps and trace for /admin/e2e
         if: always()
         uses: actions/upload-artifact@v6
@@ -280,7 +280,7 @@ jobs:
           if-no-files-found: ignore
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
-  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e.js) and linked on the run's Summary page.
+  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e-report.js) and linked on the run's Summary page.
   report:
     name: Windows HTML report
     needs: [plan, suite]
@@ -310,7 +310,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'
         with:
-          name: e2e-report-windows   # its own name: in the release run it sits beside the Mac + Linux gate's e2e-report (site/src/e2e.js reads both)
+          name: e2e-report-windows   # its own name: in the release run it sits beside the Mac + Linux gate's e2e-report (site/src/e2e-report.js reads both)
           path: e2e-report
           compression-level: 0
       - name: The link on the run's Summary page
