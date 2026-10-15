@@ -1,7 +1,9 @@
 name: CI · Pull request
-# The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (page-cases.yml), which start by `on: paths:`. Required on main: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (tools/pr-settings.sh has the list). The harness tests have their own workflow (harness.yml, `on: paths:`).
-# Every job here always starts (a required workflow that never starts blocks the PR forever); "cases fail before the fix" ends in seconds when the PR brings no recorded case.
+# The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests, tools/ship.sh). The suites are CI · Tests (build.yml) and the
+# recorded-page replays (page-cases.yml), which start by `on: paths:`.
+# ONE required check on main, "All checks passed" (owner, 15 Oct 2026: four required jobs took four runner slots per PR and GitHub's queue was the wait): one job, four named
+# steps. Same list in tools/pr-settings.sh. The job always starts (a required workflow that never starts blocks the PR forever); a step that does not apply ends in seconds.
+# A red step does not hide the next ones (`!cancelled()`), so one run names every red; the last step waits for the other workflows and runs only when the steps before it passed.
 on:
   pull_request:
     branches: [main]
@@ -14,10 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gates:
-    name: pr gates
+  required:
+    name: All checks passed
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 80
+    permissions:
+      contents: read
+      pull-requests: read   # the open PRs on the same flow files (tools/flow-fresh.mjs)
+      actions: read         # the workflow runs of this commit
     steps:
       - uses: actions/checkout@v5
         with:
@@ -27,80 +33,48 @@ jobs:
           node-version: '22'
       # The same script the local push runs (tools/pre-push-check.sh, its fast pure checks): commit subjects, a fix names its test, file size, recorded cases (holes 1+2),
       # the rung trailer, e2e issue links, stale expectations. CI_GATES=1: no red-main look, no AI place check, no local-run proof of new e2e steps.
-      - name: The fast pure checks
+      - name: Fast checks
         run: |
           git fetch -q origin main
           jq -n --arg cwd "$PWD" '{tool_input: {command: "CI_GATES=1 git push origin pr"}, cwd: $cwd}' | bash tools/pre-push-check.sh
-
-  flow-fresh:
-    name: flow-fresh
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
       # The open PR is the claim on the applying flow's files (tools/flow-fresh.mjs): red when main changed, since this PR's base, a flow file it also changes.
-      # tools/ship.sh rebases and pushes again by itself on this failure.
-      - name: Main has not changed a flow file this change also changes
+      # tools/ship.sh rebases and pushes again by itself on this failure (it finds this step's name: keep it in tools/ship-pr.sh).
+      - name: Core flow files up to date with main
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git fetch -q origin main
           node tools/flow-fresh.mjs --base origin/main --head "${{ github.event.pull_request.head.sha }}" --others
-
-  cases-fail-before-fix:
-    # Was "hole 3" (renamed 12 Oct 2026, owner: "a better name"): every recorded case this PR adds or changes must FAIL on the PR's base (and pass on its head: the replay shards).
-    name: cases fail before the fix
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}   # the PR head, not the merge commit
-          fetch-depth: 0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      # Decide first, from git alone (seconds): a PR that brings no case installs and replays nothing (12 Oct 2026: #501's label-only edit to 74 cases took 503 s here).
-      # A case.json edit to label keys only is no case (tools/recorded-cases.mjs LABEL_KEYS); a "Recorded-pins" case is not replayed; a refused pin fails here at once.
+      # Every recorded case this PR adds or changes must FAIL on the PR's base (and pass on its head: the replay shards). Decide first, from git alone (seconds): a PR that
+      # brings no case installs and replays nothing (12 Oct 2026: #501's label-only edit to 74 cases took 503 s). A case.json edit to label keys only is no case
+      # (tools/recorded-cases.mjs LABEL_KEYS); a "Recorded-pins" case is not replayed; a refused pin fails here at once.
       - name: Which recorded cases this PR brings
         id: which
+        if: ${{ !cancelled() }}
         run: |
           git fetch -q origin main
+          git checkout -q "${{ github.event.pull_request.head.sha }}"   # the PR head, not the merge commit (the fast checks above read the merge)
           cases="$(node tools/recorded-fails-on-old.mjs --base origin/main --list)"
           echo "cases=$cases" >> "$GITHUB_OUTPUT"
-          if [ -z "$cases" ]; then echo "cases fail before the fix: this PR brings no recorded case: nothing to replay"; else echo "to replay on the old code: $cases"; fi
+          if [ -z "$cases" ]; then echo "this PR brings no recorded case: nothing to replay"; else echo "to replay on the old code: $cases"; fi
       - name: A browser for the replay
-        if: steps.which.outputs.cases != ''
+        if: ${{ !cancelled() && steps.which.outputs.cases != '' }}
         run: |
           (cd desktop/e2e && npm ci)
           (cd desktop && npm ci --omit=dev --ignore-scripts)
           (cd desktop/e2e && npx playwright install --with-deps chromium)   # full Chromium: the replay loads the real extension
-      - name: Each fails on the code before the fix
-        if: steps.which.outputs.cases != ''
+      - name: New test pages fail on the old build
+        if: ${{ !cancelled() }}
         env:
           JOB_PILOTTO_HEAVY: '0'   # the Mac's one-at-a-time lock means nothing on a runner of its own
-        run: node tools/recorded-fails-on-old.mjs --base origin/main
-
-  # Every other PR workflow starts by `on: paths:` (the suites, the harness, the replays, the replay gate), so none can be required itself (owner, 14 Oct 2026:
-  # "why is the PR mergeable if replay gate is still running?"). This job starts on every PR and collects them: green only when every workflow of the commit ended green.
-  all-checks-green:
-    name: all checks green
-    runs-on: ubuntu-24.04
-    timeout-minutes: 70
-    permissions:
-      contents: read
-      actions: read   # the workflow runs of this commit
-    steps:
-      - uses: actions/checkout@v5
-      - name: Every other workflow of this commit ended green (none started counts as green)
+        run: |
+          [ -n "${{ steps.which.outputs.cases }}" ] || { echo "no recorded case in this PR: nothing to replay"; exit 0; }
+          node tools/recorded-fails-on-old.mjs --base origin/main
+      # Every other PR workflow starts by `on: paths:` (the suites, the harness, the replays, the replay gate), so none can be required itself (owner, 14 Oct 2026:
+      # "why is the PR mergeable if replay gate is still running?"). This step collects them: green only when every workflow of the commit ended green.
+      - name: Other workflows passed
+        if: ${{ success() }}
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

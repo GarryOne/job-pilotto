@@ -52,7 +52,7 @@ def required():
 class TheClass(unittest.TestCase):
     def test_every_required_check_is_a_job_of_a_workflow_with_no_paths(self):
         checks = required()
-        self.assertEqual(checks, ['pr gates', 'flow-fresh', 'cases fail before the fix', 'all checks green'])
+        self.assertEqual(checks, ['All checks passed'], 'one required job (15 Oct 2026): four jobs took four runner slots per PR')
         gate = (WORKFLOWS / 'pr-gate.yml').read_text()
         self.assertIsNone(pr_paths('pr-gate.yml'), 'the required checks start on every pull request')
         for check in checks:
@@ -94,7 +94,7 @@ class TheClass(unittest.TestCase):
             self.assertEqual(sorted(missing), [], f'tests-{area}.yml: files its tests read but its paths never start on')
 
     def test_ship_waits_for_every_check_the_pr_started(self):
-        # With 3 required checks, a "green" that read only them would hand the owner a PR whose suites still run.
+        # With one required check, a "green" that read only them would hand the owner a PR whose suites still run.
         self.assertNotIn('--required', (ROOT / 'tools/ship-pr.sh').read_text())
 
     def test_main_runs_every_suite_on_each_push(self):

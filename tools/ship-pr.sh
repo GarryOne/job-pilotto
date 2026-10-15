@@ -6,7 +6,7 @@
 #   ship_pr_land              push the branch, open (or reuse) the PR; with auto-merge: turn it on and wait until merged (sets `sha`, `files`); in review: wait until the required
 #                             checks are green, then stop with the PR open for the owner (sets `review_n`, `review_url`: ship.sh prints `ship: REVIEW #n <url>`)
 # A required check that failed: `fail_reason` names it with its log link and the run exits 1, the PR stays open (fix, commit, run ship again: it finds the PR).
-# The check "flow-fresh" failing, or a conflict with main, is no failure: the branch is rebased on the new main (extension version taken again) and pushed again, up to 5 times.
+# The step "Core flow files up to date with main" of the one required job failing, or a conflict with main, is no failure: the branch is rebased on the new main (extension version taken again) and pushed again, up to 5 times.
 #   SHIP_PR_POLL=<s> seconds between looks (default 15)      SHIP_PR_TIMEOUT=<s> give up waiting after (default 2700; the PR stays open with auto-merge on)
 ship_mode() {
   case "${SHIP_MODE:-auto}" in pr|direct) echo "$SHIP_MODE"; return ;; esac
@@ -18,6 +18,10 @@ ship_repo() { git remote get-url origin | sed -E 's#^.*github.com[:/]##; s#\.git
 ship_review() {
   case "${SHIP_REVIEW:-auto}" in 1) return 0 ;; 0) return 1 ;; esac
   [ "$(gh api "repos/$(ship_repo)" --jq .allow_auto_merge 2>/dev/null)" != true ]   # the repository setting is the switch: auto-merge not allowed = the owner merges by hand
+}
+# 15 Oct 2026: one required job, so the failing STEP names the cause: true when the failed job's red steps include the flow-files one (tools/flow-fresh.mjs; keep its name in pr-gate.yml).
+ship_flow_step_red() {
+  gh api "repos/{owner}/{repo}/actions/jobs/${1##*/}" --jq '[.steps[]? | select(.conclusion == "failure") | .name] | join("|")' 2>/dev/null | grep -q 'Core flow files up to date with main'
 }
 ship_pr_fail() { fail_reason="$1"; echo "ship: FAILED $1" >&2; exit 1; }
 # The lease names what origin has NOW (empty: nothing): the branch is deleted on merge, so the local tracking ref of an earlier landing is stale and a bare --force-with-lease refuses (12 Oct 2026). Only this session writes the branch.
@@ -62,7 +66,7 @@ ship_pr_land() {
     failing="$(jq -r '[.[]? | select(.bucket == "fail" or .bucket == "cancel")] | first // empty | "\(.name)\t\(.link)"' <<<"${checks:-[]}" 2>/dev/null)" || failing=""
     if [ -n "$failing" ] || [ "$mergeable" = CONFLICTING ]; then
       name="${failing%%$'\t'*}"; link="${failing#*$'\t'}"
-      if [ "$name" = flow-fresh ] || { [ -z "$failing" ] && [ "$mergeable" = CONFLICTING ]; }; then
+      if { [ -n "$failing" ] && ship_flow_step_red "${link%%[?#]*}"; } || { [ -z "$failing" ] && [ "$mergeable" = CONFLICTING ]; }; then
         tries=$((tries + 1)); [ "$tries" -le 5 ] || ship_pr_fail "pull request #$n still clashes with main after 5 rebases: $(jq -r '.url' <<<"$view")"
         step "main moved under files this PR changes (${name:-conflict}): rebasing again ($tries/5) and pushing it again"
         rebase; ship_pr_push; files="$(git diff --name-only origin/main HEAD)"

@@ -68,7 +68,7 @@ One choice (Settings → Profile → Application assistant, `renderer/assistant-
 
 ## The flow core: one session at a time, invariants first (owner, 10 Oct 2026)
 - **The claim is automatic** (12 Oct 2026): your open PR (or pushed branch) holds `FLOW_CORE` / `FLOW_FILES`; no message to peers, no "released". `node tools/flow-fresh.mjs --others` lists the
-  other open PRs on the same files; the required check `flow-fresh` fails when main changed a flow file this PR also changes, and `tools/ship.sh` rebases and pushes again by itself.
+  other open PRs on the same files; the required check "Core flow files up to date with main" fails when main changed a flow file this PR also changes, and `tools/ship.sh` rebases and pushes again by itself.
   Read each file's `Invariants:` block first. No new applying feature while a journey refactor is landing.
 - **Claim a function, not the file, when that is all you edit** (11 Oct 2026): `node tools/claim-shape.mjs claim-part <file> <function> --session <me>` (`release-part` when done).
   Different functions of one file can be held at once; a claim without a function holds the whole file, one without a file the whole core, and each blocks the narrower ones.

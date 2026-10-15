@@ -1,5 +1,5 @@
 """An intended replay drop accepted on the PR itself (owner, 14 Oct 2026; .github/workflows/site-replays-accept.yml): a label or a trusted `Replay-accept:` comment re-runs ONLY the failed
-verdict of the PR's replay gate and then "all checks green" (the required aggregate must read the re-judged result), with main's copy of the workflow, never the PR's code."""
+verdict of the PR's replay gate and then "All checks passed" (the required aggregate must read the re-judged result), with main's copy of the workflow, never the PR's code."""
 import os
 import re
 import subprocess

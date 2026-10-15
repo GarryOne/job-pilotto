@@ -22,7 +22,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   profile/CV, paid APIs), cut it off and assert it; always through the harness (`desktop/e2e/lib/extension.mjs`, `real-extension.mjs`); real sites
   only with fake applicant data. The one exception is the twin ([docs/live-test.md](docs/live-test.md)): never the owner's window, never Submit, never a password field.
 - **Secrets only in the macOS Keychain** (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets; never in code, docs or Notion.
-- **The flow core claims itself** (`FLOW_CORE` / `FLOW_FILES`, `desktop/e2e/flows.mjs`): your open PR is the claim, no message to peers; the required check `flow-fresh`
+- **The flow core claims itself** (`FLOW_CORE` / `FLOW_FILES`, `desktop/e2e/flows.mjs`): your open PR is the claim, no message to peers; the required check "Core flow files up to date with main"
   fails when main changed a flow file your PR also changes, and `tools/ship.sh` rebases and pushes again. Read the file's "Invariants:" block first ([docs/rules/applying.md](docs/rules/applying.md)).
 - **Meaning comes from AI, never from keyword lists:** emails, pages, buttons and questions come in any language. Fetch by structure, let AI decide with a fixed
   answer the code validates (`src/ai/decide.py`, `meanings.py`); a word list is at most a free shortcut in front of the AI or a safety floor.
@@ -95,7 +95,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test`, `cd desktop && npm test` (`tools/check.sh` runs them as CI does).
 - **On a PR push (`SHIP_PR=1`, what ship.sh does) the hook runs only the fast pure checks** (subjects, trailers, file size, recorded cases, rung trailer; seconds); the suites, journey/ladder gates and replays run in CI on the PR (`pr-gate.yml`, the `tests-*.yml` suites, `page-cases.yml`), where the same script runs with `CI_GATES=1`.
-  Which workflows a PR starts is GitHub's `on: pull_request: paths:` alone (owner, 14 Oct 2026: no shared pick); only `pr gates`, `flow-fresh` and "cases fail before the fix" are required (they start on every PR); main runs every suite on each push (`tests/test_workflow_paths.py`).
+  Which workflows a PR starts is GitHub's `on: pull_request: paths:` alone (owner, 14 Oct 2026: no shared pick); only ONE check is required, the job "All checks passed" (steps: Fast checks, Core flow files up to date with main, New test pages fail on the old build, Other workflows passed; it starts on every PR); main runs every suite on each push (`tests/test_workflow_paths.py`).
   Otherwise (the direct push) the pre-push hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches on a clean checkout
   (`PUSH_FULL=1`: all), lints workflows, proves `npm ci` when a lock file changed, and blocks a push on a red main (AGENTS.md "Red main").
   The e2e harness's own unit tests (`desktop/e2e` npm test) run on CI only (owner, 11 Oct 2026); `JP_E2E_UNIT=1` runs them before a push.

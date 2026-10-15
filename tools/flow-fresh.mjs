@@ -4,7 +4,7 @@
 // Fails (exit 1, the reason and the files) when main changed, since this PR's base, a flow file (FLOW_FILES + FLOW_CORE of desktop/e2e/flows.mjs) that the PR also changes:
 // two PRs that are each green must never merge an untested combination of flow edits. tools/ship.sh rebases on this failure by itself and pushes again, so the checks run on the combination.
 // --others (needs gh) lists the other open pull requests that change the same flow files: said, never a failure (they are told by the same check when they meet it).
-// Required check "flow-fresh" of .github/workflows/pr-gate.yml. Guard: desktop/test/flow-fresh.test.js.
+// Required check "Core flow files up to date with main" of .github/workflows/pr-gate.yml. Guard: desktop/test/flow-fresh.test.js.
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';

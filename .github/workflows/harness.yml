@@ -9,7 +9,7 @@ on:
     branches: [main]
     paths:
       - 'desktop/e2e/**'
-      # Data that other jobs replay, not harness code: recorded cases (page-cases.yml, "cases fail before the fix"), fixture pages, the widget zoo (control-tests.yml).
+      # Data that other jobs replay, not harness code: recorded cases (page-cases.yml, "New test pages fail on the old build"), fixture pages, the widget zoo (control-tests.yml).
       - '!desktop/e2e/recorded/**'
       - '!desktop/e2e/recorded-pending/**'
       - '!desktop/e2e/fixtures/**'

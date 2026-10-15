@@ -48,7 +48,7 @@ class AllChecksGreen(unittest.TestCase):
         self.assertNotRegex(gate.split('\njobs:')[0], r'(?m)^\s+paths(-ignore)?:')
         self.assertIn('bash tools/all-checks-green.sh "$GITHUB_REPOSITORY" "$HEAD_SHA" "$GITHUB_RUN_ID"', gate)
         self.assertIn('select(.event == \\"pull_request\\" and (.databaseId | tostring) != \\"$own\\")', SCRIPT.read_text())
-        self.assertIn("all\\ checks\\ green", (ROOT / 'tools/pr-settings.sh').read_text())
+        self.assertIn("All\\ checks\\ passed", (ROOT / 'tools/pr-settings.sh').read_text())
 
 
 if __name__ == '__main__':

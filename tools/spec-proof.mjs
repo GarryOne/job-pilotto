@@ -4,7 +4,7 @@
 //   - [x] <what> (proof: <path>[, <path>])            each path is changed by this pull request and exists
 //   - [x] <what> (proof: <path> @<sha>)               landed earlier: that commit, on main, changes the path
 //   - [x] <what> (proof: none: <why>)                 no file can show it (an owner's decision)
-// Usage: node tools/spec-proof.mjs [--base origin/main]   exit 1 with the reasons. Run by tools/pre-push-check.sh (pure checks; CI's "pr gates"). Guard: desktop/test/spec-proof.test.js.
+// Usage: node tools/spec-proof.mjs [--base origin/main]   exit 1 with the reasons. Run by tools/pre-push-check.sh (pure checks; CI's Fast checks). Guard: desktop/test/spec-proof.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

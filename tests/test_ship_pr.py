@@ -95,10 +95,16 @@ class ShipPrTest(ShipFixture):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
         self.change(self.other, 'theirs.txt', 'x\n', 'Landed meanwhile')
         git(self.other, 'push', '-q', 'origin', 'main')
-        result = self.pr_ship({'fail_check_once': {'name': 'flow-fresh', 'link': 'https://example.test/run/2'}})
+        result = self.pr_ship({'fail_check_once': {'name': 'All checks passed', 'link': 'https://example.test/run/2/job/9', 'step_red': True}})
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('rebasing again', result.stdout)
         self.assertEqual(git(self.origin, 'log', '--format=%s', 'main').splitlines()[:2], ['My change', 'Landed meanwhile'])
+
+    def test_a_failed_step_other_than_the_flow_one_stops_the_run(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        result = self.pr_ship({'fail_check': {'name': 'All checks passed', 'link': 'https://example.test/run/2/job/9'}})
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertNotIn('rebasing again', result.stdout)
 
     def test_no_gh_or_a_plain_path_origin_keeps_the_direct_push(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
