@@ -29,7 +29,7 @@ test('class: every toast the worker draws asks the panel first, and the panel an
 test('a page mark of posting or opening is never Ready and never counts; the fill flow sets it from the AI\'s kind', async () => {
   const panel = read('review.js');
   assert.match(panel, /ready = !moved && !pageMark && total > 0 && left === 0/);
-  assert.match(panel, /pageMark \? \(pageMark === 'opening' \? 'Opening the form…' : 'Press Apply to open the form'\)/g);
+  assert.match(panel, /pageMark \? 'Apply button detected\. Redirecting…'/g);   // the owner's own words, on the panel and the badge
   assert.match(read('fill-flow.js'), /markPage\(tab\.id, role\);/);
   assert.match(read('fill-flow.js'), /markPage\(tab\.id, role, pressed\);/);
   const attrs = new Map();
