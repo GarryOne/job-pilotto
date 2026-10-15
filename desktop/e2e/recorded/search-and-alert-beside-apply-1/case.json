@@ -1,0 +1,71 @@
+{
+ "origin": "hand-cut",
+ "shape": "a posting with a job-search box and a 'Create Alert' form (3 fields) beside its Apply link; the Apply link navigates to the form 1.5 s after the press",
+ "why": "15 Oct 2026, the owner's Adnovum posting: the alert fields were read as 'a form came' 0.47 s after the press, the posting's mark was cleared and the panel said Ready before the page moved on. Inputs that were already on the page before the press are not a form the press brought.",
+ "sample": "invented posting with a search form and an alert form; Apply navigates late to the application form",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.example.test/en/job/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://careers.example.test/en/apply/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://careers.example.test/en/apply/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "apply now »",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60,
+  "notTold": [
+   "after the press: a form came"
+  ]
+ },
+ "control": {
+  "build": "main before this fix",
+  "failed": "notTold: after the press: a form came"
+ }
+}
