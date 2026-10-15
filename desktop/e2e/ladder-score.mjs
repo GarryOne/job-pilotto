@@ -16,7 +16,7 @@ import {fingerprints} from './lib/ladder-fingerprint.mjs';
 import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
-import {DRAWS, SPREAD_FILE, fingerprintKey, labelOf, measureEntry, readSpread, summaryLines, writeSpread} from './lib/ladder-spread.mjs';
+import {DRAWS, fingerprintKey, labelOf, measureEntry, readSpread, summaryLines, writeSpread} from './lib/ladder-spread.mjs';
 import {answerPathNote, scoringClient} from './lib/ladder-score-path.mjs';
 
 if (process.argv.includes('--moves')) { await import('./ladder-moves-score.mjs'); process.exit(0); }   // the next move both ways (box 7 of spec 2026-10-12-one-next-move.md)
