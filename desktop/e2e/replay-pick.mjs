@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const MAX = 10, GROUPS = 5;
+export const MAX = 10, GROUPS = 10;   // one row per Linux runner (the PR gate runs on Linux since 15 Oct 2026)
 
 // baseline: {rows: {name: {same, seconds, site}}} -> the names, in pick order.
 export function pickRows(baseline = {}, {max = MAX} = {}) {

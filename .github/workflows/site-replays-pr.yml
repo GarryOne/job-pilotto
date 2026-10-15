@@ -1,6 +1,6 @@
 # The replay's quick PR gate (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
 # will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays at most 10 pool rows offline
-# (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 5 macOS runners at once, then judges
+# (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 10 Linux runners at once (one row each; owner, 15 Oct 2026: "measure and then do the switch": Mac and Linux gave the same verdict on all 15 rows same as live, run 38656139865; Linux has 20 slots, macOS 5), then judges
 # them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). It starts only when a PR changes the apply flow's code or the replay machinery its steps start (GitHub's `paths:`,
 # owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"; later the same day: replay-machinery PRs too): red when a counted row got worse or a runner did not finish.
 # An intended drop is accepted on the PR itself (owner, 14 Oct 2026): label `replay-accepted` + a comment `Replay-accept: <row> — <reason>` (the summary prints the line); site-replays-accept.yml then re-runs
@@ -102,7 +102,7 @@ permissions:
 
 concurrency:
   group: replay-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true   # a newer push replaces the run: the macOS runners are few (5 at once)
+  cancel-in-progress: true   # a newer push replaces the run
 
 jobs:
   pick:
@@ -133,7 +133,7 @@ jobs:
   replay:
     needs: pick
     if: needs.pick.outputs.count != '0'
-    runs-on: macos-latest   # the records are made on the owner's Mac: the same fonts and scrollbar as the live page
+    runs-on: ubuntu-24.04   # Linux: the same verdict as the Mac on every row that is same as live (the main run's Linux shards keep measuring it)
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -167,7 +167,7 @@ jobs:
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
-          (cd desktop/e2e && npx playwright-core install chromium)
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
       - name: The pool's newest records, decrypted on the runner only
         if: steps.key.outputs.ok == '1'
         working-directory: desktop/e2e
