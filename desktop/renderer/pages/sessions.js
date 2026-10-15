@@ -1,7 +1,7 @@
 // Application sessions: the dock, the list, the next step.
 import {el, pill} from '../components.js';
 import {avatar} from '../jobs-view.js';
-import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, sessionDuration, sessionReview, sessionState} from '../session-state.js';
+import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {resumeOffered} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
@@ -16,7 +16,7 @@ export {cancelSession, removeSession, restartSession, resumeSession, skipSession
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
 const closedForm = item => formGone(item);  // its Chrome tab was closed (a form or a Claude session's)
-const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : redirecting(item) ? [reviewStates.get(item.id)?.page === 'reading' ? 'Reading…' : 'Redirecting…', 'neutral'] : waitingChrome(item) ? ['Waiting for Chrome…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : tabLost(item) ? ['Tab not found', 'warn'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
+const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : redirecting(item) ? [pageLine(reviewStates.get(item.id)?.page, true), 'neutral'] : waitingChrome(item) ? ['Waiting for Chrome…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : tabLost(item) ? ['Tab not found', 'warn'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};

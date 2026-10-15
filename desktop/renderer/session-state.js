@@ -23,6 +23,12 @@ export const asksYou = item => (item.question ? readSessionMessage(item.question
 // ready for review and submit, whatever its last message says (1 Oct 2026: a card still asked for a street already typed).
 // A Claude ask that closed with the app is outdated once the session's own tab reports an application page with fields (liveForm: the extension's report of it): the live page leads the card.
 export const askOutdated = (item, liveForm) => !!item && item.kind !== 'form' && !isLive(item) && item.status === 'input' && !!liveForm && !liveForm.account && liveForm.total > 0;
+// What the card says while the session's tab is on a step with no form to count (extension/page-mark.js, lib/review.js LINE_PAGES), as it happens (owner, 16 Oct 2026:
+// "Reading this page" → "Apply button detected. Redirecting…" → "Sign in form detected" → "Logging in…" → the form's own state). [the card's line, the list's short word]
+export const PAGE_LINES = {reading: ['Reading this page\u2026', 'Reading\u2026'], posting: ['Apply button detected. Redirecting\u2026', 'Redirecting\u2026'],
+  opening: ['Apply button detected. Redirecting\u2026', 'Redirecting\u2026'], account: ['Sign in form detected', 'Sign-in page'], 'sign-up': ['Sign-up form detected', 'Sign-up page'],
+  'signing-in': ['Logging in\u2026', 'Logging in\u2026'], 'signing-up': ['Creating your account\u2026', 'Creating account\u2026']};
+export const pageLine = (page, short = false) => (PAGE_LINES[page] || PAGE_LINES.reading)[short ? 1 : 0];
 export const sessionReview = (item, formReady = false) => {
   // Account fields being filled never prove that the application is ready. Process exit and
   // non-submission are also not completion evidence. Keep positive legacy handoffs only.

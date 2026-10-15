@@ -81,6 +81,8 @@ export function registerExtServerHandlers(ctx) {
     if (session && terminals.setAccountFact(session, fact === 'code' ? 'code' : 'terms', text)) appLog('extension', fact === 'code' ? 'account record: a code from the mail was typed' : 'account record: a consent was accepted', {terms: fact === 'code' ? undefined : String(text || '').length});
   });
   // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
+  // The page's step as it happens (extension/page-mark.js): the session the tab carries, nothing guessed.
+  server.setPageHandler(({session, page} = {}) => { if (session && terminals.get(String(session)) && review.notePage(String(session), String(page || ''))) appLog('review', `page ${session}: ${page}`); });
   server.setAccountPressedHandler(async ({host, state, session: carried, job, url} = {}) => {
     const session = resolveSession({session: carried, job, url}, ids);
     const email = await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');

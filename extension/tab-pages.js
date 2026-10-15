@@ -124,6 +124,12 @@ export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, a
   return 'no-form';
 }
 
+// The page mark for a role the flow decided (page-mark.js says it on the page and to the app): pure, so the tests read it.
+export const markOf = (role, pressed = false, step = '') => (role === 'no-form' ? (pressed ? 'opening' : 'posting')
+  : role === 'account' ? (step === 'sign_up' ? 'sign-up' : 'account')
+  : role === 'signing' ? (step === 'sign_up' ? 'signing-up' : 'signing-in')   // its button pressed (account-step.js)
+  : ['form', 'reading', 'signing-in', 'signing-up'].includes(role) ? role : '');
+
 // A form the press BROUGHT: the page reads as a form now, and is not just the controls it already had before the press (15 Oct 2026, a posting with a job-search box and a "Create Alert"
 // form beside its Apply link: the alert's fields were taken as "a form came" 0.5 s before the page moved on, and the posting was filled and called Ready). A form that is drawn adds
 // controls; a new page ends the wait as navigated. `before`: the page's shape before any press (null: nothing known, so the page alone decides, as before).
