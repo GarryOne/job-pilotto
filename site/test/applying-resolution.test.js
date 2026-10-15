@@ -114,6 +114,6 @@ test('"Every pool row" is gone: its columns live in the pool table\'s Last resul
   for (const part of ["item.ending.replace('_', ' ')", 'CAUSES[item.cause]', "item.day + ' · CI'", "item.day + ' · Mac'", "actions/runs/' + item.run", 'item.since', 'SINCE[item.since]', 'ENDING_MEANS[item.ending]']) assert.ok(RESOLUTION_SCRIPT.includes(part), part + ' is in the row\'s ending line');   // ending, why, exact date + Mac/CI + run link, since + its meaning
   assert.match(PAGE, /resultOf\(s\), endingLine\(s\), s\.running/, 'the pool row draws the ending line under its status');
   assert.match(PAGE, /chipFilter\('Ending', \[\['', 'All'\], \.\.\.WORST_FIRST\.map/, 'the endings, with their counts, are a chip row of the pool filter bar');
-  assert.match(PAGE, /pick\('status', statusItems, 'Status', 'All statuses'\), endingChips/, 'next to Status');
+  assert.match(PAGE, /pick\('flow', d\.flows, 'Flow', 'All flows'\), endingChips/, 'the Ending chips are the pool\'s one status-like filter (the Status chips went: each row\'s pill says its status)');
   assert.match(PAGE, /endingPick = null; chosen\.query = ''/, 'Clear resets it');
 });

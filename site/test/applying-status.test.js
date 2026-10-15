@@ -99,17 +99,17 @@ test('two rows with one name on one host are told apart by their shape; every ta
   assert.ok(PAGE.includes('details table td:not(:first-child)'), 'the colors legend\'s paths wrap inside their card');
 });
 
-test('the pool\'s Status filter: one option per status (from STATES), counted, and a row matches by the status its badge shows', () => {
+// Owner, 15 Oct 2026: the Status chips went (the Ending chips are finer and match the Outcomes tab; each row's pill still says its status). Every row is still filterable: one with no ending is "no ending yet".
+test('the pool filters by ending, not by status: one chip per ending plus "no ending yet", every row in exactly one, and Clear resets it', () => {
   const snippet = PAGE.slice(PAGE.indexOf('/*filter*/'), PAGE.indexOf('/*end filter*/'));
   assert.ok(snippet.length > 50, 'the filter code is on the page');
-  const inPool = new Function('poolMatches', 'endingMatch', `${snippet}; return inPool;`)(() => true, () => true);
-  assert.match(PAGE, /pick\('status', statusItems, 'Status', 'All statuses'\)/);
-  assert.match(PAGE, /d\.states\.map\(state => \(\{name: state, label: d\.stateWords\[state\]/);   // the options come from the one list, never a copy
-  const pool = STATES.map(state => ({platform: 'P', flow: 'F', status: {state, rule: ''}}));
-  for (const state of STATES) {
-    assert.deepEqual(pool.filter(s => inPool(s, {status: state})).map(s => s.status.state), [state], state + ' shows only its own rows');
-    assert.ok(STATE_WORD[state], state + ' has a word for its option');
+  assert.doesNotMatch(PAGE, /pick\('status'|statusItems|chosen\.status|c\.status/, 'no status filter is left behind');
+  const words = ['unresolved', 'ready', 'none'];   // none = no ending yet
+  const rows = words.map(word => ({platform: 'P', flow: 'F', ending: word}));
+  for (const word of words) {
+    const inPool = new Function('poolMatches', 'endingMatch', `${snippet}; return inPool;`)(() => true, s => !word || s.ending === word);
+    assert.deepEqual(rows.filter(s => inPool(s, {})).map(s => s.ending), [word], word + ' shows only its own rows');
   }
-  assert.equal(pool.filter(s => inPool(s, {status: null})).length, STATES.length, 'All statuses shows every row');
-  assert.equal(pool.filter(s => inPool(s, {status: 'works', platform: 'Q'})).length, 0, 'the status combines with the platform');
+  assert.match(PAGE, /\[NO_ENDING, 'no ending yet · '/, 'a row with no ending has its own chip');
+  for (const state of STATES) assert.ok(STATE_WORD[state], state + ' keeps its word for the row pill');
 });

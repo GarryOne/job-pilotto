@@ -84,7 +84,7 @@ test('the short filters are chips, one press picks and the all chip is on first;
   const app = await render('#sites');
   const groups = walk(app).filter(node => node.className === 'pick chipset');
   const labels = groups.map(group => group.children[0].text());
-  for (const label of ['Flow', 'Status', 'Ending']) assert.ok(labels.includes(label), label + ' is chips: ' + labels.join(', '));
+  for (const label of ['Flow', 'Ending']) assert.ok(labels.includes(label), label + ' is chips: ' + labels.join(', '));
   for (const group of groups) {
     const chips = group.children[1].children;
     assert.equal(chips[0].className, 'chip on', 'the all chip starts on');
