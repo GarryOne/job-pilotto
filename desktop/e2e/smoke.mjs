@@ -27,7 +27,7 @@ import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
 import {capRows, ciLimits, electronLegs, stopReason} from './lib/pool-ci.mjs';
-import {endingOf, endingWord} from './lib/ending.mjs';
+import {causeWord, endingOf, endingWord} from './lib/ending.mjs';
 import {isCi} from './lib/engine.mjs';
 import {electronLegRefused, visitsLeft, settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pairedSize, pathDifferenceLine, secondVisitsAllowed, visitPlan} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
@@ -138,10 +138,10 @@ async function main() {
   const finish = async shape => {
     const appLog = (() => { try { return fs.readFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.app.log`), 'utf8'); } catch { return ''; } })();
     const ended = endingOf(results[shape], appLog, {ci: isCi()});   // the outcome contract's ending (lib/ending.mjs): in the day's report, the CI summary and the upload
-    Object.assign(results[shape], {ending: endingWord(ended)}, ended.aiMiss ? {aiMiss: true} : {});
+    Object.assign(results[shape], {ending: endingWord(ended), cause: causeWord(ended)}, ended.aiMiss ? {aiMiss: true} : {});
     const item = results[shape], found = recordSite({dir: REPORTS, day, shape, result: item, earlier: previous});
     console.log(`smoke: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
-    console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ending: item.ending || '', ...rungFields(item), ...verdictFields(item)}])}`);
+    console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ending: item.ending || '', cause: item.cause || '', ...rungFields(item), ...verdictFields(item)}])}`);
   };
   const pool = selectRows(shapes, only);   // a row's exact name, one row's words, or several rows' joined by |
   const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too

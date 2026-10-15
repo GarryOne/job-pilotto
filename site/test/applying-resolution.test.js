@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {endingsIngest, readEndings, resolution, storeEndings} from '../src/applying-resolution.js';
+import {CAUSES, ENDING_MEANS, STUCK_REASONS, WORST_FIRST} from '../../extension/ladder/endings.js';
+import {RESOLUTION_SCRIPT, endingsIngest, readEndings, resolution, storeEndings} from '../src/applying-resolution.js';
 import {ingest} from '../src/applying.js';
 import {latestRuns} from '../src/applying-store.js';
 
@@ -39,7 +40,7 @@ test('a Mac run counts only when the extension it ran is main\'s: a branch\'s ru
   assert.deepEqual(runs.map(run => [run.name, run.on_main]).sort(), [['Branch row', 0], ['Main row', 1], ['Old row', 0]]);
   const pool = ['Main row', 'Branch row', 'Old row'].map(shape => ({shape, platform: 'Custom'}));
   const r = resolution({runs, pool, now});
-  assert.deepEqual([r.measured, r.resolved, r.unresolved.length], [1, 1, 0], 'only the main build\'s run is measured');
+  assert.deepEqual([r.measured, r.resolved, r.unresolved], [1, 1, 0], 'only the main build\'s run is measured');
   assert.equal(resolution({runs: [{kind: 'smoke', name: 'Old row', at: '2026-10-11T10:00:00Z', ending: 'ready'}], pool, now}).measured, 0, 'a run with no on_main (before migration 0061) is not main\'s');
 });
 
@@ -59,7 +60,8 @@ test('each pool row\'s newest ending, Mac or CI on main; resolution raw and weig
   const r = resolution({runs, endings, pool, scorecard, now});
   assert.deepEqual([r.measured, r.held, r.resolved, r.raw], [4, 1, 3, 75]);
   assert.deepEqual(r.endings, {ready: 3, told: 0, handed: 0, blind: 0, data_missing: 0, site_broken: 0, unresolved: 1});
-  assert.deepEqual(r.unresolved, [{row: 'Greenhouse row', platform: 'Greenhouse', source: 'ci', day: '2026-10-12'}]);
+  assert.equal(r.unresolved, 1);
+  assert.deepEqual(r.rows.map(item => [item.row, item.ending]), [['Greenhouse row', 'unresolved'], ['Custom row', 'ready'], ['Greenhouse two', 'ready'], ['Lever row', 'ready'], ['Account row', 'held']], 'every row, worst first, held last');
   assert.equal(r.weighted, 53, 'Greenhouse 45 x 1/2 + Lever 3 x 1, over 48 = 53%');
   assert.deepEqual(r.samples, [{platform: 'Greenhouse', share: 45, rows: 2}, {platform: 'Ashby', share: 28, rows: 0}, {platform: 'Lever', share: 3, rows: 1}, {platform: 'Workday', share: 2, rows: 0}]);
   assert.equal(r.covered, 48);
@@ -72,4 +74,34 @@ test('the weekly trend: per ISO week, each row\'s newest ending that week; the l
   const r = resolution({runs, endings: [], pool, scorecard: [], now});
   assert.deepEqual(r.weeks.slice(-2), [{week: '2026-09-28', measured: 2, raw: 50}, {week: '2026-10-12', measured: 1, raw: 100}]);
   assert.ok(r.weeks.length <= 6);
+});
+
+test('each row says where it stopped and why, in fixed words only; a word outside the lists is dropped; since compares with the previous run', async () => {
+  const STATS = d1();
+  await storeEndings(STATS, {records: [record('A', 'unresolved', {run: '1', at: '2026-10-11T10:00:00.000Z', step: 'form', cause: 'field-missed'}),
+    record('A', 'ready', {run: '2', step: 'ready', cause: 'ready'}), record('B', 'unresolved', {step: 'https://x.example/p', cause: 'Send your CV to jane@x.example'}), record('C', 'held', {step: 'account', cause: 'account-first'})]}, now);
+  const kept = await readEndings(STATS);
+  assert.deepEqual(kept.filter(item => item.row === 'B').map(item => [item.step, item.cause]), [[null, null]], 'page text never lands');
+  const pool = ['A', 'B', 'C'].map(shape => ({shape, platform: 'Custom'}));
+  const r = resolution({endings: kept, pool, now});
+  const by = Object.fromEntries(r.rows.map(item => [item.row, item]));
+  assert.deepEqual([by.A.step, by.A.cause, by.A.run, by.A.since, by.A.source], ['ready', 'ready', '2', '↑', 'ci']);
+  assert.deepEqual([by.B.step, by.B.cause, by.B.since], [null, null, null]);
+  assert.deepEqual([by.C.ending, by.C.cause], ['held', 'account-first']);
+  const mac = resolution({runs: [{kind: 'smoke', name: 'A', at: '2026-10-12T10:00:00Z', ending: 'unresolved', on_main: 1, reached: 'posting', cause: 'no-form'}], pool, now}).rows[0];
+  assert.deepEqual([mac.step, mac.cause, mac.source], ['posting', 'no-form', 'mac']);
+});
+
+test('the Mac\'s upload keeps a run\'s cause word; one outside the list is dropped', async () => {
+  const STATS = d1();
+  await ingest(STATS, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'A', reached: 'form', ending: 'unresolved', cause: 'field-missed'}, {name: 'B', reached: 'form', ending: 'unresolved', cause: 'a page said so'}]}, now);
+  assert.deepEqual((await latestRuns(STATS)).map(run => [run.name, run.cause]), [['A', 'field-missed'], ['B', null]]);
+});
+
+test('the legend is the table: every ending has a plain meaning and a pill colour, and the page script draws each pool row with them', () => {
+  assert.deepEqual([...WORST_FIRST].sort(), [...Object.keys(ENDING_MEANS)].sort(), 'a meaning for every ending, held too');
+  for (const word of WORST_FIRST) assert.ok(RESOLUTION_SCRIPT.includes(`${word}: '`) , `${word} has a colour`);
+  for (const reason of STUCK_REASONS) assert.ok(Object.hasOwn(CAUSES, reason), `the stuck reason ${reason} is a why word: one list with the extension`);
+  assert.match(RESOLUTION_SCRIPT, /rows\.filter\(item => item\.ending === endingPick\)/, 'a pill filters the rows');
+  assert.match(RESOLUTION_SCRIPT, /sortRows\('resolution', shown/, 'the table sorts through the page\'s helper');
 });

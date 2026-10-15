@@ -15,14 +15,14 @@ import {readReplays, replayCases} from './applying-replays.js';
 import {CASES_SCRIPT} from './applying-cases.js';
 import {LADDER_CSS, LADDER_SCRIPT} from './applying-ladder.js';
 import {PAGETABS_CSS, PAGETABS_SCRIPT} from './applying-pagetabs.js';
-import {RESOLUTION_CSS, RESOLUTION_SCRIPT, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
+import {RESOLUTION_CSS, RESOLUTION_SCRIPT, STEPS, causeWord, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
 import {FIDELITY_CSS, FIDELITY_SCRIPT, fidelity as fidelityOf, readFidelity} from './applying-fidelity.js';
 import {STATES, STATE_WORD, isCleanHold, isHold, rowStatus} from './applying-status.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
-export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
+export {STEPS};
 const KINDS = ['smoke', 'pool', 'running'];   // 'recorded' comes from CI on main only (PUT /applying/replays, src/applying-replays.js)
 const RUNNING_MINUTES = 5;   // a start ping older than this is a run that died
 const DAY = /^\d{4}-\d\d-\d\d$/;
@@ -65,11 +65,11 @@ async function ingestRows(db, body, now) {
         .bind(name, start, signature, at, version).run();
       stored += 1; continue;
     }
-    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending, on_main) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending, on_main, cause) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(kind, day, at, name, kind === 'smoke' ? hostOf(row.host) : null, kind === 'smoke' && STEPS.includes(row.reached) ? row.reached : null,
         int(row.filled), int(row.left), null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
         rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null,
-        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null, kind === 'smoke' ? endingWord(row.ending) : null, kind === 'smoke' ? onMain : null).run();   // the run's ending, and whether main's build ran it (src/applying-resolution.js)
+        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null, kind === 'smoke' ? endingWord(row.ending) : null, kind === 'smoke' ? onMain : null, kind === 'smoke' ? causeWord(row.cause) : null).run();   // the run's ending, and whether main's build ran it (src/applying-resolution.js)
     touched.push({kind, name});
     stored += 1;
   }

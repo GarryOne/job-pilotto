@@ -10,8 +10,8 @@ const ctx = {run: '42', branch: 'main', sha: 'abcdef1234567', at: '2026-10-12T18
 
 test('one record per row this run ran that has an ending word; fixed words, the run, the branch, the build', () => {
   assert.deepEqual(endingRecords(report, ctx), [
-    {row: 'A row', ending: 'unresolved', run: '42', branch: 'main', sha: 'abcdef1234567', at: ctx.at},
-    {row: 'B row', ending: 'held', run: '42', branch: 'main', sha: 'abcdef1234567', at: ctx.at}]);
+    {row: 'A row', ending: 'unresolved', step: 'form', cause: '', run: '42', branch: 'main', sha: 'abcdef1234567', at: ctx.at},
+    {row: 'B row', ending: 'held', step: 'account', cause: '', run: '42', branch: 'main', sha: 'abcdef1234567', at: ctx.at}]);
   assert.deepEqual(endingRecords({...report, results: {'A row': {ending: 'Send your CV to jane@x.example'}}}, ctx), [], 'a word outside the list never leaves');
 });
 
@@ -27,4 +27,9 @@ test('sent from CI only, with the narrow key, one PUT; a dry run says what it wo
   assert.equal(calls[0].init.method, 'PUT');
   assert.equal(calls[0].init.headers.Authorization, 'Bearer k');
   assert.deepEqual(JSON.parse(calls[0].init.body), {records});
+});
+
+test('a record carries where the row stopped and why, as fixed words', () => {
+  const [one] = endingRecords({results: {'A row': {ending: 'unresolved', reached: 'posting', cause: 'no-form'}}}, ctx);
+  assert.deepEqual([one.step, one.cause], ['posting', 'no-form']);
 });
