@@ -64,7 +64,7 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.85,
+  "confidence": 0.8,
   "apply_button": "Solicitar",
   "apply_button_kind": "apply",
   "apply_route": "manual",

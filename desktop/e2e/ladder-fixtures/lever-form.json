@@ -62,8 +62,8 @@
  "answer": {
   "kind": "form",
   "confidence": 0.95,
-  "apply_button": "",
-  "apply_button_kind": "",
+  "apply_button": "Submit application",
+  "apply_button_kind": "apply",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",

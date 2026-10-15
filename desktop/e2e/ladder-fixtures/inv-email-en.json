@@ -35,9 +35,9 @@
  "answer": {
   "kind": "posting",
   "confidence": 0.9,
-  "apply_button": "Apply now",
-  "apply_button_kind": "other",
-  "apply_route": "manual",
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
   "apply_by": "email",
   "apply_email": "hiring@example.com",
   "form_frame": -1,

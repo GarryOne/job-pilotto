@@ -1,0 +1,75 @@
+{
+ "origin": "hand-cut",
+ "shape": "a page that shows only its site header under a Loading cover while its form is on the way: the AI says it is still being drawn, the extension reads it again once it is still and fills the form that came",
+ "why": "15 Oct 2026, HelloFresh replay: the apply page was read as an empty shell (no title, one search box, an overlay) and the first fill ran on it; the form came 5 s later. The fix: the page-kind answer says stillDrawing and the extension waits for a still page and asks again (extension/ladder/still-drawing.js).",
+ "control": {
+  "guard": "fails on the build before the fix: a page of one control judged no-form is left as it is"
+ },
+ "rung": 2,
+ "sample": "hand-cut page of the shape (invented text); the page's own script draws the form 3 s after the load",
+ "pages": [
+  {
+   "url": "https://careers.wall.example/apply",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "title": ""
+    },
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "",
+     "form_frame": -1,
+     "kind": "other",
+     "role": "no-form",
+     "confidence": 0.6,
+     "stillDrawing": true
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "",
+     "form_frame": -1,
+     "kind": "form",
+     "role": "form",
+     "confidence": 0.95
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "page was still drawing: read again"
+  ],
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

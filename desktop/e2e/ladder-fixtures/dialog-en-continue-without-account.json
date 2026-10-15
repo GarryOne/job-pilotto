@@ -71,7 +71,7 @@
  ],
  "answer": {
   "kind": "posting",
-  "confidence": 0.6,
+  "confidence": 0.8,
   "apply_button": "Continue without an account",
   "apply_button_kind": "apply",
   "apply_route": "manual",

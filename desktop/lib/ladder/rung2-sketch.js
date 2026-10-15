@@ -70,7 +70,8 @@ Decide from what the page asks, not from words in one language. Give your confid
 bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
 still_drawing: true when what is on screen is not the finished page: a loading notice or spinner, an empty shell with only the site's header or search box, a cover with no content under it; the
-page is read again a moment later, so say true only when the content is plainly still on its way, in any language; the kind is then other.
+page is read again a moment later, so say true only when the content is plainly still on its way, in any language; the kind is then other. A finished page with little on it
+(a short notice, an instruction to apply in person or by phone, a closed or expired posting, a list with no entries) is NOT still being drawn: false.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site's account (LinkedIn, Indeed, Google); a quick or easy apply of the board's own that starts THIS application on its own site counts, in any language; "" when
 there is none or for any other kind. apply_button_kind: judge what that button DOES, in any language, not by its words: apply only when it starts or continues this application

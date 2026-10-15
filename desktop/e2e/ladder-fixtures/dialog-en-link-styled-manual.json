@@ -61,7 +61,7 @@
  ],
  "answer": {
   "kind": "posting",
-  "confidence": 0.85,
+  "confidence": 0.88,
   "apply_button": "Enter my details myself",
   "apply_button_kind": "apply",
   "apply_route": "manual",

@@ -113,7 +113,7 @@
   "confidence": 0.9,
   "apply_button": "APPLY NOW",
   "apply_button_kind": "apply",
-  "apply_route": "",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,
