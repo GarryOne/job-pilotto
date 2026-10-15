@@ -44,6 +44,13 @@ test('a PR gets the category of most changed non-test lines; tests alone are "te
   assert.deepEqual([mixed.category, mixed.mixed], ['mixed', true]);
   assert.equal(classify([f('docs/a.md', 5)], ['Fix\n\nPool-row: Chanel Workday']).category, 'forms');
   assert.equal(classify([f('docs/a.md', 5)], ['Fix']).category, 'docs');
+  // A form fix is never machinery (coordinator, 15 Oct 2026): the trailer wins over any files; a fix's proof counts with the fix; pool postings are "Pool data".
+  assert.equal(classify([f('desktop/e2e/record-sites.mjs', 90), f('tools/a.mjs', 50)], ['Fix\n\nPool-row: Chanel Workday']).category, 'forms');
+  assert.equal(classify([f('tools/a.mjs', 5)], ['Fix\n\nPool-row: Netguru (found 2026-10-10)']).category, 'forms');
+  assert.equal(classify([f('tools/a.mjs', 5)], ['Pool-row:']).category, 'ci');   // an empty trailer names no row
+  for (const proof of ['desktop/e2e/recorded/ashby/page.json', 'desktop/e2e/recorded-pending/x.json', 'desktop/e2e/ladder-fixtures/a.json']) assert.equal(categoryOfFile(proof), 'forms', proof);
+  assert.equal(categoryOfFile('desktop/e2e/smoke-sites.json'), 'pool');
+  assert.equal(classify([f('desktop/e2e/smoke-sites.json', 6)]).category, 'pool');
   assert.equal(categoryOfFile('desktop/e2e/record-sites.mjs'), 'replay');
   assert.equal(categoryOfFile('desktop/e2e/lib/extension.mjs'), 'ci');
   assert.equal(categoryOfFile('desktop/lib/ladder/moves.js'), 'forms');
