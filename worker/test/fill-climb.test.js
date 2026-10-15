@@ -2,6 +2,7 @@
 // named run with the extension's own primitives (a page verb in the page, a real click at the page's spot, the layer closer only when its own pick is the named button, once per page),
 // a refused repair or ask_person does nothing; without the test switch nothing new is asked (no model call added for a person); a late retype makes the page read again for the record.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {test} from 'node:test';
 import {runRepairs} from '../../extension/ladder/fill-repair.js';
 
@@ -51,7 +52,7 @@ test('at most 3 repairs per page', async () => {
   assert.equal(rows.length, 3);
 });
 
-test('without the test switch the climb asks nothing new; a late retype makes the page read again', async () => {
+test('with repair switched off the climb asks nothing new; a late retype makes the page read again', async () => {
   const {climbFill} = await import('../../extension/ladder/fill-climb.js');
   const asked = [], scripts = [];
   const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
@@ -62,11 +63,22 @@ test('without the test switch the climb asks nothing new; a late retype makes th
     runtime: {getManifest: () => ({version: '0'})}};
   globalThis.fetch = async (url, init) => { asked.push([String(url), JSON.parse(init?.body || '{}')]); return {ok: true, status: 200, json: async () => ({}), text: async () => '{}'}; };
   try {
-    assert.equal(await climbFill({id: 7, url: 'https://apply.example/a'}, {workerUrl: 'http://127.0.0.1:47111', token: 't'}), null, 'nothing changed: the first read stands');
-    assert.equal(asked.filter(([url]) => /account-judge/.test(url)).length, 0, 'no switch: no fill check, no repair asked');
+    assert.equal(await climbFill({id: 7, url: 'https://apply.example/a'}, {workerUrl: 'http://127.0.0.1:47111', token: 't', repairAct: false}), null, 'nothing changed: the first read stands');
+    assert.equal(asked.filter(([url]) => /account-judge/.test(url)).length, 0, 'switched off: no fill check, no repair asked');
     retyped = 2;
-    const again = await climbFill({id: 7, url: 'https://apply.example/a'}, {workerUrl: 'http://127.0.0.1:47111', token: 't'});
+    const again = await climbFill({id: 7, url: 'https://apply.example/a'}, {workerUrl: 'http://127.0.0.1:47111', token: 't', repairAct: false});
     assert.deepEqual(JSON.parse(JSON.stringify(again)), {readBack: [{field: 'first', type: 'text', state: 'committed'}]}, 'a box typed again after the first read: the record takes the second read');
     await new Promise(resolve => setTimeout(resolve, 50));   // the climb's log lines are not awaited: let them finish on the stubs
   } finally { Object.assign(globalThis, keep); }
+});
+
+test('repair acts for every user by default: no storage key at all means on, only repairAct false means off, the harness switch changes nothing', async () => {
+  const {repairActs} = await import('../../extension/ladder/acts.js');
+  assert.equal(repairActs({}), true, 'the product default is on');
+  assert.equal(repairActs(null), true);
+  assert.equal(repairActs({ladderAct: true}), true);
+  assert.equal(repairActs({repairAct: false}), false, 'the kill switch');
+  assert.equal(repairActs({repairAct: true}), true);
+  const climb = fs.readFileSync(new URL('../../extension/ladder/fill-climb.js', import.meta.url), 'utf8');
+  assert.match(climb, /repairActs\(config\) \? await repairPage/, 'fill-climb asks the one switch, not ladderAct');
 });
