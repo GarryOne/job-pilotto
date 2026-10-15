@@ -362,3 +362,18 @@ test('a posting page reports no counts and no ready, and the form page\'s own ad
   assert.deepEqual([state.page, state.total, state.left, state.ready, state.filled], ['opening', 0, 0, false, []]);   // a posting is never Ready, never counts
   assert.equal(state.formUrl, 'https://career74.example.test/apply', 'the form address survives the posting visit');
 });
+
+// Owner, 15 Oct 2026: "when we're redirected, this should disappear already and show the state on the new form".
+test('posting then its form: the redirect state is gone at once and the form\'s own counts show, nothing of the posting carried over', () => {
+  review._reset();
+  const job = {id: 'r1', url: 'https://careers.example.test/job/1', company: 'Adnovum', status: 'input'};
+  const page = (url, tab, extra = {}) => ({url, title: 'Apply', tab, session: 'r1', total: 0, left: 0, ...extra});
+  review.report([job], page('https://careers.example.test/job/1#jobpilotto-fill=r1', 10, {total: 1, left: 0, page: 'opening', filled: ['Email'], needs: 'x'}));
+  assert.equal(review.allStates().find(state => state.id === 'r1').page, 'opening');
+  review.report([job], page('https://career74.example.test/apply#jobpilotto-fill=r1', 11, {total: 6, left: 4, filled: ['First name', 'Last name'], missing: ['Phone']}));   // the form, in a new tab
+  const state = review.allStates().find(entry => entry.id === 'r1');
+  assert.deepEqual([state.page, state.total, state.left, state.ready], [undefined, 6, 4, false]);
+  assert.deepEqual(state.filled.map(item => item.label), ['First name', 'Last name'], 'the posting\'s own fill is not carried over');
+  assert.equal(state.url, 'https://career74.example.test/apply');
+  assert.equal(review.tabOf('r1'), 11);
+});
