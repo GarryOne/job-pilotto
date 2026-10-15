@@ -9,7 +9,7 @@ import sys
 RUN = re.compile(r'(?<![\[/\w])run (\d{8,})\b(?![\]\w])')
 HEADINGS = [   # (what starts the block, its heading)
     (re.compile(r'^\|\s*Area\s*\|\s*Impact\b', re.I), '### 📊 Impact'),
-    (re.compile(r'^\|[^|]*\|\s*Before\s*\|\s*After\b', re.I), '### 🔍 Before → After'),
+    (re.compile(r'^\|[^|]*\|[^|]*\bBefore\s*\|[^|]*\bAfter\b', re.I), '### 🔍 Before → After'),   # also after style_before_after's emoji headers
     (re.compile(r'^- '), '### ✅ What changed'),
     (re.compile(r'^(\*\*Before\*\*|!\[|<img |\|\s*!\[)', re.I), '### 🖼️ Screens'),
 ]
@@ -20,8 +20,41 @@ def link_runs(line, repo):
     return RUN.sub(lambda m: f'[run {m.group(1)}](https://github.com/{repo}/actions/runs/{m.group(1)})', line) if repo else line
 
 
+BEFORE_AFTER = re.compile(r'^\|([^|]*)\|\s*Before\s*\|\s*After\s*\|\s*$', re.I)
+
+
+def cells(line):
+    return [cell.strip() for cell in line.strip().strip('|').split('|')]
+
+
+def style_before_after(lines):
+    """The Before/After table (owner, 15 Oct 2026: "make it more beautiful"): coloured headers, centred values, the label and a changed After in bold,
+    an unchanged After marked as such. Only a plain 3-column table is restyled; anything else is left as written."""
+    out, at = [], 0
+    while at < len(lines):
+        line = lines[at]
+        if BEFORE_AFTER.match(line) and at + 1 < len(lines) and re.match(r'^\|[\s:|-]+\|$', lines[at + 1].strip()):
+            label = cells(line)[0] or 'What'
+            out += [f'| 📏 {label} | 🔴 Before | 🟢 After |', '|:---|:---:|:---:|']
+            at += 2
+            while at < len(lines) and lines[at].startswith('|'):
+                row = cells(lines[at])
+                if len(row) != 3:
+                    out.append(lines[at])
+                else:
+                    name, before, after = row
+                    name = name if not name or name.startswith('**') else f'**{name}**'
+                    after = f'↔ {after} <sub>(unchanged)</sub>' if after == before else (after if after.startswith('**') or not after else f'**{after}**')
+                    out.append(f'| {name} | {before} | {after} |')
+                at += 1
+            continue
+        out.append(line)
+        at += 1
+    return out
+
+
 def lay_out(text, repo=''):
-    lines = text.rstrip('\n').split('\n')
+    lines = style_before_after(text.rstrip('\n').split('\n'))
     if any(line.startswith('### ') or line.startswith('## ') for line in lines[1:]):
         return '\n'.join(link_runs(line, repo) for line in lines) + '\n'   # the author laid it out already: links only
     out, used, note, first = [], set(), [], True
@@ -47,7 +80,7 @@ def lay_out(text, repo=''):
                 used.add(heading)
                 if out and out[-1].strip():
                     out.append('')
-                out += [heading, '']
+                out += ['---', '', heading, '']   # a rule between sections (owner, 15 Oct 2026); the blank line above keeps it a rule, never a setext heading
                 break
         out.append(line)
     if note:

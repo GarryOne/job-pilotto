@@ -131,6 +131,12 @@ class PrBodyTest(unittest.TestCase):
             self.assertEqual(text.count(heading), 1, heading)
         self.assertLess(text.index('### 📊 Impact'), text.index('### ✅ What changed'))
         self.assertIn('<sub>📷 No screenshots: CI tooling only.</sub>', text)
+        # Owner, 15 Oct 2026: "make the before/after table more beautiful"; "add horizontal lines between sections".
+        self.assertIn('| 📏 What | 🔴 Before | 🟢 After |\n|:---|:---:|:---:|\n| **a** | 1 | **2** |', text)
+        for heading in ('### 📊 Impact', '### ✅ What changed', '### 🔍 Before → After'):
+            self.assertIn('\n\n---\n\n' + heading, text, 'a rule above ' + heading)
+        same = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), ''], input='X\n\n| | Before | After |\n|---|---|---|\n| b | 3 | 3 |\n', capture_output=True, text=True).stdout
+        self.assertIn('| **b** | 3 | ↔ 3 <sub>(unchanged)</sub> |', same)
         self.assertIn('\nlive-row: Personio form in German\n', text, 'a line the CI reads stays as written')
         self.assertLess(text.index('\n---\n'), text.index('<details>'), 'a rule above the folded commit message')
         linked = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), 'owner/repo'], input='## X\n\n### Y\n\nsee run 38756824411 and [run 38756824411](u)\n', capture_output=True, text=True).stdout

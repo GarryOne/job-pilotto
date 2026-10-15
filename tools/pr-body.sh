@@ -39,7 +39,7 @@ fact() {   # emoji, label, trailer key
 }
 fact '🎯' 'Pool row' Pool-row; fact '🪜' 'Rung' Rung; fact '🧪' 'Fixture' Fixture; fact '🔧' 'Fix of' Fix-commit; fact '📌' 'Pins' Recorded-pins
 fact '📼' 'No recorded page' Recorded-unneeded; fact '🐞' 'E2E issue' E2E-issue
-if [ -n "$facts" ]; then printf '\n### 🧾 Facts\n\n| | |\n|---|---|\n%s\n' "$facts"; fi
+if [ -n "$facts" ]; then printf '\n---\n\n### 🧾 Facts\n\n| | |\n|---|---|\n%s\n' "$facts"; fi
 printf '\n---\n\n'
 count="$(git rev-list --count "$base"..HEAD)"
 printf '<details><summary>📄 The commit message%s</summary>\n\n' "$([ "$count" -gt 1 ] && echo "s ($count)")"
