@@ -124,3 +124,23 @@ test('every pool row is listed: a row with no record says "Record", an off repla
   assert.equal(kept.m.deferred, null, 'a reason with an address never lands');
   assert.equal(kept.n.recording, null, 'only mac or ci');
 });
+
+test('a replay measured on answers older than the prompt never replaces good numbers: the earlier record stays, labelled; with none, the stale one is stored, labelled', async () => {
+  const db = d1(), badNumbers = {...good, hit: 0, extra: 3};
+  assert.equal(cleanRecord(row('a', good, {answersStale: true})).answersStale, true);
+  assert.equal('answersStale' in cleanRecord(row('a', good)), false);
+  await put(db, {rows: [row('a', good, {gateSame: true})]});
+  const answer = await put(db, {rows: [row('a', badNumbers, {answersStale: true}), row('b', badNumbers, {answersStale: true})]});
+  assert.equal((await answer.json()).stored, 2);
+  const kept = await readFidelity(db), a = kept.find(item => item.name === 'a'), b = kept.find(item => item.name === 'b');
+  assert.equal(a.network.hit, good.hit, 'row a keeps its good numbers');
+  assert.equal(a.refillPending, true, 'and says a newer replay waits');
+  assert.equal(a.answersStale, undefined);
+  assert.equal(b.answersStale, true, 'row b had nothing earlier: the stale numbers are stored, labelled');
+  const f = fidelity(kept);
+  assert.equal(f.summary.awaitingRefill, 2);
+  assert.equal(f.summary.network, 1, 'a counts (its numbers are the good ones), b does not');
+  assert.match(FIDELITY_SCRIPT, /waiting for the refill/);
+  await put(db, {rows: [row('a', good, {at: '2026-10-15T20:00:00Z'})]});
+  assert.equal((await readFidelity(db)).find(item => item.name === 'a').refillPending, undefined, 'a fresh replay replaces it, label gone');
+});

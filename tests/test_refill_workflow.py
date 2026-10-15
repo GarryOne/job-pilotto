@@ -27,7 +27,7 @@ class TheRefillWorkflow(unittest.TestCase):
     def test_it_starts_by_hand_or_on_a_push_to_main_never_from_a_pull_request(self):
         on = CODE.split('\npermissions:')[0]
         self.assertIn('workflow_dispatch:', on)
-        self.assertRegex(on, r"(?ms)^  push:\n    branches: \[main\]\n    paths: \['desktop/e2e/ladder-baseline.json'\]", 'a push to main, only when the ladder baseline changed (owner, 15 Oct 2026)')
+        self.assertRegex(on, r"(?ms)^  push:\n    branches: \[main\]\n    paths: \['desktop/e2e/ladder-baseline.json'", 'a push to main, only when the ladder baseline or a file that builds an ask changed (owner, 15 Oct 2026; the list is guarded by refill.test.mjs)')
         self.assertNotRegex(on, r'(?m)^  (schedule|pull_request|pull_request_target):', 'no PR-started workflow may reach an AI key (pool-ci-triggers.test.mjs)')
         self.assertNotIn('github.event.pull_request', CODE)
 
@@ -71,7 +71,15 @@ class TheRefillWorkflow(unittest.TestCase):
 
     def test_it_never_posts_a_replay_accept_and_lists_no_pull_request_paths(self):
         self.assertNotIn('Replay-accept:', CODE)
-        self.assertEqual(len(re.findall(r'(?m)^    paths:', CODE)), 1, 'the one paths filter is the push to main on the ladder baseline, never a pull request')
+        self.assertEqual(len(re.findall(r'(?m)^    paths:', CODE)), 1, 'the one paths filter is the push to main on the ask-building files, never a pull request')
+
+    def test_a_replay_check_waits_for_a_refill_in_progress(self):
+        replays = (ROOT / '.github' / 'workflows' / 'site-replays.yml').read_text()
+        wait = replays.split('\n  refill-wait:')[1].split('\n  bundles:')[0]
+        self.assertIn('POOL_WAIT_WORKFLOWS: replay-refill.yml', wait)
+        self.assertIn('pool-ci-wait.mjs', wait)
+        self.assertIn('continue-on-error: true', wait, 'after the cap it replays anyway: the upload is labelled stale, never no replay at all')
+        self.assertRegex(replays, r"(?m)^  bundles:\n(?:    .*\n)*?    needs: \[check, refill-wait\]", 'the release is read only after the wait')
 
 
 if __name__ == '__main__':
