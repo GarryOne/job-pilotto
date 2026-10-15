@@ -17,11 +17,14 @@ export const CATEGORIES = [
 export const CATEGORY_IDS = CATEGORIES.map(category => category.id);
 
 const is = pattern => path => pattern.test(path);
+// The code that reads or answers a form (coordinator, 15 Oct 2026): a Pool-row trailer makes a PR a form fix only together with a change here, and then the recorded pages count with the fix.
+export const isFillCode = path => /^(extension|desktop\/lib\/ladder|desktop\/lib\/ai)\//.test(path) || /^worker\/src\/(answer-[^/]*|cv-facts|ai)\.js$/.test(path);
+const isProof = path => /^desktop\/e2e\/(recorded|recorded-pending)\//.test(path) || path === 'desktop/e2e/recorded-case-map.json';
 export const isTest = path => /(^|\/)(tests?|__tests__)\/|\.test\.[cm]?[jt]s$|(^|\/)test_[^/]*\.py$/.test(path);
 // First match wins; the order is the precedence (a replay file under desktop/e2e is "replay", not harness).
 const RULES = [
   [is(/^(extension|desktop\/lib\/ladder|desktop\/e2e\/ladder[^/]*)\//), 'forms'],
-  [is(/^desktop\/e2e\/(ladder-[^/]*|pool-fixes\.json|recorded(-pending)?\/.*|recorded-case-map\.json)$/), 'forms'],   // a fix's proof counts with the fix
+  [is(/^desktop\/e2e\/(ladder-[^/]*|pool-fixes\.json)$/), 'forms'],
   [is(/^desktop\/e2e\/smoke-sites\.json$/), 'pool'],
   [is(/^desktop\/e2e\/(recorded|recorded-[^/]*|record[^/]*|replay[^/]*|net-[^/]*|guard[^/]*|pool-[^/]*|fidelity[^/]*)(\/|$)/), 'replay'],
   [is(/^\.github\/workflows\/(record-sites|site-replays[^/]*|page-cases|pool-[^/]*)\.yml$/), 'replay'],
@@ -48,21 +51,22 @@ export function categoryOfFile(path) {
 }
 
 // files [{path, additions, deletions}], trailers: the messages of the PR's commits -> {category, lines, tests, mixed}.
-// Lines of non-test files decide; a PR with only tests is "tests". A Pool-row trailer makes ANY PR a form fix (owner/coordinator, 15 Oct 2026: a form fix is never machinery).
+// Lines of non-test files decide; a PR with only tests is "tests". A Pool-row trailer makes a PR a form fix only when it also changes fill code (isFillCode); then recorded pages count with the fix.
 // No category holding half of the changed lines -> "mixed", said as such.
 export function classify(files = [], messages = []) {
   const by = {};
   let tests = 0;
+  const fill = files.some(file => !isTest(file.path) && isFillCode(file.path));
   for (const file of files) {
     const lines = (file.additions || 0) + (file.deletions || 0);
     if (isTest(file.path)) { tests += lines; continue; }
-    const id = categoryOfFile(file.path) || 'mixed';
+    const id = fill && isProof(file.path) ? 'forms' : categoryOfFile(file.path) || 'mixed';
     by[id] = (by[id] || 0) + lines;
   }
   const total = Object.values(by).reduce((a, b) => a + b, 0);
   const lines = total + tests;
   // Which row is real is the commit hook's check (tools/commit-trailers.mjs); a trailer with a name is enough here.
-  if (messages.some(message => /^Pool-row:[ \t]*\S/m.test(message))) return {category: 'forms', lines, tests, mixed: false};
+  if (fill && messages.some(message => /^Pool-row:[ \t]*\S/m.test(message))) return {category: 'forms', lines, tests, mixed: false};
   if (!total) return {category: files.length ? 'tests' : 'mixed', lines, tests, mixed: false};
   const [top, topLines] = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
   if (topLines * 2 < total) return {category: 'mixed', lines, tests, mixed: true};
