@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
 import {renderSteps} from './session-steps.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
-import {checkingTabs, chromeSilent, tabClosed, tabNotFound} from '../session-state.js';
+import {checkingTabs, chromeSilent, chromeWaiting, tabClosed, tabNotFound} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
 import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js'; import {markKnockout} from './need-knockout.js';
@@ -81,6 +81,8 @@ export const checkingTab = item => checkingTabs(item, shared.formsOpen, performa
 export const tabLost = item => tabNotFound(item, shared.formsOpen, performance.now());
 // Chrome hasn't reported in time: nobody can say whether the session's tab is there.
 export const silentChrome = item => chromeSilent(item, shared.formsOpen, performance.now());
+// Chrome has not reported yet, but the app only just started: a neutral wait, not the warning.
+export const waitingChrome = item => chromeWaiting(item, shared.formsOpen, performance.now());
 export const formGone = item => tabClosed(item, shared.formsOpen, !!reviewStates.get(item.id)?.total);
 // What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
 // pill's tooltip — the rows themselves say which is which.

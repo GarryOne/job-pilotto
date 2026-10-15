@@ -9,7 +9,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted, tabAddress} from '../session-state.js';
-import {checkingTab, tabLost, formGone, formReady, reviewStates, silentChrome} from './session-needs.js';
+import {checkingTab, tabLost, formGone, formReady, reviewStates, silentChrome, waitingChrome} from './session-needs.js';
 import {nudgeMissingDetails} from './contact-proposals.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
@@ -39,7 +39,7 @@ function clearHeader() {
   $('ss-more').replaceChildren();
 }
 // A form session whose Chrome tab was closed is not "Form open" any more (the tab report says so within seconds).
-const stateOf = item => (checkingTab(item) ? ['Checking…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : tabLost(item) ? ['Tab not found', 'warn'] : formGone(item) ? ['Form closed', 'neutral'] : sessionState(item));
+const stateOf = item => (checkingTab(item) ? ['Checking…', 'neutral'] : waitingChrome(item) ? ['Waiting for Chrome…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : tabLost(item) ? ['Tab not found', 'warn'] : formGone(item) ? ['Form closed', 'neutral'] : sessionState(item));
 export function renderSessionPage() {
   // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
   // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
@@ -99,7 +99,7 @@ export function renderSessionPage() {
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(tab.url); });
     const opened = tab.tabAt ? new Date(tab.tabAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
     // Unknown while Chrome is checked or silent: its last address, never "open for" a tab nobody can see (owner, 8 Oct 2026).
-    const unknown = checkingTab(item) || silentChrome(item) || tabLost(item);
+    const unknown = checkingTab(item) || waitingChrome(item) || silentChrome(item) || tabLost(item);
     line.append(formGone(item) ? 'Chrome tab (closed): ' : unknown ? 'Chrome tab (last seen): ' : 'Chrome tab: ', link);
     if (opened) line.append(` · opened ${opened}`);
     if (opened && !formGone(item) && !unknown) line.append(ticking(el('span'), ' · open for ', new Date(tab.tabAt).toISOString()));

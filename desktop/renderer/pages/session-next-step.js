@@ -9,11 +9,12 @@ import {accountProgress, asksYou, leftForYou, firstLine, isLive, isSubmitted, pa
 import {claudeHelp} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
 import {$, osText, show} from './core.js';
+import {shared} from './shared.js';
 import {initOptional, showOptional} from './session-optional.js';
 import {jobsChanged} from './jobs.js';
 import {richText} from './rich-text.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, tabLost, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, waitingChrome, tabLost, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 import {pauseSession, removeSession, resumeSession, skipSession} from './session-actions.js';
 import {storeName} from '../store-words.js';
@@ -74,16 +75,32 @@ function renderChecking() {
 }
 // Chrome hasn't reported (closed, or the extension isn't running): the card can't know the tab, so it says that, with the way
 // back (the extension's own page, which starts it reporting); it updates by itself once Chrome reports.
-function renderSilent() {
+const START_MS = 30 * 1000;   // as lib/chrome-launch-once.js: how long one press keeps the button on "Starting Chrome…"
+// The app only just started: Chrome has had no time to report, so a neutral wait with the same way back, no warning.
+function renderWaiting() {
+  renderChecking();
+  $('ss-next-title').textContent = 'Waiting for Chrome\u2026';
+  $('ss-question').replaceChildren(el('p', 'rich-p', 'The app just started. This card updates by itself once Chrome\'s Job Pilotto extension reports.'));
+  $('ss-actions').replaceChildren();   // nothing to press while it waits
+}
+function renderSilent(item) {
   renderChecking();
   $('ss-decision').className = 'ss-next tone-warn';
   $('ss-next-title').textContent = 'Chrome isn\'t reporting';
-  $('ss-question').replaceChildren(el('p', 'rich-p', 'Job Pilotto can\'t see this application\'s tab: Chrome is closed, or its Job Pilotto extension isn\'t running. Open Chrome and this card updates by itself.'));
-  $('ss-actions').replaceChildren(sessionButton('Open Chrome', 'primary', async event => {
+  const starting = Date.now() - shared.chromeStartedAt < START_MS;
+  const retried = shared.chromeStartedAt && !starting;   // pressed before, and Chrome still has not reported
+  $('ss-question').replaceChildren(el('p', 'rich-p', retried ? 'Chrome didn\'t report within 30 seconds. Check that Chrome is open with the Job Pilotto extension on, or try Open Chrome again.'
+    : 'Job Pilotto can\'t see this application\'s tab: Chrome is closed, or its Job Pilotto extension isn\'t running. Open Chrome and this card updates by itself.'));
+  const button = sessionButton(starting ? 'Starting Chrome\u2026' : 'Open Chrome', 'primary', async event => {
     const result = await opening(event.currentTarget, () => window.pilot.extensionOptions());
-    window.pilot.uiLog('sessions: Chrome not reporting, Open Chrome pressed', {opened: !!result?.opened});
-    if (!result?.opened) toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Job Pilotto extension reports.');
-  }, 'link'));
+    window.pilot.uiLog('sessions: Chrome not reporting, Open Chrome pressed', {opened: !!result?.opened, starting: !!result?.starting});
+    if (!result?.opened) { toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Job Pilotto extension reports.'); return; }
+    shared.chromeStartedAt = result.since || Date.now();
+    renderNextStep(item);
+    setTimeout(() => { if (silentChrome(item)) renderNextStep(item); }, START_MS + 100);   // offered again, with the reason
+  }, 'link');
+  if (starting) button.disabled = true;
+  $('ss-actions').replaceChildren(button);
 }
 // The first look is over and no tab is known for the session: it says so and offers the one way forward, the same reopen every closed-tab button uses.
 function renderLost(item) {
@@ -95,7 +112,8 @@ function renderLost(item) {
 }
 export function renderNextStep(item) {
   if (checkingTab(item)) { renderChecking(); return; }
-  if (silentChrome(item)) { renderSilent(); return; }
+  if (waitingChrome(item)) { renderWaiting(); return; }
+  if (silentChrome(item)) { renderSilent(item); return; }
   if (tabLost(item)) { renderLost(item); return; }
   const submitted = isSubmitted(item);
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
