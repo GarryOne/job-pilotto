@@ -324,7 +324,8 @@ export async function consider(tab, jobUrl) {
       else {
         noteNoEffect(key, label);   // pressed, nothing came: never pressed again on this page, and the AI's next look is told so (no-effect.js)
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
-        const chosen = await startRoute(key, {ask: async () => (lookAfterPress = await askKind(tab, {fresh: true})), press: async routePhrases => {
+        // A look that names the form frame is the way on: no route is pressed ahead of it (15 Oct 2026: a "here" link to a PDF went first, the frame it named was never opened).
+        const chosen = await startRoute(key, {ask: async () => { lookAfterPress = await askKind(tab, {fresh: true}); return Number.isInteger(lookAfterPress?.form_frame) && lookAfterPress.form_frame >= 0 && frameSrcOf(tab.id, lookAfterPress.form_frame) ? null : lookAfterPress; }, press: async routePhrases => {
           applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
           const next = await pressApply(tab.id, routePhrases, routePhrases[0]?.phrase || '', '', noEffectOf(key));
           if (!next.pressed) applyPressed.delete(tab.id);

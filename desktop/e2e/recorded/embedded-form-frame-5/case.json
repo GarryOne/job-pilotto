@@ -1,0 +1,89 @@
+{
+ "origin": "hand-cut",
+ "shape": "a posting whose application form frame is already on the page; its Apply does nothing and the fresh look after it names a plain link as the manual route AND the frame (form_frame)",
+ "why": "15 Oct 2026, a careers page with its form frame already loaded: Apply pressed, no form came, the fresh look named the frame (formFrame 0) and a \"here\" link as the manual route; the route press went first and opened a PDF. The frame the look names is opened before any route is pressed.",
+ "control": {
+  "build": "0.9.502",
+  "failed": "filled: #first_name"
+ },
+ "sample": "a careers page whose Apply button loads job-boards.greenhouse.io/embed/job_app into an iframe (structure recorded 14 Oct 2026; the frame address here has no query string or token)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/detail/2",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://careers.example.com/files/pay-zone-mapping.html",
+   "file": "pay.html"
+  },
+  {
+   "url": "https://job-boards.example-ats.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "byHost": {
+    "careers.example.com": [
+     {
+      "when": {
+       "fresh": true
+      },
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.7,
+       "rung": 2,
+       "signal": "confident",
+       "applyButton": "here",
+       "applyRoute": "manual",
+       "applyBy": "form",
+       "applyEmail": "",
+       "form_frame": 0
+      }
+     },
+     {
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.9,
+       "rung": 2,
+       "signal": "confident",
+       "applyButton": "Apply now",
+       "applyRoute": "",
+       "applyBy": "form",
+       "applyEmail": "",
+       "form_frame": 0
+      }
+     }
+    ],
+    "job-boards.example-ats.io": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.99,
+     "form_frame": -1
+    }
+   }
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "attached": [
+   "#resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}
