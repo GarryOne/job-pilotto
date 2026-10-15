@@ -83,3 +83,6 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
 - **Test accounts may sign in** (owner, 15 Oct 2026): Workday (per tenant) and SuccessFactors end every pool row at "account-first: held", so every step after sign-in
   (My Information, Experience, Questions, Self-identify, Review) was never tested. The owner makes the accounts by hand on a test inbox; tests sign in with those and nothing else
   (a real application account is never read), and the tripwire guards the test passwords too.
+- **Claude's takeover is off** (owner, 15 Oct 2026): reaching Claude (rung 6, "Let Claude finish this page", "Resume Claude", the 5-second countdown) is already a poor
+  experience; the app should be the interface between the person and Claude. Hidden behind one flag (code kept, to be enabled later); a stuck page offers a visible
+  "Report this form" instead, so the stuck shape reaches the fix loop.
