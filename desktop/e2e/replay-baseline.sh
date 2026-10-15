@@ -5,6 +5,9 @@ set -u
 dir="${1:?usage: replay-baseline.sh <dir>}"; mkdir -p "$dir"
 # Until 28 Oct 2026 (artifacts live 14 days): the runs of the workflow's old file name count too (replay-offline.yml until 14 Oct 2026). Guard: tests/test_site_replays_workflow.py.
 for base in $(for wf in site-replays.yml replay-offline.yml; do gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" --branch main --status success --limit 20 --json databaseId --jq '.[].databaseId'; done); do
-  if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$dir" >/dev/null 2>&1; then echo "baseline: run $base" >&2; echo "$dir/results.json"; exit 0; fi
+  # "replay-results-linux-<run>" since the scheduled replay moved to Linux (15 Oct 2026); the older "replay-results-<run>" (macOS-made) is the fallback until the first Linux run is green.
+  for name in "replay-results-linux-$base" "replay-results-$base"; do
+    if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "$name" --dir "$dir" >/dev/null 2>&1; then echo "baseline: run $base" >&2; echo "$dir/results.json"; exit 0; fi
+  done
 done
 echo "baseline: none yet" >&2; echo -
