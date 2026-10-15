@@ -21,3 +21,6 @@ export function keepFilled(recordDir, outDir) {
   fs.renameSync(tmp, file);
   return fresh;
 }
+
+// -> the old answers' keys that are missing or changed in `after` (a fill only adds: always [])
+export const oldKeysKept = (before, after) => Object.keys(before).filter(key => JSON.stringify(after[key]) !== JSON.stringify(before[key]));

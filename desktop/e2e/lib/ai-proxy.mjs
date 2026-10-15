@@ -21,7 +21,7 @@ export function failureFor(mode) {
 // kind / metered: the tally a paid call goes to and which API path is a model call (Anthropic: /messages; OpenAI: /responses, kind 'app-openai').
 // follow: the Claude proxy of the same suite, whose controls (canned answers, fault mode, delay) this one obeys, so a suite's stand-ins and faults work on an OpenAI
 // turn too (9 Oct 2026: the first OpenAI run let every stand-in pass through to the real model). shape 'openai': the Responses API, translated both ways.
-export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic.com', kind = 'app', metered = /\/messages(\?|$)/, shape = 'anthropic', follow = null} = {}) {
+export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic.com', kind = 'app', metered = /\/messages(\?|$)/, shape = 'anthropic', follow = null, maxCalls = 0} = {}) {   // maxCalls: the refill's per-row cap on paid calls (lib/refill.mjs): the next one is refused here, before Anthropic
   const stats = {calls: 0, delayMs, mode: 'pass', canned: 0, armed: 0, failed: 0};   // armed / failed: the runner's check that a step's fault fired (lib/faults.mjs)
   let canned = null;   // (request body as an object) -> the text a model would answer, or null to pass the call through to Anthropic
   const server = http.createServer(async (req, res) => {
@@ -62,6 +62,8 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
       res.end(kept.body);
       return;
     }
+    if (maxCalls && stats.paid >= maxCalls) { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: `proxy: the cap of ${maxCalls} paid calls is reached`}})); return; }
+    stats.paid = (stats.paid || 0) + 1;
     try {
       const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !['host', 'connection', 'content-length', 'accept-encoding'].includes(name)));
       const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body});

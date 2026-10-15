@@ -45,6 +45,10 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 | `desktop-change` | app bugs | kept |
 | ~~the live twin loop skill~~ | removed 14 Oct 2026 | — |
 
+## Refilling answers a prompt change made stale (15 Oct 2026)
+- A PR that changes what the app asks the AI turns pinned rows "ask changed" / "out of date" in the site replays gate. Refill them in CI, not on the Mac: run the workflow `CI · Replay refill (by hand)` (`gh workflow run replay-refill.yml -f pr=<n>`) or label the PR `refill`.
+- Its own key `REPLAY_REFILL_ANTHROPIC_KEY` (no fallback), a cap (40 asks, $3), the estimate first, the spend in the job summary and on /admin/ai-cost (`replay-refill`). Old answers are never changed. `npm run fill-memo` stays for one row on the Mac.
+
 <details><summary>Gaps being closed (14 Oct 2026) and where</summary>
 
 | Gap | Where |

@@ -25,7 +25,8 @@ export async function startOfflineApp({memo = '', ask = false, loose = '', missL
   if (api && !/^http:\/\/127\.0\.0\.1:\d+$/.test(String(api.url || ''))) throw new Error(`offline app: the AI proxy must be on this computer (http://127.0.0.1:<port>), not ${api.url}`);
   if (api && !api.key) throw new Error('offline app: the API path needs a key (the placeholder off CI)');
   if (api && api.key !== DUMMY_KEY && !isCi(parent)) throw new Error('offline app: a real API key is for CI only (lib/engine.mjs); a Mac uses the placeholder key against a canned proxy');
-  if (fill && (ask || api || isCi(parent))) throw new Error('offline app: fill is a memo-only replay on a Mac (the plan\'s claude -p), never with ask, an API key or on CI');
+  const refill = fill && isCi(parent) && parent.JP_REFILL_CI === '1';   // CI's refill workflow: the fill asks the API through the metering proxy, on its own key (lib/refill.mjs)
+  if (fill && (ask || (api && !refill) || (isCi(parent) && !refill) || (refill && !api))) throw new Error('offline app: fill is a memo-only replay on a Mac (the plan\'s claude -p), or on CI only through the refill workflow with its proxy; never with ask or another API key');
   if (!memo) { memo = path.join(dir, 'model-memo.json'); fs.mkdirSync(dir, {recursive: true}); }
   // The app imports the worker from desktop/shared/ (scripts/stage.mjs, run by npm start and npm test): a fresh worktree has none yet.
   if (!fs.existsSync(path.join(DESKTOP, 'shared', 'worker', 'extension.js'))) execFileSync(process.execPath, [path.join(DESKTOP, 'scripts', 'stage.mjs'), '--files-only'], {cwd: DESKTOP, stdio: 'ignore'});

@@ -19,10 +19,12 @@ import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
 import {shiftDate, zoneOf} from './lib/replay-date.mjs';
 import {keepFilled} from './lib/fill-memo.mjs';
+import {usage, apiErrors} from './lib/ai-meter.mjs';
+import {outOfCredits, creditsLine} from './lib/refill.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FILL = process.argv.includes('--fill-memo'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock] [--fill-memo]'); process.exit(2); }
-if (FILL && process.env.CI) { console.error('replay-net: --fill-memo asks the plan\'s claude -p: a Mac only, never CI'); process.exit(2); }
+if (FILL && process.env.CI && process.env.JP_REFILL_CI !== '1') { console.error('replay-net: --fill-memo asks the plan\'s claude -p: a Mac, or CI only through the refill workflow (lib/refill.mjs)'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
 if (zoneOf(record)) process.env.TZ = zoneOf(record);   // the live run's time zone for the whole browser, before it starts (lib/replay-date.mjs)
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
@@ -75,3 +77,10 @@ const summary = {looseHits: looseLines.length, looseParts: [...new Set(looseLine
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);
+// The refill's own spend, from the API's usage figures (lib/ai-meter.mjs): the workflow sums these files into the job summary and /admin/ai-cost.
+if (FILL && process.env.CI) {
+  const spent = usage().app, broke = outOfCredits(apiErrors());
+  fs.writeFileSync(path.join(out, 'refill-spend.json'), JSON.stringify({usd: spent.usd, calls: spent.calls, input: spent.input, output: spent.output, filled: filled.length, outOfCredits: broke}));
+  console.log(`replay-net: refill spent $${spent.usd.toFixed(4)} in ${spent.calls} call(s), ${filled.length} answer(s) filled`);
+  if (broke) { console.error(creditsLine); process.exitCode = 3; }
+}
