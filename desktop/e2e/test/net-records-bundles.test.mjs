@@ -131,13 +131,14 @@ esac
 `, {mode: 0o755});
   const key = fs.readFileSync(path.join(tmp, 'priv.pem')).toString('base64');
   const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only', CI: 'true'};
+  delete env.NET_RECORD_KEY;   // the bundles job has no key at all: UNSET, not empty (CI run 38757629268 died on set -u)
   return {tmp, calls, env, key, run: (args, extra = {}) => execFileSync('bash', [path.join(E2E, 'net-records-fetch.sh'), ...args], {env: {...env, ...extra}, stdio: ['ignore', 'pipe', 'pipe']})};
 };
 const ghCalls = file => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
 
 test('--bundles-only downloads the encrypted bundles once, needs no key and decrypts nothing', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
   const {tmp, calls, run} = shared(), dest = path.join(tmp, 'bundles');
-  run(['--bundles-only', dest], {NET_RECORD_KEY: ''});
+  run(['--bundles-only', dest]);
   assert.deepEqual(fs.readdirSync(dest).sort(), ['net-records.k.enc', 'net-records.tgz.enc'], 'the bundles as published, still encrypted');
   assert.equal(execFileSync('bash', ['-c', `find "${dest}" -name record.json | wc -l`]).toString().trim(), '0', 'no decrypted record is written');
   assert.equal((ghCalls(calls).match(/release download/g) || []).length, 1, 'one release download');
@@ -146,7 +147,7 @@ test('--bundles-only downloads the encrypted bundles once, needs no key and decr
 
 test('with NET_RECORDS_BUNDLES a replay job makes no gh call and still gets the records', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
   const {tmp, calls, key, run} = shared(), dest = path.join(tmp, 'bundles'), out = path.join(tmp, 'out');
-  run(['--bundles-only', dest], {NET_RECORD_KEY: ''});
+  run(['--bundles-only', dest]);
   fs.rmSync(calls);
   run([out], {NET_RECORD_KEY: key, NET_RECORDS_BUNDLES: dest});
   assert.deepEqual(newestPerRow(out, new Map()).map(row => row.name), ['row a']);
