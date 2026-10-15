@@ -2,21 +2,17 @@
 # network record (the Mac's on the release net-records, the by-hand pool runs' 14 days as net-records-<run>) replayed with main (replay-records.mjs: the site's own
 # scripts from the record, the AI only from the live run's kept answers, never a site, never a model call). replay-gate.mjs then compares each row with the last
 # green run (same recordings, same runner): only rows 100% same as live there count, and a counted row whose outcome fell is worse (after one retry). Red = a counted
-# row worse; that run never becomes the baseline. The rows run on 5 macOS runners at once (JP_REPLAY_SHARD, owner 14 Oct 2026: one runner took 25+ min), one gate job after them. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
+# row worse; that run never becomes the baseline. The rows run on 5 Linux runners at once (JP_REPLAY_SHARD, owner 14 Oct 2026: one runner took 25+ min), one gate job after them. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
 name: CI · Site replays · all (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
 # When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
-# GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min of macOS queue each).
+# GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min each).
 on:
   workflow_dispatch:
     inputs:
       scheduled:
         description: 'Started on time by the Worker cron'
-        type: boolean
-        default: false
-      linux:
-        description: 'Also replay on Linux (measurement, as the scheduled runs do)'
         type: boolean
         default: false
       test_worse:
@@ -78,8 +74,8 @@ jobs:
   replay:
     needs: check
     if: needs.check.outputs.go == '1'
-    runs-on: macos-latest   # the records are made on the owner's Mac (records-publish.mjs): the same fonts and scrollbar as the live page
-    timeout-minutes: 45   # a fifth of the rows each (5 runners: the free macOS cap); ~80-150 s a row
+    runs-on: ubuntu-24.04   # Linux (15 Oct 2026): the Mac-made rows come out the same as live here (the PR gate's pinned rows); macOS runners queued for hours
+    timeout-minutes: 45   # a fifth of the rows each; ~80-150 s a row
     strategy:
       fail-fast: false
       matrix:
@@ -98,7 +94,7 @@ jobs:
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
-          (cd desktop/e2e && npx playwright-core install chromium)
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
       - name: The pool's newest records (14 days), decrypted on the runner only
         working-directory: desktop/e2e
         env:
@@ -138,55 +134,8 @@ jobs:
             replay-out/late.md
           retention-days: 7
           if-no-files-found: ignore
-  replay-linux:
-    # Runner measurement (owner, 14 Oct 2026: spread CI over Linux too): the same rows replayed on Linux, per row "same as live" beside the macOS one in the gate's summary
-    # (replay-os-compare.mjs). Never gating, never judged against the baseline: a Linux failure changes nothing. Scheduled runs only (the Worker cron's too), or by hand with `linux`.
-    needs: check
-    if: needs.check.outputs.go == '1' && (github.event_name == 'schedule' || inputs.scheduled || inputs.linux)
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4]
-    env:
-      JOB_PILOTTO_HEAVY: '0'
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Install the app, the tests and the browser
-        run: |
-          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
-          pip install --quiet -r requirements.txt
-          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
-      - name: The pool's newest records (14 days), decrypted on the runner only
-        working-directory: desktop/e2e
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
-        run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
-      - name: Replay each row offline on Linux
-        working-directory: desktop/e2e
-        env:
-          JP_REPLAY_SHARD: ${{ matrix.shard }}/5
-        run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" > /dev/null
-      - name: This shard's rows (for the comparison; no record, no key)
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: replay-linux-${{ github.run_id }}-${{ matrix.shard }}
-          path: replay-out/step4/*.json
-          retention-days: 7
-          if-no-files-found: ignore
   prejudge:
-    # Which rows came out worse (the gate's first look, no accepts, no retry): only those are replayed again, on a Mac. Linux: the judge is pure Node, so the verdict does not wait for a macOS runner.
+    # Which rows came out worse (the gate's first look, no accepts, no retry): only those are replayed again. The judge is pure Node.
     needs: [check, replay]
     if: always() && needs.check.outputs.go == '1'
     runs-on: ubuntu-24.04
@@ -216,10 +165,10 @@ jobs:
           node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --pinned replay-faithful.json > /dev/null || true
           { echo "any=$([ -s "$out/results.json.worse" ] && echo 1 || echo 0)"; echo "worse<<EOF"; cat "$out/results.json.worse" 2>/dev/null || true; echo; echo EOF; } >> "$GITHUB_OUTPUT"
   retry:
-    # A worse row is replayed once more, on a macOS runner (the same kind as the baseline), only when there is one.
+    # A worse row is replayed once more (the same runner kind as the baseline), only when there is one.
     needs: [check, prejudge]
     if: always() && needs.check.outputs.go == '1' && needs.prejudge.outputs.any == '1'
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       JOB_PILOTTO_HEAVY: '0'
@@ -240,7 +189,7 @@ jobs:
           WORSE: ${{ needs.prejudge.outputs.worse }}
         run: |
           echo "retry: $(echo "$WORSE" | tr '\n' ',')"
-          (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install chromium
+          (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install --with-deps chromium
           bash "$GITHUB_WORKSPACE/.github/replay-records-fetch.sh"
           JP_REPLAY_ONLY="$WORSE" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/retry" > /dev/null
       - uses: actions/upload-artifact@v6
@@ -250,9 +199,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
   gate:
-    needs: [check, replay, prejudge, retry, replay-linux]
+    needs: [check, replay, prejudge, retry]
     if: always() && needs.check.outputs.go == '1'
-    runs-on: ubuntu-24.04   # the judge is pure Node (a macOS runner queued for 30 min); the retry replay is its own macOS job
+    runs-on: ubuntu-24.04   # the judge is pure Node (a macOS runner queued for 30 min); the retry replay is its own job
     timeout-minutes: 30
     env:
       JOB_PILOTTO_HEAVY: '0'
@@ -265,16 +214,11 @@ jobs:
         with:
           pattern: replay-shard-${{ github.run_id }}-*
           path: ${{ runner.temp }}/shards
-      - uses: actions/download-artifact@v7   # the macOS retry's rows, when a row came out worse
+      - uses: actions/download-artifact@v7   # the retry's rows, when a row came out worse
         continue-on-error: true
         with:
           name: replay-retry-${{ github.run_id }}
           path: replay-out/retry/step4
-      - uses: actions/download-artifact@v7   # the Linux measurement's rows (scheduled runs)
-        continue-on-error: true
-        with:
-          pattern: replay-linux-${{ github.run_id }}-*
-          path: ${{ runner.temp }}/linux
       - name: Compare with the last green run (the baseline)
         id: gate
         working-directory: desktop/e2e
@@ -290,13 +234,13 @@ jobs:
           echo "replay-offline: $(ls "$out/step4" | wc -l | tr -d ' ') rows from the shards"
           baseline=-   # the newest green run that kept results (one that stopped on "nothing changed" kept none)
           for base in $(for wf in site-replays.yml replay-offline.yml; do gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" --branch main --status success --limit 20 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId"; done); do   # replay-offline.yml: the old file name, read until 28 Oct 2026
-            if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
+            if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-linux-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
           done
-          [ "$baseline" = - ] && echo "baseline: none yet (this run becomes the first)"
+          [ "$baseline" = - ] && echo "baseline: none yet on Linux (the macOS-made baseline is not used: another runner kind): this run becomes the first" | tee -a "$GITHUB_STEP_SUMMARY"
           # the owner's accept: a PR merged since the baseline, labeled replay-accepted, with a "Replay-accept: <reason>" comment (replay-accepts.mjs)
           if [ -n "$TEST_ACCEPTS" ]; then printf '%s' "$TEST_ACCEPTS" > "$out/fake-prs.json"; export REPLAY_ACCEPTS_FAKE="$out/fake-prs.json"; fi
           node replay-accepts.mjs "$baseline" "$out/accepts.json"
-          retry=(); [ -n "$(ls "$out/retry/step4" 2>/dev/null)" ] && retry=(--retry "$out/retry/step4") && echo "retry: replayed again on a Mac"
+          retry=(); [ -n "$(ls "$out/retry/step4" 2>/dev/null)" ] && retry=(--retry "$out/retry/step4") && echo "retry: replayed again"
           set +e
           node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" "${retry[@]}" --accepts "$out/accepts.json" --pinned replay-faithful.json > "$out/gate.md"; code=$?
           set -e
@@ -304,9 +248,6 @@ jobs:
           # a pinned row that passed only on a retry 3+ times in 7 days (the dates ride in each row of results.json): named in the run, not left pinned on luck
           flaky=$(node -e 'const rows=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rows;console.log(Object.entries(rows).filter(([,row])=>(row.noiseAt||[]).length>=3).map(([name])=>name).join("; "))' "$out/results.json")
           [ -z "$flaky" ] || echo "::warning::flaky pinned rows (passed only on a retry 3+ times in 7 days): $flaky"
-          # the runner measurement (never gating): the same rows on Linux beside the Mac's
-          mkdir -p "$out/linux-step4"; for d in "$RUNNER_TEMP"/linux/*/; do cp "$d"*.json "$out/linux-step4/" 2>/dev/null || true; done
-          [ -n "$(ls "$out/linux-step4")" ] && node replay-os-compare.mjs "$out/step4" "$out/linux-step4" | tee -a "$GITHUB_STEP_SUMMARY" || true
           # the late-answer pass of each shard (late.md): a row that lost Claude's answers is red like a drop, and named in the alert
           : > "$out/late-lost.txt"; for d in "$RUNNER_TEMP"/shards/*/; do grep '^- ' "$d"late.md >> "$out/late-lost.txt" 2>/dev/null || true; done
           [ -s "$out/late-lost.txt" ] && { code=1; echo "### Late answers: rows that lost Claude's answers" | tee -a "$GITHUB_STEP_SUMMARY"; cat "$out/late-lost.txt" | tee -a "$GITHUB_STEP_SUMMARY"; }
@@ -315,7 +256,7 @@ jobs:
         if: always() && steps.gate.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
-          name: replay-results-${{ github.run_id }}
+          name: replay-results-linux-${{ github.run_id }}
           path: replay-out/results.json
           retention-days: 90
       - name: Send the rows to /admin/lab-form-filling "Replay vs live" (main only)

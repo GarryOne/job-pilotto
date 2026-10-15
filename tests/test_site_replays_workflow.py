@@ -23,7 +23,7 @@ class ReplayOfflineWorkflow(unittest.TestCase):
         self.assertIn('--status success', WORKFLOW)
         self.assertIn('node replay-gate.mjs', WORKFLOW)
         self.assertIn('--retry', WORKFLOW)
-        self.assertIn('name: replay-results-${{ github.run_id }}', WORKFLOW)
+        self.assertIn('name: replay-results-linux-${{ github.run_id }}', WORKFLOW)
         self.assertRegex(WORKFLOW, r"if: steps\.gate\.outputs\.red == '1'\n\s+run: .*exit 1")
 
     def test_only_main_publishes_and_alerts(self):
@@ -74,22 +74,20 @@ if __name__ == '__main__':
 
 
 class ReplayOfflineShards(unittest.TestCase):
-    """Owner, 14 Oct 2026 ("can we add more parallelization here? It runs for 25m already"): the rows go to 5 macOS runners at once, one gate after them."""
+    """Owner, 14 Oct 2026 ("can we add more parallelization here? It runs for 25m already"): the rows go to 5 runners at once, one gate after them."""
 
     def test_five_shards_then_one_gate_that_merges_them(self):
         self.assertRegex(WORKFLOW, r'matrix:\n\s+shard: \[0, 1, 2, 3, 4\]')
         self.assertIn('JP_REPLAY_SHARD: ${{ matrix.shard }}/5', WORKFLOW)
-        self.assertRegex(WORKFLOW, r'gate:\n\s+needs: \[check, replay, prejudge, retry, replay-linux\]\n\s+if: always\(\)')
+        self.assertRegex(WORKFLOW, r'gate:\n\s+needs: \[check, replay, prejudge, retry\]\n\s+if: always\(\)')
         self.assertIn('pattern: replay-shard-${{ github.run_id }}-*', WORKFLOW)
         self.assertIn('rows from the shards', WORKFLOW)
 
-    def test_the_verdict_runs_on_linux_only_the_retry_and_the_pool_replay_on_a_mac(self):
-        # owner, 14 Oct 2026 ("distribute the runners more evenly"): the judge is pure Node; the Linux shards only measure (never gating, scheduled runs only)
+    def test_every_job_runs_on_linux(self):
+        # owner, 15 Oct 2026: the shards and the retry moved from macOS (queued for hours) to Linux; the PR gate had replayed Mac-made rows there as same as live
         jobs = dict(re.findall(r'\n  ([\w-]+):\n(?:(?!\n  \w).)*?runs-on: ([\w.-]+)', WORKFLOW, re.S))
-        self.assertEqual({name: jobs[name] for name in ('check', 'replay', 'replay-linux', 'prejudge', 'retry', 'gate')},
-                         {'check': 'ubuntu-24.04', 'replay': 'macos-latest', 'replay-linux': 'ubuntu-24.04', 'prejudge': 'ubuntu-24.04', 'retry': 'macos-latest', 'gate': 'ubuntu-24.04'})
-        self.assertRegex(WORKFLOW, r'(?s)\n  replay-linux:(?:(?!\n  \w).)*?continue-on-error: true', 'a Linux failure never changes the verdict')
-        self.assertIn("github.event_name == 'schedule' || inputs.scheduled || inputs.linux", WORKFLOW)
+        self.assertEqual({name: jobs[name] for name in ('check', 'replay', 'prejudge', 'retry', 'gate')},
+                         {name: 'ubuntu-24.04' for name in ('check', 'replay', 'prejudge', 'retry', 'gate')})
 
     def test_each_row_keeps_what_the_extension_asked_the_ai(self):
         # 14 Oct 2026: coreweave misses its first ask on the runner only; ai-calls.json holds what the page sent (url, title, headings, text) to compare with the Mac.
