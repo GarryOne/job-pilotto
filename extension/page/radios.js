@@ -5,6 +5,9 @@
 //     another element). 9 Oct 2026, live: 9 required questions of a SuccessFactors form were only "question on the page not read".
 //   - pressable buttons: two or more button[aria-pressed] under one parent (Ashby's Yes/No, size pickers), the title in a label above; the same
 //     field "aria:<id>", found by structure and never by the words Yes/No (6 Oct 2026, OpenAI and Colonist: 3 required Ashby questions "not read").
+//   - plain buttons (a question step, 15 Oct 2026: Aldi's application start, a sentence, two buttons with no aria state and a "Continue" switched off until one is chosen): a group ONLY while a control waits
+//     for an answer (a visible disabled button), 2-4 enabled <button type=button> children of one parent, outside a form, dialog or toolbar. This is a FLOOR, by structure, never the words Yes/No: the
+//     same buttons with nothing waiting are not a field (a card's two buttons). An option shows no state: a press is taken as the answer only when a waiting control comes alive (its effect).
 // Injected before page/fill.js (extension/flow.js), which passes its helpers in. Never picks a legal option (LEGAL, the fill's own floor).
 // Shape test: desktop/test/page-radios.test.js.
 (() => {
@@ -26,13 +29,18 @@
     };
     const groupOf = key => document.getElementById(key) || document.querySelector(`[data-jobpilotto-group="${CSS.escape(key)}"]`);
     // The options of a group: its role=radio elements, else (a pressable-button group) its aria-pressed buttons.
-    const pressables = group => Array.from(group?.querySelectorAll('button[aria-pressed]') || []).filter(button => button.getAttribute('role') !== 'radio');
+    const pressables = group => (group?.dataset?.jobpilottoPlainGroup ? plainButtons(group)
+      : Array.from(group?.querySelectorAll('button[aria-pressed]') || []).filter(button => button.getAttribute('role') !== 'radio'));
+    const plainButtons = group => window.__jobPilottoChoiceStep.optionsOf(group);
     const radiosOf = group => {
       const radios = Array.from(group?.querySelectorAll('[role=radio]') || []).filter(radio => radio.tagName !== 'INPUT');
       return radios.length ? radios : pressables(group);
     };
     // An option reads as on by its own aria state, or by the native radio drawn inside it (a segment's aria-checked can lag behind or never be written).
-    const isOn = option => option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-pressed') === 'true' || !!option.querySelector?.('input[type=radio]:checked, input[type=checkbox]:checked');
+    const isOn = option => option.dataset?.jobpilottoChosen === '1' || option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-pressed') === 'true' || !!option.querySelector?.('input[type=radio]:checked, input[type=checkbox]:checked');
+    // A control that waits for an answer (page/choice-step.js). A plain option has no state of its own (no aria-pressed/checked/radio inside).
+    const waitingControls = () => window.__jobPilottoChoiceStep.waiting();
+    const plain = option => !option.hasAttribute('aria-pressed') && !option.hasAttribute('aria-checked') && !option.querySelector?.('input[type=radio], input[type=checkbox]');
     // Press an option the way a person does and re-read it after each step: what sits at its centre (the label or text the page listens on), then the
     // native input inside it, then the option itself. A segmented control's own element often has no handler: the state is set by what is inside it.
     const press = option => {
@@ -40,9 +48,11 @@
       if (box && box.width && box.height && (box.bottom < 0 || box.top > innerHeight)) option.scrollIntoView?.({block: 'center'});
       const centre = box && box.width && box.height ? (point => point && option.contains(point) ? point : null)(document.elementFromPoint?.(box.left + box.width / 2, box.top + box.height / 2)) : null;
       const steps = [centre && centre !== option ? centre : null, option.querySelector?.('input[type=radio], input[type=checkbox]'), option];
+      const waiting = plain(option) ? waitingControls() : [];   // a plain option shows no state of its own: its effect is what a person sees, the control that waited for an answer comes alive
       for (const target of steps) {
         if (!target) continue;
         (globalThis.__jobPilottoPress?.(target) || target.click());
+        if (waiting.length && waiting.some(control => !control.disabled && control.getAttribute('aria-disabled') !== 'true')) { option.dataset.jobpilottoChosen = '1'; return true; }
         if (isOn(option)) return true;
       }
       return isOn(option);
@@ -72,7 +82,14 @@
         if (button.getAttribute('role') === 'radio' || !button.parentElement || button.closest('[role=radiogroup], [role=toolbar]')) continue;
         parents.set(button.parentElement, [...(parents.get(button.parentElement) || []), button]);
       }
-      return [...parents].filter(([, buttons]) => buttons.length >= 2 && buttons.length <= 8 && buttons.every(visible) && buttons.every(button => clean(nameOf(button)))).map(([group]) => group);
+      const found = [...parents].filter(([, buttons]) => buttons.length >= 2 && buttons.length <= 8 && buttons.every(visible) && buttons.every(button => clean(nameOf(button)))).map(([group]) => group);
+      // A step that asks a question with plain buttons (page/choice-step.js: structure, only while a control waits for the answer).
+      for (const group of window.__jobPilottoChoiceStep.groups({isVisible: visible, named: button => clean(nameOf(button))})) {
+        if (found.includes(group)) continue;
+        group.dataset.jobpilottoPlainGroup = '1';
+        found.push(group);
+      }
+      return found;
     };
     // Every visible ARIA radio group, and pressable-button group, as a field (a group gets a key it keeps for the fill that follows).
     const ariaFields = () => [...document.querySelectorAll('[role=radiogroup]'), ...pressableGroups()].flatMap(group => {

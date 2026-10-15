@@ -19,7 +19,14 @@ export function pageShape(tabId) {
         .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean))],
       status: performance.getEntriesByType('navigation')[0]?.responseStatus || 0,   // the server's answer for this document (ladder/site-broken.js); 0 when unknown
     };
-  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+  }}).then(rows => rows?.[0]?.result || null).then(async shape => (shape ? {...shape, choices: await choiceGroups(tabId)} : shape)).catch(() => null);
+}
+// The question steps drawn with plain buttons (page/choice-step.js: structure only, while a control waits for the answer). The finder is injected when this page has not loaded it yet.
+async function choiceGroups(tabId) {
+  const look = () => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoChoiceStep?.groups().length}).then(rows => rows?.[0]?.result).catch(() => undefined);
+  let found = await look();
+  if (found == null) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page/choice-step.js']}).catch(() => {}); found = await look(); }   // null: executeScript gives no result for an undefined one
+  return Number(found) || 0;
 }
 // A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
