@@ -102,21 +102,18 @@ test('the legend is the table: every ending has a plain meaning and a pill colou
   assert.deepEqual([...WORST_FIRST].sort(), [...Object.keys(ENDING_MEANS)].sort(), 'a meaning for every ending, held too');
   for (const word of WORST_FIRST) assert.ok(RESOLUTION_SCRIPT.includes(`${word}: '`) , `${word} has a colour`);
   for (const reason of STUCK_REASONS) assert.ok(Object.hasOwn(CAUSES, reason), `the stuck reason ${reason} is a why word: one list with the extension`);
-  assert.match(RESOLUTION_SCRIPT, /rows\.filter\(item => item\.ending === endingPick\)/, 'a pill filters the rows');
-  assert.match(RESOLUTION_SCRIPT, /sortRows\('resolution', picked/, 'the table sorts through the page\'s helper');
+  assert.match(RESOLUTION_SCRIPT, /endingWordOf\(s\) === endingPick/, 'an ending filters the pool rows');
+  assert.match(RESOLUTION_SCRIPT, /onclick: \(\) => \{ endingPick = word; syncEnding\(\); poolRedraw\(\);/, 'a pill shows its rows in the pool table');
 });
 
-test('the Resolution table pages like the Pool table: 15 a page, page 2 has the next rows, a pill or a sort goes back to page 1', async () => {
-  const {RESOLUTION_PER, pageSlice} = await import('../src/applying-resolution-view.js');
-  const rows = Array.from({length: 40}, (_, i) => ({row: 'r' + i, ending: i % 4 === 0 ? 'ready' : 'told'}));
-  assert.equal(RESOLUTION_PER, 15, 'the Pool table\'s page size');
-  const second = pageSlice(rows, 1, RESOLUTION_PER);
-  assert.deepEqual([second.page, second.pages, second.from, second.shown[0].row, second.shown.at(-1).row], [1, 3, 15, 'r15', 'r29']);
-  assert.equal(pageSlice(rows, 2, RESOLUTION_PER).shown.length, 10, 'the last page holds the rest');
-  const ready = rows.filter(item => item.ending === 'ready');   // a filter leaves 10 rows: a page past the end is pulled back, never empty
-  assert.deepEqual([pageSlice(ready, 2, RESOLUTION_PER).page, pageSlice(ready, 2, RESOLUTION_PER).shown.length, pageSlice([], 5, RESOLUTION_PER).pages], [0, 10, 1]);
-  assert.match(RESOLUTION_SCRIPT, /endingPick = endingPick === word \? null : word; resolutionPage = 0;/, 'a pill starts again at page 1');
-  assert.match(RESOLUTION_SCRIPT, /\(\) => \{ resolutionPage = 0; redraw\(\); \}\)/, 'a sort starts again at page 1');
-  assert.match(RESOLUTION_SCRIPT, /pageSlice\(sortRows\('resolution', picked, GET\), resolutionPage, RESOLUTION_PER\)/, 'the filter, then the sort, then the page');
-  assert.match(RESOLUTION_SCRIPT, /'Showing ' \+ \(paged\.from \+ 1\)[^]*'← Previous'[^]*'Next →'/);
+// Owner, 15 Oct 2026: "Every pool row" (Resolution) went INTO the pool table. Nothing it showed is lost: each of its columns (Row, Platform, Ending, Where it stopped, Why, Last run, Since) is in the pool row.
+test('"Every pool row" is gone: its columns live in the pool table\'s Last result cell, and the endings are a chip filter of the pool', async () => {
+  const {PAGE} = await import('../src/applying.js');
+  assert.doesNotMatch(RESOLUTION_SCRIPT, /Every pool row|heads\('resolution'|resolutionPage/, 'no second table of the rows, no pager');
+  assert.match(RESOLUTION_SCRIPT, /const endingLine = s =>/);
+  for (const part of ["item.ending.replace('_', ' ')", 'CAUSES[item.cause]', "item.day + ' · CI'", "item.day + ' · Mac'", "actions/runs/' + item.run", 'item.since', 'SINCE[item.since]', 'ENDING_MEANS[item.ending]']) assert.ok(RESOLUTION_SCRIPT.includes(part), part + ' is in the row\'s ending line');   // ending, why, exact date + Mac/CI + run link, since + its meaning
+  assert.match(PAGE, /resultOf\(s\), endingLine\(s\), s\.running/, 'the pool row draws the ending line under its status');
+  assert.match(PAGE, /chipFilter\('Ending', \[\['', 'All'\], \.\.\.WORST_FIRST\.map/, 'the endings, with their counts, are a chip row of the pool filter bar');
+  assert.match(PAGE, /pick\('status', statusItems, 'Status', 'All statuses'\), endingChips/, 'next to Status');
+  assert.match(PAGE, /endingPick = null; chosen\.query = ''/, 'Clear resets it');
 });

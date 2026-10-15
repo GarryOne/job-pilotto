@@ -1,10 +1,10 @@
 // Guards /admin/lab-form-filling's page tabs (src/applying-pagetabs.js): every section of the page is drawn inside a tab's panel, never straight under the tiles,
-// one panel shows at a time, and the Fixed tab's #hash links still open the Fixes tab.
+// one panel shows at a time, and the old #hash links (#resolution, #pool, #needs-fix, #by-cause) open the tab that now holds their section.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PAGE} from '../src/applying.js';
 import {STATES, STATE_WORD, rowStatus} from '../src/applying-status.js';
-import {PAGE_TABS, FIX_HASHES, PAGETABS_CSS} from '../src/applying-pagetabs.js';
+import {PAGE_TABS, FIX_HASHES, HASH_TAB, PAGETABS_CSS} from '../src/applying-pagetabs.js';
 
 const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
   append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
@@ -36,8 +36,15 @@ test('every section of /admin/lab-form-filling sits in a tab panel; only the til
   assert.equal((PAGE.match(/\bapp\.append\(/g) || []).length, 3, 'only the hidden legend, the tiles and the tab bar are appended to #app');
 });
 
-test('one panel shows at a time; a #hash opens its tab, and the Fixed tab links open Fixes', async () => {
-  for (const [hash, want] of [['', 'resolution'], ['#pool', 'pool'], ['#replays', 'replays'], ['#coverage', 'coverage'], ...FIX_HASHES.map(fix => [fix, 'fixes']), ['#nope', 'resolution']]) {
+test('six tabs, each one question; the page opens on To fix', () => {
+  assert.deepEqual(PAGE_TABS.map(([, name]) => name), ['To fix', 'Fixed', 'Sites', 'Outcomes', 'Replays', 'Coverage']);
+});
+
+test('one panel shows at a time; a #hash opens its tab, and the old links open the tab that holds their section', async () => {
+  const cases = [['', 'tofix'], ['#fixed', 'fixed'], ['#sites', 'sites'], ['#outcomes', 'outcomes'], ['#replays', 'replays'], ['#coverage', 'coverage'], ['#nope', 'tofix'],
+    ...Object.entries(HASH_TAB), ...FIX_HASHES.map(hash => [hash, 'tofix'])];
+  assert.deepEqual([HASH_TAB['#resolution'], HASH_TAB['#pool']], ['outcomes', 'sites'], 'the old tab names still work');
+  for (const [hash, want] of cases) {
     const app = await render(hash), panels = app.children.filter(kid => kid.className === 'panel');
     assert.deepEqual(panels.map(panel => !panel.hidden), PAGE_TABS.map(([id]) => id === want), hash + ' shows ' + want);
     const nav = app.children.find(kid => kid.className === 'tabs pagetabs');
@@ -45,10 +52,17 @@ test('one panel shows at a time; a #hash opens its tab, and the Fixed tab links 
   }
 });
 
+// Each section sits in the tab the owner approved (15 Oct 2026), and nowhere else.
 test('each tab holds its sections', async () => {
   const app = await render(''), panels = Object.fromEntries(app.children.filter(kid => kid.className === 'panel').map((panel, at) => [PAGE_TABS[at][0], panel.text()]));
-  for (const [tab, words] of Object.entries({fixes: ['Needs a fix · where applying stops'], pool: ['By-hand runs · where each site got to', 'The AI ladder', 'The pool · every smoke site'],
-    replays: ['Page cases'], coverage: ['Next sites to add', 'Platform scorecard']})) for (const word of words) assert.ok(panels[tab].includes(word), word + ' is not in the ' + tab + ' tab');
+  const WHERE = {tofix: ['Needs a fix · where applying stops', 'By cause · what to fix first'], fixed: ['Fix verification', 'Page cases'], sites: ['The pool · every smoke site', 'The AI ladder'],
+    outcomes: ['Resolution · how each application ends', 'By-hand runs · where each site got to'], replays: ['Replay vs live'], coverage: ['Platform scorecard', 'Next sites to add']};
+  for (const [tab, words] of Object.entries(WHERE)) for (const word of words) {
+    if (word === 'Replay vs live') continue;   // drawn from the fidelity data; the stub has none
+    assert.ok(panels[tab].includes(word), word + ' is not in the ' + tab + ' tab');
+    for (const [other, text] of Object.entries(panels)) if (other !== tab) assert.ok(!text.includes(word), word + ' is also in the ' + other + ' tab');
+  }
+  for (const gone of ['Every pool row', 'How the weighted number is built']) assert.ok(!Object.values(panels).some(text => text.includes(gone)), gone + ' went into another table');
 });
 
 test('no block writes a missing part as the text "null" (a raw append() does; el() filters it)', async () => {
@@ -67,10 +81,10 @@ test('the page bar looks unlike the Fixes tab\'s folder tabs: an underline nav, 
 // Owner, 15 Oct 2026: "instead of this dropdown filter, let's make chip style filter". The class: every filter on the page. A short one (CHIP_MAX options
 // or fewer: verdict, status, flow, case result/rung/origin) is a row of chips through chipFilter; only a long list (platforms) stays a dropdown.
 test('the short filters are chips, one press picks and the all chip is on first; a long list stays a dropdown', async () => {
-  const app = await render('#pool');
+  const app = await render('#sites');
   const groups = walk(app).filter(node => node.className === 'pick chipset');
   const labels = groups.map(group => group.children[0].text());
-  for (const label of ['Flow', 'Status']) assert.ok(labels.includes(label), label + ' is chips: ' + labels.join(', '));
+  for (const label of ['Flow', 'Status', 'Ending']) assert.ok(labels.includes(label), label + ' is chips: ' + labels.join(', '));
   for (const group of groups) {
     const chips = group.children[1].children;
     assert.equal(chips[0].className, 'chip on', 'the all chip starts on');

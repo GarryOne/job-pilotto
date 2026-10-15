@@ -112,7 +112,7 @@ test('every table on the page gets its headers from the one sortable helper (own
 
 test('no colors legend: each status pill says its status and carries its meaning on hover (owner, 15 Oct 2026)', () => {
   assert.doesNotMatch(PAGE, /colorLegend|el\('h3', \{textContent: 'What the colors mean'\}\)/);
-  assert.match(PAGE, /filters, table\)/);
+  assert.match(PAGE, /\[filters, table\]/);
   assert.match(PAGE, /title: \(s\.status\.rule \? s\.status\.rule \+ ': ' : ''\) \+ \(MEANS\[s\.status\.state\] \|\| ''\)/);
   for (const state of ['works', 'held', 'site', 'fix', 'unrun']) assert.match(PAGE, new RegExp('const MEANS = \\{.*\\b' + state + ': \''), state + ' has a meaning');
 });
@@ -225,7 +225,7 @@ test('the pool search is an input of the filter bar, resets the page, is combine
   assert.match(PAGE, /oninput: event => \{ chosen\.query = event\.target\.value; chosen\.page = 0; draw\(\); \}/);
   assert.match(PAGE, /\(!c\.flow \|\| s\.flow === c\.flow\) && poolMatches\(s, c\.query\)/);
   assert.match(PAGE, /chosen\.query = ''; chosen\.page = 0;[\s\S]{0,160}search\.value = ''/);                    // Clear
-  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.status && !chosen\.query/);
+  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.status && !endingPick && !chosen\.query/);
   assert.match(PAGE, /\.pick input\[type=search\]/);
 });
 

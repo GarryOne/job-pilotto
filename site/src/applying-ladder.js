@@ -22,7 +22,7 @@ export const LADDER_SCRIPT = `
   const rungParts = n => rungSplit.byRung[n] || {fine: 0, held: 0, failed: 0, count: 0}, rungPct = k => Math.round(100 * k / rungSplit.total);
   const rungCounts = n => SPLIT_KINDS.map(kind => rungParts(n)[kind.key] + ' ' + kind.word).join(', ');
   const price = p => (p ? '$' + p.input + ' / $' + p.output + ' per M tokens' : '');
-  panels.pool.append(el('section', {className: 'ladder'}, el('h2', {textContent: 'The AI ladder · which rung decides a page'}),
+  panels.sites.append(el('section', {className: 'ladder'}, el('h2', {textContent: 'The AI ladder · which rung decides a page'}),
     el('p', {className: 'muted', textContent: 'A page climbs from the bottom: the free rungs first, the person last. A rung that is unsure or contradicted hands the page to the next; a rung never guesses.' + (lastRung.length ? ' The bar is where the pool\\'s sites stopped on their last run (the rung that handed on or ended it), not a count of every decision.' : '')}),
     el('div', {className: 'steps'}, ...LADDER.rungs.map(rung => el('div', {className: 'step'}, el('span', {className: 'n', textContent: rung.n}),
       el('div', {}, el('div', {className: 'what', textContent: rung.name}),

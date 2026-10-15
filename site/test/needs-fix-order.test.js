@@ -48,7 +48,7 @@ async function pageOrder(json, names) {
   const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
   new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => json}), () => ({}), {escape: x => x}, () => 0, Object);
   await new Promise(resolve => setTimeout(resolve, 20));
-  const text = app.text(), section = text.slice(text.indexOf('Needs a fix · where applying stops'), text.indexOf('By-hand runs'));
+  const text = app.text(), section = text.slice(text.indexOf('Needs a fix · where applying stops'), text.indexOf('By cause · what to fix first'));
   return names.map(name => [name, section.indexOf(name)]).filter(([, at]) => at >= 0).sort((a, b) => a[1] - b[1]).map(([name]) => name);
 }
 
