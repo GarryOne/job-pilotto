@@ -21,6 +21,7 @@ async function panel(html, onSend = async () => ({})) {
   const sent = [];
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : onSend(message); }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
+  window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');   // judged a form by the fill flow (extension/page-mark.js): only then may the panel count or say Ready
   evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 60));
   const root = () => window.document.getElementById('jobpilotto-review-host')?.shadowRoot;
