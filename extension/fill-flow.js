@@ -24,7 +24,7 @@ import {isStopped} from './stop-state.js';
 import {pageStill} from './page-still.js';
 import {STILL_MS, readWhileDrawing} from './ladder/still-drawing.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
-import {pageKey, pageRole} from './tab-pages.js';
+import {formCame, pageKey, pageRole} from './tab-pages.js';
 import {applyPhrases, pressApply, wouldPress} from './apply-press.js';
 import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
@@ -120,7 +120,7 @@ export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills
 export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas && !counts.choices;
 // After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
 // whole decision again). null when neither happens in time.
-async function formAfterPress(tabId, url, ms = 8000) {
+async function formAfterPress(tabId, url, ms = 8000, before = null) {   // before: the page's shape before the press (tab-pages.js formCame)
   const end = Date.now() + ms;
   while (Date.now() < end) {
     await pageStill(tabId, {maxMs: 1000});   // the press's result as soon as the page stops changing (page-still.js), at most the old second
@@ -128,7 +128,7 @@ async function formAfterPress(tabId, url, ms = 8000) {
     if (!live) return 'navigated';   // closed: Apply's new tab is the application now (same-tab.js), not a page with "no form"
     if (pageKey(live.url) !== pageKey(url)) return 'navigated';
     const counts = await pageShape(tabId);
-    if (counts && pageRole(counts, live.url) === 'form') return counts;
+    if (counts && formCame(before, counts, live.url)) return counts;   // not the controls the page already had (a search or alert form beside Apply)
   }
   return null;
 }
@@ -146,9 +146,10 @@ useReporter(stuck);   // the only way to it: every give-up goes through ladder/d
 const actOnMove = async (tab, move) => {
   const key = fillKey(tab.id, tab.url);
   applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
+  const before = await pageShape(tab.id);   // the controls the page had before this press: not a form the press brought
   const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: move.named}], move.named, '', noEffectOf(key));
   if (!attempt.pressed) { applyPressed.delete(tab.id); return {}; }
-  const after = await formAfterPress(tab.id, tab.url);
+  const after = await formAfterPress(tab.id, tab.url, 8000, before);
   if (after === 'navigated') { const live = await chrome.tabs.get(tab.id).catch(() => null); const counts = live ? await pageShape(tab.id) : null; return {navigated: true, fields: (counts?.fields || 0) + (counts?.textareas || 0)}; }
   return after ? {form: true} : {};
 };
@@ -321,7 +322,7 @@ export async function consider(tab, jobUrl) {
     if (label) {
       pressed = true;
       decide('fill', 'pressed the Apply button', {host, label, tag: attempt.tag, aimed: attempt.aimed, sameTab: attempt.same});   // sameTab: a link/form aimed at a new tab, pointed at this one
-      const after = await formAfterPress(tab.id, tab.url);
+      const after = await formAfterPress(tab.id, tab.url, 8000, counts);
       decide('fill', `after the press: ${after === 'navigated' ? 'the page moved' : after ? 'a form came' : 'no form came'}`, {host, label, ...(after ? {} : await clickTrace(tab.id))});   // what the press did (Aldi, 10 Oct 2026: no line said)
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated); if it takes the fill, this press is confirmed (notePressed above)
@@ -339,7 +340,7 @@ export async function consider(tab, jobUrl) {
         }});
         if (chosen.route) decide('fill', chosen.pressed ? 'pressed the start route: manual' : `start route not pressed: ${chosen.route}`, {host, route: chosen.route, label: chosen.pressed});
         if (chosen.pressed) {
-          const afterRoute = await formAfterPress(tab.id, tab.url);
+          const afterRoute = await formAfterPress(tab.id, tab.url, 8000, counts);
           if (afterRoute === 'navigated') { started.delete(key); return; }
           if (afterRoute) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); } else noteNoEffect(key, chosen.pressed);
         }
@@ -375,7 +376,7 @@ export async function consider(tab, jobUrl) {
       if (!attempt.pressed) applyPressed.delete(tab.id);
       else {
         decide('fill', 'pressed the control the digest named', {host, label: attempt.pressed});
-        const afterDigest = await formAfterPress(tab.id, tab.url);
+        const afterDigest = await formAfterPress(tab.id, tab.url, 8000, counts);
         if (afterDigest === 'navigated') { started.delete(key); return; }
         if (afterDigest) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); } else noteNoEffect(key, attempt.pressed);
       }
@@ -390,7 +391,7 @@ export async function consider(tab, jobUrl) {
     const look = await closerLook(tab, 0, 'the ladder ended at the person', {kind: 'page', picture: blindLook}).catch(() => 'none');
     let led = false;
     if (look === 'click') {
-      const afterLook = await formAfterPress(tab.id, tab.url);
+      const afterLook = await formAfterPress(tab.id, tab.url, 8000, counts);
       if (afterLook === 'navigated') { blindVerdict(blindLook, look, true); started.delete(key); return; }
       if (afterLook) { role = 'form'; pressed = true; led = true; await noteRole(tab.id, tab.url, role); }
     }

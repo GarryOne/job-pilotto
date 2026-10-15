@@ -124,6 +124,15 @@ export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, a
   return 'no-form';
 }
 
+// A form the press BROUGHT: the page reads as a form now, and is not just the controls it already had before the press (15 Oct 2026, a posting with a job-search box and a "Create Alert"
+// form beside its Apply link: the alert's fields were taken as "a form came" 0.5 s before the page moved on, and the posting was filled and called Ready). A form that is drawn adds
+// controls; a new page ends the wait as navigated. `before`: the page's shape before any press (null: nothing known, so the page alone decides, as before).
+export function formCame(before, now, url = '') {
+  if (pageRole(now, url) !== 'form') return false;
+  if (!before || pageRole(before, url) !== 'form') return true;
+  return ['fields', 'files', 'textareas', 'choices', 'passwords', 'anyFiles'].some(key => (Number(now?.[key]) || 0) > (Number(before?.[key]) || 0));
+}
+
 // Is this a sign-in or sign-up page, for everything that learns from a page or judges a submit? `stored`: the role pageRole gave
 // and the page it was decided on ({role, page}); `page`: the page now; `panelSaw`: the page's panel sees a password box, used only
 // for a page the rule hasn't decided. An account page never teaches the form-filling data, never adds answers, never counts as "submitted".
