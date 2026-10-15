@@ -1,7 +1,7 @@
 // The CI refill's rules (lib/refill.mjs, refill-pick.mjs, lib/ai-proxy.mjs maxCalls, lib/fill-memo.mjs oldKeysKept): the matrix pick, the cap, the no-fallback key, the fork guard, old answers kept.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {capRefusal, creditsLine, forkRefusal, keyRefusal, MAX_ASKS, needsRefill, outOfCredits, pickRefill, refillKey, SECRET} from '../lib/refill.mjs';
+import {capRefusal, creditsLine, fingerprintChanged, forkRefusal, groupsOf, keyRefusal, MAIN_MAX_ASKS, MAX_ASKS, needsRefill, outOfCredits, PER_ASK_USD, pickMain, pickRefill, refillKey, SECRET} from '../lib/refill.mjs';
 import {oldKeysKept} from '../lib/fill-memo.mjs';
 import {fillOn} from '../../lib/ai/model-memo.js';
 import {startAiProxy} from '../lib/ai-proxy.mjs';
@@ -14,7 +14,7 @@ test('the pick takes only the pinned rows whose gate verdict is ask changed or o
   const picked = pickRefill({pins: ['a', 'b', 'c', 'd'], records});
   assert.deepEqual(picked.rows.map(row => row.name), ['a', 'b']);
   assert.equal(picked.asks, 3);
-  assert.equal(picked.usd, 0.18);
+  assert.equal(picked.usd, 0.003);
   assert.equal(needsRefill(records[2]), false);
 });
 
@@ -73,4 +73,57 @@ test('the proxy refuses the paid call past its cap before it reaches the API', a
     assert.equal(second.status, 400);
     assert.match(await second.text(), /cap of 1 paid calls/);
   } finally { await proxy.close(); }
+});
+
+// Measured on the API (15 Oct 2026, the by-hand refill of PR 824): $0.0012 in 3 calls and $0.0016 in 4 calls, about $0.0004 a call. The plan path's $0.06 an ask was 100x too high: with it an all-rows run on main
+// would have been refused by its own cap.
+test('the estimate uses the API\'s measured price, with a margin', () => {
+  assert.ok(PER_ASK_USD >= 0.0004 * 2 && PER_ASK_USD <= 0.005, `${PER_ASK_USD}: measured $0.0004 a call, a margin of a few times`);
+});
+
+// The automatic refill on main (owner, 15 Oct 2026): after a merge that changes a ladder prompt, every recorded row gets its missing answers, pinned or not, through the guard.
+test('a merge to main triggers the refill only when a prompt fingerprint changed (a score update alone does not)', () => {
+  const before = {promptFingerprint: {rung2: 'a', rung3: 'b'}, fixtures: {x: 1}};
+  assert.equal(fingerprintChanged(before, {promptFingerprint: {rung3: 'b', rung2: 'a'}, fixtures: {x: 2}}), false, 'same fingerprints in another order, other scores: no refill');
+  assert.equal(fingerprintChanged(before, {promptFingerprint: {rung2: 'a2', rung3: 'b'}}), true, 'one rung\'s prompt changed');
+  assert.equal(fingerprintChanged(before, {promptFingerprint: {rung2: 'a', rung3: 'b', rung4: 'c'}}), true, 'a new rung\'s prompt');
+  assert.equal(fingerprintChanged(null, {promptFingerprint: {rung2: 'a'}}), true, 'no earlier file: refill');
+  assert.equal(fingerprintChanged(before, null), false, 'no file after: nothing to refill');
+});
+
+test('on main every recorded row is picked, pinned or not, minus the deferred ones; the cap is the main run\'s own', () => {
+  const picked = pickMain({names: ['b row', 'a row', 'deferred row', 'a row'], deferred: {'deferred row': 'replay lags'}});
+  assert.deepEqual(picked.rows.map(row => row.name), ['a row', 'b row'], 'sorted, once each, no deferred row');
+  assert.equal(picked.asks, 8);
+  const known = pickMain({names: ['a row', 'https://old.example/job', 'unnamed host'], known: new Set(['a row'])});
+  assert.deepEqual(known.rows.map(row => row.name), ['a row'], 'an old record named by its address is no pool row');
+  assert.equal(capRefusal(picked, {maxAsks: MAIN_MAX_ASKS}), '');
+  assert.ok(MAIN_MAX_ASKS > MAX_ASKS, 'a run over every recorded row asks more than a by-hand run for a few');
+  assert.match(capRefusal({asks: MAIN_MAX_ASKS + 1, usd: 0.2}, {maxAsks: MAIN_MAX_ASKS}), /above the cap of 200/, 'a runaway still stops');
+});
+
+// records-publish.mjs refuses more than 3 rows at once (its guard replays each row twice): the publish step works in groups of 3, one runner each.
+test('rows are published in groups of at most 3, each row in exactly one group', () => {
+  const names = Array.from({length: 7}, (_, at) => `row ${at}`);
+  const groups = groupsOf(names, 3);
+  assert.deepEqual(groups.map(group => group.length), [3, 3, 1]);
+  assert.deepEqual(groups.flat(), names);
+  assert.deepEqual(groupsOf([], 3), []);
+});
+
+test('refill-group.mjs copies the k-th group of 3 row folders out of the staged set: the groups together are every row, none twice', async () => {
+  const {execFileSync} = await import('node:child_process'), fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-group-')), staged = path.join(tmp, 'staged');
+  for (let at = 0; at < 7; at += 1) { fs.mkdirSync(path.join(staged, `row-${at}`), {recursive: true}); fs.writeFileSync(path.join(staged, `row-${at}`, 'record.json'), '{}'); }
+  const got = [0, 1, 2, 3].map(index => { const out = path.join(tmp, `g${index}`); execFileSync(process.execPath, [path.join(import.meta.dirname, '..', 'refill-group.mjs'), staged, String(index), out], {stdio: 'pipe'}); return fs.existsSync(out) ? fs.readdirSync(out).sort() : []; });
+  assert.deepEqual(got.map(group => group.length), [3, 3, 1, 0], 'groups of at most 3; a group past the end is empty');
+  assert.deepEqual(got.flat(), Array.from({length: 7}, (_, at) => `row-${at}`));
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+test('the pick says how many publish groups there are (both modes)', async () => {
+  const {execFileSync} = await import('node:child_process'), path = await import('node:path');
+  const pins = path.join(import.meta.dirname, '..', 'replay-faithful.json');
+  const out = JSON.parse(execFileSync(process.execPath, [path.join(import.meta.dirname, '..', 'refill-pick.mjs'), pins, '-', '--all'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim().split('\n').at(-1));
+  assert.deepEqual(out.groups, Array.from({length: Math.ceil(out.rows.length / 3)}, (_, at) => at), 'one matrix entry per group of 3');
 });

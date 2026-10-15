@@ -17,6 +17,9 @@ test('each publish has its own asset names, so an upload never overwrites anothe
   const one = bundleNames(new Date('2026-10-14T21:03:07Z')), two = bundleNames(new Date('2026-10-14T22:15:00Z'));
   assert.deepEqual(one, {bundle: 'net-records-20261014T210307Z.tgz.enc', key: 'net-records-20261014T210307Z.k.enc'});
   assert.notEqual(one.bundle, two.bundle);
+  const g0 = bundleNames(new Date('2026-10-14T21:03:07Z'), '-g0'), g1 = bundleNames(new Date('2026-10-14T21:03:07Z'), '-g1');
+  assert.deepEqual(g0, {bundle: 'net-records-20261014T210307Z-g0.tgz.enc', key: 'net-records-20261014T210307Z-g0.k.enc'});
+  assert.notEqual(g0.bundle, g1.bundle, 'two publish groups in the same second never write the same asset');
   assert.doesNotMatch(fs.readFileSync(path.join(E2E, 'records-publish.mjs'), 'utf8'), /'--clobber'/, 'records-publish uploads without --clobber');
 });
 

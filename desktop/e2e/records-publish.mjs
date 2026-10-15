@@ -14,13 +14,14 @@ import {judgeRecords, report} from './lib/record-guard.mjs';
 import {load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
 
 // One bundle's two assets, named by when it was published: net-records-<UTC stamp>.tgz.enc and .k.enc (the first set, before 14 Oct, is net-records.tgz.enc).
-export const bundleNames = (date = new Date()) => { const stamp = date.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'; return {bundle: `net-records-${stamp}.tgz.enc`, key: `net-records-${stamp}.k.enc`}; };
+// suffix: two publishes in the same second (the refill's groups run in parallel) write different assets (NET_RECORDS_BUNDLE_SUFFIX, e.g. -g3).
+export const bundleNames = (date = new Date(), suffix = '') => { const stamp = date.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'; return {bundle: `net-records-${stamp}${suffix}.tgz.enc`, key: `net-records-${stamp}${suffix}.k.enc`}; };
 export const TAG = 'net-records', REPO = process.env.NET_RECORDS_REPO || 'GarryOne/job-pilotto-internal';
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [root] = process.argv.slice(2), dry = process.argv.includes('--dry');
   if (!root) { console.error('usage: node records-publish.mjs <records dir> [--dry]'); process.exit(2); }
-  const {bundle: BUNDLE, key: KEY} = bundleNames();
+  const {bundle: BUNDLE, key: KEY} = bundleNames(new Date(), process.env.NET_RECORDS_BUNDLE_SUFFIX || '');
   const rows = newestPerRow(root), here = path.dirname(new URL(import.meta.url).pathname), work = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
   try {
     const stage = path.join(work, 'net-records');
