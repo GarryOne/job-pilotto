@@ -88,6 +88,7 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
+      max-parallel: 4   # one workflow never holds most of the 20 runners (owner, 15 Oct 2026)
       matrix:
         row: ${{ fromJSON(needs.pick.outputs.rows) }}
     env:
