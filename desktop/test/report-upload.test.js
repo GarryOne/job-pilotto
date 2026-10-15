@@ -24,7 +24,9 @@ test('encrypted for the owner\'s key only: it opens with the private key to the 
   const opened = decrypt(body, wrapped);
   assert.equal(opened.record.source, 'person'); assert.match(opened.record.name, /^reported-[0-9a-f]{6}-example\.test$/);
   assert.equal(Buffer.from(opened.bodies.h1, 'base64').toString(), '<p>x</p>');
-  assert.throws(() => decrypt(Buffer.concat([body.subarray(0, 40), Buffer.from('x'), body.subarray(41)]), wrapped), 'a changed byte is refused');
+  const changed = Buffer.from(body); changed[40] ^= 0xff;   // flipped, never overwritten: a random byte could already be the new one (1 run in 256)
+  assert.notDeepEqual(changed, body);
+  assert.throws(() => decrypt(changed, wrapped), 'a changed byte is refused');
 });
 
 test('send: mints a report token once, posts the bundle with the install\'s headers, keeps the id; delete removes what was sent', async () => {
