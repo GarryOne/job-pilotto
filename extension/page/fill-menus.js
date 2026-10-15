@@ -17,8 +17,10 @@
   // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them; it marks each one, and when you click it, picks the answer in the menu your click opened.
   const OPTION = '[class*="option"], [role="option"], [role="listbox"] > *, [class*="dropdown-item"]';   // the choices of a list that names no option (a listbox's own children)
   // The innermost option elements of an open menu (not the phone field's hidden country list).
-  const optionNodes = () => Array.from(document.querySelectorAll(OPTION))
-    .filter(o => o.offsetParent !== null && !o.querySelector(OPTION) && !/iti__/.test(o.className));
+  // A suggest-only box (suggestPick below) has no markup of its own to find its options by: what appeared beside it once it was typed in is its list (page/suggest-box.js).
+  let suggestCtx = null;
+  const optionNodes = () => (suggestCtx ? window.__jobPilottoSuggest.appeared(suggestCtx.el, suggestCtx.before) : Array.from(document.querySelectorAll(OPTION))
+    .filter(o => o.offsetParent !== null && !o.querySelector(OPTION) && !/iti__/.test(o.className)));
   // A menu that draws its choices page by page (SuccessFactors: 100 of 200 countries) loads the next page when its list is scrolled: scroll the open list's own scroller to its end.
   const loadMoreOptions = () => {
     const last = optionNodes().pop();
@@ -76,11 +78,38 @@
     return {option: null, shown};
   };
 
+  // A box that only takes a suggestion the page offers (page/suggest-box.js: it emptied itself when focus left): the answer typed for real, the options that appeared beside it awaited, the one that
+  // means the applicant's own place chosen (the AI's pick: one of them or none; a place the page offers first, nearby or not, is never taken for the applicant's), then checked once focus has left again:
+  // a box the page empties reads as empty, never as filled. Nothing chosen: the box is left empty for the person (page/propose.js menuMissed). -> {selectedAfter, trusted}
+  const suggestPick = async (el, answer, control, badge, done) => {
+    const suggest = window.__jobPilottoSuggest, asked = String(answer).split(' || ')[0];
+    suggestCtx = {el, before: suggest.snapshot()};
+    let found = {option: null, shown: []}, took = {selectedAfter: false, trusted: false}, text = '';
+    try {
+      found = await typeToSearch(el, answer);
+      if (found.option) {
+        text = clean(found.option.textContent);
+        took = await window.__jobPilottoMenuPick({el, option: found.option, control, readValue: box => suggest.holds(box, found.option)});
+        if (took.selectedAfter) {
+          window.__jobPilottoNoteTyped?.(el, text);   // the box holds the chosen place now: the typed-check must not call that a box that did not take its answer and type the first text over it
+          try { el.focus({preventScroll: true}); el.blur(); } catch { /* a box that cannot take focus keeps what it has */ }
+          await sleep(250);
+          if (norm(el.value) !== norm(text)) took = {...took, selectedAfter: false};
+        }
+      }
+    } finally { suggestCtx = null; }
+    window.__jobPilottoForgetNotTaken?.(el.id || el.name);   // decided: never typed over again as a box that did not take its answer (page/fill-verify.js)
+    window.__jobPilottoLastPick = {asked, got: text, same: found.option ? !!window.__jobPilottoValueClass?.fits?.(asked, text) : null, opened: found.shown.length > 0 || !!found.option, found: !!found.option, choices: found.option ? [] : found.shown.slice(0, 8).map(item => clean(item).slice(0, 40)), peek: '', ...took};
+    if (took.selectedAfter) { el.setAttribute('data-jobpilotto-picked', text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').slice(0, 160)); done(); return took; }
+    badge.textContent = `✈️ Suggested: ${asked} (pick it yourself)`; window.__jobPilottoMenuMissed?.(el, found.shown);
+    return took;
+  };
+
   // Mark a dropdown with its answer; your click opens the menu, and the answer is picked in it.
   // The rest of a multiple-choice menu's answer: queued when a pick took, armed again by the next __jobPilottoNextCombo, so flow.js sees the first pick as done (the armed count fell)
   // before the same menu is clicked for the next choice.
   const moreChoices = [];
-  const armCombo = (field, fullAnswer) => {
+  const armCombo = (field, fullAnswer, opts = {}) => {
     // A menu that takes several choices gets them joined by " && " (the AI's answer for a `multiple` field): the first is picked now, the rest arm the same menu again after it.
     const [answer, ...rest] = String(fullAnswer).split(' && ').map(part => part.trim()).filter(Boolean);
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
@@ -103,6 +132,7 @@
       if (attemptLog && !attemptLog.mayTry(el, 'pick')) { window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: '', opened: false, found: false, refused: true, choices: []}; done(); return; }   // refused: never read as a pick (combo-click.js)
       const before = attemptLog ? attemptLog.stateOf(el) : '';
       setTimeout(async () => { window.__jobPilottoPicking = true; let took = null; try {   // flow.js/combo-click.js waits for it: no second click while the page is still deciding
+        if (opts.suggest) { took = await suggestPick(el, answer, control, badge, done); return; }   // a box that only takes a suggestion the page offers (page/suggest-box.js)
         let option = matchOption(answer);
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).

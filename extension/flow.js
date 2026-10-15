@@ -70,6 +70,9 @@ async function clickCombosNow(tabId) {
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
     await chrome.debugger.sendCommand(target, 'Input.insertText', {text});
+    // A real key press after the text: a box that searches on a key press (not on input) starts its search now.
+    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35});
+    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'End', code: 'End', windowsVirtualKeyCode: 35});
   });
   const choose = bound('choose', async ({label, asked, choices}) => {
     const config = await settings().catch(() => null);

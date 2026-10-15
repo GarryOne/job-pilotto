@@ -1,0 +1,60 @@
+{
+ "origin": "hand-cut",
+ "shape": "a place box that takes only a suggestion and searches on keydown: the applicant's saved place carries a country code (\"Zürich, CHE\") that no place search matches",
+ "why": "15 Oct 2026, Lever's own script in a bake-off recording: the box searched only on keydown and kept a place only when a suggestion was pressed; the extension typed the text without a key and the box emptied itself when focus left (and a nearby place was always the first suggestion)",
+ "control": {
+  "guard": "new case; fails on the build before this change (the place is typed as plain text, no suggestion is ever pressed, and the box empties itself when the person moves on)"
+ },
+ "sample": "hand-cut page of the shape (invented place names; the page's own script stands in for its server)",
+ "start": "panel",
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "loc",
+     "value": "Zürich, CHE",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Zürich, Zürich, Switzerland"
+  }
+ },
+ "expect": {
+  "filled": [
+   "#loc",
+   "#selected-location"
+  ],
+  "kept": [
+   "#loc",
+   "#selected-location"
+  ],
+  "keptAfter": 7000,
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "pages": [
+  {
+   "url": "https://careers.wall.example/apply",
+   "file": "form.html"
+  }
+ ]
+}

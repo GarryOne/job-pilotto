@@ -66,6 +66,11 @@
     }
     const typed = window.__jobPilottoFillKnownFields([...contact, ...plain]);
     filled += (typed.filled || []).length;
+    // A box that empties itself when focus leaves took text it was not offered (a job board's own place widget takes only one of its suggestions): armed as a type-to-search box, typed for real
+    // and chosen by meaning when its click comes (page/suggest-box.js, page/fill-menus.js suggestPick).
+    for (const entry of await (window.__jobPilottoSuggest?.lostOnBlur([...contact, ...plain], typed.filled || []) ?? [])) {
+      if (armCombo(entry.field, entry.value, {suggest: true})) { armed.push(rowOf[entry.field]?.label || entry.field); filled = Math.max(0, filled - 1); }
+    }
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || row.filled || row.legal) continue;

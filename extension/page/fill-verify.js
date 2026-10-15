@@ -20,6 +20,13 @@
     if (el && !el.hasAttribute('data-jobpilotto-typed')) el.setAttribute('data-jobpilotto-nottaken', '');
     if (field && typeof value === 'string' && value.trim()) notTaken.set(String(field), value);
   };
+  // A box a suggest-only widget was handled in (page/fill-menus.js suggestPick: a suggestion chosen, or the box left empty on purpose) is no longer one that "did not take its answer": typing the first text
+  // over a chosen place, or into a box the page empties again, would undo or repeat what was just decided.
+  window.__jobPilottoForgetNotTaken = field => {
+    const el = byField(String(field));
+    notTaken.delete(String(field));
+    el?.removeAttribute('data-jobpilotto-nottaken');
+  };
   // -> [{field, x, y, text}] for each noted box that is typable and still does not hold its answer (at most 8), scrolled into view first.
   window.__jobPilottoNotTakenSpots = () => {
     const spots = [];

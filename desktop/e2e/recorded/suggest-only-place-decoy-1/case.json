@@ -1,0 +1,55 @@
+{
+ "origin": "hand-cut",
+ "shape": "a place box whose suggestions never include the applicant's own place: only a place nearby (the visitor's network, not the applicant)",
+ "why": "15 Oct 2026 (7c's arbeitnow finding): a location box's own suggestion put a place that is not the applicant's into a test run; the extension must never pick a page-suggested place that is not the applicant's own, and a cleared box must never read as filled",
+ "control": {
+  "guard": "pins what must never regress (a guard, it passes on the older build too): a place box whose suggestions never include the applicant's own place is left empty, never filled with the nearby place the page offers first; the two suggest-only-place cases beside it fail on the older build"
+ },
+ "sample": "hand-cut page of the shape (invented place names; the page's own script stands in for its server)",
+ "start": "panel",
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "loc",
+     "value": "Zürich, CHE",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": ""
+  }
+ },
+ "expect": {
+  "empty": [
+   "#loc",
+   "#selected-location"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "pages": [
+  {
+   "url": "https://careers.wall.example/apply",
+   "file": "form.html"
+  }
+ ]
+}
