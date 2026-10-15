@@ -86,3 +86,25 @@ esac
   assert.doesNotMatch(fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8') : '', /run (list|download)/, 'the fetch never lists or downloads a workflow run\'s artifacts');
   fs.rmSync(tmp, {recursive: true, force: true});
 });
+
+// 15 Oct 2026: main's full replay fetched "0 records" (gh failed, its error went to /dev/null) and the gate then judged all 16 pinned rows "worse: no result". A fetch that gets nothing fails with gh's own words.
+test('a fetch that gets no record fails loudly with gh\'s error, never an empty set for the gate to judge', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-loud-')), bin = path.join(tmp, 'bin'), out = path.join(tmp, 'out');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/usr/bin/env bash\necho "HTTP 403: API rate limit exceeded for user ID 1" >&2\nexit 1\n', {mode: 0o755});
+  const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, NET_RECORD_KEY: Buffer.from('not a key').toString('base64'), RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only', CI: 'true'};
+  let failed = null;
+  try { execFileSync('bash', [path.join(E2E, 'net-records-fetch.sh'), out], {env, stdio: ['ignore', 'pipe', 'pipe']}); } catch (error) { failed = error; }
+  assert.ok(failed, 'the fetch exits non-zero when it found no record');
+  assert.match(String(failed.stderr) + String(failed.stdout), /API rate limit exceeded/, 'gh\'s own error is shown');
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+test('no caller swallows a failed fetch: a workflow step runs it plainly, the retry script exits on it', () => {
+  const retry = fs.readFileSync(path.join(ROOT, '.github/replay-records-fetch.sh'), 'utf8');
+  assert.match(retry, /net-records-fetch\.sh records \|\| exit 1/, 'the retry script has no set -e: the exit code must be checked by hand');
+  for (const file of ['fix-verdicts', 'site-replays', 'site-replays-pr', 'replay-refill']) {
+    const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8');
+    assert.doesNotMatch(text, /net-records-fetch\.sh[^\n]*(\|\||\| *true|;)/, `${file}.yml: the fetch's exit code is not swallowed`);
+  }
+});
