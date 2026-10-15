@@ -41,7 +41,8 @@ export const STREAK = 2;   // runs in a row a row must be 100% same as live befo
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
 // pins (replay-faithful.json, lib/replay-ratchet.mjs): the pinned names. Given, the file IS the baseline (owner, 15 Oct 2026): every pinned row must be same as live, whatever else
 // its verdict was (ask changed, different, out of date, not replayed): red, unless the owner's Replay-accept names that row; a row same and not pinned is "newly same" (ratchet up).
-export function judge(records, baseline = {}, retry = [], accepts = {}, pins = null, picked = null) {
+export const FLAKY_AT = 3, FLAKY_DAYS = 7;   // a pinned row that passed only on its retry this many times in this many days is flagged (owner via cc, 15 Oct 2026)
+export function judge(records, baseline = {}, retry = [], accepts = {}, pins = null, picked = null, now = new Date()) {
   const pinSet = pins ? new Set(pins) : null, names = records.map(record => record.name), again = new Map(retry.map(record => [record.name, record])), rows = {};
   for (const record of records) {
     // Counted (14 Oct 2026, a red gate on Databricks: 8/8 then 1/8 on the same code): never a deferred row, and only a row 100% same as live in the baseline AND
@@ -69,24 +70,26 @@ export function judge(records, baseline = {}, retry = [], accepts = {}, pins = n
       else {
         const second = again.get(record.name), noise = second && isSame(second), was = verdict === 'not counted' ? 'not same as live' : verdict, reason = `pinned same as live, now ${was}${why ? `: ${why.replace(/^[a-z ]*: /, '')}` : ''}`;
         const accept = noise ? null : acceptNamed(record.name, accepts.entries, names);
-        if (noise) { verdict = 'noise'; why = `${reason}; the retry was same as live`; }
+        if (noise) { verdict = 'noise'; why = `${reason}; passed on retry`; }
         else if (accept?.reason) { verdict = 'accepted'; why = `${reason}; PR #${accept.pr}${accept.url ? ` (${accept.url})` : ''}: ${accept.reason}`; }
         else { verdict = 'worse'; why = reason; }
       }
     }
+    // How often this row needed its retry lately (carried from the baseline run's results, a week back): a row that is "noise" 3 times a week is flagged, not left pinned on luck.
+    const noiseAt = [...(before?.noiseAt || []).filter(at => now - Date.parse(at) < FLAKY_DAYS * 864e5), ...(pinSet && verdict === 'noise' ? [now.toISOString()] : [])];
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
-    rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', formHost: record.formHost || '', wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', formHost: record.formHost || '', ...(noiseAt.length ? {noiseAt} : {}), wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   // A PR replays one pinned row per kind (replay-pick.mjs): a pinned row it did not pick is not judged there ("not replayed on PRs"), never worse; the scheduled run (no picked list) still needs every one.
   if (pinSet && picked) for (const name of pinSet) if (!rows[name] && !picked.has(name)) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: false, verdict: 'not counted', why: 'not replayed on PRs (the scheduled runs check it)', seconds: null, site: '', wrongValues: []};
   if (pinSet) for (const name of pinSet) if (!rows[name]) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: true, verdict: 'worse', why: 'pinned same as live, but this run did not replay it (no result)', seconds: null, site: '', wrongValues: []};
   const list = Object.values(rows), accepted = list.filter(row => row.verdict === 'accepted').length, worse = list.filter(row => row.verdict === 'worse').length;
-  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0, ...(pinSet ? {pinned: pinSet.size, sameCount: list.filter(row => row.same).length, newlySame: list.filter(row => row.verdict === 'newly same').length} : {})};
+  return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, accepted, red: worse > 0, flaky: list.filter(row => (row.noiseAt || []).length >= FLAKY_AT).length, ...(pinSet ? {pinned: pinSet.size, sameCount: list.filter(row => row.same).length, newlySame: list.filter(row => row.verdict === 'newly same').length} : {})};
 }
 
 // The run's Markdown: one line "N of M rows counted · K worse", then EVERY row (owner, 14 Oct 2026: one table instead of a job per row): the worst first,
 // its asks answered of the live run's, its outcome beside the live one, its verdict and why.
-const MARK = {worse: '❌', 'newly same': '🆙', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '⚪', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
+const MARK = {worse: '❌', 'newly same': '🆙', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '🟡', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
 export function summary(result) {
@@ -96,11 +99,14 @@ export function summary(result) {
   if (shown.length) {
     lines.push('Asks: answered from the record / asked live (+ extra the live run never asked). Outcome: step, filled/left.', '',
       '| # | Row | Asks | Outcome | Live | Verdict | Why |', '|---|---|---|---|---|---|---|',
-      ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict} | ${row.why || '–'} |`));
+      ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict === 'noise' ? 'noise (passed on retry)' : row.verdict} | ${row.why || '–'} |`));
   }
   // Kept answers served although the system side changed (cc, 14 Oct 2026): the replay cannot judge a prompt change, so it still hits; the line says which rows and which parts.
   const looseRows = Object.entries(result.rows).filter(([, row]) => row.loose > 0);
   if (looseRows.length) lines.push('', `### Answered although the system side changed: ${looseRows.length} row${looseRows.length === 1 ? '' : 's'}`, '', '| Row | Loose hits | Parts that differ |', '|---|---|---|', ...looseRows.map(([name, row]) => `| ${name} | ${row.loose} | ${row.looseParts.join(', ') || '–'} |`));
+  // A pinned row that passed only on its retry FLAKY_AT times in FLAKY_DAYS days (the scheduled runs carry the dates): named, so nobody leaves it pinned on luck.
+  const flaky = Object.entries(result.rows).filter(([, row]) => (row.noiseAt || []).length >= FLAKY_AT);
+  if (flaky.length) lines.push('', `### 🟡 Flaky: passed only on a retry ${FLAKY_AT}+ times in ${FLAKY_DAYS} days (${flaky.length})`, '', ...flaky.map(([name, row]) => `- ${name}: ${row.noiseAt.length} times (${row.noiseAt.map(at => at.slice(5, 10)).join(', ')}): take a look: a page that renders differently now and then, or a row that should not stay pinned`));
   // Every wrong field of every row, every run (not only a rise): a value wrong since the baseline stays visible. Fake data: the applicant's.
   const wrong = Object.entries(result.rows).flatMap(([name, row]) => (row.wrongValues || []).map(one => `| ${name} | ${one.field} | ${one.answer} | ${one.held} | ${one.layer} |`));
   if (wrong.length) lines.push('', `### Wrong values (${wrong.length})`, '', '| Row | Field | Expected | Typed | Check |', '|---|---|---|---|---|', ...wrong);

@@ -73,6 +73,8 @@ test('the PR workflow: starts for the apply flow\'s code and the replay machiner
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
   assert.match(flow, /JP_REPLAY_ONLY: \$\{\{ matrix\.group \}\}/);
+  assert.match(flow, /node replay-unsame\.mjs/, 'a pinned row not same is replayed once more on its runner');
+  assert.match(flow, /--retry "\$RUNNER_TEMP\/retry4"/, 'and the gate counts a pass on the retry as noise');
   assert.doesNotMatch(flow, /LATENCY_PAD|replay-late/, 'the late-answer pass runs on the scheduled runs only (owner, 15 Oct 2026)');
   const scheduled = fs.readFileSync(new URL('../../../.github/workflows/site-replays.yml', import.meta.url), 'utf8');
   assert.match(scheduled, /LATENCY_PAD_MS: '4000'/);

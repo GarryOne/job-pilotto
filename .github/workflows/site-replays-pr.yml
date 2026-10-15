@@ -79,6 +79,7 @@ on:
       - 'desktop/e2e/replay-net.mjs'
       - 'desktop/e2e/replay-pick.mjs'
       - 'desktop/e2e/replay-records.mjs'
+      - 'desktop/e2e/replay-unsame.mjs'
       - 'desktop/e2e/smoke-sites.json'
       - 'desktop/lib/**'
       - 'desktop/renderer/run-status.js'
@@ -185,6 +186,25 @@ jobs:
         env:
           JP_REPLAY_ONLY: ${{ matrix.group }}
         run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out"
+      # A flaky check passes on its 2nd try (owner's standing rule): this runner's PINNED rows that came out not same as live are replayed once more, here, with the same records. The gate
+      # counts a row that passes only on the retry as "noise (passed on retry)", shown in the summary, never silent (replay-gate.mjs); the scheduled runs count it per row and flag a row at 3 in 7 days.
+      - name: Replay once more the pinned rows that were not same
+        if: steps.key.outputs.ok == '1'
+        working-directory: desktop/e2e
+        run: |
+          node replay-unsame.mjs "$GITHUB_WORKSPACE/replay-out/step4" replay-faithful.json > "$RUNNER_TEMP/retry.txt"
+          if [ -s "$RUNNER_TEMP/retry.txt" ]; then
+            echo "retry: $(tr '\n' ',' < "$RUNNER_TEMP/retry.txt")" | tee -a "$GITHUB_STEP_SUMMARY"
+            JP_REPLAY_ONLY="$(cat "$RUNNER_TEMP/retry.txt")" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-retry" > /dev/null || true
+          fi
+      - name: This runner's retried rows (for the verdict)
+        if: always() && steps.key.outputs.ok == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-pr-retry-${{ github.run_id }}-${{ strategy.job-index }}
+          path: replay-retry/step4/*.json
+          retention-days: 7
+          if-no-files-found: ignore
       # The late-answer pass (answers delayed 4 s) runs on the scheduled runs only (site-replays.yml, owner 15 Oct 2026: "edge-case or costly checks will be caught hours later on the scheduled runs").
       - name: This runner's rows (for the verdict; no record, no key)
         if: always() && steps.key.outputs.ok == '1'
@@ -223,6 +243,12 @@ jobs:
         with:
           pattern: replay-pr-${{ github.run_id }}-*
           path: ${{ runner.temp }}/shards
+      - uses: actions/download-artifact@v7   # the retried rows, when a pinned row came out not same
+        if: needs.pick.outputs.count != '0'
+        continue-on-error: true
+        with:
+          pattern: replay-pr-retry-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/retry-shards
       - name: Judge the rows against the last green scheduled run (red when worse or unfinished)
         if: needs.pick.outputs.count != '0'
         working-directory: desktop/e2e
@@ -236,14 +262,15 @@ jobs:
         run: |
           # The owner's accept on THIS PR (label replay-accepted + comment "Replay-accept: ..."), read live: a re-run of this job (site-replays-accept.yml re-runs it on a label or comment) sees it.
           node replay-accepts.mjs - "$RUNNER_TEMP/accepts.json" --pr "$PR" || echo '{"entries":[]}' > "$RUNNER_TEMP/accepts.json"
-          mkdir -p "$RUNNER_TEMP/step4" && find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
+          mkdir -p "$RUNNER_TEMP/step4" "$RUNNER_TEMP/retry4" && find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
+          find "$RUNNER_TEMP/retry-shards" -name '*.json' -exec cp {} "$RUNNER_TEMP/retry4/" \; 2>/dev/null || true
           base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
           # the ratchet: the pinned file is the baseline; the base branch's copy keeps a row this PR unpinned held until a Replay-accept names it
           git fetch --depth=1 origin "$BASE_REF" && git show "origin/$BASE_REF:desktop/e2e/replay-faithful.json" > "$RUNNER_TEMP/base-pins.json" 2>/dev/null || echo '{"rows":{}}' > "$RUNNER_TEMP/base-pins.json"
           # the rows the pick replayed: a pinned row it did not pick is "not replayed on PRs", never worse (the scheduled runs check it)
           printf '%s' "$PICKED" | jq -r '.[]' > "$RUNNER_TEMP/picked.txt"
           set +e
-          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" --picked "$RUNNER_TEMP/picked.txt" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
+          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" --picked "$RUNNER_TEMP/picked.txt" --retry "$RUNNER_TEMP/retry4" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
           set -e
           [ "$REPLAY" = success ] || { echo "::error::a replay runner did not finish ($REPLAY): the gate cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
           [ "$code" = 0 ] || { echo "::error::a pinned row is no longer same as live (see the summary). If intended: label this PR replay-accepted and comment 'Replay-accept: <row> — <reason>' (the summary has the line): the gate re-judges by itself, and the nightly takes the new baseline after the merge"; exit 1; }

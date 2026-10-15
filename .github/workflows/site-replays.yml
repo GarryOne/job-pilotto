@@ -301,6 +301,9 @@ jobs:
           node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" "${retry[@]}" --accepts "$out/accepts.json" --pinned replay-faithful.json > "$out/gate.md"; code=$?
           set -e
           cat "$out/gate.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          # a pinned row that passed only on a retry 3+ times in 7 days (the dates ride in each row of results.json): named in the run, not left pinned on luck
+          flaky=$(node -e 'const rows=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rows;console.log(Object.entries(rows).filter(([,row])=>(row.noiseAt||[]).length>=3).map(([name])=>name).join("; "))' "$out/results.json")
+          [ -z "$flaky" ] || echo "::warning::flaky pinned rows (passed only on a retry 3+ times in 7 days): $flaky"
           # the runner measurement (never gating): the same rows on Linux beside the Mac's
           mkdir -p "$out/linux-step4"; for d in "$RUNNER_TEMP"/linux/*/; do cp "$d"*.json "$out/linux-step4/" 2>/dev/null || true; done
           [ -n "$(ls "$out/linux-step4")" ] && node replay-os-compare.mjs "$out/step4" "$out/linux-step4" | tee -a "$GITHUB_STEP_SUMMARY" || true

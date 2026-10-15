@@ -2,7 +2,8 @@
 // on a pinned row, unless an accept NAMES it. Guards lib/replay-ratchet.mjs and the pins path of replay-gate.mjs. Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {judge, summary} from '../replay-gate.mjs';
+import {FLAKY_AT, judge, summary} from '../replay-gate.mjs';
+import {unsame} from '../replay-unsame.mjs';
 import {lowered, newlyFaithful, pin, pinned} from '../lib/replay-ratchet.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
@@ -107,4 +108,34 @@ test('pin keeps each row\'s kind from the host its form was on; a later pin with
   const first = pin({rows: {a: {same: true, formHost: 'job-boards.greenhouse.io'}}}, {rows: {}}, {commit: 'c1', at: 'T'});
   assert.equal(first.rows.a.kind, 'Greenhouse');
   assert.equal(pin({rows: {a: {same: true}}}, first, {commit: 'c2', at: 'T2'}).rows.a.kind, 'Greenhouse');
+});
+
+const NOW = new Date('2026-10-15T12:00:00Z'), DAY = 864e5;
+const broken = rec('p', {hit: 3, extra: 1});
+
+test('a pinned row that passes only on its retry is "noise (passed on retry)", never silent; the dates ride on, and 3 in 7 days flags it', () => {
+  const once = judge([broken], {}, [rec('p')], {}, ['p'], null, NOW);
+  assert.equal(once.rows.p.verdict, 'noise');
+  assert.match(once.rows.p.why, /passed on retry/);
+  assert.equal(once.red, false);
+  assert.match(summary(once), /🟡 noise \(passed on retry\)/);
+  assert.equal(once.flaky, 0);
+  // the baseline (the last green run) carries the earlier dates; one older than 7 days is dropped
+  const at = days => new Date(NOW - days * DAY).toISOString();
+  const twice = judge([broken], {rows: {p: {noiseAt: [at(2), at(9)]}}}, [rec('p')], {}, ['p'], null, NOW);
+  assert.equal(twice.rows.p.noiseAt.length, 2, 'the 9-day-old one is pruned, today\'s added');
+  assert.equal(twice.flaky, 0);
+  const third = judge([broken], {rows: {p: {noiseAt: [at(1), at(3)]}}}, [rec('p')], {}, ['p'], null, NOW);
+  assert.equal(third.rows.p.noiseAt.length, FLAKY_AT);
+  assert.equal(third.flaky, 1);
+  assert.equal(third.red, false, 'flagged for a look, not red');
+  assert.match(summary(third), /Flaky: passed only on a retry 3\+ times in 7 days \(1\)/);
+  // a same row carries the history without adding to it; a retry that fails too is worse
+  assert.equal(judge([rec('p')], {rows: {p: {noiseAt: [at(1)]}}}, [], {}, ['p'], null, NOW).rows.p.noiseAt.length, 1);
+  assert.equal(judge([broken], {}, [broken], {}, ['p'], null, NOW).rows.p.verdict, 'worse');
+});
+
+test('the rows a runner replays once more are its pinned rows that are not same; a crash is not noise', () => {
+  assert.deepEqual(unsame([rec('a'), rec('b', {hit: 3, extra: 1}), rec('c', {hit: 3, extra: 1}), {name: 'd', outcome: null}], ['a', 'b', 'd']), ['b'], 'same, unpinned and result-less rows are not retried');
+  assert.deepEqual(unsame([], ['a']), []);
 });
