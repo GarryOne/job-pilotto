@@ -4,7 +4,7 @@
 // A row that is not an application outcome is not counted: {ending: null, why}: the harness did not finish, the privacy tripwire, a refused AI, and the TEST's own holds (cc/owner,
 // 12 Oct 2026): the pool never presses an account button with fake data (ACCOUNT_HELD), and a CI runner's data-center address meets bot walls a person's would not. Those are shown apart
 // ("held by the test, not measured"), never counted resolved. 'handed' is only a real wall the run names: a bot check on a person's address, a sign-in to an existing account (LOGIN_WALL).
-import {causeOf} from '../../../extension/fill-card.js';
+import {answeredNoOf, causeOf} from '../../../extension/fill-card.js';
 import {CAUSES, ENDINGS, endingOfStuck, resolved} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './record-sites.mjs';
 
@@ -24,6 +24,7 @@ const AI_MISS = new Set(['ai_declined', 'ai_unsure']);
 export const fieldCause = row => {
   const reason = String(row?.reason || '');
   if (row?.type === 'password' || PERSONS.some(words => reason.startsWith(words))) return 'persons';   // a password is the person's to type (never read by us)
+  if (answeredNoOf(row)) return 'persons';   // a "no" kept on an unchecked two-state control is an answer, the same as record-sites verdictOf counts it (15 Oct 2026, Migros)
   if (row?.type === 'file' && reason.startsWith(REASONS.noSlot)) return 'no_slot';   // the upload slot was not seen
   return causeOf(row);
 };

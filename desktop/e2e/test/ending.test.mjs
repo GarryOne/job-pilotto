@@ -13,6 +13,15 @@ import {seenDeadEnd} from '../../../extension/ladder/dead-end.js';
 const field = (reason, extra = {}) => ({outcome: 'left', type: 'text', label: 'Q', required: true, reason, ...extra});
 const form = (fieldList, extra = {}) => ({reached: 'form', filled: 3, left: fieldList.length, fieldList, errors: [], exit: 0, ...extra});
 
+test('a required two-state control answered "no" and left unchecked is an answer kept: the form is ready, never a missed field', () => {
+  // 15 Oct 2026, Migros group site (Umantis): "Ich bin/war Mitarbeiter in der Migros-Gruppe", answered no by the AI, held unchecked; its reason "answered no: left unchecked" fell to
+  // "something new" -> unresolved, so the row sat on Needs a fix although every field left was an answer or the person's own (record-sites verdictOf already counts it filled).
+  const answeredNo = field('answered no: left unchecked', {type: 'checkbox'});
+  assert.equal(fieldEnding(answeredNo), 'ready');
+  assert.equal(endingOf(form([answeredNo, field('proposed for you to confirm', {type: 'radio'}), field('demographic: your own choice', {type: 'radio'})])).ending, 'ready');
+  assert.equal(endingOf(form([answeredNo, field('something new')])).ending, 'unresolved', 'a real miss beside it still counts');
+});
+
 test('a form whose required fields left are all the person\'s (proposals, consent, own words, demographics, a password) is ready', () => {
   const rows = [field('proposed for you to confirm'), field('legal/consent: always your choice', {type: 'checkbox'}), field('written: your own words to write', {type: 'textarea'}),
     field('demographic: your own choice', {type: 'radio'}), field('no answer in the kit, Profile or your details', {type: 'password'})];
