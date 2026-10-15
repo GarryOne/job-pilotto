@@ -44,7 +44,6 @@ test('a fix that changes a shared file cannot be told from main offline; any oth
 test('every extension file stage.mjs copies into the app is in SHARED', () => {
   const stage = fs.readFileSync(path.join(REPO, 'desktop/scripts/stage.mjs'), 'utf8'), found = new Set();
   for (const [, tail] of stage.matchAll(/path\.join\(repo, 'extension', ((?:'[^']+'(?:, )?)+)\)/g)) found.add(`extension/${[...tail.matchAll(/'([^']+)'/g)].map(m => m[1]).join('/')}`);
-  for (const [, list] of stage.matchAll(/for \(const file of \[([^\]]+)\]\) fs\.copyFileSync\(path\.join\(repo, 'extension', '(\w+)', file\)/g)) { /* below */ }
   for (const [, list] of stage.matchAll(/for \(const file of \[([^\]]+)\]\) fs\.copyFileSync\(path\.join\(repo, 'extension', '([\w-]+)'/g)) for (const [, file] of list.matchAll(/'([^']+)'/g)) found.add(`extension/${stage.match(/path\.join\(repo, 'extension', '([\w-]+)', file\)/)[1]}/${file}`);
   assert.ok(found.size >= 5, [...found].join(', '));
   for (const file of found) assert.ok(SHARED.includes(file), `${file} is copied into the app by stage.mjs but not in SHARED`);
