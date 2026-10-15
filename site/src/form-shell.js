@@ -28,11 +28,12 @@ ${inner(data, url)}
 }
 
 // GET one of the pages: owner or admin only, ?key= once, ?family= for one AI family.
-export const pageView = render => async (request, env, now = new Date()) => {
+// extra(db): more numbers for this page only, added to the data (the "Report this form" counts on Real Form Filling).
+export const pageView = (render, extra = null) => async (request, env, now = new Date()) => {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   if (!env.STATS) return new Response('No database', {status: 503});
   const family = familyParam(url);   // ?family=claude|openai: every count of the page for that AI family (src/engines.js)
-  return new Response(render(await report(env.STATS, now, family), url), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(render({...(await report(env.STATS, now, family)), ...(extra ? await extra(env.STATS) : {})}, url), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 };

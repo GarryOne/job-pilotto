@@ -315,6 +315,8 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
   // Two rows with one display name and one start host (a custom row beside its platform row) are told apart by the shape name, in every list that shows a row.
   const twins = d.pool.reduce((out, s) => ((out[s.name + '|' + s.start] = (out[s.name + '|' + s.start] || 0) + 1), out), {}), twinTag = s => (twins[s.name + '|' + s.start] > 1 ? ' · ' + s.shape : '');
+// A row made from a report a person sent ("reported-<id>-<site>": tools/reports-fetch.mjs names it so).
+const reportedTag = s => (/^reported-/.test(s.shape || s.name || '') ? el('span', {className: 'stack inprogress', textContent: 'Reported by a person'}) : null);
   const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '') + twinTag(s)}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
   const resultOf = s => [el('span', {className: 'pill st-' + s.status.state, title: s.status.rule, textContent: d.stateWords[s.status.state] + (s.status.rule && s.status.state !== 'fix' ? ' · ' + s.status.rule : '')}),
@@ -328,7 +330,7 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
     s.cause ? el('div', {className: 'muted', textContent: 'Top cause: ' + s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' day' + (s.cause.nights === 1 ? '' : 's')}) : null);
   const siteRows = s => { const on = open.has(s.shape), flip = () => { toggleOpen(open, s.shape); draw(); }, parts = split(s), runs = () => (s.states.length ? dots(s.states, s.days) : el('span', {className: 'muted', textContent: '—'}));
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
-      el('td', {className: 'c-site'}, el('div', {className: 'sitecell'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + parts.title, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }}), el('div', {className: 'sitename'}, el('b', {textContent: parts.title}), el('span', {className: 'muted', textContent: parts.sub})))),
+      el('td', {className: 'c-site'}, el('div', {className: 'sitecell'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + parts.title, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }}), el('div', {className: 'sitename'}, el('b', {textContent: parts.title}), el('span', {className: 'muted', textContent: parts.sub}), reportedTag(s)))),
       el('td', {className: 'c-flow', title: s.raw || '', textContent: flowText(s)}),
       el('td', {className: 'c-result'}, ...resultOf(s), s.running ? el('span', {className: 'stack muted'}, el('i', {className: 'spin'}), 'Running now') : el('span', {className: 'stack muted', title: s.at || '', textContent: s.at ? ago(s.at) : ''})),
       el('td', {className: 'c-rung'}, blocked(s) ? el('span', {className: 'flag', title: s.signal || ''}, 'Blocked', el('span', {className: 'stack', textContent: 'at ' + s.rung})) : ['held', 'site'].includes(s.status.state) ? stateWord(s) : s.rung == null ? el('span', {className: 'muted', title: 'not reported', textContent: s.reached ? '?' : '—'}) : el('span', {className: 'rungbox', textContent: s.rung})),
@@ -382,9 +384,9 @@ ${LADDER_SCRIPT}  // What the colors mean (owner, 10 Oct 2026; 14 Oct 2026: the 
       el('h4', {textContent: 'Top cause'}), el('div', {textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' day' + (s.cause.nights === 1 ? '' : 's') : '—'})),
     el('div', {}, el('h4', {textContent: 'Filled, last runs'}), el('div', {textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}),
       el('h4', {textContent: s.at ? 'Last run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last run'}), el('div', {textContent: s.at ? ago(s.at) : '—'})));
-  const needRow = s => { const on = needOpen.has(s.shape), flip = () => { toggleOpen(needOpen, s.shape); drawFix(); };
+    const needRow = s => { const on = needOpen.has(s.shape), flip = () => { toggleOpen(needOpen, s.shape); drawFix(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
-      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '') + twinTag(s)}))),
+      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '') + twinTag(s)}), reportedTag(s))),
       el('td', {}, el('span', {className: s.short && !s.regression && s.short.unexplained != null && s.short.unexplained <= SMALL_MISS ? 'quiet' : 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
         s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null,
         s.regression ? el('span', {className: 'stack muted', textContent: offlineLine(s)}) : null),   // the offline replay's verdict: Our build / Site changed / Needs a recording (src/applying-verify.js)
