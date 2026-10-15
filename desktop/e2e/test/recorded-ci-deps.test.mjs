@@ -39,9 +39,10 @@ test('every workflow job that runs the harness tests or the recorded cases insta
       const steps = block.split(/\n      - /);   // a step may carry an env: block between its working directory and its run
       if (!steps.some(step => /working-directory: desktop\/e2e\b/.test(step) && /^\s+run: (npm test|npm run recorded\b|node --test)/m.test(step))) continue;
       seen += 1;
-      if (!/working-directory: desktop\n\s+run: npm (ci|install)\b/.test(block)) lacking.push(`${file} :: ${jobs[i]}`);
+      // Either spelling installs them: a `working-directory: desktop` step, or `cd desktop && npm ci` inside a step (main's one Linux job since #883).
+      if (!/working-directory: desktop\n\s+run: npm (ci|install)\b/.test(block) && !/cd desktop && \(?npm (ci|install)\b/.test(block)) lacking.push(`${file} :: ${jobs[i]}`);
       // The harness's unit tests (not the recorded replay) also import desktop/shared, which is generated: a job that runs them stages it first.
-      if (steps.some(step => /^\s+run: (npm test\b|node --test\b(?![^\n]*recorded-pages))/m.test(step)) && !/working-directory: desktop\n\s+run: node scripts\/stage\.mjs/.test(block)) unstaged.push(`${file} :: ${jobs[i]}`);
+      if (steps.some(step => /^\s+run: (npm test\b|node --test\b(?![^\n]*recorded-pages))/m.test(step)) && !/working-directory: desktop\n\s+run: node scripts\/stage\.mjs/.test(block) && !/cd desktop && [^\n]*node scripts\/stage\.mjs/.test(block)) unstaged.push(`${file} :: ${jobs[i]}`);
     }
   }
   assert.ok(seen >= 2, 'the check found the plan job and the recorded-pages job (the pattern still matches the workflows)');
