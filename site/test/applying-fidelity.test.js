@@ -75,7 +75,7 @@ test('a pinned row is counted: "N of M same as live (pinned K)" shows when any r
   assert.deepEqual(f.summary, {total: 3, recorded: 3, network: 2, snapshot: 0, pinned: 2, pinnedSame: 1});
   assert.equal(cleanRecord({...row('a', good), pinned: true}).pinned, true);
   assert.equal('pinned' in cleanRecord(row('a', good)), false);
-  assert.match(FIDELITY_SCRIPT, /still same/);
+  assert.match(FIDELITY_SCRIPT, /\(pinned: ' \+ s\.pinnedSame \+ ' of ' \+ s\.pinned \+ ' exact\)/);   // a lost pin stays visible, now called exact
 });
 
 test('two levels of "same as live" and a stale mark: the gate counts no-extra-ask rows, /admin also counts every-ask-as-live, a row the latest run did not replay is stale', () => {
@@ -87,7 +87,14 @@ test('two levels of "same as live" and a stale mark: the gate counts no-extra-as
   assert.equal(f.summary.stale, 1);
   assert.equal(f.rows.find(item => item.name === 'c').stale, true);
   assert.equal(f.rows.find(item => item.name === 'a').stale, undefined);
-  assert.match(FIDELITY_SCRIPT, /answer every ask as live \(stricter\)/);
+  // Owner, 15 Oct 2026: "same as live" named two numbers (32 in the headline, 4 on the chip). Now: "pass the gate" and "exact", each with its own chip counted by the same test.
+  assert.match(FIDELITY_SCRIPT, /pass the gate \(no question live did not ask\)/);
+  assert.match(FIDELITY_SCRIPT, /exact \(every answer identical to live\)/);
+  assert.match(FIDELITY_SCRIPT, /\['gate', 'Passes gate'\], \['same', 'Exact'\]/);
+  assert.match(FIDELITY_SCRIPT, /f\.rows\.filter\(r => verdictIs\(r, value\)\)/);   // chip counts and the filter use one test
+  assert.doesNotMatch(FIDELITY_SCRIPT, /same as live \(the gate/);
+  const gateOf = rows => rows.filter(r => r.gateSame && !r.stale && !r.answersStale).length;   // the chip's own rule, as in the page
+  assert.equal(gateOf(f.rows), f.summary.gate, 'the Passes gate chip counts what the headline says');
   assert.match(FIDELITY_SCRIPT, /stale \(not replayed in the latest run\)/);
   assert.equal(cleanRecord({...row('a', good), gateSame: true}).gateSame, true);
   assert.equal('gateSame' in cleanRecord(row('a', good)), false);

@@ -113,7 +113,7 @@ export const FIDELITY_CSS = `
 export const FIDELITY_SCRIPT = `
   // Replay vs live (prototype): one row per pool row with a live run and an offline replay of it; the network replay (new design) beside the snapshot replay (today's).
   // Owner mockup, 13 Oct 2026: a 64px summary row (scenario, live asks, both replays, the network verdict; two lines at most), everything else in the open row's details.
-  const VERDICT_TONE = {same: 's-ready', close: 's-form', off: 's-posting'}, VERDICT_WORD = {same: 'Same', close: 'Close', off: 'Off'};
+  const VERDICT_TONE = {same: 's-ready', close: 's-form', off: 's-posting'}, VERDICT_WORD = {same: 'Exact', close: 'Close', off: 'Off'};   // "Exact" (owner, 15 Oct 2026): "same as live" named two numbers; the strict one is Exact, the gate is Passes gate
   const outcome = side => (side && (side.filled != null || side.left != null) ? (side.filled ?? '–') + ' filled · ' + (side.left ?? '–') + ' left' : 'not available');
   const hits = (live, side) => (live && side && side.hit != null ? side.hit + ' / ' + live.asks + ' hit · ' + (side.extra || 0) + ' extra' : '—');
   const verdictPill = word => (word ? el('span', {className: 'pill ' + VERDICT_TONE[word], textContent: VERDICT_WORD[word]}) : el('span', {className: 'muted', textContent: 'No network copy'}));
@@ -150,15 +150,17 @@ export const FIDELITY_SCRIPT = `
     if (!f || !f.rows.length) return;
     const FID_GET = [null, r => r.name.toLowerCase(), r => (r.recording && r.recording.at) || (r.live ? '0' : ''), r => (r.network ? r.network.hit : null), r => ['same', 'close', 'off'].indexOf(r.networkVerdict), r => (r.next ? r.next.word : '')];
     const redraw = () => { state.page = 0; drawFidelity(box, f); }, state = (drawFidelity.state ||= {query: '', page: 0, verdict: ''});
-    const matches = r => wordsIn([r.name, r.networkVerdict || 'not recorded yet', r.branch || '', r.next ? r.next.word : '', recorded(r)].join(' ').toLowerCase(), state.query) && (!state.verdict || (r.networkVerdict || 'none') === state.verdict);
+    // One test per chip, the same the headline counts: the gate (no extra ask, fresh answers) or the row's strict verdict.
+    const verdictIs = (r, value) => (value === 'gate' ? !!(r.gateSame && !r.stale && !r.answersStale) : (r.networkVerdict || 'none') === value);
+    const matches = r => wordsIn([r.name, r.networkVerdict || 'not recorded yet', r.branch || '', r.next ? r.next.word : '', recorded(r)].join(' ').toLowerCase(), state.query) && (!state.verdict || verdictIs(r, state.verdict));
     const rows = sortRows('fidelity', f.rows.filter(matches), FID_GET), pages = Math.max(1, Math.ceil(rows.length / 15));
     state.page = Math.min(state.page, pages - 1);
     const from = state.page * 15, shown = rows.slice(from, from + 15), s = f.summary, go = step => () => { state.page += step; drawFidelity(box, f); };
     const search = el('input', {type: 'search', value: state.query, placeholder: 'Search rows or branches…', 'aria-label': 'Search replay vs live', autocomplete: 'off', oninput: event => { state.query = event.target.value; state.page = 0; drawFidelity(box, f); event.target.focus(); }});
-    const verdict = chipFilter('Verdict', [['', 'All · ' + f.rows.length], ...[['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'No network copy']].map(([value, label]) => [value, label + ' · ' + f.rows.filter(r => (r.networkVerdict || 'none') === value).length])], state.verdict, value => { state.verdict = value; redraw(); });   // chips (owner, 15 Oct 2026)
+    const verdict = chipFilter('Verdict', [['', 'All · ' + f.rows.length], ...[['gate', 'Passes gate'], ['same', 'Exact'], ['close', 'Close'], ['off', 'Off'], ['none', 'No network copy']].map(([value, label]) => [value, label + ' · ' + f.rows.filter(r => verdictIs(r, value)).length])], state.verdict, value => { state.verdict = value; redraw(); });   // chips (owner, 15 Oct 2026)
     box.append(el('div', {className: 'fixpanel fidpanel'},
       el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
-          el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.awaitingRefill ? ' · ' + s.awaitingRefill + ' waiting for the refill (answers older than main\\'s prompt; the numbers above are not replaced by them)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
+          el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pass the gate (no question live did not ask) · ' + s.network + ' exact (every answer identical to live)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.awaitingRefill ? ' · ' + s.awaitingRefill + ' waiting for the refill (answers older than main\\'s prompt; the numbers above are not replaced by them)' : '') + (s.pinned != null ? ' (pinned: ' + s.pinnedSame + ' of ' + s.pinned + ' exact)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
           el('p', {className: 'muted', textContent: 'Experimental results: excluded from Resolution, the scorecard and the Fixed tab.'})),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), howList(FID_HOW))),
       el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), verdict,
