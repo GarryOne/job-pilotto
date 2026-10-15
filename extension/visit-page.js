@@ -157,11 +157,11 @@ export function closeConsent(want = null) {   // want: {list: true} -> the box's
   const stays = node => !leavesPage(node);
   const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && stays(node) && words(node) && words(node).length < 60);
   if (want?.list) return [...new Set(boxes.flatMap(box => buttonsOf(box).map(words)))].slice(0, 20);
-  if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) (globalThis.__jobPilottoPress?.(button) || button.click()); return button ? words(button) : ''; }
+  if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) (globalThis.__jobPilottoPress?.(button) || button.click()); return button && !window.__jobPilottoRefused ? words(button) : ''; }   // a press the floor refused (page/submit-press.js) is no press
   for (const pattern of [least, any]) {
     for (const box of boxes) {
       const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && stays(node) && pattern.test(words(node)) && words(node).length < 60);
-      if (button) { (globalThis.__jobPilottoPress?.(button) || button.click()); return words(button); }
+      if (button) { (globalThis.__jobPilottoPress?.(button) || button.click()); return window.__jobPilottoRefused ? '' : words(button); }
     }
   }
   return '';

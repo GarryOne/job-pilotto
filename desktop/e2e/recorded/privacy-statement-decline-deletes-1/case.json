@@ -1,0 +1,60 @@
+{
+ "origin": "hand-cut",
+ "shape": "a privacy consent statement over the application (Accept / Decline / Print) whose Decline opens a 'Delete All Data: permanently delete your account' dialog: the extension presses neither, whatever the AI names",
+ "why": "15 Oct 2026, owner's Chrome (SuccessFactors): the cookie sweep pressed Decline on a Data Privacy Consent Statement and the second dialog offered to delete the account; the owner caught it. The press floor (page/submit-press.js) refuses a decline outside a cookie notice and any delete/withdraw/sign-out control, ANDed with the AI's pick.",
+ "sample": "invented page (host and text) of the shape in the owner's log of 15 Oct 2026",
+ "control": {
+  "build": "0.9.456",
+  "failed": "told: closed a cookie layer / closed a popup with \"label\":\"Decline\" (the privacy statement's Decline was pressed)"
+ },
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.privacy.example/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   }
+  ],
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Decline"
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  },
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": "Decline"
+  }
+ },
+ "expect": {
+  "notTold": [
+   "\"label\":\"Decline\"",
+   "Delete All Data",
+   "\"label\":\"Accept\"",
+   "submit pressed"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}
