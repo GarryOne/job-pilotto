@@ -280,7 +280,7 @@ export async function applyFilters(steps) {
         node.value = String(value).slice(0, stem.length);
         node.dispatchEvent(new Event('input', {bubbles: true}));
       }
-      if (option) {
+      if (option && !globalThis.__jobPilottoSubmitPress?.refused(option)) {   // the press floor (page/submit-press.js) holds for the suggestion click too
         globalThis.__jobPilottoSubmitPress?.mark(option);
         for (const type of ['mousedown', 'mouseup', 'click']) option.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true}));
         return (option.innerText || option.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -288,6 +288,12 @@ export async function applyFilters(steps) {
     }
     if (retyped) { node.value = value; node.dispatchEvent(new Event('input', {bubbles: true})); }   // nothing picked: the whole word back, searched as typed
     return '';
+  };
+  // Never Submit: the filter reader sends only a search-shaped form (a box or two and a select), never one that holds a password, a file, a free-text area, an e-mail or a phone box, or a pile of fields (an application).
+  const searchSubmit = form => {
+    if (!form || form.querySelector('input[type=password], input[type=file], textarea, input[type=email], input[type=tel]')) return;
+    if ([...form.elements].filter(el => el.matches('input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=image]):not([type=checkbox]):not([type=radio]), select')).length > 3) return;
+    form.requestSubmit?.();
   };
   const done = [];
   for (const step of steps || []) {
@@ -309,12 +315,12 @@ export async function applyFilters(steps) {
       const picked = await pickSuggestion(node, step.value, before, declared ? 3000 : 1600);
       if (declared || picked) {
         done.push({control: step.control, ok: true, picked, suggests: true});
-        node.form?.requestSubmit?.();
+        searchSubmit(node.form);
         continue;
       }
       node.dispatchEvent(new Event('change', {bubbles: true}));
       node.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
-      node.form?.requestSubmit?.();
+      searchSubmit(node.form);
     } else {
       (globalThis.__jobPilottoPress?.(node) || node.click());
     }

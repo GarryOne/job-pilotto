@@ -18,7 +18,7 @@ export async function typeNotTakenForReal({page, send}) {
   const spots = (await page(() => window.__jobPilottoNotTakenSpots?.() || []).catch(() => [])) || [];
   let taken = 0;
   for (const spot of spots.slice(0, 8)) {
-    await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [spot.x, spot.y]).catch(() => {});   // the extension's own press: marked first (page/submit-press.js markAt)
+    if ((await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [spot.x, spot.y]).catch(() => true)) === false) continue;   // the extension's own press: marked first (page/submit-press.js markAt)
     for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', {type, x: spot.x, y: spot.y, button: 'left', clickCount: 1});
     await send('Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
     await send('Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
