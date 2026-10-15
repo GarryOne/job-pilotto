@@ -253,3 +253,39 @@ test('a posting gone after the fix counts as neither clean nor failing', async (
   const row = await fixedRow(db, '2026-10-11T11:00:00Z');
   assert.deepEqual([row.status, row.failingRuns, row.cleanRuns, row.heldRuns], ['landed', 0, 0, 0]);
 });
+
+// Failing is judged on the NEWEST run, holds excluded (owner, 15 Oct 2026): the same rule as the Needs a fix list. A fix whose newest run fails is on Needs a fix ("Fix didn't hold"), not red on Fixed.
+const onSite = async (name, runs) => {
+  const db = d1();
+  await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [{...FIX, site: name}]}, at('2026-10-11T08:00:00Z'));
+  for (const [iso, row] of runs) await ingest(db, {kind: 'smoke', day: iso.slice(0, 10), rows: [{name, host: 'jobs.example.com', ...row}]}, at(iso));
+  const d = await data(db, at('2026-10-14T08:00:00Z'));
+  return {row: d.fixed.rows.find(item => item.site === name), item: d.pool.find(site => site.name === name)};
+};
+const STOPPED = ['2026-10-11T10:00:00Z', {reached: 'posting'}];   // an older run after the landing that still failed
+test('an older failing run does not make a fix "Still failing": the newest run decides, holds are clean, a site problem says nothing', async () => {
+  const cases = {
+    'Lever (the fresh CI run fills every required field)': {reached: 'form', filled: 9, left: 0},
+    'Denner (the answered-no count bug, #834)': {reached: 'form', filled: 7, left: 2, asked: 9, unexplained: 0},
+    'fidag (an email hold)': {reached: 'posting', note: 'applies by email: told'},
+    'arbeitnow (a CI bot wall)': {reached: 'code/bot'},
+    'HelloFresh (a documented hold)': {reached: 'account', note: 'account-first: held'},
+    'Datadog (the site refused)': {reached: 'posting', note: 'site refused: retry later'},
+  };
+  for (const [name, newest] of Object.entries(cases)) {
+    const {row, item} = await onSite(name, [STOPPED, ['2026-10-12T10:00:00Z', newest]]);
+    assert.equal(row.failing, false, name);
+    assert.equal(item.didntHold, null, name);
+    assert.notEqual(row.status, 'back', name);
+  }
+});
+
+test('a fix whose newest run fails is on Needs a fix with "Fix didn\'t hold (commit)", and "back" only after it was confirmed', async () => {
+  let {row, item} = await onSite('Lever again', [['2026-10-11T10:00:00Z', {reached: 'form', filled: 8, left: 0}], ['2026-10-12T10:00:00Z', {reached: 'posting'}]]);
+  assert.deepEqual([row.status, row.failing, item.didntHold, item.status.state], ['landed', true, FIX.commit, 'fix']);
+  ({row, item} = await onSite('Confirmed then lost', [['2026-10-11T10:00:00Z', {reached: 'form', filled: 8, left: 0}], ['2026-10-12T10:00:00Z', {reached: 'form', filled: 8, left: 0}], ['2026-10-13T10:00:00Z', {reached: 'account'}]]));
+  assert.deepEqual([row.status, row.failing, item.back, item.didntHold], ['back', true, true, FIX.commit]);
+  assert.match(PAGE, /Fix didn’t hold \(/);   // the Needs a fix row says so
+  assert.match(PAGE, /back on Needs a fix/);   // the Fixed row is a short grey link, not a red pill
+  assert.match(PAGE, /const FAILED = \['back', 'failing', 'better'\]/);
+});
