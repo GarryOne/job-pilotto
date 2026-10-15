@@ -132,7 +132,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
-  const causes = await slow('causes', () => topCauses(db, pool.map(item => item.shape), now)).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
+  const causes = await slow('causes', () => topCauses(db, pool.map(item => item.shape), now, Object.fromEntries(pool.filter(item => item.day).map(item => [item.shape, item.day])))).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
   for (const item of pool) item.cause = causes[item.shape] || null;
   const scorecard = await platformScorecard(db, pool, now, slow).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const resolution = resolutionOf({runs, endings: await readEndings(db), pool, scorecard, now});   // the headline: how each application ends (src/applying-resolution.js)

@@ -6,13 +6,16 @@ import {APPLICANT_GAPS} from './digest-pool.js';
 const DAY = 86400000;
 export const hashOf = async name => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(name))))].slice(0, 4).map(b => b.toString(16).padStart(2, '0')).join('');
 
-// names: the pool sites' names -> {name: {cause, lost, nights}} for those with a mechanism cause in the last 7 days.
-export async function topCauses(db, names, now = new Date()) {
+// names: the pool sites' names -> {name: {cause, lost, nights}} for those with a mechanism cause in the site's NEWEST run only (owner, 15 Oct 2026: a cause counted over older nights
+// kept Breitling on "no_option" after its fix). A pool card is one per site and day (its id), so the newest run is the card of the newest day: days[name] names it (the row's last run
+// day); without it the site's newest card day in the last 7 days. A site whose newest run has no card has no cause.
+export async function topCauses(db, names, now = new Date(), days = {}) {
   const since = new Date(now.getTime() - 6 * DAY).toISOString().slice(0, 10);
   const cards = (await db.prepare("SELECT id, day, causes FROM fill_cards WHERE source = 'pool' AND day >= ?").bind(since).all()).results || [];
   const out = {};
   for (const name of names) {
-    const suffix = `-${await hashOf(name)}`, mine = cards.filter(card => card.id.endsWith(suffix));
+    const suffix = `-${await hashOf(name)}`, all = cards.filter(card => card.id.endsWith(suffix));
+    const newest = days[name] || all.map(card => card.day).sort().pop(), mine = all.filter(card => card.day === newest);
     const lost = {}, nights = {};
     for (const card of mine) {
       let causes = {}; try { causes = JSON.parse(card.causes || '{}'); } catch { /* a bad row has no causes */ }
