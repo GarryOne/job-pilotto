@@ -23,13 +23,14 @@ ship_pr_fail() { fail_reason="$1"; echo "ship: FAILED $1" >&2; exit 1; }
 # The lease names what origin has NOW (empty: nothing): the branch is deleted on merge, so the local tracking ref of an earlier landing is stale and a bare --force-with-lease refuses (12 Oct 2026). Only this session writes the branch.
 ship_pr_push() { local now; now="$(git ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)"; git push -q "--force-with-lease=refs/heads/$branch:$now" origin "HEAD:refs/heads/$branch" 2>&1 || ship_pr_fail "could not push the branch $branch to origin"; }
 ship_pr_land() {
-  local n="" out view state mergeable checks failing name link tries=0 waited=0 last_say=0 body title poll="${SHIP_PR_POLL:-15}" limit="${SHIP_PR_TIMEOUT:-2700}"
+  local n="" out view state mergeable checks failing name link who tries=0 waited=0 last_say=0 body title poll="${SHIP_PR_POLL:-15}" limit="${SHIP_PR_TIMEOUT:-2700}"
   files="$(git diff --name-only origin/main HEAD)"
   step "pushing $branch (not main) and opening a pull request"
   ship_pr_push
   n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
   if [ -z "$n" ]; then
     title="$(git log --reverse --format=%s origin/main..HEAD | head -n 1)"
+    who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"   # the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
     [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
     body="$(bash "$here/tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
     rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
