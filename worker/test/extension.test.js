@@ -432,4 +432,8 @@ test('the CV\'s employers and schools go to the AI as <cv_facts>, and a form tha
   assert.doesNotMatch(system, /<cv_facts>/);
   assert.equal(cvFactsText(null), '');
   assert.equal(cvFactsText({ jobs: [], education: [] }), '');
+  // the CV's skills and what it says was done are sent too: a "hands-on Python or Go?" or "which CI/CD tools?" question is answered from them
+  const withSkills = cvFactsText({ ...cv, skills: 'Kubernetes, Python, Go', jobs: [{ company: 'Acme Cloud', roles: [{ title: 'SRE', bullets: ['Built the Terraform platform'], skills: 'Argo CD' }] }] });
+  for (const word of ['Skills:', 'Kubernetes, Python, Go', 'Argo CD', 'done at Acme Cloud: Built the Terraform platform']) assert.ok(withSkills.includes(word), word);
+  assert.notEqual(cvFactsText({ skills: 'Go' }), '', 'a CV with skills only still has facts');
 });
