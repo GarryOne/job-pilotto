@@ -10,7 +10,7 @@ test('only sessions: a title with the count, one line each, what happens, two cl
   const dialog = sessionsOnly(sessions(['N26', 'Grafana Labs']), label);
   assert.equal(dialog.message, 'Claude is still filling 2 applications');
   assert.match(dialog.detail, /^•  N26\n•  Grafana Labs\n\nQuitting stops them where they are\./);
-  assert.match(dialog.detail, /Resume Claude/);
+  assert.match(dialog.detail, /open Application sessions/);   // Resume Claude is hidden for now (claude-help.js)
   assert.deepEqual(dialog.buttons, ['Keep working', 'Stop and quit']);
   assert.equal(sessionsOnly(sessions(['N26']), label).message, 'Claude is still filling an application');
 });

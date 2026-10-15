@@ -6,7 +6,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {accountProgress, askOutdated, asksYou, leftForYou, firstLine, isLive, isSubmitted, panelAnswered, sessionReview, sessionStage, accountRecordLine} from '../session-state.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
 import {$, osText, show} from './core.js';
 import {shared} from './shared.js';
@@ -161,7 +161,7 @@ export function renderNextStep(item) {
       // The next press, in the AI's own words (e.g. 'Solve the check, then press "Créer un compte"'): what is left for you on this page.
       ...(['account', 'incomplete'].includes(item.stuck) && item.accountNeeds ? [el('p', 'rich-p', el('b', '', 'Left for you: '), item.accountNeeds)] : [])]
     : stopped ? [el('p', 'rich-p', 'Nothing runs on this application until you start it again. Reopen form opens it in a new Chrome tab and the extension fills it from your kit; the form already open in Chrome is left as it is.')]
-    : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
+    : gone && asking ? [el('p', 'rich-p', 'This application was open in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over).')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : open ? [el('p', 'rich-p', 'The form is open in Chrome. Complete the remaining fields shown below, then review the answers before submitting.') ]
     : review ? [el('p', 'rich-p', item.kind === 'form' || item.inChrome ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
@@ -194,7 +194,7 @@ export function renderNextStep(item) {
   }
   // Claude is the safety net, never the main action (owner, 9 Oct 2026: "remove Resume Claude from being orange"): always secondary; the way to the form is promoted below.
   const resume = () => sessionButton('Resume Claude', 'secondary', () => resumeSession(item), 'refresh');
-  const pushResume = () => { if (claudeHelp()) actions.push(resume()); };   // only with Claude help on (claude-help.js)
+  const pushResume = () => { if (resumeOffered()) actions.push(resume()); };   // off for now: see resumeOffered in claude-help.js
   if (gone || stopped) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
     actions.push(sessionButton('Reopen form', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));

@@ -33,7 +33,7 @@ export function sessionLines(sessions, label) {
   return lines;
 }
 
-const AFTER = 'Filled forms stay in Chrome. After restarting, press Resume Claude in Application sessions.';
+const AFTER = 'Filled forms stay in Chrome. After restarting, open Application sessions to review them.';
 
 // Only Claude sessions are working (the queue is empty): keep them, or stop them and quit.
 export function sessionsOnly(sessions, label) {

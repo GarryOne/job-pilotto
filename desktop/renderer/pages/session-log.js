@@ -1,6 +1,6 @@
 // Session page: opening a session and its log.
 import {el, moreButton, pill} from '../components.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {latestStep, readSessionMessage} from '../session-message.js';
 import {passWheel, wheelLines} from '../wheel.js';
 import {shared} from './shared.js';
@@ -125,11 +125,11 @@ export function renderSessionPage() {
   const offline = !isLive(item);
   show($('ss-offline'), offline);
   show($('ss-replies'), !offline);
-  $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item) || !claudeHelp();
+  $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item) || !resumeOffered();
   $('ss-offline').querySelector('span').textContent = isSubmitted(item)
     ? `Submitted. This application is marked Applied in ${storeName()}.`
     : item.resumable
-    ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.'
+    ? (resumeOffered() ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.' : 'The session isn\'t running. This is its conversation, kept for reference.')
     : 'This session has ended. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
