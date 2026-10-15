@@ -31,7 +31,7 @@
   };
 
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).
-  window.__jobPilottoExtensionFill = async (all, profile, resume, coverLetter = '', acceptConsents = false) => {
+  const fillPage = async (all, profile, resume, coverLetter = '', acceptConsents = false) => {
     if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
     if (window.__jobPilottoStopped) return {error: 'Stopped by you; nothing was filled.'};
     // The AI's likely answers it was not told (use: "propose", worker/src/extension.js): shown to you as proposals, never typed.
@@ -277,5 +277,20 @@
     if (coverLetter && letterBox?.value) markAttention(letterBox.id || letterBox.name, 'Cover letter');
     summary.held = held;   // a layer the extension could not close: nothing more was typed (flow.js turns it into the held result)
     return summary;
+  };
+  // The page fill never throws into the extension: a control it did not expect is a page error, said with where it happened (flow.js shows it, never "moved to another tab").
+  window.__jobPilottoExtensionFill = async (...args) => {
+    try {
+      const result = await fillPage(...args);
+      // Chrome hands the extension null for a result it cannot copy (a DOM node, a function inside it): the keys that cannot go are dropped and named, the rest is kept.
+      try { structuredClone(result); return result; } catch {
+        const lost = Object.keys(result || {}).filter(key => { try { structuredClone(result[key]); return false; } catch { return true; } });
+        const kept = Object.fromEntries(Object.entries(result || {}).filter(([key]) => !lost.includes(key)));
+        return {...kept, pageError: `the result held something that cannot be copied: ${lost.join(', ')}`, unclonable: lost};
+      }
+    } catch (error) {
+      const where = String(error?.stack || '').split('\n').slice(0, 4).map(line => line.trim()).join(' | ');
+      return {error: `the fill failed on this page: ${error?.message || error}`, pageError: where, filled: 0, trace: [], todo: []};
+    }
   };
 })();
