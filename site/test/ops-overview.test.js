@@ -6,7 +6,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
-import {CATEGORIES, CATEGORY_IDS, TOP_LEVEL, categoryOfFile, classify, prRow} from '../src/ops-categories.js';
+import {CATEGORIES, CATEGORY_IDS, RULES_VERSION, TOP_LEVEL, categoryOfFile, classify, prRow} from '../src/ops-categories.js';
 import {bars, page, windowOf} from '../src/ops-overview.js';
 
 function d1() {
@@ -102,4 +102,17 @@ test('the page: first entry of Operations, owner only, and every state renders',
   assert.ok(!page(snapshot, {now}).includes('<b>x</b>'));   // titles are escaped
   assert.match(page({at: now.toISOString(), daily: [], latest: []}, {now}), /No merged PRs in this period[\s\S]*No merged PRs yet/);
   assert.equal((bars(snapshot, now).match(/<rect/g) || []).length, 3);   // 14 days: forms + ci today, replay on the 10th
+});
+
+test('a new rules version re-reads stored PRs and replaces their category; the same version changes nothing', async () => {
+  const e = env(), auth = {headers: {Authorization: 'Bearer pub'}};
+  await put(e, {rules: 1, prs: [pr(1, 'ci', '2026-10-15T08:00:00Z', {hours: 1}), pr(2, 'ci')]});
+  assert.deepEqual((await (await call(e, '/ops/data?v=1', auth)).json()).have.sort(), [1, 2]);
+  assert.deepEqual((await (await call(e, '/ops/data?v=2', auth)).json()).have, []);   // CI reads both again
+  await put(e, {rules: 1, prs: [pr(1, 'forms')]});   // same version: ignored
+  assert.equal(e.STATS.db.prepare('SELECT category FROM ops_prs WHERE number = 1').get().category, 'ci');
+  await put(e, {rules: 2, prs: [pr(1, 'forms', '2026-10-15T08:00:00Z', {hours: 3})]});
+  assert.deepEqual({...e.STATS.db.prepare('SELECT category, hours, rules FROM ops_prs WHERE number = 1').get()}, {category: 'forms', hours: 3, rules: 2});
+  assert.deepEqual((await (await call(e, '/ops/data?v=2', auth)).json()).have, [1]);
+  assert.ok(RULES_VERSION >= 3);
 });

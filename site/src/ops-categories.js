@@ -14,6 +14,8 @@ export const CATEGORIES = [
   {id: 'tests', label: 'Tests only', color: '#c9a227', hint: 'a PR that changes nothing but tests'},
   {id: 'mixed', label: 'Mixed', color: '#e377c2', hint: 'no category holds half of the changed lines'},
 ];
+// Bump when a rule above changes: CI then re-reads the stored PRs (tools/ops-overview.mjs) so old rows get the new category.
+export const RULES_VERSION = 3;
 export const CATEGORY_IDS = CATEGORIES.map(category => category.id);
 
 const is = pattern => path => pattern.test(path);

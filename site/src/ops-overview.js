@@ -27,12 +27,14 @@ export async function buildSnapshot(db, now = new Date()) {
 }
 
 const clean = pr => Number.isInteger(pr?.number) && pr.number > 0 && /^\d{4}-\d{2}-\d{2}T/.test(pr.mergedAt || '') && CATEGORY_IDS.includes(pr.category);
-// PUT /ops/data {prs: [row]}: each PR once (a repeat is ignored); then the snapshot is rebuilt. GET /ops/data: the numbers stored for the last 35 days.
+// PUT /ops/data {rules, prs: [row]}: each PR once per rules version (src/ops-categories.js RULES_VERSION: a rule change re-reads the stored PRs, a repeat at the same version is ignored); then the snapshot is rebuilt.
+// GET /ops/data?v=N: the numbers stored for the last 35 days at rules version N or newer (CI reads only the rest).
 export async function ingest(request, env, now = new Date()) {
   if (!authorized(request, env)) return new Response('Not found', {status: 404});
   const json = body => new Response(JSON.stringify(body), {headers: {'Content-Type': 'application/json'}});
   if (request.method === 'GET') {
-    const {results = []} = await env.STATS.prepare('SELECT number FROM ops_prs WHERE day >= ?').bind(dayOf(new Date(now.getTime() - 35 * DAY))).all();
+    const version = Number(new URL(request.url).searchParams.get('v')) || 0;
+    const {results = []} = await env.STATS.prepare('SELECT number FROM ops_prs WHERE day >= ? AND rules >= ?').bind(dayOf(new Date(now.getTime() - 35 * DAY)), version).all();
     return json({have: results.map(row => row.number)});
   }
   const text = await request.text();
@@ -42,8 +44,10 @@ export async function ingest(request, env, now = new Date()) {
   if (!Array.isArray(data?.prs) || data.prs.length > 500) return new Response('Unexpected shape', {status: 400});
   const rows = data.prs.filter(clean);
   const num = value => (Number.isFinite(Number(value)) ? Number(value) : 0);
-  const write = env.STATS.prepare('INSERT OR IGNORE INTO ops_prs (number, day, merged_at, category, mixed, lines, hours, ci_min, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  if (rows.length) await env.STATS.batch(rows.map(pr => write.bind(pr.number, pr.mergedAt.slice(0, 10), pr.mergedAt, pr.category, pr.mixed ? 1 : 0, num(pr.lines), num(pr.hours), num(pr.ciMinutes), String(pr.title || '').slice(0, 120))));
+  const rules = Math.max(1, Number(data.rules) || 1);
+  const write = env.STATS.prepare(`INSERT INTO ops_prs (number, day, merged_at, category, mixed, lines, hours, ci_min, title, rules) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(number) DO UPDATE SET category = excluded.category, mixed = excluded.mixed, lines = excluded.lines, hours = excluded.hours, ci_min = excluded.ci_min, rules = excluded.rules WHERE excluded.rules > ops_prs.rules`);
+  if (rows.length) await env.STATS.batch(rows.map(pr => write.bind(pr.number, pr.mergedAt.slice(0, 10), pr.mergedAt, pr.category, pr.mixed ? 1 : 0, num(pr.lines), num(pr.hours), num(pr.ciMinutes), String(pr.title || '').slice(0, 120), rules)));
   const snapshot = await buildSnapshot(env.STATS, now);
   await env.STATS.prepare('INSERT INTO ops_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
   return json({ok: true, stored: rows.length, ignored: data.prs.length - rows.length});

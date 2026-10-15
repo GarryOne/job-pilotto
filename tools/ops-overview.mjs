@@ -5,7 +5,7 @@
 //   node tools/ops-overview.mjs [--dry [--out rows.json]]     needs gh with GH_TOKEN; publishing needs SELFHEAL_PUBLISH_KEY (optional OPS_URL); --dry prints the counts, --out saves the rows
 import {execFileSync} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
-import {prRow} from '../site/src/ops-categories.js';
+import {RULES_VERSION, prRow} from '../site/src/ops-categories.js';
 
 const repo = process.env.GITHUB_REPOSITORY || process.env.REPO || 'GarryOne/job-pilotto';
 const base = process.env.OPS_URL || 'https://www.jobpilotto.top/ops/data';
@@ -21,7 +21,7 @@ async function main() {
   const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const merged = gh('pr', 'list', '--repo', repo, '--state', 'merged', '--search', `merged:>=${since}`, '--limit', '1500', '--json', 'number,mergedAt');
   let have = [];
-  if (key) have = (await (await fetch(base, {headers: {Authorization: `Bearer ${key}`}})).json()).have || [];
+  if (key) have = (await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json()).have || [];
   const known = new Set(have);
   const fresh = merged.filter(pr => !known.has(pr.number)).sort((a, b) => b.mergedAt.localeCompare(a.mergedAt)).slice(0, 150);
   console.log(`${merged.length} merged in 30 days, ${known.size} stored, ${fresh.length} to read`);
@@ -38,7 +38,7 @@ async function main() {
   const out = process.argv.indexOf('--out');
   if (out > 0) writeFileSync(process.argv[out + 1], JSON.stringify(rows));
   if (dry) return;
-  const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${key}`, 'Content-Type': 'application/json'}, body: JSON.stringify({prs: rows})});
+  const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${key}`, 'Content-Type': 'application/json'}, body: JSON.stringify({rules: RULES_VERSION, prs: rows})});
   console.log(`published ${rows.length}: HTTP ${response.status} ${await response.text()}`);
   if (!response.ok) process.exitCode = 1;
 }
