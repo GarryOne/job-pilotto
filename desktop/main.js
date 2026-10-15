@@ -45,6 +45,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
+import {SHOW_RESUME_CLAUDE} from './renderer/claude-help.js';   // the ONE flag of Claude's takeover (off for now)
 import * as transcript from './lib/transcript.js';
 import {offerMove} from './lib/applications.js';
 import * as aiTrial from './lib/ai-trial.js';
@@ -454,6 +455,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
       : `Chrome extension connection failed: ${error.message}`));
   }
+  terminals.hideAsks(!SHOW_RESUME_CLAUDE);   // a frozen Claude ask of a session that is not running reaches no screen while the takeover is off
   if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
   // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
   if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
