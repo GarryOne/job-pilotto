@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply | Example Careers</title></head>
+<!-- Hand-cut (15 Oct 2026): a transparent busy layer (no text, no control, role=dialog) covers the whole form while the page loads, then removes itself; the owner's real fill was held "a dialog covers the form" for it. -->
+<body><h1>Your application</h1>
+<form id="app" action="/send" method="post" novalidate onsubmit="return false">
+<div><label for="first">First name *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Last name *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">Email *</label><input id="mail" name="mail" type="email" required></div>
+<button type="submit">Send application</button></form>
+<div id="busy" role="dialog" aria-modal="true" style="position:fixed;left:0;top:0;right:0;bottom:0;z-index:1000;background:transparent"></div>
+<script>setTimeout(function () { document.getElementById('busy').remove(); }, 1500);</script>
+</body></html>
