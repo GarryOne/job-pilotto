@@ -101,7 +101,7 @@ export const FIXED_CSS = `
 .tabs{display:flex;gap:6px;margin:18px 0 0;padding:0 0 0 12px;border-bottom:1px solid var(--line)}
 .tabs a{position:relative;display:inline-block;margin-bottom:-1px;padding:10px 18px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--bg);color:var(--muted);font-size:14px;text-decoration:none}
 .tabs a:hover{color:var(--text)}.tabs a:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}.tabs a.on{background:var(--card);color:var(--text);font-weight:600;border-bottom:1px solid var(--card);box-shadow:inset 0 2px 0 var(--amber)}
-.tabs ~ section.fix,.tabs ~ section.fixed,.tabs ~ section.bycause{margin-top:0;padding-top:0;border-top:0}.tabs ~ section .fixpanel{border-top:0;border-radius:0 0 12px 12px}
+.tabs ~ section.fix,.tabs ~ section.leftempty,.tabs ~ section.bycause{margin-top:0;padding-top:0;border-top:0}.tabs ~ section .fixpanel{border-top:0;border-radius:0 0 12px 12px}
 .fixpanel .filters{margin:0;padding:12px 16px;background:none;border:0;border-top:1px solid var(--line);border-radius:0}.fixpanel td,.fixpanel th{padding:12px 16px}.fixpanel th{border-top:1px solid var(--line)}
 .fixpanel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.fixhead{padding:16px}.fixhead h2{margin:0 0 4px;font-size:18px}.fixhead p{margin:0 0 8px}
 .how{font-size:13px}.how summary{cursor:pointer;color:var(--muted)}.how summary:hover{color:var(--text)}.how dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 14px;align-items:center;margin:12px 0 0}.how .howsrc{margin:10px 0 0;font-size:12px}.how dt{font-weight:600}.how dd{margin:0;color:var(--muted)}
@@ -112,7 +112,7 @@ export const FIXED_CSS = `
 .fixguard{margin:0;padding:0;list-style:none}.fixguard li{margin:4px 0;overflow-wrap:anywhere}.fixtable .detail{text-align:left}@media (max-width:900px){.fixtable .c-fill,.fixtable .c-fix{display:none}.fixtable td,.fixtable th{padding:12px 10px}.fixtable .pill{white-space:normal;border-radius:12px}.fixtable td:first-child,.fixtable th:first-child{padding-left:16px}.fixtable td:last-child,.fixtable th:last-child{width:48px;padding-right:16px}}.fixtable .detail h4{margin:14px 0 6px}.fixtable .detail>div>:first-child,.fixtable .detail>div>:first-child h4{margin-top:0}
 `;
 
-// The tab's client code, inside the page's fetch callback (needs el, heads, sortRows, dots, ago, STAGE, d, fixBox, fixedBox, causeBox, tabs, needsFixOrder, causeGroups). Plain quotes only: it sits in a template literal.
+// The tab's client code, inside the page's fetch callback (needs el, heads, sortRows, dots, ago, STAGE, d, fixHash, fixBox, emptyBox, fixedBox, causeBox, tabs, needsFixOrder, causeGroups). Plain quotes only: it sits in a template literal.
 export const FIXED_SCRIPT = `
   // The Fixed tab (owner mockup, 11 Oct 2026; src/applying-fixed.js): one charcoal panel, five columns, the guard names, replay results and run history in a row expander.
   const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', better: 'Better, not there yet', confirmed: 'Confirmed', back: 'Regressed'};
@@ -170,9 +170,10 @@ export const FIXED_SCRIPT = `
       rows.length ? el('table', {className: 'fixtable'}, el('tr', {}, ...heads('fixed', ['Site / platform', 'Verification', 'Filled before → after', 'Fix', 'Details'], () => { fixPage.n = 0; drawFixed(); }).map((th, at) => Object.assign(th, {className: th.className + (at === 2 ? ' c-fill' : at === 3 ? ' c-fix' : '')}))), ...shown.flatMap(fixRows)) : el('p', {className: 'muted', textContent: 'No fix landed yet'}),
       el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' fixes' : '0 fixes'}),
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
-  const showTab = () => { const hash = typeof location !== 'undefined' ? location.hash : '', which = hash === '#fixed' ? 'fixed' : hash === '#by-cause' ? 'cause' : 'needs'; fixBox.hidden = which !== 'needs'; fixedBox.hidden = which !== 'fixed'; causeBox.hidden = which !== 'cause';
+  // The To fix tab's sub-tabs (owner, 15 Oct 2026): Needs a fix, By cause, Why fields were left empty. Fixed is a tab of its own now; fixHash (src/applying-pagetabs.js) remembers the sub-tab last shown.
+  const showTab = () => { const which = {'#by-cause': 'cause', '#left-empty': 'empty'}[fixHash] || 'needs'; fixBox.hidden = which !== 'needs'; emptyBox.hidden = which !== 'empty'; causeBox.hidden = which !== 'cause';
     const tab = (id, name, text, title) => el('a', {href: '#' + id, role: 'tab', 'aria-selected': String(which === name), className: which === name ? 'on' : '', title: title || '', textContent: text});
-    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('fixed', 'fixed', 'Fixed · ' + d.fixed.rows.filter(r => !FAILED.includes(fixKind(r))).length, 'Sites with a landed fix that holds or awaits proof; a fix that failed again is back on Needs a fix. The recorded replays are in the Replays tab.'),
-      tab('by-cause', 'cause', 'By cause · ' + causeGroups().length, 'The Needs a fix rows grouped by top cause, and the rows that need a pool run first')); };
+    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('by-cause', 'cause', 'By cause · ' + causeGroups().length, 'The Needs a fix rows grouped by top cause, and the rows that need a pool run first'),
+      tab('left-empty', 'empty', 'Why fields were left empty', 'The required fields the pool\\u2019s fills left empty, by reason, and what the unanswered ones were about')); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;

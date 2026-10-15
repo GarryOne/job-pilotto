@@ -4,7 +4,6 @@ import {test} from 'node:test';
 import {BUCKETS, splitGaps} from '../src/answer-gaps.js';
 import {GROUPS, leftEmptySection, tally, withRequired} from '../src/left-empty.js';
 import {BUCKET_TONE, GROUP_TONE, LEFT_EMPTY_CSS, bucketsTable, headlineBar} from '../src/left-empty-view.js';
-import {RESOLUTION_SCRIPT, RESOLUTION_CSS} from '../src/applying-resolution-view.js';
 
 const model = {side: 'lab', days: 14, sample: null, ...withRequired(tally({no_answer: 60, real_click: 10, unread: 5, other: 1}), 200, 124), gaps: splitGaps({'salary:no_answer:gap': 5, 'legal:no_answer:design': 3, 'contact:proposed:gap': 2})};
 
@@ -42,26 +41,4 @@ test('empty states: no left fields, no meaning words, thin real use shows counts
   const thin = leftEmptySection({...model, side: 'real', sample: {forms: 2, installs: 1, enough: false}}, {wrap: 'bare'});
   assert.doesNotMatch(thin, /class="bar"|\d+%/, 'counts only');
   assert.match(bucketsTable(model.gaps, true), /class="row t-wait muted"/);
-});
-
-test('the platform weights are a small table with a bar, the rows behind it and a mark for one row or fewer', () => {
-  assert.match(RESOLUTION_SCRIPT, /className: 'weights'|className: 'fit weights'/);
-  assert.match(RESOLUTION_SCRIPT, /item\.rows === 0 \? 'no rows: not measured' : item\.rows === 1 \? 'one row: moves the number a lot' : ''/, 'no row is red and says so; one row is only a caution');
-  assert.match(RESOLUTION_SCRIPT, /tr\.unmeasured td:first-child\{color:var\(--red\)|className: item\.rows === 0 \? 'unmeasured'/);
-  assert.match(RESOLUTION_CSS, /tr\.unmeasured td:first-child\{color:var\(--red\)/);
-  assert.match(RESOLUTION_SCRIPT, /const unmeasured = r\.samples\.filter\(item => item\.rows === 0\)\.reduce\(\(sum, item\) => sum \+ item\.share, 0\)/, 'the weight with no row behind it');
-  assert.match(RESOLUTION_SCRIPT, /unmeasured \+ '% of the weight has no row behind it and is not measured: the weighted ' \+ r\.weighted \+ '% covers the other ' \+ \(100 - unmeasured\)/);
-  assert.match(RESOLUTION_SCRIPT, /'Platform', 'Weight', 'Rows behind it'/);
-  assert.match(RESOLUTION_SCRIPT, /el\('b', \{textContent: 'Where it stopped'\}\)[^]*'Why'[^]*'Since'/, 'the key stays, as a small key');
-  assert.doesNotMatch(RESOLUTION_SCRIPT, /rows behind it: '/, 'no sentence');
-  assert.doesNotMatch(RESOLUTION_CSS, /#[0-9a-f]{6}/i);
-});
-
-test('each table sits in its own card under its own heading, and the Where it stopped / Why / Since key is inside the rows table\'s card', () => {
-  const at = text => RESOLUTION_SCRIPT.indexOf(text);
-  assert.ok(at("'Every pool row'") < at("'Where it stopped'") && at("'Where it stopped'") < at('...heads(\'resolution\'') , 'heading, then the key, then the table');
-  assert.ok(at("'Where it stopped'") < at("'How the weighted number is built'"), 'the key is above the weights heading, inside the first card');
-  assert.ok(at("'How the weighted number is built'") < at("heads('weights-platform'") && at("heads('weights-platform'") < at("'Week by week'"));
-  assert.equal((RESOLUTION_SCRIPT.match(/className: 'rcard/g) || []).length, 3, 'rows, weights and weeks: one card each');
-  assert.match(RESOLUTION_CSS, /\.resolution \.rcard\{background:var\(--card\);border:1px solid var\(--line\)/);
 });

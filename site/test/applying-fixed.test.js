@@ -106,8 +106,8 @@ test('each fixed row carries what the expander shows: its host, every commit, an
   assert.equal(row.cleanRuns, 1);
 });
 
-test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
-  assert.match(PAGE, /tab\('needs-fix'/); assert.match(PAGE, /tab\('fixed'/); assert.match(PAGE, /hash === '#fixed'/); assert.match(PAGE, /hashchange/);   // tabs by URL hash
+test('the page: sub-tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
+  assert.match(PAGE, /tab\('needs-fix'/); assert.match(PAGE, /tab\('by-cause'/); assert.match(PAGE, /tab\('left-empty'/); assert.doesNotMatch(PAGE, /tab\('fixed'/); assert.match(PAGE, /hashchange/);   // To fix sub-tabs by URL hash; Fixed is a page tab since 15 Oct 2026
   assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
   assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Origin', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the replays table, with each case's origin (owner, 12 Oct 2026)
   assert.match(PAGE, /'Page cases'/);   // renamed from "Fixed-site replays · every fixed site, replayed", which overclaimed (owner, 12 Oct 2026)
@@ -123,7 +123,7 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   assert.match(PAGE, /s-holds/);
   assert.match(PAGE, /hold offline/);
   assert.match(PAGE, /not a measure of how much more was filled/);   // Confirmed never implies the fill went up
-  assert.match(PAGE, /Sites with a landed fix/);   // the tab's tooltip says what it counts
+  assert.match(PAGE, /Sites with a landed fix|a fix that holds or awaits proof/);   // the Fixed section says what it counts
   assert.doesNotMatch(PAGE, /Replay only|replay-only/);   // the replays are their own table again, never rows here
   assert.match(PAGE, /padding:12px 16px/);
 });

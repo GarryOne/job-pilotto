@@ -38,6 +38,6 @@ test('the replay upload keeps the repo counts (numbers only, a bad value is drop
   assert.match(lab.whatWeTest, /What we test on/);
   assert.match(lab.whatWeTest, /Saved form pages<\/td><td class="n">111</);
   assert.match(lab.whatWeTest, /as of commit abcdef1/);
-  const page = readFileSync(new URL('../src/applying.js', import.meta.url), 'utf8');
-  assert.ok(page.indexOf('panels.coverage.append(sets)') > 0 && page.indexOf('panels.coverage.append(sets)') < page.indexOf("panels.coverage.append(el('section', {}, el('h2', {textContent: 'Next sites to add"), 'the section is the first thing in the Coverage tab, above Next sites to add and the Platform scorecard');
+  const page = readFileSync(new URL('../src/applying-coverage-view.js', import.meta.url), 'utf8');
+  assert.ok(page.indexOf('panels.coverage.append(sets)') > 0 && page.indexOf('panels.coverage.append(sets)') < page.indexOf("panels.coverage.append(el('section', {}, el('h2', {textContent: 'Platform scorecard"), 'the section is the first thing in the Coverage tab, above the Platform scorecard and Next sites to add');
 });

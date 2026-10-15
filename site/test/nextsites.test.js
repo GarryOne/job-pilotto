@@ -61,7 +61,7 @@ test('the page draws the section with no stray text, with and without suggestion
   };
   assert.ok(!/null/.test(await run({sites: [], hidden: {hosts: 0}})), 'no "null" with an empty list');
   const card = await run({sites: [], hidden: {hosts: 0}}, [{platform: 'Greenhouse', verdict: 'Blind spot', matchShare: 54, forms: 6, filledShare: 30, poolSites: 3, poolReached: 100, installs: 4}]);
-  assert.ok(card.indexOf('Platform scorecard') > card.indexOf('Next sites to add'), 'second section, under the next sites');   // both in the Coverage tab (test/applying-pagetabs.test.js)
+  assert.ok(card.indexOf('Platform scorecard') < card.indexOf('Next sites to add'), 'the scorecard is above Next sites to add (owner, 15 Oct 2026)');   // both in the Coverage tab (test/applying-pagetabs.test.js)
   assert.ok(card.includes('Blind spot') && card.includes('Greenhouse') && card.includes('Platform scorecard') && !/null/.test(card), 'the scorecard row is drawn');
   const withPlatforms = await run({platforms: [{platform: 'Workday', matchShare: 82, poolShare: 0, poolSites: 0, installs: 1, applications: 0}], sites: [], hidden: {hosts: 0}});
   assert.ok(withPlatforms.includes('Workday') && withPlatforms.includes('82%') && !/null/.test(withPlatforms), 'a platform from one install is listed');

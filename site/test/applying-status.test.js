@@ -69,7 +69,7 @@ test('every view of a row reads its one status: Result, Rung, run dots, By-hand 
   const app = make('div'), document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
   new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => json}), () => ({}), {escape: x => x}, () => 0, Object);
   await new Promise(resolve => setTimeout(resolve, 20));
-  const text = app.text(), needs = text.slice(text.indexOf('Needs a fix · where applying stops'), text.indexOf('By-hand runs'));
+  const text = app.text(), needs = text.slice(text.indexOf('Needs a fix · where applying stops'), text.indexOf('By cause · what to fix first'));
   for (const [name, state] of ROWS.map(([n, s]) => [n, s])) {
     assert.equal(needs.includes(name), state === 'fix', name + ' on Needs a fix only when it needs a fix');
   }
@@ -102,7 +102,7 @@ test('two rows with one name on one host are told apart by their shape; every ta
 test('the pool\'s Status filter: one option per status (from STATES), counted, and a row matches by the status its badge shows', () => {
   const snippet = PAGE.slice(PAGE.indexOf('/*filter*/'), PAGE.indexOf('/*end filter*/'));
   assert.ok(snippet.length > 50, 'the filter code is on the page');
-  const inPool = new Function('poolMatches', `${snippet}; return inPool;`)(() => true);
+  const inPool = new Function('poolMatches', 'endingMatch', `${snippet}; return inPool;`)(() => true, () => true);
   assert.match(PAGE, /pick\('status', statusItems, 'Status', 'All statuses'\)/);
   assert.match(PAGE, /d\.states\.map\(state => \(\{name: state, label: d\.stateWords\[state\]/);   // the options come from the one list, never a copy
   const pool = STATES.map(state => ({platform: 'P', flow: 'F', status: {state, rule: ''}}));
