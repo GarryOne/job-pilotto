@@ -148,3 +148,36 @@ test('the profile e-mail that is also the account e-mail is reported as checked,
   assert.equal(apart.get('anapopescu88@gmail.com'), 'account');
   assert.ok(!coverage(ownerValues({texts: [], accountEmail: 'x.y@example.org'})).checks.includes('email'), 'an account e-mail alone is not claimed as a profile e-mail');
 });
+
+// 15 Oct 2026 (arbeitnow, a location hit with its files already deleted and no way to say where the value came from): the hit's line names the control and where the
+// value came from (answer / kit / page suggestion / unknown), never the value, before the files go.
+test('a hit says which control and where the value came from, never the value', async () => {
+  const placed = ownerValues({texts: ['- Location: Port Vale, Atlantis'], accountEmail: ''});
+  const run = (field, extra = {}) => tripwire({typed: async () => [field]}, {values: placed, ...extra});
+  const asked = await run({label: 'Where are you based?', control: 'input', value: 'Port Vale'}, {answers: ['port vale']});
+  assert.match(asked.reason, /location typed into "Where are you based\?" \(input, from answer\)/);
+  assert.match((await run({label: 'City', control: 'input', value: 'Port Vale'}, {kit: ['Port Vale']})).reason, /\(input, from kit\)/);
+  assert.match((await run({label: 'Address', control: 'autocomplete', value: 'Port Vale, Atlantis'})).reason, /\(autocomplete, from page suggestion\)/);
+  assert.match((await run({label: 'City', control: 'input', value: 'Port Vale'})).reason, /\(input, from unknown\)/);
+  for (const result of [asked, await run({label: 'Address', control: 'autocomplete', value: 'Port Vale'})]) assert.doesNotMatch(result.reason, /Port Vale|Atlantis/);
+});
+
+test('in a real page: a location-autocomplete that offers an IP-based suggestion is a "page suggestion"; a plain input is "unknown"', {skip: !chromium && 'no Chromium'}, async () => {
+  const placed = ownerValues({texts: ['- Location: Port Vale, Atlantis'], accountEmail: ''});
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.route('https://jobs.example.org/**', route => route.fulfill({contentType: 'text/html', body: `
+      <label for="a">Address (Optional)</label><input id="a" role="combobox" aria-autocomplete="list" aria-expanded="true">
+      <ul id="offer"><li id="pick">Port Vale, Atlantis</li></ul>
+      <label for="c">Home city</label><input id="c" value="Port Vale">
+      <script>document.getElementById('pick').onclick = () => { document.getElementById('a').value = document.getElementById('pick').textContent; };</script>`}));
+    await page.goto('https://jobs.example.org/apply');
+    await page.click('#a'); await page.click('#pick');   // the page's own suggestion lands in the field; the extension typed nothing
+    const result = await tripwire(pageFields(page), {values: placed, kit: ['Zurich, Switzerland']});
+    assert.equal(result.ok, false);
+    assert.match(result.reason, /location typed into "Address \(Optional\)" \(autocomplete, from page suggestion\)/);
+    assert.match(result.reason, /location typed into "Home city" \(input, from unknown\)/);
+    assert.doesNotMatch(result.reason, /Port Vale|Atlantis/);
+  } finally { await browser.close(); }
+});
