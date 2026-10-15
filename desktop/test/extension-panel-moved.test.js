@@ -21,7 +21,7 @@ test('a posting tab with the mark, plus the bound form tab: the posting is told 
 
 test('the panel: moved is never ready, shows Go there, and the worker brings the named tab forward', () => {
   const panel = read('review.js');
-  assert.match(panel, /ready = !moved && total > 0 && left === 0/);
+  assert.match(panel, /ready = !moved && (?:!pageMark && )?total > 0 && left === 0/);
   assert.match(panel, /moved \? 'Continues in another tab'/g);
   assert.match(panel, /\$\('\.go-there'\)\.onclick = .*type: 'panelGoTab', tab: movedTab/);
   assert.match(read('panel-markup.js'), /class="secondary go-there" hidden/);

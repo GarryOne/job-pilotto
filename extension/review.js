@@ -52,14 +52,14 @@
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     const needed = list.filter(f => f.required || f.ai || f.changed);
     shown = needed.filter(f => !f.filled);
-    const total = needed.length, left = shown.length, ready = !moved && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
+    const total = needed.length, left = shown.length, pageMark = document.documentElement.getAttribute('data-jobpilotto-page') || '', ready = !moved && !pageMark && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
-    $('.ring span').textContent = moved ? '↗' : ready && !needsYou ? '✓' : total ? String(left) : '–';
+    $('.ring span').textContent = moved ? '↗' : pageMark ? '…' : ready && !needsYou ? '✓' : total ? String(left) : '–';
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
-    $('.pill b').textContent = moved ? 'Continues in another tab' : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'opening' ? 'Opening the form…' : 'Press Apply to open the form') : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
@@ -80,9 +80,9 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = moved ? 'Continues in another tab' : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
-    $('.progress-line span').textContent = moved ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
-    $('.bar i').style.width = `${moved ? 0 : ready ? 100 : done}%`;
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? (pageMark === 'opening' ? 'Opening the form…' : 'Press Apply to open the form') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line span').textContent = moved || pageMark ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
+    $('.bar i').style.width = `${moved || pageMark ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
     const claudeFilling = session?.live && session.status === 'running';
     // A tailored CV written after the form was filled still has to be attached: the button stays for that.
@@ -93,7 +93,7 @@
     $('.fill').disabled = filling;
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
-    $('.left').hidden = moved || !left || busy || !over;
+    $('.left').hidden = moved || !!pageMark || !left || busy || !over;
     const knockout = field => KNOCKOUT.test(field.label) || field.category === 'knockout', ranked = [...shown].sort((a, b) => knockout(b) - knockout(a));   // or the AI, any language
     const knockouts = ranked.filter(knockout).length;
     $('.knock').hidden = !knockouts;
@@ -199,6 +199,15 @@
     if (!host.isConnected) { reply({shown: false}); return false; }
     if (message.text) { showStep(message.text); if (!open) setOpen(true); }
     else endStep();  // the fill is over: no step line left over a form that is ready
+    reply({shown: true});
+    return false;
+  });
+
+  // A note from the extension's worker (page-notes.js): the panel's own note line, so the page never shows a second box beside it.
+  chrome.runtime.onMessage.addListener((message, _, reply) => {
+    if (message?.type !== 'panelNote') return false;
+    if (!host.isConnected) { reply({shown: false}); return false; }
+    note(String(message.text || ''), !!message.anyway); if (!open) setOpen(true);
     reply({shown: true});
     return false;
   });
