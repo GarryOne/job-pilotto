@@ -1,11 +1,11 @@
 # The replay's quick PR gate (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
-# will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays at most 10 pool rows offline
-# (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 10 Linux runners at once (one row each; owner, 15 Oct 2026: "measure and then do the switch": Mac and Linux gave the same verdict on all 15 rows same as live, run 38656139865; Linux has 20 slots, macOS 5), then judges
+# will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays EVERY pinned row offline
+# (desktop/e2e/replay-pick.mjs --pinned, desktop/e2e/replay-faithful.json, since 15 Oct 2026; the 10-row quick pick before it) on up to 10 Linux runners at once (a runner takes 2 rows past 10; owner, 15 Oct 2026: "measure and then do the switch": Mac and Linux gave the same verdict on all 15 rows same as live, run 38656139865; Linux has 20 slots, macOS 5), then judges
 # them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). It starts only when a PR changes the apply flow's code or the replay machinery its steps start (GitHub's `paths:`,
 # owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"; later the same day: replay-machinery PRs too): red when a counted row got worse or a runner did not finish.
 # An intended drop is accepted on the PR itself (owner, 14 Oct 2026): label `replay-accepted` + a comment `Replay-accept: <row> — <reason>` (the summary prints the line); site-replays-accept.yml then re-runs
 # only the failed verdict job (and "all checks green"), which reads the label and comments live, so the gate re-judges the same replays in seconds at $0. Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: site-replays.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
-name: CI · Site replays · PR (10 rows)
+name: CI · Site replays · PR (pinned rows)
 
 on:
   pull_request:
