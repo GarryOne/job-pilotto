@@ -36,7 +36,10 @@ export const PAGE_TELLS = 'page tells how to apply: told';
 export const POSTING_CLOSED = 'posting closed: held';
 const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL, expired: POSTING_CLOSED};
 // A menu the page opened and that showed no choice at all (extension/flow.js: "a menu showed no choice that matched", choices []): the site offered nothing to pick, so the field is left for the person (an explained field).
-const EMPTY_MENU = /fill: a menu showed no choice that matched \{"field":"((?:[^"\\]|\\.)*)","choices":\[\]/;
+const EMPTY_MENU = /fill: a menu showed no choice that matched (\{.*)$/;
+// The line's JSON (cut at 230 characters in some logs: then its fields are read one by one); the choices are empty when "" or [] (the real log writes a joined string).
+const emptyMenuField = line => { const json = (line.match(EMPTY_MENU) || [])[1]; if (!json) return ''; const choices = (json.match(/"choices":("(?:[^"\\]|\\.)*"|\[[^\]]*\])/) || [])[1], field = (json.match(/"field":"((?:[^"\\]|\\.)*)"/) || [])[1];
+  return field && (choices === '""' || choices === '[]') ? field : ''; };
 const labelKey = text => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
 // The page a fill's report line belongs to (its "url", cut by the app's log): the path, or '' when the line has none.
 const reportPage = line => { const url = (line.match(/"url":"([^"]*)"/) || [])[1] || ''; return url.replace(/^https?:\/\/[^/]*/, '').split(/[?#]/)[0]; };
@@ -68,8 +71,8 @@ export function parseLive(output) {
     if (/fill: the posting asks for the application by email: reported to the app/.test(line)) digestHold = APPLY_BY_EMAIL;
     if (/fill: the page tells what to do: reported to the app/.test(line)) digestHold = PAGE_TELLS;
     if (/fill: no form on this page .*"applyBy":"email"/.test(line)) digestHold = APPLY_BY_EMAIL;   // the page-kind AI's fixed answer apply_by=email, with no address to name (extension/fill-flow.js decide data): the posting still asks for an e-mail
-    const emptyMenu = line.match(EMPTY_MENU);
-    if (emptyMenu) emptyMenus.add(labelKey(emptyMenu[1]));
+    const emptyMenu = emptyMenuField(line);
+    if (emptyMenu) emptyMenus.add(labelKey(emptyMenu));
     if (/fill: a broken page: reported as site_broken/.test(line)) digestHold = SITE_REFUSED;   // a page that never loads or answers 5xx (extension/ladder/site-broken.js): the site's own state, a hold like a refusal, not an unclear flow
     // The run's summary prints the digest line again after the fill lines, with a bare clock time ("  18:46:46 [extension] digest: ..."): the same line, not a later digest, so it never resets a hold.
     const digestOutcome = /^\s+\d\d:\d\d:\d\d \[/.test(line) ? null : line.match(/\bdigest: outcome=(\w+)/);
