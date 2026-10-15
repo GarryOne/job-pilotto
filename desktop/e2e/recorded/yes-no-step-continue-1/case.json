@@ -1,5 +1,9 @@
 {
  "origin": "hand-cut",
+ "control": {
+  "build": "0.9.503",
+  "failed": "present: #next:not([disabled])"
+ },
  "shape": "a question step: a sentence, two plain buttons (no aria state, no form) and a Continue switched off until one is chosen",
  "why": "15 Oct 2026, Aldi's application start: the page asks 'do you want to continue?', the answer buttons were not a field, so the page was 'no form' and the journey stopped with the question told. The reader now lists such a group while a control waits for an answer (extension/page/radios.js); the answer goes the normal path and presses the button it names",
  "sample": "an application start page, rebuilt small, no values and no links",
