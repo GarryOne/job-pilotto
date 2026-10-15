@@ -42,6 +42,11 @@ class ReplayVerifyWorkflow(unittest.TestCase):
         self.assertNotIn('macos', WORKFLOW)   # macOS runners queued for hours (15 Oct 2026); Linux replays Mac-made rows as live (site-replays-pr.yml)
         self.assertIn('install --with-deps chromium', WORKFLOW)
 
+    def test_a_run_can_be_limited_to_named_rows(self):
+        # 15 Oct 2026: 5 rows were skipped by the 20-job cap; they run in a run of their own, the cap stays
+        self.assertIn('only:', WORKFLOW)
+        self.assertIn('VERIFY_ONLY: ${{ inputs.only }}', WORKFLOW)
+
 
 if __name__ == '__main__':
     unittest.main()
