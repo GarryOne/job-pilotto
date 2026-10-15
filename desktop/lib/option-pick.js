@@ -10,7 +10,8 @@ const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase(
 const INSTRUCTIONS = `A job application form asks a question with fixed choices. Given the applicant's answer, return the choice that means the same
 (the same answer in another language or wording, e.g. "Monsieur" means "Sir" or "Mr"), copied exactly, or "" when no choice means the same.
 An answer to a yes/no question means the choice that states it ("Yes" to "do you have the right to work here?" means the choice saying you have it).
-Never pick a choice that changes the meaning.`;
+Never pick a choice that changes the meaning.
+A choice that only says nothing is chosen yet (a placeholder such as "No Selection", "Select...", "Please choose", often the first one) means the same as no answer: never return it, return "" instead.`;
 
 const keyOf = (value, choices, label = '') => `${norm(label)}|${norm(value)}|${choices.map(norm).sort().join('|')}`;
 // The page contradicted the kept answer (the banner is still there after its button was pressed): dropped, asked again next time.
