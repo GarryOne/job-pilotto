@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply: Sales Associate | Example Careers</title>
+<style>body{font-family:sans-serif;margin:0}form{padding:24px;max-width:520px}label{display:block;margin-top:12px}input{width:100%;padding:6px;box-sizing:border-box}</style></head>
+<body>
+<!-- Hand-cut (15 Oct 2026): a page whose own script makes one query throw (a shim) (a widget library's shim); the page fill hits an error nothing expected.
+     The fill must report it ("the page fill failed") instead of handing the extension nothing (the owner's "Cannot read properties of null (reading 'trace')"). Invented names. -->
+<form id="apply" onsubmit="return false">
+<h1>Apply: Sales Associate</h1>
+<label for="first_name">First name *</label><input id="first_name" name="first_name" required>
+<label for="email">Email *</label><input id="email" name="email" type="email" required>
+<label for="loc">Current location *</label><input id="loc" name="loc" type="text" autocomplete="off" required>
+<button type="submit">Submit application</button>
+</form>
+<script>
+var query = document.querySelectorAll;
+document.querySelectorAll = function (selector) { if (selector === 'input[type=checkbox]') throw new TypeError('querySelectorAll is not available'); return query.call(this, selector); };
+</script>
+</body></html>
