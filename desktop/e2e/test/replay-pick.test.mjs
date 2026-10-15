@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {GROUPS, MAX, kindOf, pickPinned, pickRows, pickedCount, split, startHosts} from '../replay-pick.mjs';
-import {load, pinned} from '../lib/replay-ratchet.mjs';
+import {GROUPS, MAX, kindOf, pickPinned, pickRows, pickedCount, split} from '../replay-pick.mjs';
+import {formHostOf, kindFor, load, pinned} from '../lib/replay-ratchet.mjs';
 
 const row = (seconds, site, same = true) => ({same, seconds, site});
 
@@ -26,26 +26,40 @@ test('the rows spread over at most 4 runners, 3 rows each when 12 are picked', (
 const hosts = new Map([['G1', 'boards.greenhouse.io'], ['G2', 'job-boards.eu.greenhouse.io'], ['R1', 'x.recruitee.com'], ['C1', 'www.one.example'], ['C2', 'www.two.example']]);
 
 test('a PR picks ONE row per kind of form: the platform, or its own name for a site on no platform; the quickest of a kind; at most MAX kinds', () => {
-  assert.equal(kindOf('G1', hosts), 'Greenhouse');
-  assert.equal(kindOf('G2', hosts), 'Greenhouse');
-  assert.equal(kindOf('C1', hosts), 'C1', 'a custom site is its own kind');
-  assert.equal(kindOf('not in the pool', hosts), 'not in the pool');
+  assert.equal(kindOf('G1', hosts, {}), 'Greenhouse');
+  assert.equal(kindOf('G2', hosts, {}), 'Greenhouse');
+  assert.equal(kindOf('C1', hosts, {}), 'C1', 'a custom site is its own kind');
+  assert.equal(kindOf('not in the pool', hosts, {}), 'not in the pool');
   const names = ['G1', 'G2', 'R1', 'C1', 'C2'];
-  assert.deepEqual(pickPinned(names, {seconds: {G1: 90, G2: 40, R1: 70, C1: 60, C2: 50}, hosts}), ['G2', 'C2', 'C1', 'R1'], 'the quickest Greenhouse row; kinds quickest first');
+  assert.deepEqual(pickPinned(names, {seconds: {G1: 90, G2: 40, R1: 70, C1: 60, C2: 50}, hosts, kinds: {}}), ['G2', 'C2', 'C1', 'R1'], 'the quickest Greenhouse row; kinds quickest first');
   const many = Array.from({length: 20}, (_, i) => `c${i}`);
-  assert.equal(pickPinned(many, {hosts: new Map()}).length, MAX);
-  assert.equal(pickedCount(names, hosts), 4);
-  assert.equal(pickedCount(many, new Map()), MAX);
+  assert.equal(pickPinned(many, {hosts: new Map(), kinds: {}}).length, MAX);
+  assert.equal(pickedCount(names, hosts, MAX, {}), 4);
+  assert.equal(pickedCount(many, new Map(), MAX, {}), MAX);
 });
 
-test('on the real pinned rows no two picked rows share a kind while a kind goes unpicked, and the workflow name says k of n', () => {
-  const pins = pinned(load()), pool = startHosts(), picked = pickPinned(pins, {hosts: pool}), kinds = new Set(pins.map(name => kindOf(name, pool)));
-  const pickedKinds = picked.map(name => kindOf(name, pool));
+test('the kind of a row is the platform of the host its FORM was on, not of its start address', () => {
+  assert.equal(formHostOf('x\n2026 [extension] fill: filling {"host":"job-boards.greenhouse.io","job":"/a"}\ny'), 'job-boards.greenhouse.io');
+  assert.equal(formHostOf('[extension] details for apply.workable.com: 9 contact fields'), 'apply.workable.com');
+  assert.equal(formHostOf('nothing'), '');
+  assert.equal(kindFor({formHost: 'job-boards.greenhouse.io', startHost: 'www.databricks.com', name: 'Databricks'}), 'Greenhouse', 'a company page that fills a Greenhouse form is a Greenhouse kind');
+  assert.equal(kindFor({formHost: '', startHost: 'boards.greenhouse.io', name: 'x'}), 'Greenhouse', 'no form host: the start address');
+  assert.equal(kindFor({formHost: 'omegach.recruitmentplatform.com', startHost: 'a.example', name: 'Swatch'}), 'Swatch', 'a site on no platform is its own kind');
+});
+
+test('on the real pinned rows: every row has a kind, the 3 Greenhouse forms are ONE kind, no two picked rows share a kind, no kind goes unpicked under the cap, and the name says k of n', () => {
+  const data = load(), pins = pinned(data), kinds = data.rows;
+  assert.deepEqual(pins.filter(name => !kinds[name].kind), [], 'a pinned row without a kind: run lib/replay-ratchet.mjs pin/kinds');
+  const greenhouse = ['Greenhouse board form', 'coreweave (found 2026-10-10)', 'Databricks (found 2026-10-10)'];
+  assert.deepEqual(greenhouse.map(name => kinds[name]?.kind), ['Greenhouse', 'Greenhouse', 'Greenhouse'], 'the golden: these three fill a Greenhouse form');
+  const pool = new Map(), picked = pickPinned(pins, {hosts: pool, kinds}), pickedKinds = picked.map(name => kinds[name].kind);
   assert.equal(new Set(pickedKinds).size, pickedKinds.length, 'two picked rows share a kind');
-  assert.equal(picked.length, Math.min(MAX, kinds.size), 'a kind goes unpicked while the cap is not reached');
-  assert.ok(picked.every(name => pins.includes(name)));
+  assert.equal(picked.filter(name => greenhouse.includes(name)).length, 1, 'Greenhouse: 1 of 3');
+  const unpicked = new Set(pins.map(name => kinds[name].kind)); for (const kind of pickedKinds) unpicked.delete(kind);
+  assert.ok(unpicked.size === 0 || picked.length === MAX, 'a kind goes unpicked while the cap is not reached');
+  for (const name of ['Join: form on join.com', 'Swatch Group careers']) if (pins.includes(name)) assert.ok(picked.includes(name) || picked.length === MAX, `${name} is a kind no other row covers`);
   const flow = fs.readFileSync(new URL('../../../.github/workflows/site-replays-pr.yml', import.meta.url), 'utf8');
-  assert.match(flow, new RegExp(`^name: CI · Site replays · PR \\(${pickedCount(pins, pool)} of ${pins.length} pinned rows\\)$`, 'm'), 'the name says k of n: update it in the same PR as a pin');
+  assert.match(flow, new RegExp(`^name: CI · Site replays · PR \\(${pickedCount(pins, pool, MAX, kinds)} of ${pins.length} pinned rows\\)$`, 'm'), 'the name says k of n: update it in the same PR as a pin');
 });
 
 test('the PR workflow: starts for the apply flow\'s code and the replay machinery (GitHub paths), red when worse or unfinished, no AI key', () => {

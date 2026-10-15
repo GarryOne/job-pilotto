@@ -112,6 +112,7 @@ jobs:
     outputs:
       groups: ${{ steps.pick.outputs.groups }}
       count: ${{ steps.pick.outputs.count }}
+      names: ${{ steps.pick.outputs.names }}
     steps:
       - uses: actions/checkout@v5
       - name: The PR paths list everything this workflow loads
@@ -130,6 +131,7 @@ jobs:
           jq -r .line "$RUNNER_TEMP/pick.json" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.groups | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "names=$(jq -c .names "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
 
   replay:
     needs: pick
@@ -229,6 +231,7 @@ jobs:
           REPLAY: ${{ needs.replay.result }}
           PR: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.base_ref }}
+          PICKED: ${{ needs.pick.outputs.names }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           # The owner's accept on THIS PR (label replay-accepted + comment "Replay-accept: ..."), read live: a re-run of this job (site-replays-accept.yml re-runs it on a label or comment) sees it.
@@ -237,8 +240,10 @@ jobs:
           base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
           # the ratchet: the pinned file is the baseline; the base branch's copy keeps a row this PR unpinned held until a Replay-accept names it
           git fetch --depth=1 origin "$BASE_REF" && git show "origin/$BASE_REF:desktop/e2e/replay-faithful.json" > "$RUNNER_TEMP/base-pins.json" 2>/dev/null || echo '{"rows":{}}' > "$RUNNER_TEMP/base-pins.json"
+          # the rows the pick replayed: a pinned row it did not pick is "not replayed on PRs", never worse (the scheduled runs check it)
+          printf '%s' "$PICKED" | jq -r '.[]' > "$RUNNER_TEMP/picked.txt"
           set +e
-          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
+          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" --picked "$RUNNER_TEMP/picked.txt" | tee -a "$GITHUB_STEP_SUMMARY"; code=${PIPESTATUS[0]}
           set -e
           [ "$REPLAY" = success ] || { echo "::error::a replay runner did not finish ($REPLAY): the gate cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
           [ "$code" = 0 ] || { echo "::error::a pinned row is no longer same as live (see the summary). If intended: label this PR replay-accepted and comment 'Replay-accept: <row> — <reason>' (the summary has the line): the gate re-judges by itself, and the nightly takes the new baseline after the merge"; exit 1; }
