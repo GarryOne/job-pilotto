@@ -210,8 +210,10 @@ export function marksBlind(result) {
 //   miss         the extension had it or failed to apply it: the field did not take it, the question text was not read, a menu did not open or select
 //   no_suggestion  nothing known and nothing proposed (the AI declined, was unsure or was not asked)
 //   unknown      the same, but the AI was off in this run (an AuthenticationError in the log): no suggestion could exist, so it is not judged
+// A required two-state control the answer said "no" to and the page holds unchecked: an answer kept (extension/page/fill.js, 0ae22fd), never a miss.
+const answeredNoOf = row => /^answered no/.test(String(row?.reason || ''));   // words-ok: our own trace reason
 export function verdictOf(field, {aiOff = false} = {}) {
-  if (field.outcome === 'filled') return 'filled';
+  if (field.outcome === 'filled' || answeredNoOf(field)) return 'filled';   // a "no" kept on an unchecked two-state control is the answer
   const reason = String(field.reason || '');
   if (/^(legal|written|demographic)/.test(reason)) return 'expected';   // written: the AI read an open question of the person's own words (category written)
   if (field.type === 'password' || /^password:/.test(reason)) return 'expected';   // a password is never typed (a safety rule), whatever an older record's reason says
