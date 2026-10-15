@@ -20,6 +20,7 @@ CLASSIFIED = {
     'CI · Tests · worker': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · site': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · desktop': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
+    'CI · Tests · desktop (Windows)': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests that change a file with a platform branch',
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Site replays · all (offline)': 'ignored: pull requests only, informational, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/lab-form-filling after the nightly replay, never required',
