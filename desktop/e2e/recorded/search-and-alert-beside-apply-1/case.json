@@ -65,7 +65,7 @@
   ]
  },
  "control": {
-  "build": "main before this fix",
+  "build": "0.9.533",
   "failed": "notTold: after the press: a form came"
  }
 }
