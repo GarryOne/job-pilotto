@@ -22,6 +22,19 @@ const byKey = (rows, key) => { const map = new Map(); for (const row of rows) { 
 const formOrder = (a, b) => a.localeCompare(b, 'en', {numeric: true});
 
 // rows -> {segments: {'thin:user': {tools, forms, grid, trend}}}: tools = our newest build first, then the others best raw score first.
+// How objective the numbers are, from the stored runs: the days each side ran, the runs behind each number, the mode, the held-out forms. Text the data cannot show is the page's.
+export function objectivity({mine, current, others, forms, mode}) {
+  const day = row => row.at.slice(0, 10), ourDay = current ? current.at.slice(0, 10) : '';
+  const otherDays = others.map(tool => tool.at.slice(0, 10)).sort(), counts = [];
+  for (const form of forms) {
+    if (current) counts.push(mine.filter(row => row.ours && row.build === current.build && row.form === form).length);
+    for (const tool of others) counts.push(mine.filter(row => !row.ours && row.tool === tool.tool && row.form === form).length);
+  }
+  const pointed = new Set(forms.filter(form => mine.some(row => row.form === form && row.heldout)));
+  return {ourDay, firstOtherDay: otherDays[0] || '', lastOtherDay: otherDays.at(-1) || '', sameDay: Boolean(ourDay) && otherDays.every(d => d === ourDay), minRuns: counts.length ? Math.min(...counts) : 0,
+    heldout: pointed.size, forms: forms.length, userMode: mode === 'user'};
+}
+
 export function summarize(rows) {
   const out = {};
   // The mode is OUR extension's (the repair rung on or off); other tools have none, so they are in every view of their applicant. A view exists for each mode ours has runs in; with none of ours, a user-mode view of the others.
@@ -42,9 +55,9 @@ export function summarize(rows) {
     const forms = [...keep].sort(formOrder);
     const grid = Object.fromEntries(tools.map(tool => [tool.tool, Object.fromEntries(tool.rows.map(row => [row.form, {required: row.required, right: row.right, wrong: row.wrong, empty: row.empty}]))]));
     out[segmentKey(applicant, mode)] = {
-      tools: tools.map(({rows: _rows, ...tool}) => tool), forms, grid,
+      tools: tools.map(({rows: _rows, ...tool}) => tool), forms, grid, objectivity: objectivity({mine, current, others, forms, mode}),
       trend: builds.map(({rows: _rows, build, forms: count, at, raw, product, wrong, ceiling}) => ({build, at, forms: count, raw, product, wrong, ceiling})),
     };
   }
-  return {schema: 2, segments: out};
+  return {schema: 3, segments: out};
 }
