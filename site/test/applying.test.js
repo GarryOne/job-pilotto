@@ -90,7 +90,7 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
 });
 
 test('the page shows the ladder card always open, a Rung column in the pool and a Details expander in the Fixed tab', () => {
-  const card = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
+  const card = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const MEANS = '));
   assert.doesNotMatch(card, /'details'/);   // always open: no expander around the ladder
   assert.ok(card.includes('a rung never guesses.') && card.includes('A rung that is unsure or contradicted hands the page to the next'));
   assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/); assert.match(PAGE, /heads\('fixed', \[[^\]]*'Details'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
@@ -104,18 +104,17 @@ test('the by-hand bars name each day as "14 Oct", say each day runs other sites 
 
 test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
   // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
-  // The exceptions are the colors legend (6 rows, nothing to sort): their headers are plain, and they are the only tables allowed to build them.
-  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = (list'));   // the ladder card (no table) and the colors legend (the pool table's foot)
-  assert.equal(legend.split("el('th'").length - 1, 1, 'the colors legend lost its plain headers');
-  assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
+  // The colors legend, the one table with plain headers, went on 15 Oct 2026 (owner): the only th left is the one heads(...) builds.
+  assert.equal(PAGE.split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
   for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
   assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it
 });
 
-test('the colors legend is the foot of the pool table, not a section of its own', () => {
-  assert.match(PAGE, /filters, table, colorLegend\)/);
-  assert.doesNotMatch(PAGE, /app\.append\(colorLegend/);
-  assert.ok(PAGE.indexOf('The AI ladder') < PAGE.indexOf('What the colors mean'));
+test('no colors legend: each status pill says its status and carries its meaning on hover (owner, 15 Oct 2026)', () => {
+  assert.doesNotMatch(PAGE, /colorLegend|el\('h3', \{textContent: 'What the colors mean'\}\)/);
+  assert.match(PAGE, /filters, table\)/);
+  assert.match(PAGE, /title: \(s\.status\.rule \? s\.status\.rule \+ ': ' : ''\) \+ \(MEANS\[s\.status\.state\] \|\| ''\)/);
+  for (const state of ['works', 'held', 'site', 'fix', 'unrun']) assert.match(PAGE, new RegExp('const MEANS = \\{.*\\b' + state + ': \''), state + ' has a meaning');
 });
 
 test('the by-hand runs chart sits right under the tiles: one row per day, newest first, a labelled segment per status, a key and a works share that leaves holds out', () => {
@@ -131,7 +130,6 @@ test('the by-hand runs chart sits right under the tiles: one row per day, newest
 });
 
 test('the page explains its colors: a legend row for every step the page draws', () => {
-  assert.match(PAGE, /What the colors mean/);
   for (const step of ['none', 'posting', 'account', 'code/bot', 'form', 'ready']) assert.ok(PAGE.includes(step === 'code/bot' ? "'code/bot': '" : step + ': '), step + ' has no meaning in the legend');
 });
 
