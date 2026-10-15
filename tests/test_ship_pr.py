@@ -24,7 +24,7 @@ class ShipPrTest(ShipFixture):
 
     def pr_ship(self, state=None, *flags, timeout=90, **extra):
         self.state.write_text(json.dumps({'origin': str(self.origin), **(state or {})}))
-        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_REVIEW': '0', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0', **extra}   # SHIP_REVIEW=0 by default: the auto-merge path
+        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_REVIEW': '0', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0', 'JOB_PILOTTO_SESSION': '', 'JP_SESSION': '', 'JP_SESSIONS_DIR': str(self.tmp / 'no-sessions'), **extra}   # SHIP_REVIEW=0 by default: the auto-merge path
         return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=timeout, env=env)
 
     def calls(self):
@@ -45,6 +45,15 @@ class ShipPrTest(ShipFixture):
         self.assertIn('pr merge', calls)
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')
+
+    def test_the_pr_title_names_the_session_that_opened_it(self):
+        # Owner, 15 Oct 2026: "add in the PR title the name of the session that opened that PR".
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        result = self.pr_ship(JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('--title [9f] My change', ' | '.join(self.calls()))
+        self.assertIn('My change', git(self.origin, 'log', '--format=%s', 'main'), 'the commit subject itself stays as written')
+        self.assertNotIn('[9f]', git(self.origin, 'log', '--format=%s', 'main'))
 
     def test_a_pr_landing_of_slow_gate_files_takes_no_landing_queue(self):
         # Owner, 12 Oct 2026: "Everybody can open PR at any time". The PR's required checks guard main, so a local queue only made PRs wait for each other.
