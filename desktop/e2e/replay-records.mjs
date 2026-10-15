@@ -16,15 +16,17 @@ export const poolByUrl = (file = new URL('./smoke-sites.json', import.meta.url))
 const bare = url => String(url || '').split('#')[0];
 
 // The newest record of each row, by its name (an older record: its pool row by address, else its posting host). -> [{name, dir, record}]
+// Two copies of ONE recording (same startMs: a refill changes only the answers beside the record) are told apart by their folder: folders are read in name order and a later one wins a tie,
+// so a refilled copy in a later bundle replaces the older one (15 Oct 2026: with `<` the first-read, OLDEST bundle won and no published refill was ever replayed). Guard: e2e/test/replay-records.test.mjs.
 export function newestPerRow(root, byUrl = poolByUrl()) {
   const found = new Map();
   const walk = dir => {
-    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    for (const entry of fs.readdirSync(dir, {withFileTypes: true}).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       if (!entry.isDirectory()) continue;
       const here = path.join(dir, entry.name), record = json(path.join(here, 'record.json'));
       if (!record) { walk(here); continue; }
       const name = record.name || byUrl.get(bare(record.url)) || new URL(record.url).host, old = found.get(name);
-      if (!old || old.record.startMs < record.startMs) found.set(name, {name, dir: here, record});
+      if (!old || old.record.startMs <= record.startMs) found.set(name, {name, dir: here, record});
     }
   };
   walk(root);
