@@ -35,7 +35,7 @@ test('the worst required field decides: a field we missed (unresolved) > a contr
 test('data_missing is only a fact we truly lack; the AI declining is our miss: unresolved, counted apart (cc review, 12 Oct 2026)', () => {
   const declined = field('the AI gave no answer (asked twice)');
   assert.equal(fieldEnding(declined), 'unresolved');
-  assert.deepEqual(endingOf(form([declined, field('no answer in the kit, Profile or your details')])), {ending: 'unresolved', why: '2 required left; the first unresolved: text, the AI gave no answer (asked twice)', aiMiss: true});
+  assert.deepEqual(endingOf(form([declined, field('no answer in the kit, Profile or your details')])), {ending: 'unresolved', why: '2 required left; the first unresolved: text, the AI gave no answer (asked twice)', cause: 'ai-miss', aiMiss: true});
   assert.equal(endingOf(form([declined, field('answer given, but the field did not take it')])).aiMiss, undefined, 'a mechanism miss beside it: not only the AI');
   assert.equal(endingOf(form([field('a detail of yours not saved yet (postal_code)')])).ending, 'data_missing');
   assert.equal(tally([endingOf(form([declined]))]).aiMiss, 1);
@@ -74,11 +74,11 @@ test('with the row\'s app log, a stop line the extension wrote refines a stop th
 });
 
 test('the test\'s own holds are not outcomes: the pool\'s account hold and a bot wall on a CI runner\'s address are held by the test, out of the denominator', () => {
-  assert.deepEqual(endingOf({reached: 'account', note: ACCOUNT_HELD, fieldList: [], errors: [], exit: 0}), {ending: null, why: HELD_BY_TEST, held: 'account-first'});
-  assert.deepEqual(endingOf({reached: 'code/bot', fieldList: [], errors: [], exit: 0}, '', {ci: true}), {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address'});
+  assert.deepEqual(endingOf({reached: 'account', note: ACCOUNT_HELD, fieldList: [], errors: [], exit: 0}), {ending: null, why: HELD_BY_TEST, held: 'account-first', cause: 'account-first'});
+  assert.deepEqual(endingOf({reached: 'code/bot', fieldList: [], errors: [], exit: 0}, '', {ci: true}), {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address', cause: 'bot-wall'});
   const createAccount = form([{outcome: 'filled', type: 'text', required: true, reason: 'your details'}, field('no answer in the kit, Profile or your details', {type: 'password'}),
     field('no answer in the kit, Profile or your details', {type: 'password'}), field('no place to attach it was found on this page', {type: 'file'})], {path: [{kind: 'posting'}, {kind: 'account-form'}]});
-  assert.deepEqual(endingOf(createAccount), {ending: null, why: HELD_BY_TEST, held: 'account step'}, 'a sign-up page the AI called account-form: the account step');
+  assert.deepEqual(endingOf(createAccount), {ending: null, why: HELD_BY_TEST, held: 'account step', cause: 'account-step'}, 'a sign-up page the AI called account-form: the account step');
   const applicationWithPassword = form([...createAccount.fieldList, field('proposed for you to confirm', {type: 'radio'})], {path: [{kind: 'account-form'}]});
   assert.notEqual(endingOf(applicationWithPassword).ending, null, 'an application question beside the password: the form is measured');
   assert.notEqual(endingOf({...createAccount, path: [{kind: 'form'}]}).ending, null, 'a form page is measured');

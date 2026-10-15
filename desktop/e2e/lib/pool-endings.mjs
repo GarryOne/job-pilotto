@@ -7,11 +7,11 @@ import {ENDINGS} from '../../../extension/ladder/endings.js';
 export const ENDINGS_SITE = 'https://www.jobpilotto.top/applying/endings';
 const WORDS = new Set([...ENDINGS, 'held']);
 
-// report: the day report (smoke.mjs); ctx: {run, branch, sha, at}. -> [{row, ending, run, branch, sha, at}]
+// report: the day report (smoke.mjs); ctx: {run, branch, sha, at}. -> [{row, ending, step, cause, run, branch, sha, at}]
 export function endingRecords(report = {}, ctx = {}) {
   const ran = Array.isArray(report.thisRun?.ran) ? new Set(report.thisRun.ran) : null;
   return Object.entries(report.results || {}).filter(([row, item]) => (!ran || ran.has(row)) && WORDS.has(item?.ending))
-    .map(([row, item]) => ({row, ending: item.ending, run: String(ctx.run || ''), branch: String(ctx.branch || ''), sha: String(ctx.sha || ''), at: ctx.at}));
+    .map(([row, item]) => ({row, ending: item.ending, step: item.reached || '', cause: item.cause || '', run: String(ctx.run || ''), branch: String(ctx.branch || ''), sha: String(ctx.sha || ''), at: ctx.at}));
 }
 
 // -> one line for the run's output; never throws.

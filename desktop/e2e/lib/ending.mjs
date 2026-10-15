@@ -5,7 +5,7 @@
 // 12 Oct 2026): the pool never presses an account button with fake data (ACCOUNT_HELD), and a CI runner's data-center address meets bot walls a person's would not. Those are shown apart
 // ("held by the test, not measured"), never counted resolved. 'handed' is only a real wall the run names: a bot check on a person's address, a sign-in to an existing account (LOGIN_WALL).
 import {causeOf} from '../../../extension/fill-card.js';
-import {ENDINGS, endingOfStuck, resolved} from '../../../extension/ladder/endings.js';
+import {CAUSES, ENDINGS, endingOfStuck, resolved} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './smoke.mjs';
 
 // The trace words the classifier reads, as the code named writes them (no structured code travels in the report; a guard test checks each is still written there, so a reworded
@@ -19,6 +19,7 @@ const PERSONS = [REASONS.legal, REASONS.written, REASONS.demographic];
 const WORST = ['unresolved', 'blind', 'data_missing', 'ready'];
 // data_missing only for a fact we truly lack (no_data). The AI declining or unsure is OUR miss (it could have proposed: cc, 12 Oct 2026): unresolved, counted apart (aiMiss).
 const BY_CAUSE = {proposed: 'ready', no_data: 'data_missing', unread: 'blind'};   // any other cause: we missed it
+const FIELD_CAUSE = {ready: 'ready', blind: 'control-unseen', data_missing: 'answer-needed', unresolved: 'field-missed'};
 const AI_MISS = new Set(['ai_declined', 'ai_unsure']);
 export const fieldCause = row => {
   const reason = String(row?.reason || '');
@@ -80,31 +81,33 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
   if (result.aiRefused) return {ending: null, why: 'the AI was refused'};
   const note = String(result.note || ''), reached = String(result.reached || 'none');
   // The harness's notes are stops too: the page's own way (told), a sign-in the run names (handed), a site gone or refusing (site_broken), a bot check on a person's address (handed).
-  if (note === APPLY_BY_EMAIL || note === PAGE_TELLS) return {ending: stopEnding(note === APPLY_BY_EMAIL ? 'email' : 'told', true), why: note};
-  if (/^eligibility stop/.test(note)) return {ending: stopEnding('told', true), why: 'eligibility stop'};
-  if (note === ACCOUNT_HELD) return {ending: null, why: HELD_BY_TEST, held: 'account-first'};
-  if (note === LOGIN_WALL) return {ending: stopEnding('account', true), why: note};
-  if (/gone \(HTTP \d+\)/.test(note) || note === SITE_REFUSED) return {ending: stopEnding('site_broken', false), why: note};
-  if (reached === 'code/bot') return ci ? {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address'} : {ending: stopEnding('no-form', true), why: 'a bot check'};
-  if (reached === 'ready') return {ending: 'ready', why: 'the form is ready'};
-  if (reached === 'form' && accountStep(result)) return {ending: null, why: HELD_BY_TEST, held: 'account step'};
+  if (note === APPLY_BY_EMAIL || note === PAGE_TELLS) return {ending: stopEnding(note === APPLY_BY_EMAIL ? 'email' : 'told', true), why: note, cause: note === APPLY_BY_EMAIL ? 'email' : 'told'};
+  if (/^eligibility stop/.test(note)) return {ending: stopEnding('told', true), why: 'eligibility stop', cause: 'eligibility'};
+  if (note === ACCOUNT_HELD) return {ending: null, why: HELD_BY_TEST, held: 'account-first', cause: 'account-first'};
+  if (note === LOGIN_WALL) return {ending: stopEnding('account', true), why: note, cause: 'login-wall'};
+  if (/gone \(HTTP \d+\)/.test(note) || note === SITE_REFUSED) return {ending: stopEnding('site_broken', false), why: note, cause: note === SITE_REFUSED ? 'site-refused' : 'site-gone'};
+  if (reached === 'code/bot') return ci ? {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address', cause: 'bot-wall'} : {ending: stopEnding('no-form', true), why: 'a bot check', cause: 'bot-check'};
+  if (reached === 'ready') return {ending: 'ready', why: 'the form is ready', cause: 'ready'};
+  if (reached === 'form' && accountStep(result)) return {ending: null, why: HELD_BY_TEST, held: 'account step', cause: 'account-step'};
   if (reached === 'form') {
     const covered = (result.errors || []).find(covers);
-    if (covered) return {ending: 'unresolved', why: String(covered).slice(0, 80)};
+    if (covered) return {ending: 'unresolved', why: String(covered).slice(0, 80), cause: 'form-covered'};
     const left = (result.fieldList || []).filter(row => row?.required && row.outcome !== 'filled'), endings = left.map(fieldEnding);
     if (endings.includes(null)) return {ending: null, why: 'the AI was off'};
     const ending = WORST.find(one => endings.includes(one)) || 'ready', worst = left[endings.indexOf(ending)];
     const aiMiss = ending === 'unresolved' && left.some((row, at) => endings[at] === 'unresolved' && AI_MISS.has(fieldCause(row))) && left.every((row, at) => endings[at] !== 'unresolved' || AI_MISS.has(fieldCause(row)));
-    return {ending, why: `${left.length} required left${worst ? `; the first ${ending}: ${String(worst.type || 'field').slice(0, 20)}, ${String(worst.reason || 'no reason').slice(0, 80)}` : ''}`, ...(aiMiss ? {aiMiss: true} : {})};   // our own trace words, never the page's
+    return {ending, why: `${left.length} required left${worst ? `; the first ${ending}: ${String(worst.type || 'field').slice(0, 20)}, ${String(worst.reason || 'no reason').slice(0, 80)}` : ''}`, cause: FIELD_CAUSE[ending] === 'field-missed' && aiMiss ? 'ai-miss' : FIELD_CAUSE[ending], ...(aiMiss ? {aiMiss: true} : {})};   // our own trace words, never the page's
   }
   if (Number(result.exit) !== 0 && reached === 'none' && (result.errors || []).length) return {ending: null, why: 'the run did not finish'};
   const stop = lastStop(appLog);
-  if (stop) return {ending: stopEnding(stop.why, stop.named), why: stop.door ? `dead end: ${stop.why}` : stop.line};
-  return {ending: 'unresolved', why: `stopped at ${reached} with no reason`};
+  if (stop) return {ending: stopEnding(stop.why, stop.named), why: stop.door ? `dead end: ${stop.why}` : stop.line, cause: CAUSES[stop.why] ? stop.why : 'other'};
+  return {ending: 'unresolved', why: `stopped at ${reached} with no reason`, cause: 'no-reason'};
 }
 
 // The word a row's report and its upload carry (fixed words only): an ending, 'held' (held by the test) or '' (not counted).
 export const endingWord = found => (found?.ending ? found.ending : found?.why === HELD_BY_TEST ? 'held' : '');
+// The fixed word that says why (extension/ladder/endings.js CAUSES) or '' (never page text).
+export const causeWord = found => (CAUSES[found?.cause] && endingWord(found) ? found.cause : '');
 
 // The endings of many rows: counts per ending (every ending listed, in the fixed order), the rows held by the test and the other rows not counted (both out of the denominator),
 // and the resolution share (resolved / counted).
