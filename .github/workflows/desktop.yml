@@ -621,7 +621,7 @@ jobs:
           path: blob-report
           if-no-files-found: ignore
           retention-days: 3
-      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      # Steps and a failed suite's trace as data (the /admin/e2e runs page that read them was dropped on 15 Oct 2026; the artifact stays for download).
       - name: Steps and trace for /admin/e2e
         if: always()
         uses: actions/upload-artifact@v6
@@ -793,7 +793,7 @@ jobs:
           path: blob-report
           if-no-files-found: ignore
           retention-days: 3
-      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      # Steps and a failed suite's trace as data (the /admin/e2e runs page that read them was dropped on 15 Oct 2026; the artifact stays for download).
       - name: Steps and trace for /admin/e2e
         if: always()
         uses: actions/upload-artifact@v6
@@ -851,7 +851,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''
         with:
-          name: e2e-report   # site/src/e2e.js serves it
+          name: e2e-report   # site/src/e2e-report.js serves it
           path: e2e-report
           compression-level: 0
       - name: Not released on Mac, an E2E suite failed
@@ -925,7 +925,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''
         with:
-          name: e2e-report-windows   # site/src/e2e.js serves it
+          name: e2e-report-windows   # site/src/e2e-report.js serves it
           path: e2e-report
           compression-level: 0
       - name: Not released on Windows, an E2E suite failed

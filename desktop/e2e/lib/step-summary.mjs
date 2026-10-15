@@ -7,7 +7,7 @@ const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` :
 const ICON = {passed: '✅', failed: '❌', skipped: '⏭️'};
 
 // results: the runner's [{name, status, seconds, note, retried, budget}]; traces: the trace files kept; artifact: the uploaded artifact's name; runUrl: the run page.
-// reportUrl: the run's Playwright HTML report for this suite (site/src/e2e.js /admin/e2e/run/<run>/report?suite=): steps with screenshots, the failure, the trace.
+// reportUrl: the run's Playwright HTML report for this suite (site/src/e2e-report.js /admin/e2e/run/<run>/report?suite=): steps with screenshots, the failure, the trace.
 export function stepSummary(suite, results = [], {traces = [], artifact = '', runUrl = '', rerun = false, os = '', reportUrl = ''} = {}) {
   const count = status => results.filter(result => result.status === status).length;
   const total = results.reduce((sum, result) => sum + (Number(result.seconds) || 0), 0);

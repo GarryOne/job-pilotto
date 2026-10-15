@@ -20,7 +20,6 @@ export const PAGES = [
   {path: '/admin/real-form-filling', group: 'Operations', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], name: 'Real Form Filling', icon: '📝'},
   {path: '/admin/lab-form-filling', group: 'Operations', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', name: 'Lab Form Filling', icon: '🛡️'},
   {path: '/admin/benchmark-form-filling', group: 'Operations', question: 'How does our form filling compare with other tools on the same forms?', name: 'Benchmark Form Filling', icon: '📏'},
-  {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
