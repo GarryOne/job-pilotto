@@ -27,6 +27,10 @@ Owner, 15 Oct 2026: "when triggered, present me this report". One table, read in
 - **Needs your word:** decisions only the owner makes (an accept, a live visit's yes in a session's own window, spending).
 - A correction of an earlier ETA or claim, said plainly.
 
+## Coordination rules learned (15 Oct 2026, #824 blocked ~4 h)
+- While a prompt-changing PR is being refilled, no new recording of a PINNED row is published (it replaces the refilled record with old-prompt answers: coreweave and Greenhouse did, twice).
+- A refill publishes each group as soon as it is refilled, never all at the end.
+
 ## Never
 - List a closed session, or invent a status for a session that did not reply ("no reply" is a status).
 - Count a PR's stale red summary as failing while its re-run runs.
