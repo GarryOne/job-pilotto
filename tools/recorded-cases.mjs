@@ -2,7 +2,8 @@
 // Pre-push check (tools/pre-push-check.sh), owner 10 Oct 2026: "never fix the same website twice"; tightened 12 Oct 2026 ("every fix to how the app acts on a page lands with a case that FAILS on the old code").
 // A COVERED file is one a recorded replay loads (tools/replay-files.mjs: the extension's files and the app's desktop/lib modules, found by structure) or any file of the flow (desktop/e2e/flows.mjs FLOW_FILES;
 // the ones the replay's app does not load, e.g. desktop/lib/session-flow.js, are proven by a journey scenario, desktop/test/journeys.test.js).
-// A push that changes one adds or changes a recorded page (desktop/e2e/recorded/, layer 2) or a journey scenario (desktop/test/journeys.test.js, layer 1), or each such commit says "Recorded-unneeded: <why>".
+// A push that changes one adds or changes a recorded page (desktop/e2e/recorded/, layer 2), a journey scenario (desktop/test/journeys.test.js, layer 1) or a ladder fixture
+// (desktop/e2e/ladder-fixtures/: the proof of a decision fix, CLAUDE.md "Where a fix lives"; owner 15 Oct 2026, row-to-case dropped: 0 row cases ever landed), or each such commit says "Recorded-unneeded: <why>".
 // "Recorded-unneeded:" is only for a change that fixes no failure seen: a commit that touches a covered file AND names a pool row ("Pool-row:") or an issue ("Fixes/Closes/Resolves/Refs #N") cannot use it.
 // A recorded page the push adds or changes must FAIL on the code before the push (tools/recorded-fails-on-old.mjs, a replay on origin/main's code): a case that passes on the old code proves nothing.
 // A field-level fill replay (worker/test/fixtures/fill/) is NOT proof (owner, 10 Oct 2026): it never reaches the Fixed-site replays list on /admin/lab-form-filling.
@@ -12,7 +13,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {replayFiles} from './replay-files.mjs';
 
-export const PROOF = /^desktop\/(e2e\/recorded\/|test\/journeys\.test\.js$)/;   // a recorded page or a scenario
+export const PROOF = /^desktop\/(e2e\/recorded\/|e2e\/ladder-fixtures\/|test\/journeys\.test\.js$)/;   // a recorded page, a ladder fixture (a decision fix) or a scenario
 export const TRAILER = /^Recorded-unneeded:\s*\S/m;
 export const NAMES_A_FAILURE = /^Pool-row:[ \t]*(?!none\b)\S|^(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|refs?)[ \t]+#\d+/im;   // a pool row (not "none <why>"), or an issue, the commit answers to
 export const RECORDED_CASE = /^desktop\/e2e\/recorded\/([^/]+)\//;
@@ -75,11 +76,12 @@ A fix to a seen failure lands with its recorded page, seen failing before the fi
 "Recorded-unneeded: <why>" stays for a commit that touches no file a replay loads (harness, tools, tests), or a covered file with no seen failure behind it (a log line, a comment, a refactor).`;
   if (!bare.length) return '';
   const list = [...new Set(bare.flatMap(acting))];
-  return `this push changes how the app acts on pages (${list.slice(0, 4).join(', ')}${list.length > 4 ? ', …' : ''}) without a recorded page or a journey scenario.
-Add the case that shows the fix. From a pool row's capture: cd desktop/e2e && npm run row-to-case -- "<row>" <case> --old <old extension/>  (or --old-commit <sha>: the extension without that commit; it scrubs and shrinks the capture, takes expect from the replay, and refuses unless the new build passes and the old build fails; --ask-cold when your fix changes a prompt).
-No capture of the row: ask the capture session for one; a hand-built case (twin: npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded; case.json seen failing on the old build with REAL_EXTENSION_DIR) is the last resort,
-or a scenario in desktop/test/journeys.test.js. A fill fixture (worker/test/fixtures/fill/) alone does not count: it is not in the Fixed-site replays list.
-The case must FAIL on the build before the fix (REAL_EXTENSION_DIR=<old extension/>) and its stubbed AI must answer only what the extension asked.
+  return `this push changes how the app acts on pages (${list.slice(0, 4).join(', ')}${list.length > 4 ? ', …' : ''}) without a recorded page, a ladder fixture or a journey scenario.
+Add the case that shows the fix (CLAUDE.md "Where a fix lives"):
+- a wrong decision (which button, route, page kind, when to stop): a ladder fixture in desktop/e2e/ladder-fixtures/ with its stored answer (npm run ladder-score -- --record --missing) and the baseline;
+- a field or control the fill cannot read or set: a hand-made recorded page (desktop/e2e/recorded/<case>/) or a widget-zoo page, seen failing on the old build (REAL_EXTENSION_DIR=<old extension/>);
+- a flow change the replay's app does not load: a scenario in desktop/test/journeys.test.js.
+A fill fixture (worker/test/fixtures/fill/) alone does not count. Cases cut from live captures (row-to-case) are no longer made (owner, 15 Oct 2026).
 Only a change that fixes no failure seen (a log line, a comment, a refactor the gates already cover) may say so: "Recorded-unneeded: <why>" (not with a Pool-row or an issue it fixes).`;
 }
 
