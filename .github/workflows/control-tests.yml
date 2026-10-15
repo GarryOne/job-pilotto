@@ -3,7 +3,7 @@ name: CI · Control tests (measure, not required)
 # extension, offline. It MEASURES how many pages the fill reads and keeps committed; a miss never fails it (pages that fail today are the fill ladder's found bugs). It fails only when the
 # replay broke or a page pressed a submit. NOT a required check: a page moves to desktop/e2e/recorded/ (the required replay shards) only once it passes.
 on:
-  pull_request:   # GitHub's paths decide on a pull request (owner, 14 Oct 2026: "rely fully on gh workflow paths"); not required (a skipped workflow never reports); main runs it on every push
+  pull_request:   # GitHub's paths decide on a pull request (owner, 14 Oct 2026: "rely fully on gh workflow paths"); not required (a skipped workflow never reports); main runs it as a step of build.yml (CI · Tests), as a warning only
     branches: [main]
     paths:
       # Exactly what this workflow loads (tools/replay-files.mjs --paths control-tests.yml prints it; desktop/test/replay-workflow-paths.test.js fails when it drifts), plus its install files.
@@ -55,8 +55,6 @@ on:
       - 'desktop/package.json'
       - 'desktop/package-lock.json'
       - '.github/workflows/control-tests.yml'
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, and a newer push to main cancels the older commit's run (the newest commit's run decides); a by-hand run is its own group and never cancelled

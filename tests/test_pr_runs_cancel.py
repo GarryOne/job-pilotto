@@ -51,6 +51,15 @@ class PrRunsCancel(unittest.TestCase):
             text = (WORKFLOWS / name).read_text(encoding='utf-8')
             self.assertRegex(text, r'max-parallel: [1-4]\b', name)
 
+    def test_a_closed_pr_cancels_its_remaining_runs(self):
+        # 15 Oct 2026: the runs of a merged branch kept holding runners (five leftovers of #878)
+        text = (WORKFLOWS / 'pr-closed-cancel.yml').read_text(encoding='utf-8')
+        self.assertIn('pull_request_target:\n    types: [closed]', text)
+        self.assertNotIn('actions/checkout', text, 'main\'s copy runs; the PR\'s code is never checked out')
+        self.assertIn('actions: write', text)
+        self.assertIn('github.event.pull_request.head.repo.full_name == github.repository', text, 'a fork\'s PR is skipped')
+        for status in ('queued', 'in_progress'): self.assertIn(status, text)
+
     def test_the_by_hand_exceptions_still_exist(self):
         for name in NOT_CANCELLED: self.assertTrue((WORKFLOWS / name).exists(), name)
 

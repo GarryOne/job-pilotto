@@ -13,7 +13,9 @@ TESTS, PAGES = 'CI · Tests', 'CI · Page cases (all cases, real extension, Linu
 
 # Every workflow of .github/workflows, counted for red main or ignored with the reason (a new workflow fails the last test until it is put here: a conscious choice).
 CLASSIFIED = {
-    'CI · Tests': 'counted', 'CI · Page cases (all cases, real extension, Linux)': 'counted',
+    'CI · Tests': 'counted',
+    'CI · Cancel the runs of a closed PR': 'ignored: pull_request_target on close; cancels the closed PR\'s own runs, never runs on main',
+    'CI · Page cases (all cases, real extension, Linux)': 'ignored: pull requests and by hand only; on main its cases are a step of CI · Tests (one Linux job, 15 Oct 2026)',
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
     'CI · Harness tests': 'ignored: pull requests that change the harness only (on: paths:)',
     'CI · Tests · python': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
@@ -123,13 +125,14 @@ class RedMainTest(unittest.TestCase):
         self.run_at(4, TESTS, status='in_progress', failed_jobs=1); self.run_at(4, PAGES, status='in_progress')
         self.assertEqual(self.state()[1], 1)
 
-    def test_the_other_counted_workflow_can_make_it_red_too(self):
+    def test_a_page_cases_run_is_not_counted_any_more(self):
+        # 15 Oct 2026: main runs the page cases as a step of CI · Tests; a (by-hand) page-cases run neither makes main red nor is needed for green
         self.run_at(3, TESTS); self.run_at(3, PAGES, conclusion='failure', failed_jobs=1)
-        self.assertEqual(self.state()[1], 1)
+        self.assertEqual(self.state(), (f'green {self.shas[3][:7]}', 0))
 
-    def test_a_commit_with_only_one_counted_run_finished_green_is_not_green_yet(self):
+    def test_a_commit_with_no_tests_run_yet_is_not_green_yet(self):
         self.green_at(1)
-        self.run_at(3, TESTS)   # its recorded-pages run does not exist yet: the verdict falls to the commit before
+        self.run_at(3, PAGES)   # its CI · Tests run does not exist yet: the verdict falls to the commit before
         self.assertEqual(self.state(), (f'green {self.shas[1][:7]}', 0))
 
     def test_a_cancelled_run_of_the_newest_commit_blocks_nobody_and_is_rerun(self):

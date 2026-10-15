@@ -1,10 +1,8 @@
 name: CI · Ops overview
 # Where our engineering time goes (owner, 15 Oct 2026): the merged PRs of the last 30 days, by what they change, for https://www.jobpilotto.top/admin/operations/overview.
-# Pushed after every merge to main and hourly as the backup; each PR is read once (tools/ops-overview.mjs); the site keeps one row per PR and one snapshot row.
+# Pushed by build.yml (CI · Tests) after every merge to main (its last step) and hourly here as the backup; each PR is read once (tools/ops-overview.mjs); the site keeps one row per PR and one snapshot row.
 # Why a workflow and not the page reading GitHub: a page load would spend GitHub calls and D1 reads each time; here one write per PR, one row read per page.
 on:
-  push:
-    branches: [main]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
