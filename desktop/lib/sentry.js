@@ -34,7 +34,7 @@ export function frames(stack) {
   return out.reverse().slice(-40);
 }
 
-const LEVEL = {crash: 'fatal', run_failed: 'error', stuck: 'error', run_warning: 'warning'};
+const LEVEL = {crash: 'fatal', run_failed: 'error', stuck: 'error', run_warning: 'warning', fill_error: 'error'};   // fill_error: lib/real-errors.js
 export const CAPTURED = Object.keys(LEVEL);
 // What makes two reports one problem: the kind and the part of the message that is not a number or an id.
 const normal = text => String(text ?? '').replace(/0x[0-9a-f]+|\b[0-9a-f]{8,}\b|[0-9a-f-]{36}/gi, '<id>').replace(/\d+/g, '#').slice(0, 120);
@@ -49,13 +49,14 @@ export function buildEvent(kind, fields = {}, {release = '', environment = 'prod
     event_id: crypto.randomBytes(16).toString('hex'), timestamp: now / 1000, platform: 'javascript', level: LEVEL[kind] || 'error',
     release, environment, user: {id: installId}, server_name: undefined,
     tags: {kind, platform, os: String(os).slice(0, 20), ...(fields.job ? {job: scrub(fields.job, 60)} : {}), ...(fields.where ? {where: scrub(fields.where, 40)} : {}),
+      ...(fields.host ? {host: scrub(fields.host, 80)} : {}), ...(fields.extVersion ? {extVersion: scrub(fields.extVersion, 20)} : {}),
       ...(fields.timedOut ? {timedOut: 'yes'} : {}), ...tags},
     fingerprint: [kind, normal(fields.job || fields.where || ''), normal(message)],
     contexts: {runtime: {name: 'electron'}},
     ...(trail.length ? {breadcrumbs: {values: trail.map(item => ({timestamp: item.at / 1000, category: 'step', message: item.message, level: 'info'}))}} : {}),
   };
   const stack = frames(fields.stack);
-  if (kind === 'crash' && stack.length) {
+  if ((kind === 'crash' || kind === 'fill_error') && stack.length) {
     event.exception = {values: [{type: scrub(fields.type || 'Error', 60), value: message, stacktrace: {frames: stack}}]};
   } else {
     event.message = `${kind}${fields.job ? ` · ${scrub(fields.job, 60)}` : ''}: ${message}`;

@@ -24,7 +24,7 @@ export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, dec
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setTakeOverHandler,
-  setTailorHandler, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
+  setTailorHandler, setErrorWatcher, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
 // The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's

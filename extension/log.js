@@ -41,3 +41,10 @@ async function pushNow() {
       .map(entry => (sent.has(entry.at + entry.text) ? {...entry, sent: true} : entry))});
   } catch { /* not paired, or the app is closed: they stay unsent for the next push */ }
 }
+
+// An error nobody caught in the extension's worker is a decision line of kind "error" (desktop/lib/real-errors.js reports it): message and stack frames only.
+if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') {
+  const said = error => ({error: String(error?.message || error || '').slice(0, 200), at: String(error?.stack || '').split('\n').slice(1, 5).map(line => line.trim()).join(' | ').slice(0, 300)});
+  self.addEventListener('error', event => { decide('error', 'uncaught error', said(event?.error || event?.message)).catch(() => {}); });
+  self.addEventListener('unhandledrejection', event => { decide('error', 'unhandled rejection', said(event?.reason)).catch(() => {}); });
+}

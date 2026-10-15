@@ -8,6 +8,8 @@ import * as installSource from './install-source.js';
 import * as pipeline from './pipeline.js';
 import * as recipesLib from './recipes.js';
 import * as sentryLib from './sentry.js';
+import * as telegramLib from './telegram.js';
+import {createWatcher} from './real-errors.js';
 import * as server from './server.js';
 import * as telemetryLib from './telemetry.js';
 import os from 'node:os';
@@ -34,6 +36,13 @@ export function registerTelemetryHandlers(ctx) {
     .catch(error => appLog('install', 'channel lookup failed', {error: error.message}));
   appLog('telemetry', quiet ? `reporting is off: ${quiet}${sentryOnly ? ' (Sentry only, environment e2e)' : ''}` : 'reporting follows the Technical reports switch');   // the end-to-end harness reads this line
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
+  // Real fill errors (lib/real-errors.js): a Sentry event when crash reports are on, and one Telegram line per error kind per hour through the owner's own bot.
+  let sentryCapture = () => false;
+  server.setErrorWatcher(createWatcher({sentry: (kind, fields) => sentryCapture(kind, fields), notice: text => {
+    const token = storage.secret('TELEGRAM_BOT_TOKEN'), chat = storage.settings().telegramChatId;
+    if (quiet || !token || !chat) return;
+    telegramLib.api(token, 'sendMessage', {chat_id: chat, text}).catch(error => appLog('telegram', 'error notice not sent', {error: error.message}));
+  }}));
   if (telemetry) {
     // Crash reports (Sentry) and usage events (PostHog): only an installed build, only with Technical reports on, only when
     // config/analytics.json (or env) names where. Every problem the app records for itself goes to Sentry too; native crashes go through
@@ -45,6 +54,7 @@ export function registerTelemetryHandlers(ctx) {
     if (sentryClient.active) {
       const record = telemetry.record.bind(telemetry);
       trail = sentryClient.note;
+      sentryCapture = sentryClient.capture;
       setTrail(trail);
       // Testers only (beta on), and only for one who switched it on (Settings → Technical reports): the scrubbed tail of the run log
       // rides along with a failed or hung run's report to Sentry (never to our own telemetry store).

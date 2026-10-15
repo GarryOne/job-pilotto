@@ -23,7 +23,7 @@ import {contactOf} from './server-contact.js';
 import {pageKey} from './server-pages.js';
 import {captureAnswer} from './live-capture.js';
 import {keptAnswerClient} from './ai/index.js';
-import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
+import {answerReporter, appliedHook, errorWatcher, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
 import {cvFactsText} from '../shared/worker/cv-facts.js';
 import {configForPrompt} from './config-text.js';
@@ -135,6 +135,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     // The extension's own decisions (worker /extension/log), cleaned at that boundary: written here so a decision made
     // in Chrome is in the app's log with everything else (1 Oct 2026: nothing recorded why a job went Applied).
     onLog: entries => {
+      errorWatcher(entries);
       for (const entry of Array.isArray(entries) ? entries : []) {
         appLog('extension', `${entry?.kind || 'note'}: ${entry?.text || ''}`, entry?.fields || {});
       }

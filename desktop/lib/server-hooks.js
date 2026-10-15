@@ -79,5 +79,7 @@ export let tailorHandler = () => {};  // the panel's "Tailor my CV for this job"
 export function setTailorHandler(fn) { tailorHandler = fn; }
 export let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
 export function setFormIssueHandler(fn) { formIssue = fn; }
+export let errorWatcher = () => {};  // the extension's decision lines, read for real errors (lib/real-errors.js, set by telemetry-handlers.js)
+export function setErrorWatcher(fn) { errorWatcher = fn; }
 export let openHandler = () => false;
 export function setOpenHandler(fn) { openHandler = fn; }
