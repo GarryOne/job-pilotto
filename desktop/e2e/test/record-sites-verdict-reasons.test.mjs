@@ -1,10 +1,10 @@
-// Which reasons the fill writes count as a miss in the pool verdict (lib/smoke.mjs verdictOf): a correct answer must never make a form "short". Guards the Migros "unread" row.
+// Which reasons the fill writes count as a miss in the pool verdict (lib/record-sites.mjs verdictOf): a correct answer must never make a form "short". Guards the Migros "unread" row.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {shortfall, verdictOf} from '../lib/smoke.mjs';
+import {shortfall, verdictOf} from '../lib/record-sites.mjs';
 
 const left = (reason, type = 'text', required = true) => ({outcome: 'left', type, label: 'Q', required, reason});
 
