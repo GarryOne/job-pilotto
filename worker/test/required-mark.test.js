@@ -82,3 +82,16 @@ test('a radio group in a table row keeps its row title even when the row holds a
   const window = openPage(JSDOM, `<table><tr><td>Anrede</td><td><input type="radio" name="s" id="a"><label for="a">Frau</label><input type="radio" name="s" id="b"><label for="b">Herr</label> <input type="text" name="other" aria-label="other"></td></tr></table>`);
   assert.equal(window.__jobPilottoFillKit.questionOf(window.document.getElementById('a')), 'Anrede');
 });
+
+// A star the page keeps hidden until its script says the section is required (15 Oct 2026, a hosted careers form: <h3>Work History<span class="ng-hide required">*</span></h3>, a repeating
+// section with no box of its own, its "Experience Summary" box (optional) further down the same section). The hidden star made the coverage list the section as a required question,
+// climbed to the box and called it "question on the page not read". A star that is not shown is no mark; the same star shown is. Any way of hiding: a class's rule, hidden, inline style.
+for (const [name, hide] of [['a class whose rule hides it', 'class="gone required"'], ['the hidden attribute', 'hidden class="required"'], ['an inline display:none', 'style="display:none" class="required"']]) {
+  test(`a required star the page hides is not a mark (${name}); shown, it is`, { skip: !JSDOM }, () => {
+    const page = star => `<style>.gone{display:none !important}</style><form><div class="section"><div class="section-header"><h3><span>Work History</span><span ${star}>*</span></h3></div>
+      <ul></ul><a href="">Add Position</a><div class="section-header"><h3>Experience Summary</h3></div><textarea name="summary"></textarea></div></form>`;
+    const audit = (html) => { const window = openPage(JSDOM, html); return window.__jobPilottoCoverage.audit(window.document, [], () => true).map((item) => String(item.question)).join('|'); };
+    assert.equal(audit(page(hide)), '', 'a hidden star marks nothing');
+    assert.equal(audit(page('class="required"')), 'Work History', 'the same star shown is the mark');
+  });
+}

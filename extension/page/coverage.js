@@ -16,7 +16,7 @@
   function marked(title, view) {
     if (window.__jobPilottoRequired.has(title)) return true;
     if (/(^|[\s_-])required([\s_-]|$)/i.test(String(title.className?.baseVal ?? title.className ?? ''))) return true;
-    if (title.querySelector('[class*=required], [aria-label*=required i], abbr[title*=required i]')) return true;
+    if ([...title.querySelectorAll('[class*=required], [aria-label*=required i], abbr[title*=required i]')].some(mark => !window.__jobPilottoRequired.hiddenIn(mark, title))) return true;   // a marker the page hides is not shown
     try {
       for (const pseudo of ['::after', '::before']) if (String(view.getComputedStyle(title, pseudo).content || '').includes('*')) return true;
     } catch { /* no styles (a test DOM) */ }
