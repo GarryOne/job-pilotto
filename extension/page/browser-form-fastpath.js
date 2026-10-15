@@ -57,7 +57,7 @@
     element.setAttribute?.('data-jobpilotto-typed', alnum(value).slice(0, 160));   // what the panel checks at the end (review.js): the letters and digits we typed
     const known = typedHere.get(element);
     if (known) { Object.assign(known, {value, retypes: 0}); return; }
-    follow(element, {value, edited: false, retypes: 0, field: element.id || element.name || ''});
+    follow(element, {value, edited: false, retypes: 0, field: element.id || element.name || '', label: labelNow(element)});
   };
   // What the fill picked in a menu, per menu: the option's letters and digits on the menu (data-jobpilotto-picked, read by page/read-back.js: another option shown = mismatch)
   // and its value, so a menu the page set back is picked again within its attempt log (retypeNow); a person's own change stops that.
@@ -69,9 +69,17 @@
   };
   // A page that draws its form again after an upload (a re-render) replaces the box with a new element of the same id or name: the record moves to it,
   // so what we typed is put back there; the person's edits to the old element still count (the record says so).
+  // A toolkit that creates its controls again (SAP UI5 gives each new control a new generated id and no name) leaves no id or name to find the box by: it is found by its question,
+  // the one box of the page with that label that holds no record of ours yet (never two: then it is not told apart).
+  const labelNow = element => { try { return String(window.__jobPilottoFillKit?.labelOf?.(element) || '').trim(); } catch { return ''; } };
+  const byLabel = (record, was) => {
+    if (!record.label) return null;
+    const found = [...document.querySelectorAll('input:not([type=hidden]), textarea')].filter(box => box.isConnected && box.tagName === was.tagName && box.type === was.type && !typedHere.has(box) && labelNow(box) === record.label);
+    return found.length === 1 ? found[0] : null;
+  };
   const stillThere = (element, record) => {
     if (element.isConnected) return element;
-    const same = record.field && byField(record.field);
+    const same = (record.field && byField(record.field)) || byLabel(record, element);
     if (!same || !same.isConnected || typedHere.has(same)) return null;
     typedHere.delete(element);
     follow(same, record);
