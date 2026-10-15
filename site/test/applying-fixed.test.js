@@ -145,13 +145,13 @@ test('every paged table of the tabs and sections that share the block() helper s
   assert.doesNotMatch(PAGE, /NEXT_PER = 5\b|FIX_PER = 5\b/);
 });
 
-test('the six metrics sit in one row (the first is Resolved since 12 Oct 2026: the outcome contract\'s headline replaced the replay count, which moved to the shape tests): one strip, a big number, a short label and a small note each; 3 columns on a tablet, 2 on a phone; the long wording moved into a tooltip (owner, 11 Oct 2026)', () => {
-  assert.match(PAGE, /\.tiles\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
-  assert.match(PAGE, /@media \(max-width:1000px\)\{\.tiles\{grid-template-columns:repeat\(3,/); assert.match(PAGE, /@media \(max-width:520px\)\{\.tiles\{grid-template-columns:repeat\(2,/);
-  for (const label of ['Resolved', 'Sites run live', 'Reached the form', 'Open regressions', 'Sites needing a fix', 'Boards dropped']) assert.ok(PAGE.includes(label), label);
-  for (const old of ['fixed-site replays passing', 'smoke sites run in the last 10 nights', 'sites need a fix (stopped early', 'boards dropped in the fleet (layer 4)']) assert.ok(!PAGE.includes(old), old + ' is gone');
+test('the seven metrics sit in one row (owner, 15 Oct 2026: the fix pipeline and offline replay joined, sites run and boards left; the first is Resolved since 12 Oct 2026: the outcome contract\'s headline replaced the replay count, which moved to the shape tests): one strip, a big number, a short label and a small note each; 3 columns on a tablet, 2 on a phone; the long wording moved into a tooltip (owner, 11 Oct 2026)', () => {
+  assert.match(PAGE, /\.tiles\{[^}]*grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
+  assert.match(PAGE, /@media \(max-width:1000px\)\{\.tiles\{grid-template-columns:repeat\(4,/); assert.match(PAGE, /@media \(max-width:520px\)\{\.tiles\{grid-template-columns:repeat\(2,/);
+  for (const label of ['Resolved', 'Reached the form', 'Sites needing a fix', 'Open regressions', 'Awaiting verification', 'Fixes confirmed', 'Replayable offline']) assert.ok(PAGE.includes(label), label);
+  for (const old of ['fixed-site replays passing', 'smoke sites run in the last 10 nights', 'sites need a fix (stopped early', 'boards dropped in the fleet (layer 4)', 'Sites run live']) assert.ok(!PAGE.includes(old), old + ' is gone');
   assert.match(PAGE, /stopped early, unexplained fields, or a regression/);   // the explanation is kept in the tile's tooltip, beside its colour rule (src/applying-tiles.js)
-  assert.equal((PAGE.match(/ tile\(/g) || []).length, 6, 'still six metrics, none dropped');
+  assert.equal((PAGE.match(/ tile\(/g) || []).length, 7, 'seven metrics, none dropped');
 });
 
 test('Needs a fix fits its panel: the row keeps Site / platform, Why, Last run and a Details expander; platform use, top cause and the filled runs live in the expander (owner, 11 Oct 2026)', () => {
