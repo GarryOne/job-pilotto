@@ -1,7 +1,7 @@
 """On main the NEWEST commit's run decides (owner, 15 Oct 2026: "cancel main's push runs for every commit but the newest; we want to optimize the 20 runners at most": 27 page-case
 runs of merged commits queued behind each other). Before that (12-13 Oct 2026) the rule was the opposite: every commit kept its own run, because a cancelled run drew a red cross.
 A workflow that runs on a push to main shares ONE group on main and cancels its older run; a by-hand run is its own group and never cancelled. Exceptions are named with a reason:
-a deploy (a started deploy finishes, a waiting older one is replaced: the newest carries everything) and the ops overview (each run stores its own commit's PR).
+a deploy (a started deploy finishes, a waiting older one is replaced: the newest carries everything). Since 15 Oct 2026 main starts two jobs per push (build.yml: one Linux job, one Windows job).
 Readers of a commit's verdict (tools/red-main.sh, tools/release-checks.sh, tools/canary_promote.py) treat a cancelled run as 'superseded': tests/test_red_main.py, tests/test_e2e_gate.py."""
 import re
 import unittest
@@ -12,7 +12,6 @@ EXCEPTIONS = {
     'site.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
     'site-next.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
     'worker.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
-    'ops-overview.yml': 'each run stores the pull request of its own commit; a cancelled run would lose that record (tests/test_workflow_contract.py: a group per commit)',
 }
 
 
@@ -36,7 +35,7 @@ class NewestMainRunWins(unittest.TestCase):
 
     def test_a_push_to_main_cancels_the_older_commits_run(self):
         pushed = self.push_workflows()
-        self.assertGreater(len(pushed), 5, 'positive control: the push workflows are read')
+        self.assertGreaterEqual(len(pushed), 4, 'positive control: the push workflows are read (CI · Tests and the three deploys)')
         offenders = []
         for name, text in pushed.items():
             if name in EXCEPTIONS: continue

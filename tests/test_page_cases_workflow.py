@@ -10,7 +10,9 @@ WORKFLOW = (ROOT / '.github' / 'workflows' / 'page-cases.yml').read_text()
 
 class RecordedPagesWorkflow(unittest.TestCase):
     def test_it_runs_on_every_push_to_main_and_by_hand(self):
-        self.assertRegex(WORKFLOW, r'(?m)^on:\n  push:\n    branches: \[main\]')
+        # since 15 Oct 2026 main runs every case as a step of build.yml's one Linux job (tests/test_main_one_job.py); this workflow is the PR split and the by-hand run
+        self.assertNotRegex(WORKFLOW, r'(?m)^  push:')
+        self.assertIn('pull_request:', WORKFLOW)
         self.assertIn('workflow_dispatch', WORKFLOW)
 
     def test_the_matrix_shards_cover_every_case_exactly_once(self):

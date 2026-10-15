@@ -2,7 +2,7 @@
 # Is main red? One answer for the push hook, ship.sh and tools/revert-red.sh. Owner: ship-speed (11 Oct 2026). Guarded by tests/test_red_main.py.
 #   bash tools/red-main.sh        prints  green <sha>  |  red|<sha>|<workflow>|<run url>|<completed-at>|<run id>  |  unknown
 #                                 exit 1 only for red; no gh, no network or no origin/main is "unknown" (exit 0): a missing answer never blocks a push
-# Main's state is decided by the NEWEST commit of origin/main (last 20) that has a finished verdict: its `CI · Tests` and `CI · Page cases` runs both completed with success = green; any completed
+# Main's state is decided by the NEWEST commit of origin/main (last 20) that has a finished verdict: its `CI · Tests` run (one Linux job with a step per suite, page cases included, and the Windows job) completed with success = green; any completed
 # failure, or a run still in flight with a failed job = red. A commit whose runs are still going (a fix in flight) proves nothing yet and is skipped, so main stays red until a later commit's run is green
 # (11 Oct 2026: the old "a fix is building" exemption let four landings through on top of a fix attempt that itself ended red). A run cancelled or timed out with no failed job is skipped, and re-run only on the newest commit (a newer push cancels the older commit's runs: the newest commit's run decides).
 # Other forms (11 Oct 2026, the owner: a red main must be fixed within 5 minutes, 15 with a claim):
@@ -14,7 +14,7 @@
 # RED_MAIN_REPO=<folder> reads another clone; RED_MAIN_RUNS=<n> how many runs to ask gh for (default 60).
 # The workflows whose result makes main red (names as in `name:` of .github/workflows/*.yml): the one place. Every other workflow is classified as ignored, with its reason, in tests/test_red_main.py:
 # adding a workflow there is a conscious choice (that test fails for an unclassified one).
-RED_WORKFLOWS=("CI · Tests" "CI · Page cases")
+RED_WORKFLOWS=("CI · Tests")   # one workflow since 15 Oct 2026: its one Linux job runs the page cases as a step (the old "CI · Page cases" push run is gone)
 names_json="$(printf '%s\n' "${RED_WORKFLOWS[@]}" | jq -R . | jq -sc .)"
 repo="${RED_MAIN_REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
 red_status() {

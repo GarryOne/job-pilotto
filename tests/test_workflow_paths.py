@@ -98,14 +98,15 @@ class TheClass(unittest.TestCase):
         self.assertNotIn('--required', (ROOT / 'tools/ship-pr.sh').read_text())
 
     def test_main_runs_every_suite_on_each_push(self):
+        # one Linux job with a step per suite and the Windows job (tests/test_main_one_job.py has the full list)
         build = (WORKFLOWS / 'build.yml').read_text()
         self.assertNotIn('pull_request', on_block('build.yml'), 'a pull request runs each area by itself')
-        for area in ('python', 'worker', 'site', 'desktop', 'desktop-windows'):
-            self.assertIn(f'uses: ./.github/workflows/tests-{area}.yml', build, area)
-            self.assertIn('workflow_call:', on_block(f'tests-{area}.yml'), area)
+        for area in ('python', 'worker', 'site', 'desktop'):
+            self.assertIn(f'--area {area}', build, area)
+        self.assertIn('uses: ./.github/workflows/tests-desktop-windows.yml', build)
+        self.assertIn('workflow_call:', on_block('tests-desktop-windows.yml'))
         for name in ('page-cases.yml', 'control-tests.yml'):
-            push = on_block(name).split('\n  push:', 1)[1].split('\n  ', 1)[0]
-            self.assertNotIn('paths', push, f'{name}: main replays everything')
+            self.assertNotIn('\n  push:', on_block(name), f'{name}: main runs it as a step of build.yml')
 
 
 class TheShapes(unittest.TestCase):

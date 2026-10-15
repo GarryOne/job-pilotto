@@ -1,26 +1,129 @@
 name: CI · Tests
 
-# Every test suite on every push to main (the backstop: red main, tools/red-main.sh; the release gates read this workflow's verdict on a commit). A pull request
-# runs each area's workflow by itself, when GitHub's `paths:` says it changed (tests-python.yml, tests-worker.yml, tests-site.yml, tests-desktop.yml).
+# Every test suite on every push to main (the backstop: red main, tools/red-main.sh; the release gates read this workflow's verdict on a commit). On main we need neither
+# readability nor speed, only as few runners as possible (owner, 15 Oct 2026: a push started ~10 jobs, PRs waited for runners): ONE Linux job runs every Linux suite in sequence,
+# each its own named step that fails alone (continue-on-error), and a last step fails the job listing every red suite, so one red suite never hides another. The Windows desktop
+# tests stay a job of their own (another OS). A pull request keeps the split into fast parallel workflows, started by their `on: paths:` (tests-python.yml, tests-worker.yml,
+# tests-site.yml, tests-desktop.yml, page-cases.yml, control-tests.yml): speed matters there. The steps repeat what those workflows run: tests/test_main_one_job.py fails when one
+# suite is on a PR and not here. Page cases and the ops overview no longer start by themselves on a push: their runs are steps below.
 on:
   push:
     branches: [main]
 
 permissions:
   contents: read
+  pull-requests: read   # the ops overview step reads the merged PRs
+  actions: read
 
 concurrency:   # newest wins (owner, 15 Oct 2026): a newer push to main cancels the older commit's run and frees its runners; the newest commit's run decides (tools/red-main.sh)
   group: ci-tests-main
   cancel-in-progress: true
 
 jobs:
-  python:
-    uses: ./.github/workflows/tests-python.yml
-  worker:
-    uses: ./.github/workflows/tests-worker.yml
-  site:
-    uses: ./.github/workflows/tests-site.yml
-  desktop:
-    uses: ./.github/workflows/tests-desktop.yml
-  desktop-windows:
+  linux:
+    name: Linux suites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60   # the PR workflows' timeouts add up to ~75; the suites take ~25 min in sequence
+    env:
+      JOB_PILOTTO_PY_JOBS: 6
+      JOB_PILOTTO_HEAVY: 0   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Suite · python
+        id: python
+        continue-on-error: true
+        run: bash tools/check.sh --area python
+      - name: Suite · site
+        id: site
+        continue-on-error: true
+        run: |
+          (cd site && npm ci)
+          bash tools/check.sh --area site
+      - name: Suite · worker
+        id: worker
+        continue-on-error: true
+        run: |
+          (cd worker && npm ci)
+          bash tools/check.sh --area worker
+      # Install exactly what a developer has, dev dependencies included: `npm test` runs scripts/stage.mjs, which needs esbuild. Only Electron's large binary is skipped.
+      - name: Suite · desktop
+        id: desktop
+        continue-on-error: true
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: |
+          (cd desktop && npm ci)
+          bash tools/check.sh --area desktop
+      # The recorded pages and the widget zoo need the replay's own install (the app's runtime packages only, the generated shared files, the full Chromium).
+      - name: Install the replays' packages and browser
+        id: replay-install
+        continue-on-error: true
+        run: |
+          (cd desktop/e2e && (npm ci || npm install))
+          (cd desktop && (npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts) && node scripts/stage.mjs --files-only)
+          (cd desktop/e2e && npx playwright install --with-deps chromium)
+      - name: Suite · page cases (every recorded case)
+        id: pages
+        continue-on-error: true
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY: 1
+          JP_REPLAY_TABS: 4
+          JP_REPLAY_SHARD: 1/1
+          JP_REPLAY_RESULTS: replay-results-1.json
+        run: node --test --test-concurrency=1 test/recorded-pages.test.mjs
+      # /admin/lab-form-filling's Fixed-site replays show CI on main only: this build's results, ONE PUT with its sha (desktop/e2e/replays-report.mjs). Also when a case failed.
+      - name: Send the page cases to /admin/lab-form-filling
+        id: pages-report
+        continue-on-error: true
+        working-directory: desktop/e2e
+        env:
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+          JP_REPLAYS_DRY: 'false'
+        run: node replays-report.mjs 1 replay-results-1.json
+      - name: Suite · control tests (widget zoo)
+        id: zoo
+        continue-on-error: true
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY: 1
+          REPLAY_LOG: 1   # the extension's decision lines per page: why a miss happened
+        run: node widget-zoo.mjs --json widget-zoo.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: widget-zoo
+          path: desktop/e2e/widget-zoo.json
+          if-no-files-found: ignore
+          retention-days: 3
+      # Where our engineering time goes (tools/ops-overview.mjs; ops-overview.yml keeps its hourly backup). Never a verdict: a failure here is a warning, not a red main.
+      - name: Publish the ops overview
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
+        run: node tools/ops-overview.mjs
+      - name: Every suite passed
+        if: always()
+        env:
+          RESULTS: python=${{ steps.python.outcome }} site=${{ steps.site.outcome }} worker=${{ steps.worker.outcome }} desktop=${{ steps.desktop.outcome }} replay-install=${{ steps.replay-install.outcome }} page-cases=${{ steps.pages.outcome }}
+          WARNINGS: page-cases-report=${{ steps.pages-report.outcome }} control-tests=${{ steps.zoo.outcome }}
+        run: |
+          red=""
+          for pair in $RESULTS; do case "${pair#*=}" in success|skipped) ;; *) red="$red ${pair%%=*}(${pair#*=})" ;; esac; done
+          # measured, never a verdict (control-tests.yml: "measure, not required"; the report is a publish): a warning, not a red main
+          for pair in $WARNINGS; do case "${pair#*=}" in success|skipped) ;; *) echo "::warning::${pair%%=*} ${pair#*=}"; echo "Warning: ${pair%%=*} ${pair#*=}" >> "$GITHUB_STEP_SUMMARY" ;; esac; done
+          if [ -n "$red" ]; then echo "::error::red suites:$red"; echo "Red suites:$red" >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          echo "every Linux suite passed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  windows:
     uses: ./.github/workflows/tests-desktop-windows.yml
