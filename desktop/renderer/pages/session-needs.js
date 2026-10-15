@@ -229,7 +229,8 @@ export async function reopenClosedTab(item, button) {
     reviewStates.delete(item.id);
     batch.delete(item.id);
   }
-  toastMessage('Form reopened', 'Opened the form in a new Chrome tab; the extension fills it from your kit.');
+  if (result?.focused) toastMessage('Form tab found', 'The form is still open in Chrome (its address changed): showing it.');
+  else toastMessage('Form reopened', 'Opened the form in a new Chrome tab; the extension fills it from your kit.');
   await refreshSessions();
   renderSessionPage();
   return result;

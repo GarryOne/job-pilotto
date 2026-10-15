@@ -6,7 +6,7 @@ import * as sessionRuns from './session-runs.js';
 import * as transcript from './transcript.js';
 import * as quitDialog from './quit-dialog.js';
 import {sessionIpc} from './session-contracts.js';
-import {closeFormTab} from './form-tab.js';
+import {closeFormTab, openFormTab} from './form-tab.js';
 import {sessionsNamedIn} from './session-tab.js';
 
 // Close a session's form tab and say whether it is closed. A tab the app already knows is gone needs no wait: asking its page
@@ -19,9 +19,11 @@ export async function closeSessionTab({review, closeTab}, old) {
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 import {stopLiveForms} from './stop-all.js';
+const REOPEN_MS = 15 * 1000;
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
   DEMO, extensionGate = () => null, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
-  closeTab = closeFormTab}) {
+  closeTab = closeFormTab, focusTab = openFormTab}) {
+  const reopenedAt = new Map();   // session id -> when Reopen last opened its form: a second press inside REOPEN_MS opens nothing
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
     const old = terminals.get(String(id));
@@ -119,9 +121,15 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
     // No question (owner, 8 Oct 2026): the card already says Reopen fills the form again from your kit, so what the page held
     // from the closed tab is cleared and the form opens in a new tab. Claude is never started here; Start again is for that.
+    // The tab may still be open under another address (redirected to the employer's own site, 15 Oct 2026: two presses opened two new tabs): its fill mark
+    // names it on any host in any window (lib/session-tab.js), so it is focused instead, and a form is opened only when no tab carries the mark.
+    const live = await focusTab({id: old.id, boundTab: review.tabOf(old.id)}).catch(() => 'none');
+    if (live === 'tab') { appLog('review', `tab gone ${old.id}: its tab is open (marked), focused it instead of reopening`, {kind: old.kind}); return {ok: true, reset: false, focused: true}; }
+    if (Date.now() - (reopenedAt.get(old.id) || 0) < REOPEN_MS) { appLog('review', `tab gone ${old.id}: reopen pressed again while the form opens, nothing more opened`); return {ok: true, reset: false, focused: false}; }
     const reset = !!stale;
     if (reset) { review.forget(old.id); terminals.clearStuck(old.id); }
     appLog('review', `tab gone ${old.id}: ${reset ? 'cleared the closed tab\'s state, reopening' : 'nothing to clear, reopening'}`, {kind: old.kind});
+    reopenedAt.set(old.id, Date.now());
     const opened = apply.openOne(old.url, {session: old.id});   // the same session: its new tab carries its id
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});
     return opened.ok ? {ok: true, reset} : {ok: false, error: opened.error};
