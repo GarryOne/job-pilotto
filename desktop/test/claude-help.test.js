@@ -47,6 +47,6 @@ test('"Always let Claude finish when I\'m stuck" is a Settings switch (claudeAut
   assert.match(html, /Always let Claude finish when I'm stuck/);
   assert.doesNotMatch(html, /Show Claude help|id="claude-consent"/);
   const auto = fs.readFileSync(new URL('claude-auto.js', RENDERER), 'utf8');
-  assert.match(auto, /\$\('claude-auto-line'\)\.hidden = !claudeHelp\(\);/);
+  assert.match(auto, /\$\('claude-auto-line'\)\.hidden = !resumeOffered\(\);/);   // the takeover flag wraps claudeHelp
   assert.match(auto, /save\(\{claudeAuto: \$\('claude-auto'\)\.checked\}\)/);
 });

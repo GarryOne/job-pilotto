@@ -24,16 +24,25 @@ test('not offered: not installed, not signed in, Git missing on Windows, or an O
 
 test('"always let Claude finish" counts only while Claude is offered', () => {
   _resetClaudeReady();
-  assert.equal(claudeAutoOn(storage({aiEngine: 'cli', claudeAuto: true}), () => ok), true);
-  assert.equal(claudeAutoOn(storage({aiEngine: 'cli'}), () => ok), false, 'off by default');
+  assert.equal(claudeAutoOn(storage({aiEngine: 'cli', claudeAuto: true}), () => ok, true), true);
+  assert.equal(claudeAutoOn(storage({aiEngine: 'cli'}), () => ok, true), false, 'off by default');
   _resetClaudeReady();
-  assert.equal(claudeAutoOn(storage({aiEngine: 'cli', claudeAuto: true}), () => ({...ok, claude: false})), false);
+  assert.equal(claudeAutoOn(storage({aiEngine: 'cli', claudeAuto: true}), () => ({...ok, claude: false}), true), false);
 });
 
 test('the countdown ("auto") needs "Do it for me": in "Let me check each step" it is never on, even with Always ticked', () => {
   const settings = mode => ({aiEngine: 'cli', claudeAuto: true, ...(mode ? {accountAutomation: mode} : {})});
   _resetClaudeReady();
-  assert.equal(claudeAutoStart(storage(settings()), () => ok), true, 'Do it for me is the default');
-  assert.equal(claudeAutoStart(storage(settings('full')), () => ok), true);
-  assert.equal(claudeAutoStart(storage(settings('assist')), () => ok), false);
+  assert.equal(claudeAutoStart(storage(settings()), () => ok, true), true, 'Do it for me is the default');
+  assert.equal(claudeAutoStart(storage(settings('full')), () => ok, true), true);
+  assert.equal(claudeAutoStart(storage(settings('assist')), () => ok, true), false);
+});
+
+test('with the takeover flag off nothing is offered or started, whatever the settings say (owner, 15 Oct 2026)', async () => {
+  const {takeoverOffered} = await import('../lib/claude-ready.js');
+  const on = storage({aiEngine: 'cli', claudeAuto: true});
+  assert.equal(takeoverOffered(on, () => ok, true), true);
+  assert.equal(takeoverOffered(on, () => ok, false), false);
+  assert.equal(claudeAutoOn(on, () => ok, false), false, 'no automatic takeover');
+  assert.equal(claudeAutoStart(on, () => ok, false), false, 'no countdown');
 });

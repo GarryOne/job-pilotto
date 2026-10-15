@@ -2,7 +2,8 @@
 // password, the form's review, the stuck report, the learned answers and fill misses, the visit routes, the tabs and the session reports. main.js
 // passes in the services they share. A FLOW FILE (docs/flows/applying.md). Guards: the server, review, credentials and visits tests in desktop/test and
 // the matrix (npm run flows).
-import {claudeOffered, claudeAutoStart} from './claude-ready.js';
+import {takeoverOffered, claudeAutoStart} from './claude-ready.js';
+import {SHOW_RESUME_CLAUDE} from '../renderer/claude-help.js';
 import {noteReport, observe, pageKeyOf} from './ladder/rung5-takeover-teach.js';
 import * as aliasLibrary from './aliases.js';
 import * as applyLib from './apply.js';
@@ -105,7 +106,7 @@ export function registerExtServerHandlers(ctx) {
     if (report.session?.url) { const key = pageKeyOf(report.session.url); noteReport(key, payload); observe(key, payload, {misses: misses.read(storage), report: items => recipeReporter.outcome(items), log: appLog}); }   // Claude teaches the extension (lib/ladder/rung5-takeover-teach.js)
     if (report.matched && report.session) formSeen(report.matched);
     if (report.moved) return {...report, tab: review.tabOf(String(payload?.session || ''), String(payload?.boot || '')) || null};   // "Go there": the tab that continues this application
-    return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: claudeOffered(storage), claudeAlways: !!storage.settings().claudeAuto, claudeAuto: claudeAutoStart(storage), claudeConsent: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
+    return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: takeoverOffered(storage), claudeTakeover: SHOW_RESUME_CLAUDE, claudeAlways: SHOW_RESUME_CLAUDE && !!storage.settings().claudeAuto, claudeAuto: claudeAutoStart(storage), claudeConsent: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
   });
   // Each send is logged with its counts (never its content): "is the twin's fill reaching the site?" was unanswerable on 9 Oct 2026.
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => {

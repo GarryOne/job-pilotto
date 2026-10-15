@@ -3,10 +3,11 @@
 // refused and logged; a start that failed gives the claim back). Guarded by test/take-over.test.js. Starting itself is main.js startClaude (passed in).
 const keyOf = url => String(url || '').split('#')[0].replace(/\/+$/, '').toLowerCase();
 
-export function createTakeOver({startClaude, storage, appLog, toWindow, onStarted = () => {}}) {
+export function createTakeOver({startClaude, storage, appLog, toWindow, onStarted = () => {}, enabled = false}) {   // enabled: the ONE flag of Claude's takeover, passed in by apply-handlers.js (off for now)
   const took = new Set();   // applications Claude was started on from a panel this run
   return async function takeOver(event) {
     const job = event.job, key = keyOf(event.url);
+    if (!enabled) { appLog('extension', 'take over with Claude refused: the takeover is off (renderer/claude-help.js SHOW_RESUME_CLAUDE)', {host: event.host}); return {ok: false, off: true}; }   // never from an old extension or a stale window
     appLog('extension', 'take over with Claude asked from the page', {host: event.host, known: !!job, consent: !!event.consent});
     if (event.consent && !storage.settings().claudeConsent) storage.saveSettings({claudeConsent: new Date().toISOString()});   // the panel's "Continue" line is the consent
     if (took.has(key)) {

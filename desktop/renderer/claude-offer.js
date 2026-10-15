@@ -5,7 +5,7 @@
 import {el} from './components.js';
 import {cardOffer} from './claude-offer-view.js';
 import {icon} from './icons.js';
-import {claudeHelp} from './claude-help.js';
+import {resumeOffered} from './claude-help.js';
 import {shared} from './pages/shared.js';
 import {toastMessage} from './pages/startup.js';
 
@@ -21,7 +21,7 @@ function button(text, kind, run, glyph) {
 
 // -> {buttons, notes}: what the card adds to its actions and to its text; `after` runs once Claude started (refresh the list, open the session).
 export function offerParts(item, {rerender, after = async () => {}}) {
-  const view = cardOffer({help: claudeHelp(), dismissed: dismissed.has(item.id), asking: asking.has(item.id)});
+  const view = cardOffer({help: resumeOffered(), dismissed: dismissed.has(item.id), asking: asking.has(item.id)});
   if (view === 'hidden') return {buttons: [], notes: []};
   const start = async consent => {
     const result = await window.pilot.takeOverClaude(item.url, {title: item.title, company: item.company, location: item.location, workMode: item.workMode}, consent).catch(() => null);

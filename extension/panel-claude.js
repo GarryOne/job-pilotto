@@ -13,6 +13,8 @@
   const INFORM = ['email', 'told', 'other', 'site_broken'];   // the page says what to do, or the site is broken: no Claude offer (desktop/lib/application-journey.js INFORM; desktop/test/stuck-reasons.test.js)
   function next(info, mem, action = null) {
     if (!info.stuck || INFORM.includes(info.stuck)) return {view: 'hidden', mem: {phase: null, dismissed: false}};
+    // Claude's takeover is off (the app's flag, sent with each report): where Claude was offered, a visible "Report this form" button (owner, 15 Oct 2026).
+    if (info.takeover === false) return {view: info.report ? 'report' : 'needs', mem};
     if (!info.on) return {view: 'needs', mem};
     const m = {...mem};
     if (action === 'myself' || action === 'cancel') { m.phase = null; m.dismissed = true; }
@@ -26,6 +28,7 @@
   const STYLE = `.claude-offer { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--soft); font-size: 12.5px; width: 100%; }
     .claude-offer p { margin: 0; } .claude-offer .co-muted { color: var(--muted); }
     .claude-offer .co-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .claude-offer .co-report { width: 100%; padding: 10px 12px; font-weight: 700; }
     .claude-offer .co-always { display: flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; }
     .claude-offer .co-count b { font-size: 18px; }`;
 
@@ -59,7 +62,9 @@
     box.hidden = view === 'hidden';
     if (view !== 'countdown' && timer) { clearInterval(timer); timer = null; }
     if (view === 'hidden') { box.replaceChildren(); return; }
-    if (view === 'needs') {
+    if (view === 'report') {
+      box.replaceChildren(el('p', {}, 'The extension is stuck on this page.'), el('button', {className: 'primary co-report', textContent: 'Report this form', onclick: () => window.dispatchEvent(new CustomEvent('jobpilotto-report-open'))}));
+    } else if (view === 'needs') {
       box.replaceChildren(el('p', {}, 'The extension is stuck on this page.'), el('div', {className: 'co-row'}, button('Tell me what\'s needed', 'needs')));
     } else if (view === 'offer') {
       const check = el('input', {type: 'checkbox', checked: !!last.always, onchange: () => { last.always = check.checked; send({type: 'panelClaudeAuto', on: check.checked}).catch(() => {}); }});
