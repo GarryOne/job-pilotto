@@ -437,3 +437,19 @@ test('the CV\'s employers and schools go to the AI as <cv_facts>, and a form tha
   for (const word of ['Skills:', 'Kubernetes, Python, Go', 'Argo CD', 'done at Acme Cloud: Built the Terraform platform']) assert.ok(withSkills.includes(word), word);
   assert.notEqual(cvFactsText({ skills: 'Go' }), '', 'a CV with skills only still has facts');
 });
+
+test('a preference question the AI proposed nothing for comes back as a kind (the person\'s own choice); a proposed one stays a proposal', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  // 15 Oct 2026, Greenhouse board form: "preferred messenger and handle", nothing saved, came back empty and read "no answer in the kit" (a red row).
+  const answers = [
+    { field: 'messenger', value: '', confidence: 'low', note: 'nothing saved; applicant must choose', category: 'preference', use: 'propose' },
+    { field: 'sms', value: 'No', confidence: 'low', note: '', category: 'preference', use: 'propose' },
+    { field: 'city', value: 'Zurich', confidence: 'high', note: '', category: 'contact', use: 'fill' },
+  ];
+  const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
+  const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
+  const result = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: () => {}, onAnswerCall: () => {} }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.value, a.use, a.category]),
+    [['sms', 'No', 'propose', 'preference'], ['city', 'Zurich', 'fill', 'contact'], ['messenger', '', 'kind', 'preference']]);
+});

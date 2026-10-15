@@ -288,6 +288,10 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
       // A salutation, gender or other personal-choice question with nothing in the profile: the person's own choice, never guessed (owner, 11 Oct 2026): the same.
       ...[...new Set(all.filter((a) => a.category === 'demographic' && a.value === '' && known.has(a.field)).map((a) => a.field))]
         .map((field) => ({ field, value: '', category: 'demographic', use: 'kind' })),
+      // A preference question the AI could not propose anything for (a preferred messenger and its handle, nothing saved; Greenhouse board form, 15 Oct 2026): the person's own choice,
+      // said as a kind, never "no answer in the kit" (a miss on every form that asks one).
+      ...[...new Set(all.filter((a) => a.category === 'preference' && a.value === '' && known.has(a.field)).map((a) => a.field))]
+        .map((field) => ({ field, value: '', category: 'preference', use: 'kind' })),
       ...stillMissing.map(unanswered)],
     cover_letter: kit?.cover_letter || '',
     usd: Math.round(usd * 10000) / 10000,
