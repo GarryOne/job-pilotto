@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The description of a PR that tools/ship.sh opens (owner, 12 Oct 2026: "I have 2-5 seconds to look at it; not an essay"). Guard: tests/test_pr_body.py.
 #   tools/pr-body.sh <base> [--body=<file>]   prints the body for the commits <base>..HEAD
-# Top: the session's 5-second summary (--body=<file>: a verdict line, a **Why** line, an **Impact** line, a visual (diagram or image), a few short bullets, a Before/After table, images when a screen changed: refused without them), else the first subject.
+# Top: the session's 5-second summary (--body=<file>, template tools/pr-body-template.md: an emoji verdict line, **Why**, **Unblocks**, the coloured impact table, a few short bullets, a Before/After table, images when a screen changed: refused without them), else the first subject.
 # Then a table of the trailers' facts (pool row, rung, fixture, ...). The commit messages are folded in a <details>, never above it.
 set -euo pipefail
 base="${1:?usage: tools/pr-body.sh <base> [--body=<file>]}"; summary=""
@@ -11,21 +11,18 @@ for arg in "${@:2}"; do case "$arg" in --body=*) summary="${arg#--body=}" ;; esa
 if [ -n "$summary" ] && [ -s "$summary" ]; then
   grep -qiE '\*\*why\b' "$summary" || { echo 'pr-body: the summary has no "**Why:**" line: say how we decided this is needed (the incident, measurement or owner request behind it)' >&2; exit 2; }
   grep -qiE '^\|.*\bBefore\b.*\|.*\bAfter\b' "$summary" || { echo 'pr-body: the summary has no Before/After table: | | Before | After | with the measured or seen difference' >&2; exit 2; }
-  # Impact and a picture of the fix (owner, 15 Oct 2026: "add also an impact, some visual messaging of the fix, and exactly what it solves/unblocks"):
-  # a "**Impact:**" line (what it solves or unblocks, for whom, which number moves) and a visual: an image, a ```mermaid diagram of before -> after,
-  # or "No visual: <why>" (a docs-only or data-only change). A PR that changes a screen still needs its before/after images (below).
-  grep -qiE '\*\*impact\b' "$summary" || { echo 'pr-body: the summary has no "**Impact:**" line: say exactly what it solves or unblocks (who gains, which number or step moves)' >&2; exit 2; }
-  # The impact table (owner, 15 Oct 2026: "Impact with colour, high/medium/low, and for what: form filling? real users? the harness? our speed? the offline machinery?"):
-  # one row per area, its level (🟢 High · 🟡 Medium · ⚪ Low · — None) and in what way. Missing an area: refused, naming it.
-  for area in 'Real users' 'Form filling' 'Offline replays' 'Tests & harness' 'Development speed' 'Cost'; do
-    grep -qiE "^\|[^|]*${area}[^|]*\|[^|]*(High|Medium|Low|None)" "$summary" || { echo "pr-body: the impact table has no row for \"$area\": | $area | 🟢 High / 🟡 Medium / ⚪ Low / — None | in what way |" >&2; exit 2; }
+  # Impact, in colour, per area (owner, 15 Oct 2026: "drop the chart, hard to read; more visual presence, colours and emoji; the impact, how it helps,
+  # what it unblocks, which category it improves"). Template: tools/pr-body-template.md. Required: a verdict line starting with an emoji, an "**Unblocks:**" line,
+  # and the impact table: one row per area, rated 🟢 High · 🟡 Medium · ⚪ Low · — None, with how. Missing a part: refused, naming it.
+  head1="$(grep -m1 -vE '^\s*$' "$summary")"
+  printf '%s' "$head1" | LC_ALL=C grep -q '^[[:print:]]' && ! printf '%s' "$head1" | grep -qE '^#+ [^[:alnum:][:space:]]' && { echo 'pr-body: the first line must start with an emoji verdict (e.g. "🟢 The form AI now …"): see tools/pr-body-template.md' >&2; exit 2; }
+  grep -qiE '\*\*unblocks\b' "$summary" || { echo 'pr-body: the summary has no "**Unblocks:**" line: say exactly what this solves or unblocks (a PR, a session, a number, a person): see tools/pr-body-template.md' >&2; exit 2; }
+  for area in 'Real users' 'Form filling' 'Admin data accuracy' 'Offline replays' 'Tests & harness' 'Development speed' 'Cost'; do
+    grep -qE "^\|[^|]*${area}[^|]*\|[^|]*(🟢|🟡|⚪|—)[^|]*(High|Medium|Low|None)" "$summary" || { echo "pr-body: the impact table has no rated row for \"$area\": | $area | 🟢 High / 🟡 Medium / ⚪ Low / — None | how | (tools/pr-body-template.md)" >&2; exit 2; }
   done
   # A PR that changes a screen opens WITH its before/after images (owner, 28 Sep and 13 Oct 2026; #774 opened without them, 14 Oct): an image in the body, or a line
   # "No screenshots: <why>" when nothing visible changed (an API route in site/src). Screens: the app's window, the site's pages, the extension's pages and styles.
   screens="$(git diff --name-only "$base"..HEAD | grep -E '^(desktop/renderer/|site/src/|site/public/)|^(desktop|extension)/.*\.(html|css)$' | head -3 | paste -sd ' ' - || true)"
-  if [ -z "$screens" ] && ! grep -qiE '^```mermaid|!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp|svg)\)|<img |^No visual: .{8,}' "$summary"; then   # a screen PR's visual is its images, below
-    echo 'pr-body: the summary has no visual of the fix: a ```mermaid before -> after diagram, an image, or a line "No visual: <why>"' >&2; exit 2
-  fi
   if [ -n "$screens" ] && ! grep -qiE '!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp)\)|<img |^No screenshots: .{8,}' "$summary"; then
     echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: tag pr-assets-<branch>), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi
