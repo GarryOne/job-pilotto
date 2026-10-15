@@ -1,0 +1,56 @@
+{
+ "origin": "hand-cut",
+ "shape": "a react-select style menu that takes several choices: a real mouse opens it, each pick adds a chip and closes it, so every choice needs its own opening",
+ "why": "Pool rows 'nebius (found 2026-10-10)' and 'Datadog careers (Greenhouse behind its own site)', 15 Oct 2026: a required 'which languages do you speak' menu got one of three languages (the AI was not told the menu takes several, and the pick check took any chip as proof, so picks 2 and 3 were never clicked).",
+ "control": {
+  "guard": "new case 15 Oct 2026; on main the first choice is picked and the other two are reported picked without a click (expect.present: the third chip never appears)."
+ },
+ "sample": "structure of a react-select is-multi menu (chips beside a combobox input), rebuilt small, values removed",
+ "pages": [
+  {
+   "url": "https://multi-select-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "lang",
+     "question": "Languages spoken",
+     "value": "English && Spanish && German",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Languages spoken"
+  ],
+  "filled": [
+   "#langs"
+  ],
+  "present": [
+   ".chips .chip:nth-child(3)"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 45
+ },
+ "start": "panel"
+}

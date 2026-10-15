@@ -77,9 +77,14 @@
   };
 
   // Mark a dropdown with its answer; your click opens the menu, and the answer is picked in it.
-  const armCombo = (field, answer) => {
+  // The rest of a multiple-choice menu's answer: queued when a pick took, armed again by the next __jobPilottoNextCombo, so flow.js sees the first pick as done (the armed count fell)
+  // before the same menu is clicked for the next choice.
+  const moreChoices = [];
+  const armCombo = (field, fullAnswer) => {
+    // A menu that takes several choices gets them joined by " && " (the AI's answer for a `multiple` field): the first is picked now, the rest arm the same menu again after it.
+    const [answer, ...rest] = String(fullAnswer).split(' && ').map(part => part.trim()).filter(Boolean);
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
-    if (!el) return false;
+    if (!el || answer === undefined) return false;
     const control = comboControl(el); control.__jobPilottoDisarm?.();   // armed again (Use in the app, a re-arm): the earlier answer's click handler goes
     control.style.outline = '3px solid #d9540b';
     control.style.outlineOffset = '2px';
@@ -116,10 +121,10 @@
         }
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
-        took = option ? await (window.__jobPilottoMenuPick?.({el, option, control, readValue: comboValue}) ?? ((globalThis.__jobPilottoPress?.(option) || option.click()), {selectedAfter: true, trusted: false})) : {selectedAfter: false, trusted: false};
+        took = option ? await (window.__jobPilottoMenuPick?.({el, option, control, readValue: comboValue, multiple: !!el.closest('[class*="is-multi"], [aria-multiselectable="true"]')}) ?? ((globalThis.__jobPilottoPress?.(option) || option.click()), {selectedAfter: true, trusted: false})) : {selectedAfter: false, trusted: false};
         window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: option ? clean(option.textContent) : '', same: option ? !!window.__jobPilottoValueClass?.fits?.(String(answer).split(' || ')[0], clean(option.textContent)) : null, opened, found: !!option, choices: option ? [] : (shown || []).slice(0, 8).map(text => text.slice(0, 60)),
           peek: option ? '' : Array.from(document.querySelectorAll('[class*="menu-notice"], [class*="menu-list"], [role="listbox"]')).filter(n => !/iti__|country/.test(String(n.className))).map(n => clean(n.textContent).slice(0, 30)).slice(0, 3).join(' | '), ...took};   // choices, peek: the form's own wording of a menu nothing matched (its choices, or its "No options" notice), for the log; never the answer
-        if (took.selectedAfter) { el.setAttribute('data-jobpilotto-picked', clean(option.textContent).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').slice(0, 160)); done(); return; }   // the fill's own pick, for the one reader's mismatch (page/read-back.js)
+        if (took.selectedAfter) { el.setAttribute('data-jobpilotto-picked', clean(option.textContent).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').slice(0, 160)); done(); if (rest.length) moreChoices.push([field, rest.join(' && ')]); return; }   // the fill's own pick, for the one reader's mismatch (page/read-back.js)
         badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; if (!option) window.__jobPilottoMenuMissed?.(el, shown);   // page/propose.js: no text left in the box; its choices go to the app
       } finally { window.__jobPilottoPicking = false; attemptLog?.note(el, 'pick', before, !!took?.selectedAfter); } }, 120);
     };
@@ -130,6 +135,7 @@
   // For "Fill drop-down menus too": the next armed dropdown, scrolled into view, as viewport coordinates
   // for a real click (sent by the extension through Chrome's debugger), or null when none is left.
   window.__jobPilottoNextCombo = async (skip = 0) => {
+    while (moreChoices.length) { const [field, answer] = moreChoices.shift(); armCombo(field, answer); }
     // A menu whose attempt log refuses another opening (page/attempts.js) is disarmed here, before it is counted and clicked: its suggestion stays for the person.
     for (const armed of document.querySelectorAll('[data-jobpilotto-armed]')) {
       const box = armed.matches('input, select') ? armed : armed.querySelector('input[role=combobox], input, select');

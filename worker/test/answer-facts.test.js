@@ -94,3 +94,11 @@ test('a knockout answered from the person\'s own saved fact is typed; a knockout
     assert.equal(out.use, 'propose', `no saved fact answers it (${JSON.stringify(unbacked)}): proposed, never typed`);
   }
 });
+
+test('a multiple-choice field is flagged to the AI and the rule says to list every choice that applies', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  const seen = [];
+  await answerForm(env, { url: 'https://example.test/job/1', fields: [{ field: 'lang', label: 'Which languages do you speak?', type: 'combobox', required: true, multiple: true }] }, fakeClient([], seen));
+  assert.match(seen[0].system[0].text, /multiple: true[^\n]*joined by " && "/);
+  assert.match(JSON.stringify(seen[0].messages), /\\"multiple\\":true/);
+});

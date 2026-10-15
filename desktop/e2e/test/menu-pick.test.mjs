@@ -97,3 +97,32 @@ test('a menu that loads its choices page by page is scrolled until the answer ap
     assert.equal(await page.evaluate(() => document.getElementById('pays').dataset.picked), 'Suisse', 'the known answer was only proposed: its option was on a page not loaded yet');
   } finally { await browser.close(); }
 });
+
+// SHAPE (Nebius-like, 15 Oct 2026): a menu that takes several choices (react-select is-multi). The answer lists them joined by " && "; each opens the menu again, and a chip from an
+// earlier pick must not make the next pick look done (the old check: "some chip exists"). The page is the widget zoo's multi-select-1 page.
+test('a menu that takes several choices gets each one picked with its own real click, not only the first', async () => {
+  const html = fs.readFileSync(new URL('../recorded/multi-select-menu-1/form.html', import.meta.url), 'utf8');
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html);
+    for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
+    await page.evaluate(() => window.__jobPilottoExtensionFill([{field: 'lang', value: 'English && Spanish && German'}], {}, null, '', false));
+    assert.equal(await page.evaluate(() => window.__jobPilottoArmedCount()), 1);
+    for (let turn = 0; turn < 6; turn++) {   // what flow.js clickCombosNow does: the next armed menu, a real click, the option's spot when the page leaves one
+      const spot = await page.evaluate(() => window.__jobPilottoNextCombo(0));
+      if (!spot) break;
+      const armedBefore = await page.evaluate(() => window.__jobPilottoArmedCount());
+      await page.mouse.click(spot.x, spot.y);
+      let clickedSpot = false;
+      for (let waited = 0; waited < 6000; waited += 100) {
+        await page.waitForTimeout(100);
+        if (await page.evaluate(() => window.__jobPilottoArmedCount()) < armedBefore) break;
+        const at = clickedSpot ? null : await page.evaluate(() => window.__jobPilottoPickSpot || null);
+        if (at) { clickedSpot = true; await page.mouse.click(at.x, at.y); }
+      }
+    }
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.chips .chip')].map(chip => chip.textContent)), ['English', 'Spanish', 'German']);
+    assert.equal(await page.evaluate(() => document.getElementById('langs').value), 'English,Spanish,German');
+  } finally { await browser.close(); }
+});
