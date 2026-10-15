@@ -1,0 +1,60 @@
+{
+ "origin": "hand-cut",
+ "shape": "the same suggest-only place box (searches on keydown), cleared once by a blur (another tab, the app window) right after the first real typing, before its list shows: the box must be typed and chosen again",
+ "why": "15 Oct 2026 (cc): a real application tab can lose focus mid-fill and a place widget clears its box on a blur whatever caused it; the fill must type and choose again, or report the box as left, never as filled",
+ "control": {
+  "guard": "new case; fails on the build before this change (it types plain text once and never chooses a suggestion)"
+ },
+ "sample": "hand-cut page of the shape (invented place names; the page's own script stands in for its server)",
+ "start": "panel",
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "loc",
+     "value": "Zürich, CHE",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Zürich, Zürich, Switzerland"
+  }
+ },
+ "expect": {
+  "filled": [
+   "#loc",
+   "#selected-location"
+  ],
+  "kept": [
+   "#loc",
+   "#selected-location"
+  ],
+  "keptAfter": 7000,
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "pages": [
+  {
+   "url": "https://careers.wall.example/apply",
+   "file": "form.html"
+  }
+ ]
+}

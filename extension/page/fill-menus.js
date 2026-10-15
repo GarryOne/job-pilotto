@@ -63,6 +63,7 @@
     const tries = [...new Set([first, full, first.length > 4 ? first.slice(0, 3) : ''].filter(Boolean))];
     let shown = [];
     for (const text of tries) {
+      if (suggestCtx) { try { el.focus({preventScroll: true}); } catch { /* a box that cannot take focus is typed at where it is */ } }   // a blur (another tab, the app window) took the focus: the keys go to the focused box
       if (!(await need({kind: 'type', text, keys: !!suggestCtx}))) return {option: null, shown};
       for (let waited = 0; waited < 3000; waited += 250) {
         await sleep(250); loadMoreOptions();
@@ -100,7 +101,8 @@
     } finally { suggestCtx = null; }
     // Nothing was suggested at all: not a suggest-only box (a plain box that keeps its own state and empties when left, text-state-from-keys-2). Disarmed and left exactly as it is: the retype step
     // (page/fill-verify.js, typed for real) still owns it, and the box is not emptied.
-    if (!found.option && !found.shown.length) { window.__jobPilottoLastPick = {asked, got: '', opened: false, found: false, refused: true, choices: [], peek: ''}; done(); return took; }
+    if (!found.option && !found.shown.length) { window.__jobPilottoLastPick = {asked, got: '', opened: false, found: false, refused: true, choices: [], peek: `nothing appeared beside the box: ${String(el.value || '').length} typed, focused ${document.activeElement === el}, ${suggest.snapshot().size} visible text nodes`}; done(); return took; }
+    window.__jobPilottoLeaveAlone?.(el);   // decided: the retype watch must not type plain text into it (page/browser-form-fastpath.js)
     window.__jobPilottoForgetNotTaken?.(el.id || el.name);   // decided: never typed over again as a box that did not take its answer (page/fill-verify.js)
     window.__jobPilottoLastPick = {asked, got: text, same: found.option ? !!window.__jobPilottoValueClass?.fits?.(asked, text) : null, opened: found.shown.length > 0 || !!found.option, found: !!found.option, choices: found.option ? [] : found.shown.slice(0, 8).map(item => clean(item).slice(0, 40)), peek: '', ...took};
     if (took.selectedAfter) { el.setAttribute('data-jobpilotto-picked', text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').slice(0, 160)); done(); return took; }

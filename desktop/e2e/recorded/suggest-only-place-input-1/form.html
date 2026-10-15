@@ -41,6 +41,7 @@ box.addEventListener('keydown', function (event) {
   
 });
 box.addEventListener('blur', function () {
+  if (document.activeElement === box && !document.hasFocus()) return;   // the browser tab lost focus (another tab came to the front), the box did not: not a person moving on
   if (container.style.display !== 'none') { show(container, false); empty(); box.value = ''; hidden.value = ''; }
 });
 document.addEventListener('mousedown', function (event) {
