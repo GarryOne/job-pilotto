@@ -2,7 +2,8 @@
 // The AI judges "ready?" (its fixed answer stillDrawing, desktop/lib/ladder/rung2-sketch.js); this file only waits for the page to be still and asks again, at most MAX_LOOKS times. At the cap the last answer
 // is used as it is (today's way) and the cause is logged, never a loop and never a silent stop. Guard: worker/test/still-drawing.test.js.
 export const MAX_LOOKS = 2;
-export const STILL_MS = {quietMs: 500, maxMs: 2500};
+// afterChange: a page that is quiet because its content has not come yet is waited on (until it changes and is still, at most maxMs), not read again after half a second of silence.
+export const STILL_MS = {quietMs: 500, maxMs: 2500, afterChange: true};
 
 // asked: the first answer; again(): the page-kind ask once more, fresh; still(): resolves when the page has been still (pageStill); log: decide.
 export async function readWhileDrawing(asked, {again, still, log, host = ''}) {

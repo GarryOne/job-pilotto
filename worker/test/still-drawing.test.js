@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {MAX_LOOKS, readWhileDrawing} from '../../extension/ladder/still-drawing.js';
+import {MAX_LOOKS, STILL_MS, readWhileDrawing} from '../../extension/ladder/still-drawing.js';
 
 const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
 const rig = answers => { const logs = [], state = {waits: 0, asks: 0}; return {logs, state, deps: {again: async () => answers[state.asks++], still: async () => { state.waits++; }, log: (...row) => logs.push(row), host: 'h'}}; };
@@ -32,4 +32,9 @@ test('a drawn page, or no answer, costs no wait', async () => {
 
 test('the fill reads the page-kind answer through it', () => {
   assert.match(flow, /readWhileDrawing\(/);
+});
+
+test('the wait is for a change: a quiet page that has not drawn yet is not read again after half a second', () => {
+  assert.equal(STILL_MS.afterChange, true);
+  assert.ok(STILL_MS.maxMs >= 2000);
 });
