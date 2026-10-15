@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {judgeRecords, memoProblem, mojibakeBodies, notWorse, report} from '../lib/record-guard.mjs';
+import {judgeRecords, memoProblem, mojibakeBodies, notWorse, partition, report} from '../lib/record-guard.mjs';
 
 const form = (filled, left) => ({reached: 'form', filled, left});
 const replay = ({hit = 4, asks = 4, extra = 0, outcome = form(8, 4), live = form(8, 4)} = {}) => ({outcome, liveOutcome: live, live: {asks}, network: {hit, extra, notRecorded: 0}});
@@ -81,4 +81,25 @@ test('without the replaced record, a pinned row is refused ("pass --against") an
   assert.deepEqual(checks(result), ['p:worse']);
   assert.match(result.refusals[0].run, /--against/);
   assert.match(report(result), /note: q: not compared with the record it replaces/);
+});
+
+test('one refused row never keeps its group back: the others are published, the refused one is named, and the run still ends red', () => {
+  const rows = ['good a', 'old Cloudera', 'good b', 'Aldi'].map(name => ({name, dir: '/x'}));
+  const judged = judgeRecords([item('good a'), item('old Cloudera', {replay: null}), item('good b'), item('Aldi', {dir: folder({bodies: {bad: doubled('détail – ALDI')}})})]);
+  const {publish, refused} = partition(rows, judged);
+  assert.deepEqual(publish.map(row => row.name), ['good a', 'good b']);
+  assert.deepEqual(refused, ['old Cloudera', 'Aldi']);
+  assert.match(report(judged), /refused: old Cloudera: replay/, 'each refusal still says which row and why');
+  assert.match(report(judged), /refused: Aldi: text/);
+  assert.deepEqual(partition(rows, {refusals: [], notes: []}), {publish: rows, refused: []});
+  assert.deepEqual(partition([{name: 'a'}], {refusals: [{row: 'a', check: 'text'}, {row: 'a', check: 'answers'}], notes: []}), {publish: [], refused: ['a']}, 'a row with two problems is named once');
+});
+
+test('records-publish uploads the passing rows then exits red when any row was refused; it no longer stops at the first refusal', async () => {
+  const {readFileSync} = await import('node:fs');
+  const code = readFileSync(new URL('../records-publish.mjs', import.meta.url), 'utf8');
+  assert.match(code, /partition\(rows, judged\)/);
+  assert.doesNotMatch(code, /nothing was uploaded/, 'the blanket refusal is gone');
+  assert.match(code, /process\.exitCode = refusedExit/, 'red after the upload when a row was refused');
+  assert.match(code, /fs\.rmSync\(path\.join\(stage, path\.basename\(row\.dir\)\)/, 'a refused row is taken out of the bundle');
 });
