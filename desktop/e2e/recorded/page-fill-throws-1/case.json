@@ -1,0 +1,46 @@
+{
+ "origin": "hand-cut",
+ "shape": "a page whose own script makes one of the fill's page queries throw: the page fill errors on something nobody expected",
+ "why": "15 Oct 2026 (cc): the owner's real fills crashed with \"Cannot read properties of null (reading 'trace')\" (the page fill threw, flow.js read summary.trace of nothing); a throw must be said, not crash",
+ "control": {
+  "guard": "new case; fails on the build before this change (the fill ends \"fill: failed: Cannot read properties of null\" and never logs \"the page fill failed\")"
+ },
+ "sample": "hand-cut page of the shape (invented names)",
+ "start": "panel",
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Zürich, Zürich, Switzerland"
+  }
+ },
+ "expect": {
+  "told": [
+   "the page fill failed"
+  ],
+  "notTold": [
+   "pressed the submit",
+   "reading 'trace'"
+  ],
+  "seconds": 60
+ },
+ "pages": [
+  {
+   "url": "https://careers.wall.example/apply",
+   "file": "form.html"
+  }
+ ]
+}
