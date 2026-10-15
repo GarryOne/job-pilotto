@@ -11,6 +11,10 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'Only these rows, joined with | (a second run for rows the 20-job cap skipped); empty: every row'
+        default: ''
 
 permissions:
   contents: read
@@ -69,6 +73,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+          VERIFY_ONLY: ${{ inputs.only }}
         run: |
           (npm ci || npm install) >/dev/null 2>&1
           bash net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"   # the run's ONE download of the release, still encrypted: the replay jobs take it from the artifact below

@@ -39,3 +39,13 @@ test('records are grouped by row, oldest first, with their folder relative to th
   const git = (...args) => (args[0] === 'log' && args.includes('extension') ? 'h1 2026-10-10T00:00:00Z\nh2 2026-10-11T00:00:00Z\n' : args[0] === 'log' ? 'h1 2026-10-10T00:00:00Z\nh2 2026-10-11T00:00:00Z\nh3 2026-10-12T00:00:00Z\n' : '{"version": "0.9"}');
   assert.deepEqual(mainHistory(git).versions, [{version: '0.9.1', hash: 'h1', at: '2026-10-10T00:00:00Z'}, {version: '0.9.2', hash: 'h2', at: '2026-10-11T00:00:00Z'}]);
 });
+
+test('only: just the named rows are planned and answered; the others are left alone', () => {
+  const rows = new Map([['a', [record('10', stuck)]], ['b', [record('10', stuck)]], ['c', [record('10', far), record('13', stuck)]]]);
+  const ledger = [{site: 'a', commit: 'aaa1111', landedAt: at('12')}, {site: 'b', commit: 'bbb2222', landedAt: at('12')}, {site: 'z', commit: 'zzz9999', landedAt: at('12')}];
+  const some = plan({rows, ledger, history, only: ['b', 'z']});
+  assert.deepEqual(some.jobs.map(job => job.row), ['b']);
+  assert.deepEqual(some.verdicts.map(item => item.row), ['z'], 'a named row with no recording still gets its verdict; a row not named gets none');
+  assert.deepEqual(plan({rows, ledger, history, only: ['c']}).jobs.map(job => `${job.kind}:${job.row}`), ['regression:c']);
+  assert.equal(plan({rows, ledger, history}).jobs.length, 3, 'no list: every row as before (a and b fixed, c regression)');
+});

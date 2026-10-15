@@ -48,8 +48,10 @@ export function judgeFixed({recordedAt, landedAt, control, runs, before}) {
     if (before?.outcome) {
       const pair = agreed(runs);
       if (pair.outcome && compare(pair.outcome, control.liveOutcome) === 0) return {verdict: 'holds', why: "the fix changes what the AI is asked, so the build before it can't run on this recording; today's build still matches live"};
+      // today's build is the one off: it asks something the kept answers lack (main's prompts moved since the recording), or its two replays differ, or it ends elsewhere than live: re-record on today's build
+      return {verdict: 'live', why: pair.outcome ? "today's build ends elsewhere than live on this recording" : `today's build: ${pair.why}; re-record it on today's build`};
     }
-    return {verdict: 'live', why: before ? 'the build before the fix asks or fetches what the recording lacks' : 'the recording did not replay on the build before the fix'};
+    return {verdict: 'live', why: before ? 'the build before the fix gave no result on this recording' : 'the recording did not replay on the build before the fix'};
   }
   const pair = agreed(runs);
   if (!pair.outcome) return {verdict: 'live', why: pair.why};
