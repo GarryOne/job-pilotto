@@ -71,10 +71,31 @@ jobs:
              && { [ -z "$records" ] || [[ "$records" < "$at" ]]; } && { [ -z "$ci" ] || [[ "$ci" < "$at" ]]; }; then
             echo "replay-offline: nothing changed since the last green replay (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
           else echo "replay-offline: changed since ${sha::7}: replaying"; fi
+  refill-wait:
+    # A refill in progress finishes first (owner, 15 Oct 2026: a replay started by the records publish ran on the not-yet-refilled answers and put "3 of 77 same as live" on /admin, replacing 21 / 13 of 16).
+    # Looks every 60 s at the runs of replay-refill.yml started before this one (pool-ci-wait.mjs); after 50 minutes it goes on anyway and the upload says its answers are stale (fidelity-report.mjs answersStale).
+    needs: check
+    if: needs.check.outputs.go == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Wait for the refill runs that started earlier
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POOL_WAIT_WORKFLOWS: replay-refill.yml
+          POOL_WAIT_WHAT: replay refill
+          POOL_WAIT_POLL: '60'
+          POOL_WAIT_MAX: '3000'
+        run: node desktop/e2e/pool-ci-wait.mjs
   bundles:
     # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
-    # One gh download per replay job tripped GitHub's burst limit for every session (15 Oct 2026); a job that finds none fails loudly here, not as a gate verdict.
-    needs: check
+    # One gh download per replay job tripped GitHub's burst limit for every session (15 Oct 2026); a job that finds none fails loudly here, not as a gate verdict. After the refill wait: the release is read once the refill's publish is in it.
+    needs: [check, refill-wait]
     if: needs.check.outputs.go == '1'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

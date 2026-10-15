@@ -3,7 +3,7 @@
 # asks, one pinned row per runner in parallel (fill-memo.mjs: the network record is replayed, no site visit, the fake applicant, the privacy tripwire on, old answers never changed),
 # publishes the refilled rows through the guard (records-publish.mjs, desktop/e2e/lib/record-guard.mjs: worse, garbled or pinned-breaking rows refused), then re-runs the PR's gate.
 # Two ways in. (1) By hand with a PR number (workflow_dispatch, as before): that PR's pinned rows. (2) AUTOMATICALLY on main (owner, 15 Oct 2026): a push to main that changes a ladder prompt fingerprint
-# (desktop/e2e/ladder-baseline.json, compared by refill-trigger.mjs with the file before the push; a score update alone does not count), or a by-hand run with no PR number: EVERY recorded row, pinned or not.
+# (desktop/e2e/ladder-baseline.json, compared by refill-trigger.mjs with the file before the push; a score update alone does not count), OR a change to a file that builds the ask (the worker's instructions, fact rule, field list, CV facts; desktop/e2e/lib/prompt-sources.mjs; owner, 15 Oct 2026: #904 and #912 changed the ask and no refill ran), or a by-hand run with no PR number: EVERY recorded row, pinned or not.
 # NOT a pull_request trigger (owner rule, 13 Oct 2026: no workflow a PR starts can reach an AI key; desktop/e2e/test/pool-ci-triggers.test.mjs): a push to main is merged code the owner reviewed.
 # Never a fork PR: the key is never given to it. Never every PR. Refill runs take their turn one at a time (pool-ci-wait.mjs), so two never publish the same rows.
 # On main the publish works in groups of 3 rows (records-publish.mjs refuses more at once), one runner per group, and a failed or cap-refused run tells the owner on Telegram (ci-alert.mjs).
@@ -17,7 +17,7 @@ name: CI · Replay refill
 on:
   push:
     branches: [main]
-    paths: ['desktop/e2e/ladder-baseline.json']   # only a merged change to the ladder baseline can be a prompt change; the first job compares the fingerprints
+    paths: ['desktop/e2e/ladder-baseline.json', 'desktop/lib/account-judge.js', 'desktop/lib/form-judge.js', 'desktop/lib/ladder/fill-repair.js', 'desktop/lib/ladder/fill-verify.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung4-picture.js', 'extension/page/fill-read.js', 'worker/src/answer-facts.js', 'worker/src/answer-missing.js', 'worker/src/cv-facts.js', 'worker/src/extension.js']   # exactly the files that build an ask (lib/prompt-sources.mjs); the first job decides whether the ask really changed
   workflow_dispatch:
     inputs:
       pr:
@@ -70,9 +70,11 @@ jobs:
         run: |
           if [ "$EVENT" = push ]; then
             if git show "$BEFORE:desktop/e2e/ladder-baseline.json" > "$RUNNER_TEMP/baseline-before.json" 2>/dev/null; then before="$RUNNER_TEMP/baseline-before.json"; else before=-; fi
-            verdict="$(node refill-trigger.mjs "$before" ladder-baseline.json 2>/dev/null | tail -n 1)"
+            said="$(node refill-trigger.mjs "$before" ladder-baseline.json "$BEFORE" 2>/dev/null)"
+            verdict="$(echo "$said" | tail -n 1)"
             if [ "$verdict" = changed ]; then run=1; else run=0; fi
-            echo "refill (main): the push $verdict the ladder prompt fingerprint: run=$run" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "refill (main): the push $verdict what the AI is asked (the ladder prompt fingerprints, the worker's instructions and field list): run=$run" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "$said" | grep -v -x -E 'changed|same' | sed 's/^/  - /' | tee -a "$GITHUB_STEP_SUMMARY" || true
           else run=1; fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
       - name: Wait for its turn (earlier refill runs finish first)

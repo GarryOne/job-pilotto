@@ -32,7 +32,7 @@ export function cleanRecord(item) {
   const live2 = item.live2 && count(item.live2.asks) != null ? {asks: count(item.live2.asks), extraVsLive1: count(item.live2.extraVsLive1)} : null;   // a 2nd live run on the same build: the spread
   if (network) network.afterUpload = SEEN.includes(item.network.afterUpload) ? item.network.afterUpload : null;
   const recording = item.recording && WHERE.includes(item.recording.where) ? {where: item.recording.where, at: when(item.recording.at)} : null;
-  return {name, sha, branch: text(item.branch, 80) || null, at: Number.isFinite(at) ? new Date(at).toISOString() : null, live, snapshot, network, live2, recording, deferred: reason(item.deferred), ...(item.pinned === true ? {pinned: true} : {}), ...(item.gateSame === true ? {gateSame: true} : {})};   // pinned: the row is in desktop/e2e/replay-faithful.json (the replay ratchet)
+  return {name, sha, branch: text(item.branch, 80) || null, at: Number.isFinite(at) ? new Date(at).toISOString() : null, live, snapshot, network, live2, recording, deferred: reason(item.deferred), ...(item.answersStale === true ? {answersStale: true} : {}), ...(item.pinned === true ? {pinned: true} : {}), ...(item.gateSame === true ? {gateSame: true} : {})};   // pinned: the row is in desktop/e2e/replay-faithful.json (the replay ratchet)
 }
 
 export async function readFidelity(db) {
@@ -45,7 +45,9 @@ export async function storeFidelity(db, body, now = new Date()) {
   const fresh = (Array.isArray(body?.rows) ? body.rows.slice(0, KEEP) : []).map(cleanRecord).filter(Boolean).map(item => ({...item, at: item.at || now.toISOString()}));
   if (!fresh.length) return {ok: false, error: 'rows with a name, a sha and a live run are required'};
   const kept = await readFidelity(db), byName = new Map(kept.map(item => [item.name, item]));
-  for (const item of fresh) byName.set(item.name, item);
+  // A replay measured against answers older than the build's prompt (answersStale: its ask changed, the refill has not run yet) never replaces good numbers silently (owner, 15 Oct 2026: "3 of 77" replaced 21 / 13 of 16
+  // on a mere stale refill): the earlier record stays and says a newer, stale replay is waiting (refillPending); with no earlier record the stale one is stored, labelled.
+  for (const item of fresh) { const prior = byName.get(item.name); byName.set(item.name, item.answersStale && prior && !prior.answersStale ? {...prior, refillPending: true} : item); }
   const next = [...byName.values()].slice(-KEEP);
   if (JSON.stringify(next) === JSON.stringify(kept)) return {ok: true, stored: 0};
   await db.prepare("INSERT INTO applying_fidelity (key, at, body) VALUES ('prototype', ?, ?) ON CONFLICT(key) DO UPDATE SET at = excluded.at, body = excluded.body").bind(now.toISOString(), JSON.stringify(next)).run();
@@ -91,9 +93,10 @@ export function fidelity(records, pool = []) {
   for (const item of rows) if (item.at && newest - Date.parse(item.at) > 6 * 3600 * 1000) item.stale = true;
   for (const item of rows) item.next = nextOf(item);
   rows.sort((a, b) => a.name.localeCompare(b.name));
-  return {rows, summary: {total: rows.length, recorded: rows.filter(item => item.live).length, network: rows.filter(item => item.networkVerdict === 'same' && !item.stale).length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length,
-    ...(rows.some(item => item.gateSame) ? {gate: rows.filter(item => item.gateSame && !item.stale).length} : {}),
+  return {rows, summary: {total: rows.length, recorded: rows.filter(item => item.live).length, network: rows.filter(item => item.networkVerdict === 'same' && !item.stale && !item.answersStale).length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length,
+    ...(rows.some(item => item.gateSame) ? {gate: rows.filter(item => item.gateSame && !item.stale && !item.answersStale).length} : {}),
     ...(rows.some(item => item.stale) ? {stale: rows.filter(item => item.stale).length} : {}),
+    ...(rows.some(item => item.answersStale || item.refillPending) ? {awaitingRefill: rows.filter(item => item.answersStale || item.refillPending).length} : {}),   // measured on answers older than main's prompt, or an older number kept while a stale replay waits
     ...(rows.some(item => item.pinned) ? {pinned: rows.filter(item => item.pinned).length, pinnedSame: rows.filter(item => item.pinned && item.networkVerdict === 'same').length} : {})}};   // the ratchet: "N of M same as live (pinned K)"
 }
 
@@ -136,7 +139,7 @@ export const FIDELITY_SCRIPT = `
       el('td', {title: r.name}, el('div', {className: 'sitename'}, el('b', {className: 'one', textContent: parts.title}), parts.sub ? el('span', {className: 'muted one', textContent: parts.sub}) : null)),
       el('td', {}, el('span', {className: 'one' + (r.live ? '' : ' muted'), textContent: recorded(r)})),
       el('td', {}, el('span', {className: 'one', textContent: hits(r.live, r.network)})),
-      el('td', {}, verdictPill(r.networkVerdict)),
+      el('td', {}, verdictPill(r.networkVerdict), r.answersStale || r.refillPending ? el('span', {className: 'muted one', textContent: r.refillPending ? 'a newer replay waits for the refill' : 'answers older than main\\'s prompt: refill pending'}) : null),
       el('td', {title: r.next ? r.next.why : ''}, r.next ? el('div', {}, el('b', {className: 'one', textContent: NEXT_WORD[r.next.word]}), el('span', {className: 'muted one', textContent: r.next.why})) : el('span', {className: 'muted', textContent: '—'})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 6}, fidDetail(r)))] : [main]; };
   // How verdicts work (owner, 15 Oct 2026: short, not an essay): the verdict's own pill and one line each.
@@ -155,7 +158,7 @@ export const FIDELITY_SCRIPT = `
     const verdict = chipFilter('Verdict', [['', 'All · ' + f.rows.length], ...[['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'No network copy']].map(([value, label]) => [value, label + ' · ' + f.rows.filter(r => (r.networkVerdict || 'none') === value).length])], state.verdict, value => { state.verdict = value; redraw(); });   // chips (owner, 15 Oct 2026)
     box.append(el('div', {className: 'fixpanel fidpanel'},
       el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
-          el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
+          el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.awaitingRefill ? ' · ' + s.awaitingRefill + ' waiting for the refill (answers older than main\\'s prompt; the numbers above are not replaced by them)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
           el('p', {className: 'muted', textContent: 'Experimental results: excluded from Resolution, the scorecard and the Fixed tab.'})),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), howList(FID_HOW))),
       el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), verdict,
