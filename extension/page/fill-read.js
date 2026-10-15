@@ -84,7 +84,7 @@
       } else if (isCombo(el)) {
         fields.push({field: el.id || el.name, label: labelOf(el), type: 'combobox',
           required: window.__jobPilottoRequired.marked(el), filled: window.__jobPilottoReadBack.holds(el),
-          legal: LEGAL.test(labelOf(el))});
+          legal: LEGAL.test(labelOf(el)), ...(el.closest('[class*="is-multi"], [aria-multiselectable="true"]') ? {multiple: true} : {})});   // a menu that takes several choices (react-select's is-multi, aria-multiselectable): the AI is told, and every choice is picked (page/fill-menus.js armCombo)
       } else {
         const type = el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.type || 'text';
         fields.push({field: el.id || el.name, label: labelOf(el), type, required: window.__jobPilottoRequired.marked(el),

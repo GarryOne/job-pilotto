@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Widget zoo (desktop/e2e/widget-zoo): A menu that takes several choices (react-select is-multi): the real mouse opens it, every pick adds a chip and shuts it. Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<label id="lang-label" for="lang">Languages spoken</label>
+<div class="select"><div class="select__control"><div class="select__value-container select__value-container--is-multi"><span class="chips"></span><input id="lang" class="select__input" role="combobox" aria-labelledby="lang-label" aria-expanded="false" aria-haspopup="true" autocomplete="off" type="text"></div></div>
+<ul class="menu" role="listbox" hidden></ul></div>
+<input type="hidden" id="langs" name="langs">
+</form>
+<script>
+const control = document.querySelector('.select__control'), menu = document.querySelector('.menu'), input = document.getElementById('lang'), chips = document.querySelector('.chips'), langs = document.getElementById('langs');
+const chosen = () => [...chips.querySelectorAll('.select__multi-value__label')].map(n => n.textContent);
+control.addEventListener('mousedown', e => { if (!e.isTrusted || e.target.closest('.menu')) return; e.preventDefault(); const left = ['English', 'Spanish', 'German', 'French'].filter(t => !chosen().includes(t));
+  menu.innerHTML = left.map(t => `<li role="option" class="select__option" aria-selected="false">${t}</li>`).join(''); menu.hidden = false; input.setAttribute('aria-expanded', 'true'); });
+menu.addEventListener('mousedown', e => { const li = e.target.closest('[role=option]'); if (!li) return; chips.insertAdjacentHTML('beforeend', `<span class="chip select__multi-value"><span class="select__multi-value__label">${li.textContent}</span></span>`);
+  langs.value = chosen().join(','); menu.hidden = true; input.setAttribute('aria-expanded', 'false'); });
+</script>
+</body></html>

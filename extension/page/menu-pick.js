@@ -9,8 +9,11 @@
   window.__jobPilottoMenuPickLoaded = true;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  window.__jobPilottoMenuPick = async ({el, option, control, readValue}) => {
-    const selected = () => !!readValue?.(el) || (option.isConnected && option.getAttribute('aria-selected') === 'true') ||
+  // A menu that takes several choices (`multiple`): an earlier pick's chip is already there, so "some chip exists" proves nothing about THIS option: its own chip must (15 Oct 2026: the
+  // second and third language of a multi-select were reported picked without ever being clicked).
+  const holdsOwn = (el, option) => { const root = el.closest('[class*=value-container], [class*=select__container]') || el.parentElement; return [...(root?.querySelectorAll('[class*=multi-value]') || [])].some(chip => norm(chip.textContent).includes(norm(option.textContent))); };
+  window.__jobPilottoMenuPick = async ({el, option, control, readValue, multiple = false}) => {
+    const selected = () => (multiple ? holdsOwn(el, option) : !!readValue?.(el)) || (option.isConnected && option.getAttribute('aria-selected') === 'true') ||
       (norm(el.value) === norm(option.textContent) && el.getAttribute('aria-expanded') !== 'true');
     (globalThis.__jobPilottoPress?.(option) || option.click());
     await sleep(200);

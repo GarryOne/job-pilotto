@@ -172,6 +172,7 @@ The applicant reviews every answer and clicks Submit themselves.
 For each form field you are given its id, label, type, whether it is required, and its options if it has any. Return one answer per field you can answer:
 - text / textarea: the text to type. Write open questions in the applicant's own voice, following the cover-letter style in <standard_answers>. Use the drafted kit answers when one fits the question.
 - select, radio: exactly one of the listed options, copied character for character.
+- a field with multiple: true (a menu that takes several choices, e.g. the languages spoken): every choice that applies, each as the menu would write it, joined by " && " (never one choice only when several apply).
 - combobox: its options are often not listed (the menu is closed); give the option wording the form most likely uses ("Yes", "No", a country or city name). When options are listed, copy one exactly.
 - checkbox: "checked" or "unchecked".
 ${FACT_RULE}
@@ -380,7 +381,7 @@ export async function handleExtension(request, env) {
       if (!aiClient && !anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
       const fields = body.fields.slice(0, 80).map((f) => ({
         field: String(f.field || '').slice(0, 200), label: String(f.label || '').slice(0, 300),
-        type: String(f.type || '').slice(0, 30), required: !!f.required,
+        type: String(f.type || '').slice(0, 30), required: !!f.required, ...(f.multiple ? { multiple: true } : {}),
         ...(Array.isArray(f.options) && f.options.length ? { options: f.options.slice(0, 60).map((o) => String(o).slice(0, 150)) } : {}),
       }));
       try {
