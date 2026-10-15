@@ -24,6 +24,7 @@ on:
       - 'desktop/e2e/lib/evidence-clean.mjs'
       - 'desktop/e2e/lib/extension.mjs'
       - 'desktop/e2e/lib/launch-guard.mjs'
+      - 'desktop/e2e/lib/upload-slots.mjs'
       - 'desktop/e2e/lib/forms.mjs'
       - 'desktop/e2e/lib/journey.mjs'
       - 'desktop/e2e/lib/ladder-moves.mjs'
