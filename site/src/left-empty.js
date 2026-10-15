@@ -5,7 +5,8 @@
 import {LEFT_REASONS} from './knowledge.js';   // the words the site accepts from the apps (it mirrors desktop/lib/question-labels.js)
 import {CAUSES} from '../../extension/fill-card.js';
 import {esc} from './stats.js';
-import {splitGaps, gapsTable} from './answer-gaps.js';
+import {splitGaps} from './answer-gaps.js';
+import {LEFT_EMPTY_CSS, bucketsTable, groupsTable, headlineBar} from './left-empty-view.js';
 import {MIN_INSTALLS, isThin, sampleOf} from './thin-data.js';
 
 export const DAYS = 14;
@@ -60,31 +61,27 @@ export async function leftEmpty(db, now = new Date(), side = 'real') {
   return {side, days: DAYS, ...model, sample: side === 'lab' ? null : sampleOf(cards), gaps: await gapsOf(db, from, source)};
 }
 
-const share = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 const isThinModel = model => model.side === 'real' && isThin(model.sample);
+export {LEFT_EMPTY_CSS};
 
-// The one-line headline over all the required fields: "N required fields · X% filled · Y% left with no answer · Z% lost to controls · W% not read" (counts only while real use is thin).
+// The headline over all the required fields: one stacked bar (filled, no answer, controls, not read, other) with a legend; counts only while real use is thin.
 export function leftEmptyHeadline(model) {
   if (!model.required) return '';
-  const of = key => model.groups.find(group => group.key === key)?.ofRequired;
-  return isThinModel(model) ? `<p class="muted">${model.required} required fields on those forms · ${model.total} left (too few real fills to judge)</p>`
-    : `<p><b>${model.required} required fields · ${share(model.filledShare)} filled · ${share(of('answer'))} left with no answer · ${share(of('control'))} lost to controls · ${share(of('read'))} not read</b></p>`;
+  return isThinModel(model) ? `<p class="muted">${model.required} required fields on those forms · ${model.total} left (too few real fills to judge)</p>` : headlineBar(model);
 }
 
 // The headline alone, in a card (the very top of Real Form Filling); nothing when no required field was reported.
-export const leftEmptyHeadlineCard = model => { const line = leftEmptyHeadline(model); return line ? `<section class="card">${line}</section>` : ''; };
+export const leftEmptyHeadlineCard = model => { const line = leftEmptyHeadline(model); return line ? `<section class="card le">${line}</section>` : ''; };
 
-// The section's inner HTML (heading, headline, table). wrap 'card': the form-filling pages' card; 'bare': for a page that already boxes its sections (Lab Form Filling). headline false: the page shows it elsewhere.
+// The section's inner HTML (heading, headline, tables). wrap 'card': the form-filling pages' card; 'bare': for a page that already boxes its sections (Lab Form Filling). headline false: the page shows it elsewhere.
 export function leftEmptySection(model, {wrap = 'card', headline = true} = {}) {
   const thin = isThinModel(model);
   const where = model.side === 'lab' ? 'the pool\'s fills (the owner\'s fake applicant)' : 'real installs that send technical reports';
-  const inner = `<h2>🕳️ Why fields were left empty</h2><small class="muted">Last ${model.days} days: ${where}, per required field. Source: the fill cards (cause words, required and filled counts), so the shares add up; the older per-field reasons table (fill_reasons) counts more than the cards and is not used here. Four groups from one fixed table of reason words; real use and the lab are never added together.</small>
+  const inner = `<h2>🕳️ Why fields were left empty</h2><small class="muted">Last ${model.days} days: ${where}, per required field.</small>
+<details><summary>How this is counted</summary><small class="muted">Source: the fill cards (cause words, required and filled counts), so the shares add up; the older per-field reasons table (fill_reasons) counts more than the cards and is not used here. Four groups from one fixed table of reason words; real use and the lab are never added together.</small></details>
 ${thin ? `<p><b>Too few real fills to judge: ${model.sample.forms} form${model.sample.forms === 1 ? '' : 's'} from ${model.sample.installs} install${model.sample.installs === 1 ? '' : 's'} in ${model.days} days (needs ${MIN_INSTALLS}+ installs).</b> <span class="muted">Counts only, no shares.</span></p>` : ''}
 ${headline ? leftEmptyHeadline(model) : ''}
-<div class="wrap"><table><tr><th>Group</th><th class="n">Fields</th><th class="n">Of left</th><th class="n">Of required</th><th>Reason words</th></tr>
-${model.total ? model.groups.map(group => `<tr${thin ? ' class="muted"' : ''}><td>${esc(group.title)}<br><small class="muted">${esc(group.note)}</small></td><td class="n">${group.count}</td><td class="n">${thin ? '–' : share(group.share)}</td><td class="n">${thin ? '–' : share(group.ofRequired)}</td>
-<td>${group.words.map(item => `${esc(item.word)} <span class="muted">${item.count}</span>`).join(' · ') || '<span class="muted">none</span>'}</td></tr>`).join('\n')
-  : '<tr><td colspan="5" class="muted">No left fields reported in this period.</td></tr>'}</table></div>
-${gapsTable(model.gaps, thin)}`;
-  return wrap === 'card' ? `<section class="card">${inner}</section>` : inner;
+${groupsTable(model, thin)}
+${bucketsTable(model.gaps, thin)}`;
+  return wrap === 'card' ? `<section class="card le">${inner}</section>` : `<div class="le">${inner}</div>`;
 }
