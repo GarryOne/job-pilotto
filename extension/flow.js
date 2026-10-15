@@ -6,7 +6,7 @@ import {StepTimeout, within} from './step-bound.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
-import {typeNotTakenOnTab} from './fill-verify.js';
+import {keysFor, typeNotTakenOnTab} from './fill-verify.js';
 import {climbFill} from './ladder/fill-climb.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
@@ -66,13 +66,12 @@ async function clickCombosNow(tabId) {
     {type, x, y, button: 'left', clickCount: 1}));
   const click = async (x, y) => { await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [x, y]).catch(() => {}); await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };   // the extension's own press: marked first (page/submit-press.js markAt)
   // A type-to-search box (page/fill-menus.js typeToSearch): the text typed over the box's content for real, and the AI's pick by meaning among the options it showed.
-  const type = bound('type', async text => {
+  const type = bound('type', async (text, keys = false) => {
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
+    // A suggest-only box (page/suggest-box.js) is typed the way a person types: each character a real key event (its key press AND its input), whichever of the two its search listens to.
+    if (keys) { for (const char of [...String(text)]) for (const key of keysFor(char)) await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', key); return; }
     await chrome.debugger.sendCommand(target, 'Input.insertText', {text});
-    // A real key press after the text: a box that searches on a key press (not on input) starts its search now.
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35});
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'End', code: 'End', windowsVirtualKeyCode: 35});
   });
   const choose = bound('choose', async ({label, asked, choices}) => {
     const config = await settings().catch(() => null);
