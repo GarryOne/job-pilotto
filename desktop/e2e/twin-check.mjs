@@ -54,7 +54,7 @@ for (const row of rows) {
   const run = await runRow(row, captureDir);
   if (run.code === 3) { table.push({platform: row.platform, skipped: 'the site rests today (per-site limit or a block)'}); console.log(`twin-check: ${row.platform}: skipped (site limit)`); continue; }
   if (!runFinished(run)) { table.push({platform: row.platform, check: {...checkOf({row, result: {reached: 'none', errors: [`the run did not finish (exit ${run.code}${run.signal ? `, ${run.signal}` : ''})`]}}), applicant: 'grown'}, verdict: {red: true, why: ['the run did not finish']}}); continue; }
-  const result = {...parseLive(run.output), tripped: /^live: privacy tripwire/m.test(run.output)};
+  const result = parseLive(run.output);   // its `tripped` is a hit that names a field ("typed into"), not the startup line
   const check = {...checkOf({row, result, appLog: fs.existsSync(path.join(captureDir, 'app.log')) ? fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8') : '',
     consoleLog: fs.existsSync(path.join(captureDir, 'extension-console.log')) ? fs.readFileSync(path.join(captureDir, 'extension-console.log'), 'utf8') : '',
     panel: fs.existsSync(path.join(captureDir, 'end.png')) ? path.join(captureDir, 'end.png') : ''}), applicant: 'grown'};
