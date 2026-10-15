@@ -23,7 +23,7 @@ CLASSIFIED = {
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Site replays · all (offline)': 'ignored: pull requests only, informational, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/lab-form-filling after the nightly replay, never required',
-    'CI · Site replays · PR (pinned rows)': 'ignored: pull requests only (required there as "site replays gate")',
+    'CI · Site replays · PR (N pinned rows)': 'ignored: pull requests only (required there as "site replays gate")',
     'CI · Site replays · accept': 'ignored: pull requests only, re-runs the failed replay gate and aggregate when the owner accepts a drop',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
@@ -179,6 +179,7 @@ class RedMainTest(unittest.TestCase):
 
     def test_every_workflow_is_classified_and_the_counted_ones_are_the_scripts_list(self):
         names = {re.search(r'^name:\s*(.+?)\s*$', p.read_text(), re.M).group(1).strip('"\'') for p in (ROOT / '.github' / 'workflows').glob('*.yml')}
+        names = {re.sub(r'\(\d+ pinned rows\)', '(N pinned rows)', n) for n in names}   # the PR replay check's name carries its pinned count
         self.assertEqual(sorted(names - set(CLASSIFIED)), [], 'a workflow with no classification: add it to CLASSIFIED (counted or ignored with a reason)')
         listed = re.search(r'RED_WORKFLOWS=\(([^)]*)\)', SCRIPT.read_text()).group(1)
         counted = sorted(re.findall(r'"([^"]+)"', listed))
