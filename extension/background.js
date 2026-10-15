@@ -22,6 +22,7 @@ import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-m
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, withMark, stripMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
 import {KEY, fromOf, jobOf, bindMark, markFor, startJob} from './tab-identity.js';
+import {tellPanel} from './page-notes.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -36,6 +37,7 @@ pushDecisions();  // a worker that just started delivers whatever the last one c
 
 async function note(tabId, text, url = '') {
   if (url && !(await onPage(tabId, url))) return;  // the tab is showing something else now: leave it alone
+  if (await tellPanel(tabId, text)) return;   // the panel's note line when it is on the page (page-notes.js)
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
     const box = document.createElement('div');
     box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;' +
@@ -230,6 +232,7 @@ function stepBox(tabId, message) {
 
 // "Didn't fill: <reason>" with a Fill anyway button on the page itself.
 async function ineligibleNote(tabId, reason, partly = false) {   // partly: your details were filled before the verdict came (flow.js, owner 11 Oct 2026)
+  if (await tellPanel(tabId, partly ? `Job Pilotto filled only your details on this form: ${reason || 'not eligible'}` : `Job Pilotto didn't fill this form: ${reason || 'not eligible'}`, true)) return;   // the panel's note line, with its Fill anyway
   await chrome.scripting.executeScript({target: {tabId}, args: [String(reason || 'not eligible'), !!partly], func: (text, partly) => {   // an app reply without a note must not crash the note (10 Oct 2026, the Aldi replay)
     document.getElementById('jobpilotto-note')?.remove();
     const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'});

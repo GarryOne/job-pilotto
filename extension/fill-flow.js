@@ -19,6 +19,7 @@ import {formNext, handGivenUpToPerson} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed, moveTab} from './tabs.js';
 import {noJobPage} from './page-kind-final.js';
+import {markPage} from './page-mark.js';
 import {isStopped} from './stop-state.js';
 import {pageStill} from './page-still.js';
 import {STILL_MS, readWhileDrawing} from './ladder/still-drawing.js';
@@ -295,6 +296,7 @@ export async function consider(tab, jobUrl) {
   if (late(tab, gen, 'account details')) return;   // the peek waits on the app: the person may have pressed on meanwhile (beta run 38383983490: a sign-up's read filled the form after it)
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+  await markPage(tab.id, role);   // a page with no form says so to the panel: never Ready, never counts (page-mark.js)
   const carried = takePressed(tab.id);   // the Apply press that brought the tab here: confirmed below only if this page takes the fill (ladder/climb.js)
   await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
   // Event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick. One filled with your details is looked at AFTER
@@ -350,6 +352,7 @@ export async function consider(tab, jobUrl) {
     if (noJobPage(kind)) decide('fill', 'the AI says this is no job page: its fields do not make it a form', {host, confidence: kind.confidence});
     else { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   }
+  await markPage(tab.id, role, pressed);   // after the Apply press: the form came (cleared) or is opening
   // The application form is inside a frame of this page (Datadog, 10 Oct 2026): the page-kind AI named it by index; its stored address is opened in this same tab, https only, once per tab and page.
   // The numbered digest names a frame too (rung 2 unsure, 14 Oct 2026: a posting with its form in a frame got no frame from the unsure rung): the same opening, from the answer that carries it.
   const openFormFrame = async answer => {
