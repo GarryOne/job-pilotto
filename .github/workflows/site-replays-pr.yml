@@ -111,7 +111,26 @@ concurrency:
 jobs:
   # Four parts, each picks the rows itself (a separate pick job took a runner slot for ~20 s, 15 Oct 2026: a flow PR started ~25 jobs and PRs waited for runners) and replays
   # its own group of the pick; a part with no group does nothing. The gate reads which rows ran from the parts' picked.txt, so a baseline that moved between two parts shows, never hides.
+  bundles:
+    # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
+    # One gh download per replay job tripped GitHub's burst limit for every session (15 Oct 2026); a job that finds none fails loudly here, not as a gate verdict.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: The release's bundles, still encrypted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
+          retention-days: 1
+
   replay:
+    needs: bundles
     runs-on: ubuntu-24.04   # Linux: the same verdict as the Mac on every row that is same as live (the main run's Linux shards keep measuring it)
     timeout-minutes: 15
     strategy:
@@ -158,10 +177,16 @@ jobs:
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - uses: actions/download-artifact@v7
+        if: steps.pick.outputs.has == '1'
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: The pool's newest records, decrypted on the runner only
         if: steps.pick.outputs.has == '1'
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}   # read-only, job-pilotto-internal only (the Mac's records)

@@ -108,3 +108,68 @@ test('no caller swallows a failed fetch: a workflow step runs it plainly, the re
     assert.doesNotMatch(text, /net-records-fetch\.sh[^\n]*(\|\||\| *true|;)/, `${file}.yml: the fetch's exit code is not swallowed`);
   }
 });
+
+// 15 Oct 2026 (a2, cc): every replay job fetched the release itself (one gh call per asset, dozens of bundles) and one verdicts run (~20 jobs, a PR's 4 parts) tripped GitHub's burst limit for every session.
+// One job downloads the ENCRYPTED bundles once (--bundles-only: no key, nothing decrypted: the repo is public, an artifact is readable by anyone) and uploads them; the others take them from the
+// artifact (NET_RECORDS_BUNDLES) and make no release call.
+const shared = () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shared-')), release = path.join(tmp, 'release'), bin = path.join(tmp, 'bin'), calls = path.join(tmp, 'gh-calls');
+  fs.mkdirSync(release); fs.mkdirSync(bin);
+  const sh = (cmd, cwd = tmp) => execFileSync('bash', ['-c', cmd], {cwd, stdio: ['ignore', 'pipe', 'pipe']});
+  sh('openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out priv.pem 2>/dev/null && openssl pkey -in priv.pem -pubout -out pub.pem');
+  const work = fs.mkdtempSync(path.join(tmp, 'b-'));
+  fs.mkdirSync(path.join(work, 'net-records', 'a'), {recursive: true});
+  fs.writeFileSync(path.join(work, 'net-records', 'a', 'record.json'), JSON.stringify({name: 'row a', url: 'https://a.example.test/', startMs: 1}));
+  sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, 'net-records.tgz.enc')}" -pass file:k`
+    + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(release, 'net-records.k.enc')}"`, work);
+  fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env bash
+echo "$@" >> "${calls}"
+case "$1 $2" in
+  "release download") dir=""; while [ $# -gt 0 ]; do [ "$1" = --dir ] && dir="$2"; shift; done; mkdir -p "$dir"; cp "${release}"/net-records* "$dir"/ ;;
+  *) exit 0 ;;
+esac
+`, {mode: 0o755});
+  const key = fs.readFileSync(path.join(tmp, 'priv.pem')).toString('base64');
+  const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only', CI: 'true'};
+  return {tmp, calls, env, key, run: (args, extra = {}) => execFileSync('bash', [path.join(E2E, 'net-records-fetch.sh'), ...args], {env: {...env, ...extra}, stdio: ['ignore', 'pipe', 'pipe']})};
+};
+const ghCalls = file => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
+
+test('--bundles-only downloads the encrypted bundles once, needs no key and decrypts nothing', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
+  const {tmp, calls, run} = shared(), dest = path.join(tmp, 'bundles');
+  run(['--bundles-only', dest], {NET_RECORD_KEY: ''});
+  assert.deepEqual(fs.readdirSync(dest).sort(), ['net-records.k.enc', 'net-records.tgz.enc'], 'the bundles as published, still encrypted');
+  assert.equal(execFileSync('bash', ['-c', `find "${dest}" -name record.json | wc -l`]).toString().trim(), '0', 'no decrypted record is written');
+  assert.equal((ghCalls(calls).match(/release download/g) || []).length, 1, 'one release download');
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+test('with NET_RECORDS_BUNDLES a replay job makes no gh call and still gets the records', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
+  const {tmp, calls, key, run} = shared(), dest = path.join(tmp, 'bundles'), out = path.join(tmp, 'out');
+  run(['--bundles-only', dest], {NET_RECORD_KEY: ''});
+  fs.rmSync(calls);
+  run([out], {NET_RECORD_KEY: key, NET_RECORDS_BUNDLES: dest});
+  assert.deepEqual(newestPerRow(out, new Map()).map(row => row.name), ['row a']);
+  assert.equal(ghCalls(calls), '', 'no gh call at all');
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+test('each replay workflow downloads the release ONCE; every other fetch takes the run\'s shared bundles (no release call per job)', async () => {
+  const yaml = (await import('js-yaml')).default;
+  for (const file of ['site-replays-pr', 'site-replays', 'fix-verdicts', 'replay-refill']) {
+    const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8'), jobs = yaml.load(text).jobs;
+    let producers = 0;
+    for (const [name, job] of Object.entries(jobs)) {
+      const steps = job.steps || [], has = step => String(step.run || '');
+      const downloads = steps.some(step => String(step.uses || '').startsWith('actions/download-artifact') && String(step.with?.name || '').startsWith('net-bundles'));
+      for (const step of steps) {
+        if (/--bundles-only/.test(has(step))) { producers += 1; continue; }
+        if (!/net-records-fetch\.sh|replay-records-fetch\.sh/.test(has(step))) continue;
+        assert.ok(step.env?.NET_RECORDS_BUNDLES || /NET_RECORDS_BUNDLES=/.test(has(step)), `${file}.yml job ${name}: its fetch step takes the run's bundles (NET_RECORDS_BUNDLES), not the release`);
+        assert.ok(downloads || steps.some(other => /--bundles-only/.test(has(other))), `${file}.yml job ${name}: the bundles come from an artifact (or its own one download)`);
+      }
+    }
+    assert.equal(producers, 1, `${file}.yml: exactly one job downloads the release`);
+    assert.doesNotMatch(text, /gh release download/, `${file}.yml: no job calls the release API itself`);
+  }
+});
