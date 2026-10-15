@@ -6,7 +6,7 @@ import time
 import unittest
 
 from tests.heavy_lock_fixture import HeavyLockFixture, LOCK, ROOT
-from tests.heavy_wait import wait_in_books
+from tests.heavy_wait import wait_in_books, gate_loop
 
 
 class HeavyLockTest(HeavyLockFixture):
@@ -27,7 +27,7 @@ class HeavyLockTest(HeavyLockFixture):
 
     def test_two_runs_never_overlap_and_the_second_says_who_holds_it(self):
         trace, go = self.tmp / 'trace', self.tmp / 'go'
-        body = f'echo start >> {trace}; while [ ! -f {go.as_posix()} ]; do sleep 0.05; done; echo end >> {trace}'
+        body = f'echo start >> {trace}; {gate_loop(go.as_posix(), 0.05)}; echo end >> {trace}'
         first = self.start('first suite', 'bash', '-c', body)
         wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], first, ('holds',), env=self.env)   # first holds: not a guessed 0.4 s
         second = self.start_logged('second suite', 'bash', '-c', body)

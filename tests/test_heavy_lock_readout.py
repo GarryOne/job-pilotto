@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import evidence, wait_in_books, wait_said
+from tests.heavy_wait import evidence, wait_in_books, wait_said, gate_loop
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 TABLE = ' 80.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n 40.0 /usr/local/bin/node\n 60.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n  3.0 claude\n 55.0 /usr/bin/python3\n  0.0 idle\n'
@@ -34,7 +34,7 @@ class HeavyLockReadoutTest(unittest.TestCase):
     def wait_for_lock(self, **env):
         go = (self.tmp / 'go').as_posix()
         heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
-        holder = self.start('e2e-smoke', f'while [ ! -f {go} ]; do sleep 0.1; done', **env)
+        holder = self.start('e2e-smoke', f'{gate_loop(go, 0.1)}', **env)
         wait_in_books(heavy, holder, ('holds',), env=self.env)
         err_path = self.tmp / 'err-waiter'
         with open(err_path, 'w') as err_out:

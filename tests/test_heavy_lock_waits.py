@@ -26,6 +26,12 @@ class LockTestWaits(unittest.TestCase):
                     bad.append(f'{path.name}:{n}: a nap without "# clock: <why no order depends on it>"; wait on the lock\'s state instead')
         self.assertEqual(bad, [])
 
+    def test_no_gate_loop_outlives_its_test(self):
+        # 15 Oct 2026: ~136 `while [ ! -f <tmp>/go ]` loops were orphaned for days (their temp dir deleted, nobody to create the gate) and drove the Mac's load to ~400
+        bad = [f'{p.name}:{n}: a bare gate loop; use heavy_wait.gate_loop (it ends by itself)' for p in sorted(TESTS.glob('*.py')) if p.name not in ('heavy_wait.py', 'test_heavy_lock_waits.py')
+               for n, line in enumerate(p.read_text().splitlines(), 1) if re.search(r'while \[ ! -[fe] ', line)]
+        self.assertEqual(bad, [])
+
     def test_the_family_is_found(self):
         self.assertGreaterEqual(len([p for p in FAMILY if p.exists()]), 18, [p.name for p in FAMILY])
 

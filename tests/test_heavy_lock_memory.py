@@ -5,7 +5,7 @@ import time
 import unittest
 
 from tests.heavy_lock_fixture import HeavyLockFixture, LOCK
-from tests.heavy_wait import wait_in_books
+from tests.heavy_wait import wait_in_books, gate_loop
 
 
 class HeavyLockMemoryTest(HeavyLockFixture):
@@ -13,7 +13,7 @@ class HeavyLockMemoryTest(HeavyLockFixture):
         """Starts a gated holder (it runs until released), then a second run; True when the second ran while the holder still ran. heavy_dir: its own lock folder, so scenarios can run side by side."""
         env = {**env, 'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / heavy_dir)}
         go = self.tmp / f'go-{heavy_dir}'
-        holder = self.start('pool run', 'bash', '-c', f'while [ ! -f {go.as_posix()} ]; do sleep 0.05; done', **env)
+        holder = self.start('pool run', 'bash', '-c', f'{gate_loop(go.as_posix(), 0.05)}', **env)
         self.addCleanup(holder.kill)
         deadline = time.monotonic() + 30
         while not (self.tmp / heavy_dir / 'lock' / 'what').exists() and time.monotonic() < deadline:   # the holder holds: not a guess of how long a loaded Mac takes to start it
@@ -58,7 +58,7 @@ class HeavyLockMemoryTest(HeavyLockFixture):
     def test_never_a_third_heavy_run(self):
         env = self.memory(free_gb=30, swap_used_pct=0)
         go = (self.tmp / 'go').as_posix()
-        hold = f'while [ ! -f {go} ]; do sleep 0.05; done'
+        hold = f'{gate_loop(go, 0.05)}'
         first, second = self.start('first', 'bash', '-c', hold, **env), self.start('second', 'bash', '-c', hold, **env)
         for run in (first, second):
             self.addCleanup(run.kill)

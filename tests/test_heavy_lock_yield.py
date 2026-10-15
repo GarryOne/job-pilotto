@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_in_books
+from tests.heavy_wait import wait_in_books, gate_loop
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -25,7 +25,7 @@ class HeavyLockYieldTest(unittest.TestCase):
     def pool(self, **env):
         """A pool run: part 1 (until the test says go), a yield point, part 2 (0.3 s)."""
         self.go = self.tmp / 'go'
-        body = f'echo +pool1 >> {self.trace}; while [ ! -f {self.go.as_posix()} ]; do sleep 0.1; done; bash {LOCK} yield; echo +pool2 >> {self.trace}; sleep 0.3; echo -pool >> {self.trace}'
+        body = f'echo +pool1 >> {self.trace}; {gate_loop(self.go.as_posix(), 0.1)}; bash {LOCK} yield; echo +pool2 >> {self.trace}; sleep 0.3; echo -pool >> {self.trace}'
         return subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', body], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def waiter(self, what, name, nap='0.3', **env):
