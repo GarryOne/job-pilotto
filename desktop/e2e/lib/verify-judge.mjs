@@ -47,7 +47,7 @@ export function judgeFixed({recordedAt, landedAt, control, runs, before}) {
   if (!pair.outcome) return {verdict: 'live', why: pair.why};
   const base = after ? before.outcome : control.liveOutcome, against = compare(pair.outcome, base), what = after ? 'the build before the fix did on the same recording' : 'the live run did';
   if (against > 0) return {verdict: 'confirmed', why: `replay of the recording with the fix goes further than ${what} (${pair.outcome.reached}, ${pair.outcome.filled ?? '?'} filled)`};
-  return {verdict: 'notbetter', why: against < 0 ? `replay with the fix goes less far than ${what}` : `replay with the fix ends where ${what} did`};
+  return {verdict: 'notbetter', why: against < 0 ? `replay with the fix goes less far than ${what}` : `replay with the fix ends where ${what}`};
 }
 
 // A row that got less far: `control` replays the NEWEST recording on its own build; `runs` the same recording on the older build that got further.
