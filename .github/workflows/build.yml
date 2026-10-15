@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:   # newest wins (owner, 15 Oct 2026): a newer push to main cancels the older commit's run and frees its runners; the newest commit's run decides (tools/red-main.sh)
+  group: ci-tests-main
+  cancel-in-progress: true
+
 jobs:
   python:
     uses: ./.github/workflows/tests-python.yml

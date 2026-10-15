@@ -85,9 +85,9 @@ on:
       - '.github/workflows/page-cases.yml'
   workflow_dispatch:
 
-concurrency:
-  group: recorded-pages-${{ github.event_name == 'pull_request' && github.ref || github.sha }}   # a PR's runs share one group (its newer push replaces the older); on main each commit is its own group, so a queued run is never replaced (cancelled = a red cross on main: tests/test_main_runs_finish.py)
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push replaces its older run; every push to main is checked: this run is the net under the local gate, so a newer push queues behind it instead of cancelling it
+concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, and a newer push to main cancels the older commit's run (the newest commit's run decides); a by-hand run is its own group and never cancelled
+  group: recorded-pages-${{ github.event_name == 'pull_request' && github.head_ref || github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   JP_REPLAY_SHARD_COUNT: 2   # two longer parts, not four (15 Oct 2026: a flow PR started ~25 jobs and PRs waited for runners); each ~8 min, the timeout is 20

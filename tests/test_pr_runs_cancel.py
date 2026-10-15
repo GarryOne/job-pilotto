@@ -7,6 +7,7 @@ from pathlib import Path
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / '.github' / 'workflows'
 PR_ONLY = "${{ github.event_name == 'pull_request' }}"
+NEWEST_WINS = "${{ github.event_name != 'workflow_dispatch' }}"   # a PR and main cancel their older run, a by-hand run never (tests/test_main_runs_finish.py)
 NOT_CANCELLED = {   # workflow -> why a newer push must not cancel it
     'site-replays-accept.yml': 'it re-runs the failed jobs of the PR on a label or comment; cancelling it would drop the owner\'s accept',
 }
@@ -34,12 +35,13 @@ class PrRunsCancel(unittest.TestCase):
             group = re.search(r'group:\s*([^\n#]+)', block)
             cancel = re.search(r'cancel-in-progress:\s*([^\n#]+)', block)
             if not group or not re.search(r'head_ref|pull_request\.number|github\.ref', group.group(1)): offenders.append(f'{path.name}: the group is not per PR')
-            elif not cancel or cancel.group(1).strip() not in ('true', PR_ONLY): offenders.append(f'{path.name}: cancel-in-progress {cancel.group(1).strip() if cancel else "missing"}')
-            elif cancel.group(1).strip() == 'true' and re.search(r'(?m)^  push:', on_block(text)): offenders.append(f'{path.name}: cancels on main too')
+            elif not cancel or cancel.group(1).strip() not in ('true', PR_ONLY, NEWEST_WINS): offenders.append(f'{path.name}: cancel-in-progress {cancel.group(1).strip() if cancel else "missing"}')
+            
         self.assertEqual(offenders, [])
 
-    def test_a_workflow_main_runs_keeps_one_run_per_commit(self):
-        for name in ('tests-python.yml', 'tests-worker.yml', 'tests-site.yml', 'tests-desktop.yml', 'tests-desktop-windows.yml', 'page-cases.yml'):
+    def test_the_called_suites_keep_a_group_per_commit_inside_the_caller(self):
+        # build.yml (CI · Tests) is the one group on main (ci-tests-main, cancelled by the next push); the suites it calls only need a group of their own
+        for name in ('tests-python.yml', 'tests-worker.yml', 'tests-site.yml', 'tests-desktop.yml', 'tests-desktop-windows.yml'):
             text = (WORKFLOWS / name).read_text(encoding='utf-8')
             self.assertIn('github.sha', re.search(r'(?ms)^concurrency:[^\n]*\n(.*?)(?=^\S)', text).group(1), name)
 

@@ -4,7 +4,7 @@
 #                                 exit 1 only for red; no gh, no network or no origin/main is "unknown" (exit 0): a missing answer never blocks a push
 # Main's state is decided by the NEWEST commit of origin/main (last 20) that has a finished verdict: its `CI · Tests` and `CI · Page cases` runs both completed with success = green; any completed
 # failure, or a run still in flight with a failed job = red. A commit whose runs are still going (a fix in flight) proves nothing yet and is skipped, so main stays red until a later commit's run is green
-# (11 Oct 2026: the old "a fix is building" exemption let four landings through on top of a fix attempt that itself ended red). A run cancelled or timed out with no failed job is skipped and re-run.
+# (11 Oct 2026: the old "a fix is building" exemption let four landings through on top of a fix attempt that itself ended red). A run cancelled or timed out with no failed job is skipped, and re-run only on the newest commit (a newer push cancels the older commit's runs: the newest commit's run decides).
 # Other forms (11 Oct 2026, the owner: a red main must be fixed within 5 minutes, 15 with a claim):
 #   red-main.sh track                  like status, and keeps the bookkeeping of a red period in <git common dir>/red-main/ (start = completion of the first red run, cause, who claimed it, how many
 #                                      landings waited); the first green after it writes one line to gate-timing.log: "red-main start=.. cause=.. sha=.. claim=.. fix=.. minutes=N waited=K"
@@ -23,6 +23,7 @@ red_status() {
   runs="$(cd "$repo" && gh run list --branch main -L "${RED_MAIN_RUNS:-60}" --json workflowName,headSha,status,conclusion,databaseId,updatedAt,url 2>/dev/null)" && [ -n "$runs" ] || { echo unknown; return 0; }
   runs="$(jq -c 'map(.workflowName |= sub("^CI · Recorded pages"; "CI · Page cases"))' <<<"$runs")"   # the old name, until 28 Oct 2026 (renamed 14 Oct 2026)
   pick='[.[] | select(.headSha == $s and (.workflowName as $w | any($names[]; . as $n | $w | startswith($n))))]'
+  tip="$(git -C "$repo" rev-parse origin/main 2>/dev/null)"
   for sha in $(git -C "$repo" rev-list -n 20 origin/main 2>/dev/null); do
     mine="$(jq -c --arg s "$sha" --argjson names "$names_json" "$pick" <<<"$runs" 2>/dev/null)"
     [ -n "$mine" ] && [ "$mine" != "[]" ] || continue
@@ -33,7 +34,8 @@ red_status() {
       if [ "${failed:-0}" -gt 0 ] 2>/dev/null; then
         jq -r --arg id "$id" '.[] | select((.databaseId | tostring) == $id) | "red|\(.headSha[0:7])|\(.workflowName)|\(.url)|\(.updatedAt)|\(.databaseId)"' <<<"$mine"; return 1
       fi
-      if [ "$status" = completed ]; then (cd "$repo" && gh run rerun "$id" --failed >/dev/null 2>&1) || true; fi   # cancelled or never started: re-run, it blocks nobody
+      # cancelled or never started: re-run, it blocks nobody; but only on the NEWEST commit: a push to main cancels the older commit's runs (15 Oct 2026), and re-running those would take the slots back
+      if [ "$status" = completed ] && [ "$sha" = "$tip" ]; then (cd "$repo" && gh run rerun "$id" --failed >/dev/null 2>&1) || true; fi
     done
     # every run of this commit finished green: main is green here; anything else (still going, or only cancelled) proves nothing: look further back
     if [ "$(jq -r --argjson names "$names_json" '. as $r | all($r[]; .status == "completed" and .conclusion == "success") and all($names[]; . as $n | any($r[]; .workflowName | startswith($n)))' <<<"$mine")" = true ]; then echo "green ${sha:0:7}"; return 0; fi

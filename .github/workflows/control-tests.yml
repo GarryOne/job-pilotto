@@ -59,9 +59,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: widget-zoo-${{ github.event_name == 'pull_request' && github.ref || github.sha }}   # a PR's runs share one group (its newer push replaces the older); on main each commit is its own group, so a queued run is never replaced (cancelled = a red cross on main: tests/test_main_runs_finish.py)
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push replaces its older run; every run of main finishes (a cancelled run is a red cross on main: tests/test_main_runs_finish.py)
+concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, and a newer push to main cancels the older commit's run (the newest commit's run decides); a by-hand run is its own group and never cancelled
+  group: widget-zoo-${{ github.event_name == 'pull_request' && github.head_ref || github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   zoo:

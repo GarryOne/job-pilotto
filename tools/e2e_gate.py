@@ -43,7 +43,20 @@ def ci_verdict(runs):
     """build.yml (the unit suites) on the build's commit: green when every run of it succeeded and there is one."""
     if not runs:
         return 'none'
-    return 'green' if all(run.get('conclusion') == 'success' for run in runs) else 'red'
+    if any(run.get('conclusion') not in ('success', 'cancelled') for run in runs):
+        return 'red'
+    return 'green' if all(run.get('conclusion') == 'success' for run in runs) else 'superseded'   # cancelled only: a newer push to main replaced it (15 Oct 2026)
+
+
+def newer_green(repo, sha):
+    """The sha of a NEWER commit of main whose build.yml run succeeded, or '' (a push to main cancels the older commit's run: the newest commit's run decides)."""
+    import subprocess
+    def gh(*args):
+        return subprocess.run(['gh', 'api', *args], capture_output=True, text=True).stdout.strip()
+    for head in gh(f'repos/{repo}/actions/workflows/build.yml/runs?branch=main&status=success&per_page=30', '--jq', '.workflow_runs[].head_sha').split():
+        if head != sha and gh(f'repos/{repo}/compare/{sha}...{head}', '--jq', '.status') == 'ahead':
+            return head
+    return ''
 
 
 if __name__ == '__main__':
@@ -51,5 +64,7 @@ if __name__ == '__main__':
         print(beta_verdict(sys.stdin.read(), sys.argv[2] if len(sys.argv) > 2 else ''))
     elif sys.argv[1] == 'ci':   # gh run list --workflow build.yml --commit <sha> --status completed --json conclusion | python3 tools/e2e_gate.py ci
         print(ci_verdict(json.load(sys.stdin)))
+    elif sys.argv[1] == 'newer-green':   # python3 tools/e2e_gate.py newer-green <repo> <sha>: prints a newer green commit of main, or nothing
+        print(newer_green(sys.argv[2], sys.argv[3]))
     else:
         print(verdict(json.load(sys.stdin), sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else 'commit'))

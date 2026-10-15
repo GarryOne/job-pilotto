@@ -132,12 +132,20 @@ class RedMainTest(unittest.TestCase):
         self.run_at(3, TESTS)   # its recorded-pages run does not exist yet: the verdict falls to the commit before
         self.assertEqual(self.state(), (f'green {self.shas[1][:7]}', 0))
 
-    def test_a_cancelled_run_without_a_failed_job_blocks_nobody_and_is_rerun(self):
+    def test_a_cancelled_run_of_the_newest_commit_blocks_nobody_and_is_rerun(self):
+        self.green_at(1)
+        self.run_at(5, TESTS, conclusion='cancelled'); self.run_at(5, PAGES)
+        out, code = self.state()
+        self.assertEqual(code, 0)
+        self.assertEqual((self.tmp / 'gh' / 'reruns').read_text().split(), [str(self.runs[-2]['databaseId'])])
+
+    def test_a_cancelled_run_of_an_older_commit_is_not_rerun(self):
+        # 15 Oct 2026: a push to main cancels the older commit's runs (the newest commit's run decides); re-running them would take the runners back
         self.green_at(1)
         self.run_at(3, TESTS, conclusion='cancelled'); self.run_at(3, PAGES)
         out, code = self.state()
         self.assertEqual(code, 0)
-        self.assertEqual((self.tmp / 'gh' / 'reruns').read_text().split(), [str(self.runs[-2]['databaseId'])])
+        self.assertFalse((self.tmp / 'gh' / 'reruns').exists(), 'no re-run of a superseded commit')
 
     def test_no_gh_answer_is_unknown_and_never_blocks(self):
         env = {'PATH': '/usr/bin:/bin', 'RED_MAIN_REPO': str(self.repo)}
