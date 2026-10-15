@@ -44,6 +44,7 @@ on:
       - 'worker/src/ai-prices.js'
       - 'worker/src/ai.js'
       - 'worker/src/answer-facts.js'
+      - 'worker/src/pay-convert.js'
       - 'worker/src/answer-missing.js'
       - 'worker/src/cv-facts.js'
       - 'worker/src/extension-log.js'
