@@ -155,19 +155,20 @@ test('with NET_RECORDS_BUNDLES a replay job makes no gh call and still gets the 
   fs.rmSync(tmp, {recursive: true, force: true});
 });
 
-test('each replay workflow downloads the release ONCE; every other fetch takes the run\'s shared bundles (no release call per job)', async () => {
-  const yaml = (await import('js-yaml')).default;
+test('each replay workflow downloads the release ONCE; every other fetch takes the run\'s shared bundles (no release call per job)', () => {
+  // The workflow files are regular (jobs at 2 spaces, steps at "      - "), so the text is split without a YAML library (the harness job installs none).
   for (const file of ['site-replays-pr', 'site-replays', 'fix-verdicts', 'replay-refill']) {
-    const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8'), jobs = yaml.load(text).jobs;
+    const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8');
+    const jobsText = text.slice(text.indexOf('\njobs:\n') + 7), parts = jobsText.split(/^  ([A-Za-z0-9_-]+):\s*$/m);   // [before, name, body, name, body...]
     let producers = 0;
-    for (const [name, job] of Object.entries(jobs)) {
-      const steps = job.steps || [], has = step => String(step.run || '');
-      const downloads = steps.some(step => String(step.uses || '').startsWith('actions/download-artifact') && String(step.with?.name || '').startsWith('net-bundles'));
+    for (let at = 1; at < parts.length; at += 2) {
+      const name = parts[at], body = parts[at + 1], steps = body.split(/^      - /m).slice(1);
+      const downloads = steps.some(step => /^uses: actions\/download-artifact/.test(step) && /name: net-bundles/.test(step));
       for (const step of steps) {
-        if (/--bundles-only/.test(has(step))) { producers += 1; continue; }
-        if (!/net-records-fetch\.sh|replay-records-fetch\.sh/.test(has(step))) continue;
-        assert.ok(step.env?.NET_RECORDS_BUNDLES || /NET_RECORDS_BUNDLES=/.test(has(step)), `${file}.yml job ${name}: its fetch step takes the run's bundles (NET_RECORDS_BUNDLES), not the release`);
-        assert.ok(downloads || steps.some(other => /--bundles-only/.test(has(other))), `${file}.yml job ${name}: the bundles come from an artifact (or its own one download)`);
+        if (/--bundles-only/.test(step)) { producers += 1; continue; }
+        if (!/net-records-fetch\.sh|replay-records-fetch\.sh/.test(step)) continue;
+        assert.match(step, /NET_RECORDS_BUNDLES/, `${file}.yml job ${name}: its fetch step takes the run's bundles (NET_RECORDS_BUNDLES), not the release`);
+        assert.ok(downloads || steps.some(other => /--bundles-only/.test(other)), `${file}.yml job ${name}: the bundles come from an artifact (or its own one download)`);
       }
     }
     assert.equal(producers, 1, `${file}.yml: exactly one job downloads the release`);
