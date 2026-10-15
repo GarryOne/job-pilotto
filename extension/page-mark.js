@@ -15,7 +15,7 @@ async function tellApp(tabId, page) {
 }
 
 export async function markPage(tabId, role, pressed = false, kind = null) {   // kind: the AI's page answer, for a sign-up page's own words
-  const value = markOf(role, pressed, kind?.accountStep || '');
+  const value = markOf(role, pressed, kind?.accountStep || '', kind?.kind || '');
   await chrome.scripting.executeScript({target: {tabId}, func: mark => {
     if (mark) document.documentElement.setAttribute('data-jobpilotto-page', mark); else document.documentElement.removeAttribute('data-jobpilotto-page');
   }, args: [value]}).catch(() => {});

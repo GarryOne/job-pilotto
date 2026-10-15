@@ -40,3 +40,40 @@ test('the worker says every step to the app, and the sign-in press says "Logging
   assert.match(fs.readFileSync(new URL('../lib/ext-server-handlers.js', import.meta.url), 'utf8'), /server\.setPageHandler\(/);
   assert.match(fs.readFileSync(new URL('../lib/server.js', import.meta.url), 'utf8'), /if \(event\.type === 'page'\) \{ pageHandler\(event\); return; \}/);
 });
+
+// Owner, 16 Oct 2026 (Adnovum on SuccessFactors): Reopen went to the form's address without its query and the site answered with an error page, which the card called
+// "Apply button detected. Redirecting…". Now: the full address is reopened; a page the AI judged no job page says so; Reopen's error page goes back to the posting.
+test('a page the AI judged "other" is never "Apply button detected"; only a posting is', async () => {
+  const {markOf} = await import('../../extension/tab-pages.js');
+  assert.equal(markOf('no-form', false, '', 'posting'), 'posting');
+  assert.equal(markOf('no-form', true, '', 'posting'), 'opening');
+  assert.equal(markOf('no-form', false, '', 'other'), 'other');
+  assert.equal(markOf('no-form', true, '', 'other'), 'other');
+  assert.equal(markOf('no-form'), 'posting', 'no AI answer: the structure rule, as before');
+  assert.equal(pageLine('other'), 'This page shows no application');
+});
+
+test('a broken page mid-application goes back to its posting once; never from the posting itself, never in a loop', async () => {
+  const stored = {}, moves = [], said = [];
+  globalThis.chrome = {storage: {session: {}}};
+  const store = {get: async key => ({[key]: stored[key]}), set: async values => Object.assign(stored, values)};
+  const {restartFromPosting} = await import('../../extension/restart-from-posting.js');
+  const tab = {id: 7, url: 'https://career74.example.test/portalcareer#jobpilotto-fill=s9'};
+  const posting = 'https://careers.example.test/job/1';
+  const go = (at, on = tab) => restartFromPosting(on, posting, {decide: (_, line) => said.push(line), move: async (id, url) => moves.push([id, url]), store, now: at});
+  assert.equal(await go(1000), true);
+  assert.deepEqual(moves, [[7, 'https://careers.example.test/job/1#jobpilotto-fill=s9']], 'the posting, with the session\'s own mark');
+  assert.equal(await go(2000), false, 'once: a posting that keeps failing ends in its plain report');
+  assert.equal(await go(1000 + 11 * 60 * 1000), true, 'again after ten minutes');
+  assert.equal(await go(5000, {id: 8, url: `${posting}#jobpilotto-fill=s9`}), false, 'already on the posting');
+  assert.ok(said.every(line => line === 'a broken page mid-application: started again from the posting'));
+});
+
+test('both dead ends of a broken page go through it, and the app reopens a closed tab from the posting', () => {
+  const read = name => fs.readFileSync(new URL(`../../${name}`, import.meta.url), 'utf8');
+  const flow = read('extension/fill-flow.js');
+  assert.match(flow, /if \(other && await restartFromPosting\(tab, jobUrl, \{decide\}\)\) return;/);
+  assert.match(flow, /report: async need => \(await restartFromPosting\(tab, jobUrl, \{decide\}\)\) \|\| deadEndHere\(tab, jobUrl, host, 'site_broken'/);
+  assert.match(read('desktop/lib/session-handlers.js'), /const opened = apply\.openOne\(old\.url, \{session: old\.id\}\);/);
+  assert.doesNotMatch(read('desktop/lib/session-handlers.js'), /formUrl/);
+});

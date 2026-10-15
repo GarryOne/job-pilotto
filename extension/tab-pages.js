@@ -125,7 +125,7 @@ export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, a
 }
 
 // The page mark for a role the flow decided (page-mark.js says it on the page and to the app): pure, so the tests read it.
-export const markOf = (role, pressed = false, step = '') => (role === 'no-form' ? (pressed ? 'opening' : 'posting')
+export const markOf = (role, pressed = false, step = '', kind = '') => (role === 'no-form' ? (kind && kind !== 'posting' ? 'other' : pressed ? 'opening' : 'posting')   // 'other': the AI saw no job page (an error, an expired link): never "Apply button detected"
   : role === 'account' ? (step === 'sign_up' ? 'sign-up' : 'account')
   : role === 'signing' ? (step === 'sign_up' ? 'signing-up' : 'signing-in')   // its button pressed (account-step.js)
   : ['form', 'reading', 'signing-in', 'signing-up'].includes(role) ? role : '');

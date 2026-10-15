@@ -21,7 +21,7 @@
   document.getElementById('jobpilotto-review-host')?.remove();
 
   const MIN_FIELDS = 3;
-  const MARK_WORDS = {reading: 'Reading this page…', 'signing-in': 'Logging in…', 'signing-up': 'Creating your account…'};   // page-mark.js; a posting: the owner's own words
+  const MARK_WORDS = {reading: 'Reading this page…', other: 'This page shows no application', 'signing-in': 'Logging in…', 'signing-up': 'Creating your account…'};   // page-mark.js; a posting: the owner's own words
   const {KNOCKOUT, AGREE, fields, find, flash} = window.__jobPilottoPanelForm;
 
   // ---- the panel (its own shadow root: the page's styles can't touch it, it can't touch the page) ----

@@ -127,12 +127,11 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     if (live === 'tab') { appLog('review', `tab gone ${old.id}: its tab is open (marked), focused it instead of reopening`, {kind: old.kind}); return {ok: true, reset: false, focused: true}; }
     if (Date.now() - (reopenedAt.get(old.id) || 0) < REOPEN_MS) { appLog('review', `tab gone ${old.id}: reopen pressed again while the form opens, nothing more opened`); return {ok: true, reset: false, focused: false}; }
     const reset = !!stale;
-    const seen = review.allStates?.().find(state => state.id === old.id);   // before forget: where the application was, the form page's own address
-    const back = /^https?:/.test(seen?.formUrl || '') ? seen.formUrl : old.url;   // never the posting when the form's own page is known
     if (reset) { review.forget(old.id); terminals.clearStuck(old.id); }
     appLog('review', `tab gone ${old.id}: ${reset ? 'cleared the closed tab\'s state, reopening' : 'nothing to clear, reopening'}`, {kind: old.kind});
     reopenedAt.set(old.id, Date.now());
-    const opened = apply.openOne(back, {session: old.id});   // the same session: its new tab carries its id
+    // From the first step, the job posting (owner, 16 Oct 2026: a form's saved address lost its site session and showed an error): its Apply leads to the form again.
+    const opened = apply.openOne(old.url, {session: old.id});   // the same session: its new tab carries its id
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});
     return opened.ok ? {ok: true, reset} : {ok: false, error: opened.error};
   });

@@ -25,6 +25,7 @@ import {pageStill} from './page-still.js';
 import {STILL_MS, readWhileDrawing} from './ladder/still-drawing.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {formCame, pageKey, pageRole} from './tab-pages.js';
+import {restartFromPosting} from './restart-from-posting.js';
 import {applyPhrases, pressApply, wouldPress} from './apply-press.js';
 import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
@@ -206,7 +207,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
 function brokenPage(tab, jobUrl, key, counts) {
   let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
   return onBrokenPage(brokenOf(counts), {key, tabId: tab.id, status: counts?.status, host, decide, wait: ms => new Promise(resolve => setTimeout(resolve, ms)), say: text => sayStep(tab.id, text),
-    reload: async () => { started.delete(key); await chrome.tabs.reload(tab.id).catch(() => {}); }, report: need => deadEndHere(tab, jobUrl, host, 'site_broken', need, {kind: brokenOf(counts) || '', status: counts?.status || 0})});
+    reload: async () => { started.delete(key); await chrome.tabs.reload(tab.id).catch(() => {}); }, report: async need => (await restartFromPosting(tab, jobUrl, {decide})) || deadEndHere(tab, jobUrl, host, 'site_broken', need, {kind: brokenOf(counts) || '', status: counts?.status || 0})});
 }
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -353,7 +354,7 @@ export async function consider(tab, jobUrl) {
     if (noJobPage(kind)) decide('fill', 'the AI says this is no job page: its fields do not make it a form', {host, confidence: kind.confidence});
     else { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   }
-  await markPage(tab.id, role, pressed);   // after the Apply press: the form came (cleared) or is opening
+  await markPage(tab.id, role, pressed, kind);   // after the Apply press: the form came (cleared) or is opening
   // The application form is inside a frame of this page (Datadog, 10 Oct 2026): the page-kind AI named it by index; its stored address is opened in this same tab, https only, once per tab and page.
   // The numbered digest names a frame too (rung 2 unsure, 14 Oct 2026: a posting with its form in a frame got no frame from the unsure rung): the same opening, from the answer that carries it.
   const openFormFrame = async answer => {
@@ -408,6 +409,7 @@ export async function consider(tab, jobUrl) {
     const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
     const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
+    if (other && await restartFromPosting(tab, jobUrl, {decide})) return;   // a broken page mid-application: from the posting again (restart-from-posting.js)
     if (other) apiFor(tab.id, await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
     if (email || told || other) deadEndHere(tab, jobUrl, host, (email || told || other).why, (email || told || other).needs, {role, rung: said?.rung, signal: blindOr(tab.id, said?.signal)});   // the address is the need: the card says where to send it
     else if (!(role === 'account' && kind?.accountStep)) deadEndHere(tab, jobUrl, host, role === 'account' ? 'account' : 'no-form', botCheck ? BOT_CHECK_NEED : '', {role, botCheck, pressed: !!pressed, rung: kind?.rung, signal: kind?.signal});   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
