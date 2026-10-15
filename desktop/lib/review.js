@@ -235,6 +235,8 @@ export function report(sessions, payload, now = Date.now()) {
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
+  // Text we drafted that the person has not read yet (extension/panel-written.js): counted as left, said as drafted, never as a failure (owner, 16 Oct 2026).
+  if (Array.isArray(payload.drafts)) state.drafts = payload.drafts.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120), outline: item?.outline === true})).filter(item => item.label);
   // Why each left control is left, as a reason class and an ending (shared/ladder/control-ending.js): fixed words only, whatever the panel sent.
   if (Array.isArray(payload.why)) state.reasons = payload.why.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120), ...controlReason({cause: String(item?.cause || '').slice(0, 30), gaveUp: item?.tries ? 'tries' : '', unread: item?.unread === true})})).filter(item => item.label);
   // The questions the AI read as knockouts, in any language (extension/page/categories.js): the session card lists them before you submit.

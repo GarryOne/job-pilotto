@@ -13,9 +13,9 @@ const PAGE_SCRIPTS = ['page/required-mark.js', 'page/categories.js', 'page/radio
 // audit: rows the post-fill audit returns instead (the real one reads the page on its own, with its own legal floor: page/browser-form-fastpath.js).
 export function fakeFillPage(rows, {audit = null} = {}) {
   const elements = Object.fromEntries(rows.map(row => [row.field, {id: row.field, type: row.type, checked: false, dataset: {}, clicks: 0,
-    click() { this.clicks++; this.checked = !this.checked; }, getAttribute: () => null, closest: () => null, labels: [], value: ''}]));
+    click() { this.clicks++; this.checked = !this.checked; }, getAttribute: () => null, setAttribute() {}, removeAttribute() {}, addEventListener() {}, removeEventListener() {}, classList: {add() {}, remove() {}}, parentElement: null, tagName: row.type === 'textarea' ? 'TEXTAREA' : 'INPUT', closest: () => null, labels: [], value: row.value || ''}]));
   const window = {__jobPilottoGuardActive: true};
-  const document = {getElementById: id => elements[id] || null, querySelector: () => null, querySelectorAll: () => [], body: {innerText: ''},
+  const document = {head: {append() {}}, createElement: () => ({}), getElementById: id => elements[id] || null, querySelector: () => null, querySelectorAll: () => [], body: {innerText: ''},
     documentElement: {className: ''}};
   const context = vm.createContext({window, document, getComputedStyle: () => ({}), setTimeout, clearTimeout, CSS: {escape: s => s}, console,
     Event: class {}, HTMLInputElement: class {}, HTMLTextAreaElement: class {}});

@@ -159,6 +159,16 @@ test('what is left comes as the ring counts it, and an older extension sends no 
   assert.equal(heard.at(-1).pending, undefined);
 });
 
+test('text we drafted and the person has not read comes through as drafts (labels and a kind only), and is not a failure reason', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({left: 2, missing: [], pending: ['Describe a production incident', 'Why us?'], why: [],
+    drafts: [{label: 'Describe a production incident', outline: true, text: 'never read'}, {label: 'Why us?'}, {nope: 1}, 7]}), 1000);
+  assert.deepEqual(heard.at(-1).drafts, [{label: 'Describe a production incident', outline: true}, {label: 'Why us?', outline: false}]);
+  assert.deepEqual(heard.at(-1).reasons, []);
+});
+
 test('a session\'s form is its newest tab: an older tab for the same job answers nothing and does not hide a closed form', () => {
   review._reset();
   review.noteTabs({ids: [10, 40], boot: 'run1'});

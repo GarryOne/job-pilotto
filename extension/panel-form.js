@@ -51,7 +51,8 @@
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
       entry.cause ||= el.dataset.jobpilottoCause || ''; entry.gaveUp ||= el.getAttribute('data-jobpilotto-gaveup') || ''; entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)
-      entry.changed ||= !!window.__jobPilottoTypedChanged?.(el); entry.filled ||= filled && !entry.changed;   // a box the page changed after we typed it is not filled (page/typed-check.js)
+      entry.draft ||= el.dataset.jobpilottoDraft || '';   // page/fill-marks.js: text we drafted that the person has not yet read
+      entry.changed ||= !!window.__jobPilottoTypedChanged?.(el); entry.filled ||= filled && !entry.changed && !entry.draft;   // a box the page changed after we typed it is not filled (page/typed-check.js)
       groups.set(key, entry);
     }
     // A robot check (reCAPTCHA, hCaptcha, Turnstile) lives in a frame the form's inputs don't include: its answer is the hidden

@@ -20,7 +20,7 @@ test('the panel reports optional empty fields apart from the required ones, neve
   const panel = read('extension/page/review-payload.js');   // the report moved out of review.js (E, 13 Oct 2026)
   assert.match(panel, /optional: state\.list\.filter\(f => !f\.required && !f\.ai && !f\.filled && !\(agree\.test\(f\.label\) \|\| f\.category === 'legal'\)\)/);
   assert.match(panel, /proposals: state\.list\.filter\(f => !f\.filled && \(f\.suggested \|\| f\.wants\) && \(f\.required \|\| f\.ai \|\| !\(agree\.test\(f\.label\) \|\| f\.category === 'legal'\)\)\)/);
-  assert.match(panel, /pending: state\.list\.filter\(f => \(f\.required \|\| f\.ai\) && !f\.filled\)/, 'what is left stays required-only');
+  assert.match(panel, /pending: state\.list\.filter\(f => \(f\.required \|\| f\.ai \|\| f\.draft\) && !f\.filled\)/, 'what is left stays required-only, plus a draft nobody has read');
 });
 
 test('the app keeps the optional list from the report, apart from what is left', () => {

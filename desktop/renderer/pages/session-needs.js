@@ -178,6 +178,8 @@ export function emptyFields(item, needs) {
   if (unnamed > 0) left.push(`${unnamed} more field${unnamed === 1 ? '' : 's'}`);
   return left;
 }
+// Text we drafted from the person's facts and they have not read yet: its own words, in place of a reason it was left (extension/panel-written.js).
+const draftNote = (state, label) => { const draft = (state?.drafts || []).find(one => sameQuestion(one.label, label)); return draft ? (draft.outline ? 'Outline for you: add your own details in the form (the lines starting with • Add:).' : 'Drafted for you: read it in the form, edit it or keep it. Review my answer is beside the box.') : ''; };
 export function emptyRow(label, item) {
   const proposal = proposalFor(item, label); if (proposal) return markKnockout(proposedRow(item, label, proposal), item, label);   // its answer, back (need-proposal.js)
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
@@ -185,7 +187,7 @@ export function emptyRow(label, item) {
   const more = /^\d+ more fields?$/.test(label), name = label.replace(/^\s*\*\s*|\s*\*\s*$/g, '');
   body.append(titleLine(name), el('span', 'ss-need-desc small', more
     ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
-    : reasonFor(reviewStates.get(item.id), label, sameQuestion) || 'This section is still empty in the form.'));   // why the fill left it (reason-words.js)
+    : draftNote(reviewStates.get(item.id), label) || reasonFor(reviewStates.get(item.id), label, sameQuestion) || 'This section is still empty in the form.'));   // why the fill left it (reason-words.js)
   actions.append(more ? smallButton('Open the form', 'primary', event => openForm(item, event.currentTarget))
     : smallButton('Open in form', 'secondary is-signal', event => showInForm(item, label, event.currentTarget)));
   li.append(badge(), body, actions);

@@ -7,7 +7,7 @@ export const MEANINGS = ['work_permit', 'sponsorship', 'home_location', 'relocat
 // A saved-detail key of the built-in words (page/fill-read.js PROFILE_LABELS) or a pack meaning, in the words above.
 const OF_KEY = {first_name: 'contact', last_name: 'contact', full_name: 'contact', email: 'contact', phone: 'contact', street: 'contact', postal_code: 'contact',
   place_of_origin: 'contact', birth_date: 'contact', location: 'home_location', linkedin: 'links', github: 'links', website: 'links'};
-// Left on purpose: the person's own choice or words, a secret, or a knockout / contact / low-confidence guess kept as a proposal (worker typeGuess).
+// Left on purpose: the person's own choice or words (a written question is drafted since 16 Oct 2026; only one the AI could give no text for stays 'written' here), a secret, or a knockout / contact / low-confidence guess kept as a proposal (worker typeGuess).
 const BY_DESIGN = new Set(['legal', 'demographic', 'written', 'password']);
 
 // row: a fill trace row ({reason, type, fact?, category?, known?, low?}). -> one word of MEANINGS.

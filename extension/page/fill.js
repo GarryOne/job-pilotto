@@ -9,7 +9,7 @@
   window.__jobPilottoFillLoaded = true;
 
   const {LEGAL, asksQuestion, clean, norm, once, sleep, visible, labelOf, questionOf, radioOps, PROFILE_LABELS, aliasFor, DIAL, dialOf, armCombo,
-    pickCheckboxOption, setCheckbox, wantsUnchecked, boxOf, tickConsents, markAttention} = window.__jobPilottoFillKit;
+    pickCheckboxOption, setCheckbox, wantsUnchecked, boxOf, tickConsents, markAttention, markDraft} = window.__jobPilottoFillKit;
 
   // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
   const fillCoverLetter = async letter => {
@@ -258,6 +258,7 @@
       else if (!row.filled && !answer && !contactFields.has(row.field) && knownKey(row)) reason = `a detail of yours not saved yet (${knownKey(row)})`;
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) { reason = 'answer given, but the field did not take it'; window.__jobPilottoNoteNotTaken?.(row.field, answer?.value); }   // typed again for real after the fill (page/fill-verify.js)
+      if (outcome === 'filled' && answer?.draft && row.type !== 'file') reason = answer.draft === 'outline' ? 'outline: add your own details' : 'drafted: review it';   // typed, but the person has not read it yet (owner, 16 Oct 2026)
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
       if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer || proposedOf[row.field], (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
@@ -274,7 +275,9 @@
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;
       const long = row.type === 'textarea' || String(item.value || '').length > 80;
       const unsure = item.guess || (item.confidence && item.confidence !== 'high');   // a typed guess at any confidence (worker typeGuess, 14 Oct 2026)
-      if (long || unsure) markAttention(item.field, row.label || item.question || item.field);
+      if (item.draft) summary.todo.push(`${item.draft === 'outline' ? 'Complete' : 'Review'}: ${row.label} (drafted for you)`);
+      if (long || unsure || item.draft) markAttention(item.field, row.label || item.question || item.field);
+      if (item.draft) markDraft(item.field, item.draft);   // a written answer drafted from the person's facts: reviewed before it counts (page/fill-marks.js)
     }
     const letterBox = Array.from(document.querySelectorAll('textarea')).find(el => /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
     if (coverLetter && letterBox?.value) markAttention(letterBox.id || letterBox.name, 'Cover letter');

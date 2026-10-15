@@ -7,7 +7,7 @@ export function cvFactsText(cv) {
   const jobs = (cv?.jobs || []).flatMap(job => (job.roles?.length ? job.roles : [{}]).map(role => line([`employer: ${job.company || ''}`, role.title && `title: ${role.title}`, role.period && `period: ${role.period}`, role.place && `place: ${role.place}`])));
   const schools = (cv?.education || []).map(item => line([`school: ${item.school || ''}`, item.degree && `degree: ${item.degree}`, item.period && `period: ${item.period}`]));
   // what the CV says it did and knows: a yes/no "hands-on X?" or "which tools?" is answered from these words (bake-off 15 Oct 2026: Python/Go and CI/CD tools were proposed because only jobs and schools were sent)
-  const skills = [cv?.skills, ...(cv?.jobs || []).flatMap(job => (job.roles || []).map(role => role.skills))].map(item => String(item || '').trim()).filter(Boolean);
+  const skills = [cv?.skills, cv?.extraSkills, ...(cv?.jobs || []).flatMap(job => (job.roles || []).map(role => role.skills))].map(item => String(item || '').trim()).filter(Boolean);
   const did = (cv?.jobs || []).flatMap(job => (job.roles || []).flatMap(role => (role.bullets || []).map(bullet => `done at ${job.company || ''}: ${String(bullet).trim().slice(0, 300)}`)));
   const rows = [...(jobs.length ? ['Jobs, most recent first:', ...jobs] : []), ...(schools.length ? ['Education:', ...schools] : []),
     ...(skills.length ? ['Skills:', ...skills] : []), ...(did.length ? ['What the CV says was done:', ...did] : [])];

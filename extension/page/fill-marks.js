@@ -49,5 +49,19 @@
     };
     el.addEventListener('input', clear);
   };
-  Object.assign(window.__jobPilottoFillKit, {markAttention});
+  // A written answer WE drafted from the person's facts (owner, 16 Oct 2026): marked until the person edits it or presses "Keep as is" in the panel; the panel lists it as "Drafted for you: review",
+  // never as filled. An outline (kind "outline": "• Add: ..." lines) stays marked while any such line is left, so an unfinished outline never counts as an answer. Guarded by desktop/test/written-draft.test.js.
+  const ADD_LINE = /^\s*•\s*Add:/m;
+  const markDraft = (field, kind) => {
+    const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
+    if (!el || !String(el.value || '').trim()) return;
+    el.dataset.jobpilottoDraft = kind === 'outline' ? 'outline' : 'draft';
+    const check = event => {
+      if (!event.isTrusted) return;
+      if (el.dataset.jobpilottoDraft === 'outline' && ADD_LINE.test(el.value)) return;
+      delete el.dataset.jobpilottoDraft; el.removeEventListener('input', check);
+    };
+    el.addEventListener('input', check);
+  };
+  Object.assign(window.__jobPilottoFillKit, {markAttention, markDraft});
 })();

@@ -97,7 +97,8 @@ test('the Submit guard can be loaded twice on a page (a second fill) without thr
 });
 
 test('the panel (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
-  const ring = readPanel();
+  const written = fs.readFileSync(new URL('../../extension/panel-written.js', import.meta.url), 'utf8');
+  const ring = readPanel().replace(written, '');   // panel-written.js is the one exception, pinned below: the person's own "Use this version" press
   // Only its own ring and panel get click handlers; the form's fields are scrolled to, outlined and focused.
   assert.doesNotMatch(ring, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|dispatchEvent|\.submit\(|requestSubmit/);
   assert.match(ring, /attachShadow/);
@@ -105,6 +106,10 @@ test('the panel (review.js) is read only: it never types, ticks, clicks or submi
   assert.doesNotMatch(ring, /fetch\(|XMLHttpRequest/);
   assert.match(ring, /const send = message => \(chrome\.runtime\?\.id \? chrome\.runtime\.sendMessage\(message\)/);
   assert.match(ring, /send\(\{type: 'review', payload\}\)/);
+  // The review of a written answer (owner, 16 Oct 2026) types only when the person presses "Use this version" (and the box still holds the text that was reviewed); it never clicks, ticks or submits.
+  assert.doesNotMatch(written, /\.click\(\)|\.checked\s*=[^=]|\.submit\(|requestSubmit|fetch\(|XMLHttpRequest/);
+  assert.equal(written.match(/setValue\(el,/g).length, 1, 'one place types: the person\'s press');
+  assert.match(written, /use\.onclick = \(\) => \{[^}]*changed since this review[^}]*\}\s*setValue\(el, result\.done\.improved\)/);
 });
 
 test('an out-of-date extension in Chrome loads the new copy by itself, and only rejoins tabs the app opened', () => {
