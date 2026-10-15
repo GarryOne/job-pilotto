@@ -22,6 +22,15 @@ test('a required two-state control answered "no" and left unchecked is an answer
   assert.equal(endingOf(form([answeredNo, field('something new')])).ending, 'unresolved', 'a real miss beside it still counts');
 });
 
+test('a required upload slot with no file to give is a document only the person has: data_missing, never a missed field', () => {
+  // 15 Oct 2026, Recruitee form (Channable): "Can you please attach your motivational letter?" (a required file slot), reason "upload: no file for this question": the app has no such file,
+  // so it is ours to leave, not a control we missed; it fell to "something new" -> unresolved and kept the row on Needs a fix.
+  const noFile = field('upload: no file for this question', {type: 'file'});
+  assert.equal(fieldEnding(noFile), 'data_missing');
+  assert.equal(endingOf(form([noFile, field('proposed for you to confirm', {type: 'radio'})])).ending, 'data_missing');
+  assert.equal(endingOf(form([noFile, field('something new')])).ending, 'unresolved', 'a real miss beside it still counts');
+});
+
 test('a form whose required fields left are all the person\'s (proposals, consent, own words, demographics, a password) is ready', () => {
   const rows = [field('proposed for you to confirm'), field('legal/consent: always your choice', {type: 'checkbox'}), field('written: your own words to write', {type: 'textarea'}),
     field('demographic: your own choice', {type: 'radio'}), field('no answer in the kit, Profile or your details', {type: 'password'})];
