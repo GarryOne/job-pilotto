@@ -6,7 +6,8 @@ import {testSets, whatWeTestSection} from './what-we-test.js';
 import {leftEmpty, leftEmptySection} from './left-empty.js';
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
-import {ORDER_SOURCE} from './applying-order.js';
+import {ORDER_SOURCE, needsFixOrder} from './applying-order.js';
+import {TILE_RULE, tileTones} from './applying-tiles.js';
 import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
 import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
@@ -141,14 +142,18 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   const live = sites.filter(site => ['works', 'fix', 'held'].includes(site.status.state));   // a hold is a live site; a site problem and a never-run row are not
   const dropped = await slow('boards', async () => (await digest(db, now)).boards).then(boards => boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   const fidelity = fidelityOf(await readFidelity(db).catch(() => []), pool);
-  return {
-    tiles: {
+  const tiles = {
       cases: cases.length, casesFailing: cases.filter(item => !item.ok).length, casesLast: cases.map(item => item.day).sort().at(-1) || null,
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
-      needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.status.state === 'site').length, held: sites.filter(site => site.status.state === 'held').length, dropped: dropped.length},
+      needFix: needsFixOrder(pool, scorecard, STEPS).rows.length,   // the Needs a fix list's own count (the pool's rows, src/applying-order.js), not the smoke sites'
+      regressions: sites.filter(site => site.regression && site.status.state !== 'site').length, regressionsApart: sites.filter(site => site.regression && site.status.state === 'site').length,   // a regression on a closed or refusing site is not our build's
+      gone: sites.filter(site => site.status.state === 'site').length, held: sites.filter(site => site.status.state === 'held').length, dropped: dropped.length};
+  return {
+    tiles,
     whatWeTest: whatWeTestSection(testSets({replayRuns, pool, smokeRuns: runs.filter(run => run.kind === 'smoke'), records: fidelity.rows, now})),   // the sets the lab tests on (src/what-we-test.js)
     leftEmpty: leftEmptySection(await slow('left-empty', () => leftEmpty(db, now, 'lab')).catch(() => null) || {side: 'lab', days: 14, total: 0, groups: [], sample: null}, {wrap: 'bare'}),   // why the pool's fields were left empty (src/left-empty.js, shared with Real Form Filling); a scan of fill_cards, so behind the hour cache
+    tileTones: tileTones(tiles, resolution?.raw), tileRules: TILE_RULE,
     resolution, fidelity, sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, states: STATES, stateWords: STATE_WORD, now: now.toISOString()};
 }
 
@@ -205,7 +210,7 @@ export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--green:#5ec47a;--red:#e5484d;--blue:#6aa8ff;--violet:#b48cff}
 *{box-sizing:border-box}.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;margin:14px 0;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}@media (max-width:1000px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tile{background:var(--card);padding:14px 16px}.tile b{display:block;font-size:26px;line-height:1.2}.tile .what{display:block;font-size:14px;margin-top:2px}.tile span.note{display:block;margin-top:4px;color:var(--muted);font-size:12px}
-.tile.bad b{color:var(--red)}.tile.good b{color:var(--green)}section{margin:36px 0 0;padding-top:24px;border-top:1px solid var(--line)}section>h2{margin:0 0 12px}table{width:100%;border-collapse:collapse}
+.tile.warn b{color:var(--amber)}.tile.bad b{color:var(--red)}.tile.good b{color:var(--green)}section{margin:36px 0 0;padding-top:24px;border-top:1px solid var(--line)}section>h2{margin:0 0 12px}table{width:100%;border-collapse:collapse}
 th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .st-works{background:var(--green)}.st-held{background:var(--violet)}.st-site{background:var(--muted)}.st-fix{background:var(--red)}.st-unrun{background:var(--line)}.s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
@@ -243,14 +248,14 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   serverNow = Date.parse(d.now);
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
-  const t = d.tiles;
+  const t = d.tiles, T = d.tileTones || {}, R = new Proxy(d.tileRules || {}, {get: (rules, key) => rules[key] || ''});   // an older snapshot has no tones: no colour
 ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
-    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 days', 'Smoke sites run in the last 10 days'),
-    tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', t.reachedForm >= 70 ? 'good' : '', 'Of live smoke sites', 'Sites that reached the application form'),
-    tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
-    tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
-    tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
+    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Sites recorded', '', 'Recorded in the last 10 days', 'Pool sites recorded in the last 10 days, out of every site recorded (npm run record-sites). A count, not good or bad: no colour.'),
+    tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', T.reached, 'Of recorded live sites', 'Share of live sites that reached the application form. ' + R.reached),
+    tile(t.regressions, 'Open regressions', T.regressions, t.regressionsApart ? 'Not ours: ' + t.regressionsApart + ' on a closed or refusing site' : 'Reached less than before', 'Sites that reached less than their last run, on a site that is still open: ours to fix. ' + (t.regressionsApart ? t.regressionsApart + ' more on a posting that is gone or a site that refused us are not counted. ' : '') + R.regressions),
+    tile(t.needFix, 'Sites needing a fix', T.needFix, 'The Needs a fix list', 'The same sites as the Needs a fix list: stopped early, unexplained fields, or a regression. ' + R.needFix),
+    tile(t.dropped, 'Boards dropped', T.dropped, 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4). ' + R.dropped)));
 ${PAGETABS_SCRIPT}  const resolutionBox = el('section', {className: 'resolution'}); panels.resolution.append(resolutionBox); const fidelityBox = el('section', {className: 'fidelity'}); panels.replays.append(fidelityBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
   const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); panels.fixes.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // By-hand runs · where each site got to (owner, 10 Oct 2026: at the top; 14 Oct 2026: by each run's one status, not the step it reached; the pool has had no nights since 11 Oct): one bar per day, newest first,

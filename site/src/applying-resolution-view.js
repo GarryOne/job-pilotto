@@ -11,9 +11,9 @@ export const RESOLUTION_SCRIPT = `
   const SINCE = {'↑': 'better than its previous run', '↓': 'worse than its previous run', '=': 'the same as its previous run'};
   let endingPick = null;   // the pill clicked: only its rows
   // A snapshot computed before this tile existed (the page's data is kept 10 minutes) has no resolution: an empty tile, an empty box.
-  const resolutionTile = r => tile(!r || r.raw == null ? '–' : r.raw + '%', 'Resolved', !r || r.raw == null ? '' : r.unresolved ? 'bad' : 'good',
+  const resolutionTile = r => tile(!r || r.raw == null ? '–' : r.raw + '%', 'Resolved', d.tileTones ? d.tileTones.resolved : '',
     !r ? 'No ending yet' : (r.weighted == null ? 'No demand weight yet' : r.weighted + '% weighted by demand') + ' · ' + r.unresolved + ' unresolved',
-    'The newest run of each pool row ends in one fixed ending; resolved = every ending but unresolved. Only runs of main count: CI on main, and Mac runs whose extension is the one on main.' + (r ? ' ' + r.held + ' row(s) held by the test are not measured.' : ''));
+    'The newest run of each pool row ends in one fixed ending; resolved = every ending but unresolved. Only runs of main count: CI on main, and Mac runs whose extension is the one on main.' + (r ? ' ' + r.held + ' row(s) held by the test are not measured.' : '') + ' ' + (d.tileRules ? d.tileRules.resolved : ''));
   function drawResolution(box, r) {
     box.textContent = '';
     if (!r) return;

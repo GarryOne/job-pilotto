@@ -148,9 +148,9 @@ test('every paged table of the tabs and sections that share the block() helper s
 test('the six metrics sit in one row (the first is Resolved since 12 Oct 2026: the outcome contract\'s headline replaced the replay count, which moved to the shape tests): one strip, a big number, a short label and a small note each; 3 columns on a tablet, 2 on a phone; the long wording moved into a tooltip (owner, 11 Oct 2026)', () => {
   assert.match(PAGE, /\.tiles\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(PAGE, /@media \(max-width:1000px\)\{\.tiles\{grid-template-columns:repeat\(3,/); assert.match(PAGE, /@media \(max-width:520px\)\{\.tiles\{grid-template-columns:repeat\(2,/);
-  for (const label of ['Resolved', 'Smoke sites tested', 'Reached the form', 'Open regressions', 'Sites needing a fix', 'Boards dropped']) assert.ok(PAGE.includes(label), label);
+  for (const label of ['Resolved', 'Sites recorded', 'Reached the form', 'Open regressions', 'Sites needing a fix', 'Boards dropped']) assert.ok(PAGE.includes(label), label);
   for (const old of ['fixed-site replays passing', 'smoke sites run in the last 10 nights', 'sites need a fix (stopped early', 'boards dropped in the fleet (layer 4)']) assert.ok(!PAGE.includes(old), old + ' is gone');
-  assert.match(PAGE, /Stopped early, unexplained fields, or a regression/);   // the explanation is kept, as the tile's note and tooltip
+  assert.match(PAGE, /stopped early, unexplained fields, or a regression/);   // the explanation is kept in the tile's tooltip, beside its colour rule (src/applying-tiles.js)
   assert.equal((PAGE.match(/ tile\(/g) || []).length, 6, 'still six metrics, none dropped');
 });
 
