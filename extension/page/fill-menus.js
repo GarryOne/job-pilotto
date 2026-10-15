@@ -63,7 +63,7 @@
     const tries = [...new Set([first, full, first.length > 4 ? first.slice(0, 3) : ''].filter(Boolean))];
     let shown = [];
     for (const text of tries) {
-      if (!(await need({kind: 'type', text}))) return {option: null, shown};
+      if (!(await need({kind: 'type', text, keys: !!suggestCtx}))) return {option: null, shown};
       for (let waited = 0; waited < 3000; waited += 250) {
         await sleep(250); loadMoreOptions();
         if (matchOption(answer)) return {option: matchOption(answer), shown};

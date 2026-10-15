@@ -48,7 +48,7 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
       const needed = await page(() => { const need = window.__jobPilottoNeed; window.__jobPilottoNeed = null; return need || null; });
       if (needed) {
         mark(`need-${needed.kind}`);
-        const value = needed.kind === 'type' ? await type?.(needed.text).then(() => true, () => false) : await choose?.(needed).catch(() => '');
+        const value = needed.kind === 'type' ? await type?.(needed.text, needed.keys).then(() => true, () => false) : await choose?.(needed).catch(() => '');
         await page(done => { window.__jobPilottoNeedDone = done; }, [value ?? false]);
         limit = Math.max(limit, waited + PATIENCE.deciding);
       }
