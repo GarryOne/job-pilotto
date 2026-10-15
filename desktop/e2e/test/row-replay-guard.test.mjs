@@ -50,7 +50,7 @@ test('a press the live run did not make is the finding, with both labels', {skip
 
 test('a row replay sets the applicant\'s contact as the live row did (saveContact(CONTACT)) before it replays: the profile in an answer ask is part of its memo key', () => {
   const live = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8'), replay = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
-  assert.match(live, /app\.call\('saveContact', CONTACT\)/);
+  assert.match(live, /app\.call\('saveContact', contactFor\(CONTACT, accounts, posting\.url\)\)/);   // = CONTACT on every host without a test account (lib/test-accounts.mjs contactFor); a row recorded with a test account's email needs the replay to set it too (open until the first one is recorded)
   assert.match(replay, /app\.call\('saveContact', CONTACT\)/);
   assert.ok(replay.indexOf("app.call('saveContact', CONTACT)") < replay.indexOf('const front = await frontOf(app)'), 'before the front and the browser exist');
 });
