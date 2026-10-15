@@ -42,7 +42,7 @@
     el.querySelector('[aria-selected=true], [aria-checked=true]') ? 1 : 0].join('|');
   function fields() {
     const groups = new Map();
-    for (const el of document.querySelectorAll('input, textarea, select')) {
+    for (const el of document.querySelectorAll('input, textarea, select, [role=combobox]:not(input):not(textarea):not(select)')) {   // a select-only combobox is a <div role=combobox> holding its shown choice (page/read-back.js selectOnly)
       const slot = el.type === 'file' && !visible(el) ? window.__jobPilottoReadBack.shownSlot(el) : null; if (SKIP.includes(el.type) || el.disabled || window.__jobPilottoReadBack.hiddenAway(el) || !(visible(el) || slot)) continue;   // a CV slot whose input the page hides counts by its visible zone (page/read-back.js)
       const group = ['checkbox', 'radio'].includes(el.type) ? window.__jobPilottoOptionGroups?.groupOf(el) : null;   // one question is one row, however its options are named (page/option-groups.js, shared with the replay's truth reader)
       const key = group ? group.key : el;

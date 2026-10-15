@@ -1,0 +1,25 @@
+{
+ "origin": "hand-cut",
+ "shape": "a select-only combobox that is no input (<div role=combobox> holding the shown choice, a hidden input with its key beside it): the page already shows the person's choice",
+ "why": "A SuccessFactors career-site form, the owner's real fill of 15 Oct 2026: Country showed Switzerland and the newsletter select No, yet the panel listed both as left for you, because the reader looked for a chip or a text input and a div has neither. Markup written from OpenUI5's sap.m.SelectRenderer code (shipped by that site), NOT captured from a live page.",
+ "control": {
+  "build": "0.9.522",
+  "failed": "notPending: Country is left in the panel's report"
+ },
+ "sample": "OpenUI5 sap.m.Select markup written from its renderer (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/portalcareer?company=example",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.95, "rung": 2},
+  "/extension/answer": {"ok": true, "eligible": true, "eligibility_note": "", "answers": []}
+ },
+ "expect": {
+  "notPending": ["Country", "I would like to receive the newsletter"],
+  "notTold": ["pressed the submit"],
+  "seconds": 60
+ }
+}
