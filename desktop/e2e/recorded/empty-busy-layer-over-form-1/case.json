@@ -1,0 +1,49 @@
+{
+ "origin": "hand-cut",
+ "shape": "a transparent busy layer (no text, no control) over the whole form that clears by itself after about a second: the fill waits and fills, never holds with 'a dialog covers the form'",
+ "why": "15 Oct 2026, owner's real fill: held 'a dialog covers the form' with buttons 0 and text '' (a block layer while a page loads); the person saw no dialog (dialog-after-fill.js clearBeforeFill).",
+ "sample": "invented page of the shape in the owner's log of 15 Oct 2026",
+ "control": {
+  "build": "0.9.456",
+  "failed": "notTold missing: held: a dialog covers the form"
+ },
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.busy.example/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "notTold": [
+   "a dialog covers the form"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

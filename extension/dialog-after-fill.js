@@ -26,11 +26,19 @@ export async function closeFillDialogs(tab, {close, look, decide}) {
 // A layer whose covered list is empty leaves every control usable; one whose list is unknown (a look that does not say) is taken as covering.
 const coversForm = layer => !Array.isArray(layer.covered) || layer.covered.length > 0;
 export const HELD = 'a dialog covers the form';
+// A layer with no text and no control is no dialog anyone could read or close (owner's real fill, 15 Oct 2026: a transparent busy/block layer drawn while a page loads held the fill with "buttons":0,"text":"", and the person saw nothing): waited out
+// a few looks; gone or still empty, it never holds the fill.
+const emptyLayer = layer => !String(layer?.text || '').trim() && !layer?.buttons?.length;
+export const EMPTY_LOOKS = 5;
 export async function clearBeforeFill(tabId, {close, look, tries = 3, settleMs = 600}) {
   const closed = [];
   for (let attempt = 0; attempt < tries; attempt++) {
     let layer = await look(tabId).catch(() => null);
     if (!layer) return {held: false, closed, layer: null};
+    if (emptyLayer(layer)) {
+      for (let wait = 0; wait < EMPTY_LOOKS && layer && emptyLayer(layer); wait++) { await sleep(settleMs); layer = await look(tabId).catch(() => null); }
+      if (!layer || emptyLayer(layer)) return {held: false, closed, layer: null};
+    }
     let pressed = await close(tabId).catch(() => '');
     // Nothing pressed: the layer may have gone on its own, or been closed by another asker, between the list and the press (fix-import-dialog's false hold): look once more.
     if (!pressed) { await sleep(settleMs); const again = await look(tabId).catch(() => null); if (!again) return {held: false, closed, layer: null}; layer = again; }
@@ -40,7 +48,7 @@ export async function clearBeforeFill(tabId, {close, look, tries = 3, settleMs =
     await sleep(settleMs);
   }
   const layer = await look(tabId).catch(() => null);
-  return {held: !!layer && coversForm(layer), closed, layer: layer || null};
+  return {held: !!layer && !emptyLayer(layer) && coversForm(layer), closed, layer: layer || null};
 }
 
 // A held fill, said everywhere: the log line the pool reads (record-sites.mjs parseLive), and the person told on the page.

@@ -171,3 +171,15 @@ test('onTop presses only a button of the layer it found', { skip: !JSDOM }, asyn
     assert.deepEqual(hits, ['no']);
   } finally { Object.assign(globalThis, keep); }
 });
+
+// The owner's false hold (15 Oct 2026): an empty transparent layer (no text, no control) is waited out and never holds the fill.
+test('an empty layer never holds the fill: it clears, or it stays empty', async () => {
+  const { clearBeforeFill } = await import('../../extension/dialog-after-fill.js');
+  let looks = 0;
+  const clears = await clearBeforeFill(7, { look: async () => (++looks < 3 ? { text: '', buttons: [], covered: ['Name'] } : null), close: async () => '', settleMs: 0 });
+  assert.equal(clears.held, false, 'a busy layer that clears');
+  const stays = await clearBeforeFill(7, { look: async () => ({ text: '  ', buttons: [], covered: ['Name'] }), close: async () => '', settleMs: 0 });
+  assert.equal(stays.held, false, 'a layer that stays empty');
+  const real = await clearBeforeFill(7, { look: async () => ({ text: 'Verify you are human', buttons: ['Verify'], covered: ['Name'] }), close: async () => '', settleMs: 0 });
+  assert.equal(real.held, true, 'a real dialog still holds');
+});
