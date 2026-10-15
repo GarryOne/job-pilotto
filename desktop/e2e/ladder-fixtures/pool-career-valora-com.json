@@ -158,7 +158,7 @@
  ],
  "answer": {
   "kind": "posting",
-  "confidence": 0.9,
+  "confidence": 0.93,
   "apply_button": "Jetzt bewerben",
   "apply_button_kind": "apply",
   "apply_route": "manual",
@@ -169,7 +169,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "answer_path": "app"
 }

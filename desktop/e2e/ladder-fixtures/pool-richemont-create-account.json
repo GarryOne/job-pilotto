@@ -63,7 +63,7 @@
   "mails": []
  },
  "answer": {
-  "kind": "account-form",
+  "kind": "account",
   "confidence": 0.9,
   "apply_button": "",
   "apply_button_kind": "",
@@ -71,11 +71,12 @@
   "apply_by": "",
   "apply_email": "",
   "form_frame": -1,
-  "account_step": "",
+  "account_step": "sign_up",
   "register_control": "",
-  "signin_control": "",
-  "account_button": "",
-  "bot_check": false
+  "signin_control": "Sign In",
+  "account_button": "Create Account",
+  "bot_check": false,
+  "still_drawing": false
  },
  "answer_path": "app"
 }

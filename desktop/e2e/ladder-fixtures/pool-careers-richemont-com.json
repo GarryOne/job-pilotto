@@ -79,7 +79,8 @@
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "bot_check": true
+  "bot_check": true,
+  "still_drawing": false
  },
  "answer_path": "app"
 }

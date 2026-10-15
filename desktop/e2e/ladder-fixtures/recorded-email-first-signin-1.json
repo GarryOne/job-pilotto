@@ -46,7 +46,8 @@
   "register_control": "Create an account",
   "signin_control": "",
   "account_button": "Continue",
-  "bot_check": false
+  "bot_check": false,
+  "still_drawing": false
  },
  "candidates": [
   {

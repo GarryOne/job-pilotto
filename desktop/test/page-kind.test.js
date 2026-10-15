@@ -471,3 +471,20 @@ test('a weak answer is used for this visit but never remembered as sure; one alr
   await pageKind(fake({kind: 'account', confidence: 0.95, account_step: ''}), coop, stepless);
   assert.equal(stepless.get(kindKey(coop)), null, 'an account page with no step is not sure what to do: not kept');
 });
+
+test('a page the AI calls still being drawn is told to the extension and never kept for its shape', async () => {
+  const calls = [], cache = cacheIn();
+  const placeholder = {...coop, title: '', headings: [], controls: [{type: 'text', label: 'Search', required: false}]};
+  const first = await pageKind(fake({kind: 'other', confidence: 0.9, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false, still_drawing: true}, calls), placeholder, cache);
+  assert.equal(first.stillDrawing, true);
+  assert.match(JSON.stringify(calls[0]), /still_drawing/, 'the AI is told what the value means');
+  const second = await pageKind(fake({kind: 'form', confidence: 0.95, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false, still_drawing: false}, calls), placeholder, cache);
+  assert.equal(second.by, 'ai', 'the placeholder answer was not kept');
+  assert.equal(second.stillDrawing, undefined);
+});
+
+test('an unsure answer on a page still being drawn is still "drawing", not a failure', async () => {
+  const got = await pageKind(fake({kind: 'other', confidence: 0.4, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false, still_drawing: true}), coop, cacheIn());
+  assert.equal(got.stillDrawing, true);
+  assert.equal(got.error, undefined);
+});

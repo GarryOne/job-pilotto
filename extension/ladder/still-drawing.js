@@ -1,0 +1,19 @@
+// Reads a page again while the page-kind AI says it is still being drawn (a placeholder, a cover over an empty shell, a "Loading" notice): a fill planned from a half-drawn page asks about the wrong controls.
+// The AI judges "ready?" (its fixed answer stillDrawing, desktop/lib/ladder/rung2-sketch.js); this file only waits for the page to be still and asks again, at most MAX_LOOKS times. At the cap the last answer
+// is used as it is (today's way) and the cause is logged, never a loop and never a silent stop. Guard: worker/test/still-drawing.test.js.
+export const MAX_LOOKS = 2;
+export const STILL_MS = {quietMs: 500, maxMs: 2500};
+
+// asked: the first answer; again(): the page-kind ask once more, fresh; still(): resolves when the page has been still (pageStill); log: decide.
+export async function readWhileDrawing(asked, {again, still, log, host = ''}) {
+  let looks = 0, answer = asked;
+  while (answer?.stillDrawing === true && looks < MAX_LOOKS) {
+    looks++;
+    await still();
+    const next = await again();
+    if (!next) break;   // no answer: the page is read as it stands
+    answer = next;
+  }
+  if (looks) log('fill', answer?.stillDrawing === true ? 'page still drawing at the cap: read as it stands' : 'page was still drawing: read again', {looks, host, cause: answer?.stillDrawing === true ? 'cap' : 'settled'});
+  return answer;
+}
