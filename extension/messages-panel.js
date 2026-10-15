@@ -62,6 +62,13 @@ export function createPanelMessages(ctx) {
         .then(() => reply({ok: true}), () => reply({ok: false}));
       return true;
     }
+    // "Go there" on a tab the application has moved on from: the tab the app says continues it comes forward (a tab id from the app's own answer).
+    if (message?.type === 'panelGoTab' && sender.tab && Number.isInteger(message.tab)) {
+      chrome.tabs.update(message.tab, {active: true})
+        .then(tab => chrome.windows.update(tab.windowId, {focused: true}))
+        .then(() => reply({ok: true}), () => reply({ok: false}));
+      return true;
+    }
     // The application was cancelled in the app: this form's tab closes.
     if (message?.type === 'panelCloseTab' && sender.tab) {
       chrome.tabs.remove(sender.tab.id).then(() => reply({ok: true}), () => reply({ok: false}));

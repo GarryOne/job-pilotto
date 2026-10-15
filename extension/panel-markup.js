@@ -88,6 +88,7 @@
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <div class="actions">
           <div class="claude-offer" hidden></div>
+          <button class="secondary go-there" hidden>Go there</button>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
