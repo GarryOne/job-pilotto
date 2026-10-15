@@ -19,10 +19,10 @@
   // The press floor (safety, 15 Oct 2026: a "Decline" of a Data Privacy Consent Statement opened "Delete All Data"): whatever named the control, the extension never presses one that deletes or removes an
   // account or data, withdraws an application or signs out, nor one that DECLINES inside a dialog that is no cookie or tracking notice. A refused press answers true (the callers' `|| el.click()` stays unused)
   // and is left in window.__jobPilottoRefused. Words are an extra floor ANDed with the AI's answer (desktop/lib/popup-pick.js `effect`), never the judge. Guard: worker/test/press-floor.test.js.
-  const NEVER = /\b(delete|remove|erase|deactivate|withdraw|cancel|close)\b.{0,24}\b(account|data|profile|application)\b|\b(sign|log) ?out\b|\bdelete all\b|löschen|konto entfernen|supprimer|se déconnecter|eliminar cuenta|elimina (account|dati)|abmelden/i;
-  const DECLINE = /^\W*(decline|reject|refuse|deny|disagree|i (do not|don't) (agree|accept|consent)|ablehnen|nicht zustimmen|refuser|rifiuta|rechazar)\b/i;
-  const ABOUT_COOKIES = /cookie|tracking|traceurs/i;
-  const STATEMENT = /(privacy|consent|data protection) statement|datenschutzerkl|déclaration de confidentialité/i;   // the dialog's own title: a statement of the form, no cookie notice
+  const NEVER = /\b(delete|remove|erase|deactivate|withdraw|cancel|close)\b.{0,24}\b(account|data|profile|application)\b|\b(sign|log) ?out\b|\bdelete all\b|löschen|konto entfernen|supprimer|se déconnecter|eliminar cuenta|elimina (account|dati)|abmelden/i;   // words-ok: a safety floor ANDed with the AI answer, never the judge
+  const DECLINE = /^\W*(decline|reject|refuse|deny|disagree|i (do not|don't) (agree|accept|consent)|ablehnen|nicht zustimmen|refuser|rifiuta|rechazar)\b/i;   // words-ok: a safety floor ANDed with the AI answer, never the judge
+  const ABOUT_COOKIES = /cookie|tracking|traceurs/i;   // words-ok: a safety floor ANDed with the AI answer, never the judge
+  const STATEMENT = /(privacy|consent|data protection) statement|datenschutzerkl|déclaration de confidentialité/i;   // words-ok: a safety floor; the dialog's own title: a statement of the form, no cookie notice
   const textOf = el => String(el.innerText || el.textContent || el.value || el.getAttribute?.('aria-label') || el.getAttribute?.('title') || '').replace(/\s+/g, ' ').trim();
   const layerOf = el => { for (let node = el; node && node !== document.body && node !== document.documentElement; node = node.parentElement) { if (node.matches?.('[role=dialog], [role=alertdialog], [aria-modal=true], dialog')) return node; if (getComputedStyle(node).position === 'fixed') return node; } return null; };
   const refused = el => { const words = textOf(el); if (NEVER.test(words)) return true; if (!DECLINE.test(words)) return false; const layer = layerOf(el); const about = layer && textOf(layer); return !!layer && (!ABOUT_COOKIES.test(about) || STATEMENT.test(about.slice(0, 200))); };
