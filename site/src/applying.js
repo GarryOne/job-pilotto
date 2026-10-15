@@ -262,7 +262,7 @@ ${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   // The whole picture in one row (owner, 15 Oct 2026): how applications end, what is broken, whether our fixes are real, whether we can check offline.
   // The two fix tiles take the Fixed tab's own counts (fixKind, filled once FIXED_SCRIPT has run below), so a tile and its tab never disagree.
   const fix = d.fixed?.rows || [], fids = d.fidelity?.summary || {total: 0, recorded: 0};
-  const awaitingTile = tile('–', 'Awaiting verification', '', 'Fix landed, not yet cleared by two replays', 'Landed fixes that no run has cleared yet: the Fixed tab\\'s "Awaiting verification" rows.');
+  const awaitingTile = tile('–', 'Awaiting verification', '', 'Fix landed, not yet two clean runs', 'Landed fixes that no run has cleared yet: the Fixed tab\\'s "Awaiting verification" rows.');
   const confirmedTile = tile('–', 'Fixes confirmed', '', 'Two clean runs after the fix', 'Landed fixes that two runs after the fix cleared: the Fixed tab\\'s "Confirmed" rows.');
   app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', T.reached, 'Of live sites', 'Share of live sites that reached the application form. ' + R.reached),

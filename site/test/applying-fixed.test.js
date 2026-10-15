@@ -305,3 +305,9 @@ test('the How explainers are short: one line of at most 110 characters per word,
   }
   assert.match(PAGE, /tone \? el\('span', \{className: 'pill ' \+ tone, textContent: word\}\) : word/);
 });
+
+// Owner, 15 Oct 2026: the Awaiting tile said "cleared by two replays"; what clears a fix is two clean live runs (recordings), never an offline replay.
+test('the Awaiting verification tile names what clears a fix: two clean runs', () => {
+  assert.ok(PAGE.includes("'Fix landed, not yet two clean runs'"));
+  assert.ok(!PAGE.includes('cleared by two replays'));
+});
