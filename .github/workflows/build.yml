@@ -18,3 +18,5 @@ jobs:
     uses: ./.github/workflows/tests-site.yml
   desktop:
     uses: ./.github/workflows/tests-desktop.yml
+  desktop-windows:
+    uses: ./.github/workflows/tests-desktop-windows.yml

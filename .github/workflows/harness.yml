@@ -29,13 +29,9 @@ concurrency:
 
 jobs:
   harness:
-    name: harness tests ${{ matrix.shard }}
+    name: harness tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]   # the tests take ~105 s on one runner (one test alone is 48 s): two shards, each ~55 s
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -55,4 +51,4 @@ jobs:
         run: npx playwright install --with-deps chromium --only-shell
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
-        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
+        run: node --test --test-reporter=spec test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)

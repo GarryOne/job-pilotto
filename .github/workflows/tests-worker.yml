@@ -26,6 +26,10 @@ on:
 permissions:
   contents: read
 
+concurrency:   # a PR's newer push replaces its older run and frees its runners; each commit of main keeps its own run (tests/test_main_runs_finish.py, tests/test_pr_runs_cancel.py)
+  group: tests-worker-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   worker:
     runs-on: ubuntu-24.04

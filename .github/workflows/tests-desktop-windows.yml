@@ -1,0 +1,96 @@
+name: CI · Tests · desktop (Windows)
+# The desktop tests on Windows, where the app's platform branches really run (Credential Manager instead of the Keychain, python.exe, node-pty, Git Bash for Claude Code).
+# A pull request starts it only when it changes a file with such a branch, the installer or the shell scripts (owner, 15 Oct 2026: a flow PR started ~25 jobs and PRs waited for
+# runners; a change to extension/ or a worker file cannot break Windows). The list is data: tests/test_windows_paths.py fails when a desktop file that names win32,
+# process.platform or an .exe is missing from it. Not a required check (a workflow `paths:` skips never reports). On main, build.yml (CI · Tests) calls it on every push.
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/lib/ai/codex-cli.js'
+      - 'desktop/lib/analytics.js'
+      - 'desktop/lib/app-feedback.js'
+      - 'desktop/lib/app-updates.js'
+      - 'desktop/lib/applications.js'
+      - 'desktop/lib/apply-handlers.js'
+      - 'desktop/lib/apply.js'
+      - 'desktop/lib/background-chrome.js'
+      - 'desktop/lib/browser-launch.js'
+      - 'desktop/lib/browser-profile.js'
+      - 'desktop/lib/claude-code.js'
+      - 'desktop/lib/claude-session.js'
+      - 'desktop/lib/credentials.js'
+      - 'desktop/lib/e2e-hidden.js'
+      - 'desktop/lib/extension-install.js'
+      - 'desktop/lib/form-tab.js'
+      - 'desktop/lib/fresh-path.js'
+      - 'desktop/lib/github.js'
+      - 'desktop/lib/google-keys.js'
+      - 'desktop/lib/install-source.js'
+      - 'desktop/lib/keychain.js'
+      - 'desktop/lib/main-window.js'
+      - 'desktop/lib/orphans.js'
+      - 'desktop/lib/pipeline-env.js'
+      - 'desktop/lib/reports.js'
+      - 'desktop/lib/sentry.js'
+      - 'desktop/lib/site-password.js'
+      - 'desktop/lib/system-handlers.js'
+      - 'desktop/lib/tar.js'
+      - 'desktop/lib/telemetry.js'
+      - 'desktop/lib/twin.js'
+      - 'desktop/lib/updater.js'
+      - 'desktop/lib/visits.js'
+      - 'desktop/lib/win-path.js'
+      - 'desktop/main.js'
+      - 'desktop/preload.cjs'
+      - 'desktop/renderer/os.js'
+      - 'desktop/renderer/pages/startup.js'
+      - 'desktop/scripts/python.sh'
+      - 'desktop/scripts/release-notes.sh'
+      - 'desktop/scripts/smoke-screens.mjs'
+      - 'desktop/scripts/windows-smoke.mjs'
+      - 'desktop/start.js'
+      - 'desktop/package.json'
+      - 'desktop/package-lock.json'
+      - 'desktop/scripts/stage.mjs'
+      - 'desktop/scripts/sign.cjs'
+      - 'desktop/test/**'
+      - 'tools/check.sh'
+      - 'tools/check.py'
+      - '.github/workflows/tests-desktop-windows.yml'
+
+permissions:
+  contents: read
+
+concurrency:   # a PR's newer push replaces its older run and frees its runner; each commit of main keeps its own run (tests/test_main_runs_finish.py, tests/test_pr_runs_cancel.py)
+  group: tests-desktop-windows-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  desktop:
+    # fail-fast off, matrix of one: the job is named "desktop (windows-latest)", as it was in the shared matrix.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # Install exactly what a developer (and the release workflow) has, dev dependencies included: `npm test` runs scripts/stage.mjs, which needs esbuild.
+      # Only Electron's large binary is skipped, as the tests don't start it. tools/pre-push-check.sh blocks `--omit` here.
+      - run: npm ci
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: bash tools/check.sh --area desktop
