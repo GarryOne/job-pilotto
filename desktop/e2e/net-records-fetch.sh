@@ -15,7 +15,7 @@ mkdir -p "$out" "$enc"
 [ -z "${NET_RECORDS_READ_TOKEN:-}" ] && [ -z "${CI:-}" ] && NET_RECORDS_READ_TOKEN="$(gh auth token 2>/dev/null || true)"
 # ...and the private key from the Keychain item job-pilotto.capture.key (base64 of the PEM, as NET_RECORD_KEY), read here and never printed; it lives only in $work.
 [ -z "${NET_RECORD_KEY:-}" ] && [ -z "${CI:-}" ] && command -v security >/dev/null && NET_RECORD_KEY="$(security find-generic-password -s job-pilotto.capture.key -w 2>/dev/null || true)"
-umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$key"
+umask 077 && printf '%s' "${NET_RECORD_KEY:-}" | base64 -d > "$key"   # unset in --bundles-only: nothing is decrypted there
 mac_records() {   # the run's shared bundles when given (no gh call); else the private repo first (its read-only token), then this repo's old public release
   if [ -n "${NET_RECORDS_BUNDLES:-}" ] && ls "$NET_RECORDS_BUNDLES"/net-records*.k.enc >/dev/null 2>&1; then
     mkdir -p "$enc/mac" && cp "$NET_RECORDS_BUNDLES"/net-records* "$enc/mac/" && { echo "net-records-fetch: Mac records from the run's shared bundles"; return 0; }
