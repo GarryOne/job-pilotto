@@ -31,7 +31,7 @@ export function pin(results, data = {rows: {}}, {place = 'runner', commit = '', 
   if (!PLACES.includes(place)) throw new Error(`place must be one of ${PLACES.join(', ')}`);
   const rows = {...(data.rows || {})};
   for (const [name, row] of Object.entries(results?.rows || {})) {
-    if (row?.same !== true || row.deferred) continue;
+    if (row?.same !== true || row.deferred || /^deferred/.test(row.why || '')) continue;   // a results.json row says a deferred row in its why (replay-gate.mjs), a step-4 record in its deferred
     const old = rows[name] || {mac: null, runner: null};
     const kind = kindFor({formHost: row.formHost, startHost: starts.get(name), name});
     rows[name] = {...old, kind: row.formHost || !old.kind ? kind : old.kind, [place]: true, [`${place}Commit`]: old[place] === true ? old[`${place}Commit`] || commit : commit, [`${place}At`]: old[place] === true ? old[`${place}At`] || at : at};
