@@ -24,6 +24,7 @@ on:
       - 'desktop/e2e/lib/owner-guard-env.mjs'
       - 'desktop/e2e/lib/page-replay.mjs'
       - 'desktop/e2e/lib/privacy-tripwire.mjs'
+      - 'desktop/e2e/lib/test-accounts.mjs'
       - 'desktop/e2e/lib/real-claude.mjs'
       - 'desktop/e2e/lib/real-extension.mjs'
       - 'desktop/e2e/lib/recorded-false-readings.mjs'
