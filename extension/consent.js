@@ -58,7 +58,7 @@ export const closeLayer = async (tabId, {want = ''} = {}) => {   // want: the fi
 export const closePopupOrLayer = async tabId => (await closePopup(tabId)) || closeLayer(tabId);
 export const closeConsentEverywhere = async (tabId, {cookiesOnly = false} = {}) => {
   const cookie = await closeCookies(tabId, {cookiesOnly});
-  return cookie || closePopup(tabId);
+  return cookie || (cookiesOnly ? '' : closePopup(tabId));   // cookiesOnly means cookies only: a dialog that is no cookie notice is never closed by an AI pick (15 Oct 2026: Decline of a privacy statement)
 };
 const closeCookies = async (tabId, {cookiesOnly = false} = {}) => {
   const only = cookiesOnly ? {cookiesOnly: true} : {};
