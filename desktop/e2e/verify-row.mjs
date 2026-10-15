@@ -6,23 +6,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {fidelityRecord} from './replay-records.mjs';
-import {overlayExtension, sharedTouched} from './lib/older-tree.mjs';
+import {wholeTree} from './lib/older-tree.mjs';
 import {controlWhy, judgeFixed, judgeRegression} from './lib/verify-judge.mjs';
 
 const HERE = path.dirname(new URL(import.meta.url).pathname), ROOT = path.resolve(HERE, '..', '..');
 const git = (cwd, ...args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
-// The tree of a build: this checkout for HEAD, else a worktree of HEAD with the EXTENSION of that commit laid over it (the apply flow's code). The app's own code and this harness stay
-// main's: laying the harness over an old commit failed on files the old commit lacks (the first run, 14 Oct 2026: desktop/lib/private-file.js), and the flow is what a regression is about.
-// Dependencies are linked from this checkout. A change in desktop/lib or src between the two builds is not seen (the page says "extension of the older build").
+// The tree of a build: this checkout for HEAD, else a worktree at that commit (its own app, extension and src) with main's e2e tools over it and the files main added since taken from main (lib/older-tree.mjs).
+// Dependencies are linked from this checkout.
 export function treeAt(commit, work) {
   const head = git(ROOT, 'rev-parse', 'HEAD');
   if (!commit || !commit.endsWith('^') && (head.startsWith(commit) || commit.startsWith(head))) return ROOT;
   const dir = path.join(work, `tree-${commit.replace(/[^0-9a-f]/gi, '').slice(0, 10)}${commit.endsWith('^') ? '-parent' : ''}`);
   if (fs.existsSync(dir)) return dir;
-  git(ROOT, 'worktree', 'add', '--detach', dir, head);
-  overlayExtension(dir, commit);
+  git(ROOT, 'worktree', 'add', '--detach', dir, commit);
+  const added = wholeTree(dir, commit, head);
+  console.error(`verify-row: tree at ${commit.slice(0, 10)}: main's e2e tools over it, ${added.length} file(s) main added since taken from main`);
   for (const folder of ['desktop', 'desktop/e2e']) fs.symlinkSync(path.join(ROOT, folder, 'node_modules'), path.join(dir, folder, 'node_modules'), 'dir');
   return dir;
 }
@@ -40,11 +40,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(HERE, 'ver
   if (!records || !job || !out) { console.error('usage: node verify-row.mjs <records dir> <job json> <out dir>'); process.exit(2); }
   const recording = {...job.record, name: job.row, dir: path.join(records, job.record.dir)};   // the plan keeps the folder relative to the records
   const attempt = (build, label) => { try { return build ? replayOn(treeAt(build, out), recording, path.join(out, label)) : null; } catch (error) { console.error(`verify-row: ${label}: ${String(error?.message || error).split('\n')[0]}`); return null; } };
-  const shared = job.beforeBuild ? sharedTouched(job.commit, (...args) => git(ROOT, ...args)) : [];   // the fix is in files the app shares with the extension: main's app has it either way
-  if (shared.length) {
-    const result = {kind: job.kind, row: job.row, commit: job.commit || null, verdict: 'live', why: "can't separate before/after offline: the fix is in shared app files", recordedAt: job.record.at};
-    fs.mkdirSync(out, {recursive: true}); fs.writeFileSync(path.join(out, 'verdict.json'), `${JSON.stringify(result, null, 1)}\n`); console.log(`verify-row: ${job.kind} ${job.row}: live (${result.why})`); process.exit(0);
-  }
   const control = attempt(job.record.build?.commit, 'control'), runs = [];
   const target = job.kind === 'fixed' ? git(ROOT, 'rev-parse', 'HEAD') : job.older.build?.commit;
   if (!controlWhy(control)) for (const label of ['run1', 'run2']) runs.push(attempt(target, label));
