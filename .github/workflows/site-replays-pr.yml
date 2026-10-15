@@ -5,8 +5,8 @@
 # owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"; later the same day: replay-machinery PRs too): red when a counted row got worse or a runner did not finish.
 # An intended drop is accepted on the PR itself (owner, 14 Oct 2026): label `replay-accepted` + a comment `Replay-accept: <row> — <reason>` (the summary prints the line); site-replays-accept.yml then re-runs
 # only the failed verdict job (and "all checks green"), which reads the label and comments live, so the gate re-judges the same replays in seconds at $0. Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: site-replays.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
-# The name says how many rows are pinned (desktop/e2e/replay-faithful.json); tests/test_pinned_rows_name.py fails when a pin changes the count and not the name.
-name: CI · Site replays · PR (15 pinned rows)
+# The name says "<k> of <n> pinned rows": n pinned (desktop/e2e/replay-faithful.json), k replayed = one per kind of form, at most 12 (replay-pick.mjs); tests/test_pinned_rows_name.py and e2e/test/replay-pick.test.mjs fail when a pin changes a count and not the name.
+name: CI · Site replays · PR (12 of 15 pinned rows)
 
 on:
   pull_request:
@@ -37,7 +37,6 @@ on:
       - 'desktop/e2e/lib/live-readings.mjs'
       - 'desktop/e2e/lib/live-row.mjs'
       - 'desktop/e2e/lib/live-still.mjs'
-      - 'desktop/e2e/lib/lost-answers.mjs'
       - 'desktop/e2e/lib/net-record.mjs'
       - 'desktop/e2e/lib/notion.mjs'
       - 'desktop/e2e/lib/offline-app-child.mjs'
@@ -77,7 +76,6 @@ on:
       - 'desktop/e2e/replay-deferred.json'
       - 'desktop/e2e/replay-faithful.json'
       - 'desktop/e2e/replay-gate.mjs'
-      - 'desktop/e2e/replay-late.mjs'
       - 'desktop/e2e/replay-net.mjs'
       - 'desktop/e2e/replay-pick.mjs'
       - 'desktop/e2e/replay-records.mjs'
@@ -185,17 +183,7 @@ jobs:
         env:
           JP_REPLAY_ONLY: ${{ matrix.group }}
         run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out"
-      # The late-answer pass (owner, 14 Oct 2026, after 5afa5a8 lost Claude's answers only when they came after the fill started): the same rows again with every
-      # kept answer delayed 4 s; judged only by "no answer lost" (lib/lost-answers.mjs), never against live. Report only.
-      - name: Late-answer pass (answers delayed 4 s)
-        if: steps.key.outputs.ok == '1'
-        working-directory: desktop/e2e
-        env:
-          JP_REPLAY_ONLY: ${{ matrix.group }}
-          JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS: '4000'
-        run: |
-          node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-late" > /dev/null || true
-          node replay-late.mjs "$GITHUB_WORKSPACE/replay-late/replays" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The late-answer pass (answers delayed 4 s) runs on the scheduled runs only (site-replays.yml, owner 15 Oct 2026: "edge-case or costly checks will be caught hours later on the scheduled runs").
       - name: This runner's rows (for the verdict; no record, no key)
         if: always() && steps.key.outputs.ok == '1'
         uses: actions/upload-artifact@v6
@@ -206,8 +194,6 @@ jobs:
             replay-out/replays/*/end.png
             replay-out/replays/*/replay.json
             replay-out/replays/*/app.log
-            replay-late/replays/*/app.log
-            replay-late/replays/*/end.png
           retention-days: 7
           if-no-files-found: ignore
 
