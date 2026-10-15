@@ -84,7 +84,7 @@ jobs:
   replay:
     needs: plan
     if: needs.plan.outputs.go == '1' && fromJSON(needs.plan.outputs.jobs).include[0] != null
-    runs-on: macos-latest   # the records are made on the owner's Mac: the same fonts and scrollbar as the live page
+    runs-on: ubuntu-24.04   # Linux, as the PR replay gate (site-replays-pr.yml): 15 Mac-made rows came out same as live there (15 Oct 2026); macOS runners queued for hours
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -106,7 +106,7 @@ jobs:
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
-          (cd desktop/e2e && npx playwright-core install chromium)
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
       - name: The pool's records, decrypted on the runner only
         working-directory: desktop/e2e
         env:

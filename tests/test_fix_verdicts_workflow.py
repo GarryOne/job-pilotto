@@ -38,6 +38,10 @@ class ReplayVerifyWorkflow(unittest.TestCase):
         self.assertIn('cancel-in-progress: false', WORKFLOW)
         self.assertIn('max-parallel: 5', WORKFLOW)
 
+    def test_the_replays_run_on_linux_with_the_browser_libraries(self):
+        self.assertNotIn('macos', WORKFLOW)   # macOS runners queued for hours (15 Oct 2026); Linux replays Mac-made rows as live (site-replays-pr.yml)
+        self.assertIn('install --with-deps chromium', WORKFLOW)
+
 
 if __name__ == '__main__':
     unittest.main()
