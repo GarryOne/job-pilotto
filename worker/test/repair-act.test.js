@@ -12,6 +12,8 @@ const FORM = `<form>
   <label for="city">City</label><input id="city">
   <label for="pw">Password</label><input id="pw" type="password">
   <label for="terms">I accept the terms</label><input id="terms" type="checkbox">
+  <fieldset id="q"><legend>Built backend services?</legend><label><input type="radio" name="b" id="b1"> Yes</label><label><input type="radio" name="b" id="b2"> No</label></fieldset>
+  <label for="ko">Based in Texas?</label><input id="ko" data-jobpilotto-category="knockout">
 </form>`;
 
 function page() {
@@ -63,5 +65,17 @@ test('every repair is a try in the control\'s attempt log: a few in all, then re
   assert.equal(whys[0], 'the page did not keep it');
   assert.equal(whys.at(-1), 'its tries are used');
   assert.ok(window.__jobPilottoAttempts.count(city) <= window.__jobPilottoAttempts.CAP);
+  window.close();
+});
+
+test('floors: a native radio or checkbox and a knockout question are never repaired, in any verb or by a real click (a click there can only flip the answer)', {skip: !JSDOM}, async () => {
+  const {window, doc, act} = page();
+  const number = id => Number(doc.getElementById(id).getAttribute('data-jobpilotto-n'));
+  for (const id of ['b1', 'b2', 'terms', 'ko']) {
+    assert.equal(act.refused(number(id)).length > 0, true, `${id} refused`);
+    assert.equal(act.spot(number(id)), null, `${id}: no real click`);
+    assert.equal((await act.commit(number(id))).ok, false, `${id}: no commit`);
+  }
+  assert.equal(doc.getElementById('b1').checked || doc.getElementById('b2').checked || doc.getElementById('terms').checked, false);
   window.close();
 });

@@ -82,3 +82,14 @@ test('with the data on this Mac (env.store) the ask gets the job and its drafted
   assert.deepEqual(out.job, { title: 'SRE', company: 'Acme', stage: 'To apply', url: 'https://example.test/job/1', notion_url: '' });
   assert.equal(out.cover_letter, 'Dear Acme');
 });
+
+test('a knockout answered from the person\'s own saved fact is typed; a knockout no saved fact answers stays proposed (owner, 15 Oct 2026)', () => {
+  // Lever, bake-off 15 Oct: "able to work in the office this role is advertised in?" for a London posting, answered from the saved relocation fact: typed, and right.
+  const fromFact = typeGuess({ use: 'fill', fact: 'relocation', value: 'Yes, open to relocating within Europe', category: 'knockout', confidence: 'medium' });
+  assert.equal(fromFact.use, 'fill', 'a saved fact answers it: typed');
+  assert.notEqual(fromFact.guess, true, 'a fact is not a guess');
+  for (const unbacked of [{ use: 'propose', fact: 'none' }, { use: 'fill', fact: 'none' }, { use: 'propose', fact: 'relocation' }]) {
+    const out = typeGuess({ ...unbacked, value: 'Yes', category: 'knockout', confidence: 'high' });
+    assert.equal(out.use, 'propose', `no saved fact answers it (${JSON.stringify(unbacked)}): proposed, never typed`);
+  }
+});

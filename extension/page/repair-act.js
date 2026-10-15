@@ -1,7 +1,7 @@
 // The fill ladder's repair, the page's side (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR C2): the verbs of the repair question (desktop/lib/ladder/fill-repair.js) that run in
 // the page, on the control the judges' sketch numbered (extension/account-fill.js writes data-jobpilotto-n). A repair changes HOW the fill's own answer goes in, never WHAT: choose_option
 // picks the one option that shows the answer in another writing, checked here against the answer (page/value-class.js optionFor; none or two fit: nothing), retype puts the fill's own
-// answer back, commit leaves the control as a person does. Floors (AND, never moved): never a legal question, a password, a button or a control the fill gave no answer; every repair is
+// answer back, commit leaves the control as a person does. Floors (AND, never moved): never a legal or knockout question, a password, a button, a native radio or checkbox (a click there can only flip the answer, 15 Oct 2026) or a control the fill gave no answer; every repair is
 // a try in the control's one attempt log (page/attempts.js, verb "repair:<verb>"). spot() gives a trusted click's place (the worker clicks: extension/ladder/fill-repair.js).
 // Values never leave the page: each verb returns {ok, why} only. Guard: worker/test/repair-act.test.js.
 (() => {
@@ -14,6 +14,8 @@
     : el.type === 'password' ? 'a password'
     : el.matches('button, [type=submit], [type=button], [type=image], [type=reset]') ? 'a button'
     : el.dataset.jobpilottoCategory === 'legal' || window.__jobPilottoFillKit?.LEGAL?.test(labelOf(el)) ? 'a legal question'
+    : el.dataset.jobpilottoCategory === 'knockout' ? 'a knockout question'
+    : el.matches('input[type=radio], input[type=checkbox]') ? 'a native choice: the fill\'s own click decides it, a repair could only flip the answer'
     : '';
   const fire = (el, ...types) => types.forEach(type => el.dispatchEvent(new Event(type, {bubbles: true})));
   const setValue = (el, value) => {
