@@ -2,6 +2,7 @@
 // the recorded pages (each case, passed or failed, by run) and the nightly live smoke (each site: the step it reached, its last runs, regressions), plus the
 // fleet's dropped boards (layer 4, src/digest.js). The owner's Mac uploads each run (POST here, the owner key; desktop/e2e/lib/applying-report.mjs): the
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
+import {oneJudgment} from './applying-judgment.js';
 import {testSets, whatWeTestSection} from './what-we-test.js';
 import {leftEmpty, leftEmptySection} from './left-empty.js';
 import {LEFT_EMPTY_CSS} from './left-empty-view.js';
@@ -138,6 +139,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   for (const item of pool) item.cause = causes[item.shape] || null;
   const scorecard = await platformScorecard(db, pool, now, slow).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const resolution = resolutionOf({runs, endings: await readEndings(db), pool, scorecard, now});   // the headline: how each application ends (src/applying-resolution.js)
+  oneJudgment(pool, resolution);   // Needs a fix and Resolution read the same, newest judgment of a row (owner, 15 Oct 2026)
   const next = await nextToAdd(db, pool, now, slow).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
   const live = sites.filter(site => ['works', 'fix', 'held'].includes(site.status.state) && site.status.rule !== 'posting closed');   // a hold is a live site; a site problem, a closed posting and a never-run row are not
