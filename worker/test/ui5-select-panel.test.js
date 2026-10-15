@@ -22,6 +22,7 @@ async function panel(html, after) {
   const { window } = openPage(JSDOM, html);
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
+  window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');   // judged a form by the fill flow (extension/page-mark.js)
   evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   const pill = () => window.document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.pill b')?.textContent;

@@ -71,7 +71,7 @@ function renderChecking() {
   $('ss-form-state').replaceChildren();
   $('ss-question').replaceChildren(el('span', 'skeleton w-80'), el('span', 'skeleton w-60'));
   $('ss-actions').replaceChildren(el('span', 'skeleton button'), el('span', 'skeleton button small'));
-  for (const id of ['ss-form-card', 'ss-needs-card', 'ss-happened-card', 'ss-full-toggle', 'ss-full']) show($(id), false);
+  for (const id of ['ss-form-card', 'ss-needs-card', 'ss-happened-card', 'ss-optional-card', 'ss-full-toggle', 'ss-full']) show($(id), false);
 }
 // Chrome hasn't reported (closed, or the extension isn't running): the card can't know the tab, so it says that, with the way
 // back (the extension's own page, which starts it reporting); it updates by itself once Chrome reports.
@@ -84,9 +84,9 @@ function renderWaiting() {
   $('ss-actions').replaceChildren();   // nothing to press while it waits
 }
 // The tab is on a posting whose Apply the extension presses (or just pressed): nothing else of the session is true for this page, so no counts, no ready, no asks (owner, 15 Oct 2026).
-function renderRedirecting() {
+function renderRedirecting(item) {
   renderChecking();
-  $('ss-next-title').textContent = 'Apply button detected. Redirecting\u2026';
+  $('ss-next-title').textContent = reviewStates.get(item.id)?.page === 'reading' ? 'Reading this page\u2026' : 'Apply button detected. Redirecting\u2026';
   $('ss-question').replaceChildren();
   $('ss-actions').replaceChildren();
 }
@@ -120,7 +120,7 @@ function renderLost(item) {
 export function renderNextStep(item) {
   if (checkingTab(item)) { renderChecking(); return; }
   if (waitingChrome(item)) { renderWaiting(); return; }
-  if (redirecting(item)) { renderRedirecting(); return; }
+  if (redirecting(item)) { renderRedirecting(item); return; }
   if (silentChrome(item)) { renderSilent(item); return; }
   if (tabLost(item)) { renderLost(item); return; }
   const submitted = isSubmitted(item);

@@ -377,3 +377,13 @@ test('posting then its form: the redirect state is gone at once and the form\'s 
   assert.equal(state.url, 'https://career74.example.test/apply');
   assert.equal(review.tabOf('r1'), 11);
 });
+
+test('a page the extension has not judged yet reports "reading": no counts, never ready', () => {
+  review._reset();
+  const job = {id: 'q1', url: 'https://careers.example.test/job/1', company: 'Adnovum', status: 'input'};
+  review.report([job], {url: 'https://careers.example.test/job/1#jobpilotto-fill=q1', title: 'Job', tab: 3, session: 'q1', total: 1, left: 0, page: 'reading', filled: ['7']});
+  const state = review.allStates().find(entry => entry.id === 'q1');
+  assert.deepEqual([state.page, state.total, state.left, state.ready, state.filled], ['reading', 0, 0, false, []]);
+  review.report([job], {url: 'https://careers.example.test/job/1#jobpilotto-fill=q1', title: 'Job', tab: 3, session: 'q1', total: 1, left: 0, page: 'form', filled: ['7']});
+  assert.equal(review.allStates().find(entry => entry.id === 'q1').ready, true, 'a page judged to be a form counts');
+});

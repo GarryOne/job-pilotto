@@ -17,6 +17,7 @@ export function claudeOffered(storage, prereqs = claudePrereqs) {
   return cached.ok;
 }
 // Claude's TAKEOVER (the stuck-page offer, "always", the countdown): off while the flag is off, whatever the settings say. Other Claude entry points use claudeOffered.
+export const takeoverOn = SHOW_RESUME_CLAUDE;   // main.js: a stopped session's frozen Claude ask reaches no screen while it is off (terminals.hideAsks)
 export const takeoverOffered = (storage, prereqs, on = SHOW_RESUME_CLAUDE) => on && claudeOffered(storage, prereqs);
 export const claudeAutoOn = (storage, prereqs, on = SHOW_RESUME_CLAUDE) => !!storage.settings().claudeAuto && takeoverOffered(storage, prereqs, on);
 // The panel's 5 s countdown: only with "always" on, Claude ready AND "Do it for me"; "Let me check each step" never starts Claude by itself (only its button does).

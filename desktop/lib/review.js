@@ -259,7 +259,7 @@ export function report(sessions, payload, now = Date.now()) {
   if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
     .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy && !(Array.isArray(payload.ours) && payload.ours.includes(label)) ? 'you' : 'fill'});
   // A page the AI judged to have no form (posting; its Apply was pressed): no counts, no ready, no attention items: the card says what is happening (owner, 15 Oct 2026).
-  if (['posting', 'opening'].includes(payload.page)) Object.assign(state, {page: payload.page, total: 0, left: 0, ready: false, needs: '', missing: [], pending: [], reasons: [], optional: [], knockouts: [], proposals: [], filled: []});
+  if (['posting', 'opening', 'reading'].includes(payload.page)) Object.assign(state, {page: payload.page, total: 0, left: 0, ready: false, needs: '', missing: [], pending: [], reasons: [], optional: [], knockouts: [], proposals: [], filled: []});
   state.formUrl = state.total > 0 && !state.account && !state.page ? state.url : before?.formUrl || '';   // where the application form itself was last seen: Reopen goes back there, not to the posting
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); for (const fn of stateListeners) { try { fn(state); } catch {} } }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
