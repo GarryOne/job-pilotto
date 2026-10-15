@@ -6,7 +6,7 @@ import test from 'node:test';
 
 test('an ineligible reply without a note still gets a note: the script argument is never undefined', () => {
   const background = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
-  assert.match(background, /async function ineligibleNote\(tabId, reason, partly = false\) \{[^\n]*\n  await chrome\.scripting\.executeScript\(\{target: \{tabId\}, args: \[String\(reason \|\| 'not eligible'\), !!partly\]/);
+  assert.match(background, /async function ineligibleNote\(tabId, reason, partly = false\) \{[^\n]*\n(?:  if \(await tellPanel\([^\n]*\n)?  await chrome\.scripting\.executeScript\(\{target: \{tabId\}, args: \[String\(reason \|\| 'not eligible'\), !!partly\]/);
   assert.match(background, /partly \? `Job Pilotto filled only your details on this form: \$\{text\}` : `Job Pilotto didn't fill this form: \$\{text\}`/, 'the note says what was filled');
   const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
   assert.equal([...flow.matchAll(/note: ai\.eligibility_note,/g)].length, 0, 'every ineligible return has a fallback for the note');
