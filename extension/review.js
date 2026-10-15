@@ -9,7 +9,7 @@
 // panel-markup.js is the styles and markup, panel-learn.js reports what the person did. They share window.__jobPilottoPanel* (a content script has no imports).
 (() => {
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
-  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
+  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn', 'PanelWritten'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
   let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
@@ -30,6 +30,7 @@
   root.innerHTML = window.__jobPilottoPanelMarkup;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
+  const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
   let moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
@@ -50,7 +51,8 @@
     if (list.length < MIN_FIELDS && !document.documentElement.hasAttribute('data-jobpilotto-needs')) { host.remove(); return null; }   // a sign-in page is too small for a panel, unless the AI says it needs the person
     if (!host.isConnected) document.documentElement.append(host);
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
-    const needed = list.filter(f => f.required || f.ai || f.changed);
+    written.update(list);
+    const needed = list.filter(f => f.required || f.ai || f.changed || f.draft);
     shown = needed.filter(f => !f.filled);
     const total = needed.length, left = shown.length, pageMark = document.documentElement.getAttribute('data-jobpilotto-page') || '', ready = !moved && !pageMark && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;
@@ -100,8 +102,10 @@
     $('.knock').textContent = 'Some of these can trigger automatic rejection if the employer has set a knockout rule (work permit, sponsorship, location, office days); others are only flagged for review. Answer them truthfully: they can decide more than the CV.';
     $('.list').replaceChildren(...ranked.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
-      row.append(Object.assign(document.createElement('i'), {textContent: knockout(field) ? '⛔' : AGREE.test(field.label) || field.category === 'legal' ? '⚖️' : '○'}),
+      row.append(Object.assign(document.createElement('i'), {textContent: knockout(field) ? '⛔' : AGREE.test(field.label) || field.category === 'legal' ? '⚖️' : field.draft ? '✍️' : '○'}),
         Object.assign(document.createElement('span'), {textContent: field.label.slice(0, 120) || 'A required field'}),
+        ...(field.draft ? [Object.assign(document.createElement('span'), {className: 'tag warn', textContent: field.draft === 'outline' ? 'Outline: complete it' : 'Drafted for you: review'}),   // typed by us, never counted as done until read (owner, 16 Oct 2026)
+          Object.assign(document.createElement('span'), {className: 'tag', textContent: 'Review my answer', onclick: event => { event.stopPropagation(); flash(field.el); written.review(field); }})] : []),
         Object.assign(document.createElement('span'), {className: 'go', textContent: '›'}));
       row.onclick = () => flash(field.el);
       return row;

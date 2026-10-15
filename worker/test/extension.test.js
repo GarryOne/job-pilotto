@@ -355,15 +355,16 @@ test('a legal question comes back as a kind only (no value), so the extension ma
   assert.match(source, /legal question[^.]*value ""[^.]*category "legal"/);
 });
 
-test('an open question nothing answers comes back as a "written" kind (no value); the prompt asks for that row', async () => {
+test('an open question comes back drafted (typed, marked draft), an empty one as a "written" kind; the prompt asks for the draft', async () => {
   const { answerForm } = await import('../src/extension.js');
-  const answers = [{ field: 'why', value: 'I love your mission', confidence: 'low', note: '', category: 'written', use: 'propose' }, { field: 'city', value: 'Zurich', confidence: 'high', note: '', category: 'contact', use: 'fill' }];
+  const answers = [{ field: 'why', value: 'I love your mission', confidence: 'medium', note: '', category: 'written', use: 'propose' }, { field: 'city', value: 'Zurich', confidence: 'high', note: '', category: 'contact', use: 'fill' },
+    { field: 'cv', value: '', confidence: 'low', note: '', category: 'written', use: 'fill' }];
   let prompt = '';
   const client = { messages: { create: async (args) => { prompt = JSON.stringify(args); return { stop_reason: 'end_turn', usage: { billing: 'subscription' },
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }; } } };
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
   const result = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client).catch((e) => ({ error: String(e) }));
-  assert.deepEqual((result.answers || []).map((a) => [a.field, a.value, a.use, a.category]), [['city', 'Zurich', 'fill', 'contact'], ['why', '', 'kind', 'written']], JSON.stringify(result).slice(0, 300));
+  assert.deepEqual((result.answers || []).map((a) => [a.field, a.value, a.use, a.category, a.draft]), [['why', 'I love your mission', 'fill', 'written', 'draft'], ['city', 'Zurich', 'fill', 'contact', undefined], ['cv', '', 'kind', 'written', undefined]], JSON.stringify(result).slice(0, 300));
   assert.ok(prompt.includes('written = an open question'), 'the prompt asks for the written row');
 });
 

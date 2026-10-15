@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
+import * as experience from './experience.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';   // Notion-only: the extension's Notion calls only when Notion is the store (notionTexts); this Mac's go through env.store
@@ -72,7 +73,9 @@ export function reconcileAppliedSessions(jobs = []) {
 
 // cv/cv.json → the <cv_facts> text; '' (logged once per fill) when the CV was not imported yet.
 export function cvFactsOf(storage) {
-  const text = cvFactsText(cvlib.baseCv(storage));
+  const base = cvlib.baseCv(storage);
+  const withBank = () => { try { return base && experience.withExtras(storage, base); } catch { return base; } };   // a bank that cannot be read leaves the main CV as it was
+  const text = cvFactsText(withBank());   // the experience bank's extra bullets and skills too (other CV versions, LinkedIn export): a written answer may rest on them (16 Oct 2026)
   if (!text) appLog('extension', 'cv facts: none (CV not imported yet)');
   return text;
 }
@@ -149,6 +152,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       if (trace.withheld?.length) appLog('privacy', `owner's own value kept out of ${trace.withheld.length} field(s): ${trace.withheld.map(w => `${w.field} (${w.kind})`).join(', ')}`);   // field ids and kinds, never the value
       answerReporter(trace);
     },
+    onReviewAnswer: call => { appLog('fill', `Reviewed one written answer (${call.chars} characters)${call.usd ? ` · $${call.usd}` : ' · on your plan'}`, call); },   // counts and cost only, never the text (worker/src/written-answer.js)
     onRun: async run => {
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});

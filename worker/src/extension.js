@@ -18,6 +18,7 @@ export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
 import { FACT_KEYS, FACT_RULE, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
 import { applyPay } from './pay-convert.js';
+import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -177,7 +178,7 @@ For each form field you are given its id, label, type, whether it is required, a
 - checkbox: "checked" or "unchecked".
 ${FACT_RULE}
 Base a proposal on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
-category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; written = an open question the applicant answers in their own words (why they want this job or company, a cover letter, "tell us about yourself") when nothing given answers it: return it with value "" and this category instead of leaving it out or drafting it; normal = anything else.
+category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; ${WRITTEN_RULE}; normal = anything else.
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
 Eligibility: set eligible to false only when the posting clearly rules the applicant out (a work location, residence or authorization the profile says they can't meet, or a required language they don't speak), and say why in eligibility_note. Otherwise eligible is true and eligibility_note is empty.`;
@@ -185,8 +186,8 @@ Eligibility: set eligible to false only when the posting clearly rules the appli
 // test: the user is testing the filling (Settings → Test mode): invent plausible values for anything unknown.
 export const TEST_MODE = 'TEST MODE: this is a test of the form filling, not a real application. Answer EVERY field; where the profile or standard answers do not say, invent a plausible dummy value (for select fields pick the most plausible listed option). Never leave a field empty, set confidence to low and use to "fill" for invented values, and set eligible to true.';
 
-export async function answerForm(env, { url, fields, page_text, test = false }, client = null) {
-  const startedAt = Date.now();
+// What every answer to the person's form questions rests on (the job and its kit, Profile, standard answers, form knowledge, search settings, CV facts): the fill's ask and the review of one answer read the same.
+export async function answerContext(env, url) {
   const row = await findRow(env, url).catch(() => null);
   // With the data on this Mac (env.store, the default) the job and its drafted kit come from the store: before 12 Oct 2026 the ask got neither.
   const stored = !row && env.store ? await env.store.findJob(url).catch(() => null) : null;
@@ -205,6 +206,12 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.
   const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
   const cvFacts = cvFactsBlock(await Promise.resolve(env.CV_FACTS_TEXT).catch(() => ''));   // from the imported CV, never imported by a fill
+  return { found, kit, profile, standard, search, cvFacts };
+}
+
+export async function answerForm(env, { url, fields, page_text, test = false }, client = null) {
+  const startedAt = Date.now();
+  const { found, kit, profile, standard, search, cvFacts } = await answerContext(env, url);
   const job = found || { title: '', company: '', url };
   const anthropic = client || anthropicClient(anthropicKey(env));
   const ask = (list, note = '') => anthropic.messages.create({
@@ -252,8 +259,9 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
   const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
-  // A written question (the person's own words) is never answered or proposed here, whatever value the AI gave: it comes back as an empty kind (owner, 11 Oct 2026).
-  const raw = all.filter((a) => !floored(a) && a.category !== 'written');
+  // A written question (the person's own words) is DRAFTED from their facts and typed marked draft (owner, 16 Oct 2026, reversing 11 Oct); with no text it comes back as an empty kind.
+  // low confidence = an outline of "• Add: ..." lines to complete, never a finished answer. Never a proposal: the box gets it.
+  const raw = all.filter((a) => !floored(a)).map((a) => (a.category === 'written' && a.value !== '' ? { ...a, use: 'fill', draft: a.confidence === 'low' ? 'outline' : 'draft' } : a)).filter((a) => a.category !== 'written' || a.value !== '');
   // What this call did, in counts and field ids (never an answer or the profile's text): with 0 answers it tells "nothing to go on"
   // (an empty profile) from "answered, but under other ids" from "answered nothing" (8 Oct 2026: Coop, 11 fields sent, 0 back, no trace).
   await env.onAnswer?.({ fields: fields.length, returned: raw.length, kept: raw.filter((a) => known.has(a.field) && a.value !== '').length,
@@ -284,7 +292,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
       ...[...new Set(all.filter((a) => a.category === 'legal' && known.has(a.field) && !(a.value !== '' && !floored(a))).map((a) => a.field))]
         .map((field) => ({ field, value: '', category: 'legal', use: 'kind' })),
       // An open question in the applicant's own words that nothing given answers (12 Oct 2026, Ashby "why join us?"): the same, as "written".
-      ...[...new Set(all.filter((a) => a.category === 'written' && known.has(a.field)).map((a) => a.field))]
+      ...[...new Set(all.filter((a) => a.category === 'written' && a.value === '' && known.has(a.field)).map((a) => a.field))]
         .map((field) => ({ field, value: '', category: 'written', use: 'kind' })),
       // A salutation, gender or other personal-choice question with nothing in the profile: the person's own choice, never guessed (owner, 11 Oct 2026): the same.
       ...[...new Set(all.filter((a) => a.category === 'demographic' && a.value === '' && known.has(a.field)).map((a) => a.field))]
@@ -372,6 +380,22 @@ export async function handleExtension(request, env) {
       if (!row) return json({ error: 'not tracked', hint: 'Prepare a kit for this job first (📝 Prepare in Telegram).' }, 404);
       const kit = await readKit(env, row.id);
       return json({ job: summary(row), kit: kit ? kitForForm(kit) : null });
+    }
+    // "Review my answer" (extension/panel-written.js): one AI read of the person's text, or the draft, for one open question. Never writes into the form.
+    if (request.method === 'POST' && url.pathname === '/extension/review-answer') {
+      const body = await request.json().catch(() => ({}));
+      if (!body.url || !String(body.question || '').trim() || !String(body.text || '').trim()) return json({ error: 'url, question and text are required' }, 400);
+      const aiClient = env.aiClient || null;
+      if (!aiClient && !anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
+      try {
+        const ctx = await answerContext(env, body.url);
+        const out = await reviewAnswer(ctx, { question: body.question, text: body.text, url: body.url }, aiClient || anthropicClient(anthropicKey(env)),
+          { model: env.JOB_PILOTTO_KIT_MODEL || DEFAULT_MODEL, price: PRICE, billedTo, cvFactsRule: ctx.cvFacts ? `\n${CV_FACTS_RULE}` : '' });
+        await env.onReviewAnswer?.({ chars: String(body.text).length, usd: out.usd, billed_to: out.billed_to, missing: out.missing.length });   // counts only, never the text
+        return json(out);
+      } catch (error) {
+        return json({ error: `Review failed: ${error.message}` }, error.aiLimit ? 402 : 502);
+      }
     }
     if (request.method === 'POST' && url.pathname === '/extension/answer') {
       const body = await request.json().catch(() => ({}));

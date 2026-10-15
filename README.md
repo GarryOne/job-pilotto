@@ -141,6 +141,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 **Apply: Fills the form, you press Submit**
 
 - **Form filling**: The extension fills every field from your kit. Claude answers only what the kit does not, and marks those answers for a read-through.
+- **Open written questions are drafted for you** *(new)*: "Describe an incident you root-caused", "why us": the form AI drafts each answer in your own voice from your CV, experience bank, LinkedIn export and saved answers (an outline to complete where they say too little; nothing invented), marks it "Drafted for you: review", and a **Review my answer** button reads your text or the draft and offers an improved version you choose to use.
 - **Schools, years and your current job** *(new)*: Once your CV is imported, the form AI reads its employers and schools as written, so a School, Degree, year, Current company or Job title is answered in any language. The CV is imported once, when you add it, never in the middle of a fill.
 - **A nudge at the form** *(new)*: On a form that has your general CV, the panel offers a tailored one. Fill again and it replaces the file.
 - **Knockout questions, first** *(new)*: Work permit, sponsorship, location and office-day questions are marked and moved to the top, because an employer can set them to reject (rules, no AI).
