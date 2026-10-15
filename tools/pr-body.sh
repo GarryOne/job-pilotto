@@ -27,7 +27,9 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
     echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: tag pr-assets-<branch>), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi
 fi
-if [ -n "$summary" ] && [ -s "$summary" ]; then cat "$summary"; else printf '### %s\n' "$(git log --reverse --format=%s "$base"..HEAD | head -n 1)"; fi
+# Laid out for GitHub (owner, 15 Oct 2026: headings, sizes, spacing; a run id is a link): tools/pr-body-format.py, the repo from the origin remote.
+repo="$(git remote get-url origin 2>/dev/null | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##' | grep -E '^[^/ ]+/[^/ ]+$' || true)"
+if [ -n "$summary" ] && [ -s "$summary" ]; then python3 "$(dirname "$0")/pr-body-format.py" "$repo" < "$summary"; else printf '### %s\n' "$(git log --reverse --format=%s "$base"..HEAD | head -n 1)"; fi
 printf '\n'
 facts=""
 fact() {   # emoji, label, trailer key
@@ -37,7 +39,8 @@ fact() {   # emoji, label, trailer key
 }
 fact '🎯' 'Pool row' Pool-row; fact '🪜' 'Rung' Rung; fact '🧪' 'Fixture' Fixture; fact '🔧' 'Fix of' Fix-commit; fact '📌' 'Pins' Recorded-pins
 fact '📼' 'No recorded page' Recorded-unneeded; fact '🐞' 'E2E issue' E2E-issue
-if [ -n "$facts" ]; then printf '| | |\n|---|---|\n%s\n' "$facts"; fi
+if [ -n "$facts" ]; then printf '\n### 🧾 Facts\n\n| | |\n|---|---|\n%s\n' "$facts"; fi
+printf '\n---\n\n'
 count="$(git rev-list --count "$base"..HEAD)"
 printf '<details><summary>📄 The commit message%s</summary>\n\n' "$([ "$count" -gt 1 ] && echo "s ($count)")"
 git log --reverse --format='#### %s%n%n%b' "$base"..HEAD | grep -v '^Co-Authored-By:'

@@ -116,5 +116,25 @@ class PrBodyTest(unittest.TestCase):
             result = run(body(skip=area)); self.assertEqual(result.returncode, 2, area); self.assertIn(area, result.stderr)
         self.assertFalse(any('mermaid' in line for line in open(ROOT / 'tools' / 'pr-body.sh')), 'the diagram is no longer asked for')
 
+    def test_the_summary_is_laid_out_with_headings_a_callout_and_linked_runs(self):
+        # Owner, 15 Oct 2026: "use headings, different font size, proper spacing/formatting"; "run 38756824411 should be a hyperlink, not plain text".
+        git(self.repo, 'remote', 'add', 'origin', 'https://github.com/owner/repo.git')
+        summary = self.tmp / 'look.md'
+        summary.write_text('🧱 The old build replays as a whole\n\n**Why:** run 38756824411: 12 rows did not replay\n**Unblocks:** #860\n\n'
+                           '| Area | Impact | How |\n|---|---|---|\n' + ''.join(f'| {a} | — None | x |\n' for a in ('Real users', 'Form filling', 'Admin data accuracy', 'Offline replays', 'Tests & harness', 'Development speed', 'Cost')) +
+                           '\n- ✅ one\n- ✅ two\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\nNo screenshots: CI tooling only.\n\nlive-row: Personio form in German\n')
+        text = self.body(f'--body={summary}')
+        self.assertTrue(text.startswith('## 🧱 The old build replays as a whole\n'), text[:80])
+        self.assertIn('> [!NOTE]\n> **Why:** [run 38756824411](https://github.com/owner/repo/actions/runs/38756824411): 12 rows', text)
+        self.assertIn('>\n> **Unblocks:** #860', text)
+        for heading in ('### 📊 Impact', '### ✅ What changed', '### 🔍 Before → After'):
+            self.assertEqual(text.count(heading), 1, heading)
+        self.assertLess(text.index('### 📊 Impact'), text.index('### ✅ What changed'))
+        self.assertIn('<sub>📷 No screenshots: CI tooling only.</sub>', text)
+        self.assertIn('\nlive-row: Personio form in German\n', text, 'a line the CI reads stays as written')
+        self.assertLess(text.index('\n---\n'), text.index('<details>'), 'a rule above the folded commit message')
+        linked = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), 'owner/repo'], input='## X\n\n### Y\n\nsee run 38756824411 and [run 38756824411](u)\n', capture_output=True, text=True).stdout
+        self.assertIn('see [run 38756824411](https://github.com/owner/repo/actions/runs/38756824411) and [run 38756824411](u)', linked, 'a laid-out body only gets its links, never twice')
+
 if __name__ == '__main__':
     unittest.main()
