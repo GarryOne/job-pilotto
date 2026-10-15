@@ -283,7 +283,7 @@
     try {
       const result = await fillPage(...args);
       // Chrome hands the extension null for a result it cannot copy (a DOM node, a function inside it): the keys that cannot go are dropped and named, the rest is kept.
-      try { structuredClone(result); return result; } catch {
+      try { if (typeof structuredClone === 'function') structuredClone(result); return result; } catch {
         const lost = Object.keys(result || {}).filter(key => { try { structuredClone(result[key]); return false; } catch { return true; } });
         const kept = Object.fromEntries(Object.entries(result || {}).filter(([key]) => !lost.includes(key)));
         return {...kept, pageError: `the result held something that cannot be copied: ${lost.join(', ')}`, unclonable: lost};
