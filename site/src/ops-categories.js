@@ -4,6 +4,7 @@
 
 export const CATEGORIES = [
   {id: 'forms', label: 'Form fixes', color: '#5ec4b6', hint: 'how a form is read and filled: extension, ladder, its fixtures'},
+  {id: 'pool', label: 'Pool data', color: '#7fb069', hint: 'which postings the pool rows point at (smoke-sites.json)'},
   {id: 'replay', label: 'Replay & recording', color: '#3987e5', hint: 'recording sites and replaying them offline'},
   {id: 'ci', label: 'CI, harness & tooling', color: '#d95926', hint: 'workflows, tools/, hooks, the e2e harness'},
   {id: 'site', label: 'Admin & site', color: '#f5b54a', hint: 'site/: admin pages, the public website, its Worker'},
@@ -20,7 +21,8 @@ export const isTest = path => /(^|\/)(tests?|__tests__)\/|\.test\.[cm]?[jt]s$|(^
 // First match wins; the order is the precedence (a replay file under desktop/e2e is "replay", not harness).
 const RULES = [
   [is(/^(extension|desktop\/lib\/ladder|desktop\/e2e\/ladder[^/]*)\//), 'forms'],
-  [is(/^desktop\/e2e\/(ladder-[^/]*|pool-fixes\.json)$/), 'forms'],
+  [is(/^desktop\/e2e\/(ladder-[^/]*|pool-fixes\.json|recorded(-pending)?\/.*|recorded-case-map\.json)$/), 'forms'],   // a fix's proof counts with the fix
+  [is(/^desktop\/e2e\/smoke-sites\.json$/), 'pool'],
   [is(/^desktop\/e2e\/(recorded|recorded-[^/]*|record[^/]*|replay[^/]*|net-[^/]*|guard[^/]*|pool-[^/]*|fidelity[^/]*)(\/|$)/), 'replay'],
   [is(/^\.github\/workflows\/(record-sites|site-replays[^/]*|page-cases|pool-[^/]*)\.yml$/), 'replay'],
   [is(/^tools\/(replay[^/]*|recorded[^/]*|pool-[^/]*)$/), 'replay'],
@@ -46,7 +48,7 @@ export function categoryOfFile(path) {
 }
 
 // files [{path, additions, deletions}], trailers: the messages of the PR's commits -> {category, lines, tests, mixed}.
-// Lines of non-test files decide; a PR with only tests is "tests"; a Pool-row trailer on a PR whose code lives in tests or docs is a form fix (its fixture IS the fix).
+// Lines of non-test files decide; a PR with only tests is "tests". A Pool-row trailer makes ANY PR a form fix (owner/coordinator, 15 Oct 2026: a form fix is never machinery).
 // No category holding half of the changed lines -> "mixed", said as such.
 export function classify(files = [], messages = []) {
   const by = {};
@@ -59,10 +61,10 @@ export function classify(files = [], messages = []) {
   }
   const total = Object.values(by).reduce((a, b) => a + b, 0);
   const lines = total + tests;
+  // Which row is real is the commit hook's check (tools/commit-trailers.mjs); a trailer with a name is enough here.
+  if (messages.some(message => /^Pool-row:[ \t]*\S/m.test(message))) return {category: 'forms', lines, tests, mixed: false};
   if (!total) return {category: files.length ? 'tests' : 'mixed', lines, tests, mixed: false};
   const [top, topLines] = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
-  const poolRow = messages.some(message => /^Pool-row:[ \t]*\S/m.test(message));
-  if (poolRow && (top === 'docs' || top === 'tests')) return {category: 'forms', lines, tests, mixed: false};
   if (topLines * 2 < total) return {category: 'mixed', lines, tests, mixed: true};
   return {category: top, lines, tests, mixed: false};
 }
