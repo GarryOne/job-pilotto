@@ -9,6 +9,9 @@ export function gapFields(view) {
   if (!ours || !best) return null;
   return {ours: ours.product, best: best.product, fields: fields(ours.right, best.right), noise: view.forms.length};
 }
+// The bake-off harness fixes the page knows (keys: benchmark-data.js FIX_KEYS); what each one changed in the score.
+const FIXES = [['trail', '🧾 Old trail rule', 'a field the final page shows empty now counts as empty (before, a value typed and then cleared counted as filled)'],
+  ['select', '🔽 Old select reader', 'a dropdown\'s chosen value is now read (before, every filled custom dropdown read as empty)']];
 const days = o => (o.firstOtherDay === o.lastOtherDay ? o.firstOtherDay : `${o.firstOtherDay} to ${o.lastOtherDay}`) || 'none';
 
 export function objectiveBlock(view) {
@@ -19,7 +22,7 @@ export function objectiveBlock(view) {
     ['📅 Different days', o.sameDay ? `All tools ran on ${esc(o.ourDay)}.` : `Ours ran ${esc(o.ourDay || 'on no day')}; the others ${esc(days(o))}.`],
     ['⚙️ Their settings', 'We chose the other tools\' models and settings.'],
     ['🎲 Noise', gap ? `Single runs vary by about ±1 field per form: ${gap.noise} forms, so about ±${gap.noise} fields. The product gap, ${gap.ours}% against ${gap.best}%, is ${gap.fields} fields.` : 'Single runs vary by about ±1 field per form.'],
-    ['🧾 Old trail rule', o.oldTrail ? `${o.oldTrail} of the ${o.shown} runs behind these numbers were scored before the bake-off's trail fix (a field the final page shows empty now counts as empty). The old rule applied to every tool the same way, so older scores can be slightly high for all of them.` : 'Every run behind these numbers was scored with the current trail rule (a field the final page shows empty counts as empty).'],
+    ...FIXES.map(([key, name, what]) => [name, o.fixes[key] ? `${o.fixes[key]} of the ${o.shown} runs behind these numbers were scored before the bake-off's fix: ${what}. The old behaviour hit every tool the same way, so it shifts the levels more than the ranking.` : `Every run behind these numbers was scored after the bake-off's fix: ${what}.`]),
     ['🔧 Mode', o.userMode ? 'Ours runs in user mode, as real users do.' : 'Ours runs in harness mode (the test harness\'s repair rung is on); real users do not get it yet.'],
   ];
   const ok = (done, yes, no) => `${done ? '✅' : '❌'} ${done ? yes : no}`;

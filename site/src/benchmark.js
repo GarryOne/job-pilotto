@@ -4,7 +4,7 @@
 import {viewer} from './auth.js';
 import {equal} from './guard.js';
 import {remember} from './stats.js';
-import {APPLICANTS, MODES, summarize} from './benchmark-data.js';
+import {APPLICANTS, FIX_KEYS, MODES, summarize} from './benchmark-data.js';
 import {page} from './benchmark-page.js';
 
 const KEEP_DAYS = 120, MAX_ROWS = 300;
@@ -17,7 +17,7 @@ const text = (value, max) => String(value ?? '').trim().slice(0, max);
 
 // One run in the shape the table holds, or null when it is not a run (a bad row is dropped, never stored half).
 export function clean(run) {
-  const row = {id: text(run?.id, 80), at: text(run?.at, 30), applicant: run?.applicant ?? 'thin', mode: run?.ours ? run?.mode ?? 'unknown' : 'any', tool: text(run?.tool, 60), ours: run?.ours ? 1 : 0, build: text(run?.build, 20), form: text(run?.form, 30), heldout: run?.heldout ? 1 : 0, oldtrail: run?.oldTrail ? 1 : 0};
+  const row = {id: text(run?.id, 80), at: text(run?.at, 30), applicant: run?.applicant ?? 'thin', mode: run?.ours ? run?.mode ?? 'unknown' : 'any', tool: text(run?.tool, 60), ours: run?.ours ? 1 : 0, build: text(run?.build, 20), form: text(run?.form, 30), heldout: run?.heldout ? 1 : 0, fixes: [...new Set([...(Array.isArray(run?.fixes) ? run.fixes : []), ...(run?.oldTrail ? ['trail'] : [])])].filter(key => FIX_KEYS.includes(key)).join(',')};
   const numbers = Object.fromEntries(['required', 'right', 'wrong', 'empty', 'unans', 'holds', 'dups'].map(key => [key, count(run?.[key] ?? 0)]));
   if (!row.id || !/^\d{4}-\d{2}-\d{2}/.test(row.at) || !row.tool || !row.form || !APPLICANTS.includes(row.applicant) || !(row.mode === 'any' || MODES.includes(row.mode)) || Object.values(numbers).includes(null)) return null;
   if (numbers.right + numbers.wrong + numbers.empty > numbers.required + 5) return null;
@@ -38,10 +38,10 @@ export async function ingest(request, env, now = new Date()) {
   try { data = JSON.parse(body); } catch { return new Response('Not JSON', {status: 400}); }
   if (!Array.isArray(data?.runs) || data.runs.length > MAX_ROWS) return new Response('Unexpected shape', {status: 400});
   const rows = data.runs.map(clean).filter(Boolean);
-  const write = env.STATS.prepare(`INSERT INTO benchmark_runs (id, at, applicant, mode, tool, ours, build, form, heldout, oldtrail, required, right, wrong, empty, unans, holds, dups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET at = excluded.at, applicant = excluded.applicant, mode = excluded.mode, tool = excluded.tool, ours = excluded.ours, build = excluded.build, form = excluded.form, heldout = excluded.heldout, oldtrail = excluded.oldtrail, required = excluded.required,
+  const write = env.STATS.prepare(`INSERT INTO benchmark_runs (id, at, applicant, mode, tool, ours, build, form, heldout, fixes, required, right, wrong, empty, unans, holds, dups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET at = excluded.at, applicant = excluded.applicant, mode = excluded.mode, tool = excluded.tool, ours = excluded.ours, build = excluded.build, form = excluded.form, heldout = excluded.heldout, fixes = excluded.fixes, required = excluded.required,
     right = excluded.right, wrong = excluded.wrong, empty = excluded.empty, unans = excluded.unans, holds = excluded.holds, dups = excluded.dups`);
-  if (rows.length) await env.STATS.batch(rows.map(r => write.bind(r.id, r.at, r.applicant, r.mode, r.tool, r.ours, r.build, r.form, r.heldout, r.oldtrail, r.required, r.right, r.wrong, r.empty, r.unans, r.holds, r.dups)));
+  if (rows.length) await env.STATS.batch(rows.map(r => write.bind(r.id, r.at, r.applicant, r.mode, r.tool, r.ours, r.build, r.form, r.heldout, r.fixes, r.required, r.right, r.wrong, r.empty, r.unans, r.holds, r.dups)));
   await env.STATS.prepare('DELETE FROM benchmark_runs WHERE at < ?').bind(new Date(now.getTime() - KEEP_DAYS * 86400000).toISOString().slice(0, 10)).run();
   const snapshot = await buildSnapshot(env.STATS, now);
   await env.STATS.prepare('INSERT INTO benchmark_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
