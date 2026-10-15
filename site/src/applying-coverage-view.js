@@ -14,7 +14,8 @@ export const COVERAGE_SCRIPT = `
           el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
         'Nothing yet: a site shows once 3 installs applied on it', undefined, [s => s.host, s => s.platform, s => s.installs, s => s.uses, s => s.readyShare, s => s.countries.length])].filter(Boolean)); };   // append() writes a null as the text "null"
   if (d.whatWeTest) { const sets = el('section', {className: 'whatwetest'}); sets.innerHTML = d.whatWeTest; panels.coverage.append(sets); }   // the first thing in Coverage, so its top (src/what-we-test.js)
-  const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
+  const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', 'Bot wall': 'none', Fine: 'ready'};
+  const WORD = {'Bot wall': 'Bot wall on its apply step: tested only by the fills of real users'};   // the pool cannot go past it, so it is not a red failing test
   const pct = value => (value == null ? '—' : value + '%');
   // The weights: each platform counts by its share of matched jobs; its rows are the measured pool rows behind it (resolution.samples). A platform with no row is not measured; the weighted number covers the rest.
   const samples = (d.resolution && d.resolution.samples) || [], sampleOf = platform => samples.find(item => item.platform === platform) || null;
@@ -23,7 +24,7 @@ export const COVERAGE_SCRIPT = `
   const rowsMark = s => { const sample = sampleOf(s.platform); return !sample ? el('td', {className: 'muted', textContent: '—'}) : sample.rows === 0 ? el('td', {className: 'none', textContent: '0 · no rows: not measured'}) : el('td', {className: 'muted', textContent: sample.rows + (sample.rows === 1 ? ' · one row: moves the number a lot' : '')}); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Rows behind it', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
-      s => el('tr', {className: sampleOf(s.platform) && sampleOf(s.platform).rows === 0 ? 'unmeasured' : ''}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})),
+      s => el('tr', {className: sampleOf(s.platform) && sampleOf(s.platform).rows === 0 ? 'unmeasured' : ''}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: WORD[s.verdict] || s.verdict})),
         el('td', {className: 'scoreweight'}, s.matchShare ? el('span', {className: 'wbar'}, el('i', {style: 'width:' + Math.max(2, Math.round(s.matchShare / widest * 100)) + '%'})) : null, pct(s.matchShare)), rowsMark(s),
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => { const sample = sampleOf(s.platform); return sample ? sample.rows : null; }, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
