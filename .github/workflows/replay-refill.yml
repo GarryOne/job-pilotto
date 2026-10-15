@@ -6,6 +6,7 @@
 # Never a fork PR: the key is never given to it. Never every PR.
 # Key: REPLAY_REFILL_ANTHROPIC_KEY, its own workspace and spend limit, NO fallback to ANTHROPIC_API_KEY or any other key: missing = the job says so and stops (lib/refill.mjs).
 # Money: the estimate is printed first (pick job), above max_asks (default 40) or $3 the run does not start, a row stops at 30 paid calls, each row's spend is in the job summary and on /admin/ai-cost (job replay-refill).
+# The tree: main's tools + the PR's head merged on the runner (tools/refill-merge-main.sh; a branch older than this workflow still runs; one that conflicts with main stops with "rebase it").
 # Needs also: NET_RECORD_KEY, NET_RECORDS_READ_TOKEN (as the replay), NET_RECORDS_WRITE_TOKEN (contents:write on the private job-pilotto-internal: only the publish job reads it), AI_COST_PUBLISH_KEY.
 # Guard: tests/test_refill_workflow.py, desktop/e2e/test/refill.test.mjs. Never posts a Replay-accept line.
 name: CI · Replay refill (by hand)
@@ -53,9 +54,7 @@ jobs:
           if [ -z "$REFILL_KEY" ]; then echo "refill: no REPLAY_REFILL_ANTHROPIC_KEY secret: nothing was asked (this workflow never runs on another key)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
           cross="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json isCrossRepository -q .isCrossRepository)"
           if [ "$cross" != "false" ]; then echo "refill: PR $PR is from a fork or unknown: the key is never given to it" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
-      - uses: actions/checkout@v5
-        with:
-          ref: refs/pull/${{ env.PR }}/merge   # the build the gate judged
+      - uses: actions/checkout@v5   # the workflow's own ref (main): its tools, never the PR's code
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -73,7 +72,9 @@ jobs:
           if [ -n "$run" ]; then gh run download "$run" -R "$GITHUB_REPOSITORY" -p "replay-pr-$run-*" -D "$RUNNER_TEMP/shards" || true; fi
           find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
           all=""; [ "$ROWS" = all ] && all="--all"
-          node refill-pick.mjs replay-faithful.json "$RUNNER_TEMP/step4" $all --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
+          cp replay-faithful.json "$RUNNER_TEMP/pins.json"   # main's pins, unless the PR's head has its own file (data only: the PR's code is not run here)
+          if git fetch --quiet origin "refs/pull/$PR/head"; then git show FETCH_HEAD:desktop/e2e/replay-faithful.json > "$RUNNER_TEMP/pins-pr.json" 2>/dev/null && mv "$RUNNER_TEMP/pins-pr.json" "$RUNNER_TEMP/pins.json"; fi
+          node refill-pick.mjs "$RUNNER_TEMP/pins.json" "$RUNNER_TEMP/step4" $all --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
           { echo "### Replay refill: PR $PR"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
           [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
           echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
@@ -95,7 +96,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: refs/pull/${{ env.PR }}/merge
+          fetch-depth: 0   # main's tools first; the PR's build is brought in by the next step
+      - name: The PR's build with main's tools (merged on this runner, never pushed)
+        run: |
+          cp tools/refill-merge-main.sh "$RUNNER_TEMP/refill-merge-main.sh"
+          git fetch --quiet origin "refs/pull/$PR/head"
+          git checkout --quiet --detach FETCH_HEAD
+          bash "$RUNNER_TEMP/refill-merge-main.sh" "$PR"
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -150,7 +157,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: refs/pull/${{ env.PR }}/merge
+          fetch-depth: 0   # main's tools first; the PR's build is brought in by the next step
+      - name: The PR's build with main's tools (merged on this runner, never pushed)
+        run: |
+          cp tools/refill-merge-main.sh "$RUNNER_TEMP/refill-merge-main.sh"
+          git fetch --quiet origin "refs/pull/$PR/head"
+          git checkout --quiet --detach FETCH_HEAD
+          bash "$RUNNER_TEMP/refill-merge-main.sh" "$PR"
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
