@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {allowedValues, seedTestAccounts, testAccounts} from '../lib/test-accounts.mjs';
 import {tripwire} from '../lib/privacy-tripwire.mjs';
-import {passwordLeak} from '../lib/test-accounts.mjs';
+import {contactFor, passwordLeak} from '../lib/test-accounts.mjs';
 
 test('accounts come from the CI secret or the Keychain items of listed hosts only; a malformed host is dropped', () => {
   const ci = testAccounts({JP_TEST_ACCOUNTS: JSON.stringify({'tenant.wd3.example.test': {email: 'a@b.test', password: 'p'}, 'not a host': {email: 'x', password: 'y'}})});
@@ -63,4 +63,21 @@ test('the tripwire fails and deletes the run\'s files when a test account\'s pas
   assert.match(check.reason, /jobs\.example\.test/);
   assert.ok(!check.reason.includes('Hunter-Two-9'));
   assert.ok(!fs.existsSync(dir), 'the run\'s saved files are deleted');
+});
+
+test('a posting on a host with a test account gets that account\'s email as the applicant\'s; any other host keeps the fake one', () => {
+  const accounts = {'tenant.wd3.example.test': {email: 'inbox+jp@x.test', password: 'secret1'}};
+  const contact = {full_name: 'Ada Tester', email: 'ada.tester@example.test'};
+  assert.equal(contactFor(contact, accounts, 'https://tenant.wd3.example.test/en/job/1').email, 'inbox+jp@x.test');
+  assert.equal(contactFor(contact, accounts, 'https://other.example.test/job/1').email, 'ada.tester@example.test');
+  assert.equal(contactFor(contact, {}, 'https://tenant.wd3.example.test/x').email, 'ada.tester@example.test');
+  assert.equal(contactFor(contact, accounts, 'not a url'), contact);
+  assert.equal(contactFor(contact, accounts, 'https://tenant.wd3.example.test/x').full_name, 'Ada Tester', 'only the email changes');
+});
+
+test('with that email the app signs in at the host (modeOf), with the fake one it signs up', async () => {
+  const {modeOf} = await import('../../lib/site-accounts.js');
+  const item = 'inbox+jp@x.test';   // the seeded item\'s recorded email
+  assert.equal(modeOf({}, 'tenant.wd3.example.test', 'ada.tester@example.test', item, true), 'sign-up');
+  assert.equal(modeOf({}, 'tenant.wd3.example.test', item, item, true), 'sign-in');
 });

@@ -55,3 +55,12 @@ export function passwordLeak(dirs, accounts) {
   for (const dir of dirs.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});
   return `privacy tripwire: the test account's password for ${[...hits].join(', ')} was found in the run's saved files; they were deleted`;
 }
+
+// The applicant's contact for a posting whose host has a listed test account: the account's own email replaces the fake applicant's. The app signs in only where THIS email
+// has an account on the host (lib/site-accounts.js modeOf: a saved item for another email is "not ours"), so with the fake address the extension signed up instead of
+// signing in (Richemont Workday, 16 Oct 2026). Any other host keeps the fake applicant. -> a new contact.
+export function contactFor(contact, accounts, url) {
+  let host = ''; try { host = new URL(url).hostname.toLowerCase(); } catch { return contact; }
+  const own = Object.entries(accounts || {}).find(([name]) => name.toLowerCase() === host);
+  return own ? {...contact, email: own[1].email} : contact;
+}
