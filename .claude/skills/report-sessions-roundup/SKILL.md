@@ -15,14 +15,21 @@ Owner, 15 Oct 2026: "when triggered, present me this report". One table, read in
 - **Ask each running session for 3 lines only when its state is not visible** from PRs and runs: (1) done since last report, (2) what blocks it, (3) ETA. `SendMessage`, first line self-contained; do not wait more than ~3 min for replies: mark "no reply" and use what is measured.
 
 ## 2. The table (exact columns, a few words per cell)
-| Session | Work | Status | Waiting on | Progress | ETA |
+| | Session | Age | Work | Status | Waiting on | Progress | ETA |
+- **The first column is one health circle** (owner, 15 Oct 2026: "a visual message on how it is progressing, compared with the time since it started"):
+  - 🟢 **on track**: progress fits its age (e.g. <1 h old and moving, or ≥75% with an ETA under ~30 min), nothing failing, waits only on CI.
+  - 🔵 **your move**: done, or green and waiting only on the owner (a merge, a yes, a decision). Bold "close now" when done.
+  - 🟡 **slow**: older than its progress explains (e.g. >2 h and under 75%), an ETA that slipped once, or stuck >30 min in GitHub's queue or on the Mac.
+  - 🔴 **in trouble**: a failing check it has not fixed, a refusal or blocker it cannot clear, no reply, >4 h old and not near done, or an ETA that slipped twice.
+  - Say the reason for every 🟡/🔴 in a few words in its Status cell.
+- **Age** = time since the session started (ListAgents' "started …"), e.g. "25 min", "7 h".
 - **Progress %**: 100 = its PRs merged and nothing left (bold, ETA "**close now**"); 95 = PR green, only the owner's merge; ~85 = PR checks running; ~75 = still publishing/recording/refilling; ~5-30 = building. Be consistent with the previous table: a number goes down only with a reason said under the table.
 - **Waiting on**: name the real blocker: "**your merge**" (bold when it is the owner), "CI", "GitHub's job queue", "the Mac", a peer by name, or "nothing".
 - **ETA**: minutes from now, "+ merge" when the owner's merge follows. Never "soon".
 - Order: done first (to close), then by progress, highest first.
 
 ## 3. Under the table (max 4 bullets)
-- **Overall: ~N%** (average of the rows) and **the one wait most rows share** (the owner's merges, GitHub's queue, the Mac).
+- **Overall: ~N%** (average of the rows), the circles counted (e.g. 🟢 3 · 🔵 2 · 🟡 1 · 🔴 0) and **the one wait most rows share** (the owner's merges, GitHub's queue, the Mac).
 - **Ready for you to merge**, in order, with links only for PRs that turned green since the last round-up.
 - **Needs your word:** decisions only the owner makes (an accept, a live visit's yes in a session's own window, spending).
 - A correction of an earlier ETA or claim, said plainly.
