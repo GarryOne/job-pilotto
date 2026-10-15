@@ -54,7 +54,7 @@ test('each listed box gets a click, select-all and its characters as key events;
   const typed = {city: '', zip: ''};
   const spots = [{field: 'city', x: 50, y: 35, text: 'Zug'}, {field: 'zip', x: 50, y: 80, text: '8001'}];
   let focus = '';
-  const page = async (func, args = []) => (args.length ? (args[0] === 'city') : spots);   // the zip box keeps rejecting: not taken
+  const page = async (func, args = []) => (args.length === 2 ? true : args.length ? (args[0] === 'city') : spots);   // a click point (x, y) is marked fine; the zip box keeps rejecting: not taken
   const send = async (method, params) => {
     sent.push([method, params.type, params.key || params.text || '']);
     if (method === 'Input.dispatchMouseEvent' && params.type === 'mousePressed') focus = params.y === 35 ? 'city' : 'zip';
@@ -84,4 +84,11 @@ test('a box the fill answered and the page did not take is marked, with no value
   city.value = 'Zürich';
   assert.equal(window.__jobPilottoTakenNow('city'), true);
   assert.ok(!('data-jobpilotto-nottaken' in city.attrs));
+});
+
+test('a point the press floor refuses (markAt false) is never clicked or typed into', async () => {
+  const sent = [];
+  const page = async (func, args = []) => (args.length === 2 ? false : args.length ? true : [{field: 'x', x: 5, y: 5, text: 'Go'}]);
+  assert.deepEqual(await typeNotTakenForReal({page, send: async (...call) => sent.push(call)}), {tried: 1, taken: 0});
+  assert.equal(sent.length, 0);
 });

@@ -13,7 +13,14 @@
   const release = (...els) => setTimeout(() => els.forEach(el => own.delete(el)), 0);
   // hold: how long the mark waits for the click to arrive (a debugger click crosses processes; a script's click is synchronous). A click that arrives consumes it, a tick later (the submit comes after the click).
   const mark = (el, hold = 0) => { if (!el) return; const control = controlOf(el); own.add(el); own.add(control); setTimeout(() => { own.delete(el); own.delete(control); }, hold); };
-  const markAt = (x, y) => { const el = document.elementFromPoint(x, y); if (el) mark(el, 1500); return !!el; };
+  // A trusted (debugger) click at a point: the element drawn there is checked by the same floor, and never a control that submits. false = do NOT click (the three callers: flow.js, fill-verify.js, ladder/fill-climb.js).
+  const pressable = el => /^(button|a)$/i.test(el.tagName) || el.getAttribute?.('role') === 'button' || (el.tagName === 'INPUT' && ['button', 'submit', 'image', 'reset'].includes(written(el)));
+  const markAt = (x, y) => {
+    const el = document.elementFromPoint(x, y); if (!el) return false;
+    const control = controlOf(el);
+    if (refused(control) || (pressable(control) && (says(control) || SUBMIT_WORDS.test(textOf(control))))) { window.__jobPilottoRefused = textOf(control).slice(0, 60) || 'x'; return false; }
+    mark(el, 1500); return true;
+  };
   // The extension's own presses all go through here (a popup closer, a route press, a menu open: `globalThis.__jobPilottoPress?.(el) || el.click()` at every site, guarded by worker/test/submit-press.test.js).
   // The site's scripts click too (a styled "Send" that clicks a hidden submit button): their click stays the person's.
   // The press floor (safety, 15 Oct 2026: a "Decline" of a Data Privacy Consent Statement opened "Delete All Data"): whatever named the control, the extension never presses one that deletes or removes an
