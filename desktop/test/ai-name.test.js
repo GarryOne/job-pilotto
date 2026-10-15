@@ -67,9 +67,9 @@ test('Claude-only features exist only with a Claude engine, in every main-proces
   // Every place the main process decides about Claude asks the family too (a new gate without it fails here).
   const source = file => fs.readFileSync(path.join(root, file), 'utf8');
   const main = source('main.js'), server = source('lib/ext-server-handlers.js');
-  assert.match(server, /claudeHelp: claudeOffered\(storage\), claudeAlways: !!storage\.settings\(\)\.claudeAuto, claudeAuto: claudeAutoStart\(storage\)/);   // lib/claude-ready.js asks the family itself
+  assert.match(server, /claudeHelp: takeoverOffered\(storage\), claudeTakeover: SHOW_RESUME_CLAUDE, claudeAlways: SHOW_RESUME_CLAUDE && !!storage\.settings\(\)\.claudeAuto, claudeAuto: claudeAutoStart\(storage\)/);   // lib/claude-ready.js asks the family itself
   assert.match(main, /const startClaude = async \(url, details = null\) => !claudeFamily\(storage\)/);
-  assert.match(main, /claudeAllowed: \(\) => claudeOffered\(storage\)/);
+  assert.match(main, /claudeAllowed: \(\) => takeoverOffered\(storage\)/);
   assert.match(main, /async function claudeConsent\(\) \{\n  if \(!claudeFamily\(storage\)\) return false;/);
   const gates = [...main.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length + [...server.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length;
   assert.equal(gates, 2, 'main.js\'s consent question + the panel\'s consent flag (ext-server-handlers.js, only reported, never a gate): a new read of the Claude switch in the main process must also ask claudeFamily(storage)');

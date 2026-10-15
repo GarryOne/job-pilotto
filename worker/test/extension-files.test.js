@@ -176,11 +176,11 @@ test('the form report sends the AI-read knockouts: its key is code, not the tail
 test('the panel\'s Claude offer (panel-claude.js) shows only when Claude is ready and the extension stuck; the app sends both, and the panel hands the offer its facts', () => {
   const panel = readPanel();
   assert.match(panel, /__jobPilottoClaude\?\.render\(\{on: [^}]*!!claudeAsk\.help, stuck: !!session\?\.stuck/);
-  assert.match(panel, /claudeAsk = \{help: !!reply\?\.claudeHelp, always: !!reply\?\.claudeAlways, auto: !!reply\?\.claudeAuto, consent: !!reply\?\.claudeConsent\};/);
+  assert.match(panel, /claudeAsk = \{takeover: reply\?\.claudeTakeover !== false, help: !!reply\?\.claudeHelp, always: !!reply\?\.claudeAlways, auto: !!reply\?\.claudeAuto, consent: !!reply\?\.claudeConsent\};/);
   assert.match(panel, /__jobPilottoClaude\?\.mount\(root, send\)/);
   assert.match(read('extension/background.js'), /'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', \.\.\.PANEL_FILES/);   // the offer's script is there before the panel mounts
   assert.match(read('desktop/lib/review.js'), /kind: session\.kind \|\| 'claude', stuck: session\.stuck \|\| ''\}/);
-  assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: claudeOffered\(storage\), claudeAlways: !!storage\.settings\(\)\.claudeAuto/);
+  assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: takeoverOffered\(storage\), claudeTakeover: SHOW_RESUME_CLAUDE, claudeAlways: SHOW_RESUME_CLAUDE && !!storage\.settings\(\)\.claudeAuto/);
 });
 
 test('the account page reports what it did for the session card\'s record: the consent accepted (its wording) and a code typed (never the code)', () => {

@@ -19,7 +19,7 @@ test('the stuck card draws the offer (not a lone "Apply with Claude") and the pr
   assert.match(card, /offerParts\(item, \{rerender: \(\) => renderNextStep\(item\), after:/);
   assert.doesNotMatch(card.slice(card.indexOf('if (stuck) {'), card.indexOf('// Claude is the safety net')), /sessionButton\('Apply with Claude'/);
   assert.match(offer, /window\.pilot\.takeOverClaude\(/);
-  assert.match(offer, /claudeHelp\(\)/);
+  assert.match(offer, /resumeOffered\(\)/);   // the takeover flag wraps claudeHelp (claude-help.js)
   for (const words of ['Let Claude finish this page', 'I\'ll do it myself', 'Always let Claude finish when I\'m stuck', 'Claude works in this tab and stops before Submit']) assert.ok(offer.includes(words), words);
   assert.match(read('preload.cjs'), /takeOverClaude: call\('takeOverClaude'\)/);
   const handlers = read('lib/apply-handlers.js');

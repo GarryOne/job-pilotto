@@ -1,7 +1,7 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {aiNameOf, claudeFamily} from './lib/ai/names.js';
-import {claudeOffered} from './lib/claude-ready.js';
+import {takeoverOffered} from './lib/claude-ready.js';
 import {setPdfReader} from './lib/ai/codex-cli.js';
 import {electronPdfReader} from './lib/ai/pdf-pages.js';
 import {recordIpc} from './lib/e2e-ipc.js';
@@ -349,7 +349,7 @@ const startClaude = async (url, details = null) => !claudeFamily(storage) ? {ok:
 // The Applying flows' decisions (stuck → hand-over, the stage from each report, the hand-over's tab): lib/session-flow.js, unit-tested.
 let sessionFlow = null;
 const flow = () => (sessionFlow ||= createSessionFlow({terminals, review, apply, appLog, toWindow, startClaude,
-  claudeAllowed: () => claudeOffered(storage),
+  claudeAllowed: () => takeoverOffered(storage),
   offerNotice: ({id, company}) => notify(`Stuck${company ? ` · ${company}` : ''}`, 'The extension cannot finish this page. Claude can: open the session to choose.', {view: 'sessions', session: id}), closeTab: session => closeSessionTab({review, closeTab: closeFormTab}, session)}));
 const handOverForms = url => flow().handOver(url);
 async function claudeConsent() {

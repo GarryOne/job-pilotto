@@ -5,7 +5,7 @@ import {createTakeOver} from '../lib/ladder/rung5-takeover.js';
 
 function setup(results = [{ok: true, session: {id: 'c1'}}]) {
   const started = [], logs = [], windows = [], settings = {};
-  const takeOver = createTakeOver({startClaude: async (url, details) => { started.push([url, details]); return results[Math.min(started.length - 1, results.length - 1)]; },
+  const takeOver = createTakeOver({enabled: true, startClaude: async (url, details) => { started.push([url, details]); return results[Math.min(started.length - 1, results.length - 1)]; },
     storage: {settings: () => settings, saveSettings: patch => Object.assign(settings, patch)}, appLog: (area, text) => logs.push(text), toWindow: (...args) => windows.push(args)});
   return {takeOver, started, logs, windows, settings};
 }
@@ -32,7 +32,7 @@ test('a start that failed gives the claim back; "Continue" in the panel is the c
 
 test('a started takeover begins a teaching run on that application (lib/ladder/rung5-takeover-teach.js); a refused or failed one does not', async () => {
   const runs = [];
-  const make = results => { const s = setup(results); return {...s, takeOver: createTakeOver({startClaude: async () => results[0], storage: {settings: () => ({}), saveSettings() {}}, appLog() {}, toWindow() {}, onStarted: url => runs.push(url)})}; };
+  const make = results => { const s = setup(results); return {...s, takeOver: createTakeOver({enabled: true, startClaude: async () => results[0], storage: {settings: () => ({}), saveSettings() {}}, appLog() {}, toWindow() {}, onStarted: url => runs.push(url)})}; };
   await make([{ok: true, session: {id: 'c1'}}]).takeOver({url: URL1});
   await make([{ok: false, error: 'no'}]).takeOver({url: 'https://x.example/1'});
   assert.deepEqual(runs, [URL1]);

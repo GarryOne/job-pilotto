@@ -239,10 +239,10 @@ export async function runJourneys(ctx, h) {
     else if (off.offered) problems.push('Claude is not ready, yet the stuck page offers "Let Claude finish this page"');
     await page.evaluate(() => window.pilot.saveSettings({claudeReadyTest: 'on'}));
     let on = null;
-    for (let waited = 0; waited < (ctx.family === 'openai' ? 8000 : 20000) && !on?.offered; waited += 2000) { await pause(2000); on = await panelTakeOver(); }   // OpenAI: a few reports, still nothing   // the panel learns the switch at its next report
+    await pause(6000); on = await panelTakeOver();   // the takeover is off for now (renderer/claude-help.js SHOW_RESUME_CLAUDE, owner 15 Oct 2026): the panel never offers Claude, ready or not   // OpenAI: a few reports, still nothing   // the panel learns the switch at its next report
     // An OpenAI engine (odd CI runs, lib/engine.mjs): Claude is never offered, whatever the switch (owner, 9 Oct 2026; the app's claudeHelp needs the Claude family).
     if (ctx.family === 'openai') { if (on?.offered) problems.push('an OpenAI engine is chosen, yet the panel offers "Let Claude finish this page"'); }
-    else if (off.panel && !on?.offered) problems.push(`Claude help on and the page stuck, yet the panel does not offer "Let Claude finish this page" (${JSON.stringify(on)})`);
+    else if (on?.offered) problems.push(`Claude's takeover is off, yet the stuck page offers "Let Claude finish this page" (${JSON.stringify(on)})`);
     if (await claudes() !== claudesBefore) problems.push('a Claude session started by itself: Claude is only ever offered, the person starts it');
     await page.evaluate(() => window.pilot.saveSettings({claudeReadyTest: null}));
     fail(problems);

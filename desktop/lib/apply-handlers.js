@@ -20,6 +20,7 @@ import path from 'node:path';
 import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
+import {SHOW_RESUME_CLAUDE} from '../renderer/claude-help.js';
 import {pageKeyOf, startRun} from './ladder/rung5-takeover-teach.js';
 import {extensionGate as installedGate} from './extension-gate.js';
 import {listTabs, openFormTab} from './form-tab.js';
@@ -51,7 +52,7 @@ export function registerApplyHandlers(ctx) {
   });
   // Checked session workflows share the production registration with the offline app scenario tests.
   ipcMain.handle('applyWithClaude', (_, url, details = null) => startClaude(url, details));
-  const takeOver = createTakeOver({startClaude, storage, appLog, toWindow, onStarted: url => startRun(pageKeyOf(url))});   // the panel's button or countdown and the session card's: the person's own request, once per application (lib/ladder/rung5-takeover.js)
+  const takeOver = createTakeOver({enabled: SHOW_RESUME_CLAUDE, startClaude, storage, appLog, toWindow, onStarted: url => startRun(pageKeyOf(url))});   // the panel's button or countdown and the session card's: the person's own request, once per application (lib/ladder/rung5-takeover.js)
   server.setTakeOverHandler(takeOver);
   ipcMain.handle('takeOverClaude', (_, url, details, consent) => takeOver({url, host: '', consent: !!consent,
     job: details ? {title: details.title, company: details.company, location: details.location, work_mode: details.workMode} : null}));
