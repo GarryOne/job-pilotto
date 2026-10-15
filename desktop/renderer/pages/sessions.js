@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {avatar} from '../jobs-view.js';
 import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, show} from './core.js';
 import {pageKey} from './jobs.js';
@@ -120,7 +120,7 @@ export function renderDock() {
 export function sessionMenu(item) {
   const menu = [{icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
-  if (item.resumable && !isSubmitted(item) && claudeHelp()) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
+  if (item.resumable && !isSubmitted(item) && resumeOffered()) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});
   menu.push({label: '✕ Close this session', danger: true, run: () => closeSession(item)});
   return menu;
