@@ -5,6 +5,9 @@ import {execFileSync} from 'node:child_process';
 import * as keychain from './keychain.js';   // a test run or a twin never reaches the real Keychain the same way
 
 const ITEM = /^job-pilotto\.(.+)\.password$/;
+// A TEST ACCOUNT (owner, 15 Oct 2026; docs/rules/applying.md "Signing in"): an account the owner made by hand for the tests, item job-pilotto.test-account.<host>.password.
+// Listed beside the real ones with test: true; its key (test-account.<host>) is what Show/Copy/Delete name. Only tests read it, never an application (forExtension refuses it).
+export const TEST_PREFIX = 'test-account.';
 
 // `security dump-keychain` (attributes only) → [{host, email, job, created}], newest first. The job-site password itself
 // (job-pilotto.sites.password) is not a site.
@@ -13,10 +16,10 @@ export function parseDump(text) {
   for (const block of String(text || '').split(/^keychain: /m)) {
     if (!/^class: "genp"/m.test(block)) continue;
     const attr = name => (block.match(new RegExp(`"${name}"<[a-z]+>="([^"]*)"`)) || [])[1] || '';
-    const host = (attr('svce').match(ITEM) || [])[1];
+    const key = (attr('svce').match(ITEM) || [])[1], test = !!key && key.startsWith(TEST_PREFIX), host = test ? key.slice(TEST_PREFIX.length) : key;
     if (!host || !host.includes('.') || attr('acct') !== 'job-pilotto') continue;   // a site's host name: not 'sites' (the shared one) nor 'mac-sign'
     const note = attr('icmt'), stamp = (block.match(/"cdat"<timedate>=0x[0-9A-F]+\s+"(\d{14})Z/) || [])[1] || '';
-    rows.push({host, email: (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '', job: (note.match(/(?:^|\s)job=(\S+)/) || [])[1] || '',
+    rows.push({host, ...(test ? {test: true, key} : {}), email: (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '', job: (note.match(/(?:^|\s)job=(\S+)/) || [])[1] || '',
       created: stamp ? `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:${stamp.slice(12, 14)}Z` : ''});
   }
   return rows.sort((a, b) => b.created.localeCompare(a.created));
@@ -38,7 +41,7 @@ export function reveal(host, platform = process.platform, exec = execFileSync) {
 // browser's password manager would, in a tab the app opened. Given only while an application is open, and only a site's own
 // item (a plain host name with a dot). host: from Chrome's tab address, not from the page.
 export function forExtension(host, {applying = false, read = reveal} = {}) {
-  if (!applying || !/^[a-z0-9.-]{1,253}$/i.test(String(host || '')) || !String(host).includes('.')) return {ok: false};
+  if (!applying || !/^[a-z0-9.-]{1,253}$/i.test(String(host || '')) || !String(host).includes('.') || String(host).startsWith(TEST_PREFIX)) return {ok: false};
   const password = read(host);
   return password ? {ok: true, password} : {ok: false};
 }

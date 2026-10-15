@@ -6,14 +6,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {writePrivate} from '../../lib/private-file.js';
+import {parseDump} from '../../lib/credentials.js';
+
+// The hosts of the listed test accounts (attributes only: `security dump-keychain`, no -d; the harness is not the isolated app, so it asks the real Keychain).
+export const testHosts = (exec = execFileSync) => parseDump(exec('security', ['dump-keychain'], {encoding: 'utf8', maxBuffer: 64 << 20})).filter(row => row.test).map(row => row.host);
 
 const HOST = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
 
-// -> {host: {email, password}}: the CI secret's JSON (JP_TEST_ACCOUNTS), else the Keychain items of the hosts JP_TEST_ACCOUNT_HOSTS names (a Mac). Values never printed.
-export function testAccounts(env = process.env, {keychain = (service) => execFileSync('security', ['find-generic-password', '-s', service, '-w'], {encoding: 'utf8'}).trim()} = {}) {
+// -> {host: {email, password}}: the CI secret's JSON (JP_TEST_ACCOUNTS), else the Keychain items of the hosts JP_TEST_ACCOUNT_HOSTS names, else (a Mac) every
+// item the Credentials screen lists as a test account. Only job-pilotto.test-account.* items are ever read: a real account's item is never asked for. Values never printed.
+export function testAccounts(env = process.env, {keychain = (service) => execFileSync('security', ['find-generic-password', '-s', service, '-w'], {encoding: 'utf8'}).trim(), hosts = () => { try { return process.platform === 'darwin' ? testHosts() : []; } catch { return []; } }} = {}) {
   let accounts = {};
   if (env.JP_TEST_ACCOUNTS) { try { accounts = JSON.parse(env.JP_TEST_ACCOUNTS) || {}; } catch { accounts = {}; } }
-  else for (const host of String(env.JP_TEST_ACCOUNT_HOSTS || '').split(',').map(one => one.trim()).filter(Boolean)) {
+  else for (const host of env.JP_TEST_ACCOUNT_HOSTS === undefined ? hosts() : String(env.JP_TEST_ACCOUNT_HOSTS).split(',').map(one => one.trim()).filter(Boolean)) {
     try { accounts[host] = {email: keychain(`job-pilotto.test-account.${host}.email`), password: keychain(`job-pilotto.test-account.${host}.password`)}; } catch { /* not listed: no sign-in there */ }
   }
   return Object.fromEntries(Object.entries(accounts).filter(([host, one]) => HOST.test(host) && one?.email && one?.password));
@@ -30,3 +35,23 @@ export function seedTestAccounts(profileDir, accounts) {
 
 // The values the privacy tripwire lets through: a listed test account's email only (its password field is never read).
 export const allowedValues = accounts => Object.values(accounts).map(one => String(one.email).toLowerCase());
+
+// The privacy tripwire's other half: a test account's PASSWORD must never be in what a run saves (logs, captures, records, page dumps). Scans the text files of the run's
+// folders for each password (never printed: the reason names the host); a hit deletes those folders. -> '' or the reason.
+export function passwordLeak(dirs, accounts) {
+  const secrets = Object.entries(accounts).filter(([, one]) => String(one.password || '').length >= 6).map(([host, one]) => [host, Buffer.from(one.password)]);
+  if (!secrets.length) return '';
+  const hits = new Set();
+  const walk = dir => {
+    let entries = []; try { entries = fs.readdirSync(dir, {withFileTypes: true}); } catch { return; }
+    for (const entry of entries) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(file);
+      else if (entry.isFile() && entry.name !== 'isolated-secrets.json') { let data; try { data = fs.readFileSync(file); } catch { continue; } for (const [host, secret] of secrets) if (data.includes(secret)) hits.add(host); }
+    }
+  };
+  for (const dir of dirs.filter(Boolean)) walk(dir);
+  if (!hits.size) return '';
+  for (const dir of dirs.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});
+  return `privacy tripwire: the test account's password for ${[...hits].join(', ')} was found in the run's saved files; they were deleted`;
+}

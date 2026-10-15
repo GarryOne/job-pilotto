@@ -81,7 +81,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   }, 200);
   const trip = async () => {
     for (const tab of run.context.pages().filter(page => /^https?:/.test(page.url()))) {
-      const check = await tripwire(pageFields(tab), {values: owner, saved: [captureDir], allow: allowedValues(accounts)});
+      const check = await tripwire(pageFields(tab), {values: owner, saved: [captureDir], allow: allowedValues(accounts), accounts});
       if (!check.ok) return check.reason;
     }
     return '';

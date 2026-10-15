@@ -57,3 +57,14 @@ test('emailOf reads the email recorded on one site\'s item (attributes only) and
   assert.equal(emailOf('a.example', 'win32', fake('x')), '');
   assert.equal(emailOf('a.example', 'darwin', () => { throw new Error('no item'); }), '');
 });
+
+test('a test account is listed as one (test: true, its key), never as a real site, and no application ever gets it', async () => {
+  const {forExtension} = await import('../lib/credentials.js'), {testHosts} = await import('../e2e/lib/test-accounts.mjs');
+  const dump = [item('job-pilotto.test-account.richemont.wd3.myworkdayjobs.com.password'), item('job-pilotto.richemont.wd3.myworkdayjobs.com.password', {comment: 'email=me@example.com'}),
+    item('job-pilotto.test-account.richemont.wd3.myworkdayjobs.com.email')].join('');
+  const rows = parseDump(dump);
+  assert.deepEqual(rows.map(row => [row.host, row.test || false, row.key || '']), [['richemont.wd3.myworkdayjobs.com', true, 'test-account.richemont.wd3.myworkdayjobs.com'], ['richemont.wd3.myworkdayjobs.com', false, '']]);
+  assert.deepEqual(testHosts(() => dump), ['richemont.wd3.myworkdayjobs.com']);
+  assert.equal(reveal('test-account.richemont.wd3.myworkdayjobs.com', 'darwin', () => 'pw'), 'pw');   // Show / Copy name the key
+  assert.deepEqual(forExtension('test-account.richemont.wd3.myworkdayjobs.com', {applying: true, read: () => 'pw'}), {ok: false});
+});

@@ -80,3 +80,6 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
   commits were tooling; 10 of 29 "Needs a fix" rows had never run; an optional empty field counted as a failure on every site (the logged fill line dropped
   `required`); the coordinator named a wrong cause for the waiting (a shared Notion page; the runs were on SQLite) and the Mac was swapping (load 31).
   Rules and start-of-round order: [rounds.md](rounds.md).
+- **Test accounts may sign in** (owner, 15 Oct 2026): Workday (per tenant) and SuccessFactors end every pool row at "account-first: held", so every step after sign-in
+  (My Information, Experience, Questions, Self-identify, Review) was never tested. The owner makes the accounts by hand on a test inbox; tests sign in with those and nothing else
+  (a real application account is never read), and the tripwire guards the test passwords too.

@@ -398,7 +398,7 @@ async function openCredentials() {
     const who = el('span');
     const details = [row.email || 'email not recorded', when(row.accountAt || row.created), ({confirmed: 'Account ready', pending: 'Waiting for the confirmation'})[row.state] || '', row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
       .filter(Boolean).join(' · ');
-    who.append(el('b', '', row.host), ...(row.companies?.length ? [el('small', 'cred-companies', `For ${row.companies.join(', ')}`)] : []), el('small', '', details));
+    who.append(el('b', '', row.host), ...(row.test ? [el('small', 'cred-companies', 'Test account: only tests sign in with it, never an application')] : []), ...(row.companies?.length ? [el('small', 'cred-companies', `For ${row.companies.join(', ')}`)] : []), el('small', '', details));
     const secret = el('b', '', '••••••••');
     const shown = el('span', '');
     shown.append(secret);
@@ -406,14 +406,14 @@ async function openCredentials() {
     const reveal = el('button', 'secondary small-button', 'Show');
     reveal.addEventListener('click', async () => {
       if (reveal.textContent === 'Hide') { secret.textContent = '••••••••'; reveal.textContent = 'Show'; return; }
-      const answer = await window.pilot.credentialReveal(row.host, 'show');
+      const answer = await window.pilot.credentialReveal(row.key || row.host, 'show');
       if (!answer?.ok) { $('credentials-message').textContent = answer?.error || ''; return; }
       secret.textContent = answer.password;
       reveal.textContent = 'Hide';
     });
     const copy = el('button', 'secondary small-button', 'Copy');
     copy.addEventListener('click', async () => {
-      const answer = await window.pilot.credentialReveal(row.host, 'copy');
+      const answer = await window.pilot.credentialReveal(row.key || row.host, 'copy');
       if (!answer?.ok) { $('credentials-message').textContent = answer?.error || ''; return; }
       await navigator.clipboard.writeText(answer.password);
       $('credentials-message').textContent = `Copied the password for ${row.host}.`;
@@ -426,7 +426,7 @@ async function openCredentials() {
       keep.addEventListener('click', () => { actions.replaceChildren(reveal, copy, remove); $('credentials-message').textContent = ''; });
       sure.addEventListener('click', async () => {
         sure.disabled = keep.disabled = true;
-        const answer = await window.pilot.credentialDelete(row.host);
+        const answer = await window.pilot.credentialDelete(row.key || row.host);
         if (!answer?.ok) { $('credentials-message').textContent = answer?.error || 'It could not be deleted.'; actions.replaceChildren(reveal, copy, remove); return; }
         await openCredentials();
         $('credentials-message').textContent = `Deleted the saved password for ${row.host}.`;
