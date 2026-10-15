@@ -4,10 +4,9 @@
 // Guard: e2e/test/offline-site-password.test.mjs.
 import * as credentials from '../../lib/credentials.js';
 import {automationOf, modeOf} from '../../lib/site-accounts.js';
-import * as contactDetails from '../../lib/contact.js';
 
-// -> the handler for server-hooks setSitePasswordHandler. storage: the offline app's own storage.
-export function offlineSitePassword(storage, {read = host => credentials.forExtension(host, {applying: true}), emailOf = host => credentials.emailOf(host), email: contactEmail = () => contactDetails.read(storage)} = {}) {
+// -> the handler for server-hooks setSitePasswordHandler. storage: the offline app's own storage (its settings).
+export function offlineSitePassword(storage, {read = host => credentials.forExtension(host, {applying: true}), emailOf = host => credentials.emailOf(host), email: contactEmail = async () => ({})} = {}) {   // email: () => the applicant's contact; the child passes lib/contact.js's read (a leaf-only module here: installed-only.test.mjs)
   return async ({host, peek} = {}) => {
     const email = await Promise.resolve(contactEmail()).then(contact => contact?.email || '').catch(() => '');
     const answer = read(host);
