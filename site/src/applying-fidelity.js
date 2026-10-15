@@ -32,7 +32,7 @@ export function cleanRecord(item) {
   const live2 = item.live2 && count(item.live2.asks) != null ? {asks: count(item.live2.asks), extraVsLive1: count(item.live2.extraVsLive1)} : null;   // a 2nd live run on the same build: the spread
   if (network) network.afterUpload = SEEN.includes(item.network.afterUpload) ? item.network.afterUpload : null;
   const recording = item.recording && WHERE.includes(item.recording.where) ? {where: item.recording.where, at: when(item.recording.at)} : null;
-  return {name, sha, branch: text(item.branch, 80) || null, at: Number.isFinite(at) ? new Date(at).toISOString() : null, live, snapshot, network, live2, recording, deferred: reason(item.deferred), ...(item.pinned === true ? {pinned: true} : {})};   // pinned: the row is in desktop/e2e/replay-faithful.json (the replay ratchet)
+  return {name, sha, branch: text(item.branch, 80) || null, at: Number.isFinite(at) ? new Date(at).toISOString() : null, live, snapshot, network, live2, recording, deferred: reason(item.deferred), ...(item.pinned === true ? {pinned: true} : {}), ...(item.gateSame === true ? {gateSame: true} : {})};   // pinned: the row is in desktop/e2e/replay-faithful.json (the replay ratchet)
 }
 
 export async function readFidelity(db) {
@@ -86,9 +86,14 @@ export function fidelity(records, pool = []) {
   const rows = records.filter(item => !names.size || names.has(item.name)).map(item => ({...item, snapshotVerdict: verdictOf(item.live, item.snapshot, item.live2), networkVerdict: verdictOf(item.live, item.network, item.live2)}));
   const have = new Set(rows.map(item => item.name));
   for (const name of names) if (!have.has(name)) rows.push({name, live: null, snapshot: null, network: null, recording: null, deferred: null, snapshotVerdict: null, networkVerdict: null});
+  // Stale (15 Oct 2026): a record the newest upload did not replace (more than 6 h older than the newest one) says so; a row nobody replayed lately must not keep counting as "same".
+  const newest = Math.max(0, ...rows.map(item => Date.parse(item.at) || 0));
+  for (const item of rows) if (item.at && newest - Date.parse(item.at) > 6 * 3600 * 1000) item.stale = true;
   for (const item of rows) item.next = nextOf(item);
   rows.sort((a, b) => a.name.localeCompare(b.name));
-  return {rows, summary: {total: rows.length, recorded: rows.filter(item => item.live).length, network: rows.filter(item => item.networkVerdict === 'same').length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length,
+  return {rows, summary: {total: rows.length, recorded: rows.filter(item => item.live).length, network: rows.filter(item => item.networkVerdict === 'same' && !item.stale).length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length,
+    ...(rows.some(item => item.gateSame) ? {gate: rows.filter(item => item.gateSame && !item.stale).length} : {}),
+    ...(rows.some(item => item.stale) ? {stale: rows.filter(item => item.stale).length} : {}),
     ...(rows.some(item => item.pinned) ? {pinned: rows.filter(item => item.pinned).length, pinnedSame: rows.filter(item => item.pinned && item.networkVerdict === 'same').length} : {})}};   // the ratchet: "N of M same as live (pinned K)"
 }
 
@@ -151,7 +156,7 @@ export const FIDELITY_SCRIPT = `
     const verdict = Object.assign(el('select', {'aria-label': 'Network verdict', onchange: event => { state.verdict = event.target.value; redraw(); }}, ...[['', 'All verdicts'], ['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'Not recorded yet']].map(([value, label]) => el('option', {value, textContent: label}))), {value: state.verdict});
     box.append(el('div', {className: 'fixpanel fidpanel'},
       el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
-          el('p', {className: 'score', textContent: 'Network replay: ' + s.network + ' of ' + s.total + ' pool rows same as live' + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
+          el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
           el('p', {className: 'muted', textContent: 'Experimental results: excluded from Resolution, the scorecard and the Fixed tab.'})),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), el('dl', {}, ...FID_HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
       el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: 'Verdict'}), verdict),

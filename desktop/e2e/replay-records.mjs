@@ -75,6 +75,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     console.error(`replay-records: [${index + 1}/${rows.length}] ${row.name}: ${replay ? `${replay.outcome ? `${replay.outcome.reached}${replay.outcome.filled != null ? ` ${replay.outcome.filled}/${replay.outcome.left ?? '?'}` : ''}` : 'no outcome'}, ${replay.liveHit ?? 0}/${replay.liveAsks ?? 0} asks as live` : 'no result'} (${Math.round((Date.now() - started) / 1000)} s)`);
     const record = fidelityRecord(row, replay, {sha: process.env.GITHUB_SHA?.slice(0, 7) || '', branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || '', deferred});
     try { const host = formHostOf(fs.readFileSync(path.join(work, 'app.log'), 'utf8')); if (host) record.formHost = host; } catch { /* no log */ }   // the host the form was on: the row's kind of form (lib/replay-ratchet.mjs)
+    if (record.network) record.gateSame = !!isSame(record);   // the gate's definition (lib/own-asks.mjs), beside /admin's stricter "every ask as live"
     records.push(record);
     if (record.network) fs.writeFileSync(path.join(out, 'step4', `${slug(row.name)}.json`), `${JSON.stringify(record, null, 1)}\n`);
   }

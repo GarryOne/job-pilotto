@@ -78,6 +78,21 @@ test('a pinned row is counted: "N of M same as live (pinned K)" shows when any r
   assert.match(FIDELITY_SCRIPT, /still same/);
 });
 
+test('two levels of "same as live" and a stale mark: the gate counts no-extra-ask rows, /admin also counts every-ask-as-live, a row the latest run did not replay is stale', () => {
+  const day = '2026-10-15T12:00:00.000Z', old = '2026-10-15T01:00:00.000Z';
+  const gateOnly = {...row('a', {...good, hit: 3}), gateSame: true, at: day}, strict = {...row('b', good), gateSame: true, at: day}, lost = {...row('c', good), gateSame: true, at: old};
+  const f = fidelity([gateOnly, strict, lost]);
+  assert.equal(f.summary.gate, 2, 'a row replayed 11 h before the newest does not count');
+  assert.equal(f.summary.network, 1, 'every ask as live: only the strict row');
+  assert.equal(f.summary.stale, 1);
+  assert.equal(f.rows.find(item => item.name === 'c').stale, true);
+  assert.equal(f.rows.find(item => item.name === 'a').stale, undefined);
+  assert.match(FIDELITY_SCRIPT, /answer every ask as live \(stricter\)/);
+  assert.match(FIDELITY_SCRIPT, /stale \(not replayed in the latest run\)/);
+  assert.equal(cleanRecord({...row('a', good), gateSame: true}).gateSame, true);
+  assert.equal('gateSame' in cleanRecord(row('a', good)), false);
+});
+
 test('the details row spans every column, and a long name is split into a title and a sub line for the 64px summary row', () => {
   const script = FIDELITY_SCRIPT.replace(/\\\\/g, '\\');
   const labels = script.match(/heads\('fidelity', \[([^\]]+)\]/)[1].split(',').length, cells = (script.match(/const main = el\('tr'[\s\S]*?\n    return on/)[0].match(/\n      el\('td'/g) || []).length;
