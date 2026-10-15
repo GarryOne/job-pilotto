@@ -158,10 +158,12 @@
   },
   "Valora careers, German": {
    "mac": true,
-   "runner": null,
+   "runner": true,
    "macCommit": "df70a90",
    "macAt": "2026-10-15T06:19:14.196Z",
-   "kind": "Valora careers, German"
+   "kind": "Valora careers, German",
+   "runnerCommit": "eb8feca",
+   "runnerAt": "2026-10-15T08:08:30.645Z"
   }
  }
 }
