@@ -14,6 +14,7 @@ import {CONTACT} from './apply-fixtures.mjs';
 import {appProfileTexts, personalValues} from './capture-page.mjs';
 import {placesOf as placesIn} from '../../lib/owner-values.js';
 import {matchesOwner, plain} from '../../../worker/src/owner-guard.js';
+import {passwordLeak} from './test-accounts.mjs';
 
 // The signed-in Claude account on this Mac (~/.claude.json oauthAccount): read here only, never printed. -> {email, names}
 export function claudeAccount(file = path.join(os.homedir(), '.claude.json')) {
@@ -87,7 +88,10 @@ export function sourceOf(field, {answers = [], kit = []} = {}) {
 // source: {typed(), clear?(labels)}; saved: the run's folders to delete on a match. -> {ok, checked, missing, reason?}
 // allow: values a listed test account brings (lib/test-accounts.mjs allowedValues: its email), never a trip.
 // answers, kit: what the run knows the extension typed, to say where a hit's value came from (the reason names the control and the source, before the files are deleted).
-export async function tripwire(source, {values = ownerValues(), saved = [], allow = [], answers = [], kit = []} = {}) {
+// accounts: the listed test accounts; their passwords are looked for in `saved` too (lib/test-accounts.mjs passwordLeak).
+export async function tripwire(source, {values = ownerValues(), saved = [], allow = [], answers = [], kit = [], accounts = {}} = {}) {
+  const leak = passwordLeak(saved, accounts);
+  if (leak) return {ok: false, checked: 0, missing: coverage(values).missing, reason: leak};
   const typed = (await source.typed()).filter(({value}) => !allow.includes(String(value || '').trim().toLowerCase())), hits = matchesOwner(typed, values), {missing} = coverage(values);
   if (!hits.length) return {ok: true, checked: typed.length, missing};
   for (const dir of saved.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});

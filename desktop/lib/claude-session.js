@@ -21,7 +21,7 @@ import * as credentials from './credentials.js';
 import * as sitePassword from './site-password.js';
 import {writePrivate} from './private-file.js';
 // A twin's session masks the job-site passwords (lib/twin.js): the shared one and each site's own.
-const browserFlags = dir => flagsFor(dir, process.env, {secrets: twinBrowser() ? [sitePassword.read(), ...(credentials.list().rows || []).map(row => credentials.reveal(row.host))] : []});
+const browserFlags = dir => flagsFor(dir, process.env, {secrets: twinBrowser() ? [sitePassword.read(), ...(credentials.list().rows || []).map(row => credentials.reveal(row.key || row.host))] : []});
 
 // What a session gets from the app on top of the user's own environment: Notion, Telegram and the app's
 // folders. Never ANTHROPIC_API_KEY: Claude Code runs on the user's own Claude login, not their API key.
