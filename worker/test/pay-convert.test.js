@@ -1,6 +1,7 @@
 // A salary asked in another currency or period is converted by the code at a daily rate and rounded to a clean figure (owner, 15 Oct 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { typeGuess } from '../src/answer-facts.js';
 import { convertPay, applyPay, ratesToday, forgetRatesForTests, FALLBACK_PER_EUR } from '../src/pay-convert.js';
 
 const rates = { EUR: 1, CHF: 0.9, USD: 1.1 };
@@ -64,4 +65,16 @@ test('a typed salary the AI did not list in pay_asks is only proposed; a listed 
   assert.deepEqual(out.map((a) => a.use), ['propose', 'fill']);
   assert.equal((await applyPay([{ field: 'a', value: '1', use: 'fill', fact: 'salary' }], [], fields, {}))[0].use, 'propose');
   assert.equal((await applyPay([{ field: 'a', value: '1', use: 'fill', fact: 'years_experience' }], [], fields, {}))[0].use, 'fill');
+});
+
+test('an answer the AI listed in pay_asks is a salary answer even when it named another fact', async () => {
+  const fields = [{ field: 'a', type: 'text' }];
+  const out = await applyPay([{ field: 'a', value: 'CHF 150000', use: 'fill', fact: 'none' }],
+    [{ field: 'a', amount: 150000, currency: 'CHF', per: 'year', asked_currency: 'CHF', asked_per: 'year', basis_clear: true }], fields, {});
+  assert.equal(out[0].fact, 'salary'); assert.equal(out[0].use, 'fill');
+});
+
+test('a salary the code kept as a proposal is not typed back as a guess', () => {
+  const kept = typeGuess({ field: 'a', value: '150000', use: 'propose', fact: 'salary', category: 'normal', confidence: 'high' });
+  assert.equal(kept.use, 'propose'); assert.equal(kept.guess, undefined);
 });
