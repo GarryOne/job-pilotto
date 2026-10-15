@@ -33,6 +33,13 @@ test('each platform gets one verdict from real use and the pool\'s tests; the on
   assert.ok(rows.every(row => VERDICTS.includes(row.verdict)), 'only fixed verdicts');
 });
 
+test('a platform whose every pool run stopped at the bot wall is "Bot wall", not a failing test', async () => {
+  const env = d1();
+  feed(env, 'lever', 50, 'a'); feed(env, 'ashby', 50, 'b');
+  const rows = await platformScorecard(env, [site('Lever', 'code/bot'), site('Lever', 'code/bot'), site('Ashby', 'code/bot'), site('Ashby', 'form')], now);
+  assert.deepEqual(rows.map(row => [row.platform, row.verdict]), [['Ashby', 'Test failing'], ['Lever', 'Bot wall']]);
+});
+
 test('too few real forms is no evidence: the platform is judged by the pool alone', async () => {
   const env = d1();
   feed(env, 'lever', 50, 'a');

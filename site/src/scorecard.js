@@ -4,10 +4,11 @@
 import {digest} from './digest.js';
 import {platformDemand, PLATFORMS} from './nextsites.js';
 
-export const VERDICTS = ['Not in the pool', 'Weak in both', 'Blind spot', 'Test failing', 'Fine'];   // in the order to act on them
+export const VERDICTS = ['Not in the pool', 'Weak in both', 'Blind spot', 'Test failing', 'Bot wall', 'Fine'];   // in the order to act on them
 const MIN_FORMS = 5;   // fewer real forms than this is no evidence
 const GOOD = 0.7;      // a share of required questions filled, or of pool sites that reached the form, that counts as fine
 const REACHED = ['form', 'ready'];
+const WALLED = 'code/bot';   // a pool run that ended on the site's own bot wall: a "no" we never go past, so the pool cannot test it
 
 // pool: the page's pool rows ({platform, reached}). -> [{platform, verdict, matchShare, forms, filledShare, poolSites, poolReached, installs}], the ones to act on first.
 export async function platformScorecard(db, pool, now = new Date(), slow = (key, fn) => fn()) {
@@ -21,7 +22,8 @@ export async function platformScorecard(db, pool, now = new Date(), slow = (key,
     const poolReached = ran.length ? ran.filter(site => REACHED.includes(site.reached)).length / ran.length : null;
     const board = cards[byAts[platform]], forms = board?.forms || 0, filled = forms >= MIN_FORMS && board.filledShare != null ? board.filledShare : null;
     const testsFine = poolReached == null || poolReached >= GOOD, realFine = filled == null || filled >= GOOD;
-    const verdict = !sites.length ? 'Not in the pool' : !testsFine && !realFine ? 'Weak in both' : !realFine ? 'Blind spot' : !testsFine ? 'Test failing' : 'Fine';
+    const walled = ran.length > 0 && ran.every(site => site.reached === WALLED);   // every pool run stopped at the wall: only real users' fills test it
+    const verdict = !sites.length ? 'Not in the pool' : !testsFine && !realFine ? 'Weak in both' : !realFine ? 'Blind spot' : !testsFine ? (walled ? 'Bot wall' : 'Test failing') : 'Fine';
     return {platform, verdict, matchShare: demand && demand.hits ? Math.max(1, Math.round((100 * demand.hits) / total)) : 0, forms, filledShare: filled == null ? null : Math.round(100 * filled),
       poolSites: sites.length, poolReached: poolReached == null ? null : Math.round(100 * poolReached), installs: demand?.installs || 0};
   }).sort((a, b) => VERDICTS.indexOf(a.verdict) - VERDICTS.indexOf(b.verdict) || b.matchShare - a.matchShare || b.forms - a.forms || a.platform.localeCompare(b.platform));
