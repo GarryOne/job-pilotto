@@ -71,8 +71,28 @@ jobs:
              && { [ -z "$records" ] || [[ "$records" < "$at" ]]; } && { [ -z "$ci" ] || [[ "$ci" < "$at" ]]; }; then
             echo "replay-offline: nothing changed since the last green replay (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
           else echo "replay-offline: changed since ${sha::7}: replaying"; fi
-  replay:
+  bundles:
+    # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
+    # One gh download per replay job tripped GitHub's burst limit for every session (15 Oct 2026); a job that finds none fails loudly here, not as a gate verdict.
     needs: check
+    if: needs.check.outputs.go == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: The release's bundles, still encrypted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
+          retention-days: 1
+
+  replay:
+    needs: [check, bundles]
     if: needs.check.outputs.go == '1'
     runs-on: ubuntu-24.04   # Linux (15 Oct 2026): the Mac-made rows come out the same as live here (the PR gate's pinned rows); macOS runners queued for hours
     timeout-minutes: 45   # a fifth of the rows each; ~80-150 s a row
@@ -96,9 +116,14 @@ jobs:
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - uses: actions/download-artifact@v7
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: The pool's newest records (14 days), decrypted on the runner only
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}   # read-only, job-pilotto-internal only (the Mac's records)
@@ -167,7 +192,7 @@ jobs:
           { echo "any=$([ -s "$out/results.json.worse" ] && echo 1 || echo 0)"; echo "worse<<EOF"; cat "$out/results.json.worse" 2>/dev/null || true; echo; echo EOF; } >> "$GITHUB_OUTPUT"
   retry:
     # A worse row is replayed once more (the same runner kind as the baseline), only when there is one.
-    needs: [check, prejudge]
+    needs: [check, prejudge, bundles]
     if: always() && needs.check.outputs.go == '1' && needs.prejudge.outputs.any == '1'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -181,9 +206,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: Replay the worse rows again
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}   # the Mac's records on job-pilotto-internal (net-records-fetch.sh)

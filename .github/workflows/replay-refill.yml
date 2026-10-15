@@ -80,8 +80,27 @@ jobs:
           echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
 
-  refill:
+  bundles:
+    # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
     needs: pick
+    if: needs.pick.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5   # the workflow's own ref (main): its tools
+      - name: The release's bundles, still encrypted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
+          retention-days: 1
+
+  refill:
+    needs: [pick, bundles]
     if: needs.pick.outputs.count != '0'
     name: refill ${{ matrix.row }}
     runs-on: ubuntu-24.04
@@ -119,9 +138,14 @@ jobs:
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - uses: actions/download-artifact@v7
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: The pool's newest records, decrypted on the runner only
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
@@ -149,7 +173,7 @@ jobs:
           { echo "#### ${{ matrix.row }}"; echo '```'; grep -E "^(fill-memo|replay-net: refill)" "$RUNNER_TEMP/fill.log" 2>/dev/null | cut -c1-300 || echo "no result"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
   publish:
-    needs: [pick, refill]
+    needs: [pick, refill, bundles]
     if: always() && needs.pick.outputs.count != '0'
     runs-on: ubuntu-24.04
     timeout-minutes: 60   # the guard replays each refilled row once, one after another
@@ -190,10 +214,16 @@ jobs:
           n="$(find "$RUNNER_TEMP/packs" -name meta.json | wc -l | tr -d ' ')"
           echo "packs=$n" >> "$GITHUB_OUTPUT"
           [ "$n" != 0 ] || echo "refill: no row was refilled: nothing to publish" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/download-artifact@v7
+        if: steps.packs.outputs.packs != '0'
+        with:
+          name: net-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: The records now, each refilled memo merged in (old answers never changed)
         if: steps.packs.outputs.packs != '0'
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
