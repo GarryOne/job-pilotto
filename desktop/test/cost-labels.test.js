@@ -12,7 +12,7 @@ const walk = dir => readdirSync(join(root, dir), {withFileTypes: true}).flatMap(
 const PRICE = /\d¢|a few cents|(?:about|≈|~) ?\$\d|\(\$?\d+(?:\.\d+)? ?(?:cents|¢)\)/i;
 
 test('no price in a button, hint, tooltip or dialog before the action: the words say what it does, not what it costs', () => {
-  const found = ['renderer', 'lib'].flatMap(walk).filter(file => /\.(js|html)$/.test(file))
+  const found = ['renderer', 'lib', '../extension'].flatMap(walk).filter(file => !/[\\/](test|node_modules)[\\/]/.test(file))   // the extension's panel too (owner, 15 Oct 2026: "~12¢" on its Tailor button slipped past this test).filter(file => /\.(js|html)$/.test(file))
     .flatMap(file => readFileSync(join(root, file), 'utf8').split('\n').map((line, i) => [file, i + 1, line.trim()])
       .filter(([, , line]) => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('<!--') && PRICE.test(line)).map(([f, n]) => `${f}:${n}`));
   assert.deepEqual(found, []);

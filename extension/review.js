@@ -252,7 +252,7 @@
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
-        <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job (~12¢)</button></div>
+        <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <div class="actions">
           <div class="claude-offer" hidden></div>
@@ -267,6 +267,7 @@
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
+  const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
   let moved = false, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
@@ -350,7 +351,7 @@
     }
     // One tip at the bottom, about what the form is at: knockout questions left, no tailored CV yet, else the CV. Click for the next one.
     const prefer = knockouts ? 'knockout' : canTailor && !cv.tailored ? 'tailor' : 'cv';
-    if (tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
+    if (SHOW_TIPS && tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
     window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
@@ -362,10 +363,9 @@
   }
 
   // ---- actions ----
-  // What the fill is doing, shown in the button. A fill started elsewhere (Claude's session, the popup) sends steps but
-  // no end: the button comes back a few seconds after its last step.
-  let stepTimer = null, filledOnce = false, stepped = false;
-  function showStep(text, wait = 6000) {
+  // What the fill is doing, shown in the button; a fill's empty end step ends it. The timer is only a safety net: 45 s, not 6 (owner, 15 Oct 2026: "Fill again" showed while Claude's later pass was still answering).
+  let stepTimer = null, filledOnce = false, stepped = false; const STEP_SAFETY_MS = 45000;
+  function showStep(text, wait = STEP_SAFETY_MS) {
     stepped = true;
     const button = $('.fill');
     button.classList.add('is-busy');
@@ -422,7 +422,7 @@
     const answer = await send({type: 'panelTailor'}).catch(() => null);
     asked = !!answer?.ok;
     button.disabled = false;
-    button.textContent = 'Tailor my CV for this job (~12¢)';
+    button.textContent = 'Tailor my CV for this job';
     render();
   };
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
@@ -437,7 +437,7 @@
   });
 
   // A fill already on a step when this panel appeared: show it here (the background removes its floating copy).
-  send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text, answer.wait || 6000); if (!open) setOpen(true); } }).catch(() => {});
+  send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text, answer.wait || STEP_SAFETY_MS); if (!open) setOpen(true); } }).catch(() => {});
 
   // ---- controls the form model did not read (learning input; see page/skeleton.js) ----
   // A widget that is not a native input and is part of no field the panel counted: its fingerprint, structure (no text) and
