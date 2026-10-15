@@ -146,7 +146,7 @@ class GateCacheTest(unittest.TestCase):
                  if p.is_file() and p.suffix in ('.py', '.js', '.mjs') and p != Path(__file__).resolve()]
         for name in names:
             for test in tests:
-                self.assertNotIn(name.rstrip('/'), test.read_text(errors='replace'), f'{test} reads {name}: take it off the ignore list')
+                self.assertNotIn(name, test.read_text(errors='replace'), f'{test} reads {name}: take it off the ignore list')   # a folder keeps its '/', so the workflow file site-next.yml is not read as the folder site-next/
 
     def test_both_hooks_use_the_cache_and_the_stop_hook_counts_uncommitted_files(self):
         push = (ROOT / 'tools' / 'pre-push-check.sh').read_text()
