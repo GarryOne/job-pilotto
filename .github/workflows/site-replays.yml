@@ -6,7 +6,7 @@
 name: CI · Site replays · all (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
-# When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
+# When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (at night, 23:47, 01:47, 03:47 Zurich in summer; owner, 15 Oct 2026), started on time by the Worker (worker/src/scheduler.js);
 # GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min each).
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ on:
         default: ''
   schedule:
     - cron: '50 0 * * *'
-    - cron: '17 10,14,18 * * *'
+    - cron: '17 22,0,2 * * *'
 
 permissions:
   contents: read

@@ -15,7 +15,7 @@ test('the nightly build starts at 04:00 in Zurich, in summer (02:00 UTC) and in 
 });
 
 test('the three-a-day e2e runs start the scheduled plan; an unknown cron starts nothing', () => {
-  assert.deepEqual(jobsFor('47 9,13,17 * * *', at('2026-10-05T09:47:00Z')), [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}]);
+  assert.deepEqual(jobsFor('47 21,23,1 * * *', at('2026-10-05T09:47:00Z')), [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}]);
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T00:00:00Z')), [{workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}], 'the replay gate: 02:00 Zurich in summer');
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T01:00:00Z')), [], '03:00 in summer: nothing');
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T02:00:00Z')), [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}], 'the nightly: 04:00 Zurich in summer');
@@ -27,7 +27,7 @@ test('the three-a-day e2e runs start the scheduled plan; an unknown cron starts 
   assert.deepEqual(jobsFor('0 2,3 * * *', at('2026-10-05T03:00:00Z')), [], 'and at 03:00 UTC it is 05:00 in summer: not its turn');
   assert.deepEqual(jobsFor('0 2,3 * * *', at('2026-12-05T03:00:00Z')), [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}], 'in winter 03:00 UTC is 04:00');
   assert.ok(CRONS.length <= 3, 'the account has 5 cron triggers across ALL Workers and the others hold 2: a 4th here was refused (14 Oct 2026)');
-  assert.deepEqual(CRONS, ['0 0,1,2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *']);
+  assert.deepEqual(CRONS, ['0 0,1,2,3 * * *', '47 21,23,1 * * *', '40 */3 * * *']);
 });
 
 test('a scheduled start calls the dispatcher; a failed one tells the owner, lets the others start, then fails the cron', async () => {
@@ -37,7 +37,7 @@ test('a scheduled start calls the dispatcher; a failed one tells the owner, lets
   assert.deepEqual(started, ['desktop.yml']);
   assert.deepEqual(calls, [['desktop.yml', {nightly: 'true'}]]);
   const failing = async () => { throw new Error('GitHub dispatch failed: 403 Resource not accessible'); };
-  await assert.rejects(runScheduled({cron: '47 9,13,17 * * *', scheduledTime: Date.parse('2026-10-05T09:47:00Z')}, {}, {dispatch: failing, notify: async text => told.push(text)}),
+  await assert.rejects(runScheduled({cron: '47 21,23,1 * * *', scheduledTime: Date.parse('2026-10-05T09:47:00Z')}, {}, {dispatch: failing, notify: async text => told.push(text)}),
     /scheduled start failed: e2e\.yml: GitHub dispatch failed: 403/, 'a cron that started nothing must not report success (6 Oct 2026: a day of 401s, every cron "success")');
   assert.match(told[0], /e2e\.yml failed.*403/);
 });

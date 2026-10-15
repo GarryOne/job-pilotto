@@ -8,7 +8,7 @@
 //   site-replays.yml -scheduled  the pool rows replayed offline (owner, 14 Oct 2026): 02:00 Zurich as the nightly beta's gate, and beside each e2e run
 // One trigger for the night's four UTC hours (00-03): Cloudflare's free plan allows 5 cron triggers per ACCOUNT (other Workers hold 2), a sixth could not be registered
 // (5 Oct 2026), and a 4th trigger for this Worker was refused (14 Oct 2026): the hour that is 02:00 in Zurich starts the replay gate, the one that is 04:00 the nightly.
-export const CRONS = ['0 0,1,2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *'];
+export const CRONS = ['0 0,1,2,3 * * *', '47 21,23,1 * * *', '40 */3 * * *'];
 
 // The hour in Zurich (0-23) at this moment: 04:00 all year, whether UTC+1 or UTC+2.
 export const zurichHour = date => Number(new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', hour: '2-digit', hourCycle: 'h23'}).format(date));
@@ -18,7 +18,7 @@ export function jobsFor(cron, now = new Date()) {
     const hour = zurichHour(now);
     return hour === 4 ? [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}] : hour === 2 ? [{workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}] : [];
   }
-  if (cron === '47 9,13,17 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}];
+  if (cron === '47 21,23,1 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}];
   if (cron === '40 */3 * * *') return [{workflow: 'self-heal-stats.yml', inputs: {scheduled: 'true'}}];
   return [];
 }

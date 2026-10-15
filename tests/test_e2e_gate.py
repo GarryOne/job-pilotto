@@ -54,7 +54,8 @@ class CiVerdictTests(unittest.TestCase):
     def test_green_only_when_every_run_of_the_commit_succeeded(self):
         self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'success'}, {'conclusion': 'success'}]), 'green')
         self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'success'}, {'conclusion': 'failure'}]), 'red')
-        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'cancelled'}]), 'red')
+        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'cancelled'}]), 'superseded', 'a newer push to main cancelled it (15 Oct 2026)')
+        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'cancelled'}, {'conclusion': 'failure'}]), 'red')
 
     def test_no_run_is_not_green(self):
         self.assertEqual(e2e_gate.ci_verdict([]), 'none')

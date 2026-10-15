@@ -379,7 +379,12 @@ class GitHub:
     def ci_runs(self, tag):
         sha = self._gh('api', f'repos/{self.repo}/commits/{tag}', '-q', '.sha').strip()
         data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/build.yml/runs?head_sha={sha}&per_page=20'))
-        return data.get('workflow_runs', [])
+        runs = data.get('workflow_runs', [])
+        if runs and all(r.get('conclusion') == 'cancelled' for r in runs):   # a push to main cancels the older commit's run (15 Oct 2026): the newest commit's run decides
+            for head in self._gh('api', f'repos/{self.repo}/actions/workflows/build.yml/runs?branch=main&status=success&per_page=30', '-q', '.workflow_runs[].head_sha').split():
+                if head != sha and self._gh('api', f'repos/{self.repo}/compare/{sha}...{head}', '-q', '.status').strip() == 'ahead':
+                    return [{'status': 'completed', 'conclusion': 'success', 'html_url': f'(a newer commit {head[:7]} passed)'}]
+        return runs
 
     def sha(self, tag):
         return self._gh('api', f'repos/{self.repo}/commits/{tag}', '-q', '.sha').strip()

@@ -7,6 +7,11 @@ tag=${1:?usage: tools/release-checks.sh <tag> <sha>}; ref=${2:?usage: tools/rele
 repo=${GITHUB_REPOSITORY:-GarryOne/job-pilotto}
 
 verdict=$(gh run list -R "$repo" --workflow build.yml --commit "$ref" --status completed --json conclusion | python3 "$(dirname "${BASH_SOURCE[0]}")/e2e_gate.py" ci)
+# A push to main cancels the older commit's build.yml run (15 Oct 2026): the newest commit's run decides, so a cancelled run is green when a NEWER commit of main passed.
+if [ "$verdict" = superseded ]; then
+  newer=$(python3 "$(dirname "${BASH_SOURCE[0]}")/e2e_gate.py" newer-green "$repo" "$ref" || true)
+  if [ -n "$newer" ]; then verdict=green; echo "build.yml on ${ref:0:7} was replaced by a newer push; ${newer:0:7} (newer, on main) is green"; else verdict=red; fi
+fi
 echo "build.yml on ${ref:0:7}: $verdict"
 if [ "$verdict" != green ]; then echo "$tag stays a pre-release: build.yml is not green on its commit."; exit 1; fi
 
