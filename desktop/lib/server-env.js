@@ -21,6 +21,7 @@ import {jobKey} from '../shared/worker/extension.js';
 import {log as appLog} from './log.js';
 import {contactOf} from './server-contact.js';
 import {pageKey} from './server-pages.js';
+import {devVersion} from './dev-extension-version.js';
 import {captureAnswer} from './live-capture.js';
 import {keptAnswerClient} from './ai/index.js';
 import {answerReporter, appliedHook, errorWatcher, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
@@ -215,7 +216,11 @@ async function judgeNotes(storage, run, known) {
 
 // The extension version in the app's folder (the one Chrome loads unpacked): an older one in Chrome reloads itself.
 export function latestExtension(read = fs.readFileSync) {
-  try { return JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
+  try {
+    const version = JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || '';
+    // A development copy keeps the base version in its manifest and is told the stamped one, so it reloads itself after a pull (extension/tab-report.js).
+    return version && developmentCopy() ? devVersion(pipeline.REPO, version) : version;
+  } catch { return ''; }
 }
 
 // A development copy (npm start from a checkout) has Chrome load the repo's extension/ itself, and since 13 Oct 2026 its version stays the base ("0.9"):

@@ -132,7 +132,7 @@ test('a stale extension is named, with the reload to do; matching or unknown ver
 test('the extension version the app reads is its own manifest', async () => {
   const fs = await import('node:fs');
   const manifest = JSON.parse(fs.readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
-  assert.equal(server.latestExtension(), manifest.version);
+  assert.match(server.latestExtension(), new RegExp(`^${manifest.version.replace(/\./g, '\\.')}(\\.\\d+)?$`));   // a development copy is told the stamped one (dev-extension-version.js)
 });
 
 // A session that leaves the file must stay readable: the app's list is the only copy of "which sessions do I have",

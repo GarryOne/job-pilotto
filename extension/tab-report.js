@@ -31,6 +31,12 @@ const browserId = () => (browserKept ||= chrome.storage.local.get('browserId').t
 
 export function createTabReport(ctx) {
   const {WORKER, armedLogged, bootId, fillsNow, jobOf, keepMemory, newer, reportCorrections, started} = ctx;
+  // The version this copy runs: the manifest's, or the one it last reloaded itself for when that is higher. A development copy (Chrome loads the checkout's extension/) keeps the manifest's
+  // base version ("0.9") while the app reports a stamped one (desktop/lib/server-env.js latestExtension); after the reload it must not look stale (15 Oct 2026: a pulled change never reached it).
+  const runningVersion = async () => {
+    const manifest = chrome.runtime.getManifest().version, {reloadedFor} = await chrome.storage.local.get('reloadedFor');
+    return reloadedFor && newer(reloadedFor, manifest) ? reloadedFor : manifest;
+  };
   // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
   async function reportTabs() {
     const config = await settings();
@@ -55,7 +61,8 @@ export function createTabReport(ctx) {
       const alive = new Set(every.map(tab => tab.id));
       const sessions = Object.fromEntries(Object.entries(stored).filter(([key, id]) => /^session:\d+$/.test(key) && id && alive.has(Number(key.slice(8))))
         .map(([key, id]) => [key.slice(8), String(id)]));
-      const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, browser, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
+      const running = await runningVersion();
+      const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, browser, worker: WORKER, reading, sessions, version: running})});
       connected(true);
       await stopFromApp(answer);   // the app's Stop button reaches a tab with no panel too (stop.js)
       // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
@@ -70,7 +77,7 @@ export function createTabReport(ctx) {
       // that can't update (a store install) doesn't reload over and over.
       // Never while a form is being filled (fillsNow) or a site is being read: a reload ends every reading at once (7 Oct 2026: an update landed mid-run and a site died); the next
       // report after the last one ends does it.
-      if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version) && !readingNow() && !fillsNow.size) {
+      if (answer?.latest && newer(answer.latest, running) && !readingNow() && !fillsNow.size) {
         const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
         if (reloadedFor !== answer.latest) {
           await chrome.storage.local.set({reloadedFor: answer.latest});
