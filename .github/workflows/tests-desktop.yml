@@ -62,14 +62,17 @@ on:
 permissions:
   contents: read
 
+concurrency:   # a PR's newer push replaces its older run and frees its runners; each commit of main keeps its own run (tests/test_main_runs_finish.py, tests/test_pr_runs_cancel.py)
+  group: tests-desktop-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   desktop:
-    # Both platforms: Windows is where the app's platform branches really run (Credential Manager instead of the Keychain, python.exe, node-pty, Git Bash for
-    # Claude Code). fail-fast off, so both platforms report.
+    # Linux only: Windows has its own workflow (tests-desktop-windows.yml) that a PR starts only for the files with platform branches; main runs both.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     defaults:

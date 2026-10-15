@@ -72,7 +72,9 @@ test('the PR workflow: starts for the apply flow\'s code and the replay machiner
   assert.match(flow, /install --with-deps chromium/, 'Linux needs the browser\'s system libraries');
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
-  assert.match(flow, /JP_REPLAY_ONLY: \$\{\{ matrix\.group \}\}/);
+  assert.match(flow, /part: \[0, 1, 2, 3\]/, 'one part per runner group: the pick is folded into each part (15 Oct 2026, fewer runner slots)');
+  assert.equal(GROUPS, 4, 'the workflow matrix has GROUPS parts');
+  assert.doesNotMatch(flow, /^  pick:/m, 'no separate pick job');
   assert.match(flow, /node replay-unsame\.mjs/, 'a pinned row not same is replayed once more on its runner');
   assert.match(flow, /--retry "\$RUNNER_TEMP\/retry4"/, 'and the gate counts a pass on the retry as noise');
   assert.doesNotMatch(flow, /LATENCY_PAD|replay-late/, 'the late-answer pass runs on the scheduled runs only (owner, 15 Oct 2026)');

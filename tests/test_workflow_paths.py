@@ -100,7 +100,7 @@ class TheClass(unittest.TestCase):
     def test_main_runs_every_suite_on_each_push(self):
         build = (WORKFLOWS / 'build.yml').read_text()
         self.assertNotIn('pull_request', on_block('build.yml'), 'a pull request runs each area by itself')
-        for area in ('python', 'worker', 'site', 'desktop'):
+        for area in ('python', 'worker', 'site', 'desktop', 'desktop-windows'):
             self.assertIn(f'uses: ./.github/workflows/tests-{area}.yml', build, area)
             self.assertIn('workflow_call:', on_block(f'tests-{area}.yml'), area)
         for name in ('page-cases.yml', 'control-tests.yml'):
