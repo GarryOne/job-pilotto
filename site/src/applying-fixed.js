@@ -59,9 +59,11 @@ export function statusOf(runs, landedAt) {
   const landed = Date.parse(landedAt);
   const after = runs.map(run => (run.cleanHold ? {...run, needsFix: false} : run)).filter(run => Date.parse(run.at) > landed && run.needsFix != null).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const clean = after.filter(run => run.needsFix === false), heldRuns = clean.filter(run => run.cleanHold).length;
+  // Failing is judged on the row's NEWEST run only (owner, 15 Oct 2026: the same rule as the Needs a fix list, applying.js runNeedsFix): an older failing run no longer makes a fix "Still failing".
+  const newest = runs.map(run => (run.cleanHold ? {...run, needsFix: false} : run)).sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).at(-1), failing = Boolean(newest && Date.parse(newest.at) > landed && newest.needsFix === true);
   const filledBefore = runs.filter(run => Date.parse(run.at) <= landed).slice(-3).map(shareOf), filledAfter = after.slice(-3).map(shareOf);
-  if (clean.length < 2) return {status: 'landed', failingRuns: after.length - clean.length, cleanRuns: after.at(-1)?.needsFix === false ? clean.length : 0, heldRuns, filledBefore, filledAfter};
-  return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: clean[1].at, failingRuns: 0, cleanRuns: clean.length, heldRuns, filledBefore, filledAfter};
+  if (clean.length < 2) return {status: 'landed', failing, failingRuns: after.length - clean.length, cleanRuns: after.at(-1)?.needsFix === false ? clean.length : 0, heldRuns, filledBefore, filledAfter};
+  return {status: failing ? 'back' : 'confirmed', failing, confirmedAt: clean[1].at, failingRuns: 0, cleanRuns: clean.length, heldRuns, filledBefore, filledAfter};
 }
 
 // A fix's (or a claim's) site as its pool row is named: itself when a row has that shape or name, else the one row whose capture-folder slug it is (desktop/e2e/lib/replay-candidate.mjs slug;
@@ -90,8 +92,8 @@ export async function fixedData(db, pool, cases, now = new Date()) {
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
       offline: verifyFor(offline, 'fixed', site), ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
-  const claimed = new Map(claims.map(row => [rowName(row.site, pool), row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
-  for (const item of pool) { item.offline = verifyFor(offline, 'regression', item.shape) || verifyFor(offline, 'regression', item.name); item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); }
+  const claimed = new Map(claims.map(row => [rowName(row.site, pool), row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site)), didntHold = new Map(rows.filter(row => row.failing).map(row => [row.site, row.commit]));
+  for (const item of pool) { item.offline = verifyFor(offline, 'regression', item.shape) || verifyFor(offline, 'regression', item.name); item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); item.didntHold = didntHold.get(item.shape) ?? didntHold.get(item.name) ?? null; }
   return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: rowName(row.site, pool), since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null};
 }
 
@@ -114,9 +116,10 @@ export const FIXED_CSS = `
 export const FIXED_SCRIPT = `
   // The Fixed tab (owner mockup, 11 Oct 2026; src/applying-fixed.js): one charcoal panel, five columns, the guard names, replay results and run history in a row expander.
   const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', better: 'Better, not there yet', confirmed: 'Confirmed', back: 'Regressed'};
-  const FIX_TONE = {landed: 'account', failing: 'posting', better: 'form', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['back', 'failing', 'better', 'landed', 'confirmed'];
+  const FAILED = ['back', 'failing', 'better'];   // a fix that did not hold: its row is on Needs a fix, not here (owner, 15 Oct 2026)
+  const FIX_TONE = {landed: 'account', failing: 'posting', better: 'form', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['landed', 'confirmed', 'back', 'failing', 'better'];
   const lastShare = list => (list || []).filter(value => value != null).at(-1);
-  const fixKind = r => (r.status === 'landed' && r.failingRuns ? (lastShare(r.filledAfter) > lastShare(r.filledBefore) ? 'better' : 'failing') : r.status);   // a share that rose is better, not yet there (a missing share compares false)
+  const fixKind = r => (r.status === 'landed' && r.failing ? (lastShare(r.filledAfter) > lastShare(r.filledBefore) ? 'better' : 'failing') : r.status);   // a share that rose is better, not yet there (a missing share compares false)
   // The offline replay's own word (src/applying-verify.js; owner, 14 Oct 2026): a fix is confirmed offline on a recording, never by a live run. Plain quotes only.
   const OFFLINE_WORD = {confirmed: 'Confirmed offline', notbetter: 'Not better offline', live: 'Needs a recording', ours: 'Our build', site: 'Site changed'};
   const offlineLine = r => (r.offline ? (OFFLINE_WORD[r.offline.verdict] || r.offline.verdict) + ' ' + ago(r.offline.at) + (r.offline.why ? ' - ' + r.offline.why : '') : 'No offline replay yet');
@@ -140,7 +143,8 @@ export const FIXED_SCRIPT = `
   const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { toggleOpen(fixOpen, r.site); drawFixed(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(r.site)}), el('span', {className: 'muted', textContent: r.platform + (r.host ? ' (' + r.host + ')' : '')}))),
-      el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), el('span', {className: 'stack ' + (r.offline && r.offline.verdict === 'confirmed' ? 'muted' : 'warn'), textContent: offlineLine(r)})),
+      el('td', {}, ...(FAILED.includes(kind) ? [el('a', {className: 'stack muted backlink', href: '#needs-fix', textContent: 'back on Needs a fix', onclick: event => event.stopPropagation()})]
+        : [el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), el('span', {className: 'stack ' + (r.offline && r.offline.verdict === 'confirmed' ? 'muted' : 'warn'), textContent: offlineLine(r)})])),
       el('td', {className: 'c-fill', textContent: fixFilled(r)}),
       el('td', {className: 'c-fix'}, r.commit ? el('code', {className: 'hash', title: r.fixes.map(f => f.commit + ' ' + (f.extensionVersion || '')).join(', '), textContent: r.commit + (r.commits.length > 1 ? ' +' + (r.commits.length - 1) : '')}) : '—', r.commit ? el('span', {className: 'stack muted', textContent: fixDate(r.landedAt) + (r.rung != null ? ' · rung ' + r.rung : '')}) : null),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.site, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
@@ -155,17 +159,18 @@ export const FIXED_SCRIPT = `
     ['Source', 'Git trailers (Pool-row, Rung, Fixture) and the uploaded smoke runs, as of ' + (d.fixed.fixesAt ? ago(d.fixed.fixesAt) : 'no upload yet') + '.']];
   const drawFixed = () => { fixedBox.textContent = '';
     const all = fixedList().sort((a, b) => FIX_ORDER.indexOf(fixKind(a)) - FIX_ORDER.indexOf(fixKind(b)) || String(b.landedAt || '').localeCompare(String(a.landedAt || ''))), rows = sortRows('fixed', all, FIX_GET);
+    const holding = all.filter(r => !FAILED.includes(fixKind(r)));
     const pages = Math.max(1, Math.ceil(rows.length / FIX_PER)); fixPage.n = Math.min(fixPage.n, pages - 1); const from = fixPage.n * FIX_PER, shown = rows.slice(from, from + FIX_PER), go = step => () => { fixPage.n += step; drawFixed(); };
     fixedBox.append(el('div', {className: 'fixpanel'},
-      el('div', {className: 'fixhead'}, el('h2', {textContent: 'Fix verification'}), el('p', {className: 'muted', textContent: 'Every landed fix is "Awaiting verification" until two uploaded runs clear it.'}),
+      el('div', {className: 'fixhead'}, el('h2', {textContent: 'Fix verification'}), el('p', {className: 'muted', textContent: 'Every landed fix is "Awaiting verification" until two uploaded runs clear it. A fix whose newest run fails again moves back to Needs a fix.'}),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verification works'}), el('dl', {}, ...HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
-      el('div', {className: 'fixbar'}, el('span', {className: 'muted', textContent: 'Regressed first, then newest'}), el('span', {className: 'muted', textContent: all.length + (all.length === 1 ? ' site' : ' sites') + ' with a landed fix'})),
+      el('div', {className: 'fixbar'}, el('span', {className: 'muted', textContent: 'Awaiting verification first, then newest; fixes that did not hold last'}), el('span', {className: 'muted', textContent: holding.length + (holding.length === 1 ? ' site' : ' sites') + ' with a fix that holds or awaits proof' + (all.length > holding.length ? ' · ' + (all.length - holding.length) + ' back on Needs a fix' : '')})),
       rows.length ? el('table', {className: 'fixtable'}, el('tr', {}, ...heads('fixed', ['Site / platform', 'Verification', 'Filled before → after', 'Fix', 'Details'], () => { fixPage.n = 0; drawFixed(); }).map((th, at) => Object.assign(th, {className: th.className + (at === 2 ? ' c-fill' : at === 3 ? ' c-fix' : '')}))), ...shown.flatMap(fixRows)) : el('p', {className: 'muted', textContent: 'No fix landed yet'}),
       el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' fixes' : '0 fixes'}),
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
   const showTab = () => { const hash = typeof location !== 'undefined' ? location.hash : '', which = hash === '#fixed' ? 'fixed' : hash === '#by-cause' ? 'cause' : 'needs'; fixBox.hidden = which !== 'needs'; fixedBox.hidden = which !== 'fixed'; causeBox.hidden = which !== 'cause';
     const tab = (id, name, text, title) => el('a', {href: '#' + id, role: 'tab', 'aria-selected': String(which === name), className: which === name ? 'on' : '', title: title || '', textContent: text});
-    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('fixed', 'fixed', 'Fixed · ' + d.fixed.rows.length, 'Sites with a landed fix. The recorded replays are in the Replays tab.'),
+    tabs.textContent = ''; tabs.append(tab('needs-fix', 'needs', 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length), tab('fixed', 'fixed', 'Fixed · ' + d.fixed.rows.filter(r => !FAILED.includes(fixKind(r))).length, 'Sites with a landed fix that holds or awaits proof; a fix that failed again is back on Needs a fix. The recorded replays are in the Replays tab.'),
       tab('by-cause', 'cause', 'By cause · ' + causeGroups().length, 'The Needs a fix rows grouped by top cause, and the rows that need a pool run first')); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;

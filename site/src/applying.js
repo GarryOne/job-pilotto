@@ -393,7 +393,7 @@ const reportedTag = s => (/^reported-/.test(s.shape || s.name || '') ? el('span'
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '') + twinTag(s)}), reportedTag(s))),
       el('td', {}, el('span', {className: s.short && !s.regression && s.short.unexplained != null && s.short.unexplained <= SMALL_MISS ? 'quiet' : 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
-        s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null,
+        s.didntHold ? el('span', {className: 'stack flag', textContent: 'Fix didn’t hold (' + s.didntHold + ')'}) : s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null,
         s.regression ? el('span', {className: 'stack muted', textContent: offlineLine(s)}) : null),   // the offline replay's verdict: Our build / Site changed / Needs a recording (src/applying-verify.js)
       el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'}),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + s.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
