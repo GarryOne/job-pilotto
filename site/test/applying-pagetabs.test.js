@@ -63,3 +63,30 @@ test('the page bar looks unlike the Fixes tab\'s folder tabs: an underline nav, 
   const css = PAGE.slice(PAGE.indexOf('<style>'), PAGE.indexOf('</style>'));
   assert.ok(css.indexOf('.tabs a.on{') < css.indexOf('.tabs.pagetabs a.on{'), 'the folder-tab rules come first');
 });
+
+// Owner, 15 Oct 2026: "instead of this dropdown filter, let's make chip style filter". The class: every filter on the page. A short one (CHIP_MAX options
+// or fewer: verdict, status, flow, case result/rung/origin) is a row of chips through chipFilter; only a long list (platforms) stays a dropdown.
+test('the short filters are chips, one press picks and the all chip is on first; a long list stays a dropdown', async () => {
+  const app = await render('#pool');
+  const groups = walk(app).filter(node => node.className === 'pick chipset');
+  const labels = groups.map(group => group.children[0].text());
+  for (const label of ['Flow', 'Status']) assert.ok(labels.includes(label), label + ' is chips: ' + labels.join(', '));
+  for (const group of groups) {
+    const chips = group.children[1].children;
+    assert.equal(chips[0].className, 'chip on', 'the all chip starts on');
+    assert.ok(chips.slice(1).every(chip => chip.className === 'chip'), 'the others start off');
+  }
+  assert.match(PAGE, /chipFilter\('Verdict'/, 'the replay verdict filter is chips');
+  assert.doesNotMatch(PAGE, /el\('select', \{'aria-label': 'Network verdict'/, 'the old verdict dropdown is gone');
+  assert.match(PAGE, /list\.length <= CHIP_MAX/, 'pick() draws chips for a short list');
+  assert.match(PAGE, /resetChips\(filters\)/); assert.match(PAGE, /resetChips\(caseFilters\)/);   // both Clear buttons reset the chips
+});
+
+// Owner, 15 Oct 2026: "not sure which dot is the last run, the left or the right? add an arrow for the direction". Oldest left, latest right.
+test('the run dots read oldest to latest: the header says the direction and the latest dot is ringed and titled', () => {
+  assert.equal((PAGE.match(/'Recent runs · old → new'/g) || []).length, 2, 'both Recent runs headers carry the arrow');
+  assert.doesNotMatch(PAGE, /'Recent runs'[,\]]/);
+  assert.match(PAGE, /at === list\.length - 1 && list\.length > 1 \? ' last' : ''/);
+  assert.match(PAGE, /\.dots i\.last\{box-shadow:/);
+  assert.match(PAGE, /'Latest run · '/);
+});

@@ -80,7 +80,7 @@ test('every view of a row reads its one status: Result, Rung, run dots, By-hand 
   assert.ok(!/Blocked\|[^|]*\|[^|]*Held on purpose/.test(poolText));
   // the Rung column: Blocked only for a row that needs a fix; the dots never colour a hold red
   assert.ok(PAGE.includes("s.status.state === 'fix' && !['form', 'ready'].includes(s.reached) && s.rung != null"), 'blocked is a status of its own');
-  assert.ok(PAGE.includes("className: step.state ? 'st-' + step.state"), 'the dots colour by status');
+  assert.ok(PAGE.includes("className: (step.state ? 'st-' + step.state : '')"), 'the dots colour by status');
   assert.ok(!PAGE.includes("color(step)") || PAGE.includes("step.state ? ''"), 'a status dot has no step colour');
 });
 

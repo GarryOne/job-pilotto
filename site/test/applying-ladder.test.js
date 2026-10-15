@@ -26,5 +26,5 @@ test('models come from the code: rung 4 names its model and price, rungs 2 and 3
   assert.ok(by[2].model && by[3].model);
   assert.equal(by[0].kind, 'free'); assert.equal(by[6].kind, 'person');
   assert.ok(PAGE.includes('flex-direction:column-reverse'), 'rung 0 is drawn at the bottom');
-  assert.doesNotMatch(PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean')), /'details'/);
+  assert.doesNotMatch(PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const MEANS = ')), /'details'/);
 });
