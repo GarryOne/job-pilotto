@@ -2,7 +2,7 @@
 // (thin and grown, and user mode and harness mode, are never added together). Pure functions: no names of tools, forms or sites live here, they arrive as data. Guard: test/benchmark.test.js.
 // raw = right / required; product = right / (required - not answerable - consent holds - reader duplicates); ceiling = (required - not answerable) / required (the most the applicant's facts allow).
 export const APPLICANTS = ['thin', 'grown'];
-// user = what real users run (the repair rung off); harness = the test harness's repair rung on (ladderAct); unknown = the run did not say. Only our extension has a mode; the other tools' rows carry 'any'. The page's headline is user mode.
+// user = what real users run (the repair rung acts for every user since #873: a build that has it, or a run with it off); harness = a build before #873 run with the test harness's repair rung on (ladderAct); unknown = the run did not say. Only our extension has a mode; the other tools' rows carry 'any'. The page's headline is user mode.
 export const MODES = ['user', 'harness', 'unknown'];
 // Bake-off harness fixes made after some runs were scored (saved runs cannot be re-read); a run lists the ones it predates. Each hits every tool the same way.
 export const FIX_KEYS = ['trail', 'select'];
