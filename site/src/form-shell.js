@@ -3,8 +3,9 @@ import {FAMILIES, familyLinks, familyParam} from './engines.js';
 import {viewer} from './auth.js';   // admins (invited) read these pages too
 import {esc, remember} from './stats.js';
 import {report} from './formlearning.js';
+import {LEFT_EMPTY_CSS} from './left-empty-view.js';
 
-const STYLE = `:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--good:#3fb68b;--bad:#e5484d}
+const STYLE = `:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--good:#3fb68b;--bad:#e5484d;--green:#5ec47a;--red:#e5484d;--violet:#b48cff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
 main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size:24px}h2{margin:0;font-size:15px}
 a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:18px}
@@ -12,7 +13,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0;margin-bottom:12px}.tile{margin-bottom:0}
 .tile b{display:block;font-size:30px;margin:4px 0 2px}.up{color:var(--good)}.down{color:var(--bad)}
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
-td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}`;
+td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}${LEFT_EMPTY_CSS}`;
 
 // title/icon: the page's name; inner(data, url): its sections after the AI-family links.
 export function shell({title, icon, data, url, inner}) {

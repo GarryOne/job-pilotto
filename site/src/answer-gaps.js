@@ -1,8 +1,7 @@
 // "No answer", split by what the fill card's meaning words say (Missing answers, 15 Oct 2026): suggested and waiting for the person, left on purpose, a true gap; each with
-// its count and its top meanings. Built from fill_cards.gaps ("meaning:cause:design|gap" counts, extension/fill-meaning.js), for real use and the pool apart. Shown inside the
-// "Why fields were left empty" section (src/left-empty.js). Guarded by site/test/left-empty.test.js: a meaning word without a title fails there.
+// its count and its top meanings. Built from fill_cards.gaps ("meaning:cause:design|gap" counts, extension/fill-meaning.js), for real use and the pool apart. Drawn inside the
+// "Why fields were left empty" section (src/left-empty-view.js). Guarded by site/test/left-empty.test.js: a meaning word without a title fails there.
 import {MEANINGS} from '../../extension/fill-meaning.js';
-import {esc} from './stats.js';
 
 export const BUCKETS = [
   {key: 'suggested', title: 'Suggested, waiting for the person', note: 'the AI proposed an answer and the app did not type it (a knockout, a contact detail or a low-confidence guess)'},
@@ -28,14 +27,4 @@ export function splitGaps(counts) {
     const count = meanings.reduce((sum, item) => sum + item.count, 0);
     return {...bucket, count, share: total ? count / total : null, meanings};
   })};
-}
-
-const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
-// The sub-table under the four groups; thin: real use under 3 installs (counts muted, no share, as the table above).
-export function gapsTable(split, thin) {
-  if (!split?.total) return '<p class="muted">No meaning words yet: older apps do not send them.</p>';
-  return `<h3>What the unanswered fields were about</h3><small class="muted">Fixed meaning words from the fill card; a field can be counted here and not above (consent, own-words and demographic fields are counted here only).</small>
-<div class="wrap"><table><tr><th>Bucket</th><th class="n">Fields</th><th class="n">Share</th><th>Top meanings</th></tr>
-${split.buckets.map(bucket => `<tr${thin ? ' class="muted"' : ''}><td>${esc(bucket.title)}<br><small class="muted">${esc(bucket.note)}</small></td><td class="n">${bucket.count}</td><td class="n">${thin ? '–' : pct(bucket.share)}</td>
-<td>${bucket.meanings.slice(0, 6).map(item => `${esc(item.title)} <span class="muted">${item.count}</span>`).join(' · ') || '<span class="muted">none</span>'}</td></tr>`).join('\n')}</table></div>`;
 }

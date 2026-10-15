@@ -55,7 +55,7 @@ test('the headline reads "N required fields · X% filled · Y% no answer · Z% l
   for (const install of ['a', 'b', 'c']) card(e, `u-${install}`, {no_data: 30, real_click: 10, unread: 10}, {install});
   const html = leftEmptySection(await leftEmpty(e, now, 'real'));
   assert.match(html, /300 required fields · 50% filled · 30% left with no answer · 10% lost to controls · 10% not read/);
-  assert.match(html, /<td class="n">60%<\/td><td class="n">30%<\/td>/, 'a group\'s share of left next to its share of required');
+  assert.match(html, /<\/span>60%<\/td><td class="n"><span class="bar" aria-hidden="true"><i style="width:30%"><\/i><\/span>30%<\/td>/, 'a group\'s share of left next to its share of required');
 });
 
 test('under 3 installs the real column shows counts muted with "too few to judge" and no share; the lab never does', async () => {
@@ -78,11 +78,11 @@ test('both admin pages show the section: Real Form Filling its real-use column, 
   card(env.STATS, 'u1', {no_answer: 40}, {install: 'a', day: today}); card(env.STATS, 'p1', {ai_declined: 7}, {source: 'pool', day: today});
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/real-form-filling', {headers: {Cookie: 'jp_stats=k3y'}}), env, {})).text();
   assert.match(html, /Why fields were left empty/);
-  assert.match(html, /no_answer <span class="muted">40<\/span>/);
+  assert.match(html, /no_answer<span class="cnt">40<\/span>/);
   assert.doesNotMatch(html, /ai_declined/, 'the pool never shows on the real page');
   const lab = await applyingData(env.STATS, new Date());
   assert.match(lab.leftEmpty, /Why fields were left empty/);
-  assert.match(lab.leftEmpty, /ai_declined <span class="muted">7<\/span>/);
+  assert.match(lab.leftEmpty, /ai_declined<span class="cnt">7<\/span>/);
   assert.doesNotMatch(lab.leftEmpty, /no_answer <span/, 'real use never shows on the lab page');
   assert.doesNotMatch(lab.leftEmpty, /<section class="card">/, 'the lab page boxes its own sections');
 });
