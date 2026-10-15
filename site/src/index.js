@@ -18,6 +18,7 @@ import {view as intelligenceView} from './intelligence.js';
 import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as opsIngest, view as opsView} from './ops-overview.js';
+import {ingest as benchmarkIngest, view as benchmarkView} from './benchmark.js';
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from './jobcost.js';
 import {digestView, view as realFormFillingView} from './real-form-filling.js';
 import {view as formLearningView} from './form-learning.js';
@@ -130,7 +131,7 @@ async function route(request, env, ctx) {
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
     '/admin/operations/overview': opsView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
-    '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/lab-form-filling': applyingView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
+    '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/lab-form-filling': applyingView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
   if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
@@ -150,6 +151,7 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)
   if (pathname === '/ops/data' && (request.method === 'PUT' || request.method === 'GET')) return opsIngest(request, env);   // CI publishes merged PRs (Bearer SELFHEAL_PUBLISH_KEY, src/ops-overview.js)
+  if (pathname === '/benchmark/data' && request.method === 'PUT') return benchmarkIngest(request, env);   // the bake-off's scored runs (Bearer SELFHEAL_PUBLISH_KEY, src/benchmark.js)
   if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
   if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
   if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)

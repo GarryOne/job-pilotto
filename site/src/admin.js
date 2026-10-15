@@ -19,6 +19,7 @@ export const PAGES = [
   {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
   {path: '/admin/real-form-filling', group: 'Operations', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], name: 'Real Form Filling', icon: '📝'},
   {path: '/admin/lab-form-filling', group: 'Operations', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', name: 'Lab Form Filling', icon: '🛡️'},
+  {path: '/admin/benchmark-form-filling', group: 'Operations', question: 'How does our form filling compare with other tools on the same forms?', name: 'Benchmark Form Filling', icon: '📏'},
   {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
