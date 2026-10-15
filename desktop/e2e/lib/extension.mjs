@@ -12,6 +12,7 @@ import path from 'node:path';
 import {E2E} from './app.mjs';
 import {hostRules} from './forms.mjs';
 import {stamp, stampedAt} from '../../scripts/extension-stamp.mjs';
+import {LAUNCH_TIMEOUT_MS, launchGuard} from './launch-guard.mjs';
 
 export const EXTENSION_DIR = path.resolve(E2E, '..', '..', 'extension');
 export const DEFAULT_APP_PORT = 47111;   // the extension's built-in address for the app (extension/flow.js APP)
@@ -86,11 +87,12 @@ export const visitGuard = real => (real ? (url, options) => guardLiveVisit(url, 
 export async function launchBrowser({port, spool, extensionDir, real = false, profile: kept = '', debugPort = 0}) {
   if (kept) fs.mkdirSync(kept, {recursive: true});
   const profile = kept || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
+  launchGuard.check();   // a browser that did not start earlier in this process: stop now, never wait again per journey (lib/launch-guard.mjs)
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
+    ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: LAUNCH_TIMEOUT_MS,
     args: [...(process.env.E2E_HEADED || real ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
       ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check', ...leanChrome(), ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])],
-  });
+  }).catch(error => { launchGuard.failed(error); throw error; });
   const opened = [], pages = {}, requested = new Set();   // requested: every host name the browser asked for (a test proves no employer site was contacted)
   context.on('request', request => { try { const url = new URL(request.url()); if (/^https?:$/.test(url.protocol)) requested.add(url.hostname); } catch { /* not a URL */ } });
   let stopped = false;
