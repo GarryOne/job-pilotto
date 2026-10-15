@@ -21,6 +21,8 @@ export const asksYou = item => (item.question ? readSessionMessage(item.question
 // A message that ends on a question still waits for your answer first.
 // `formReady`: the form page says every required field is filled. Then what Claude asked earlier is moot: the form is
 // ready for review and submit, whatever its last message says (1 Oct 2026: a card still asked for a street already typed).
+// A Claude ask that closed with the app is outdated once the session's own tab reports an application page with fields (liveForm: the extension's report of it): the live page leads the card.
+export const askOutdated = (item, liveForm) => !!item && item.kind !== 'form' && !isLive(item) && item.status === 'input' && !!liveForm && !liveForm.account && liveForm.total > 0;
 export const sessionReview = (item, formReady = false) => {
   // Account fields being filled never prove that the application is ready. Process exit and
   // non-submission are also not completion evidence. Keep positive legacy handoffs only.

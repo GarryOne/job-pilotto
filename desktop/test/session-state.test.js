@@ -327,3 +327,12 @@ test('right after the app starts a silent Chrome is a neutral wait; the warning 
   assert.equal(chromeWaiting(form, none, WAIT_MS + 1), false);
   assert.equal(chromeWaiting(form, {known: true, ids: []}, CHECK_MS + 1), false);
 });
+
+test('a frozen Claude ask yields to a live application-form report of the session\'s tab', async () => {
+  const {askOutdated} = await import('../renderer/session-state.js');
+  const frozen = {id: 'a1', kind: 'claude', status: 'input', live: false, stage: 'account'};
+  assert.equal(askOutdated(frozen, {total: 6, left: 2}), true);               // frozen at the account step, the live tab shows the form
+  assert.equal(askOutdated(frozen, {total: 9, left: 9, account: true}), false); // still a sign-in page: the ask stands
+  assert.equal(askOutdated(frozen, undefined), false);                         // no report: nothing says it changed
+  assert.equal(askOutdated({...frozen, live: true, status: 'input'}, {total: 6}), false);   // Claude is running: its ask is live
+});
