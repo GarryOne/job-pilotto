@@ -90,3 +90,9 @@ test('the run dots read oldest to latest: the header says the direction and the 
   assert.match(PAGE, /\.dots i\.last\{box-shadow:/);
   assert.match(PAGE, /'Latest run · '/);
 });
+
+// Owner, 15 Oct 2026: "improve the text alignment" of the chip filters: a chip row is as tall as the search box, so the labels and the count line up.
+test('a chip row is as tall as an input, its chips centred', () => {
+  const height = PAGE.match(/\.pick input\[type=search\],\.pick select\{[^}]*height:(\d+)px/)[1];
+  assert.match(PAGE, new RegExp('\\.chiprow\\{[^}]*align-items:center;min-height:' + height + 'px'));
+});
