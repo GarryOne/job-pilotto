@@ -2,7 +2,7 @@
 <form onsubmit="return false" style="font:14px system-ui;padding:20px">
 <p><label for="first_name">First Name *</label> <input id="first_name" name="first_name" type="text" required aria-required="true"></p>
 <div><label id="title-label" for="title">Title *</label>
-<span style="display:inline-block;position:relative"><input id="title" type="text" role="combobox" aria-labelledby="title-label" aria-required="true" aria-expanded="false" autocomplete="off" value="No Selection" readonly style="width:200px">
+<span style="display:inline-block;position:relative"><input id="title" type="text" role="combobox" aria-labelledby="title-label" aria-required="true" aria-expanded="false" autocomplete="off" readonly style="width:200px">
 <div id="title_menu" role="listbox" hidden style="position:absolute;top:28px;left:0;width:200px;background:#fff;border:1px solid #888;z-index:5"></div></span>
 <input id="title_code" name="title_code" type="hidden"></div>
 <p><button type="button">Apply</button></p>
@@ -10,6 +10,7 @@
 <script>
 // A required salutation menu whose first choice is the placeholder "No Selection"; it offers Mr., Ms. and Diverse and no decline choice. A real mousedown opens it; picking one stores it.
 var input = document.getElementById('title'), menu = document.getElementById('title_menu'), code = document.getElementById('title_code');
+input.value = 'No Selection';   // set by the script: a recorded page holds no typed value attribute
 var choices = ['No Selection', 'Mr.', 'Ms.', 'Diverse'];
 function shut() { menu.hidden = true; menu.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); }
 input.addEventListener('mousedown', function (event) {
