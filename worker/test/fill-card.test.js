@@ -53,3 +53,12 @@ test('a field the AI proposed an answer for is "proposed", not a loss', () => {
   assert.deepEqual(card.causes, { proposed: 1, ai_declined: 1 });
   assert.deepEqual(cleanCard(card).causes, { proposed: 1, ai_declined: 1 });   // the site keeps it
 });
+
+test('a required box answered no and left unchecked counts as filled, not as a loss', () => {
+  const card = fillCard({ id: 'abc12345-y', trace: [
+    { label: 'Email', required: true, type: 'email', outcome: 'filled', reason: '', source: 'your details' },
+    { label: 'Employee of the group', required: true, type: 'checkbox', outcome: 'left', reason: 'answered no: left unchecked', source: 'Claude (on the page)' },
+  ], form: [], sent: [], version: '0.9.500', startedAt: '2026-10-15T10:00:00Z', endedAt: new Date('2026-10-15T10:00:10Z') });
+  assert.deepEqual([card.required, card.filled, card.left], [2, 2, 0]);
+  assert.deepEqual(card.causes, {});
+});
