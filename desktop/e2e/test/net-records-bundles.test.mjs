@@ -55,3 +55,34 @@ esac
   assert.match(rows['row b'].dir, /[\\/]mac[\\/]/, 'unpacked under mac/: whereOf says the Mac made it');
   fs.rmSync(tmp, {recursive: true, force: true});
 });
+
+// 15 Oct 2026 (owner): replays read ONLY the published release (what passed records-publish's guard). A recording a record-sites run left as a CI artifact, published or not, is never read:
+// Migros' and Databricks' new records reached #824's gate that way, past the guard.
+test('a recording that only sits in a record-sites run artifact is not read; the published one is', {skip: process.platform === 'win32' && 'bash and openssl'}, () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-published-')), release = path.join(tmp, 'release'), artifact = path.join(tmp, 'artifact'), bin = path.join(tmp, 'bin'), out = path.join(tmp, 'out'), calls = path.join(tmp, 'gh-calls');
+  for (const dir of [release, artifact, bin]) fs.mkdirSync(dir);
+  const sh = (cmd, cwd = tmp) => execFileSync('bash', ['-c', cmd], {cwd, stdio: ['ignore', 'pipe', 'pipe']});
+  sh('openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out priv.pem 2>/dev/null && openssl pkey -in priv.pem -pubout -out pub.pem');
+  const pack = (rows, tgz, keyFile, into) => {
+    const work = fs.mkdtempSync(path.join(tmp, 'b-'));
+    for (const [dir, record] of rows) { fs.mkdirSync(path.join(work, 'net-records', dir), {recursive: true}); fs.writeFileSync(path.join(work, 'net-records', dir, 'record.json'), JSON.stringify(record)); }
+    sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(into, tgz)}" -pass file:k`
+      + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(into, keyFile)}"`, work);
+  };
+  pack([['a', {name: 'row a', url: 'https://a.example.test/', startMs: 1}]], 'net-records.tgz.enc', 'net-records.k.enc', release);
+  pack([['z', {name: 'row z', url: 'https://z.example.test/', startMs: 99}]], 'net.tgz.enc', 'k.enc', artifact);   // a CI run's artifact: net.tgz.enc + k.enc, never guarded
+  fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env bash
+echo "$@" >> "${calls}"
+case "$1 $2" in
+  "release download") dir=""; while [ $# -gt 0 ]; do [ "$1" = --dir ] && dir="$2"; shift; done; mkdir -p "$dir"; cp "${release}"/net-records* "$dir"/ ;;
+  "run list") echo 4242 ;;
+  "run download") dir=""; while [ $# -gt 0 ]; do [ "$1" = --dir ] && dir="$2"; shift; done; mkdir -p "$dir"; cp "${artifact}"/* "$dir"/ ;;
+  *) exit 0 ;;
+esac
+`, {mode: 0o755});
+  const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, NET_RECORD_KEY: fs.readFileSync(path.join(tmp, 'priv.pem')).toString('base64'), RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only'};
+  execFileSync('bash', [path.join(E2E, 'net-records-fetch.sh'), out], {env, stdio: ['ignore', 'pipe', 'pipe']});
+  assert.deepEqual(newestPerRow(out, new Map()).map(row => row.name), ['row a'], 'only the published record is read');
+  assert.doesNotMatch(fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8') : '', /run (list|download)/, 'the fetch never lists or downloads a workflow run\'s artifacts');
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
