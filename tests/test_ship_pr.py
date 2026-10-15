@@ -82,6 +82,18 @@ class ShipPrTest(ShipFixture):
         self.assertNotIn('My change', git(self.origin, 'log', '--format=%s', 'main'))
         self.assertNotIn('pr close', ' '.join(self.calls()), 'the PR stays open for the session to fix and push again')
 
+    def test_a_cancelled_check_is_a_superseded_run_not_a_failure(self):
+        # 15 Oct 2026: every PR workflow cancels its older run on a push; ship.sh's own rebase push cancelled the run it was watching and it reported FAILED (#874)
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        result = self.pr_ship({'fail_check_once': {'name': 'replay (3)', 'link': 'https://example.test/run/3/job/1', 'bucket': 'cancel'}})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('looking again', result.stdout + result.stderr)
+
+    def test_a_check_that_stays_cancelled_is_a_failure(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        result = self.pr_ship({'fail_check': {'name': 'replay (3)', 'link': 'https://example.test/run/3/job/1', 'bucket': 'cancel'}})
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
     def test_a_second_run_reuses_the_open_pr_and_a_fixed_check_lands_it(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
         self.assertEqual(self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/1'}}).returncode, 1)
