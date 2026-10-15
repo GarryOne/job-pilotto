@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {loggedFields} from '../../extension/fill-fields.js';
-import {fieldLines} from '../e2e/lib/smoke.mjs';
+import {fieldLines} from '../e2e/lib/record-sites.mjs';
 import {logText} from './log-text.mjs';
 
 const TRACE = [

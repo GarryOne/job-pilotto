@@ -5,7 +5,7 @@
 // handedToPerson), so the detector's recall and false fires are measured offline on any run (phase 2 box 3). Pure: the caller reads the files (pool-gaps.mjs). Guard: e2e/test/pool-gaps.test.mjs.
 import {PROGRESS_KINDS} from '../../../extension/ladder/progress.js';
 import {SILENT_AFTER_MS, handedToPerson} from '../../../extension/ladder/silence.js';
-import {STEPS} from './smoke.mjs';
+import {STEPS} from './record-sites.mjs';
 
 const PROGRESS_LINE = /^(\S+Z) \[extension\] fill: progress: (\w+)(?: \{.*\})?$/;
 const ANY_LINE = /^(\S+Z) \[/;
@@ -104,10 +104,10 @@ export function detectorAt(report = {}, logs = {}, T = SILENT_AFTER_MS, stillMs 
   return out;
 }
 
-// A row's app log file in a smoke reports folder: the name smoke.mjs writes (the test reads smoke.mjs for the same expression).
+// A row's app log file in a smoke reports folder: the name record-sites.mjs writes (the test reads record-sites.mjs for the same expression).
 export const appLogName = (day, shape) => `${day}-${shape.replace(/\W+/g, '-')}.app.log`;
 
-// report: the day report (smoke.mjs); logs: {row: app log text}. -> one row per row THIS run ran, with its ending.
+// report: the day report (record-sites.mjs); logs: {row: app log text}. -> one row per row THIS run ran, with its ending.
 export function gapRows(report = {}, logs = {}) {
   const ran = Array.isArray(report.thisRun?.ran) ? new Set(report.thisRun.ran) : null;
   return Object.entries(report.results || {}).filter(([row]) => !ran || ran.has(row)).map(([row, item]) => {

@@ -1,5 +1,5 @@
 // The pool table's two words, from structure only (no per-site branches): the application platform a host belongs to (the ATS hosts the engine already reads feeds
-// from, src/sources/ats.py URL_PATTERNS; anything else is "Custom") and the flow a smoke signature tests, in words (lib/smoke.mjs signature(): page kinds in order
+// from, src/sources/ats.py URL_PATTERNS; anything else is "Custom") and the flow a smoke signature tests, in words (lib/record-sites.mjs signature(): page kinds in order
 // @ the host the journey ended on # how far it got). Used by src/applying.js. Guard: test/platform.test.js.
 const PLATFORMS = [['Workday', /(^|\.)myworkdayjobs\.com$/], ['SuccessFactors', /(^|\.)(successfactors\.(com|eu)|sapsf\.(com|eu))$/], ['Greenhouse', /(^|\.)greenhouse\.io$/],
   ['Ashby', /(^|\.)ashbyhq\.com$/], ['Lever', /(^|\.)lever\.co$/], ['SmartRecruiters', /(^|\.)smartrecruiters\.com$/], ['Workable', /(^|\.)workable\.com$/],

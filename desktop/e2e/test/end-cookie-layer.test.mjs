@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {endShotLine, takeEndShot} from '../lib/end-shot.mjs';
-import {parseLive} from '../lib/smoke.mjs';
+import {parseLive} from '../lib/record-sites.mjs';
 
 const tabWith = layer => ({url: () => 'https://a.example/apply', screenshot: async ({path: file}) => fs.writeFileSync(file, 'png'), evaluate: async () => layer});
 

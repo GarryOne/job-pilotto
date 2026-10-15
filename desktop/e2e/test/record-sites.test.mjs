@@ -1,7 +1,7 @@
-// The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
+// The hand-started smoke's logic (lib/record-sites.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, personalQueryKeys, poolShapes, selectRows, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, personalQueryKeys, poolShapes, selectRows, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/record-sites.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -43,7 +43,7 @@ test('postings rotate by day', () => {
 });
 
 test('postings of a shape come read-only from the job list, quotes in a pattern cannot break the query', async () => {
-  const {postingsLike} = await import('../smoke.mjs');
+  const {postingsLike} = await import('../record-sites.mjs');
   let asked;
   const rows = postingsLike(["%jobs.ch%", "%o'brien%"], (cmd, args) => { asked = [cmd, args]; return 'https://www.jobs.ch/a\tEngineer\tAcme\nhttps://www.jobs.ch/b\tAnalyst\tBeta\n'; });
   assert.deepEqual(rows.map(row => row.url), ['https://www.jobs.ch/a', 'https://www.jobs.ch/b']);
@@ -53,7 +53,7 @@ test('postings of a shape come read-only from the job list, quotes in a pattern 
 });
 
 test('a gone posting (404/410) is noted, and a note is never a regression', async () => {
-  const {postingStatus} = await import('../smoke.mjs');
+  const {postingStatus} = await import('../record-sites.mjs');
   assert.equal(await postingStatus('https://x.example/job', async () => ({status: 410})), 410);
   assert.equal(await postingStatus('https://x.example/job', async () => { throw new Error('offline'); }), 0);
   assert.deepEqual(compare({a: {reached: 'form', url: 'u'}}, {a: {reached: 'none', url: 'u', note: 'posting gone (HTTP 404)'}}), []);
@@ -74,7 +74,7 @@ test('the repo\'s pool list holds every row as a posting CI can run, with no add
       assert.deepEqual(personalQueryKeys(url), [], `${url}: a query part that could carry a person or a tracking id`);
     }
   }
-  const {LOCAL_SITES} = await import('../smoke.mjs');
+  const {LOCAL_SITES} = await import('../record-sites.mjs');
   assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'a Mac\'s optional extra list is outside the repo');
 });
 
@@ -93,13 +93,13 @@ test('the pool is one list: a Mac\'s optional extra rows join the repo\'s, and a
 });
 
 test('each shape is compared with its own last run, however long ago', async () => {
-  const {lastSeen} = await import('../lib/smoke.mjs');
+  const {lastSeen} = await import('../lib/record-sites.mjs');
   const seen = lastSeen([{day: '2026-10-01', results: {a: {reached: 'form'}, b: {reached: 'account'}}}, {day: '2026-10-05', results: {a: {reached: 'posting'}}}]);
   assert.deepEqual([seen.a.reached, seen.a.day, seen.b.reached, seen.b.day], ['posting', '2026-10-05', 'account', '2026-10-01']);
 });
 
 test('a flow signature: page kinds in order and the host the journey ended on; one signature per distinct flow', async () => {
-  const {signature} = await import('../lib/smoke.mjs');
+  const {signature} = await import('../lib/record-sites.mjs');
   const run = parseLive(`Apply pressed on u
   [extension] fill: page kind: posting {"by":"ai","host":"www.jobs.ch"}
   [extension] fill: page kind: posting {"by":"remembered","host":"www.jobs.ch"}
@@ -112,7 +112,7 @@ test('a flow signature: page kinds in order and the host the journey ended on; o
 });
 
 test('discovery candidates: a few per host, more from job boards, none already in the pool', async () => {
-  const {candidates} = await import('../lib/smoke.mjs');
+  const {candidates} = await import('../lib/record-sites.mjs');
   const jobs = [...Array.from({length: 20}, (_, i) => ({url: `https://www.jobs.ch/en/vacancies/detail/${i}/`})), ...Array.from({length: 5}, (_, i) => ({url: `https://career.hm.com/job/${i}`}))];
   const picked = candidates(jobs, new Set(['https://career.hm.com/job/0']));
   assert.equal(picked.filter(item => item.url.includes('jobs.ch')).length, 12);
@@ -120,7 +120,7 @@ test('discovery candidates: a few per host, more from job boards, none already i
 });
 
 test('never an automated visit to LinkedIn, Glassdoor, Indeed, levels.fyi or Reddit: not a discovery candidate, not picked by a pool run', async () => {
-  const {candidates, mayVisit} = await import('../lib/smoke.mjs');
+  const {candidates, mayVisit} = await import('../lib/record-sites.mjs');
   for (const url of ['https://ch.indeed.com/viewjob?jk=1', 'https://www.linkedin.com/jobs/view/1', 'https://www.glassdoor.ch/job/1', 'https://www.levels.fyi/jobs', 'https://www.reddit.com/r/jobs']) assert.equal(mayVisit(url), false, url);
   assert.equal(mayVisit('https://career.hm.com/job/1'), true);
   assert.deepEqual(candidates([{url: 'https://ch.indeed.com/viewjob?jk=1'}, {url: 'https://career.hm.com/job/1'}]).map(item => item.url), ['https://career.hm.com/job/1']);
@@ -274,12 +274,12 @@ test('the app\'s page-kind answers with no kind keep their error words, and the 
   assert.deepEqual(log(['page kind: posting {"by":"ai"}']).pageKindErrors, []);
 });
 
-test('a smoke row runs on the app\'s own path without Electron by default; SMOKE_ELECTRON=1 (or SMOKE_NO_ELECTRON=0) is the way back to the Electron app', () => {
+test('a smoke row runs on the app\'s own path without Electron by default; RECORD_ELECTRON=1 (or RECORD_NO_ELECTRON=0) is the way back to the Electron app', () => {
   assert.equal(smokeEngine({}), 'node', 'the default (owner, 11 Oct 2026: ~35-65 s instead of 69-97 s a row, no 27 s app start)');
-  assert.equal(smokeEngine({SMOKE_NO_ELECTRON: '1'}), 'node');
-  assert.equal(smokeEngine({SMOKE_ELECTRON: '1'}), 'electron');
-  assert.equal(smokeEngine({SMOKE_NO_ELECTRON: '0'}), 'electron');
-  assert.match(engineLine('node'), /without Electron.*SMOKE_ELECTRON=1/);
+  assert.equal(smokeEngine({RECORD_NO_ELECTRON: '1'}), 'node');
+  assert.equal(smokeEngine({RECORD_ELECTRON: '1'}), 'electron');
+  assert.equal(smokeEngine({RECORD_NO_ELECTRON: '0'}), 'electron');
+  assert.match(engineLine('node'), /without Electron.*RECORD_ELECTRON=1/);
   assert.match(engineLine('electron'), /Electron app/);
 });
 
@@ -287,7 +287,7 @@ test('a run\'s share is the first rows of the ordered pool; a share bigger than 
   const pool = ['a', 'b', 'c', 'd', 'e'];
   assert.deepEqual(runShare(pool, 2), ['a', 'b']);
   assert.deepEqual(runShare(pool, 10), pool);
-  assert.equal(shareSize({SMOKE_SHARE: '4'}), 4);
+  assert.equal(shareSize({RECORD_SHARE: '4'}), 4);
   assert.equal(shareSize({SMOKE_PER_NIGHT: '6'}), 6, 'the old name still works');
   assert.equal(shareSize({}), 10);
 });

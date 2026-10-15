@@ -6,6 +6,7 @@
 //   (--rows lists the shapes under each group; --json reads a saved copy of the page's ?json)
 // Columns: cause, rows, claimed (rows a session holds; the session itself is never on the site), oldest run. Guard: site/test/needs-fix-causes.test.js.
 import fs from 'node:fs';
+import {recordVar} from './record-env.mjs';
 import {pageJson} from './applying-page-copy.mjs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -29,9 +30,9 @@ export function groupLines(json, {rows = false} = {}) {
 
 const fetchJson = () => pageJson({caller: 'needs-fix-causes', refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
 
-// The capture folders on this Mac: {<day>: [folder]} under SMOKE_CANDIDATES (default: the QA folder's replay-candidates), {} when there are none.
+// The capture folders on this Mac: {<day>: [folder]} under RECORD_CANDIDATES (default: the QA folder's replay-candidates), {} when there are none.
 function captureListing() {
-  const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates'), listing = {};
+  const root = recordVar('CANDIDATES') || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates'), listing = {};
   try { for (const day of fs.readdirSync(root).filter(name => /^\d{4}-\d\d-\d\d$/.test(name))) listing[day] = fs.readdirSync(path.join(root, day)).filter(folder => fs.existsSync(path.join(root, day, folder, 'case.json'))); } catch { /* none */ }
   return listing;
 }

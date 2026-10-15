@@ -3,7 +3,7 @@
 // on this PR (the baseline a run must not fall below; a blocked row on either side is never compared).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {SITE_REFUSED} from '../lib/smoke.mjs';
+import {SITE_REFUSED} from '../lib/record-sites.mjs';
 import {baselines, fallsBelow, mergeLedgers, stateOf} from '../lib/pool-ci-state.mjs';
 
 const visit = (at, who) => ({at, run: '4242', who});

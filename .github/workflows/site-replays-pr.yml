@@ -62,7 +62,7 @@ on:
       - 'desktop/e2e/lib/seed-data.mjs'
       - 'desktop/e2e/lib/seeded-random.mjs'
       - 'desktop/e2e/lib/site-ledger.mjs'
-      - 'desktop/e2e/lib/smoke.mjs'
+      - 'desktop/e2e/lib/record-sites.mjs'
       - 'desktop/e2e/lib/staged-worker.mjs'
       - 'desktop/e2e/lib/step-shots.mjs'
       - 'desktop/e2e/lib/store-call.mjs'

@@ -108,6 +108,6 @@ test('a claim names a pool row: a slug is refused before any claim is written, w
   const pool = path.join(dir(), 'pool.json');
   fs.writeFileSync(pool, JSON.stringify({shapes: [{shape: 'Acme jobs, French', urls: []}]}));   // this Mac's own list, so the pool is complete
   let out = '';
-  try { execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/claim-shape.mjs', import.meta.url)), 'claim', 'acme-jobs-french', '--session', 't'], {env: {...process.env, SMOKE_SITES: pool}, encoding: 'utf8', stdio: 'pipe'}); } catch (error) { out = `${error.status} ${error.stderr}`; }
+  try { execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/claim-shape.mjs', import.meta.url)), 'claim', 'acme-jobs-french', '--session', 't'], {env: {...process.env, RECORD_SITES: pool}, encoding: 'utf8', stdio: 'pipe'}); } catch (error) { out = `${error.status} ${error.stderr}`; }
   assert.match(out, /^2 not claimed: "acme-jobs-french" is not a row name of the pool.*did you mean "Acme jobs, French"/);
 });

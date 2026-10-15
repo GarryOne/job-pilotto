@@ -4,8 +4,9 @@
 // --old-commit <sha>: instead of --old, build the old extension from this checkout with that commit's extension changes taken out, into a temp folder (lib/old-extension.mjs).
 // --fixed: the capture was taken on a build that already has the fix (a regression case): expect = the live run itself, and the old build must fail it.
 // A failing pool row's capture becomes a case in e2e/recorded/ that the CI recorded-pages job replays (lib/row-to-case.mjs has the proof and the exit codes: 0 written, 1, 2, 3 old build passes, 4 not provable).
-// The row comes from the pool's candidates (SMOKE_CANDIDATES, default <QA folder>/replay-candidates); a capture from before the replay format is STALE and is refused. Runs under the heavy lock (package.json).
+// The row comes from the pool's candidates (RECORD_CANDIDATES, default <QA folder>/replay-candidates); a capture from before the replay format is STALE and is refused. Runs under the heavy lock (package.json).
 import os from 'node:os';
+import {recordVar} from '../../tools/record-env.mjs';
 import path from 'node:path';
 import {REPLAY_DIR} from './lib/page-replay.mjs';
 import {seedNote} from './lib/applicant-seed.mjs';
@@ -19,7 +20,7 @@ const stubAt = args.flatMap((arg, i) => (arg === '--stub-page' ? [i] : [])), stu
 let oldDir = at >= 0 ? path.resolve(args[at + 1] || '') : process.env.OLD_EXTENSION_DIR ? path.resolve(process.env.OLD_EXTENSION_DIR) : '';
 const skipAt = new Set([...(at >= 0 ? [at, at + 1] : []), ...(commitAt >= 0 ? [commitAt, commitAt + 1] : []), ...stubAt.flatMap(i => [i, i + 1])]);
 const rest = args.filter((arg, i) => !skipAt.has(i) && arg !== '--ask-cold' && arg !== '--fixed'), name = rest.pop(), row = rest.join(' ');
-const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
+const root = recordVar('CANDIDATES') || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
 if (!row || !name) { console.error('row-to-case: usage: npm run row-to-case -- "<row>" <case-name> --old <extension folder> [--ask-cold] [--fixed] [--stub-page <n>]  (or --old-commit <sha> in place of --old)'); process.exit(2); }
 let dir = findRow(row, root), bare = null;
 if (!dir && isBareCapture(path.resolve(row))) {   // a live capture folder (npm run live): its candidate is made here

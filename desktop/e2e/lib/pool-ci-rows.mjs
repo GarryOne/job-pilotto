@@ -1,12 +1,12 @@
 // A CI recording run's rows for the pool table on /admin/lab-form-filling (owner, 14 Oct 2026: the CI workflow's one job is recording, so its rows must move the page): one PUT to
 // /applying/ci-rows with CI's narrow REPLAYS_PUBLISH_KEY, a run on main only (the site refuses any other branch: site/src/applying-ci-rows.js). The Mac's own upload (lib/applying-report.mjs)
-// still refuses CI. Same row fields as smoke.mjs sends from a Mac. JP_CI_ROWS_DRY=1|true: say it, send nothing. Guard: e2e/test/pool-ci-rows.test.mjs.
+// still refuses CI. Same row fields as record-sites.mjs sends from a Mac. JP_CI_ROWS_DRY=1|true: say it, send nothing. Guard: e2e/test/pool-ci-rows.test.mjs.
 import {hostOnly} from './applying-report.mjs';
-import {rungFields, verdictFields} from './smoke.mjs';
+import {rungFields, verdictFields} from './record-sites.mjs';
 
 export const CI_ROWS_SITE = 'https://www.jobpilotto.top/applying/ci-rows';
 
-// report: the day report (smoke.mjs). -> [{name, host, reached, filled, left, note, ending, ...}] for the rows THIS run ran
+// report: the day report (record-sites.mjs). -> [{name, host, reached, filled, left, note, ending, ...}] for the rows THIS run ran
 export function ciRows(report = {}) {
   const ran = Array.isArray(report.thisRun?.ran) ? new Set(report.thisRun.ran) : null;
   return Object.entries(report.results || {}).filter(([name, item]) => (!ran || ran.has(name)) && item)

@@ -62,11 +62,11 @@ jobs:
       JOB_PILOTTO_VISIT_KIND: hand   # each visit says its kind (lib/site-ledger.mjs; lib/engine.mjs liveKeyName)
       JP_NET_RECORD_DIR: ${{ github.workspace }}/net-records   # each row's network record (lib/net-record.mjs): uploaded encrypted below, never in the plain captures
       JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/record-sites-out/site-ledger
-      SMOKE_PAIRED: '0'
-      SMOKE_REPORTS: ${{ github.workspace }}/record-sites-out/smoke-reports
-      SMOKE_CANDIDATES: ${{ github.workspace }}/record-sites-out/replay-candidates
-      SMOKE_CAPTURES: ${{ github.workspace }}/record-sites-out/captures   # every row's whole journey (lib/capture-library.mjs): npm run measure re-runs a build on it offline
-      SMOKE_SITES: ${{ github.workspace }}/record-sites-out/no-mac-list.json   # never present: the Mac's own rows stay on the Mac
+      RECORD_PAIRED: '0'
+      RECORD_REPORTS: ${{ github.workspace }}/record-sites-out/smoke-reports
+      RECORD_CANDIDATES: ${{ github.workspace }}/record-sites-out/replay-candidates
+      RECORD_CAPTURES: ${{ github.workspace }}/record-sites-out/captures   # every row's whole journey (lib/capture-library.mjs): npm run measure re-runs a build on it offline
+      RECORD_SITES: ${{ github.workspace }}/record-sites-out/no-mac-list.json   # never present: the Mac's own rows stay on the Mac
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -109,13 +109,13 @@ jobs:
         working-directory: desktop/e2e
         run: |
           set -o pipefail
-          mkdir -p "$SMOKE_REPORTS"
+          mkdir -p "$RECORD_REPORTS"
           rows=${SHARE:-1}
           if ! [ "$rows" -ge 1 ] 2>/dev/null; then rows=1; fi
           if [ "$rows" -gt "$MAX_ROWS" ]; then rows=$MAX_ROWS; fi
           only=${ONLY:-$DEFAULT_ROWS}
           echo "record-sites: rows matching \"$only\", at most $rows, AI cap \$$MAX_USD; CI's site limit $JOB_PILOTTO_SITE_LIMIT a host a day"
-          SMOKE_MAX_ROWS=$rows SMOKE_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node smoke.mjs --only "$only" 2>&1 | tee "$GITHUB_WORKSPACE/record-sites-out/smoke.log"
+          RECORD_MAX_ROWS=$rows RECORD_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node record-sites.mjs --only "$only" 2>&1 | tee "$GITHUB_WORKSPACE/record-sites-out/smoke.log"
       - name: Encrypt the network records (the public key is in the repo; the private key only in the owner's Keychain)
         if: always()
         run: |
@@ -135,7 +135,7 @@ jobs:
           if-no-files-found: ignore
       - name: Hand this run's state to the next runs (its ledger and rows)
         if: always()
-        run: node desktop/e2e/pool-ci-state.mjs save "$SMOKE_REPORTS" record-sites-out/state/state.json
+        run: node desktop/e2e/pool-ci-state.mjs save "$RECORD_REPORTS" record-sites-out/state/state.json
       - name: This run's state
         if: always()
         uses: actions/upload-artifact@v6
@@ -151,23 +151,23 @@ jobs:
           NOT_RUN_FILE: ${{ runner.temp }}/not-run.txt   # a run where no row ran: its NOT RUN line (lib/pool-ci.mjs), never a green pass
         run: |
           set -o pipefail
-          node pool-ci-summary.mjs "$SMOKE_REPORTS" "$GITHUB_WORKSPACE/record-sites-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          node pool-ci-summary.mjs "$RECORD_REPORTS" "$GITHUB_WORKSPACE/record-sites-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: The ladder moves, the rows' endings, and (on main only) the rows' results for /admin/lab-form-filling
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}   # the narrow key: it writes only the replays, test-source ladder moves, the rows' endings and (main only) the rows' results
         run: |
-          node desktop/e2e/pool-moves.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
-          node desktop/e2e/pool-endings.mjs "$SMOKE_REPORTS"   # each row's ending: main's feed /admin/lab-form-filling's Resolution tile (phase 1a)
+          node desktop/e2e/pool-moves.mjs "$RECORD_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
+          node desktop/e2e/pool-endings.mjs "$RECORD_REPORTS"   # each row's ending: main's feed /admin/lab-form-filling's Resolution tile (phase 1a)
           # A recording run is how the pool's table moves (owner, 14 Oct 2026): the site refuses any branch but main (site/src/applying-ci-rows.js).
-          [ "$GITHUB_REF" = "refs/heads/main" ] && node desktop/e2e/pool-ci-rows.mjs "$SMOKE_REPORTS" || echo "ci rows report: not sent (not a run on main)"
+          [ "$GITHUB_REF" = "refs/heads/main" ] && node desktop/e2e/pool-ci-rows.mjs "$RECORD_REPORTS" || echo "ci rows report: not sent (not a run on main)"
       - name: Report the run's AI spend to /admin/ai-cost (never fails the job)
         if: always()
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
           AI_COST_JOB: pool-live
-        run: node desktop/e2e/pool-ai-cost.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
+        run: node desktop/e2e/pool-ai-cost.mjs "$RECORD_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
       - name: Every row's capture (capture once, measure many)
         if: always()
         uses: actions/upload-artifact@v6

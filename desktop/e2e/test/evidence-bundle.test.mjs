@@ -62,8 +62,8 @@ test('the bundle: one folder per day and shape with the evidence file, the run l
   assert.deepEqual(fs.readdirSync(lean).sort(), ['evidence.md', 'run.log']);
 });
 
-test('smoke.mjs: an unfinished run is dropped before anything is recorded or uploaded; a finished one writes its bundle', () => {
-  const source = fs.readFileSync(new URL('../smoke.mjs', import.meta.url), 'utf8');
+test('record-sites.mjs: an unfinished run is dropped before anything is recorded or uploaded; a finished one writes its bundle', () => {
+  const source = fs.readFileSync(new URL('../record-sites.mjs', import.meta.url), 'utf8');
   const check = source.indexOf('runFinished('), record = source.indexOf('results[shape] = {url: posting.url, ...parseLive'), bundle = source.indexOf('writeBundle(');
   assert.ok(check > 0 && record > check, 'runFinished must be checked before the result is recorded');
   assert.ok(bundle > record, 'the bundle is written from a finished run');

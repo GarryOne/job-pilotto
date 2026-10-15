@@ -1,5 +1,5 @@
 // The measure step of capture once, measure many (spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md): a row replayed offline by lib/row-replay.mjs
-// (unchanged) is read as a live row is: its app log turned into the live run's output (lib/smoke.mjs outputOfLog) and parsed by parseLive, its ending by lib/ending.mjs,
+// (unchanged) is read as a live row is: its app log turned into the live run's output (lib/record-sites.mjs outputOfLog) and parsed by parseLive, its ending by lib/ending.mjs,
 // the dead-end tables by lib/pool-shadow.mjs and lib/pool-acted.mjs. It owns only the safeguards that keep an offline number from passing for a live one (owner via cc,
 // 13 Oct 2026): every table labelled offline (memo|plan), never beside a live number; a row with ANY ask its capture has no kept answer for is "not measured", by route and differing part (13 Oct 2026: one missed page-kind ask of 16 took a fill from 5 to 1);
 // a press the capture never saw is "unseen", never worked or failed; "unverified" until the positive control passed. Pure but for the captures' files.
@@ -10,7 +10,7 @@ import {RUN_SETTINGS} from './capture-library.mjs';
 import {endingOf} from './ending.mjs';
 import {actedOf} from './pool-acted.mjs';
 import {personPrecision, shadowTable} from './pool-shadow.mjs';
-import {outputOfLog, parseLive} from './smoke.mjs';
+import {outputOfLog, parseLive} from './record-sites.mjs';
 
 // The positive control (spec PR 3): until it passed, every output says "unverified". Flipped by the PR that records its numbers in the spec.
 export const VERIFIED = false;

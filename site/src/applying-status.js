@@ -4,7 +4,7 @@
 
 export const STATES = ['works', 'held', 'site', 'fix', 'unrun'];
 export const STATE_WORD = {works: 'Works', held: 'Held on purpose', site: 'Site problem', fix: 'Needs a fix', unrun: 'Not run yet'};
-// The notes the runner writes on purpose (desktop/e2e/lib/smoke.mjs parseLive): each is a rule the site or the posting set, never a fix.
+// The notes the runner writes on purpose (desktop/e2e/lib/record-sites.mjs parseLive): each is a rule the site or the posting set, never a fix.
 const HOLDS = [[/^account-first: held/, 'account-first'], [/^eligibility stop:/, 'eligibility'], [/^login wall: held/, 'login wall'], [/^applies by email: told/, 'applies by email'], [/^page tells how to apply: told/, 'page tells how']];
 const SITE_REFUSED = /^site refused: retry later/;
 const EARLY = ['none', 'posting', 'account'];
@@ -16,7 +16,7 @@ export const isCleanHold = status => status.state === 'held' && status.rule !== 
 // A documented hold: the run stopped here on purpose. A site that refused us (retry later) is a site problem (the notes of one hold list are the notes of one status), never a fix.
 export const isHold = note => SITE_REFUSED.test(note || '') || HOLDS.some(([pattern]) => pattern.test(note || ''));
 
-// A form whose every empty asked field is left by a rule (the runner's verdict counts none unexplained: desktop/e2e/lib/smoke.mjs verdictOf: proposed, written, legal,
+// A form whose every empty asked field is left by a rule (the runner's verdict counts none unexplained: desktop/e2e/lib/record-sites.mjs verdictOf: proposed, written, legal,
 // demographic, a password) is not a fix when it filled fewer than its last run (owner, 14 Oct 2026: a field that moved from typed to a rule hold is a hold, not a regression).
 // An older run with no verdict (asked unknown) keeps the counts' regression.
 const leftByRules = run => run.reached === 'form' && Number.isInteger(run.asked) && run.unexplained === 0;

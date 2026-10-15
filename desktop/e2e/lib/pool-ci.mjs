@@ -2,16 +2,17 @@
 // AI dollars), no Electron leg there (never a second visit after a block page; the runner has no Electron), and the job summary: one table row per run row, a bot
 // wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, red only for a row that did not finish (a harness error), the tripwire, or a
 // refused AI (12 Oct 2026: the Tests key had no credit and the row ran without AI, which is no result).
-// Used by smoke.mjs and pool-ci-summary.mjs. Guard: e2e/test/pool-ci.test.mjs.
-import {SITE_REFUSED} from './smoke.mjs';
+// Used by record-sites.mjs and pool-ci-summary.mjs. Guard: e2e/test/pool-ci.test.mjs.
+import {SITE_REFUSED} from './record-sites.mjs';
+import {recordVar} from '../../../tools/record-env.mjs';
 import {fallsBelow} from './pool-ci-state.mjs';
 import {LIVE_KEYS, keySecret} from './engine.mjs';
 
 // -> {maxRows, maxUsd}; 0 = no cap. On CI both come from the workflow, or the run is refused before any site is visited.
 export function ciLimits(env = process.env) {
-  const maxRows = Number(env.SMOKE_MAX_ROWS || 0), maxUsd = Number(env.SMOKE_MAX_USD || 0);
-  if (env.CI && !(maxRows >= 1)) throw new Error('pool on CI: SMOKE_MAX_ROWS (the row cap, at least 1) must come from the workflow');
-  if (env.CI && !(maxUsd > 0)) throw new Error('pool on CI: SMOKE_MAX_USD (the AI dollar cap) must come from the workflow');
+  const maxRows = Number(recordVar('MAX_ROWS', env) || 0), maxUsd = Number(recordVar('MAX_USD', env) || 0);
+  if (env.CI && !(maxRows >= 1)) throw new Error('pool on CI: RECORD_MAX_ROWS (the row cap, at least 1) must come from the workflow');
+  if (env.CI && !(maxUsd > 0)) throw new Error('pool on CI: RECORD_MAX_USD (the AI dollar cap) must come from the workflow');
   return {maxRows: maxRows >= 1 ? Math.floor(maxRows) : 0, maxUsd: maxUsd > 0 ? maxUsd : 0};
 }
 
@@ -57,10 +58,10 @@ function notRunLine(report, now) {
   return `NOT RUN: ${why.join('; ') || 'no row ran'}`;
 }
 
-// The row's ending (the outcome contract, lib/ending.mjs, set by smoke.mjs): unresolved stands out; 'held' is the test's own hold, not measured.
+// The row's ending (the outcome contract, lib/ending.mjs, set by record-sites.mjs): unresolved stands out; 'held' is the test's own hold, not measured.
 const endingCell = item => (item.ending === 'unresolved' ? '❌ unresolved' : item.ending === 'held' ? 'held by the test' : item.ending || '–');
 
-// The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
+// The day's report (record-sites.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
 // keyName: which Anthropic key the run used, by NAME (lib/engine.mjs liveKeyName); anything but a known name is never printed.
 const KEY_NAMES = [keySecret('api'), ...Object.values(LIVE_KEYS)];   // the names come from the engine rule, the only file that names keys (e2e/test/no-local-key.test.mjs)

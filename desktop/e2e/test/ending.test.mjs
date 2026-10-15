@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {ENDINGS} from '../../../extension/ladder/endings.js';
-import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from '../lib/smoke.mjs';
+import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from '../lib/record-sites.mjs';
 import {HELD_BY_TEST, REASONS, RUN_ERRORS, STOP_LINES, STOP_STUCK, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
 import {STUCK_REASONS, endingOfStuck} from '../../../extension/ladder/endings.js';
 import {seenDeadEnd} from '../../../extension/ladder/dead-end.js';
@@ -101,9 +101,9 @@ test('every ending is one of the fixed list; the tally counts each and the resol
 });
 
 test('every trace word the classifier reads is still written by the code that writes it: a reworded reason fails here, never silently moving rows', () => {
-  const fill = fs.readFileSync(new URL('../../../extension/page/fill.js', import.meta.url), 'utf8'), smoke = fs.readFileSync(new URL('../lib/smoke.mjs', import.meta.url), 'utf8');
+  const fill = fs.readFileSync(new URL('../../../extension/page/fill.js', import.meta.url), 'utf8'), smoke = fs.readFileSync(new URL('../lib/record-sites.mjs', import.meta.url), 'utf8');
   for (const [name, words] of Object.entries(REASONS)) assert.ok(fill.includes(`'${words}'`), `${name}: "${words}" is no longer written by extension/page/fill.js`);
-  for (const [name, words] of Object.entries(RUN_ERRORS)) assert.ok(smoke.includes(words), `${name}: "${words}" is no longer written by desktop/e2e/lib/smoke.mjs`);
+  for (const [name, words] of Object.entries(RUN_ERRORS)) assert.ok(smoke.includes(words), `${name}: "${words}" is no longer written by desktop/e2e/lib/record-sites.mjs`);
 });
 
 test('the stop lines the classifier reads are the extension\'s own words: a rename in fill-flow.js fails here, never silently', () => {

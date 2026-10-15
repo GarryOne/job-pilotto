@@ -1,19 +1,19 @@
 // The outcome contract's classifier (owner, 12 Oct 2026; spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): ONE ending per pool row (extension/ladder/endings.js ENDINGS),
-// from the row's EXISTING report: where it got to (reached), the notes the run parser wrote (lib/smoke.mjs parseLive), each required field's outcome and reason (our own trace words,
+// from the row's EXISTING report: where it got to (reached), the notes the run parser wrote (lib/record-sites.mjs parseLive), each required field's outcome and reason (our own trace words,
 // extension/page/fill.js, mapped by the fill card's causeOf), and, when given, the extension's own stop line in the row's app log. Never page text. Pure. Guard: e2e/test/ending.test.mjs.
 // A row that is not an application outcome is not counted: {ending: null, why}: the harness did not finish, the privacy tripwire, a refused AI, and the TEST's own holds (cc/owner,
 // 12 Oct 2026): the pool never presses an account button with fake data (ACCOUNT_HELD), and a CI runner's data-center address meets bot walls a person's would not. Those are shown apart
 // ("held by the test, not measured"), never counted resolved. 'handed' is only a real wall the run names: a bot check on a person's address, a sign-in to an existing account (LOGIN_WALL).
 import {causeOf} from '../../../extension/fill-card.js';
 import {CAUSES, ENDINGS, endingOfStuck, resolved} from '../../../extension/ladder/endings.js';
-import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './smoke.mjs';
+import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './record-sites.mjs';
 
 // The trace words the classifier reads, as the code named writes them (no structured code travels in the report; a guard test checks each is still written there, so a reworded
 // reason fails a test instead of silently moving rows: e2e/test/ending.test.mjs). The rest goes through the fill card's causeOf (extension/fill-card.js).
 export const REASONS = {legal: 'legal/consent: always your choice', written: 'written: your own words to write', demographic: 'demographic: your own choice',   // extension/page/fill.js
   noSlot: 'no place to attach it was found on this page', details: 'your details'};   // extension/page/fill.js
 export const RUN_ERRORS = {dialogLeft: 'a dialog was left open over the form', dialogCovers: 'held: a dialog covers the form', blocked: 'form judge: the page is blocked',
-  unreported: 'form fill did not report'};   // desktop/e2e/lib/smoke.mjs parseLive
+  unreported: 'form fill did not report'};   // desktop/e2e/lib/record-sites.mjs parseLive
 const PERSONS = [REASONS.legal, REASONS.written, REASONS.demographic];
 // The worst required field decides a form: a field we missed > a control we did not see > a fact only the person has > the person's own choice.
 const WORST = ['unresolved', 'blind', 'data_missing', 'ready'];
@@ -74,7 +74,7 @@ const lastStop = appLog => {
 };
 
 export const HELD_BY_TEST = 'held by the test';
-// result: a pool row's result (smoke.mjs day report). appLog: the row's app log, optional. ci: the row ran on a CI runner. -> {ending, why}
+// result: a pool row's result (record-sites.mjs day report). appLog: the row's app log, optional. ci: the row ran on a CI runner. -> {ending, why}
 export function endingOf(result, appLog = '', {ci = false} = {}) {
   if (!result || typeof result !== 'object') return {ending: null, why: 'no result'};
   if (result.tripped) return {ending: null, why: 'the privacy tripwire'};

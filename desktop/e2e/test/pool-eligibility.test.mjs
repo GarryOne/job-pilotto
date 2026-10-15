@@ -16,9 +16,9 @@ const fakeWorker = ({keeps = true} = {}) => {
   return {stored, evaluate: async fn => { globalThis.chrome = chrome; try { return await fn(); } finally { delete globalThis.chrome; } }};
 };
 
-test('a pool row runs with the eligibility check off unless SMOKE_ELIGIBILITY=on keeps it', () => {
+test('a pool row runs with the eligibility check off unless RECORD_ELIGIBILITY=on keeps it', () => {
   assert.equal(eligibilityOff(poolEnv({})), true);
-  assert.equal(eligibilityOff(poolEnv({SMOKE_ELIGIBILITY: 'on'})), false);
+  assert.equal(eligibilityOff(poolEnv({RECORD_ELIGIBILITY: 'on'})), false);
   assert.equal(eligibilityOff({}), false, 'a run outside the pool keeps the check');
 });
 
@@ -37,7 +37,7 @@ test('a switch that did not take fails the run before anything is pressed', asyn
 });
 
 test('every smoke spawn of a live row carries the pool env (both paths)', () => {
-  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+  const source = fs.readFileSync(path.join(E2E, 'record-sites.mjs'), 'utf8');
   const spawns = [...source.matchAll(/spawn\('node', \[[\s\S]*?env: \{([^}]*)/g)].map(match => match[1]);
   assert.ok(spawns.length >= 2, `smoke spawns both paths (found ${spawns.length})`);
   for (const env of spawns) assert.match(env, /^\.\.\.poolEnv\(\)/, `a smoke spawn without the pool env: {${env.slice(0, 80)}`);

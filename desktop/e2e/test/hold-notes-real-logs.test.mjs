@@ -1,7 +1,7 @@
 // Every documented hold keeps its note on a REAL pool log, whose summary reprints the digest line after the fill lines (pool-batch, 11 Oct 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseLive, ACCOUNT_HELD, SITE_REFUSED, LOGIN_WALL, APPLY_BY_EMAIL, PAGE_TELLS} from '../lib/smoke.mjs';
+import {parseLive, ACCOUNT_HELD, SITE_REFUSED, LOGIN_WALL, APPLY_BY_EMAIL, PAGE_TELLS} from '../lib/record-sites.mjs';
 
 const P = 'Apply pressed on https://example.org/job/1';
 const log = (digest, fill) => [

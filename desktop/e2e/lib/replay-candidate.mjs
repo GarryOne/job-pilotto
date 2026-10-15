@@ -1,5 +1,5 @@
 // Replay candidates (owner, 10 Oct 2026, after a form filled 4 of 13 and nothing was kept to fix it from): when a nightly smoke run fails, its final page is saved, scrubbed, with what the run saw, as
-// the start of a fixed-site replay. It owns: which results are worth saving, and the folder written per failing shape. Used by smoke.mjs after each site; the page itself is snapshotted in the live
+// the start of a fixed-site replay. It owns: which results are worth saving, and the folder written per failing shape. Used by record-sites.mjs after each site; the page itself is snapshotted in the live
 // run (apply-live.mjs, structure only, scrubbed). The folder is on this Mac (<QA folder>/replay-candidates/<day>/<shape>/), never the public repo: a person promotes a candidate to
 // desktop/e2e/recorded/ only when they fix the shape, with the AI answers of the failing run, and it must fail on the build before the fix (skill fix-recorded-sites). Guard: test/replay-candidate.test.mjs.
 import fs from 'node:fs';
@@ -25,7 +25,7 @@ export function livePresses(appLog) {
   });
 }
 
-export function saveCandidate({dir, day, shape, result, html, output = '', aiCalls = '', captureDir = '', appLog = '', always = false}) {   // always: a passing row too (SMOKE_KEEP_CANDIDATES=1: a row replay's trust check needs rows that pass)
+export function saveCandidate({dir, day, shape, result, html, output = '', aiCalls = '', captureDir = '', appLog = '', always = false}) {   // always: a passing row too (RECORD_KEEP_CANDIDATES=1: a row replay's trust check needs rows that pass)
   const journey = (() => { try { return JSON.parse(fs.readFileSync(path.join(captureDir, 'journey.json'), 'utf8')); } catch { return null; } })();
   if ((!html && !journey?.length) || (!always && !worthSaving(result))) return null;
   const folder = path.join(dir, day, slug(shape)), address = String(result.url || '').replace(/[?#].*$/, '');

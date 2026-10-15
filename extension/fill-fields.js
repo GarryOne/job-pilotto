@@ -1,6 +1,6 @@
 // The fill's field-by-field log line (background.js "fill: fields: N filled, M left"): one row per field, labels and kinds, never a value.
 // It carries `required` (11 Oct 2026, Datadog: it was dropped here, so the smoke report saw "required=?" on every field and counted an optional
-// Website left empty as a failure). Read by desktop/e2e/lib/smoke.mjs fieldLines. Guarded by desktop/test/fill-fields.test.js.
+// Website left empty as a failure). Read by desktop/e2e/lib/record-sites.mjs fieldLines. Guarded by desktop/test/fill-fields.test.js.
 
 // One row per label: a later pass (Claude on the page) wins.
 export const loggedFields = trace => [...new Map((trace || []).map(row => [row.label, row])).values()].slice(0, 40).map(row => ({
@@ -8,7 +8,7 @@ export const loggedFields = trace => [...new Map((trace || []).map(row => [row.l
   outcome: row.outcome, source: row.source || '', reason: row.reason || '', ...(row.alias ? {alias: String(row.alias).slice(0, 30)} : {})}));   // alias: the pack meaning's field key, never a value
 
 // The one writer of the fields line (background.js after a fill; ladder/record-update.js after a late retype): "fields: N filled, M left" with the rows. updated: the record was settled
-// again after the page emptied a box once more and the retype typed it back; every reader of the line (desktop/e2e/lib/smoke.mjs FIELDS_LINE) takes the later one. -> the rows.
+// again after the page emptied a box once more and the retype typed it back; every reader of the line (desktop/e2e/lib/record-sites.mjs FIELDS_LINE) takes the later one. -> the rows.
 export const UPDATED_WORDS = 'updated after a late retype';
 export function logFieldsLine(decide, trace, {page, recipes = 0, updated = false} = {}) {
   const fields = loggedFields(trace);

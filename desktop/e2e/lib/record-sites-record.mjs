@@ -1,9 +1,9 @@
 // Saves a smoke site's result to the day's report the moment the site ends (not only after the last site), so stopping a run loses only the site in progress.
 // It owns: reading the earlier days' reports, merging one site into <dir>/<day>.json (a second run the same day adds to it), and the site's regression check
-// against ITS last run. smoke.mjs calls it after each site. Guard: e2e/test/smoke-record.test.mjs.
+// against ITS last run. record-sites.mjs calls it after each site. Guard: e2e/test/record-sites-record.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
-import {compare} from './smoke.mjs';
+import {compare} from './record-sites.mjs';
 
 const readJson = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 

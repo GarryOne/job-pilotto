@@ -4,7 +4,7 @@
 // Guard: test/wanted-hosts.test.mjs.
 import {execFileSync} from 'node:child_process';
 import {SITE, skipReason} from './applying-report.mjs';
-import {candidates, mayVisit} from './smoke.mjs';
+import {candidates, mayVisit} from './record-sites.mjs';
 
 const bare = host => String(host || '').toLowerCase().replace(/^www\./, '');
 const hostOf = url => { try { return bare(new URL(url).hostname); } catch { return ''; } };

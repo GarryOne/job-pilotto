@@ -44,10 +44,10 @@ test('one row per row the run ran, with its ending; the summary: quantiles of ev
   assert.equal(quantile([1000, 2000, 3000, 4000], 0.5), 3000);
 });
 
-test('a row\'s app log is found by the name smoke.mjs writes it under', () => {
+test('a row\'s app log is found by the name record-sites.mjs writes it under', () => {
   assert.equal(appLogName('2026-10-13', 'arbeitnow.ch board -> employer'), '2026-10-13-arbeitnow-ch-board-employer.app.log');
-  const smoke = fs.readFileSync(new URL('../smoke.mjs', import.meta.url), 'utf8');
-  assert.match(smoke, /`\$\{day\}-\$\{shape\.replace\(\/\\W\+\/g, '-'\)\}\.app\.log`/, 'smoke.mjs renamed its app log: change appLogName with it');
+  const smoke = fs.readFileSync(new URL('../record-sites.mjs', import.meta.url), 'utf8');
+  assert.match(smoke, /`\$\{day\}-\$\{shape\.replace\(\/\\W\+\/g, '-'\)\}\.app\.log`/, 'record-sites.mjs renamed its app log: change appLogName with it');
 });
 
 // The silent rule offline (phase 2 box 3): the extension's own rule over the same lines, so recall and false fires are measured on any CI pool run.

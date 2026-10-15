@@ -70,7 +70,7 @@ test('a run that kept its journey saves every page under its own address, the po
   assert.ok(!fs.existsSync(path.join(folder, 'page.html')), 'the last page is one of the journey\'s pages, never filed under the posting\'s address');
 });
 
-test('a passing row is kept only when asked (always: SMOKE_KEEP_CANDIDATES=1, for a row replay\'s trust check)', () => {
+test('a passing row is kept only when asked (always: RECORD_KEEP_CANDIDATES=1, for a row replay\'s trust check)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cand-'));
   const passed = {reached: 'form', filled: 6, left: 0, url: 'https://jobs.example.org/a'};
   assert.equal(saveCandidate({dir, day: '2026-10-11', shape: 'x', result: passed, html: '<p>x</p>'}), null);

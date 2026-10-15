@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {isSame} from '../replay-records.mjs';
 import {acceptNamed} from '../replay-accepts.mjs';
-import {rank} from './smoke.mjs';
+import {rank} from './record-sites.mjs';
 import {repairUnlabeledText} from '../../lib/net-keep.js';
 
 // A record folder -> the kept bodies (hash names) that are double-encoded: a text reply with no charset whose stored bytes are the windows-1252 image of its UTF-8 ("dÃ©tail â€“").

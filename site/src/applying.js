@@ -96,10 +96,10 @@ const knownPool = async db => new Map(((await db.prepare('SELECT name, start_hos
 const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
 const dayOf = date => date.toISOString().slice(0, 10);
 
-// A shortfall as the page sees it (the upload carries counts only; the runner's own rule is desktop/e2e/lib/smoke.mjs shortfall, same threshold): the form was reached and fewer than half of its fields are filled.
+// A shortfall as the page sees it (the upload carries counts only; the runner's own rule is desktop/e2e/lib/record-sites.mjs shortfall, same threshold): the form was reached and fewer than half of its fields are filled.
 export const shortOf = (reached, filled, left, asked = null, unexplained = null) => {
   if (reached !== 'form') return null;
-  // The runner's verdict (desktop/e2e/lib/smoke.mjs shortfall: a left field is expected when we really did not know it AND suggested an answer, or when it is a legal choice): the asked fields and how many
+  // The runner's verdict (desktop/e2e/lib/record-sites.mjs shortfall: a left field is expected when we really did not know it AND suggested an answer, or when it is a legal choice): the asked fields and how many
   // are unexplained, a miss or without a suggestion. Without it (an older run) the counts decide: under half filled.
   if (Number.isInteger(asked) && Number.isInteger(unexplained)) return unexplained > 0 ? {done: asked - unexplained, total: asked, unexplained} : null;
   return Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 && filled / (filled + left) < 0.5 ? {done: filled, total: filled + left, unexplained: null} : null;
@@ -108,7 +108,7 @@ const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(
 // Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
 const runNeedsFix = run => { const status = rowStatus({reached: run.reached, note: run.note, regression: run.regression, asked: run.asked, unexplained: run.unexplained, short: shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained)});
   return status.state === 'fix' ? true : status.state === 'works' || isCleanHold(status) ? false : null; };   // an eligibility stop or a site problem says nothing; every other hold is a clean run (applying-status.js)
-// A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
+// A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/record-sites.mjs parseLive): an account-first site (the smoke never creates the account)
 // or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
 export {isHold};   // the list of hold notes lives in src/applying-status.js
 // Each run's one status (src/applying-status.js) with the step it reached kept beside it (a dot's title says both).

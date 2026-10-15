@@ -1,8 +1,8 @@
-// A run whose last fill never reported (lib/smoke.mjs parseLive): the count of an earlier page is not the form's. HelloFresh's Electron leg, 12 Oct 2026: the posting
+// A run whose last fill never reported (lib/record-sites.mjs parseLive): the count of an earlier page is not the form's. HelloFresh's Electron leg, 12 Oct 2026: the posting
 // page's "1 filled, 6 left" was scored for a form that showed 4 of 5 filled, because the form page's fill had not returned when the watch ended.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {parseLive, shortfall} from '../lib/smoke.mjs';
+import {parseLive, shortfall} from '../lib/record-sites.mjs';
 
 const at = (time, text) => `      log 2026-10-12T${time}Z [extension] ${text}`;
 const POSTING_FILL = [

@@ -1,4 +1,4 @@
-// The two path guards of the pool (lib/smoke-paths.mjs): a plain-node row that reaches less than its last result is re-run on Electron and is a regression only
+// The two path guards of the pool (lib/record-sites-paths.mjs): a plain-node row that reaches less than its last result is re-run on Electron and is a regression only
 // when Electron shows it too; a paired sample each pass, least recently paired first, with the report's first line saying whether the paths agree.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -7,8 +7,8 @@ import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 import os from 'node:os';
 import {guardLiveVisit} from '../lib/site-ledger.mjs';
-import {SITE_REFUSED, compare} from '../lib/smoke.mjs';
-import {agree, electronLegRefused, visitsLeft, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pairedSize, pathDifferenceLine, secondVisitsAllowed, settleRefusal, visitPlan} from '../lib/smoke-paths.mjs';
+import {SITE_REFUSED, compare} from '../lib/record-sites.mjs';
+import {agree, electronLegRefused, visitsLeft, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pairedSize, pathDifferenceLine, secondVisitsAllowed, settleRefusal, visitPlan} from '../lib/record-sites-paths.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL = 'https://jobs.example.org/1';
@@ -63,14 +63,14 @@ test('the report\'s first line says the sample agrees, or names the rows that di
   assert.equal(pairedLine({}), 'paired sample: none this pass');
 });
 
-test('smoke.mjs wires both guards: the Electron re-run on a fall, the paired sample, and both lines first in the summary', () => {
-  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+test('record-sites.mjs wires both guards: the Electron re-run on a fall, the paired sample, and both lines first in the summary', () => {
+  const source = fs.readFileSync(path.join(E2E, 'record-sites.mjs'), 'utf8');
   assert.match(source, /lessThanLast\(/, 'a fall on plain node is checked');
   assert.match(source, /liveRun\(posting, seconds, electronCapture, 'electron'\)/, 'the re-run is on Electron, the same posting');
   assert.match(source, /saveElectronLeg\(/, 'and what Electron saw is kept with the row\'s evidence');
   assert.match(source, /pairedSample\(/, 'a paired sample is chosen each pass');
   assert.match(source, /the run did not finish: \$\{lastError\(again\.output\)\}/, 'an Electron leg that did not finish says why');
-  const first = source.indexOf('console.log(`smoke: ${pairedLine(results)}`)'), regressionsLine = source.indexOf("REGRESSIONS:");
+  const first = source.indexOf('console.log(`record-sites: ${pairedLine(results)}`)'), regressionsLine = source.indexOf("REGRESSIONS:");
   assert.ok(first > 0 && first < regressionsLine, 'the paired line comes before the regressions');
 });
 
@@ -96,8 +96,8 @@ test('plain refused, Electron refused too the hold stands; Electron no further w
   assert.equal(settleRefusal({...REFUSED, note: undefined}, {reached: 'form'}), null, 'a row that was not refused is never touched');
 });
 
-test('smoke.mjs re-runs a refused row on Electron and applies the settled result', () => {
-  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+test('record-sites.mjs re-runs a refused row on Electron and applies the settled result', () => {
+  const source = fs.readFileSync(path.join(E2E, 'record-sites.mjs'), 'utf8');
   assert.match(source, /SITE_REFUSED/, 'a refused plain run is re-run on Electron');
   assert.match(source, /settleRefusal\(/, 'and its result is settled by the Electron run');
 });
@@ -116,10 +116,10 @@ test('an Electron leg is asked of the site ledger first: refused when the plain 
   assert.equal(electronLegRefused('http://127.0.0.1:5000/form', guard), '', 'a local page is no site');
   assert.throws(() => electronLegRefused(URL, () => { throw new Error('ledger unreadable'); }), /ledger unreadable/, 'only the limit skips; any other error stands');
 });
-test('smoke.mjs asks the ledger before every Electron leg it starts', () => {
-  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+test('record-sites.mjs asks the ledger before every Electron leg it starts', () => {
+  const source = fs.readFileSync(path.join(E2E, 'record-sites.mjs'), 'utf8');
   const legs = [...source.matchAll(/liveRun\([^)]*'electron'\)/g)];
-  assert.ok(legs.length >= 1, 'smoke.mjs starts an Electron leg');
+  assert.ok(legs.length >= 1, 'record-sites.mjs starts an Electron leg');
   for (const leg of legs) assert.match(source.slice(Math.max(0, leg.index - 1500), leg.index), /electronLegRefused\(/, 'the ledger is asked within the branch that starts the leg');
 });
 
@@ -137,24 +137,24 @@ test('the paired sample picks only rows whose site has two visits left today; a 
   const chosen = [{shape: 'full', urls: [full]}, {shape: 'tight', urls: [tight]}, {shape: 'like', like: ['x']}, {shape: 'open', urls: [open]}];
   assert.deepEqual(pairedSample(chosen, {}, 2, item => visitsLeft(item.urls?.[0] || '', guard) >= 2), ['like', 'open']);
 });
-test('smoke.mjs picks its paired sample by the visits left', () => {
-  assert.match(fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8'), /pairedSample\([^\n]*visitsLeft\(/);
+test('record-sites.mjs picks its paired sample by the visits left', () => {
+  assert.match(fs.readFileSync(path.join(E2E, 'record-sites.mjs'), 'utf8'), /pairedSample\([^\n]*visitsLeft\(/);
 });
 
 // 15 Oct 2026: the owner approved ONE Aldi visit; the smoke added its paired Electron sample and made two. A by-hand single row visits once and says so before it starts.
 test('a single-row run (--only) pairs nothing and allows no second visit unless asked; a pass over many rows keeps its paired sample', () => {
   assert.equal(pairedSize({}, 'Aldi Suisse jobs'), 0);
   assert.equal(secondVisitsAllowed({}, 'Aldi Suisse jobs'), false);
-  assert.equal(pairedSize({SMOKE_PAIRED: '1'}, 'Aldi Suisse jobs'), 1, 'asked for explicitly');
-  assert.equal(secondVisitsAllowed({SMOKE_ELECTRON_LEG: '1'}, 'x'), true);
+  assert.equal(pairedSize({RECORD_PAIRED: '1'}, 'Aldi Suisse jobs'), 1, 'asked for explicitly');
+  assert.equal(secondVisitsAllowed({RECORD_ELECTRON_LEG: '1'}, 'x'), true);
   assert.equal(pairedSize({}, ''), 2);
   assert.equal(secondVisitsAllowed({}, ''), true);
-  assert.equal(pairedSize({SMOKE_PAIRED: '0'}, ''), 0);
+  assert.equal(pairedSize({RECORD_PAIRED: '0'}, ''), 0);
 });
 test('the plan line names hosts and visits before anything starts', () => {
   const rows = [{shape: 'A', urls: ['https://jobs.one.example/a']}, {shape: 'B', urls: ['https://jobs.one.example/b']}, {shape: 'C', urls: ['https://two.example/c']}];
-  assert.equal(visitPlan(rows.slice(0, 1), new Set(), false).line, 'smoke: this run will visit 1 host(s) 1 time(s) (no second visit: a single-row run)');
+  assert.equal(visitPlan(rows.slice(0, 1), new Set(), false).line, 'record-sites: this run will visit 1 host(s) 1 time(s) (no second visit: a single-row run)');
   const plan = visitPlan(rows, new Set(['C']), true);
   assert.deepEqual([plan.hosts, plan.visits], [2, 4]);
-  assert.match(plan.line, /^smoke: this run will visit 2 host\(s\) 4 time\(s\)/);
+  assert.match(plan.line, /^record-sites: this run will visit 2 host\(s\) 4 time\(s\)/);
 });

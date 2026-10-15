@@ -14,14 +14,14 @@ class CommitMsgHookTests(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
-        for rel in ('tools/commit-trailers.mjs', 'tools/rung-trailer.mjs', 'tools/pool-rows.mjs', 'tools/githooks/commit-msg'):
+        for rel in ('tools/commit-trailers.mjs', 'tools/rung-trailer.mjs', 'tools/pool-rows.mjs', 'tools/record-env.mjs', 'tools/githooks/commit-msg'):
             (self.dir / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / rel, self.dir / rel)
         (self.dir / 'desktop/e2e/ladder-fixtures').mkdir(parents=True)
         (self.dir / 'desktop/e2e/ladder-fixtures/aldi-suisse.json').write_text('{}')
         (self.dir / 'desktop/e2e/smoke-sites.json').write_text('{"shapes": [{"shape": "Lever: single page, no account", "urls": []}]}')
         (self.dir / 'own-pool.json').write_text('{"shapes": [{"shape": "Ashby form in an embedded app", "urls": []}]}')
-        self.pool = {'SMOKE_SITES': str(self.dir / 'own-pool.json')}   # this Mac's own list, never the real one
+        self.pool = {'RECORD_SITES': str(self.dir / 'own-pool.json')}   # this Mac's own list, never the real one
         self.git('init', '-q')
         self.git('config', 'core.hooksPath', 'tools/githooks')   # what tools/worktree.sh sets: relative, so every worktree uses its own copy
         self.git('config', 'user.email', 't@example.com')

@@ -41,7 +41,7 @@ test('a live row runs on the app\'s own path without Electron: Apply opens the p
 });
 
 // The pool on a CI runner (.github/workflows/record-sites.yml): the app asks through its API engine and the harness's metering proxy, and the row reports its spend
-// (lib/smoke.mjs parseLive reads it for the dollar cap). Here the proxy answers itself (canned, the placeholder key): nothing is paid, so the spend is 0.
+// (lib/record-sites.mjs parseLive reads it for the dollar cap). Here the proxy answers itself (canned, the placeholder key): nothing is paid, so the spend is 0.
 test('a live row with an AI proxy asks through it from the real extension and reports its spend', {skip}, async () => {
   const proxy = await startAiProxy();
   proxy.setCanned(() => JSON.stringify({kind: 'posting', confidence: 0.9, apply_button: 'Apply now', apply_button_kind: 'apply', apply_route: '', apply_by: 'form', apply_email: '',

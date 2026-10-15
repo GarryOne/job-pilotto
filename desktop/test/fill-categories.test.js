@@ -71,7 +71,7 @@ test('an open question the AI returned as a "written" kind (no value) is left as
 });
 
 test('the siblings of a "written" left field agree: the pool verdict, the fill card and the service count treat it like a legal one', async () => {
-  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const {verdictOf} = await import('../e2e/lib/record-sites.mjs');
   const {fillCard} = await import('../../extension/fill-card.js');
   const field = {outcome: 'left', required: true, type: 'text', label: 'Why us?', reason: 'written: your own words to write'};
   assert.equal(verdictOf(field), 'expected');
@@ -80,7 +80,7 @@ test('the siblings of a "written" left field agree: the pool verdict, the fill c
 });
 
 test('only a left field the AI read as written is an expected hold: every other kind of left field still makes the row a shortfall', async () => {
-  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const {verdictOf} = await import('../e2e/lib/record-sites.mjs');
   const left = reason => ({outcome: 'left', required: true, type: 'text', label: 'Q', reason});
   const want = {'written: your own words to write': 'expected', 'legal/consent: always your choice': 'expected', 'proposed for you to confirm': 'expected',
     'no answer in the kit, Profile or your details': 'no_suggestion', 'answer given, but the field did not take it': 'miss', 'question on the page not read': 'miss',
@@ -96,7 +96,7 @@ test('a salutation the AI returned as a "demographic" kind (no profile value) is
   const {armed, fill} = fakeFillPage(rows);
   const summary = await fill([{field: 'radio:form_data6', value: '', category: 'demographic', use: 'kind'}, {field: 'radio:other', value: '', category: 'unanswered', use: 'kind'}]);
   assert.deepEqual(armed, []);
-  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const {verdictOf} = await import('../e2e/lib/record-sites.mjs');
   const {fillCard} = await import('../../extension/fill-card.js');
   const by = Object.fromEntries(summary.trace.map(row => [row.label, row]));
   assert.deepEqual([by.Anrede.outcome, by.Anrede.reason, by.Titel.reason], ['left', 'demographic: your own choice', 'the AI gave no answer']);

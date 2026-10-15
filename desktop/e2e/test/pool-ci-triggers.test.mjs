@@ -12,9 +12,9 @@ const workflows = Object.fromEntries(fs.readdirSync(DIR).filter(name => /\.ya?ml
 export const triggersOf = text => [...(text.match(/^on:\n((?:[ \t]+.*\n|\n)*)/m)?.[1] || '').matchAll(/^ {2}([a-z_]+):/gm)].map(match => match[1]);
 
 test('a workflow that records the pool sites starts by hand only: never a schedule, a push, a call or a PR', () => {
-  // A `paths:` entry naming a file (site-replays-pr.yml lists desktop/e2e/lib/smoke.mjs, a library its replay imports) is not a run.
+  // A `paths:` entry naming a file (site-replays-pr.yml lists desktop/e2e/lib/record-sites.mjs, a library its replay imports) is not a run.
   const runs = text => text.split('\n').filter(line => !/^\s+- '[^']+'\s*$/.test(line)).join('\n');
-  const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])smoke\.mjs\b|npm run smoke\b/m.test(runs(workflows[name])));
+  const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])(smoke|record-sites)\.mjs\b|npm run (smoke|record-sites)\b/m.test(runs(workflows[name])));
   assert.deepEqual(runners, ['record-sites.yml']);
   assert.deepEqual(triggersOf(workflows['record-sites.yml']), ['workflow_dispatch']);
   const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/record-sites\.yml/.test(workflows[name]));

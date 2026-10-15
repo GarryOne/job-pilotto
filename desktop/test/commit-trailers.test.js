@@ -45,7 +45,7 @@ test('without this Mac\'s own list only a slug of a known row is refused (anothe
 
 test('every row of the public pool is accepted as itself and refused as its slug', async () => {
   const {poolRowNames, slugOf} = await import('../../tools/pool-rows.mjs');
-  const {names} = poolRowNames({env: {SMOKE_SITES: '/no/such/file'}});
+  const {names} = poolRowNames({env: {RECORD_SITES: '/no/such/file'}});
   assert.ok(names.length > 3, 'the public pool is read');
   for (const name of names) {
     assert.deepEqual(messageProblems(`Fix\n\nPool-row: ${name}`, IDS, {names, complete: true}), [], name);

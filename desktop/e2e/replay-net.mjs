@@ -13,7 +13,7 @@ import {startRealExtension} from './lib/real-extension.mjs';
 import {netReplay} from './lib/net-record.mjs';
 import {forceScrollbar} from './lib/scrollbar.mjs';
 import {seedRandom} from './lib/seeded-random.mjs';
-import {outputOfLog, parseLive} from './lib/smoke.mjs';
+import {outputOfLog, parseLive} from './lib/record-sites.mjs';
 import {CONTACT} from './lib/apply-fixtures.mjs';
 import {wrongValues} from './lib/wrong-values.mjs';
 import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
@@ -66,7 +66,7 @@ const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await t
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
-// The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
+// The row's outcome, read as a live row is (lib/record-sites.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left, fields: (r.fieldList || []).slice(0, 40).map(item => ({label: item.label, outcome: item.outcome}))}; };   // fields: the gate's field-by-field diff (lib/replay-field-diff.mjs): labels and outcomes, never a value
 const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'misslog.jsonl'), 'utf8').split('\n')[0]); } catch { return null; } })();
 const filled = FILL && !result.tripped ? keepFilled(recordDir, out) : [];   // a tripped run keeps nothing
