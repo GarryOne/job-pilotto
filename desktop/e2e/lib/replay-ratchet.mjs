@@ -5,12 +5,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const FILE = new URL('../replay-faithful.json', import.meta.url);
-export const PLACES = ['mac', 'runner'];
+export const PLACES = ['mac', 'runner', 'linux'];   // runner: the macOS CI runner; linux: the Linux runner the PR gate moved to (1e, 15 Oct 2026)
 
 export const load = (file = FILE) => { try { const data = JSON.parse(fs.readFileSync(file, 'utf8')); return data && typeof data.rows === 'object' ? data : {rows: {}}; } catch { return {rows: {}}; } };
 
-// The rows the gate holds to "same as live": those pinned on the runner (the place the PR gate and the scheduled run replay on).
-export const pinned = (data = load()) => Object.keys(data.rows || {}).filter(name => data.rows[name]?.runner === true).sort();
+// The rows the gate holds to "same as live": those pinned on a CI runner (macOS or Linux: the places the PR gate and the scheduled run replay on). The Mac place is a record, not held.
+export const pinned = (data = load()) => Object.keys(data.rows || {}).filter(name => data.rows[name]?.runner === true || data.rows[name]?.linux === true).sort();
 
 // (a results.json of a run: {rows: {name: {same, deferred}}}, the file, {place, commit, at}) -> a new file with every row that was same as live in the run set true for that place.
 // Never lowers (a row not same stays as it was), never pins a deferred row.
@@ -26,14 +26,14 @@ export function pin(results, data = {rows: {}}, {place = 'runner', commit = '', 
 }
 
 // Rows pinned in the base's file and missing (or not true on the runner) in this PR's file: a pin lowered. Each needs a Replay-accept line naming it.
-export const lowered = (base, now) => pinned(base).filter(name => now?.rows?.[name]?.runner !== true);
+export const lowered = (base, now) => pinned(base).filter(name => !pinned(now).includes(name));
 
 // Rows same as live in this run and not pinned yet: the gate says "ratchet up".
-export const newlyFaithful = (results, data) => Object.entries(results?.rows || {}).filter(([name, row]) => row?.same === true && !row.deferred && data?.rows?.[name]?.runner !== true).map(([name]) => name).sort();
+export const newlyFaithful = (results, data) => Object.entries(results?.rows || {}).filter(([name, row]) => row?.same === true && !row.deferred && !pinned(data).includes(name)).map(([name]) => name).sort();
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [command, resultsFile, ...rest] = process.argv.slice(2), arg = flag => { const at = rest.indexOf(flag); return at >= 0 ? rest[at + 1] : ''; };
-  if (command !== 'pin' || !resultsFile) { console.error('usage: node lib/replay-ratchet.mjs pin <results.json> --commit <sha> [--place runner|mac] [--file <replay-faithful.json>]'); process.exit(2); }
+  if (command !== 'pin' || !resultsFile) { console.error('usage: node lib/replay-ratchet.mjs pin <results.json> --commit <sha> [--place runner|linux|mac] [--file <replay-faithful.json>]'); process.exit(2); }
   const file = arg('--file') || FILE, before = load(file), results = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
   const after = pin(results, before, {place: arg('--place') || 'runner', commit: arg('--commit') || results.sha?.slice(0, 7) || ''});
   fs.writeFileSync(file, `${JSON.stringify(after, null, 1)}\n`);

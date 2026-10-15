@@ -1,28 +1,151 @@
 {
  "rows": {
+  "autonomous-teaming (found 2026-10-10)": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Bulgari (recruitmentplatform.com)": {
+   "mac": true,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "macCommit": "df70a90",
+   "macAt": "2026-10-15T06:19:14.196Z"
+  },
+  "Cloudera (found 2026-10-10)": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "coreweave (found 2026-10-10)": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Databricks (found 2026-10-10)": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
   "Digitec job offers": {
    "mac": null,
    "runner": true,
    "runnerCommit": "1353826",
-   "runnerAt": "2026-10-14T23:29:39.379Z"
+   "runnerAt": "2026-10-14T23:29:39.379Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "FNAC Suisse jobs, French": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Greenhouse board form": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
   },
   "jobup.ch posting, then the employer's site": {
    "mac": null,
    "runner": true,
    "runnerCommit": "1353826",
-   "runnerAt": "2026-10-14T23:29:39.379Z"
+   "runnerAt": "2026-10-14T23:29:39.379Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
   },
   "Join: form on join.com": {
    "mac": null,
    "runner": true,
    "runnerCommit": "1353826",
-   "runnerAt": "2026-10-14T23:29:39.379Z"
+   "runnerAt": "2026-10-14T23:29:39.379Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Migros group site (jobs.migros.ch), German and French": {
+   "mac": true,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "macCommit": "df70a90",
+   "macAt": "2026-10-15T06:19:14.196Z"
+  },
+  "Recruitee form": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
   },
   "Recruitee: one-page form on recruitee.com": {
    "mac": null,
    "runner": true,
    "runnerCommit": "1353826",
-   "runnerAt": "2026-10-14T23:29:39.379Z"
+   "runnerAt": "2026-10-14T23:29:39.379Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Swatch Group careers": {
+   "mac": true,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z",
+   "macCommit": "df70a90",
+   "macAt": "2026-10-15T06:19:14.196Z"
+  },
+  "Teamtailor: form on teamtailor.com": {
+   "mac": null,
+   "runner": true,
+   "runnerCommit": "cca3722",
+   "runnerAt": "2026-10-15T06:19:13.877Z",
+   "linux": true,
+   "linuxCommit": "ba6120c",
+   "linuxAt": "2026-10-15T06:19:14.049Z"
+  },
+  "Valora careers, German": {
+   "mac": true,
+   "runner": null,
+   "macCommit": "df70a90",
+   "macAt": "2026-10-15T06:19:14.196Z"
   }
  }
 }
