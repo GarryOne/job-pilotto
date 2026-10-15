@@ -23,7 +23,7 @@ CLASSIFIED = {
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Site replays · all (offline)': 'ignored: pull requests only, informational, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/lab-form-filling after the nightly replay, never required',
-    'CI · Site replays · PR (10 rows)': 'ignored: pull requests only (required there as "site replays gate")',
+    'CI · Site replays · PR (pinned rows)': 'ignored: pull requests only (required there as "site replays gate")',
     'CI · Site replays · accept': 'ignored: pull requests only, re-runs the failed replay gate and aggregate when the owner accepts a drop',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
