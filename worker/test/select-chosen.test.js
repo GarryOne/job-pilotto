@@ -30,7 +30,7 @@ test('every reader reads menus by the one rule (page/read-back.js), and no copy 
   const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
   assert.match(read('extension/page/read-back.js'), /const chosen = el => \(o => !!o && !o\.disabled/, 'the one reader holds the rule');
   assert.match(read('extension/page/read-back.js'), /window\.__jobPilottoChosen = chosen/, 'under the name the audit and coverage.js call');
-  for (const path of ['extension/review.js', 'extension/account-fill.js', 'extension/page/browser-form-fastpath.js', 'tools/browser-form-fastpath.js']) {
+  for (const path of ['extension/panel-form.js', 'extension/account-fill.js', 'extension/page/browser-form-fastpath.js', 'tools/browser-form-fastpath.js']) {
     assert.doesNotMatch(read(path), /o\.index === 0 && \/\^\(\|0\|-1\)\$\//, `${path} keeps no copy of the menu rule`);
     assert.match(read(path), /__jobPilottoReadBack/, `${path} asks the one reader`);
   }

@@ -6,6 +6,7 @@ import test from 'node:test';
 import {fillCard} from '../../extension/fill-card.js';
 import {markCauses} from '../../extension/ladder/control-marks.js';
 import {loadJsdom, openPage} from './helpers/page.js';
+import { readPanel } from './helpers/panel.js';
 
 const JSDOM = await loadJsdom();
 const trace = [{label: 'Phone', field: 'phone', type: 'text', required: true, outcome: 'left', reason: 'a detail of yours not saved yet'},
@@ -43,6 +44,6 @@ test('the report carries one fixed cause per left control, no value', { skip: !J
 test('the panel loads the payload file and reads the cause marks (review.js, background.js)', () => {
   const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
   assert.match(read('extension/background.js'), /'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js'/);
-  assert.match(read('extension/review.js'), /window\.__jobPilottoReviewPayload\(state, watch/);
-  assert.match(read('extension/review.js'), /entry\.cause \|\|= el\.dataset\.jobpilottoCause/);
+  assert.match(readPanel(), /window\.__jobPilottoReviewPayload\(state, watch/);
+  assert.match(readPanel(), /entry\.cause \|\|= el\.dataset\.jobpilottoCause/);
 });

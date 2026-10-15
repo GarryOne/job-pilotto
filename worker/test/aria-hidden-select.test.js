@@ -21,7 +21,7 @@ test('an aria-hidden select with choices is a field; an aria-hidden helper input
 
 test('the panel, the fill reader and both copies of the audit ask the one rule (never their own aria-hidden test)', () => {
   const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
-  for (const file of ['extension/review.js', 'extension/page/fill-read.js', 'extension/page/browser-form-fastpath.js', 'tools/browser-form-fastpath.js']) {
+  for (const file of ['extension/panel-form.js', 'extension/page/fill-read.js', 'extension/page/browser-form-fastpath.js', 'tools/browser-form-fastpath.js']) {
     assert.match(read(file), /__jobPilottoReadBack\.hiddenAway/, file);
     assert.doesNotMatch(read(file), /\bel\.getAttribute\('aria-hidden'\) [!=]== 'true'/, `${file} keeps its own test`);
   }

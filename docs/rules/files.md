@@ -7,9 +7,9 @@ Linked from CLAUDE.md. Why: [why.md](why.md#files).
   `lib/session-flow.js`, `extension/fill-flow.js`: shared state passed in, a header naming what it owns and the tests guarding it).
 - Files already over it are in `tools/file-size-allowed.json` at their size and may only shrink; `tools/file-size.mjs` (push hook +
   `desktop/test/file-size.test.js`) fails a new big file or a listed one that grew.
-- **Documented exception:** `extension/review.js` stays over 500: Chrome injects it as ONE classic content script. It may not grow; the reason is in
-  `EXCEPTIONS` in `tools/file-size.mjs`. A classic page script can still be split: `extension/page/fill.js` became six files, injected in order
-  (`extension/page-files.js`), sharing helpers through `window.__jobPilottoFillKit`.
+- A classic content script can be split: `extension/page/fill.js` became six files, injected in order (`extension/page-files.js`), sharing helpers through
+  `window.__jobPilottoFillKit`; the panel `extension/review.js` became four (`extension/panel-files.js`: form reading, markup, learning, the panel), sharing
+  `window.__jobPilottoPanel*`. `EXCEPTIONS` in `tools/file-size.mjs` is empty (15 Oct 2026).
 
 ## Split before you reach it (owner, 11 Oct 2026)
 A file near 450 lines is split into 2 to 4 files by concern, as a pure move in its own commit, not squeezed under the cap with helpers parked in a

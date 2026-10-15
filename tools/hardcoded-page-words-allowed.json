@@ -1,6 +1,7 @@
 {
  "extension/alias-schema.js": 2,
- "extension/review.js": 4,
+ "extension/panel-form.js": 3,
+ "extension/panel-learn.js": 1,
  "extension/tab-pages.js": 3,
  "extension/visit-page.js": 5,
  "extension/visit.js": 1,

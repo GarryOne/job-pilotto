@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadJsdom, openPage } from './helpers/page.js';
+import { evalPanel } from './helpers/panel.js';
 
 const read = (path) => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const JSDOM = await loadJsdom();
@@ -35,7 +36,7 @@ async function sentAfterClick(markup) {
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('click', (event) => { if (event.target.closest('[data-page-handles]')) event.preventDefault(); });   // the page's own handler: the click does not submit
   window.document.addEventListener('submit', (event) => event.preventDefault());
@@ -64,7 +65,7 @@ test('a form submitted by a script (no click) is still noticed', { skip: !JSDOM 
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.getElementById('f').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -78,7 +79,7 @@ test('a typeless button whose click handler calls form.requestSubmit() is notice
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
   window.document.getElementById('x').addEventListener('click', (event) => { event.preventDefault(); window.document.getElementById('f').requestSubmit(); });
@@ -98,7 +99,7 @@ async function sentAfterOwnPress(markup) {
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
   window.__jobPilottoPress(window.document.getElementById('x'));   // the extension's own press (every press site goes through this helper)
@@ -117,7 +118,7 @@ test('the person pressing right after the extension still counts (the own press 
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
   window.__jobPilottoPress(window.document.getElementById('closer'));
@@ -139,7 +140,7 @@ test('a click the site\'s own script makes after the person pressed still counts
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
   window.document.getElementById('styled').addEventListener('click', () => siteClick.call(window.document.getElementById('hidden')));
@@ -170,7 +171,7 @@ test('a debugger press the extension marked first never counts, the person\'s ne
   window.document.elementFromPoint = () => window.document.getElementById('x');   // jsdom has no layout
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
-  window.eval(read('extension/review.js'));
+  evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
   const trusted = () => { const click = new window.MouseEvent('click', { bubbles: true, cancelable: true }); click.__jpTrusted = true; return click; };

@@ -27,7 +27,7 @@ test('the rule: a new file over 500 fails, a listed one may not grow, one that s
 });
 
 test('a touched file between 450 and 500 lines gets a split warning, never a block; small, allowed and excepted files do not', () => {
-  const lines = {'a.js': WARN, 'b.js': 300, 'c.mjs': LIMIT, 'big.js': 900, 'extension/review.js': 480, 'notes.md': 470};
+  const lines = {'a.js': WARN, 'b.js': 300, 'c.mjs': LIMIT, 'big.js': 900, 'notes.md': 470};
   const warned = sizeWarnings(Object.keys(lines), file => lines[file], {'big.js': 900});
   assert.deepEqual(warned.map(line => line.split(' ')[4]), ['a.js', 'c.mjs']);
   assert.match(warned[0], /^WARNING \(not a block\).*2 to 4 files by concern/);
