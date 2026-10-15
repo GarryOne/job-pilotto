@@ -1,0 +1,49 @@
+{
+ "origin": "hand-cut",
+ "shape": "a required salutation menu (placeholder first, then Mr./Ms./Diverse, no decline choice) that nothing given states: the person's own choice",
+ "why": "A SuccessFactors career-site form, the owner's real fill of 15 Oct 2026: Title was armed with the demographic decline default, the app's choice-picker then took the placeholder 'No Selection' as meaning the same, remembered it, and the panel hinted 'Click to choose: No Selection'. A required salutation is never offered a decline and never the placeholder. Hand-cut page (structure only).",
+ "control": {
+  "build": "0.9.512",
+  "failed": "told: the menu was armed with the decline default, not left as the person's own choice"
+ },
+ "sample": "hand-cut from a career-site application form (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/portalcareer?company=example",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "title",
+     "value": "",
+     "category": "demographic",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "told": [
+   "\"label\":\"Title\",\"outcome\":\"left\",\"reason\":\"demographic: your own choice\""
+  ],
+  "notTold": [
+   "Decline to self-identify",
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

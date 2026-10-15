@@ -19,6 +19,14 @@ test('Claude picks the choice that means the same, from the form\'s choices only
   assert.ok(!JSON.stringify(logged).includes('Monsieur'));             // the log: counts, never the answer
 });
 
+test('the AI is told a placeholder choice ("No Selection", "Select...") means no answer: never picked, so never remembered (SuccessFactors Title, 15 Oct 2026)', async () => {
+  const sent = [];
+  const ask = {label: 'Title', value: 'Decline to self-identify', options: ['No Selection', 'Mr.', 'Ms.', 'Diverse']};
+  assert.deepEqual(await pickOption(memory(), ask, {client: claude('', sent)}), {choice: '', how: 'ai'});
+  assert.match(sent[0].system, /placeholder.*never return it/s, 'the instructions name the class: a choice that only says nothing is chosen yet');
+  assert.deepEqual(sent[0].output_config.format.schema.properties.choice.enum, ['No Selection', 'Mr.', 'Ms.', 'Diverse', '']);
+});
+
 test('the same text needs no AI; a choice not on the form, or no AI, is none', async () => {
   const sent = [];
   assert.deepEqual(await pickOption(memory(), {value: 'sir', options: ['Madam', 'Sir']}, {client: claude('x', sent)}), {choice: 'Sir', how: 'same'});

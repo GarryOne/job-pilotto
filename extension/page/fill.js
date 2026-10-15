@@ -92,6 +92,9 @@
       "Prefer not to say || Decline to answer || I do not want to answer || Choose not to disclose || I choose not to disclose || Not specified";
     for (const row of form) {
       if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field) || !(row.demographic || DEMOGRAPHIC.test(row.label || ''))) continue;
+      // A decline is for the sensitive categories: a REQUIRED menu the AI called demographic without one of them (a salutation: Mr./Ms./Diverse) has no decline choice, so it is
+      // the person's own choice, never armed with the decline words (SuccessFactors Title, 15 Oct 2026: the hint read "Click to choose: No Selection", the menu's placeholder).
+      if (row.required && !DEMOGRAPHIC.test(row.label || '')) continue;
       if (armCombo(row.field, DECLINE)) { armed.push(row.label); answers.push({field: row.field, value: 'Decline to self-identify', source: 'standard answer (demographics)'}); answered.add(row.field); }
     }
     const dial = dialOf(profile?.phone);
