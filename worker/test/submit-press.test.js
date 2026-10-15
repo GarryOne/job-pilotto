@@ -165,7 +165,7 @@ test('no extension file clicks a control without the marked press', () => {
 
 // The extension's debugger presses are trusted clicks at a point: the element there is marked first (markAt), the click that arrives is the extension's own, and the person's next one counts.
 test('a debugger press the extension marked first never counts, the person\'s next click does', { skip: !JSDOM }, async () => {
-  const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="x" type="submit">Reject all</button></form>');
+  const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="x">Reject all</button></form>');
   const sent = [];
   window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.document.elementFromPoint = () => window.document.getElementById('x');   // jsdom has no layout
