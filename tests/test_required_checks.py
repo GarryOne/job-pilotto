@@ -2,6 +2,7 @@
 A required check that no job reports leaves every PR waiting for ever, so a job rename that misses the list (or a list entry with a typo) fails here."""
 import re
 import shlex
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -39,14 +40,24 @@ def job_names():
 class RequiredChecksTest(unittest.TestCase):
     def test_every_required_check_is_a_job_some_workflow_runs(self):
         names, checks = job_names(), required()
-        self.assertGreaterEqual(len(checks), 3, 'positive control: the list is read (3 since 14 Oct 2026: only checks that start on every PR)')
+        self.assertGreaterEqual(len(checks), 1, 'positive control: the list is read (one since 15 Oct 2026: the one job that starts on every PR)')
         self.assertTrue(any(name.match('desktop (ubuntu-24.04)') for name in names), 'positive control: a matrix job name is matched')
         self.assertEqual([check for check in checks if not any(name.match(check) for name in names)], [],
                          'a required check no job reports blocks every PR: rename it in tools/pr-settings.sh too, then run tools/pr-settings.sh --apply')
 
-    def test_the_old_name_is_gone(self):
-        self.assertNotIn('hole 3', required())
-        self.assertIn('cases fail before the fix', required())
+    def test_the_old_names_are_gone(self):
+        # 15 Oct 2026: four required jobs became one with named steps. An old name coming back (a ruleset entry or a doc) fails here.
+        self.assertEqual(required(), ['All checks passed'])
+        old = ['pr gates', 'flow-fresh check', 'cases fail before the fix', 'all checks green', 'hole 3']
+        tracked = subprocess.run(['git', 'ls-files', '-z'], cwd=ROOT, capture_output=True, text=True).stdout.split('\0')
+        skip = {'docs/rules/why.md', 'tests/test_required_checks.py'}   # why.md keeps the history by name
+        hits = []
+        for rel in tracked:
+            path = ROOT / rel
+            if not rel or rel in skip or not path.is_file() or path.suffix not in {'.md', '.yml', '.sh', '.py', '.mjs', '.js'}: continue
+            text = path.read_text(errors='ignore')
+            hits += [f'{rel}: {name}' for name in old if re.search(rf'(?<![\w-]){re.escape(name)}(?![\w-])', text)]
+        self.assertEqual(hits, [], 'an old required-check name came back: the check is "All checks passed" with named steps (.github/workflows/pr-gate.yml)')
 
 
 if __name__ == '__main__':

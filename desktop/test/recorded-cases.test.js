@@ -87,8 +87,8 @@ test('any push that changes how the app acts on pages names its pool row, or say
   assert.equal(untaggedActing([commit(['docs/rules/rounds.md'], 'Docs')], covered), '', 'nothing the app acts with: nothing asked');
 });
 
-test('a case.json edit that changes only label keys brings no case: neither proof for a page fix nor a case "cases fail before the fix" replays', () => {
-  // 12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code (hole 3 red).
+test('a case.json edit that changes only label keys brings no case: neither proof for a page fix nor a case "New test pages fail on the old build" replays', () => {
+  // 12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code (the old-build check red).
   const json = value => JSON.stringify(value, null, 2);
   const before = json({shape: 'A menu', why: 'x', expect: {filled: ['#a']}});
   assert.equal(labelOnly(before, json({shape: 'A menu', why: 'x', expect: {filled: ['#a']}, origin: 'captured'})), true);

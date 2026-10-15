@@ -94,7 +94,7 @@ them from colliding in one checkout:
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`**. **Through a pull request since 12 Oct 2026** (while the repo allows auto-merge, `tools/pr-settings.sh`): fetch + rebase, the hook's fast checks only (seconds),
-  push the branch, open a PR, wait for its required checks. CI runs the suites, all recorded pages, the pure gates and `flow-fresh` on the PR. **The owner reviews and merges every PR by hand** (12 Oct 2026, auto-merge off):
+  push the branch, open a PR, wait for its required checks. CI runs the suites, all recorded pages, the pure gates and "Core flow files up to date with main" on the PR. **The owner reviews and merges every PR by hand** (12 Oct 2026, auto-merge off):
   `ship: REVIEW #n <url>` = green and open for the owner (your turn ends there); with auto-merge allowed again, `ship: DONE <sha>` = merged;
   `ship: FAILED required check '<name>' failed: <log url>` leaves the PR open: fix, commit, run ship again (it reuses the PR). No direct pushes to main; any other origin keeps the old direct push below.
   The old direct path: fetch + rebase, the push hook's checks (the suites of the areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another

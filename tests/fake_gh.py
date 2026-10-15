@@ -41,6 +41,7 @@ def merge():
 pending = state.get('fail_check') or state.get('fail_check_once')
 if argv[:1] == ['api']:
     # --jq .full_name: the repository answers (ship_mode); --jq .allow_auto_merge: the switch for review by hand (ship_review)
+    if any('.steps' in a for a in argv): print('Core flow files up to date with main' if state.get('step_red') else ''); save(); sys.exit(0)
     print('example/repo' if '.full_name' in argv else ('true' if state.get('auto_merge_allowed') else 'false'))
 elif argv[:2] == ['pr', 'list']:
     print(json.dumps([{'number': 1}] if state.get('state') == 'OPEN' else []))
@@ -58,6 +59,7 @@ elif argv[:2] == ['pr', 'view']:
                       'mergeCommit': {'oid': state['merge_sha']} if state.get('merge_sha') else None}))
 elif argv[:2] == ['pr', 'checks']:
     if pending:
+        state['step_red'] = bool(pending.get('step_red'))
         print(json.dumps([{'name': pending['name'], 'bucket': 'fail', 'link': pending['link']}]))
         state.pop('fail_check_once', None)
     else:

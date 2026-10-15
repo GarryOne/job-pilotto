@@ -1,4 +1,4 @@
-// "cases fail before the fix" (once "hole 3") of the recorded-case gate (tools/recorded-fails-on-old.mjs): a case the push brings must FAIL on the code before it; a pin says so, a fix cannot.
+// "New test pages fail on the old build" of the recorded-case gate (tools/recorded-fails-on-old.mjs): a case the push brings must FAIL on the code before it; a pin says so, a fix cannot.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
@@ -15,7 +15,7 @@ test('the push\'s cases are split into the ones that must fail on the old code a
 });
 
 test('a follow-up to a fix already on main names it, and its cases are replayed on the code before that fix', () => {
-  // 12 Oct 2026, PRs #374 and #386: the case of a merged fix was tightened later; on the PR's base (which has the fix) it passed, and hole 3 said "proves nothing".
+  // 12 Oct 2026, PRs #374 and #386: the case of a merged fix was tightened later; on the PR's base (which has the fix) it passed, and the old-build check said "proves nothing".
   const fix = 'c66b42a1f00d';
   const split = splitPinned([commit(['desktop/e2e/recorded/phone-1/case.json'], `Tighten the case\n\nPool-row: Recruitee\nFix-commit: ${fix}`)]);
   assert.deepEqual(split.check, ['phone-1']);

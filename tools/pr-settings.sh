@@ -4,13 +4,14 @@
 #   tools/pr-settings.sh            show the calls         tools/pr-settings.sh --apply   make them
 # No "require up to date": parallel PRs merge at once; CI on main (build.yml, page-cases.yml) still catches a rare clash and the red-main rule applies as before.
 # The repository admin role bypasses the ruleset only through a pull request (bypass_mode "pull_request", 12 Oct 2026, once every worktree had the PR ship): nobody pushes to main.
-# "cases fail before the fix" (was "hole 3", renamed 12 Oct 2026) is required since 12 Oct 2026 (owner): it caught 4 cases that passed on the old code; a follow-up names its fix with "Fix-commit: <sha>".
-# The required checks are the jobs of pr-gate.yml that start on EVERY pull request: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (every other PR workflow's result: tools/all-checks-green.sh) (owner, 14 Oct 2026:
-# "drop your shared pick logic, rely fully on gh workflow paths"). Every other PR workflow starts only when GitHub's `on: paths:` says the PR changed its area, and a workflow
+# ONE required check since 15 Oct 2026 (owner): "All checks passed", the one job of pr-gate.yml, which starts on EVERY pull request. Its steps: "Fast checks", "Core flow files up to date with main",
+# "New test pages fail on the old build" (a recorded case the PR brings must fail on the old code; a follow-up names its fix with "Fix-commit: <sha>"), "Other workflows passed" (every other PR workflow's
+# result: tools/all-checks-green.sh). Before, four required jobs took four runner slots per PR.
+# (owner, 14 Oct 2026: "drop your shared pick logic, rely fully on gh workflow paths"). Every other PR workflow starts only when GitHub's `on: paths:` says the PR changed its area, and a workflow
 # that paths skip never reports, so none of them can be required; their red shows on the PR. Main runs them all on every push (tests/test_workflow_paths.py).
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='pr\ gates flow-fresh cases\ fail\ before\ the\ fix all\ checks\ green'
+checks='All\ checks\ passed'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])
