@@ -32,7 +32,7 @@
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
-  let moved = false, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -52,13 +52,14 @@
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     const needed = list.filter(f => f.required || f.ai || f.changed);
     shown = needed.filter(f => !f.filled);
-    const total = needed.length, left = shown.length, ready = total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
+    const total = needed.length, left = shown.length, ready = !moved && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
-    $('.ring span').textContent = ready && !needsYou ? '✓' : total ? String(left) : '–';
+    $('.ring span').textContent = moved ? '↗' : ready && !needsYou ? '✓' : total ? String(left) : '–';
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
-    $('.pill b').textContent = ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
+    $('.pill b').textContent = moved ? 'Continues in another tab' : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
@@ -70,7 +71,8 @@
     $('.job-title').textContent = title || '';
     $('.job-meta').replaceChildren(...[company && Object.assign(document.createElement('span'), {textContent: company}),
       job?.stage && Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job.stage) ? 'good' : ''}`, textContent: job.stage})].filter(Boolean));
-    const claude = moved ? 'This application moved to another tab: continue there.'   // an older tab of the session: it no longer reports
+    $('.go-there').hidden = !(moved && Number.isInteger(movedTab));
+    const claude = moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
       : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
       : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
       : session?.live && session.status === 'input' ? 'Claude is waiting for you in Job Pilotto.'
@@ -78,20 +80,20 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
-    $('.progress-line span').textContent = ready ? 'every required field is filled' : total ? 'required fields filled' : '';
-    $('.bar i').style.width = `${ready ? 100 : done}%`;
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line span').textContent = moved ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
+    $('.bar i').style.width = `${moved ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
     const claudeFilling = session?.live && session.status === 'running';
     // A tailored CV written after the form was filled still has to be attached: the button stays for that.
     // A sign-in or sign-up page (a password box) is not the application: no CV goes there, so no "Tailor my CV" (owner, 8 Oct 2026).
     const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv && !account;
     const readyNow = canTailor && cv.tailored && asked;
-    $('.fill-box').hidden = claudeFilling || (ready && !filling && !readyNow);  // nothing left to fill
+    $('.fill-box').hidden = moved || claudeFilling || (ready && !filling && !readyNow);  // nothing left to fill
     $('.fill').disabled = filling;
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
-    $('.left').hidden = !left || busy || !over;
+    $('.left').hidden = moved || !left || busy || !over;
     const knockout = field => KNOCKOUT.test(field.label) || field.category === 'knockout', ranked = [...shown].sort((a, b) => knockout(b) - knockout(a));   // or the AI, any language
     const knockouts = ranked.filter(knockout).length;
     $('.knock').hidden = !knockouts;
@@ -189,6 +191,7 @@
     button.textContent = 'Tailor my CV for this job';
     render();
   };
+  $('.go-there').onclick = () => Number.isInteger(movedTab) && send({type: 'panelGoTab', tab: movedTab}).catch(() => {});
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
   // The extension's fill reports its steps here (instead of a floating box).
   chrome.runtime.onMessage.addListener((message, _, reply) => {
@@ -216,7 +219,7 @@
     try {
       const payload = window.__jobPilottoReviewPayload(state, watch, {agree: AGREE, find});
       const reply = await send({type: 'review', payload});
-      moved = !!reply?.moved;
+      moved = !!reply?.moved; movedTab = Number.isInteger(reply?.tab) ? reply.tab : null;
       session = reply?.session || null; claudeAsk = {help: !!reply?.claudeHelp, always: !!reply?.claudeAlways, auto: !!reply?.claudeAuto, consent: !!reply?.claudeConsent};   // the app's Claude readiness and choices (lib/claude-ready.js)
       cv = reply?.cv || null;
       const before = JSON.stringify(watch);
