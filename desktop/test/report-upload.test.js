@@ -3,20 +3,16 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import zlib from 'node:zlib';
 import {test} from 'node:test';
 import {bundleOf, createUploader, encryptBundle} from '../lib/report-upload.js';
+import {decryptBundle} from '../e2e/reports-fetch.mjs';
 import {setSiteOff} from '../lib/recipes.js';
 
 const {publicKey, privateKey} = crypto.generateKeyPairSync('rsa', {modulusLength: 2048, publicKeyEncoding: {type: 'spki', format: 'pem'}, privateKeyEncoding: {type: 'pkcs8', format: 'pem'}});
 const record = () => ({entries: [{method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', hash: 'h1', size: 5, headers: {'content-type': 'text/html'}, status: 200, startMs: 0, waitMs: 1, bodyKey: '', failed: false, hadCookie: false, mode: ''}],
   bodies: new Map([['h1', Buffer.from('<p>x</p>')]]), stats: {requests: 1}});
 const storage = () => { const kept = {}; return {settings: () => kept, saveSettings: patch => Object.assign(kept, patch)}; };
-const decrypt = (body, wrapped) => {
-  const key = crypto.privateDecrypt({key: privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256'}, Buffer.from(wrapped, 'base64'));
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, body.subarray(0, 12)); decipher.setAuthTag(body.subarray(12, 28));
-  return JSON.parse(zlib.gunzipSync(Buffer.concat([decipher.update(body.subarray(28)), decipher.final()])));
-};
+const decrypt = (body, wrapped) => decryptBundle(body, wrapped, privateKey);   // the owner's side: e2e/reports-fetch.mjs
 
 test('the product\'s public key is the harness\'s: one key, so the owner\'s Keychain key opens both', () => {
   assert.equal(fs.readFileSync(new URL('../lib/report-key.pem', import.meta.url), 'utf8'), fs.readFileSync(new URL('../e2e/net-record.pub.pem', import.meta.url), 'utf8'));

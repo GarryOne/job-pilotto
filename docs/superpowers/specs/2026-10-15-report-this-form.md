@@ -108,4 +108,4 @@ reproduce it. **Owner request:** "design and build this" (14 Oct 2026, via job-p
 - [x] 3. Extension collector and the app side that scrubs, gates and holds it (proof: desktop/test/report-recorder.test.js)
 - [x] 4. Consent UI, setting, ⌘K, the panel flag (proof: desktop/test/report-panel.test.js)
 - [x] 5. Worker upload, storage, limits, the app's encrypted upload (proof: site/test/report-form.test.js); the R2 bucket `form-reports` exists with its 30-day rule and the binding is on
-- [ ] 6. Fetch tool, "Reported by a person", offline replay
+- [x] 6. Fetch tool, "Reported by a person", counts on Real Form Filling, offline replay (proof: desktop/e2e/test/reports-fetch.test.mjs)
