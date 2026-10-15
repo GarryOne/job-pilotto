@@ -35,17 +35,19 @@ function agreed(runs) {
 }
 
 // A fix landed at `landedAt`: the recording made before it is live's "before"; the build with the fix (main) replayed twice is "after".
-// {recordedAt, landedAt, control, runs (main's two replays)} -> {verdict, why}.
-export function judgeFixed({recordedAt, landedAt, control, runs}) {
+// A recording made AFTER the fix (owner, 15 Oct 2026) has no live "before": `before` is the same recording replayed on the build just before the fix, and "after" must go further than it.
+// {recordedAt, landedAt, control, runs (main's two replays), before (older build's replay, only for a recording after the fix)} -> {verdict, why}.
+export function judgeFixed({recordedAt, landedAt, control, runs, before}) {
   if (!recordedAt) return {verdict: 'live', why: 'no recording of this row'};
-  if (Date.parse(recordedAt) >= Date.parse(landedAt)) return {verdict: 'live', why: 'the recording is newer than the fix: a live run already says it'};
+  const after = Date.parse(recordedAt) >= Date.parse(landedAt);
   const bad = controlWhy(control);
   if (bad) return {verdict: 'live', why: bad};
+  if (after && !onRecording(before)) return {verdict: 'live', why: before ? 'the build before the fix asks or fetches what the recording lacks' : 'the recording did not replay on the build before the fix'};
   const pair = agreed(runs);
   if (!pair.outcome) return {verdict: 'live', why: pair.why};
-  const against = compare(pair.outcome, control.liveOutcome);
-  if (against > 0) return {verdict: 'confirmed', why: `replay of the recording with the fix goes further than the live run did (${pair.outcome.reached}, ${pair.outcome.filled ?? '?'} filled)`};
-  return {verdict: 'notbetter', why: against < 0 ? 'replay with the fix goes less far than the live run' : 'replay with the fix ends where the live run did'};
+  const base = after ? before.outcome : control.liveOutcome, against = compare(pair.outcome, base), what = after ? 'the build before the fix did on the same recording' : 'the live run did';
+  if (against > 0) return {verdict: 'confirmed', why: `replay of the recording with the fix goes further than ${what} (${pair.outcome.reached}, ${pair.outcome.filled ?? '?'} filled)`};
+  return {verdict: 'notbetter', why: against < 0 ? `replay with the fix goes less far than ${what}` : `replay with the fix ends where ${what} did`};
 }
 
 // A row that got less far: `control` replays the NEWEST recording on its own build; `runs` the same recording on the older build that got further.

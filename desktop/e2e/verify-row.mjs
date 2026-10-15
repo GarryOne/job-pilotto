@@ -17,8 +17,8 @@ const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSyn
 // Dependencies are linked from this checkout. A change in desktop/lib or src between the two builds is not seen (the page says "extension of the older build").
 export function treeAt(commit, work) {
   const head = git(ROOT, 'rev-parse', 'HEAD');
-  if (!commit || head.startsWith(commit) || commit.startsWith(head)) return ROOT;
-  const dir = path.join(work, `tree-${commit.slice(0, 10)}`);
+  if (!commit || !commit.endsWith('^') && (head.startsWith(commit) || commit.startsWith(head))) return ROOT;
+  const dir = path.join(work, `tree-${commit.replace(/[^0-9a-f]/gi, '').slice(0, 10)}${commit.endsWith('^') ? '-parent' : ''}`);
   if (fs.existsSync(dir)) return dir;
   git(ROOT, 'worktree', 'add', '--detach', dir, head);
   fs.rmSync(path.join(dir, 'extension'), {recursive: true, force: true});
@@ -43,8 +43,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(HERE, 'ver
   const control = attempt(job.record.build?.commit, 'control'), runs = [];
   const target = job.kind === 'fixed' ? git(ROOT, 'rev-parse', 'HEAD') : job.older.build?.commit;
   if (!controlWhy(control)) for (const label of ['run1', 'run2']) runs.push(attempt(target, label));
-  const verdict = job.kind === 'fixed' ? judgeFixed({recordedAt: job.record.at, landedAt: job.landedAt, control, runs}) : judgeRegression({control, runs});
-  const result = {kind: job.kind, row: job.row, commit: job.commit || null, ...verdict, buildBy: job.record.build?.by || null, recordedAt: job.record.at, olderAt: job.older?.at || null, olderBuildBy: job.older?.build?.by || null};
+  const before = job.beforeBuild && !controlWhy(control) ? attempt(job.beforeBuild, 'before') : null;   // a recording after the fix: the build just before it
+  const verdict = job.kind === 'fixed' ? judgeFixed({recordedAt: job.record.at, landedAt: job.landedAt, control, runs, before}) : judgeRegression({control, runs});
+  const result = {kind: job.kind, row: job.row, commit: job.commit || null, ...verdict, buildBy: job.record.build?.by || null, recordedAt: job.record.at, beforeBuild: job.beforeBuild || null, olderAt: job.older?.at || null, olderBuildBy: job.older?.build?.by || null};
   fs.mkdirSync(out, {recursive: true});
   fs.writeFileSync(path.join(out, 'verdict.json'), `${JSON.stringify(result, null, 1)}\n`);
   console.log(`verify-row: ${job.kind} ${job.row}: ${verdict.verdict} (${verdict.why})`);
