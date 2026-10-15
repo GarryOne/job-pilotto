@@ -29,7 +29,7 @@ export function assertSession(value, channel = 'session', direction = 'response'
   return value;
 }
 const session = shape(sessionFields);
-const result = shape({ok: boolean, error: optional(string), cancelled: optional(boolean), submitted: optional(boolean), reset: optional(boolean), session: optional(session)});
+const result = shape({ok: boolean, error: optional(string), cancelled: optional(boolean), submitted: optional(boolean), reset: optional(boolean), focused: optional(boolean), session: optional(session)});
 const voidResult = value => value === undefined;
 const snapshot = shape({data: string, cols: integer, rows: integer});
 const message = value => object(value) && optional(string)(value.at) && optional(string)(value.time) && (
