@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {E2E} from './app.mjs';
 import {EXTENSION_DIR, browserChannel, copyExtension, freePort} from './extension.mjs';
+import {LAUNCH_TIMEOUT_MS, launchGuard} from './launch-guard.mjs';
 
 export const FIXTURE_CV = path.join(E2E, 'fixtures', 'cv.pdf');
 const pdf = (name, source = FIXTURE_CV) => ({data: fs.readFileSync(source).toString('base64'), name, type: 'application/pdf'});
@@ -49,13 +50,21 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   });
   if (stub) await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-real-ext-'));
-  const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, locale: 'en-US', ...(timezoneId ? {timezoneId} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
-    args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...(cdp ? ['--remote-debugging-port=0'] : []),   // cdp: lib/replay-coverage.mjs reads <profile>/DevToolsActivePort
-      // offline: a replay's pages come from routes; any host they do not serve resolves to nothing (11 Oct 2026: a route set while another tab loaded let one request out)
-      ...(offline ? ['--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'] : [])],
-  });
-  const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
+  let context, worker;
+  try {
+    launchGuard.check();   // a browser that did not start earlier in this process: stop now, never wait again per case (lib/launch-guard.mjs)
+    context = await chromium.launchPersistentContext(profile, {
+      ...browserChannel(), headless: false, locale: 'en-US', ...(timezoneId ? {timezoneId} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: LAUNCH_TIMEOUT_MS,
+      args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...(cdp ? ['--remote-debugging-port=0'] : []),   // cdp: lib/replay-coverage.mjs reads <profile>/DevToolsActivePort
+        // offline: a replay's pages come from routes; any host they do not serve resolves to nothing (11 Oct 2026: a route set while another tab loaded let one request out)
+        ...(offline ? ['--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'] : [])],
+    });
+    worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
+  } catch (error) {
+    launchGuard.failed(error);
+    await context?.close().catch(() => {}); stub?.close();
+    throw error;
+  }
   await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'e2e', ladderAct: true}), `http://127.0.0.1:${port}`);   // ladderAct: the fill ladder's repair acts in test runs only (fake applicant; extension/ladder/fill-climb.js)
   const close = async () => { await context.close().catch(() => {}); stub?.close(); };
 
