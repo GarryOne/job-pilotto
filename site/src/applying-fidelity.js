@@ -74,7 +74,7 @@ export function verdictOf(live, replay, live2 = null) {
 // A row's next step: deferred (its reason), record (no recording yet), re-record (on the Mac first: its replay is not the same as live, or never ran), or nothing.
 export function nextOf(row) {
   if (row.deferred) return {word: 'deferred', why: row.deferred};
-  if (!row.live) return {word: 'record', why: 'No recording yet: record it on the Mac (CI only when the Mac is blocked)'};
+  if (!row.live) return {word: 'record', why: 'No network copy yet: record it on the Mac (CI only when the Mac is blocked)'};
   return row.networkVerdict === 'same' ? null : {word: 're-record', why: row.networkVerdict ? 'The replay is not the same as live: re-record it on the Mac' : 'No replay result: re-record it on the Mac'};
 }
 
@@ -113,16 +113,16 @@ export const FIDELITY_SCRIPT = `
   const VERDICT_TONE = {same: 's-ready', close: 's-form', off: 's-posting'}, VERDICT_WORD = {same: 'Same', close: 'Close', off: 'Off'};
   const outcome = side => (side && (side.filled != null || side.left != null) ? (side.filled ?? '–') + ' filled · ' + (side.left ?? '–') + ' left' : 'not available');
   const hits = (live, side) => (live && side && side.hit != null ? side.hit + ' / ' + live.asks + ' hit · ' + (side.extra || 0) + ' extra' : '—');
-  const verdictPill = word => (word ? el('span', {className: 'pill ' + VERDICT_TONE[word], textContent: VERDICT_WORD[word]}) : el('span', {className: 'muted', textContent: 'Not recorded yet'}));
+  const verdictPill = word => (word ? el('span', {className: 'pill ' + VERDICT_TONE[word], textContent: VERDICT_WORD[word]}) : el('span', {className: 'muted', textContent: 'No network copy'}));
   // A pool row's name -> {title, sub}: "x (found 2026-10-10)" -> x, "Found 10 Oct 2026"; "a -> b: steps" -> "a → b", steps. The full name is in the details.
   const fidParts = name => { const found = name.match(/^(.*?)\\s*\\(found (\\d{4}-\\d{2}-\\d{2})\\)\\s*$/), cut = name.indexOf(': ');
     const [title, sub] = found ? [found[1], 'Found ' + new Date(found[2] + 'T00:00:00Z').toUTCString().slice(5, 16)] : cut > 0 ? [name.slice(0, cut), name.slice(cut + 2)] : [name, ''];
     return {title: title.replace(/ -> /g, ' → '), sub}; };
   const NEXT_WORD = {record: 'Record', 're-record': 'Re-record', deferred: 'Deferred'};
-  const recorded = r => (r.recording ? (r.recording.where === 'mac' ? 'Mac' : 'CI') + (r.recording.at ? ' · ' + ago(r.recording.at) : '') : r.live ? 'Recorded (source not kept)' : 'Not recorded');
+  const recorded = r => (r.recording ? (r.recording.where === 'mac' ? 'Mac' : 'CI') + (r.recording.at ? ' · ' + ago(r.recording.at) : '') : r.live ? 'Recorded (source not kept)' : 'No network copy');
   const fidOpen = new Set();
   const fidDetail = r => { const n = r.network, line = text => el('div', {textContent: text});
-    if (!r.live) return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ')}), line('Not recorded yet. ' + (r.next ? r.next.why : '')),
+    if (!r.live) return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ')}), line('No network copy yet. ' + (r.next ? r.next.why : '')),
       line('Record on the Mac: cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run record-sites -- --only "' + r.name + '", then node records-publish.mjs <dir>.'));
     return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ') + ' · comparison details'}), el('div', {className: 'fidgroups'},
       el('div', {}, el('h4', {textContent: 'Live baseline'}), line('Recording: ' + recorded(r) + ' · ' + r.live.asks + ' live asks'), r.next ? line('Next: ' + r.next.why) : null, line(outcome(r.live)), line('Stage: ' + (r.live.ending || '—')), line(r.live2 ? 'Second live: ' + r.live2.asks + ' asks · ' + (r.live2.extraVsLive1 ?? '–') + ' extra' : 'Second live: none')),
@@ -153,7 +153,7 @@ export const FIDELITY_SCRIPT = `
     state.page = Math.min(state.page, pages - 1);
     const from = state.page * 15, shown = rows.slice(from, from + 15), s = f.summary, go = step => () => { state.page += step; drawFidelity(box, f); };
     const search = el('input', {type: 'search', value: state.query, placeholder: 'Search rows or branches…', 'aria-label': 'Search replay vs live', autocomplete: 'off', oninput: event => { state.query = event.target.value; state.page = 0; drawFidelity(box, f); event.target.focus(); }});
-    const verdict = Object.assign(el('select', {'aria-label': 'Network verdict', onchange: event => { state.verdict = event.target.value; redraw(); }}, ...[['', 'All verdicts'], ['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'Not recorded yet']].map(([value, label]) => el('option', {value, textContent: label}))), {value: state.verdict});
+    const verdict = Object.assign(el('select', {'aria-label': 'Network verdict', onchange: event => { state.verdict = event.target.value; redraw(); }}, ...[['', 'All verdicts'], ['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'No network copy']].map(([value, label]) => el('option', {value, textContent: label}))), {value: state.verdict});
     box.append(el('div', {className: 'fixpanel fidpanel'},
       el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
           el('p', {className: 'score', textContent: 'Network replay: ' + (s.gate != null ? s.gate + ' of ' + s.total + ' pool rows same as live (the gate: no extra ask) · ' + s.network + ' answer every ask as live (stricter)' : s.network + ' of ' + s.total + ' pool rows same as live') + (s.stale ? ' · ' + s.stale + ' stale (not replayed in the latest run)' : '') + (s.pinned != null ? ' (pinned ' + s.pinnedSame + ' of ' + s.pinned + ' still same)' : '') + ' · ' + s.recorded + ' recorded · Snapshot: ' + s.snapshot}),
