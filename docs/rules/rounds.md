@@ -43,6 +43,7 @@ the wrong cause for the waiting ([why.md](why.md)).
   fallback, speed gate) and never got there, while small hand-cut recorded pages already guarded every fix that day.
 - Report confirmed rows per hour, and what each waiting session waits for (one line each).
 - A finished session says "done" and the coordinator tells the owner it can be closed.
+- When the owner asks where the sessions stand: skill **report-sessions-roundup** (one table: Session, Work, Status, Waiting on, Progress %, ETA; closed sessions left out).
 
 ## End of a round
 Confirmed rows before -> after; the lessons, each in its strongest form ([knowledge.md](knowledge.md)); the list of gaps for the next tooling slot.
