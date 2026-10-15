@@ -7,6 +7,7 @@
 //   --offline   replay the stored answers through the real pageKind, no model: deterministic, seconds (the gate: test/ladder-ratchet.test.js)
 //   --update-baseline "<why>"   (with --offline) rewrite e2e/ladder-baseline.json from this score and add the dated reason: the ratchet's only way to accept a change
 //   --moves     the next move, both ways, on the fixtures with a confirmed expected move (e2e/ladder-moves-score.mjs; --offline: today only)
+//   --spread    3 live draws per fixture (plan path), kept in e2e/ladder-spread.json with the prompt fingerprint: which fixtures flip between draws (--only <id> re-measures one); the score then labels them "noisy (k/3)"
 //   --only <id> | --source <recorded|captured|reconstructed|invented> | --question <page_kind|fill_verify|fill_repair|…> | --json
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +16,7 @@ import {fingerprints} from './lib/ladder-fingerprint.mjs';
 import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
+import {DRAWS, SPREAD_FILE, fingerprintKey, labelOf, measureEntry, readSpread, summaryLines, writeSpread} from './lib/ladder-spread.mjs';
 import {answerPathNote, scoringClient} from './lib/ladder-score-path.mjs';
 
 if (process.argv.includes('--moves')) { await import('./ladder-moves-score.mjs'); process.exit(0); }   // the next move both ways (box 7 of spec 2026-10-12-one-next-move.md)
@@ -36,7 +38,22 @@ if (!offline) {
 }
 // Live: four calls at a time. Rows come back in fixture order.
 const lanes = Array.from({length: offline ? 1 : 4}, (_, lane) => fixtures.filter((_, index) => index % (offline ? 1 : 4) === lane));
-const rows = (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor})))).flat().sort((a, b) => a.id.localeCompare(b.id));
+const draw = async () => (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor})))).flat().sort((a, b) => a.id.localeCompare(b.id));
+const fp = fingerprintKey(await fingerprints()), spread = readSpread();
+
+if (args.includes('--spread')) {   // N live draws per fixture; the stored answer's outcome is what each draw is compared with
+  if (offline || record) { console.error('--spread is live and does not record answers'); process.exit(1); }
+  fixtures = fixtures.filter(f => f.expect.outcome !== 'pending' && f.answer);
+  const stored = new Map((await scoreFixtures(fixtures)).map(row => [row.id, row.outcome])), draws = [];
+  lanes.splice(0, lanes.length, ...Array.from({length: 4}, (_, lane) => fixtures.filter((_, index) => index % 4 === lane)));
+  for (let n = 1; n <= DRAWS; n++) { draws.push(await draw()); console.error(`spread: draw ${n}/${DRAWS} done`); }
+  for (const id of stored.keys()) spread.fixtures[id] = measureEntry(stored.get(id), draws.map(rows => rows.find(row => row.id === id)), fp);
+  writeSpread(spread.fixtures);
+  const noisy = Object.entries(spread.fixtures).filter(([, entry]) => entry.same < entry.draws);
+  console.log(`spread measured on prompt ${fp}: ${stored.size} fixtures x ${DRAWS} draws; ${noisy.length} flip: ${noisy.map(([id, entry]) => `${id} (${entry.same}/${entry.draws}${entry.wrongConfident ? ', wrong-confident' : ''})`).join(', ') || '-'}`);
+  process.exit(0);
+}
+const rows = await draw();
 
 if (record) {
   for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined || Array.isArray(row.answer?.controls) || Array.isArray(row.answer?.repairs)) {   // fill_verify: per-control verdicts; fill_repair: per-control repairs   // a page-kind answer has a kind, a judge's an answer
@@ -55,7 +72,7 @@ if (args.includes('--json')) { console.log(JSON.stringify({rows, summary}, null,
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);
 console.log(`ladder-score (${offline ? 'offline: stored answers' : record ? 'live, recording answers' : 'live, plan path'}), ${rows.length} fixtures`);
 console.log(`${pad('fixture', 36)} ${pad('question', 14)} ${pad('source', 13)} ${pad('expected', 14)} ${pad('got', 8)} ${pad('conf', 5)} rung status`);
-for (const row of rows) console.log(`${pad(row.id, 36)} ${pad(row.question || 'page_kind', 14)} ${pad(row.source, 13)} ${pad(row.expected, 14)} ${pad(row.outcome || '-', 8)} ${pad(row.confidence.toFixed(2), 5)} ${pad(row.rung, 4)} ${row.status}${row.trap ? '  (trap)' : ''}${row.digestOk === null ? '' : `  [digest ${row.digest || 'route only'}: ${row.digestOk ? 'as expected' : 'NOT as expected'}; route ${row.route || '-'}]`}`);
+for (const row of rows) console.log(`${pad(row.id, 36)} ${pad(row.question || 'page_kind', 14)} ${pad(row.source, 13)} ${pad(row.expected, 14)} ${pad(row.outcome || '-', 8)} ${pad(row.confidence.toFixed(2), 5)} ${pad(row.rung, 4)} ${row.status}${labelOf(row.id, spread, fp) ? `  [${labelOf(row.id, spread, fp)}]` : ''}${row.trap ? '  (trap)' : ''}${row.digestOk === null ? '' : `  [digest ${row.digest || 'route only'}: ${row.digestOk ? 'as expected' : 'NOT as expected'}; route ${row.route || '-'}]`}`);
 console.log('\nHit rate per source (never blended; "hit" = exact or accepted):');
 for (const [source, entry] of Object.entries(summary.bySource)) console.log(`  ${pad(source, 14)} ${entry.hits}/${entry.total} hit, ${entry.exact} exact`);
 console.log('Per question, then per source (the judges are questions of rung 2; never blended across questions):');
@@ -63,7 +80,8 @@ for (const [question, groups] of Object.entries(summary.byQuestion)) for (const 
 console.log('Per rung that decides today (0 = structure rule after an unsure answer, 1 = kept answer, 2 = AI sketch):');
 for (const [rung, entry] of Object.entries(summary.byRung).sort()) console.log(`  ${pad(rung, 14)} ${entry.hits}/${entry.total} hit`);
 console.log(`Wrong and confident (answer >= 0.8, outside the accepted outcomes): ${summary.wrongConfident.length}`);
-for (const row of summary.wrongConfident) console.log(`  ${row.id}: expected ${row.expected}, got ${row.outcome} at ${row.confidence.toFixed(2)}`);
+for (const row of summary.wrongConfident) console.log(`  ${row.id}: expected ${row.expected}, got ${row.outcome} at ${row.confidence.toFixed(2)}${labelOf(row.id, spread, fp) ? `  [${labelOf(row.id, spread, fp)}]` : ''}`);
+for (const line of summaryLines(rows, spread, readBaseline(), fp)) console.log(line);
 if (summary.pending.length) {
   console.log(`To confirm (expectation pending, not scored, not in the ratchet): ${summary.pending.length}`);
   for (const row of summary.pending) console.log(`  ${row.id}: rung 2 says ${row.outcome || '(no stored answer yet)'}${row.confidence ? ` at ${row.confidence.toFixed(2)}` : ''}; ${row.note || ''}`.slice(0, 220));
