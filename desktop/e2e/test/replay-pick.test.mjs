@@ -14,8 +14,10 @@ test('only rows 100% same as live in the baseline, quickest first, one per site 
   assert.deepEqual(pickRows({}), [], 'no baseline: nothing (never an uncounted row that cannot be judged)');
 });
 
-test('the rows spread round robin over at most 5 runners', () => {
-  assert.deepEqual(split(['a', 'b', 'c', 'd', 'e', 'f', 'g']), [['a', 'f'], ['b', 'g'], ['c'], ['d'], ['e']]);
+test('the rows spread over at most 10 runners: a full pick is one row per runner', () => {
+  assert.deepEqual(split(['a', 'b', 'c', 'd', 'e', 'f', 'g']), [['a'], ['b'], ['c'], ['d'], ['e'], ['f'], ['g']]);
+  assert.equal(split(Array.from({length: MAX}, (_, i) => `r${i}`)).length, MAX);
+  assert.equal(split(Array.from({length: 13}, (_, i) => `r${i}`)).length, 10);
   assert.deepEqual(split(['a', 'b']), [['a'], ['b']]);
   assert.deepEqual(split([]), []);
 });
@@ -26,6 +28,8 @@ test('the PR workflow: starts for the apply flow\'s code and the replay machiner
   assert.doesNotMatch(flow, /- 'desktop\/e2e\/\*\*'/, 'never the whole harness');
   assert.doesNotMatch(flow, /ci-needed/, 'no shared pick');
   assert.match(flow, /name: site replays gate/);
+  assert.doesNotMatch(flow, /runs-on: macos/, 'the PR gate runs on Linux (15 Oct 2026: Mac and Linux agree on every row same as live; Linux has 20 slots, macOS 5)');
+  assert.match(flow, /install --with-deps chromium/, 'Linux needs the browser\'s system libraries');
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
   assert.match(flow, /JP_REPLAY_ONLY: \$\{\{ matrix\.group \}\}/);
