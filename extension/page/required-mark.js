@@ -18,6 +18,16 @@
   // it that says the same to a screen reader, in the page's language ("Name<sup aria-hidden>*</sup><span>Required</span>"). Its text then ends in no star.
   const STAR_ONLY = new RegExp(`^\\s*${STAR}+\\s*$`);
   const starLeaves = el => Array.from(el.querySelectorAll?.('*') || []).filter(node => !node.firstElementChild && STAR_ONLY.test(node.textContent));
+  // A mark the page keeps hidden until its script says the section is required (class rule, hidden attribute, inline style: any of them leaves it not displayed) is no mark.
+  // Only a live element can be asked; a detached copy has no styles, so the words readers (read) keep dropping every star leaf.
+  const hiddenIn = (node, root) => {
+    for (let el = node; el && el !== root?.parentElement; el = el.parentElement) {
+      if (el.hidden) return true;
+      const style = el.ownerDocument?.defaultView?.getComputedStyle?.(el);
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) return true;
+    }
+    return false;
+  };
   // The words of a label element without its star element and that spoken twin; a string is returned as it is.
   const read = value => {
     if (!value?.cloneNode) return text(value);
@@ -29,7 +39,7 @@
     return text(copy.textContent);
   };
   // Does this label text (or label element) carry the mark?
-  const has = value => value?.querySelectorAll ? starLeaves(value).length > 0 || textHas(read(value)) : textHas(value);
+  const has = value => value?.querySelectorAll ? starLeaves(value).some(leaf => !hiddenIn(leaf, value)) || textHas(read(value)) : textHas(value);
   // The label's words without the mark and the colon after it.
   // `leading: false` keeps a leading mark (the fill reads a group's name with it, then asks `has`).
   const clean = (value, {leading = true} = {}) => { const t = read(value); return text((glued(text(t)) ? t.replace(new RegExp(`(\\p{L})${STAR}+`, 'u'), '$1 ') : t).replace(leading ? LEADING : /^$/, '').replace(TRAILING, '').replace(/\s*[:\uFF1A]$/, '')); };
@@ -88,5 +98,5 @@
   // A control whose label (or aria-labelledby element) carries the mark, with no required attribute on the control itself (a page that checks in its script).
   const labelMarked = el => [...(el.labels || []), ...String(el.getAttribute?.('aria-labelledby') || '').split(/\s+/).map(id => el.ownerDocument.getElementById(id))].some(label => !!label && has(label));
   const marked = el => !!el && (labelMarked(el) || el.required || el.getAttribute('aria-required') === 'true' || /(^|[\s_\[,-])required([\s_\],-]|$)/i.test(String(el.className?.baseVal ?? el.className ?? '')));
-  window.__jobPilottoRequired = {has, clean, read, rowTitle, starred, marked};
+  window.__jobPilottoRequired = {has, clean, read, rowTitle, starred, marked, hiddenIn};
 })();
