@@ -5,13 +5,15 @@
 <p><label for="__input2-inner">Project code *</label> <input id="__input2-inner" name="__input2-inner" type="text" aria-required="true"></p>
 <p><label for="__input3-inner">Favourite tool *</label> <input id="__input3-inner" name="__input3-inner" type="text" aria-required="true"></p>
 </div>
-<p><label for="country">Country *</label> <select id="country" aria-required="true"><option value="">-- choose --</option><option value="CH">Switzerland</option><option value="DE">Germany</option></select></p>
+<p><label for="country">Country *</label> <select id="country" aria-required="true"></select></p>
 <p><button type="button">Apply</button></p>
 </form>
 <script>
 // A toolkit that draws a section again when a menu changes (SAP UI5 re-creates the controls, each with a NEW generated id, and the section starts empty again):
 // picking the country re-renders the contact boxes above it, so what was typed in them is gone and the old boxes are no longer on the page.
 var next = 10;
+// the options are made by the script: a recorded page holds no value attribute
+[['', '-- choose --'], ['CH', 'Switzerland'], ['DE', 'Germany']].forEach(function (pair) { document.getElementById('country').add(new Option(pair[1], pair[0])); });
 document.getElementById('country').addEventListener('change', function () {
   var box = document.getElementById('contact');
   var labels = ['Team name', 'Project code', 'Favourite tool'];
