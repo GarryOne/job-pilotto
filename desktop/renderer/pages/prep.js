@@ -6,6 +6,8 @@ import {toastMessage} from './startup.js';
 import {byStore} from '../store-words.js';
 import {openView} from './nav.js';
 import {openJobPanel} from './job-panel.js';
+import {hintAfter} from '../own-key-hint.js';
+import {shared} from './shared.js';
 
 let current = null;   // the Focus item the dialog is for
 let step = '';        // the engine's current step (onPrepStep)
@@ -59,6 +61,7 @@ async function build() {
   }
   message('prep-message', result.text || '', result.ok ? 'ok' : 'error');
   if (result.ok) {
+    hintAfter($('prep-message'), shared.state, () => import('./settings.js').then(({openSetting}) => { openSetting('ai'); }));   // Free AI wrote it: stronger prep with an own key
     // The kit where it is: its Notion page, else the job's page here, Prep tab (the button's words follow: the Notion label is index.html's).
     const jobUrl = current.url || current.job_url;
     $('prep-open').textContent = current.notion_url ? $('prep-open').dataset.notionLabel : 'Open the prep kit';

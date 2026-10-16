@@ -1,12 +1,17 @@
 // The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
 // the DOM so the tests can check them. The user picks; nothing is chosen for them (lib/claude-code.js engine()).
-const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);   // = lib/ai-free.js isOn (the renderer cannot import lib/)
+const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);
+export const usingFree = settings => freeOn(settings) && (!settings.aiEngine || settings.aiEngine === 'api');   // Free is the engine in charge (a later pick of another engine wins)
+// The one-time hint after AI-written text on Free AI (renderer/own-key-hint.js): its words, and when it is wanted (Free, not shown yet).
+export const HINT = {text: 'Want stronger letters? Connect your Claude or ChatGPT.', link: 'Open AI engine settings', dismiss: 'Dismiss'};
+export const hintWanted = settings => usingFree(settings) && !settings?.ownKeyHintSeen;   // = lib/ai-free.js isOn (the renderer cannot import lib/)
 
 export const TEXT = {
   title: 'Execution engine',
   families: {claude: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)'},   // the two small cards under Free (owner, 16 Oct 2026; 9 Oct: family first, then its two cards)
   familyHint: {claude: 'Your Claude plan or API key', openai: 'Your ChatGPT plan or API key'},   // the company's logo on each card (owner, 16 Oct 2026)
   ownAccount: 'Or use your own account',
+  ownQuality: 'Better letters and interview prep; uses your own subscription or key.',   // quality, never a number (owner, 16 Oct 2026)
   subtitle: 'Where Job Pilotto\'s AI tasks run: reading jobs, fit scores, kits, reviews.',
   settingsSubtitle: 'Choose where AI tasks run.',  // Settings → Connections: the two cards under it say the rest
   details: 'Installation details',                 // the Claude Code path, folded under its status line
@@ -54,7 +59,7 @@ export const CLI_OF = {claude: 'cli', openai: 'codex'};
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {
   if (context === 'wizard' && !freeOn(settings) && !['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine) && !hasKey) return 'free';   // Free is preselected for a new user (owner, 16 Oct 2026)
-  if (freeOn(settings) && (!settings.aiEngine || settings.aiEngine === 'api')) return 'free';   // a later pick of another engine wins
+  if (usingFree(settings)) return 'free';   // a later pick of another engine wins
   if (['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine)) return settings.aiEngine;
   return context === 'settings' && hasKey ? 'api' : null;
 }
