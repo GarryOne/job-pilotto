@@ -15,13 +15,14 @@ export async function runWizard(ctx) {
   await ctx.run('Start opens the AI step with both engines to choose from', async () => {
     await page.locator('.step[data-step="welcome"] [data-next]').click();
     await ctx.expectStep('ai');
-    await page.locator('[data-choice="api"]').waitFor();
-    await page.locator('[data-choice="cli"]').waitFor();
+    await page.locator('[data-choice="free"]').waitFor();
+    await page.locator('[data-choice="family-claude"]').waitFor();
+    await page.locator('[data-choice="family-openai"]').waitFor();
   });
   if (ctx.engine === 'codex' || ctx.engine === 'openai') {
-    // The OpenAI family (lib/engine.mjs rotation): the switch first, then its card. A Mac picks Codex (confirmed once, then checked); CI types the OpenAI test key.
+    // The OpenAI family (lib/engine.mjs rotation): its small card first, then its two cards. A Mac picks Codex (confirmed once, then checked); CI types the OpenAI test key.
     await ctx.run('the OpenAI side of the switch shows its two cards', async () => {
-      await page.locator('#ai-engine .engine-family button', {hasText: 'OpenAI'}).click();
+      await page.locator('[data-choice="family-openai"]').click();
       await page.locator('[data-choice="openai"]').waitFor();
       await page.locator('[data-choice="codex"]').waitFor();
     });
@@ -46,6 +47,7 @@ export async function runWizard(ctx) {
   } else if (ctx.engine === 'cli') {
     // A Mac: no key is ever typed (lib/engine.mjs). The app asks once whether to use Claude Code, then checks it, and the step continues.
     await ctx.run('Claude Code is chosen (confirmed once, then checked) and the AI step continues', async () => {
+      await page.locator('[data-choice="family-claude"]').click();
       await page.locator('[data-choice="cli"]').click();
       await page.locator('[data-notice="yes"]').click({timeout: 5000}).catch(() => {});   // the notice shows only the first time
       await page.waitForFunction(() => !document.getElementById('ai-save')?.disabled, null, {timeout: 90000});
@@ -54,6 +56,7 @@ export async function runWizard(ctx) {
     });
   } else {
     await ctx.run('the AI step will not continue without a key', async () => {
+      await page.locator('[data-choice="family-claude"]').click();
       await page.locator('[data-choice="api"]').click();
       await page.locator('#anthropic-key').waitFor();
       if (!(await page.locator('#ai-save').isDisabled())) throw new Error('"Check and save" is enabled with no key typed');

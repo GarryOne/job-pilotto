@@ -4,20 +4,20 @@ const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);   // = lib
 
 export const TEXT = {
   title: 'Execution engine',
-  families: {claude: 'Claude', openai: 'OpenAI'},   // the switch above the cards (owner, 9 Oct 2026: family first, then its two cards)
+  families: {claude: 'Claude', openai: 'OpenAI'},   // the two small cards under Free (owner, 16 Oct 2026; 9 Oct: family first, then its two cards)
+  familyHint: {claude: 'Use your own Claude account', openai: 'Use your own OpenAI account'},
+  ownAccount: 'Or use your own account',
   subtitle: 'Where Job Pilotto\'s AI tasks run: reading jobs, fit scores, kits, reviews.',
   settingsSubtitle: 'Choose where AI tasks run.',  // Settings → Connections: the two cards under it say the rest
   details: 'Installation details',                 // the Claude Code path, folded under its status line
-  api: {title: 'Anthropic API key', text: 'Uses your Anthropic API key. You control the model and costs.',
-    short: 'Control the model and API costs.'},  // Settings shows the short line; the wizard explains in full
-  cli: {title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI (the claude command on this Mac) and its Claude subscription for the AI tasks here, with no API key or '
-    + 'per-token costs for them. Scheduled runs in your GitHub repository (Always on) still use your API key.',
-    short: 'Use your Claude subscription, for tasks on this Mac.'},
-  openai: {title: 'OpenAI API key', text: 'Uses your OpenAI API key. You control the model and costs.',
-    short: 'Control the model and API costs.'},
-  codex: {title: 'Codex CLI', text: 'Uses your own Codex CLI (the codex command on this Mac) and your ChatGPT plan for the AI tasks here, with no API key or '
-    + 'per-token costs for them. Scheduled runs in your GitHub repository (Always on) still use your OpenAI API key.',
-    short: 'Use your ChatGPT plan, for tasks on this Mac.'},
+  api: {title: 'API key', text: 'Pay as you go with your own key. You control the cost.',
+    short: 'Pay as you go with your own key.'},  // Settings shows the short line; the wizard explains in full
+  cli: {title: 'Your Claude subscription', text: 'Use the Claude plan you already pay for, through Claude Code on this Mac. Nothing extra to pay.',
+    short: 'Use the plan you already pay for.'},
+  openai: {title: 'API key', text: 'Pay as you go with your own key. You control the cost.',
+    short: 'Pay as you go with your own key.'},
+  codex: {title: 'Your OpenAI plan', text: 'Use the plan you already pay for, through Codex on this Mac. Nothing extra to pay.',
+    short: 'Use the plan you already pay for.'},
   free: {title: 'Free', text: 'Nothing to set up: no account, no key, no cost. Job Pilotto\'s AI tasks just work. '
     + 'Want the best results? Add your own key any time.', short: 'No account, no key, no cost.'},
   note: 'AI tasks run through your Claude Code and bill to your Claude subscription, not to API credits. Always on (GitHub) '
@@ -35,14 +35,25 @@ export const TEXT = {
   offer: 'New: run these AI tasks on your own Claude Code (your Claude plan) instead of API credits. Your API key stays as it is until you switch.',
 };
 
+// ⌘K: one entry per engine choice (the cards of pages/ai-engine.js, pressed by data-choice): [card, label, hint, search words, the family card to open first].
+export const ENGINE_CHOICES = [
+  ['free', 'Use Free AI', 'No account, no key, no cost', 'free no key'],
+  ['family-claude', 'Use my own Claude account', 'Your Claude plan or API key', 'claude anthropic own key api'],
+  ['family-openai', 'Use my own OpenAI account', 'Your ChatGPT plan or API key', 'openai chatgpt codex own key api'],
+  ['cli', 'Use my Claude Code', 'Your Claude plan, for tasks on this Mac', 'claude code cli subscription', 'family-claude'],
+  ['codex', 'Use my Codex', 'Your ChatGPT plan, for tasks on this Mac', 'codex cli chatgpt subscription', 'family-openai'],
+];
+
 // Each engine's family, and the two cards of a family (API key first, then the user's own CLI).
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');
-export const FAMILY_CARDS = {claude: ['api', 'cli'], openai: ['openai', 'codex']};
+export const FAMILY_CARDS = {claude: ['cli', 'api'], openai: ['codex', 'openai']};   // the subscription first, on the left (owner, 16 Oct 2026), then the API key
+export const API_OF = {claude: 'api', openai: 'openai'};
 export const CLI_OF = {claude: 'cli', openai: 'codex'};
 
 // The chosen engine: 'api', 'cli', 'openai', 'codex' or null. In Settings an install that had a key before the choice existed shows 'api'
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {
+  if (context === 'wizard' && !freeOn(settings) && !['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine) && !hasKey) return 'free';   // Free is preselected for a new user (owner, 16 Oct 2026)
   if (freeOn(settings) && (!settings.aiEngine || settings.aiEngine === 'api')) return 'free';   // a later pick of another engine wins
   if (['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine)) return settings.aiEngine;
   return context === 'settings' && hasKey ? 'api' : null;

@@ -558,6 +558,17 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 /* Choice cards (choiceCards): side-by-side radio cards, the chosen one outlined with a check badge (the AI engine). */
 .ui-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
 .ui-choices.is-single { grid-template-columns: minmax(0, 1fr); }   /* one card on its own full-width row, e.g. Free under the engine cards */
+.ui-choices.is-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* two small cards side by side (the AI engine's Claude | OpenAI) */
+.ui-choice.is-hero { padding: var(--sp-5); align-items: center; }   /* the card that leads: bigger tile and words (the AI engine's Free) */
+.ui-choice.is-hero .ui-tile { width: 56px; height: 56px; }
+.ui-choice.is-hero .ui-tile .icon { width: 28px; height: 28px; }
+.ui-choice.is-hero .ui-choice-text b { font-size: var(--fs-lg); }
+.ui-choices.is-pair .ui-choice.is-selected .ui-choice-check { visibility: hidden; }   /* the open family is marked by its border; the check is for the engine picked */
+.ui-choice.is-compact { padding: var(--sp-3) var(--sp-4); align-items: center; }
+.ui-choice.is-compact .ui-tile { width: 32px; height: 32px; }
+.ui-logo { display: block; width: 18px; height: 18px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.ui-logo-claude { -webkit-mask-image: url(assets/ai/claude.svg); mask-image: url(assets/ai/claude.svg); }
+.ui-logo-openai { -webkit-mask-image: url(assets/ai/openai.svg); mask-image: url(assets/ai/openai.svg); }
 .ui-choice { position: relative; display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; color: inherit; cursor: pointer; }
 .ui-choice:hover:not(:disabled) { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }

@@ -16,7 +16,8 @@ import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
-import {settingsPage, showServicesNow} from './settings.js';
+import {openSetting, settingsPage, showServicesNow} from './settings.js';
+import {ENGINE_CHOICES} from '../ai-engine-view.js';
 import {loadStrategy} from './strategy.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
@@ -116,6 +117,11 @@ function paletteCommands() {
     'saved view filter applications active applying in progress kit ready rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
   // Each Reports tab (pages/reports.js), by what it holds.
   for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
+  // The AI engine's choices (pages/ai-engine.js): open Settings → AI and press the card, as by hand.
+  const press = (choice, wait) => setTimeout(() => document.querySelector(`#ai-engine-settings [data-choice="${choice}"]`)?.click(), wait);
+  for (const [choice, label, hint, words, family] of ENGINE_CHOICES) add('Settings', label, hint, `ai engine ${words}`, () => {
+    openSetting('ai'); if (family) press(family, 300); press(choice, family ? 700 : 300);
+  });
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');

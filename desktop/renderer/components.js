@@ -36,14 +36,23 @@ export function tile(glyph, tone = 'signal') {
 }
 
 // Choice cards: one of a few options side by side (radio cards), each an icon tile, a bold title, a short description
-// and a check badge on the chosen one. choices: [{id, icon, title, text, disabled?, note?}]; selected: an id or null
+// and a check badge on the chosen one. choices: [{id, icon, title, text, disabled?, note?, logo?, size?}] (`logo`: a mark from assets/ai/ instead of the icon tile;
+// `size`: 'hero' for the one card that leads, 'compact' for small side cards); selected: an id or null
 // (nothing chosen yet); onPick(id) when one is clicked.
+// A provider's mark (renderer/assets/ai/<name>.svg), drawn as a mask so it takes the text colour in light and dark.
+function logoTile(name, on) {
+  const node = el('span', `ui-tile ui-logo-tile tone-${on ? 'signal' : 'neutral'}`);
+  node.append(el('span', `ui-logo ui-logo-${name}`));
+  node.querySelector('.ui-logo').setAttribute('aria-hidden', 'true');
+  return node;
+}
+
 export function choiceCards(choices, {selected = null, onPick = () => {}, label = ''} = {}) {
   const group = el('div', 'ui-choices');
   group.setAttribute('role', 'radiogroup');
   if (label) group.setAttribute('aria-label', label);
   for (const choice of choices) {
-    const card = el('button', `ui-choice${choice.id === selected ? ' is-selected' : ''}${choice.disabled ? ' is-disabled' : ''}`);
+    const card = el('button', `ui-choice${choice.id === selected ? ' is-selected' : ''}${choice.disabled ? ' is-disabled' : ''}${choice.size ? ` is-${choice.size}` : ''}`);
     Object.assign(card, {type: 'button', disabled: !!choice.disabled});
     card.dataset.choice = choice.id;
     card.setAttribute('role', 'radio');
@@ -53,7 +62,7 @@ export function choiceCards(choices, {selected = null, onPick = () => {}, label 
     if (choice.note) text.append(el('span', 'ui-choice-note small', choice.note));
     const check = el('span', 'ui-choice-check');
     check.append(icon('tick'));
-    card.append(tile(choice.icon, choice.id === selected ? 'signal' : 'neutral'), text, check);
+    card.append(choice.logo ? logoTile(choice.logo, choice.id === selected) : tile(choice.icon, choice.id === selected ? 'signal' : 'neutral'), text, check);
     card.addEventListener('click', () => onPick(choice.id));
     group.append(card);
   }
