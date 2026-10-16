@@ -2,6 +2,7 @@
 import {shared} from './shared.js';
 import {refreshCv} from './activity.js';
 import {$, STEPS, message, show} from './core.js';
+import {init as hostedInit} from './hosted.js';
 import {loadJobs} from './jobs.js';
 import {toDraft} from './strategy-review.js';
 import {mountEngine} from './ai-engine.js';
@@ -87,6 +88,7 @@ export const saveState = {};
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  hostedInit();   // the hosted step and its Settings card are built in script (pages/hosted.js)
   // Finished steps (or any step once setup was done before) can be opened from the sidebar.
   document.querySelectorAll('#step-list li').forEach(li => li.addEventListener('click', () => {
     if (!li.classList.contains('jump') || li.classList.contains('current')) return;

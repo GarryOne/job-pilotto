@@ -9,13 +9,18 @@ test('the steps match the wizard', () => {
   // The website's funnel (/telemetry) counts the same steps, then "done".
   const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
   // The website keeps 'notion' as a legacy step (older apps reported it; a newer install that went past it counts as having reached it).
-  const siteSteps = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
+  const siteSteps = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];
   assert.deepEqual(STEPS, siteSteps.filter(s => s !== 'notion' && s !== 'done'));
   assert.match(site, new RegExp(`SETUP_STEPS = \\[${siteSteps.map(s => `'${s}'`).join(', ')}\\]`));
   // Every step has its page in the wizard, and the sidebar lists exactly these.
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
-  assert.deepEqual([...html.matchAll(/<li data-step="([a-z]+)"/g)].map(m => m[1]), STEPS);
-  for (const step of STEPS) assert.match(html, new RegExp(`class="step" data-step="${step}"`));
+  // 'hosted' is built in script (renderer/pages/hosted.js: index.html may only shrink), placed before 'extras'; the others are in the page.
+  const BUILT = ['hosted'], inPage = STEPS.filter(step => !BUILT.includes(step));
+  assert.deepEqual([...html.matchAll(/<li data-step="([a-z]+)"/g)].map(m => m[1]), inPage);
+  for (const step of inPage) assert.match(html, new RegExp(`class="step" data-step="${step}"`));
+  const hosted = fs.readFileSync(new URL('../renderer/pages/hosted.js', import.meta.url), 'utf8');
+  assert.match(hosted, /step\.dataset\.step = 'hosted'/);
+  assert.match(hosted, /#step-list li\[data-step="extras"\]'\)\.before\(item\)/);
 });
 
 test('one report per step reached, only moving forward; one when setup finishes', () => {

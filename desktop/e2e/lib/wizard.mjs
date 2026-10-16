@@ -81,7 +81,9 @@ export async function runWizard(ctx) {
     const roles = await page.locator('#chips-roles > *').count();
     if (!roles) throw new Error('the strategy has no roles to search for');
     await page.click('#draft-save');
-    await ctx.expectStep('extras', 180000);
+    await ctx.expectStep('hosted', 180000);   // the daily-searches step (pages/hosted.js): Skip leaves hosted off, the extras step follows
+    await page.click('#hosted-skip');
+    await ctx.expectStep('extras');
   }, {needs: ctx.needs});
   await ctx.run('finishing the setup without Notion opens the Jobs list, with the strategy kept on this Mac', async () => {
     await page.click('#finish');
