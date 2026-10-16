@@ -249,6 +249,11 @@ class KitLanguageTest(unittest.TestCase):
         for word in (' he works', ' excites him'):
             self.assertNotIn(word, kit.SYSTEM)
 
+    def test_the_prompt_asks_for_three_to_five_highlights_always(self):
+        # Measured 16 Oct 2026 on an open model (Free AI): with only the schema's description it left the list empty in 9 of 14 kits; with this rule, 0 of 14.
+        self.assertIn('highlights: always 3 to 5', kit.SYSTEM)
+        self.assertIn('never an empty list', kit.SYSTEM)
+
 
 if __name__ == '__main__':
     unittest.main()
