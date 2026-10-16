@@ -1,9 +1,10 @@
 // Free AI (src/free-ai.js): install-token auth, Anthropic <-> Workers AI translation, per-install limits, the daily line, the kill switch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {DAY_MESSAGE, MONTH_MESSAGE, freeAi, LIMITS} from '../src/free-ai.js';
+import {DAY_MESSAGE, MONTH_MESSAGE, TRIAL_MESSAGE, freeAi, LIMITS} from '../src/free-ai.js';
+import {ACTIONS} from '../src/aicost.js';
 import {tokenFor} from '../src/guard.js';
-import {SMALL, STRONG, costUsd, modelFor} from '../src/free-ai-models.js';
+import {OSS, SMALL, STRONG, STEP_MODELS, costUsd, modelFor} from '../src/free-ai-models.js';
 import {asStream, fromWorkersAi, REASONING_ROOM, toWorkersAi, Unsupported} from '../src/free-ai-translate.js';
 
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
@@ -96,6 +97,51 @@ test('the lines come from wrangler.toml vars: early-adopter values in force, the
   e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, '0'); e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, '49');
   assert.equal((await call(e, apiKey)).status, 200);
   assert.equal((await call(e, apiKey)).status, 429);   // the 51st in the minute
+});
+
+test('per step: only the rejection review runs on gpt-oss-120b, every other step on the small model', async () => {
+  assert.deepEqual(STEP_MODELS, {review: OSS});
+  for (const action of [...ACTIONS, '', 'other', 'few_jobs']) assert.equal(modelFor(action, {}), action === 'review' ? OSS : SMALL, action);
+  assert.equal(modelFor('review', {STEP_MODELS: 'off'}), SMALL);
+  assert.equal(modelFor('review', {STRONG_ON: 'on'}), OSS, 'the per-step map wins over the strong switch');
+  assert.equal(modelFor('kit', {STRONG_ON: 'on'}), STRONG);
+  const e = env(), apiKey = await key();
+  await call(e, apiKey, undefined, {'x-jp-action': 'review'});
+  await call(e, apiKey, undefined, {'x-jp-action': 'kit'});
+  assert.deepEqual(e.seen.map(item => item.model), [OSS, SMALL]);
+  assert.ok(costUsd(OSS, {input_tokens: 1000, output_tokens: 1000}) > costUsd(SMALL, {input_tokens: 1000, output_tokens: 1000}), 'gpt-oss is priced as itself, not as the small model');
+});
+
+test('the trial: $2 for the install\'s life, counted apart from the day and month, refused with the trial words', async () => {
+  assert.match(TRIAL_MESSAGE, /used the Free AI included in your trial\. Get Pro, or connect your own Claude or ChatGPT/);
+  const e = env(), apiKey = await key();
+  await call(e, apiKey);
+  const id = [...e.WAITLIST.m.keys()].find(k => k.startsWith('freeai:min:')).split(':')[2];
+  const first = Number(e.WAITLIST.m.get(`freeai:life:${id}`));
+  assert.ok(first > 0 && first === Number(e.WAITLIST.m.get(`freeai:dusd:${id}:2026-10-16`)), 'the first call counts for life like for the day');
+  await call(e, apiKey);
+  assert.equal(Number(e.WAITLIST.m.get(`freeai:life:${id}`)), 2 * first);
+  e.WAITLIST.m.set(`freeai:life:${id}`, String(1.99 * 1e6));
+  assert.equal((await call(e, apiKey)).status, 200, 'under the budget');
+  e.WAITLIST.m.set(`freeai:life:${id}`, String(2 * 1e6));
+  e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, '0'); e.WAITLIST.m.set(`freeai:musd:${id}:2026-10`, '0');   // the day and the month are clean: only the trial refuses
+  const refused = await call(e, apiKey);
+  assert.equal(refused.status, 429); assert.equal((await refused.json()).error.message, TRIAL_MESSAGE);
+  assert.equal((await call({...e, FREE_AI_TRIAL_USD: '5'}, apiKey)).status, 200, 'the budget is the wrangler var');
+});
+
+test('a licence key (Pro, founder, friend) is a separate lane: no trial budget, nothing counted for life', async () => {
+  const pair = await crypto.subtle.generateKey({name: 'Ed25519'}, true, ['sign', 'verify']);
+  const b64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const payload = b64(new TextEncoder().encode(JSON.stringify({id: 'pro-1'})));
+  const licence = `JP1.${payload}.${b64(await crypto.subtle.sign({name: 'Ed25519'}, pair.privateKey, new TextEncoder().encode(payload)))}`;
+  const e = env({LICENSE_PUBLIC_KEY: b64(await crypto.subtle.exportKey('raw', pair.publicKey))});
+  const reply = await call(e, licence);
+  assert.equal(reply.status, 200);
+  assert.equal([...e.WAITLIST.m.keys()].filter(k => k.startsWith('freeai:life:')).length, 0);
+  for (const k of [...e.WAITLIST.m.keys()].filter(k => k.startsWith('freeai:min:'))) e.WAITLIST.m.delete(k);
+  e.WAITLIST.m.set('freeai:life:anything', String(99 * 1e6));
+  assert.equal((await call(e, licence)).status, 200);
 });
 
 test('a founder key from an older app still works', async () => {
