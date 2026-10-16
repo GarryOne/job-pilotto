@@ -118,6 +118,7 @@ veteran or similar voluntary questions; contact = name, email, phone, address; n
 needs_review; never state a guess as fact. Salary: only a figure from the standard answers.
 - check_before_sending: short items the candidate must verify, e.g. a required language, a \
 sponsorship answer, a ❓ field you relied on.
+- highlights: always 3 to 5 points from the candidate's profile to lead with for this job, even when eligible is false or the fit is poor; never an empty list.
 - eligible: false only when the posting clearly rules the candidate out (a work location, residence or \
 authorization the profile says they can't meet, or a required language they don't speak); say why in \
 eligibility_note, one sentence. Otherwise eligible is true and eligibility_note is "". Still draft every answer.
