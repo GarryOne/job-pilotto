@@ -2,12 +2,11 @@
 // fill: one listed text box that is still empty gets a value the app resolved from the person's contact details (never a password: the account step fills those, never a box
 // that already holds something). choose: one listed native dropdown gets one of its own options. Controls are found by the label the sketch listed (account-fill.js accountSketch).
 // Each answers a word the caller logs (never the value): filled | chosen, or why nothing was done. Guard: worker/test/account-act.test.js.
-const label = el => String((el.labels?.[0]?.innerText ?? el.labels?.[0]?.textContent) || el.getAttribute('aria-label') || el.placeholder || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 80).toLowerCase();
-const named = (selector, wanted) => [...document.querySelectorAll(selector)].filter(el => el.getClientRects().length && !el.disabled && label(el) === String(wanted || '').replace(/\s+/g, ' ').trim().toLowerCase());
-
 export function fillControl(wanted, value) {
   if (!wanted || !String(value || '').trim()) return 'nothing-to-fill';
-  const found = named('input, textarea', wanted);
+  const label = el => String((el.labels?.[0]?.innerText ?? el.labels?.[0]?.textContent) || el.getAttribute('aria-label') || el.placeholder || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 80).toLowerCase();   // inline: this function is injected into the page alone
+  const named = selector => [...document.querySelectorAll(selector)].filter(el => el.getClientRects().length && !el.disabled && label(el) === String(wanted || '').replace(/\s+/g, ' ').trim().toLowerCase());
+  const found = named('input, textarea');
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
   const box = found[0];
   if (!['text', 'email', 'tel', 'search', 'url', 'textarea'].includes(box.type) || box.readOnly) return 'not-a-text-box';   // a password, a file, a box that is read-only: never
@@ -20,7 +19,9 @@ export function fillControl(wanted, value) {
 }
 
 export function chooseOption(wanted, option) {
-  const found = named('select', wanted);
+  const label = el => String((el.labels?.[0]?.innerText ?? el.labels?.[0]?.textContent) || el.getAttribute('aria-label') || el.placeholder || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 80).toLowerCase();   // inline: this function is injected into the page alone
+  const named = selector => [...document.querySelectorAll(selector)].filter(el => el.getClientRects().length && !el.disabled && label(el) === String(wanted || '').replace(/\s+/g, ' ').trim().toLowerCase());
+  const found = named('select');
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
   const text = String(option || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const matches = [...found[0].options].filter(item => !item.disabled && String(item.text || '').replace(/\s+/g, ' ').trim().toLowerCase() === text);
