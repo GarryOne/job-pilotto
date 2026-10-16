@@ -113,3 +113,36 @@ test('a plain-text ask is never retried', async () => {
   await call(e, await key());
   assert.equal(e.seen.length, 1);
 });
+
+// Workers Free plan (owner, 16 Oct 2026: "no, measure first"): 10,000 neurons a day, 1 neuron = $0.000011. Past it Cloudflare stops answering until 00:00 UTC.
+const sendAsk = (e, apiKey, sent, at = '2026-10-16T10:00:30Z') => freeAi(new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey},
+  body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})}), e, new Date(at), null, async (url, init) => { sent.push(JSON.parse(init.body).text); return new Response('{}'); });
+
+test('neurons are counted per day, and one Telegram line goes out when 80% of the allowance is passed', async () => {
+  const sent = [], e = env({BRAIN_BOT_TOKEN: 't', BRAIN_CHAT_ID: 'c'}), apiKey = await key();
+  e.WAITLIST.m.set('freeai:neu:2026-10-16', '7990');
+  await sendAsk(e, apiKey, sent); await sendAsk(e, apiKey, sent);
+  assert.ok(Number(e.WAITLIST.m.get('freeai:neu:2026-10-16')) > 8000, 'a call of 1000+1000 tokens is about 40 neurons');
+  assert.equal(sent.length, 1); assert.match(sent[0], /80%|neurons/i);
+});
+
+test('past the daily allowance the answer is words, never empty, and the model is not asked', async () => {
+  const e = env(), apiKey = await key();
+  e.WAITLIST.m.set('freeai:neu:2026-10-16', '10000');
+  const response = await call(e, apiKey);
+  assert.equal(response.status, 503); assert.match((await response.json()).error.message, /busy today.*own key/i);
+  assert.equal(e.seen.length, 0);
+  e.WAITLIST.m.set('freeai:neu:2026-10-17', '0');
+  assert.equal((await freeAi(new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})}), e, new Date('2026-10-17T00:00:30Z'))).status, 200, 'a new UTC day starts at zero');
+});
+
+test('when Cloudflare itself says the free allocation is used up, the same words come back', async () => {
+  const e = env(); e.AI.run = async () => { throw new Error('4006: you have used up your daily free allocation of 10,000 neurons'); };
+  const response = await call(e, await key());
+  assert.equal(response.status, 503); assert.match((await response.json()).error.message, /busy today/i);
+});
+
+test('FREE_AI_NEURONS=off lifts the allowance (once the plan is paid)', async () => {
+  const e = env({FREE_AI_NEURONS: 'off'}); e.WAITLIST.m.set('freeai:neu:2026-10-16', '99999');
+  assert.equal((await call(e, await key())).status, 200);
+});

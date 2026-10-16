@@ -1,5 +1,6 @@
 // /admin/ai-cost: what Free AI (Workers AI, site/src/free-ai.js) costs us, from the relay's own per-step log (ai_calls, src/aicost.js), shown beside the
 // jobs' Claude and OpenAI spend: it is not billed by Anthropic, so it stays out of their total. Counts and money only, per step.
+import {FREE_NEURONS_PER_DAY, neuronsOf} from './free-ai-models.js';
 const esc = text => String(text).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const money = n => `$${(Number(n) || 0).toFixed(n && n < 0.1 ? 4 : 2)}`;
 
@@ -17,13 +18,14 @@ export function freeSummary(rows, now = new Date(), days = 30) {
     usd += cost; calls += row.calls; installs.add(row.who);
     if (row.day === today) { todayUsd += cost; todayCalls += row.calls; todayInstalls.add(row.who); }
   }
-  return {days, usd, calls, installs: installs.size, todayUsd, todayCalls, todayInstalls: todayInstalls.size,
+  const todayNeurons = Math.round(neuronsOf(todayUsd));
+  return {todayNeurons, allowancePct: Math.round(100 * todayNeurons / FREE_NEURONS_PER_DAY), days, usd, calls, installs: installs.size, todayUsd, todayCalls, todayInstalls: todayInstalls.size,
     perInstallToday: todayInstalls.size ? todayUsd / todayInstalls.size : 0, steps: Object.values(steps).sort((a, b) => b.usd - a.usd)};
 }
 
 export function freeSection(summary, label) {
   const rows = summary.steps.map(step => `<tr><td>${esc(step.action)}</td><td class="n">${step.calls}</td><td class="n">${step.tokensIn + step.tokensOut}</td><td class="n">${money(step.usd)}</td><td class="n">${money(step.calls ? step.usd / step.calls : 0)}</td></tr>`).join('');
-  return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)</small>
+  return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${summary.todayNeurons} of ${FREE_NEURONS_PER_DAY} neurons (${summary.allowancePct}%) of the free plan · ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)</small>
 ${summary.calls ? `<div class="wrap"><table><tr><th>Step</th><th>Calls · ${esc(label.toLowerCase())}</th><th>Tokens</th><th>Cost</th><th>Per call</th></tr>${rows}
 <tr class="total"><td>Total</td><td class="n">${summary.calls}</td><td class="n">${summary.steps.reduce((n, s) => n + s.tokensIn + s.tokensOut, 0)}</td><td class="n">${money(summary.usd)}</td><td class="n">${money(summary.calls ? summary.usd / summary.calls : 0)}</td></tr></table></div>` : '<p class="muted">No Free AI calls yet.</p>'}</section>`;
 }
