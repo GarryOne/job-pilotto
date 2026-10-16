@@ -88,6 +88,17 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
   | every 4 h (cap) | 180 | $0.90 | 18% |
   The credit still covers an average search **with** hosted once a day (AI $3.5-5 + compute $0.45 over 3 months). Every-4-h users spend a visible slice on compute; Settings shows "Hosted search used N% this month" on the same credit bar.
 - **Margin on the debit:** about $0.0025 a run; unspent credit stays our margin as for AI.
+- **Trial exposure with default-on** (owner, 16 Oct; ESTIMATE, AI per run is not probed because the engine has no AI key in the probe):
+  | Per trial user | Runs | Compute (ours) | AI (ours) | Total |
+  |---|---|---|---|---|
+  | **Worst case** (never pauses, spends the $2 trial budget) | 60 | $0.15 | ≤ $1.70 (the $2 budget minus the $0.30 compute debit) | **≈ $1.85** |
+  | **Likely** (14-day auto-pause when unused, ~25% stay engaged the full 60 days) | ~29 avg | $0.07 | ≈ $0.40 (assumes AI follows new jobs, ~$3.5 per 90 days for a heavy engaged searcher; lower for idle ones) | **≈ $0.50** |
+  | New installs a month | Worst case | Likely |
+  |---|---|---|
+  | 100 | ≈ $185 | ≈ $50 |
+  | 1,000 | ≈ $1,850 | ≈ $500 |
+  - **The global Free AI caps bind first:** $10/day stop, $100/month stop. At 1,000 installs a month the *likely* total ($500) is above the $100/month cap, so Free AI (and hosted for everyone, trial users first) would stop mid-month. At 100 installs the likely case ($50) fits under the cap. **Owner decision needed before default-on goes live at scale:** raise the monthly caps (the early-adopter values in `wrangler.toml` are config), or lower the trial budget for hosted.
+  - Conversion has to carry it: at $19, a conversion of c% of installs covers the likely $0.50 per install if c ≥ ~3-4% (net after VAT and fees ≈ $14).
 - **Trial user** (1 run a day, 60 days max): 60 runs ≈ **$0.15 our compute cost**, debit $0.30 from the $2 trial budget; the AI of a Free search is the rest of the $2.
 - **Not measured yet.** Replace the table by the probe's numbers before launch.
 
@@ -98,7 +109,12 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 - **Own-repo Always on during the trial** stays; when the trial ends, GitHub Always on is Pro only (owner, 16 Oct; `job-pilotto-31` counts CI against the trial). A person may keep the GitHub path or switch to hosted; both on at once is refused (one schedule per account).
 
 ### 4b. Free trial users can try it (owner, 16 Oct 2026: "free users/trials should also be able to experience this")
+- **ON BY DEFAULT for trial users** (owner, 16 Oct 2026: "enable this by default, to catch them in the loop, to be present in their day-to-day life for a few weeks. This will increase the conversion rate").
+- **Onboarding shows the switch already on**, with one disclosure line right under it: *"Searches run daily on our servers, even when your Mac is off. Your profile is stored encrypted; turn it off anytime and it's deleted."* Turning it off deletes the hosted data at once (§2).
+- **Onboarding gets an email field.** Needed for the daily digest and the same address Pro sign-in will use (one address per person, stored once with the install, linked to the Pro account at purchase). Without an address the switch cannot be on; the person can skip the field, and hosted then stays off (app notifications only on the Mac).
 - Same one switch during the trial (20 applications or 60 days). **Once a day only** (the Pro choices appear after Pro).
+- **Auto-pause after 14 days with no app open and no email click** (an open of the app, a click in any email, or "Resume" counts). Every email has a one-click **"stop daily searches"** link. A paused schedule keeps its data for 30 days, then it is deleted (§2).
+- **Consent check (before live; not legal advice):** a default-on digest to an address the person typed in onboarding is a service message they asked for; it must carry **no promotion** (the only upsell line is the pause notice "Get Pro to keep Always on running"). Marketing mail would need its own opt-in. Ask the accountant/lawyer with the VAT question.
 - **Costs come out of the same $2 lifetime trial budget as Free AI** (`FREE_AI_TRIAL_USD`): AI as today, compute at the same $0.005 a run. No separate allowance. They count against the **global Free AI caps** ($10/day stop, $100/month): a trial run's compute joins the day's Free AI total.
 - **Ends** (trial over, or the $2 used): hosted **pauses** with "Get Pro to keep Always on running". **The schedule, inbox and R2 state are kept** 30 days after the trial ends (then deleted per §2), so it resumes the moment they buy Pro (the account links to the same install).
 - Trial cost to us: 60 runs × $0.0025 ≈ $0.15 compute, inside the $2 budget already counted per free user.
@@ -114,7 +130,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 | **WhatsApp** | **after Pro launches** | off | Meta business verification and approved templates; cents per message, **debited from the credit** |
 - **Content:** the same "N new matches" card as Telegram (top matches with fit, one line each), each with a link that opens the job in the app (`jobpilotto://job/<id>`, falling back to the website's "open in the app" page).
 - **Frequency:** **one digest per run, never one message per job**; and **only when the run found new matches** (an empty run sends nothing). At most one email per 4 h even on the 4-h schedule; a day's second digest is merged if the first has not been opened. Quiet by design.
-- **Where the setting lives:** Settings → Plan → Hosted search → "Tell me by": Email (address shown, change it), App notifications, Telegram (existing). ⌘K "Hosted search: notifications". The address is the Pro account's e-mail; a trial user is asked for one when turning the switch on (stored with the schedule, deleted with it, §2).
+- **Where the setting lives:** Settings → Plan → Hosted search → "Tell me by": Email (address shown, change it), App notifications, Telegram (existing). ⌘K "Hosted search: notifications". The address is the Pro account's e-mail; a trial user gives it in onboarding (§4b; stored with the schedule, deleted with it, §2).
 - **Unsubscribe:** every email has a one-click unsubscribe link (signed token, no sign-in) that turns the email channel off for that schedule (`List-Unsubscribe` header too), plus the switch in Settings. Turning the schedule off, deleting the data or ending the trial deletes the address.
 - **Abuse:** the sender is rate-limited per address (max 6 a day) and per account; a bounce or complaint turns email off automatically.
 - E-mail depends on the Cloudflare Email Sending path of Pro PR 5 (device codes): the same sender, domain and templates.
@@ -133,34 +149,35 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 | Stale/inactive user | no app contact for **30 days** → schedule pauses ("open the app to resume") so a lost Mac does not cost forever |
 | Abuse of boards | runs obey `robots`-style limits the engine already has; one request pace per host (existing); no login walls |
 
-## 6. Build plan (all behind `HOSTED_ALWAYS_ON=off`, after Pro launches)
-1. **Probe** (cc's OK, ≈ $0.01): one container run of the engine on a fixture profile; record wall time, peak memory, egress, cold start. Replaces the §3 table.
-2. **PR 1 (site):** D1 `hosted_schedules`, `hosted_runs`, `hosted_inbox`; run tokens; routes to set/read schedule, post result; flag; tests (in-memory D1, fake clock).
-3. **PR 2 (engine + image):** a `--hosted` entry that reads state from a directory, runs the SQLite-store search, AI via run token; Dockerfile; contract test that the SQLite store round-trips through R2.
-4. **PR 3 (site):** cron tick + Queue + container start; cost counters; global/per-account guards; kill switch; export and delete.
-5. **PR 4 (app):** push config/CV, pull inbox and merge, Settings switch, sidebar, ⌘K, run card, credit-0 pause text, before/after shots.
-6. **PR 5 (site pages):** pricing line, privacy two lines, terms.
-7. **Test-mode end to end** with a Pro test account; owner flips `HOSTED_ALWAYS_ON=on`.
+## 6. Build plan (all behind `HOSTED_ALWAYS_ON=off`; **before the Pro launch** since 16 Oct 2026)
+Hosted Always on for trial users needs the **trial budget, not payments** (owner, 16 Oct): it goes first. The Pro lane (compute debit from the credit, frequency choices) is added when Pro lands.
+1. **Probe** (approved by the owner via cc, ≈ $0.01): one container run on a fixture profile; wall time, peak memory, egress, cold start. Replaces the §3 estimate (kept beside it).
+2. **PR 1 (site):** D1 `hosted_schedules`, `hosted_runs`, `hosted_inbox`; run tokens (install-bound, no Pro account needed); routes to set/read schedule, post result; flag; tests (in-memory D1, fake clock).
+3. **PR 2 (engine + image):** a `--hosted` entry that reads state from a directory, runs the SQLite-store search, AI via the run token; Dockerfile; contract test that the SQLite store round-trips through R2.
+4. **PR 3 (site):** cron tick + Queue + container start; **compute debited from the trial budget** (the same `FREE_AI_TRIAL_USD` meter as Free AI; the Pro `pro_credit` debit comes with Pro) and counted in the global Free AI caps; per-install and global guards; kill switch; 14-day auto-pause; export and delete.
+5. **PR 3c (site): the email sender** (Cloudflare Email Sending, moved up from Pro PR 5: Pro's device codes reuse it), digest email, one-click "stop daily searches" token, bounce handling.
+6. **PR 4 (app):** onboarding switch (on) + disclosure line + email field, push config/CV, pull inbox and merge, Settings, sidebar, ⌘K, run card, "Get Pro to keep Always on running" pause text, before/after shots.
+7. **Test on a twin/test install end to end;** owner flips `HOSTED_ALWAYS_ON=on` (after the cap decision in §3).
+8. **With Pro:** `pro_credit` compute debit, frequency choices, pricing/privacy/terms lines, resume on purchase.
 
-Tests: the loop covers **every** pause reason (credit 0, inactive 30 days, compute cap, kill switch, refund) and every hosted-run outcome; nothing touches the owner's account, Notion or the real Stripe.
-
-## Open questions for the owner
-1. **Default frequency** once a day (cheapest, enough for most) vs every 4 h like today?
-2. Flat **$0.005 a run** compute debit (2x the estimate) OK? Trial: once a day, from the $2 budget.
-3. Is **no Gmail/Telegram/Notion in v1** (find, score, list only; the rest on the Mac) acceptable for the selling point?
-4. OK for the **probe** (≈ $0.01 of Containers)?
+## Decided by the owner (16 Oct 2026, via job-pilotto-cc)
+0. **Default-on for trial users** (see §4b), email in onboarding, 14-day auto-pause, hosted before the Pro launch (16 Oct, later).
+1. **Frequency:** default **once a day**, choices up to **every 4 h** (the cap).
+2. **Compute debit:** **$0.005 a run** (2x cost), as a Worker var re-set after the probe. Trial: once a day, from the $2 budget.
+3. **v1 without Gmail, Telegram and Notion** (find, score, list only; we store no keys for them).
+4. **Probe approved:** one container cost probe of about $0.01 on our Cloudflare account; stop if it heads past $0.10. Result: §3 "Measured".
 
 ## Progress
 - [x] Owner model added: own resources unlimited, ours debited; trial users can try it (16 Oct, via job-pilotto-cc) (proof: none: decisions relayed by cc, see §0, §4b, §4c)
-- [ ] Spec read by the owner; questions answered (proof: owner via job-pilotto-cc)
-- [ ] Probe: container run measured, §3 table replaced by numbers (proof: this file's §3)
-- [ ] PR 1 (site): tables, tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
+- [x] Spec read by the owner; questions 1-4 answered (proof: none: answers relayed by cc, see Decided above)
+- [ ] Probe: container run measured, §3 estimate kept beside the measured numbers (proof: this file's §3)
+- [ ] PR 1 (site): tables, install-bound tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
 - [ ] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py)
-- [ ] PR 3b (site): compute debit rows (`hosted-compute`), trial budget and global-cap accounting, pause/resume on Pro (proof: site/test/hosted-debit.test.js)
-- [ ] PR 3 (site): cron tick, Queue, container start, guards, export and delete (proof: site/test/hosted-guards.test.js)
-- [ ] PR 3c (site): digest e-mail through Cloudflare Email Sending, unsubscribe token, bounce handling (proof: site/test/hosted-notify.test.js)
-- [ ] PR 4 (app): switch, inbox merge, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
+- [ ] PR 3 (site): cron tick, Queue, container start, trial-budget debit, global caps, 14-day auto-pause, guards, export and delete (proof: site/test/hosted-guards.test.js)
+- [ ] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling (proof: site/test/hosted-notify.test.js)
+- [ ] PR 4 (app): onboarding switch on + disclosure + email field, inbox merge, Settings, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
+- [ ] Owner decides the Free AI monthly cap vs default-on exposure (§3)
+- [ ] Test end to end; owner flips `HOSTED_ALWAYS_ON=on`
+- [ ] With Pro: `pro_credit` compute debit (`hosted-compute`), frequency choices, pricing/privacy/terms lines, resume on purchase
 - [ ] Later: WhatsApp channel (Meta verification, templates, credit debit), after Pro launches
-- [ ] PR 5 (site pages): pricing, privacy, terms
-- [ ] Test-mode end to end; owner flips `HOSTED_ALWAYS_ON=on`
 - [ ] Notion "⭐ Pro plan" updated to match (after the owner's yes)
