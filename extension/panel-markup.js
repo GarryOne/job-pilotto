@@ -90,9 +90,7 @@
         <div class="claude" hidden><i>🤖</i><span></span></div>
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
-        <div class="actions"><button class="secondary report-open" type="button" title="Send this form to be fixed: you read exactly what would be sent first" hidden>Report this form…</button></div>
         <div class="note trace-note" hidden><span>Chrome shows a debugging bar while Job Pilotto keeps a trace of this fill, so you can report a problem.</span><button class="got-it" type="button">Got it</button></div>
->>>>>>> 7d36df5 (Report this form sends a trace kept during the fill, with no reload)
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
