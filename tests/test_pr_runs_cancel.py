@@ -40,7 +40,7 @@ class PrRunsCancel(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_the_called_suites_keep_a_group_per_commit_inside_the_caller(self):
-        # build.yml (CI · Tests) is the one group on main (ci-tests-main, cancelled by the next push); the suites it calls only need a group of their own
+        # build.yml (CI · Tests) is the one group on main (ci-tests-main, a started run finishes; only the waiting one is replaced); the suites it calls only need a group of their own
         for name in ('tests-python.yml', 'tests-worker.yml', 'tests-site.yml', 'tests-desktop.yml', 'tests-desktop-windows.yml'):
             text = (WORKFLOWS / name).read_text(encoding='utf-8')
             self.assertIn('github.sha', re.search(r'(?ms)^concurrency:[^\n]*\n(.*?)(?=^\S)', text).group(1), name)

@@ -15,9 +15,9 @@ permissions:
   pull-requests: read   # the ops overview step reads the merged PRs
   actions: read
 
-concurrency:   # newest wins (owner, 15 Oct 2026): a newer push to main cancels the older commit's run and frees its runners; the newest commit's run decides (tools/red-main.sh)
+concurrency:   # a run that has started finishes (owner, 16 Oct 2026, reversing "newest wins" of 15 Oct: every push cancelled the run before it ended and a red main stayed hidden for 19 h); a push waits behind it and replaces any older waiting one, so the newest commit still decides (tools/red-main.sh)
   group: ci-tests-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   linux:
