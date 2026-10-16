@@ -3,7 +3,17 @@
 const esc = text => String(text ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const link = (url, label) => `<a href="${esc(url)}">${esc(label)}</a>`;
 
+// A message the app or an Always on run would send on Telegram, in the same layout: data {subject, html, text, buttons: [{text, url}], confirmUrl} (html/text from src/mail-html.js).
+const buttonsHtml = (buttons = []) => buttons.map(b => `<p>${link(b.url, b.text)}</p>`).join('');
+const buttonsText = (buttons = []) => buttons.map(b => `${b.text}: ${b.url}`).join('\n');
+const confirmHtml = url => (url ? `<p>${link(url, 'Confirm your email')} so these mails keep coming.</p>` : '');
+const confirmText = url => (url ? `\nConfirm your email so these mails keep coming: ${url}` : '');
+
 export const TEMPLATES = {
+  'message': {list: 'service',
+    subject: ({subject}) => String(subject || 'Job Pilotto').slice(0, 150),
+    text: ({text, buttons, confirmUrl}) => [text, buttonsText(buttons)].filter(Boolean).join('\n\n') + confirmText(confirmUrl),
+    html: ({html, buttons, confirmUrl}) => `${html}${buttonsHtml(buttons)}${confirmHtml(confirmUrl)}`},
   // Account mail: the code that proves an address (Pro device codes, sign-in). Data: {code}.
   'account-code': {list: 'service', essential: true,
     subject: () => 'Your Job Pilotto code',

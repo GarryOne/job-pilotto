@@ -13,9 +13,16 @@ const FROM = {service: 'Job Pilotto <notifications@jobpilotto.top>', marketing: 
 const esc = text => String(text).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
 export const clean = to => String(to || '').trim().toLowerCase();
+export const validAddress = to => ADDRESS.test(clean(to)) && clean(to).length <= 254;
 export const addrOf = to => digestOf(clean(to));   // the key everywhere: pro_accounts.email_hash, mail_log.addr, mail_off.addr
 
 // The one-click link for a list ('service' = stop the daily searches' mail, 'marketing' = stop news). Signed, no sign-in.
+// The signed link that confirms an address (the first mail carries it, src/account-email.js).
+export async function confirmLink(env, to) {
+  const addr = await addrOf(to);
+  return `${SITE}/confirm?a=${addr}&t=${await tokenFor(addr, env, 'confirm')}`;
+}
+
 export async function stopLink(env, to, list) {
   const addr = await addrOf(to);
   return `${SITE}/unsubscribe?a=${addr}&l=${list}&t=${await tokenFor(addr, env, `unsub-${list}`)}`;
@@ -23,7 +30,7 @@ export async function stopLink(env, to, list) {
 
 // -> {ok: true} or {ok: false, reason}. For a caller that builds an expensive mail (the digest) and wants to know first.
 export async function mailAllowed(env, to, list = 'service', {essential = false} = {}) {
-  if (!ADDRESS.test(clean(to)) || clean(to).length > 254) return {ok: false, reason: 'bad_address'};
+  if (!validAddress(to)) return {ok: false, reason: 'bad_address'};
   const addr = await addrOf(to);
   const off = await env.STATS.prepare("SELECT list, reason FROM mail_off WHERE addr = ? AND list IN ('all', ?)").bind(addr, list).all();
   for (const row of off.results || []) if (row.list === 'all' || !essential) return {ok: false, reason: row.list === 'all' ? 'suppressed' : 'unsubscribed'};
