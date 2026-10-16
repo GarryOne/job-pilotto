@@ -1,5 +1,5 @@
-// "Report this form" in the app window (spec docs/superpowers/specs/2026-10-15-report-this-form.md §3): the switch in Settings, the "Report this form…" button on a session (also in ⌘K), and the dialog.
-// The dialog has two faces: how to start (the flag at the bottom left of the application's Chrome page) and what would be sent (hosts the person can drop, counts, what was removed, what is never sent),
+// "Report this form" in the app window (spec docs/superpowers/specs/2026-10-15-report-this-form.md §3): the switch in Settings and the dialog. The flag itself lives only in the extension panel on the application's Chrome page (owner, 16 Oct 2026: no button in the app window, no ⌘K entry).
+// The dialog shows what would be sent (hosts the person can drop, counts, what was removed, what is never sent),
 // with Cancel focused. Everything shown is counts and hosts: no page text, no value. lib/report-handlers.js holds the record; Send and Cancel come back to it. Guard: test/report-panel.test.js.
 import {$} from './core.js';
 import {el} from '../components.js';
@@ -16,14 +16,6 @@ async function sent() {
   const {count} = await window.pilot.reportFormSent().catch(() => ({count: 0}));
   $('report-sent-row').hidden = !count;
   $('report-sent-count').textContent = `${plural(count, 'report')} you sent ${count === 1 ? 'is' : 'are'} kept on our server for up to 30 days.`;
-}
-
-function howTo() {
-  $('report-body').replaceChildren(
-    el('p', 'dialog-lead', 'When an application gets stuck, a flag appears at the bottom left of its page in Chrome, next to Stop. Press it, read what will happen, and repeat the step that gets stuck while Job Pilotto records what the site sends.'),
-    el('p', 'muted small', 'Nothing is recorded until you press Start recording there, and nothing leaves your Mac until you read what would be sent here and press Send. Chrome shows its "debugging this browser" bar while it records.'));
-  foot(button('OK', 'primary', close));
-  open();
 }
 
 function preview({id, preview: data}) {
@@ -60,15 +52,14 @@ function preview({id, preview: data}) {
 
 export async function init() {
   const state = await window.pilot.reportFormGet().catch(() => ({on: true, ready: false}));
-  const show = (on, ready) => { $('setting-report-form').hidden = !ready; $('ss-report').hidden = !(on && ready); };
+  const show = (on, ready) => { $('setting-report-form').hidden = !ready; };
   show(state.on, state.ready);
   $('report-form-on').checked = state.on;
   $('report-form-on').addEventListener('change', async event => { const {on} = await window.pilot.reportFormSet(event.target.checked); show(on, true); });
   $('report-delete').addEventListener('click', async () => { $('report-delete').disabled = true; await window.pilot.reportFormDeleteAll().catch(() => null); $('report-delete').disabled = false; sent(); });
   sent();
-  $('ss-report').addEventListener('click', howTo);
   window.pilot.onReportFormReady(preview);
   if (state.shown) preview(state.shown);
 }
 
-export {howTo as showHowTo, preview as showPreview};   // what the window runs on a press or when the app hands over a recording (also how the screenshots call them)
+export {preview as showPreview};   // what the window runs when the app hands over a recording (also how the screenshots call it)
