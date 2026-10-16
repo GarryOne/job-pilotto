@@ -83,9 +83,12 @@ export function append(text, values) {
   return (body ? `${body}\n` : '') + values.map(bullet).join('\n') + '\n';
 }
 
+// After a table (its id `T<n>`): after its last row, never inside it.
 export function insertAfter(text, blockId, values) {
   const lines = String(text).split('\n');
-  lines.splice(at(lines, blockId) + 1, 0, ...values.map(bullet));
+  let n = at(lines, blockId);
+  if (String(blockId).startsWith('T')) while (n + 1 < lines.length && ROW.test(lines[n + 1])) n++;
+  lines.splice(n + 1, 0, ...values.map(bullet));
   return lines.join('\n');
 }
 
