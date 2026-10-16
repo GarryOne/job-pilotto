@@ -15,7 +15,7 @@ import {replayFiles} from './replay-files.mjs';
 
 export const PROOF = /^desktop\/(e2e\/recorded\/|e2e\/ladder-fixtures\/|test\/journeys\.test\.js$)/;   // a recorded page, a ladder fixture (a decision fix) or a scenario
 export const TRAILER = /^Recorded-unneeded:\s*\S/m;
-export const NAMES_A_FAILURE = /^Pool-row:[ \t]*(?!none\b)\S|^(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|refs?)[ \t]+#\d+/im;   // a pool row (not "none <why>"), or an issue, the commit answers to
+export const NAMES_A_FAILURE = /^Pool-row:[ \t]*(?!none\b)\S|^Owner-report:[ \t]*(?!none\b)\S|^(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|refs?)[ \t]+#\d+/im;   // a pool row (not "none <why>"), or an issue, the commit answers to
 export const RECORDED_CASE = /^desktop\/e2e\/recorded\/([^/]+)\//;
 
 // The recorded cases (folder names) a push adds or changes.
@@ -27,7 +27,7 @@ export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.
 // Words that describe a case, never what it replays (12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code). A case.json edit
 // that changes only these brings no case: no proof for a page fix (missingCase), nothing for "New test pages fail on the old build" (tools/recorded-fails-on-old.mjs) to replay. The replay reads `shape` and `why`
 // only for its test's title and failure message (guard: desktop/test/recorded-cases.test.js).
-export const LABEL_KEYS = ['origin', 'shape', 'why'];
+export const LABEL_KEYS = ['origin', 'shape', 'why', 'report'];
 
 // before, after: a case.json's text before and after a commit -> true when only LABEL_KEYS changed (a new, deleted or unreadable case counts).
 export function labelOnly(before, after) {

@@ -50,6 +50,7 @@ on:
       - 'tools/pool-rows.mjs'
       - 'tools/pre-push-check.sh'
       - 'tools/recorded-cases.mjs'
+      - 'tools/owner-report.mjs'
       - 'tools/recorded-fails-on-old.mjs'
       - 'tools/replay-files.mjs'
       - 'tools/rung-trailer.mjs'
