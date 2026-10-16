@@ -1342,6 +1342,8 @@
             <details class="troubleshoot"><summary>Export options</summary>
               <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
                 <span class="muted small">For another computer. On this one your keys always come back; ticked, they're in the file in plain text: keep it private.</span></span></label>
+              <label class="check-row"><input type="checkbox" id="export-accounts"><span><span>Include this profile's job-site accounts</span>
+                <span class="muted small">Holds your job-site passwords in plain text: keep the file private. Left out, the accounts stay in this Mac's Keychain.</span></span></label>
             </details>
             <p class="message" id="data-message"></p>
           </div>
@@ -1443,7 +1445,7 @@
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
             <p class="small">Removes local settings and files. Your Notion workspace is kept unless you choose to start fresh.</p>
             <div id="reset-options" hidden>
-              <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
+              <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, this profile's job-site accounts (other profiles' stay), your CV and tailored CVs, call recordings and
                 interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
               <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your GitHub repo. <b>Disconnected:</b> your Gmail sign-in.
                 The Chrome extension has to be connected again.</p>

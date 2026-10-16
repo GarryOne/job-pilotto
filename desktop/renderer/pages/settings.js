@@ -398,7 +398,7 @@ async function openCredentials() {
     const who = el('span');
     const details = [row.email || 'email not recorded', when(row.accountAt || row.created), ({confirmed: 'Account ready', pending: 'Waiting for the confirmation'})[row.state] || '', row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
       .filter(Boolean).join(' · ');
-    who.append(el('b', '', row.host), ...(row.test ? [el('small', 'cred-companies', 'Test account: only tests sign in with it, never an application')] : []), ...(row.companies?.length ? [el('small', 'cred-companies', `For ${row.companies.join(', ')}`)] : []), el('small', '', details));
+    who.append(el('b', '', row.host), ...(row.test ? [el('small', 'cred-companies', 'Test account: only tests sign in with it, never an application')] : []), ...(row.unassigned ? [el('small', 'cred-companies', 'Not assigned to a profile yet: no application uses it until you press Assign')] : []), ...(row.companies?.length ? [el('small', 'cred-companies', `For ${row.companies.join(', ')}`)] : []), el('small', '', details));
     const secret = el('b', '', '••••••••');
     const shown = el('span', '');
     shown.append(secret);
@@ -433,7 +433,15 @@ async function openCredentials() {
       });
       actions.replaceChildren(keep, sure);
     });
-    actions.append(reveal, copy, remove);
+    // An account from before profiles (lib/profile-accounts.js): no application uses it until it is assigned to this profile, or deleted.
+    const assign = el('button', 'secondary small-button', 'Assign');
+    assign.addEventListener('click', async () => {
+      const answer = await window.pilot.credentialAssign(row.key);
+      if (!answer?.ok) { $('credentials-message').textContent = answer?.error || ''; return; }
+      await openCredentials();
+      $('credentials-message').textContent = `${row.host} now belongs to this profile.`;
+    });
+    actions.append(...(row.unassigned ? [assign] : []), reveal, copy, remove);
     line.append(who, shown, actions);
     return line;
   }));

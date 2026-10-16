@@ -82,3 +82,18 @@ export function remove(service, {account, env = process.env, exec = execFileSync
   if (platform !== 'darwin') return false;
   return real(exec, ['delete-generic-password', ...(account ? ['-a', account] : []), '-s', service]) !== null;
 }
+
+// Writes one item (the app moves an account to its profile, Settings → Credentials, 16 Oct 2026). Same isolation as every other call: a test run or the twin
+// writes only its own file, never the real Keychain. comment: the "email=… job=…" note. -> true when it was stored.
+export function write(service, value, {account, comment = '', label = '', env = process.env, exec = execFileSync, platform = process.platform} = {}) {
+  if (isolated(env)) {
+    const file = isolatedFile(env);
+    if (!file) return false;
+    const items = isolatedItems(env), now = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    items[service] = {value, account: account || '', comment, created: items[service]?.created || now};
+    writePrivate(file, JSON.stringify(items, null, 2));
+    return true;
+  }
+  if (platform !== 'darwin' || !value) return false;
+  return real(exec, ['add-generic-password', '-U', '-a', account || 'job-pilotto', '-s', service, ...(label ? ['-l', label] : []), ...(comment ? ['-j', comment] : []), '-w', value]) !== null;
+}

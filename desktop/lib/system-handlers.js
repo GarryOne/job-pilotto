@@ -7,6 +7,7 @@ import * as notion from './notion.js';   // Notion-only: archives the Notion wor
 import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as reset from './reset.js';
+import * as profileAccounts from './profile-accounts.js';   // job-site accounts per profile: exported when ticked, removed at a reset
 import fs from 'node:fs';
 import path from 'node:path';
 import {SECRET_NAMES} from './storage.js';
@@ -14,6 +15,8 @@ import {log as appLog} from './log.js';
 
 export function registerSystemHandlers(ctx) {
   const {DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, getWindow} = ctx;
+  const moved = profileAccounts.start(storage, {demo: DEMO});   // before any window or run: the profile's id for Credentials and the engine, old accounts moved by e-mail
+  if (moved) appLog('data', 'job-site accounts per profile', moved);   // counts only
   let resetTold = false;   // the window is told once about a reset or import that was applied at start
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.
@@ -44,6 +47,8 @@ export function registerSystemHandlers(ctx) {
       try { await pipeline.run(storage, ['src.sources.google', 'disconnect']); appLog('connections', 'Gmail disconnected', {from: 'reset'}); }
       catch (error) { appLog('connections', 'Gmail not disconnected at reset', {error: error.message}); }
     }
+    const removed = profileAccounts.removeAll();   // this profile's job-site accounts only; other profiles' and the test accounts stay
+    appLog('data', 'reset: job-site accounts removed', {count: removed});
     reset.request(storage.dir, {backup, archived});
     restartApp('reset');
     return {ok: true};
@@ -57,7 +62,7 @@ export function registerSystemHandlers(ctx) {
     folder: backup.folder()}));
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
-  handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false} = {}) => {
+  handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, accounts = false} = {}) => {
     // Whose data and when: the name from the Profile's contact details (3 s at most: never hold the dialog on Notion), the first role searched for.
     const contact = await Promise.race([contactDetails.read(storage).catch(() => ({})), new Promise(done => setTimeout(() => done({}), 3000))]);
     const role = (() => { try { return JSON.parse(storage.readText('config/search.json') || '{}').jobs_board_search_queries?.[0] || ''; } catch { return ''; } })();
@@ -68,8 +73,9 @@ export function registerSystemHandlers(ctx) {
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
     // This Mac's data only: Notion data stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026).
     try {
-      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, version: about.label});
-      appLog('data', 'exported', {keys: !!secrets});
+      const siteAccounts = accounts ? profileAccounts.exportable() : null;   // only this profile's, only when ticked
+      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, accounts: siteAccounts, version: about.label});
+      appLog('data', 'exported', {keys: !!secrets, accounts: siteAccounts ? Object.keys(siteAccounts).length : false});
       return {ok: true, file: picked.filePath};
     } catch (error) {
       appLog('data', `export failed: ${error.message}`);

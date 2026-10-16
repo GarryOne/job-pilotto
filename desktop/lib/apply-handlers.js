@@ -5,6 +5,7 @@
 import * as applicationOutcomes from './outcomes.js';
 import * as apply from './apply.js';
 import * as credentials from './credentials.js';
+import * as profileAccounts from './profile-accounts.js';
 import * as extensionInstall from './extension-install.js';
 import * as github from './github.js';
 import * as pipeline from './pipeline.js';
@@ -160,7 +161,7 @@ export function registerApplyHandlers(ctx) {
     return {ok: true, copied: true, password: action === 'show' ? sitePassword.read() : null};
   });
   // Settings → Credentials: the sites' accounts from the Keychain (attributes only), and one password when you press Show or Copy.
-  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z', state: 'confirmed', companies: ['Migros', 'Coop']}]} : (list => ({...list, rows: withCompanies(withAccounts(list.rows, storage.settings().siteAccounts), review.allStates(), terminals.list())}))(credentials.list())));
+  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z', state: 'confirmed', companies: ['Migros', 'Coop']}, {host: 'jobs.old-example.com', key: 'unassigned:jobs.old-example.com', unassigned: true, email: '', job: '', created: '2026-09-28T00:36:03Z'}]} : (list => ({...list, rows: withCompanies(withAccounts(list.rows, storage.settings().siteAccounts), review.allStates(), terminals.list())}))(credentials.list())));
   ipcMain.handle('credentialReveal', (_, host, why) => {
     const password = DEMO ? 'Maple-Rocket-42' : credentials.reveal(host);
     appLog('apply', `credential ${why === 'copy' ? 'copied' : 'shown'}`, {host: String(host || '').slice(0, 120), found: !!password});   // which site, never the password
@@ -173,6 +174,14 @@ export function registerApplyHandlers(ctx) {
     if (gone) storage.saveSettings({siteAccounts: withoutHost(storage.settings().siteAccounts, host)});
     appLog('apply', 'credential deleted', {host: String(host || '').slice(0, 120), ok: gone});
     return gone ? {ok: true} : {ok: false, error: 'It could not be deleted (not in the Keychain any more?).'};
+  });
+  // Assign: an account from before profiles (listed "not assigned") becomes this profile's; the old item goes only after the new one reads back equal. Logged: the host, never a secret.
+  ipcMain.handle('credentialAssign', (_, key) => {
+    const host = String(key || '').startsWith(credentials.UNASSIGNED) ? String(key).slice(credentials.UNASSIGNED.length) : '';
+    if (DEMO) return {ok: true};
+    const result = host ? profileAccounts.assign(host) : 'failed';
+    appLog('apply', 'credential assigned to this profile', {host: host.slice(0, 120), result});
+    return result === 'moved' ? {ok: true} : {ok: false, error: result === 'kept' ? 'This profile already has a different password for that site: both stay. Delete the one you do not need.' : 'It could not be moved (not in the Keychain any more?).'};
   });
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.

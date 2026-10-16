@@ -1,7 +1,7 @@
 """Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
 
 The session never sees or types a password: `new` stores one in this computer's secret store
-(Keychain / Credential Manager, item job-pilotto.<host>.password) and puts it on the clipboard, the
+(Keychain / Credential Manager, item job-pilotto.<profile>.<host>.password) and puts it on the clipboard, the
 session pastes it (cmd+v / ctrl+v), then `clear` empties the clipboard.
 
 Every NEW account gets its own generated password (owner, 10 Oct 2026: a different one per site, so one leaked site
@@ -19,6 +19,8 @@ A site's rule (--length, --no-symbols) is followed. Settings → Credentials sho
   python3 -m src.ai.passwords clear          empty the clipboard
 """
 import argparse
+import os
+import re
 import secrets
 import string
 import subprocess
@@ -41,7 +43,10 @@ WORDS = ('amber apple arrow basil beach blue bread brick cedar chalk cloud coast
 
 
 def service(host):
-    return f'job-pilotto.{host}.password'
+    """The Keychain item of a site's account. It belongs to one profile (owner, 16 Oct 2026): job-pilotto.profile-<id>.<host>.password, the id from the app
+    (JOB_PILOTTO_PROFILE_ID); with none (a hand-run tool) the old name, which the app lists as unassigned."""
+    profile = os.environ.get('JOB_PILOTTO_PROFILE_ID', '')
+    return f'job-pilotto.{profile}.{host}.password' if re.fullmatch(r'profile-[0-9a-f]{12}', profile) else f'job-pilotto.{host}.password'
 
 
 def memorable():

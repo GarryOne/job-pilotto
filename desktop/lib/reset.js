@@ -21,7 +21,7 @@ export const NOTION_FILE = 'notion.json';  // a Notion copy older exports could 
 // files of an export or reset in progress. secrets.json goes in (8 Oct 2026: left out, an export imported back on the same Mac lost its Notion key and
 // asked to connect from scratch): its keys are sealed for this computer, so they open only here; elsewhere they count as unreadable and are asked again
 // (storage.js), unless keys.json (plain keys, when asked for at export) brings them.
-export const LEFT_OUT = [/cache/i, /^(Dawn.*|Graphite.*|Shared Dictionary|SharedStorage.*|blob_storage|Local Storage|Session Storage|IndexedDB|WebStorage|Network|Network Persistent State|Crashpad|Preferences|Local State|Trust Tokens.*|Cookies.*|Dictionaries|Service Worker|VideoDecodeStats|shared_proto_db|databases|Partitions|DIPS.*|declarative_performance_observer\.db.*|DevToolsActivePort|Singleton.*|TransportSecurity|Origin Bound Certs|QuotaManager.*|Login Data.*|Web Data.*|Visited Links|Favicons.*|History.*|Top Sites.*|logs|bin|manifest\.json|keys\.json|notion\.json|reset-pending\.json)$/];
+export const LEFT_OUT = [/cache/i, /^(Dawn.*|Graphite.*|Shared Dictionary|SharedStorage.*|blob_storage|Local Storage|Session Storage|IndexedDB|WebStorage|Network|Network Persistent State|Crashpad|Preferences|Local State|Trust Tokens.*|Cookies.*|Dictionaries|Service Worker|VideoDecodeStats|shared_proto_db|databases|Partitions|DIPS.*|declarative_performance_observer\.db.*|DevToolsActivePort|Singleton.*|TransportSecurity|Origin Bound Certs|QuotaManager.*|Login Data.*|Web Data.*|Visited Links|Favicons.*|History.*|Top Sites.*|logs|bin|manifest\.json|keys\.json|accounts\.json|notion\.json|reset-pending\.json)$/];
 // Inside the folders that go in: a run's lock (data/run.lock) would make the first run after an import wait for a holder that is gone.
 const LEFT_OUT_INSIDE = ['*.lock'];
 export const exported = dir => fs.readdirSync(dir).filter(name => !LEFT_OUT.some(rule => rule.test(name)));
@@ -45,12 +45,13 @@ export function exportName({name = '', role = '', at = new Date()} = {}) {
 }
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
-export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new Date()) {
+export function exportTo(dir, file, {keys = null, accounts = null, version = ''} = {}, now = new Date()) {
   const extra = [];
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({app: 'Job Pilotto', version, exportedAt: now.toISOString(),
-    keys: !!keys}, null, 1));
+    keys: !!keys, accounts: !!accounts}, null, 1));
   extra.push('manifest.json');
   if (keys) { writePrivate(path.join(dir, KEYS_FILE), JSON.stringify(keys)); extra.push(KEYS_FILE); }
+  if (accounts) { writePrivate(path.join(dir, 'accounts.json'), JSON.stringify(accounts)); extra.push('accounts.json'); }   // this profile's job-site accounts, plain text, only when ticked (lib/profile-accounts.js)
   // The SQLite store's records go in as one consistent copy, never the live file and its WAL (lib/tracker-snapshot.js).
   const snapshot = tracker.take(dir);
   const skip = [...LEFT_OUT_INSIDE, ...(snapshot ? tracker.LIVE_FILES : [])];
