@@ -34,8 +34,13 @@ export function seedTestAccounts(profileDir, accounts) {
   return Object.keys(accounts);
 }
 
-// The hosts a run signed in at, from its app log: the extension's "password filled from the Keychain" line names the host (never a value). -> [host]
-export const signedInHosts = appLog => [...new Set([...String(appLog || '').matchAll(/password filled from the Keychain \{[^}\n]*"host":"([^"]+)"/g)].map(found => found[1]))];
+// The hosts a run signed in at, from its app log: the extension logged "account page: <move>" with mode sign-in for the host AND filled a password from the Keychain there (a sign-UP fills one
+// too, with mode sign-up, and is not a sign-in). Hosts only, never a value. -> [host]
+export function signedInHosts(appLog) {
+  const text = String(appLog || ''), hostOf = found => found[1];
+  const mode = new Set([...text.matchAll(/account page: [a-z-]+ \{[^}\n]*"host":"([^"]+)"[^}\n]*"mode":"sign-in"/g)].map(hostOf));
+  return [...new Set([...text.matchAll(/password filled from the Keychain \{[^}\n]*"host":"([^"]+)"/g)].map(hostOf).filter(host => mode.has(host)))];
+}
 
 // The accounts a REPLAY signs in with (replay-net.mjs): a row whose live run signed in (record.json testAccountHosts, else its app log) gets a FAKE account for each of those hosts, so the recorded login
 // response is followed exactly as live; every other row gets none, as live. Never the Keychain and never a CI secret: a replay talks to no site, so what is typed is never checked (the same row replayed
