@@ -86,10 +86,10 @@ Memory (heap + buffer bytes) and CPU of a long fill (the largest recorded journe
 - The 30 MB / 3 h numbers are a first guess; the measurement in §8 may move them.
 
 ## Progress
-- [x] Owner approves this spec (the owner merged #997 on 16 Oct 2026) (proof: #997)
+- [x] Owner approves this spec (the owner merged #997 on 16 Oct 2026) (proof: none: the owner's merge of the spec PR)
 - [x] 1. One debugger owner, ref-counted: `attachDebugger` / `detachDebugger` in stop-state.js; `trace.js` holds it, releases it on a password page and resumes (proof: desktop/test/trace-debugger.test.js, desktop/test/trace.test.js)
-- [x] 2. The buffer: cap, pinned head, eviction, drop on end (proof: desktop/test/trace.test.js "the buffer caps", "dropped when the application ends")
-- [x] 3. `report-send` from the trace, the card choice, #993's reload start and `report-recorder.js` removed (proof: desktop/test/report-panel.test.js, desktop/test/trace.test.js "the class")
+- [x] 2. The buffer: cap, pinned head, eviction, drop on end (proof: desktop/test/trace.test.js)
+- [x] 3. `report-send` from the trace, the card choice, #993's reload start and `report-recorder.js` removed (proof: desktop/test/report-panel.test.js)
 - [x] 4. Setting renamed (it is its own ⌘K entry by its heading), wizard checkbox, the bar explained once in the panel (proof: desktop/test/report-panel.test.js)
 - [x] 5. `seg` gaps -> `entries` / `earlier` in reports-fetch (proof: desktop/e2e/test/reports-fetch.test.mjs)
-- [x] 6. Memory / CPU measured: in the PR body (proof: the PR)
+- [x] 6. Memory / CPU measured: in the PR body (proof: none: the numbers are in the PR body)
