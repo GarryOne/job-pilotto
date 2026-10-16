@@ -37,14 +37,20 @@ Run through the worker's translation layer so the test covers it too. Needs an `
 A task where the open model is clearly worse says so; then: keep it on the stronger Workers AI model, or ask for a paid engine for that task only (the app already shows a plain "needs your own key for this" line, never a silent bad result). Weak or invalid JSON → retry once on the stronger model (server side), then error.
 
 ## Quality table (measured 16 Oct 2026; invented data only; cents)
-Baseline = the designed answers of the invented postings, forms and facts, **not Claude's** (no Anthropic key on the Mac: the comparison with Haiku/Sonnet/Opus 5.5 is still open).
-| Task | Cases | Qwen3-30B-A3B (small) | GLM-5.3-Flash (strong) | Verdict |
-|---|---|---|---|---|
-| Fit score | 30 | 90% valid JSON (retry added, #1023), rank 0.91 vs the designed order, top-5 overlap 60% | not run (403 on the free plan) | usable for sorting; the best matches are the weak spot |
-| Extraction | 16 | ~77% of cases fully right (37/48 over 3 runs); seniority "unknown" for Staff/Principal/Lead titles | not run | a prompt line fixes seniority but costs work mode elsewhere (6 variants, no net gain): left as is |
-| Form answers | 12 | 100% valid, 11 right; the miss is a "all information is true" checkbox answered "checked" (the legal floor in code still stops it) | not run | fine for choices, legal/demographic left empty |
-| Kit (cover letter, highlights) | 14 | 100% valid, eligibility 14/14, no invented figures; 36% fully right: `highlights` empty or out of range in 9 of 14 | 43% valid, 21% right, **210 s per call**, 408 timeouts, 7x the cost | Qwen is better *and* faster: keep the strong model off (`STRONG_ON="off"`); fix `highlights` in the kit prompt (open) |
-Cost of the whole measurement: about $0.10 on the Paid plan; the eval tool needs `--allow-production --max-calls` for the production account (an uncapped run once used the whole day's free allowance for every user).
+Same invented cases for every model. Open models: Cloudflare, Paid plan. Claude: the owner's subscription through `claude -p` (no API key, nothing loaded but the answer), one run each. Baseline = the designed answers, so "right" means "matches the designed answer".
+| Task (cases) | Qwen3-30B | GLM-5.3-Flash | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 |
+|---|---|---|---|---|---|
+| Fit score (30): valid JSON · rank vs designed · top-5 | 90% · 0.91 · 60% | not run | 97% · 0.91 · 60% | 100% · 0.92 · 80% | 100% · 0.92 · 60% |
+| Extraction (16): fully right | 77% (37/48, 3 runs) | not run | 94% | 88% | 100% |
+| Form answers (12): right | 92% | not run | 100% | 100% | 100% |
+| Kit (14), prompt with the highlights rule: right | 100% | 21% · 43% valid · 210 s a call | 71% | 93% | 79% |
+**Reading it**
+- **Scoring:** Qwen ranks like Haiku (0.91); the Sonnet/Opus edge is small. Qwen's JSON needs the retry (#1023).
+- **Extraction and forms:** Qwen is behind (77% vs 88-100%; 92% vs 100%). Its misses: Staff/Principal/Lead read as "unknown" (a prompt line fixed it but broke work mode: not shipped), and a "I confirm all information is true" checkbox answered "checked" (the legal floor in code stops it).
+- **Kits:** all pass the same checks (eligibility, 3-5 highlights, a letter, no invented number). **The checks do not judge the writing**, and the "invented figure" check flags a number in some runs and not in others (re-run: 0 of 3), so 71-93% for Claude is mostly noise; a person must read letters before anyone says "as good as". Before the highlights line (#1041) Qwen was 36%: it left the list empty.
+- **GLM-5.3-Flash:** 43% valid JSON, 210 s a call, 7x Qwen's cost: `STRONG_ON` stays off.
+- **Claude harness:** about 5% of calls ended "claude exited 1" in this setup (counted as wrong above); the tool now allows 3 turns, unverified.
+- **Cost:** Cloudflare about $0.10 in total; Claude $0 (subscription). An uncapped run on the production account once used the whole day's free allowance for every user, so the tool needs `--allow-production --max-calls` there.
 
 ## Owner answers (16 Oct, via job-pilotto-cc)
 - Retire `ANTHROPIC_TRIAL_KEY`: **yes** (the route no longer uses it; delete the Worker secret after PR 1 is deployed).

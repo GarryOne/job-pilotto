@@ -8,6 +8,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
 import {fromWorkersAi, toWorkersAi} from '../site/src/free-ai-translate.js';
+import {claudeRun, isClaude} from './free-ai-eval-claude.mjs';
 import {answerProblems, factProblems, kitProblems, schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
 
 const MODELS = {small: SMALL, strong: STRONG};
@@ -60,6 +61,9 @@ export function guardCalls(cases, models, maxCalls) {
 }
 export const closing = (calls, usd, production) => `${calls} calls, $${usd.toFixed(4)}${production ? ' on the production account' : ''}.`;
 
+// One line per case that was not right (an error, or the problems found in its reply), so a low "Right answers" can be read, not guessed at.
+export const failureLines = (model, results) => results.flatMap(r => (r.error ? [`${model} ${r.id}: ${r.error}`] : r.right === false ? [`${model} ${r.id}: ${(r.problems || []).join('; ')}`] : []));
+
 // A deterministic stand-in for Workers AI (the tests, and a dry run with no key): the score follows the case's baseline, a little off.
 export const mock = cases => async (model, input) => {
   const item = cases.find(each => input.messages.at(-1).content.includes(each.id)) || cases[0];
@@ -75,22 +79,25 @@ async function main(argv) {
   const names = (option('models') || 'small').split(',').map(name => MODELS[name] || name);
   let run, account, maxCalls, production = false;
   if ((option('backend') || 'rest') === 'mock') run = mock(cases);
+  else if (names.every(isClaude)) run = claudeRun();   // the user's own subscription: nothing reaches Cloudflare, no account guard
   else {
+    const cloud = names.filter(name => !isClaude(name));
     const token = process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token');
     ({account, maxCalls, production} = guardAccount({account: option('account'), 'allow-production': argv.includes('--allow-production'), 'max-calls': option('max-calls')}));
     if (!token) throw new Error('No Workers AI token: set CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token (one made in the --account account), or use --backend mock.');
-    guardCalls(cases.length, names.length, maxCalls);
-    run = rest({account, token});
+    guardCalls(cases.length, cloud.length, maxCalls);
+    const cloudRun = rest({account, token}), subscription = claudeRun();
+    run = (model, input) => (isClaude(model) ? subscription(model, input) : cloudRun(model, input));
   }
   const rows = [], usd = {};
   for (const model of names) {
     const results = await evaluate(cases, model, run);
     const row = summarize(model, results);
-    rows.push(row); usd[model] = costUsd(model, {input_tokens: row.tokensIn, output_tokens: row.tokensOut});
-    for (const failed of results.filter(r => r.error)) console.error(`${model} ${failed.id}: ${failed.error}`);
+    rows.push(row); usd[model] = isClaude(model) ? 0 : costUsd(model, {input_tokens: row.tokensIn, output_tokens: row.tokensOut});   // Claude: your subscription, no per-call cost
+    for (const line of failureLines(model, results)) console.error(line);
   }
   const text = `${table(rows, usd)}\n\n${cases.length} cases per model. ${cases.some(c => c.expect) ? 'A case is right when every field matches what the case expects.' : `Baseline: ${cases.some(c => c.baseline != null) ? 'the cases\' designed scores (not Claude\'s)' : 'none (rank columns are n/a)'}.`}\n`;
-  const done = `${closing(cases.length * names.length, Object.values(usd).reduce((a, b) => a + b, 0), production)}\n`;
+  const done = `${closing(cases.length * names.filter(name => !isClaude(name)).length, Object.values(usd).reduce((a, b) => a + b, 0), production)}\n`;
   if (option('out')) fs.writeFileSync(option('out'), text + done);
   process.stdout.write(text + done);
 }
