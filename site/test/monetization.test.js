@@ -11,13 +11,11 @@ import {page} from '../src/monetization.js';
 import {monthStopUsd} from '../src/free-ai.js';
 import {FIXED_COSTS_YEAR} from '../src/monetization-config.js';
 
-const PRO = `CREATE TABLE pro_accounts (id TEXT PRIMARY KEY, email_hash TEXT, email TEXT, created_at TEXT, status TEXT, credit_micro INTEGER);
-CREATE TABLE pro_devices (account TEXT, install TEXT, added_at TEXT, last_seen TEXT);
-CREATE TABLE pro_purchases (id TEXT PRIMARY KEY, account TEXT, kind TEXT, amount_cents INTEGER, currency TEXT, credit_micro INTEGER, status TEXT, at TEXT, provider TEXT, provider_ref TEXT, country TEXT, tax_cents INTEGER, fee_cents INTEGER);`;
+const PRO_TABLES = ['pro_accounts', 'pro_devices', 'pro_purchases', 'pro_credit', 'payment_events'];   // the real ones come from migrations/0079_pro.sql; a page without them is tested by dropping them
 function d1(withPro = true) {
   const db = new DatabaseSync(':memory:');
   for (const file of readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
-  if (withPro) db.exec(PRO);
+  if (!withPro) for (const table of PRO_TABLES) db.exec(`DROP TABLE ${table}`);
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -35,8 +33,8 @@ async function seed(withPro = true) {
   tel(db, 'founder-aaaaaaaa', 'setup', {step: 'done'}, '2026-10-05T08:00:00Z'); health(db, 'founder-aaaaaaaa', {licensed: true, applicationsUsed: 40, allowanceEnded: true}, '2026-10-15T08:00:00Z');
   await cost(db, 'install-1-aaaaaaaa', 2.5); await cost(db, 'install-2-aaaaaaaa', 0.5); await cost(db, 'install-0-aaaaaaaa', 1.5);
   if (withPro) {
-    db.exec("INSERT INTO pro_accounts VALUES ('a1','h','hidden@example.com','2026-10-12','active',4000000); INSERT INTO pro_devices VALUES ('a1','install-0-aaaaaaaa','2026-10-12','2026-10-15');");
-    db.exec("INSERT INTO pro_purchases VALUES ('p1','a1','pro',1900,'usd',5000000,'paid','2026-10-12T10:00:00Z','stripe','x','CH',140,85),('p2','a1','topup5',500,'usd',5000000,'paid','2026-10-14T10:00:00Z','stripe','y','CH',37,45),('p3','b','pro',1900,'usd',5000000,'refunded','2026-10-13T10:00:00Z','stripe','z','DE',300,85)");
+    db.exec("INSERT INTO pro_accounts (id, email_hash, email, created_at, status, credit_micro) VALUES ('a1','h','hidden@example.com','2026-10-12','active',4000000); INSERT INTO pro_devices (account, install, added_at, last_seen) VALUES ('a1','install-0-aaaaaaaa','2026-10-12','2026-10-15');");
+    db.exec("INSERT INTO pro_purchases (id, account, kind, amount_cents, currency, credit_micro, status, at, provider, provider_ref, country, tax_cents, fee_cents) VALUES ('p1','a1','pro',1900,'usd',5000000,'paid','2026-10-12T10:00:00Z','stripe','x','CH',140,85),('p2','a1','topup5',500,'usd',5000000,'paid','2026-10-14T10:00:00Z','stripe','y','CH',37,45),('p3','b','pro',1900,'usd',5000000,'refunded','2026-10-13T10:00:00Z','stripe','z','DE',300,85)");
   }
   return {STATS: {prepare}, db, WAITLIST: {get: async key => (key === 'freeai:usdm:2026-10' ? String(12_000_000) : null)}, STATS_KEY: 'k3y'};
 }
