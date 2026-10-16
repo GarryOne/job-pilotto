@@ -32,7 +32,7 @@ export async function evaluate(cases, model, run, now = () => Date.now()) {
       const message = fromWorkersAi(await run(model, await toWorkersAi(item.params, async () => { throw new Error('PDF cases need the site route'); })), model);
       row.usage = message.usage; row.ms = now() - started;
       const data = JSON.parse(message.content[0].text);
-      row.valid = true;
+      row.valid = true; row.reply = data;
       const schema = item.params.output_config?.format?.schema;
       row.schemaOk = !schema || schemaProblems(data, schema).length === 0;
       row.score = Number(data.score);
@@ -73,10 +73,29 @@ export const mock = cases => async (model, input) => {
   usage: {prompt_tokens: 1500, completion_tokens: 200}};
 };
 
+// Scores the replies a run kept (--raw) again against the cases' current expectations: no model call, no cost. Several --raw lines of one model (a re-run) -> the last wins.
+export function rescore(cases, rawText, out) {
+  const byModel = new Map();
+  for (const line of rawText.split('\n').filter(Boolean)) { const {model, results} = JSON.parse(line); byModel.set(model, results); }
+  const rows = [], misses = [];
+  for (const [model, results] of byModel) {
+    const scored = results.map(r => {
+      const item = cases.find(c => c.id === r.id), problems = r.reply ? answerProblems(r.reply, item.expect) : ['no reply'];
+      if (problems.length) misses.push(`${model} ${r.id}: ${problems.join('; ')}`);
+      return {id: r.id, valid: !!r.reply, schemaOk: !!r.reply, right: !problems.length, usage: {}, ms: NaN};
+    });
+    rows.push(summarize(model, scored));
+  }
+  const text = `${table(rows)}\n\n${cases.length} cases per model.\n`;
+  if (out) fs.writeFileSync(out, text);
+  process.stdout.write(`${misses.join('\n')}\n\n${text}`);
+}
+
 async function main(argv) {
   const option = name => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
   const cases = JSON.parse(fs.readFileSync(option('cases') || (() => { throw new Error('--cases <file> is required'); })(), 'utf8'));
   const names = (option('models') || 'small').split(',').map(name => MODELS[name] || name);
+  if (option('rescore')) return rescore(cases, fs.readFileSync(option('rescore'), 'utf8'), option('out'));
   let run, account, maxCalls, production = false;
   if ((option('backend') || 'rest') === 'mock') run = mock(cases);
   else if (names.every(isClaude)) run = claudeRun();   // the user's own subscription: nothing reaches Cloudflare, no account guard
@@ -93,6 +112,7 @@ async function main(argv) {
   for (const model of names) {
     const results = await evaluate(cases, model, run);
     const row = summarize(model, results);
+    if (option('raw')) fs.appendFileSync(option('raw'), `${JSON.stringify({model, results: results.map(({id, reply, problems, right}) => ({id, reply, problems, right}))})}\n`);
     rows.push(row); usd[model] = isClaude(model) ? 0 : costUsd(model, {input_tokens: row.tokensIn, output_tokens: row.tokensOut});   // Claude: your subscription, no per-call cost
     for (const line of failureLines(model, results)) console.error(line);
   }

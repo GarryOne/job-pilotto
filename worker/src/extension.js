@@ -19,6 +19,7 @@ import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
 import { FACT_KEYS, FACT_RULE, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
 import { applyPay } from './pay-convert.js';
 import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
+import { ANSWER_EXAMPLES } from './answer-examples.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -179,6 +180,7 @@ For each form field you are given its id, label, type, whether it is required, a
 ${FACT_RULE}
 Base a proposal on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
 category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; ${WRITTEN_RULE}; normal = anything else.
+${ANSWER_EXAMPLES}
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
 Eligibility: set eligible to false only when the posting clearly rules the applicant out (a work location, residence or authorization the profile says they can't meet, or a required language they don't speak), and say why in eligibility_note. Otherwise eligible is true and eligibility_note is empty.`;
