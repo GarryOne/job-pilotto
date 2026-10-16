@@ -1,7 +1,7 @@
 // Free AI (src/free-ai.js): install-token auth, Anthropic <-> Workers AI translation, per-install limits, the daily line, the kill switch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {freeAi, LIMITS} from '../src/free-ai.js';
+import {DAY_MESSAGE, MONTH_MESSAGE, freeAi, LIMITS} from '../src/free-ai.js';
 import {tokenFor} from '../src/guard.js';
 import {SMALL, STRONG, costUsd, modelFor} from '../src/free-ai-models.js';
 import {asStream, fromWorkersAi, REASONING_ROOM, toWorkersAi, Unsupported} from '../src/free-ai-translate.js';
@@ -28,7 +28,7 @@ test('no key, a forged token, another install\'s token: 401 and the model never 
   assert.equal(e.seen.length, 0);
 });
 
-test('per install: the 31st call in a minute and the 301st in a day are refused with words', async () => {
+test('per install: the 31st call in a minute and $0.30 in a day are refused with words', async () => {
   const e = env(), apiKey = await key();
   const who = async () => [...e.WAITLIST.m.keys()].find(k => k.startsWith('freeai:min:')).split(':')[2];
   await call(e, apiKey);
@@ -36,9 +36,9 @@ test('per install: the 31st call in a minute and the 301st in a day are refused 
   e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, String(LIMITS.perMinute));
   const slow = await call(e, apiKey);
   assert.equal(slow.status, 429); assert.match((await slow.json()).error.message, /minute/);
-  e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, '0'); e.WAITLIST.m.set(`freeai:day:${id}:2026-10-16`, String(LIMITS.perDay));
+  e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, '0'); e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, String(0.3 * 1e6));
   const daily = await call(e, apiKey);
-  assert.equal(daily.status, 429); assert.match((await daily.json()).error.message, /own key/);
+  assert.equal(daily.status, 429); assert.equal((await daily.json()).error.message, DAY_MESSAGE);
   assert.equal(e.seen.length, 1);
 });
 
@@ -53,6 +53,49 @@ test('the daily line: an alert once when $3 is crossed, a stop at $10, and FREE_
   e.WAITLIST.m.set('freeai:usd:2026-10-16', String(10 * 1e6));
   assert.equal((await call(e, apiKey)).status, 503);
   assert.equal((await call({...e, FREE_AI: 'off'}, apiKey)).status, 503);
+});
+
+test('per install: $3 in a month is refused with the month words, and a call adds its cost to the day and the month', async () => {
+  const e = env(), apiKey = await key();
+  await call(e, apiKey);
+  const id = [...e.WAITLIST.m.keys()].find(k => k.startsWith('freeai:min:')).split(':')[2];
+  assert.ok(Number(e.WAITLIST.m.get(`freeai:dusd:${id}:2026-10-16`)) > 0);
+  assert.equal(e.WAITLIST.m.get(`freeai:dusd:${id}:2026-10-16`), e.WAITLIST.m.get(`freeai:musd:${id}:2026-10`));
+  e.WAITLIST.m.set(`freeai:musd:${id}:2026-10`, String(3 * 1e6));
+  const refused = await call(e, apiKey);
+  assert.equal(refused.status, 429); assert.equal((await refused.json()).error.message, MONTH_MESSAGE); assert.match(MONTH_MESSAGE, /this month's/);
+  const next = new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})});
+  assert.equal((await freeAi(next, e, new Date('2026-11-01T10:00:30Z'))).status, 200);   // a new month starts clean
+});
+
+test('the month line: an alert once when $40 is crossed, a stop at $60 for everyone', async () => {
+  const sent = [], e = env({BRAIN_BOT_TOKEN: 't', BRAIN_CHAT_ID: 'c'}), apiKey = await key();
+  e.WAITLIST.m.set('freeai:usdm:2026-10', String(39.9999 * 1e6));
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body).text); return new Response('{}'); };
+  const request = () => new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})});
+  await freeAi(request(), e, new Date('2026-10-16T10:00:30Z'), null, fetcher);
+  await freeAi(request(), e, new Date('2026-10-17T10:05:30Z'), null, fetcher);
+  assert.equal(sent.filter(text => /this month/.test(text)).length, 1);
+  e.WAITLIST.m.set('freeai:usdm:2026-10', String(60 * 1e6));
+  const stopped = await call(e, apiKey);
+  assert.equal(stopped.status, 503); assert.match((await stopped.json()).error.message, /this month/);
+});
+
+test('the lines come from wrangler.toml vars: early-adopter values in force, the tight set as code defaults', async () => {
+  const toml = (await import('node:fs')).readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  const vars = Object.fromEntries([...toml.matchAll(/^(FREE_AI_[A-Z_]+) = "([^"]*)"/gm)].map(m => [m[1], m[2]]));
+  assert.deepEqual([vars.FREE_AI_INSTALL_MINUTE_CALLS, vars.FREE_AI_INSTALL_DAY_USD, vars.FREE_AI_INSTALL_MONTH_USD, vars.FREE_AI_ALERT_USD, vars.FREE_AI_STOP_USD, vars.FREE_AI_MONTH_ALERT_USD, vars.FREE_AI_MONTH_STOP_USD], ['50', '0.50', '5', '5', '10', '70', '100']);
+  assert.deepEqual([LIMITS.perMinute, LIMITS.installDayUsd, LIMITS.installMonthUsd, LIMITS.monthStopUsd], [30, 0.3, 3, 60]);
+  const e = env(vars), apiKey = await key();
+  await call(e, apiKey);
+  const id = [...e.WAITLIST.m.keys()].find(k => k.startsWith('freeai:min:')).split(':')[2];
+  e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, String(0.4 * 1e6));   // over the tight $0.30, under the early-adopter $0.50
+  assert.equal((await call(e, apiKey)).status, 200);
+  e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, String(0.5 * 1e6));
+  assert.equal((await call(e, apiKey)).status, 429);
+  e.WAITLIST.m.set(`freeai:dusd:${id}:2026-10-16`, '0'); e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, '49');
+  assert.equal((await call(e, apiKey)).status, 200);
+  assert.equal((await call(e, apiKey)).status, 429);   // the 51st in the minute
 });
 
 test('a founder key from an older app still works', async () => {

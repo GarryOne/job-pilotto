@@ -57,7 +57,7 @@ export async function transcribePdf(pdf, apiKey, client = null) {
       {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: pdf.toString('base64')}},
       {type: 'text', text: 'Transcribe this CV.'}]}],
     output_config: {format: {type: 'json_schema', schema: IMPORT_SCHEMA}},
-  });
+  }, {headers: {'x-jp-action': 'tailor'}});
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to read this CV`);
   const data = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clean = {...data, jobs: data.jobs.map(({href, ...job}) => ({...job, ...(href ? {href} : {}),
@@ -133,7 +133,7 @@ export async function tailor(storage, posting, apiKey, {client = null, feedback 
       `<posting>\n${posting.title} at ${posting.company}${posting.location ? ` (${posting.location})` : ''}\n\n${(posting.description || '(no description stored: tailor to the title)').slice(0, 30000)}\n</posting>` +
       (feedback ? `\n\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: TAILOR_SCHEMA}},
-  });
+  }, {headers: {'x-jp-action': 'tailor'}});
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to tailor this CV`);
   if (response.stop_reason === 'max_tokens') throw new Error('The tailored CV was cut off; try again');
   return {result: JSON.parse(response.content.find(block => block.type === 'text').text), usd: usd(response.usage)};

@@ -82,23 +82,24 @@ export class Adapter {
     this.fallback = fallback;
     this.log = log;
     this.fallen = null;
-    this.messages = {create: params => this.create(params)};
+    this.messages = {create: (params, options) => this.create(params, options)};
   }
   get engine() { return this.constructor.engine; }
   get family() { return this.constructor.family; }
   get billing() { return this.constructor.billing; }
   get fellBack() { return this.fallen !== null; }
 
-  async create(params) {
+  async create(params, options = {}) {
     const request = requestFrom(params);
-    if (this.fallen) return this.fallen.messages.create(params);
+    request.action = String(options?.headers?.['x-jp-action'] || '');   // which step asks (the SDK's per-request header): Free AI counts its cost per step (site/src/free-ai.js)
+    if (this.fallen) return this.fallen.messages.create(params, options);
     try {
       return await this.complete(request);
     } catch (error) {
       if (!(error instanceof AiLimit) || error.final || !this.fallback) throw error;
       this.log(`Warning: ${error.message} Using ${this.constructor.fallbackLabel} for the rest of this run (Settings → AI).`);
       this.fallen = this.fallback();
-      return this.fallen.messages.create(params);
+      return this.fallen.messages.create(params, options);
     }
   }
 

@@ -372,3 +372,15 @@ test('the Anthropic API engine never sends maxItems or minItems: create and stre
     assert.match(JSON.stringify(ask.output_config), schema === SCHEMA ? /^(?!.*maxItems)/ : /maxItems/, 'the caller\'s own schema is not changed');
   }
 });
+
+test('the step that asks (x-jp-action) reaches the Anthropic SDK as a header, and every writing call site names one', async () => {
+  const seen = [];
+  const api = new AnthropicApi({sdk: {messages: {create: async (params, options) => { seen.push(options); return {content: [{type: 'text', text: 'x'}], usage: {input_tokens: 1, output_tokens: 1}}; }}}});
+  const ask = {model: 'm', max_tokens: 5, messages: [{role: 'user', content: 'hi'}]};
+  await api.messages.create(ask, {headers: {'x-jp-action': 'tailor'}});
+  await api.messages.create(ask);
+  assert.deepEqual(seen, [{headers: {'x-jp-action': 'tailor'}}, undefined]);
+  // The class: every call site that writes prose for the person (and the form-answer call) names its step.
+  const named = {'lib/cv.js': 'tailor', 'lib/cv-change.js': 'tailor', 'lib/cv-check.js': 'tailor', 'lib/cover-letter.js': 'cover_letter', '../worker/src/extension.js': 'answer', '../worker/src/written-answer.js': 'answer_review'};
+  for (const [file, action] of Object.entries(named)) assert.match(fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), new RegExp(`'x-jp-action': '${action}'`), file);
+});

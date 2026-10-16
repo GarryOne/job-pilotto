@@ -27,7 +27,7 @@ export async function reviewAnswer(ctx, { question, text, url }, client, { model
     ],
     messages: [{ role: 'user', content: `<job>\n${job.title} at ${job.company}\n${url}\n</job>\n<question>\n${String(question).slice(0, 600)}\n</question>\n<current_text>\n${String(text).slice(0, 6000)}\n</current_text>` }],
     output_config: { format: { type: 'json_schema', schema: REVIEW_SCHEMA } },
-  });
+  }, {headers: {'x-jp-action': 'answer_review'}});
   const raw = JSON.parse(response.content.find((block) => block.type === 'text')?.text || '{}');
   const usage = response.usage || {};
   const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * price.input + (usage.output_tokens || 0) * price.output) / 1e6;

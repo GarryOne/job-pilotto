@@ -188,6 +188,19 @@ test('Free AI section shows the day\'s neurons as a share of the free allowance'
   assert.match(freeSection(summary, 'last 30 days'), /5000 of 10000 neurons \(50%\)/);
 });
 
+test('/admin/ai-cost shows each install\'s day and month use against its limits, and the month total against $60', async () => {
+  const {freeSection, freeSummary} = await import('../src/free-ai-cost.js');
+  const model = '@cf/qwen/qwen3-30b-a3b-fp8', now = new Date('2026-10-16T10:00:00Z');
+  const summary = freeSummary([{day: '2026-10-16', who: 'aaaa1111', action: 'kit', model, calls: 3, tokens_in: 1, tokens_out: 1, micro_usd: 150000},
+    {day: '2026-10-02', who: 'aaaa1111', action: 'kit', model, calls: 3, tokens_in: 1, tokens_out: 1, micro_usd: 1350000},
+    {day: '2026-10-05', who: 'bbbb2222', action: 'tailor', model, calls: 1, tokens_in: 1, tokens_out: 1, micro_usd: 300000},
+    {day: '2026-09-30', who: 'cccc3333', action: 'kit', model, calls: 1, tokens_in: 1, tokens_out: 1, micro_usd: 900000}], now);
+  assert.equal(summary.monthUsd, 1.8);
+  assert.deepEqual(summary.perInstall.map(row => [row.who, +row.day.toFixed(2), +row.month.toFixed(2)]), [['aaaa1111', 0.15, 1.5], ['bbbb2222', 0, 0.3]]);
+  const html = freeSection(summary, 'last 30 days');
+  assert.match(html, /This month \$1\.80 of \$60 \(alert at \$40\)/); assert.match(html, /aaaa1111<\/td><td class="n">\$0\.15<\/td><td class="n">50%<\/td><td class="n">\$1\.50<\/td><td class="n">50%/);
+});
+
 test('Free AI section shows the account\'s own neuron count from Cloudflare when it is known, and nothing when it is not', async () => {
   const {freeSection, freeSummary} = await import('../src/free-ai-cost.js');
   const summary = freeSummary([], new Date('2026-10-16T10:00:00Z'));

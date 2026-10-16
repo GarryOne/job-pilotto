@@ -188,7 +188,7 @@ export async function review(storage, apiKey, text, {client = null, profile = ''
     model: MODEL, max_tokens: 6000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: `<cv>\n${text.slice(0, 30000)}\n</cv>\n\n<profile>\n${(profile || '(none)').slice(0, 6000)}\n</profile>`}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
-  });
+  }, {headers: {'x-jp-action': 'tailor'}});
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to review this CV`);
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clamp = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));

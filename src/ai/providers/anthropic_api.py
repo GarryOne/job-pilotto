@@ -6,7 +6,7 @@ it is: the Anthropic path is the contract's reference shape, so nothing is trans
 from .contract import Adapter
 from .schema import without_limits
 
-ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout', 'decide')
+ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout', 'decide', 'tailor', 'cover_letter', 'answer', 'answer_review')
 
 
 def sdk(action=''):

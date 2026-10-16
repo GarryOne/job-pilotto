@@ -55,7 +55,7 @@ export async function review(storage, apiKey, {client = null, fetcher} = {}) {
     messages: [{role: 'user', content: [pdf(PREVIOUS), pdf('cv.pdf'),
       {type: 'text', text: `Profile lines:\n${lines.map((block, n) => `[${n}] ${block.type.startsWith('heading') ? '## ' : ''}${block.text}`).join('\n')}`}]}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
-  });
+  }, {headers: {'x-jp-action': 'tailor'}});
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to compare these CVs`);
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const suggestions = result.suggestions
