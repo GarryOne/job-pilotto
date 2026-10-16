@@ -1,6 +1,7 @@
 // A fake Google API for the end-to-end tests (5 Oct 2026): the Gmail check reads invented emails (the mailreading eval's own, tests/fixtures/mail_eval.json) from here
 // instead of a real inbox (JOB_PILOTTO_E2E_GOOGLE_BASE_URL, test runs only: <base>/<google host>/<path>). It can also refuse the sign-in, as a revoked Google access does.
 import http from 'node:http';
+import {markPlanted} from './planted.mjs';
 
 const b64 = text => Buffer.from(String(text), 'utf8').toString('base64url');
 // One fixture email -> the Gmail API's message shape (headers + one text/plain part).
@@ -21,7 +22,7 @@ export async function startGoogleFake({emails = []} = {}) {
     const send = (status, data) => { const text = JSON.stringify(data); res.writeHead(status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(text)}); res.end(text); };
     if (url.pathname.startsWith('/oauth2.googleapis.com/token')) {
       stats.token++;
-      if (mode === 'revoked') stats.failed++;
+      if (mode === 'revoked') { stats.failed++; markPlanted('google revoked'); }
       return mode === 'revoked' ? send(400, {error: 'invalid_grant', error_description: 'Token has been expired or revoked.'}) : send(200, {access_token: 'e2e-access', expires_in: 3600, token_type: 'Bearer'});
     }
     const read = /^\/gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\/([^/]+)$/.exec(url.pathname);
