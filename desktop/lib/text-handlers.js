@@ -6,7 +6,7 @@ import * as engine from './store/engine.js';
 import * as store from './store/index.js';
 import {TEXT_FILES} from './store/text-files.js';
 import {registerProfileFormHandlers} from './profile-form-handlers.js';
-import {registerTextOutlineHandlers} from './text-outline.js';
+import {registerTextOutlineHandlers} from './text-outline-handlers.js';
 
 export const MAX_CHARS = 200000;   // a text is a few pages; a paste of a whole book is refused, not saved half
 

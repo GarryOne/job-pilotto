@@ -4,3 +4,4 @@
 - [jobs.example-cloud.test · meaning] Notice period: how long until Alex can start
 - [careers.fictional-bank.test · answer] Salary expectation (CHF): the form wants a yearly figure → "135000"
 - [careers.fictional-bank.test · option] Preferred language: German is offered, English is also listed → "English"
+- [careers.fictional-bank.test · option] Salutation: the form offers Mr / Ms / Mx

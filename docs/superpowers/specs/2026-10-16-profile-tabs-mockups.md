@@ -21,7 +21,7 @@ Make sure to support both stores (SQLite and Notion). To be consistent across th
 
 ## Progress
 - [x] 1. `textOutline` / `textEdit` IPC for the three texts, both stores, demo; tests on markdown-page and a fake Notion page
-- [ ] 2. Form knowledge: table (Field / Saved value or rule / Website), expandable row editor, filters (search, websites, types), Add rule, Delete
-- [ ] 3. Standard answers: sections with icon + "Some answers are missing", rows (question, value or Not set, Add answer / Edit), filters (search, Needs attention, categories); replaces the read-only "Reusable answers" panel
+- [x] 2. Form knowledge (merged into Application answers as "Website-specific rules", owner 16 Oct 2026): table (Field / Saved value or rule / Website), expandable row editor, filters (search, websites, types), Add rule, Delete
+- [x] 3. Standard answers → **Application answers** (Needs review · Your answers · Website-specific rules, one save bar): sections with icon + "Some answers are missing", rows (question, value or Not set, Add answer / Edit), filters (search, Needs attention, categories); replaces the read-only "Reusable answers" panel
 - [ ] 4. Preferences: section cards (Location & work style, Languages, Roles & employment, Compensation, Other preferences) on the Profile's rows; chips, segmented work modes, selects; both stores through the outline
 - [ ] 5. No ❓ and no textarea on any of the three tabs (a test over the rendered tabs), screenshots per tab per store, PR

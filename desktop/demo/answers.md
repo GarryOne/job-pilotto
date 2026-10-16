@@ -5,3 +5,14 @@
 - **Salary expectation (Switzerland):** CHF 130,000–145,000 a year.
 - **Work authorisation:** EU citizen; allowed to work in Switzerland and the EU.
 - **Cover letter style:** direct and personal, short sentences, no clichés.
+
+## Eligibility
+
+| Question | Answer |
+|---|---|
+| Authorised to work in the EU? | Yes, EU citizen |
+| Do you need visa sponsorship? | ❓ to confirm |
+| Willing to relocate | ❓ (only within Switzerland) |
+
+## Links
+- GitHub: ❓

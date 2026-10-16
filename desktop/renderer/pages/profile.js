@@ -3,7 +3,8 @@ import {showMode} from '../assistant-mode.js';
 import {showClaudeAuto} from '../claude-auto.js';
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
-import {loadTextEditor, showStoreParts} from './text-editors.js';
+import {showStoreParts} from './text-editors.js';
+import {addQuestion, loadApplicationAnswers} from './application-answers.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadProfileForm} from './profile-form.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
@@ -20,18 +21,18 @@ import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
 
-// ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
+// ---------- Settings → Application profile: tabs (CV & details, Experience, Preferences, Application answers, Cover letter) ----------
 export function profileTab(name) {
+  if (name === 'knowledge') name = 'answers';   // Form knowledge is a section of Application answers since 16 Oct 2026 (owner)
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.profileTab === name));
   document.querySelectorAll('[data-profile-panel]').forEach(panel => {
     if (panel.id === 'cv-changed') return;  // shown only when the CV changed (showCvChanged)
     show(panel, panel.dataset.profilePanel === name);
   });
   showStoreParts();
-  if (name === 'answers') { loadAnswers(); loadTextEditor('answers'); }
+  if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
   else if (name === 'profiletext') loadProfileForm();
-  else if (name === 'knowledge') loadTextEditor('knowledge');
   else if (name === 'letter') loadLetter();
   else { loadCvSetting(); showCvChanged(); }
 }
@@ -97,30 +98,6 @@ function showLinks() {
     return box;
   }));
 }
-// Standard answers: read from the store, one expandable item per question; edited in Notion there, else in the editor below (text-editors.js).
-async function loadAnswers() {
-  $('answers-list').replaceChildren(el('p', 'muted small', 'Loading…'));
-  const result = await window.pilot.standardAnswers();
-  if (!result.ok) { $('answers-list').replaceChildren(el('p', 'message error', result.error)); return; }
-  const items = result.groups.flatMap(group => group.items.map(item => ({...item, category: group.category})));
-  $('answers-count').textContent = `${items.length} standard answer${items.length === 1 ? '' : 's'}${items.some(item => item.open) ? ` · ${items.filter(item => item.open).length} need your answer` : ''}`;
-  $('answers-list').replaceChildren(...items.map((item, index) => {
-    const box = document.createElement('details');
-    box.className = 'answer-item';
-    box.open = index === 0;
-    const summary = document.createElement('summary');
-    const head = el('span', 'answer-head');
-    head.append(el('b', '', item.question), pill(item.open ? 'Needs your answer' : item.category, item.open ? 'warn' : 'info'));
-    const edit = el('button', 'link', 'Edit in Notion');
-    edit.dataset.notionOnly = '';   // shown only when the answers are a Notion page (text-editors.js showStoreParts); else the editor below
-    edit.addEventListener('click', event => { event.preventDefault(); openInNotion('NOTION_ANSWERS_PAGE_ID', event); });
-    summary.append(head, el('span', 'muted answer-preview', item.answer.split('\n')[0]), edit);
-    box.append(summary, el('p', 'answer-text', item.answer || '—'));
-    return box;
-  }));
-  showStoreParts();   // the items' "Edit in Notion" only with a Notion page
-}
-
 // Sidebar: the Notion pages, most used first. Click opens them in the app's Notion window; ⌘-click in the browser.
 const NOTION_LINKS = [['NOTION_MATCHES_DB', 'Job matches', 'target'], ['NOTION_APPLICATIONS_DB', 'Applications', 'layers'],
   ['NOTION_EVENTS_DB', 'Replies & events', 'mail'], ['NOTION_INTERVIEWS_DB', 'Interviews', 'mic'], ['NOTION_INSIGHTS_DB', 'Insights', 'chart'],
@@ -285,6 +262,7 @@ export async function init() {
     if (!editing) showLinks();
   });
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
+  $('answers-add').addEventListener('click', addQuestion);
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
   // An error from the AI service is said in words, never shown as the API's JSON (#94: "400 {"type":"error",…}" sat in the CV card).

@@ -2471,3 +2471,49 @@ button.is-busy { cursor: progress; opacity: .7; }
 .profile-notes textarea { width: 100%; margin-top: var(--sp-2); }
 #exp-linkedin-line { align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
 #exp-linkedin-line button { white-space: nowrap; flex: none; }
+
+/* Settings → Profile → Form knowledge (pages/knowledge-tab.js): the shared .toolbar, .data-table and .form-grid; only the row's icon, the open
+   row's editor and its footer are new. */
+.kn-table td { vertical-align: middle; }
+.kn-field { display: flex; align-items: center; gap: var(--sp-3); }
+.kn-field svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+.kn-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+.kn-row.is-open td { background: var(--surface-2); }
+.kn-row.is-removed td { text-decoration: line-through; color: var(--muted); }
+.kn-edit-row td { background: var(--surface-2); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.kn-editor .form-grid label > span { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
+.kn-editor .form-grid input, .kn-editor .form-grid select { width: 100%; }
+.kn-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.kn-tech code { display: block; margin-top: var(--sp-1); font-family: var(--font-mono); overflow-wrap: anywhere; color: var(--ink-2); }
+.kn-foot .link svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: var(--sp-1); }
+.kn-note { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.kn-note svg { width: 16px; height: 16px; }
+
+/* Settings → Profile → Standard answers (pages/answers-tab.js): section cards are .answer-item, filters the shared .toolbar; only the question row
+   (chevron · question · answer · action), its open editor and the section head are new. */
+.qa-section { display: flex; flex-direction: column; padding: 0; margin-top: var(--sp-3); overflow: hidden; }
+.qa-section-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.qa-section-head h4 { margin: 0; }
+.qa-section-head svg { width: 20px; height: 20px; color: var(--ink-2); }
+.qa-row { display: grid; grid-template-columns: auto minmax(0, 2fr) minmax(0, 1.4fr) 132px; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); }
+.qa-row + .qa-row, .qa-edit + .qa-row { border-top: 1px solid var(--line); }
+.qa-row.is-open, .qa-row.is-open + .qa-edit { background: var(--signal-soft); }
+.qa-words { display: flex; flex-direction: column; min-width: 0; }
+.qa-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qa-chevron svg { width: 16px; height: 16px; transform: rotate(90deg); transition: transform .15s var(--ease); }
+.qa-row.is-open .qa-chevron svg { transform: rotate(-90deg); }
+.qa-row > button:last-child { justify-self: end; }
+button.secondary.qa-add { color: var(--signal-ink); border-color: var(--signal); }
+.qa-edit { padding: 0 var(--sp-4) var(--sp-3) calc(var(--sp-4) + var(--sp-6)); }
+.qa-edit label > span, .kn-editor .form-grid label > span { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
+.qa-edit input, .qa-edit select { width: 100%; }
+.qa-edit p { margin: var(--sp-1) 0 0; }
+.qa-edit.is-new { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); margin-top: var(--sp-3); }
+details.qa-section { margin-top: var(--sp-3); }
+.answer-item.kn-rules > summary { display: flex; list-style: none; cursor: pointer; }
+.kn-rules > summary::-webkit-details-marker { display: none; }
+.kn-rules:not([open]) > summary { border-bottom: 0; }
+.kn-rules > summary #rules-add { margin-left: auto; }
+.kn-body { padding: var(--sp-2) var(--sp-4) var(--sp-4); }
+.kn-body .data-table { margin-top: 0; }
+.qa-section.is-review { border-color: var(--warn-line); }

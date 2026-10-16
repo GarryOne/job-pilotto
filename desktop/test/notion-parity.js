@@ -4,7 +4,7 @@
 // A new entry point fails notion-parity.test.js until it has a row here.
 const JOB = {view: 'pages/job-panel.js openJobPanel'};
 const PREP = {view: 'pages/prep.js openPrep'};
-const TEXTS = {view: 'pages/text-editors.js loadTextEditor'};   // Settings → Profile: the Profile, answers and Form knowledge (P8 C)
+const ANSWERS = {view: 'pages/application-answers.js loadApplicationAnswers'};   // Application answers: the answers + Form knowledge, edited on every store
 const FUNNEL = {view: 'pages/reports.js funnelTab'};             // Reports → Funnel: the Pipeline table and Where to improve (P8 D)
 
 export const NOTION_PARITY = {
@@ -13,8 +13,8 @@ export const NOTION_PARITY = {
   'index.html#focus-funnel-notion': FUNNEL,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
   'index.html#strategy-edit': {view: 'pages/strategy-targets.js renderTargets'},                           // ⚙️ Search settings (or the Profile)
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
-  'index.html#open-answers': TEXTS,
-  'index.html#answers-review': TEXTS,
+  'index.html#open-answers': ANSWERS,
+  'index.html#answers-review': ANSWERS,
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
   'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview
@@ -39,7 +39,6 @@ export const NOTION_PARITY = {
   'pages/jobs-render.js renderJobs': JOB,
   'pages/notion-connect.js openInNotion': {none: 'helper: its callers are rows of their own (index.html ids)'},
   'pages/prep.js init': PREP,
-  'pages/profile.js loadAnswers': TEXTS,
   'pages/profile.js renderNotionLinks': {view: 'pages/nav.js openView'},   // each database is a page of the app (Jobs, Interviews, Reports…)
   'pages/rich-text.js messageLink': {none: 'a link Claude wrote in its message; what it points to has its own row'},
 };

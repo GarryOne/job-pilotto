@@ -1,4 +1,4 @@
-// Settings → Profile's texts edited block by block on every store (lib/text-outline.js): a cell, a line, a removal, an insert after a table and
+// Settings → Profile's texts edited block by block on every store (lib/text-outline-handlers.js): a cell, a line, a removal, an insert after a table and
 // an append land where they should; a block that changed since it was read is left alone and named.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {createStorage} from '../lib/storage.js';
 import * as store from '../lib/store/index.js';
-import {applyEdits, registerTextOutlineHandlers} from '../lib/text-outline.js';
+import {applyEdits, registerTextOutlineHandlers} from '../lib/text-outline-handlers.js';
 import {fakeNotion} from './fake-notion.js';
 
 const plainCrypto = {encrypt: value => value, decrypt: value => value};
