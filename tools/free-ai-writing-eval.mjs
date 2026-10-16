@@ -4,6 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {SMALL, STRONG, costUsd} from '../site/src/free-ai-models.js';
 import {fromWorkersAi, toWorkersAi} from '../site/src/free-ai-translate.js';
 import {claudeRun} from './free-ai-eval-claude.mjs';
@@ -16,7 +17,7 @@ const keychain = name => execFileSync('security', ['find-generic-password', '-a'
 const withFloors = (item, data, off = false) => {
   if (off || !['letter', 'prep', 'rejection'].includes(item.feature) || !data) return data;
   const ground = item.params.system.map(part => part.text).join('\n') + '\n' + item.params.messages.map(message => message.content).join('\n');
-  return JSON.parse(execFileSync('python3', [path.join(path.dirname(new URL(import.meta.url).pathname), 'free-ai-writing-floors.py')], {input: JSON.stringify({feature: item.feature, kit: structuredClone(data), ground}), encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}));
+  return JSON.parse(execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(path.dirname(fileURLToPath(import.meta.url)), 'free-ai-writing-floors.py')], {input: JSON.stringify({feature: item.feature, kit: structuredClone(data), ground}), encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}));
 };
 const flagValue = name => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : undefined; };
 const MODEL = {small: SMALL, strong: STRONG}[flagValue('model')] || (String(flagValue('model')).startsWith('@cf/') ? flagValue('model') : SMALL);   // which Workers AI model plays "free": small, strong or any @cf/ id
@@ -74,4 +75,4 @@ async function main(argv) {
   process.stdout.write(text);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv.slice(2)).catch(error => { console.error(error.message); process.exit(1); });
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main(process.argv.slice(2)).catch(error => { console.error(error.message); process.exit(1); });
