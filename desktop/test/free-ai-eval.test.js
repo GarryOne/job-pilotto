@@ -99,7 +99,9 @@ test('kitProblems checks eligibility, the highlight count, a letter, and that no
   assert.deepEqual(kitProblems(kit, {eligible: true}, ground), []);
   assert.deepEqual(kitProblems({...kit, eligible: false, cover_letter: '', highlights: ['a']}, {eligible: true}, ground),
     ['eligible: false, wanted true', 'cover_letter: empty', 'highlights: 1, wanted 3-5']);
-  assert.deepEqual(kitProblems({...kit, cover_letter: 'I led 12 engineers for 15 years.'}, {eligible: true}, ground), ['cover_letter: invented figure 12', 'cover_letter: invented figure 15']);
+  const invented = kitProblems({...kit, cover_letter: 'I led 12 engineers for 15 years.'}, {eligible: true}, ground);
+  assert.equal(invented.length, 2);
+  assert.match(invented[0], /^cover_letter: invented figure 12 \("I led 12 engineers/); assert.match(invented[1], /^cover_letter: invented figure 15 \(".*for 15 years/);
   assert.deepEqual(kitProblems({...kit, eligibility_note: 'x'}, {eligible: true}, ground), ['eligibility_note: set although eligible']);
 });
 
@@ -126,4 +128,10 @@ test('the closing line says how many calls were made and what they cost', async 
   const {closing} = await import('../../tools/free-ai-eval.mjs');
   assert.match(closing(32, 0.0123, true), /32 calls.*\$0\.0123.*production/);
   assert.match(closing(32, 0.0123, false), /32 calls/);
+});
+
+test('failureLines names, per case, why it was not right: the error, or each problem found in the reply', async () => {
+  const {failureLines} = await import('../../tools/free-ai-eval.mjs');
+  const lines = failureLines('m', [{id: 'a', right: true}, {id: 'b', right: false, problems: ['highlights: 6, wanted 3-5', 'cover_letter: invented figure 12']}, {id: 'c', error: 'timeout'}, {id: 'd', valid: true, score: 5}]);
+  assert.deepEqual(lines, ['m b: highlights: 6, wanted 3-5; cover_letter: invented figure 12', 'm c: timeout']);
 });

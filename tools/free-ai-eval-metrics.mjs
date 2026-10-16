@@ -56,7 +56,10 @@ export function kitProblems(data, expect, ground = '') {
   if (highlights < 3 || highlights > 5) found.push(`highlights: ${highlights}, wanted 3-5`);
   if (data?.eligible === true && String(data?.eligibility_note || '').trim()) found.push('eligibility_note: set although eligible');
   const known = new Set(String(ground).match(/\d+/g) || []);
-  for (const figure of new Set(String(data?.cover_letter || '').match(/\d+/g) || [])) if (!known.has(figure)) found.push(`cover_letter: invented figure ${figure}`);
+  const letter = String(data?.cover_letter || '');
+  for (const figure of new Set(letter.match(/\d+/g) || [])) {
+    if (!known.has(figure)) found.push(`cover_letter: invented figure ${figure} ("${letter.slice(Math.max(0, letter.search(new RegExp(`\\b${figure}\\b`)) - 25), letter.search(new RegExp(`\\b${figure}\\b`)) + 15).replace(/\s+/g, ' ')}")`);
+  }
   return found;
 }
 

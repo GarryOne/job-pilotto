@@ -43,6 +43,7 @@ on:
       - 'tools/file-size.mjs'
       - 'tools/flow-fresh.mjs'
       - 'tools/free-ai-eval.mjs'
+      - 'tools/free-ai-eval-claude.mjs'
       - 'tools/free-ai-eval-metrics.mjs'
       - 'site/src/free-ai-models.js'
       - 'site/src/free-ai-translate.js'
