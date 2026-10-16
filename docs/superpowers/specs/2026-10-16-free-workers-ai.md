@@ -45,9 +45,9 @@ A task where the open model is clearly worse says so; then: keep it on the stron
 - Old apps keep working: a `JP1.` founder key is still accepted by the route until PR 2 moves them to `JPF1.<install>.<token>`.
 
 ## Progress
-- [x] Spec read by the owner (via job-pilotto-cc)
+- [x] Spec read by the owner (via job-pilotto-cc) (proof: none: owner answered "Yes" and "retire" through job-pilotto-cc on 16 Oct)
 - [ ] Measurement script `tools/free-ai-eval.mjs` (+ its table in this spec)
-- [x] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, alert, tests (ai-cost already groups by model; Workers AI prices in `free-ai-models.js`)
+- [x] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, alert, tests (proof: site/test/free-ai.test.js); ai-cost already groups by model, Workers AI prices in `free-ai-models.js`
 - [ ] PR 2 (app): credit → Free everywhere in §4 + migration + grep guard
 - [ ] PR 3 (UI): picker with logos, ⌘K, before/after shots
 - [ ] Owner decisions: trial key fate, Workers Paid yes, limit numbers
