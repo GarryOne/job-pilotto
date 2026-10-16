@@ -23,9 +23,9 @@ export function freeSummary(rows, now = new Date(), days = 30) {
     perInstallToday: todayInstalls.size ? todayUsd / todayInstalls.size : 0, steps: Object.values(steps).sort((a, b) => b.usd - a.usd)};
 }
 
-export function freeSection(summary, label) {
+export function freeSection(summary, label, accountNeurons = null) {
   const rows = summary.steps.map(step => `<tr><td>${esc(step.action)}</td><td class="n">${step.calls}</td><td class="n">${step.tokensIn + step.tokensOut}</td><td class="n">${money(step.usd)}</td><td class="n">${money(step.calls ? step.usd / step.calls : 0)}</td></tr>`).join('');
-  return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${summary.todayNeurons} of ${FREE_NEURONS_PER_DAY} neurons (${summary.allowancePct}%) of the free plan · ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)</small>
+  return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${summary.todayNeurons} of ${FREE_NEURONS_PER_DAY} neurons (${summary.allowancePct}%) of the free plan · ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)${accountNeurons == null ? '' : ` · Account today: ${Math.round(accountNeurons)} neurons (from Cloudflare)`}</small>
 ${summary.calls ? `<div class="wrap"><table><tr><th>Step</th><th>Calls · ${esc(label.toLowerCase())}</th><th>Tokens</th><th>Cost</th><th>Per call</th></tr>${rows}
 <tr class="total"><td>Total</td><td class="n">${summary.calls}</td><td class="n">${summary.steps.reduce((n, s) => n + s.tokensIn + s.tokensOut, 0)}</td><td class="n">${money(summary.usd)}</td><td class="n">${money(summary.calls ? summary.usd / summary.calls : 0)}</td></tr></table></div>` : '<p class="muted">No Free AI calls yet.</p>'}</section>`;
 }
