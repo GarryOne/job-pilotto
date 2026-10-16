@@ -64,6 +64,7 @@ const NO_KITS = 'No job has an application kit yet, and none could be drafted. P
 const ON_GITHUB = 'Kits are being drafted on GitHub (Always on). Press Apply again in a few minutes, when the jobs show 📝 Kit.';
 
 import {formUrl, isFormOf} from './form-address.js';
+import {browserData} from './browser-profile.js';
 import {readsChanged} from './shared-read.js';
 export {formUrl, isFormOf};
 
@@ -159,6 +160,7 @@ export function claudeSignedIn(home = os.homedir(), read = fs.readFileSync) {
 // signed in can't be seen from here; installed is what we can check.
 export const CLAUDE_IN_CHROME = 'fcoeoabgfenejglbffodgkkbkcdhcgfn';
 export function chromeProfiles(platform = process.platform, home = os.homedir(), env = process.env) {
+  if (env.JOB_PILOTTO_BROWSER_DATA) return path.join(browserData(platform, env), 'Google', 'Chrome');   // the e2e harness's own folder, never the owner's
   if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'Google', 'Chrome');
   if (platform === 'win32') return path.join(env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Google', 'Chrome', 'User Data');
   return path.join(home, '.config', 'google-chrome');
