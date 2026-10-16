@@ -7,6 +7,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {newestPerRow} from './replay-records.mjs';
 import {keepFilled, oldKeysKept} from './lib/fill-memo.mjs';
+import {repairRecordFolder} from './lib/record-repair.mjs';
 
 const [root, packs, staged] = process.argv.slice(2);
 if (!root || !packs || !staged) { console.error('usage: node refill-merge.mjs <records dir> <packs dir> <staged dir>'); process.exit(2); }
@@ -24,7 +25,10 @@ try {
     execFileSync('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-in', path.join(dir, 'memo.enc'), '-out', path.join(out, 'model-memo.json'), '-pass', `file:${key}`]);
     const before = (() => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } })(), fresh = keepFilled(row.dir, out), after = JSON.parse(fs.readFileSync(file, 'utf8')), lost = oldKeysKept(before, after);
     if (lost.length) { console.error(`refill-merge: ${meta.name}: ${lost.length} old key(s) lost or changed: refused`); bad++; continue; }
-    fs.cpSync(row.dir, path.join(staged, path.basename(row.dir)), {recursive: true});
+    const into = path.join(staged, path.basename(row.dir));
+    fs.cpSync(row.dir, into, {recursive: true});
+    const repaired = repairRecordFolder(into);   // an old record kept its pages double-encoded; the guard would refuse the row (Aldi, 15 Oct 2026)
+    if (repaired) console.error(`refill-merge: ${meta.name}: ${repaired} double-encoded page(s) repaired`);
     table.push(`| ${meta.name} | ${fresh.length} | 0 | $${Number(meta.usd).toFixed(4)} |`);
   }
 } finally { fs.rmSync(work, {recursive: true, force: true}); }
