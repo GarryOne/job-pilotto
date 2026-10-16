@@ -65,6 +65,23 @@ jobs:
         if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           node-version: '22'
+      - name: Is the records App's key set
+        id: records_app_key
+        env:
+          CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CI_APP_PRIVATE_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::records App key not set, the old read token is used (it shares the owner's GitHub API limit)"; fi
+      - name: The records token from the GitHub App (its own API limit, not the owner's account's)
+        id: records_app
+        if: steps.records_app_key.outputs.set == 'true'
+        continue-on-error: true   # a failed mint falls back to the old secret, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: job-pilotto-internal
       - name: Which rows to replay
         if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         id: plan
@@ -72,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
           VERIFY_ONLY: ${{ inputs.only }}
         run: |
           (npm ci || npm install) >/dev/null 2>&1
@@ -123,13 +140,30 @@ jobs:
         with:
           name: net-bundles-${{ github.run_id }}
           path: ${{ runner.temp }}/bundles
+      - name: Is the records App's key set
+        id: records_app_key
+        env:
+          CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CI_APP_PRIVATE_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::records App key not set, the old read token is used (it shares the owner's GitHub API limit)"; fi
+      - name: The records token from the GitHub App (its own API limit, not the owner's account's)
+        id: records_app
+        if: steps.records_app_key.outputs.set == 'true'
+        continue-on-error: true   # a failed mint falls back to the old secret, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: job-pilotto-internal
       - name: The pool's records, decrypted on the runner only
         working-directory: desktop/e2e
         env:
           NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
         run: bash net-records-fetch.sh "$RUNNER_TEMP/records"
       - name: Replay this row (control, then the build to judge, twice)
         working-directory: desktop/e2e

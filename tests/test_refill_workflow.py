@@ -87,7 +87,7 @@ class TheRefillWorkflow(unittest.TestCase):
         self.assertRegex(top, r'(?m)^  actions: write', 'the run token may dispatch a workflow')
         publish = CODE.split('\n  publish:')[1].split('\n  finish:')[0]
         self.assertRegex(publish, r'DISPATCH_TOKEN: \$\{\{ github\.token \}\}', 'records-publish dispatches with it, not the PAT that writes the private records repo')
-        self.assertRegex(publish, r'GH_TOKEN: \$\{\{ secrets\.NET_RECORDS_WRITE_TOKEN \}\}')
+        self.assertRegex(publish, r'GH_TOKEN: \$\{\{ steps\.records_app\.outputs\.token \|\| secrets\.NET_RECORDS_WRITE_TOKEN \}\}', 'the App\'s token (contents: write on job-pilotto-internal), else the old PAT')
 
 
 if __name__ == '__main__':
