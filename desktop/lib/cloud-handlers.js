@@ -7,9 +7,11 @@ import * as telegram from './telegram.js';
 import * as telegramCloud from './telegram-cloud.js';
 import {cleanSecret} from './secrets.js';
 import {log as appLog} from './log.js';
+import {registerHostedHandlers} from './hosted-handlers.js';
 
 export function registerCloudHandlers(ctx) {
-  const {DEMO, cloud, dialog, handleImportant, needsNotion, restartTelegram, shell, storage, toWindow, getWindow} = ctx;
+  const {DEMO, cloud, dialog, handleImportant, ipcMain, needsNotion, restartTelegram, shell, storage, toWindow, getWindow} = ctx;
+  registerHostedHandlers({DEMO, dialog, getWindow, ipcMain, storage, toWindow});   // hosted Always on: daily searches on our servers (lib/hosted-handlers.js)
   // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
   handleImportant('cloudConnect', 'Setting up Always on', async (_, chosen = '') => {

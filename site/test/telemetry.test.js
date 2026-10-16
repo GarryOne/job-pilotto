@@ -153,7 +153,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.5.76', platform: 'darwin', at, step: s, ...extra});
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
-    step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
+    step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'hosted'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /🚦 Setup funnel/);
   assert.match(html, /median time to finish: 12 min/);
@@ -161,7 +161,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   assert.match(html, /No problems reported/);  // setup steps are not problems
   const {funnel} = await import('../src/telemetry.js');
   const f = await funnel(e.STATS, 30);
-  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1]);
+  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1, 1]);
 });
 
 test('why they stopped: reasons per step on the funnel', async () => {
