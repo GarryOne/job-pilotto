@@ -88,3 +88,12 @@ test('the table counts a case right only when every field is right, and the mock
   const none = sum('m', [{id: 'a', valid: true, schemaOk: true, score: 5, baseline: 5, usage: {}}]);
   assert.equal(none.rightPct, null, 'score cases have no right-answer column');
 });
+
+// Extraction cases (a posting's facts): expect = {paths: {'work_mode.value': [allowed...]}, has: {languages: [{language, level}]}}.
+test('factProblems checks values at a path and that a list holds the wanted entries', async () => {
+  const {factProblems} = await import('../../tools/free-ai-eval-metrics.mjs');
+  const data = {work_mode: {value: 'hybrid'}, salary: {stated: true}, languages: [{language: 'French', level: 'required', evidence: 'x'}, {language: 'English', level: 'nice_to_have'}]};
+  assert.deepEqual(factProblems(data, {paths: {'work_mode.value': ['hybrid', 'onsite'], 'salary.stated': [true]}, has: {languages: [{language: 'French', level: 'required'}]}}), []);
+  assert.deepEqual(factProblems(data, {paths: {'work_mode.value': ['remote'], 'seniority.value': ['senior']}, has: {languages: [{language: 'German', level: 'required'}]}}),
+    ['work_mode.value: "hybrid", wanted remote', 'seniority.value: missing', 'languages: no entry like {"language":"German","level":"required"}']);
+});
