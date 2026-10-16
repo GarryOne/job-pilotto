@@ -26,7 +26,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const one of run) {
     const slug = one.row.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     console.log(`journey-run: ${one.row} (${one.why})`);
-    const ran = spawnSync(process.execPath, [path.join(here, 'journey.mjs'), one.dir, path.join(out, slug), '--cpu=4'], {stdio: 'inherit'});
+    const ran = spawnSync(process.execPath, [path.join(here, 'journey.mjs'), one.dir, path.join(out, slug)], {stdio: 'inherit'});
     if (ran.status !== 0) { failed++; console.log(`journey-run: FAIL ${one.row} (exit ${ran.status})`); }
   }
   console.log(`journey-run: ${failed ? `${failed} FAILED` : 'all passed'} of ${run.length + missing.length}`);
