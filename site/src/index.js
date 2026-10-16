@@ -42,6 +42,7 @@ import {reportForm} from './report-form.js';
 import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
+import {status as proStatus} from './pro.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
 import {attribution, purge as purgeNets} from './attribution.js';
@@ -177,6 +178,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/report-form' || pathname.startsWith('/api/report-form/')) return reportForm(request, env, pathname);   // "Report this form": an encrypted recording from an install (src/report-form.js)
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
+  if (pathname === '/api/pro/status') return proStatus(request, env);   // the Pro plan: plan and AI credit for the app (src/pro.js)
   if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
   if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
   if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
