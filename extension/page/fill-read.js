@@ -23,6 +23,36 @@
   ];
   const TEXT_TYPES = ['text', 'email', 'tel', 'url', 'number', 'textarea'];
 
+  // A phone split into boxes (16 Oct 2026, Workday "My Information": the whole "+41795550123" went into the calling-code picker, the number box and the extension box).
+  // Which part each phone-labelled box takes is decided by STRUCTURE, no label words: a box inside a picker (its own field wrapper holds a listbox, a popup or a combobox) is the
+  // calling code; the group then reads code | number | extension, so the first plain box after it is the number and any further one the extension. A phone with no picker
+  // keeps the whole number in every box it had (two numbers, home and mobile, are not parts). A box the pack names "phone_extension" is a pack meaning's job (data).
+  const fieldBox = el => {   // the widest ancestor that holds this control and no other
+    let box = el;
+    while (box.parentElement && box.parentElement !== document.body && box.parentElement.querySelectorAll('input, select, textarea').length <= 1) box = box.parentElement;
+    return box;
+  };
+  const isPicker = el => !!(el.getAttribute('aria-haspopup') || el.getAttribute('role') === 'combobox' || el.closest('[role=combobox], [aria-haspopup]') ||
+    fieldBox(el).querySelector('[role=listbox], [role=combobox], [aria-haspopup]'));
+  // -> Map field -> 'code' | 'number' | 'extension' for the phone-labelled boxes of the rows.
+  const phoneParts = rows => {
+    const boxes = rows.filter(row => TEXT_TYPES.includes(row.type) && PROFILE_LABELS[4][1].test(row.label || '') && !asksQuestion(row.label))
+      .map(row => ({row, el: document.getElementById?.(row.field) || document.querySelector?.(`[name="${CSS.escape(row.field)}"]`)})).filter(item => item.el);
+    const parts = new Map();
+    const split = boxes.length > 1 && boxes.some(item => isPicker(item.el));   // one box with its country list in its own wrapper (intl-tel-input) is the whole phone, not a code box
+    let numbers = 0;
+    for (const {row, el} of boxes) parts.set(row.field, !split ? 'number' : isPicker(el) ? 'code' : ++numbers === 1 ? 'number' : 'extension');
+    return parts;
+  };
+  // -> the text this box takes of the saved phone, '' for a box that takes none.
+  const phoneFor = (part, phone) => {
+    const compact = String(phone).replace(/[\s().-]/g, '');
+    const dial = window.__jobPilottoFillKit.dialOf?.(compact) || '';
+    if (part === 'extension') return '';
+    if (part === 'code') return dial;
+    return part === 'split-number' ? compact.slice(dial.length).replace(/^0+/, '') : String(phone);
+  };
+
   // Meanings from the service ("Heimatort" -> place_of_origin; extension/alias-schema.js, whose aliasKey this copies as a plain script, a test
   // keeps them agreeing). Asked only when no built-in pattern above matched, so the service can add meanings but never override these.
   const aliasFor = label => {
@@ -38,6 +68,7 @@
     const used = new Set(taken);
     const entries = [];
     window.__jobPilottoAliasUsed = {};   // field -> the phrase that placed it (reported as counts, never the answer)
+    const parts = phoneParts(rows), split = [...parts.values()].includes('code');
     for (const row of rows) {
       if (row.filled || row.legal || used.has(row.field) || !TEXT_TYPES.includes(row.type)) continue;
       if (asksQuestion(row.label)) continue;   // a sentence is a question for the AI, whatever detail it names
@@ -47,7 +78,10 @@
       const key = match ? match[0] : alias && profile[alias.key] ? alias.key : '';
       if (!key) continue;
       if (key === 'full_name' && rows.some(r => /first\s*name/i.test(r.label))) continue;
-      entries.push({field: row.field, value: String(profile[key])});
+      const part = key === 'phone' ? parts.get(row.field) || 'number' : '';
+      const value = key === 'phone' ? phoneFor(part === 'number' && split ? 'split-number' : part, profile.phone) : String(profile[key]);
+      if (!value) { used.add(row.field); continue; }   // the extension box: nothing to type, and no other detail takes it
+      entries.push({field: row.field, value});
       if (alias) window.__jobPilottoAliasUsed[row.field] = alias.phrase;
       used.add(row.field);
     }
@@ -106,5 +140,5 @@
     }
     return Object.entries(groups).filter(([, options]) => options.length > 1).map(([question, options]) => ({question, options}));
   };
-  Object.assign(window.__jobPilottoFillKit, {PROFILE_LABELS, TEXT_TYPES, aliasFor});
+  Object.assign(window.__jobPilottoFillKit, {PROFILE_LABELS, TEXT_TYPES, aliasFor, phoneParts});
 })();

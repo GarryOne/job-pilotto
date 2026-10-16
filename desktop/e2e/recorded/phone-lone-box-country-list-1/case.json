@@ -1,0 +1,46 @@
+{
+ "origin": "hand-cut",
+ "control": {
+  "guard": "a control: it passes on main and on the fix (it holds the shape a change could break)"
+ },
+ "sample": "the phone field of a Recruitee one-page form, live capture 15 Oct 2026: its real markup (a country button and listbox beside one phone box), classes, styles and icons dropped; fake applicant",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/o/sales-associate/c/new",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "shape": "ONE phone box whose country list (a button and a listbox) sits in its own wrapper: the box is the whole phone, not a calling-code box",
+ "why": "16 Oct 2026, #1026's own replay gate: a structure test for a split phone (picker + number + extension) read this lone box as the calling-code box and typed only the code; two Recruitee rows got worse. Control: the whole saved number stays in the one box.",
+ "contact": {
+  "phoneParts": [
+   "+41",
+   "79",
+   "555",
+   "01",
+   "23"
+  ]
+ },
+ "expect": {
+  "traced": [
+   "Phone number:filled"
+  ],
+  "seconds": 60
+ }
+}

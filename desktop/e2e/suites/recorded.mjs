@@ -9,7 +9,7 @@ export const name = 'recorded';
 export const minutes = 28;   // the CI job's limit: setup + the 11-minute budget, and the same again for the "once more" run after a red one. 63 cases took 5-6 min in CI, 75 over 8 on Windows (12 Oct 2026)
 // The gates run it as slices (lib/suite-shards.mjs; JP_REPLAY_SHARD=i/n, the same cut as page-cases.yml): 95 steps in one job ran out of the 11 minutes at 46 on Windows
 // (beta run 38376802269, 13 Oct 2026). Raise `shards`, never the budget, when test/suite-shards.test.mjs says a slice is too full.
-export const shards = 4;
+export const shards = 5;
 export const secondsPerCaseOnWindows = 15;   // 46 cases in the 11 minutes of that run
 export const budgetMinutes = 11;   // the suite's own step budget (lib/runner.mjs budgetMsOf); the default 7 min cut 24 of 75 cases on Windows
 export const light = true;
