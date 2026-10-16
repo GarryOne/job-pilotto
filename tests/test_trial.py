@@ -86,6 +86,10 @@ class DailyRunTests(unittest.TestCase):
         search.assert_called_once()
 
 
+import importlib.util  # noqa: E402
+
+
+@unittest.skipUnless(importlib.util.find_spec('anthropic'), 'the anthropic SDK is not installed here')
 class AiLaneTests(unittest.TestCase):
     def test_the_sdk_follows_the_repo_variable_to_free_ai_and_stays_default_without_it(self):
         with mock.patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'JPF1.i.t', 'JOB_PILOTTO_AI_BASE_URL': 'https://www.jobpilotto.top/api/ai'}):
