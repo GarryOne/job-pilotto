@@ -18,7 +18,10 @@ const withFloors = (item, data, off = false) => {
   const ground = item.params.system.map(part => part.text).join('\n') + '\n' + item.params.messages.map(message => message.content).join('\n');
   return JSON.parse(execFileSync('python3', [path.join(path.dirname(new URL(import.meta.url).pathname), 'free-ai-writing-floors.py')], {input: JSON.stringify({feature: item.feature, kit: structuredClone(data), ground}), encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}));
 };
-const MODEL = process.argv.includes('--model') ? {small: SMALL, strong: STRONG}[process.argv[process.argv.indexOf('--model') + 1]] || SMALL : SMALL;   // which Workers AI model plays "free"
+const flagValue = name => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : undefined; };
+const MODEL = {small: SMALL, strong: STRONG}[flagValue('model')] || (String(flagValue('model')).startsWith('@cf/') ? flagValue('model') : SMALL);   // which Workers AI model plays "free": small, strong or any @cf/ id
+const PRICE = (flagValue('price') || '').split(',').map(Number);   // USD per million tokens, input,output, for a model costUsd does not know
+const cost = (model, usage) => (PRICE.length === 2 && PRICE.every(Number.isFinite) ? ((usage?.input_tokens || 0) * PRICE[0] + (usage?.output_tokens || 0) * PRICE[1]) / 1e6 : costUsd(model, usage));
 const answer = async (item, run, model) => {
   try { const message = fromWorkersAi(await run(model, await toWorkersAi(item.params, async () => { throw new Error('no pdf'); })), model); return {data: JSON.parse(message.content[0].text), usage: message.usage}; } catch (error) { return {error: error.message}; }
 };
@@ -50,22 +53,23 @@ async function main(argv) {
   const {account, maxCalls} = again ? {} : guardAccount({account: option('account'), 'allow-production': argv.includes('--allow-production'), 'max-calls': option('max-calls')});
   if (!again) guardCalls(cases.length, 1, maxCalls);
   const free = again ? null : rest({account, token: process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token')});
+  const sonnetJudged = option('sonnet-judged-from') ? JSON.parse(fs.readFileSync(option('sonnet-judged-from'), 'utf8')) : {};   // Sonnet's verdicts from an earlier run: not judged twice
   let usd = 0;
   for (const item of cases) {
     if (again) { raw[item.id] = again.raw[item.id]; continue; }
     raw[item.id] = {sonnet: old[item.id]?.sonnet || await answer(item, subscription, 'claude:sonnet'), free: await answer(item, free, MODEL)};
-    usd += costUsd(MODEL, raw[item.id].free.usage);
+    usd += cost(MODEL, raw[item.id].free.usage);
     console.error(`${item.id}: free ${raw[item.id].free.error ? 'ERROR ' + raw[item.id].free.error : 'ok'}, sonnet ${raw[item.id].sonnet.error ? 'ERROR' : 'ok'}`);
   }
   fs.writeFileSync(path.join(out, 'raw.json'), JSON.stringify(raw, null, 1));
   const judged = {};
   for (const item of cases) {
     judged[item.id] = {...again?.judged[item.id]};
-    for (const writer of ['free', 'sonnet']) if (!judged[item.id][writer]) judged[item.id][writer] = raw[item.id][writer].data ? await judge(item, withFloors(item, raw[item.id][writer].data, argv.includes('--no-floors')), subscription) : null;
+    for (const writer of ['free', 'sonnet']) if (writer === 'sonnet' && sonnetJudged[item.id]?.sonnet) judged[item.id].sonnet = sonnetJudged[item.id].sonnet; else if (!judged[item.id][writer]) judged[item.id][writer] = raw[item.id][writer].data ? await judge(item, withFloors(item, raw[item.id][writer].data, argv.includes('--no-floors')), subscription) : null;
     console.error(`${item.id}: judged`);
   }
   fs.writeFileSync(path.join(out, 'judged.json'), JSON.stringify(judged, null, 1));
-  const text = `${table(cases, judged)}\n\n${cases.length} Free calls, $${usd.toFixed(4)} on the production account (cap ${maxCalls ?? 'n/a'}). Judge: claude sonnet via claude -p, blind to the writer.\n`;
+  const text = `${table(cases, judged)}\n\n${cases.length} Free calls, $${usd.toFixed(4)} on the production account (cap ${maxCalls ?? 'n/a'}), ${cases.length ? '$' + (usd / cases.length).toFixed(4) : ''} per call, model ${MODEL}. Judge: claude sonnet via claude -p, blind to the writer.\n`;
   fs.writeFileSync(path.join(out, 'table.md'), text);
   process.stdout.write(text);
 }
