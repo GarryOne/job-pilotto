@@ -1,0 +1,54 @@
+{
+ "origin": "hand-cut",
+ "shape": "a phone split into a calling-code picker (a multi-select whose chosen item is a chip beside its search box), a number box that takes the national part only (it refuses and empties one written with its code) and an extension box",
+ "why": "16 Oct 2026, the signed-in Richemont test row on Workday My Information (live run 6; its published network record replays offline): the whole saved number went into the picker, the number box (refused: 'Enter a valid format for Phone Number') and the extension box. The number box now takes the national part, the extension nothing, told apart by structure (a picker in the box's own wrapper). row-to-case cannot take this capture whole: its sign-in journey depends on the site's own scripts and network (the new build diverged from the live presses), so the case is the step's real phone markup; the whole journey is the pool's signed-in row (network record).",
+ "control": {
+  "build": "0.9.553",
+  "failed": "kept: #phoneNumber--phoneNumber is empty after the page settled (the site refused and emptied the number written with its code); empty: #phoneNumber--extension (the whole number was typed there)"
+ },
+ "sample": "the phone section of the signed-in Richemont test row's real My Information page (live capture 16 Oct 2026), classes, styles and icons dropped, structure and attributes kept; the site's refusal is a page script written by hand (the capture has no scripts); fake applicant",
+ "pages": [
+  {
+   "url": "https://careers.example.com/apply/myInformation",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "kept": [
+   "#phoneNumber--phoneNumber"
+  ],
+  "keptAfter": 3000,
+  "empty": [
+   "#phoneNumber--extension"
+  ],
+  "traced": [
+   "Phone Number:filled"
+  ],
+  "seconds": 60
+ },
+ "contact": {
+  "phoneParts": [
+   "+41",
+   "79",
+   "555",
+   "01",
+   "23"
+  ]
+ }
+}

@@ -8,7 +8,7 @@
   if (window.__jobPilottoFillLoaded) return;
   window.__jobPilottoFillLoaded = true;
 
-  const {LEGAL, asksQuestion, clean, norm, once, sleep, visible, labelOf, questionOf, radioOps, PROFILE_LABELS, aliasFor, DIAL, dialOf, armCombo,
+  const {LEGAL, asksQuestion, clean, norm, once, sleep, visible, labelOf, questionOf, radioOps, PROFILE_LABELS, aliasFor, DIAL, dialOf, armCombo, phoneParts,
     pickCheckboxOption, setCheckbox, wantsUnchecked, boxOf, tickConsents, markAttention, markDraft} = window.__jobPilottoFillKit;
 
   // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
@@ -109,7 +109,7 @@
       if (armCombo(row.field, DECLINE)) { armed.push(row.label); answers.push({field: row.field, value: 'Decline to self-identify', source: 'standard answer (demographics)'}); answered.add(row.field); }
     }
     const dial = dialOf(profile?.phone);
-    const phoneRow = form.find(row => row.type === 'tel' || (/phone|mobile/i.test(row.label || '') && !asksQuestion(row.label)));
+    const phoneRow = form.find(row => row.type === 'tel' || (/phone|mobile/i.test(row.label || '') && !asksQuestion(row.label) && phoneParts(form).get(row.field) === 'number'));
     if (dial && phoneRow) {
       const country = form.find(row => row.type === 'combobox' && /^\s*country\b/i.test(row.label || '') && !answered.has(row.field));
       if (country && armCombo(country.field, DIAL[dial])) {
@@ -121,6 +121,7 @@
     for (const row of form) {
       if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field) || asksQuestion(row.label)) continue;
       const [key] = PROFILE_LABELS.find(([name, pattern]) => profile?.[name] && pattern.test(row.label || row.field)) || [];
+      if (key === 'phone') continue;   // a menu of a phone's other part (device type, calling code: the country path above arms it): never the whole number
       if (key && armCombo(row.field, String(profile[key]))) { armed.push(row.label); answers.push({field: row.field, value: profile[key], source: 'your details'}); }
     }
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);

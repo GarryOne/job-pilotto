@@ -152,7 +152,8 @@ export async function fillSettled(page, ms = 4000) {
 
 // One case in its own browser (JP_REPLAY_TABS=1, and the run alone after a failure in parallel): the same checks over every request of that browser.
 export async function runCase(item, {extensionDir} = {}) {
-  const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer: answerFor(item), offline: true});   // offline: nothing but the case's pages
+  // contact.phoneParts: the number in pieces, a public case holds no phone number (test/recorded-privacy.test.js)
+  const run = await startRealExtension({extensionDir, cv: item.cv !== false, ...(item.contact ? {contact: {first_name: 'Test', last_name: 'Candidate', email: 'test.candidate@example.com', ...item.contact, ...(item.contact.phoneParts ? {phone: item.contact.phoneParts.join(' ')} : {})}} : {}), allowAllSites: true, answer: answerFor(item), offline: true});   // offline: nothing but the case's pages
   const pages = caseFiles(item), statuses = caseStatuses(item), delays = caseDelays(item);
   try {
     for (const host of caseHosts(item)) await run.context.route(`https://${host}/**`, route => answerPage(route, pages, statuses, delays));
