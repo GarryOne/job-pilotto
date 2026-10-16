@@ -40,9 +40,12 @@ class NewestMainRunWins(unittest.TestCase):
         for name, text in pushed.items():
             if name in EXCEPTIONS: continue
             group, cancel = concurrency(text)
+            if 'ci-tests-main' in (group or ''):
+                if cancel != 'false': offenders.append(f'{name}: CI · Tests must let a started run finish, cancel-in-progress {cancel}')
+                continue
             if not group or "github.event_name == 'push' && 'main'" not in group and 'ci-tests-main' not in group: offenders.append(f'{name}: no shared group on main ({group})')
             elif cancel not in ('true', "${{ github.event_name != 'workflow_dispatch' }}"): offenders.append(f'{name}: cancel-in-progress {cancel}')
-        self.assertEqual(offenders, [], 'a push workflow: group <name>-main on a push and cancel-in-progress: true (a by-hand run is its own group, not cancelled)')
+        self.assertEqual(offenders, [], 'a push workflow: group <name>-main on a push and cancel-in-progress: true (a by-hand run is its own group, not cancelled); CI · Tests (ci-tests-main) is the exception: false, so a started run finishes')
 
     def test_a_by_hand_run_is_never_cancelled_by_a_push(self):
         for name, text in self.push_workflows().items():
