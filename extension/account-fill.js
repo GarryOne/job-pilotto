@@ -145,16 +145,6 @@ export function accountSketch() {
 export function markAccountStep(step) { if (step) document.documentElement.setAttribute('data-jobpilotto-account-step', step); else document.documentElement.removeAttribute('data-jobpilotto-account-step'); }
 export function flagAccount(needs) { if (needs === null) document.documentElement.removeAttribute('data-jobpilotto-needs'); else document.documentElement.setAttribute('data-jobpilotto-needs', needs || '1'); }   // the panel reads it on account pages AND application forms   // null: nothing is owed any more
 
-// Several controls carry the text the AI named (a header "Sign In" and the page's own "Already have an account? Sign In"): the one beside the page's fields is the one meant.
-// Structure only, ANDed with the AI's name: each is measured by the size of the smallest block that holds it AND a shown text box; a single smallest one wins, a tie stays several.
-function besideFields(found) {
-  const boxes = [...document.querySelectorAll('input, textarea, select')].filter(el => el.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset', 'checkbox', 'radio'].includes(el.type));
-  const span = el => { for (let at = el.parentElement; at; at = at.parentElement) if (boxes.some(box => at.contains(box))) return at.getElementsByTagName('*').length; return Infinity; };
-  const scored = found.map(el => ({el, size: span(el)})), best = Math.min(...scored.map(item => item.size));
-  const nearest = scored.filter(item => item.size === best);
-  return best !== Infinity && nearest.length === 1 ? [nearest[0].el] : found;
-}
-
 // A control the AI named (the register link of a sign-in page, a consent link or accept button, a consent checkbox's label), pressed once. Nothing is filled first.
 export function pressRegister(named) {
   const wanted = String(named || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -164,7 +154,12 @@ export function pressRegister(named) {
   // The named text is the exact text of one control; else the one control whose text holds it or is held by it (the AI may name a control a little short or long), never a guess between several.
   const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
   let found = exact.length ? exact : near;
-  if (found.length > 1) found = besideFields(found);
+  if (found.length > 1) {   // several carry the text: the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+    const boxes = [...document.querySelectorAll('input, textarea, select')].filter(item => item.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset', 'checkbox', 'radio'].includes(item.type));
+    const span = item => { for (let at = item.parentElement; at; at = at.parentElement) if (boxes.some(box => at.contains(box))) return at.getElementsByTagName('*').length; return Infinity; };
+    const sizes = found.map(span), best = Math.min(...sizes), nearest = found.filter((item, i) => sizes[i] === best);
+    if (best !== Infinity && nearest.length === 1) found = nearest;
+  }
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
   (globalThis.__jobPilottoPress?.(found[0]) || found[0].click());
   return 'pressed';
@@ -180,7 +175,12 @@ export function pressConsent(named) {
   const all = [...document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], label, input[type=checkbox]')].filter(el => el.getClientRects().length && !el.disabled && text(el));
   const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
   let found = exact.length ? exact : near;
-  if (found.length > 1) found = besideFields(found);
+  if (found.length > 1) {   // several carry the text: the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+    const boxes = [...document.querySelectorAll('input, textarea, select')].filter(item => item.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset', 'checkbox', 'radio'].includes(item.type));
+    const span = item => { for (let at = item.parentElement; at; at = at.parentElement) if (boxes.some(box => at.contains(box))) return at.getElementsByTagName('*').length; return Infinity; };
+    const sizes = found.map(span), best = Math.min(...sizes), nearest = found.filter((item, i) => sizes[i] === best);
+    if (best !== Infinity && nearest.length === 1) found = nearest;
+  }
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
   const el = found[0];
   const box = el.matches('input[type=checkbox]') ? el : el.matches('label') ? (el.control || el.querySelector('input[type=checkbox]')) : null;
