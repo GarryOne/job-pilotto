@@ -10,6 +10,7 @@ import random
 import re
 import sys
 
+from . import trial
 from . import contribute, digest, employer_index, features, import_url, role_kinds, run_log, scout, store, telegram, tgcard
 from . import doctor
 from . import coverage
@@ -42,6 +43,8 @@ def main():
         parser.error('--limit must be between 1 and 50')
     apply_switches(args)
     stores = open_run()   # the active store, opened once; Notion's client stays inside it (store_access.notion_of)
+    if trial.pause_run(args, stores):   # Always on after the free trial: no new searches, scoring or kits (src/trial.py); tracking modes go on
+        return
     # The app's check-first step (--propose) is a preview, not a run: no ⏱️ Search runs row (it once ended as
     # "Failed: ended before its report", toasting "had problems" for a good reading). Its cost is counted in the
     # confirmed step's run (--reading carries it). The row is the active store's (src/run_log.py), on any store.

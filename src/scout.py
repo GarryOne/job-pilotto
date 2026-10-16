@@ -377,6 +377,9 @@ def main():
         print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')
         return 0
     stores = employer_store()
+    from . import trial
+    if trial.pause_run(args, stores, mode='scheduled'):   # Always on after the free trial: no new employer checks (src/trial.py)
+        return 0
     logged = args.send or args.log_run   # on any store: the row is in the run history wherever the data is
     if logged:
         run_log.auto_begin(stores)  # the scout's run row opens when it starts

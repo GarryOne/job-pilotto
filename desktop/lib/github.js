@@ -4,7 +4,7 @@
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then
 // commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
-import {isFreeKey} from './ai-free.js';
+import {FREE_BASE, TRIAL_KEY, isFreeKey} from './ai-free.js';
 import * as ai from './ai/index.js';
 import * as poolShare from './pool-share.js';
 import fs from 'node:fs';
@@ -185,11 +185,19 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const settings = storage.settings();
   const secrets = Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value));
   for (const [name, value] of Object.entries(extraSecrets() || {})) if (value) secrets[name] = value;
-  // Free AI runs on this Mac only: its token is not an Anthropic key for GitHub runs.
-  if (isFreeKey(secrets.ANTHROPIC_API_KEY)) delete secrets.ANTHROPIC_API_KEY;
+  // Free AI (JPF1.<install>.<token>) goes to the repo too, so Always on scores and drafts on the SAME install lane as the app: its day, month and $2 trial budgets
+  // are shared (16 Oct 2026: before, a Free AI user's runs had no AI at all). The older credit key (JP1.…) never goes.
+  const free = /^JPF1\./.test(secrets.ANTHROPIC_API_KEY || '');
+  if (isFreeKey(secrets.ANTHROPIC_API_KEY) && !free) delete secrets.ANTHROPIC_API_KEY;
+  // The free trial (src/trial.py): the install's key tells the website who asks; a license key lifts the wall as in the app.
+  const trialKey = free ? secrets.ANTHROPIC_API_KEY : storage.secret(TRIAL_KEY);
+  if (trialKey) secrets.JOB_PILOTTO_TRIAL_KEY = trialKey;
+  if (settings.license?.key) secrets.JOB_PILOTTO_LICENSE_KEY = settings.license.key;
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];
+  if (free) variables.JOB_PILOTTO_AI_BASE_URL = FREE_BASE; else removed.push('JOB_PILOTTO_AI_BASE_URL');
+  if (settings.firstRunAt) variables.JOB_PILOTTO_FIRST_RUN = settings.firstRunAt; else removed.push('JOB_PILOTTO_FIRST_RUN');
   // The engine GitHub runs use (never a CLI there): the chosen family's API engine, on its own key (lib/ai/index.js alwaysOnEngine).
   // 'api' is the workflows' default, so it is only set for OpenAI (and removed otherwise, so a switch back to Claude takes effect).
   const engine = ai.alwaysOnEngine(settings, ai.keysOf(storage));

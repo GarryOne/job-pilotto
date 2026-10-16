@@ -414,7 +414,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   { const lost = (storage.secretsPresent(), storage.unreadableSecrets()); if (lost.length) appLog('secrets', 'unreadable on this computer: asked again', {names: lost}); }
   const firstStart = DEMO ? null : versionLine(storage, app.getVersion(), buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : '');
   if (firstStart) appLog('update', firstStart);
-  aiFree.apply(storage.settings()); if (!DEMO) aiFree.migrate(storage).catch(() => {});  // Free AI, if on: the Anthropic SDK goes to our website; the old $1 credit moves over
+  aiFree.apply(storage.settings()); if (!DEMO) aiFree.migrate(storage).then(() => aiFree.ensureTrialKey(storage)).catch(() => {});  // Free AI, if on: the Anthropic SDK goes to our website; the old $1 credit moves over
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
   license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps
