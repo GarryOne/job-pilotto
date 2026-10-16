@@ -18,11 +18,18 @@ export async function accountOf(env, install) {
   return (await env.STATS.prepare('SELECT a.* FROM pro_devices d JOIN pro_accounts a ON a.id = d.account WHERE d.install = ?').bind(install).first().catch(() => null)) || null;
 }
 
-// An account for an e-mail (the same e-mail is the same account) -> its id.
-export async function createAccount(env, email, now = new Date()) {
-  const clean = String(email).trim().toLowerCase(), hash = await digestOf(clean);
-  await env.STATS.prepare('INSERT OR IGNORE INTO pro_accounts (id, email_hash, email, created_at) VALUES (?, ?, ?, ?)').bind(`acc_${hash}`, hash, clean, stamp(now)).run();
+// An account for an e-mail (the same e-mail is the same account) -> its id. `plan: 'trial'` makes a trial account (onboarding, no payment: no Pro lane, no credit);
+// a payment makes or finds the account and flips it to Pro (makePro). An existing account is never downgraded or restarted by asking again.
+export async function createAccount(env, email, now = new Date(), {plan = 'pro'} = {}) {
+  const clean = String(email).trim().toLowerCase(), hash = await digestOf(clean), trial = plan === 'trial';
+  await env.STATS.prepare('INSERT OR IGNORE INTO pro_accounts (id, email_hash, email, created_at, plan, trial_started_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(`acc_${hash}`, hash, clean, stamp(now), trial ? 'trial' : 'pro', trial ? stamp(now) : null).run();
   return (await env.STATS.prepare('SELECT id FROM pro_accounts WHERE email_hash = ?').bind(hash).first()).id;
+}
+
+// A purchase of Pro (or a top-up) on a trial account makes it a Pro account, same e-mail, same devices.
+export async function makePro(env, account) {
+  await env.STATS.prepare("UPDATE pro_accounts SET plan = 'pro' WHERE id = ? AND plan = 'trial'").bind(account).run();
 }
 
 // Adds an install to an account: max 3 devices, and an install belongs to one account only (a 4th device or a second account is refused and flagged).
@@ -65,8 +72,8 @@ export async function status(request, env) {
   const access = given && await authorize(env, given.install, given.token, 'ai');
   if (!access?.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
   const account = await accountOf(env, given.install);
-  // The price to show (the launch price while there is one: PRO_LAUNCH_USD empty ends it), so the app never hard-codes a number.
-  if (!account || account.status !== 'active') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offer: {price: env.PRO_PRICE_USD || '29', launch: env.PRO_LAUNCH_USD ?? '19'}});
+  // The price to show (the launch price while there is one: PRO_LAUNCH_USD empty ends it), so the app never hard-codes a number. A trial account is Free until it pays.
+  if (!account || account.status !== 'active' || account.plan !== 'pro') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offer: {price: env.PRO_PRICE_USD || '29', launch: env.PRO_LAUNCH_USD ?? '19'}});
   const percent = percentOf(account);
   return Response.json({ok: true, plan: 'pro', mode: env.PRO_PLAN, creditPercent: percent, warn: warnOf(percent), devices: DEVICES_PER_ACCOUNT});
 }

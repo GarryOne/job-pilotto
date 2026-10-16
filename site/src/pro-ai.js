@@ -10,7 +10,7 @@ export const CREDIT_OUT = 'Your AI credit is used up. Add credit, or use your ow
 export async function proLane(env, install) {
   if (!planOn(env) || !install) return null;   // a founder/friend key (JP1.) has no install: the Free rules
   const account = await accountOf(env, install);
-  if (!account || account.status !== 'active') return null;
+  if (!account || account.status !== 'active' || account.plan !== 'pro') return null;   // a trial account has the Free rules
   return account.credit_micro <= -OVERDRAFT_MICRO ? {blocked: CREDIT_OUT} : {account};
 }
 
