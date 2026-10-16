@@ -39,12 +39,8 @@
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
   $('.x').onclick = () => { userMoved = true; setOpen(false); };
-  // "Report this form", always there on every state (owner, 16 Oct 2026: "a small icon that will trigger Report this form"): the same card as the corner ⚑ (panel-report.js).
-  $('.report-flag').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
-  // The labelled button for the same card (owner, 16 Oct 2026: the icon alone was not found); shown once the app says the switch is on (panel-report.js).
-  $('.report-open').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
-  const showReport = () => { $('.report-open').hidden = !window.__jobPilottoReportOn; };
-  window.addEventListener('jobpilotto-report-ready', showReport);
+  // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): opens the report card (panel-report.js). A page script's click is ignored.
+  $('.report-btn').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
 
   // ---- drawing ----
   function render(list = fields()) {
@@ -131,18 +127,19 @@
     if (SHOW_TIPS && tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
-    showReport();
     window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, takeover: claudeAsk.takeover !== false, report: !!window.__jobPilottoReportOn, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
-    const foot = $('.foot');
+    // The footer, one component for every state (owner, 16 Oct 2026): the connection on the left (a dot and its word; the build stays in the line, it is in every screenshot), Report on the right.
+    const foot = $('.foot'), stateLine = $('.foot .state');
     foot.classList.toggle('on', !!connection?.connected);
-    const state = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
-      : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…'; const version = chrome.runtime.getManifest().version; foot.textContent = `${state} · v${version}`; foot.title = `Job Pilotto extension v${version}`;   // the build is in every screenshot (owner, 11 Oct 2026)
-    // The commit this copy runs, and when it lacks fixes the app already has, a button to load them (tab-report.js answers panelBuild; owner, 16 Oct 2026: a build older than the merged fixes ran unseen).
-    if (build?.label) { foot.textContent += ` · ${build.label}`; foot.title += ` (${build.label})`; }
+    foot.classList.toggle('off', !!connection && !connection.connected);
+    const word = connection?.connected ? 'Connected' : connection ? 'Not connected' : 'Checking the connection…';   // the reason is in the tooltip
+    const version = chrome.runtime.getManifest().version;
+    stateLine.textContent = `${word} · v${version}${build?.label ? ` · ${build.label}` : ''}`;
+    foot.title = `${connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker') : (connection?.why || 'Not connected: the form still fills from your settings')} · Job Pilotto extension v${version}${build?.label ? ` (${build.label})` : ''}`;
     if (build && build.behind !== 0 && build.behind !== undefined) {
       const reload = Object.assign(document.createElement('button'), {className: 'reload', textContent: build.reloadLabel || 'Reload the extension to get the latest fixes'});
       reload.addEventListener('click', () => { reload.disabled = true; reload.textContent = 'Reloading…'; send({type: 'panelReload'}).catch(() => {}); });
-      foot.append(reload);
+      stateLine.append(reload);
     }
     return {list, left, total, busy, over, account};
   }

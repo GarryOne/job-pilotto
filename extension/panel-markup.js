@@ -27,8 +27,6 @@
     .head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--navy); color: #fff; }
     .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; font: 800 10px/1 system-ui; }
     .head b { font-size: 13px; }
-    .head .report-flag { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 6px; }
-    .head .report-flag:hover { color: #fff; background: rgba(255,255,255,.1); }
     .head .x { background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
     .head .x:hover { color: #fff; background: rgba(255,255,255,.1); }
     .body { padding: 14px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
@@ -69,10 +67,16 @@
     .secondary:hover { background: var(--soft); }
     .tip { display: flex; gap: 8px; align-items: baseline; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.4; color: var(--ink); cursor: pointer; }
     .tip-chip { flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-    .foot { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
-    .foot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-    .foot.on::before { background: var(--good); }
-    .foot .reload { margin-left: auto; font: inherit; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+    /* The footer of every state (owner mockup, 16 Oct 2026): the connection on the left, the one Report entry on the right. */
+    .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+    .foot .state { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+    .foot .state::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .foot.on .state::before { background: var(--good); }
+    .foot.off .state::before { background: #d92d20; }
+    .foot .reload { font: inherit; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+    .foot .report-btn { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px; background: #fff; color: var(--ink); border: 1px solid var(--line); font-weight: 600; font-size: 12px; }
+    .foot .report-btn:hover { background: var(--soft); }
+    .foot .report-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .knock { margin: 0 0 8px; padding: 7px 9px; border-radius: 7px; background: #fff3e0; color: #7a4a00; font-size: 12px; line-height: 1.4; }
     .tailor { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 10px 0 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink); }
     .tailor .secondary { padding: 5px 9px; }
@@ -80,13 +84,12 @@
   </style>
   <div class="jp">
     <div class="card" hidden>
-      <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="report-flag" type="button" title="Report this form" aria-label="Report this form">⚑</button><button class="x" title="Hide">×</button></div>
+      <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="x" title="Hide">×</button></div>
       <div class="body">
         <div class="job" hidden><div class="job-title"></div><div class="job-meta"></div></div>
         <div class="claude" hidden><i>🤖</i><span></span></div>
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
-        <div class="actions"><button class="secondary report-open" type="button" title="Send this form to be fixed: you read exactly what would be sent first" hidden>Report this form…</button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
@@ -97,7 +100,7 @@
         </div>
       </div>
       <div class="tip" hidden><b class="tip-chip"></b><span class="tip-text"></span></div>
-      <div class="foot">Checking the connection…</div>
+      <div class="foot"><span class="state">Checking the connection…</span><button class="report-btn" type="button" title="Send this form to be fixed: you read exactly what would be sent first" aria-label="Report this form"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 14V2.5M3.5 3h8l-1.6 2.7L11.5 8.5h-8"/></svg>Report</button></div>
     </div>
     <button class="pill" title="Job Pilotto"><span class="ring"><span></span></span><div><b></b><small></small></div></button>
   </div>`;
