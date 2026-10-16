@@ -2,7 +2,8 @@
 // The person here is invented (Rosalind Quill); nothing real is read.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {lastGate, scrubRecord, scrubUrl} from '../lib/report-scrub.js';
+import {lastGate, personalHits, scrubRecord, scrubUrl} from '../lib/report-scrub.js';
+import {EMAIL} from '../lib/live-capture.js';
 import {ownerValuesOf} from '../lib/owner-values.js';
 
 const TEXTS = ['full name: Rosalind Quill\nemail: rosalind.quill@mailbox.test\nphone: +41 79 555 01 23\nLocation: Port Vale, Atlantis\n'];
@@ -105,4 +106,11 @@ test('5. a session token, CSRF token or credential in a body goes by its field n
   assert.match(text, /"title":"Engineer"/); assert.match(text, /"jobTitle":"Engineer"/); assert.match(text, /next=%2Fapply/);
   assert.ok(out.stats.removed.tokens >= 8, JSON.stringify(out.stats.removed));
   assert.deepEqual(lastGate(out), [], 'nothing is left for the gate');
+});
+
+test('a package version in a CDN address (name@1.142.5) is not an e-mail, a real address still is', () => {
+  const cdn = 'https://cdn.example.test/npm/@scope/theme@1.142.5/fonts/72-Regular.woff2';
+  assert.deepEqual(personalHits(cdn, {values: new Map()}), []);
+  for (const mail of ['rosalind.quill@mailbox.test', 'a@b.co', 'x+y@mail.example.test']) assert.equal(mail.match(EMAIL)?.[0], mail);
+  assert.equal(cdn.match(EMAIL), null);
 });

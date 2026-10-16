@@ -145,3 +145,12 @@ test('a reply that stays open (an event stream) never makes the page wait for th
     assert.ok(headersMs < 1000, `the stream's headers reached the page in ${headersMs} ms (the stream lasts 4000 ms)`);
   } finally { await browser.close(); server.close(); }
 });
+
+test('a lost redirect, font or picture body is not an empty answer; a lost XHR, script or page body still is', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-lost-body-'));
+  const lost = (type, status) => ({url: `https://site.example.test/${type}-${status}`, type, status, bodyLost: true});
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [lost('stylesheet', 302), lost('script', 301), lost('font', 200), lost('image', 200), lost('media', 200)]}));
+  assert.deepEqual(lostBodies(dir), []);
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [lost('xhr', 200), lost('fetch', 200), lost('script', 200), lost('document', 200), lost('stylesheet', 200)]}));
+  assert.equal(lostBodies(dir).length, 5);
+});
