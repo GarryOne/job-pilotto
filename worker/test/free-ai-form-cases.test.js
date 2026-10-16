@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {formCases} from '../../tools/free-ai-form-cases.mjs';
 
-const demo = name => fs.readFileSync(new URL(`../demo/${name}`, import.meta.url), 'utf8');
+const demo = name => fs.readFileSync(new URL(`../../desktop/demo/${name}`, import.meta.url), 'utf8');
 
 test('each case carries the real answer prompt, the demo profile, its fields and an expectation for a field that is asked', async () => {
   const cases = await formCases({profile: demo('profile.md'), answers: demo('answers.md')});
