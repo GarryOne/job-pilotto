@@ -91,10 +91,39 @@ test('factProblems checks values at a path and that a list holds the wanted entr
     ['work_mode.value: "hybrid", wanted remote', 'seniority.value: missing', 'languages: no entry like {"language":"German","level":"required"}']);
 });
 
+// Kit cases (CV highlights, cover letter): no single right text, so the checks are the ones that can be verified.
+test('kitProblems checks eligibility, the highlight count, a letter, and that no number or money figure is invented', async () => {
+  const {kitProblems} = await import('../../tools/free-ai-eval-metrics.mjs');
+  const ground = 'Alex has 8 years on Kubernetes. The role pays CHF 150-175k.';
+  const kit = {eligible: true, eligibility_note: '', cover_letter: 'I bring 8 years of Kubernetes. CHF 150k suits me.', highlights: ['a', 'b', 'c']};
+  assert.deepEqual(kitProblems(kit, {eligible: true}, ground), []);
+  assert.deepEqual(kitProblems({...kit, eligible: false, cover_letter: '', highlights: ['a']}, {eligible: true}, ground),
+    ['eligible: false, wanted true', 'cover_letter: empty', 'highlights: 1, wanted 3-5']);
+  assert.deepEqual(kitProblems({...kit, cover_letter: 'I led 12 engineers for 15 years.'}, {eligible: true}, ground), ['cover_letter: invented figure 12', 'cover_letter: invented figure 15']);
+  assert.deepEqual(kitProblems({...kit, eligibility_note: 'x'}, {eligible: true}, ground), ['eligibility_note: set although eligible']);
+});
+
 // 16 Oct 2026: the eval's REST calls drew on the same 10,000 free neurons a day as the production Free AI, and a day of tuning left every user at "busy today".
-test('the eval refuses the production Cloudflare account: --account must name another one', async () => {
+test('the eval refuses the production Cloudflare account unless --allow-production comes with a call cap', async () => {
   const {guardAccount, PRODUCTION_ACCOUNTS} = await import('../../tools/free-ai-eval.mjs');
-  assert.throws(() => guardAccount(undefined), /--account/);
-  for (const production of PRODUCTION_ACCOUNTS) assert.throws(() => guardAccount(production), /production/);
-  assert.equal(guardAccount('0123456789abcdef0123456789abcdef'), '0123456789abcdef0123456789abcdef');
+  const prod = PRODUCTION_ACCOUNTS[0];
+  assert.throws(() => guardAccount({}), /--account/);
+  assert.throws(() => guardAccount({account: prod}), /production/);
+  assert.equal(guardAccount({account: '0123456789abcdef0123456789abcdef'}).account, '0123456789abcdef0123456789abcdef');
+  assert.throws(() => guardAccount({'allow-production': true}), /--max-calls/, 'a production run needs a hard cap');
+  assert.throws(() => guardAccount({'allow-production': true, 'max-calls': '0'}), /--max-calls/);
+  assert.deepEqual(guardAccount({'allow-production': true, 'max-calls': '100'}), {account: prod, maxCalls: 100, production: true});
+});
+
+test('a run that would make more calls than the cap is refused before the first call', async () => {
+  const {guardCalls} = await import('../../tools/free-ai-eval.mjs');
+  assert.doesNotThrow(() => guardCalls(16, 2, 100));
+  assert.throws(() => guardCalls(60, 2, 100), /120 calls.*100/);
+  assert.doesNotThrow(() => guardCalls(500, 2, undefined), 'no cap on a separate account');
+});
+
+test('the closing line says how many calls were made and what they cost', async () => {
+  const {closing} = await import('../../tools/free-ai-eval.mjs');
+  assert.match(closing(32, 0.0123, true), /32 calls.*\$0\.0123.*production/);
+  assert.match(closing(32, 0.0123, false), /32 calls/);
 });
