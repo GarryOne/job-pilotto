@@ -46,7 +46,7 @@ export function restartArgs(argv, folder = null) {
 
 // Window actions that would reach outside (Notion, Telegram, GitHub, Anthropic, Gmail, Claude, updates) or change
 // this computer (keys, login item, recording): in demo mode they answer this instead of running.
-export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startTrialCredit', 'checkAnthropic', 'cloudOff',
+export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startFreeAi', 'checkAnthropic', 'cloudOff',
   'telegramCloudOn', 'telegramCloudOff', 'telegramConnect', 'googleConnect', 'licenseRemove', 'applyWithClaude', 'apply',
   'applyOne', 'sessionRestart', 'sessionReopen', 'sessionsStopExtension', 'sessionResume', 'updateInstall', 'updateCheck', 'betaSet', 'testSet', 'betaRollback', 'resetProfile', 'importProfile', 'importCv',
   'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'tailorTop', 'ivRecordStart',

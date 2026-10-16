@@ -1,6 +1,6 @@
 // The Anthropic API engine ('api'): the user's ANTHROPIC_API_KEY through the official SDK, the only `new Anthropic` in the app
 // (test/ai-contract.test.js fails on one elsewhere). Lossless: the caller's params go to the SDK as written (cache_control kept; only a schema's maxItems/minItems come out, forApi), and the
-// SDK's answer and errors come back as they are, with usage.billing 'api'. The free AI credit (lib/ai-trial.js) still works: the SDK
+// SDK's answer and errors come back as they are, with usage.billing 'api'. Free AI (lib/ai-free.js) still works: the SDK
 // follows ANTHROPIC_BASE_URL itself, so no baseURL is set here.
 import Anthropic from '@anthropic-ai/sdk';
 import {API, Adapter, requestFrom} from './contract.js';
@@ -36,7 +36,7 @@ export class AnthropicApi extends Adapter {
 // The app's client on an Anthropic key, for the callers that were given one (`client || anthropicApi(apiKey)`).
 export const anthropicApi = (apiKey, options = {}) => new AnthropicApi({apiKey, ...options});
 
-// Is this key valid? A free call (list one model), always at Anthropic itself, never the free-credit relay.
+// Is this key valid? A free call (list one model), always at Anthropic itself, never the Free AI relay.
 export async function checkAnthropicKey(apiKey, {Sdk = Anthropic} = {}) {
   await new Sdk({apiKey, baseURL: 'https://api.anthropic.com'}).models.list({limit: 1});
 }

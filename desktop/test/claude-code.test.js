@@ -199,14 +199,12 @@ test('Always on (GitHub) never gets the Claude Code engine: it runs on the API k
   assert.equal(secrets.ANTHROPIC_API_KEY, 'sk-test');
 });
 
-// The wizard's third card, $1 of free AI: chosen again when the credit is on; Continue needs the founder key typed, every time.
-test('free credit card: chosen when on (wizard only), Continue with a founder key', () => {
-  assert.equal(view.chosen({aiTrial: true}, true, 'wizard'), 'trial');
-  assert.equal(view.chosen({aiTrial: true}, true, 'settings'), 'api');
-  // The credit is an Anthropic API engine: a later pick of another engine wins over a leftover aiTrial flag.
-  for (const aiEngine of ['cli', 'codex', 'openai']) assert.equal(view.chosen({aiTrial: true, aiEngine}, true, 'wizard'), aiEngine);
-  assert.equal(view.chosen({aiTrial: true, aiEngine: 'api'}, true, 'wizard'), 'trial');
-  assert.equal(view.canContinue({picked: 'trial'}), false);
-  assert.equal(view.canContinue({picked: 'trial', keyTyped: true}), true);
-  assert.equal(view.canContinue({picked: 'trial', licensed: true}), false);   // the founder key is always asked
+// The Free card: chosen again when Free AI is on (wizard and Settings); Continue needs nothing typed.
+test('Free card: chosen when on, Continue without a key', () => {
+  assert.equal(view.chosen({aiFree: true}, true, 'wizard'), 'free');
+  assert.equal(view.chosen({aiFree: true}, true, 'settings'), 'free');
+  // Free is an Anthropic API engine: a later pick of another engine wins over a leftover aiFree flag.
+  for (const aiEngine of ['cli', 'codex', 'openai']) assert.equal(view.chosen({aiFree: true, aiEngine}, true, 'wizard'), aiEngine);
+  assert.equal(view.chosen({aiFree: true, aiEngine: 'api'}, true, 'wizard'), 'free');
+  assert.equal(view.canContinue({picked: 'free'}), true);
 });

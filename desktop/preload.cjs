@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onUpdateChannel: callback => ipcRenderer.on('updateChannel', (_, channel) => callback(channel)),   // the menu's Update Channel changed it
   sendFeedback: call('sendFeedback'), leaveReason: call('leaveReason'),
   onAskWhyLeaving: callback => ipcRenderer.on('askWhyLeaving', () => callback()),
-  startTrialCredit: call('startTrialCredit'), trialCredit: call('trialCredit'),
+  startFreeAi: call('startFreeAi'),
   claudeCodeStatus: call('claudeCodeStatus'), verifyClaudeCode: call('verifyClaudeCode'), setAiEngine: call('setAiEngine'),
   codexStatus: call('codexStatus'), verifyCodex: call('verifyCodex'), checkOpenAI: call('checkOpenAI'),
   setAiFallback: call('setAiFallback'), dismissEngineOffer: call('dismissEngineOffer'),

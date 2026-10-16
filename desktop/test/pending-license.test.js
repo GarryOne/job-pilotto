@@ -14,21 +14,19 @@ function setup(key, {hasKey = false, valid = true} = {}) {
   return {dir, storage, license, secrets, licenseState: () => ({licensed: valid})};
 }
 
-test('the key left by the installer unlocks the app and starts the free credit, once', () => {
+test('the key left by the installer unlocks the app, once, and starts no AI credit', () => {
   const s = setup('JP1.abc.def');
-  const env = {};
-  assert.deepEqual(consume(s.dir, {...s, env}), {ok: true, trial: true});
-  assert.equal(s.secrets.ANTHROPIC_API_KEY, 'JP1.abc.def');
-  assert.ok(env.ANTHROPIC_BASE_URL);
+  assert.deepEqual(consume(s.dir, s), {ok: true});
+  assert.equal(s.secrets.ANTHROPIC_API_KEY, undefined);
   assert.equal(fs.existsSync(path.join(s.dir, FILE)), false);
-  assert.equal(consume(s.dir, {...s, env}), null);  // nothing left
+  assert.equal(consume(s.dir, s), null);  // nothing left
 });
 
 test('an own Anthropic key is kept; a bad key is dropped with the reason', () => {
   const own = setup('JP1.abc.def', {hasKey: true});
-  assert.deepEqual(consume(own.dir, {...own, env: {}}), {ok: true, trial: false});
+  assert.deepEqual(consume(own.dir, own), {ok: true});
   assert.equal(own.secrets.ANTHROPIC_API_KEY, 'sk-ant-own');
   const bad = setup('nonsense', {valid: false});
-  assert.deepEqual(consume(bad.dir, {...bad, env: {}}), {ok: false, error: 'bad key'});
+  assert.deepEqual(consume(bad.dir, bad), {ok: false, error: 'bad key'});
   assert.equal(fs.existsSync(path.join(bad.dir, FILE)), false);
 });

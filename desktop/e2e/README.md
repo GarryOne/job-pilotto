@@ -137,7 +137,7 @@ journey step checks that nothing was queued to send. (2 Oct 2026: before this, t
 - **Forms:** `lib/forms.mjs` serves them over HTTPS; Chromium maps `boards.greenhouse.io`, `jobs.lever.co`, `e2e.recruitee.com` to that server and every other host name
   is unresolvable (the suite asserts no other host was asked for). Each form logs a click or submit event on Submit; any is a failure.
 - **Apply click:** the app runs `open -a "Google Chrome" <url>`; a stand-in `open` first on the app's PATH hands the URL to that Chromium. macOS only.
-- **AI:** the app's own AI calls go to the test proxy (`JOB_PILOTTO_E2E_AI_BASE_URL`, honoured by `lib/ai-trial.js` in a test run), which answers the one open question with a fixed text: no cost.
+- **AI:** the app's own AI calls go to the test proxy (`JOB_PILOTTO_E2E_AI_BASE_URL`, honoured by `lib/ai-free.js` in a test run), which answers the one open question with a fixed text: no cost.
 - **Judgements** are pure functions (`lib/applycheck.mjs`), each tested against a wrong input (`test/applycheck.test.mjs`). `E2E_LATE_MS=40000` renders the Lever field too late: that step must fail.
 - **Found by this suite (2 Oct 2026), fixed in `extension/review.js`:** the panel counted native fields only, so a required custom widget it could not read left "Ready to submit" on screen. It now lists it as left for you until its own state changes (`worker/test/panel-widgets.test.js`); the last step guards it.
 

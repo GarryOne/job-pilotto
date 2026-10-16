@@ -47,7 +47,7 @@ import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as transcript from './lib/transcript.js';
 import {offerMove} from './lib/applications.js';
-import * as aiTrial from './lib/ai-trial.js';
+import * as aiFree from './lib/ai-free.js';
 import * as claudeCode from './lib/claude-code.js';
 import * as setupFunnel from './lib/setup-funnel.js';
 import {sharedRead} from './lib/shared-read.js';
@@ -414,15 +414,15 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   { const lost = (storage.secretsPresent(), storage.unreadableSecrets()); if (lost.length) appLog('secrets', 'unreadable on this computer: asked again', {names: lost}); }
   const firstStart = DEMO ? null : versionLine(storage, app.getVersion(), buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : '');
   if (firstStart) appLog('update', firstStart);
-  aiTrial.apply(storage.settings());  // the free AI credit, if on: this process's Anthropic SDK goes to our website
+  aiFree.apply(storage.settings()); if (!DEMO) aiFree.migrate(storage).catch(() => {});  // Free AI, if on: the Anthropic SDK goes to our website; the old $1 credit moves over
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
   license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps
     ?.find(step => step.step.includes('Applied'))?.reached ?? 0});
-  // A founder key left by the one-command install (lib/pending-license.js): unlock + free AI credit, before setup.
+  // A founder key left by the one-command install (lib/pending-license.js): unlock, before setup.
   if (!DEMO) {
-    const taken = pendingLicense.consume(app.getPath('userData'), {license, storage, licenseState});
-    if (taken) console.log(`Founder key from the installer: ${taken.ok ? `accepted${taken.trial ? ', free AI credit on' : ''}` : taken.error}`);
+    const taken = pendingLicense.consume(app.getPath('userData'), {license});
+    if (taken) console.log(`Founder key from the installer: ${taken.ok ? `accepted` : taken.error}`);
   }
   // The channel the install came from (the install link's ?src=): kept once, reported with the app's anonymous id.
   if (!DEMO) { const channel = installSource.consume(app.getPath('userData'), storage); if (channel) appLog('install', 'channel taken from the installer', {channel}); }

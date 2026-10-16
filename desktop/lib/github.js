@@ -4,6 +4,7 @@
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then
 // commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
+import {isFreeKey} from './ai-free.js';
 import * as ai from './ai/index.js';
 import * as poolShare from './pool-share.js';
 import fs from 'node:fs';
@@ -184,8 +185,8 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const settings = storage.settings();
   const secrets = Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value));
   for (const [name, value] of Object.entries(extraSecrets() || {})) if (value) secrets[name] = value;
-  // The free AI credit runs on this Mac only: a license key is not an Anthropic key for GitHub runs.
-  if (String(secrets.ANTHROPIC_API_KEY || '').startsWith('JP1.')) delete secrets.ANTHROPIC_API_KEY;
+  // Free AI runs on this Mac only: its token is not an Anthropic key for GitHub runs.
+  if (isFreeKey(secrets.ANTHROPIC_API_KEY)) delete secrets.ANTHROPIC_API_KEY;
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];
