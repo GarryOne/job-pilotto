@@ -67,7 +67,8 @@ test('a record with nothing personal is not touched at all', () => {
 });
 
 test('a signed-in row names its hosts, and replays with a fake account for exactly those hosts (never the Keychain)', () => {
-  const log = '12:00 [extension] fill: password filled from the Keychain {"boxes":1,"host":"login.example.test","version":"1"}\n12:01 [extension] fill: typed {"host":"other.example.test"}\n12:02 [extension] fill: password filled from the Keychain {"boxes":1,"host":"login.example.test"}';
+  const log = '12:00 [extension] fill: account page: fill-press {"host":"login.example.test","mode":"sign-in","step":"sign_in"}\n12:00 [extension] fill: password filled from the Keychain {"boxes":1,"host":"login.example.test","version":"1"}\n12:01 [extension] fill: typed {"host":"other.example.test"}\n12:02 [extension] fill: password filled from the Keychain {"boxes":1,"host":"login.example.test"}\n'
+    + '12:03 [extension] fill: account page: fill {"host":"signup.example.test","mode":"sign-up","step":""}\n12:03 [extension] fill: password filled from the Keychain {"boxes":2,"host":"signup.example.test"}';   // a sign-UP fills a password too: not a sign-in
   assert.deepEqual(signedInHosts(log), ['login.example.test']);
   assert.deepEqual(signedInHosts(''), []);
   const named = replayAccounts({testAccountHosts: ['a.example.test']}, log), derived = replayAccounts({}, log), none = replayAccounts({testAccountHosts: []}, log);

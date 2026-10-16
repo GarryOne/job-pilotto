@@ -9,9 +9,12 @@ import {automationOf, modeOf} from '../../lib/site-accounts.js';
 export function offlineSitePassword(storage, {read = host => credentials.forExtension(host, {applying: true}), emailOf = host => credentials.emailOf(host), email: contactEmail = async () => ({})} = {}) {   // email: () => the applicant's contact; the child passes lib/contact.js's read (a leaf-only module here: installed-only.test.mjs)
   return async ({host, peek} = {}) => {
     const email = await Promise.resolve(contactEmail()).then(contact => contact?.email || '').catch(() => '');
-    const answer = read(host);
-    const mode = modeOf(storage.settings().siteAccounts, host, email, emailOf(host), !!answer.ok, '');
-    if (peek) return {ok: true, mode, email};
-    return answer.ok && email ? {...answer, email, mode, automation: automationOf(storage.settings())} : {...answer};
+    const answer = read(host), own = answer.ok ? emailOf(host) : '';
+    // This app's Keychain holds only what the harness seeded (a TEST account, lib/test-accounts.mjs), so an item here is always the account to sign in with, with ITS email: the page that asks for
+    // it may be on another host than the posting (Adnovum: the posting on careers.adnovum.com, the login on career74.sapsf.eu), where the applicant's fake email would have made the product's own
+    // rule (modeOf: the item must be the applicant's email) answer "sign up" (16 Oct 2026). No item: the product's rule, as before.
+    const mode = own ? 'sign-in' : modeOf(storage.settings().siteAccounts, host, email, emailOf(host), !!answer.ok, ''), as = own || email;
+    if (peek) return {ok: true, mode, email: as};
+    return answer.ok && as ? {...answer, email: as, mode, automation: automationOf(storage.settings())} : {...answer};
   };
 }
