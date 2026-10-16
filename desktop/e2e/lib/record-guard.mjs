@@ -44,9 +44,12 @@ export function notWorse(now, old) {
   return '';
 }
 
+// A redirect has no body and a font, picture or media file is never an answer the page reads: their lost bodies do not make a replay answer empty.
+const NO_ANSWER = entry => /^3\d\d$/.test(String(entry.status)) || /^(font|image|media)$/.test(entry.type || '');
+
 // The replies a recording could not read (record.json entries flagged bodyLost by lib/net-record.mjs): -> [host + path, ...]. A record whose reply was lost replays an EMPTY answer where live had one.
 export function lostBodies(dir) {
-  try { return (JSON.parse(fs.readFileSync(path.join(dir, 'record.json'), 'utf8')).entries || []).filter(entry => entry.bodyLost).map(entry => { try { const u = new URL(entry.url); return u.host + u.pathname; } catch { return 'an address'; } }); } catch { return []; }
+  try { return (JSON.parse(fs.readFileSync(path.join(dir, 'record.json'), 'utf8')).entries || []).filter(entry => entry.bodyLost && !NO_ANSWER(entry)).map(entry => { try { const u = new URL(entry.url); return u.host + u.pathname; } catch { return 'an address'; } }); } catch { return []; }
 }
 
 const RUN = (name, why) => `node records-publish.mjs <dir with only this row> --accept "${name} — <reason>" (the owner's word only), or re-record it: ${why}`;
