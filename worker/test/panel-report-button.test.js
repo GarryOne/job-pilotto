@@ -36,3 +36,10 @@ test('the panel footer has one Report button, always there, opening the same car
   assert.equal(opened, 1, 'a trusted press opens the report card');
   } finally { window.close(); }
 });
+
+test('the header pins the close button to the right edge in every state, as the last item of a flex row', () => {
+  const css = read('extension/panel-markup.js');
+  assert.match(css, /\.head \{[^}]*display: flex/, 'the header is a flex row');
+  assert.match(css, /\.head \.x \{[^}]*margin-left: auto/, 'the close button, not a sibling that may be removed, takes the free space');
+  assert.match(css, /<div class="head">(?:(?!<\/div>).)*<button class="x"[^>]*>×<\/button><\/div>/, 'the close button is the header\'s last child');
+});
