@@ -180,10 +180,14 @@ const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({targe
 // Claude's reply for a tab (answers + eligibility), kept for the tab's session so the popup shows the result of
 // an automatic fill and "Fill anyway" reuses the answers instead of asking (and paying) again.
 const cacheKey = tab => `fill:${tab.id}`;
-export async function cachedAI(tab) {
+// open: the questions this fill would ask. A reply is reused only for a form it was asked about: a single-page app keeps one address from sign-in to the form, and the
+// sign-in page's reply (a password) was taken for the form's own (16 Oct 2026, Workday My Information: its questions were never asked).
+export async function cachedAI(tab, open = null) {
   const entry = (await chrome.storage.session.get(cacheKey(tab)))[cacheKey(tab)];
   const {testMode = false} = await chrome.storage.local.get('testMode');
-  return entry && entry.url === tab.url.split('#')[0] && !!entry.test === testMode ? entry.ai : null;
+  if (!entry || entry.url !== tab.url.split('#')[0] || !!entry.test !== testMode) return null;
+  const asked = new Set(entry.asked || (entry.ai?.answers || []).map(a => a.field));
+  return !open || open.every(f => asked.has(f.field)) ? entry.ai : null;
 }
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
@@ -206,7 +210,7 @@ const askAnswers = async (tab, config, open) => apiFor(tab.id, config, '/extensi
 // A page that already shows a form (fill-flow.js consider): its open questions go to the AI now, beside the page-kind ask; the fill takes the answer
 // if this page is filled as a form with the same questions (early-answers.js). Not with a kit (Claude answers after that fill) or a cached answer.
 export async function askEarly(tab, config, jobUrl = '') {
-  if (hasEarly(tab.id, tab.url) || await cachedAI(tab)) return false;
+  if (hasEarly(tab.id, tab.url)) return false;
   const job = (jobUrl || tab.url).split('#')[0];
   const [kit, me] = await Promise.all([apiFor(tab.id, config, `/extension/kit?url=${encodeURIComponent(job)}`).catch(() => ({})),
     apiFor(tab.id, config, `/extension/me?url=${encodeURIComponent(job)}`).catch(() => null)]);
@@ -218,7 +222,7 @@ export async function askEarly(tab, config, jobUrl = '') {
     await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
   } catch { /* aliases are a bonus */ }
   const {open} = await openQuestions(tab, await readForm(tab), [], me, config);
-  if (!open.length) return false;
+  if (!open.length || await cachedAI(tab, open)) return false;
   keepEarly(tab.id, tab.url, open, askAnswers(tab, config, open));
   return true;
 }
@@ -302,7 +306,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     kitSkips = kitStance({kitAnswers, hasKit, matched: fromKit.size}).skipEligibility;
     if (kitSkips) force = true;
     if (withKit) later = open;
-    const cached = reuse && !withKit ? await cachedAI(tab) : null;
+    const cached = reuse && !withKit ? await cachedAI(tab, open) : null;
     if (withKit) { /* Claude after the fill */ } else if (cached) {
       ai = cached;
       if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: 0, ...verdictFields({ai})};
@@ -405,7 +409,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ai = pendingAI ? await pendingAI : await askAnswers(tab, config, later);
       step('Claude answered (after the fill)');
       if (!withKit) {
-        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
+        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode, asked: later.map(f => f.field)}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits;
         // the first pass's rows go with the stop, so its fields are logged as on every other end (the smoke counted them as none, 11 Oct 2026).
         if (!ai.eligible && !force && config.checkEligibility !== false) return {...summary, ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd, ...verdictFields({ai})};

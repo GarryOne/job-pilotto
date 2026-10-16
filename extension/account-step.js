@@ -80,8 +80,11 @@ function sayOnce(tab, kind, text, fields) {
   decide('fill', text, fields);
 }
 // The page kind of this tab's page, kept 20 s (the app remembers it too, but asking and logging it at every look is noise): a new address asks again.
-async function askKindOnce(tab) {
-  const key = tab.url.split('#')[0], kept = kinds.get(tab.id);
+// The memo's key: the address and what the page's password boxes are now (count, empty, press waiting). A single-page app changes in place at one address (sign-in -> the form
+// behind it, 16 Oct 2026), and 20 s of "account" was kept for a page that was already the form.
+export const kindKey = (url, work) => `${String(url || '').split('#')[0]}|${work?.boxes ?? ''}|${work?.empty ?? ''}|${work?.pending ?? ''}`;
+async function askKindOnce(tab, work) {
+  const key = kindKey(tab.url, work), kept = kinds.get(tab.id);
   if (kept && kept.key === key && Date.now() - kept.at < 20000) return kept.kind;
   const kind = await askKind(tab);
   kinds.set(tab.id, {key, at: Date.now(), kind});
@@ -199,7 +202,7 @@ async function accountStepOnce(tab, frameId) {
   // Cheap first, in the page: nothing to fill and no press waiting means nothing to ask the app (an account + application page was looked at every 2 s for nothing, 8 Oct 2026).
   const work = await run(tab, frameId, passwordWork);
   if (work && work.boxes > 0 && !work.empty && !work.pending) return {filled: 0};   // every password box has its value and no press waits (a page with no password box, e.g. an "account exists" notice, is still looked at)
-  const kind = await askKindOnce(tab);
+  const kind = await askKindOnce(tab, work);
   const step = kind?.kind === 'account' ? kind.accountStep || '' : '';
   await run(tab, frameId, markAccountStep, [step]);
   stepOf.set(tab.id, step);
