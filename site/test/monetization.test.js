@@ -8,6 +8,8 @@ import {PAGES} from '../src/admin.js';
 import {digestOf} from '../src/guard.js';
 import {colourOf, collect} from '../src/monetization-data.js';
 import {page} from '../src/monetization.js';
+import {monthStopUsd} from '../src/free-ai.js';
+import {FIXED_COSTS_YEAR} from '../src/monetization-config.js';
 
 const PRO = `CREATE TABLE pro_accounts (id TEXT PRIMARY KEY, email_hash TEXT, email TEXT, created_at TEXT, status TEXT, credit_micro INTEGER);
 CREATE TABLE pro_devices (account TEXT, install TEXT, added_at TEXT, last_seen TEXT);
@@ -80,4 +82,12 @@ test('the route is owner-only and in the admin nav', async () => {
   assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/admin/monetization'), env, {})).status, 404);
   const ok = await worker.fetch(new Request('https://www.jobpilotto.top/admin/monetization', {headers: {Cookie: 'jp_stats=k3y'}}), env, {});
   assert.equal(ok.status, 200); assert.match(await ok.text(), /Monetization/);
+});
+
+test('the month cap on the page is the one free-ai.js enforces ($100 from wrangler.toml), and the fixed costs are the projections page figures', async () => {
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), wrangled = Number(toml.match(/^FREE_AI_MONTH_STOP_USD\s*=\s*"(\d+)"/m)[1]);
+  const env = {...(await seed()), FREE_AI_MONTH_STOP_USD: String(wrangled)};
+  assert.equal(wrangled, 100); assert.equal((await collect(env, 'all', now)).cost.month.cap, monthStopUsd(env));
+  assert.equal((await collect(await seed(), 'all', now)).cost.month.cap, monthStopUsd({}));   // unset: the same default, never a second one
+  assert.deepEqual(Object.fromEntries(FIXED_COSTS_YEAR), {'Cloudflare Workers Paid': 60, Domain: 5, 'Apple Developer': 99, 'Windows signing': 250, Accountant: 1500});
 });

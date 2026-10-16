@@ -35,7 +35,7 @@ function costCard({cost}) {
   const line = cost.month.cap ? cost.month.usd / cost.month.cap : 0;
   return `<section class="card"><h2>AI cost</h2><table><tr><th>Who</th><th class="num">Figure</th><th></th></tr>
 ${row('Free user, average', usd(cost.free.average), `${n(cost.free.users)} users with AI use`)}${row('Free user, median', usd(cost.free.median))}
-${row('Free users at the lifetime cap', n(cost.free.atCap), 'the $2 per install')}
+${row('Free users at the lifetime cap', n(cost.free.atCap), `the ${usd(cost.trialUsd)} per install`)}
 ${row('Pro user, average (credit used)', usd(cost.pro.average), `${n(cost.pro.users)} Pro users with AI use`)}
 ${row('All AI cost in this period', usd(cost.total), 'free + Pro + founders')}
 ${row('This month, Free AI', `${usd(cost.month.usd)} of ${usd(cost.month.cap)}`, `${pct(line)} of the cap`)}</table></section>`;
@@ -46,7 +46,7 @@ function moneyCard({money, fixedCosts}) {
   const row = (label, value, note = '') => `<tr><td>${label}</td><td class="num">${value}</td><td class="muted">${note}</td></tr>`;
   return `<section class="card"><h2>Money · ${n(money.buyers)} Pro ${money.buyers === 1 ? 'sale' : 'sales'}</h2><table><tr><th></th><th class="num">USD</th><th></th></tr>
 ${row('Revenue, VAT included', usd(money.revenue), `of which top-ups ${usd(money.topups)}`)}${row('VAT', `−${usd(money.vat)}`)}${row('Stripe fees', `−${usd(money.fees)}`)}${row('AI cost', `−${usd(money.aiCost)}`)}
-${row('Fixed costs', `−${usd(money.fixed)}`, esc(fixedCosts.map(([name, value]) => `${name} $${value}/yr`).join(' · ')))}
+${row('Fixed costs', `−${usd(money.fixed)}`, esc(`estimate, from the projections page: ${fixedCosts.map(([name, value]) => `${name} $${value}/yr`).join(' · ')}`))}
 <tr class="total"><td>Profit</td><td class="num">${money.profit < 0 ? '−' : ''}${usd(Math.abs(money.profit))}</td><td class="muted">${money.refunds ? `refunded ${usd(money.refunds)} (not in revenue)` : ''}</td></tr></table>
 <p class="muted"><a href="${PROJECTIONS_URL}">Compare with the profit projections (Notion)</a></p></section>`;
 }
