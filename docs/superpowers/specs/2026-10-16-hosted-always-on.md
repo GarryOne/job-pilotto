@@ -151,7 +151,7 @@ Tests: the loop covers **every** pause reason (credit 0, inactive 30 days, compu
 4. OK for the **probe** (≈ $0.01 of Containers)?
 
 ## Progress
-- [x] Owner model added: own resources unlimited, ours debited; trial users can try it (16 Oct, via job-pilotto-cc)
+- [x] Owner model added: own resources unlimited, ours debited; trial users can try it (16 Oct, via job-pilotto-cc) (proof: none: decisions relayed by cc, see §0, §4b, §4c)
 - [ ] Spec read by the owner; questions answered (proof: owner via job-pilotto-cc)
 - [ ] Probe: container run measured, §3 table replaced by numbers (proof: this file's §3)
 - [ ] PR 1 (site): tables, tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
