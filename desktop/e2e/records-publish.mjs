@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {withRetry} from './lib/refill-resilience.mjs';
 import {newestPerRow} from './replay-records.mjs';
 import {stampZone} from './lib/replay-date.mjs';
 import {judgeRecords, partition, report} from './lib/record-guard.mjs';
@@ -59,7 +60,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     run('openssl', ['pkeyutl', '-encrypt', '-pubin', '-inkey', path.join(here, 'net-record.pub.pem'), '-pkeyopt', 'rsa_padding_mode:oaep', '-in', 'k', '-out', KEY]);
     fs.rmSync(path.join(work, 'k')); fs.rmSync(path.join(work, 'net.tgz'));
     try { gh(['release', 'view', TAG, '-R', REPO]); } catch { gh(['release', 'create', TAG, '-R', REPO, '--prerelease', '--title', 'Pool network records (encrypted)', '--notes', 'Encrypted pool network records for the PR replay (desktop/e2e/records-publish.mjs). Not an app build.']); }
-    gh(['release', 'upload', TAG, '-R', REPO, path.join(work, BUNDLE), path.join(work, KEY)]);   // added, never --clobber: other bundles stay
+    withRetry(() => gh(['release', 'upload', TAG, '-R', REPO, path.join(work, BUNDLE), path.join(work, KEY)]));   // GitHub answered 404 once on 15 Oct 2026 (group 3)   // added, never --clobber: other bundles stay
     console.log(`records-publish: ${publish.length} rows added to ${REPO} release ${TAG} as ${BUNDLE}`);
     // New recordings: main's replay runs again at once, so /admin/lab-form-filling shows them (the workflow publishes from main only).
     try { gh(['workflow', 'run', 'CI · Site replays · all (offline)', '--ref', 'main']); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Site replays · all (offline)" --ref main)'); }

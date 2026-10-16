@@ -166,6 +166,8 @@ jobs:
         run: |
           node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-late" > /dev/null || true
           node replay-late.mjs "$GITHUB_WORKSPACE/replay-late/replays" | tee "$GITHUB_WORKSPACE/replay-out/late.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          # the late pass's own app logs ride with the shard (16 Oct 2026: a lost-answers row could not be read afterwards, only the normal pass's log was kept)
+          mkdir -p "$GITHUB_WORKSPACE/replay-out/late-logs"; for d in "$GITHUB_WORKSPACE"/replay-late/replays/*/; do [ -f "$d/app.log" ] && cp "$d/app.log" "$GITHUB_WORKSPACE/replay-out/late-logs/$(basename "$d").log"; done; true
       - name: This shard's rows (for the gate; no record, no key)
         if: always()
         uses: actions/upload-artifact@v6
@@ -179,6 +181,7 @@ jobs:
             replay-out/replays/*/app.log
             replay-out/replays/*/ai-calls.json
             replay-out/late.md
+            replay-out/late-logs/*.log
           retention-days: 7
           if-no-files-found: ignore
   prejudge:
