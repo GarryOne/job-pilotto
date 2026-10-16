@@ -8,6 +8,7 @@ import {el, pill} from '../components.js';
 import {message} from './core.js';
 import {openInNotion} from './notion-connect.js';
 import {NOTION_PAGES, loadTextEditor} from './text-editors.js';
+import {cardsEditor} from './text-cards.js';
 import {storeName} from '../store-words.js';
 import {SUGGESTIONS, needsAnswer, normalized, parseProfile, serializeProfile} from '../profile-model.js';
 
@@ -68,11 +69,13 @@ function render(box, backend, {reload}) {
   const asText = Object.assign(el('button', 'link', 'Edit as text'), {type: 'button'});
   const follow = () => { save.disabled = undo.disabled = !backend.dirty(); };
   const restOpen = !!backend.rest;
-  const rest = textBox('Anything else in your Profile', backend.rest, {rows: 12, placeholder: 'Nothing else yet.',
-    onInput: backend.restEditable ? value => { backend.rest = value; follow(); } : null});
+  // Editable here: the rest of the page as cards (a section per heading, a card per item: text-cards.js); read-only: the page's own text.
+  const restCards = backend.restEditable ? cardsEditor('profile', backend.rest, value => { backend.rest = value; follow(); }) : null;
+  const rest = restCards ? Object.assign(el('details', 'profile-notes'), {open: true}) : textBox('Anything else in your Profile', backend.rest, {rows: 12, placeholder: 'Nothing else yet.'});
+  if (restCards) rest.append(el('summary', 'muted small', 'Anything else in your Profile'), restCards.node);
   rest.open = restOpen;
   rest.insertBefore(el('p', 'muted small', backend.restEditable ? 'Your summary, skills, experience and any other part of the page, kept exactly as written. The AI reads it with the rest.'
-    : 'The rest of your Profile page: your summary, skills, experience and notes. It is edited on its page.'), rest.querySelector('textarea'));
+    : 'The rest of your Profile page: your summary, skills, experience and notes. It is edited on its page.'), rest.querySelector('textarea, .text-cards'));
   if (!backend.restEditable) {
     const edit = Object.assign(el('button', 'link', `Edit in ${storeName()}`), {type: 'button'});
     edit.addEventListener('click', event => openInNotion(NOTION_PAGES.profile, event));
@@ -82,7 +85,7 @@ function render(box, backend, {reload}) {
   const empty = backend.sections.length ? [] : [el('p', 'muted', 'No constraints or preferences yet: they appear here once your Profile has them. Meanwhile, everything is under "Anything else".')];
   undo.addEventListener('click', () => { message(note.id, ''); reload(); });
   asText.addEventListener('click', async () => {
-    await loadTextEditor('profile');
+    await loadTextEditor('profile', {plain: true});
     const back = Object.assign(el('button', 'link', 'Back to the form'), {type: 'button'});
     back.addEventListener('click', reload);
     box.append(back);

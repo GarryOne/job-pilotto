@@ -549,6 +549,19 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-panel-shot { display: block; max-width: 100%; margin-top: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 /* Settings → Profile's texts on a store whose page is the editor (pages/text-editors.js): read-only reads as such. */
 .text-editor-body textarea[readonly] { background: var(--surface-2); color: var(--ink-2); }
+/* The cards that draw a text (pages/text-cards.js): the cards are .answer-item; only the bar, section heads and the field inside a card are new. */
+.text-cards { display: flex; flex-direction: column; gap: var(--sp-4); }
+.text-cards-bar { display: flex; align-items: center; gap: var(--sp-4); }
+.text-cards-bar .select-search { flex: 1; }
+.text-cards-list { display: flex; flex-direction: column; gap: var(--sp-5); max-height: 60vh; overflow: auto; }
+.text-cards-head { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.text-cards-head h4 { margin: 0; }
+.text-card-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.text-card-head .link { margin-left: auto; }
+.text-card textarea { width: 100%; margin-top: var(--sp-2); resize: vertical; }
+.text-card-reason { margin: var(--sp-1) 0 0; }
+.text-card-raw { font-family: var(--font-mono); font-weight: 400; overflow-wrap: anywhere; }
+.text-card-add { display: grid; grid-template-columns: auto 1fr 2fr auto; gap: var(--sp-3); align-items: center; }
 /* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
 .reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
 .reports-insight .segmented { margin-top: var(--sp-2); }

@@ -1,0 +1,6 @@
+- [any · answer] Do you need a visa to work here?: Alex is an EU citizen → "No"
+- [any · widget] Phone country code: a searchable list, type the country first
+- [jobs.example-cloud.test · option] How did you hear about us?: the site lists "Careers Website" → "Careers Website"
+- [jobs.example-cloud.test · meaning] Notice period: how long until Alex can start
+- [careers.fictional-bank.test · answer] Salary expectation (CHF): the form wants a yearly figure → "135000"
+- [careers.fictional-bank.test · option] Preferred language: German is offered, English is also listed → "English"
