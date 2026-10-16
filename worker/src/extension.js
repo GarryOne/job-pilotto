@@ -16,7 +16,7 @@ import { withholdOwner } from './owner-guard.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
-import { FACT_KEYS, FACT_RULE, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
+import { FACT_KEYS, FACT_RULE, floorBoxGuess, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
 import { applyPay } from './pay-convert.js';
 import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
 
@@ -254,11 +254,13 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const given = [profile, standard, search, cvFacts, kit ? JSON.stringify(kit) : ''].join('\n');
   const labelOf = Object.fromEntries(fields.map((f) => [f.field, f.label || '']));
   const paid = await applyPay(Array.isArray(result.answers) ? result.answers : [], result.pay_asks, fields, { fetchFn: env.fetchFn || globalThis.fetch });   // a salary in another currency or period, converted by the code
-  const floorsApplied = paid.map((a) => floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }));
+  const typeOf = Object.fromEntries(fields.map((f) => [f.field, f.type]));
+  const floorsApplied = paid.map((a) => floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]));
   // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
-  const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
+  // A legal question is never answered, whatever use the AI gave (16 Oct 2026: a legal answer with use "fill" passed this floor and only the page's category mark held it); a proposal on a demographic one never is either.
+  const floored = (a) => a.category === 'legal' || (a.use === 'propose' && a.category === 'demographic');
   // A written question (the person's own words) is DRAFTED from their facts and typed marked draft (owner, 16 Oct 2026, reversing 11 Oct); with no text it comes back as an empty kind.
   // low confidence = an outline of "• Add: ..." lines to complete, never a finished answer. Never a proposal: the box gets it.
   const raw = all.filter((a) => !floored(a)).map((a) => (a.category === 'written' && a.value !== '' ? { ...a, use: 'fill', draft: a.confidence === 'low' ? 'outline' : 'draft' } : a)).filter((a) => a.category !== 'written' || a.value !== '');
