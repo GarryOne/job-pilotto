@@ -20,7 +20,7 @@ function folder(entries) {
 }
 
 test('double-encoded bodies get their real bytes, a new hash and size; the guard then finds none; a second pass changes nothing', () => {
-  const clean = Buffer.from('{"a":1}'), labeled = doubled, png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xc3, 0xa9, 0xff]);
+  const clean = Buffer.from('{"a":1}'), png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xc3, 0xa9, 0xff]);
   const dir = folder([[doubled, 'text/html'], [clean, 'application/json'], [png, 'image/png']]);
   assert.equal(mojibakeBodies(dir).length, 1, 'the fixture is garbled');
   assert.equal(repairRecordFolder(dir), 1);
