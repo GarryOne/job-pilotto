@@ -76,9 +76,10 @@ export function pressAccountButton(named = '') {
   let buttons = wanted ? [...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(el => visible(el) && text(el) === wanted)
     : [...scope.querySelectorAll('button[type=submit], input[type=submit], button:not([type])')].filter(visible);
   if (buttons.length > 1) {   // several carry the named text (the header's "Sign In" and the form's): the one in the smallest block that also holds the filled box is the form's own. Inline: injected alone.
+    const open = buttons.filter(el => !el.closest('[aria-hidden=true]'));   // a copy hidden from assistive tech (Workday's real submit button behind its click overlay) is not what a person presses
+    if (open.length) buttons = open;
     const span = el => { for (let at = el.parentElement; at; at = at.parentElement) if (at.contains(box)) return at.getElementsByTagName('*').length; return Infinity; };
-    const sizes = buttons.map(span), best = Math.min(...sizes), nearest = buttons.filter((el, i) => sizes[i] === best);
-    if (best !== Infinity && nearest.length === 1) buttons = nearest;
+    if (buttons.length > 1) { const sizes = buttons.map(span), best = Math.min(...sizes), nearest = buttons.filter((el, i) => sizes[i] === best); if (best !== Infinity && nearest.length === 1) buttons = nearest; }
   }
   const lone = buttons.length === 1 ? buttons[0] : null;
   if (!lone) return buttons.length ? 'several-buttons' : 'no-button';
@@ -159,7 +160,9 @@ export function pressRegister(named) {
   // The named text is the exact text of one control; else the one control whose text holds it or is held by it (the AI may name a control a little short or long), never a guess between several.
   const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
   let found = exact.length ? exact : near;
-  if (found.length > 1) {   // several carry the text: the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+  if (found.length > 1) {   // several carry the text (a copy hidden from assistive tech is dropped first): the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+    const open = found.filter(item => !item.closest('[aria-hidden=true]'));
+    if (open.length) found = open;
     const boxes = [...document.querySelectorAll('input, textarea, select')].filter(item => item.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset', 'checkbox', 'radio'].includes(item.type));
     const span = item => { for (let at = item.parentElement; at; at = at.parentElement) if (boxes.some(box => at.contains(box))) return at.getElementsByTagName('*').length; return Infinity; };
     const sizes = found.map(span), best = Math.min(...sizes), nearest = found.filter((item, i) => sizes[i] === best);
@@ -180,7 +183,9 @@ export function pressConsent(named) {
   const all = [...document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], label, input[type=checkbox]')].filter(el => el.getClientRects().length && !el.disabled && text(el));
   const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
   let found = exact.length ? exact : near;
-  if (found.length > 1) {   // several carry the text: the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+  if (found.length > 1) {   // several carry the text (a copy hidden from assistive tech is dropped first): the one in the smallest block that also holds a shown text box (beside the page's fields) is meant; a tie stays several. Inline: this function is injected into the page alone.
+    const open = found.filter(item => !item.closest('[aria-hidden=true]'));
+    if (open.length) found = open;
     const boxes = [...document.querySelectorAll('input, textarea, select')].filter(item => item.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset', 'checkbox', 'radio'].includes(item.type));
     const span = item => { for (let at = item.parentElement; at; at = at.parentElement) if (boxes.some(box => at.contains(box))) return at.getElementsByTagName('*').length; return Infinity; };
     const sizes = found.map(span), best = Math.min(...sizes), nearest = found.filter((item, i) => sizes[i] === best);
