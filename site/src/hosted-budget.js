@@ -3,7 +3,7 @@
 // lifetime budget and the global Free AI lines (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §3, §4b). Pro's `pro_credit` debit comes with Pro. Guard: site/test/hosted-guards.test.js.
 import {digestOf} from './guard.js';
 
-export const runMicro = env => (Number(env.HOSTED_RUN_MICRO) > 0 ? Math.round(Number(env.HOSTED_RUN_MICRO)) : 8000);
+export const runMicro = env => (Number(env.HOSTED_RUN_MICRO) > 0 ? Math.round(Number(env.HOSTED_RUN_MICRO)) : 11000);
 const bump = async (kv, key, add, ttl) => kv.put(key, String((Number(await kv.get(key)) || 0) + add), {expirationTtl: ttl});
 
 // The Free AI access a run token stands for: the install that set the schedule (so its calls hit that install's limits). -> {ok, who, install} or null.
