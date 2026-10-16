@@ -77,7 +77,11 @@ export function adopt(dir, id, opts = {}) {
   return adopted;
 }
 
-// Reset: removes this profile's accounts only; other profiles' and the test accounts stay. -> how many were removed.
+// Reset: with a backup kept, the accounts stay (the backup folder keeps its profile id, so restoring it finds them again); without one they go.
+// Only this profile's, never other profiles' or the test accounts. -> how many were removed.
+export function onReset(id, {backup = true} = {}, opts = {}) { return backup ? 0 : removeAll(id, opts); }
+
+// Removes this profile's accounts only; other profiles' and the test accounts stay. -> how many were removed.
 export function removeAll(id = credentials.currentProfile(), opts = {}) {
   const text = keychain.dump(opts);
   if (text === null || !id) return 0;
