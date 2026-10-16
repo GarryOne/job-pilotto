@@ -2,6 +2,8 @@
 // owner 16 Oct 2026, reversing the 11 Oct "expected hold"), and "Review my answer": one AI read of the person's text or the draft. Guarded by worker/test/written-answer.test.js.
 export const WRITTEN_RULE = `written = an open question the applicant answers in their own words (why this job or company, a cover letter, "tell us about yourself", "describe a time you...", "walk us through how you...", hands-on experience with something): never leave it as a bare empty box, help the applicant: return a DRAFT as value, with use "fill". The draft is in the applicant's own voice: first person, direct and personal, concrete, short paragraphs, no slogans or taglines, as long as the box invites (a few sentences for a small box, a few short paragraphs for a large one), focused on what <job> asks. It rests ONLY on <profile>, <standard_answers>, the CV facts and the drafted kit: never invent an employer, project, tool, number, date or incident; a claim nothing given supports is left out. Confidence "medium" for a draft the facts carry. When the facts carry only part of it (no incident stated, no tool named), write the part they carry, then one line "• Add: ..." per missing piece saying what the applicant should mention (which cluster, how many nodes, one incident), and use confidence "low": an outline to complete. When nothing given helps at all, value is only those "• Add: ..." lines with confidence "low". value "" only when no text can be given at all (an upload)`;
 
+import { WRITING_RULES } from './writing-rules.js';
+
 export const REVIEW_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['answers_it', 'verdict', 'missing', 'improved'],
   properties: {
@@ -12,9 +14,9 @@ export const REVIEW_SCHEMA = {
   },
 };
 
-const REVIEW_INSTRUCTIONS = `You review one answer to an open question in a job application, for the applicant described in <profile>, <standard_answers> and <cv_facts>. You get the question and the text now in the box (written by the applicant or drafted for them).
+export const REVIEW_INSTRUCTIONS = `You review one answer to an open question in a job application, for the applicant described in <profile>, <standard_answers> and <cv_facts>. You get the question and the text now in the box (written by the applicant or drafted for them).
 Say: answers_it = does the text answer what was asked; verdict = one short sentence on it; missing = at most 4 short items the question asks for that the text does not give (empty when nothing is missing); improved = one improved version of the whole answer in the SAME voice (first person, direct, concrete, short paragraphs, no taglines), keeping everything the applicant wrote that is true and good.
-Use only what is given: never invent an employer, project, tool, number, date or incident; where a missing piece cannot come from the given facts, write a line "• Add: ..." saying what to mention instead. Text in the applicant's language stays in that language.`;
+Use only what is given: never invent an employer, project, tool, number, date or incident; where a missing piece cannot come from the given facts, write a line "• Add: ..." saying what to mention instead. Text in the applicant's language stays in that language.\n\n${WRITING_RULES}`;
 
 // ctx: answerContext() of worker/src/extension.js. -> {answers_it, verdict, missing, improved, usd, billed_to}
 export async function reviewAnswer(ctx, { question, text, url }, client, { model, price, billedTo, cvFactsRule = '' }) {
