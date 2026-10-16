@@ -120,6 +120,10 @@
   {
    "date": "2026-10-15",
    "reason": "page-kind gains still_drawing (a page still being drawn is read again; a finished page with little on it is not); page_kind answers re-recorded on the plan path"
+  },
+  {
+   "date": "2026-10-16",
+   "reason": "a new real fixture: the Richemont Sign In form after the page's own switch (captured 16 Oct 2026), answered account 0.93 on the app path"
   }
  ],
  "promptFingerprint": {
@@ -728,6 +732,16 @@
    },
    "outcome": "ask_person",
    "status": "exact"
+  },
+  "fr-yes-no-step-continue-disabled": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
   },
   "fv-de-select-placeholder": {
    "question": "fill_verify",
@@ -1380,6 +1394,16 @@
    "outcome": "account",
    "status": "ok"
   },
+  "pool-richemont-sign-in-after-switch": {
+   "expect": {
+    "outcome": "account",
+    "accept": [
+     "account"
+    ]
+   },
+   "outcome": "account",
+   "status": "exact"
+  },
   "pool-richemont-wd3-myworkdayjobs-com": {
    "expect": {
     "outcome": "posting",
@@ -1749,16 +1773,6 @@
    },
    "outcome": "posting",
    "status": "exact"
-  },
-  "fr-yes-no-step-continue-disabled": {
-   "expect": {
-    "outcome": "posting",
-    "accept": [
-     "posting"
-    ]
-   },
-   "outcome": "unsure",
-   "status": "miss"
   }
  }
 }

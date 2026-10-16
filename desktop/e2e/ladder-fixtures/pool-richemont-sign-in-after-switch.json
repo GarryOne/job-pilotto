@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "source": "captured",
+ "lang": "en",
+ "capture": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/richemont/job/GENEVA/Sales-Associate---60-_JR134503/apply/applyManually"
+ },
+ "id": "pool-richemont-sign-in-after-switch",
+ "why": "Richemont Workday, 16 Oct 2026 (test account run): after the page's own switch from Create Account the same address shows the Sign In form (email, password, two robot boxes). One run's page-kind answer was account-form with no account_step, so the extension filled but never pressed Sign In",
+ "expect": {
+  "outcome": "account"
+ },
+ "sketch": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/richemont/job/GENEVA/Sales-Associate---60-_JR134503/apply/applyManually",
+  "title": "Sign In",
+  "headings": [
+   "Sales Associate - 60%",
+   "Sign In"
+  ],
+  "controls": [
+   {
+    "label": "Email Address*",
+    "required": true,
+    "type": "text"
+   },
+   {
+    "label": "Password*",
+    "required": true,
+    "type": "password"
+   },
+   {
+    "label": "Enter website. This input is for robots only, do not enter if you're human.",
+    "required": false,
+    "type": "text"
+   },
+   {
+    "label": "Enter website. This input is for robots only, do not enter if you're human.",
+    "required": false,
+    "type": "text"
+   }
+  ],
+  "buttons": [
+   "Skip to main content",
+   "Cookie Policy",
+   "Decline",
+   "Accept Cookies",
+   "English",
+   "Sign In",
+   "Learn more about our Group",
+   "Spontaneous Application",
+   "Back to Job Posting",
+   "Create Account",
+   "Forgot your password?",
+   "Talent Privacy Policy"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "account",
+  "confidence": 0.93,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "sign_in",
+  "register_control": "Create Account",
+  "signin_control": "",
+  "account_button": "Sign In",
+  "bot_check": false,
+  "still_drawing": false
+ },
+ "answer_path": "app"
+}
