@@ -17,6 +17,21 @@ export function schemaProblems(value, schema, at = '$') {
   return found;
 }
 
+// A form-answer reply against what each field should get: expect = {<field id>: {value?: [acceptable values], match?: regex text, empty?: true, category?}} -> [problems].
+export function answerProblems(data, expect) {
+  const answers = Array.isArray(data?.answers) ? data.answers : [], found = [];
+  for (const [field, want] of Object.entries(expect)) {
+    const got = answers.find(answer => answer.field === field);
+    const given = got && String(got.value ?? '') !== '';
+    if (want.empty) { if (given) found.push(`${field}: answered, wanted empty`); }
+    else if (!got) { found.push(`${field}: no answer`); continue; }
+    else if (want.value && !want.value.includes(got.value)) found.push(`${field}: "${got.value}", wanted ${want.value.join(' or ')}`);
+    else if (want.match && !new RegExp(want.match, 'i').test(got.value)) found.push(`${field}: "${got.value}", wanted /${want.match}/`);
+    if (want.category && got && got.category !== want.category) found.push(`${field}: category ${got.category}, wanted ${want.category}`);
+  }
+  return found;
+}
+
 const ranks = values => {
   const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), out = Array(values.length);
   for (let i = 0; i < order.length;) {   // ties share their average rank
@@ -51,9 +66,13 @@ export function summarize(model, results, {k = 5} = {}) {
   const ms = results.map(r => r.ms).filter(Number.isFinite).sort((a, b) => a - b);
   return {model, cases: results.length, validJsonPct: share(r => r.valid), schemaPct: share(r => r.schemaOk),
     spearman: rho == null ? null : Math.round(rho * 100) / 100, topOverlap: paired.length >= k ? Math.round(100 * topOverlap(baseScores, modelScores, k)) : null,
+    rightPct: results.some(r => 'right' in r) ? share(r => r.right) : null,
     medianMs: ms.length ? ms[Math.floor(ms.length / 2)] : null,
     tokensIn: results.reduce((s, r) => s + (r.usage?.input_tokens || 0), 0), tokensOut: results.reduce((s, r) => s + (r.usage?.output_tokens || 0), 0)};
 }
 
-export const table = (rows, usdPerCall = {}) => ['| Model | Cases | Valid JSON | In schema | Rank vs Claude (Spearman) | Same top 5 | Median ms | Cost |', '|---|---|---|---|---|---|---|---|',
-  ...rows.map(r => `| ${r.model} | ${r.cases} | ${r.validJsonPct}% | ${r.schemaPct}% | ${r.spearman ?? 'n/a'} | ${r.topOverlap == null ? 'n/a' : `${r.topOverlap}%`} | ${r.medianMs ?? 'n/a'} | $${(usdPerCall[r.model] ?? 0).toFixed(4)} |`)].join('\n');
+export const table = (rows, usdPerCall = {}) => {
+  const answers = rows.some(r => r.rightPct != null);
+  return [`| Model | Cases | Valid JSON | In schema | ${answers ? 'Right answers' : 'Rank vs baseline (Spearman) | Same top 5'} | Median ms | Cost |`, `|---|---|---|---|${answers ? '---|' : '---|---|'}---|---|`,
+    ...rows.map(r => `| ${r.model} | ${r.cases} | ${r.validJsonPct}% | ${r.schemaPct}% | ${answers ? `${r.rightPct}%` : `${r.spearman ?? 'n/a'} | ${r.topOverlap == null ? 'n/a' : `${r.topOverlap}%`}`} | ${r.medianMs ?? 'n/a'} | $${(usdPerCall[r.model] ?? 0).toFixed(4)} |`)].join('\n');
+};

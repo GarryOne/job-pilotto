@@ -8,7 +8,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
 import {fromWorkersAi, toWorkersAi} from '../site/src/free-ai-translate.js';
-import {schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
+import {answerProblems, schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
 
 const MODELS = {small: SMALL, strong: STRONG};
 const keychain = name => { try { return execFileSync('security', ['find-generic-password', '-a', 'job-pilotto', '-s', name, '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim(); } catch { return ''; } };
@@ -32,7 +32,7 @@ export async function evaluate(cases, model, run, now = () => Date.now()) {
   const results = [];
   for (const item of cases) {
     const started = now();
-    const row = {id: item.id, baseline: item.baseline, valid: false, schemaOk: false, score: NaN, usage: {}, ms: NaN};
+    const row = {id: item.id, baseline: item.baseline, ...(item.expect ? {right: false} : {}), valid: false, schemaOk: false, score: NaN, usage: {}, ms: NaN};
     try {
       const message = fromWorkersAi(await run(model, await toWorkersAi(item.params, async () => { throw new Error('PDF cases need the site route'); })), model);
       row.usage = message.usage; row.ms = now() - started;
@@ -41,6 +41,7 @@ export async function evaluate(cases, model, run, now = () => Date.now()) {
       const schema = item.params.output_config?.format?.schema;
       row.schemaOk = !schema || schemaProblems(data, schema).length === 0;
       row.score = Number(data.score);
+      if (item.expect) { row.problems = answerProblems(data, item.expect); row.right = row.schemaOk && !row.problems.length; }
     } catch (error) { row.error = error.message; }
     results.push(row);
   }
@@ -75,7 +76,7 @@ async function main(argv) {
     rows.push(row); usd[model] = costUsd(model, {input_tokens: row.tokensIn, output_tokens: row.tokensOut});
     for (const failed of results.filter(r => r.error)) console.error(`${model} ${failed.id}: ${failed.error}`);
   }
-  const text = `${table(rows, usd)}\n\n${cases.length} cases per model. Baseline: ${cases.some(c => c.baseline != null) ? "Claude's stored scores" : 'none (rank columns are n/a)'}.\n`;
+  const text = `${table(rows, usd)}\n\n${cases.length} cases per model. ${cases.some(c => c.expect) ? 'A case is right when every field matches its expected answer (tools/free-ai-form-cases.mjs).' : `Baseline: ${cases.some(c => c.baseline != null) ? 'the cases\' designed scores (not Claude\'s)' : 'none (rank columns are n/a)'}.`}\n`;
   if (option('out')) fs.writeFileSync(option('out'), text);
   process.stdout.write(text);
 }
