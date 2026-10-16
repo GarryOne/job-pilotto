@@ -1,0 +1,40 @@
+{
+ "origin": "hand-cut",
+ "control": {
+  "guard": "a control: it passes on main and on the fix (it holds the shape a change could break)"
+ },
+ "sample": "the phone field of a Recruitee one-page form, live capture 15 Oct 2026: its real markup (a country button and listbox beside one phone box), classes, styles and icons dropped; fake applicant",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/o/sales-associate/c/new",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "shape": "a picker with its menu OPEN beside a box: the listbox's options (none selected) are choices, never the box's value",
+ "why": "16 Oct 2026, #1029 (a chip beside a picker's search box is its value): the guard that an open menu's options never count. The box stays empty and is reported left.",
+ "expect": {
+  "empty": [
+   "[id=\"input-candidate.phone-5\"]"
+  ],
+  "traced": [
+   "Phone number:left"
+  ],
+  "seconds": 60
+ }
+}
