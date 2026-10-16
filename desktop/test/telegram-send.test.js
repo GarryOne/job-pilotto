@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 import {dailyArgs, mailArgs, telegramReady} from '../lib/pipeline-args.js';
 
@@ -16,7 +17,7 @@ test('telegramReady needs the token and the chat; the daily and Gmail commands f
 });
 
 test('every file that builds a --send command asks telegramReady (a new one without it fails here)', () => {
-  const lib = path.dirname(new URL('../lib/pipeline-args.js', import.meta.url).pathname);
+  const lib = path.dirname(fileURLToPath(new URL('../lib/pipeline-args.js', import.meta.url)));
   const OWN = new Set(['background-handlers.js']);   // src.contribute --send posts to our site, not Telegram
   for (const name of fs.readdirSync(lib).filter(file => file.endsWith('.js') && !OWN.has(file))) {
     const source = fs.readFileSync(path.join(lib, name), 'utf8');
