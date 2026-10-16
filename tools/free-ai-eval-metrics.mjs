@@ -32,6 +32,21 @@ export function answerProblems(data, expect) {
   return found;
 }
 
+// An extraction reply against the facts a posting states: expect = {paths: {'a.b': [allowed values]}, has: {list: [entry parts a list item must carry]}} -> [problems].
+export function factProblems(data, expect) {
+  const found = [];
+  for (const [path, allowed] of Object.entries(expect.paths || {})) {
+    const got = path.split('.').reduce((value, key) => (value == null ? undefined : value[key]), data);
+    if (got === undefined) found.push(`${path}: missing`);
+    else if (!allowed.includes(got)) found.push(`${path}: ${JSON.stringify(got)}, wanted ${allowed.join(' or ')}`);
+  }
+  for (const [list, wanted] of Object.entries(expect.has || {})) {
+    const items = Array.isArray(data?.[list]) ? data[list] : [];
+    for (const part of wanted) if (!items.some(item => Object.entries(part).every(([key, value]) => item?.[key] === value))) found.push(`${list}: no entry like ${JSON.stringify(part)}`);
+  }
+  return found;
+}
+
 const ranks = values => {
   const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), out = Array(values.length);
   for (let i = 0; i < order.length;) {   // ties share their average rank
