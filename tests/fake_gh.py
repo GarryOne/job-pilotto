@@ -48,6 +48,8 @@ elif argv[:2] == ['pr', 'list']:
 elif argv[:2] == ['pr', 'create']:
     state.update(state='OPEN', head=flag('--head'), auto=False, draft='--draft' in argv)
     print('https://example.test/pull/1')
+elif argv[:2] == ['pr', 'edit']:
+    state['body'] = flag('--body')
 elif argv[:2] == ['pr', 'ready']:
     state['draft'] = '--undo' in argv
 elif argv[:2] == ['pr', 'merge']:

@@ -103,6 +103,25 @@ class ShipPrTest(ShipFixture):
         self.assertEqual(sum(1 for call in self.calls() if call.startswith('pr create')), 1, 'one PR per branch')
         self.assertIn('My change', git(self.origin, 'log', '--format=%s', 'main'))
 
+    def test_a_second_run_with_a_new_body_refreshes_the_open_prs_description(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        first, second = self.tmp / 'first.md', self.tmp / 'second.md'
+        def summary(line):
+            rows = ''.join(f'| {area} | — None | — |\n' for area in ('Real users', 'Form filling', 'Admin data accuracy', 'Offline replays', 'Tests & harness', 'Development speed', 'Cost'))
+            return f'🟢 {line}\n\n**Why:** a test.\n**Unblocks:** nothing.\n\n| Area | Impact | How |\n|---|---|---|\n{rows}\n- ✅ a bullet\n\n| | Before | After |\n|---|---|---|\n| x | a | b |\n'
+        first.write_text(summary('First summary')); second.write_text(summary('Second summary with new numbers'))
+        opened = self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/1'}}, f'--body={first}')
+        self.assertEqual(opened.returncode, 1, opened.stdout + opened.stderr)
+        self.assertNotIn('pr edit', ' | '.join(self.calls()), 'a new PR gets its body at creation, no edit')
+        data = json.loads(self.state.read_text()); data.pop('fail_check'); self.state.write_text(json.dumps(data))
+        result = self.pr_ship(json.loads(self.state.read_text()), f'--body={second}')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('refreshed the description of #1', result.stdout)
+        body = json.loads(self.state.read_text()).get('body') or ''
+        self.assertIn('Second summary with new numbers', body)
+        self.assertNotIn('First summary', body)
+        self.assertEqual(sum(1 for call in self.calls() if call.startswith('pr create')), 1)
+
     def test_a_failed_flow_check_rebases_and_pushes_again_by_itself(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
         self.change(self.other, 'theirs.txt', 'x\n', 'Landed meanwhile')

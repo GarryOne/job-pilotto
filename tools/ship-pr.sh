@@ -43,6 +43,9 @@ ship_pr_land() {
     n="${out##*/}"; step "opened the pull request: $(echo "$out" | tail -n 1)"
   else
     step "the branch already has pull request #$n: reusing it"
+    if [ -n "${SHIP_PR_BODY:-}" ]; then   # a new --body=<file> on a PR that is already open: its description is refreshed through the same tools/pr-body.sh (16 Oct 2026: #1049 kept the first draft's numbers)
+      body="$(bash "$here/tools/pr-body.sh" origin/main "--body=$SHIP_PR_BODY")" && gh pr edit "$n" --body "$body" >/dev/null 2>&1 && step "refreshed the description of #$n from --body" || step "could not refresh the description of #$n (the old one stays)"
+    fi
     if [ -n "${SHIP_PR_DRAFT:-}" ]; then gh pr ready "$n" --undo >/dev/null 2>&1 && step "#$n is a draft again until its new checks are green" || true; fi   # --draft: a new push restarts the checks
   fi
   local review=""; if ship_review; then review=1; step "review mode: the owner reviews and merges #$n by hand; waiting for every check it started"
