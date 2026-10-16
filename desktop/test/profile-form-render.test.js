@@ -71,7 +71,6 @@ test('Notion without form data falls back to the plain read-only view', async ()
   globalThis.window.pilot = {...globalThis.window.pilot, textGet: async () => ({ok: true, editable: false, markdown: 'The whole page, flat.'}), profileForm: async () => ({ok: false})};
   await loadProfileForm();
   assert.equal(body.all(c => c.tagName === 'H4').length, 0, 'no form sections');
-  const area = body.all(c => c.tagName === 'TEXTAREA')[0];
-  assert.equal(area.value, 'The whole page, flat.');
-  assert.equal(area.readOnly, true);
+  assert.match(body.textContent, /The whole page, flat\./);   // drawn as read-only cards (text-cards.js)
+  assert.equal(body.all(c => c.tagName === 'BUTTON' || (c.tagName === 'INPUT' && c.type !== 'search')).length, 0, 'nothing to edit or remove');
 });

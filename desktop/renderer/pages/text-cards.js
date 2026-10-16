@@ -11,15 +11,16 @@ const KIND_TONE = {answer: 'good', option: 'info', meaning: 'violet', widget: 't
 const KIND_HINT = {answer: 'A typed answer', option: 'A choice from a list', meaning: 'What the question means', widget: 'How the control works'};
 const grow = area => { area.rows = Math.min(8, Math.max(1, Math.ceil(area.value.length / 80) + area.value.split('\n').length - 1)); };
 
-function field(value, label, onInput) {
-  const area = Object.assign(el('textarea', ''), {value, rows: 1, spellcheck: true, ariaLabel: label});
+function field(value, label, onInput, readOnly) {
+  const area = Object.assign(el('textarea', ''), {value, rows: 1, spellcheck: true, ariaLabel: label, readOnly});
   grow(area);
   area.addEventListener('input', () => { grow(area); onInput(area.value); });
   return area;
 }
 
 // → {node, text(), reset(text), add: bool, adding(), searchBox}; `changed` is called after every edit with the new text.
-export function cardsEditor(name, text, changed) {
+// readOnly (a store whose page is the editor, Notion): the same cards without inputs, Remove or Add; the panel's lead links to the page.
+export function cardsEditor(name, text, changed, {readOnly = false} = {}) {
   let rows = parseText(name, text), query = '', adding = false;
   const node = el('div', 'text-cards'), list = el('div', 'text-cards-list');
   const search = Object.assign(el('input', ''), {type: 'search', placeholder: name === 'knowledge' ? 'Search questions, sites, answers' : 'Search', ariaLabel: 'Search this text'});
@@ -42,18 +43,19 @@ export function cardsEditor(name, text, changed) {
       head.append(el('b', '', row.field), kind);
       // A note with an answer: the answer is the field and the reason sits under it; one without (a meaning, a widget) is its reason.
       if (row.hasValue) {
-        item.append(head, field(row.value, `${row.field}: value`, value => edit(at, withNote(rows[at], {value}))));
+        item.append(head, field(row.value, `${row.field}: value`, value => edit(at, withNote(rows[at], {value})), readOnly));
         item.append(el('p', 'muted small text-card-reason', row.reason));
-      } else item.append(head, field(row.reason, `${row.field}: what it means`, reason => edit(at, withNote(rows[at], {reason}))));
+      } else item.append(head, field(row.reason, `${row.field}: what it means`, reason => edit(at, withNote(rows[at], {reason})), readOnly));
     } else if (row.type === 'item') {
       head.append(el('b', '', row.label));
-      item.append(head, field(row.value, row.label, value => edit(at, withValue(rows[at], value))));
+      item.append(head, field(row.value, row.label, value => edit(at, withValue(rows[at], value)), readOnly));
     } else if (row.type === 'bullet') {
-      item.append(head, field(row.value, 'Line', value => edit(at, withValue(rows[at], value))));
+      item.append(head, field(row.value, 'Line', value => edit(at, withValue(rows[at], value)), readOnly));
     } else {
-      head.append(el('b', 'text-card-raw', row.raw.trim()), pill('Kept as is', 'neutral', {title: "Job Pilotto can't show this line as a card; it stays in the text exactly as it is."}));
+      head.append(el('b', 'text-card-raw', row.raw.trim()), (readOnly ? el('span') : pill('Kept as is', 'neutral', {title: "Job Pilotto can't show this line as a card; it stays in the text exactly as it is."})));
       item.append(head);
     }
+    if (readOnly) return item;
     const drop = Object.assign(el('button', 'link', 'Remove'), {type: 'button', title: 'Remove this line'});
     drop.addEventListener('click', () => remove(at));
     head.append(drop);
@@ -106,7 +108,7 @@ export function cardsEditor(name, text, changed) {
     node, search,
     text: () => serializeText(rows),
     reset(next) { rows = parseText(name, next); draw(); },
-    canAdd: name !== 'knowledge',
+    canAdd: name !== 'knowledge' && !readOnly,
     toggleAdd() { adding = !adding; draw(); return adding; },
   };
 }

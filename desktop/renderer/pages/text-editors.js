@@ -83,5 +83,5 @@ export async function loadTextEditor(name, {plain = false} = {}) {
   const edit = Object.assign(el('button', 'link', `Edit in ${storeName()}`), {type: 'button'});
   edit.addEventListener('click', event => openInNotion(NOTION_PAGES[name], event));
   if (lead) { lead.textContent = `${READ_LEAD[name].replace('{store}', storeName())} `; lead.append(edit); }
-  box.replaceChildren(area, note);
+  box.replaceChildren(cardsEditor(name, result.markdown, () => {}, {readOnly: true}).node, note);   // the same cards, read-only; its lead links to the page
 }
