@@ -24,20 +24,20 @@ const body = new Node_('div'), panel = new Node_('div');
 panel.className = 'panel'; body.className = 'text-editor-body'; panel.append(body);
 const messages = {};
 globalThis.Node = Node_;
-globalThis.document = {body: new Node_('body'), addEventListener() {}, createElement: tag => new Node_(tag), querySelector: () => panel, getElementById: id => (messages[id] ||= new Node_('p')), querySelectorAll: () => []};
+globalThis.document = {body: new Node_('body'), addEventListener() {}, createElement: tag => new Node_(tag), createElementNS: (_, tag) => new Node_(tag), querySelector: () => panel, getElementById: id => (messages[id] ||= new Node_('p')), querySelectorAll: () => []};
 globalThis.window = {pilot: {state: async () => ({}), takeNotionNeed: () => null}, addEventListener() {}, matchMedia: () => ({matches: false, addEventListener() {}})};
 globalThis.localStorage = {getItem: () => null, setItem() {}};
 
 const {loadProfileForm} = await import('../renderer/pages/profile-form.js');
 const PAGE = '## Profile\n\n# Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Countries | Switzerland |\n| Home base | Geneva; ❓ relocate |\n\n# Compensation\n\n- Target: CHF 150k\n\n# Summary\n\nSRE.\n';
-const inputs = () => body.all(c => c.tagName === 'INPUT');
+const inputs = () => body.all(c => c.tagName === 'INPUT' && c.type !== 'search');   // the rest-of-page cards' search box is not a field
 const button = text => body.all(c => c.tagName === 'BUTTON').find(b => b.textContent === text);
 
 test('this Mac: the form renders sections and inputs; a change enables Save, which saves the whole text', async () => {
   let sent = null;
   globalThis.window.pilot = {...globalThis.window.pilot, textGet: async () => ({ok: true, editable: true, markdown: PAGE}), textSave: async (name, text) => { sent = [name, text]; return {ok: true}; }};
   await loadProfileForm();
-  assert.deepEqual(body.all(c => c.tagName === 'H4').map(h => h.textContent), ['Hard constraints', 'Compensation']);
+  assert.deepEqual(body.all(c => c.tagName === 'H4').map(h => h.textContent), ['Hard constraints', 'Compensation', 'Summary']);   // the last: the rest of the page, drawn as cards
   assert.deepEqual(inputs().map(i => i.value), ['Switzerland', 'Geneva; ❓ relocate', 'CHF 150k']);
   assert.equal(button('Save changes').disabled, true);
   inputs()[0].value = 'Switzerland and EU';
