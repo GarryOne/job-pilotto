@@ -14,14 +14,15 @@ export function pageShape(url) {
   return `${host}/${parts.join('/')}`;
 }
 
-// How the page is built, from its controls alone (no words): a password, a file upload, a text box, and how many other fields (0,
+// How the page is built, from its controls alone (no words): a password (one or two), a file upload, a text box, and how many other fields (0,
 // 1-2, 3-7, 8+). Part of the cache key, so two pages at the same address shape that are built differently (a job page carrying the
 // form, another with only an Apply link: 8 Oct 2026, the matrix's chain posting took the Greenhouse form's "form") are asked apart.
 export function pageBuild(controls = []) {
   const types = (Array.isArray(controls) ? controls : []).map(item => String(item?.type || '').toLowerCase());
   const others = types.filter(type => !['password', 'file', 'textarea', 'hidden'].includes(type)).length;
   const bucket = others === 0 ? '0' : others <= 2 ? '1-2' : others <= 7 ? '3-7' : '8+';
-  return `${types.includes('password') ? 'p' : ''}${types.includes('file') ? 'f' : ''}${types.includes('textarea') ? 't' : ''}${bucket}`;
+  const passwords = types.filter(type => type === 'password').length;   // a sign-up asks twice (password + verify), a sign-in once: the two forms of one address are asked apart (Richemont, 16 Oct 2026: the sign-in form took the sign-up's kept step)
+  return `${passwords > 1 ? 'pp' : passwords ? 'p' : ''}${types.includes('file') ? 'f' : ''}${types.includes('textarea') ? 't' : ''}${bucket}`;
 }
 // The cache key: the address shape and how the page is built.
 export const kindKey = raw => { const shape = pageShape(raw?.url); return shape ? `${shape}|${pageBuild(raw?.controls)}` : ''; };
