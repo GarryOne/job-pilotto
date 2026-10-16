@@ -83,10 +83,10 @@ test('the route is owner-only and in the admin nav', async () => {
   assert.equal(ok.status, 200); assert.match(await ok.text(), /Monetization/);
 });
 
-test('the month cap on the page is the one free-ai.js enforces ($100 from wrangler.toml), and the fixed costs are the projections page figures', async () => {
+test('the month cap on the page is the one free-ai.js enforces ($200 from wrangler.toml), and the fixed costs are the projections page figures', async () => {
   const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), wrangled = Number(toml.match(/^FREE_AI_MONTH_STOP_USD\s*=\s*"(\d+)"/m)[1]);
   const env = {...(await seed()), FREE_AI_MONTH_STOP_USD: String(wrangled)};
-  assert.equal(wrangled, 100); assert.equal((await collect(env, 'all', now)).cost.month.cap, monthStopUsd(env));
+  assert.equal(wrangled, 200); assert.equal((await collect(env, 'all', now)).cost.month.cap, monthStopUsd(env));
   assert.equal((await collect(await seed(), 'all', now)).cost.month.cap, monthStopUsd({}));   // unset: the same default, never a second one
   assert.deepEqual(Object.fromEntries(FIXED_COSTS_YEAR), {'Cloudflare Workers Paid': 60, Domain: 5, 'Apple Developer': 99, 'Windows signing': 250, 'Bookkeeping SaaS': 100});
 });
