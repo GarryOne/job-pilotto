@@ -918,8 +918,7 @@
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
             <button role="tab" data-profile-tab="experience">Experience</button>
             <button role="tab" data-profile-tab="profiletext">Preferences</button>
-            <button role="tab" data-profile-tab="answers">Standard answers</button>
-            <button role="tab" data-profile-tab="knowledge">Form knowledge</button>
+            <button role="tab" data-profile-tab="answers">Application answers</button>
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
           <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
@@ -1051,24 +1050,15 @@
             <span><b data-store-saved>Saved in Notion</b> · Updated answers are used for future application kits.</span>
             <button class="link" id="open-answers" data-notion-only>Open answers in Notion</button></div>
           <div class="setting panel" id="setting-answers" data-profile-panel="answers" hidden>
-            <div class="summary-head"><i data-icon="file"></i><h3>Reusable answers</h3></div>
-            <p class="muted panel-lead">The answers Job Pilotto adapts for each application form and kit.</p>
-            <div class="answer-list" id="answers-list"><p class="muted">Loading…</p></div>
-            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review" data-notion-only>Review all in Notion</button></div>
-          </div>
-          <div class="setting panel" id="setting-text-answers" data-profile-panel="answers" data-text-editor="answers" hidden>
-            <div class="summary-head"><i data-icon="file"></i><h3>All standard answers</h3></div>
-            <p class="muted panel-lead">The whole page of answers: fix, remove or add any of them.</p>
-            <div class="text-editor-body"></div>
+            <div class="panel-top"><div class="summary-head"><i data-icon="file"></i><h3>Application answers</h3></div>
+              <div class="panel-actions"><button class="link" id="answers-review" data-notion-only>Open in Notion</button>
+                <button class="primary with-icon" id="answers-add"><i data-icon="plus"></i>Add question</button></div></div>
+            <p class="muted panel-lead">What you want forms to say, and the rules Job Pilotto learned for each website. Used in future applications and kits.</p>
+            <div class="outline-body" id="answers-body"></div>
           </div>
           <div class="setting panel" id="setting-text-profile" data-profile-panel="profiletext" data-text-editor="profile" hidden>
             <div class="summary-head"><i data-icon="user"></i><h3>Preferences</h3></div>
             <p class="muted panel-lead">What you want from a job: scores, kits and tailored CVs read it. Your summary, skills and experience are in the rest of your Profile, below.</p>
-            <div class="text-editor-body"></div>
-          </div>
-          <div class="setting panel" id="setting-text-knowledge" data-profile-panel="knowledge" data-text-editor="knowledge" hidden>
-            <div class="summary-head"><i data-icon="bookmark"></i><h3>Form knowledge</h3></div>
-            <p class="muted panel-lead">Answers Job Pilotto remembered from forms you filled yourself, used on the next forms that ask the same.</p>
             <div class="text-editor-body"></div>
           </div>
         </div>

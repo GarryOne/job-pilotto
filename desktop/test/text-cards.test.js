@@ -9,7 +9,7 @@ const html = read('../renderer/index.html'), editors = read('../renderer/pages/t
 test('each of the three texts is drawn as cards by the one editor, and its panel shows no "as text" lead', () => {
   assert.match(editors, /import \{cardsEditor\} from '\.\/text-cards\.js'/);
   assert.match(editors, /cardsEditor\(name, result\.markdown/);
-  for (const name of ['profile', 'answers', 'knowledge']) {
+  for (const name of ['profile']) {
     const panel = html.match(new RegExp(`<div class="setting panel"[^>]*data-text-editor="${name}"[^>]*>[\\s\\S]*?</div>\\s*</div>|<div class="setting panel"[^>]*data-text-editor="${name}"[^>]*>[\\s\\S]*?<div class="text-editor-body"></div>`))?.[0];
     assert.ok(panel, name);
     assert.doesNotMatch(panel, /as text/, name);
