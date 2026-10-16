@@ -117,3 +117,17 @@ export async function makeDigest({day, prs, open = [], key, model, fetch: doFetc
   }
   throw new Error(`the model's answer was unusable twice (${failure})`);
 }
+
+// What a run does for one day: {skip: reason} or {final}. `stored` is GET /digest/data (numbers null = nothing yet), `numbers` the PRs merged now, `late` = the day is over (a run after midnight closes it).
+// A draft is rebuilt only when the set of PRs changed, at most once an hour and `maxDrafts` a day; the final one is written from 23:00 Zurich (or after midnight) once.
+export function plan({now, numbers, stored, late = false, zurichHour, maxDrafts = 8}) {
+  if (stored?.finalAt) return {skip: 'closed'};
+  const final = late || zurichHour >= 23;
+  if (final) return numbers.length || stored?.numbers ? {final: true} : {skip: 'nothing merged'};
+  if (!numbers.length) return {skip: 'nothing merged'};
+  if (stored?.numbers && JSON.stringify([...stored.numbers].sort((a, b) => a - b)) === JSON.stringify([...numbers].sort((a, b) => a - b))) return {skip: 'unchanged'};
+  if ((stored?.drafts || 0) >= maxDrafts) return {skip: `already ${maxDrafts} drafts today`};
+  if (stored?.updatedAt && now.getTime() - Date.parse(stored.updatedAt) < 55 * 60000) return {skip: 'updated less than an hour ago'};
+  return {final: false};
+}
+export const zurichHour = date => Number(new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', hour: '2-digit', hour12: false}).format(date)) % 24;
