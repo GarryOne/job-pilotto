@@ -307,10 +307,10 @@ def recently_shown(db, seed, now=None):
         'SELECT job_id FROM shown WHERE last_shown_at >= ? AND last_seed != ?', (cutoff, seed))}
 
 
-def sent_ids(db):
-    """Ids already sent in a digest (the complement of "new")."""
+def last_sent(db):
+    """When the last digest was sent (None if never): jobs first seen after it are the new ones."""
     db.executescript(SHOWN_TABLE)
-    return {row['job_id'] for row in db.execute('SELECT job_id FROM shown')}
+    return db.execute('SELECT MAX(last_shown_at) FROM shown').fetchone()[0]
 
 
 def mark_shown(db, job_ids, seed, now=None):
@@ -339,8 +339,22 @@ def eligible_jobs(db, hidden_urls=frozenset()):
     return [j for j in jobs if not hard_filtered(j)], [j for j in jobs if hard_filtered(j)]
 
 
+def place_unclear(job):
+    """True when no refresh can place or score this job: its location is only a country and its posting has no text to read for the place
+    (#323: such a job stayed hidden as "waiting" forever). The Jobs list and the digest show it, unscored, its place unclear (owner, 12 Oct 2026)."""
+    from .sources import feeds
+    return feeds.place_of(job) == 'vague' and not (job.get('description') or '').strip()
+
+
+def waiting_for_score(job):
+    """A job found but not read and scored yet: the Jobs list counts it as waiting instead of listing it (src/desktop_jobs.py), and so does the
+    digest, so both say the same number. One you acted on or added yourself, or whose place can't be told, is listed."""
+    return (not job.get('fit') and not place_unclear(job) and (job.get('application_status') or 'unreviewed') == 'unreviewed'
+            and (job.get('notes') or '') != 'imported')
+
+
 def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None,
-                 saved_urls=frozenset()):
+                 saved_urls=frozenset(), hide_unscored=False):
     """Return (messages, new_count, keyboards) for one page of the digest.
 
     All eligible jobs are ranked once (new first, then "more to explore", shuffled
@@ -363,12 +377,11 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     # saved ones always show, and unscored ones are shown so the digest still works without AI.
     low_fit = {j['id'] for j in everything if j['fit'] and j['fit']['score'] < MIN_DIGEST_SCORE and not j['saved']}
     everything = [j for j in everything if j['id'] not in low_fit]
-    if any(j['fit'] for j in everything):
-        # Once the AI has scored jobs, the digest lists what the app's Jobs screen lists: scored matches (src/daily_helpers.py for_job_matches).
-        # Without any score (no AI) every job still shows. (16 Oct 2026: "506 new" in Telegram, 487 jobs in the app.)
-        everything = [j for j in everything if j['fit']]
-    # New = not yet sent in a digest (the shown table), so a job stays new until it has been listed once, not "seen by one crawl only".
-    new_ids = {j['id'] for j in everything} - sent_ids(db)
+    if hide_unscored:   # an AI is ready: list what the app's Jobs list lists (16 Oct 2026: "506 new" in Telegram, 487 jobs in the app)
+        everything = [j for j in everything if not waiting_for_score(j)]
+    # New = added since the last digest was sent (the newest mark in the shown table); with none sent yet, everything is new.
+    since = last_sent(db)
+    new_ids = {j['id'] for j in everything if since is None or (j.get('first_seen_at') or '') > since}
     recent = recently_shown(db, seed)
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
     new.sort(key=lambda j: -(j['fit'] or {}).get('score', -1))  # stable: unscored keep rule order
