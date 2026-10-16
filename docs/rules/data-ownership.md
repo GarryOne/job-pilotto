@@ -21,6 +21,9 @@ Read before adding any stored field, file, setting or table. Linked from CLAUDE.
 - No new "local fallback" copies of user data, and **no cache-only fields**: if a screen or command needs a field, it is a store column.
 
 ## On Notion (the Notion adapter)
+- **A reset never touches Notion; a fresh profile always starts a new workspace** (owner, 16 Oct 2026): a reset clears this Mac only, and a Notion connect
+  on a profile with no saved workspace never discovers or reuses an existing Job Pilotto page: it builds a new one in an empty shared page and leaves the
+  old one as it is (`connectWorkspace(..., {fresh})`; guard `desktop/test/notion-fresh.test.js`).
 - A new database, column or page is added to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`, or edit it), so every
   workspace can be rebuilt and repaired (`desktop/lib/schema.js`, at connect and start-up). Existing rows get the value backfilled.
   `tests/test_notion_schema_coverage.py` fails when the code uses a column the schema lacks, `tests/test_notion_docs_coverage.py` when a schema

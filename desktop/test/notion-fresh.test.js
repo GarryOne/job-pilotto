@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import * as notion from '../lib/notion.js';
+import {connectWorkspace} from '../lib/notion-workspace.js';
 import * as reset from '../lib/reset.js';
 import {createStorage} from '../lib/storage.js';
 
@@ -64,6 +65,45 @@ test('a page already renamed "(archived …)" by an older reset is still never c
   const w = workspace({oldTitle: 'My jobs (archived 1 Jan 2026)'});
   assert.deepEqual((await notion.discover('t', w.fetcher)).ids, {});
   assert.equal(await notion.sharedRoot('t', w.fetcher), 'new');
+});
+
+// Owner, 16 Oct 2026 ("Always start new"): a fresh profile never discovers or reuses an existing Job Pilotto page; it builds a new one beside it.
+const built = [];
+const fakeRepair = async (_token, ids, _schema, _fetcher, page) => { built.push(page); return {ids: {NOTION_PROFILE_PAGE_ID: `${page}-profile`}, created: ['Profile'], columns: []}; };
+const noWait = {sleep: async () => {}, every: 0};
+// The fixture's databases answer the column check too (every column the pipeline needs).
+const withColumns = fetcher => async (url, init) => {
+  const id = url.replace('https://api.notion.com/v1/', '').split('?')[0].match(/^databases\/(db_\w+)$/)?.[1];
+  const env = id?.slice(3);
+  if (!env) return fetcher(url, init);
+  return {ok: true, json: async () => ({id, properties: Object.fromEntries((T.required_properties[env] || []).map(name => [name, {type: 'rich_text'}]))})};
+};
+
+test('a fresh connect builds a new workspace beside an existing one and leaves the old page untouched', async () => {
+  built.length = 0;
+  const w = workspace();   // the old workspace (root "old", every database) and an empty shared page ("new")
+  const result = await connectWorkspace('t', {fresh: true, fetcher: withColumns(w.fetcher), repair: fakeRepair, ...noWait});
+  assert.deepEqual(built, ['new'], 'built in the new page, never in the old one');
+  assert.equal(result.ok, true);
+  assert.ok(!Object.values(result.ids).some(id => id.startsWith('old') || id.startsWith('db_') || id.startsWith('pg_')), 'none of the old workspace is reused');
+  assert.deepEqual(w.patched, [], 'the old page was not renamed, archived or changed');
+});
+
+test('a fresh connect with only the old workspace shared builds nothing and touches nothing', async () => {
+  built.length = 0;
+  const w = workspace();
+  w.items.splice(1, 1);   // the new page is not shared
+  const result = await connectWorkspace('t', {fresh: true, fetcher: withColumns(w.fetcher), repair: fakeRepair, ...noWait});
+  assert.deepEqual([result.ok, built, w.patched], [false, [], []]);
+});
+
+test('a connect that is not fresh (this profile already has its workspace) still finds it', async () => {
+  built.length = 0;
+  const w = workspace();
+  const result = await connectWorkspace('t', {fetcher: withColumns(w.fetcher), repair: fakeRepair, ...noWait});
+  assert.equal(result.ok, true);
+  assert.equal(result.ids.NOTION_PROFILE_PAGE_ID, 'pg_NOTION_PROFILE_PAGE_ID');
+  assert.deepEqual(built, []);
 });
 
 test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', () => {

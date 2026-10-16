@@ -7,17 +7,22 @@ import * as notion from './notion.js';
 import * as schema from './schema.js';
 
 // -> {ok, ids, missing, problems, built?, repaired?}
-export async function connectWorkspace(token, {templateRoot = null, onProgress = () => {}, fetcher,
+export async function connectWorkspace(token, {templateRoot = null, fresh = false, onProgress = () => {}, fetcher,
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), repair = schema.repair, every = 5000} = {}) {
   const root = templateRoot ? String(templateRoot).replace(/-/g, '') : null;
   const send = progress => onProgress({...progress, ...(root ? {template: true} : {})});
+  // fresh (this profile has no workspace of its own, e.g. after a reset; owner, 16 Oct 2026, "Always start new"): an existing Job Pilotto page is
+  // never discovered or reused; the app builds a new workspace beside it and leaves the old one as it is. Only the template's own copy (root) is read.
+  const startNew = fresh && !root;
+  if (startNew) await notion.call(token, 'GET', 'users/me', null, fetcher);   // is the token valid at all?
   let result = root ? await notion.connectWaiting(token, {fetcher, sleep, onProgress: send, root, tries: 12})
+    : startNew ? {ok: false, ids: {}, missing: ['Job Pilotto'], problems: []}
     : await notion.connect(token, fetcher);
   // Nothing of ours yet: the one page shared with the app (or the template's copy) is where the workspace is built.
   if (!result.ok && !Object.keys(result.ids || {}).length) {
     let page = root;
     for (let attempt = 0; !page && attempt < 12; attempt++) {
-      page = await notion.sharedRoot(token, fetcher);  // Notion can take a few seconds to share it with the connection
+      page = await notion.sharedRoot(token, fetcher, {fresh: startNew});  // Notion can take a few seconds to share it with the connection
       if (!page) { send({waitingPage: true}); await sleep(every); }
     }
     if (page) {

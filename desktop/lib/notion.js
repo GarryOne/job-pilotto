@@ -43,11 +43,20 @@ export async function discover(token, fetcher, {root = null} = {}) {
 
 // A new workspace: the one page the connection was given (no Job Pilotto databases or pages in it yet),
 // where the app builds everything from config/notion_schema.json. null when there isn't exactly one.
-export async function sharedRoot(token, fetcher) {
-  const [, pages] = liveOnly([], await searchAll(token, 'page', fetcher));
+// fresh (a profile with no workspace of its own, 16 Oct 2026): a page that already holds a Job Pilotto workspace (or sits above one) is
+// never the place to build, so an old workspace next to a new empty page doesn't hide it; only an empty top page counts.
+export async function sharedRoot(token, fetcher, {fresh = false} = {}) {
+  const [databases, pages] = liveOnly(fresh ? await searchAll(token, 'database', fetcher) : [], await searchAll(token, 'page', fetcher));
   const visible = new Set(pages.map(p => p.id));
   const tops = pages.filter(p => !(p.parent?.page_id && visible.has(p.parent.page_id)) && !p.parent?.database_id);
-  return tops.length === 1 ? tops[0].id.replace(/-/g, '') : null;
+  if (!fresh) return tops.length === 1 ? tops[0].id.replace(/-/g, '') : null;
+  const parent = new Map([...databases, ...pages].map(i => [i.id, i.parent?.page_id || i.parent?.database_id]));
+  const names = new Set([...Object.values(TEMPLATE.databases), ...Object.values(TEMPLATE.pages)].map(normalise));
+  const holds = new Set();   // every page on the way up from a Job Pilotto database or page
+  for (const item of [...databases, ...pages].filter(i => names.has(normalise(titleOf(i)))))
+    for (let id = parent.get(item.id), depth = 0; id && depth < 20; id = parent.get(id), depth++) holds.add(id);
+  const empty = tops.filter(p => !holds.has(p.id));
+  return empty.length === 1 ? empty[0].id.replace(/-/g, '') : null;
 }
 
 // Columns the pipeline needs that the user's copy lacks (renamed or deleted): [{title, missing: [...]}].
