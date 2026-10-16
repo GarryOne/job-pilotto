@@ -112,6 +112,29 @@ test('the account button named twice: the one beside the filled box is pressed, 
   assert.deepEqual(run('<main><form><input type="password" value="x"></form><div><button id="a" aria-label="Sign In"></button><button id="b" aria-label="Sign In"></button></div></main>', 'Sign In'), {reason: 'several-buttons', clicked: []});   // two equally near: never a guess
 });
 
+test('a button and its hidden twin (a click overlay over an aria-hidden submit button): the one a person presses is pressed, for every press that names a control', () => {
+  const overlay = '<div role="button" aria-label="Sign In" id="overlay"></div><button type="submit" id="real" aria-hidden="true" aria-label="Sign In"></button>';
+  const page = `<header><button id="head" aria-label="Sign In"></button></header><main><form><input type="text" value="a@b.c"><input type="password" value="x"><div>${overlay}</div></form></main>`;
+  const dom = new JSDOM(`<body>${page}</body>`);
+  dom.window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+  Object.assign(globalThis, {document: dom.window.document, Node: dom.window.Node});
+  const clicked = [];
+  dom.window.document.querySelectorAll('button, [role=button]').forEach(el => el.addEventListener('click', event => { event.preventDefault(); clicked.push(el.id); }));
+  dom.window.document.querySelector('input[type=password]').setAttribute('data-jobpilotto-filled', '1');
+  assert.equal(pressAccountButton('Sign In'), 'pressed');
+  assert.deepEqual(clicked, ['overlay']);
+  const twin = '<main><form><input type="email"></form><div><a id="vis">Sign In</a><a id="hid" aria-hidden="true">Sign In</a></div></main>';
+  for (const press of [pressRegister, pressConsent]) {
+    const again = new JSDOM(`<body>${twin}</body>`);
+    again.window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+    Object.assign(globalThis, {document: again.window.document});
+    const hits = [];
+    again.window.document.querySelectorAll('a').forEach(el => el.addEventListener('click', event => { event.preventDefault(); hits.push(el.id); }));
+    assert.equal(press('Sign In'), 'pressed', press.name);
+    assert.deepEqual(hits, ['vis'], press.name);
+  }
+});
+
 // The shape of a create-account page whose header and body both carry the text the AI named (captured 16 Oct 2026: a header "Sign In" button, the form, then "Already have an account? Sign In").
 const TWO_SIGN_INS = '<header><div><button id="head">Sign In</button></div></header><main><form><input type="email"><input type="password"><button type="submit">Create Account</button></form><div>Already have an account?<button id="body">Sign In</button></div></main>';
 
