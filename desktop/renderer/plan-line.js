@@ -5,5 +5,5 @@ export const PRO_PRICE = '$29';   // the full price; the launch price and the re
 
 export function planLine(state = {}) {
   if (state.licensed || ['test', 'live'].includes(state.proMode)) return null;
-  return `Free trial: ${state.limit || 20} applications or 60 days. Then Pro: ${PRO_PRICE} one-time, no subscription (coming soon).`;
+  return `Free trial: ${state.limit || 20} applications or 60 days, whichever lasts longer. Then Pro: ${PRO_PRICE} one-time, no subscription (coming soon).`;
 }
