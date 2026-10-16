@@ -41,7 +41,7 @@ test('nothing is attached while the switch is off; on, it attaches once and list
   const on = make(fake);
   assert.equal(await on.trace.start(7), true); await on.trace.start(7);
   assert.deepEqual(on.log, [['attach', 7]]);
-  assert.deepEqual(fake.calls.map(call => call[0]), ['Network.enable', 'Page.enable', 'Page.getFrameTree']);
+  assert.deepEqual(fake.calls.map(call => call[0]), ['Network.enable', 'Page.enable', 'Fetch.enable', 'Page.getFrameTree']);   // Fetch.enable: XHR and fetch replies are taken at the response stage (holdReply)
 });
 
 test('a journey posting -> redirect -> sign-in -> form: the sign-in page is never in the trace; the pages after it are, in the next segment', async () => {
@@ -152,4 +152,52 @@ test('a text reply whose body Chrome no longer has (the page navigated away righ
   assert.deepEqual([byUrl.read.bodyLost, byUrl.lost.bodyLost, byUrl.redirect.bodyLost, byUrl.cached.bodyLost], [undefined, true, undefined, undefined]);
   assert.equal(Buffer.from(byUrl.read.body, 'base64').toString(), '{"payload":"abc"}');
   assert.ok(byUrl.lost.body === null && byUrl.lost.size === 17);
+});
+
+// ---- The response stage: a reply of an XHR or fetch is taken while Chrome holds it paused, and let go as received.
+const sentOf = (fake, ...methods) => fake.calls.filter(call => methods.includes(call[0]));
+const xhrStart = (fake, tab, id, url, method = 'POST') => fake.emit(tab, 'Network.requestWillBeSent', {requestId: id, loaderId: 'x', frameId: 'top', type: 'XHR', request: {url, method, headers: {}}});
+
+test('an XHR reply is taken at the response stage, then let go; the entry carries that body even when a later read fails', async () => {
+  const fake = fakeChrome(), {trace} = make(fake), real = fake.chrome.debugger.sendCommand;
+  fake.chrome.debugger.sendCommand = async (target, method, params) => {
+    if (method === 'Fetch.getResponseBody') { fake.calls.push([method, params]); return {body: '{"payload":"abc"}', base64Encoded: false}; }
+    if (method === 'Network.getResponseBody' && params.requestId === 'N1') throw new Error('No resource with given identifier found');   // evicted: the page navigated away
+    return real(target, method, params);
+  };
+  assert.equal(await trace.start(7), true);
+  page(fake, 7, 'D', 'https://jobs.example.test/apply');
+  xhrStart(fake, 7, 'N1', 'https://jobs.example.test/services/cas/createpayload/');
+  fake.emit(7, 'Fetch.requestPaused', {requestId: 'F1', networkId: 'N1', responseStatusCode: 200, request: {url: 'https://jobs.example.test/services/cas/createpayload/', method: 'POST'}, responseHeaders: [{name: 'Content-Type', value: 'application/json'}]});
+  fake.emit(7, 'Network.responseReceived', {requestId: 'N1', response: {status: 200, headers: {'Content-Type': 'application/json'}}});
+  await tick(); await tick();
+  fake.emit(7, 'Network.loadingFinished', {requestId: 'N1', encodedDataLength: 17});
+  await tick(); await tick();
+  assert.deepEqual(sentOf(fake, 'Fetch.getResponseBody', 'Fetch.continueResponse').map(call => [call[0], call[1].requestId]), [['Fetch.getResponseBody', 'F1'], ['Fetch.continueResponse', 'F1']]);
+  const entry = trace.snapshot(7).entries.find(one => one.url.endsWith('createpayload/'));
+  assert.equal(Buffer.from(entry.body, 'base64').toString(), '{"payload":"abc"}');
+  assert.equal(entry.bodyLost, undefined);
+});
+
+test('a paused reply is always let go as it was: an event stream at once and unread, a failed one failed, a slow one after the limit, any reply on a paused trace unread', async () => {
+  const fake = fakeChrome(), {trace, timers} = make(fake), real = fake.chrome.debugger.sendCommand;
+  fake.chrome.debugger.sendCommand = async (target, method, params) => { if (method === 'Fetch.getResponseBody') { fake.calls.push([method, params]); if (params.requestId === 'SLOW') return new Promise(() => {}); return {body: 'x', base64Encoded: false}; } return real(target, method, params); };
+  assert.equal(await trace.start(7), true);
+  const paused = (id, extra = {}) => fake.emit(7, 'Fetch.requestPaused', {requestId: id, networkId: id, request: {url: 'https://jobs.example.test/x', method: 'GET'}, responseStatusCode: 200, ...extra});
+  paused('SSE', {responseHeaders: [{name: 'content-type', value: 'text/event-stream; charset=utf-8'}]});
+  paused('ERR', {responseStatusCode: undefined, responseErrorReason: 'ConnectionReset'});
+  paused('SLOW');
+  await tick(); await tick();
+  assert.deepEqual(sentOf(fake, 'Fetch.getResponseBody').map(call => call[1].requestId), ['SLOW'], 'only the plain reply is read');
+  assert.deepEqual(sentOf(fake, 'Fetch.continueResponse', 'Fetch.failRequest').map(call => [call[0], call[1].requestId]), [['Fetch.continueResponse', 'SSE'], ['Fetch.failRequest', 'ERR']]);
+  const limit = timers.timers.filter(timer => timer.ms === 500); assert.equal(limit.length, 1, 'the slow reply has a 500 ms limit');
+  limit[0].fn(); await tick(); await tick();
+  assert.deepEqual(sentOf(fake, 'Fetch.continueResponse').map(call => call[1].requestId), ['SSE', 'SLOW'], 'after the limit it is let go');
+  // a trace paused on a sign-in page (the debugger released): a reply that still arrives is let go unread
+  const before = sentOf(fake, 'Fetch.getResponseBody').length;
+  fake.emit(7, 'Fetch.requestPaused', {requestId: 'LATE', request: {url: 'https://other.example.test/x', method: 'GET'}, responseStatusCode: 200});   // a tab with no run
+  fake.emit(9, 'Fetch.requestPaused', {requestId: 'NORUN', request: {url: 'https://other.example.test/x', method: 'GET'}, responseStatusCode: 200});
+  await tick(); await tick();
+  assert.equal(sentOf(fake, 'Fetch.getResponseBody').length, before + 1, 'LATE (this tab has a run) is read; NORUN (no run on tab 9) is not');
+  assert.ok(sentOf(fake, 'Fetch.continueResponse').some(call => call[1].requestId === 'NORUN'), 'a tab with no run still lets its reply go');
 });
