@@ -1,3 +1,4 @@
+/* global document */
 // A reply's body is read the moment its headers arrive (lib/net-record.mjs): a page that navigates away right after a reply (a form built from the answer and submitted: SuccessFactors' Apply,
 // POST /services/cas/createpayload/, 16 Oct 2026) has lost the body by the time the request is reported finished, and the old late read recorded an empty 200 that the replay served as the answer.
 // A body that cannot be read is flagged (bodyLost), and the publish guard refuses such a row. Guard for lib/net-record.mjs and lib/record-guard.mjs.
@@ -76,9 +77,11 @@ test('an XHR reply is recorded from the response stage even when every later rea
   await stub.handlers['Fetch.requestPaused']({requestId: 'R0', responseStatusCode: 302, request: {method: 'GET', url: 'https://site.example.test/redirect'}});   // a redirect: no body to take
   await stub.handlers['Fetch.requestPaused']({requestId: 'R1', responseStatusCode: 200, request: {method: 'POST', url: 'https://site.example.test/services/cas/createpayload/'}});
   await stub.handlers['Fetch.requestPaused']({requestId: 'L1', responseStatusCode: 200, request: {method: 'GET', url: 'http://127.0.0.1:47111/ext/x'}});   // the app's own address: never read, let go as a reply
+  await stub.handlers['Fetch.requestPaused']({requestId: 'S1', responseStatusCode: 200, request: {method: 'GET', url: 'https://site.example.test/events'}, responseHeaders: [{name: 'Content-Type', value: 'text/event-stream'}]});   // an event stream is let go at once, unread
   await stub.handlers['Fetch.requestPaused']({requestId: 'E1', responseErrorReason: 'ConnectionReset', request: {method: 'GET', url: 'https://site.example.test/gone'}});   // a failed reply stays failed
   const continued = stub.sent.filter(([method]) => method === 'Fetch.continueRequest' || method === 'Fetch.continueResponse').map(([method, id]) => `${method}:${id}`);
-  assert.deepEqual(continued, ['Fetch.continueRequest:Q0', 'Fetch.continueResponse:R0', 'Fetch.continueResponse:R1', 'Fetch.continueResponse:L1'], 'every paused reply is let go as what it was');
+  assert.deepEqual(continued, ['Fetch.continueRequest:Q0', 'Fetch.continueResponse:R0', 'Fetch.continueResponse:R1', 'Fetch.continueResponse:L1', 'Fetch.continueResponse:S1'], 'every paused reply is let go as what it was');
+  assert.ok(!stub.sent.some(([method, id]) => method === 'Fetch.getResponseBody' && id === 'S1'), 'an event stream is never read');
   assert.deepEqual(stub.sent.filter(([method]) => method === 'Fetch.failRequest').map(([, id]) => id), ['E1']);
   assert.ok(!stub.sent.some(([method, id]) => method === 'Fetch.getResponseBody' && id === 'L1'), 'a loopback reply is never read');
   // the page then navigates away: every later read of the body fails
@@ -120,4 +123,25 @@ test('on a real page that submits a form from an XHR answer and leaves, the answ
     }
   } finally { await browser.close(); server.close(); }
   assert.deepEqual(sizes, Array(8).fill(21), 'the XHR answer is in every recording');
+});
+
+test('a reply that stays open (an event stream) never makes the page wait for the recorder', async () => {
+  const http = await import('node:http'), {chromium} = await import('playwright-core');
+  const page = '<!doctype html><p id=t>wait</p><script>(async () => { const t0 = performance.now(); await fetch("/stream"); document.getElementById("t").textContent = String(Math.round(performance.now() - t0)); })();</script>';
+  const server = http.createServer((req, res) => {
+    req.resume();
+    if (req.url === '/') { res.writeHead(200, {'content-type': 'text/html'}); return res.end(page); }
+    if (req.url === '/stream') { res.writeHead(200, {'content-type': 'text/event-stream'}); res.write('data: hi\n\n'); return setTimeout(() => res.end(), 4000); }
+    res.writeHead(404); res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
+  try {
+    const context = await browser.newContext(), recorder = netRecorder(context, {startedAt: Date.now()}), tab = await context.newPage();
+    await recorder.ready();
+    await tab.goto(`http://site.example.test:${server.address().port}/`);
+    await tab.waitForFunction(() => document.getElementById('t').textContent !== 'wait', null, {timeout: 8000});
+    const headersMs = Number(await tab.textContent('#t'));
+    assert.ok(headersMs < 1000, `the stream's headers reached the page in ${headersMs} ms (the stream lasts 4000 ms)`);
+  } finally { await browser.close(); server.close(); }
 });

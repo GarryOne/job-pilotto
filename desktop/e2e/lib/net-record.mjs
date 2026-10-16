@@ -29,6 +29,7 @@ export const headerText = value => { const text = String(value ?? ''); if (!/[\u
 // The live side. -> {flush(), settle(maxMs), result(): {entries, bodies}}
 // settle: a request still in flight when the window ends is never recorded (no 'finished' or 'failed' event yet), so a press the site had not answered left the record
 // stopping at a spinning button (15 Oct 2026, record-once spec). settle waits for the open ones, capped; -> {waitedMs, unfinished, kinds: {resource type: count}}.
+const HOLD_MS = 1500;   // a paused reply is let go after at most this long, body or not (the page's own request never waits longer on the recorder)
 export function netRecorder(context, {startedAt = Date.now(), owner = new Map()} = {}) {
   const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
   context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
@@ -44,9 +45,12 @@ export function netRecorder(context, {startedAt = Date.now(), owner = new Map()}
       const cdp = await context.newCDPSession(page);
       cdp.on('Fetch.requestPaused', async event => {
         const atResponse = event.responseStatusCode !== undefined || event.responseErrorReason !== undefined;   // only the response stage is asked for; a request stage would just be let go
-        if (atResponse && event.responseStatusCode !== undefined && recordable(event.request.url)) {
+        const type = String((event.responseHeaders || []).find(header => /^content-type$/i.test(header.name))?.value || '');
+        if (atResponse && event.responseStatusCode !== undefined && recordable(event.request.url) && !/event-stream/i.test(type)) {   // an event stream is let go at once, unread: it never ends
           try {
-            const got = await cdp.send('Fetch.getResponseBody', {requestId: event.requestId}), key = `${event.request.method} ${event.request.url}`;
+            // getResponseBody waits for the WHOLE body: a reply that stays open must not stall the page's own request (measured: a 6 s stream delivered its headers after 6013 ms instead of 31 ms), so it is let go after HOLD_MS
+            let timer; const slow = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('too slow')), HOLD_MS); });
+            const got = await Promise.race([cdp.send('Fetch.getResponseBody', {requestId: event.requestId}), slow]).finally(() => clearTimeout(timer)), key = `${event.request.method} ${event.request.url}`;
             if (!paused.has(key)) paused.set(key, []);
             paused.get(key).push(Buffer.from(got.body, got.base64Encoded ? 'base64' : 'utf8'));
           } catch { /* a redirect or an empty reply has no body to take: the later reads decide */ }
