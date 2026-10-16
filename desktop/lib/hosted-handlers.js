@@ -5,7 +5,7 @@ import * as pipeline from './pipeline.js';
 
 export function registerHostedHandlers({DEMO, dialog, getWindow, ipcMain, storage, toWindow}) {
   const engine = args => pipeline.run(storage, args);
-  ipcMain.handle('hostedState', () => ({...hosted.state(storage), available: !DEMO}));
+  ipcMain.handle('hostedState', async () => ({...hosted.state(storage), available: !DEMO, schedule: !DEMO && hosted.state(storage).on ? await hosted.schedule(storage) : null}));
   ipcMain.handle('hostedOn', async (_, given) => {
     if (DEMO) return {ok: true};
     const done = await hosted.turnOn(storage, given || {});

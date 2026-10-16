@@ -83,9 +83,9 @@ test('the wizard step sits after the strategy and before the extras; its words f
   assert.match(read('renderer/pages/strategy-review.js'), /else goStep\('hosted'\)/);
   const view = read('renderer/pages/hosted.js');
   assert.match(view, /New matching jobs every morning, even when your Mac is off/);
-  assert.match(view, /Search for me every day/);
-  assert.match(view, /Also send me product news and the Pro launch offer \(unsubscribe in one click\)/);
-  assert.match(view, /Your profile is stored encrypted on our servers\. Turn it off anytime = deleted\./);
+  assert.match(view, /Search for me every day/);   // the wizard's own switch label (owner's wording)
+  assert.match(view + fs.readFileSync(new URL('../renderer/hosted-words.js', import.meta.url), 'utf8'), /Also send me product news and the Pro launch offer \(unsubscribe in one click\)/);
+  assert.match(fs.readFileSync(new URL('../renderer/hosted-words.js', import.meta.url), 'utf8'), /Your profile is stored encrypted on our servers\. Turn it off anytime = deleted\./);
   assert.match(view, /switchRow\('hosted-news', NEWS, true\)/);   // pre-checked (owner, 16 Oct 2026; a lawyer checks before launch)
   assert.doesNotMatch(view.replace(/\/\/.*$/gm, ''), /GitHub|container|\$\d/);
   assert.equal([...read('renderer/index.html').matchAll(/Step \d of 5/g)].length, 4);

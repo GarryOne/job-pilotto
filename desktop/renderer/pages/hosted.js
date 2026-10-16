@@ -1,98 +1,104 @@
-// Hosted Always on in the window (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §4b, §4d): the wizard's step 4 "New matching jobs every morning, even when your Mac is off"
-// (switch ON, e-mail, a pre-checked product-news box, Skip / Turn on) and the Settings card that turns it off and deletes, or downloads, what we hold. Built here, not in index.html.
-// Words: never "GitHub", "container" or dollars. The data call is lib/hosted-search.js. Guard: test/hosted-view.test.js.
+// Always on "on our servers" in the window (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §4b, §4d): the wizard's step 4 (switch ON, e-mail, a pre-checked product-news box, Skip / Turn on Always on)
+// and the Settings card (ON by default until Skip; asks for the e-mail first when there is none; Turn off deletes; Download my data). One name everywhere: "Always on" (owner, 17 Oct 2026).
+// The words and states are renderer/hosted-words.js; the data calls are lib/hosted-search.js. Never "GitHub", "container" or dollars here. Guard: test/hosted-search.test.js, test/hosted-words.test.js.
 import {el, pill, tile} from '../components.js';
 import {$, message, show} from './core.js';
 import {goStep} from './wizard.js';
 import {shared} from './shared.js';
+import {HELPER, NAME, NEWS, STORED, SUBTITLE, model} from '../hosted-words.js';
 
 export const HEADLINE = 'New matching jobs every morning, even when your Mac is off';
-export const STORED = 'Your profile is stored encrypted on our servers. Turn it off anytime = deleted.';
-export const NEWS = 'Also send me product news and the Pro launch offer (unsubscribe in one click)';
 
-function switchRow(id, label, checked, hint = '') {
+function switchRow(id, label, checked) {
   const input = Object.assign(document.createElement('input'), {type: 'checkbox', id, checked});
   input.setAttribute('aria-label', label);
-  const row = el('div', 'switch-row');
-  row.append(el('span', 'switch', input), el('span', '', Object.assign(el('span'), {textContent: label})));
-  row.lastChild.append(...(hint ? [el('span', 'muted small', hint)] : []));
-  row.querySelector('.switch').append(document.createElement('span'));
+  const row = el('div', 'switch-row'), toggle = el('span', 'switch', input);
+  toggle.append(document.createElement('span'));
+  row.append(toggle, el('span', '', label));
   return row;
 }
-const emailField = id => {
-  const input = Object.assign(document.createElement('input'), {type: 'email', id, placeholder: 'you@example.com', autocomplete: 'email', size: 36});
-  const label = el('label', 'inline-field', 'Where should we send them?');
-  label.append(input);
-  return label;
-};
+// The e-mail field as the AI step draws its key field (.step-field: the label above a full-width input), with a helper line under it.
+function emailField(id, label = 'Where should we send them?') {
+  const input = Object.assign(document.createElement('input'), {type: 'email', id, placeholder: 'you@example.com', autocomplete: 'email'});
+  const field = el('div', 'step-field');
+  field.append(Object.assign(document.createElement('label'), {htmlFor: id, textContent: label}), input, el('p', 'muted small field-hint', HELPER));
+  return field;
+}
+const button = (id, label, cls) => { const node = el('button', cls, label); node.id = id; return node; };
 
-// Wizard step 4. Skip only leaves hosted off; the rest of the app works as before.
+// Wizard step 4. Skip only leaves Always on off; the rest of the app works as before.
 export function mountStep() {
   if ($('hosted-step-root')) return;
   const step = el('div', 'step');
   step.id = 'hosted-step-root'; step.dataset.step = 'hosted'; step.hidden = true;
-  const head = el('header', 'view-head step-head');
-  const text = el('div');
+  const head = el('header', 'view-head step-head'), text = el('div');
   text.append(el('span', 'eyebrow', 'Step 4 of 5'), el('h1', '', HEADLINE), el('p', 'muted subtitle', 'A short list of what is new, by e-mail, and in the app when you open it.'));
   head.append(text);
-  const body = el('div', 'panel');
-  const actions = el('div', 'actions');
-  const skip = el('button', 'ghost', 'Skip'); skip.id = 'hosted-skip';
-  const go = el('button', 'primary', 'Turn on Always on'); go.id = 'hosted-go';
-  actions.append(skip, go);
+  const body = el('div', 'panel'), actions = el('div', 'actions');
+  actions.append(button('hosted-skip', 'Skip', 'ghost'), button('hosted-go', 'Turn on Always on', 'primary'));
   const note = el('p', 'message'); note.id = 'hosted-message';
   body.append(switchRow('hosted-daily', 'Search for me every day', true), emailField('hosted-email'), switchRow('hosted-news', NEWS, true), el('p', 'muted small', STORED), note);
   step.append(head, body, actions);
   document.querySelector('.step[data-step="extras"]').before(step);
-  const item = el('li', '', 'Daily searches'); item.dataset.step = 'hosted';
+  const item = el('li', '', 'Always on'); item.dataset.step = 'hosted';
   document.querySelector('#step-list li[data-step="extras"]').before(item);
-  skip.addEventListener('click', async () => { await window.pilot.hostedOff(); goStep('extras'); });
-  go.addEventListener('click', async () => {
+  $('hosted-skip').addEventListener('click', async () => { await window.pilot.hostedOff(); goStep('extras'); });
+  $('hosted-go').addEventListener('click', async () => {
     if (!$('hosted-daily').checked) { await window.pilot.hostedOff(); goStep('extras'); return; }   // the switch turned off here is the same as Skip
-    go.disabled = true; message('hosted-message', 'Turning on…');
+    $('hosted-go').disabled = true; message('hosted-message', 'Turning on…');
     const done = await window.pilot.hostedOn({email: $('hosted-email').value, marketing: $('hosted-news').checked});
-    go.disabled = false;
+    $('hosted-go').disabled = false;
     if (!done.ok) { message('hosted-message', done.error || 'Could not turn it on just now.', 'bad'); return; }
     goStep('extras');
   });
 }
 
-// Settings → Always on: "Search for me every day" with its state, Turn off (and delete), Download my data.
+// Settings: the card, built once; draw(model) shows one of its states.
 export function mountCard() {
   if ($('setting-hosted')) return;
   const card = el('div', 'setting panel'); card.id = 'setting-hosted';
-  const head = el('div', 'summary-head'); head.append(el('h3', '', 'Daily searches while your Mac is off'));
-  const row = el('div', 'aon-row');
-  const info = el('div', 'aon-text'), title = el('div', 'aon-title'), status = el('p', 'muted small'); status.id = 'hosted-status';
-  const pillHost = el('span'); pillHost.id = 'hosted-pill';
-  title.append(el('b', '', 'On our servers'), pillHost); info.append(title, status);
+  const head = el('div', 'summary-head'), title = el('span'); title.id = 'hosted-pill';
+  head.append(el('h3', '', NAME), title);
+  const row = el('div', 'aon-row'), info = el('div', 'aon-text'), status = el('p', 'muted small'); status.id = 'hosted-status';
+  info.append(status);
   const buttons = el('div', 'aon-actions');
-  const mk = (id, label, cls) => { const button = el('button', cls, label); button.id = id; return button; };
-  const on = mk('hosted-turn-on', 'Turn on daily searches', 'secondary'), off = mk('hosted-turn-off', 'Turn off and delete my data', 'ghost'), save = mk('hosted-download', 'Download my hosted data', 'ghost');
-  buttons.append(on, off, save);
-  const email = emailField('hosted-set-email'), msg = el('p', 'message'); msg.id = 'hosted-set-message';
+  buttons.append(button('hosted-turn-on', 'Turn on Always on', 'secondary'), button('hosted-resume', 'Resume Always on', 'secondary'), button('hosted-turn-off', 'Turn off Always on', 'ghost'), button('hosted-download', 'Download my Always on data', 'ghost'));
   row.append(tile('cloud'), info, buttons);
-  card.append(head, el('p', 'muted panel-lead', STORED), row, email, msg);
+  const ask = el('div'); ask.id = 'hosted-ask';
+  ask.append(emailField('hosted-set-email', 'Your email'), switchRow('hosted-set-news', NEWS, true));
+  const msg = el('p', 'message'); msg.id = 'hosted-set-message';
+  const result = el('div', 'step-field', msg);   // .step-field hides its empty message: no blank space under the card
+  card.append(head, el('p', 'muted panel-lead', `${SUBTITLE}. ${STORED}`), row, ask, result);
   $('setting-cloud').after(card);
-  on.addEventListener('click', async () => {
-    const done = await window.pilot.hostedOn({email: $('hosted-set-email').value, marketing: false});
-    message('hosted-set-message', done.ok ? 'On ✓' : done.error || 'Could not turn it on just now.', done.ok ? 'ok' : 'bad');
+  const turnOn = async () => {
+    const done = await window.pilot.hostedOn({email: $('hosted-set-email').value, marketing: $('hosted-set-news').checked});
+    message('hosted-set-message', done.ok ? 'Always on ✓' : done.error || 'Could not turn it on just now.', done.ok ? 'ok' : 'bad');
     refresh();
-  });
-  off.addEventListener('click', async () => { const done = await window.pilot.hostedOff(); message('hosted-set-message', done.ok ? 'Off. Everything we held is deleted.' : done.error || 'Could not turn it off just now.', done.ok ? 'ok' : 'bad'); refresh(); });
-  save.addEventListener('click', async () => { const done = await window.pilot.hostedExport(); if (!done.cancelled) message('hosted-set-message', done.ok ? 'Saved ✓' : done.error || 'Could not save it just now.', done.ok ? 'ok' : 'bad'); });
+  };
+  $('hosted-turn-on').addEventListener('click', turnOn);
+  $('hosted-resume').addEventListener('click', turnOn);
+  $('hosted-turn-off').addEventListener('click', async () => { const done = await window.pilot.hostedOff(); message('hosted-set-message', done.ok ? 'Always on is off. Everything we held is deleted.' : done.error || 'Could not turn it off just now.', done.ok ? 'ok' : 'bad'); refresh(); });
+  $('hosted-download').addEventListener('click', async () => { const done = await window.pilot.hostedExport(); if (!done.cancelled) message('hosted-set-message', done.ok ? 'Saved ✓' : done.error || 'Could not save it just now.', done.ok ? 'ok' : 'bad'); });
   window.pilot.onHostedArrived(refresh);
   refresh();
+}
+
+// One state of the card (model from renderer/hosted-words.js), also what the screenshots draw for every state.
+export function draw(view, email = '') {
+  $('hosted-pill').replaceChildren(pill(view.pill[0], view.pill[1], {dot: true}));
+  $('hosted-status').textContent = view.line;
+  show($('hosted-ask'), view.asksEmail);
+  $('hosted-turn-on').textContent = view.button === 'save' ? 'Save email' : 'Turn on Always on';
+  show($('hosted-turn-on'), view.button === 'on' || view.button === 'save');
+  show($('hosted-resume'), view.button === 'resume');
+  show($('hosted-turn-off'), view.off); show($('hosted-download'), view.download);
+  if (email && !$('hosted-set-email').value) $('hosted-set-email').value = email;
 }
 
 export async function refresh() {
   const now = await window.pilot.hostedState();
   shared.hosted = now;
-  if (!$('hosted-status')) return;
-  $('hosted-pill').replaceChildren(pill(now.on ? 'On' : 'Off', now.on ? 'good' : 'neutral', {dot: true}));
-  $('hosted-status').textContent = now.on ? `Searches every day and e-mails ${now.email}. New matches also appear here when you open the app.` : 'Off. Turn it on to get new matches every morning, even when your Mac is off.';
-  show($('hosted-turn-on'), !now.on); show($('hosted-turn-off'), !!now.on); show($('hosted-download'), !!now.on);
-  if (now.email && !$('hosted-set-email').value) $('hosted-set-email').value = now.email;
+  if ($('hosted-status')) draw(model(now, now.schedule), now.email);
 }
 
 export function init() { mountStep(); mountCard(); }
