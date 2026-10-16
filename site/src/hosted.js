@@ -4,6 +4,7 @@
 import {authorize, digestOf, equal, tokenFor} from './guard.js';
 import {accountOf, createAccount, link} from './pro.js';
 import {chargeCompute} from './hosted-budget.js';
+import {digest} from './hosted-notify.js';
 
 export const hostedOn = env => env.HOSTED_ALWAYS_ON === 'on';
 export const RUN_TOKEN_MINUTES = 30, INACTIVE_DAYS = 14, INBOX_MAX = 200, TRIAL_FREQ_HOURS = 24, MIN_FREQ_HOURS = 4;
@@ -99,7 +100,8 @@ export async function result(request, env, now = new Date()) {
   await env.STATS.prepare('DELETE FROM hosted_inbox WHERE account = ? AND id NOT IN (SELECT id FROM hosted_inbox WHERE account = ? ORDER BY id DESC LIMIT ?)').bind(run.account, run.account, INBOX_MAX).run();
   const next = iso(now.getTime() + (await env.STATS.prepare('SELECT freq_hours FROM hosted_schedules WHERE account = ?').bind(run.account).first())?.freq_hours * HOUR);
   await env.STATS.prepare("UPDATE hosted_schedules SET next_run_at = ? WHERE account = ? AND state = 'on'").bind(next, run.account).run();
-  return Response.json({ok: true, stored: matches.length});
+  const mailed = await digest(env, run.account, matches, now);   // one digest e-mail per run with new matches (src/hosted-notify.js)
+  return Response.json({ok: true, stored: matches.length, mailed: mailed.sent});
 }
 
 // GET /api/hosted/inbox?after=<id> (install key): the matches that arrived while the app was closed. Also counts as app contact (resets the 14-day pause clock).
