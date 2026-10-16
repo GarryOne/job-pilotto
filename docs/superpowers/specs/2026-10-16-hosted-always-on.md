@@ -216,7 +216,7 @@ Hosted Always on for trial users needs the **trial budget, not payments** (owner
 - [x] Spec read by the owner; questions 1-4 answered (proof: none: answers relayed by cc, see Decided above)
 - [x] Probe: container run measured, §3 estimate kept beside the measured numbers (proof: none: measured by the one-off CI job hosted-probe.yml, GitHub Actions run 38970122801, numbers in §3)
 - [x] PR 1 (site): tables, install-bound tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
-- [x] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py; the R2 side is the Worker's, PR 3)
+- [x] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py)
 - [ ] PR 3 (site): cron tick, Queue, container start, trial-budget debit, global caps, 14-day auto-pause, guards, export and delete (proof: site/test/hosted-guards.test.js)
 - [ ] PR 0 (site, job-pilotto-a6, #1094): migration 0082 trial columns on `pro_accounts`, `createAccount(..., {plan})` (proof: site/test/pro-credit.test.js)
 - [ ] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling (proof: site/test/hosted-notify.test.js)
