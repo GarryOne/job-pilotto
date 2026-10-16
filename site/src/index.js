@@ -18,6 +18,7 @@ import {view as intelligenceView} from './intelligence.js';
 import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as opsIngest, view as opsView} from './ops-overview.js';
+import {view as monetizationView} from './monetization.js';
 import {ingest as benchmarkIngest, view as benchmarkView} from './benchmark.js';
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from './jobcost.js';
 import {digestView, view as realFormFillingView} from './real-form-filling.js';
@@ -132,7 +133,7 @@ async function route(request, env, ctx) {
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (src/test-mail.js)
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
-    '/admin/operations/overview': opsView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
+    '/admin/operations/overview': opsView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
     '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (src/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e-report.js)
