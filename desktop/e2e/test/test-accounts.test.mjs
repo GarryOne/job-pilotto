@@ -81,3 +81,30 @@ test('with that email the app signs in at the host (modeOf), with the fake one i
   assert.equal(modeOf({}, 'tenant.wd3.example.test', 'ada.tester@example.test', item, true), 'sign-up');
   assert.equal(modeOf({}, 'tenant.wd3.example.test', item, item, true), 'sign-in');
 });
+
+// The owner's REAL account on a site that also has a test account (career74.sapsf.eu, 16 Oct 2026): the real one is the product's item job-pilotto.<host>.password in the owner's Keychain
+// (Settings → Credentials), the test one job-pilotto.test-account.<host>.*. A test reads the second and never the first, for any host.
+import {testHosts, replayAccounts} from '../lib/test-accounts.mjs';
+const SAME_HOST = 'career74.sapsf.eu', REAL = `job-pilotto.${SAME_HOST}.password`, REAL_EMAIL = `job-pilotto.${SAME_HOST}.email`;
+
+test('on a host where the owner has a real account too, a test reads only the test-account items, never the real one', () => {
+  const asked = [], secrets = {[REAL]: 'REAL-PASSWORD', [REAL_EMAIL]: 'real@example.com', [`job-pilotto.test-account.${SAME_HOST}.password`]: 'test-password', [`job-pilotto.test-account.${SAME_HOST}.email`]: 'test+jp@example.com'};
+  const got = testAccounts({JP_TEST_ACCOUNT_HOSTS: SAME_HOST}, {keychain: service => { asked.push(service); if (!(service in secrets)) throw new Error('not found'); return secrets[service]; }});
+  assert.deepEqual(got, {[SAME_HOST]: {email: 'test+jp@example.com', password: 'test-password'}}, 'the test account, not the real one');
+  assert.deepEqual(asked.sort(), [`job-pilotto.test-account.${SAME_HOST}.email`, `job-pilotto.test-account.${SAME_HOST}.password`]);
+  assert.ok(!asked.includes(REAL) && !asked.includes(REAL_EMAIL), 'the real item is never asked for');
+  // a host that has ONLY the real account is not a test account at all: nothing is read
+  const none = [], dump = ['job-pilotto.career74.sapsf.eu.password', 'job-pilotto.other.example.password'].map(name => `keychain: "/x"\nclass: "genp"\nattributes:\n    "acct"<blob>="job-pilotto"\n    "icmt"<blob>="email=real@example.com"\n    "svce"<blob>="${name}"\n`).join('');
+  assert.deepEqual(testHosts(() => dump), [], 'a real account is never listed as a test account');
+  assert.deepEqual(testAccounts({}, {hosts: () => testHosts(() => dump), keychain: service => { none.push(service); return 'v'; }}), {});
+  assert.deepEqual(none, [], 'no item is read for a host that has only a real account');
+});
+
+test('a replay and the harness\'s own source never reach for a real account\'s item', () => {
+  assert.deepEqual(replayAccounts({testAccountHosts: [SAME_HOST]}, '')[SAME_HOST].email, 'test-account@example.com', 'a replay signs in with a fake account, whatever the Keychain holds');
+  const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  const source = read('lib/test-accounts.mjs');
+  const keychainReads = [...source.matchAll(/keychain\(`([^`]*)`\)/g)].map(found => found[1]);
+  assert.deepEqual(keychainReads, ['job-pilotto.test-account.${host}.email', 'job-pilotto.test-account.${host}.password'], 'the only Keychain reads of the test accounts name test-account items');
+  assert.ok(!/replayAccounts[\s\S]{0,600}find-generic-password/.test(source), 'replayAccounts does not touch the Keychain');
+});
