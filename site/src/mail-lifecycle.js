@@ -32,15 +32,16 @@ async function trialOf(env, account, now) {
 // -> {left: n, ending: n, paused: n} mails sent today.
 export async function run(env, now = new Date()) {
   const done = {left: 0, ending: 0, paused: 0};
+  const reminders = env.TRIAL_REMINDERS === 'on';   // owner, 17 Oct 2026: the trial reminders push Pro, so they are off by default
   if (!env.STATS || !env.WAITLIST) return done;
   const accounts = (await env.STATS.prepare("SELECT id, email, created_at, trial_started_at FROM pro_accounts WHERE plan = 'trial' AND status = 'active' AND service_mail_off_at IS NULL ORDER BY created_at LIMIT ?").bind(MAX_PER_RUN).all()).results || [];
   for (const account of accounts) {
     const trial = await trialOf(env, account, now);
     const left = FREE_APPLICATIONS - trial.used;
-    if (left > 0 && left <= LEFT_AT && !await sentSince(env, account.email, 'trial-left', '')) {
+    if (reminders && left > 0 && left <= LEFT_AT && !await sentSince(env, account.email, 'trial-left', '')) {
       if ((await send(env, 'trial-left', account.email, {left}, {now})).ok) done.left++;
     }
-    if (trial.used >= FREE_APPLICATIONS && trial.daysLeft > 0 && trial.daysLeft <= ENDING_DAYS && !await sentSince(env, account.email, 'trial-ending', '')) {
+    if (reminders && trial.used >= FREE_APPLICATIONS && trial.daysLeft > 0 && trial.daysLeft <= ENDING_DAYS && !await sentSince(env, account.email, 'trial-ending', '')) {
       if ((await send(env, 'trial-ending', account.email, {days: trial.daysLeft, pricingUrl: PRICING_URL}, {now})).ok) done.ending++;
     }
   }
@@ -49,14 +50,14 @@ export async function run(env, now = new Date()) {
     .bind(MAX_PER_RUN).all().catch(() => ({results: []}))).results || [];
   for (const row of paused) {
     if (await sentSince(env, row.email, 'always-on-paused', new Date(now.getTime() - 30 * DAY).toISOString())) continue;
-    if ((await send(env, 'always-on-paused', row.email, {reason: row.pause_reason, pricingUrl: PRICING_URL}, {now})).ok) done.paused++;
+    if ((await send(env, 'always-on-paused', row.email, {reason: row.pause_reason, pricingUrl: PRICING_URL, pro: env.MARKETING_MAIL === 'on'}, {now})).ok) done.paused++;
   }
   return done;
 }
 
-// The Pro-launch mail to every opted-in address that has not had it (owner sends it by hand: POST /admin/mail/launch). env.MAIL_LAUNCH = "on" is the flag; without ?send=1 it only counts.
+// The Pro-launch mail to every opted-in address that has not had it (owner sends it by hand: POST /admin/mail/launch). env.MAIL_LAUNCH = "on" and env.MARKETING_MAIL = "on" are the flags; without ?send=1 it only counts.
 export async function launch(env, {send: really = false, now = new Date()} = {}) {
-  if (env.MAIL_LAUNCH !== 'on') return {off: true};
+  if (env.MAIL_LAUNCH !== 'on' || env.MARKETING_MAIL !== 'on') return {off: true};
   const rows = (await env.STATS.prepare('SELECT email FROM pro_accounts WHERE marketing_opt_in = 1 ORDER BY created_at').all()).results || [];
   const todo = [];
   for (const {email} of rows) if (!await sentSince(env, email, 'pro-launch', '')) todo.push(email);
