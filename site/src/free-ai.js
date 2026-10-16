@@ -7,6 +7,7 @@ import {verifyLicense} from './license.js';
 import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from './free-ai-translate.js';
 import {accountNeurons} from './free-ai-usage.js';
 import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-models.js';
+import {PRO_PER_MINUTE, chargeCall, proLane} from './pro-ai.js';
 
 // Per install (owner, 16 Oct 2026): 30 calls a minute, $0.30 a day and $3 a month (money, not calls), 1.5M tokens a day. Global: alert at $3 a day, stop at $10 a day, and a month line: alert at $40, stop at $60
 // (the values in force are wrangler.toml's vars; these are the tight defaults. env FREE_AI_INSTALL_MINUTE_CALLS / FREE_AI_ALERT_USD / FREE_AI_STOP_USD / FREE_AI_MONTH_ALERT_USD / FREE_AI_MONTH_STOP_USD / FREE_AI_INSTALL_DAY_USD / FREE_AI_INSTALL_MONTH_USD).
@@ -43,19 +44,21 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (!access) return error(401, 'Free AI needs this install\'s token. Restart Job Pilotto and try again.', 'authentication_error');
   if (path === '/v1/models' && request.method === 'GET') return Response.json({data: [], has_more: false});   // key checks
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
+  const pro = await proLane(env, access.who);   // a Pro account with credit: its own lane (src/pro-ai.js); null = the Free rules
+  if (pro?.blocked) return error(402, pro.blocked, 'billing_error');
 
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), month = day.slice(0, 7), minute = now.toISOString().slice(0, 16);
   const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${access.who}`};
   const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons, life] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
-  if (microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
-  if (globalMonth >= monthStopUsd(env) * 1e6) return error(503, BUSY_MONTH);
+  if (!pro && microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
+  if (!pro && globalMonth >= monthStopUsd(env) * 1e6) return error(503, BUSY_MONTH);
   const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
   const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
-  if (seen >= allowance) return error(503, BUSY);
-  if (perMinute >= num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute)) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
-  if (!access.license && life >= trialUsd(env) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
-  if (installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
-  if (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay) return error(429, DAY_MESSAGE, 'rate_limit_error');
+  if (!pro && seen >= allowance) return error(503, BUSY);
+  if (perMinute >= (pro ? PRO_PER_MINUTE : num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute))) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
+  if (!pro && !access.license && life >= trialUsd(env) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
+  if (!pro && installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
+  if (!pro && (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay)) return error(429, DAY_MESSAGE, 'rate_limit_error');
 
   let body;
   try { body = await request.json(); } catch { return error(400, 'Bad request.', 'invalid_request_error'); }
@@ -87,6 +90,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
     kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.dayUsd, String(installDay + after), {expirationTtl: 2 * 86400}), kv.put(keys.monthUsd, String(installMonth + after), {expirationTtl: 40 * 86400}), kv.put(keys.globalMonth, String(globalMonth + after), {expirationTtl: 40 * 86400}), ...(access.license ? [] : [kv.put(keys.life, String(life + after))]),
     kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + after), {expirationTtl: 2 * 86400}), kv.put(keys.neurons, String(Math.round(neurons + neuronsOf(usd))), {expirationTtl: 2 * 86400}),
     recordCost(env, access.who, request.headers.get('x-jp-action'), model, message.usage, usd, now),
+    chargeCall(env, pro, after, request.headers.get('x-jp-action'), now),
     alertOnce(env, kv, day, microUsd, microUsd + after, fetcher),
     monthAlert(env, kv, month, globalMonth, globalMonth + after, fetcher),
     neuronAlert(env, kv, day, seen + neuronsOf(usd), allowance, fetcher),
