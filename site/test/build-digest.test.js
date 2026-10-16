@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {buildPrompt, countOf, dayWords, makeDigest, prList, render, summarize, validate, zurichDay} from '../src/build-digest.js';
+import {buildPrompt, countOf, dayWords, makeDigest, plan, prList, render, summarize, validate, zurichDay, zurichHour} from '../src/build-digest.js';
 
 const prs = JSON.parse(readFileSync(new URL('./fixtures/prs-2026-10-16.json', import.meta.url), 'utf8'));
 const numbers = prs.map(pr => pr.number);
@@ -81,4 +81,21 @@ test('makeDigest: asks once, validates, reports the tokens; a bad first answer i
   const none = fakeFetch(['unused']);
   assert.match((await makeDigest({day: '2026-10-16', prs: [], key: 'k', fetch: none.fetch})).markdown, /Nothing was merged/);
   assert.equal(none.calls.length, 0);
+});
+
+test('plan: a draft only when the PR set changed, once an hour, 8 a day; the final one from 23:00 Zurich or after midnight, once', () => {
+  const now = new Date('2026-10-16T12:00:00Z'), at = minutes => new Date(now.getTime() - minutes * 60000).toISOString();
+  const base = {now, numbers: [1, 2, 3], zurichHour: 14};
+  assert.deepEqual(plan({...base, stored: {numbers: null, drafts: 0}}), {final: false});
+  assert.deepEqual(plan({...base, numbers: [], stored: {numbers: null}}), {skip: 'nothing merged'});
+  assert.deepEqual(plan({...base, stored: {numbers: [3, 2, 1], drafts: 2, updatedAt: at(200)}}), {skip: 'unchanged'});
+  assert.deepEqual(plan({...base, stored: {numbers: [1, 2], drafts: 2, updatedAt: at(20)}}), {skip: 'updated less than an hour ago'});
+  assert.deepEqual(plan({...base, stored: {numbers: [1, 2], drafts: 8, updatedAt: at(200)}}), {skip: 'already 8 drafts today'});
+  assert.deepEqual(plan({...base, stored: {numbers: [1, 2], drafts: 2, updatedAt: at(61)}}), {final: false});
+  assert.deepEqual(plan({...base, zurichHour: 23, stored: {numbers: [1, 2, 3], drafts: 8, updatedAt: at(5)}}), {final: true});
+  assert.deepEqual(plan({...base, late: true, stored: {numbers: [1], drafts: 1}}), {final: true});
+  assert.deepEqual(plan({...base, zurichHour: 23, stored: {finalAt: at(1)}}), {skip: 'closed'});
+  assert.equal(zurichHour(new Date('2026-10-16T21:10:00Z')), 23);   // summer time: 23:10 in Zurich
+  assert.equal(zurichHour(new Date('2026-12-16T22:10:00Z')), 23);   // winter time
+  assert.equal(zurichHour(new Date('2026-10-16T22:10:00Z')), 0);
 });
