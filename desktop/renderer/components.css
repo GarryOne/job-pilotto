@@ -567,7 +567,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .ui-choice.is-compact { padding: var(--sp-3) var(--sp-4); align-items: center; }
 .ui-choice.is-compact .ui-tile { width: 32px; height: 32px; }
 .ui-logo { display: block; width: 18px; height: 18px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
-.ui-logo-claude { -webkit-mask-image: url(assets/ai/claude.svg); mask-image: url(assets/ai/claude.svg); }
+.ui-logo-anthropic { -webkit-mask-image: url(assets/ai/anthropic.svg); mask-image: url(assets/ai/anthropic.svg); }
 .ui-logo-openai { -webkit-mask-image: url(assets/ai/openai.svg); mask-image: url(assets/ai/openai.svg); }
 .ui-choice { position: relative; display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; color: inherit; cursor: pointer; }
