@@ -187,3 +187,11 @@ test('Free AI section shows the day\'s neurons as a share of the free allowance'
   assert.equal(summary.todayNeurons, 5000); assert.equal(summary.allowancePct, 50);
   assert.match(freeSection(summary, 'last 30 days'), /5000 of 10000 neurons \(50%\)/);
 });
+
+test('Free AI section shows the account\'s own neuron count from Cloudflare when it is known, and nothing when it is not', async () => {
+  const {freeSection, freeSummary} = await import('../src/free-ai-cost.js');
+  const summary = freeSummary([], new Date('2026-10-16T10:00:00Z'));
+  assert.match(freeSection(summary, 'last 30 days', 11014.4), /Account today: 11014 neurons \(from Cloudflare\)/);
+  assert.doesNotMatch(freeSection(summary, 'last 30 days', null), /Account today/);
+  assert.doesNotMatch(freeSection(summary, 'last 30 days'), /Account today/);
+});
