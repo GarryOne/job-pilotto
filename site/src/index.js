@@ -21,6 +21,8 @@ import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as opsIngest, view as opsView} from './ops-overview.js';
 import {ingest as buildLogIngest, view as buildLogView} from './build-log.js';
 import {view as monetizationView} from './monetization.js';
+import {launchRoute, view as signupsView} from './signups.js';
+import * as mailLifecycle from './mail-lifecycle.js';
 import {ingest as benchmarkIngest, view as benchmarkView} from './benchmark.js';
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from './jobcost.js';
 import {digestView, view as realFormFillingView} from './real-form-filling.js';
@@ -138,10 +140,11 @@ async function route(request, env, ctx) {
   if (pathname === '/install') return install(request, env, ctx, stats.record);
   if (pathname === '/api/hit') return stats.hit(request, env);
   if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (src/releases.js)
+  if (pathname === '/admin/mail/launch') return launchRoute(request, env);   // the Pro-launch mail, by hand (src/signups.js)
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (src/test-mail.js)
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
-    '/admin/operations/overview': opsView, '/admin/operations/build-log': buildLogView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
+    '/admin/operations/overview': opsView, '/admin/operations/build-log': buildLogView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
     '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (src/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e-report.js)
@@ -235,6 +238,7 @@ export default {
     ctx.waitUntil((env.STATS ? pruneLearning(env.STATS) : Promise.resolve({})).then(removed => console.log(`learning pruned: ${JSON.stringify(removed)}`)).catch(error => console.log(`learning not pruned: ${error.message}`)));   // aliases.js pruneLearning
     ctx.waitUntil((env.STATS ? tidyIntelligence(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`intelligence tidy: ${error.message}`)));
     ctx.waitUntil(mail.purge(env).catch(error => console.error(`mail log purge: ${error.message}`)));
+    ctx.waitUntil(mailLifecycle.run(env).catch(error => console.error(`mail lifecycle: ${error.message}`)));   // trial reminders, Always on paused (src/mail-lifecycle.js)
     ctx.waitUntil(testMail.purge(env).catch(error => console.error(`test mail purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? tidyKnowledge(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`knowledge tidy: ${error.message}`)));
   },

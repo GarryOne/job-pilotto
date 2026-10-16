@@ -14,6 +14,7 @@ export const PAGES = [
   {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
   {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
+  {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/form-learning', group: 'Intelligence', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', name: 'Form Learning', icon: '🧬'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
