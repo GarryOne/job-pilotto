@@ -13,10 +13,16 @@ from . import contribute, coverage, digest, first_jobs, doctor, employer_index, 
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
+from .ai import engine as _engine
 from .store_access import open_run
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
                             profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
+
+
+def ai_ready():
+    """An AI is ready: unscored jobs wait for a score and the digest leaves them out, as the app's Jobs list does."""
+    return _engine.ready()
 
 
 def search(args, stores=None):
@@ -267,7 +273,8 @@ def search(args, stores=None):
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = digest.build_digest(db, args.limit, hidden_urls=hidden, page=args.page,
-                                                      seed=seed, shown_ids=shown_ids, saved_urls=saved)
+                                                      seed=seed, shown_ids=shown_ids, saved_urls=saved,
+                                                      hide_unscored=ai_ready())
     text = '\n\n'.join(messages)
     REPORTS.mkdir(parents=True, exist_ok=True)
     (REPORTS / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')

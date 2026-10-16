@@ -32,11 +32,7 @@ def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
 
-def _place_unclear(job):
-    """True when no refresh can place or score this job: its location is only a country and its posting has no text to read for the place
-    (#323: such a job stayed hidden as "waiting" forever). The list shows it, unscored, its place unclear (owner, 12 Oct 2026)."""
-    from .sources import feeds
-    return feeds.place_of(job) == 'vague' and not (job.get('description') or '').strip()
+_place_unclear = digest.place_unclear   # one rule for the Jobs list and the digest
 
 
 def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None, hide_unscored=False):
