@@ -13,8 +13,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: hosted-probe
-  cancel-in-progress: false
+  group: hosted-probe-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}   # a PR's newer push cancels its older run, a by-hand run never
 jobs:
   probe:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-hosted-probe'
