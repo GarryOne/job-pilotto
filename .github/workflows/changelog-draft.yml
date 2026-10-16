@@ -1,0 +1,42 @@
+name: CI · Changelog draft
+# Drafts the public changelog entry of one STABLE app version (tools/changelog-draft.mjs, Haiku via DIGEST_ANTHROPIC_KEY) and shows it in the run's summary; it never publishes. After the owner's yes the entry goes
+# into site/public/changelog.json with `node tools/changelog-draft.mjs --add draft.json` (re-checked: nothing internal, no Pro plan or price) and a normal PR. By hand only: `gh workflow run changelog-draft.yml -f tag=desktop-v0.7.16`.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'A stable desktop tag (empty: the newest stable)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-draft-${{ github.run_id }}   # a run of its own (tests/test_workflow_contract.py)
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      DIGEST_ANTHROPIC_KEY: ${{ secrets.DIGEST_ANTHROPIC_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the commits between two release tags
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Draft the entry
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          node tools/changelog-draft.mjs ${TAG:+--tag "$TAG"} --out "$RUNNER_TEMP/draft.json"
+          { echo '### Changelog draft (not published)'; echo '```json'; cat "$RUNNER_TEMP/draft.json"; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: changelog-draft
+          path: ${{ runner.temp }}/draft.json
