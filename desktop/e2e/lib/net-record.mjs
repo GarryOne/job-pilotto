@@ -32,21 +32,26 @@ export const headerText = value => { const text = String(value ?? ''); if (!/[\u
 export function netRecorder(context, {startedAt = Date.now(), owner = new Map()} = {}) {
   const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
   context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
+  // A reply's body is asked for the moment its headers arrive, not when the request is reported finished: a page that navigates away right after a reply (a form built from an answer and
+  // submitted: SuccessFactors' Apply, POST /services/cas/createpayload/, 16 Oct 2026) has lost the body by then, and the old late read recorded an empty 200 that the replay served as the answer.
+  const early = new Map();
+  context.on('response', response => { const request = response.request(); if (recordable(request.url())) early.set(request, response.body().then(body => ({body}), () => ({lost: true}))); });
   const done = async (request, failed) => {
     inFlight.delete(request);
     if (!recordable(request.url())) return;
     // A request reported failed AFTER its reply came (the page stopped reading it, e.g. a CV upload to storage: Ashby, 14 Oct 2026) keeps that reply: replayed as failed, the
     // site shows "failed to upload" where live went on. Only a request with no reply at all is replayed as failed.
     const began = t0.get(request) ?? Date.now(), ended = Date.now(), response = await request.response().catch(() => null);
-    let body = null;
-    try { body = response ? await response.body() : null; } catch { body = null; }
+    let body = null, lost = false;
+    if (early.has(request)) { const got = await early.get(request); early.delete(request); body = got.body ?? null; lost = !!got.lost; }
+    else { try { body = response ? await response.body() : null; } catch { body = null; lost = true; } }   // no 'response' event seen (a request reported at once): the late read, as before
     const headers = response ? await response.allHeaders().catch(() => response.headers()) : {}, sent = await request.allHeaders().catch(() => request.headers());
     body = repairUnlabeledText(body, headers['content-type']);   // the inspector's double-encoded unlabeled text, back to the bytes the browser read
     const hash = body ? sha(body) : '';
     if (body) bodies.set(hash, body);
     entries.push({method: request.method(), url: request.url(), type: request.resourceType(), mode: sent['sec-fetch-mode'] || '', startMs: began - startedAt, waitMs: ended - began,
       bodyKey: bodyKey(request.postDataBuffer(), sent['content-type'] || ''), status: response?.status() ?? 0, failed: !response, ...(failed ? {error: String(request.failure()?.errorText || '').slice(0, 80)} : {}),
-      headers: Object.fromEntries(Object.entries(headers).filter(([name]) => KEEP_HEADER.test(name))), hadCookie: 'set-cookie' in headers, cookies: cookiesOf(headers['set-cookie'], request.url(), owner), hash, size: body?.length || 0});
+      headers: Object.fromEntries(Object.entries(headers).filter(([name]) => KEEP_HEADER.test(name))), hadCookie: 'set-cookie' in headers, cookies: cookiesOf(headers['set-cookie'], request.url(), owner), hash, size: body?.length || 0, ...(lost ? {bodyLost: true} : {})});   // bodyLost: its reply could not be read: the replay would serve an EMPTY answer; the guard refuses the row (lib/record-guard.mjs)
   };
   const track = promise => { pending.add(promise); promise.finally(() => pending.delete(promise)); };
   context.on('requestfinished', request => track(done(request, false)));
