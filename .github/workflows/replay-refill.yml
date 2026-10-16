@@ -17,7 +17,7 @@ name: CI · Replay refill
 on:
   push:
     branches: [main]
-    paths: ['desktop/e2e/ladder-baseline.json', 'desktop/lib/account-judge.js', 'desktop/lib/form-judge.js', 'desktop/lib/ladder/fill-repair.js', 'desktop/lib/ladder/fill-verify.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung4-picture.js', 'extension/page/fill-read.js', 'worker/src/answer-facts.js', 'worker/src/answer-missing.js', 'worker/src/cv-facts.js', 'worker/src/written-answer.js', 'worker/src/extension.js']   # exactly the files that build an ask (lib/prompt-sources.mjs); the first job decides whether the ask really changed
+    paths: ['desktop/e2e/ladder-baseline.json', 'desktop/lib/account-judge.js', 'desktop/lib/form-judge.js', 'desktop/lib/ladder/fill-repair.js', 'desktop/lib/ladder/fill-verify.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung4-picture.js', 'extension/page/fill-read.js', 'worker/src/answer-examples.js', 'worker/src/answer-facts.js', 'worker/src/answer-missing.js', 'worker/src/cv-facts.js', 'worker/src/written-answer.js', 'worker/src/extension.js']   # exactly the files that build an ask (lib/prompt-sources.mjs); the first job decides whether the ask really changed
   workflow_dispatch:
     inputs:
       pr:
