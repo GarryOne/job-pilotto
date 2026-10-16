@@ -2,6 +2,7 @@
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import * as sentryAlert from './sentry-alert.js';
 import {replaysIngest} from './applying-replays.js';
 import {fidelityIngest} from './applying-fidelity.js';
 import {verifyIngest} from './applying-verify.js';
@@ -197,11 +198,18 @@ async function route(request, env, ctx) {
   return env.ASSETS.fetch(request);
 }
 
+const SENTRY_CRON = '*/5 * * * *';   // wrangler.toml [triggers]
+
 export default {
   fetch: metered,
   email: (message, env) => testMail.receive(message, env),   // Cloudflare Email Routing -> this Worker (dashboard route, src/test-mail.js)
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
+    if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (src/sentry-alert.js); the daily jobs below run once a day
+      ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
+      return;
+    }
+    ctx.waitUntil(sentryAlert.purge(env).catch(error => console.error(`sentry alert purge: ${error.message}`)));
     // The day's totals first (kept for good), then the 90-day purge of raw rows.
     ctx.waitUntil(pool.rollup(env).catch(error => console.error(`pool rollup: ${error.message}`)).then(() => pool.purge(env)).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })
