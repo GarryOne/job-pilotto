@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import {checkJourney, liveMarksOf, marksOfSteps} from '../lib/journey-check.mjs';
 import {stepOf} from '../lib/journey-watch.mjs';
 import {PAGE_LINES} from '../../renderer/session-state.js';
-import {LINE_PAGES} from '../../lib/review.js';
 
 const item = {id: 's1', kind: 'form', status: 'running', startedAt: new Date().toISOString()};
 const PANEL = {present: true, open: false, report: true, ring: '', pill: '', headline: '', count: ''};
@@ -14,7 +13,7 @@ const log = (...lines) => lines.map((line, n) => `2026-10-16T12:52:${String(10 +
 const LIVE = log('[review] page s1: reading', '[review] page s1: posting', '[review] page s1: opening', '[review] page s1: account', '[review] page s1: signing-in', '[review] page s1: form');
 
 test('the card says each step in the owner\'s words, for every step the extension can send', () => {
-  for (const page of LINE_PAGES) assert.equal(at({page}).card.words, PAGE_LINES[page][0], page);
+  for (const page of Object.keys(PAGE_LINES)) assert.equal(at({page}).card.words, PAGE_LINES[page][0], page);   // desktop/test/page-steps.test.js keeps these equal to review.LINE_PAGES
 });
 
 test('the live run\'s marks come from its page lines (repeats folded); a log from before them has none, so the row\'s blessed marks stand in', () => {
