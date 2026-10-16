@@ -49,6 +49,8 @@ import * as mailUnsub from './mail-unsub.js';
 import {status as proStatus} from './pro.js';
 import {status as trialStatus} from './trial.js';
 import * as hosted from './hosted.js';
+import * as hostedState from './hosted-state.js';
+import {tick as hostedTick} from './hosted-tick.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
@@ -190,6 +192,9 @@ async function route(request, env, ctx) {
   if (pathname === '/api/trial/status') return trialStatus(request, env);   // the free trial, one answer for the app and Always on (src/trial.js)
   if (pathname === '/api/hosted/schedule') return hosted.schedule(request, env);   // hosted Always on: the install's schedule (src/hosted.js; 404 while HOSTED_ALWAYS_ON is off)
   if (pathname === '/api/hosted/result') return hosted.result(request, env);   // a container's one result post (run token)
+  if (pathname === '/api/hosted/state') return hostedState.state(request, env);   // the container's state, encrypted in R2 (src/hosted-state.js)
+  if (pathname === '/api/hosted/config') return hostedState.config(request, env);   // profile, search and CV text the app pushes; the container reads
+  if (pathname === '/api/hosted/export' || pathname === '/api/hosted/data') return hostedState.own(request, env);   // download and delete my hosted data
   if (pathname === '/api/hosted/inbox') return hosted.inbox(request, env);   // the matches that arrived while the app was closed
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
@@ -216,6 +221,7 @@ export default {
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
     if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (src/sentry-alert.js); the daily jobs below run once a day
+      ctx.waitUntil(hostedTick(env).then(done => { if (done.enqueued || Object.keys(done.paused).length) console.log(`hosted tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`hosted tick: ${error.message}`)));   // hosted Always on: due schedules to the Queue (src/hosted-tick.js; nothing while HOSTED_ALWAYS_ON is off)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
       return;
     }

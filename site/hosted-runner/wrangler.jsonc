@@ -1,0 +1,13 @@
+{
+  // The hosted Always on runner (see worker.js). standard-1 (4 GiB): measured 0.8-1.2 GB per run. max_instances is the number of runs at once.
+  "name": "www-hosted-runner",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "containers": [
+    {"class_name": "HostedRunner", "image": "../../hosted/Dockerfile", "image_build_context": "../..", "instance_type": "standard-1", "max_instances": 20}
+  ],
+  "durable_objects": {"bindings": [{"name": "RUNNER", "class_name": "HostedRunner"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["HostedRunner"]}],
+  "queues": {"consumers": [{"queue": "hosted-runs", "max_batch_size": 5, "max_batch_timeout": 5, "max_retries": 0, "max_concurrency": 20}]}
+}
