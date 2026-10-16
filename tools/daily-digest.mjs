@@ -6,6 +6,7 @@
 import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {MODEL, countOf, makeDigest, plan, zurichDay, zurichHour} from '../site/src/build-digest.js';
+import {post} from '../site/src/build-digest-telegram.js';
 import {usageCost} from '../desktop/e2e/lib/vision.mjs';
 
 const repo = process.env.GITHUB_REPOSITORY || process.env.REPO || 'GarryOne/job-pilotto';
@@ -37,6 +38,9 @@ async function runDay({day, late, key, publishKey, now}) {
   if (publishKey) {
     const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${publishKey}`, 'Content-Type': 'application/json'}, body: JSON.stringify(result)});
     if (!response.ok) throw new Error(`the site refused the digest (${response.status})`);
+    const stored = await response.json().catch(() => ({}));
+    // The post goes out once: only when the site stored THIS final digest (a closed day answers "ignored", so a repeat run posts nothing).
+    if (decision.final && stored.final && !stored.ignored) console.log(`Telegram: ${JSON.stringify(await post(result, {token: process.env.BUILDLOG_TELEGRAM_TOKEN, chat: process.env.BUILDLOG_TELEGRAM_CHAT}))}`);
   } else console.log('(SELFHEAL_PUBLISH_KEY is not set: nothing stored)');
   return result;
 }
