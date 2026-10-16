@@ -30,7 +30,7 @@ import {livePresses} from './replay-candidate.mjs';
 import {blockVerdict, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
 import {keyRefusal, refillCap, refillKey} from './refill.mjs';
-import {allowedValues, contactFor, seedTestAccounts, testAccounts} from './test-accounts.mjs';
+import {allowedValues, contactFor, seedTestAccounts, signedInHosts, testAccounts} from './test-accounts.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
 import {keepRecord, netRecorder} from './net-record.mjs';
@@ -155,7 +155,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
       for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
       const scrollbar = await run.page.evaluate(() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; }).catch(() => null);   // the replay draws the same (lib/scrollbar.mjs)
-      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, unfinishedKinds: settled.kinds || {}, entries: kept.entries, stats: kept.stats}));
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', testAccountHosts: signedInHosts(app.logText()), startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, unfinishedKinds: settled.kinds || {}, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
     }
