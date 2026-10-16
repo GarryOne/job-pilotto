@@ -12,11 +12,23 @@ export function restart() {
   return true;
 }
 // The one place the debugger is attached (it shows Chrome's "started debugging this browser" bar): never while stopped, and only on a tab the app opened for an application.
+// Several users share one attachment (the fill's menu clicks and typing, the repair clicks, the picture, the form trace: trace.js): each attachDebugger is matched by ONE detachDebugger, and
+// Chrome's detach happens when the last user leaves, so a menu click finishing never ends the trace (spec 2026-10-16-report-from-the-trace.md §1). Guard: desktop/test/trace-debugger.test.js.
+const users = new Map();   // tab id -> how many hold the attachment
 export async function attachDebugger(tabId) {
   if (isStopped()) throw new Error('stopped: the person pressed Stop');
   const key = `armed:${tabId}`;
   let armed = !!(await chrome.storage.session.get(key).catch(() => ({})))[key];
   if (!armed) armed = String((await chrome.tabs.get(tabId).catch(() => null))?.url || '').includes('#jobpilotto-fill');
   if (!armed) throw new Error('not one of the tabs the app opened for an application');
-  await chrome.debugger.attach({tabId}, '1.3');
+  if (!users.get(tabId)) await chrome.debugger.attach({tabId}, '1.3');
+  users.set(tabId, (users.get(tabId) || 0) + 1);
 }
+export async function detachDebugger(tabId) {
+  const left = (users.get(tabId) || 0) - 1;
+  if (left > 0) { users.set(tabId, left); return; }
+  users.delete(tabId);
+  await chrome.debugger.detach({tabId}).catch(() => {});
+}
+export const forgetDebuggerUsers = tabId => { if (tabId === undefined) users.clear(); else users.delete(tabId); };   // Chrome detached by itself (a closed tab, DevTools, Stop)
+export const debuggerUsers = tabId => users.get(tabId) || 0;

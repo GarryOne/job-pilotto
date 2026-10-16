@@ -34,36 +34,33 @@
   };
   const ask = message => chrome.runtime.sendMessage(message).catch(() => null);
   const close = () => { card.hidden = true; };
-  const WORDS = {login: 'This page asks you to sign in, so it cannot be reported.', stopped: 'Job Pilotto was stopped, so nothing was recorded.', busy: 'Another report is being recorded.',
-    debugger: 'Chrome would not let Job Pilotto record this tab.', time: 'The recording hit its time limit.', cancelled: 'Cancelled: nothing was kept.'};
+  const WORDS = {stopped: 'Job Pilotto was stopped, so nothing was kept.',
+    off: 'The trace is turned off in Job Pilotto Settings, so there is nothing to report.', empty: 'Nothing has been kept on this page yet (a sign-in page is never kept). Try again after the page has loaded.'};
 
-  function recording() {
-    say('Recording this page', 'Repeat the step that gets stuck. Chrome shows a bar saying it is debugging this browser while this runs. Nothing leaves your Mac yet.', [
-      ['Cancel', false, async () => { await ask({type: 'report-cancel'}); close(); }],
-      ['Stop and review', true, async button => {
-        button.disabled = true; button.textContent = 'Preparing…';
-        const answer = await ask({type: 'report-stop'});
-        if (answer?.ok) say('Review it in Job Pilotto', 'The Job Pilotto app shows exactly what would be sent. Nothing is sent until you press Send there.', [['OK', true, close]]);
-        else say('Nothing was sent', WORDS[answer?.refused] || (answer?.blocked ? 'Job Pilotto could not remove everything personal from it safely, so nothing was kept.' : 'Job Pilotto could not prepare this report.'), [['OK', true, close]]);
-      }]]);
+  // The press hands over the trace Job Pilotto already keeps for this tab: no reload, no new recording. A tab that moved past its first page asks once: the whole journey or this page.
+  async function send(scope, button) {
+    button.disabled = true; button.textContent = 'Preparing…';
+    const answer = await ask({type: 'report-send', scope});
+    if (answer?.ok) say('Review it in Job Pilotto', 'The Job Pilotto app shows exactly what would be sent. Nothing is sent until you press Send there.', [['OK', true, close]]);
+    else say('Nothing was sent', WORDS[answer?.refused] || (answer?.blocked ? 'Job Pilotto could not remove everything personal from it safely, so nothing was kept.' : 'Job Pilotto could not prepare this report.'), [['OK', true, close]]);
   }
-  function confirm() {
-    say('Report this form', 'This tab goes back to the job posting and the application starts again from there; answers on this page may be cleared. Job Pilotto records what the site sends across every page and redirect until you press Stop, so the problem can be fixed. Chrome shows its '
-      + '"debugging this browser" bar meanwhile. Nothing leaves your Mac until you read it and press Send.', [
-      ['Cancel', true, close],
-      ['Start recording', false, async button => {
-        button.disabled = true;
-        const answer = await ask({type: 'report-start'});
-        if (answer?.ok) recording(); else say('Could not start', WORDS[answer?.refused] || 'Job Pilotto could not start recording this page.', [['OK', true, close]]);
-      }]]);
+  async function confirm() {
+    say('Report this form', 'Checking what Job Pilotto kept…', []);
+    const state = await ask({type: 'report-state'});
+    const lead = 'Job Pilotto keeps a trace of this form fill on your Mac, without sign-in pages. The app shows exactly what would be sent. Nothing leaves your Mac until you read it and press Send.';
+    if (!state?.has) { say('Nothing to report yet', WORDS[state?.enabled === false ? 'off' : 'empty'], [['OK', true, close]]); return; }
+    const buttons = [['Cancel', false, close]];
+    if (state.moved) buttons.push(['Only this page', false, button => send('page', button)], ['The whole journey (recommended for fixing)', true, button => send('journey', button)]);
+    else buttons.push(['Review in Job Pilotto', true, button => send('journey', button)]);
+    say('Report this form', lead, buttons);
   }
   flag.addEventListener('click', event => { if (event.isTrusted) { if (card.hidden) confirm(); else close(); } });
   chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') host.remove(); });
 
-  // Drawn only when the switch is on; a page that reloaded while recording (the reload is the start) goes straight back to the recording card.
+  // Drawn only when the switch is on.
   // The panel's full-width "Report this form" (panel-claude.js, where Claude's offer used to be) opens the same card; only while the switch is on.
   window.__jobPilottoReportOpen = () => { if (card.hidden) confirm(); };   // the panel's ⚑ (review.js), always shown
   window.addEventListener('jobpilotto-report-open', () => window.__jobPilottoReportOpen());   // the panel's ⚑ (always shown) and the stuck page's button: the card asks before anything is recorded
-  ask({type: 'report-state'}).then(state => { if (!state?.enabled) return; flag.hidden = false; window.__jobPilottoReportOn = true; window.dispatchEvent(new CustomEvent('jobpilotto-report-ready')); if (state.recording) recording(); });
+  ask({type: 'report-state'}).then(state => { if (!state?.enabled) return; flag.hidden = false; window.__jobPilottoReportOn = true; window.dispatchEvent(new CustomEvent('jobpilotto-report-ready')); if (state.tracing) window.dispatchEvent(new CustomEvent('jobpilotto-trace-on')); });
   document.documentElement.append(host);
 })();

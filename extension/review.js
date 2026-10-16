@@ -42,6 +42,10 @@
   // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): opens the report card (panel-report.js). A page script's click is ignored.
   $('.report-btn').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
 
+  // Chrome's debugging bar is explained once, where a fill starts, the first time a trace is kept (the trace: trace.js; owner, 16 Oct 2026).
+  window.addEventListener('jobpilotto-trace-on', async () => { const {traceBarSeen} = await chrome.storage.local.get('traceBarSeen').catch(() => ({})); if (!traceBarSeen) $('.trace-note').hidden = false; });
+  $('.trace-note .got-it').onclick = () => { $('.trace-note').hidden = true; chrome.storage.local.set({traceBarSeen: true}).catch(() => {}); };
+
   // ---- drawing ----
   function render(list = fields()) {
     const account = !!document.querySelector('input[type=password]');

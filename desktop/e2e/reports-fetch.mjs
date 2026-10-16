@@ -22,8 +22,18 @@ export function decryptBundle(body, wrapped, privatePem) {
   return JSON.parse(zlib.gunzipSync(Buffer.concat([decipher.update(body.subarray(28)), decipher.final()])));
 }
 
+// A trace that crossed a sign-in page has segments (`seg`, a gap between them: the sign-in page itself is never recorded). The replay starts at the first page after the last gap, so no account is ever
+// needed: `entries` is that last segment, `earlier` keeps the pages before it for whoever fixes the step (spec docs/superpowers/specs/2026-10-16-report-from-the-trace.md §6). -> the record
+export function segmented(record) {
+  const last = Math.max(0, ...(record.entries || []).map(entry => entry.seg || 0));
+  if (!last) return {...record, entries: (record.entries || []).map(({seg, ...entry}) => entry)};
+  const strip = ({seg, ...entry}) => entry, mine = (record.entries || []).filter(entry => (entry.seg || 0) === last);
+  return {...record, entries: mine.map(strip), earlier: record.entries.filter(entry => (entry.seg || 0) !== last).map(strip)};
+}
+
 // One bundle as a pool record folder. -> the folder
-export function writeRecord(dir, {record, bodies}) {
+export function writeRecord(dir, {record: whole, bodies}) {
+  const record = segmented(whole);
   const safe = String(record.name).replace(/[^\w.-]+/g, '-').slice(0, 80), into = path.join(dir, safe);
   fs.mkdirSync(path.join(into, 'bodies'), {recursive: true});
   for (const [hash, base64] of Object.entries(bodies || {})) if (/^[0-9a-f]{64}$/.test(hash)) fs.writeFileSync(path.join(into, 'bodies', hash), Buffer.from(base64, 'base64'));

@@ -59,6 +59,7 @@
       </section>
       <p class="muted small step-note"><i data-icon="upload"></i><span>Used Job Pilotto before, here or on another computer?
         <button class="link" id="welcome-import" data-import>Import an export…</button> It brings back your data and restarts.</span></p>
+      <label class="muted small step-note switch-row" id="welcome-trace-row"><i data-icon="flag"></i><input type="checkbox" id="welcome-trace" checked><span>Keep a trace of each form fill, so you can report a problem and we can fix it. Stays on this Mac, sent only when you press Report and confirm, never sign-in pages, deleted when the application ends. Chrome shows a debugging bar while it is kept.</span></label>
       <p class="muted small step-note"><i data-icon="shield"></i><span>Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
         interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous
         shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region),
@@ -1410,9 +1411,9 @@
             <details class="telemetry-shown"><summary>See the shared counts and shapes sent</summary><pre class="log" id="shared-sent">Nothing sent yet.</pre></details>
           </div>
           <div class="setting panel" id="setting-report-form" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Report this form</h3></div>
-              <label class="switch-row"><input type="checkbox" id="report-form-on"><span>Show</span></label></div>
-            <p class="muted panel-lead">When an application gets stuck, a flag appears on its Chrome page. Pressing it records what the site sends while you repeat the step, shows you exactly what would be sent, and sends nothing until you press Send. Never sent: what you typed, passwords, your CV or profile.</p>
+            <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Keep a trace of each form fill</h3></div>
+              <label class="switch-row"><input type="checkbox" id="report-form-on"><span>On</span></label></div>
+            <p class="muted panel-lead">Keep a trace of each form fill, so you can report a problem and we can fix it. It stays on this Mac, is sent only when you press Report and confirm, never includes sign-in pages, and is deleted when the application ends. Chrome shows a debugging bar while Job Pilotto keeps the trace. Never sent: what you typed, passwords, your CV or profile.</p>
             <p class="muted small" id="report-sent-row" hidden><span id="report-sent-count"></span> <button class="secondary" id="report-delete" type="button">Delete them</button></p>
           </div>
           <div class="setting panel" id="setting-pool">

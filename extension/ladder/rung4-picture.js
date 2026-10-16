@@ -7,7 +7,7 @@ import {sketchOf} from '../judge-sketch.js';
 import {hideValues, showValues} from './rung4-page-picture.js';
 import {pressRegister} from '../account-fill.js';
 import {notePress} from '../tabs.js';
-import {attachDebugger, mayAct} from '../stop-state.js';
+import {attachDebugger, detachDebugger, mayAct} from '../stop-state.js';
 import {chooseOption, fillControl} from '../account-act.js';
 import {pressInPage} from '../next-step.js';
 import {viewOf} from './picture-view.js';
@@ -31,7 +31,7 @@ async function shot(live) {
   const target = {tabId: live.id};
   await attachDebugger(live.id);
   try { const {data} = await chrome.debugger.sendCommand(target, 'Page.captureScreenshot', {format: 'jpeg', quality: 60}); return `data:image/jpeg;base64,${data}`; }
-  finally { await chrome.debugger.detach(target).catch(() => {}); }
+  finally { await detachDebugger(live.id); }
 }
 
 // The visible page as a JPEG of at most 1280 px, base64, values hidden while it is taken. null when the tab is not in front.

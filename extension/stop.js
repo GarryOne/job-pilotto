@@ -7,7 +7,7 @@
 // fill's entry, the worker's messages, a tab joining an application). Guard: desktop/test/extension-stop.test.js (it fails when a press or an attach skips these).
 import {IDENTITY_KEYS} from './tab-identity.js';
 import {decide} from './log.js';
-import {isStopped, markStopped, restart as restartState} from './stop-state.js';
+import {forgetDebuggerUsers, isStopped, markStopped, restart as restartState} from './stop-state.js';
 
 export {attachDebugger, isStopped, mayAct} from './stop-state.js';
 let lastRequest = '';
@@ -56,6 +56,7 @@ export async function stopAll(reason = 'the person pressed Stop') {
   const held = new Set(ids);
   for (const target of await chrome.debugger.getTargets().catch(() => [])) if (target.attached && Number.isInteger(target.tabId)) held.add(target.tabId);
   for (const tabId of held) await chrome.debugger.detach({tabId}).catch(() => {});   // only ours detaches; any other client's attach refuses and is left alone
+  forgetDebuggerUsers();   // nobody holds the attachment any more (the form trace is dropped by its own onStopped, messages-report.js)
   for (const tabId of ids) {
     await chrome.storage.session.remove([...IDENTITY_KEYS(tabId), `role:${tabId}`, `armed:${tabId}`, `carried:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`, `next:${tabId}`]).catch(() => {});
     await chrome.scripting.executeScript({target: {tabId, allFrames: true}, world: 'MAIN', func: stoppedPage}).catch(() => {});

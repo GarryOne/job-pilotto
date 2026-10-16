@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {registerReportHandlers} from '../lib/report-handlers.js';
+import {registerReportHandlers, reportFormOn} from '../lib/report-handlers.js';
 import {visitMore} from '../lib/server-hooks.js';
 
 const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
@@ -33,18 +33,15 @@ test('the panel flag is off until the uploader exists and while the switch is of
   assert.match(read('extension/panel-report.js'), /if \(!state\?\.enabled\) return;\s*flag\.hidden = false/, 'the flag is drawn only when the app says so');
 });
 
-test('nothing records before the press: the flag only asks for its state on load; start is sent from a trusted click on "Start recording"', () => {
+test('the press hands over the trace Job Pilotto already keeps: the panel only asks for its state and sends the trace from a trusted click; nothing reloads', () => {
   const panel = code('extension/panel-report.js');
-  assert.deepEqual(panel.match(/type: 'report-[a-z]+'/g), ["type: 'report-cancel'", "type: 'report-stop'", "type: 'report-start'", "type: 'report-state'"].sort((a, b) => panel.indexOf(a) - panel.indexOf(b)));
+  assert.deepEqual([...new Set(panel.match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-send'", "type: 'report-state'"]);
   assert.ok(/event\.isTrusted/.test(panel) && (panel.match(/event\.isTrusted/g) || []).length >= 2, 'a page\'s script cannot press the buttons');
-  assert.match(panel, /goes back to the job posting and the application starts again from there/);
-  assert.match(panel, /debugging this browser/);
   assert.match(panel, /Nothing leaves your Mac until you read it and press Send/);
-  const recorder = code('extension/report-recorder.js');
-  assert.equal((recorder.match(/Page\.reload/g) || []).length, 1);
-  assert.ok(recorder.indexOf('Page.reload') > recorder.indexOf('async start('), 'the reload is inside start()');
-  assert.ok(recorder.indexOf('Page.reload') < recorder.indexOf('async stop('));
-  assert.ok(!/^chrome\.debugger/m.test(recorder), 'no debugger call at load');
+  assert.match(panel, /The whole journey \(recommended for fixing\)/);
+  assert.match(panel, /Only this page/);
+  assert.doesNotMatch(panel, /will reload|Start recording/);
+  assert.equal(fs.existsSync(new URL('../../extension/report-recorder.js', import.meta.url)), false, 'the reload-and-record collector is gone');
 });
 
 test('the manifest\'s permissions are what they were: debugger stays a normal permission, nothing new, nothing optional', () => {
@@ -78,9 +75,13 @@ test('a recording the last gate stops is not held; Cancel clears what is held', 
   assert.deepEqual(await h.handlers.reportFormSend(null, []), {ok: false, error: 'Nothing to send.'});
 });
 
-test('the report starts at the tab\'s posting (the app\'s record), not by reloading the current page', () => {
-  const worker = code('extension/messages-report.js');
-  assert.match(worker, /jobOf\(tab\)/);
-  assert.match(worker, /moveTab\(tab\.id, `\$\{posting\}#\$\{await markFor\(tab\.id\)\}`\)/);
-  assert.equal((worker.match(/recorder\.start\(/g) || []).length, 1, 'one start function for every way a report begins');
+test('the trace switch is on by default and named in plain words in Settings (so ⌘K lists it by its heading) and in the wizard; the bar is explained once', () => {
+  const html = read('desktop/renderer/index.html');
+  assert.match(html, /<h3>Keep a trace of each form fill<\/h3>/);
+  assert.match(html, /<input type="checkbox" id="welcome-trace" checked>/, 'the wizard has one checkbox, on by default');
+  assert.match(html, /Stays on this Mac, sent only when you press Report and confirm, never sign-in pages, deleted when the application ends/);
+  assert.equal(reportFormOn({settings: () => ({})}), true, 'on for every install that never chose');
+  assert.equal(reportFormOn({settings: () => ({reportForm: false})}), false);
+  assert.match(read('extension/panel-markup.js'), /Chrome shows a debugging bar while Job Pilotto keeps a trace/);
+  assert.match(read('extension/review.js'), /traceBarSeen/);
 });
