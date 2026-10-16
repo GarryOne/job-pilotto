@@ -36,6 +36,16 @@ Run through the worker's translation layer so the test covers it too. Needs an `
 | CV / kit draft | 3 jobs side by side | owner reads; schema-valid %, invented-fact check |
 A task where the open model is clearly worse says so; then: keep it on the stronger Workers AI model, or ask for a paid engine for that task only (the app already shows a plain "needs your own key for this" line, never a silent bad result). Weak or invalid JSON → retry once on the stronger model (server side), then error.
 
+## Quality table (measured 16 Oct 2026; invented data only; cents)
+Baseline = the designed answers of the invented postings, forms and facts, **not Claude's** (no Anthropic key on the Mac: the comparison with Haiku/Sonnet/Opus 5.5 is still open).
+| Task | Cases | Qwen3-30B-A3B (small) | GLM-5.3-Flash (strong) | Verdict |
+|---|---|---|---|---|
+| Fit score | 30 | 90% valid JSON (retry added, #1023), rank 0.91 vs the designed order, top-5 overlap 60% | not run (403 on the free plan) | usable for sorting; the best matches are the weak spot |
+| Extraction | 16 | ~77% of cases fully right (37/48 over 3 runs); seniority "unknown" for Staff/Principal/Lead titles | not run | a prompt line fixes seniority but costs work mode elsewhere (6 variants, no net gain): left as is |
+| Form answers | 12 | 100% valid, 11 right; the miss is a "all information is true" checkbox answered "checked" (the legal floor in code still stops it) | not run | fine for choices, legal/demographic left empty |
+| Kit (cover letter, highlights) | 14 | 100% valid, eligibility 14/14, no invented figures; 36% fully right: `highlights` empty or out of range in 9 of 14 | 43% valid, 21% right, **210 s per call**, 408 timeouts, 7x the cost | Qwen is better *and* faster: keep the strong model off (`STRONG_ON="off"`); fix `highlights` in the kit prompt (open) |
+Cost of the whole measurement: about $0.10 on the Paid plan; the eval tool needs `--allow-production --max-calls` for the production account (an uncapped run once used the whole day's free allowance for every user).
+
 ## Owner answers (16 Oct, via job-pilotto-cc)
 - Retire `ANTHROPIC_TRIAL_KEY`: **yes** (the route no longer uses it; delete the Worker secret after PR 1 is deployed).
 - Limits as proposed: **yes**.
@@ -47,8 +57,8 @@ A task where the open model is clearly worse says so; then: keep it on the stron
 ## Progress
 - [x] Spec read by the owner (via job-pilotto-cc) (proof: none: owner answered "Yes" and "retire" through job-pilotto-cc on 16 Oct)
 - [x] Measurement tool `tools/free-ai-eval.mjs` + `tools/free-ai-cases.py` (proof: desktop/test/free-ai-eval.test.js)
-- [ ] The quality table in this spec (needs the Workers AI credential; fictional postings only, owner's yes before any real job or CV goes to Cloudflare)
+- [x] The quality table in this spec (fictional data only) (proof: tools/free-ai-kit-cases.py)
 - [x] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, alert, tests (proof: site/test/free-ai.test.js); ai-cost already groups by model, Workers AI prices in `free-ai-models.js`
-- [ ] PR 2 (app): credit → Free everywhere in §4 + migration + grep guard
-- [ ] PR 3 (UI): picker with logos, ⌘K, before/after shots
-- [ ] Owner decisions: trial key fate, Workers Paid yes, limit numbers
+- [x] PR 2 (app): credit → Free everywhere in §4 + migration + grep guard (proof: desktop/test/ai-free.test.js @0d3b2d6)
+- [x] PR 3 (UI): picker with logos, ⌘K, before/after shots (proof: desktop/test/engine-free-card.test.js @aa18d2a)
+- [x] Owner decisions: trial key fate, Workers Paid yes, limit numbers (proof: none: owner answered via job-pilotto-cc on 16 Oct: retire, limits yes, Workers Paid $5/month)
