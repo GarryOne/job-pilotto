@@ -100,7 +100,7 @@ export async function searchAll(token, kind, fetcher) {
 }
 
 
-// An archived workspace (Settings → Danger zone → "Also start a fresh Notion workspace" renames its page to
+// An archived workspace (an older reset, until 16 Oct 2026, renamed its page to
 // "Job Pilotto (archived 28 Sep 2026)"): still shared with the connection, but never connected to again, so
 // everything inside it is left out. Renaming the page back brings it back.
 export const ARCHIVED = /\(archived\b[^)]*\)\s*$/i;

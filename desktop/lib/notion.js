@@ -1,10 +1,9 @@
 // The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
 // template: finds each database and page by title (config/notion_template.json), checks the columns
 // the pipeline needs, and writes pages (the drafted Profile and standard answers).
-// This file: finding and connecting the databases, and the workspace page (name, archive). Pieces: notion-core.js (call, pace),
+// This file: finding and connecting the databases, and the workspace page (name). Pieces: notion-core.js (call, pace),
 // notion-write.js, notion-read.js; this file re-exports their public names.
-import {ARCHIVED, TEMPLATE, call, liveOnly, normalise, searchAll, titleOf} from './notion-core.js';
-import {pageUrl} from './notion-write.js';
+import {TEMPLATE, call, liveOnly, normalise, searchAll, titleOf} from './notion-core.js';
 export {ARCHIVED, TEMPLATE, _pace, _trees, call, normalise, useClock, useSleep} from './notion-core.js';
 export {appendAnswer, appendBullets, blockSignature, ensurePage, findPageBeside, markdownBlocks, pageUrl, patchPlan, rewriteTuning, writePage} from './notion-write.js';
 export {appendHeading, deleteBlock, insertBulletsAfter, pageText, pageTree, setBlockText, setRowCell, snapshotStrategy, textBlocks} from './notion-read.js';
@@ -111,15 +110,4 @@ export async function nameWorkspace(token, ids, title, fetcher) {
   const [key] = Object.entries(page.properties || {}).find(([, p]) => p.type === 'title') || ['title'];
   await call(token, 'PATCH', `pages/${root}`, {properties: {[key]: {title: [{type: 'text', text: {content: title}}]}}}, fetcher);
   return {id: root, title, renamed: true};
-}
-
-// Rename the workspace page to "<title> (archived <when>)": nothing is deleted or moved, and the app won't
-// connect to it again (see liveOnly). -> {id, title, url}.
-export async function archiveWorkspace(token, ids, when, fetcher) {
-  const root = await workspaceRoot(token, ids, fetcher);
-  const page = await call(token, 'GET', `pages/${root}`, null, fetcher);
-  const [key] = Object.entries(page.properties || {}).find(([, p]) => p.type === 'title') || ['title'];
-  const title = `${titleOf(page).replace(ARCHIVED, '').trim() || 'Job Pilotto'} (archived ${when})`;
-  await call(token, 'PATCH', `pages/${root}`, {properties: {[key]: {title: [{type: 'text', text: {content: title}}]}}}, fetcher);
-  return {id: root, title, url: pageUrl(root)};
 }

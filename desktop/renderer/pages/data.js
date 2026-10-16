@@ -94,11 +94,10 @@ export async function init() {
   $('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
   $('reset-go').addEventListener('click', async () => {
     if ($('reset-confirm').value.trim() !== 'RESET') return;
-    const result = await window.pilot.resetProfile({backup: $('reset-backup').checked, freshNotion: $('reset-notion').checked});
+    const result = await window.pilot.resetProfile({backup: $('reset-backup').checked});
     if (result?.error) message('reset-message', result.error, 'error');
     else if (!result?.ok) message('reset-message', 'Not reset.', 'waiting');
   });
-  $('reset-notion-day').textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
   window.pilot.lastReset().then(done => {
     if (done?.failed) toastMessage('Import or reset did not finish', `${done.failed}. Your data on this computer is as it was; try again.`);
     else if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
@@ -108,6 +107,5 @@ export async function init() {
         + 'a new workspace starts with an empty Profile.', target: {view: 'settings', section: 'connections'}});
     else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
     else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
-    if (done?.archived) toastMessage('Old Notion workspace archived', `"${done.archived.title}" is kept in Notion. The setup builds a new workspace: share a new, empty page with Job Pilotto.`);   // about Notion
   });
 }

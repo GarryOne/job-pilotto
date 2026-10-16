@@ -18,7 +18,7 @@ const NOTION_ONLY = {
   'schema.js': 'workspace repair', 'server-env.js': "the extension's Notion calls when Notion is the store",
   'session-runs.js': 'the Agent Runs row when Notion is the store', 'settings-deps.js': 'the ⚙️ Search settings page writer',
   'setup-handlers.js': 'connecting Notion', 'store-move.js': "the move's Notion side", 'strategy-draft-handlers.js': 'the strategy into Notion pages',
-  'strategy-settings.js': 'texts and settings page when Notion is the store', 'system-handlers.js': 'the workspace archive on a reset',
+  'strategy-settings.js': 'texts and settings page when Notion is the store',
   'transcript.js': "the conversation toggle's format",
 };
 

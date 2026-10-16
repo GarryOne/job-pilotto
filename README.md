@@ -307,7 +307,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
   Cloudflare account; off, they run on this Mac. **How often** is set per job, in your time zone.
 - 💾 **Your data**: Notion holds one copy of everything (the app repairs a workspace from `config/notion_schema.json`);
   the Mac keeps only keys, large files and caches. Settings → Data & backup: **Export** (one `.tar.gz`, optionally
-  with a Notion copy), **Import**, **Reset** (a fresh start archives the old Notion page, never deletes it) and a
+  with a Notion copy), **Import**, **Reset** (clears this Mac only; your Notion is never touched) and a
   **weekly automatic backup** (iCloud Drive or Documents, last 4, no keys).
 - 🔔 **Notifications** for every finished job, wherever it ran (an in-window toast when macOS blocks them). Quitting
   while something runs asks first; the queue is saved and resumes at the next start. Keys are encrypted with your
