@@ -12,6 +12,9 @@ routes = [
   {pattern = "jobpilotto.top", custom_domain = true},
 ]
 
+[ai]
+binding = "AI"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -33,9 +36,10 @@ LEARNING_CANARY = "off"
 # /admin/ai-cost counts from this day (site/src/jobcost.js): every product key was replaced on 8 Oct 2026 (~13:15 UTC), measuring starts that day.
 AI_COST_SINCE = "2026-10-08"
 GITHUB_REPO = "GarryOne/job-pilotto"
-# The free AI credit for invited testers (src/trial.js; secret ANTHROPIC_TRIAL_KEY): per license key and per month.
-TRIAL_PER_KEY_USD = "1"
-TRIAL_MONTH_USD = "20"
+# Free AI (src/free-ai.js): Workers AI for every install; limits in code, the daily lines here. FREE_AI = "off" is the kill switch.
+FREE_AI_ALERT_USD = "3"
+FREE_AI_STOP_USD = "10"
+STRONG_ON = "off"   # "on" once the Workers Paid plan is on: kits/CVs/insights then use the stronger model
 LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports that recur are queued for the private triage (secrets REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
 # Connect with LinkedIn (LinkedIn app "Job Pilotto Sign-in", id 264977227; product: Sign In with LinkedIn using OpenID Connect). Public id; the secret is a

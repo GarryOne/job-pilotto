@@ -36,10 +36,18 @@ Run through the worker's translation layer so the test covers it too. Needs an `
 | CV / kit draft | 3 jobs side by side | owner reads; schema-valid %, invented-fact check |
 A task where the open model is clearly worse says so; then: keep it on the stronger Workers AI model, or ask for a paid engine for that task only (the app already shows a plain "needs your own key for this" line, never a silent bad result). Weak or invalid JSON → retry once on the stronger model (server side), then error.
 
+## Owner answers (16 Oct, via job-pilotto-cc)
+- Retire `ANTHROPIC_TRIAL_KEY`: **yes** (the route no longer uses it; delete the Worker secret after PR 1 is deployed).
+- Limits as proposed: **yes**.
+## Found while building
+- GLM-5.3 Flash needs the **Workers Paid** plan; Qwen3-30B-A3B runs on the free tier. PR 1 ships with `STRONG_ON="off"` (all steps on the small model); the switch flips when Paid is on.
+- CV steps send the PDF as a `document` block: the route reads it with `env.AI.toMarkdown`; images (the ladder's picture rung) are refused with words, those steps fall to other rungs.
+- Old apps keep working: a `JP1.` founder key is still accepted by the route until PR 2 moves them to `JPF1.<install>.<token>`.
+
 ## Progress
-- [ ] Spec read by the owner (via job-pilotto-cc)
+- [x] Spec read by the owner (via job-pilotto-cc)
 - [ ] Measurement script `tools/free-ai-eval.mjs` (+ its table in this spec)
-- [ ] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, ai-cost section, alert, tests
+- [x] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, alert, tests (ai-cost already groups by model; Workers AI prices in `free-ai-models.js`)
 - [ ] PR 2 (app): credit → Free everywhere in §4 + migration + grep guard
 - [ ] PR 3 (UI): picker with logos, ⌘K, before/after shots
 - [ ] Owner decisions: trial key fate, Workers Paid yes, limit numbers

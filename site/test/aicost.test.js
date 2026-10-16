@@ -1,18 +1,12 @@
-// What the AI costs us, per step and user (src/aicost.js), recorded on the relay (src/trial.js): money and counts only.
+// What the AI costs us, per step and user (src/aicost.js), recorded on the relay (src/free-ai.js): money and counts only.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {ACTIONS, record, report} from '../src/aicost.js';
-import {trial} from '../src/trial.js';
+import {freeAi} from '../src/free-ai.js';
+import {tokenFor} from '../src/guard.js';
 
-const b64 = bytes => Buffer.from(bytes).toString('base64url');
-const pair = await crypto.subtle.generateKey({name: 'Ed25519'}, true, ['sign', 'verify']);
-const publicKey = b64(await crypto.subtle.exportKey('raw', pair.publicKey));
-async function licenseKey(payload) {
-  const body = b64(new TextEncoder().encode(JSON.stringify(payload)));
-  return `JP1.${body}.${b64(await crypto.subtle.sign({name: 'Ed25519'}, pair.privateKey, new TextEncoder().encode(body)))}`;
-}
 function d1() {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL('../migrations/0015_ai_calls.sql', import.meta.url), 'utf8'));
@@ -21,25 +15,27 @@ function d1() {
   return {db, prepare: sql => statement(sql)};
 }
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
-const env = () => ({ANTHROPIC_TRIAL_KEY: 'sk-trial', WAITLIST: kv(), STATS: d1(), LICENSE_PUBLIC_KEY: publicKey, TRIAL_PER_KEY_USD: '5', TRIAL_MONTH_USD: '50'});
+let usageNow = {};
+const env = () => ({WAITLIST: kv(), STATS: d1(), STATS_SALT: 'salt', AI: {run: async () => ({choices: [{message: {content: 'private answer'}}], usage: {prompt_tokens: usageNow.input_tokens, completion_tokens: usageNow.output_tokens}})}});
+const installKey = async id => `JPF1.${id}.${await tokenFor(id, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-02T12:00:00Z');
-const ask = (e, key, action, usage) => trial(new Request('https://x/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': key, ...(action ? {'x-jp-action': action} : {})},
-  body: JSON.stringify({model: 'claude-sonnet-5-5', max_tokens: 10, messages: []})}), e, async () => Response.json({model: 'claude-sonnet-5-5', usage, content: [{type: 'text', text: 'private answer'}]}), now);
+const ask = (e, key, action, usage) => { usageNow = usage; return freeAi(new Request('https://x/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': key, ...(action ? {'x-jp-action': action} : {})},
+  body: JSON.stringify({max_tokens: 10, messages: [{role: 'user', content: 'x'}]})}), e, now); };
 const rows = e => e.STATS.db.prepare('SELECT * FROM ai_calls ORDER BY action').all().map(r => ({...r}));
 
 test('each call through the relay is recorded under its step, with tokens and money, the holder only as a digest', async () => {
-  const e = env(), key = await licenseKey({id: 'aaaa1111', name: 'Ana Private', kind: 'founder'});
-  await ask(e, key, 'score', {input_tokens: 2600, output_tokens: 433, cache_read_input_tokens: 4700});
-  await ask(e, key, 'score', {input_tokens: 2600, output_tokens: 433, cache_read_input_tokens: 4700});
+  const e = env(), key = await installKey('aaaa1111-install');
+  await ask(e, key, 'score', {input_tokens: 2600, output_tokens: 433});
+  await ask(e, key, 'score', {input_tokens: 2600, output_tokens: 433});
   await ask(e, key, 'kit', {input_tokens: 4000, output_tokens: 2000});
   await ask(e, key, 'made-up-step', {input_tokens: 10, output_tokens: 10});
   await ask(e, key, undefined, {input_tokens: 10, output_tokens: 10});
   const t = rows(e);
   assert.deepEqual(t.map(r => [r.action, r.calls]), [['kit', 1], ['other', 2], ['score', 2]]);   // unknown or missing steps are "other"
   const score = t.find(r => r.action === 'score');
-  assert.deepEqual([score.tokens_in, score.tokens_out, score.cache_read], [5200, 866, 9400]);
+  assert.deepEqual([score.tokens_in, score.tokens_out, score.cache_read], [5200, 866, 0]);
   assert.ok(score.micro_usd > 0 && /^[0-9a-f]{8}$/.test(score.who));
-  assert.equal(JSON.stringify(t).includes('aaaa1111') || JSON.stringify(t).includes('Ana'), false, 'neither the key id nor the name is kept');
+  assert.equal(JSON.stringify(t).includes('aaaa1111'), false, 'the install id is not kept');
   assert.equal(JSON.stringify(t).includes('private answer'), false, 'no answer text');
 });
 
@@ -61,7 +57,7 @@ test('the report gives the cost per step, per user per active day and per month'
 });
 
 test('a failing log never breaks the relay, and the steps match the ones the app sends', async () => {
-  const e = env(), key = await licenseKey({id: 'bbbb2222', name: 'Bo', kind: 'friend'});
+  const e = env(), key = await installKey('bbbb2222-install');
   e.STATS.db.exec('DROP TABLE ai_calls;');
   assert.equal((await ask(e, key, 'score', {input_tokens: 10, output_tokens: 10})).status, 200);
   assert.equal(await record({}, 'x', 'score', 'm', {}, 0.01), false);   // no database bound: nothing to do
