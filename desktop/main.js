@@ -217,7 +217,7 @@ function handlers() {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       const send = progress => toWindow('notionProgress', {...progress, titles});
-      const result = await notionWorkspace.connectWorkspace(token, {templateRoot, onProgress: send});
+      const result = await notionWorkspace.connectWorkspace(token, {templateRoot, fresh: !Object.keys(storage.settings().notionIds || {}).length, onProgress: send});
       let kept = null, startedOnNotion = false;
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
