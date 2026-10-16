@@ -25,6 +25,7 @@ test('markPlanted writes the kinds a plant causes, and does nothing without a fi
   const at = 1000 + 60_000;
   assert.equal(causedByPlant({kind: 'run_warning', message: 'AI limit'}, env, at), true);
   assert.equal(causedByPlant({kind: 'stuck', message: 'no output for 10 s'}, env, at), true);
+  assert.equal(causedByPlant({kind: 'run_failed', message: ''}, env, at), true, 'a hung run the test stopped has no words');
   assert.equal(causedByPlant({kind: 'crash', message: 'Uncaught Error: recall planted error'}, env, at), true);
   assert.equal(causedByPlant({kind: 'crash', message: 'TypeError: real'}, env, at), false, 'a real crash in the same minute is sent');
   assert.equal(causedByPlant({kind: 'run_warning', message: 'AI limit'}, env, 1000 + 200_000), false, 'an old plant hides nothing');

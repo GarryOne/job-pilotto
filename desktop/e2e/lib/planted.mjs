@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 // What a failing service makes the app report: a run's warning or failure (a hung one: a stopped run). A recall plant throws in the page: a crash that says "recall planted".
 export const SERVICE_REPORTS = ['run_warning', 'run_failed'];
-export const HUNG_REPORTS = {kinds: ['run_failed', 'stuck'], text: 'no output'};
+export const HUNG_REPORTS = {kinds: ['run_failed', 'stuck'], text: ''};   // a hung call ends the run with "no output for N s" or, when the test stops it, with no words at all (Sentry APP-22)
 export const RECALL_REPORTS = {kinds: ['crash'], text: 'recall planted'};
 
 // markPlanted(why, {kinds, text}): one JSON line in the file named by JOB_PILOTTO_E2E_PLANTED_FILE (set by suite.mjs for the app and the runner alike): the report kinds this
