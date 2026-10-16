@@ -39,6 +39,29 @@ class AllChecksGreen(unittest.TestCase):
             if code_wanted:
                 self.assertIn(f'CI · Site replays · PR (12 of 16 pinned rows) ({conclusion})', out)
 
+    def test_a_cancelled_run_is_superseded_by_a_newer_success_of_the_same_workflow(self):
+        desc = 'CI · PR description laid out'
+        code, out = self.run_with([f'completed\tcancelled\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tsuccess\t{desc}\t2026-10-16T18:05:00Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-16T18:01:00Z\n'])
+        self.assertEqual(code, 0, out)
+
+    def test_a_cancelled_run_alone_an_older_success_or_a_failure_stays_red(self):
+        desc = 'CI · PR description laid out'
+        cases = {
+            'cancelled alone': f'completed\tcancelled\t{desc}\t2026-10-16T18:00:00Z\n',
+            'the success is OLDER': f'completed\tsuccess\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tcancelled\t{desc}\t2026-10-16T18:05:00Z\n',
+            'a success of ANOTHER workflow': f'completed\tcancelled\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-16T18:05:00Z\n',
+            'a failure with a newer success of another workflow': f'completed\tfailure\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-16T18:05:00Z\n',
+            'a failure with a newer success of the same workflow': f'completed\tfailure\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tsuccess\t{desc}\t2026-10-16T18:05:00Z\n',
+            'a cancelled run with a newer SKIPPED run': f'completed\tcancelled\t{desc}\t2026-10-16T18:00:00Z\ncompleted\tskipped\t{desc}\t2026-10-16T18:05:00Z\n',
+            'no time on the runs': f'completed\tcancelled\t{desc}\ncompleted\tsuccess\t{desc}\n',
+        }
+        for name, body in cases.items():
+            code, out = self.run_with([body])
+            self.assertEqual(code, 1, (name, out))
+
+    def test_the_query_asks_for_the_creation_time(self):
+        self.assertIn('event,createdAt', SCRIPT.read_text())
+
     def test_no_other_workflow_passes(self):
         code, out = self.run_with([''])
         self.assertEqual(code, 0, out)
