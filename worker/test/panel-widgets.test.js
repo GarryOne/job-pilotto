@@ -155,12 +155,12 @@ test('the panel shows its ⚑ "Report this form" icon in every state: reading, p
     await new Promise((resolve) => setTimeout(resolve, 50));
     const root = window.document.getElementById('jobpilotto-review-host')?.shadowRoot;
     root?.querySelector('.pill')?.click();   // opened, as a person does
-    const icon = root?.querySelector('.head .report-flag');
-    const seen = { name, there: !!icon && !icon.hidden && icon.getAttribute('aria-label') === 'Report this form' };
+    const icon = root?.querySelector('.foot .report-btn');
+    const seen = { name, there: !!icon && !icon.hidden && icon.getAttribute('aria-label') === 'Report this form' && icon.textContent.trim() === 'Report' && !root.querySelector('.head .report-flag') };
     window.close();
     assert.deepEqual(seen, { name, there: true });
   }
   const panel = read('extension/review.js');
-  assert.match(panel, /\$\('\.report-flag'\)\.onclick = event => \{ if \(event\.isTrusted\) window\.__jobPilottoReportOpen\?\.\(\); \};/);
+  assert.match(panel, /\$\('\.report-btn'\)\.onclick = event => \{ if \(event\.isTrusted\) window\.__jobPilottoReportOpen\?\.\(\); \};/);
   assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReportOpen = \(\) => \{ if \(card\.hidden\) confirm\(\); \};/, 'the same card as the corner ⚑');
 });

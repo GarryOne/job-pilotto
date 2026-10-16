@@ -27,9 +27,9 @@ test('the panel flag is off until the uploader exists and while the switch is of
   await on.handlers.reportFormSet(null, false); assert.equal((await on.route({action: 'state'})).enabled, false);
   assert.deepEqual(await on.route({action: 'submit', entries: []}), {ok: false, refused: 'off'});
   for (const file of ['desktop/renderer/index.html', 'desktop/renderer/pages/nav.js', 'desktop/renderer/pages/report-form.js']) assert.doesNotMatch(read(file), /ss-report/, `${file}: the flag lives only in the extension panel, no app button or ⌘K entry`);
-  assert.match(read('extension/panel-markup.js'), /<button class="secondary report-open"[^>]*hidden>Report this form…<\/button>/, 'the panel has a labelled button, not only the corner icon');
-  assert.match(read('extension/review.js'), /\$\('\.report-open'\)\.onclick[^\n]*__jobPilottoReportOpen/, 'it opens the same card as the flag');
-  assert.match(read('extension/review.js'), /\.report-open'\)\.hidden = !window\.__jobPilottoReportOn/, 'it shows only while the app says the switch is on');
+  assert.match(read('extension/panel-markup.js'), /<div class="foot">[^]*<button class="report-btn"[^>]*>[^]*Report<\/button><\/div>/, 'one Report entry, in the footer of every state');
+  assert.doesNotMatch(read('extension/panel-markup.js'), /report-flag|report-open/, 'no header flag, no body button');
+  assert.match(read('extension/review.js'), /\$\('\.report-btn'\)\.onclick[^\n]*__jobPilottoReportOpen/, 'it opens the same card as the flag');
   assert.match(read('extension/panel-report.js'), /if \(!state\?\.enabled\) return;\s*flag\.hidden = false/, 'the flag is drawn only when the app says so');
 });
 

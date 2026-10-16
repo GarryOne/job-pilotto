@@ -19,19 +19,17 @@ async function panel() {
   window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');
   evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 60));
-  return { window, button: () => window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.report-open') };
+  return { window, button: () => window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.foot .report-btn') };
 }
 
-test('the panel has a labelled Report this form button, shown only once the switch is on, opening the same card', { skip: !JSDOM }, async () => {
+test('the panel footer has one Report button, always there, opening the same card; a page script cannot press it', { skip: !JSDOM }, async () => {
   const { window, button } = await panel();
   try {
-  assert.equal(button().textContent, 'Report this form…');
-  assert.equal(button().hidden, true, 'hidden while the app has not said the switch is on');
+  assert.equal(button().textContent.trim(), 'Report');
+  assert.equal(button().hidden, false, 'there before the app says anything');
+  assert.equal(window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.head .report-flag'), null, 'no header flag');
   let opened = 0;
   window.__jobPilottoReportOpen = () => { opened += 1; };
-  window.__jobPilottoReportOn = true;
-  window.dispatchEvent(new window.CustomEvent('jobpilotto-report-ready'));
-  assert.equal(button().hidden, false, 'shown once report-state says enabled');
   button().onclick({ isTrusted: false });   // a page script's click: ignored
   assert.equal(opened, 0);
   button().onclick({ isTrusted: true });   // the person's press (jsdom cannot make a trusted click)

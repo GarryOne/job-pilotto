@@ -36,7 +36,7 @@
    "#email"
   ],
   "panelHas": [
-   "Report this form…"
+   "Report"
   ],
   "notTold": [
    "pressed the submit"
@@ -45,6 +45,6 @@
  },
  "control": {
   "build": "0.9.520",
-  "failed": "panelHas: Report this form… (the panel had only the header icon)"
+  "failed": "panelHas: Report (the panel had a header icon and a body button, no footer Report)"
  }
 }
