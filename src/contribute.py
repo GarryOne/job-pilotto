@@ -454,7 +454,7 @@ def main():
             return 0
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'
     print(json.dumps(body, indent=1, ensure_ascii=False))
-    print('\nThis is a preview and nothing is sent by it. After each jobs check and each "Find new employers" (while this is switched on) '
+    print('\nThis is a preview and nothing is sent by it. After each jobs check and each employer-growing step of Find jobs (while this is switched on) '
           'every feed and job board read, every employer your scout verified and the ones you added are sent when they changed (and once a day), '
           'with how each was found and how many jobs it listed and matched: public facts and counts, never your jobs, CV or search words.')
     return 0

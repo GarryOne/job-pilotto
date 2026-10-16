@@ -38,7 +38,7 @@ export function runwayWords(runway, read) {
   if (!runway || !read) return '';
   const total = Number(read) || 0, resting = Number(runway.resting) || 0;
   const day = until => new Date(until).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
-  if (resting && resting * 2 >= total) return `${resting} of ${total} employers resting until ${day(runway.until)}: Find new employers to keep searching`;
+  if (resting && resting * 2 >= total) return `${resting} of ${total} employers resting until ${day(runway.until)}: Find jobs again to keep searching`;
   const soon = runway.soon;
   if (!soon?.count) return resting ? `${resting} of ${total} employers resting until ${day(runway.until)}` : '';
   // Said as a condition: nobody rests yet (owner, 7 Oct 2026: "don't imply those employers are already paused").
@@ -57,7 +57,7 @@ export function fewJobsGroups(verdict) {
       advice: dry ? 'Most have nothing new for you' : 'They still bring jobs',
       runway: runwayWords(e.runway, e.read),
       // Ideas the Find new employers task has not tried yet: a job search never touches them (owner, 7 Oct 2026: "why didn't 410 go down?").
-      explore: pending > 0 ? `Checks up to ${Number(e.batch) || 40} employer ideas per run · About 3 min` : 'Every idea tried: Find new employers looks for new names'};
+      explore: pending > 0 ? `Checks up to ${Number(e.batch) || 40} employer ideas per run · About 3 min` : 'Every idea tried: Find jobs looks for new names'};
   }
   const sources = (Array.isArray(verdict?.sources) ? verdict.sources : []).map(source => ({id: source.id, name: source.name, sub: source.people || source.effort, title: `${source.effort}: ${source.gain}`}));
   const visits = (Array.isArray(verdict?.visits) ? verdict.visits : []).map(site => ({url: site.url, name: site.name,

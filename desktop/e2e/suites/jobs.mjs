@@ -109,7 +109,7 @@ export async function run(ctx) {
   await ctx.run('Find new employers probes the seed company and lists it in the store (Employers & Sources)', async () => {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
     await page.click('.nav[data-view="actions"]');
-    await page.click('[data-command="scout"]');
+    await page.evaluate(() => window.pilot.command('scout'));   // the finder alone: Find jobs runs it as its last step, and Always on / the schedule start it by itself; the Actions card was merged into Find jobs (16 Oct 2026)
     const started = Date.now();
     let listed = null;
     while (!listed && Date.now() - started < 240000) {

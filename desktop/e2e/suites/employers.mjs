@@ -65,7 +65,7 @@ print(json.dumps({'candidates': rows('select name, status, ats, slug, quality fr
 
 const scoutStarts = ctx => appLogLines(ctx.profile).filter(line => /\[run\] start: python -m src scout /.test(line)).length;
 
-// Click "Find new employers" on the Actions page and wait until the app shows no task running. -> the scout runs the app lists for it (newest first).
+// Start the employer finder (the scout) and wait until the app shows no task running. -> the scout runs the app lists for it (newest first).
 async function findEmployers(ctx) {
   const {page} = ctx;
   const scouts = () => page.evaluate(async () => {
@@ -79,8 +79,7 @@ async function findEmployers(ctx) {
     await page.waitForTimeout(2000);
   }
   const before = (await scouts()).runs.length, startsBefore = scoutStarts(ctx);
-  await page.click('.nav[data-view="actions"]');
-  await page.click('[data-command="scout"]');
+  await page.evaluate(() => window.pilot.command('scout'));   // the finder alone: Find jobs runs it as its last step, and Always on / the schedule start it by itself; the Actions card was merged into Find jobs (16 Oct 2026)
   const started = Date.now();
   let now;
   for (;;) {

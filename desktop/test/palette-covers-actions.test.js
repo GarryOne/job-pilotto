@@ -11,7 +11,7 @@ const html = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.ur
 
 test('every Run button on an Actions card is in the command palette', () => {
   const cards = [...html.matchAll(/<div class="task-card">([\s\S]*?)<\/div>\s*<\/div>/g)].map(match => match[1]);
-  assert.ok(cards.length >= 6, 'the Actions cards were not found');
+  assert.ok(cards.length >= 5, 'the Actions cards were not found');
   const missing = cards.filter(card => /class="[^"]*\baction\b/.test(card) && !/data-command="\w+"|data-palette="\w+"/.test(card)).map(card => card.match(/<b>([^<]+)<\/b>/)?.[1]);
   assert.deepEqual(missing, []);
 });
@@ -46,7 +46,7 @@ test('every Actions Run that starts a task is turned off while it runs, through 
   const commandKind = Object.fromEntries([...activity.match(/export const COMMAND_KIND = \{([^}]*)\}/)[1].matchAll(/(\w+): '(\w+)'/g)].map(match => [match[1], match[2]]));
   const taskIds = new Set(JSON.parse(activity.match(/export const TASK_BUTTONS = (\[.*\]);/)[1].replace(/'/g, '"')).flatMap(([, ...selectors]) => selectors.map(s => s.slice(1))));
   const runs = [...html.matchAll(/<button [^>]*\baction\b[^>]*>(?:(?!<\/button>)[\s\S])*Run<\/button>/g)].map(match => match[0]);
-  assert.ok(runs.length >= 7, `the Actions Run buttons were not found (${runs.length})`);
+  assert.ok(runs.length >= 6, `the Actions Run buttons were not found (${runs.length})`);
   const unreached = runs.map(button => ({id: /id="([\w-]+)"/.exec(button)?.[1], command: /data-command="(\w+)"/.exec(button)?.[1]}))
     .filter(({id, command}) => !NOT_A_TASK.has(id) && !(command && commandKind[command]) && !taskIds.has(id)).map(({id, command}) => id || command);
   assert.deepEqual(unreached, [], 'these Run buttons stay pressable while their task runs: add them to TASK_BUTTONS or COMMAND_KIND');

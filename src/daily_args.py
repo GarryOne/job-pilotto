@@ -27,6 +27,7 @@ def build_parser(description):
     parser.add_argument('--action', choices=sorted(ACTIONS) + ['talking'], default='applied',
                         help='for --mode apply: applied, saved or dismissed; for a recruiter lead (--mode add, no --job): talking')
     parser.add_argument('--budget', type=int, default=0, help='seconds: AI steps start no new call after this (src/time_budget.py); 0 = none')
+    parser.add_argument('--first-jobs', action='store_true', help='read a small slice of fast feeds and score 3 jobs before the full crawl (src/first_jobs.py)')
     parser.add_argument('--score-max', type=int, default=0,
                         help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,

@@ -332,12 +332,12 @@
    "run": {
     "trigger": "you",
     "log": [
-     "There are no jobs to tailor CVs for yet. Run Refresh jobs first."
+     "There are no jobs to tailor CVs for yet. Run Find jobs first."
     ],
     "kind": "tailor",
     "ok": true,
-    "summary": "There are no jobs to tailor CVs for yet. Run Refresh jobs first.",
-    "message": "There are no jobs to tailor CVs for yet. Run Refresh jobs first."
+    "summary": "There are no jobs to tailor CVs for yet. Run Find jobs first.",
+    "message": "There are no jobs to tailor CVs for yet. Run Find jobs first."
    }
   },
   {

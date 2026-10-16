@@ -295,7 +295,7 @@
         <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
         <div class="jobs-head-right">
         <div class="head-actions">
-          <button class="secondary with-icon" id="refresh" title="Reads the job boards and every employer site on your list, adds the new jobs, removes the ones that are gone or outside your search, then reads and scores the new ones with AI (about 3 minutes; what is left continues next time)."><i data-icon="refresh"></i><span>Refresh jobs</span></button>
+          <button class="secondary with-icon" id="refresh" title="Finds your first jobs in seconds, then reads the job boards and every employer site on your list, finds more employers, removes the jobs that are gone or outside your search, and scores the new ones with AI."><i data-icon="refresh"></i><span>Find jobs</span></button>
           <button class="primary with-icon" id="apply-open"><i data-icon="send"></i><span>Apply to jobs…</span></button>
         </div>
         <button class="last-search" id="search-status" title="Open the progress and history of your searches for new jobs"><span class="dot"></span><b>No search yet</b><small></small></button>
@@ -303,7 +303,8 @@
       </header>
       <div class="alert tone-info settings-alert search-changed" id="jobs-search-changed" hidden><i data-icon="refresh"></i>
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
-        <button class="primary" data-refresh-jobs>Refresh jobs</button></div>
+        <button class="primary" data-refresh-jobs>Find jobs</button></div>
+      <section class="card find-card" id="find-card" aria-live="polite" hidden></section>
       <div class="ss-tips" id="tips-jobs" aria-label="Tips"></div>
       <div class="stat-cards">
         <button class="stat signal" data-stat="applied" aria-pressed="false"><span class="stat-icon"><i data-icon="send"></i></span><div><b id="stat-applied">–</b><span>Applied</span></div></button>
@@ -363,7 +364,7 @@
         <div class="job-list" id="jobs-body"></div>
       </div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
-      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Refresh jobs</b></button>; the first refresh takes a few minutes.</p>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Find jobs</b></button>.</p>
     </div>
 
     <div class="view" data-view="focus" hidden>
@@ -575,20 +576,14 @@
       <div class="task-grid">
           <div class="task-card">
             <span class="task-category">DISCOVERY</span>
-            <div class="task-body"><span class="task-tile"><i data-icon="building"></i></span>
-              <div class="task-words"><b>Find new employers</b><span class="muted">Step 1 · Finds companies hiring for your roles and adds their career sites to your search</span></div>
-              <button class="secondary action" data-command="scout"><b hidden>Find new employers</b>Run</button></div>
-          </div>
-          <div class="task-card">
-            <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="search"></i></span>
-              <div class="task-words"><b>Refresh jobs</b><span class="muted">Step 2 · Reads job boards and every employer site: adds new jobs, removes gone ones, AI scores the new</span></div>
-              <button class="secondary action" data-command="run"><b hidden>Refresh jobs</b>Run</button></div>
+              <div class="task-words"><b>Find jobs</b><span class="muted">Reads job boards and every employer site, finds more employers, adds new jobs, removes gone ones, AI scores the new</span></div>
+              <button class="secondary action" data-command="run"><b hidden>Find jobs</b>Run</button></div>
           </div>
           <div class="task-card" id="visits-card">
             <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="globe"></i></span>
-              <div class="task-words"><b>Find jobs using your browser</b><span class="muted">Like Refresh jobs, for the sites and job portals that block it: read in your browser by the extension</span></div>
+              <div class="task-words"><b>Find jobs using your browser</b><span class="muted">Like Find jobs, for the sites and job portals that block it: read in your browser by the extension</span></div>
               <button class="secondary action" id="visits-run" data-palette="visits"><b hidden>Find jobs using your browser</b>Run</button></div>
           </div>
           <div class="task-card">
@@ -778,7 +773,7 @@
         <button class="primary" id="profile-empty-rebuild">Rebuild from CV</button></div>
       <div class="alert tone-info settings-alert search-changed" id="strategy-search-changed" hidden><i data-icon="refresh"></i>
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
-        <button class="primary" data-refresh-jobs>Refresh jobs</button></div>
+        <button class="primary" data-refresh-jobs>Find jobs</button></div>
       <div class="alert tone-info settings-alert" id="strategy-cv-changed" hidden><i data-icon="info"></i>
         <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
         <button class="primary" id="strategy-cv-review">Review what changes</button></div>
@@ -896,7 +891,7 @@
             <article class="summary-card">
               <div class="summary-head"><i data-icon="clock"></i><h3>Automation</h3></div>
               <p class="muted">Your job search schedule and automation settings.</p>
-              <dl class="summary-rows"><dt>Refresh jobs</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
+              <dl class="summary-rows"><dt>Find jobs</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
                 <dt>Always on</dt><dd id="ov-cloud"></dd></dl>
               <button class="arrow-link" data-settings-go="automation">Manage automation</button>
             </article>
@@ -1081,10 +1076,10 @@
             <h3>Schedules</h3>
             <div class="task-table">
               <div class="task-row is-head"><span>Task</span><span>Frequency</span><span>Status</span></div>
-              <label class="task-row"><span><b>Find new employers</b><small>Adds the career sites of companies hiring for your roles</small></span>
+              <label class="task-row"><span><b>More employers</b><small>Also looks for new employers on its own schedule (Find jobs does it too, at most once a day)</small></span>
                 <select data-schedule="scout">
                   <option value="daily">Daily at 08:15</option><option value="weekly">Mondays at 08:15</option><option value="off">Off</option></select><span class="task-state" data-schedule-state="scout"></span></label>
-              <label class="task-row"><span><b>Refresh jobs</b><small>Job boards and employer sites, AI scoring, your digest</small></span>
+              <label class="task-row"><span><b>Find jobs</b><small>Job boards and employer sites, AI scoring, your digest</small></span>
                 <select data-schedule="search">
                   <option value="1">Every hour</option><option value="2">Every 2 hours</option><option value="3">Every 3 hours</option>
                   <option value="4">Every 4 hours</option><option value="6">Every 6 hours</option><option value="8">Every 8 hours</option>

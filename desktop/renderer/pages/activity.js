@@ -13,6 +13,7 @@ import {CHECK_MS} from '../session-state.js';
 import {toastMessage} from './startup.js';
 import {stopRunning} from '../stop-task.js';
 import {showSearchStatus, runButton} from './activity-basics.js';
+import {renderFindCard} from './jobs-find.js';
 import {showKeptStatusBar} from './activity-results.js';
 import {lastActivity, PANEL_HEIGHT, setPanelHeight, foldedWarnings, detailRunId, renderActivity, showMoreRuns, setFoldedWarnings} from './activity-render.js';
 import {showJumpToLatest, refreshActivity} from './activity-run-card.js';
@@ -149,6 +150,7 @@ export async function init() {
     const runsNow = await window.pilot.runs();
     const {running} = runsNow;
     renderActivity(runsNow);
+    renderFindCard(runsNow);   // the Find jobs card on top of Jobs
     const tabs = new Set(await window.pilot.openTabs());
     if (tabs.size !== shared.openedInChrome.size || [...tabs].some(url => !shared.openedInChrome.has(url))) { shared.openedInChrome = tabs; renderJobs(); }
     const forms = await window.pilot.formsOpen().catch(() => null);

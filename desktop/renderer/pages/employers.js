@@ -100,7 +100,7 @@ export function render() {
   $('emp-rows').replaceChildren(...shown.flatMap(rowOf));
   show($('emp-empty'), !shown.length);
   $('emp-empty').textContent = rows.length ? 'No employer matches these filters.'
-    : 'No employers yet. Actions → Find new employers adds some, and every search adds the ones it reads.';
+    : 'No employers yet. Find jobs adds some, and every search adds the ones it reads.';
 }
 
 export async function loadEmployers() {

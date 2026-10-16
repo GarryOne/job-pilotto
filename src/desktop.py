@@ -38,6 +38,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     listing = sub.add_parser('jobs')
     listing.add_argument('--limit', type=int, default=200)
+    listing.add_argument('--first-run', action='store_true', help='the first search is still running: list the jobs waiting for a score too')
     sub.add_parser('delete').add_argument('url')   # a dismissed job: its Notion pages to the trash, the local copy a marker (delete_job)
     marking = sub.add_parser('status')
     marking.add_argument('url')
@@ -326,7 +327,7 @@ def main(argv=None):
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
             from .ai import engine as ai_engine
-            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready())
+            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready() and not args.first_run)
             fresh = found is not None
             if notion and not fresh:
                 result['stale'] = True

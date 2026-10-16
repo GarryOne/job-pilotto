@@ -101,7 +101,7 @@ export function drawImprove() {
     const go = el('button', 'secondary item-action', rescoring ? 'Re-scoring…' : 'Re-score');
     go.type = 'button';
     go.disabled = rescoring;
-    if (rescoring) go.title = 'Running in Refresh jobs: follow it in Recent activity';
+    if (rescoring) go.title = 'Running in Find jobs: follow it in Recent activity';
     go.addEventListener('click', () => confirmRescore(previous));
     items.push(improveRow('refresh', 'info', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
       'Below 50 before your Profile changed · Updating is optional', go));
@@ -248,7 +248,7 @@ const widen = (kind, act, done, list = '') => async button => {
   loadStrategy();   // the cards show it at once, not after the next visit (it re-reads the suggestions too)
 };
 
-export const refreshAction = {label: 'Refresh jobs', run: () => startSearch()};
+export const refreshAction = {label: 'Find jobs', run: () => startSearch()};
 const LIST_WORDS = {roles: 'roles', places: 'places', languages: 'excluded languages'};
 const paintCoverage = verdict => {
   strategyState.shownVerdict = verdict;

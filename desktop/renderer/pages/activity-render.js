@@ -32,6 +32,7 @@ import {renderMailCard} from './activity-mail.js';
 import {renderInsightCard, renderInterviewCard, renderKitsCard, renderWeeklyCard} from './activity-cards.js';
 import {kindFilter, barLabel, PANEL_KEY, panelMemory} from './activity-panel.js';
 import {byStore} from '../store-words.js';
+import {startSearch} from './jobs.js';
 export let lastActivity = null;
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
@@ -104,7 +105,7 @@ export function renderActivity(fresh) {
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
-    $('activity-title').textContent = kindOf(running) === 'search' ? `Refreshing jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
+    $('activity-title').textContent = kindOf(running) === 'search' ? `Finding jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
       : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = stepWords(running.step) || 'Starting…';
     barLabel();
@@ -118,7 +119,7 @@ export function renderActivity(fresh) {
     $('activity-meta').textContent = [mailNote, $('activity-panel').hidden && nextSearchAt && `Next refresh ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
     $('activity-title').textContent = 'No search yet';
-    $('activity-step').textContent = 'Click "Refresh jobs" on Jobs to start one.';
+    $('activity-step').textContent = 'Click "Find jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
   if (!running) keepStatusBar();
@@ -195,7 +196,7 @@ export function renderActivity(fresh) {
   // No time: "Off" only when Settings → Automation says so; else the app just doesn't know it yet (it was started
   // before an update: a restart fixes it), so it names where it runs.
   const unknown = cloud ? 'On GitHub' : 'On this Mac';
-  const items = [['Refresh jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
+  const items = [['Find jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
     ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
   const gmailOff = gmailConnected() === false;   // Gmail as it is now, not as the selected run found it
@@ -365,8 +366,8 @@ export function renderActivity(fresh) {
   const advice = employersAdvice(run && {...run, kind: kindOf(run)}, {runs: lastActivity?.runs, settings: shared.state?.settings});
   if (advice) {
     const words = el('div', 'insight-next-words');
-    const go = el('button', 'secondary', 'Find new employers');   // the pane's one primary stays its own (View new jobs)
-    go.addEventListener('click', () => document.querySelector('.action[data-command="scout"]')?.click());
+    const go = el('button', 'secondary', 'Find jobs again');   // the pane's one primary stays its own (View new jobs)
+    go.addEventListener('click', () => startSearch({employers: true}));
     words.append(el('b', '', 'Recommended next step'), el('p', '', advice.text), go);
     $('activity-next').replaceChildren(el('span', 'insight-next-icon', icon('building')), words);
   }

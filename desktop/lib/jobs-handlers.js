@@ -86,13 +86,13 @@ export function registerJobsHandlers(ctx) {
     : needsNotion('interviews') || viewCache.remember(storage, 'calendar', await pipeline.calendarJobs(storage))), {log: appLog}));
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
   ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));
-  // why: a fixed reason from the window ({reason: 'rescore', count}), said on the run's row; never free text.
+  // why: a fixed reason from the window ({reason: 'rescore', count}), said on the run's row; never free text. {employers: true}: the finder runs too, whatever its day limit.
   ipcMain.handle('refresh', async (_, why = {}) => {
     const blocked = allowanceBlock();
     if (blocked) return blocked;
     const count = Math.max(0, Math.round(Number(why?.count) || 0));
     const note = why?.reason === 'rescore' && count ? `Re-scoring ${count} older score${count === 1 ? '' : 's'}` : '';
-    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you', {note});
+    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you', {note, employers: !!why?.employers});
     const started = await dispatchCloud('Run now (Refresh)', {mode: 'run'});
     return started.ok ? {ok: true, cloud: true} : {ok: false, error: started.error};
   });
