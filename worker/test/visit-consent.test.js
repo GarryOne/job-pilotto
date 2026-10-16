@@ -86,7 +86,7 @@ test('a refresh looks at the page again, and the popup has a permanent Apply for
   assert.match(read('tab-report.js'), /transitionType !== 'reload'\) return;\s*forgetApplyTries\(details\.tabId\)/);
   assert.doesNotMatch(read('fill-flow.js'), /noteRole\(tab\.id, tab\.url, role\); triedApply\.delete/);
   assert.match(read('popup.html'), /id="apply-here" hidden/);
-  assert.match(read('popup.js'), /\$\('apply-here'\)\.hidden = false;[\s\S]*type: 'applyHere'/);
+  assert.match(read('popup.js'), /show\(popupControls\(mode\)\);[\s\S]*type: 'applyHere'/);   // shown through the one gate (popup-controls.js: 'apply-here' on a tab opened to apply)
   const messages = read('messages-panel.js');
   assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*#jobpilotto-fill[\s\S]*not opened by the Job Pilotto app/);
 });

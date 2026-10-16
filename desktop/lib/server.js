@@ -15,14 +15,14 @@ import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension, dev
 import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
-  aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
+  aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHandler, sitePasswordHandler, reviewHandler,
   accountPressedHandler, pageHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
 export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation} from './server-pages.js';
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
-  setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
+  setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setPageHandler, setTakeOverHandler,
   setTailorHandler, setErrorWatcher, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
 
@@ -215,14 +215,13 @@ export function start(storage, onError = () => {}) {
         if (ok) missesHandler(payload);
         return;
       }
-      if (req.url === '/extension/visit-read' || req.url === '/extension/visit-list' || req.url === '/extension/visit-filters' || visitMore[req.url]) {
+      if (req.url === '/extension/visit-read' || req.url === '/extension/visit-filters' || visitMore[req.url]) {
         const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
-        const answer = !ok ? {ok: false, error: 'Wrong token'} : req.url === '/extension/visit-list' ? {ok: true, hosts: visitHosts()}
-          : req.url === '/extension/visit-filters' ? await visitFilters(payload) : visitMore[req.url] ? await visitMore[req.url](payload) : await visitHandler(payload);
+        const answer = !ok ? {ok: false, error: 'Wrong token'} : req.url === '/extension/visit-filters' ? await visitFilters(payload) : visitMore[req.url] ? await visitMore[req.url](payload) : await visitHandler(payload);
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(answer));
         return;

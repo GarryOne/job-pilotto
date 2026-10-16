@@ -295,7 +295,7 @@ const paintCoverage = verdict => {
       adviceEvent('taken', 'visit', 'strategy');
       const opened = await readSiteInChrome(window.pilot, chip.url);
       if (opened.started) toastMessage('Reading in Chrome', `Job Pilotto reads its jobs there by itself; follow it in Recent activity.${chip.note ? ` ${chip.note}.` : ''}`);
-      else toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? `${opened.why || 'It could not start the read.'} Click the Job Pilotto icon there, then "Read the jobs on this page".` : opened.error);
+      else toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? opened.why || 'It could not start the read.' : opened.error);
     };
     // By company (owner mockup, 7 Oct 2026): a letter tile, the name, how many pages, each page's own link (its real address), Open for the first.
     const TINTS = ['info', 'teal', 'violet', 'good'];

@@ -1,5 +1,6 @@
-// "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
-// portal with no API: LinkedIn, Indeed, Glassdoor), the person opens it in their own Chrome, as themselves, and clicks this. The extension
+// Reading a job list in the person's Chrome (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors,
+// or a portal with no API: LinkedIn, Indeed, Glassdoor), the app opens it in their own Chrome with a read mark (#jp-read, lib/visits.js) and the
+// extension reads it by itself (the popup's own Read buttons were removed on 16 Oct 2026: no control on a tab the app does not manage). It
 // reads the page they see, sends it to the app, goes to the next page of the same list, and stops after MAX_PAGES, when a page brings nothing
 // new, or at any login wall or "are you human" check (the person deals with it, then clicks again). It never logs in, never solves a check,
 // never hides that it is a script, and waits between pages. Filtering is the app's: every job read goes through the same filters and scores.
@@ -338,18 +339,5 @@ export async function startWaiting() {
     if (!key.startsWith('waiting:')) continue;
     await chrome.storage.session.remove(key);
     autoRead(Number(key.slice(8)), url);
-  }
-}
-
-// Sites on the app's visit list light the toolbar icon (the badge needs no access to the page). Asked of the app at most every 10 minutes.
-let hosts = {at: 0, list: []};
-export async function markListed(tabId, url) {
-  let host = '';
-  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return; }
-  if (Date.now() - hosts.at > 600000) {
-    try { hosts = {at: Date.now(), list: (await api(await settings(), '/extension/visit-list', {method: 'POST', body: '{}'}))?.hosts || []}; } catch { hosts.at = Date.now(); }
-  }
-  if (hosts.list.some(listed => host === listed || host.endsWith(`.${listed}`) || (listed.endsWith('.') && host.includes(listed)))) {
-    badge(tabId, 'Read', 'Job Pilotto: a site only you can open. Click, then "Read the jobs on this page"');
   }
 }
