@@ -43,6 +43,7 @@ import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
 import {status as proStatus} from './pro.js';
+import {status as trialStatus} from './trial.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
@@ -179,6 +180,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/report-form' || pathname.startsWith('/api/report-form/')) return reportForm(request, env, pathname);   // "Report this form": an encrypted recording from an install (src/report-form.js)
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
+  if (pathname === '/api/trial/status') return trialStatus(request, env);   // the free trial, one answer for the app and Always on (src/trial.js)
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
   if (pathname === '/api/pro/status') return proStatus(request, env);   // the Pro plan: plan and AI credit for the app (src/pro.js)
