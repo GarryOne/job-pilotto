@@ -547,21 +547,6 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .board-empty { flex: 0 0 100%; }
 .compact .job-row.is-selected, .board-card.is-selected { border-left-color: var(--signal); border-color: var(--line-strong); }
 .job-panel-shot { display: block; max-width: 100%; margin-top: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
-/* Settings → Profile's texts on a store whose page is the editor (pages/text-editors.js): read-only reads as such. */
-.text-editor-body textarea[readonly] { background: var(--surface-2); color: var(--ink-2); }
-/* The cards that draw a text (pages/text-cards.js): the cards are .answer-item; only the bar, section heads and the field inside a card are new. */
-.text-cards { display: flex; flex-direction: column; gap: var(--sp-4); }
-.text-cards-bar { display: flex; align-items: center; gap: var(--sp-4); }
-.text-cards-bar .select-search { flex: 1; }
-.text-cards-list { display: flex; flex-direction: column; gap: var(--sp-5); max-height: 60vh; overflow: auto; }
-.text-cards-head { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-2); }
-.text-cards-head h4 { margin: 0; }
-.text-card-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.text-card-head .link { margin-left: auto; }
-.text-card textarea { width: 100%; margin-top: var(--sp-2); resize: vertical; }
-.text-card-reason { margin: var(--sp-1) 0 0; }
-.text-card-raw { font-family: var(--font-mono); font-weight: 400; overflow-wrap: anywhere; }
-.text-card-add { display: grid; grid-template-columns: auto 1fr 2fr auto; gap: var(--sp-3); align-items: center; }
 /* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
 .reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
 .reports-insight .segmented { margin-top: var(--sp-2); }
@@ -2462,13 +2447,6 @@ button.is-busy { cursor: progress; opacity: .7; }
 .exp-role > summary { cursor: pointer; }
 .exp-role ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-1); font-size: var(--fs-md); }
 
-/* Settings → Profile → Profile text as a form: a block per section; the fields are the shared form-grid. */
-.profile-section { padding-top: var(--sp-4); border-top: 1px solid var(--line); margin-top: var(--sp-4); }
-.profile-section:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
-.profile-section h4 { margin: 0 0 var(--sp-1); }
-.profile-notes { margin-top: var(--sp-3); }
-.profile-notes > summary { cursor: pointer; }
-.profile-notes textarea { width: 100%; margin-top: var(--sp-2); }
 #exp-linkedin-line { align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
 #exp-linkedin-line button { white-space: nowrap; flex: none; }
 
@@ -2517,3 +2495,18 @@ details.qa-section { margin-top: var(--sp-3); }
 .kn-body { padding: var(--sp-2) var(--sp-4) var(--sp-4); }
 .kn-body .data-table { margin-top: 0; }
 .qa-section.is-review { border-color: var(--warn-line); }
+
+/* Settings → Profile → Preferences (pages/preferences-tab.js): section cards as Application answers (.qa-section), fields the shared .form-grid,
+   chips .chip.removable, work modes .segmented; only the card's padding, its head's two lines and a language row are new. */
+.pref-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.pref-body label > span { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
+.pref-body input, .pref-body select { width: 100%; }
+.pref-words { display: flex; flex-direction: column; gap: 2px; }
+.answer-item.pref-section > summary { display: flex; list-style: none; cursor: pointer; }
+.answer-item.pref-section > summary::-webkit-details-marker { display: none; }
+.pref-chips .chip-list { margin-bottom: var(--sp-2); }
+.pref-chips .chip-list:empty { display: none; }
+.pref-languages { display: grid; gap: var(--sp-2); justify-items: start; }
+.pref-language { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; width: 100%; }
+.pref-language .link svg { width: 16px; height: 16px; }
+.pref-sub { margin: var(--sp-2) 0 0; }

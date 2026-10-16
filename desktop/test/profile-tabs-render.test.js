@@ -21,7 +21,15 @@ const NOTION = {
     {id: 'k1', type: 'bulleted_list_item', text: '[jobs.example.test · answer] Name :: Field ID x asks for last name only. → "Doe"'},
     {id: 'k2', type: 'bulleted_list_item', text: '[any · option] Salutation: the form offers Mr / Ms'}],
 };
-const LOCAL = {answers: outline(demo('answers.md')), knowledge: outline(demo('knowledge.md'))};
+NOTION.profile = [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 'p2', type: 'callout', text: 'Fields marked ❓ are still open.'},
+  {id: 'p3', type: 'table', header: true, rows: [row('q0', 'Constraint', 'Value'), row('q1', 'Countries', 'Switzerland, Germany'), row('q2', 'Work mode', 'Hybrid or remote'),
+    row('q3', 'Languages I can work in', 'English (fluent), German (B1)'), row('q4', 'Workload', '❓ full-time or a percentage'), row('q5', 'Minimum seniority', '❓')]},
+  {id: 'p4', type: 'heading_1', text: 'Compensation'}, {id: 'p5', type: 'bulleted_list_item', text: 'Target: ❓'},
+  {id: 'p6', type: 'heading_1', text: 'Summary (from CV)'}, {id: 'p7', type: 'paragraph', text: 'Engineer with 8 years of AWS.'}];
+const LOCAL = {answers: outline(demo('answers.md')), knowledge: outline(demo('knowledge.md')), profile: outline(demo('profile.md'))};
+// Every tab of Settings → Profile drawn from an outline: a new one is added here (the class, not the case).
+const TABS = {answers: {load: 'loadApplicationAnswers', file: 'application-answers', body: 'answers-body'},
+  preferences: {load: 'loadPreferences', file: 'preferences-tab', body: 'preferences-body'}};
 
 for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
   test(`${store}: Application answers shows Needs review, the answers and the website rules, with no textarea and no ❓`, async () => {
@@ -53,3 +61,33 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     assert.ok(change.op === 'cell' ? change.value === 'Yes, EU citizen' && change.index === 1 : /Yes, EU citizen$/.test(change.value), JSON.stringify(change));
   });
 }
+
+for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
+  for (const [name, {load, file, body: bodyId}] of Object.entries(TABS)) {
+    test(`${store}: the ${name} tab has no textarea and no ❓ on screen`, async () => {
+      const calls = {textOutline: async text => ({ok: true, items: items[text], store, link: null})};
+      globalThis.window.pilot = new Proxy(calls, {get: (all, key) => all[key] || (() => null)});
+      const node = globalThis.document.createElement('div');
+      node.id = bodyId;
+      body.replaceChildren(node);
+      await (await import(`../renderer/pages/${file}.js`))[load]();
+      assert.ok(node.textContent.length > 50, 'it drew something');
+      assert.equal(node.querySelectorAll('textarea').length, 0);
+      assert.ok(!node.textContent.includes('❓'), node.textContent.match(/.{0,40}❓.{0,40}/)?.[0]);
+    });
+  }
+}
+
+test('Preferences: a work mode pressed writes only its own cell, on the Notion shape', async () => {
+  const sent = [];
+  globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items: NOTION.profile, store: 'Notion'}),
+    textEdit: async (name, changes) => { sent.push([name, changes]); return {ok: true, items: NOTION.profile}; }}, {get: (all, key) => all[key] || (() => null)});
+  const node = globalThis.document.createElement('div');
+  node.id = 'preferences-body';
+  body.replaceChildren(node);
+  await (await import('../renderer/pages/preferences-tab.js')).loadPreferences();
+  const onSite = node.querySelectorAll('.pref-modes button').find(button => button.textContent === 'On-site');
+  onSite.click();
+  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q2', index: 1, value: 'On-site, Hybrid, Remote', was: 'Hybrid or remote'}]]]);
+});
