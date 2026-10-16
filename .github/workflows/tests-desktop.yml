@@ -44,7 +44,6 @@ on:
       - 'tools/flow-fresh.mjs'
       - 'tools/free-ai-eval.mjs'
       - 'tools/free-ai-eval-metrics.mjs'
-      - 'tools/free-ai-form-cases.mjs'
       - 'site/src/free-ai-models.js'
       - 'site/src/free-ai-translate.js'
       - 'tools/hardcoded-page-words.mjs'

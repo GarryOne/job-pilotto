@@ -11,6 +11,8 @@ on:
       - 'tools/check.sh'
       - 'tools/check.py'
       # Files outside worker/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
+      - 'desktop/demo/answers.md'
+      - 'desktop/demo/profile.md'
       - 'desktop/e2e/lib/cookie-layer-left.mjs'
       - 'desktop/lib/ladder/rung4-picture.js'
       - 'desktop/lib/page-kind.js'
@@ -18,6 +20,7 @@ on:
       - 'desktop/lib/reports.js'
       - 'extension/**'
       - 'tools/browser-form-fastpath.js'
+      - 'tools/free-ai-form-cases.mjs'
       - 'tools/browser-form-snapshot.js'
       - 'tools/browser-submit-guard.js'
       - 'tools/fill-fixture.mjs'
