@@ -3,6 +3,7 @@
 // Switch: env.HOSTED_ALWAYS_ON = off | on (off: every route answers 404). The container holds no long-lived secret: a run token is bound to one run, lives 30 minutes, posts once.
 import {authorize, digestOf, equal, tokenFor} from './guard.js';
 import {accountOf, createAccount, link} from './pro.js';
+import {chargeCompute} from './hosted-budget.js';
 
 export const hostedOn = env => env.HOSTED_ALWAYS_ON === 'on';
 export const RUN_TOKEN_MINUTES = 30, INACTIVE_DAYS = 14, INBOX_MAX = 200, TRIAL_FREQ_HOURS = 24, MIN_FREQ_HOURS = 4;
@@ -14,7 +15,7 @@ const parseKey = key => { const [tag, install, token] = String(key || '').split(
 const notFound = () => new Response('Not found', {status: 404});
 const deny = () => Response.json({ok: false, error: 'unauthorized'}, {status: 401});
 
-async function installOf(request, env) {
+export async function installOf(request, env) {
   const given = parseKey(request.headers.get('x-api-key'));
   const access = given && await authorize(env, given.install, given.token, 'ai');
   return access?.ok ? given.install : null;
@@ -93,6 +94,7 @@ export async function result(request, env, now = new Date()) {
     const payload = JSON.stringify({title: String(m.title).slice(0, 200), company: String(m.company || '').slice(0, 120), url: String(m.url || '').slice(0, 500), fit: Number(m.fit) || 0, line: String(m.line || '').slice(0, 300)});
     await env.STATS.prepare('INSERT OR IGNORE INTO hosted_inbox (account, run, job, payload, at) VALUES (?, ?, ?, ?, ?)').bind(run.account, run.id, String(m.job).slice(0, 120), payload, now.toISOString()).run();
   }
+  if (!failed) await chargeCompute(env, run, now);   // the run's compute comes out of the trial budget (a run that failed before the crawl costs the person nothing)
   // The inbox keeps the newest INBOX_MAX per account.
   await env.STATS.prepare('DELETE FROM hosted_inbox WHERE account = ? AND id NOT IN (SELECT id FROM hosted_inbox WHERE account = ? ORDER BY id DESC LIMIT ?)').bind(run.account, run.account, INBOX_MAX).run();
   const next = iso(now.getTime() + (await env.STATS.prepare('SELECT freq_hours FROM hosted_schedules WHERE account = ?').bind(run.account).first())?.freq_hours * HOUR);

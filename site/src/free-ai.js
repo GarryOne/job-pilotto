@@ -8,6 +8,8 @@ import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from './free-ai-trans
 import {accountNeurons} from './free-ai-usage.js';
 import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-models.js';
 import {PRO_PER_MINUTE, chargeCall, proLane} from './pro-ai.js';
+import {aiAccess} from './hosted-budget.js';
+import {runOf} from './hosted.js';
 
 // Per install (owner, 16 Oct 2026): 30 calls a minute, $0.30 a day and $3 a month (money, not calls), 1.5M tokens a day. Global: alert at $3 a day, stop at $10 a day, and a month line: alert at $40, stop at $60
 // (the values in force are wrangler.toml's vars; these are the tight defaults. env FREE_AI_INSTALL_MINUTE_CALLS / FREE_AI_ALERT_USD / FREE_AI_STOP_USD / FREE_AI_MONTH_ALERT_USD / FREE_AI_MONTH_STOP_USD / FREE_AI_INSTALL_DAY_USD / FREE_AI_INSTALL_MONTH_USD).
@@ -29,7 +31,8 @@ const count = async (kv, key) => Number(await kv.get(key)) || 0;
 export const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
 
 // Apps from before Free AI still send their founder/friend key (JP1.…): it works the same until they update.
-async function who(key, env) {
+async function who(key, env, now = new Date()) {
+  if (String(key || '').startsWith('HR1.') && env.HOSTED_ALWAYS_ON === 'on') return aiAccess(env, key, runOf, now);   // a hosted container's run token: charged as the install that set the schedule (src/hosted-budget.js)
   const given = parseKey(key);
   if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? {...access, install: given.install} : null; }   // a trial install: its lifetime budget applies
   const license = String(key || '').startsWith('JP1.') && await verifyLicense(key, env.LICENSE_PUBLIC_KEY);
@@ -40,7 +43,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const path = new URL(request.url).pathname.replace(/^\/api\/ai/, '');
   if (env.FREE_AI === 'off') return error(503, 'Free AI is paused right now. You can add your own key in Settings → AI engine.');
   if (!env.AI || !env.WAITLIST) return error(503, 'Free AI is not available right now.');
-  const access = await who(request.headers.get('x-api-key'), env);
+  const access = await who(request.headers.get('x-api-key'), env, now);
   if (!access) return error(401, 'Free AI needs this install\'s token. Restart Job Pilotto and try again.', 'authentication_error');
   if (path === '/v1/models' && request.method === 'GET') return Response.json({data: [], has_more: false});   // key checks
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
