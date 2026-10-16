@@ -142,5 +142,30 @@ class PrBodyTest(unittest.TestCase):
         linked = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), 'owner/repo'], input='## X\n\n### Y\n\nsee run 38756824411 and [run 38756824411](u)\n', capture_output=True, text=True).stdout
         self.assertIn('see [run 38756824411](https://github.com/owner/repo/actions/runs/38756824411) and [run 38756824411](u)', linked, 'a laid-out body only gets its links, never twice')
 
+
+class PrDescriptionLaidOutTest(unittest.TestCase):
+    """tools/pr-body-check.py (owner, 16 Oct 2026: #1043's body had no headings or separators after a raw `gh pr edit --body-file`)."""
+
+    def check(self, body):
+        return subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-check.py')], input=body, capture_output=True, text=True)
+
+    def test_the_formatters_output_passes_and_a_raw_summary_fails(self):
+        raw = (ROOT / 'tools' / 'pr-body-template.md').read_text()
+        self.assertEqual(self.check(raw).returncode, 1, 'the raw template (what #1043 was edited to) must fail')
+        laid = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), 'owner/repo'], input=raw, capture_output=True, text=True).stdout
+        result = self.check(laid)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_each_missing_part_is_named(self):
+        err = self.check('🟢 x\n\n- a\n').stderr
+        for part in ('"## " heading', '"---" separator', '"### " section heading'):
+            self.assertIn(part, err)
+
+    def test_the_workflow_runs_on_an_edit(self):
+        flow = (ROOT / '.github' / 'workflows' / 'pr-description.yml').read_text()
+        self.assertIn('edited', flow)
+        self.assertIn('tools/pr-body-check.py', flow)
+
+
 if __name__ == '__main__':
     unittest.main()
