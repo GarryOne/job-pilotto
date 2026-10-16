@@ -2,7 +2,7 @@
  "why": "Rows whose whole journey is replayed with the card and the panel read at every step (journey-run.mjs): the ones that broke on the owner's real journey on 15-16 Oct 2026. Each is a pool row by name; its newest record is the live truth.",
  "rows": [
   {"row": "Richemont Workday", "marks": ["reading", "posting", "reading", "form", "signing-in", "reading", "form"], "why": "signed in on a test account: the card stalled on \"Logging in…\" and the form after sign-in was never read (#1013)"},
-  {"row": "SuccessFactors: account and form", "pending": "its record predates the fixes: on main it replays to \"Apply button detected\" and stops, which is the bug; bless its marks when it is recorded again on the fixed recorder (eb)", "why": "an error page called \"Apply button detected\"; Reopen lost the address's query (#a27b6d8)"},
+  {"row": "SuccessFactors: account and form", "marks": ["reading", "posting", "reading", "signing-in", "reading", "form"], "why": "signed in on a test account of another host than the posting (career74.sapsf.eu vs careers.adnovum.com): an error page called \"Apply button detected\", Reopen lost the address's query"},
   {"row": "Lever: single page, no account", "marks": ["reading", "form"], "why": "the plain one-page form: a posting must never read \"Ready\", the panel always has Report"}
  ]
 }
