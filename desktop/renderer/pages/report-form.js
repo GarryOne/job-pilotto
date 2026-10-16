@@ -55,7 +55,9 @@ export async function init() {
   const show = (on, ready) => { $('setting-report-form').hidden = !ready; };
   show(state.on, state.ready);
   $('report-form-on').checked = state.on;
-  $('report-form-on').addEventListener('change', async event => { const {on} = await window.pilot.reportFormSet(event.target.checked); show(on, true); });
+  $('welcome-trace').checked = state.on;   // the wizard's one checkbox (on by default) is the same switch
+  $('welcome-trace').addEventListener('change', async event => { const {on} = await window.pilot.reportFormSet(event.target.checked); $('report-form-on').checked = on; });
+  $('report-form-on').addEventListener('change', async event => { const {on} = await window.pilot.reportFormSet(event.target.checked); $('welcome-trace').checked = on; show(on, true); });
   $('report-delete').addEventListener('click', async () => { $('report-delete').disabled = true; await window.pilot.reportFormDeleteAll().catch(() => null); $('report-delete').disabled = false; sent(); });
   sent();
   window.pilot.onReportFormReady(preview);

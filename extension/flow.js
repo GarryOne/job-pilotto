@@ -1,7 +1,7 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
-import {attachDebugger} from './stop-state.js';
+import {attachDebugger, detachDebugger} from './stop-state.js';
 import {StepTimeout, within} from './step-bound.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
@@ -115,7 +115,7 @@ async function clickCombosNow(tabId) {
       results.push({label: 'Phone (typed for real)', picked: true, ms: 0});
     }
   } finally {
-    await chrome.debugger.detach(target).catch(() => {});
+    await detachDebugger(tabId);
   }
   return results;
 }

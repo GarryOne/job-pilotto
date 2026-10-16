@@ -3,7 +3,7 @@
 // character as a real key event through Chrome's debugger, then read back (page/fill-verify.js). The second way of the ladder; what still does not hold stays "left".
 // Floors: only the boxes the page lists (plain text boxes, never a password, read-only, disabled or a menu's search box), no Enter, no Tab, no other key; at most 8 boxes;
 // one debugger at a time (the caller passes the turn it shares with the dropdown clicks). Counts only leave this file, never a value. Guard: worker/test/fill-verify.test.js.
-import {attachDebugger} from './stop-state.js';
+import {attachDebugger, detachDebugger} from './stop-state.js';
 const SETTLE_MS = 300;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -36,5 +36,5 @@ export async function typeNotTakenOnTab(tabId) {
   const target = {tabId};
   await attachDebugger(tabId);
   try { return await typeNotTakenForReal({page, send: (method, params) => chrome.debugger.sendCommand(target, method, params)}); }
-  finally { await chrome.debugger.detach(target).catch(() => {}); }
+  finally { await detachDebugger(tabId); }
 }

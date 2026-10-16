@@ -67,3 +67,13 @@ test('a fetched report replays offline like a pool record: the page the live vis
   assert.equal(served.reply.status, 200); assert.equal(served.reply.body.toString(), page.toString());
   fs.rmSync(dir, {recursive: true, force: true});
 });
+
+test('a trace that crossed a sign-in page replays from the first page after it; the pages before it stay in the record, never replayed', async () => {
+  const {segmented} = await import('../reports-fetch.mjs');
+  const entry = (url, seg) => ({method: 'GET', url, type: 'document', status: 200, headers: {}, hash: '', seg});
+  const record = segmented({name: 'reported-x', entries: [entry('https://a.test/posting', 0), entry('https://a.test/sso', 0), entry('https://a.test/form', 1), entry('https://a.test/step2', 1)]});
+  assert.deepEqual(record.entries.map(one => one.url), ['https://a.test/form', 'https://a.test/step2']);
+  assert.deepEqual(record.earlier.map(one => one.url), ['https://a.test/posting', 'https://a.test/sso']);
+  assert.ok(record.entries.every(one => !('seg' in one)), 'the replayer reads the same shape as any record');
+  assert.equal(segmented({entries: [entry('https://a.test/p', 0)]}).earlier, undefined, 'no gap: the whole journey replays');
+});

@@ -25,7 +25,7 @@ when he presses Report we send the recording already made, right away, without a
 
 ### 2. Sign-in pages: never recorded, the rest of the journey kept
 - Detection: the existing any-frame `input[type=password]` check, run on `Page.frameNavigated` / `loadEventFired` and every 1 s while a page is shown.
-- On a hit: **(a)** that page's document response, and every request since its navigation began, is **dropped from the buffer at once**; **(b)** the debugger is **detached** (Chrome's bar disappears on the sign-in page); **(c)** a gap marker `{gap: true}` is kept (no URL, no host of the sign-in page). When the tab navigates away from a password page, the debugger reattaches and capture resumes.
+- On a hit: **(a)** that page's document response, and every request since its navigation began, is **dropped from the buffer at once**; **(b)** the debugger is **detached** (Chrome's bar disappears on the sign-in page); **(c)** a gap is kept: later entries carry the next `seg` number (no URL, no host of the sign-in page). When the tab navigates away from a password page, the debugger reattaches and capture resumes.
 - A password field that appears late (JS-rendered) is caught by the 1 s check; what arrived in between is dropped with the page (the drop covers from the navigation start). Fail closed.
 - Honest limit: between the sign-in page's first byte and its detection (≤ 1 s) bytes sit in memory, then are dropped; never written, never sent.
 
@@ -36,7 +36,7 @@ when he presses Report we send the recording already made, right away, without a
 | Format | the report entry shape of `report-recorder.js` (= net-record entries + bodies): scrub, gate, upload, fetch, replay unchanged |
 | Bodies skipped | images / media / other binary: **no `getResponseBody`** (the scrub blanks or drops them anyway); size from `encodedDataLength` |
 | Size cap | **30 MB raw per tab, 60 MB over all tabs** |
-| Pinned head | the **first page chain** (posting → redirects → first form document) is never evicted |
+| Pinned head | the **first 3 pages** (the posting with its redirects, then the next two) are never evicted |
 | Eviction | when over the cap, whole oldest pages go first, never the head, never the page now shown; the buffer records `truncated` |
 | Time cap | **3 h per tab** from the first page; older pages beyond that are evicted like the size cap |
 | Entry cap | 4000 entries per tab |
@@ -56,7 +56,7 @@ when he presses Report we send the recording already made, right away, without a
 - ⌘K: a "Keep a trace of each form fill" toggle entry (every new action goes in the palette).
 
 ### 6. Replay: the gap
-- The report's first entry is the posting; no account is ever needed. After a gap the entries resume at the first page after the sign-in. `reports-fetch` / `row-to-case` read `gap` markers and split the record into **segments**; the replay runs the **segment holding the stuck step** (starting at the first page after the gap). Earlier segments stay in the record for the fix to read and are not replayed.
+- The report's first entry is the posting; no account is ever needed. After a gap the entries resume at the first page after the sign-in. `reports-fetch` (`segmented()`) splits the record by `seg`: `entries` = the **last segment** (the one holding the stuck step, starting at the first page after the gap), `earlier` = the pages before it, kept for the fix to read and never replayed.
 - No code path for a page kind: the cut is only "a gap marker".
 
 ### 7. What changes vs. the 15 Oct spec
@@ -86,10 +86,10 @@ Memory (heap + buffer bytes) and CPU of a long fill (the largest recorded journe
 - The 30 MB / 3 h numbers are a first guess; the measurement in §8 may move them.
 
 ## Progress
-- [ ] Owner approves this spec (decisions of 16 Oct relayed by job-pilotto-cc) (proof: none: the owner's go)
-- [ ] 1. `trace-debugger.js`: one attach owner, ref-counted, password detach / resume (proof: desktop/test/trace-debugger.test.js)
-- [ ] 2. The buffer: cap, pinned head, eviction, drop on end (proof: desktop/test/trace-buffer.test.js)
-- [ ] 3. `reportFromTrace`, the card choice, #993's reload start removed (proof: desktop/test/report-panel.test.js)
-- [ ] 4. Setting rename, wizard line, bar explanation, ⌘K toggle (proof: desktop/test/report-setting.test.js)
-- [ ] 5. Gap markers → segments in reports-fetch / row-to-case (proof: desktop/e2e/test/reports-fetch.test.mjs)
-- [ ] 6. Memory / CPU measured, in the PR body (proof: the PR)
+- [x] Owner approves this spec (the owner merged #997 on 16 Oct 2026) (proof: #997)
+- [x] 1. One debugger owner, ref-counted: `attachDebugger` / `detachDebugger` in stop-state.js; `trace.js` holds it, releases it on a password page and resumes (proof: desktop/test/trace-debugger.test.js, desktop/test/trace.test.js)
+- [x] 2. The buffer: cap, pinned head, eviction, drop on end (proof: desktop/test/trace.test.js "the buffer caps", "dropped when the application ends")
+- [x] 3. `report-send` from the trace, the card choice, #993's reload start and `report-recorder.js` removed (proof: desktop/test/report-panel.test.js, desktop/test/trace.test.js "the class")
+- [x] 4. Setting renamed (it is its own ⌘K entry by its heading), wizard checkbox, the bar explained once in the panel (proof: desktop/test/report-panel.test.js)
+- [x] 5. `seg` gaps -> `entries` / `earlier` in reports-fetch (proof: desktop/e2e/test/reports-fetch.test.mjs)
+- [x] 6. Memory / CPU measured: in the PR body (proof: the PR)

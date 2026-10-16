@@ -8,7 +8,7 @@
 //     desktop/e2e/lib/ending.mjs) says what the page holds after the last action (cc, 13 Oct 2026).
 // Log lines: counts and verbs only, never a label or a value. Guard: worker/test/fill-climb.test.js.
 import {apiFor} from '../flow.js';
-import {attachDebugger} from '../stop-state.js';
+import {attachDebugger, detachDebugger} from '../stop-state.js';
 import {decide} from '../log.js';
 import {sketchOf} from '../judge-sketch.js';
 import {onTop} from '../on-top.js';
@@ -26,7 +26,7 @@ async function withClicks(tabId, work) {
   try {
     const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {type, x, y, button: 'left', clickCount: 1});
     return await work(async (x, y) => { const marked = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), args: [x, y]}).catch(() => [{result: true}]); if (marked?.[0]?.result === false) return; for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, x, y); });   // marked first: the extension's own press (page/submit-press.js markAt)
-  } finally { await chrome.debugger.detach(target).catch(() => {}); }
+  } finally { await detachDebugger(tabId); }
 }
 
 // Ask, then (behind the switch) act. -> {repairs, results} or null when nothing was asked.
