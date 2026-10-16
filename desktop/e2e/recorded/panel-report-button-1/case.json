@@ -1,0 +1,50 @@
+{
+ "origin": "hand-cut",
+ "shape": "an application form whose panel the app says may offer Report this form (the Settings switch is on): the panel itself carries a labelled button for it, not only the header icon",
+ "why": "16 Oct 2026, the owner after the app's own button was removed: 'I still don't see the Report this form button on the extension panel'. The panel had only a small icon in its header. Hand-cut page (structure only, invented text).",
+ "sample": "invented form (host and text); the panel is the extension's own",
+ "rung": 2,
+ "start": "panel",
+ "pages": [
+  {
+   "url": "https://jobs.example.org/sre/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/report-form": {
+   "ok": true,
+   "enabled": true
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first",
+   "#email"
+  ],
+  "panelHas": [
+   "Report this form…"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.520",
+  "failed": "panelHas: Report this form… (the panel had only the header icon)"
+ }
+}
