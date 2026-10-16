@@ -82,5 +82,13 @@ class TheRefillWorkflow(unittest.TestCase):
         self.assertRegex(replays, r"(?m)^  bundles:\n(?:    .*\n)*?    needs: \[check, refill-wait\]", 'the release is read only after the wait')
 
 
+    def test_the_publish_starts_the_site_replay_with_the_runs_own_token(self):
+        top = CODE.split('\njobs:')[0]
+        self.assertRegex(top, r'(?m)^  actions: write', 'the run token may dispatch a workflow')
+        publish = CODE.split('\n  publish:')[1].split('\n  finish:')[0]
+        self.assertRegex(publish, r'DISPATCH_TOKEN: \$\{\{ github\.token \}\}', 'records-publish dispatches with it, not the PAT that writes the private records repo')
+        self.assertRegex(publish, r'GH_TOKEN: \$\{\{ secrets\.NET_RECORDS_WRITE_TOKEN \}\}')
+
+
 if __name__ == '__main__':
     unittest.main()

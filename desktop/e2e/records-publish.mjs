@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {uploadBundle} from './lib/refill-resilience.mjs';
+import {dispatchGh, uploadBundle} from './lib/refill-resilience.mjs';
 import {newestPerRow} from './replay-records.mjs';
 import {stampZone} from './lib/replay-date.mjs';
 import {judgeRecords, partition, report} from './lib/record-guard.mjs';
@@ -63,7 +63,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     uploadBundle(file => gh(['release', 'upload', TAG, '-R', REPO, file]), path.join(work, BUNDLE), path.join(work, KEY));   // the key last; each file retried (HTTP 404 once on 15 Oct 2026, group 3)   // added, never --clobber: other bundles stay
     console.log(`records-publish: ${publish.length} rows added to ${REPO} release ${TAG} as ${BUNDLE}`);
     // New recordings: main's replay runs again at once, so /admin/lab-form-filling shows them (the workflow publishes from main only).
-    try { gh(['workflow', 'run', 'CI · Site replays · all (offline)', '--ref', 'main']); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Site replays · all (offline)" --ref main)'); }
+    const dispatch = dispatchGh();   // the run's own token: the write token only reaches the private records repo
+    try { execFileSync('gh', ['workflow', 'run', 'CI · Site replays · all (offline)', '--ref', 'main', ...dispatch.repoArgs], {cwd: here, env: dispatch.env, stdio: ['ignore', 'pipe', 'inherit']}); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Site replays · all (offline)" --ref main)'); }
     process.exitCode = refusedExit;
   } finally { fs.rmSync(work, {recursive: true, force: true}); }
 }

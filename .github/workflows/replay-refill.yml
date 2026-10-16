@@ -333,6 +333,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}   # contents:write on job-pilotto-internal only
           NET_RECORDS_WRITE_TOKEN: ${{ secrets.NET_RECORDS_WRITE_TOKEN }}
+          DISPATCH_TOKEN: ${{ github.token }}   # starts the site replay after the publish (actions: write above); the write token has no rights on this repo
           NET_RECORDS_BUNDLE_SUFFIX: -g${{ matrix.group }}   # two groups in the same second never write the same asset
         run: |
           if [ -z "$NET_RECORDS_WRITE_TOKEN" ]; then echo "refill: no NET_RECORDS_WRITE_TOKEN secret: the rows are refilled but not published (the owner adds it, then run again)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
