@@ -17,6 +17,7 @@ from pathlib import Path
 from .. import store
 from ..paths import JOBS_DB
 from . import cost, engine
+from .seniority import settle
 from .models import SMALL_MODEL
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
@@ -162,7 +163,9 @@ def extract(client, model, job):
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
     text = next(block.text for block in response.content if block.type == 'text')
-    return json.loads(text), response.usage
+    data = json.loads(text)
+    data['seniority'] = settle(job['title'], data.get('seniority'))   # the title's own level word, where it decides (ai/seniority.py)
+    return data, response.usage
 
 
 def save(db, job, model, data):
