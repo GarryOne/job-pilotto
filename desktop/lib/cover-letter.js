@@ -63,7 +63,7 @@ export async function generate(storage, {apiKey, client = null, profile = '', an
       `<candidate_name>${name || cv.name || ''}</candidate_name>` +
       (feedback && previous ? `\n\n<previous_letter>\n${previous}\n</previous_letter>\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
-  });
+  }, {headers: {'x-jp-action': 'cover_letter'}});
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to write this letter`);
   if (response.stop_reason === 'max_tokens') throw new Error('The letter was cut off; try again');
   const text = JSON.parse(response.content.find(block => block.type === 'text').text).letter.trim();

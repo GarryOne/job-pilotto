@@ -23,11 +23,11 @@ export class AnthropicApi extends Adapter {
     super(options);
     this.sdk = sdk || new Anthropic({apiKey, ...(fetch ? {fetch} : {})});
     // Streaming stays the SDK's own (the strategy draft's progress bar); only this engine offers it, callers check for it.
-    this.messages.stream = params => { requestFrom(params); return this.sdk.messages.stream(forApi(params)); };
+    this.messages.stream = (params, options) => { requestFrom(params); return this.sdk.messages.stream(forApi(params), options); };
   }
 
   async complete(request) {
-    const answer = await this.sdk.messages.create(forApi(request.params));
+    const answer = await this.sdk.messages.create(forApi(request.params), request.action ? {headers: {'x-jp-action': request.action}} : undefined);
     if (answer?.usage) Object.assign(answer.usage, {billing: API, provider: 'anthropic'});
     return answer;
   }

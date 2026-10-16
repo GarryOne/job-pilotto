@@ -187,7 +187,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), fill = f
   if (!client || !file) return client;
   const served = {};   // asks made per kind (ordinal)
   const ask = client.messages.create.bind(client.messages);
-  client.messages = {...client.messages, create: async params => {
+  client.messages = {...client.messages, create: async (params, options) => {
     const exact = memoKey(params), kept = read(file), alias = kept[layoutKey(params) + LAYOUT], sized = kept[exact] ? exact : alias && kept[alias] ? alias : only ? nearSizeKey(params, kept) : '', key = sized || exact, parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
     if (ordinal) served[kind] = (served[kind] || 0) + 1;
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
@@ -220,7 +220,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), fill = f
       if (missLog) try { fs.appendFileSync(missLog, `${JSON.stringify({differs: differs || [], volatile})}\n`); } catch { /* a report only */ }
       throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}${volatile.length ? `; a clock time or date in ${volatile.join(', ')} can never match` : ''}`);
     }
-    const askedAt = Date.now(), answer = await ask(params), tookMs = Date.now() - askedAt;
+    const askedAt = Date.now(), answer = await ask(params, options), tookMs = Date.now() - askedAt;
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;

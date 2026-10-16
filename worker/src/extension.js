@@ -234,7 +234,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
       ].filter(Boolean).join('\n\n'),
     }],
     output_config: { format: { type: 'json_schema', schema: ANSWER_SCHEMA } },
-  });
+  }, {headers: {'x-jp-action': 'answer'}});
   const response = await ask(fields);
   if (response.stop_reason === 'refusal') throw new Error('Claude declined to answer this form');
   const text = response.content.find((block) => block.type === 'text')?.text;

@@ -5,7 +5,7 @@ export const STRONG = '@cf/zai-org/glm-5.3-flash';   // needs the Workers Paid p
 const PRICES = {[SMALL]: [0.0509, 0.335], [STRONG]: [0.15, 0.5]};
 
 // Steps that read a page, a mail or a job (short, structured answers) run on the small model; writing a CV, a kit, a strategy or an answer for a form runs on the stronger one.
-const STRONG_STEPS = new Set(['kit', 'prep', 'insight', 'interview', 'opportunity', 'review']);
+const STRONG_STEPS = new Set(['kit', 'prep', 'insight', 'interview', 'opportunity', 'review', 'tailor', 'cover_letter', 'answer', 'answer_review']);
 
 export const modelFor = (action, env = {}) => (STRONG_STEPS.has(String(action)) && env.STRONG_ON === 'on' ? STRONG : SMALL);
 
