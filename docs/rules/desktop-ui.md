@@ -36,3 +36,4 @@ Why each rule exists: [why.md](why.md#desktop-ui).
 `data-command` or `data-palette` on its Run button (`test/palette-covers-actions.test.js`). Any other new top-level button is added with
 `button(view, id, keywords)`. A long or paid action opens its card and focuses its input instead of running. Settings needs nothing (listed from
 the page; checked by the settings suite's ⌘K step). A new long task on this Mac is a tracked task (`pipeline.work` / `pipeline.task`).
+- **❓ is data, never shown** (owner, 16 Oct 2026): a value starting with ❓ means not set; screens say "Not set" and use the words after it as the hint (`renderer/answers-model.js` valueOf / shown). The Profile tabs' render test fails on a ❓ or a textarea on screen (`desktop/test/profile-tabs-render.test.js`).

@@ -19,11 +19,15 @@ export function valueOf(raw) {
   return {open: true, value: '', hint, asked};
 }
 
+// "**Notice:** 3 months" → {head: '**Notice:**', question: 'Notice', raw: '3 months'}; a line with no label → null.
+export function labelledLine(text) {
+  const match = String(text).match(LABELLED);
+  return match && plain(match[2] || match[3]) ? {head: match[1], question: plain(match[2] || match[3]), raw: match[4]} : null;
+}
 function lineItem(item) {
-  const match = String(item.text).match(LABELLED);
-  if (!match || !plain(match[2] || match[3])) return {id: item.id, kind: 'note', question: '', ...valueOf(item.text), text: item.text};
-  const head = match[1], question = plain(match[2] || match[3]);
-  return {id: item.id, kind: 'line', head, question, ...valueOf(match[4]), text: item.text};
+  const line = labelledLine(item.text);
+  if (!line) return {id: item.id, kind: 'note', question: '', ...valueOf(item.text), text: item.text};
+  return {id: item.id, kind: 'line', head: line.head, question: line.question, ...valueOf(line.raw), text: item.text};
 }
 
 // → [{title, after: the id a new question of this section is inserted after, items: [{id, kind: 'cell' | 'line' | 'note', question, value, open, hint, asked}]}]

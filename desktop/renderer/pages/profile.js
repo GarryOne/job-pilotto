@@ -3,10 +3,10 @@ import {showMode} from '../assistant-mode.js';
 import {showClaudeAuto} from '../claude-auto.js';
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
-import {showStoreParts} from './text-editors.js';
+import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
+import {loadPreferences} from './preferences-tab.js';
 import {initExperience, loadExperience} from './experience.js';
-import {loadProfileForm} from './profile-form.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -32,7 +32,7 @@ export function profileTab(name) {
   showStoreParts();
   if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
-  else if (name === 'profiletext') loadProfileForm();
+  else if (name === 'profiletext') loadPreferences();
   else if (name === 'letter') loadLetter();
   else { loadCvSetting(); showCvChanged(); }
 }
@@ -263,6 +263,7 @@ export async function init() {
   });
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('answers-add').addEventListener('click', addQuestion);
+  $('preferences-open-notion').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
   // An error from the AI service is said in words, never shown as the API's JSON (#94: "400 {"type":"error",…}" sat in the CV card).
