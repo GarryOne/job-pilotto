@@ -90,3 +90,19 @@ test('4. a lone name word in code is left by the scrub but blocks the send as na
   assert.match(out.bodies.get(out.entries[0].hash).toString(), /const quill = 1/);
   assert.deepEqual(lastGate(out, values).map(hit => hit.kind), ['name-in-code']);
 });
+
+test('5. a session token, CSRF token or credential in a body goes by its field name or JWT shape; the page keeps its shape', () => {
+  const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.c2lnbmF0dXJlMTIz';
+  const api = JSON.stringify({ok: true, accessToken: 'Zk39sd0QpL2mXv81aa', csrfToken: 'q8w7e6r5t4y3', title: 'Engineer', nested: {sessionId: 'S3SS10N-ID-99887766'}});
+  const page = `<meta name="csrf-token" content="Xy12ab34Cd56Ef78"><form><input type="hidden" name="authenticity_token" value="AbCdEf123456789"></form><script>window.boot={"apiKey":"AKIAFAKEKEY0001","jobTitle":"Engineer"};fetch(u,{headers:{Authorization:"Bearer abcdef0123456789xyz"}});var j="${jwt}";</script>`;
+  const form = 'lang=en&sessionid=0123456789abcdef&next=%2Fapply';
+  const bodies = new Map([['a', Buffer.from(api)], ['p', Buffer.from(page)], ['f', Buffer.from(form)]]);
+  const record = {bodies, entries: [entry({url: 'https://jobs.example.test/api/session', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'a', size: api.length}),
+    entry({url: 'https://jobs.example.test/apply', hash: 'p', size: page.length}), entry({url: 'https://jobs.example.test/post', type: 'fetch', headers: {'content-type': 'application/x-www-form-urlencoded'}, hash: 'f', size: form.length})]};
+  assert.ok(lastGate(record).some(hit => hit.kind === 'token'), 'the gate sees them before the scrub');
+  const out = scrubRecord(record), text = everything(out);
+  for (const secret of [/Zk39sd0QpL2mXv81aa/, /q8w7e6r5t4y3/, /S3SS10N-ID/, /Xy12ab34Cd56Ef78/, /AbCdEf123456789/, /AKIAFAKEKEY0001/, /abcdef0123456789xyz/, /eyJhbGci/, /0123456789abcdef/]) assert.ok(!secret.test(text), `left: ${secret}`);
+  assert.match(text, /"title":"Engineer"/); assert.match(text, /"jobTitle":"Engineer"/); assert.match(text, /next=%2Fapply/);
+  assert.ok(out.stats.removed.tokens >= 8, JSON.stringify(out.stats.removed));
+  assert.deepEqual(lastGate(out), [], 'nothing is left for the gate');
+});

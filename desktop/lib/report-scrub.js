@@ -54,6 +54,20 @@ function blankTyped(html, counts) {
   return out.replace(/<option\b[^>]*\sselected\b[^>]*>/gi, tag => { counts.typed += 1; return tag.replace(/\sselected(\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/i, ''); });
 }
 
+// A session token, CSRF token or credential inside a body (an API answer carrying an auth token, a token in a page's meta tag or boot data), found by the FIELD NAME it sits in and by the shape of a
+// JWT / Bearer value, never by the value's words; it is replaced by <token>. A reported journey crosses more pages and answers, so this runs on every kept text body. Kinds only: counts.tokens.
+const SECRET_KEY = '(?:token|secret|passw(?:or)?d|passwd|csrf|xsrf|nonce|auth(?!or)|session|sid|jwt|bearer|api[_-]?key|access[_-]?key|credential|signature)';   // words-ok: field names of credentials
+const QUOTED_SECRET = new RegExp(`(["']?[\\w.-]*${SECRET_KEY}[\\w.-]*["']?\\s*[:=]\\s*)(["'])((?:(?!\\2)[^\\\\\\n]|\\\\.){6,}?)\\2`, 'gi');
+const BARE_SECRET = new RegExp(`(\\b[\\w.-]*${SECRET_KEY}[\\w.-]*=)([A-Za-z0-9._~+/%-]{10,})`, 'gi');   // key=value pairs of a form body or text
+const META_SECRET = new RegExp(`(<meta\\b[^>]*\\bname\\s*=\\s*["'][^"']*${SECRET_KEY}[^"']*["'][^>]*\\bcontent\\s*=\\s*)("[^"]*"|'[^']*')`, 'gi');
+const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, BEARER = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{12,}/gi;
+function tokensOut(text, code, counts) {
+  const hit = replacement => (...match) => { counts.tokens += 1; return typeof replacement === 'function' ? replacement(...match) : replacement; };
+  let out = text.replace(QUOTED_SECRET, hit((_, head, quote) => `${head}${quote}<token>${quote}`)).replace(JWT, hit('<token>')).replace(BEARER, hit((_, head) => `${head}<token>`));
+  if (!code) out = out.replace(META_SECRET, hit((_, head) => `${head}"<token>"`)).replace(BARE_SECRET, hit((_, head) => `${head}<token>`));
+  return out;
+}
+
 // Owner values that may be replaced or searched in this kind of text: code (a script, a style sheet) takes e-mails, phones and multi-word values only, so a name word that is also
 // an identifier never breaks a page's code.
 const usable = (values, code) => [...values].filter(([value, kind]) => !code || kind === 'email' || kind === 'phone' || /\s/.test(value));
@@ -83,7 +97,7 @@ function contactsOut(text, counts) {
 
 // -> {entries, bodies, stats}: the record after the keep rules (net-keep.js) and the scrub. stats.removed counts what was taken out, by kind.
 export function scrubRecord(record, values = new Map()) {
-  const kept = keepRecord(record), counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0}, bodies = new Map(), entries = [];
+  const kept = keepRecord(record), counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0, tokens: 0}, bodies = new Map(), entries = [];
   for (const entry of kept.entries) {
     const url = scrubUrl(entry.url); if (url !== entry.url) counts.urls += 1;
     const own = Object.fromEntries(Object.entries(entry.headers || {}).filter(([name]) => KEEP_HEADER.test(name))), type = own['content-type'] || '', headers = own.location ? {...own, location: scrubUrl(own.location)} : own;
@@ -94,7 +108,7 @@ export function scrubRecord(record, values = new Map()) {
       const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(new URL(entry.url).pathname);
       let text = plainSeparators(body.toString('utf8'));
       if (!code) text = blankTyped(text, counts);
-      text = contactsOut(ownOut(text, values, code, counts), counts);
+      text = tokensOut(contactsOut(ownOut(text, values, code, counts), counts), code, counts);
       const next = Buffer.from(text); hash = sha(next); bodies.set(hash, next);
     } else if (body) bodies.set(hash, body);
     entries.push({...entry, url, headers, bodyKey: '', hash, size: hash ? bodies.get(hash).length : 0});
@@ -111,6 +125,7 @@ export function lastGate({entries, bodies}, values = new Map()) {
     if ((text.match(EMAIL) || []).some(e => !EXAMPLE.test(e))) add('email', where);
     if ((text.match(PHONE) || []).some(p => p.replace(/\D/g, '').length >= 9)) add('phone', where);
     if (code && nameRun(values)?.test(text)) add('name', where);
+    for (const shape of [JWT, BEARER, QUOTED_SECRET, ...(code ? [] : [BARE_SECRET])]) { shape.lastIndex = 0; if ([...text.matchAll(shape)].some(found => !/<token>/.test(found[0]))) add('token', where); }
     const folded = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     for (const [value, kind] of values) {
       if (kind === 'phone' || kind === 'email') continue;
