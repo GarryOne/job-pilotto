@@ -1,4 +1,5 @@
 import tempfile
+from datetime import datetime, timezone
 import unittest
 from pathlib import Path
 import re
@@ -17,7 +18,7 @@ class DigestFormatTests(unittest.TestCase):
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
                 message = digest.format_digest(db)
-        self.assertIn('1 new · Top 1 of 1 ranked jobs', message)
+        self.assertIn('1 new · Top 1 of 1 jobs', message)
         self.assertIn('Tap a job number', message)
         self.assertIn('>SRE &lt;Platform&gt; &amp; Ops</a></b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
@@ -82,6 +83,7 @@ class DigestFormatTests(unittest.TestCase):
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
                 db.execute("UPDATE jobs SET last_seen_at = '2099-01-01T00:00:00+00:00'")  # none are new any more
+                digest.mark_shown(db, [row[0] for row in db.execute('SELECT id FROM jobs')], seed=0, now=datetime(2000, 1, 1, tzinfo=timezone.utc))  # sent long ago: older jobs
                 first_ids, second_ids, page2_ids = [], [], []
                 digest.build_digest(db, seed=1, shown_ids=first_ids)
                 digest.mark_shown(db, first_ids, seed=1)
