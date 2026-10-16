@@ -70,8 +70,8 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 4</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Job Pilotto uses AI to read job postings, score them and draft answers. Choose Claude or OpenAI, then how it runs:
-            an API key (you pay per use, usually a few dollars a month) or your own Claude Code / Codex (your Claude or ChatGPT plan). Invited testers: $1 of free AI.</p></div>
+          <p class="muted subtitle">Job Pilotto uses AI to read job postings, score them and draft answers. Start with Free (nothing to set up), or bring your own Claude or OpenAI:
+            an API key (you pay per use, usually a few dollars a month) or your own Claude Code / Codex (your Claude or ChatGPT plan).</p></div>
       </header>
       <section class="card step-card engine" id="ai-engine"></section>
       <section class="card step-card" id="ai-key-part" hidden>
@@ -102,14 +102,10 @@
           <p class="message" id="ai-openai-message"></p>
         </div>
       </section>
-      <section class="card step-card" id="ai-trial" hidden>
-        <p class="muted small">While you use the free credit, AI requests go through the Job Pilotto website to Anthropic (nothing is stored).
-          With your own key they go straight from this Mac to Anthropic.</p>
-        <div class="step-field">
-          <label for="ai-trial-key">Founder key</label>
-          <input id="ai-trial-key" type="text" placeholder="The key from your invite (JP1.…)" autocomplete="off" spellcheck="false">
-          <p class="message" id="ai-trial-message"></p>
-        </div>
+      <section class="card step-card" id="ai-free" hidden>
+        <p class="muted small">With Free, AI requests go through the Job Pilotto website to an open AI model (nothing is stored).
+          With your own key they go straight from this Mac to Claude or OpenAI.</p>
+        <p class="message" id="ai-free-message"></p>
       </section>
       <div class="actions">
         <button class="ghost" data-back>Back</button>

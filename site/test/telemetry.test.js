@@ -157,7 +157,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /🚦 Setup funnel/);
   assert.match(html, /median time to finish: 12 min/);
-  assert.match(html, /1 used the free AI credit/);
+  assert.match(html, /1 used Free AI/);
   assert.match(html, /No problems reported/);  // setup steps are not problems
   const {funnel} = await import('../src/telemetry.js');
   const f = await funnel(e.STATS, 30);

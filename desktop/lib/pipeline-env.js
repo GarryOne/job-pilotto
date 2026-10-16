@@ -4,6 +4,7 @@
 // Split out of pipeline.js (a pure move); pipeline.js re-exports everything.
 import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
+import * as aiFree from './ai-free.js';
 import * as notionGate from './notion-gate.js';
 import {TEXT_FILES} from './store/text-files.js';
 import * as requestLog from './request-log.js';
@@ -97,8 +98,8 @@ export function pipelineEnv(storage, parent = process.env) {
   if (settings.store === 'sqlite') {
     for (const [variable, name] of Object.entries(LOCAL_TEXTS)) env[variable] = storage.path(name);
   }
-  // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
-  if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.top/api/ai'; else delete env.ANTHROPIC_BASE_URL;
+  // Free AI (lib/ai-free.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
+  if (aiFree.isOn(settings)) env.ANTHROPIC_BASE_URL = aiFree.FREE_BASE; else delete env.ANTHROPIC_BASE_URL;
   // The end-to-end journey (desktop/e2e) sends the engine's AI calls through its own slow proxy to reproduce a slow AI; never set for a user.
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = parent.JOB_PILOTTO_E2E_AI_BASE_URL;
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL) env.OPENAI_BASE_URL = parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL;   // the Python OpenAI SDK too

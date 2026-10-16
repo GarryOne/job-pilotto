@@ -1,7 +1,7 @@
 // The setup and settings IPC (moved out of main.js, 8 Oct 2026): connecting Notion (the sign-in and its gate), saving settings, the contact details and
-// secrets, the AI engine (Claude Code or a key), the trial credit, choosing and changing the CV. main.js passes in the services they share.
+// secrets, the AI engine (Claude Code or a key), Free AI, choosing and changing the CV. main.js passes in the services they share.
 // Guards: the notion-oauth, settings, claude-code and cv tests in desktop/test.
-import * as aiTrial from './ai-trial.js';
+import * as aiFree from './ai-free.js';
 import * as claudeCode from './claude-code.js';
 import * as atUpload from './cv-import-at-upload.js';
 import * as cvChange from './cv-change.js';
@@ -19,7 +19,7 @@ import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
 
 export function registerSetupHandlers(ctx) {
-  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
+  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
   handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {   // about Notion
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
@@ -56,7 +56,7 @@ export function registerSetupHandlers(ctx) {
     const {value, error} = cleanSecret(pasted);
     if (error) throw new Error(error);
     storage.setSecret(name, value);
-    if (name === 'ANTHROPIC_API_KEY' && !aiTrial.isTrialKey(value)) aiTrial.stop(storage);  // own key: leave the free credit
+    if (name === 'ANTHROPIC_API_KEY' && !aiFree.isFreeKey(value)) aiFree.stop(storage);  // own key: leave Free AI
     return storage.secretsPresent();
   });
   // The AI engine (Settings → Connections → AI, the wizard's AI step; lib/claude-code.js): the user's own choice.
@@ -94,9 +94,8 @@ export function registerSetupHandlers(ctx) {
   });
   ipcMain.handle('setAiFallback', (_, on) => { storage.saveSettings({aiFallback: !!on}); return forWindow(storage.settings()); });
   ipcMain.handle('dismissEngineOffer', () => { storage.saveSettings({aiEngineOffered: true}); return forWindow(storage.settings()); });
-  // The free AI credit for invited testers (lib/ai-trial.js).
-  ipcMain.handle('startTrialCredit', () => aiTrial.start(storage, licenseState));
-  ipcMain.handle('trialCredit', () => aiTrial.credit(storage));
+  // Free AI for everyone (lib/ai-free.js).
+  ipcMain.handle('startFreeAi', () => aiFree.start(storage));
   ipcMain.handle('checkAnthropic', async (_, pasted) => {
     const {value: key, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};

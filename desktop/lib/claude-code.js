@@ -4,7 +4,7 @@
 // (one tiny `claude -p` call, on the user's plan), and the environment a job on this Mac gets for the choice.
 // Job Pilotto runs the user's OWN, unmodified, signed-in `claude`, exactly as they could run it themselves. It never
 // reads, stores, logs or forwards Claude credentials, never signs in for the user, never sets auth variables for it
-// (it drops the API key and the free-credit relay the app gives its own calls), and is never used by GitHub runs.
+// (it drops the API key and the Free AI relay the app gives its own calls), and is never used by GitHub runs.
 import {execFile, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

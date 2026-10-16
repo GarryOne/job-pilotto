@@ -680,7 +680,7 @@ Everything below is for the [optional features](#optional-features); set up only
      (off by default; same family only: Claude Code → Anthropic key, Codex → OpenAI key; never Claude ↔ OpenAI).
    - Models, by tier: small `claude-haiku-5-5` / `gpt-6-luna`, main `claude-sonnet-5-5` / `gpt-6.1-sol`, big
      `claude-opus-5-5` / `gpt-6.1-sol` at high effort (`src/ai/models.py`; each can be changed without a release).
-   - Claude-only: **Apply with Claude** / Read with Claude (Claude Code driving Chrome) and the $1 of free AI. With an OpenAI
+   - Claude-only: **Apply with Claude** / Read with Claude (Claude Code driving Chrome). With an OpenAI
      engine they are hidden; plain **Apply** (the extension) works on every engine. A PDF reaches Codex as page pictures + text.
 6. **Your own CV and profile facts.** There's no way around this being manual — it's what makes
    the scoring and drafting personal to you.

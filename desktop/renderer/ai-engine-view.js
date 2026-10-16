@@ -1,5 +1,7 @@
 // The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
 // the DOM so the tests can check them. The user picks; nothing is chosen for them (lib/claude-code.js engine()).
+const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);   // = lib/ai-free.js isOn (the renderer cannot import lib/)
+
 export const TEXT = {
   title: 'Execution engine',
   families: {claude: 'Claude', openai: 'OpenAI'},   // the switch above the cards (owner, 9 Oct 2026: family first, then its two cards)
@@ -16,10 +18,10 @@ export const TEXT = {
   codex: {title: 'Codex CLI', text: 'Uses your own Codex CLI (the codex command on this Mac) and your ChatGPT plan for the AI tasks here, with no API key or '
     + 'per-token costs for them. Scheduled runs in your GitHub repository (Always on) still use your OpenAI API key.',
     short: 'Use your ChatGPT plan, for tasks on this Mac.'},
-  trial: {title: '$1 of free AI', text: 'Invited tester? Use your founder key: no Anthropic account or card needed. '
-    + 'When the $1 is used, add your own key in Settings → Anthropic.'},  // the wizard only: a first-run offer
+  free: {title: 'Free', text: 'Nothing to set up: no account, no key, no cost. Job Pilotto\'s AI tasks just work. '
+    + 'Want the best results? Add your own key any time.', short: 'No account, no key, no cost.'},
   note: 'AI tasks run through your Claude Code and bill to your Claude subscription, not to API credits. Always on (GitHub) '
-    + 'and the free-credit relay use an API key. Tasks are retried later when your Claude usage window is exhausted.',
+    + 'uses an API key. Tasks are retried later when your Claude usage window is exhausted.',
   codexNote: 'AI tasks run through your Codex and count against your ChatGPT plan, not API credits. Always on (GitHub) uses your OpenAI API key. '
     + 'Tasks are retried later when your plan\'s limit is reached.',
   fallback: 'Use my API key if Claude Code reaches its limit',
@@ -41,7 +43,7 @@ export const CLI_OF = {claude: 'cli', openai: 'codex'};
 // The chosen engine: 'api', 'cli', 'openai', 'codex' or null. In Settings an install that had a key before the choice existed shows 'api'
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {
-  if (context === 'wizard' && settings.aiTrial && (!settings.aiEngine || settings.aiEngine === 'api')) return 'trial';   // a later pick of another engine wins
+  if (freeOn(settings) && (!settings.aiEngine || settings.aiEngine === 'api')) return 'free';   // a later pick of another engine wins
   if (['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine)) return settings.aiEngine;
   return context === 'settings' && hasKey ? 'api' : null;
 }
@@ -62,9 +64,9 @@ export function cliStatus(status = null, family = 'claude') {
 }
 
 // Wizard: Continue once a card is picked and it can run (Claude Code verified; the API card with a key saved or typed;
-// the free credit with the founder key typed: always asked, even when a license is already in the app (owner, 9 Oct 2026)).
+// Free AI always (nothing to type).
 export function canContinue({picked, hasKey = false, keyTyped = false, status = null, hasOpenAiKey = false}) {
-  if (picked === 'trial') return keyTyped;
+  if (picked === 'free') return true;
   if (picked === 'cli' || picked === 'codex') return cliStatus(status, familyOf(picked)).usable;
   if (picked === 'openai') return !!(hasOpenAiKey || keyTyped);
   if (picked === 'api') return !!(hasKey || keyTyped);

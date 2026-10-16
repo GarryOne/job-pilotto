@@ -39,15 +39,14 @@ rm -rf "$APP"
 mv "$tmp/unpacked/Job Pilotto.app" "$APP"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 
-# A founder key (invited testers: bash -s JP1.…): the app takes it at its next start, unlocks itself and starts
-# the \$1 free AI credit, so setup skips the AI step (desktop/lib/pending-license.js).
+# A founder key (invited testers: bash -s JP1.…): the app takes it at its next start and unlocks itself (desktop/lib/pending-license.js).
 key="\${1:-}"
 if [ -n "$key" ]; then
   case "$key" in
     JP1.*)
       dir="$HOME/Library/Application Support/Job Pilotto"
       mkdir -p "$dir" && (umask 077 && printf '%s' "$key" > "$dir/pending-license.txt")
-      echo 'Founder key saved: the app unlocks itself and starts with $1 of free AI.' ;;
+      echo 'Founder key saved: the app unlocks itself.' ;;
     *) echo "That isn't a Job Pilotto key (it starts with JP1.); installing without it." ;;
   esac
 fi

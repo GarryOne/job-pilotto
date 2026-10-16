@@ -51,7 +51,7 @@ Callers send the same Anthropic-shaped `messages.create` and get the same shape 
 web search, effort, refusals, usage and price). Models are tiers (`src/ai/models.py`, `desktop/lib/ai/models.js`): a Claude id becomes
 the same tier on OpenAI. Nothing switches by itself; a plan engine may fall back to its own family's API key on the user's tick. The
 user-visible word for the AI comes from the chosen engine (`providers.who()`, `renderer/ai-name.js`), tested by ratchets in both runtimes.
-Claude-only: Apply/Read with Claude (Claude Code driving Chrome) and the $1 free credit; hidden for OpenAI engines (`renderer/claude-help.js`).
+Claude-only: Apply/Read with Claude (Claude Code driving Chrome) ; hidden for OpenAI engines (`renderer/claude-help.js`).
 
 ## Where the code sits
 

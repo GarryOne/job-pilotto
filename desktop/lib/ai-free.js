@@ -1,0 +1,53 @@
+// Free AI (owner, 16 Oct 2026): the engine for people with no key. The app's Anthropic SDKs (JS and the Python pipeline) are pointed at our website
+// (ANTHROPIC_BASE_URL), which answers with an open model on Cloudflare Workers AI (site/src/free-ai.js). The "API key" is JPF1.<install>.<token>,
+// the install's own token for purpose "ai"; no account, no founder key, nothing on this Mac from Cloudflare. An own key saved later → back to Anthropic directly.
+import {installId} from './pool-share.js';
+import {siteIsOff} from './recipes.js';
+
+export const FREE_BASE = 'https://www.jobpilotto.top/api/ai';
+
+// Our own keys: Free AI's JPF1.… and the founder/friend key (JP1.…) older apps used for the $1 credit.
+export const isFreeKey = key => /^JPF?1\./.test(String(key || ''));
+
+// Settings written by the credit (`aiTrial`) count as Free: those installs move over when the app starts (migrate).
+export const isOn = settings => !!(settings?.aiFree || settings?.aiTrial);
+
+// Point this process's Anthropic SDK at Free AI, or back at Anthropic.
+export function apply(settings, env = process.env) {
+  if (isOn(settings)) env.ANTHROPIC_BASE_URL = FREE_BASE;
+  else delete env.ANTHROPIC_BASE_URL;
+  // The end-to-end journey (desktop/e2e) sends the app's own AI calls through its test proxy, as lib/pipeline.js does for the engine.
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = env.JOB_PILOTTO_E2E_AI_BASE_URL;
+  // The same for the OpenAI SDK (it follows OPENAI_BASE_URL): the e2e meters and replays the app's OpenAI calls too. Never set for a user.
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_OPENAI_BASE_URL) env.OPENAI_BASE_URL = env.JOB_PILOTTO_E2E_OPENAI_BASE_URL;
+}
+
+// Turn Free AI on: mint this install's token, keep JPF1.<install>.<token> as the Anthropic key. -> {ok, error?}
+export async function start(storage, env = process.env, fetcher = globalThis.fetch) {
+  if (siteIsOff()) return {ok: false, error: 'This is not a regular install, so Free AI is not asked.'};
+  const install = installId(storage);
+  try {
+    const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'ai'})});
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.token) return {ok: false, error: 'Free AI could not start just now. Check your connection and try again.'};
+    storage.setSecret('ANTHROPIC_API_KEY', `JPF1.${install}.${body.token}`);
+  } catch { return {ok: false, error: 'Free AI could not start just now. Check your connection and try again.'}; }
+  storage.saveSettings({aiFree: true, aiTrial: false, aiEngine: 'api'});   // Free IS the Anthropic API engine: an earlier Codex/OpenAI/CLI pick must not stay in charge
+  apply(storage.settings(), env);
+  return {ok: true};
+}
+
+// At start-up: an install that had the $1 credit (a JP1.… key) gets its Free AI token, silently. Never throws.
+export async function migrate(storage, env = process.env, fetcher = globalThis.fetch) {
+  const settings = storage.settings();
+  if (!settings.aiTrial || settings.aiFree) return {ok: true, moved: false};
+  const result = await start(storage, env, fetcher);
+  return {...result, moved: !!result.ok};
+}
+
+// Own key saved: stop using Free AI.
+export function stop(storage, env = process.env) {
+  if (!isOn(storage.settings())) return;
+  storage.saveSettings({aiFree: false, aiTrial: false});
+  apply(storage.settings(), env);
+}

@@ -24,7 +24,7 @@ test('one report per step reached, only moving forward; one when setup finishes'
   assert.deepEqual(track({wizardStep: 'ai'}, before, t0 + 3 * 60000), {step: 'ai', index: 1, minutes: 3, ai: 'own'});
   assert.equal(track({wizardStep: 'ai'}, {...before, setupFurthest: 'ai'}), null);        // same step again
   assert.equal(track({wizardStep: 'welcome'}, {...before, setupFurthest: 'cv'}), null);  // going back
-  assert.equal(track({wizardStep: 'cv'}, {...before, setupFurthest: 'ai', aiTrial: true}).ai, 'trial');
+  assert.equal(track({wizardStep: 'cv'}, {...before, setupFurthest: 'ai', aiFree: true}).ai, 'free');
   assert.equal(track({setupDone: true}, {...before, setupFurthest: 'extras'}).step, 'done');
   assert.equal(track({setupDone: true}, {...before, setupDone: true}), null);
   assert.equal(track({theme: 'dark'}, before), null);

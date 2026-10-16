@@ -162,7 +162,7 @@ export async function funnel(db, days, now = new Date()) {
     if (index < 0) continue;
     furthest[row.install] = Math.max(furthest[row.install] ?? -1, index);
     if (data.step === 'done' && typeof data.minutes === 'number') minutesDone.push(data.minutes);
-    if (data.ai === 'trial') trialInstalls.add(row.install);
+    if (data.ai === 'trial' || data.ai === 'free') trialInstalls.add(row.install);
   }
   trial = trialInstalls.size;
   const reached = SETUP_STEPS.map((step, i) => ({step, n: Object.values(furthest).filter(max => max >= i).length}));
@@ -248,7 +248,7 @@ ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">
 <section class="card" style="margin-bottom:12px"><h2>📣 Channels${chip(data, 'channels')}</h2><small class="muted">where installs came from (last ${data.days < 30 ? 30 : data.days} days): finished setup, and active = reported on 2+ days</small>
 <div style="overflow-x:auto"><table class="machines"><tr><th>Channel</th><th>Machines</th><th>Finished setup</th><th>Active</th></tr>${(data.channels || []).map(c => `<tr><td>${esc(c.source)}</td><td class="num">${c.machines}</td><td class="num">${c.done}</td><td class="num">${c.active}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No machine has reported yet.</td></tr>'}</table></div>
 <small class="muted" style="display:block;margin-top:6px">A channel comes from the Terminal command's link (<code>?utm_source=reddit-devops</code>) or, for a download button, from the click on the same network in the 7 days before the app's first start (since 7 Oct 2026). "direct" = typed or bookmarked; "unknown" = no such click, or installed before 7 Oct 2026.</small></section>
-<section class="card" style="margin-bottom:12px"><h2>🚦 Setup funnel${chip(data, 'setup')}</h2><small class="muted">installs that reached each step (last ${data.days < 30 ? 30 : data.days} days)${data.funnel?.medianMinutes != null ? ` · median time to finish: ${data.funnel.medianMinutes} min` : ''}${data.funnel?.trial ? ` · ${data.funnel.trial} used the free AI credit` : ''}</small>
+<section class="card" style="margin-bottom:12px"><h2>🚦 Setup funnel${chip(data, 'setup')}</h2><small class="muted">installs that reached each step (last ${data.days < 30 ? 30 : data.days} days)${data.funnel?.medianMinutes != null ? ` · median time to finish: ${data.funnel.medianMinutes} min` : ''}${data.funnel?.trial ? ` · ${data.funnel.trial} used Free AI` : ''}</small>
 ${data.funnel?.started ? `<table class="funnel">${data.funnel.reached.map(({step, n}, i, all) => {
   const lost = i ? all[i - 1].n - n : 0;
   return `<tr><td class="step"><span class="muted">${i + 1}</span> ${esc(STEP_LABELS[step] || step.charAt(0).toUpperCase() + step.slice(1))}</td>

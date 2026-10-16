@@ -1,4 +1,4 @@
-"""The `api` engine: the Anthropic SDK with the user's ANTHROPIC_API_KEY (or the free-credit relay's address). Billed per token.
+"""The `api` engine: the Anthropic SDK with the user's ANTHROPIC_API_KEY (or Free AI's address). Billed per token.
 
 The caller's params go to the SDK as written (only a schema's maxItems/minItems come out, for_api; prompt caching's cache_control, effort, the web search tool) and its response comes back as
 it is: the Anthropic path is the contract's reference shape, so nothing is translated. Guarded by tests/test_ai_providers.py.
@@ -10,7 +10,7 @@ ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review
 
 
 def sdk(action=''):
-    """The SDK client. `action` names the AI step (one of ACTIONS) in a header the free-credit relay reads, so what each step costs can be
+    """The SDK client. `action` names the AI step (one of ACTIONS) in a header Free AI's route reads, so what each step costs can be
     told apart there (site/src/trial.js); Anthropic itself ignores it. Nothing about the job or the user is in it."""
     import anthropic
     return anthropic.Anthropic(default_headers={'x-jp-action': action}) if action in ACTIONS else anthropic.Anthropic()

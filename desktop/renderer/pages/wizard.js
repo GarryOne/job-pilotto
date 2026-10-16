@@ -16,37 +16,23 @@ function aiStep() {
   const picked = chooser?.picked();
   show($('ai-key-part'), picked === 'api');
   show($('ai-openai-key-part'), picked === 'openai');
-  show($('ai-trial'), picked === 'trial');   // the third card: the founder key field
-  if (picked === 'trial') fillSavedFounderKey();
-  const keyTyped = !!$({trial: 'ai-trial-key', openai: 'openai-key'}[picked] || 'anthropic-key').value.trim();
+  show($('ai-free'), picked === 'free');   // the Free card's note
+  const keyTyped = !!$({openai: 'openai-key'}[picked] || 'anthropic-key').value.trim();
   $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, hasOpenAiKey: !!shared.state.secrets.OPENAI_API_KEY,
     keyTyped, status: chooser?.status()});
-  $('ai-save').textContent = picked === 'trial' ? 'Use the free credit' : ['api', 'openai'].includes(picked) && keyTyped ? 'Check and save' : 'Continue';
+  $('ai-save').textContent = picked === 'free' ? 'Use Free AI' : ['api', 'openai'].includes(picked) && keyTyped ? 'Check and save' : 'Continue';
 }
 
-// A founder key already saved stays in its field after a restart (owner, 13 Oct 2026); a key the user is typing is never overwritten.
-async function fillSavedFounderKey() {
-  const input = $('ai-trial-key');
-  if (input.value || input.dataset.restored) return;
-  input.dataset.restored = '1';
-  const saved = await window.pilot.license().catch(() => null);
-  if (saved?.key && !input.value) { input.value = saved.key; aiStep(); }
-}
-
-// The third card, $1 of free AI (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
-async function useTrial() {
-  const pasted = $('ai-trial-key').value.trim();
-  if (!pasted) { message('ai-trial-message', 'Paste the founder key from your invite (JP1.…).', 'error'); return; }
+// The Free card (lib/ai-free.js): this install's own token, no key or account.
+async function useFree() {
   $('ai-save').disabled = true;
-  message('ai-trial-message', 'Checking the key…');
-  const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
-  if (set && set.ok === false) { $('ai-save').disabled = false; message('ai-trial-message', set.error || 'That key was not accepted.', 'error'); return; }
-  const result = await window.pilot.startTrialCredit();
+  message('ai-free-message', 'Setting up Free AI…');
+  const result = await window.pilot.startFreeAi();
   $('ai-save').disabled = false;
-  if (!result.ok) { message('ai-trial-message', result.error, 'error'); return; }
+  if (!result.ok) { message('ai-free-message', result.error, 'error'); return; }
   shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
-  shared.state.settings = {...shared.state.settings, aiTrial: true};
-  message('ai-trial-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
+  shared.state.settings = {...shared.state.settings, aiFree: true, aiEngine: 'api'};
+  message('ai-free-message', '✓ Free AI is on. Add your own key any time in Settings → AI engine.', 'ok');
   setTimeout(() => goStep('cv'), 900);
 }
 
@@ -108,7 +94,7 @@ export async function init() {
   }));
   // Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
   $('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
-  // A key already there (e.g. the free credit from the one-command install): no AI step to do.
+  // A key already there (e.g. Free AI already on): no AI step to do.
   document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(aiDone() ? 'cv' : 'ai')));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
     const current = STEPS.find(step => !document.querySelector(`.step[data-step="${step}"]`).hidden);
@@ -117,9 +103,8 @@ export async function init() {
 
   $('anthropic-key').addEventListener('input', aiStep);
   $('openai-key').addEventListener('input', aiStep);
-  $('ai-trial-key').addEventListener('input', aiStep);
   $('ai-save').addEventListener('click', async () => {
-    if (chooser?.picked() === 'trial') { await useTrial(); return; }
+    if (chooser?.picked() === 'free') { await useFree(); return; }
     if (['cli', 'codex'].includes(chooser?.picked())) {  // the user's own Claude Code or Codex, verified: no API key needed
       shared.state.settings = await window.pilot.setAiEngine(chooser.picked());
       message('ai-message', '', '');
