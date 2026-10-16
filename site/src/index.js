@@ -44,6 +44,8 @@ import {reportForm} from './report-form.js';
 import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
+import * as mail from './mail.js';
+import * as mailUnsub from './mail-unsub.js';
 import {status as proStatus} from './pro.js';
 import {status as trialStatus} from './trial.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
@@ -183,6 +185,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/report-form' || pathname.startsWith('/api/report-form/')) return reportForm(request, env, pathname);   // "Report this form": an encrypted recording from an install (src/report-form.js)
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
+  if (pathname === '/unsubscribe') return mailUnsub.unsubscribe(request, env);   // one-click unsubscribe from a mail list (src/mail-unsub.js)
   if (pathname === '/api/trial/status') return trialStatus(request, env);   // the free trial, one answer for the app and Always on (src/trial.js)
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
@@ -205,6 +208,7 @@ const SENTRY_CRON = '*/5 * * * *';   // wrangler.toml [triggers]
 export default {
   fetch: metered,
   email: (message, env) => testMail.receive(message, env),   // Cloudflare Email Routing -> this Worker (dashboard route, src/test-mail.js)
+  queue: (batch, env) => mailUnsub.consume(batch, env),   // Email Sending bounce/complaint events (Queues subscription, src/mail-unsub.js)
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
     if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (src/sentry-alert.js); the daily jobs below run once a day
@@ -226,6 +230,7 @@ export default {
       .catch(error => console.error(`alias canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? pruneLearning(env.STATS) : Promise.resolve({})).then(removed => console.log(`learning pruned: ${JSON.stringify(removed)}`)).catch(error => console.log(`learning not pruned: ${error.message}`)));   // aliases.js pruneLearning
     ctx.waitUntil((env.STATS ? tidyIntelligence(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`intelligence tidy: ${error.message}`)));
+    ctx.waitUntil(mail.purge(env).catch(error => console.error(`mail log purge: ${error.message}`)));
     ctx.waitUntil(testMail.purge(env).catch(error => console.error(`test mail purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? tidyKnowledge(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`knowledge tidy: ${error.message}`)));
   },
