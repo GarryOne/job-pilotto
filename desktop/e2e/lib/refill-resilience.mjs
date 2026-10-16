@@ -17,3 +17,10 @@ export function uploadBundle(upload, bundle, key, retry = withRetry) {
   retry(() => upload(bundle));
   retry(() => upload(key));
 }
+
+// The site replay that follows a publish is started with the RUN's token (DISPATCH_TOKEN), not the one that writes the private records repo (that token has no rights on this repo:
+// HTTP 403 on every dispatch, 16 Oct 2026). -> {env, repoArgs} for `gh workflow run`; without DISPATCH_TOKEN the env is unchanged (a Mac run uses the person's own login).
+export function dispatchGh(env = process.env) {
+  if (!env.DISPATCH_TOKEN) return {env, repoArgs: []};
+  return {env: {...env, GH_TOKEN: env.DISPATCH_TOKEN}, repoArgs: env.GITHUB_REPOSITORY ? ['-R', env.GITHUB_REPOSITORY] : []};
+}

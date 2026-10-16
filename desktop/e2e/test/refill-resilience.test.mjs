@@ -1,7 +1,7 @@
 // The refill's two guards: a failed GitHub upload is tried again; a fill that asked nothing is "nothing to refill", any other missing memo stays a failure.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {nothingToRefill, uploadBundle, withRetry} from '../lib/refill-resilience.mjs';
+import {dispatchGh, nothingToRefill, uploadBundle, withRetry} from '../lib/refill-resilience.mjs';
 
 test('a transient failure is tried again, a lasting one still throws', () => {
   let calls = 0; const waits = [];
@@ -28,4 +28,12 @@ test('the bundle uploads before its key; a bundle that never uploads leaves no k
   let tries = 0; const kept = [];
   uploadBundle(file => { if (file === 'b.k.enc' && ++tries < 2) throw new Error('HTTP 404'); kept.push(file); }, 'b.tgz.enc', 'b.k.enc', work => { try { return work(); } catch { return work(); } });
   assert.deepEqual(kept, ['b.tgz.enc', 'b.k.enc'], 'each file is retried on its own: the bundle is not sent twice');
+});
+
+test('the dispatch after a publish uses the run token on this repo; with none it changes nothing', () => {
+  const env = {GH_TOKEN: 'write-token', DISPATCH_TOKEN: 'run-token', GITHUB_REPOSITORY: 'o/r'};
+  const {env: used, repoArgs} = dispatchGh(env);
+  assert.equal(used.GH_TOKEN, 'run-token');
+  assert.deepEqual(repoArgs, ['-R', 'o/r']);
+  assert.deepEqual(dispatchGh({GH_TOKEN: 'mine'}), {env: {GH_TOKEN: 'mine'}, repoArgs: []});
 });
