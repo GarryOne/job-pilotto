@@ -1121,11 +1121,12 @@
           </div>
           <div class="setting panel" id="setting-notify">
             <h3>Notifications</h3>
-            <p class="muted panel-lead">Tell me by: new matches, reminders and answers go where you choose. One message per run, never one per job.</p>
+            <p class="muted panel-lead">Tell me by: new matches, reminders and answers go where you choose. New matches come as one email per search; the rest in one digest.</p>
             <div class="run-mode-main">
               <div class="switch-row"><span class="switch"><input type="checkbox" id="notify-email" aria-label="Tell me by email"><span></span></span>
                 <span><span>Email</span><span class="muted small" id="notify-email-note">The same cards as Telegram, in your inbox.</span></span></div>
               <label class="inline-field">Email address<input type="email" id="notify-address" placeholder="you@example.com" autocomplete="email"></label>
+              <label class="inline-field">Everything except new matches<select id="notify-cadence"><option value="daily">One email a day</option><option value="weekly">One email a week (Mondays)</option></select></label>
               <label class="check-row"><input type="checkbox" id="notify-marketing"><span><span>Also send me product news and the Pro launch offer (unsubscribe in one click)</span></span></label>
               <div class="switch-row"><span class="switch"><input type="checkbox" id="notify-app" aria-label="Tell me by app notifications"><span></span></span>
                 <span><span>App notifications</span><span class="muted small">A notification on this computer while the app is open.</span></span></div>
