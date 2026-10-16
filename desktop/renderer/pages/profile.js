@@ -14,9 +14,10 @@ import {byStore} from '../store-words.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule, showTelegram} from './connections.js';
 import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
-import {renderOverview} from './settings.js';
+import {openSetting, renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
+import {hintAfter} from '../own-key-hint.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
@@ -75,6 +76,7 @@ function initLetter() {
     const result = await letterAction($('letter-draft'), 'Writing your letter… (about 20 s)', () => window.pilot.coverLetterDraft(feedback));
     if (result.ok) $('letter-feedback').value = '';
     message('letter-message', result.ok ? 'Here is a draft. Read it, change what you like, then approve.' : result.error, result.ok ? 'ok' : 'error');
+    if (result.ok) hintAfter($('letter-message'), shared.state, () => openSetting('ai'));   // Free AI wrote it: stronger writing with an own key
   });
   $('letter-save').addEventListener('click', async () => {
     const result = await letterAction($('letter-save'), 'Saving…', () => window.pilot.coverLetterSave($('letter-text').value));

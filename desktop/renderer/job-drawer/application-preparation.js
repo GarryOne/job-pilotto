@@ -3,6 +3,8 @@
 import {el} from '../components.js';
 import {allAnswers} from '../job-page-view.js';
 import {copyButton, group, stateCard} from './parts.js';
+import {ownKeyHint} from '../own-key-hint.js';
+import {shared} from '../pages/shared.js';
 
 function kitView(kit) {
   if (kit.groups) return kit.groups.map(part => group(part.title, part.lines));
@@ -47,5 +49,7 @@ export function preparationView({parts}) {
     ...parts.groups.prep.map(part => group(part.title || '🎤 Interview preparation', part.lines))];
   const filled = nodes.length > 0 && (parts.has.application || parts.groups.prep.length > 0);
   if (!filled) return [stateCard({icon: 'file', title: 'Not prepared', text: 'Apply drafts the kit: a tailored CV, a cover letter and the form\'s answers. It shows here.'})];
-  return nodes;
+  // The kit was written by the engine now in charge: on Free AI, a one-time hint that an own key writes stronger (own-key-hint.js).
+  const hint = parts.kit && ownKeyHint(shared.state, {openSettings: () => import('../pages/settings.js').then(({openSetting}) => openSetting('ai'))});
+  return hint ? [...nodes, hint] : nodes;
 }

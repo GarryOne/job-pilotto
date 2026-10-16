@@ -435,7 +435,7 @@
           <tr><td>🎙️ Recordings</td><td>Transcribed on your Mac. Only the transcript goes to Notion</td><td>Your Mac</td></tr>
           <tr><td>🧩 Chrome</td><td>Fills forms on job sites. Never presses Submit</td><td>Your browser</td></tr>
           <tr><td>🔐 Employer accounts</td><td>Passwords generated straight into your Keychain; Claude never sees them</td><td>Your Mac</td></tr>
-          <tr><td>💸 AI spending</td><td>Your Anthropic account, with a monthly cap: alert at 70%, extras paused at 90%</td><td>Your Anthropic account</td></tr>
+          <tr><td>💸 AI spending</td><td>Free AI is included. With your own key: your account, with a monthly cap (alert at 70%, extras paused at 90%)</td><td>Your Anthropic account</td></tr>
           <tr><td>☁️ GitHub <small>optional</small></td><td>One private repository you choose, nothing else</td><td>Your GitHub</td></tr>
         </tbody>
       </table>
@@ -453,7 +453,7 @@
       <li><b>🏗️ Built in public</b><span>Each download is built by GitHub Actions from a tagged commit, not on anyone's laptop. The build logs are public.</span></li>
       <li><b>✅ Checkable</b><span>GitHub signs each download with the commit it was built from. With the <a href="https://cli.github.com">GitHub CLI</a>:</span>
         <code class="trust-cmd">gh attestation verify Job-Pilotto-mac-arm64.dmg -R GarryOne/job-pilotto</code></li>
-      <li><b>🔒 Your data never touches our servers</b><span>The AI runs on your Mac with your own key. Your CV, answers and applications stay on your Mac and in your own Notion. We only receive scrubbed technical reports, and you can turn them off. <a href="#privacy">What it can access</a></span></li>
+      <li><b>🔒 Your data never touches our servers</b><span>With Free AI, a request passes through our server to the model and nothing is stored; with your own key, the AI runs from your Mac. Your CV, answers and applications stay on your Mac and in your own Notion. We only receive scrubbed technical reports, and you can turn them off. <a href="#privacy">What it can access</a></span></li>
       <li><b>✋ You submit</b><span>It fills forms and never presses Submit or applies in bulk.</span></li>
       <li><b>⚠️ Not Apple-signed yet</b><span>That's why macOS asks once ("Open Anyway"). Apple signing is next. Found a problem? <a href="https://github.com/GarryOne/job-pilotto/security/policy">Report it privately</a></span></li>
     </ul>
@@ -470,7 +470,7 @@
         <h3 class="setup-title">Free · today <span class="for">for technical users</span></h3>
         <ol class="checkin-list">
           <li><div><b>Install the app</b><span class="how">In Terminal: <code class="install-cmd">curl -fsSL https://www.jobpilotto.top/install | bash</code> Or download it and allow it once: System Settings → Privacy &amp; Security → Open Anyway (not signed by Apple yet)</span></div><span class="time">1 min</span></li>
-          <li><div><b>Paste your Anthropic key</b><span class="how">From console.anthropic.com; the app checks it</span></div><span class="time">2 min</span></li>
+          <li><div><b>Pick your AI</b><span class="how">Free AI needs nothing; or paste your own Claude or ChatGPT key for stronger letters</span></div><span class="time">2 min</span></li>
           <li><div><b>Copy the Notion workspace</b><span class="how">Duplicate the template, create a connection, paste its token</span></div><span class="time">3 min</span></li>
           <li><div><b>Choose your CV, say what you want</b><span class="how">The AI drafts your strategy for you to review</span></div><span class="time">3 min</span></li>
           <li><div><b>Optional</b><span class="how">Telegram bot, Chrome extension, Gmail; your GitHub to run while the Mac is off; Claude Code for Apply with Claude</span></div><span class="time">+ 5 min</span></li>
@@ -493,7 +493,7 @@
     <div class="section-head">
       <span class="eyebrow">Pricing</span>
       <h2>Free to use. Pro when you want more.</h2>
-      <p class="lede">You bring your own AI key, and your own free Notion once you want to track applications. AI usage is billed by Anthropic to you: usually a few dollars a month, capped by your own budget.</p>
+      <p class="lede">Free AI is included, nothing to set up. Add your own Claude or ChatGPT key if you want stronger letters and interview prep, and your own free Notion once you want to track applications.</p>
     </div>
     <div class="passes">
       <article class="pass">
@@ -574,7 +574,7 @@
     <div class="faq">
       <details><summary>Does it apply to jobs for me?</summary><p>No, never. It finds, scores, drafts and fills. Submitting is always your click, after you've reviewed the form.</p></details>
       <details><summary>Do I need Notion?</summary><p>Not to try it. Without Notion you can search, see fit scores, browse your jobs and get your strategy. To track applications, interviews and insights, connect a free Notion account: the app copies a ready-made workspace into it, whenever you're ready.</p></details>
-      <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month, capped by the monthly budget you set. Each run shows what it cost in your Notion.</p></details>
+      <details><summary>What does the AI cost?</summary><p>Free AI is included at no cost, within the free allowance. If you add your own Claude or ChatGPT key, the cost goes to you directly and you can see it: each run shows what it cost in your Notion, and a monthly budget you set caps it.</p></details>
       <details><summary>How is it different from Simplify, Teal, Huntr or JobCopilot?</summary><p>It does the whole search, not one step: finds and scores jobs, drafts each form's answers, tailors your CV, fills the form and tracks replies from your Gmail, with your data in your own Notion. It never mass-applies. <a href="compare.html">See the side-by-side comparison</a>.</p></details>
       <details><summary>Windows or Linux?</summary><p>Windows 10 or 11 (x64): <a href="/download/windows?from=faq">download the beta</a>. It isn't signed yet, so Windows asks once: <b>More info → Run anyway</b>. Apply with Claude works there too (it needs Git for Windows; new, so tell us how it goes); Fill in Chrome works the same. Linux: run it from the source.</p></details>
       <details><summary>Which jobs does it cover?</summary><p>Built for IT, software and engineering roles, anywhere in the world (software, data, SRE and DevOps, security, QA, mobile and more). Other fields can work too, since you choose the job titles and places you want, but the employer pool and the tuning are for tech today, and we will extend them. It starts from a shared pool of employers with public career pages (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and many more), checked daily and growing, plus jobs.ch, TechTree and Google Jobs. You choose your roles and places; a search only shows jobs that match them, so a search in Zurich and one in Singapore use the same pool and see different jobs.</p></details>
