@@ -109,7 +109,7 @@ jobs:
             verdict=$(tools/nightly-replay-gate.sh | tail -1)
             if [ "$verdict" != pass ]; then
               echo "### ⛔ No nightly beta: ${verdict#fail: }" >> "$GITHUB_STEP_SUMMARY"
-              CI_ALERTS_TELEGRAM_BOT_TOKEN="$ALERT_TOKEN" CI_ALERTS_TELEGRAM_CHAT_ID="$ALERT_CHAT" node desktop/e2e/ci-alert.mjs failure "No nightly beta: ${verdict#fail: }" || true
+              CI_ALERTS_TELEGRAM_BOT_TOKEN="$ALERT_TOKEN" CI_ALERTS_TELEGRAM_CHAT_ID="$ALERT_CHAT" node desktop/e2e/ci-alert.mjs failure "No nightly beta: ${verdict#fail: }" "The nightly builds again once the offline replay is green" || true
               echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
             fi
             echo "build=true" >> "$GITHUB_OUTPUT"

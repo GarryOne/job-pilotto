@@ -398,5 +398,5 @@ jobs:
           RESULTS: pick=${{ needs.pick.result }} bundles=${{ needs.bundles.result }} refill=${{ needs.refill.result }} publish=${{ needs.publish.result }} finish=${{ needs.finish.result }}
           PICK: ${{ needs.pick.outputs.line }}
         run: |
-          if echo "$RESULTS" | grep -qE '=(failure|cancelled)'; then node ci-alert.mjs failure "The replay refill on main did not finish (${RESULTS}). ${PICK:-the estimate is above the cap, or the key is missing: see the run}. The recorded rows stay stale until it is run again: gh workflow run replay-refill.yml (no pr)"
+          if echo "$RESULTS" | grep -qE '=(failure|cancelled)'; then node ci-alert.mjs failure "The replay refill on main did not finish (${RESULTS}). ${PICK:-the estimate is above the cap, or the key is missing: see the run}" "Run it again: gh workflow run replay-refill.yml (no pr); the recorded rows stay stale until then"
           else node ci-alert.mjs success; fi
