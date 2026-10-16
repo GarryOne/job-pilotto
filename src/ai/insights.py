@@ -31,6 +31,7 @@ from ..notion.ledger import REPLY
 from . import cost, engine, enrich, score
 from . import insights_data as data_of
 from . import learning, quality
+from .writing_rules import RULES as WRITING_RULES
 from .insights_text import (  # noqa: F401 — moved; kept importable from here
     HONEST, WEEKLY_SCHEMA, WEEKLY_SYSTEM, weekly_message, weekly_blocks, plural,
 )
@@ -101,7 +102,7 @@ that form; build on ones marked "Acting on it" (for example, follow up on their 
 The owner's profile (their CV and preferences) follows.
 
 """
-SYSTEM = learning.RULES + '\n' + HONEST + '\n' + SYSTEM
+SYSTEM = WRITING_RULES + '\n\n' + learning.RULES + '\n' + HONEST + '\n' + SYSTEM
 
 
 def _norm_tech(name):

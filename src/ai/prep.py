@@ -23,6 +23,8 @@ from ..stores import base, open_stores
 from ..stores.notion_blocks import to_markdown
 from . import cost, engine, mail
 from .models import MAIN_MODEL, SMALL_MODEL
+from .writing_floors import scrub
+from .writing_rules import RULES as WRITING_RULES
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', MAIN_MODEL)
 HEADING = '🎤 Interview prep'
@@ -32,6 +34,7 @@ SECTIONS = ('🧾 Job description', '🤝 Recruiter message', base.LOGGED)   # b
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
+    'description': 'Every text is written TO the owner: "you" and "your", never "the owner", "the candidate" or their name. Only facts from the material given; a figure not in it is left out.',
     'required': ['interview_type', 'since_last_call', 'do_differently', 'assess', 'questions', 'stories', 'gaps', 'ask_them', 'plan', 'unknowns'],
     'properties': {
         'interview_type': {'type': 'string', 'description': 'recruiter screen, recruiter follow-up, hiring manager, technical, '
@@ -66,6 +69,7 @@ contract setup, relocation, start date for a recruiter follow-up; deeper stack a
 do_differently from the weak answers and how the last call went; ask_them only what is still open. The recruiter's
 latest message says what this call is for. Without earlier interviews, since_last_call and do_differently are [].
 Keep every item short and concrete."""
+SYSTEM = SYSTEM + "\n\n" + WRITING_RULES
 
 
 def role_of(record):
@@ -315,6 +319,7 @@ def build(stores, record, client=None, model=DEFAULT_MODEL, stats=None, now=None
     if getattr(response, 'stop_reason', None) == 'max_tokens':  # a cut-off answer is no kit: say so, not a JSON error
         raise RuntimeError('The prep kit came back cut off (too long for one answer). Try again; if it repeats, the job text is very long.')
     kit = json.loads(next(b.text for b in response.content if b.type == 'text'))
+    kit, _ = scrub(kit, f'{role}\n{profile}\n' + '\n'.join(facts))   # no sentence with a figure the job text and the Profile never state (writing_floors.py)
     usd = cost.usd(model, response.usage)
     write_kit(stores, record['id'], kit_markdown(kit, now, usd), earlier_day=record.get('interview_prep') or '')
     try:  # with the time: Focus compares it with the interviews reviewed since (src/focus.py prep_state)

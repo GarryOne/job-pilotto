@@ -21,6 +21,8 @@ from . import cost, engine
 from ..stores import base, rules
 from ..stores.notion_blocks import to_markdown
 from .models import MAIN_MODEL
+from .writing_floors import kit_floors
+from .writing_rules import RULES as WRITING_RULES
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', MAIN_MODEL)
 KIT_VERSION = 1
@@ -48,9 +50,9 @@ SCHEMA = {
     'additionalProperties': False,
     'required': ['eligible', 'eligibility_note', 'cover_letter', 'answers', 'highlights', 'check_before_sending'],
     'properties': {
-        'eligible': {'type': 'boolean', 'description': 'False only when the posting clearly rules the candidate out'},
+        'eligible': {'type': 'boolean', 'description': 'False when the posting clearly rules the candidate out or the job is in a field the profile shows nothing for (no match)'},
         'eligibility_note': {'type': 'string', 'description': 'Why not eligible, one sentence; "" when eligible'},
-        'cover_letter': {'type': 'string', 'description': 'Plain text, paragraphs separated by blank lines'},
+        'cover_letter': {'type': 'string', 'description': 'Plain text in the first person ("I", never the name in the third person), paragraphs separated by blank lines, the name alone on the last line; no salary; "" when eligible is false'},
         'answers': {
             'type': 'array',
             'items': {
@@ -119,12 +121,16 @@ needs_review; never state a guess as fact. Salary: only a figure from the standa
 - check_before_sending: short items the candidate must verify, e.g. a required language, a \
 sponsorship answer, a ❓ field you relied on.
 - highlights: always 3 to 5 points from the candidate's profile to lead with for this job, even when eligible is false or the fit is poor; never an empty list.
-- eligible: false only when the posting clearly rules the candidate out (a work location, residence or \
-authorization the profile says they can't meet, or a required language they don't speak); say why in \
-eligibility_note, one sentence. Otherwise eligible is true and eligibility_note is "". Still draft every answer.
+- eligible: false when the posting clearly rules the candidate out (a work location, residence or \
+authorization the profile says they can't meet, or a required language they don't speak) or the job is in another field \
+the profile shows nothing for; say why in eligibility_note, one sentence starting "Not a match:". Then cover_letter is "" \
+(no letter is written for a job that is no match). Otherwise eligible is true and eligibility_note is "". Still draft every answer.
+
+{WRITING_RULES}
 
 Candidate profile:
 """
+SYSTEM = SYSTEM.replace('{WRITING_RULES}', WRITING_RULES)
 
 
 def greenhouse_ref(url):
@@ -207,6 +213,8 @@ def draft(client, model, job, profile, answers, questions):
         # A select answer that isn't one of the options can't be filled in; flag it.
         if options.get(item['field']) and item['answer'] not in options[item['field']]:
             item['needs_review'] = True
+    facts = f"{job['title']} {job['company']} {job.get('location') or ''} {job.get('description') or ''}"
+    kit_floors(kit, f'{profile}\n{answers}\n{facts}')   # no letter for a no-match job; a figure nothing given supports is flagged (writing_floors.py)
     return kit, response.usage
 
 

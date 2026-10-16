@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {baseCv, MODEL} from './cv.js';
 import {writePrivate} from './private-file.js';
+import {WRITING_RULES} from '../shared/worker/writing-rules.js';
 
 const PRICE = {input: 2, output: 10};  // USD per million tokens
 const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);
@@ -57,7 +58,7 @@ export async function generate(storage, {apiKey, client = null, profile = '', an
   const previous = load(storage)?.text || '';
   const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
-    model: MODEL, max_tokens: 3000, system: INSTRUCTIONS,
+    model: MODEL, max_tokens: 3000, system: `${INSTRUCTIONS}\n\n${WRITING_RULES}`,
     messages: [{role: 'user', content: `<cv>\n${cvText(cv)}\n</cv>\n\n<profile>\n${profile.slice(0, 40000)}\n</profile>\n\n` +
       `<standard_answers>\n${answers.slice(0, 20000)}\n</standard_answers>\n\n` + (preferences ? `<search_preferences>\n${preferences.slice(0, 4000)}\n</search_preferences>\n\n` : '') +
       `<candidate_name>${name || cv.name || ''}</candidate_name>` +

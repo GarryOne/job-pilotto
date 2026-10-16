@@ -40,6 +40,8 @@ from ..stores.notion_interviews import COLUMNS as INTERVIEW_COLUMNS
 from ..stores.notion_rows import APPLICATION_COLUMNS, EVENT_COLUMNS
 from . import cost
 from .models import MAIN_MODEL
+from .writing_floors import scrub
+from .writing_rules import RULES as WRITING_RULES
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_REJECTION_MODEL', os.getenv('JOB_PILOTTO_INSIGHT_MODEL', MAIN_MODEL))
 HEADING = '🔎 Why it was rejected'
@@ -50,6 +52,7 @@ MAX_DESCRIPTION = 12_000
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
+    'description': 'Every text is written TO the owner: "you" and "your", never "the owner", "the candidate" or their name. Only facts from the material given; a figure not in it is left out.',
     'required': ['verdict', 'confidence', 'stage_reached', 'summary', 'evidence', 'improve'],
     'properties': {
         'verdict': {'type': 'string', 'enum': VERDICTS},
@@ -91,6 +94,7 @@ bullet to add, a keyword, a story to prepare), never generic advice; empty for "
 The candidate's profile follows.
 
 """
+SYSTEM = WRITING_RULES + "\n\n" + SYSTEM
 
 
 def _labelled(record, columns):
@@ -145,7 +149,8 @@ def analyse(client, model, profile, text, stats=None):
         output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
     )
     cost.add(stats, model, response.usage)
-    return json.loads(next(b.text for b in response.content if b.type == 'text')), response.usage
+    result, _ = scrub(json.loads(next(b.text for b in response.content if b.type == 'text')), f'{profile or ""}\n{text}')   # no sentence with a figure the material never states (writing_floors.py)
+    return result, response.usage
 
 
 def _block(kind, content, bold=False):

@@ -4,6 +4,7 @@ from html import escape
 
 from .. import tgcard
 from . import learning
+from .writing_rules import RULES as WRITING_RULES
 
 
 HONEST = """
@@ -20,6 +21,7 @@ and make the next step collecting data (run a search, send applications), not a 
 
 WEEKLY_SCHEMA = {
     'type': 'object', 'additionalProperties': False,
+    'description': 'Every text is written TO the owner: "you" and "your", never "the owner", "the candidate" or their name. Only facts from the material given; a figure not in it is left out.',
     'required': ['headline', 'finding', 'summary', 'worked', 'change', 'focus', 'confidence'],
     'properties': {
         'headline': {'type': 'string', 'description': 'The week in one sentence, max 110 characters, with a number from the statistics; "Not enough data yet" when the sample is tiny'},
@@ -45,7 +47,7 @@ no emojis. "worked" may be empty in a quiet week; never pad it.
 The owner's profile (their CV and preferences) follows.
 
 """
-WEEKLY_SYSTEM = learning.RULES + '\n' + HONEST + '\n' + WEEKLY_SYSTEM
+WEEKLY_SYSTEM = WRITING_RULES + '\n\n' + learning.RULES + '\n' + HONEST + '\n' + WEEKLY_SYSTEM
 
 
 def weekly_message(report, page_url=''):
