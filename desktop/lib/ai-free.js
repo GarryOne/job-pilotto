@@ -51,3 +51,16 @@ export function stop(storage, env = process.env) {
   storage.saveSettings({aiFree: false, aiTrial: false});
   apply(storage.settings(), env);
 }
+
+// The install's token for the free trial's status (GET /api/trial/status, site/src/trial.js), for an install whose Free AI is not on (it has its own key): Always on
+// sends it as a repo secret, so its runs stop new work at the trial's end like the app. Kept under this name; never throws.
+export const TRIAL_KEY = 'JOB_PILOTTO_TRIAL_KEY';
+export async function ensureTrialKey(storage, fetcher = globalThis.fetch) {
+  if (storage.secret(TRIAL_KEY) || /^JPF1\./.test(storage.secret('ANTHROPIC_API_KEY') || '') || siteIsOff()) return;
+  const install = installId(storage);
+  try {
+    const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'ai'})});
+    const body = await response.json().catch(() => ({}));
+    if (response.ok && body.token) storage.setSecret(TRIAL_KEY, `JPF1.${install}.${body.token}`);
+  } catch { /* offline: the next sync tries again */ }
+}

@@ -39,6 +39,12 @@ env:
   # Help the pool grow, as the app sets it in this repo (desktop/lib/pool-share.js): an Always on run shares like the app (6 Oct 2026: it never did).
   JOB_PILOTTO_SHARE_EMPLOYERS: ${{ vars.JOB_PILOTTO_SHARE_EMPLOYERS }}
   JOB_PILOTTO_INSTALL_ID: ${{ vars.JOB_PILOTTO_INSTALL_ID }}
+  # The free trial, as the app sets it in this repo (desktop/lib/github.js): the install's key, the first-run day and a license key; src/trial.py asks the website
+  # whether new work may start. JOB_PILOTTO_AI_BASE_URL points the AI at Free AI (src/ai/providers/anthropic_api.py) when the key is a Free AI one.
+  JOB_PILOTTO_TRIAL_KEY: ${{ secrets.JOB_PILOTTO_TRIAL_KEY }}
+  JOB_PILOTTO_LICENSE_KEY: ${{ secrets.JOB_PILOTTO_LICENSE_KEY }}
+  JOB_PILOTTO_FIRST_RUN: ${{ vars.JOB_PILOTTO_FIRST_RUN }}
+  JOB_PILOTTO_AI_BASE_URL: ${{ vars.JOB_PILOTTO_AI_BASE_URL }}
   # Notion's limit (~3 requests a second) is shared with the user's app on their computer: this run takes ~1.4/s.
   JOB_PILOTTO_NOTION_GAP_MS: '700'
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}

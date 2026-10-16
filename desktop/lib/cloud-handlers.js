@@ -1,6 +1,7 @@
 // The Always on and Telegram IPC (moved out of main.js, 8 Oct 2026): connecting and turning off Always on (the user's GitHub repo), the Telegram buttons
 // in the cloud, and connecting or disconnecting the Telegram bot. main.js passes in the services they share. Guards: the github, telegram and
 // cloud tests in desktop/test.
+import * as aiFree from './ai-free.js';
 import * as github from './github.js';
 import * as telegram from './telegram.js';
 import * as telegramCloud from './telegram-cloud.js';
@@ -25,6 +26,7 @@ export function registerCloudHandlers(ctx) {
         token = await github.finishSignIn(start);
         storage.setSecret('GITHUB_TOKEN', token);
       }
+      await aiFree.ensureTrialKey(storage);   // the install's key for the free trial's status, sent with the secrets (src/trial.py)
       const result = await github.connect(storage, token, {repo: chosen, onStep: text => toWindow('cloudStep', {text})});
       return {ok: true, ...result};
     } catch (error) {

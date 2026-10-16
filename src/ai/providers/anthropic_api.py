@@ -3,6 +3,8 @@
 The caller's params go to the SDK as written (only a schema's maxItems/minItems come out, for_api; prompt caching's cache_control, effort, the web search tool) and its response comes back as
 it is: the Anthropic path is the contract's reference shape, so nothing is translated. Guarded by tests/test_ai_providers.py.
 """
+import os
+
 from .contract import Adapter
 from .schema import without_limits
 
@@ -13,7 +15,12 @@ def sdk(action=''):
     """The SDK client. `action` names the AI step (one of ACTIONS) in a header Free AI's route reads, so what each step costs can be
     told apart there (site/src/trial.js); Anthropic itself ignores it. Nothing about the job or the user is in it."""
     import anthropic
-    return anthropic.Anthropic(default_headers={'x-jp-action': action}) if action in ACTIONS else anthropic.Anthropic()
+    options = {}
+    if os.environ.get('JOB_PILOTTO_AI_BASE_URL'):   # an Always on run on Free AI: the repo variable the app sets (an empty ANTHROPIC_BASE_URL would break the SDK)
+        options['base_url'] = os.environ['JOB_PILOTTO_AI_BASE_URL']
+    if action in ACTIONS:
+        options['default_headers'] = {'x-jp-action': action}
+    return anthropic.Anthropic(**options)
 
 
 def transient_errors():

@@ -32,6 +32,8 @@ permissions:
 # Optional features can be switched off without deleting their secrets (src/features.py),
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
+  # Free AI for a Free AI install (desktop/lib/github.js): src/ai/providers/anthropic_api.py points the SDK there. Tracking goes on after the free trial.
+  JOB_PILOTTO_AI_BASE_URL: ${{ vars.JOB_PILOTTO_AI_BASE_URL }}
   # The model of the small AI steps (title and page checks, triage, search picks), as the app sets it in this repo (desktop/lib/github.js).
   JOB_PILOTTO_SMALL_MODEL: ${{ vars.JOB_PILOTTO_SMALL_MODEL }}
   # The AI engine the user chose for Always on (api: Anthropic key, openai: OpenAI key; never a CLI here) and the OpenAI tiers' models,
