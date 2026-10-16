@@ -31,6 +31,11 @@ export function registerAppMetaHandlers(ctx) {
     if (made.ok) shell.openExternal(made.url);
     return made.ok ? {ok: true} : made;
   });
+  ipcMain.handle('planSignin', async (_, step, body = {}) => {   // "I have Pro": a code by e-mail adds this computer to the Pro account
+    if (DEMO) return {ok: false, error: 'Demo mode: no sign-in.'};
+    if (!['start', 'verify'].includes(step)) return {ok: false, error: 'Unknown step.'};
+    return getPlan().signin(step, {email: String(body.email || '').slice(0, 200), code: String(body.code || '').slice(0, 12), ...(body.remove ? {remove: String(body.remove).slice(0, 64)} : {})});
+  });
   ipcMain.handle('licenseRemove', () => { const state = getLicense().remove(); return {...state, text: licenseLib.text(state)}; });
   ipcMain.handle('telemetryRecord', (_, kind, fields) => {
     // A window error also goes to app.log (type and message; the stack stays in the report): it was invisible there.

@@ -126,7 +126,10 @@ function paletteCommands() {
   if (['test', 'live'].includes(shared.plan?.mode)) {
     const goPlan = () => { openSetting('plan'); };
     if (shared.plan.plan === 'pro') { add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: $5, $10 or $20', 'pro top up topup credit buy ai more', goPlan); }
-    else add('Settings', 'Upgrade to Pro', 'One-time payment, no subscription', 'pro upgrade plan price buy pay unlimited license', goPlan);
+    else {
+      add('Settings', 'Upgrade to Pro', 'One-time payment, no subscription', 'pro upgrade plan price buy pay unlimited license', goPlan);
+      add('Settings', 'I have Pro', 'Add this computer with a code sent by e-mail', 'pro sign in signin code add device computer have', () => { goPlan(); setTimeout(() => $('plan-have-pro')?.click(), 300); });
+    }
   }
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');

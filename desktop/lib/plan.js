@@ -55,5 +55,16 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
       return response.ok && body.url ? {ok: true, url: body.url} : {ok: false, error: body.error || 'Payments are not available right now.'};
     } catch { return {ok: false, error: 'Could not reach the payment page. Check your connection and try again.'}; }
   }
-  return {state, refresh, checkout};
+  // "I have Pro" on this computer: step 'start' mails a code to the address, step 'verify' (email, code, remove?) adds this computer to that Pro account.
+  // -> the site's answer {ok, ...} plus status; 'devices' (409) lists the computers to choose one to remove from.
+  async function signin(step, body) {
+    if (siteIsOff()) return {ok: false, error: 'Not available in this build.'};
+    try {
+      const response = await fetcher(`${SITE}/api/pro/signin/${step}`, {method: 'POST', headers: {'x-api-key': await siteKey(), 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      const answer = await response.json().catch(() => ({}));
+      if (response.ok && step === 'verify') await refresh();
+      return {...answer, ok: response.ok && answer.ok === true, status: response.status};
+    } catch { return {ok: false, error: 'Could not reach Job Pilotto. Check your connection and try again.'}; }
+  }
+  return {state, refresh, checkout, signin};
 }
