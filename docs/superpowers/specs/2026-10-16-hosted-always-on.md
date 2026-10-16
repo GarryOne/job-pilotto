@@ -1,6 +1,6 @@
 # Hosted Always on for Pro: scheduled searches on our Cloudflare (16 Oct 2026)
 
-**Verdict:** a Pro switch "Search for me while my Mac is off" that runs the person's searches **on our Cloudflare Containers**, not on GitHub Actions. No GitHub, Notion or Telegram setup. New matches appear in the app (optional push/Telegram later). AI is debited from the Pro credit through the existing route. **Compute is about $0.0025 a run (estimate), under $0.50 a month at 6 runs a day**: we absorb it. Nothing is built; behind `HOSTED_ALWAYS_ON=off`, after Pro launches.
+**Verdict:** a switch (Pro, and Free during the trial) "Search for me while my Mac is off" that runs the person's searches **on our Cloudflare Containers**, not on GitHub Actions. No GitHub, Notion or Telegram setup. New matches appear in the app (optional push/Telegram later). AI is debited from the Pro credit through the existing route. **Compute costs us about $0.0025 a run (estimate); the person is debited a flat $0.005 a run from their credit (or trial budget)**, the same rule as AI keys: their own resources are unlimited, ours are debited. Nothing is built; behind `HOSTED_ALWAYS_ON=off`, after Pro launches.
 
 Owner (16 Oct 2026, via job-pilotto-cc): "in the Pro version, can we offer users the GitHub Actions from the house, in their Credit? that would be a good selling point."
 cc's answer, kept here: yes as a selling point, **not on our GitHub Actions** (GitHub's terms cover CI of a repo, not a compute service for many customers; the account all our CI depends on would be at risk; minutes cost; a shared concurrency limit; users' data would pass through our runs).
@@ -10,6 +10,17 @@ cc's answer, kept here: yes as a selling point, **not on our GitHub Actions** (G
 - The store interface (`1e1eef0`, `src/stores/`: SQLite default, Notion adapter) means the engine already runs on a **SQLite store with no Notion**. That is what makes a hosted run possible.
 - Pro (`docs/superpowers/specs/2026-10-16-pro-plan.md`, PRs 1-2 on main): accounts, `pro_accounts`, credit ledger `pro_credit`, `pro-ai.js` lane on `/api/ai/v1/messages` (50/min only, $0.25 overdraft, no free fallback at 0).
 - Nothing in history built a hosted runner or a per-user cron; the site Worker has one daily cron (`30 5 * * *`) and the account has "no cron triggers left" on the Free-plan count (now Workers Paid: 250 allowed).
+
+## 0. The rule: own resources unlimited, ours debited (owner, 16 Oct 2026)
+| Case | Compute | AI | Debited from credit |
+|---|---|---|---|
+| Pro + own GitHub Actions + own AI key | theirs | theirs | **nothing, unlimited** |
+| Pro + own GitHub Actions + our AI | theirs | ours | AI only |
+| Pro + **hosted** + our AI | ours | ours | **compute + AI** |
+| Pro + **hosted** + own AI key | ours | theirs | **compute only** |
+| Free trial + hosted | ours | ours | compute + AI from the **$2 trial budget** (§4b) |
+- "Their own Cloudflare account" is **not offered** (deploying into users' accounts is too much support); the bring-your-own option is GitHub Actions.
+- Hosted + own key: the run would use the key on our container, so the key is sent to us for the run. **v1: not offered** (a user key stored on our side is the credentials question of §2); the row is priced for later. v1 hosted = our AI.
 
 ## 1. Where it runs
 
@@ -68,16 +79,45 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 
 - The Workers Paid allowance (25 GiB-h memory ≈ 250 runs a month) covers the first ~1.4 users at 6/day; ignore it for the table.
 - **AI is the real cost and does not scale with run count:** it follows **new jobs**, not runs (an empty run costs the small-model title triage, ~$0.001). The Pro spec's average search is ≈ $5 over ~3 months, 60-70% of it reading and scoring jobs; Always on **scores the same jobs earlier, it does not add jobs**. So a typical search with Always on stays in the **$3.5-5 band: the $5 credit still covers an average search**, a heavy one tops up (same as today). Risk: a person who never opens the app keeps scoring new jobs for months; the credit is the cap and it pauses at 0 like all AI.
-- **What is debited from the credit:** the AI calls of hosted runs, exactly as app calls (`ai_calls` micro-USD → `pro_credit`, action `hosted-run`). **Compute is not debited** (invisible, ≈ $0.15 a typical month, 1% of a $19 sale after VAT and fees: ≈ $14.9 left). Alternative if usage grows: debit a flat $0.005 a run; decided later from measured cost.
+- **What is debited:** AI calls exactly as app calls (`ai_calls` micro-USD → `pro_credit`), **plus compute at a flat $0.005 a run** (about 2x the estimated $0.0025: covers the estimate's error, spikes and support share; `pro_credit` rows with action `hosted-compute`, one per finished run, never for a run that failed before the crawl). The price is a Worker var (`HOSTED_RUN_MICRO=5000`), re-set after the probe (price = 2x measured, rounded up to $0.001).
+- **Compute debit per month (Pro credit $5):**
+  | Schedule | Runs/month | Compute debit | Share of the $5 credit |
+  |---|---|---|---|
+  | 1 / day (default) | 30 | $0.15 | 3% |
+  | every 12 h | 60 | $0.30 | 6% |
+  | every 4 h (cap) | 180 | $0.90 | 18% |
+  The credit still covers an average search **with** hosted once a day (AI $3.5-5 + compute $0.45 over 3 months). Every-4-h users spend a visible slice on compute; Settings shows "Hosted search used N% this month" on the same credit bar.
+- **Margin on the debit:** about $0.0025 a run; unspent credit stays our margin as for AI.
+- **Trial user** (1 run a day, 60 days max): 60 runs ≈ **$0.15 our compute cost**, debit $0.30 from the $2 trial budget; the AI of a Free search is the rest of the $2.
 - **Not measured yet.** Replace the table by the probe's numbers before launch.
 
 ## 4. Product
 - **Settings → Plan → "Search for me while my Mac is off"** (Pro only), one switch + frequency choice: **once a day (default)**, twice a day, every 4 hours (the cap, 6/day). Built from `choiceCards`/existing parts; ⌘K "Turn hosted search on/off"; sidebar line "Hosted search · next 14:00".
-- **What the person sees:** the Matches/Jobs screen shows new matches that arrived while the app was closed ("12 new while you were away"); Recent activity gets a "Hosted search" run card (same card as other search runs: count, top matches, AI cost as the credit bar). Optional push/Telegram: **v2** (needs the Telegram token or web push; out of v1).
+- **What the person sees:** the Matches/Jobs screen shows new matches that arrived while the app was closed ("12 new while you were away"); Recent activity gets a "Hosted search" run card (same card as other search runs: count, top matches, AI cost as the credit bar). Notifications: see §4c.
 - **Credit at 0:** hosted runs **pause** (crawl-only runs are still cheap but the scoring needs AI; we pause the whole schedule, no unscored list), the card says "Paused: AI credit used up. Top up, or use your own key on this Mac." Resumes at the next top-up. Warnings at 30%/10% reuse the Pro ones.
-- **Free users never get it.** Free users keep the own-repo Always on during the trial; when the trial ends, GitHub Always on is Pro only (owner, 16 Oct; `job-pilotto-31` counts CI against the trial). Pro users may keep the old GitHub path or switch to hosted; both on at once is refused (one schedule per account).
+- **Own-repo Always on during the trial** stays; when the trial ends, GitHub Always on is Pro only (owner, 16 Oct; `job-pilotto-31` counts CI against the trial). A person may keep the GitHub path or switch to hosted; both on at once is refused (one schedule per account).
+
+### 4b. Free trial users can try it (owner, 16 Oct 2026: "free users/trials should also be able to experience this")
+- Same one switch during the trial (20 applications or 60 days). **Once a day only** (the Pro choices appear after Pro).
+- **Costs come out of the same $2 lifetime trial budget as Free AI** (`FREE_AI_TRIAL_USD`): AI as today, compute at the same $0.005 a run. No separate allowance. They count against the **global Free AI caps** ($10/day stop, $100/month): a trial run's compute joins the day's Free AI total.
+- **Ends** (trial over, or the $2 used): hosted **pauses** with "Get Pro to keep Always on running". **The schedule, inbox and R2 state are kept** 30 days after the trial ends (then deleted per §2), so it resumes the moment they buy Pro (the account links to the same install).
+- Trial cost to us: 60 runs × $0.0025 ≈ $0.15 compute, inside the $2 budget already counted per free user.
 - **Existing GitHub Always on:** unchanged by this spec. A later spec may retire it for Pro in favour of hosted.
 - Wording: "Search for me while my Mac is off", never "GitHub", "container" or dollars; credit shown as the bar (Pro wording rules).
+
+### 4c. Notifications (owner, 16 Oct 2026: "Email + app now, WhatsApp later")
+| Channel | When | Default | Cost |
+|---|---|---|---|
+| **Email** | v1 | **on for everyone**, trial and Pro | Cloudflare Email Sending, the same path as the Pro sign-in codes; cents per thousand, ours, not debited |
+| **App notification** (Mac/Windows) | v1 | on | none; for anyone with the app open, from the inbox pull |
+| **Telegram** | stays | option (the token and chat stay on the Mac; a hosted run reaches Telegram only if the person later connects it in a separate spec) | none |
+| **WhatsApp** | **after Pro launches** | off | Meta business verification and approved templates; cents per message, **debited from the credit** |
+- **Content:** the same "N new matches" card as Telegram (top matches with fit, one line each), each with a link that opens the job in the app (`jobpilotto://job/<id>`, falling back to the website's "open in the app" page).
+- **Frequency:** **one digest per run, never one message per job**; and **only when the run found new matches** (an empty run sends nothing). At most one email per 4 h even on the 4-h schedule; a day's second digest is merged if the first has not been opened. Quiet by design.
+- **Where the setting lives:** Settings → Plan → Hosted search → "Tell me by": Email (address shown, change it), App notifications, Telegram (existing). ⌘K "Hosted search: notifications". The address is the Pro account's e-mail; a trial user is asked for one when turning the switch on (stored with the schedule, deleted with it, §2).
+- **Unsubscribe:** every email has a one-click unsubscribe link (signed token, no sign-in) that turns the email channel off for that schedule (`List-Unsubscribe` header too), plus the switch in Settings. Turning the schedule off, deleting the data or ending the trial deletes the address.
+- **Abuse:** the sender is rate-limited per address (max 6 a day) and per account; a bounce or complaint turns email off automatically.
+- E-mail depends on the Cloudflare Email Sending path of Pro PR 5 (device codes): the same sender, domain and templates.
 
 ## 5. Abuse and limits
 | Case | Guard |
@@ -89,6 +129,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 | Global spend | `HOSTED_ALWAYS_ON` = `off` / `on` kill switch; `HOSTED_MAX_RUNS_DAY` global cap (e.g. 2,000); alert when the day's compute passes $5 (same pattern as `FREE_AI_ALERT_USD`) |
 | Stolen run token | bound to account + run id, 30 min, one result post; useless for other routes |
 | Pro refunded / disputed | schedule off, data deleted per §2 |
+| Free trial hosts many installs | one schedule per install; trial hosted runs capped by `HOSTED_TRIAL_MAX_RUNS_DAY` (global) before Pro runs are touched; shares the Free AI global stop |
 | Stale/inactive user | no app contact for **30 days** → schedule pauses ("open the app to resume") so a lost Mac does not cost forever |
 | Abuse of boards | runs obey `robots`-style limits the engine already has; one request pace per host (existing); no login walls |
 
@@ -105,17 +146,21 @@ Tests: the loop covers **every** pause reason (credit 0, inactive 30 days, compu
 
 ## Open questions for the owner
 1. **Default frequency** once a day (cheapest, enough for most) vs every 4 h like today?
-2. **Compute not debited** (recommended) or a small flat debit per run?
+2. Flat **$0.005 a run** compute debit (2x the estimate) OK? Trial: once a day, from the $2 budget.
 3. Is **no Gmail/Telegram/Notion in v1** (find, score, list only; the rest on the Mac) acceptable for the selling point?
 4. OK for the **probe** (≈ $0.01 of Containers)?
 
 ## Progress
+- [x] Owner model added: own resources unlimited, ours debited; trial users can try it (16 Oct, via job-pilotto-cc)
 - [ ] Spec read by the owner; questions answered (proof: owner via job-pilotto-cc)
 - [ ] Probe: container run measured, §3 table replaced by numbers (proof: this file's §3)
 - [ ] PR 1 (site): tables, tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
 - [ ] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py)
+- [ ] PR 3b (site): compute debit rows (`hosted-compute`), trial budget and global-cap accounting, pause/resume on Pro (proof: site/test/hosted-debit.test.js)
 - [ ] PR 3 (site): cron tick, Queue, container start, guards, export and delete (proof: site/test/hosted-guards.test.js)
+- [ ] PR 3c (site): digest e-mail through Cloudflare Email Sending, unsubscribe token, bounce handling (proof: site/test/hosted-notify.test.js)
 - [ ] PR 4 (app): switch, inbox merge, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
+- [ ] Later: WhatsApp channel (Meta verification, templates, credit debit), after Pro launches
 - [ ] PR 5 (site pages): pricing, privacy, terms
 - [ ] Test-mode end to end; owner flips `HOSTED_ALWAYS_ON=on`
 - [ ] Notion "⭐ Pro plan" updated to match (after the owner's yes)
