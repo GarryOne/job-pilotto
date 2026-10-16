@@ -42,7 +42,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // posting: {url, title, company}; captureDir: where the journey, the AI calls and the asks go; ask: false keeps the AI to kept answers (a test), true asks live.
 // aiProxy: a started lib/ai-proxy.mjs (a test's canned one). On CI one is started here: the runner has no Claude Code, so the app's API engine asks through it on the
 // test key (.github/workflows/record-sites.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
-export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null, atEnd = null, fill = false, loose = ''} = {}) {   // atEnd(tab, replies): a replay's own reading of the last tab (replay-net.mjs: lib/wrong-values.mjs)
+export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null, atEnd = null, fill = false, loose = '', watch = null} = {}) {   // atEnd(tab, replies): a replay's own reading of the last tab (replay-net.mjs: lib/wrong-values.mjs)
   const refill = fill && isCi() && process.env.JP_REFILL_CI === '1';   // the refill workflow (lib/refill.mjs): its own key, no other
   if (refill && keyRefusal()) throw new Error(keyRefusal());
   if (ask && isCi() && !aiProxy && !testKey()) throw new Error(`live row on CI: no ${keySecret('api')} (the Tests key); the app has no other way to ask the AI on a runner`);
@@ -59,11 +59,12 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     return {calls: now.calls - before.calls, usd: now.usd - before.usd, input: now.input - before.input, output: now.output - before.output,
       refused: refused.reduce((sum, [, count]) => sum + count, 0), why: refused[0]?.[0] || ''};
   };
-  const app = await startOfflineApp({ask, fill, loose, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: refill ? refillKey() : appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
+  const app = await startOfflineApp({ask, fill, loose, journey: !!watch, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: refill ? refillKey() : appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
   const accounts = testAccounts(), seeded = seedTestAccounts(app.dir, accounts);   // a listed test account's saved password (docs/rules/applying.md "Signing in"); hosts only, never a value
   if (seeded.length) say(`live: test account for ${seeded.join(', ')} (the product's saved-password sign-in; never Submit)`);
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
+  const watcher = watch ? watch({app, context: run.context}) : null;   // the journey tests' sampler of the card and the panel (lib/journey-watch.mjs), read-only
   const owner = ownerValues();
   say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
@@ -161,10 +162,11 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       const lostNow = kept.entries.filter(entry => entry.bodyLost).length;
       if (lostNow) say(`live: ${lostNow} reply body(ies) could not be read while recording (the page navigated away): this record would replay an empty answer there; the publish guard refuses it`);
     }
-    return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(proxy ? {ai: spend()} : {})};
+    return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(watcher ? {journey: await watcher.stop()} : {}), ...(proxy ? {ai: spend()} : {})};
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must
     clearInterval(asks);
+    await watcher?.stop().catch(() => {});
     await run.close().catch(() => {});
     await front.close().catch(() => {});
     await app.close().catch(() => {});

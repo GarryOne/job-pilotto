@@ -30,6 +30,9 @@ export const PAGE_LINES = {reading: ['Reading this page\u2026', 'Reading\u2026']
   other: ['This page shows no application', 'No application here'],
   'signing-in': ['Logging in\u2026', 'Logging in\u2026'], 'signing-up': ['Creating your account\u2026', 'Creating account\u2026']};
 export const pageLine = (page, short = false) => (PAGE_LINES[page] || PAGE_LINES.reading)[short ? 1 : 0];
+// The card shows a step's line (no counts) when the extension marked the session's page and nothing stopped it that needs the person (owner, 15 Oct 2026). The window adds
+// its Chrome-tab checks on top (pages/session-needs.js redirecting); the journey tests read this same rule on the app's own data (e2e/lib/journey-watch.mjs).
+export const stepShown = (item, state) => !!item && item.outcome !== 'submitted' && !!state?.page && !item.stuck;
 export const sessionReview = (item, formReady = false) => {
   // Account fields being filled never prove that the application is ready. Process exit and
   // non-submission are also not completion evidence. Keep positive legacy handoffs only.
@@ -179,3 +182,6 @@ export function accountRecordLine(item) {
   const terms = Array.isArray(item.accountTerms) ? item.accountTerms : [];
   return [`Account created on ${item.accountHost.replace(/^www\./, '')}`, ...(terms.length ? [`terms accepted: ${terms.map(term => `\u2018${term}\u2019`).join(', ')}`] : []), ...(item.accountCode ? ['code from your email'] : [])].join(' \u00b7 ');
 }
+
+// The card's words for a session as the app itself reports it (no Chrome-tab checks): the step's line, else the session's state. [words, tone]
+export const cardWords = (item, state) => (stepShown(item, state) ? [pageLine(state.page), 'neutral'] : sessionState(item, !!state?.ready));

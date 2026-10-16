@@ -122,7 +122,7 @@ class TheShapes(unittest.TestCase):
         self.assertEqual(self.started(['docs/HOW-IT-RUNS.md', 'tools/ship.sh', 'CLAUDE.md']), {'tests-python.yml'})
 
     def test_the_apply_flow_starts_its_replays_and_desktop(self):
-        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'page-cases.yml', 'control-tests.yml', 'site-replays-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
+        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'page-cases.yml', 'control-tests.yml', 'site-replays-pr.yml', 'journeys-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
         self.assertIn('site-replays-pr.yml', self.started(['desktop/lib/server.js']))
 
     def test_the_harness_code_starts_the_harness(self):

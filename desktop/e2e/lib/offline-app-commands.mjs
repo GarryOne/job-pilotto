@@ -17,6 +17,7 @@ export function serveCommands(storage, {out = line => process.stdout.write(`${li
       run: async () => ({ok: true}),
     }),
     sessions: async () => (await import('../../lib/terminals.js')).list(),
+    reviewStates: async () => (await import('../../lib/review.js')).allStates(),   // the panel's counts and the page step per session: what the card reads (lib/journey-watch.mjs)
   };
   readline.createInterface({input: process.stdin}).on('line', async line => {
     let id = null;

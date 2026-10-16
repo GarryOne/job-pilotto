@@ -51,6 +51,11 @@ const {start, PORT, EXTENSION_ID} = await import('../../lib/server.js');
 const {extensionToken} = await import('../../lib/server-env.js');
 if (String(PORT) !== process.env.JOB_PILOTTO_PORT) throw new Error(`offline app: the server took port ${PORT}, not ${process.env.JOB_PILOTTO_PORT}`);
 (await import('../../lib/server-hooks.js')).setSitePasswordHandler((await import('./offline-site-password.mjs')).offlineSitePassword(storage, {email: async () => (await import('../../lib/contact.js')).read(storage)}));   // a seeded test account signs in; nothing is made (lib/offline-site-password.mjs)
+if (process.env.JP_JOURNEY === '1') {   // a journey test (replay-net.mjs --journey): the card follows the page and the panel's report as the app's own handlers do (lib/page-step.js, ext-server-handlers.js setReviewHandler), so the sampler reads what the card shows
+  const hooks = await import('../../lib/server-hooks.js'), review = await import('../../lib/review.js'), terminals = await import('../../lib/terminals.js');
+  hooks.setPageHandler((await import('../../lib/page-step.js')).pageStepHandler({terminals, review, appLog: (await import('../../lib/log.js')).log}));
+  hooks.setReviewHandler(payload => { const report = review.report(terminals.list(), payload); return report.moved ? {...report, tab: review.tabOf(String(payload?.session || ''), String(payload?.boot || '')) || null} : report; });
+}
 const server = start(storage, error => console.error(`offline app: server error ${error?.message || error}`));
 await new Promise(resolve => server.once('listening', resolve));
 console.log(JSON.stringify({ready: true, guarded, port: PORT, token: extensionToken(storage), extensionId: EXTENSION_ID, dir}));
