@@ -47,6 +47,19 @@ export function factProblems(data, expect) {
   return found;
 }
 
+// A kit reply (src/ai/kit.py) against what can be checked without a reference text: expect = {eligible}, ground = the profile + posting text the kit may draw on -> [problems].
+export function kitProblems(data, expect, ground = '') {
+  const found = [];
+  if (data?.eligible !== expect.eligible) found.push(`eligible: ${data?.eligible}, wanted ${expect.eligible}`);
+  if (!String(data?.cover_letter || '').trim()) found.push('cover_letter: empty');
+  const highlights = Array.isArray(data?.highlights) ? data.highlights.length : 0;
+  if (highlights < 3 || highlights > 5) found.push(`highlights: ${highlights}, wanted 3-5`);
+  if (data?.eligible === true && String(data?.eligibility_note || '').trim()) found.push('eligibility_note: set although eligible');
+  const known = new Set(String(ground).match(/\d+/g) || []);
+  for (const figure of new Set(String(data?.cover_letter || '').match(/\d+/g) || [])) if (!known.has(figure)) found.push(`cover_letter: invented figure ${figure}`);
+  return found;
+}
+
 const ranks = values => {
   const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), out = Array(values.length);
   for (let i = 0; i < order.length;) {   // ties share their average rank

@@ -8,7 +8,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
 import {fromWorkersAi, toWorkersAi} from '../site/src/free-ai-translate.js';
-import {answerProblems, factProblems, schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
+import {answerProblems, factProblems, kitProblems, schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
 
 const MODELS = {small: SMALL, strong: STRONG};
 const keychain = name => { try { return execFileSync('security', ['find-generic-password', '-a', 'job-pilotto', '-s', name, '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim(); } catch { return ''; } };
@@ -35,21 +35,30 @@ export async function evaluate(cases, model, run, now = () => Date.now()) {
       const schema = item.params.output_config?.format?.schema;
       row.schemaOk = !schema || schemaProblems(data, schema).length === 0;
       row.score = Number(data.score);
-      if (item.expect) { row.problems = item.expect.paths || item.expect.has ? factProblems(data, item.expect) : answerProblems(data, item.expect); row.right = row.schemaOk && !row.problems.length; }
+      if (item.expect) { row.problems = 'eligible' in item.expect ? kitProblems(data, item.expect, item.ground) : item.expect.paths || item.expect.has ? factProblems(data, item.expect) : answerProblems(data, item.expect); row.right = row.schemaOk && !row.problems.length; }
     } catch (error) { row.error = error.message; }
     results.push(row);
   }
   return results;
 }
 
-// The REST calls draw on the same free daily allowance (10,000 neurons) as the production Free AI: a day of tuning once left every user at "busy today" (16 Oct 2026).
-// So a run never uses the production account: --account names another one (a separate Cloudflare account and a Workers AI token made in it).
+// The REST calls draw on the same free daily allowance as the production Free AI: a day of tuning once left every user at "busy today" (16 Oct 2026).
+// So a run names a separate account (--account <id>), or the production one only with --allow-production and a hard --max-calls cap (the account is on Workers Paid; a capped run costs cents).
 export const PRODUCTION_ACCOUNTS = ['f192582d62c440f34f9ca7997558cee3'];
-export function guardAccount(account) {
-  if (!account) throw new Error('Name the Cloudflare account to measure on with --account <id>: never the production one, whose free daily allowance the live Free AI shares.');
-  if (PRODUCTION_ACCOUNTS.includes(account)) throw new Error('That is the production Cloudflare account: its free daily allowance is the live Free AI\'s. Use a separate account (--account <id>).');
-  return account;
+export function guardAccount(flags) {
+  if (flags['allow-production']) {
+    const maxCalls = Number(flags['max-calls']);
+    if (!(maxCalls > 0)) throw new Error('--allow-production needs a hard call cap: --max-calls <n>.');
+    return {account: flags.account || PRODUCTION_ACCOUNTS[0], maxCalls, production: PRODUCTION_ACCOUNTS.includes(flags.account || PRODUCTION_ACCOUNTS[0])};
+  }
+  if (!flags.account) throw new Error('Name the Cloudflare account to measure on with --account <id>: never the production one, whose daily allowance the live Free AI shares.');
+  if (PRODUCTION_ACCOUNTS.includes(flags.account)) throw new Error('That is the production Cloudflare account, which the live Free AI shares. Use a separate account (--account <id>), or --allow-production --max-calls <n>.');
+  return {account: flags.account, maxCalls: Number(flags['max-calls']) || undefined, production: false};
 }
+export function guardCalls(cases, models, maxCalls) {
+  if (maxCalls && cases * models > maxCalls) throw new Error(`This run would make ${cases * models} calls (${cases} cases x ${models} models), over the cap of ${maxCalls}.`);
+}
+export const closing = (calls, usd, production) => `${calls} calls, $${usd.toFixed(4)}${production ? ' on the production account' : ''}.`;
 
 // A deterministic stand-in for Workers AI (the tests, and a dry run with no key): the score follows the case's baseline, a little off.
 export const mock = cases => async (model, input) => {
@@ -64,12 +73,13 @@ async function main(argv) {
   const option = name => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
   const cases = JSON.parse(fs.readFileSync(option('cases') || (() => { throw new Error('--cases <file> is required'); })(), 'utf8'));
   const names = (option('models') || 'small').split(',').map(name => MODELS[name] || name);
-  let run;
+  let run, account, maxCalls, production = false;
   if ((option('backend') || 'rest') === 'mock') run = mock(cases);
   else {
     const token = process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token');
-    const account = guardAccount(option('account'));
+    ({account, maxCalls, production} = guardAccount({account: option('account'), 'allow-production': argv.includes('--allow-production'), 'max-calls': option('max-calls')}));
     if (!token) throw new Error('No Workers AI token: set CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token (one made in the --account account), or use --backend mock.');
+    guardCalls(cases.length, names.length, maxCalls);
     run = rest({account, token});
   }
   const rows = [], usd = {};
@@ -80,8 +90,9 @@ async function main(argv) {
     for (const failed of results.filter(r => r.error)) console.error(`${model} ${failed.id}: ${failed.error}`);
   }
   const text = `${table(rows, usd)}\n\n${cases.length} cases per model. ${cases.some(c => c.expect) ? 'A case is right when every field matches what the case expects.' : `Baseline: ${cases.some(c => c.baseline != null) ? 'the cases\' designed scores (not Claude\'s)' : 'none (rank columns are n/a)'}.`}\n`;
-  if (option('out')) fs.writeFileSync(option('out'), text);
-  process.stdout.write(text);
+  const done = `${closing(cases.length * names.length, Object.values(usd).reduce((a, b) => a + b, 0), production)}\n`;
+  if (option('out')) fs.writeFileSync(option('out'), text + done);
+  process.stdout.write(text + done);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main(process.argv.slice(2)).catch(error => { console.error(error.message); process.exit(1); });
