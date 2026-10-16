@@ -144,14 +144,20 @@ export function addressOf(text, mails = []) {
 // route over a layer that offered "continue without an account"; the same sketch answered the route 6 of 6 times offline, so the miss was variance). The answer that names a route wins; if the second is
 // no better, today's answer stands (the hold). One extra plan-path call, only on such pages; never on a digest, never when an email or a route or a button was named.
 export const RETRY_BELOW = 0.8;
-const worthRetry = (first, raw) => !first.botCheck && (first.error?.startsWith('unsure') || (first.by === 'ai' && first.confidence < RETRY_BELOW))
+// An answer the ask itself called unsure (error "unsure (0.3)": a confidence under the keep line), of ANY kind, is asked ONCE more (Richemont Workday, 16 Oct 2026: the Sign In form came
+// back "account-form" at 0.3, with the right account_step, in two runs of 4 asks each, while the same sketch answered account 0.93-0.95 offline; the answer was dropped, the extension
+// filled the form and pressed nothing). CLAUDE.md: a weak or missing AI answer is never kept as sure: it is asked again or climbs the ladder. The second answer wins only when it is
+// sure; still unsure, the first stands and the ladder climbs as before. One extra plan-path call, only on an unsure answer; never on a digest.
+const unsure = answer => !!answer.error?.startsWith('unsure');
+const layerRetry = (first, raw) => (first.error?.startsWith('unsure') || (first.by === 'ai' && first.confidence < RETRY_BELOW))
   && (first.error ? first.kind === 'posting' : first.kind === 'posting' && !first.applyRoute && !first.applyButton && first.applyBy !== 'email')
   && !!pageSketch(raw).onTop?.buttons.length;
+const worthRetry = (first, raw) => !first.botCheck && (unsure(first) || layerRetry(first, raw));
 export async function pageKind(client, raw, cache, opts = {}) {
   const first = await pageKindOnce(client, raw, cache, opts);
   if (opts.digest || !client || !worthRetry(first, raw)) return first;
   const second = await pageKindOnce(client, raw, cache, {...opts, fresh: true});
-  const better = !second.error && (second.applyRoute || (first.error && second.kind === 'posting'));
+  const better = !second.error && (unsure(first) || second.applyRoute || (first.error && second.kind === 'posting'));
   return better ? {...second, retried: true} : {...first, retried: true};
 }
 
