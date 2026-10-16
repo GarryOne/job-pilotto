@@ -54,6 +54,11 @@ FREE_AI_MONTH_STOP_USD = "100"
 FREE_AI_NEURONS = "off"
 # The Pro plan (src/pro.js, spec docs/superpowers/specs/2026-10-16-pro-plan.md): "off" = nothing visible, "test" = Stripe test mode only, "live" = the owner flips it.
 PRO_PLAN = "off"
+# Payment prices (public ids; the provider's dashboard, test mode first). Secrets (Worker): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. STRIPE_TAX = "on" once the owner turns Stripe Tax on. Webhook URL: https://www.jobpilotto.top/api/pro/webhook
+STRIPE_PRICE_PRO = ""
+STRIPE_PRICE_TOPUP5 = ""
+STRIPE_PRICE_TOPUP10 = ""
+STRIPE_PRICE_TOPUP20 = ""
 STRONG_ON = "off"   # "on" once the Workers Paid plan is on: kits/CVs/insights then use the stronger model
 LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports that recur are queued for the private triage (secrets REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
