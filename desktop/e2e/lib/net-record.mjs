@@ -32,9 +32,34 @@ export const headerText = value => { const text = String(value ?? ''); if (!/[\u
 export function netRecorder(context, {startedAt = Date.now(), owner = new Map()} = {}) {
   const entries = [], bodies = new Map(), t0 = new Map(), pending = new Set(), inFlight = new Set();
   context.on('request', request => { if (recordable(request.url())) { t0.set(request, Date.now()); inFlight.add(request); } });
-  // A reply's body is asked for the moment its headers arrive, not when the request is reported finished: a page that navigates away right after a reply (a form built from an answer and
-  // submitted: SuccessFactors' Apply, POST /services/cas/createpayload/, 16 Oct 2026) has lost the body by then, and the old late read recorded an empty 200 that the replay served as the answer.
-  const early = new Map();
+  // A reply's body must be taken while the browser still holds it. A page that navigates away right after a reply (a form built from an answer and submitted: SuccessFactors' Apply,
+  // POST /services/cas/createpayload/, 16 Oct 2026) has lost the body by the time ANY read after the load finishes (Playwright's, or a DevTools Network.getResponseBody at loadingFinished:
+  // measured on a local page, 2-4 runs in 10 lost it; the early Playwright read of #1022 did not help). So an XHR or fetch reply is taken at the Fetch domain's RESPONSE stage, where the
+  // browser keeps it paused until we continue it: 20 of 20 runs kept it. The rest (documents, scripts) keep the Playwright read, early then late; a body no read could get is flagged bodyLost.
+  const paused = new Map(), early = new Map();   // 'METHOD url' -> [body taken at the response stage]; request -> the early Playwright read
+  const holding = new Set();   // the DevTools sessions being attached: ready() waits for them
+  const hold = page => { const attaching = attach(page); holding.add(attaching); attaching.finally(() => holding.delete(attaching)); return attaching; };
+  const attach = async page => {
+    try {
+      const cdp = await context.newCDPSession(page);
+      cdp.on('Fetch.requestPaused', async event => {
+        const atResponse = event.responseStatusCode !== undefined || event.responseErrorReason !== undefined;   // only the response stage is asked for; a request stage would just be let go
+        if (atResponse && event.responseStatusCode !== undefined && recordable(event.request.url)) {
+          try {
+            const got = await cdp.send('Fetch.getResponseBody', {requestId: event.requestId}), key = `${event.request.method} ${event.request.url}`;
+            if (!paused.has(key)) paused.set(key, []);
+            paused.get(key).push(Buffer.from(got.body, got.base64Encoded ? 'base64' : 'utf8'));
+          } catch { /* a redirect or an empty reply has no body to take: the later reads decide */ }
+        }
+        const release = event.responseErrorReason !== undefined ? ['Fetch.failRequest', {requestId: event.requestId, errorReason: event.responseErrorReason}]
+          : [atResponse ? 'Fetch.continueResponse' : 'Fetch.continueRequest', {requestId: event.requestId}];
+        await cdp.send(...release).catch(() => {});   // every paused reply is let go as what it was
+      });
+      await cdp.send('Fetch.enable', {patterns: [{resourceType: 'XHR', requestStage: 'Response'}, {resourceType: 'Fetch', requestStage: 'Response'}]});
+    } catch { /* a page without a DevTools session (a worker, a closed page): the later reads */ }
+  };
+  for (const page of context.pages?.() || []) hold(page);
+  context.on('page', page => { hold(page); });
   context.on('response', response => { const request = response.request(); if (recordable(request.url())) early.set(request, response.body().then(body => ({body}), () => ({lost: true}))); });
   const done = async (request, failed) => {
     inFlight.delete(request);
@@ -43,7 +68,9 @@ export function netRecorder(context, {startedAt = Date.now(), owner = new Map()}
     // site shows "failed to upload" where live went on. Only a request with no reply at all is replayed as failed.
     const began = t0.get(request) ?? Date.now(), ended = Date.now(), response = await request.response().catch(() => null);
     let body = null, lost = false;
-    if (early.has(request)) { const got = await early.get(request); early.delete(request); body = got.body ?? null; lost = !!got.lost; }
+    const taken = paused.get(`${request.method()} ${request.url()}`)?.shift();   // the reply as the browser held it at the response stage, when there was one
+    if (taken) { body = taken; early.delete(request); }
+    else if (early.has(request)) { const got = await early.get(request); early.delete(request); body = got.body ?? null; lost = !!got.lost; }
     else { try { body = response ? await response.body() : null; } catch { body = null; lost = true; } }   // no 'response' event seen (a request reported at once): the late read, as before
     const headers = response ? await response.allHeaders().catch(() => response.headers()) : {}, sent = await request.allHeaders().catch(() => request.headers());
     body = repairUnlabeledText(body, headers['content-type']);   // the inspector's double-encoded unlabeled text, back to the bytes the browser read
@@ -63,7 +90,7 @@ export function netRecorder(context, {startedAt = Date.now(), owner = new Map()}
     for (const request of inFlight) { const kind = String((typeof request.resourceType === 'function' && request.resourceType()) || 'other'); kinds[kind] = (kinds[kind] || 0) + 1; }
     return {waitedMs: Date.now() - began, unfinished: inFlight.size, kinds};
   };
-  return {settle, flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
+  return {settle, ready: () => Promise.all([...holding]), flush: () => Promise.all([...pending]), result: () => ({entries: [...entries].sort((a, b) => a.startMs - b.startMs), bodies})};
 }
 
 const MAX_HOPS = 10;   // a redirect chain longer than this (a loop) is not followed

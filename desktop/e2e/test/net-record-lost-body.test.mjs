@@ -58,3 +58,66 @@ test('a record with a lost body is named by the publish guard (host and path onl
   assert.deepEqual(lostBodies(dir), []);
   assert.deepEqual(lostBodies(path.join(dir, 'nothing')), []);
 });
+
+// ---- The response stage (Fetch domain): the body of an XHR/fetch reply is taken while the browser still holds the reply paused.
+function stubCdpContext({bodyOf}) {
+  const handlers = {}, sent = [];
+  const cdp = {on: (event, fn) => { handlers[event] = fn; }, send: async (method, params = {}) => { sent.push([method, params.requestId]); if (method === 'Fetch.getResponseBody') { const body = bodyOf(params.requestId); if (body == null) throw new Error('Can only get response body on requests captured after headers received'); return {body, base64Encoded: false}; } return {}; }};
+  const listeners = {}, page = {};
+  const context = {pages: () => [page], newCDPSession: async () => cdp, on: (event, fn) => { (listeners[event] ||= []).push(fn); }, emit: (event, arg) => (listeners[event] || []).forEach(fn => fn(arg))};
+  return {context, page, cdp, handlers, sent};
+}
+
+test('an XHR reply is recorded from the response stage even when every later read of it fails; a redirect and a request stage pass through', async () => {
+  const stub = stubCdpContext({bodyOf: id => (id === 'R1' ? '{"payload":"abc"}' : null)}), recorder = netRecorder(stub.context, {startedAt: Date.now()});
+  await new Promise(resolve => setImmediate(resolve));   // the page's DevTools session is attached
+  assert.deepEqual(stub.sent.at(-1), ['Fetch.enable', undefined]);
+  await stub.handlers['Fetch.requestPaused']({requestId: 'Q0', request: {method: 'POST', url: 'https://site.example.test/x'}});   // request stage: no status yet
+  await stub.handlers['Fetch.requestPaused']({requestId: 'R0', responseStatusCode: 302, request: {method: 'GET', url: 'https://site.example.test/redirect'}});   // a redirect: no body to take
+  await stub.handlers['Fetch.requestPaused']({requestId: 'R1', responseStatusCode: 200, request: {method: 'POST', url: 'https://site.example.test/services/cas/createpayload/'}});
+  await stub.handlers['Fetch.requestPaused']({requestId: 'L1', responseStatusCode: 200, request: {method: 'GET', url: 'http://127.0.0.1:47111/ext/x'}});   // the app's own address: never read, let go as a reply
+  await stub.handlers['Fetch.requestPaused']({requestId: 'E1', responseErrorReason: 'ConnectionReset', request: {method: 'GET', url: 'https://site.example.test/gone'}});   // a failed reply stays failed
+  const continued = stub.sent.filter(([method]) => method === 'Fetch.continueRequest' || method === 'Fetch.continueResponse').map(([method, id]) => `${method}:${id}`);
+  assert.deepEqual(continued, ['Fetch.continueRequest:Q0', 'Fetch.continueResponse:R0', 'Fetch.continueResponse:R1', 'Fetch.continueResponse:L1'], 'every paused reply is let go as what it was');
+  assert.deepEqual(stub.sent.filter(([method]) => method === 'Fetch.failRequest').map(([, id]) => id), ['E1']);
+  assert.ok(!stub.sent.some(([method, id]) => method === 'Fetch.getResponseBody' && id === 'L1'), 'a loopback reply is never read');
+  // the page then navigates away: every later read of the body fails
+  const response = {status: () => 200, allHeaders: async () => ({'content-type': 'application/json'}), headers: () => ({}), body: async () => { throw new Error('evicted'); }};
+  const request = {url: () => 'https://site.example.test/services/cas/createpayload/', method: () => 'POST', resourceType: () => 'xhr', response: async () => response, allHeaders: async () => ({'sec-fetch-mode': 'cors'}), headers: () => ({}), postDataBuffer: () => Buffer.from('{}'), failure: () => null};
+  response.request = () => request;
+  stub.context.emit('request', request); stub.context.emit('response', response); stub.context.emit('requestfinished', request);
+  await recorder.flush();
+  const [entry] = recorder.result().entries;
+  assert.deepEqual([entry.size, entry.bodyLost], [17, undefined]);
+  assert.equal(recorder.result().bodies.get(entry.hash).toString(), '{"payload":"abc"}');
+});
+
+test('on a real page that submits a form from an XHR answer and leaves, the answer is recorded every time (a local server, a real browser)', async () => {
+  const http = await import('node:http'), {chromium} = await import('playwright-core');
+  const page = '<!doctype html><button id=go>Apply</button><script>document.getElementById("go").addEventListener("click", async () => { const r = await fetch("/payload", {method: "POST", body: "{}"}); const j = await r.json(); const f = document.createElement("form"); f.method = "POST"; f.action = "/next"; const i = document.createElement("input"); i.name = "p"; i.value = j.payload; f.append(i); document.body.append(f); f.submit(); });</script>';
+  const server = http.createServer((req, res) => {
+    const send = (type, body, wait = 0) => setTimeout(() => { res.writeHead(200, {'content-type': type}); res.end(body); }, wait);
+    req.resume();
+    if (req.url === '/') return send('text/html', page);
+    if (req.url === '/payload') return send('application/json', '{"payload":"abc-123"}', 20);
+    if (req.url === '/next') return send('text/html', '<p>next</p>', 20);
+    res.writeHead(404); res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
+  const sizes = [];
+  try {
+    for (let run = 0; run < 8; run += 1) {
+      const context = await browser.newContext(), recorder = netRecorder(context, {startedAt: Date.now()}), tab = await context.newPage();
+      await recorder.ready();   // the recorder's DevTools session on the page is attached before the page does anything (a busy machine attaches it late)
+      await tab.goto(`http://site.example.test:${server.address().port}/`);
+      await tab.click('#go');
+      await tab.waitForURL('**/next').catch(() => {});
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await recorder.settle(3000); await recorder.flush();
+      sizes.push(recorder.result().entries.find(entry => entry.url.endsWith('/payload'))?.size);
+      await context.close();
+    }
+  } finally { await browser.close(); server.close(); }
+  assert.deepEqual(sizes, Array(8).fill(21), 'the XHR answer is in every recording');
+});
