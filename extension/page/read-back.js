@@ -31,6 +31,16 @@
     const keys = [...(el.parentElement?.querySelectorAll('input[type=hidden], input[aria-hidden=true]') || [])];
     return keys.length === 1 && !String(keys[0].value || '').trim() ? null : el;
   };
+  // A picker whose search box is a plain input and whose choice stands beside it as a chip (Workday's multi-select: "Switzerland (+41)" in a list of selected items, 16 Oct 2026):
+  // the box's own field area (up while no other field lives there) holds a shown option that is selected (aria-selected=true) or a chip (an option with no aria-selected at all, which
+  // a menu's choices always carry). Never while a menu is open there (aria-expanded=true): its options are choices, not the value. Structure only; no word is read.
+  const chipOf = el => {
+    let box = el;
+    while (box.parentElement && box.parentElement !== document.body && box.parentElement.querySelectorAll(FIELDS).length <= 1) box = box.parentElement;
+    if (box === el || box.querySelector('[aria-expanded=true]') || el.getAttribute('aria-expanded') === 'true') return null;
+    return [...box.querySelectorAll('[role=option]')].find(option => visible(option) && String(option.textContent || option.getAttribute('aria-label') || '').trim() &&
+      (option.getAttribute('aria-selected') === 'true' || !option.hasAttribute('aria-selected'))) || null;
+  };
   const comboValue = el => {
     const own = el.closest('[class*=select__container]')?.querySelector(CHIP);
     if (own) return own;
@@ -98,7 +108,10 @@
     if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? 'committed' : 'empty';
     if (el.tagName === 'SELECT') return !chosen(el) ? 'empty' : pickedOther(el, el.options[el.selectedIndex]?.text) ? 'mismatch' : 'committed';
     if (el.getAttribute('role') === 'combobox') { const value = comboValue(el); return !value ? 'empty' : pickedOther(el, comboShown(el, value)) ? 'mismatch' : 'committed'; }
-    return boxState(el);
+    const state = boxState(el);
+    if (state !== 'empty' || el.type === 'password' || el.tagName === 'TEXTAREA') return state;
+    const chip = chipOf(el);
+    return !chip ? state : pickedOther(el, chip.textContent || chip.getAttribute('aria-label')) ? 'mismatch' : 'committed';
   };
 
   // Something drawn over the control's centre that is a dialog or a fixed layer over most of the window, and does not hold the control (structure only, as extension/on-top.js).

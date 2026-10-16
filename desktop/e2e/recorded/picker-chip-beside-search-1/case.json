@@ -1,0 +1,38 @@
+{
+ "origin": "hand-cut",
+ "shape": "a picker whose search box is a plain input and whose chosen item stands beside it as a chip (a Workday multi-select), already holding the wanted choice",
+ "why": "16 Oct 2026, the signed-in Richemont test row on Workday My Information: the Country Phone Code picker already held 'Switzerland (+41)', but the fill card said 'the site did not keep it: left for you' because the reader looked only at the search box. Same class as the owner's open SuccessFactors bug (a country that shows its choice is listed as left). A selected-item chip in the control's own field area is its value; an open menu's options never count.",
+ "control": {
+  "build": "0.9.553",
+  "failed": "traced: Country Phone Code:left (the picker held its choice in a chip beside the search box; the reader saw an empty box)"
+ },
+ "sample": "the phone section of the signed-in Richemont test row's real My Information page (live capture 16 Oct 2026), classes, styles and icons dropped, structure and attributes kept; the site's refusal is a page script written by hand (the capture has no scripts); fake applicant",
+ "pages": [
+  {
+   "url": "https://careers.example.com/apply/myInformation",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "traced": [
+   "Country Phone Code:filled"
+  ],
+  "seconds": 60
+ }
+}
