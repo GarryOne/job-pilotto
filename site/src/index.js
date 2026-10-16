@@ -47,6 +47,7 @@ import {attribution, purge as purgeNets} from './attribution.js';
 import {log as brainLog, view as brainView} from './brainlog.js';
 import {index as employerIndex} from './employers.js';
 import * as pool from './pool.js';
+import * as testMail from './test-mail.js';   // test-account-*@ inboxes for the tests (Email Worker + /admin/test-mail)
 import {handleReport} from '../../worker/src/report.js';
 import {movesView} from './ladder-moves.js';
 
@@ -128,6 +129,7 @@ async function route(request, env, ctx) {
   if (pathname === '/install') return install(request, env, ctx, stats.record);
   if (pathname === '/api/hit') return stats.hit(request, env);
   if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (src/releases.js)
+  if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (src/test-mail.js)
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
     '/admin/operations/overview': opsView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
@@ -189,6 +191,7 @@ async function route(request, env, ctx) {
 
 export default {
   fetch: metered,
+  email: (message, env) => testMail.receive(message, env),   // Cloudflare Email Routing -> this Worker (dashboard route, src/test-mail.js)
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
     // The day's totals first (kept for good), then the 90-day purge of raw rows.
@@ -205,6 +208,7 @@ export default {
       .catch(error => console.error(`alias canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? pruneLearning(env.STATS) : Promise.resolve({})).then(removed => console.log(`learning pruned: ${JSON.stringify(removed)}`)).catch(error => console.log(`learning not pruned: ${error.message}`)));   // aliases.js pruneLearning
     ctx.waitUntil((env.STATS ? tidyIntelligence(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`intelligence tidy: ${error.message}`)));
+    ctx.waitUntil(testMail.purge(env).catch(error => console.error(`test mail purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? tidyKnowledge(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`knowledge tidy: ${error.message}`)));
   },
 };
