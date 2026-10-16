@@ -22,7 +22,7 @@ function d1() {
 }
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
 const now = new Date('2026-10-16T10:00:00Z');
-const setup = (extra = {}) => { const sent = [], e = {MAIL: 'on', STATS: d1(), WAITLIST: kv(), STATS_SALT: 'salt', EMAIL: {send: async m => { sent.push(m); return {messageId: `m${sent.length}`}; }}, ...extra}; return {e, sent}; };
+const setup = (extra = {}) => { const sent = [], e = {MAIL: 'on', TRIAL_REMINDERS: 'on', STATS: d1(), WAITLIST: kv(), STATS_SALT: 'salt', EMAIL: {send: async m => { sent.push(m); return {messageId: `m${sent.length}`}; }}, ...extra}; return {e, sent}; };
 // A trial account with one install, that applied `applied` times and started its first run `days` days ago.
 async function trial(e, email, {applied = 0, days = 5, install = `inst-${email}`} = {}) {
   const id = await createAccount(e, email, now, {plan: 'trial'});
@@ -65,8 +65,8 @@ test('a Pro account, an unsubscribed account and an account with the mail off ge
   assert.equal(sent.length, 0);
 });
 
-test('"Always on paused" goes to a trial account whose hosted schedule paused, with the Pro line only for trial-over, once a month', async () => {
-  const {e, sent} = setup();
+test('"Always on paused" goes to a trial account whose hosted schedule paused, functional wording, the Pro line only with the marketing flag, once a month', async () => {
+  const {e, sent} = setup({MARKETING_MAIL: 'on'});
   const over = await trial(e, 'over@example.com'), idle = await trial(e, 'idle@example.com'), running = await trial(e, 'running@example.com');
   const put = e.STATS.db.prepare("INSERT INTO hosted_schedules (account, install, state, pause_reason, next_run_at, last_seen_at, created_at) VALUES (?, 'i', ?, ?, 'x', 'x', 'x')");
   put.run(over, 'paused', 'trial-over'); put.run(idle, 'paused', 'inactive'); put.run(running, 'on', null);
@@ -82,7 +82,8 @@ test('the Pro-launch mail: off without its flag; counts without send=1; goes onl
   const a = await trial(e, 'yes@example.com'); await trial(e, 'no@example.com');
   e.STATS.db.prepare('UPDATE pro_accounts SET marketing_opt_in = 1 WHERE id = ?').run(a);
   assert.deepEqual(await launch(e), {off: true});
-  const on = {...e, MAIL_LAUNCH: 'on', PRO_PRICE_USD: '29', PRO_LAUNCH_USD: '19'};
+  assert.deepEqual(await launch({...e, MAIL_LAUNCH: 'on'}), {off: true}, 'the marketing flag is the owner\'s second key');
+  const on = {...e, MAIL_LAUNCH: 'on', MARKETING_MAIL: 'on', PRO_PRICE_USD: '29', PRO_LAUNCH_USD: '19'};
   assert.deepEqual(await launch(on, {now}), {would: 1});
   assert.equal(sent.length, 0);
   assert.deepEqual(await launch(on, {send: true, now}), {sent: 1, skipped: 0});
@@ -110,4 +111,16 @@ test('the signups page counts trial accounts and mail, never shows an address, a
   assert.ok(html.includes('Trial accounts') && html.includes('trial-left'));
   assert.ok(!html.includes('example.com'));
   assert.ok(PAGES.some(item => item.path === '/admin/signups'));
+});
+
+test('with the owner\'s flags off (the default) the trial reminders do not go out and the pause notice has no sales line', async () => {
+  const {e, sent} = setup({TRIAL_REMINDERS: 'off'});
+  await trial(e, 'low@example.com', {applied: 16});
+  await trial(e, 'ending@example.com', {applied: 20, days: 58});
+  const over = await trial(e, 'over@example.com');
+  e.STATS.db.prepare("INSERT INTO hosted_schedules (account, install, state, pause_reason, next_run_at, last_seen_at, created_at) VALUES (?, 'i', 'paused', 'trial-over', 'x', 'x', 'x')").run(over);
+  assert.deepEqual(await run(e, now), {left: 0, ending: 0, paused: 1});
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].subject, 'Always on paused: your free trial has ended');
+  assert.ok(!/Pro|pricing|\$/.test(sent[0].text), 'no Pro push while the flag is off');
 });

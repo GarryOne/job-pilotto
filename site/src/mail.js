@@ -31,6 +31,7 @@ export async function stopLink(env, to, list) {
 // -> {ok: true} or {ok: false, reason}. For a caller that builds an expensive mail (the digest) and wants to know first.
 export async function mailAllowed(env, to, list = 'service', {essential = false} = {}) {
   if (!validAddress(to)) return {ok: false, reason: 'bad_address'};
+  if (list === 'marketing' && env.MARKETING_MAIL !== 'on') return {ok: false, reason: 'marketing_off'};   // owner, 17 Oct 2026: no promotional mail until he turns it on
   const addr = await addrOf(to);
   const off = await env.STATS.prepare("SELECT list, reason FROM mail_off WHERE addr = ? AND list IN ('all', ?)").bind(addr, list).all();
   for (const row of off.results || []) if (row.list === 'all' || !essential) return {ok: false, reason: row.list === 'all' ? 'suppressed' : 'unsubscribed'};
@@ -51,7 +52,7 @@ export async function send(env, template, to, data = {}, {now = new Date()} = {}
   try {
     const verdict = await mailAllowed(env, to, spec.list, spec);
     const addr = await addrOf(to);
-    if (!verdict.ok) { if (verdict.reason !== 'bad_address') await record(env, now, addr, spec.list, template, verdict.reason); return verdict; }
+    if (!verdict.ok) { if (verdict.reason !== 'bad_address' && verdict.reason !== 'marketing_off') await record(env, now, addr, spec.list, template, verdict.reason); return verdict; }
     const since = new Date(now.getTime() - DAY).toISOString();
     const mine = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE addr = ? AND status = 'sent' AND at >= ?").bind(addr, since).first();
     const all = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE status = 'sent' AND at >= ?").bind(since).first();

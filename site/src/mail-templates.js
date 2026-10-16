@@ -33,13 +33,13 @@ export const TEMPLATES = {
     subject: ({days}) => `Your free trial ends in ${days} day${days === 1 ? '' : 's'}`,
     text: ({days, pricingUrl}) => `Your free Job Pilotto trial ends in ${days} day${days === 1 ? '' : 's'}. After that new searches and drafts pause; your data stays yours.\nDetails: ${pricingUrl}`,
     html: ({days, pricingUrl}) => `<p>Your free Job Pilotto trial ends in <b>${esc(days)}</b> day${days === 1 ? '' : 's'}. After that new searches and drafts pause; your data stays yours.</p><p>${link(pricingUrl, 'Details')}</p>`},
-  // The one service mail that may carry the Pro line (hosted spec §4b). Data: {reason: 'trial-over' | 'inactive', pricingUrl}.
+  // Always on paused (hosted spec §4b). Data: {reason: 'trial-over' | 'inactive', pricingUrl, pro}. Purely functional; the Pro line shows only when `pro` (the owner's marketing flag) is on.
   'always-on-paused': {list: 'service',
-    subject: ({reason}) => (reason === 'inactive' ? 'Always on paused: open the app to resume' : 'Always on paused: get Pro to keep it running'),
-    text: ({reason, pricingUrl}) => (reason === 'inactive' ? 'Always on paused because the app has not been opened for 14 days. Open Job Pilotto, or use the link below to stop these mails.'
-      : `Your free trial is over, so Always on paused. Get Pro to keep it running: ${pricingUrl}`),
-    html: ({reason, pricingUrl}) => (reason === 'inactive' ? '<p>Always on paused because the app has not been opened for 14 days. Open Job Pilotto to resume.</p>'
-      : `<p>Your free trial is over, so Always on paused. ${link(pricingUrl, 'Get Pro to keep it running')}.</p>`)},
+    subject: ({reason}) => (reason === 'inactive' ? 'Always on paused: open the app to resume' : 'Always on paused: your free trial has ended'),
+    text: ({reason, pricingUrl, pro}) => (reason === 'inactive' ? 'Always on paused because the app has not been opened for 14 days. Open Job Pilotto to resume, or use the link below to stop these mails.'
+      : `Always on paused: your free trial has ended.${pro ? ` Get Pro to keep it running: ${pricingUrl}` : ''}`),
+    html: ({reason, pricingUrl, pro}) => (reason === 'inactive' ? '<p>Always on paused because the app has not been opened for 14 days. Open Job Pilotto to resume.</p>'
+      : `<p>Always on paused: your free trial has ended.${pro ? ` ${link(pricingUrl, 'Get Pro to keep it running')}.` : ''}</p>`)},
   // The marketing list: sent by hand (src/mail-lifecycle.js launch), only to opted-in addresses. Data: {price, launch, pricingUrl}.
   'pro-launch': {list: 'marketing',
     subject: () => 'Job Pilotto Pro is out',
