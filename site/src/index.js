@@ -46,6 +46,7 @@ import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
 import {status as proStatus} from './pro.js';
 import {status as trialStatus} from './trial.js';
+import * as hosted from './hosted.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
@@ -184,6 +185,9 @@ async function route(request, env, ctx) {
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
   if (pathname === '/api/trial/status') return trialStatus(request, env);   // the free trial, one answer for the app and Always on (src/trial.js)
+  if (pathname === '/api/hosted/schedule') return hosted.schedule(request, env);   // hosted Always on: the install's schedule (src/hosted.js; 404 while HOSTED_ALWAYS_ON is off)
+  if (pathname === '/api/hosted/result') return hosted.result(request, env);   // a container's one result post (run token)
+  if (pathname === '/api/hosted/inbox') return hosted.inbox(request, env);   // the matches that arrived while the app was closed
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
   if (pathname === '/api/pro/status') return proStatus(request, env);   // the Pro plan: plan and AI credit for the app (src/pro.js)
