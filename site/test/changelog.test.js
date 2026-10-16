@@ -1,6 +1,6 @@
 // The public /changelog (src/changelog.js, public/changelog.html + changelog.json): nothing internal or Pro-related can be published, entries are per stable version newest first, the page renders text only.
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {test} from 'node:test';
 import {FORBIDDEN, addEntry, cleanItems, problems, versionOf} from '../src/changelog.js';
 
@@ -51,4 +51,24 @@ test('the page reads changelog.json, writes text (never HTML), is in the sitemap
   assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobpilotto\.top\/changelog<\/loc>/);
   assert.match(pub('index.html'), /<a href="changelog\.html">What's new<\/a>/);
   assert.doesNotMatch(html, /\$\d|\bPro\b/);
+});
+
+test('every page with the top menu links to "What\'s new", on desktop (link row) and phone (beside Download), in site/ and site-next/', () => {
+  for (const tree of ['../public', '../../site-next/public']) {
+    for (const name of readdirSync(new URL(`${tree}/`, import.meta.url)).filter(file => file.endsWith('.html'))) {
+      const html = readFileSync(new URL(`${tree}/${name}`, import.meta.url), 'utf8');
+      if (!/<nav class="topnav[^>]*>[\s\S]*?class="links"/.test(html)) continue;   // privacy and terms have a brand-only bar: no menu
+      const nav = html.match(/<nav class="topnav[\s\S]*?<\/nav>/)[0];
+      assert.match(nav, /<div class="links">[\s\S]*<a href="changelog\.html"[^>]*>What's new<\/a>[\s\S]*<\/div>/, `${tree}/${name}: link row`);
+      assert.match(nav, /<a class="news" href="changelog\.html">What's new<\/a>/, `${tree}/${name}: phone link`);
+    }
+  }
+});
+
+test('the changelog header stacks its one-line intro, and an empty list says the notes are coming', () => {
+  const html = pub('changelog.html');
+  assert.match(html, /<header class="section-head stacked"/);
+  assert.match(html, /Every version of Job Pilotto, in plain words\./);
+  assert.match(html, /The first release notes are coming soon\./);
+  assert.match(pub('styles.css'), /\.section-head\.stacked \{ grid-template-columns: 1fr; \}/);
 });

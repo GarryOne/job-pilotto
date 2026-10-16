@@ -19,21 +19,27 @@
     <a class="brand" href="./"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Job Pilotto</a>
     <div class="links">
       <a href="./#how">How it works</a>
-      <a href="./#trust">Trust</a>
+      <a href="intelligence.html">Intelligence</a>
+      <a href="./#privacy">Privacy</a>
+      <a href="./#pricing">Pricing</a>
+      <a href="compare.html">Compare</a>
       <a href="./#faq">FAQ</a>
+      <a href="changelog.html" aria-current="page">What's new</a>
     </div>
+    <a class="news" href="changelog.html">What's new</a>
     <a class="btn btn-primary" href="/download/mac?from=changelog-header">Download for Mac</a>
   </nav>
 
-  <header class="section-head" style="padding-block: 36px 8px; max-width: 820px">
+  <header class="section-head stacked" style="padding-block: 36px 8px; max-width: 820px">
     <span class="eyebrow">Changelog</span>
-    <h1 style="font-size: clamp(2rem, 5vw, 3.2rem)">What's new</h1>
-    <p class="lede">What changed in each version of the app, in plain words. The app offers the newest version by itself.</p>
+    <h1 style="font-size: clamp(2rem, 4.4vw, 3.1rem)">What's new</h1>
+    <p class="lede">Every version of Job Pilotto, in plain words.</p>
   </header>
 
   <section class="block" style="padding-block: 24px; max-width: 820px" id="releases">
     <noscript><p class="muted">Turn on JavaScript to see the versions, or read them in <a href="changelog.json">changelog.json</a>.</p></noscript>
-    <p class="muted" id="releases-empty" hidden>The first notes will appear here with the next version.</p>
+    <p class="muted" id="releases-empty" hidden>The first release notes are coming soon.</p>
+    <p class="muted" id="releases-note" hidden style="font-size:.9rem">The app offers the newest version by itself.</p>
   </section>
 
   <footer>
@@ -46,6 +52,7 @@
 fetch('changelog.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(list => {
   const root = document.getElementById('releases');
   if (!Array.isArray(list) || !list.length) { document.getElementById('releases-empty').hidden = false; return; }
+  document.getElementById('releases-note').hidden = false;
   for (const entry of list) {
     const box = document.createElement('article'), title = document.createElement('h2'), when = document.createElement('time'), items = document.createElement('ul');
     box.className = 'release'; box.id = `v${entry.version}`;
