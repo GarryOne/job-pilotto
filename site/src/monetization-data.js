@@ -29,10 +29,11 @@ export async function collect(env, range = '30d', now = new Date()) {
   const free = first.filter(r => !latest.get(r.install)?.licensed);
   const cohort = free.filter(r => !since || r.first >= since);
   const used = r => Number(latest.get(r.install)?.applicationsUsed) || 0;
-  const funnel = {installs: cohort.length, activated: cohort.filter(r => done.has(r.install)).length, applied: cohort.filter(r => used(r) >= 1).length,
+  const downloads = (await rows(db, `SELECT COUNT(*) AS n FROM downloads ${since ? 'WHERE at >= ?' : ''}`, ...(since ? [since] : [])))?.[0]?.n || 0;
+  const funnel = {downloads, installs: cohort.length, setup: cohort.filter(r => done.has(r.install)).length, activated: cohort.filter(r => used(r) >= 1).length,
     trials: cohort.filter(r => used(r) >= TRIAL_APPLICATIONS || latest.get(r.install)?.allowanceEnded).length, pro: cohort.filter(r => proInstalls.has(r.install)).length};
   const verdict = colourOf(funnel.pro, funnel.trials);
-  const conversion = {ofTrials: funnel.trials ? funnel.pro / funnel.trials : 0, ofInstalls: funnel.installs ? funnel.pro / funnel.installs : 0, ...verdict};
+  const conversion = {ofTrials: funnel.trials ? funnel.pro / funnel.trials : 0, ofSignups: funnel.setup ? funnel.pro / funnel.setup : 0, ...verdict};
 
   // AI cost: ai_calls.who is the digest of the install's digest (free-ai.js records access.who through aicost.js, which digests again).
   const whoOf = new Map(await Promise.all(first.filter(r => !latest.get(r.install)?.licensed).map(async r => [(await digestOf(await digestOf(r.install))).slice(0, 8), r.install])));
