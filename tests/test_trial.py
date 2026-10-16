@@ -69,9 +69,11 @@ class DailyRunTests(unittest.TestCase):
         return search, kits, apply, send, shown
 
     def test_after_the_wall_a_scheduled_run_searches_nothing_and_sends_the_line(self):
-        search, kits, _apply, send, _ = self.run_main(['--mode', 'scheduled', '--send'], {'ok': True, 'ended': True})
+        search, kits, _apply, send, _ = self.run_main(['--mode', 'scheduled', '--send'], {'ok': True, 'ended': True, 'notify': True})
         search.assert_not_called()
         send.assert_called_once_with(trial.OVER_LINE, 't', 'c')
+        _s, _k, _a, send, _ = self.run_main(['--mode', 'scheduled', '--send'], {'ok': True, 'ended': True, 'notify': False})
+        send.assert_not_called()   # the website already had it today
         self.assertIn('Get Pro to continue', trial.OVER_LINE)
 
     def test_after_the_wall_kits_pause_but_marking_applied_goes_on(self):
