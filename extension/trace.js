@@ -10,6 +10,8 @@ const KEEP_HEADER = /^(content-type|location|access-control-.*)$/i;   // the res
 const TYPES = {Document: 'document', Script: 'script', Stylesheet: 'stylesheet', Image: 'image', Font: 'font', Media: 'media', XHR: 'xhr', Fetch: 'fetch', Ping: 'ping'};
 const TEXTUAL = new Set(['document', 'script', 'stylesheet', 'font', 'xhr', 'fetch', 'ping']);   // an image or media body is blanked or dropped by the scrub anyway: never read
 const WATCH_MS = 1000;
+const INTERCEPT = {patterns: [{resourceType: 'XHR', requestStage: 'Response'}, {resourceType: 'Fetch', requestStage: 'Response'}]};
+const HOLD_MS = 500;   // a paused reply is let go after at most this long, body or not: a slow or never-ending reply must not stall the person's page
 
 export function createTrace({chrome, attach = attachDebugger, detach = detachDebugger, stopped = isStopped, now = Date.now, hasPassword = async () => false, enabled = async () => true,
   setTimer = setTimeout, clearTimer = clearTimeout, buffer = createBuffer({now}), onChange = () => {}}) {
@@ -28,14 +30,32 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     buffer.add(run.tabId, entry, request.body ? request.body.length : 0);
   }
 
+  // A reply of an XHR or fetch is taken at the Fetch domain's RESPONSE stage, where Chrome keeps it paused until we let it go: a page that navigates away right after its reply (a form built from the
+  // answer and submitted: SuccessFactors' Apply) has lost the body by the time anything is read after loadingFinished (measured on a local page: 4 of 12 lost; at the response stage 0 of 60).
+  // Every paused reply is released AS RECEIVED, whatever happens: an event stream is let go at once, any other after at most HOLD_MS, a failed one stays failed, and on a paused trace (a sign-in
+  // page) nothing is read at all. The person's page never waits on us for longer than HOLD_MS.
+  async function holdReply(tabId, params) {
+    const run = runs.get(tabId);
+    const release = () => (params.responseErrorReason !== undefined ? send(tabId, 'Fetch.failRequest', {requestId: params.requestId, errorReason: params.responseErrorReason})
+      : send(tabId, params.responseStatusCode === undefined ? 'Fetch.continueRequest' : 'Fetch.continueResponse', {requestId: params.requestId})).catch(() => {});
+    const type = String((params.responseHeaders || []).find(header => /^content-type$/i.test(header.name))?.value || '');
+    if (!run || run.paused || params.responseStatusCode === undefined || /event-stream/i.test(type)) return release();
+    try {
+      const got = await Promise.race([send(tabId, 'Fetch.getResponseBody', {requestId: params.requestId}), new Promise((resolve, reject) => setTimer(() => reject(new Error('too slow')), HOLD_MS))]);
+      if (params.networkId && runs.get(tabId) === run && !run.paused) run.bodies.set(params.networkId, got.base64Encoded ? got.body : btoa(unescape(encodeURIComponent(got.body))));
+    } catch { /* a redirect, an empty reply or a slow one: the later read decides */ }
+    return release();
+  }
+
   // The body is read the instant Chrome says the loading finished (the earliest the protocol allows: Network.getResponseBody answers only after loadingFinished), never later. A page that navigates away
   // right after a reply (a form built from the answer and submitted) has its body evicted a moment later; when that read still fails on a reply that carried bytes (a 2xx whose encodedDataLength > 0),
   // the entry is flagged bodyLost, never kept as a clean empty reply: a report replaying it would serve an EMPTY answer (the same class as the recorder's, net-record.mjs, 16 Oct 2026).
   async function onFinished(run, request, encoded) {
     try {
       if (!TEXTUAL.has(request.type)) throw new Error('not read');
-      const {body, base64Encoded} = await send(run.tabId, 'Network.getResponseBody', {requestId: request.id});
-      const text = base64Encoded ? body : btoa(unescape(encodeURIComponent(body)));
+      let text = run.bodies.get(request.id);   // taken at the response stage (holdReply): the body the page got, before it could navigate away
+      if (text !== undefined) run.bodies.delete(request.id);
+      else { const {body, base64Encoded} = await send(run.tabId, 'Network.getResponseBody', {requestId: request.id}); text = base64Encoded ? body : btoa(unescape(encodeURIComponent(body))); }
       request.body = text; request.size = Math.floor(text.length * 3 / 4);
     } catch {   // a redirect, a cached reply or an image: the entry is kept without a body; a text reply that had bytes and could not be read is flagged
       request.body = null; request.size = Math.floor(encoded || 0);
@@ -45,6 +65,7 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
   }
 
   function onEvent(source, method, params) {
+    if (method === 'Fetch.requestPaused') { holdReply(source.tabId, params); return; }   // always answered: a paused reply is never left waiting, whether a trace runs on the tab or not
     const run = runs.get(source.tabId);
     if (!run || run.paused) return;
     if (method === 'Page.frameNavigated') { if (!params.frame.parentId) { run.top = params.frame.id; run.shown = buffer.current(run.tabId); } return; }
@@ -74,13 +95,14 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
   function pause(run) {
     buffer.dropFrom(run.tabId, run.shown);
     run.paused = true; run.requests.clear(); run.pending.clear();
-    if (run.held) { run.held = false; detach(run.tabId).catch(() => {}); }
+    if (run.held) { run.held = false; send(run.tabId, 'Fetch.disable').catch(() => {}); detach(run.tabId).catch(() => {}); }   // no reply is held on a sign-in page, or after the debugger is let go
     onChange(run.tabId);
   }
   async function resume(run) {
     try { await attach(run.tabId); } catch { return end(run.tabId); }
     run.held = true;
     try { await send(run.tabId, 'Network.enable'); await send(run.tabId, 'Page.enable'); } catch { return end(run.tabId); }
+    await send(run.tabId, 'Fetch.enable', INTERCEPT).catch(() => {});   // not fatal: without it a body is read later, and flagged when lost
     run.paused = false; run.shown = null;
   }
   const watch = run => {
@@ -100,7 +122,7 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     runs.delete(tabId); buffer.drop(tabId);
     if (!run) return;
     clearTimer(run.watch);
-    if (run.held) detach(tabId).catch(() => {});
+    if (run.held) { send(tabId, 'Fetch.disable').catch(() => {}); detach(tabId).catch(() => {}); }
     onChange(tabId);
   }
 
@@ -113,13 +135,14 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     async start(tabId) {
       if (runs.has(tabId)) return true;
       if (stopped() || !(await enabled().catch(() => false)) || runs.has(tabId)) return runs.has(tabId);
-      const run = {tabId, t0: now(), requests: new Map(), pending: new Set(), top: null, shown: null, paused: false, held: false};
+      const run = {tabId, t0: now(), requests: new Map(), pending: new Set(), top: null, shown: null, paused: false, held: false, bodies: new Map()};
       runs.set(tabId, run);
       try {
         await attach(tabId);   // the one place the debugger is attached (stop-state.js): never while the person pressed Stop, and only on a tab the app opened
         run.held = true;
         await send(tabId, 'Network.enable');
         await send(tabId, 'Page.enable');
+        await send(tabId, 'Fetch.enable', INTERCEPT).catch(() => {});   // not fatal: without it a body is read later, and flagged when lost
         run.top = (await send(tabId, 'Page.getFrameTree').catch(() => null))?.frameTree?.frame?.id || null;
       } catch { run.held = false; end(tabId); return false; }
       if (await hasPassword(tabId).catch(() => false)) pause(run);
