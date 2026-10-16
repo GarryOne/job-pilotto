@@ -20,6 +20,8 @@ on:
       - 'desktop/lib/reports.js'
       - 'extension/**'
       - 'tools/browser-form-fastpath.js'
+      - 'tools/free-ai-eval-metrics.mjs'
+      - 'tools/free-ai-form-asks.mjs'
       - 'tools/free-ai-form-cases.mjs'
       - 'tools/browser-form-snapshot.js'
       - 'tools/browser-submit-guard.js'
