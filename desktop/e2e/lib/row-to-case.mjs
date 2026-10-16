@@ -25,6 +25,8 @@ export const labelMatcher = labels => {
   };
 };
 
+// A row from reports-fetch.mjs is named reported-<id>-<site>: the case says which ⚑ report it was cut from (tools/owner-report.mjs).
+const reportOf = rowDir => { const id = /^reported-([0-9a-f]{6,})-/.exec(path.basename(String(rowDir)))?.[1]; return id ? {report: id} : {}; };
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 
 export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, fixed = false, stub = [], build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
@@ -94,7 +96,7 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     step('replaying on the NEW build again, slowed (CPU x4, answers x1.6 + 0.3 s)');
     const slowed = await runRowCase(withExpect, {replay, slow: true});
     if (!slowed.ok) return end(4, `row-to-case: timing-dependent: the new build passes its case at normal speed and not slowed: ${slowed.failures.join('; ').slice(0, 400)}; nothing written (the case would flake in CI)`);
-    fs.writeFileSync(caseFile, `${JSON.stringify({origin: item.origin || 'captured', ...item, expect: derived.expect}, null, 1)}\n`);   // a row case is a live capture (lib/recorded-origin.mjs)
+    fs.writeFileSync(caseFile, `${JSON.stringify({origin: item.origin || 'captured', ...item, ...reportOf(rowDir), expect: derived.expect}, null, 1)}\n`);   // a row case is a live capture (lib/recorded-origin.mjs)
     fs.cpSync(built.dir, path.join(outDir, name), {recursive: true});
     lines.push(`row-to-case: ${name} written (${Math.round(built.bytes / 1024)} KB, ${built.verdict}); expect: ${JSON.stringify(derived.expect)}`);
     return {code: 0, lines};

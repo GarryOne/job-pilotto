@@ -139,6 +139,10 @@ fi
 if command -v node >/dev/null && [ -f "$repo/tools/recorded-cases.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
   cases="$(cd "$repo" && timed "recorded cases" node tools/recorded-cases.mjs --base origin/main 2>&1)" || { echo "Push blocked: $cases" >&2; exit 2; }
 fi
+# A fix for a bug the owner saw is proven on his own page (owner, 16 Oct 2026): "Owner-report: <id>" and a captured case with that report id (tools/owner-report.mjs).
+if command -v node >/dev/null && [ -f "$repo/tools/owner-report.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  ownerrep="$(cd "$repo" && timed "owner report" node tools/owner-report.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ownerrep" >&2; exit 2; }
+fi
 # The rung trailer (docs/flows/ladder.md): a push touching the ladder's flow code carries "Rung: <0-6|router|judges>" and "Fixture: <id | none: why>" in a commit message (tools/rung-trailer.mjs).
 if command -v node >/dev/null && [ -f "$repo/tools/rung-trailer.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
   trailer="$(cd "$repo" && timed "rung trailer" node tools/rung-trailer.mjs --base origin/main 2>&1)" || { echo "Push blocked: $trailer" >&2; exit 2; }

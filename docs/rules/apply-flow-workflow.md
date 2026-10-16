@@ -35,6 +35,12 @@
 The Desktop App's own screens (session cards, review panel, tabs) are not in the replay. A bug you see yourself → skill `desktop-change`
 with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md) reproduces it on demand; it is never a loop.
 
+## A bug the owner saw is proven on his own page (owner, 16 Oct 2026)
+- Why: #941 (SAP select) was proven on a fixture written from vendor code and failed live; #972 passed unit tests and did nothing in the browser.
+- The owner's ⚑ report: `node desktop/e2e/reports-fetch.mjs <records dir>` -> `reported-<id>-<site>`; `npm run row-to-case -- "reported-<id>-<site>" <case> --old-commit <sha>` writes a case with `"origin": "captured"` and `"report": "<id>"`.
+- The fix's commit says `Owner-report: <id>`; the case must FAIL on main ("New test pages fail on the old build") and pass on the fix. A commit that says the owner saw the bug (or ⚑, "Report this form") without the trailer is refused: `tools/owner-report.mjs` (fast checks).
+- `origin: "hand-cut"` (written from vendor code or a sketch) never proves an owner-seen bug. No ⚑ capture shows it: `Owner-report: none <why>`.
+
 ## Skills for this workflow
 | Skill | Step | State |
 |---|---|---|

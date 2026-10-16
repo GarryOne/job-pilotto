@@ -180,3 +180,12 @@ test('the page budget the build applied and the pages stubbed are passed through
   assert.deepEqual(seen, [0, 2]);
   assert.match(done.lines.join('\n'), /page budget: styles cut to layout and visibility, 400 KB -> 250 KB/);
 });
+
+test('a row from reports-fetch (reported-<id>-<site>) writes the report id into the case; any other row writes none', async () => {
+  const outDir = tmp();
+  const done = await rowToCase({rowDir: '/rows/reported-a1b2c3-example.test', name: 'start-dialog-1', outDir, oldDir: '/old', build, replay: replayBy(['posting', 'form'], ['posting'])});
+  assert.equal(done.code, 0);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(outDir, 'start-dialog-1', 'case.json'), 'utf8')).report, 'a1b2c3');
+  const plain = await go(replayBy(['posting', 'form'], ['posting']));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(plain.outDir, 'start-dialog-1', 'case.json'), 'utf8')).report, undefined);
+});
