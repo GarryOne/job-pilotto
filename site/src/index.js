@@ -46,6 +46,7 @@ import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
 import * as mail from './mail.js';
 import * as mailUnsub from './mail-unsub.js';
+import * as accountEmail from './account-email.js';
 import {status as proStatus} from './pro.js';
 import {status as trialStatus} from './trial.js';
 import * as hosted from './hosted.js';
@@ -187,6 +188,9 @@ async function route(request, env, ctx) {
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
   if (pathname === '/unsubscribe') return mailUnsub.unsubscribe(request, env);   // one-click unsubscribe from a mail list (src/mail-unsub.js)
+  if (pathname === '/confirm') return accountEmail.confirm(request, env);   // confirm an e-mail address (src/account-email.js)
+  if (pathname === '/api/account/email') return accountEmail.address(request, env);   // the person's address and marketing opt-in (src/account-email.js)
+  if (pathname === '/api/notify/email') return accountEmail.notify(request, env);   // a Telegram-style message by e-mail (src/account-email.js)
   if (pathname === '/api/trial/status') return trialStatus(request, env);   // the free trial, one answer for the app and Always on (src/trial.js)
   if (pathname === '/api/hosted/schedule') return hosted.schedule(request, env);   // hosted Always on: the install's schedule (src/hosted.js; 404 while HOSTED_ALWAYS_ON is off)
   if (pathname === '/api/hosted/result') return hosted.result(request, env);   // a container's one result post (run token)
