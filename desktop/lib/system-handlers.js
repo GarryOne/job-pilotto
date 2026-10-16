@@ -47,7 +47,7 @@ export function registerSystemHandlers(ctx) {
       try { await pipeline.run(storage, ['src.sources.google', 'disconnect']); appLog('connections', 'Gmail disconnected', {from: 'reset'}); }
       catch (error) { appLog('connections', 'Gmail not disconnected at reset', {error: error.message}); }
     }
-    const removed = profileAccounts.removeAll();   // this profile's job-site accounts only; other profiles' and the test accounts stay
+    const removed = profileAccounts.onReset(profileAccounts.profileId(storage), {backup});   // no backup: this profile's job-site accounts go (a backup keeps its id, so its accounts stay for a restore)
     appLog('data', 'reset: job-site accounts removed', {count: removed});
     reset.request(storage.dir, {backup, archived});
     restartApp('reset');
