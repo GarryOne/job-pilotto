@@ -7,6 +7,7 @@
 // "Checking…" for a minute and then guessing (1 Oct 2026).
 //
 // The Mac and the PC keep those profiles, and their browsers, in different places; both are read here.
+import {browserData} from './browser-profile.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -48,9 +49,7 @@ export const browserDir = (browser, platform = process.platform) =>
   (platform === 'win32' ? browser.win || browser.dir : browser.dir);
 
 // Where those browsers keep their profiles: the Mac's Application Support, or the PC's %LOCALAPPDATA%.
-export const support = (platform = process.platform, env = process.env) => (platform === 'win32'
-  ? (env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'))
-  : path.join(os.homedir(), 'Library', 'Application Support'));
+export const support = (platform = process.platform, env = process.env) => browserData(platform, {HOME: os.homedir(), ...env}, os.homedir());
 // Chrome's profile folders, without listing the browser's directory (a demo or test fixture only makes the ones it uses).
 const profiles = () => ['Default', ...Array.from({length: 12}, (_, i) => `Profile ${i + 1}`)];
 const parse = (file, read) => { try { return JSON.parse(read(file, 'utf8')); } catch { return null; } };

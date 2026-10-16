@@ -98,7 +98,9 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   }
   fakes = [ctx.proxy, ctx.notion, ctx.telegram, ctx.google];
   ctx.vary = createVariation();   // no E2E_SEED = the fixed path (the release gate); a seed = this run's varied data and timing (every suite: lib/feeds.mjs, lib/forms.mjs)
-  const browserEnv = {};
+  // The browsers' user data the app may read (Chrome's profiles, the extension's install): this run's own empty folder, never the owner's
+  // (lib/browser-profile.js browserData; 16 Oct 2026: a local run read the owner's Chrome Local State). Every suite, with or without a browser.
+  const browserEnv = {JOB_PILOTTO_BROWSER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-browser-data-'))};
   if (browser) {
     // The app and the extension copy share a free port, so the test never meets the user's own app on 47111.
     ctx.appPort = await freePort();
@@ -110,6 +112,10 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   }
   const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.openaiProxy ? {JOB_PILOTTO_E2E_OPENAI_BASE_URL: `${ctx.openaiProxy.url}/v1`} : {}), ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : store && store !== 'notion' ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: notionFarSide({store})} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.releases ? {JOB_PILOTTO_E2E_UPDATES_URL: ctx.releases.url} : {}), ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
+  // The owner's browser data is never read by a test run: the app's browser-data root is this run's own folder (lib/browser-profile.js browserData).
+  if (!env.JOB_PILOTTO_BROWSER_DATA || path.resolve(env.JOB_PILOTTO_BROWSER_DATA).startsWith(path.join(os.homedir(), 'Library')) || path.resolve(env.JOB_PILOTTO_BROWSER_DATA).startsWith(path.join(os.homedir(), 'AppData'))) {
+    throw new Error(`a test run must not read the owner's browser profiles (JOB_PILOTTO_BROWSER_DATA is ${env.JOB_PILOTTO_BROWSER_DATA || 'unset'})`);
+  }
   // P7: off the real workspace a run holds no token but the stand-in's own (lib/store.mjs runToken); the run fails here, before the app starts, if it ever does.
   if (store && store !== 'notion' && token && token !== standIn?.token) throw new Error(`the ${store} store must not hold a Notion token from the environment`);
   // P7: a run off the real workspace reaches no Notion but a local one (the stand-in, or the fault proxy in front of it). Fails the run before the app starts.

@@ -65,11 +65,14 @@ export function makeOpenShim() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-open-'));
   const bin = path.join(root, 'bin'), spool = path.join(root, 'spool');
   fs.mkdirSync(bin); fs.mkdirSync(spool);
-  fs.writeFileSync(path.join(bin, 'open'), '#!/bin/sh\nfor last; do :; done\nf=$(mktemp "$JOB_PILOTTO_E2E_OPEN_DIR/open.XXXXXX") && printf \'%s\' "$last" > "$f" && mv "$f" "$f.url"\n', {mode: 0o755});
+  // The URL is the first http(s) argument, not the last: `open -a "Google Chrome" <url> --args --profile-directory=<p>` (lib/browser-launch.js) ends
+  // with a flag (16 Oct 2026: on a Mac with Chrome the stand-in recorded the flag, so every Apply looked unopened). Guard: e2e/test/open-shim.test.mjs.
+  fs.writeFileSync(path.join(bin, 'open'), '#!/bin/sh\nurl=\nfor a; do case "$a" in http://*|https://*) [ -z "$url" ] && url=$a;; esac; done\n[ -n "$url" ] || exit 0\n'
+    + 'f=$(mktemp "$JOB_PILOTTO_E2E_OPEN_DIR/open.XXXXXX") && printf \'%s\' "$url" > "$f" && mv "$f" "$f.url"\n', {mode: 0o755});
   // Windows has no `open`: the app runs `node <script> <urls>` instead (lib/apply.js chromeCommand, JOB_PILOTTO_E2E_OPENER). Same spool, same .url files.
   const script = path.join(root, 'open.mjs');
-  fs.writeFileSync(script, "import fs from 'node:fs'; import path from 'node:path';\nconst dir = process.env.JOB_PILOTTO_E2E_OPEN_DIR, url = process.argv.at(-1);\n" +
-    "const file = path.join(dir, `open.${process.pid}.${Date.now()}`); fs.writeFileSync(file, url); fs.renameSync(file, `${file}.url`);\n");
+  fs.writeFileSync(script, "import fs from 'node:fs'; import path from 'node:path';\nconst dir = process.env.JOB_PILOTTO_E2E_OPEN_DIR, url = process.argv.slice(2).find(arg => /^https?:\\/\\//.test(arg));\n" +
+    "if (!url) process.exit(0);\nconst file = path.join(dir, `open.${process.pid}.${Date.now()}`); fs.writeFileSync(file, url); fs.renameSync(file, `${file}.url`);\n");
   return {bin, spool, script};
 }
 
