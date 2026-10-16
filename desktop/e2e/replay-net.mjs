@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {runLiveRow} from './lib/live-row.mjs';
+import {replayAccounts} from './lib/test-accounts.mjs';
 import {startRealExtension} from './lib/real-extension.mjs';
 import {netReplay} from './lib/net-record.mjs';
 import {forceScrollbar} from './lib/scrollbar.mjs';
@@ -58,6 +59,7 @@ const first = record.entries.find(entry => entry.type === 'document')?.url || re
 const liveLog = (() => { try { return fs.readFileSync(path.join(recordDir, 'app.log'), 'utf8'); } catch { return ''; } })();
 // The eligibility stop as the live run had it (a pool run turns it off: lib/pool-eligibility.mjs); left on, the kept "not a fit" answer ends the fill early.
 if (recordedEligibility(record, liveLog) === 'off') process.env[ELIGIBILITY_ENV] = 'off';
+process.env.JP_TEST_ACCOUNTS = JSON.stringify(replayAccounts(record, liveLog));   // a row the live run signed in on signs in again with a FAKE account (lib/test-accounts.mjs replayAccounts); every other row has none; never the Keychain, never a CI secret
 // The replay's watch may last as long as the live run did (its app log's first to last line) plus 90 s, 120-300 s: the replay starts ~25-35 s later (the offline app)
 // and drifts further behind as it goes (coreweave, 14 Oct 2026: 22 s late at the first page, 43 s at the AI's answers), so a flat 120 s cut it before its form was
 // reported. It is a cap, not a length: a row that finished still ends on its quiet window.

@@ -4,6 +4,7 @@
 // Guard: e2e/test/test-accounts.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {writePrivate} from '../../lib/private-file.js';
 import {parseDump} from '../../lib/credentials.js';
@@ -31,6 +32,18 @@ export function seedTestAccounts(profileDir, accounts) {
   for (const [host, {email, password}] of Object.entries(accounts)) items[`job-pilotto.${host}.password`] = {value: password, account: 'job-pilotto', comment: `email=${email}`, created: new Date().toISOString()};
   writePrivate(file, JSON.stringify(items, null, 2));
   return Object.keys(accounts);
+}
+
+// The hosts a run signed in at, from its app log: the extension's "password filled from the Keychain" line names the host (never a value). -> [host]
+export const signedInHosts = appLog => [...new Set([...String(appLog || '').matchAll(/password filled from the Keychain \{[^}\n]*"host":"([^"]+)"/g)].map(found => found[1]))];
+
+// The accounts a REPLAY signs in with (replay-net.mjs): a row whose live run signed in (record.json testAccountHosts, else its app log) gets a FAKE account for each of those hosts, so the recorded login
+// response is followed exactly as live; every other row gets none, as live. Never the Keychain and never a CI secret: a replay talks to no site, so what is typed is never checked (the same row replayed
+// with a fake email and password reached the same form with the same answers, 16 Oct 2026). The password is random per run and is never kept. -> {host: {email, password}}
+export const REPLAY_EMAIL = 'test-account@example.com';
+export function replayAccounts(record, appLog) {
+  const hosts = Array.isArray(record?.testAccountHosts) ? record.testAccountHosts : signedInHosts(appLog);
+  return Object.fromEntries(hosts.filter(host => HOST.test(host)).map(host => [host, {email: REPLAY_EMAIL, password: crypto.randomBytes(12).toString('base64url')}]));
 }
 
 // The values the privacy tripwire lets through: a listed test account's email only (its password field is never read).

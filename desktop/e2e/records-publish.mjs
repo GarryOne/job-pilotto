@@ -14,6 +14,8 @@ import {newestPerRow} from './replay-records.mjs';
 import {stampZone} from './lib/replay-date.mjs';
 import {judgeRecords, partition, report} from './lib/record-guard.mjs';
 import {load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
+import {gateRecordDir, scrubRecordDir} from './lib/record-scrub.mjs';
+import {appProfileTexts, personalValues} from '../lib/owner-values.js';
 
 // One bundle's two assets, named by when it was published: net-records-<UTC stamp>.tgz.enc and .k.enc (the first set, before 14 Oct, is net-records.tgz.enc).
 // suffix: two publishes in the same second (the refill's groups run in parallel) write different assets (NET_RECORDS_BUNDLE_SUFFIX, e.g. -g3).
@@ -27,11 +29,17 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   const rows = newestPerRow(root), here = path.dirname(new URL(import.meta.url).pathname), work = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
   try {
     const stage = path.join(work, 'net-records');
+    const values = personalValues(appProfileTexts()), leaks = new Map();   // the app's own profile values (lib/owner-values.js), as every capture scrubs with
     for (const row of rows) {
       const into = path.join(stage, path.basename(row.dir)), file = path.join(into, 'record.json');
       fs.cpSync(row.dir, into, {recursive: true});
       const record = JSON.parse(fs.readFileSync(file, 'utf8')), stamped = stampZone(record);   // a Mac record from before the zone was saved: this Mac's zone
       if (stamped !== record) fs.writeFileSync(file, JSON.stringify(stamped));
+      // The person's own values and any e-mail address leave the record before it is packed (a signed-in row's pages carry the test account's address): lib/record-scrub.mjs, the product's report-scrub
+      // definitions. What is left after it is searched again; a hit keeps the row off the release. Counts and kinds only are printed.
+      const gone = scrubRecordDir(into, values), left = gateRecordDir(into, values);
+      if (gone.bodies || gone.files) console.log(`records-publish: ${row.name}: scrubbed ${gone.bodies} bod${gone.bodies === 1 ? 'y' : 'ies'} and ${gone.files} file(s) (own values ${gone.own}, e-mail addresses ${gone.contacts}, phones ${gone.phones})`);
+      if (left.length) leaks.set(row.name, left);
     }
     console.log(`records-publish: ${rows.length} rows: ${rows.map(row => row.name).join(', ')}`);
     const flagValues = name => process.argv.flatMap((arg, at) => (arg === name ? [process.argv[at + 1]] : []));
@@ -43,11 +51,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
       return files.length ? JSON.parse(fs.readFileSync(path.join(out, 'step4', files[0]), 'utf8')) : null;
     };
     const against = flagValues('--against')[0], released = against ? new Map(newestPerRow(against).map(row => [row.name, row])) : null;
-    const judged = judgeRecords(rows.map(row => ({name: row.name, dir: row.dir, replay: replayOf(root, row.name), replaced: released ? (released.has(row.name) ? replayOf(against, row.name) : null) : undefined})), {pins: pinnedRows(loadPins()), accepts: flagValues('--accept')});
+    const judged = judgeRecords(rows.map(row => ({name: row.name, dir: row.dir, replay: replayOf(stage, row.name), replaced: released ? (released.has(row.name) ? replayOf(against, row.name) : null) : undefined})), {pins: pinnedRows(loadPins()), accepts: flagValues('--accept')});
     if (judged.refusals.length || judged.notes.length) console.error(report(judged));
     // One refused row never blocks its group (owner, 15 Oct 2026: one old Cloudera record and Aldi's charset kept 2 groups' good rows off the release): the rows that pass are published, each refused
     // row is named with why (above), and the run still ends red (exit 1) so a refusal is never silent.
-    const {publish, refused} = partition(rows, judged);
+    const {publish: passed, refused: guarded} = partition(rows, judged);
+    for (const [name, left] of leaks) console.error(`records-publish: refused ${name}: a person's value is left after the scrub (${left.map(hit => `${hit.kind} in ${hit.in}`).join(', ')})`);
+    const publish = passed.filter(row => !leaks.has(row.name)), refused = [...guarded, ...leaks.keys()];
     if (refused.length) console.error(`records-publish: refused ${refused.length} row(s): ${refused.join(', ')}; ${publish.length ? `publishing the other ${publish.length}: ${publish.map(row => row.name).join(', ')}` : 'nothing is left to publish'}.`);
     const refusedExit = refused.length ? 1 : 0;
     if (dry || !publish.length) { fs.rmSync(work, {recursive: true, force: true}); process.exit(refusedExit); }

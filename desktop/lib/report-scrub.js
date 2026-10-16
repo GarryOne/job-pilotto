@@ -95,6 +95,43 @@ function contactsOut(text, counts) {
   return out;
 }
 
+// The personal part of ONE recorded response, for a record a REPLAY reads (e2e/lib/record-scrub.mjs, run by records-publish.mjs): the person's own values (names, places, e-mails, phones by value) and any
+// e-mail address, by the definitions above (ownOut, EMAIL, EXAMPLE), and nothing else: a replay needs the page, its URLs, its typed values, its numbers and its tokens as the site sent them (a phone SHAPE
+// would rewrite a timestamp in a JSON answer). Unchanged text comes back as it was (no re-encoding, so its hash stays). null when the body is not a text kind. -> {text, counts: {own, contacts, phones}} | null
+export function scrubPersonal(text, {type = '', url = '', values = new Map()} = {}) {
+  if (!TEXT.test(type)) return null;
+  let path = ''; try { path = new URL(url, 'https://x.invalid').pathname; } catch { /* no address */ }
+  const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(path), counts = {own: 0, contacts: 0, phones: 0}, original = String(text);
+  let out = ownOut(plainSeparators(original), values, code, counts);
+  EMAIL.lastIndex = 0;
+  out = out.replace(EMAIL, email => { if (EXAMPLE.test(email)) return email; counts.contacts += 1; return FAKE_EMAIL; });
+  for (const [value, kind] of values) {
+    if (kind !== 'phone') continue;
+    const digits = String(value).replace(/\D/g, '');
+    if (digits.length < 9) continue;
+    out = out.replace(new RegExp(escape(String(value)), 'g'), () => { counts.phones += 1; return '(phone)'; });
+  }
+  return counts.own || counts.contacts || counts.phones ? {text: out, counts} : {text: original, counts};
+}
+
+// What a scrubbed replay record must no longer hold, in every decoded form (URL, JSON, HTML entities, base64): an e-mail address that is not an example one, and any of the person's own values.
+// Narrower than lastGate (no phone SHAPE, no token shapes: those would fire on a replay's own numbers). -> [kind, ...] (kinds only, never a value)
+export function personalHits(text, {code = false, values = new Map()} = {}) {
+  const hits = new Set(), run = form => {
+    EMAIL.lastIndex = 0;
+    if ((form.match(EMAIL) || []).some(email => !EXAMPLE.test(email))) hits.add('email');
+    const folded = form.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    for (const [value, kind] of values) {
+      if (kind === 'email' || (kind === 'phone' && String(value).replace(/\D/g, '').length < 9)) continue;
+      const plain = value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+      if (kind === 'phone' ? folded.includes(plain) : new RegExp(`(?<![\\p{L}\\p{N}])${escape(plain)}(?![\\p{L}\\p{N}])`, 'u').test(folded) && !(code && !/\s/.test(value))) hits.add(kind);
+    }
+  };
+  for (const form of decodedForms(String(text))) run(form);
+  for (const form of b64Forms(String(text))) for (const inner of decodedForms(form)) run(inner);
+  return [...hits];
+}
+
 // -> {entries, bodies, stats}: the record after the keep rules (net-keep.js) and the scrub. stats.removed counts what was taken out, by kind.
 export function scrubRecord(record, values = new Map()) {
   const kept = keepRecord(record), counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0, tokens: 0}, bodies = new Map(), entries = [];
