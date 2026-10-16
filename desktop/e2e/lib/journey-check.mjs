@@ -2,8 +2,7 @@
 // safety invariants. "Same as live" or it fails; no hand-written expectation beyond: never Submitted, never "Ready" without counted fields all done, the panel always has its
 // Report button, the card never ends on a step that always moves on. Expected marks come from the live app log's `[review] page` lines; a record made before the app logged them
 // (all of 16 Oct 2026's) uses the marks journeys.json blesses for its row, until the row is recorded again. Guard: e2e/test/journey-check.test.mjs.
-import {LINE_PAGES} from '../../lib/review.js';
-import {pageLine} from '../../renderer/session-state.js';
+import {PAGE_LINES, pageLine} from '../../renderer/session-state.js';   // pure: no staged worker files needed (a fresh CI runner has none before the replay stages them)
 
 const READY_WORDS = ['Ready to submit', 'Ready for review', 'Submitted'];
 const MOVES_ON = ['reading', 'posting', 'opening', 'signing-in', 'signing-up'];   // a step the journey always leaves: ending on one is a stall ("Logging in…" for ever)
@@ -21,7 +20,7 @@ export function marksOfSteps(steps) {
 // The live log's marks, from its `[review] page <session>: <mark>` lines (builds from 16 Oct 2026), repeats folded; [] for a log made before the app wrote them.
 export function liveMarksOf(log) {
   const said = String(log || '').split('\n').map(line => /\[review\] page \S+: (\S+)/.exec(line)?.[1]).filter(Boolean);
-  return said.filter((mark, at) => said[at - 1] !== mark && (LINE_PAGES.includes(mark) || mark === 'form'));
+  return said.filter((mark, at) => said[at - 1] !== mark && (mark in PAGE_LINES || mark === 'form'));
 }
 
 const inOrder = (want, have) => { let at = 0; const missing = []; for (const mark of want) { const found = have.indexOf(mark, at); if (found < 0) missing.push(mark); else at = found + 1; } return missing; };
