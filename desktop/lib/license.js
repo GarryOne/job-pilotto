@@ -39,13 +39,16 @@ export function check(text, {now = Date.now(), revoked = [], publicKey = PUBLIC_
 export const revocations = (text, publicKey = PUBLIC_KEY) => { const payload = open(text, 'JP1R', publicKey); return Array.isArray(payload?.revoked) ? payload.revoked : null; };
 
 // Where the user stands. `applied`: applications at Stage Applied or later; `firstRunAt`: ISO date of the first run.
-export function allowance({applied = 0, firstRunAt, key = '', revoked = [], now = Date.now(), publicKey = PUBLIC_KEY}) {
-  const started = Date.parse(firstRunAt) || now;
+// `server`: the website's last answer (lib/trial-server.js; the highest count and earliest first run win, so the app and Always on agree; Pro is never over);
+// without it (offline, never asked) the local numbers stand.
+export function allowance({applied: local = 0, firstRunAt, key = '', revoked = [], now = Date.now(), publicKey = PUBLIC_KEY, server = null}) {
+  const applied = Math.max(local, Number(server?.applied) || 0);
+  const started = Math.min(...[Date.parse(firstRunAt) || now, Date.parse(server?.first)].filter(time => time > 0));
   const daysLeft = Math.max(0, Math.ceil(FREE_DAYS - (now - started) / DAY));
   const mine = key ? check(key, {now, revoked, publicKey}) : null;
   const ended = applied >= FREE_APPLICATIONS && daysLeft === 0;
   return {licensed: !!mine?.ok, license: mine?.ok ? mine.license : null, keyProblem: mine && !mine.ok ? mine.error : '',
-    used: applied, limit: FREE_APPLICATIONS, daysLeft, ended: ended && !mine?.ok};
+    used: applied, limit: FREE_APPLICATIONS, daysLeft, ended: ended && !mine?.ok && !server?.pro};
 }
 
 export const text = state => (state.licensed ? `Licensed to ${state.license.name} · ${state.license.kind} key${state.license.until ? ` · until ${state.license.until}` : ''}`
@@ -61,7 +64,7 @@ export function create(storage, {appliedNow = () => 0, now = () => Date.now()} =
     const mine = settings.license || {};
     const applied = Math.max(mine.appliedSeen || 0, Number(appliedNow()) || 0);
     if (applied !== (mine.appliedSeen || 0)) storage.saveSettings({license: {...mine, appliedSeen: applied}});
-    return allowance({applied, firstRunAt: settings.firstRunAt || new Date(now()).toISOString(), key: mine.key, revoked: mine.revoked || [], now: now()});
+    return allowance({applied, firstRunAt: settings.firstRunAt || new Date(now()).toISOString(), key: mine.key, revoked: mine.revoked || [], now: now(), server: settings.trialServer || null});
   };
   return {
     state,

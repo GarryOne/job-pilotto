@@ -66,3 +66,13 @@ test('the JPF1 key reaches only the AI route, the trial status and the Pro route
   }
   assert.equal((await call('/api/trial/status')).status, 200);
 });
+
+test('the pause line is claimed once a day per install, and only by a caller that asks', async () => {
+  const e = env(), old = 'applied=30&first=2026-01-01T00:00:00Z';
+  assert.equal((await (await ask(e, old)).json()).notify, false);                       // no claim: nothing used up
+  assert.equal((await (await ask(e, `${old}&claim=1`)).json()).notify, true);
+  assert.equal((await (await ask(e, `${old}&claim=1`)).json()).notify, false);          // same day
+  const tomorrow = new Date('2026-10-17T10:00:00Z');
+  assert.equal((await (await ask(e, `${old}&claim=1`, undefined, tomorrow)).json()).notify, true);
+  assert.equal((await (await ask(env(), `applied=1&claim=1`)).json()).notify, false);   // not over: no line
+});

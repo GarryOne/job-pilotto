@@ -37,5 +37,12 @@ export async function status(request, env, now = new Date()) {
   const pro = account?.status === 'active';
   const license = !pro && await verifyLicense(request.headers.get('x-jp-license'), env.LICENSE_PUBLIC_KEY);   // founder / friend / pass key: no wall
   const state = stand({applied, first, now});
-  return Response.json({ok: true, pro: !!pro, licensed: !!license, ...state, ended: state.ended && !pro && !license});
+  const ended = state.ended && !pro && !license;
+  // The pause line goes out at most once a day per install: a run that will send it asks with claim=1 and is told yes once (the last day lives here, not in the repo).
+  let notify = false;
+  if (ended && kv && url.searchParams.get('claim') === '1') {
+    const today = now.toISOString().slice(0, 10), noticeKey = `trial:notice:${access.who}`;
+    if (await kv.get(noticeKey) !== today) { await kv.put(noticeKey, today, {expirationTtl: 3 * 86400}); notify = true; }
+  }
+  return Response.json({ok: true, pro: !!pro, licensed: !!license, ...state, first, ended, notify});
 }

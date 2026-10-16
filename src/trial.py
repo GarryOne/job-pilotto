@@ -22,13 +22,15 @@ def applied_count(stages):
     return sum(1 for stage in stages.values() if stage in APPLIED_OR_LATER)
 
 
-def status(applied, urlopen=urllib.request.urlopen, env=None):
+def status(applied, urlopen=urllib.request.urlopen, env=None, claim=False):
     """The website's answer {ended, pro, ...}, or None when this run has no install key or the site did not answer (never pauses on a failure)."""
     env = os.environ if env is None else env
     key = env.get('JOB_PILOTTO_TRIAL_KEY', '').strip()
     if not key:
         return None
     query = {'applied': applied, 'first': env.get('JOB_PILOTTO_FIRST_RUN', '')}
+    if claim:
+        query['claim'] = 1   # asks to send the pause line: the website says yes once a day per install
     headers = {'x-api-key': key}
     if env.get('JOB_PILOTTO_LICENSE_KEY'):
         headers['x-jp-license'] = env['JOB_PILOTTO_LICENSE_KEY']
@@ -42,11 +44,11 @@ def status(applied, urlopen=urllib.request.urlopen, env=None):
     return body if isinstance(body, dict) and body.get('ok') else None
 
 
-def paused(mode, stages, **kwargs):
+def paused(mode, stages, claim=False, **kwargs):
     """The answer when this run must start no new work (mode starts new work, the trial is over, not Pro), else None."""
     if mode not in NEW_WORK_MODES:
         return None
-    answer = status(applied_count(stages), **kwargs)
+    answer = status(applied_count(stages), claim=claim, **kwargs)
     return answer if answer and answer.get('ended') else None
 
 
@@ -57,9 +59,10 @@ def pause_run(args, stores, mode=None):
         return False
     from . import telegram
     from .daily_helpers import url_stages
-    if not paused(mode, url_stages(stores)):
+    answer = paused(mode, url_stages(stores), claim=bool(args.send))
+    if not answer:
         return False
     print(OVER_LINE, flush=True)
-    if args.send:
+    if args.send and answer.get('notify'):   # once a day per install, decided by the website
         telegram.send(OVER_LINE, *telegram.credentials())
     return True
