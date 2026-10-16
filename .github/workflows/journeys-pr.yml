@@ -32,7 +32,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  bundles:
+    # The release's recordings downloaded ONCE for every journey job (as site-replays-pr.yml does), kept ENCRYPTED: three jobs each calling gh drew three times on the read token's hourly limit,
+    # which is the owner's account's, shared with every session (19:06Z, 16 Oct 2026: it ran out and the journeys went red as "no record").
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: The release's bundles, still encrypted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash desktop/e2e/net-records-fetch.sh --bundles-only "$RUNNER_TEMP/bundles"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: journey-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
+          retention-days: 1
+
   journey:
+    needs: bundles
     name: journey ${{ matrix.row }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -64,9 +83,14 @@ jobs:
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - uses: actions/download-artifact@v7
+        with:
+          name: journey-bundles-${{ github.run_id }}
+          path: ${{ runner.temp }}/bundles
       - name: The pool's records, decrypted on the runner only
         working-directory: desktop/e2e
         env:
+          NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh): no gh call here
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
