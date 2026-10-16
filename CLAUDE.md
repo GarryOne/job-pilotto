@@ -35,7 +35,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   zoo/recorded page; wording is pack data; safety is code. Today's working code stays as the fast tier; a dead end gets the one escalating fallback.
 - **Universal first: fix a shape, not a site.** No site names, hosts, vendor lists or growing regex; a form bug improves the self-improving mechanism (operator,
   fingerprint, alias meaning, recipe, noticing the miss) and is tested on a fixture shape. Guard: `tools/hardcoded-page-words.mjs`.
-- **Ask before spending money on AI** (a new model or large re-runs); show the measured cost.
+- **Ask before spending money on AI** (a new model or large re-runs); show the measured cost. **Evals never share the production AI account**
+  (16 Oct 2026: an eval used up the shared Workers AI daily allowance and Free AI answered "busy" to every user; `tools/free-ai-eval.mjs` refuses it).
 
 ## Working rules
 - **Every fix works for any user, through the Desktop App:** a step done by hand (terminal, Keychain, `gh secret set`, a Notion edit) is a product
