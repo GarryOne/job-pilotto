@@ -5,7 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {DAY_MESSAGE, freeAi} from '../src/free-ai.js';
 import {digestOf, tokenFor} from '../src/guard.js';
-import {OVERDRAFT_MICRO, addCredit, createAccount, link, percentOf, status, warnOf} from '../src/pro.js';
+import {OVERDRAFT_MICRO, addCredit, aiCallsKey, createAccount, link, percentOf, status, warnOf} from '../src/pro.js';
 import {CREDIT_OUT, PRO_PER_MINUTE} from '../src/pro-ai.js';
 
 function d1() {
@@ -25,7 +25,7 @@ const ask = (e, key, at = now) => freeAi(new Request('https://x/api/ai/v1/messag
 // A Pro account with `credit` micro-USD, owning the install `install`.
 async function proInstall(e, install, credit, extra = 'a@example.com') {
   const account = await createAccount(e, extra, now), who = await digestOf(install);
-  assert.equal((await link(e, account, who, now)).ok, true);
+  assert.equal((await link(e, account, install, now)).ok, true);
   if (credit) await addCredit(e, account, credit, 'purchase', 'test', now);
   return {account, who, key: await keyOf(install)};
 }
@@ -35,6 +35,8 @@ test('the Pro lane: no install day cap, no global stop; only the minute limit, a
   const e = env(), pro = await proInstall(e, 'install-pro-01', 5_000_000);
   e.WAITLIST.m.set(`freeai:dusd:${pro.who}:2026-10-16`, String(9 * 1e6));   // far over the Free per-install day cap
   e.WAITLIST.m.set('freeai:usd:2026-10-16', String(10 * 1e6));              // and at the global stop
+  e.WAITLIST.m.set(`freeai:life:${pro.who}`, String(99 * 1e6));             // and past the Free lifetime trial budget
+  e.WAITLIST.m.set(`freeai:tok:${pro.who}:2026-10-16`, '99999999');          // and the Free token cap
   const response = await ask(e, pro.key);
   assert.equal(response.status, 200);
   const calls = row(e, 'SELECT SUM(micro_usd) AS micro FROM ai_calls').micro, left = row(e, 'SELECT credit_micro FROM pro_accounts WHERE id = ?', pro.account).credit_micro;
@@ -95,11 +97,11 @@ test('the status the app reads: free, then pro with a percent and a warning, nev
 test('devices: 3 per account, an install belongs to one account, the same e-mail is the same account, each refusal is flagged', async () => {
   const e = env(), account = await createAccount(e, 'Same@Example.com', now);
   assert.equal(await createAccount(e, ' same@example.com ', now), account);
-  for (const install of ['dev-aaaaaaa1', 'dev-aaaaaaa2', 'dev-aaaaaaa3']) assert.equal((await link(e, account, await digestOf(install), now)).ok, true);
-  assert.equal((await link(e, account, await digestOf('dev-aaaaaaa1'), now)).ok, true, 'a known device again is fine');
-  const fourth = await link(e, account, await digestOf('dev-aaaaaaa4'), now);
+  for (const install of ['dev-aaaaaaa1', 'dev-aaaaaaa2', 'dev-aaaaaaa3']) assert.equal((await link(e, account, install, now)).ok, true);
+  assert.equal((await link(e, account, 'dev-aaaaaaa1', now)).ok, true, 'a known device again is fine');
+  const fourth = await link(e, account, 'dev-aaaaaaa4', now);
   assert.equal(fourth.ok, false); assert.match(fourth.error, /3 devices/);
-  const other = await createAccount(e, 'other@example.com', now), second = await link(e, other, await digestOf('dev-aaaaaaa1'), now);
+  const other = await createAccount(e, 'other@example.com', now), second = await link(e, other, 'dev-aaaaaaa1', now);
   assert.equal(second.ok, false); assert.match(second.error, /another account/);
   assert.deepEqual(e.STATS.db.prepare('SELECT kind FROM anomalies ORDER BY kind').all().map(r => r.kind), ['pro-device-limit', 'pro-install-two-accounts']);
 });
@@ -111,4 +113,14 @@ test('a refund takes the credit back from the balance and from "ever added", flo
   await addCredit(e, account, -5_000_000, 'refund', 'p1', now);
   assert.deepEqual({...row(e, 'SELECT credit_micro, credit_added_micro FROM pro_accounts')}, {credit_micro: 0, credit_added_micro: 0});
   await assert.rejects(addCredit(e, account, 1, 'ai_call', 'x', now), /bad reason/);
+});
+
+test('what /admin/monetization reads: pro_devices.install is the raw telemetry install id and joins ai_calls; paid Pro is kind pro + status paid', async () => {
+  const e = env(), install = 'install-pro-09', pro = await proInstall(e, install, 5_000_000);
+  assert.equal(row(e, 'SELECT install FROM pro_devices WHERE account = ?', pro.account).install, install, 'the raw id, the same value as telemetry.install');
+  await ask(e, pro.key);
+  const call = row(e, 'SELECT who, micro_usd FROM ai_calls');
+  assert.equal(call.who, await aiCallsKey(install), 'aiCallsKey(install) is ai_calls.who: the join');
+  e.STATS.db.prepare("INSERT INTO pro_purchases (id, account, kind, amount_cents, currency, credit_micro, status, at, provider, provider_ref, country, tax_cents, fee_cents) VALUES ('p1', ?, 'pro', 1900, 'usd', 5000000, 'paid', '2026-10-16T10:00:00Z', 'stripe', 'cs_test_1', 'CH', 142, NULL)").run(pro.account);
+  assert.deepEqual({...row(e, "SELECT COUNT(*) AS n, MAX(fee_cents) AS fee FROM pro_purchases WHERE kind = 'pro' AND status = 'paid'")}, {n: 1, fee: null}, 'fee is null until known');
 });

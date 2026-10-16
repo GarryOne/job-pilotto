@@ -7,9 +7,9 @@ export const PRO_PER_MINUTE = 50;   // the only brake in the Pro lane (owner, 16
 export const CREDIT_OUT = 'Your AI credit is used up. Add credit, or use your own Claude or ChatGPT key in Settings → AI engine (your own key is unlimited).';
 
 // -> null (not Pro: the Free rules), {blocked: message} (credit gone), or {account} (the Pro lane).
-export async function proLane(env, who) {
-  if (!planOn(env)) return null;
-  const account = await accountOf(env, who);
+export async function proLane(env, install) {
+  if (!planOn(env) || !install) return null;   // a founder/friend key (JP1.) has no install: the Free rules
+  const account = await accountOf(env, install);
   if (!account || account.status !== 'active') return null;
   return account.credit_micro <= -OVERDRAFT_MICRO ? {blocked: CREDIT_OUT} : {account};
 }

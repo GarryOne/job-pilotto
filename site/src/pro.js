@@ -3,16 +3,19 @@
 // Guards: site/test/pro-credit.test.js. Payments (Stripe) are the next PR: they call addCredit/refund/link here. Switch: env.PRO_PLAN = off | test | live.
 import {authorize, digestOf, flag} from './guard.js';
 
+// The key ai_calls.who has for an install (aicost.js digests the install's digest again, keeps 8 characters): join pro_devices.install to ai_calls through it.
+export const aiCallsKey = async install => (await digestOf(await digestOf(install))).slice(0, 8);
+
 export const DEVICES_PER_ACCOUNT = 3;
 export const OVERDRAFT_MICRO = 250_000;   // $0.25: an application in progress finishes when the credit runs out (the app starts no new work at 0)
 export const planOn = env => ['test', 'live'].includes(env.PRO_PLAN);
 const stamp = date => date.toISOString();
 const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };   // as free-ai.js (not imported: it imports this lane)
 
-// The account an install (digest) belongs to, or null.
-export async function accountOf(env, who) {
-  if (!env.STATS || !who) return null;
-  return (await env.STATS.prepare('SELECT a.* FROM pro_devices d JOIN pro_accounts a ON a.id = d.account WHERE d.install = ?').bind(who).first().catch(() => null)) || null;
+// The account a (raw) install id belongs to, or null.
+export async function accountOf(env, install) {
+  if (!env.STATS || !install) return null;
+  return (await env.STATS.prepare('SELECT a.* FROM pro_devices d JOIN pro_accounts a ON a.id = d.account WHERE d.install = ?').bind(install).first().catch(() => null)) || null;
 }
 
 // An account for an e-mail (the same e-mail is the same account) -> its id.
@@ -23,16 +26,16 @@ export async function createAccount(env, email, now = new Date()) {
 }
 
 // Adds an install to an account: max 3 devices, and an install belongs to one account only (a 4th device or a second account is refused and flagged).
-export async function link(env, account, who, now = new Date()) {
-  const mine = await env.STATS.prepare('SELECT account FROM pro_devices WHERE install = ?').bind(who).first();
+export async function link(env, account, install, now = new Date()) {
+  const mine = await env.STATS.prepare('SELECT account FROM pro_devices WHERE install = ?').bind(install).first();
   if (mine) {
-    if (mine.account !== account) { await flag(env, 'pro-install-two-accounts', who, '', now); return {ok: false, error: 'This device belongs to another account.'}; }
-    await env.STATS.prepare('UPDATE pro_devices SET last_seen = ? WHERE install = ?').bind(stamp(now), who).run();
+    if (mine.account !== account) { await flag(env, 'pro-install-two-accounts', await digestOf(install), '', now); return {ok: false, error: 'This device belongs to another account.'}; }
+    await env.STATS.prepare('UPDATE pro_devices SET last_seen = ? WHERE install = ?').bind(stamp(now), install).run();
     return {ok: true};
   }
   const {n} = await env.STATS.prepare('SELECT COUNT(*) AS n FROM pro_devices WHERE account = ?').bind(account).first();
-  if (n >= DEVICES_PER_ACCOUNT) { await flag(env, 'pro-device-limit', who, account, now); return {ok: false, error: `This account already has ${DEVICES_PER_ACCOUNT} devices. Remove one first.`}; }
-  await env.STATS.prepare('INSERT INTO pro_devices (install, account, added_at, last_seen) VALUES (?, ?, ?, ?)').bind(who, account, stamp(now), stamp(now)).run();
+  if (n >= DEVICES_PER_ACCOUNT) { await flag(env, 'pro-device-limit', await digestOf(install), account, now); return {ok: false, error: `This account already has ${DEVICES_PER_ACCOUNT} devices. Remove one first.`}; }
+  await env.STATS.prepare('INSERT INTO pro_devices (install, account, added_at, last_seen) VALUES (?, ?, ?, ?)').bind(install, account, stamp(now), stamp(now)).run();
   return {ok: true};
 }
 
@@ -61,7 +64,7 @@ export async function status(request, env) {
   const given = parseKey(request.headers.get('x-api-key'));
   const access = given && await authorize(env, given.install, given.token, 'ai');
   if (!access?.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
-  const account = await accountOf(env, access.who);
+  const account = await accountOf(env, given.install);
   if (!account || account.status !== 'active') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN});
   const percent = percentOf(account);
   return Response.json({ok: true, plan: 'pro', mode: env.PRO_PLAN, creditPercent: percent, warn: warnOf(percent), devices: DEVICES_PER_ACCOUNT});

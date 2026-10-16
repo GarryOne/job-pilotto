@@ -31,7 +31,7 @@ export const parseKey = key => { const [tag, install, token] = String(key || '')
 // Apps from before Free AI still send their founder/friend key (JP1.…): it works the same until they update.
 async function who(key, env) {
   const given = parseKey(key);
-  if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? access : null; }   // a trial install: its lifetime budget applies
+  if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? {...access, install: given.install} : null; }   // a trial install: its lifetime budget applies
   const license = String(key || '').startsWith('JP1.') && await verifyLicense(key, env.LICENSE_PUBLIC_KEY);
   return license ? {ok: true, who: await digestOf(`license:${license.id}`), license: true} : null;   // Pro / founder / friend: a separate lane, no trial budget
 }
@@ -44,7 +44,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (!access) return error(401, 'Free AI needs this install\'s token. Restart Job Pilotto and try again.', 'authentication_error');
   if (path === '/v1/models' && request.method === 'GET') return Response.json({data: [], has_more: false});   // key checks
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
-  const pro = await proLane(env, access.who);   // a Pro account with credit: its own lane (src/pro-ai.js); null = the Free rules
+  const pro = await proLane(env, access.install);   // a Pro account with credit: its own lane (src/pro-ai.js); null = the Free rules
   if (pro?.blocked) return error(402, pro.blocked, 'billing_error');
 
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), month = day.slice(0, 7), minute = now.toISOString().slice(0, 16);
