@@ -82,15 +82,15 @@ test('a run that never posted is failed once its token expires, and the next slo
 });
 
 test('a finished run debits the compute once from the trial budget and the global totals; a failed run costs nothing', async () => {
-  const e = env({HOSTED_RUN_MICRO: '8000'});
+  const e = env({HOSTED_RUN_MICRO: '11000'});
   await on(e, 'install-aaaa1', 'a@example.com');
   await tick(e, later(1.5));
   const token = e.HOSTED_QUEUE.sent[0].token, who = await digestOf('install-aaaa1');
   const post = (body, at) => result(new Request('https://x/r', {method: 'POST', headers: {authorization: `Bearer ${token}`}, body: JSON.stringify(body)}), e, at);
   await post({matches: []}, later(1.6));
-  assert.equal(e.WAITLIST.m.get(`freeai:life:${who}`), '8000');
-  assert.equal(e.WAITLIST.m.get('freeai:usd:2026-10-16'), '8000');
-  assert.equal(rows(e, 'SELECT compute_micro FROM hosted_runs')[0].compute_micro, 8000);
+  assert.equal(e.WAITLIST.m.get(`freeai:life:${who}`), '11000');
+  assert.equal(e.WAITLIST.m.get('freeai:usd:2026-10-16'), '11000');
+  assert.equal(rows(e, 'SELECT compute_micro FROM hosted_runs')[0].compute_micro, 11000);
   const f = env(); await on(f, 'install-aaaa1', 'a@example.com'); await tick(f, later(1.5));
   await result(new Request('https://x/r', {method: 'POST', headers: {authorization: `Bearer ${f.HOSTED_QUEUE.sent[0].token}`}, body: JSON.stringify({status: 'failed'})}), f, later(1.6));
   assert.equal(f.WAITLIST.m.get(`freeai:life:${who}`), undefined);
