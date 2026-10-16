@@ -11,7 +11,7 @@ test('Free leads as one big card, then two small logo cards for Claude and OpenA
   const family = src.split('\n').find(l => l.includes('FAMILY_CARDS[family].map'));
   assert.ok(family && !family.includes("'free'"), 'Free is not one of the family cards');
   assert.match(src, /id: 'free', icon: 'sparkle', title: TEXT\.free\.title, size: 'hero'/);
-  assert.match(src, /logo: id[^\n]*size: 'compact'/);
+  assert.match(src, /logo: COMPANY_LOGO\[id\][^\n]*size: 'compact'/);
   assert.ok(src.indexOf("parts.push(free,") > 0 && src.indexOf("parts.push(free,") < src.indexOf('parts.push(statusBlock'), 'Free comes first');
   assert.match(src, /classList\.add\('is-single'\)/);
   const css = read('../renderer/components.css');
@@ -20,7 +20,7 @@ test('Free leads as one big card, then two small logo cards for Claude and OpenA
 });
 
 test('both provider marks are in the repo, drawn as masks so they follow the text colour', () => {
-  for (const name of ['claude', 'openai']) {
+  for (const name of ['anthropic', 'openai']) {
     assert.match(read(`../renderer/assets/ai/${name}.svg`), /^<svg[^>]*viewBox="0 0 24 24"/);
     assert.match(read('../renderer/components.css'), new RegExp(`\\.ui-logo-${name} \\{[^}]*assets/ai/${name}\\.svg`));
   }
@@ -39,5 +39,6 @@ test('Free is preselected for a new user, and each family lists its subscription
   const src = read('../renderer/pages/ai-engine.js');
   assert.match(src, /<summary|'summary', 'small', 'More about this'/, 'the technical rest is folded');
   assert.doesNotMatch(src, /offerCard\(\)\)/, 'no "New: run on your own Claude Code" banner');
-  for (const text of Object.values(view.TEXT.families).concat(Object.values(view.TEXT.familyHint), [view.TEXT.cli.title, view.TEXT.codex.title, view.TEXT.api.title])) assert.doesNotMatch(text, /Anthropic|ChatGPT|CLI/);
+  for (const text of [view.TEXT.cli.title, view.TEXT.codex.title, view.TEXT.api.title, view.TEXT.cli.text, view.TEXT.codex.text]) assert.doesNotMatch(text, /Anthropic|ChatGPT|CLI/, 'the cards inside a family stay plain');
+  assert.deepEqual(Object.values(view.TEXT.families), ['Claude (Anthropic)', 'ChatGPT (OpenAI)'], 'each family card names the product and the company, with the company\'s logo')
 });

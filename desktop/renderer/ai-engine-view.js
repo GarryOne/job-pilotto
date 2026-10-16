@@ -4,8 +4,8 @@ const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);   // = lib
 
 export const TEXT = {
   title: 'Execution engine',
-  families: {claude: 'Claude', openai: 'OpenAI'},   // the two small cards under Free (owner, 16 Oct 2026; 9 Oct: family first, then its two cards)
-  familyHint: {claude: 'Use your own Claude account', openai: 'Use your own OpenAI account'},
+  families: {claude: 'Claude (Anthropic)', openai: 'ChatGPT (OpenAI)'},   // the two small cards under Free (owner, 16 Oct 2026; 9 Oct: family first, then its two cards)
+  familyHint: {claude: 'Your Claude plan or API key', openai: 'Your ChatGPT plan or API key'},   // the company's logo on each card (owner, 16 Oct 2026)
   ownAccount: 'Or use your own account',
   subtitle: 'Where Job Pilotto\'s AI tasks run: reading jobs, fit scores, kits, reviews.',
   settingsSubtitle: 'Choose where AI tasks run.',  // Settings → Connections: the two cards under it say the rest

@@ -12,6 +12,7 @@ import {shared} from './shared.js';
 
 const hasKey = () => !!shared.state?.secrets?.ANTHROPIC_API_KEY;
 const hasOpenAiKey = () => !!shared.state?.secrets?.OPENAI_API_KEY;
+const COMPANY_LOGO = {claude: 'anthropic', openai: 'openai'};   // the companies' own marks (renderer/assets/ai/)
 const ICONS = {api: 'key', cli: 'terminal', openai: 'key', codex: 'terminal'};
 export const RECHECK_MS = 3000;   // how often a missing CLI is looked for again while its chooser is on screen
 // The family's own CLI, in words and through its IPC (Claude Code / Codex).
@@ -26,7 +27,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
   const statusOf = () => statuses[family];   // family is null while Free leads: nothing to read
   // The two small family cards under Free (owner, 16 Oct 2026; was a Claude | OpenAI switch): picking one opens that family's two cards, it picks no engine.
   const familyCards = () => {
-    const cards = choiceCards(Object.entries(TEXT.families).map(([id, title]) => ({id: `family-${id}`, logo: id, title, size: 'compact',
+    const cards = choiceCards(Object.entries(TEXT.families).map(([id, title]) => ({id: `family-${id}`, logo: COMPANY_LOGO[id], title, size: 'compact',
       text: TEXT.familyHint[id]})), {selected: family && `family-${family}`, label: TEXT.ownAccount, onPick: choice => {
       const id = choice.replace('family-', '');
       if (family !== id) { family = id; problem = ''; notice = null; render(); onChange(picked); }
