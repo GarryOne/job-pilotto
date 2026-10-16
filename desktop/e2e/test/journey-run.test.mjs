@@ -14,13 +14,19 @@ test('every journey says why it is here and names its row once', () => {
 
 test('a row with a record is run from it; a row without one is reported missing', () => {
   const rows = [{row: 'A', why: 'x'}, {row: 'B', why: 'y'}];
-  assert.deepEqual(plan(rows, [{name: 'A', dir: '/r/a'}]), {pending: [], run: [{row: 'A', why: 'x', dir: '/r/a'}], missing: ['B']});
-  assert.deepEqual(plan(rows, [{name: 'A', dir: '/r/a'}], 'B'), {pending: [], run: [], missing: ['B']});
-  assert.deepEqual(plan([{row: 'C', pending: 'later'}], []), {pending: [{row: 'C', pending: 'later'}], run: [], missing: []});
+  assert.deepEqual(plan(rows, [{name: 'A', dir: '/r/a'}]), {skipped: [], pending: [], run: [{row: 'A', why: 'x', dir: '/r/a'}], missing: ['B']});
+  assert.deepEqual(plan(rows, [{name: 'A', dir: '/r/a'}], 'B'), {skipped: [], pending: [], run: [], missing: ['B']});
+  assert.deepEqual(plan([{row: 'C', pending: 'later'}], []), {skipped: [], pending: [{row: 'C', pending: 'later'}], run: [], missing: []});
+});
+
+test('a Mac-only journey is skipped, said, on another platform and runs on a Mac', () => {
+  const rows = [{row: 'M', macOnly: 'why', why: 'x'}], found = [{name: 'M', dir: '/r/m'}];
+  assert.deepEqual(plan(rows, found, '', 'linux'), {skipped: rows, pending: [], run: [], missing: []});
+  assert.equal(plan(rows, found, '', 'darwin').run.length, 1);
 });
 
 test('the PR workflow has one runner per journey that is not pending', () => {
   const text = fs.readFileSync(new URL('../../../.github/workflows/journeys-pr.yml', import.meta.url), 'utf8');
   const listed = JSON.parse(/row: (\[.*?\])\s/.exec(text.replace(/'/g, '"'))[1]);
-  assert.deepEqual(listed, journeyRows().filter(one => !one.pending).map(one => one.row));
+  assert.deepEqual(listed, journeyRows().filter(one => !one.pending && !one.macOnly).map(one => one.row));
 });
