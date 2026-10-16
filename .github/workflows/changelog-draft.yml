@@ -36,7 +36,7 @@ jobs:
         run: |
           node tools/changelog-draft.mjs ${TAG:+--tag "$TAG"} --out "$RUNNER_TEMP/draft.json"
           { echo '### Changelog draft (not published)'; echo '```json'; cat "$RUNNER_TEMP/draft.json"; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: changelog-draft
           path: ${{ runner.temp }}/draft.json
