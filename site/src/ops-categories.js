@@ -41,7 +41,7 @@ const RULES = [
   [is(/\.(md|txt)$|^LICENSE/), 'docs'],
 ];
 // A new top-level path must be added here (the test lists the repo's own): the fallback for files no rule above names.
-export const TOP_LEVEL = {'.claude': 'ci', '.github': 'ci', brand: 'docs', config: 'engine', desktop: 'app', docs: 'docs', extension: 'forms', site: 'site', 'site-next': 'site',
+export const TOP_LEVEL = {'.claude': 'ci', '.github': 'ci', brand: 'docs', config: 'engine', desktop: 'app', docs: 'docs', extension: 'forms', hosted: 'engine', site: 'site', 'site-next': 'site',
   src: 'engine', templates: 'engine', tests: 'engine', tools: 'ci', worker: 'engine'};
 const ROOT_FILES = {'.env.example': 'ci', '.gitattributes': 'ci', '.gitignore': 'ci', 'eslint.config.mjs': 'ci', 'requirements.txt': 'engine', 'requirements-render.txt': 'engine', 'requirements-transcribe.txt': 'engine'};
 
