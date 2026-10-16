@@ -116,6 +116,18 @@ test('a consent named twice resolves the same way', () => {
   assert.deepEqual(clicked, ['body']);
 });
 
+test('the two presses are self-contained: injected into a page alone, they still resolve a repeated control', () => {
+  for (const [fn, name, html] of [[pressRegister, 'Sign In', TWO_SIGN_INS], [pressConsent, 'Sign In', TWO_SIGN_INS]]) {
+    const {window} = new JSDOM(`<body>${html}</body>`, {runScripts: 'outside-only'});
+    window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+    const clicked = [];
+    window.document.querySelectorAll('button').forEach(el => el.addEventListener('click', event => { event.preventDefault(); clicked.push(el.id); }));
+    const alone = window.eval(`(${fn.toString()})`);   // only the function's own text, as chrome.scripting.executeScript sends it
+    assert.equal(alone(name), 'pressed', fn.name);
+    assert.deepEqual(clicked, ['body'], fn.name);
+  }
+});
+
 import {markAccountStep} from '../../extension/account-fill.js';
 
 test('the AI\'s page step is left on the page for the panel, and removed when there is none', () => {
