@@ -1,5 +1,6 @@
 # When a pull request is merged or closed, its runs that are still queued or running are cancelled (owner, 15 Oct 2026: the runs of a merged branch kept holding runners of the 20,
 # five leftovers of #878). It runs main's copy of this file (pull_request_target) and NEVER checks out or runs the PR's code; its only write is `actions: write` (cancel).
+# Only runs created up to the close (16 Oct 2026: a new PR on the same branch name pushed seconds after #1048 merged, and its runs were cancelled with the old PR's).
 # Only runs of the pull_request event on that branch of this repository; a fork's branch name could match one of ours, so a fork's PR is skipped. Guard: tests/test_pr_runs_cancel.py.
 name: CI · Cancel the runs of a closed PR
 run-name: Cancel the runs of #${{ github.event.pull_request.number }}
@@ -20,11 +21,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       BRANCH: ${{ github.event.pull_request.head.ref }}
+      CLOSED_AT: ${{ github.event.pull_request.closed_at }}
     steps:
       - name: Cancel the queued and running runs of the branch
         run: |
           for status in queued in_progress waiting pending; do
-            gh run list -R "$REPO" --branch "$BRANCH" --event pull_request --status "$status" --limit 100 --json databaseId -q '.[].databaseId'
+            gh run list -R "$REPO" --branch "$BRANCH" --event pull_request --status "$status" --limit 100 --json databaseId,createdAt -q '.[] | select(.createdAt <= env.CLOSED_AT) | .databaseId'
           done | sort -u | while read -r id; do
             [ -n "$id" ] || continue
             gh run cancel "$id" -R "$REPO" && echo "cancelled run $id" || true
