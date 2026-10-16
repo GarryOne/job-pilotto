@@ -198,7 +198,8 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];
   if (free) variables.JOB_PILOTTO_AI_BASE_URL = FREE_BASE; else removed.push('JOB_PILOTTO_AI_BASE_URL');
-  variables.JOB_PILOTTO_NOTIFY = channelsOf(storage).join(',');   // how the person wants to be told: the workflows' --send and src/notify.py follow it
+  const notify = channelsOf(storage);   // how the person wants to be told: the workflows' --send and src/notify.py follow it; unset = Telegram only, as before
+  if (notify.includes('email')) variables.JOB_PILOTTO_NOTIFY = notify.join(','); else removed.push('JOB_PILOTTO_NOTIFY');
   if (settings.firstRunAt) variables.JOB_PILOTTO_FIRST_RUN = settings.firstRunAt; else removed.push('JOB_PILOTTO_FIRST_RUN');
   // The engine GitHub runs use (never a CLI there): the chosen family's API engine, on its own key (lib/ai/index.js alwaysOnEngine).
   // 'api' is the workflows' default, so it is only set for OpenAI (and removed otherwise, so a switch back to Claude takes effect).
