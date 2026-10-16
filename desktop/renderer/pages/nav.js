@@ -116,7 +116,6 @@ function paletteCommands() {
   // Each Reports tab (pages/reports.js), by what it holds.
   for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
-  button('sessions', 'ss-report', 'report send recording stuck form broken fix problem bug', 'Send a stuck form to be fixed: you read what is sent first');
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');

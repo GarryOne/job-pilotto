@@ -1,4 +1,4 @@
-// "Report this form" wiring (spec 2026-10-15-report-this-form.md §3, §7): every entry point (the panel's flag, the session button, ⌘K) is off with the Settings switch and until the uploader exists,
+// "Report this form" wiring (spec 2026-10-15-report-this-form.md §3, §7): the panel flag (the only entry point since 16 Oct 2026; no app button, no ⌘K entry) is off with the Settings switch and until the uploader exists,
 // nothing records before the person's press, the debugger is used only inside start(), the manifest's permissions are unchanged, and the app side holds, previews, drops hosts and sends only through the gate.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -20,15 +20,13 @@ function harness({uploader = okUploader, settings = {}} = {}) {
   return {handlers, sent, route: payload => visitMore['/extension/report-form'](payload)};
 }
 
-test('the flag, the session button and ⌘K are all off until the uploader exists and while the switch is off', async () => {
+test('the panel flag is off until the uploader exists and while the switch is off; the app has no button or ⌘K entry for it', async () => {
   assert.deepEqual((await harness({uploader: null}).route({action: 'state'})), {ok: true, enabled: false});
   assert.equal((await harness({settings: {reportForm: false}}).route({action: 'state'})).enabled, false);
   const on = harness(); assert.equal((await on.route({action: 'state'})).enabled, true);
   await on.handlers.reportFormSet(null, false); assert.equal((await on.route({action: 'state'})).enabled, false);
   assert.deepEqual(await on.route({action: 'submit', entries: []}), {ok: false, refused: 'off'});
-  assert.match(read('desktop/renderer/index.html'), /id="ss-report" hidden/, 'the session button starts hidden');
-  assert.match(read('desktop/renderer/pages/nav.js'), /button\('sessions', 'ss-report'/, 'it is in ⌘K, from the same button');
-  assert.match(read('desktop/renderer/pages/report-form.js'), /\$\('ss-report'\)\.hidden = !\(on && ready\)/);
+  for (const file of ['desktop/renderer/index.html', 'desktop/renderer/pages/nav.js', 'desktop/renderer/pages/report-form.js']) assert.doesNotMatch(read(file), /ss-report/, `${file}: the flag lives only in the extension panel, no app button or ⌘K entry`);
   assert.match(read('extension/panel-report.js'), /if \(!state\?\.enabled\) return;\s*flag\.hidden = false/, 'the flag is drawn only when the app says so');
 });
 
