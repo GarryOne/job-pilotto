@@ -42,6 +42,7 @@ CF_ACCOUNT_ID = "f192582d62c440f34f9ca7997558cee3"
 # Free AI limits. EARLY-ADOPTER values (owner, 16 Oct 2026: "in the first period, we can be more generous"): per install 50 calls/min, $0.50/day, $5/month;
 # global $5/day alert, $10/day stop, $100/month stop with an alert at $70. With traction go back to the TIGHT set (also the code defaults in site/src/free-ai.js):
 # per install 30 calls/min, $0.30/day, $3/month; global $3/day alert, $10/day stop, $60/month stop, alert at $40. A config change only: edit these vars.
+FREE_AI_TRIAL_USD = "2"   # the lifetime budget of one trial install (owner, 16 Oct 2026: "$2 per free user"); Pro credit is a separate lane and never counts here
 FREE_AI_INSTALL_MINUTE_CALLS = "50"
 FREE_AI_INSTALL_DAY_USD = "0.50"
 FREE_AI_INSTALL_MONTH_USD = "5"

@@ -10,12 +10,13 @@ import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-mode
 
 // Per install (owner, 16 Oct 2026): 30 calls a minute, $0.30 a day and $3 a month (money, not calls), 1.5M tokens a day. Global: alert at $3 a day, stop at $10 a day, and a month line: alert at $40, stop at $60
 // (the values in force are wrangler.toml's vars; these are the tight defaults. env FREE_AI_INSTALL_MINUTE_CALLS / FREE_AI_ALERT_USD / FREE_AI_STOP_USD / FREE_AI_MONTH_ALERT_USD / FREE_AI_MONTH_STOP_USD / FREE_AI_INSTALL_DAY_USD / FREE_AI_INSTALL_MONTH_USD).
-export const LIMITS = {perMinute: 30, installDayUsd: 0.3, installMonthUsd: 3, tokensPerDay: 1_500_000, alertUsd: 3, stopUsd: 10, monthAlertUsd: 40, monthStopUsd: 60};
+export const LIMITS = {trialUsd: 2, perMinute: 30, installDayUsd: 0.3, installMonthUsd: 3, tokensPerDay: 1_500_000, alertUsd: 3, stopUsd: 10, monthAlertUsd: 40, monthStopUsd: 60};
 
 const BUSY = 'Free AI is busy today. Try again tomorrow, or add your own key in Settings → AI engine (Claude or ChatGPT).';
 const ADD_KEY = 'add your own Claude or ChatGPT key in Settings → AI engine.';
 export const DAY_MESSAGE = `You reached today's Free AI use. It resets tomorrow, or ${ADD_KEY}`;
 export const MONTH_MESSAGE = `You reached this month's Free AI use. It resets next month, or ${ADD_KEY}`;
+export const TRIAL_MESSAGE = `You've used the Free AI included in your trial. Get Pro, or connect your own Claude or ChatGPT key in Settings → AI engine.`;
 const BUSY_MONTH = `Free AI is busy this month. Try again next month, or ${ADD_KEY}`;
 const error = (status, message, type = 'api_error') => Response.json({type: 'error', error: {type, message}}, {status});
 const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
@@ -26,9 +27,9 @@ export const parseKey = key => { const [tag, install, token] = String(key || '')
 // Apps from before Free AI still send their founder/friend key (JP1.…): it works the same until they update.
 async function who(key, env) {
   const given = parseKey(key);
-  if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? access : null; }
+  if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? access : null; }   // a trial install: its lifetime budget applies
   const license = String(key || '').startsWith('JP1.') && await verifyLicense(key, env.LICENSE_PUBLIC_KEY);
-  return license ? {ok: true, who: await digestOf(`license:${license.id}`)} : null;
+  return license ? {ok: true, who: await digestOf(`license:${license.id}`), license: true} : null;   // Pro / founder / friend: a separate lane, no trial budget
 }
 
 export async function freeAi(request, env, now = new Date(), ctx = null, fetcher = fetch) {
@@ -41,14 +42,15 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
 
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), month = day.slice(0, 7), minute = now.toISOString().slice(0, 16);
-  const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`};
-  const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
+  const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${access.who}`};
+  const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons, life] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
   if (microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
   if (globalMonth >= num(env.FREE_AI_MONTH_STOP_USD, LIMITS.monthStopUsd) * 1e6) return error(503, BUSY_MONTH);
   const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
   const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
   if (seen >= allowance) return error(503, BUSY);
   if (perMinute >= num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute)) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
+  if (!access.license && life >= num(env.FREE_AI_TRIAL_USD, LIMITS.trialUsd) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
   if (installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
   if (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay) return error(429, DAY_MESSAGE, 'rate_limit_error');
 
@@ -79,7 +81,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const used = message.usage.input_tokens + message.usage.output_tokens, usd = costUsd(model, message.usage);
   const after = Math.round(usd * 1e6);
   const work = Promise.all([
-    kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.dayUsd, String(installDay + after), {expirationTtl: 2 * 86400}), kv.put(keys.monthUsd, String(installMonth + after), {expirationTtl: 40 * 86400}), kv.put(keys.globalMonth, String(globalMonth + after), {expirationTtl: 40 * 86400}),
+    kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.dayUsd, String(installDay + after), {expirationTtl: 2 * 86400}), kv.put(keys.monthUsd, String(installMonth + after), {expirationTtl: 40 * 86400}), kv.put(keys.globalMonth, String(globalMonth + after), {expirationTtl: 40 * 86400}), ...(access.license ? [] : [kv.put(keys.life, String(life + after))]),
     kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + after), {expirationTtl: 2 * 86400}), kv.put(keys.neurons, String(Math.round(neurons + neuronsOf(usd))), {expirationTtl: 2 * 86400}),
     recordCost(env, access.who, request.headers.get('x-jp-action'), model, message.usage, usd, now),
     alertOnce(env, kv, day, microUsd, microUsd + after, fetcher),

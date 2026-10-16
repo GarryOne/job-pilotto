@@ -188,6 +188,15 @@ test('Free AI section shows the day\'s neurons as a share of the free allowance'
   assert.match(freeSection(summary, 'last 30 days'), /5000 of 10000 neurons \(50%\)/);
 });
 
+test('/admin/ai-cost says how many trial installs are near or at the $2 lifetime budget', async () => {
+  const {freeSection, freeSummary, trialUse} = await import('../src/free-ai-cost.js');
+  const store = new Map([['freeai:life:aaaa1111bbbb', String(2 * 1e6)], ['freeai:life:cccc2222dddd', String(1.7 * 1e6)], ['freeai:life:eeee3333ffff', String(0.2 * 1e6)], ['freeai:usd:2026-10-16', '5']]);
+  const kv = {list: async ({prefix}) => ({keys: [...store.keys()].filter(k => k.startsWith(prefix)).map(name => ({name}))}), get: async k => store.get(k) ?? null};
+  const trial = await trialUse(kv, 2);
+  assert.deepEqual([trial.installs, trial.at, trial.near], [3, 1, 1]);
+  assert.match(freeSection(freeSummary([], new Date('2026-10-16T10:00:00Z')), 'last 30 days', null, trial), /Trial budget \$2 per install, for life: 1 at it, 1 near it \(80%\+\), of 3 with use/);
+});
+
 test('/admin/ai-cost shows each install\'s day and month use against its limits, and the month total against $60', async () => {
   const {freeSection, freeSummary} = await import('../src/free-ai-cost.js');
   const model = '@cf/qwen/qwen3-30b-a3b-fp8', now = new Date('2026-10-16T10:00:00Z');

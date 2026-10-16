@@ -26,9 +26,19 @@ export function freeSummary(rows, now = new Date(), days = 30) {
     perInstallToday: todayInstalls.size ? todayUsd / todayInstalls.size : 0, monthUsd, perInstall: Object.values(mine_).sort((a, b) => b.month - a.month || b.day - a.day), steps: Object.values(steps).sort((a, b) => b.usd - a.usd)};
 }
 
-export function freeSection(summary, label, accountNeurons = null) {
+// The trial installs' lifetime use (KV freeai:life:<install>, written by free-ai.js; a licence key never has one) -> how many are near (80%) or at the trial budget. Install ids only.
+export async function trialUse(kv, budgetUsd = LIMITS.trialUsd) {
+  try {
+    const keys = (await kv.list({prefix: 'freeai:life:'})).keys || [];
+    const used = await Promise.all(keys.slice(0, 500).map(async key => ({who: key.name.split(':')[2].slice(0, 8), usd: (Number(await kv.get(key.name)) || 0) / 1e6})));
+    return {budgetUsd, installs: used.length, near: used.filter(row => row.usd >= 0.8 * budgetUsd && row.usd < budgetUsd).length, at: used.filter(row => row.usd >= budgetUsd).length, top: used.sort((a, b) => b.usd - a.usd).slice(0, 10)};
+  } catch { return null; }
+}
+
+export function freeSection(summary, label, accountNeurons = null, trial = null) {
   const rows = summary.steps.map(step => `<tr><td>${esc(step.action)}</td><td class="n">${step.calls}</td><td class="n">${step.tokensIn + step.tokensOut}</td><td class="n">${money(step.usd)}</td><td class="n">${money(step.calls ? step.usd / step.calls : 0)}</td></tr>`).join('');
   return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${summary.todayNeurons} of ${FREE_NEURONS_PER_DAY} neurons (${summary.allowancePct}%) of the free plan · ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)${accountNeurons == null ? '' : ` · Account today: ${Math.round(accountNeurons)} neurons (from Cloudflare)`}</small>
+${trial ? `<p class="muted">Trial budget $${trial.budgetUsd} per install, for life: ${trial.at} at it, ${trial.near} near it (80%+), of ${trial.installs} with use</p>` : ''}
 <p class="muted">This month ${money(summary.monthUsd)} of $${LIMITS.monthStopUsd} (alert at $${LIMITS.monthAlertUsd}) · per install: $${LIMITS.installDayUsd} a day, $${LIMITS.installMonthUsd} a month</p>
 ${summary.perInstall.length ? `<div class="wrap"><table><tr><th>Install</th><th>Today</th><th>of $${LIMITS.installDayUsd}</th><th>This month</th><th>of $${LIMITS.installMonthUsd}</th></tr>${summary.perInstall.slice(0, 30).map(row => `<tr><td>${esc(row.who)}</td><td class="n">${money(row.day)}</td><td class="n">${Math.round(100 * row.day / LIMITS.installDayUsd)}%</td><td class="n">${money(row.month)}</td><td class="n">${Math.round(100 * row.month / LIMITS.installMonthUsd)}%</td></tr>`).join('')}</table></div>` : ''}
 ${summary.calls ? `<div class="wrap"><table><tr><th>Step</th><th>Calls · ${esc(label.toLowerCase())}</th><th>Tokens</th><th>Cost</th><th>Per call</th></tr>${rows}

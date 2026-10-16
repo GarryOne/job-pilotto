@@ -2,12 +2,15 @@
 // The names here come from tools/free-ai-eval.mjs (spec 2026-10-16-free-workers-ai.md "Quality"), not from a shortlist.
 export const SMALL = '@cf/qwen/qwen3-30b-a3b-fp8';
 export const STRONG = '@cf/zai-org/glm-5.3-flash';   // needs the Workers Paid plan; until it is on, STRONG_ON=off keeps these steps on SMALL
-const PRICES = {[SMALL]: [0.0509, 0.335], [STRONG]: [0.15, 0.5]};
+export const OSS = '@cf/openai/gpt-oss-120b';   // measured 16 Oct 2026 (tools/free-ai-writing-eval.mjs): clearly better than SMALL at the rejection review only
+const PRICES = {[SMALL]: [0.0509, 0.335], [STRONG]: [0.15, 0.5], [OSS]: [0.35, 0.75]};
 
 // Steps that read a page, a mail or a job (short, structured answers) run on the small model; writing a CV, a kit, a strategy or an answer for a form runs on the stronger one.
 const STRONG_STEPS = new Set(['kit', 'prep', 'insight', 'interview', 'opportunity', 'review', 'tailor', 'cover_letter', 'answer', 'answer_review']);
 
-export const modelFor = (action, env = {}) => (STRONG_STEPS.has(String(action)) && env.STRONG_ON === 'on' ? STRONG : SMALL);
+// Per step (owner, 16 Oct 2026: "Yes, that step only"): the rejection review ('review') runs on gpt-oss-120b, every other step on SMALL (or STRONG when STRONG_ON). STEP_MODELS=off puts it back on SMALL.
+export const STEP_MODELS = {review: OSS};
+export const modelFor = (action, env = {}) => (env.STEP_MODELS !== 'off' && STEP_MODELS[String(action)]) || (STRONG_STEPS.has(String(action)) && env.STRONG_ON === 'on' ? STRONG : SMALL);
 
 export function costUsd(model, usage = {}) {
   const [input, output] = PRICES[model] || [0.5, 1.5];   // an unknown model is charged like a dear one so it can never dodge the daily line
