@@ -47,6 +47,7 @@ import {freeAi} from './free-ai.js';
 import * as mail from './mail.js';
 import * as mailUnsub from './mail-unsub.js';
 import {status as proStatus} from './pro.js';
+import * as proSignin from './pro-signin.js';
 import {status as trialStatus} from './trial.js';
 import * as hosted from './hosted.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
@@ -193,6 +194,8 @@ async function route(request, env, ctx) {
   if (pathname === '/api/hosted/inbox') return hosted.inbox(request, env);   // the matches that arrived while the app was closed
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
+  if (pathname === '/api/pro/signin/start') return proSignin.start(request, env);   // "I have Pro": a 6-digit code by e-mail (src/pro-signin.js)
+  if (pathname === '/api/pro/signin/verify') return proSignin.verify(request, env);   // the code adds this install to the Pro account
   if (pathname === '/api/pro/status') return proStatus(request, env);   // the Pro plan: plan and AI credit for the app (src/pro.js)
   if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
   if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
