@@ -27,7 +27,7 @@ Where: "Admin page with history", "Build Log Telegram bot", and a public changel
 - [x] PR A (#1086): generator (`site/src/build-digest.js`, `tools/daily-digest.mjs`), unit tests on the #957-#1082 fixture, no live AI (proof: site/test/build-digest.test.js @dc23555)
 - [x] PR B + C (#1089): D1 table + `/digest/data` + admin page + workflow + AI cost row (proof: site/test/build-log.test.js)
 - [x] Telegram post (fake-tested; live needs the owner's bot token) (proof: site/test/build-digest-telegram.test.js)
-- [x] PR D: /changelog page + draft tool + leak guard test (proof: site/test/changelog.test.js)
+- [x] PR D: /changelog page + draft tool + leak guard test (proof: site/test/changelog.test.js @74e61a9)
 - [x] Owner: Build Log bot created, token and chat id set as secrets (proof: none: owner step, secrets BUILDLOG_TELEGRAM_TOKEN / BUILDLOG_TELEGRAM_CHAT, 16 Oct 2026)
 
 ## Not in scope
