@@ -1,5 +1,6 @@
 import json
 import tempfile
+from datetime import datetime, timezone
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -272,6 +273,7 @@ class ScoreTests(unittest.TestCase):
                     # ids 1-3: low fit (hidden); 4-10: 64..70; 11-20: 86..95, a gap wider than the rotation jitter
                     value = 30 if job['id'] <= 3 else 60 + job['id'] if job['id'] <= 10 else 75 + job['id']
                     score.save(db, job, 'm', fit(value), 'p')
+                digest.mark_shown(db, [row[0] for row in db.execute('SELECT id FROM jobs')], seed=0, now=datetime(2000, 1, 1, tzinfo=timezone.utc))  # sent long ago: older jobs
                 first = []
                 message = digest.build_digest(db, seed=1, shown_ids=first)[0][0]
                 digest.mark_shown(db, first, seed=1)

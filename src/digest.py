@@ -307,6 +307,12 @@ def recently_shown(db, seed, now=None):
         'SELECT job_id FROM shown WHERE last_shown_at >= ? AND last_seed != ?', (cutoff, seed))}
 
 
+def sent_ids(db):
+    """Ids already sent in a digest (the complement of "new")."""
+    db.executescript(SHOWN_TABLE)
+    return {row['job_id'] for row in db.execute('SELECT job_id FROM shown')}
+
+
 def mark_shown(db, job_ids, seed, now=None):
     db.executescript(SHOWN_TABLE)
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
@@ -357,7 +363,12 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     # saved ones always show, and unscored ones are shown so the digest still works without AI.
     low_fit = {j['id'] for j in everything if j['fit'] and j['fit']['score'] < MIN_DIGEST_SCORE and not j['saved']}
     everything = [j for j in everything if j['id'] not in low_fit]
-    new_ids = {job['id'] for job in store.digest_jobs(db, limit=10_000, only_new=True)}
+    if any(j['fit'] for j in everything):
+        # Once the AI has scored jobs, the digest lists what the app's Jobs screen lists: scored matches (src/daily_helpers.py for_job_matches).
+        # Without any score (no AI) every job still shows. (16 Oct 2026: "506 new" in Telegram, 487 jobs in the app.)
+        everything = [j for j in everything if j['fit']]
+    # New = not yet sent in a digest (the shown table), so a job stays new until it has been listed once, not "seen by one crawl only".
+    new_ids = {j['id'] for j in everything} - sent_ids(db)
     recent = recently_shown(db, seed)
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
     new.sort(key=lambda j: -(j['fit'] or {}).get('score', -1))  # stable: unscored keep rule order
@@ -377,6 +388,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     # put a 56 between two 80s and repeat the "Best matches" heading.
     is_best = lambda j: (j['fit'] or {}).get('score', 0) >= BEST_MATCH_SCORE
     ranked += [('best', j) for j in older if is_best(j)] + [('older', j) for j in older if not is_best(j)]
+    total = len(ranked)   # the real count: `limit` only caps how many the pages reach
     ranked = ranked[:limit]
     first = (page - 1) * PAGE_SIZE
     shown = ranked[first:first + PAGE_SIZE]
@@ -393,7 +405,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         if rest:
             pipeline.append(' · '.join(rest))
         pipeline_block = tgcard.block('Your pipeline', *pipeline)
-        header = tgcard.card('Job digest', f"{len(new)} new · Top {len(shown)} of {len(ranked)} ranked jobs", emoji='✈️')
+        header = tgcard.card('Job digest', f"{len(new)} new · Top {len(shown)} of {total} jobs", emoji='✈️')
     elif shown:
         header = tgcard.card('Job digest', f"Jobs {first + 1}–{first + len(shown)} of {len(ranked)}", emoji='✈️')
     else:

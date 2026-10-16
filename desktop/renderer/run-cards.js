@@ -38,7 +38,7 @@ export function parseDigest(text) {
         company: (lines[i + 1] || '').trim().split(' · ')[0]});
     }
   });
-  // The counts: on the header lines ("🆕 3 new", "3 new · Top 3 of 50 ranked jobs") and in the "Your pipeline" block ("173 open · 4 pinned · 2 applied").
+  // The counts: on the header lines ("🆕 3 new", "3 new · Top 3 of 50 jobs") and in the "Your pipeline" block ("173 open · 4 pinned · 2 applied").
   const head = lines.slice(0, 2).join('\n'), counts = lines.filter(line => !/^\d+\./.test(line) && /^\d+ open\b/.test(line.trim())).join(' · ') || lines[1];
   return {kind: 'digest', fresh: num(head, /🆕\s*(\d+) new/) ?? num(lines[1], /^(\d+) new\b/), open: num(counts, /(\d+) open/),
     local: num(counts, /·\s*(\d+)\s*(?:🇨🇭|📍)/) ?? num(counts, /(\d+) (?:in your places|pinned)/), applied: num(counts, /(\d+) applied/), items};
