@@ -21,8 +21,14 @@ class FakeWorker(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    config = {'search': {'role_keywords': ['sre']}, 'profile': 'P', 'cv': 'C'}
+
     def do_GET(self):
         FakeWorker.seen_auth.append(self.headers['Authorization'])
+        if self.path.endswith('/config'):
+            if FakeWorker.config is None:
+                self.send_response(404); self.end_headers(); return
+            self.send_response(200); self.end_headers(); self.wfile.write(json.dumps(FakeWorker.config).encode()); return
         if FakeWorker.state is None:
             self.send_response(404); self.end_headers(); return
         self.send_response(200); self.end_headers(); self.wfile.write(FakeWorker.state)
@@ -47,6 +53,7 @@ def tar_of(files):
 class HostedRun(unittest.TestCase):
     def setUp(self):
         FakeWorker.state, FakeWorker.posted, FakeWorker.seen_auth = None, [], []
+        FakeWorker.config = {'search': {'role_keywords': ['sre']}, 'profile': 'P', 'cv': 'C'}
         self.server = http.server.HTTPServer(('127.0.0.1', 0), FakeWorker)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.site = f'http://127.0.0.1:{self.server.server_port}'
@@ -70,9 +77,11 @@ class HostedRun(unittest.TestCase):
         self.assertEqual([m['title'] for m in hosted_run.new_matches(before, after)], ['Three', 'Two'])
 
     def test_state_round_trips_and_the_token_is_the_only_credential(self):
-        FakeWorker.state = tar_of({'config/search.json': '{}', 'data/jobs.sqlite': 'x'})
+        FakeWorker.state = tar_of({'data/jobs.sqlite': 'x'})
         self.assertTrue(hosted_run.pull_state(self.site, 'HR1.r.t', self.folder))
-        self.assertEqual((self.folder / 'config' / 'search.json').read_text(), '{}')
+        self.assertTrue(hosted_run.pull_config(self.site, 'HR1.r.t', self.folder))
+        self.assertEqual(json.loads((self.folder / 'config' / 'search.json').read_text()), {'role_keywords': ['sre']})
+        self.assertEqual((self.folder / 'config' / 'profile.md').read_text(), 'P')
         (self.folder / 'data').mkdir(exist_ok=True)
         (self.folder / 'data' / 'new.txt').write_text('later')
         hosted_run.push_state(self.site, 'HR1.r.t', self.folder)
@@ -81,7 +90,7 @@ class HostedRun(unittest.TestCase):
         self.assertEqual(set(FakeWorker.seen_auth), {'Bearer HR1.r.t'})
 
     def test_a_good_run_posts_its_new_matches_and_pushes_state(self):
-        FakeWorker.state = tar_of({'config/search.json': '{}'})
+        FakeWorker.state = tar_of({'data/x': '1'})
         lists = [[{'url': 'https://a/1', 'title': 'Old', 'fit': 1}], [{'url': 'https://a/1', 'title': 'Old', 'fit': 1}, {'url': 'https://a/2', 'title': 'New', 'fit': 7}]]
         with mock.patch.object(hosted_run, 'read_matches', side_effect=lists):
             body = hosted_run.run(self.site, 'HR1.r.t', self.folder, search=lambda env: 0)
@@ -90,11 +99,11 @@ class HostedRun(unittest.TestCase):
         self.assertEqual([m['title'] for m in body['matches']], ['New'])
 
     def test_a_failed_search_or_missing_state_posts_failed_and_keeps_old_state(self):
-        old = FakeWorker.state = tar_of({'config/search.json': '{}'})
+        old = FakeWorker.state = tar_of({'data/x': '1'})
         with mock.patch.object(hosted_run, 'read_matches', return_value=[]):
             body = hosted_run.run(self.site, 'HR1.r.t', self.folder, search=lambda env: 3)
         self.assertEqual((body['status'], FakeWorker.state), ('failed', old))
-        FakeWorker.state = None
+        FakeWorker.config = None   # no config pushed yet: nothing to search for
         body = hosted_run.run(self.site, 'HR1.r.t', Path(tempfile.mkdtemp()), search=lambda env: 0)
         self.assertEqual(body['status'], 'failed')
 
@@ -106,6 +115,17 @@ class HostedRun(unittest.TestCase):
         import subprocess, sys
         subprocess.run([sys.executable, '-c', code], env=env, check=True, capture_output=True)
         self.assertEqual([m['title'] for m in hosted_run.read_matches(env)], ['Nine'])
+
+    def test_merge_adds_new_matches_to_the_local_store_once(self):
+        import os, subprocess, sys
+        (self.folder / 'config').mkdir(); (self.folder / 'data').mkdir()
+        inbox = self.folder / 'inbox.json'
+        inbox.write_text(json.dumps([{'url': 'https://a/1', 'title': 'One', 'company': 'Co', 'fit': 7, 'line': 'good'}, {'url': '', 'title': 'no url'}]))
+        env = {**os.environ, 'JOB_PILOTTO_STORE': 'sqlite', 'JOB_PILOTTO_DISABLE': 'notion', 'JOB_PILOTTO_CONFIG_DIR': str(self.folder / 'config'), 'JOB_PILOTTO_DATA_DIR': str(self.folder / 'data')}
+        run = lambda: subprocess.run([sys.executable, '-m', 'src', 'hosted', '--merge', str(inbox)], env=env, capture_output=True, text=True, check=True).stdout
+        self.assertIn('1 new matches added', run())
+        self.assertIn('0 new matches added', run())   # the second time the job is already there
+        self.assertEqual([m['title'] for m in hosted_run.read_matches(env)], ['One'])
 
     def test_the_image_starts_the_server_and_bakes_in_no_secret(self):
         text = (Path(__file__).resolve().parent.parent / 'hosted' / 'Dockerfile').read_text()

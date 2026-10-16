@@ -37,13 +37,28 @@ def pull_state(site, token, folder):
     return True
 
 
+def pull_config(site, token, folder):
+    """What the app pushed ({search, profile, cv}) into config/search.json, profile.md, cv.md. -> True when there was a config."""
+    try:
+        given = json.loads(_call(f'{site}/api/hosted/config', token))
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return False
+        raise
+    (folder / 'config').mkdir(parents=True, exist_ok=True)
+    (folder / 'config' / 'search.json').write_text(json.dumps(given.get('search') or {}))
+    (folder / 'config' / 'profile.md').write_text(given.get('profile') or '')
+    (folder / 'config' / 'cv.md').write_text(given.get('cv') or '')
+    return bool(given.get('search'))
+
+
 def push_state(site, token, folder):
-    """Our copy of the state back to the Worker (which encrypts it at rest in R2): config/ and data/, without the crawl's reports."""
+    """Our copy of the state back to the Worker (which encrypts it at rest in R2): data/ (the stores), without the crawl's reports.
+    The config is the app's to change (PUT /api/hosted/config), never ours."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
-        for name in ('config', 'data'):
-            if (folder / name).exists():
-                tar.add(folder / name, arcname=name, filter=lambda info: None if '/reports' in info.name else info)
+        if (folder / 'data').exists():
+            tar.add(folder / 'data', arcname='data', filter=lambda info: None if '/reports' in info.name else info)
     _call(f'{site}/api/hosted/state', token, 'PUT', buffer.getvalue())
 
 
@@ -77,10 +92,11 @@ def read_matches(env):
 def run(site, token, folder, search=None):
     """One hosted run in `folder`. -> the result body that was posted. `search` is the engine process (a test swaps it)."""
     site = site.rstrip('/')
-    pulled = pull_state(site, token, folder)
+    pull_state(site, token, folder)   # none yet on the first run: the stores start empty
+    configured = pull_config(site, token, folder)
     env = environment(folder, site, token)
     status, matches = 'failed', []
-    if pulled and (folder / 'config' / 'search.json').exists():
+    if configured:
         try:
             before = read_matches(env)
             done = (search or (lambda e: subprocess.run([sys.executable, '-m', 'src', 'daily', *SEARCH_ARGS], env=e, timeout=14 * 60).returncode))(env)
@@ -135,8 +151,27 @@ def serve(port=8080):
     http.server.ThreadingHTTPServer(('0.0.0.0', port), Handler).serve_forever()
 
 
+def merge(path):
+    """The app's side (`--merge inbox.json`): matches that arrived while the Mac was off go into this Mac's own store as Open rows, unless the search already has the job.
+    -> how many were added. The Mac's store stays the primary copy; the hosted copy is a cache (spec §2)."""
+    from . import store_access
+    stores = store_access.open_run()
+    added = 0
+    for match in json.loads(Path(path).read_text()):
+        url = match.get('url') or ''
+        if not url or not match.get('title') or stores.matches.get(url):
+            continue
+        stores.matches.upsert({'url': url, 'title': match['title'], 'company': match.get('company') or '', 'fit': match.get('fit') or 0,
+                               'reason': match.get('line') or '', 'status': 'Open'})
+        added += 1
+    return added
+
+
 def main():
     args = sys.argv[1:]
+    if '--merge' in args:
+        print(f"hosted merge: {merge(args[args.index('--merge') + 1])} new matches added")
+        return 0
     if '--serve' in args:
         serve()
         return 0
