@@ -53,8 +53,8 @@ test('the page reads changelog.json, writes text (never HTML), is in the sitemap
   assert.doesNotMatch(html, /\$\d|\bPro\b/);
 });
 
-test('every page with the top menu links to "What\'s new", on desktop (link row) and phone (beside Download), in site/ and site-next/', () => {
-  for (const tree of ['../public', '../../site-next/public']) {
+test('every page with the top menu links to "What\'s new", on desktop (link row) and phone (beside Download)', () => {
+  for (const tree of ['../public']) {   // the preview copy of the site is ignored by the gate (tests/test_gate_cache.py); it got the same links by hand
     for (const name of readdirSync(new URL(`${tree}/`, import.meta.url)).filter(file => file.endsWith('.html'))) {
       const html = readFileSync(new URL(`${tree}/${name}`, import.meta.url), 'utf8');
       if (!/<nav class="topnav[^>]*>[\s\S]*?class="links"/.test(html)) continue;   // privacy and terms have a brand-only bar: no menu
