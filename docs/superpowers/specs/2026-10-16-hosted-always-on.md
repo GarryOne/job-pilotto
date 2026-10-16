@@ -79,7 +79,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 
 - The Workers Paid allowance (25 GiB-h memory ≈ 250 runs a month) covers the first ~1.4 users at 6/day; ignore it for the table.
 - **AI is the real cost and does not scale with run count:** it follows **new jobs**, not runs (an empty run costs the small-model title triage, ~$0.001). The Pro spec's average search is ≈ $5 over ~3 months, 60-70% of it reading and scoring jobs; Always on **scores the same jobs earlier, it does not add jobs**. So a typical search with Always on stays in the **$3.5-5 band: the $5 credit still covers an average search**, a heavy one tops up (same as today). Risk: a person who never opens the app keeps scoring new jobs for months; the credit is the cap and it pauses at 0 like all AI.
-- **What is debited:** AI calls exactly as app calls (`ai_calls` micro-USD → `pro_credit`), **plus compute at a flat $0.005 a run** (about 2x the estimated $0.0025: covers the estimate's error, spikes and support share; `pro_credit` rows with action `hosted-compute`, one per finished run, never for a run that failed before the crawl). The price is a Worker var (`HOSTED_RUN_MICRO=5000`), re-set after the probe (price = 2x measured, rounded up to $0.001).
+- **What is debited:** AI calls exactly as app calls (`ai_calls` micro-USD → `pro_credit`), **plus compute at a flat $0.008 a run** (2x the measured $0.0039 on standard-1; first estimate $0.0025 on basic: covers the estimate's error, spikes and support share; `pro_credit` rows with action `hosted-compute`, one per finished run, never for a run that failed before the crawl). The price is a Worker var (`HOSTED_RUN_MICRO=8000`), re-set after the probe (price = 2x measured, rounded up to $0.001).
 - **Compute debit per month (Pro credit $5):**
   | Schedule | Runs/month | Compute debit | Share of the $5 credit |
   |---|---|---|---|
@@ -97,7 +97,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
   |---|---|---|
   | 100 | ≈ $185 | ≈ $50 |
   | 1,000 | ≈ $1,850 | ≈ $500 |
-  - **The global Free AI caps bind first:** $10/day stop, $100/month stop. At 1,000 installs a month the *likely* total ($500) is above the $100/month cap, so Free AI (and hosted for everyone, trial users first) would stop mid-month. At 100 installs the likely case ($50) fits under the cap. **Owner decision needed before default-on goes live at scale:** raise the monthly caps (the early-adopter values in `wrangler.toml` are config), or lower the trial budget for hosted.
+  - **The global Free AI caps bind first:** $10/day stop and, **decided by the owner on 16 Oct 2026, a $200/month stop with an alert at $100** (was $100/$70; `FREE_AI_MONTH_STOP_USD`/`FREE_AI_MONTH_ALERT_USD` in `site/wrangler.toml`, changed in its own small site PR with the tests and docs). At 100 installs a month the likely case ($50) fits; at ~400 it reaches the new stop; at 1,000 (likely $500) the cap would still stop Free AI and hosted mid-month. **Owner decision needed before default-on goes live at scale:** raise the monthly caps (the early-adopter values in `wrangler.toml` are config), or lower the trial budget for hosted.
   - Conversion has to carry it: at $19, a conversion of c% of installs covers the likely $0.50 per install if c ≥ ~3-4% (net after VAT and fees ≈ $14).
 - **Trial user** (1 run a day, 60 days max): 60 runs ≈ **$0.15 our compute cost**, debit $0.30 from the $2 trial budget; the AI of a Free search is the rest of the $2.
 - **Measured locally, 16 Oct 2026** (the engine, `JOB_PILOTTO_STORE=sqlite`, empty state, an isolated app folder and no keys, config = the repo's example search; a Mac, not a container): **147 s wall, 33 s user + 6 s system CPU (≈ 27% of one core), peak memory ≈ 0.8 GB (RSS) / 1.2 GB (macOS footprint)**, 1,068 employer feeds read, 8,883 jobs listed, 142 new, no AI. **Consequences for the estimate above:** `basic` (1 GiB) is too small, use **`standard-1` (1/2 vCPU, 4 GiB, 8 GB disk)**; a later run with a warm state reads the same feeds, so 147 s is the planning figure.
@@ -109,7 +109,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
   | Egress (not measured yet; assume 50 MB) | $0.00125 |
   | Worker, Queue, D1, R2 | $0.0003 |
   | **Total** | **≈ $0.0039** |
-  The $0.005 debit is then **1.3x** the cost, not 2x; the container probe measures egress and the Linux footprint, and the debit is re-set (rule: 2x the measured cost, so about $0.008) before launch. The earlier table above stays as the first estimate.
+  The debit is **$0.008 = 2x the measured $0.0039** (owner, 16 Oct 2026); the container probe measures egress and the Linux footprint, and the debit is re-checked against it before launch (rule: 2x the measured cost). The earlier table above stays as the first estimate.
 
 ## 4. Product
 - **Settings → Plan → "Search for me while my Mac is off"** (Pro only), one switch + frequency choice: **once a day (default)**, twice a day, every 4 hours (the cap, 6/day). Built from `choiceCards`/existing parts; ⌘K "Turn hosted search on/off"; sidebar line "Hosted search · next 14:00".
@@ -124,7 +124,7 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 - Same one switch during the trial (20 applications or 60 days). **Once a day only** (the Pro choices appear after Pro).
 - **Auto-pause after 14 days with no app open and no email click** (an open of the app, a click in any email, or "Resume" counts). Every email has a one-click **"stop daily searches"** link. A paused schedule keeps its data for 30 days, then it is deleted (§2).
 - **Consent check (before live; not legal advice):** a default-on digest to an address the person typed in onboarding is a service message they asked for; it must carry **no promotion** (the only upsell line is the pause notice "Get Pro to keep Always on running"). Marketing mail would need its own opt-in. Ask the accountant/lawyer with the VAT question.
-- **Costs come out of the same $2 lifetime trial budget as Free AI** (`FREE_AI_TRIAL_USD`): AI as today, compute at the same $0.005 a run. No separate allowance. They count against the **global Free AI caps** ($10/day stop, $100/month): a trial run's compute joins the day's Free AI total.
+- **Costs come out of the same $2 lifetime trial budget as Free AI** (`FREE_AI_TRIAL_USD`): AI as today, compute at the same $0.008 a run. No separate allowance. They count against the **global Free AI caps** ($10/day stop, $100/month): a trial run's compute joins the day's Free AI total.
 - **Ends** (trial over, or the $2 used): hosted **pauses** with "Get Pro to keep Always on running". **The schedule, inbox and R2 state are kept** 30 days after the trial ends (then deleted per §2), so it resumes the moment they buy Pro (the account links to the same install).
 - Trial cost to us: 60 runs × $0.0025 ≈ $0.15 compute, inside the $2 budget already counted per free user.
 - **Existing GitHub Always on:** unchanged by this spec. A later spec may retire it for Pro in favour of hosted.
@@ -186,7 +186,7 @@ Hosted Always on for trial users needs the **trial budget, not payments** (owner
 ## Decided by the owner (16 Oct 2026, via job-pilotto-cc)
 0. **Default-on for trial users** (see §4b), email in onboarding, 14-day auto-pause, hosted before the Pro launch (16 Oct, later).
 1. **Frequency:** default **once a day**, choices up to **every 4 h** (the cap).
-2. **Compute debit:** **$0.005 a run** (2x cost), as a Worker var re-set after the probe. Trial: once a day, from the $2 budget.
+2. **Compute debit:** **$0.008 a run** (2x the measured $0.0039 on standard-1), as a Worker var re-set after the probe. Trial: once a day, from the $2 budget.
 3. **v1 without Gmail, Telegram and Notion** (find, score, list only; we store no keys for them).
 4. **Probe approved:** one container cost probe of about $0.01 on our Cloudflare account; stop if it heads past $0.10. Result: §3 "Measured".
 
@@ -200,7 +200,7 @@ Hosted Always on for trial users needs the **trial budget, not payments** (owner
 - [ ] PR 0 (site, job-pilotto-a6): migration 0080 trial columns on `pro_accounts`, `createAccount(..., {plan})` (proof: site/test/pro-credit.test.js)
 - [ ] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling (proof: site/test/hosted-notify.test.js)
 - [ ] PR 4 (app): onboarding switch on + disclosure + email field, inbox merge, Settings, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
-- [ ] Owner decides the Free AI monthly cap vs default-on exposure (§3)
+- [x] Owner decides the Free AI monthly cap: stop $200, alert $100 (proof: none: decided by the owner via cc, 16 Oct; the wrangler.toml change is its own small site PR)
 - [ ] Test end to end; owner flips `HOSTED_ALWAYS_ON=on`
 - [ ] With Pro: `pro_credit` compute debit (`hosted-compute`), frequency choices, pricing/privacy/terms lines, resume on purchase
 - [ ] Later: WhatsApp channel (Meta verification, templates, credit debit), after Pro launches
