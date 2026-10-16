@@ -48,6 +48,7 @@ import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
 import * as mail from './mail.js';
 import * as mailUnsub from './mail-unsub.js';
+import * as mailHeld from './mail-held.js';
 import * as accountEmail from './account-email.js';
 import {status as proStatus} from './pro.js';
 import * as proSignin from './pro-signin.js';
@@ -250,6 +251,7 @@ export default {
       .catch(error => console.error(`alias canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? pruneLearning(env.STATS) : Promise.resolve({})).then(removed => console.log(`learning pruned: ${JSON.stringify(removed)}`)).catch(error => console.log(`learning not pruned: ${error.message}`)));   // aliases.js pruneLearning
     ctx.waitUntil((env.STATS ? tidyIntelligence(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`intelligence tidy: ${error.message}`)));
+    ctx.waitUntil(mailHeld.sendDigests(env).catch(error => console.error(`mail digests: ${error.message}`)));   // the daily or weekly digest (src/mail-held.js)
     ctx.waitUntil(mail.purge(env).catch(error => console.error(`mail log purge: ${error.message}`)));
     ctx.waitUntil(mailLifecycle.run(env).catch(error => console.error(`mail lifecycle: ${error.message}`)));   // trial reminders, Always on paused (src/mail-lifecycle.js)
     ctx.waitUntil(testMail.purge(env).catch(error => console.error(`test mail purge: ${error.message}`)));

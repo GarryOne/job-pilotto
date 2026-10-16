@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {address, confirm, notify} from '../src/account-email.js';
+import {sendDigests} from '../src/mail-held.js';
 import {fromTelegram} from '../src/mail-html.js';
 import {confirmLink} from '../src/mail.js';
 import {tokenFor} from '../src/guard.js';
@@ -13,7 +14,7 @@ import {createAccount} from '../src/pro.js';
 const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0015_ai_calls.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_mail.sql']) db.exec(sql(file));
+  for (const file of ['0015_ai_calls.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_mail.sql', '0085_mail_held.sql']) db.exec(sql(file));
   db.exec('CREATE TABLE anomalies (day TEXT, kind TEXT, who TEXT, n INTEGER, detail TEXT, PRIMARY KEY (day, kind, who))');
   db.exec('CREATE TABLE revoked (who TEXT PRIMARY KEY, reason TEXT, created_at TEXT)');
   const statement = (text, args = []) => ({bind: (...values) => statement(text, values), run: async () => db.prepare(text).run(...args),
@@ -83,4 +84,28 @@ test('an empty message and a person who switched the service list off send nothi
   e.STATS.db.prepare('UPDATE pro_accounts SET service_mail_off_at = ?').run('2026-10-16');
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).reason, 'unsubscribed');
   assert.equal(sent.length, 0);
+});
+
+test('an "activity" message waits for the digest; one mail a day with everything, weekly on Mondays for a weekly account; matches and the rest go at once', async () => {
+  const {e, sent} = setup(), mon = new Date('2026-10-19T06:00:00Z'), tue = new Date('2026-10-20T06:00:00Z');
+  await call(address, e, 'install-held', 'PUT', {email: 'me@example.com'});
+  e.STATS.db.prepare('UPDATE pro_accounts SET email_confirmed_at = ?').run('2026-10-01');
+  const first = await call(notify, e, 'install-held', 'POST', {subject: 'Matches', html: card}); assert.equal(first.ok, true);   // new matches: at once
+  assert.equal(sent.length, 1);
+  assert.equal((await call(notify, e, 'install-held', 'POST', {subject: 'Rejection from Acme', html: '<b>Acme said no</b>', kind: 'activity'})).held, true);
+  assert.equal((await call(notify, e, 'install-held', 'POST', {subject: 'Insight', html: '<b>Insight ready</b>', kind: 'activity'})).held, true);
+  assert.equal(sent.length, 1, 'held, not sent');
+  assert.deepEqual(await sendDigests(e, tue), {sent: 1, kept: 0});
+  assert.equal(sent.length, 2);
+  assert.match(sent[1].subject, /2 items/);
+  assert.ok(sent[1].text.includes('Acme said no') && sent[1].text.includes('Insight ready'));
+  assert.deepEqual(await sendDigests(e, tue), {sent: 0, kept: 0}, 'nothing held, nothing sent');
+  assert.equal((await call(address, e, 'install-held', 'PUT', {email: 'me@example.com', cadence: 'weekly'})).ok, true);
+  assert.equal((await call(address, e, 'install-held', 'GET')).cadence, 'weekly');
+  await call(notify, e, 'install-held', 'POST', {subject: 'Done', html: '<b>Job finished</b>', kind: 'activity'});
+  assert.deepEqual(await sendDigests(e, tue), {sent: 0, kept: 1}, 'a weekly account waits for Monday');
+  assert.deepEqual(await sendDigests(e, mon), {sent: 1, kept: 0});
+  assert.equal(sent.length, 3);
+  assert.equal((await call(address, e, 'install-held', 'PUT', {email: 'me@example.com', cadence: 'hourly'})).ok, true);
+  assert.equal((await call(address, e, 'install-held', 'GET')).cadence, 'weekly', 'an unknown cadence changes nothing');
 });
