@@ -31,3 +31,10 @@ export function warnNow(warn, said = []) {
   if (warn == null) return {say: null, said: []};   // above 30% again: the steps are new next time
   return said.includes(warn) ? {say: null, said} : {say: warn, said: [...said, warn]};
 }
+
+// "I have Pro": what to say for the site's refusal of a code.
+const WORDS = {
+  expired: 'That code has expired. Ask for a new one.', locked: 'Too many tries. Ask for a new code.', other: 'This computer already belongs to another Pro account.',
+};
+export const signinWords = answer => answer.error === 'wrong' ? `That code is not right. ${answer.left} ${answer.left === 1 ? 'try' : 'tries'} left.` : WORDS[answer.error] || answer.error || 'That did not work. Try again.';
+

@@ -5,6 +5,7 @@ import {$, message, show} from './core.js';
 import {shared} from './shared.js';
 import {toastMessage} from './startup.js';
 import {NOTES, TOPUP_NOTE, planView, warnNow} from '../plan-view.js';
+import {signinPart} from './plan-signin.js';
 
 const REFRESH_MS = 10 * 60 * 1000;
 
@@ -23,6 +24,7 @@ function render(view) {
     pay.addEventListener('click', () => buy('pro'));
     body.append(el('div', 'inline', ''));
     body.lastChild.append(pay);
+    body.append(signinPart(() => load()));
     return;
   }
   const bar = el('div', 'bar license-bar', ''), fill = el('span', '', '');
@@ -56,8 +58,9 @@ function warn(plan) {
 }
 
 // onChange: what shows the license state again (the counter and the plan line follow the site's answer).
+let load = () => {};
 export function initPlan(onChange = () => {}) {
-  const load = async () => {
+  load = async () => {
     const plan = await window.pilot.planState().catch(() => null);
     if (!plan) return;
     shared.plan = plan;
