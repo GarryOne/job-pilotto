@@ -2,8 +2,8 @@
 // Reads: telemetry (first seen, setup done, the latest health line: licensed, applicationsUsed, allowanceEnded), ai_calls, and a6's Pro tables (pro_devices, pro_purchases; migration 0079_pro.sql, spec 2026-10-16-pro-plan.md §1).
 // Counts and install ids only: no e-mail is ever selected. Founders (licensed installs) are not trials. Guard: test/monetization.test.js
 import {digestOf} from './guard.js';
-import {LIMITS} from './free-ai.js';
-import {CONVERSION_GREEN, CONVERSION_YELLOW, FIXED_COSTS_YEAR, FREE_LIFETIME_CAP_USD, TRIAL_APPLICATIONS, TRIAL_MIN_FOR_VERDICT} from './monetization-config.js';
+import {monthStopUsd, trialUsd} from './free-ai.js';
+import {CONVERSION_GREEN, CONVERSION_YELLOW, FIXED_COSTS_YEAR, TRIAL_APPLICATIONS, TRIAL_MIN_FOR_VERDICT} from './monetization-config.js';
 
 const DAY = 86400000;
 export const RANGES = {'24h': {name: 'Last 24 hours', ms: DAY}, '7d': {name: 'Last 7 days', ms: 7 * DAY}, '30d': {name: 'Last 30 days', ms: 30 * DAY}, all: {name: 'All time', ms: Infinity}};
@@ -41,9 +41,9 @@ export async function collect(env, range = '30d', now = new Date()) {
   const lifetime = new Map(((await rows(db, 'SELECT who, SUM(micro_usd) AS micro FROM ai_calls GROUP BY who')) || []).map(r => [r.who, r.micro / 1e6]));
   const freeUsd = [], proUsd = []; let aiCost = 0;
   for (const r of inRange) { aiCost += r.micro / 1e6; const install = whoOf.get(r.who); if (install) (proInstalls.has(install) ? proUsd : freeUsd).push(r.micro / 1e6); }
-  const atCap = freeUsd.length ? [...whoOf].filter(([who, install]) => !proInstalls.has(install) && (lifetime.get(who) || 0) >= FREE_LIFETIME_CAP_USD * 0.99).length : 0;
+  const atCap = freeUsd.length ? [...whoOf].filter(([who, install]) => !proInstalls.has(install) && (lifetime.get(who) || 0) >= trialUsd(env) * 0.99).length : 0;
   const month = now.toISOString().slice(0, 7), monthUsd = (Number(await env.WAITLIST?.get(`freeai:usdm:${month}`).catch(() => 0)) || 0) / 1e6;
-  const cost = {free: {users: freeUsd.length, ...stats(freeUsd), atCap}, pro: {users: proUsd.length, ...stats(proUsd), total: proUsd.reduce((s, n) => s + n, 0)}, month: {usd: monthUsd, cap: Number(env.FREE_AI_MONTH_STOP_USD) > 0 ? Number(env.FREE_AI_MONTH_STOP_USD) : LIMITS.monthStopUsd}, total: aiCost};
+  const cost = {free: {users: freeUsd.length, ...stats(freeUsd), atCap}, pro: {users: proUsd.length, ...stats(proUsd), total: proUsd.reduce((s, n) => s + n, 0)}, month: {usd: monthUsd, cap: monthStopUsd(env)}, trialUsd: trialUsd(env), total: aiCost};
 
   // Money: by purchase date. Revenue is what was paid and kept (VAT included); a refund is listed beside it, the fee on it is still lost.
   let money = null;

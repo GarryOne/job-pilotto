@@ -20,6 +20,9 @@ export const TRIAL_MESSAGE = `You've used the Free AI included in your trial. Ge
 const BUSY_MONTH = `Free AI is busy this month. Try again next month, or ${ADD_KEY}`;
 const error = (status, message, type = 'api_error') => Response.json({type: 'error', error: {type, message}}, {status});
 const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
+// The two lines the admin Monetization page shows, read the same way the route enforces them.
+export const monthStopUsd = env => num(env.FREE_AI_MONTH_STOP_USD, LIMITS.monthStopUsd);
+export const trialUsd = env => num(env.FREE_AI_TRIAL_USD, LIMITS.trialUsd);
 const count = async (kv, key) => Number(await kv.get(key)) || 0;
 
 export const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
@@ -45,12 +48,12 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${access.who}`};
   const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons, life] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
   if (microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
-  if (globalMonth >= num(env.FREE_AI_MONTH_STOP_USD, LIMITS.monthStopUsd) * 1e6) return error(503, BUSY_MONTH);
+  if (globalMonth >= monthStopUsd(env) * 1e6) return error(503, BUSY_MONTH);
   const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
   const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
   if (seen >= allowance) return error(503, BUSY);
   if (perMinute >= num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute)) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
-  if (!access.license && life >= num(env.FREE_AI_TRIAL_USD, LIMITS.trialUsd) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
+  if (!access.license && life >= trialUsd(env) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
   if (installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
   if (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay) return error(429, DAY_MESSAGE, 'rate_limit_error');
 
