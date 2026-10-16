@@ -165,6 +165,7 @@ class PrDescriptionLaidOutTest(unittest.TestCase):
         flow = (ROOT / '.github' / 'workflows' / 'pr-description.yml').read_text()
         self.assertIn('edited', flow)
         self.assertIn('tools/pr-body-check.py', flow)
+        self.assertIn("github.event.action == 'edited'", flow, 'an edit must not cancel the push run (a cancelled run shows red)')
 
 
 if __name__ == '__main__':
