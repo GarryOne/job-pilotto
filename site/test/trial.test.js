@@ -11,6 +11,7 @@ import worker from '../src/index.js';
 function d1() {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL('../migrations/0079_pro.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0082_pro_trial.sql', import.meta.url), 'utf8'));   // the trial columns (plan, trial_started_at…)
   db.exec('CREATE TABLE revoked (who TEXT PRIMARY KEY, reason TEXT, created_at TEXT)');
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args) ?? null});

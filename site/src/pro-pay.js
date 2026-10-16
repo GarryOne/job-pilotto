@@ -2,7 +2,7 @@
 // turns the provider's signed events into accounts, devices, purchases and credit (src/pro.js), and takes the credit back on a refund or a dispute. The provider
 // is only reached through ./payments (one adapter, Stripe today). Replay-safe: an event id and a payment's ref are each handled once. Guards: test/pro-stripe.test.js.
 import {authorize} from './guard.js';
-import {addCredit, createAccount, link, planOn} from './pro.js';
+import {addCredit, createAccount, link, makePro, planOn} from './pro.js';
 import {createCheckout, feeOf, keyMatchesMode, providerName, verifyEvent} from './payments/index.js';
 
 // What each purchase adds, in micro-USD (owner, 16 Oct 2026): Pro includes $5 of AI credit; top-ups are VAT-included prices with the margin kept ($5 → $2.80, $10 → $5.80, $20 → $11.80).
@@ -37,6 +37,7 @@ async function paid(env, event, fetcher, now) {
   const made = await env.STATS.prepare(`INSERT OR IGNORE INTO pro_purchases (id, account, kind, amount_cents, currency, credit_micro, status, at, provider, provider_ref, country, tax_cents, fee_cents)
     VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, ?)`).bind(`pur_${event.id}`, account, event.kind, event.amountCents, event.currency, CREDIT[event.kind], now.toISOString(), providerName(env), event.ref, event.country, event.taxCents, fee).run();
   if (!changed(made)) return;
+  await makePro(env, account);   // a trial account (same e-mail) becomes Pro
   if (event.install) await link(env, account, event.install, now);   // refused when this account has 3 devices already: the credit is the account's anyway
   await env.STATS.prepare("UPDATE pro_accounts SET status = 'active' WHERE id = ? AND status = 'refunded'").bind(account).run();   // buying again after a refund
   await addCredit(env, account, CREDIT[event.kind], 'purchase', event.ref, now);
