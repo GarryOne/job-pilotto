@@ -24,6 +24,7 @@ const done = await import('./lib/suite-done.mjs');
 if (!process.env.JP_HEAVY_HELD) done.clearDone();
 (await import('./lib/heavy.mjs')).heavy(`e2e-${name}`, import.meta.url, {exit: status => process.exit(done.verdict(status))});
 process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports with it (lib/sentry.js e2eTags)
+process.env.JOB_PILOTTO_E2E_PLANTED_FILE ||= (await import('node:path')).join((await import('node:os')).tmpdir(), `jp-e2e-planted-${name}-${process.pid}.log`);   // the fakes write here when they plant a failure (lib/planted.mjs); the app's Sentry reporter reads it
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 // A hard stop for the whole process (6 Oct 2026: a Windows jobs suite ran 14+ min after its last step failed: something outside the steps hung, closing the app
 // or a test server). The runner cuts steps at the 7-minute budget; nothing may outlive it by more than 3 minutes. unref: a suite that ends earlier exits as usual.

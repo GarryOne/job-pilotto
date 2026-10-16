@@ -2,6 +2,7 @@
 // an HTML error page instead of JSON (#266 met that by chance), no answer at all, or a refused connection (the network gone). The app and the engine use it only in a
 // test run (JOB_PILOTTO_E2E_NOTION_BASE_URL). `fail(mode, {times, writes})` fails the next `times` calls (all calls when omitted), or only the writes.
 import http from 'node:http';
+import {markPlanted} from './planted.mjs';
 
 export const NOTION_FAILURES = {
   'rate-limit': {status: 429, type: 'json', body: {object: 'error', status: 429, code: 'rate_limited', message: 'You have been rate limited. Please try again in a few minutes.'}},
@@ -36,7 +37,7 @@ export async function startNotionProxy({target = 'https://api.notion.com'} = {})
     stats.calls++;
     if (isWrite(req.method, req.url)) stats.writes++;
     const mode = decide(plan, req.method, req.url);
-    if (mode !== 'pass') stats.failed++;
+    if (mode !== 'pass') { stats.failed++; markPlanted(`notion ${mode}`); }
     if (mode === 'hang') return;
     if (mode === 'offline') { req.socket.destroy(); return; }
     const failure = NOTION_FAILURES[mode];

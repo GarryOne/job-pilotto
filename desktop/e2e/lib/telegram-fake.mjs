@@ -1,6 +1,7 @@
 // A fake Telegram Bot API for the end-to-end tests (5 Oct 2026): the app and the engine send here instead of Telegram (JOB_PILOTTO_E2E_TELEGRAM_BASE_URL, test runs
 // only), so a suite can read the digest a person would receive and make Telegram refuse a send. getUpdates answers "nothing new" at once; nothing reaches Telegram.
 import http from 'node:http';
+import {markPlanted} from './planted.mjs';
 
 export const TELEGRAM_FAILURES = {
   'unauthorized': {status: 401, description: 'Unauthorized'},
@@ -26,7 +27,7 @@ export async function startTelegramFake() {
     const body = fields(req.headers['content-type'], Buffer.concat(chunks).toString('utf8'));
     const answer = (status, data) => { const text = JSON.stringify(data); res.writeHead(status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(text)}); res.end(text); };
     const failure = TELEGRAM_FAILURES[mode];
-    if (failure && /^(sendMessage|sendDocument|sendPhoto|editMessageText)$/.test(method)) return stats.failed++, answer(failure.status, {ok: false, error_code: failure.status, description: failure.description, ...(failure.retry ? {parameters: {retry_after: failure.retry}} : {})});
+    if (failure && /^(sendMessage|sendDocument|sendPhoto|editMessageText)$/.test(method)) return stats.failed++, markPlanted(`telegram ${mode}`), answer(failure.status, {ok: false, error_code: failure.status, description: failure.description, ...(failure.retry ? {parameters: {retry_after: failure.retry}} : {})});
     if (method === 'getMe') return answer(200, {ok: true, result: {id: 1, is_bot: true, first_name: 'E2E bot', username: 'e2e_test_bot'}});
     if (method === 'getUpdates') return answer(200, {ok: true, result: []});
     if (method === 'sendMessage') {
