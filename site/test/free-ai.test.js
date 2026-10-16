@@ -85,7 +85,7 @@ test('the month line: an alert once when $40 is crossed, a stop at $60 for every
 test('the lines come from wrangler.toml vars: early-adopter values in force, the tight set as code defaults', async () => {
   const toml = (await import('node:fs')).readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
   const vars = Object.fromEntries([...toml.matchAll(/^(FREE_AI_[A-Z_]+) = "([^"]*)"/gm)].map(m => [m[1], m[2]]));
-  assert.deepEqual([vars.FREE_AI_INSTALL_MINUTE_CALLS, vars.FREE_AI_INSTALL_DAY_USD, vars.FREE_AI_INSTALL_MONTH_USD, vars.FREE_AI_ALERT_USD, vars.FREE_AI_STOP_USD, vars.FREE_AI_MONTH_ALERT_USD, vars.FREE_AI_MONTH_STOP_USD], ['50', '0.50', '5', '5', '10', '70', '100']);
+  assert.deepEqual([vars.FREE_AI_INSTALL_MINUTE_CALLS, vars.FREE_AI_INSTALL_DAY_USD, vars.FREE_AI_INSTALL_MONTH_USD, vars.FREE_AI_ALERT_USD, vars.FREE_AI_STOP_USD, vars.FREE_AI_MONTH_ALERT_USD, vars.FREE_AI_MONTH_STOP_USD], ['50', '0.50', '5', '5', '10', '100', '200']);
   assert.deepEqual([LIMITS.perMinute, LIMITS.installDayUsd, LIMITS.installMonthUsd, LIMITS.monthStopUsd], [30, 0.3, 3, 60]);
   const e = env(vars), apiKey = await key();
   await call(e, apiKey);
