@@ -37,7 +37,7 @@ test('nothing records before the press: the flag only asks for its state on load
   const panel = code('extension/panel-report.js');
   assert.deepEqual(panel.match(/type: 'report-[a-z]+'/g), ["type: 'report-cancel'", "type: 'report-stop'", "type: 'report-start'", "type: 'report-state'"].sort((a, b) => panel.indexOf(a) - panel.indexOf(b)));
   assert.ok(/event\.isTrusted/.test(panel) && (panel.match(/event\.isTrusted/g) || []).length >= 2, 'a page\'s script cannot press the buttons');
-  assert.match(panel, /The page will reload; answers on this page may be cleared/);
+  assert.match(panel, /goes back to the job posting and the application starts again from there/);
   assert.match(panel, /debugging this browser/);
   assert.match(panel, /Nothing leaves your Mac until you read it and press Send/);
   const recorder = code('extension/report-recorder.js');
@@ -76,4 +76,11 @@ test('a recording the last gate stops is not held; Cancel clears what is held', 
   await h.handlers.reportFormCancel();
   assert.equal((await h.handlers.reportFormGet()).shown, null);
   assert.deepEqual(await h.handlers.reportFormSend(null, []), {ok: false, error: 'Nothing to send.'});
+});
+
+test('the report starts at the tab\'s posting (the app\'s record), not by reloading the current page', () => {
+  const worker = code('extension/messages-report.js');
+  assert.match(worker, /jobOf\(tab\)/);
+  assert.match(worker, /moveTab\(tab\.id, `\$\{posting\}#\$\{await markFor\(tab\.id\)\}`\)/);
+  assert.equal((worker.match(/recorder\.start\(/g) || []).length, 1, 'one start function for every way a report begins');
 });

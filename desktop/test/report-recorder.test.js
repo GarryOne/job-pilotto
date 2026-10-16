@@ -128,3 +128,31 @@ test('prepare: scrubbed, searched again, held in memory with a readable preview;
   assert.equal(hold.size(), 1); assert.ok(hold.take(id)); assert.equal(hold.take(id), null, 'taken once');
   let t = 0; const old = createHold({now: () => t}); old.put(ok.held); t = 16 * 60e3; assert.equal(old.size(), 0, 'gone after 15 minutes');
 });
+
+// 16 Oct 2026: a session-bound page (mid-flow) cannot be reloaded alone; the report starts at the job's posting and records the chain across the redirects, in the record format
+// the offline replays read (reports-fetch.test.mjs replays such a record).
+test('a report restarts from the posting and keeps the whole chain; reloading the current page keeps only its error page', async () => {
+  const chain = (fake, tab) => {
+    got(fake, tab, 'p1', 'https://jobs.example.test/posting', {status: 302, headers: {Location: 'https://sso.example.test/go'}});
+    got(fake, tab, 'p2', 'https://sso.example.test/go', {status: 302, headers: {Location: 'https://apply.example.test/form?_s=1'}});
+    got(fake, tab, 'p3', 'https://apply.example.test/form?_s=1');
+  };
+  const run = async restart => {
+    const fake = fakeChrome({p3: {body: '<form></form>', base64Encoded: false}, e1: {body: 'An error occurred', base64Encoded: false}});
+    const send = fake.chrome.debugger.sendCommand;
+    fake.chrome.debugger.sendCommand = async (target, method, params) => {
+      if (method === 'Page.reload') got(fake, 7, 'e1', 'https://apply.example.test/form?_s=1', {status: 500});   // no session: the site's error page
+      return send(target, method, params);
+    };
+    const recorder = createRecorder({chrome: fake.chrome, attach: attach(fake), ...manual()});
+    await recorder.start(7, restart ? {restart: async () => { chain(fake, 7); return true; }} : {});
+    await tick(); await tick();
+    return {fake, result: await recorder.stop()};
+  };
+  const old = await run(false), now = await run(true);
+  assert.deepEqual(old.result.entries.map(entry => entry.url), ['https://apply.example.test/form?_s=1']);
+  assert.equal(old.result.entries[0].status, 500, 'the old start captured only the error page');
+  assert.deepEqual(now.result.entries.map(entry => entry.url), ['https://jobs.example.test/posting', 'https://sso.example.test/go', 'https://apply.example.test/form?_s=1']);
+  assert.equal(now.fake.calls.some(call => call[0] === 'Page.reload'), false, 'a tab that left for its posting is not reloaded');
+  assert.deepEqual(now.result.entries.map(entry => entry.status), [302, 302, 200]);
+});

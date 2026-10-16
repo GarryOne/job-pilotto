@@ -48,7 +48,7 @@
       }]]);
   }
   function confirm() {
-    say('Report this form', 'The page will reload; answers on this page may be cleared. Job Pilotto then records what the site sends while you repeat the step, so the problem can be fixed. Chrome shows its '
+    say('Report this form', 'This tab goes back to the job posting and the application starts again from there; answers on this page may be cleared. Job Pilotto records what the site sends across every page and redirect until you press Stop, so the problem can be fixed. Chrome shows its '
       + '"debugging this browser" bar meanwhile. Nothing leaves your Mac until you read it and press Send.', [
       ['Cancel', true, close],
       ['Start recording', false, async button => {

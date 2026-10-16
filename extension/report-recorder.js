@@ -76,8 +76,9 @@ export function createRecorder({chrome, attach = attachDebugger, stopped = isSto
 
   return {
     isRecording: tabId => !!run && (tabId === undefined || run.tabId === tabId),
-    // The person pressed: refuse on a sign-in page, else attach, listen and reload the tab (answers already received cannot be read afterwards). -> {ok} or {ok: false, refused}
-    async start(tabId) {
+    // The person pressed: refuse on a sign-in page, else attach, listen and start the journey again. `restart` (messages-report.js) moves the tab to the job's posting so the recording holds
+    // every page and redirect from there, as a recorded row does; without one the tab reloads (a session-bound page cannot be reloaded alone, 16 Oct 2026). -> {ok} or {ok: false, refused}
+    async start(tabId, {restart = null} = {}) {
       if (run) return {ok: false, refused: 'busy'};
       if (await hasPassword(tabId).catch(() => false)) return {ok: false, refused: 'login'};
       run = {tabId, t0: now(), requests: new Map(), pending: new Set(), entries: [], work: [], bytes: 0, truncated: false, refused: null};
@@ -89,7 +90,7 @@ export function createRecorder({chrome, attach = attachDebugger, stopped = isSto
         await send('Network.enable');
         await send('Network.setCacheDisabled', {cacheDisabled: true});   // the reload asks for everything again: the replay needs every response
         await send('Page.enable');
-        await send('Page.reload', {ignoreCache: true});
+        if (restart && await restart()) { /* the tab left for its posting */ } else await send('Page.reload', {ignoreCache: true});
       } catch (error) { await end(); run = null; return {ok: false, refused: 'debugger', error: String(error?.message || error).slice(0, 80)}; }
       watchPassword();
       return {ok: true};
