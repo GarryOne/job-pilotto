@@ -17,6 +17,7 @@ const LOCAL_TEXTS = {JOB_PILOTTO_PROFILE_FILE: TEXT_FILES.profile, JOB_PILOTTO_A
 
 import {ROOT} from './root.js';
 import {isolatedFile} from './keychain.js';
+import {notifyEnv} from './notify-channel.js';
 import {CONFIG_FILES, cleanConfigFiles, copyWithoutNotes} from './config-text.js';
 
 export const REPO = ROOT;
@@ -127,6 +128,7 @@ export function pipelineEnv(storage, parent = process.env) {
   if (OVERRIDE) Object.assign(env, {JOB_PILOTTO_INTERVIEW_MODEL: OVERRIDE, JOB_PILOTTO_PREP_MODEL: OVERRIDE, JOB_PILOTTO_REJECTION_MODEL: OVERRIDE});
   Object.assign(env, poolShare.variables(storage) || {});  // "Help the pool grow": only when the user turned it on
   if (settings.telegramChatId) env.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
+  Object.assign(env, notifyEnv(storage));   // how the person wants to be told (Settings → Automation → Notifications): src/notify.py
   for (const [key, value] of Object.entries(settings.notionIds || {})) if (value) env[key] = value;
   return env;
 }

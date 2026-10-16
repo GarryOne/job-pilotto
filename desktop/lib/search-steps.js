@@ -2,7 +2,7 @@
 // order (job boards, then the employers' pages), and the employer finder (the scout) at the end when it is due, so one action grows the sources and crawls them.
 // Guarded by: test/search-steps.test.js, test/app-scenarios.test.js. Spec: docs/superpowers/specs/2026-10-16-first-jobs-fast.md.
 import * as claudeCode from './claude-code.js';
-import {dailyArgs, SCOUT_BUDGET_S, telegramReady, triggerEnv} from './pipeline-args.js';
+import {dailyArgs, SCOUT_BUDGET_S, deliveryReady, triggerEnv} from './pipeline-args.js';
 import {run} from './pipeline-run.js';
 
 const SCOUT_COOLDOWN_MS = 24 * 3600 * 1000;   // a press of Find jobs grows the sources at most once a day
@@ -38,7 +38,7 @@ export async function searchSteps(storage, onLine, mode, trigger = 'you', exec =
   if (scoutDue(storage.settings(), trigger, Date.now(), employers)) {
     onLine('Growing your sources: finding more employers…');
     storage.saveSettings({lastScoutAt: new Date().toISOString()});
-    await exec(storage, ['src', 'scout', ...(telegramReady(storage) ? ['--send'] : []), '--log-run', '--budget', String(SCOUT_BUDGET_S)], onLine, env);
+    await exec(storage, ['src', 'scout', ...(deliveryReady(storage) ? ['--send'] : []), '--log-run', '--budget', String(SCOUT_BUDGET_S)], onLine, env);
   }
   return {code, result};
 }

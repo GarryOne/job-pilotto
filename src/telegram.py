@@ -8,9 +8,14 @@ import sys
 import urllib.parse
 import urllib.request
 
+from . import notify
+
 
 def credentials():
+    """(token, chat) to send with. (None, None) when the person chose e-mail instead of (or without) Telegram: send() then only e-mails (src/notify.py)."""
     token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
+    if notify.wants_email() and not (notify.wants_telegram() and token and chat_id):
+        return None, None
     if not token or not chat_id:
         raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
     return token, chat_id
@@ -47,8 +52,12 @@ def api_base():
     return override.rstrip('/') if os.environ.get('JOB_PILOTTO_E2E') and override else 'https://api.telegram.org'
 
 
-def send(text, token, chat_id, reply_markup=None):
+def send(text, token, chat_id, reply_markup=None, urgent=False):
+    """Deliver a message by the chosen channels: Telegram (when there is a token) and/or e-mail (held for this run's one e-mail; urgent = at once)."""
     MESSAGES.append(text)
+    notify.queue(text, reply_markup, urgent)
+    if not (token and chat_id) or not notify.wants_telegram():
+        return {'ok': True, 'channel': 'email'}
     endpoint = f"{api_base()}/bot{token}/sendMessage"
     fields = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}
     if reply_markup:

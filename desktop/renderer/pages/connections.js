@@ -12,6 +12,7 @@ import {inBrowser, retarget} from '../browser-words.js';
 import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
+import {bindNotify} from './notify-settings.js';
 import {showClaudePrereqs} from './claude-prereqs.js';
 import {storeName} from '../store-words.js';
 
@@ -304,6 +305,7 @@ export async function init() {
   $('run-mode-more').addEventListener('click', () => openSetting('cloud'));
   document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', () => { saveSchedule(select); showScheduleState(); }));
   $('set-remind').addEventListener('change', saveReminders);
+  bindNotify({savedToast, updateRepo});
   $('set-target').addEventListener('change', saveTarget);
   $('tg-cloud-setup').addEventListener('click', () => {
     const form = $('tg-cloud-form');

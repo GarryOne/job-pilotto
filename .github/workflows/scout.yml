@@ -48,6 +48,8 @@ env:
   # Notion's limit (~3 requests a second) is shared with the user's app on their computer: this run takes ~1.4/s.
   JOB_PILOTTO_NOTION_GAP_MS: '700'
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+  # How the person wants to be told (the app sets it, desktop/lib/github.js): email, telegram, app. E-mail goes through the website with the install's key (src/notify.py).
+  JOB_PILOTTO_NOTIFY: ${{ vars.JOB_PILOTTO_NOTIFY }}
   # Your Notion workspace: database and page IDs, as repository variables (the Desktop App sets them).
   NOTION_APPLICATIONS_DB: ${{ vars.NOTION_APPLICATIONS_DB }}
   NOTION_MATCHES_DB: ${{ vars.NOTION_MATCHES_DB }}
@@ -124,6 +126,7 @@ jobs:
           echo "run_id=${JOB_PILOTTO_RUN_ID}"
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
+          case ",$JOB_PILOTTO_NOTIFY," in *,email,*) send="--send" ;; esac   # e-mail chosen: src/notify.py
           python -m src scout --batch "$BATCH" $send --log-run
       - name: Report failure to Telegram
         if: failure()

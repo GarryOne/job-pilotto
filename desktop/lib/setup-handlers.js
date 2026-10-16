@@ -17,9 +17,11 @@ import {codexBinary, verifyCodex} from './ai/codex-cli.js';
 import {refreshPath} from './fresh-path.js';
 import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
+import {registerNotifyHandlers} from './notify-handlers.js';   // Settings → Automation → Notifications
 
 export function registerSetupHandlers(ctx) {
   const {DEMO, connectNotion, dialog, handleImportant, ipcMain, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
+  registerNotifyHandlers({ipcMain, storage, DEMO, log: appLog});
   handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {   // about Notion
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};

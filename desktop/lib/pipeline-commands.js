@@ -5,7 +5,7 @@
 import {jobFrom, jobFromResult} from './job-line.js';
 import {log as appLog} from './log.js';
 
-import {dailyArgs, telegramReady, triggerEnv} from './pipeline-args.js';
+import {dailyArgs, deliveryReady, triggerEnv} from './pipeline-args.js';
 import {readable} from './pipeline-env.js';
 import {run} from './pipeline-run.js';
 import {afterWrite} from './shared-read.js';
@@ -151,7 +151,7 @@ export async function feedbackAction(storage, pageId, action, text = '') {
 }
 // The reminder text (empty when nothing is worth interrupting for); send: also to Telegram.
 export async function focusReminder(storage, send = false) {
-  const {code, stdout} = await run(storage, ['src.focus', 'remind', ...(send && telegramReady(storage) ? ['--send'] : [])]);
+  const {code, stdout} = await run(storage, ['src.focus', 'remind', ...(send && deliveryReady(storage) ? ['--send'] : [])]);
   try { return code === 0 ? JSON.parse(stdout.trim().split('\n').pop()).text || '' : ''; } catch { return ''; }
 }
 

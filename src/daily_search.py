@@ -9,7 +9,7 @@ import random
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, ledger_store, scout, store, telegram
+from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, ledger_store, notify, scout, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
@@ -302,16 +302,18 @@ def search(args, stores=None):
             except Exception as error:  # a blocked bot, a removed chat, no network: the run says so in words, it does not crash
                 refused = telegram.failure_words(error)
                 break
+        if not refused and notify.wants_email() and not notify.flush() and not token:   # the digest's e-mail goes now, so a failure keeps the jobs unshown like a refused Telegram message
+            refused = notify.failure_words()
         if refused:
             # The jobs are imported and saved; only the delivery failed. Not marked as shown, so the next digest lists them again.
             print(f'Warning: {refused}')
-            run['telegram'] = 'not sent: Telegram refused it'
+            run['telegram'] = 'not sent: the e-mail was refused' if not token else 'not sent: Telegram refused it'
         else:
             if args.mode != 'more':
                 # '➕ Next' runs don't save the database, so only first pages count for rotation.
                 with store.connect(args.db) as db:
                     digest.mark_shown(db, shown_ids, seed)
-            print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
+            print(f"\nSent {len(messages)} {'Telegram message(s)' if token else 'message(s) by e-mail'}; imported {len(imported)} jobs.")
             run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
     if spend and not run.get('telegram', '').startswith('not sent'):
         with store.connect(args.db) as db:

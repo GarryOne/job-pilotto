@@ -45,6 +45,9 @@ env:
   # Notion's limit (~3 requests a second) is shared with the user's app on their computer: this run takes ~1.4/s.
   JOB_PILOTTO_NOTION_GAP_MS: '700'
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+  # How the person wants to be told (the app sets it, desktop/lib/github.js): email, telegram, app. E-mail goes through the website with the install's key (src/notify.py).
+  JOB_PILOTTO_NOTIFY: ${{ vars.JOB_PILOTTO_NOTIFY }}
+  JOB_PILOTTO_TRIAL_KEY: ${{ secrets.JOB_PILOTTO_TRIAL_KEY }}
   # Your Notion workspace: database and page IDs, as repository variables (the Desktop App sets them).
   NOTION_APPLICATIONS_DB: ${{ vars.NOTION_APPLICATIONS_DB }}
   NOTION_MATCHES_DB: ${{ vars.NOTION_MATCHES_DB }}
@@ -132,6 +135,7 @@ jobs:
           pip install --quiet -r requirements.txt
           send=()
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send=(--send); fi
+          case ",$JOB_PILOTTO_NOTIFY," in *,email,*) send=(--send) ;; esac   # e-mail chosen: src/notify.py
           # Only a check that recorded something answers on Telegram: a quiet one says so in the app and on its ⏱️
           # Search runs row, and a "nothing that changes your applications" message for every check someone started
           # is noise (the app dispatches this workflow for its "Check Gmail now", 1 Oct 2026).

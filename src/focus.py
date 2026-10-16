@@ -421,9 +421,8 @@ def main(argv=None):
         if text and args.send:
             from .features import disabled
             if not disabled('telegram'):
-                token, chat_id = telegram.credentials()
-                if token and chat_id:
-                    telegram.send(reminder_card(focus), token, chat_id)
+                token, chat_id = telegram.credentials()   # (None, None) = e-mail only
+                telegram.send(reminder_card(focus), token, chat_id)
         print(json.dumps({'text': text}))
         return 0
     print(json.dumps(focus, ensure_ascii=False))
