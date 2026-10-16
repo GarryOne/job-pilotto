@@ -259,6 +259,7 @@ def interview_mode(args, stores=None):
         print(error)
         if sender:
             sender(f'⚠️ {escape(str(error))}')
+        _close_unreviewed(stores, run, args, f'Not reviewed: {error}', 'Interview not reviewed')
     except Exception as error:
         if not cost.limit_reached(error):
             raise
@@ -269,7 +270,16 @@ def interview_mode(args, stores=None):
         print(message)
         if sender:
             sender(message)
+        _close_unreviewed(stores, run, args, f'AI limit reached: {cost.limit_reason(error)}', 'Interview review paused')
     return 0
+
+
+def _close_unreviewed(stores, run, args, reason, headline):
+    """A review that ends without a result still closes its run row, with the reason as a warning: left open, the end-of-process guard
+    (run_log._unfinished) wrote it as Failed, "ended before its report", for a transcript that was too short or an AI limit (Sentry APP-5)."""
+    run['warnings'].append(reason[:300])
+    run['headline'] = headline
+    log_ai_run(stores, run, args)
 
 
 def insight_mode(args, stores=None):

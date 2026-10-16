@@ -167,3 +167,25 @@ class FingerprintTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReviewWithoutResultClosesItsRunTests(OnThisMac):
+    """A review that ends with a reason (a transcript that can't be analysed, the AI limit) closes its run row with that reason; it never
+    stays open for the end-of-process guard to write as "ended before its report" (Sentry APP-5, 254 events)."""
+    def test_every_way_a_review_ends_without_a_result_closes_the_run(self):
+        from types import SimpleNamespace
+        from src import daily_modes, run_log
+        from src.ai import cost
+        errors = [ValueError('The transcript is too short to analyse'), RuntimeError('spend limit')]   # the second is the AI limit (limit_reached is patched below)
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                run_log._open.clear()
+                run_log.auto_begin(self.stores)
+                self.addCleanup(run_log._open.clear)
+                args = SimpleNamespace(file=None, note='x', send=False, job=None, interview=None, log_run=True)
+                with mock.patch.object(interviews, 'run', side_effect=error), mock.patch.object(cost, 'limit_reached', return_value=not isinstance(error, ValueError)), \
+                        mock.patch.object(cost, 'limit_reason', return_value='limit'), mock.patch.object(cost, 'limit_message', return_value='paused'), redirect_stdout(io.StringIO()):
+                    self.assertEqual(daily_modes.interview_mode(args, self.stores), 0)
+                self.assertIsNone(run_log._open.get('run'), 'the run row was left open')
+                [last] = self.stores.cron_runs.list()[:1]
+                self.assertNotIn('ended before its report', json.dumps(last, default=str))
