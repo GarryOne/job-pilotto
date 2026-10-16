@@ -123,7 +123,7 @@ test('a reset leaves nothing about Notion for after the restart', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Job Pilotto');
   fs.mkdirSync(dir);
-  reset.request(dir, {backup: false});
+  reset.request(dir);
   assert.deepEqual(reset.applyPending(dir), {deleted: true});
 });
 

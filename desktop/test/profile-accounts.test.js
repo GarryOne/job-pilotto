@@ -94,15 +94,11 @@ test('an export never lists accounts.json as a data file (it is added only when 
   assert.deepEqual(reset.exported(dir), ['settings.json']);
 });
 
-test('a reset that keeps a backup leaves the accounts, so restoring the backup finds them; without a backup they go (other profiles never)', () => {
+test('a reset always removes this profile\'s accounts (the export with accounts ticked brings them back); other profiles never', () => {
   const {opts, put, env} = fresh();
   put('job-pilotto.profile-aaaaaaaaaaaa.a.example.com.password', 'pw-a', 'email=a@x.test');
   put('job-pilotto.profile-bbbbbbbbbbbb.b.example.com.password', 'pw-b');
-  assert.equal(accounts.onReset(A, {backup: true}, opts), 0);
-  // the restored backup brings its settings.json, hence the same profile id: its account is listed and read again
-  assert.deepEqual(credentials.parseDump(keychain.dump({env}), {profile: A}).map(row => row.host), ['a.example.com']);
-  assert.equal(keychain.read(credentials.serviceOf('a.example.com', A), {env}), 'pw-a');
-  assert.equal(accounts.onReset(A, {backup: false}, opts), 1);
+  assert.equal(accounts.onReset(A, opts), 1);
   assert.equal(keychain.read(credentials.serviceOf('a.example.com', A), {env}), null);
   assert.equal(keychain.read('job-pilotto.profile-bbbbbbbbbbbb.b.example.com.password', {env}), 'pw-b');
 });

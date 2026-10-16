@@ -91,10 +91,20 @@ export async function init() {
   $('backup-show').addEventListener('click', () => window.pilot.showBackups());
 
   // ---------- danger zone: reset this computer's Job Pilotto data ----------
+  // Reset is allowed after the export (the same one as Settings → Your data, the same save dialog) or after choosing to go without it.
+  const allowReset = () => { $('reset-confirm').disabled = false; $('reset-confirm').placeholder = 'Type RESET to confirm'; };
+  $('reset-export').addEventListener('click', async () => {
+    $('reset-export').disabled = true;
+    const result = await window.pilot.exportProfile({keys: false, accounts: $('reset-export-accounts').checked});
+    $('reset-export').disabled = false;
+    if (result?.ok) { message('reset-message', `Exported ✓ ${result.file}. Import it after the reset to get everything back.`, 'ok'); allowReset(); }
+    else if (result?.error) message('reset-message', `Export failed: ${result.error}`, 'error');
+  });
+  $('reset-skip-export').addEventListener('click', allowReset);
   $('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
   $('reset-go').addEventListener('click', async () => {
     if ($('reset-confirm').value.trim() !== 'RESET') return;
-    const result = await window.pilot.resetProfile({backup: $('reset-backup').checked});
+    const result = await window.pilot.resetProfile();
     if (result?.error) message('reset-message', result.error, 'error');
     else if (!result?.ok) message('reset-message', 'Not reset.', 'waiting');
   });
@@ -105,7 +115,6 @@ export async function init() {
     if (done?.imported && done.notionElsewhere) toastMessage({title: 'Connect the same Notion workspace',
       body: 'Your Profile and job tracking are in the Notion workspace this backup used. Connect that workspace and pick your existing Job Pilotto page: '
         + 'a new workspace starts with an empty Profile.', target: {view: 'settings', section: 'connections'}});
-    else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
-    else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
+    else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted. Import your export to get it back.');
   });
 }

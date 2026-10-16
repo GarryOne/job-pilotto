@@ -25,20 +25,21 @@ export function registerSystemHandlers(ctx) {
   ipcMain.handle('relaunch', () => restartApp('asked by the window (permission or update toast)'));
   // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
   // A reset only clears this Mac and never calls Notion (owner, 16 Oct 2026); connecting Notion later is the normal first-time flow.
-  handleImportant('resetProfile', 'Resetting this computer', async (_, {backup = true} = {}) => {
+  handleImportant('resetProfile', 'Resetting this computer', async () => {
     const answer = dialog.showMessageBoxSync(getWindow(), {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
       message: 'Reset Job Pilotto on this computer?',
-      detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
-        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. Your Notion workspace is not touched, and neither is your GitHub repo. Your Gmail sign-in is disconnected, so the next setup starts clean.`});   // about Notion
+      detail: 'Your keys, CV, tailored CVs, recordings, interview drafts, job list, settings and this profile\'s job-site accounts on this computer are deleted for good, '
+        + 'and Job Pilotto restarts at the setup. To get them back, import the export you saved first (the accounts only if you ticked them). '
+        + 'Your Notion workspace is not touched, and neither is your GitHub repo. Your Gmail sign-in is disconnected, so the next setup starts clean.'});   // about Notion
     if (answer !== 1) return {ok: false};
     // The Gmail sign-in lives in the Keychain, outside the data folder: forgotten too, or the fresh setup shows the old account (9 Oct 2026).
     if (!DEMO) {
       try { await pipeline.run(storage, ['src.sources.google', 'disconnect']); appLog('connections', 'Gmail disconnected', {from: 'reset'}); }
       catch (error) { appLog('connections', 'Gmail not disconnected at reset', {error: error.message}); }
     }
-    const removed = profileAccounts.onReset(profileAccounts.profileId(storage), {backup});   // no backup: this profile's job-site accounts go (a backup keeps its id, so its accounts stay for a restore)
+    const removed = profileAccounts.onReset(profileAccounts.profileId(storage));   // this profile's job-site accounts go; the export with accounts ticked brings them back
     appLog('data', 'reset: job-site accounts removed', {count: removed});
-    reset.request(storage.dir, {backup});
+    reset.request(storage.dir);
     restartApp('reset');
     return {ok: true};
   });

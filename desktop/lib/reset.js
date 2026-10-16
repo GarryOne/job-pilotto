@@ -1,7 +1,7 @@
 // Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
 // The app can't replace its own data folder while it runs (Chromium keeps files open there), so import and
 // reset are requested, the app restarts, and the folder is swapped at the very start of the next launch,
-// before anything opens it. The current data is moved to a backup folder first (reset can delete instead).
+// before anything opens it. An import moves the current data to a backup folder first; a reset deletes it (the person exports first).
 // Outside the folder, a reset touches only the Gmail sign-in (system-handlers.js disconnects it first); the Notion workspace, employer
 // passwords in the Keychain and a GitHub repo stay as they are, and a reset never calls Notion (owner, 16 Oct 2026).
 import {execFileSync} from 'node:child_process';
@@ -80,8 +80,9 @@ export function stageImport(dir, file) {
   return manifest;
 }
 
-export function request(dir, {backup = true} = {}, now = new Date()) {
-  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, at: now.toISOString()}));
+// A reset deletes the folder, no backup folder (owner, 16 Oct 2026): the person exports first (Settings → Your data), and imports that file to come back.
+export function request(dir, now = new Date()) {
+  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup: false, at: now.toISOString()}));
 }
 
 // Windows keeps a folder locked for a moment after the process that had files open in it exits: the relaunch after "Import an export…" tried to
