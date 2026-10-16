@@ -24,6 +24,8 @@ jobs:
       REPO: ${{ github.repository }}
       DIGEST_ANTHROPIC_KEY: ${{ secrets.DIGEST_ANTHROPIC_KEY }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
+      BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # the Build Log bot (its own bot and chat); missing: the digest is stored, the post is skipped with a line
+      BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
     steps:
       - uses: actions/checkout@v5
         with:
