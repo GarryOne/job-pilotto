@@ -3,6 +3,7 @@
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
 import {chip} from '../license-chip.js';
+import {planLine} from '../plan-line.js';
 import {byStore} from '../store-words.js';
 
 const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass'};
@@ -39,6 +40,9 @@ export function showLicense(state) {
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? `New applications, kits and searches are paused. ${byStore('Tracking, Notion, export and your data keep working.', 'Tracking, export and your data keep working.')}`
       : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;
+  const plan = planLine(state);   // the one honest line about Pro while it is off (plan-line.js)
+  $('license-plan').hidden = !plan;
+  $('license-plan').textContent = plan || '';
   $('license-paste').hidden = licensed;
   $('license-held').hidden = !licensed;
   $('license-holder').textContent = licensed ? `${state.license.name} · ${KIND[state.license.kind]} key${state.license.until ? ` · until ${state.license.until}` : ''}` : '';
