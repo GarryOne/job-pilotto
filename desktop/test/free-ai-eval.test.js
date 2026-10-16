@@ -1,7 +1,7 @@
 // The Free AI quality tool (tools/free-ai-eval.mjs): validity, rank metrics, the table, and a run against the mock backend.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {evaluate, mock, rest} from '../../tools/free-ai-eval.mjs';
+import {accountOf, evaluate, mock, rest} from '../../tools/free-ai-eval.mjs';
 import {schemaProblems, spearman, summarize, table, topOverlap} from '../../tools/free-ai-eval-metrics.mjs';
 import {SMALL, STRONG} from '../../site/src/free-ai-models.js';
 
@@ -57,4 +57,11 @@ test('the REST backend posts the model and the Anthropic-translated input to the
   assert.equal(JSON.parse(seen[0].init.body).model, SMALL);
   const failing = rest({account: 'a', token: 't', fetcher: async () => new Response('no', {status: 401})});
   await assert.rejects(failing(SMALL, {}), /401/);
+});
+
+test('the account id is found from the token when it sees exactly one account', async () => {
+  const one = async () => Response.json({result: [{id: 'acc9'}]}), two = async () => Response.json({result: [{id: 'a'}, {id: 'b'}]}), bad = async () => new Response('x', {status: 403});
+  assert.equal(await accountOf('t', one), 'acc9');
+  assert.equal(await accountOf('t', two), '', 'two accounts: ask for CF_ACCOUNT_ID, never guess');
+  assert.equal(await accountOf('t', bad), '');
 });
