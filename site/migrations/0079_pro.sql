@@ -10,7 +10,7 @@ CREATE TABLE pro_accounts (
   credit_added_micro INTEGER NOT NULL DEFAULT 0   -- every credit ever added (purchases, adjustments) minus refunds: "AI credit: N% left" is credit / this
 );
 CREATE TABLE pro_devices (
-  install TEXT PRIMARY KEY,                       -- the install's digest: one install belongs to one account
+  install TEXT PRIMARY KEY,                       -- the raw random install id, the same value as telemetry.install (random, no personal data): one install belongs to one account
   account TEXT NOT NULL,
   added_at TEXT NOT NULL,
   last_seen TEXT NOT NULL
