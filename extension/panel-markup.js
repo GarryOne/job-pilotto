@@ -27,7 +27,7 @@
     .head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--navy); color: #fff; }
     .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; font: 800 10px/1 system-ui; }
     .head b { font-size: 13px; }
-    .head .x { background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
+    .head .x { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
     .head .x:hover { color: #fff; background: rgba(255,255,255,.1); }
     .body { padding: 14px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
     .job-title { font-weight: 650; font-size: 14px; line-height: 1.3; }
