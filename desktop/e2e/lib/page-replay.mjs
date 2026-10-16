@@ -92,6 +92,8 @@ export async function judgeCase(item, scope) {
     valueHas: spec => page().evaluate(([css, digits]) => (document.querySelector(css)?.value || '').replace(/\D/g, '').includes(digits), spec.split('|')).catch(() => false),
     // valueIs: ["<selector>|<text>"]: the box holds exactly that (a first-name box that got the family name fails: 12 Oct 2026, labels the page tied to no box).
     valueIs: spec => page().evaluate(([css, text]) => (document.querySelector(css)?.value || '').trim() === text, spec.split('|')).catch(() => false),
+    // panelHas: ["<text>"]: the extension's panel shows a visible button with exactly that text (its own open shadow root, which a page selector cannot reach).
+    panelHas: text => page().evaluate(want => [...(document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelectorAll('button') || [])].some(button => button.textContent.trim() === want && button.getClientRects().length > 0), text).catch(() => false),
     gone: selector => page().evaluate(css => !document.querySelector(css)?.getClientRects().length, selector).catch(() => false),
     present: selector => page().evaluate(css => !!document.querySelector(css), selector).catch(() => false),
   };
