@@ -44,6 +44,7 @@ on:
       - 'extension/**'
       - 'worker/src/ai-prices.js'
       - 'worker/src/ai.js'
+      - 'worker/src/answer-examples.js'
       - 'worker/src/answer-facts.js'
       - 'worker/src/pay-convert.js'
       - 'worker/src/written-answer.js'
