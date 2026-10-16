@@ -155,7 +155,13 @@ async function roundTrip(ctx) {
 
   await page.click('[data-settings-go="advanced"]');   // the danger zone is on Advanced
   await page.click('#reset-review');
-  if (!(await page.locator('#reset-backup').isChecked())) throw new Error('a reset does not keep a backup by default');
+  if (await page.locator('#reset-confirm').isEnabled()) throw new Error('RESET can be typed before the export was made or skipped');
+  const resetExport = path.join(path.dirname(file), 'reset-export.tar.gz');
+  await ctx.app.evaluate(({dialog}, filePath) => { dialog.showSaveDialog = async () => ({canceled: false, filePath}); }, resetExport);
+  await page.click('#reset-export');
+  await page.waitForFunction(() => !document.getElementById('reset-confirm').disabled, null, {timeout: 60000})
+    .catch(async () => { throw new Error(`the export before the reset did not finish: "${await page.locator('#reset-message').textContent().catch(() => '')}"`); });
+  if (!fs.existsSync(resetExport)) throw new Error('the reset card said exported but wrote no file');
   await page.fill('#reset-confirm', 'RESET');
   await page.click('#reset-go').catch(() => {});   // the app exits under the click
   await ctx.waitForExit();   // after its work (it disconnects Gmail first), not before: relaunch() closes the app

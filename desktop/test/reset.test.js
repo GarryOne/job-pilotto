@@ -63,6 +63,9 @@ test('an export without keys keeps them on the computer that made it, and only t
   assert.deepEqual(elsewhere.unreadableSecrets(), ['NOTION_TOKEN']);
 });
 
+// A data folder moved to a "(backup …)" folder next to it, as an import (or a reset of an older version) leaves it.
+const movedToBackup = dir => fs.writeFileSync(path.join(dir, 'reset-pending.json'), JSON.stringify({backup: true}));
+
 test('an older export without keys takes them from this computer\'s backup of the same Profile, never another one\'s', () => {
   const a = profile();
   a.storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
@@ -75,7 +78,7 @@ test('an older export without keys takes them from this computer\'s backup of th
   fs.rmSync(path.join(unpacked, 'secrets.json'));
   execFileSync(tar(), ['-czf', old, '-C', unpacked, ...fs.readdirSync(unpacked)]);
   // Then a new workspace with its own key and Profile (backed up by the import, newer than the right one).
-  reset.request(a.dir);
+  movedToBackup(a.dir);
   reset.applyPending(a.dir, new Date('2026-10-06T10:00:00Z'));
   const other = createStorage(a.dir, fakeCrypto);
   other.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-2'}});
@@ -94,7 +97,7 @@ test('an older export without keys takes them from this computer\'s backup of th
 test('a backup key this computer cannot open is not adopted', () => {
   const a = profile();
   a.storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
-  reset.request(a.dir);
+  movedToBackup(a.dir);
   reset.applyPending(a.dir);
   const fresh = createStorage(a.dir, {encrypt: v => v, decrypt: () => { throw new Error('sealed elsewhere'); }});
   fresh.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
@@ -144,19 +147,20 @@ test('every file the app keeps in its data folder is exported, unless it is left
   }
 });
 
-test('a reset and then an import in the same minute both happen: each backup gets its own folder', () => {
+test('a reset and then an import in the same minute both happen', () => {
   const a = profile();
   fs.writeFileSync(path.join(a.dir, 'profile.md'), 'mine');
   const file = path.join(a.base, 'export.tar.gz');
   reset.exportTo(a.dir, file);
   const minute = new Date('2026-10-06T18:13:10Z');
-  reset.request(a.dir, {backup: true});
+  reset.request(a.dir);
   const first = reset.applyPending(a.dir, minute);
+  assert.deepEqual(first, {deleted: true});   // a reset leaves no backup folder (owner, 16 Oct 2026: export first instead)
   createStorage(a.dir, fakeCrypto).saveSettings({setupDone: false});   // the app's fresh start at the setup
   reset.stageImport(a.dir, file);
   const second = reset.applyPending(a.dir, new Date('2026-10-06T18:13:50Z'));
   assert.equal(second.imported, true);
-  assert.notEqual(second.backup, first.backup);
+  assert.ok(second.backup, 'the import still keeps what it replaces');
   assert.equal(fs.readFileSync(path.join(a.dir, 'profile.md'), 'utf8'), 'mine');
 });
 
@@ -170,17 +174,28 @@ test('a file that is not a Job Pilotto export is refused and nothing changes', a
   assert.equal(reset.applyPending(a.dir), null);
 });
 
-test('reset: the data folder is moved to a backup (default) or deleted at the next start', () => {
+test('reset: the data folder is deleted at the next start, and no backup folder is made', () => {
   const a = profile();
-  reset.request(a.dir, {backup: true});
-  const done = reset.applyPending(a.dir, new Date('2026-09-28T12:05:00Z'));
-  assert.equal(done.backup, `${a.dir} (backup 2026-09-28 12.05)`);
-  assert.ok(!fs.existsSync(a.dir) && fs.existsSync(path.join(done.backup, 'cv.pdf')));
-  const b = profile();
-  reset.request(b.dir, {backup: false});
-  assert.deepEqual(reset.applyPending(b.dir), {deleted: true});
-  assert.ok(!fs.existsSync(b.dir));
-  assert.equal(reset.applyPending(b.dir), null);  // nothing pending: nothing happens
+  reset.request(a.dir, new Date('2026-09-28T12:05:00Z'));
+  assert.deepEqual(reset.applyPending(a.dir, new Date('2026-09-28T12:05:00Z')), {deleted: true});
+  assert.ok(!fs.existsSync(a.dir));
+  assert.deepEqual(fs.readdirSync(a.base).filter(name => /backup/.test(name)), [], 'nothing "(backup …)" next to it');
+  assert.equal(reset.applyPending(a.dir), null);  // nothing pending: nothing happens
+});
+
+test('export first, reset, then import that file: the profile and the job-site accounts come back', () => {
+  const a = profile();
+  fs.writeFileSync(path.join(a.dir, 'profile.md'), 'my profile');
+  const file = path.join(a.base, 'before-reset.tar.gz');
+  reset.exportTo(a.dir, file, {accounts: {'jobs.example.com': {email: 'me@x.test', password: 'pw'}}});
+  reset.request(a.dir);
+  assert.deepEqual(reset.applyPending(a.dir), {deleted: true});
+  createStorage(a.dir, fakeCrypto).saveSettings({setupDone: false});   // the app's fresh start at the setup
+  assert.ok(!fs.existsSync(path.join(a.dir, 'profile.md')));
+  reset.stageImport(a.dir, file);
+  assert.equal(reset.applyPending(a.dir).imported, true);
+  assert.equal(fs.readFileSync(path.join(a.dir, 'profile.md'), 'utf8'), 'my profile');
+  assert.ok(fs.existsSync(path.join(a.dir, 'accounts.json')), 'the accounts file is there for the app to put back in the Keychain at start');
 });
 
 test('Windows runs its own tar by full path, never a Git for Windows GNU tar from PATH', () => {

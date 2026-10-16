@@ -77,9 +77,9 @@ export function adopt(dir, id, opts = {}) {
   return adopted;
 }
 
-// Reset: with a backup kept, the accounts stay (the backup folder keeps its profile id, so restoring it finds them again); without one they go.
+// Reset: this profile's accounts always go (16 Oct 2026; an export made with accounts ticked brings them back at its import).
 // Only this profile's, never other profiles' or the test accounts. -> how many were removed.
-export function onReset(id, {backup = true} = {}, opts = {}) { return backup ? 0 : removeAll(id, opts); }
+export function onReset(id, opts = {}) { return removeAll(id, opts); }
 
 // Removes this profile's accounts only; other profiles' and the test accounts stay. -> how many were removed.
 export function removeAll(id = credentials.currentProfile(), opts = {}) {
