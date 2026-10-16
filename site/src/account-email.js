@@ -2,12 +2,12 @@
 // (x-api-key: JPF1.<install>.<token>). PUT/GET /api/account/email makes or reads the trial account; POST /api/notify/email mails a Telegram-style message to it;
 // /confirm confirms the address. An address another account already holds is refused here (joining it takes a code sent to that address, the device sign-in). Guard: test/account-email.test.js.
 import {authorize, digestOf, equal, tokenFor} from './guard.js';
-import {confirmLink, addrOf, send, validAddress, clean} from './mail.js';
+import {confirmLink, validAddress, clean} from './mail.js';
 import {fromTelegram} from './mail-html.js';
+import {CADENCES, deliver, hold} from './mail-held.js';
 import {page} from './mail-unsub.js';
 import {accountOf, createAccount, link} from './pro.js';
 
-const UNCONFIRMED_MAILS = 2;   // an address nobody confirmed gets two mails ever (the first carries the confirm link): a typed-in stranger's address cannot be spammed
 const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
 const json = (status, body) => Response.json(body, {status});
 
@@ -26,7 +26,7 @@ export async function address(request, env, now = new Date()) {
   if (!install || !env.STATS) return json(401, {ok: false, error: 'unauthorized'});
   let account = await accountOf(env, install);
   if (request.method === 'GET') {
-    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, plan: account?.plan || null});
+    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null});
   }
   if (request.method !== 'PUT') return json(405, {ok: false});
   const body = await request.json().catch(() => ({})), email = clean(body.email);
@@ -48,10 +48,11 @@ export async function address(request, env, now = new Date()) {
     account = {id};
   }
   if (typeof body.marketing === 'boolean') await setMarketing(env, account.id, body.marketing, now);
+  if (CADENCES.includes(body.cadence)) await env.STATS.prepare('UPDATE pro_accounts SET digest_cadence = ? WHERE id = ?').bind(body.cadence, account.id).run();   // how often the digest comes: daily or weekly
   return json(200, {ok: true});
 }
 
-// POST /api/notify/email {subject, html, buttons?: [{text, url}]}: `html` is the Telegram HTML the engine built (tgcard.py); only a safe subset reaches the mail (mail-html.js).
+// POST /api/notify/email {subject, html, buttons?: [{text, url}], kind?: 'activity'}: 'activity' is held for the digest, anything else goes at once; `html` is the Telegram HTML the engine built (tgcard.py); only a safe subset reaches the mail (mail-html.js).
 export async function notify(request, env, now = new Date()) {
   const install = await who(request, env);
   if (!install || !env.STATS) return json(401, {ok: false, error: 'unauthorized'});
@@ -62,14 +63,9 @@ export async function notify(request, env, now = new Date()) {
   const {html, text} = fromTelegram(body.html);
   if (!text) return json(400, {ok: false, reason: 'empty'});
   const buttons = (Array.isArray(body.buttons) ? body.buttons : []).slice(0, 6).filter(b => b && /^https:\/\//.test(b.url) && b.text).map(b => ({text: String(b.text).slice(0, 80), url: String(b.url).slice(0, 500)}));
-  let confirmUrl = null;
-  if (!account.email_confirmed_at) {
-    const addr = await addrOf(account.email);
-    const {n} = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE addr = ? AND template = 'message' AND status = 'sent'").bind(addr).first();
-    if (n >= UNCONFIRMED_MAILS) return json(200, {ok: false, reason: 'unconfirmed'});
-    confirmUrl = await confirmLink(env, account.email);
-  }
-  const result = await send(env, 'message', account.email, {subject: String(body.subject || '').slice(0, 150), html, text, buttons, confirmUrl}, {now});
+  const item = {subject: String(body.subject || '').slice(0, 150), html, text, buttons};
+  if (body.kind === 'activity') return json(200, await hold(env, account, item, now));   // not new matches, not urgent: waits for the daily or weekly digest (src/mail-held.js)
+  const result = await deliver(env, account, item, now);
   return json(200, result.ok ? {ok: true} : {ok: false, reason: result.reason});
 }
 
