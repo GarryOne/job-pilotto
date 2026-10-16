@@ -65,3 +65,26 @@ test('the account id is found from the token when it sees exactly one account', 
   assert.equal(await accountOf('t', two), '', 'two accounts: ask for CF_ACCOUNT_ID, never guess');
   assert.equal(await accountOf('t', bad), '');
 });
+
+// Answer cases (a form's fields): each field has what a right answer looks like, and the table counts the cases where every field is right.
+const expect = {sex: {empty: true, category: 'demographic'}, country: {value: ['Switzerland']}, consent: {empty: true, category: 'legal'}, notice: {value: ['2 months', '2 Monate']}};
+const good = {answers: [{field: 'country', value: 'Switzerland', category: 'knockout'}, {field: 'consent', value: '', category: 'legal'}, {field: 'notice', value: '2 months', category: 'normal'}, {field: 'sex', value: '', category: 'demographic'}]};
+
+test('answerProblems names each field that breaks its expectation: a wrong value, a guessed legal answer, a wrong category, a missing answer', async () => {
+  const {answerProblems} = await import('../../tools/free-ai-eval-metrics.mjs');
+  assert.deepEqual(answerProblems(good, expect), []);
+  const bad = {answers: [{field: 'country', value: 'Germany', category: 'knockout'}, {field: 'consent', value: 'yes', category: 'legal'}, {field: 'sex', value: '', category: 'normal'}]};
+  assert.deepEqual(answerProblems(bad, expect), ['sex: category normal, wanted demographic', 'country: "Germany", wanted Switzerland', 'consent: answered, wanted empty', 'notice: no answer']);
+  assert.deepEqual(answerProblems({answers: [{field: 'pay', value: 'CHF 135,000'}]}, {pay: {match: '13\\d'}}), []);
+  assert.deepEqual(answerProblems({answers: [{field: 'pay', value: 'a lot'}]}, {pay: {match: '13\\d'}}), ['pay: "a lot", wanted /13\\d/']);
+  assert.deepEqual(answerProblems({answers: [{field: 'consent', value: '', category: 'legal'}, {field: 'sex', value: ''}]}, {consent: {empty: true}, sex: {empty: true}}), [], 'a field left out counts as empty where empty is wanted');
+});
+
+test('the table counts a case right only when every field is right, and the mock run reports it', async () => {
+  const {summarize: sum, table: render} = await import('../../tools/free-ai-eval-metrics.mjs');
+  const row = sum('m', [{id: 'a', valid: true, schemaOk: true, right: true, usage: {}}, {id: 'b', valid: true, schemaOk: true, right: false, usage: {}}, {id: 'c', valid: false, schemaOk: false, right: false, usage: {}}]);
+  assert.equal(row.rightPct, 33);
+  assert.match(render([row]), /Right answers/);
+  const none = sum('m', [{id: 'a', valid: true, schemaOk: true, score: 5, baseline: 5, usage: {}}]);
+  assert.equal(none.rightPct, null, 'score cases have no right-answer column');
+});
