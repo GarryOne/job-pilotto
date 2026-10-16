@@ -48,6 +48,7 @@ on:
       - 'desktop/e2e/lib/offline-site-password.mjs'
       - 'desktop/e2e/lib/own-asks.mjs'
       - 'desktop/e2e/lib/owner-guard-env.mjs'
+      - 'desktop/e2e/lib/planted.mjs'
       - 'desktop/e2e/lib/pool-eligibility.mjs'
       - 'desktop/e2e/lib/privacy-tripwire.mjs'
       - 'desktop/e2e/lib/python.mjs'
