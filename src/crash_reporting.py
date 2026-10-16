@@ -8,6 +8,7 @@ import platform
 import re
 import secrets
 import sys
+import tempfile
 import time
 import traceback
 import urllib.request
@@ -100,3 +101,33 @@ def install(env=None, urlopen=urllib.request.urlopen):
         previous(exc_type, exc, tb)
     sys.excepthook = hook
     return True
+
+
+def build_warning(topic, details, env=None, now=None):
+    """A warning event for something odd that did not stop the run: `topic` is its group, `details` short text facts (names, types, never values)."""
+    env = os.environ if env is None else env
+    shown = ', '.join(f'{key}={scrub(value, 80)}' for key, value in details.items())
+    return {
+        'event_id': secrets.token_hex(16), 'timestamp': now or time.time(), 'platform': 'python', 'level': 'warning',
+        'release': f"job-pilotto@{env.get('JOB_PILOTTO_APP_VERSION', 'dev')}", 'environment': env.get('JOB_PILOTTO_ENV', 'production'),
+        'user': {'id': env.get('JOB_PILOTTO_INSTALL_ID', '')}, 'tags': {'where': 'engine', 'os': platform.system(), 'run_id': env.get('JOB_PILOTTO_RUN_ID', ''),
+                                                                         'warning': scrub(topic, 60)},
+        'fingerprint': ['engine-warning', scrub(topic, 60)], 'message': f'{scrub(topic, 60)}: {shown}'[:300],
+    }
+
+
+def warn(topic, details, env=None, urlopen=urllib.request.urlopen, marker_dir=None):
+    """Report an odd thing once a day on this machine (a marker file per topic and day), so the next event shows its source without a flood.
+    Off without a DSN, like every report; never raises. True when sent."""
+    env = os.environ if env is None else env
+    try:
+        dsn = env.get('JOB_PILOTTO_SENTRY_DSN', '').strip()
+        if not dsn or not parse_dsn(dsn):
+            return False
+        marker = os.path.join(marker_dir or tempfile.gettempdir(), f"jp-warned-{re.sub(r'[^a-z0-9]+', '-', topic.lower())}-{time.strftime('%Y%m%d')}")
+        if os.path.exists(marker):
+            return False
+        open(marker, 'w').close()
+        return send(build_warning(topic, details, env), dsn, urlopen)
+    except Exception:  # noqa: BLE001
+        return False

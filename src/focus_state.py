@@ -9,9 +9,11 @@ Guarded by tests/test_focus.py, tests/test_follow_up.py and tests/test_focus_his
 import re
 from datetime import date, datetime, timedelta, timezone
 
+from . import crash_reporting
 from .notion import funnel as funnel_steps
 from .notion import origin as origin_rule
 from .notion.ledger import OUTCOME_STAGES
+from .stores import chosen
 from .focus_items import (TZ, FOLLOW_UP_HOURS, STALE_DAYS, THEIRS, YOURS, _field, _gmail, _item, _asked_subject,
                           _role, _when, _days_ago)  # noqa: F401
 
@@ -151,7 +153,11 @@ def questions(rows, events):
         if not event.get('needs_you') or event.get('app_id'):
             continue
         link = event.get('suggested_job')
-        suggested = by_url.get(link if isinstance(link, str) else '')   # a link that is not text (Sentry APP-23: a dict) asks "which job?" instead of failing Focus
+        if link and not isinstance(link, str):  # not text (Sentry APP-23: a dict): ask "which job?" instead of failing Focus, and report its shape once a day
+            crash_reporting.warn('suggested_job is not text', {'type': type(link).__name__, 'keys': ','.join(sorted(map(str, link)))[:80] if isinstance(link, dict) else '',
+                                                               'store': chosen()})
+            link = ''
+        suggested = by_url.get(link or '')
         note, kind = event.get('note') or '', event.get('kind') or ''
         at = _when(event.get('at') or '')
         label = f"{_field(suggested, 'company') or _field(suggested, 'via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
