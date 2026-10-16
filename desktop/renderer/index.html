@@ -1444,20 +1444,32 @@
           <div class="setting danger-zone" id="setting-reset">
             <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Reset Job Pilotto on this Mac</h3></div>
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
-            <p class="small">Removes local settings and files. Your Notion workspace is not touched.</p>
+            <p class="small" data-about-notion>Start over on this Mac. Your Notion and GitHub are not touched.</p>
             <div id="reset-options" hidden>
-              <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, this profile's job-site accounts (other profiles' always stay), your CV and tailored CVs, call recordings and
-                interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
-              <p class="small muted"><b>Not changed:</b> your Notion workspace, your GitHub repo. <b>Disconnected:</b> your Gmail sign-in.
-                The Chrome extension has to be connected again.</p>
-              <p class="small"><b>This profile's job-site accounts are removed too.</b> To get everything back, export first and import that file afterwards.</p>
-              <label class="check-row"><input type="checkbox" id="reset-export-accounts"><span><span>Include this profile's job-site accounts in the export</span>
-                <span class="muted small">Holds your job-site passwords in plain text: keep the file private.</span></span></label>
-              <div class="inline"><button class="secondary" id="reset-export">Export everything first (recommended)</button>
-                <button class="link" id="reset-skip-export">Reset without an export</button></div>
-        <div class="inline"><input type="text" id="reset-confirm" placeholder='Export first, then type RESET to confirm' autocomplete="off" disabled>
-          <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
-        <p class="message" id="reset-message"></p>
+              <div class="reset-lists">
+                <div class="choice-card"><span class="file-tile"><i data-icon="trash"></i></span>
+                  <div><b>Removed from this Mac</b><ul class="small">
+                    <li>Keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</li><li>This profile's job-site accounts</li><li>CVs and tailored CVs</li>
+                    <li>Recordings and interview drafts</li><li>Job list, schedule, settings</li></ul></div></div>
+                <div class="choice-card"><span class="file-tile"><i data-icon="check"></i></span>
+                  <div><b>Kept</b><ul class="small"><li>Your Notion workspace</li><li>Your GitHub repo</li><li>Other profiles' accounts</li></ul></div></div>
+                <div class="choice-card"><span class="file-tile"><i data-icon="link"></i></span>
+                  <div><b>Reconnect after</b><ul class="small"><li>Gmail</li><li>The Chrome extension</li></ul></div></div>
+              </div>
+              <div class="reset-steps">
+                <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
+                  <div><b>1 · Save a copy (recommended)</b>
+                    <p class="muted small">Importing the saved file brings everything back.</p>
+                    <div class="inline"><button class="secondary" id="reset-export">Export everything</button>
+                      <button class="link" id="reset-skip-export">Skip</button><span class="small" id="reset-export-state"></span></div>
+                    <label class="check-row"><input type="checkbox" id="reset-export-accounts"><span><span>Include this profile's job-site accounts</span>
+                      <span class="muted small">Holds your job-site passwords in plain text: keep the file private.</span></span></label></div></div>
+                <div class="choice-card" id="reset-step-2"><span class="file-tile"><i data-icon="refresh"></i></span>
+                  <div><b>2 · Reset</b>
+                    <div class="inline"><input type="text" id="reset-confirm" placeholder="RESET" autocomplete="off" disabled>
+                      <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div></div></div>
+              </div>
+              <p class="message" id="reset-message"></p>
             </div>
           </div>
         </div>

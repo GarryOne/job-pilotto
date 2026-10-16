@@ -92,15 +92,15 @@ export async function init() {
 
   // ---------- danger zone: reset this computer's Job Pilotto data ----------
   // Reset is allowed after the export (the same one as Settings → Your data, the same save dialog) or after choosing to go without it.
-  const allowReset = () => { $('reset-confirm').disabled = false; $('reset-confirm').placeholder = 'Type RESET to confirm'; };
+  const allowReset = state => { $('reset-confirm').disabled = false; $('reset-export-state').textContent = state; $('reset-confirm').focus(); };
   $('reset-export').addEventListener('click', async () => {
     $('reset-export').disabled = true;
     const result = await window.pilot.exportProfile({keys: false, accounts: $('reset-export-accounts').checked});
     $('reset-export').disabled = false;
-    if (result?.ok) { message('reset-message', `Exported ✓ ${result.file}. Import it after the reset to get everything back.`, 'ok'); allowReset(); }
+    if (result?.ok) allowReset(`✓ Saved: ${result.file.split(/[\\/]/).pop()}`);
     else if (result?.error) message('reset-message', `Export failed: ${result.error}`, 'error');
   });
-  $('reset-skip-export').addEventListener('click', allowReset);
+  $('reset-skip-export').addEventListener('click', () => allowReset('Skipped'));
   $('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
   $('reset-go').addEventListener('click', async () => {
     if ($('reset-confirm').value.trim() !== 'RESET') return;
