@@ -24,6 +24,7 @@
   button.quiet { background: #fff; color: var(--ink); border: 1px solid var(--line); }
   button.stop { background: #b42318; }
   .stopped { color: var(--ink); font-weight: 600; }
+  main > small:empty { display: none; }   /* a progress or Stop line with nothing to say takes no room */
 </style>
 </head>
 <body>
@@ -33,14 +34,11 @@
   <button id="apply-here" hidden>Apply on this page</button>
   <small id="apply-progress"></small>
   <section class="visit" id="visit" hidden>
-    <p id="visit-text">A job list the app cannot read by itself? Read it from here: this page and its next pages, then the app filters and scores the jobs.</p>
-    <button id="visit-filter">Filter for my search, then read</button>
-    <button id="visit-read" class="quiet">Read the jobs as they are</button>
+    <p id="visit-text"></p>
     <button id="visit-allow" class="quiet" hidden>Allow on the sites the app opens</button>
-    <small id="visit-note"></small>
     <small id="visit-progress"></small>
   </section>
-  <button id="stop" class="stop" title="Stops everything Job Pilotto does, on every tab">■ Stop everything</button>
+  <button id="stop" class="stop" hidden title="Stops everything Job Pilotto does, on every tab">■ Stop everything</button>
   <small id="stop-note"></small>
   <div class="status" id="status">Checking the connection…</div>
 </main>

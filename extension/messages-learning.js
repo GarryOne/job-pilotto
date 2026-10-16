@@ -11,7 +11,6 @@ import {identityOf} from './tab-identity.js';
 import {onAccountPage} from './account.js';
 import {pageFingerprint} from './tab-pages.js';
 import {pageKey} from './tab-pages.js';
-import {readSite} from './visit.js';
 import {sessionGet} from './tab-memory.js';
 import {settings} from './flow.js';
 import {submissionOutcome} from './tab-pages.js';
@@ -20,13 +19,6 @@ import {tabArmed} from './tab-pages.js';
 export function createLearningMessages(ctx) {
   const {arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission} = ctx;
   return function messages_learning(message, sender, reply) {
-    // "Read the jobs on this page", from the popup after the person's click (visit.js): runs here so it goes on when the popup closes.
-    if (message?.type === 'visitRead') {
-      const tabId = Number(message.tabId);
-      if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
-      readSite(tabId, {filter: !!message.filter}).then(state => reply({ok: true, ...state}), error => reply({ok: false, error: error.message}));
-      return true;
-    }
     // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
     if (message?.type === 'armTab') {
       const tabId = Number(message.tabId);

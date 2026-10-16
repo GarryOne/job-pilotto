@@ -48,7 +48,6 @@ function standInApp(port) {
       }
       if (req.url === '/extension/visit-recipe' || req.url === '/extension/visit-understand') { reply({ok: true, recipe: null}); return; }
       if (req.url === '/extension/visit-filters') { reply({ok: true, steps: [], why: ''}); return; }
-      if (req.url === '/extension/visit-list') { reply({ok: true, hosts: []}); return; }
       reply({ok: true});
     });
   });

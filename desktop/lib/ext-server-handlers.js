@@ -145,14 +145,7 @@ export function registerExtServerHandlers(ctx) {
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints, {onSent: shared}));
   server.setAliasesHandler(() => aliasLibrary.forExtension(storage, {onSent: shared}));   // shared meanings + this Mac's (lib/contact-keys.js)
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
-  // Sites only you can open (lib/visits.js): the extension sends each page the person asked it to read; the hosts light its icon.
-  let visitHosts = ['linkedin.com', 'indeed.', 'glassdoor.', 'levels.fyi'];
-  const refreshVisitHosts = () => pipeline.run(storage, ['src.desktop', 'visit-list']).then(({stdout}) => {
-    const listed = JSON.parse(String(stdout).trim().split('\n').pop() || '{}').visits || [];
-    visitHosts = [...new Set([...visitHosts, ...listed.map(item => { try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return ''; } }).filter(Boolean)])];
-  }).catch(error => appLog('visit', 'visit list not read', {error: error.message}));
-  if (!DEMO) setTimeout(refreshVisitHosts, 20000);
-  server.setVisitHosts(() => visitHosts);
+  // Sites only you can open (lib/visits.js): the extension sends each page of a tab the app opened to read.
   server.setVisitFilters(page => visits.filters(storage, page));
   server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
   server.setVisitRoute('/extension/visit-unblock', page => visits.unblock(storage, page));

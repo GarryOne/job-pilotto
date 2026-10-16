@@ -52,7 +52,7 @@ export function sourcesCard(verdict, dismissedAt = '') {
 }
 
 // Sites only you can open (src/sources/visits.py): employers whose site refuses automated visitors and portals with no API. A chip opens the
-// page in your Chrome; there the extension's "Read the jobs on this page" does the reading (owner, 7 Oct 2026). Pure like the others.
+// page in your Chrome with a read mark; there the extension reads it by itself (owner, 7 Oct 2026). Pure like the others.
 export function visitCard(verdict, dismissedAt = '') {
   const list = Array.isArray(verdict?.visits) ? verdict.visits : [];
   if (!list.length || (dismissedAt && verdict.at && dismissedAt === verdict.at)) return null;

@@ -41,8 +41,6 @@ export let visitMore = {};   // '/extension/visit-understand', '/extension/visit
 export function setVisitRoute(route, fn) { visitMore[route] = fn; }
 export let visitFilters = async () => ({ok: false});   // which filters to set on a page, for this search (lib/visits.js filters)
 export function setVisitFilters(fn) { visitFilters = fn; }
-export let visitHosts = () => [];   // the sites on the visit list, for the extension's toolbar icon
-export function setVisitHosts(fn) { visitHosts = fn; }
 export let missesHandler = () => {};
 export function setMissesHandler(fn) { missesHandler = fn; }
 export let controlsHandler = () => {};

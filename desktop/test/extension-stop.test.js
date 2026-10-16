@@ -138,7 +138,7 @@ test('the class: the fill\'s entry points and the page-side gate check stopped',
 
 test('the Stop button is on every page of the extension: the toolbar popup and the application\'s own page', () => {
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-  assert.match(read('popup.html'), /id="stop"/, 'the popup has a Stop button, shown whatever the tab is');
+  assert.match(read('popup.html'), /id="stop"/, 'the popup has a Stop button, shown on every tab the app opened (popup-controls.js; none on the person\'s own tabs, owner 16 Oct 2026)');
   assert.match(read('popup.js'), /type: 'stop'/, 'the popup sends stop');
   assert.match(read('panel-stop.js'), /type: 'stop'/, 'the page\'s Stop button sends stop');
   assert.match(read('background.js'), /'panel-stop\.js'/, 'it is injected with the panel on every armed tab');

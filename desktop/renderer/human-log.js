@@ -50,7 +50,7 @@ const RULES = [
   [/^⏱ Time is up for this refresh: (\d+) (.+?) left/, m => `⏱ Time is up: ${m[1]} ${m[2]} wait for the next refresh`],
   [/^Digest ready: (\d+) jobs?, (\d+) new/, m => `📨 Digest ready: ${plural(m[1], 'job')}, ${m[2]} new`],
   [/^Warning: (.+)$/, m => `⚠️ ${m[1]}`],
-  // Reading job sites you opened (the extension's "Read the jobs on this page", the Read sites task)
+  // Reading job sites in your Chrome (the Read sites task: tabs the app opened to read)
   [/^Visit: read (\d+) jobs on (.+?) \((.+?)\) from a page you opened; (\d+) new in this visit, \d+ in all, (\d+) matching/, m =>
     `🌐 Read ${plural(m[1], 'job')} on ${m[2]}: ${m[4]} new, ${m[5]} match your search`],
   [/^Visit: the job list of (\S+) is /, m => `🌐 Found the job list of ${m[1]}`],

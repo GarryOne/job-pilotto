@@ -17,7 +17,7 @@ import {createStopMessages} from './stop-messages.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {closePopupOrLayer} from './consent.js';
 import {closeFillDialogs, holdFill, layerOnTop} from './dialog-after-fill.js';
-import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
+import {autoRead, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, withMark, stripMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
@@ -125,8 +125,7 @@ if (chrome.webNavigation) {
     const key = `readmark:${details.tabId}`;
     sessionGet(key).then(kept => {
       if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
-      else if (details.complete) markListed(details.tabId, details.url);
-    }).catch(() => { if (details.complete) markListed(details.tabId, details.url); });
+    }).catch(() => {});
   };
   chrome.webNavigation.onDOMContentLoaded.addListener(readWhenLoaded);
   chrome.webNavigation.onCompleted.addListener(details => readWhenLoaded({...details, complete: true}));
