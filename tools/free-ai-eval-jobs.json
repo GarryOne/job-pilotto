@@ -1,0 +1,272 @@
+[
+ {
+  "id": "fx-01",
+  "title": "Senior Site Reliability Engineer",
+  "company": "Northwind Labs",
+  "location": "Zurich",
+  "description": "Hybrid, 2 days in Zurich. English-speaking team. Run Kubernetes on AWS (EKS), Terraform, Argo CD. Own SLOs, Prometheus/Grafana, on-call rotation. CHF 150-175k.",
+  "tier": "strong",
+  "claudeScore": 92
+ },
+ {
+  "id": "fx-02",
+  "title": "Platform Engineer (Senior)",
+  "company": "Helvetia Cloudworks",
+  "location": "Zurich",
+  "description": "Build the internal platform on Kubernetes and Terraform for 40 product teams. OpenTelemetry observability. Hybrid, English working language. CHF 140-165k.",
+  "tier": "strong",
+  "claudeScore": 90
+ },
+ {
+  "id": "fx-03",
+  "title": "Staff SRE",
+  "company": "Alpine Payments",
+  "location": "Zug",
+  "description": "Lead reliability for payment services: incident response, postmortems, capacity. Kubernetes, AWS, Prometheus. English. Hybrid Zug/Zurich. CHF 160-185k.",
+  "tier": "strong",
+  "claudeScore": 89
+ },
+ {
+  "id": "fx-04",
+  "title": "Senior DevOps Engineer",
+  "company": "Matterhorn Data",
+  "location": "Basel",
+  "description": "CI/CD with Argo CD and Terraform, EKS clusters, monitoring migration. English OK, German a plus. Hybrid. CHF 135-155k.",
+  "tier": "strong",
+  "claudeScore": 87
+ },
+ {
+  "id": "fx-05",
+  "title": "Senior SRE, Remote Europe",
+  "company": "Lakeside Systems",
+  "location": "Remote (EU)",
+  "description": "Fully remote within Europe. Kubernetes, observability with OpenTelemetry, on-call leadership. English only. EUR 110-130k.",
+  "tier": "strong",
+  "claudeScore": 86
+ },
+ {
+  "id": "fx-06",
+  "title": "Principal Platform Engineer",
+  "company": "Rhein Robotics",
+  "location": "Zurich",
+  "description": "Technical lead for the developer platform: Kubernetes, Terraform, golden paths. Hybrid, English. CHF 170-190k.",
+  "tier": "strong",
+  "claudeScore": 84
+ },
+ {
+  "id": "fx-07",
+  "title": "Senior Reliability Engineer",
+  "company": "Jura Streaming",
+  "location": "Geneva",
+  "description": "Keep our streaming stack reliable: Kubernetes on AWS, Prometheus, Grafana, alert-noise reduction. English-speaking, hybrid. CHF 140-160k.",
+  "tier": "strong",
+  "claudeScore": 83
+ },
+ {
+  "id": "fx-08",
+  "title": "Senior Infrastructure Engineer",
+  "company": "Aare Analytics",
+  "location": "Bern",
+  "description": "AWS, Terraform, Kubernetes; on-call; blameless culture. Hybrid, English team, relocation not needed. CHF 135-150k.",
+  "tier": "strong",
+  "claudeScore": 81
+ },
+ {
+  "id": "fx-09",
+  "title": "Lead SRE",
+  "company": "Gotthard Mobility",
+  "location": "Lucerne",
+  "description": "Lead a team of 4 SREs: SLOs, incident management, OpenTelemetry. Hybrid in Lucerne, English. CHF 155-175k.",
+  "tier": "strong",
+  "claudeScore": 80
+ },
+ {
+  "id": "fx-10",
+  "title": "Senior Cloud Reliability Engineer",
+  "company": "Sihl Software",
+  "location": "Zurich",
+  "description": "Own uptime for a SaaS platform on EKS. Terraform, Argo CD, Prometheus. English. Hybrid. CHF 145-165k.",
+  "tier": "strong",
+  "claudeScore": 78
+ },
+ {
+  "id": "fx-11",
+  "title": "DevOps Engineer (mid-level)",
+  "company": "Limmat Apps",
+  "location": "Zurich",
+  "description": "2-4 years experience. Kubernetes basics, Terraform, GitLab CI. Hybrid. English. CHF 105-120k.",
+  "tier": "medium",
+  "claudeScore": 65
+ },
+ {
+  "id": "fx-12",
+  "title": "Senior Site Reliability Engineer",
+  "company": "Berlin Bytes",
+  "location": "Berlin",
+  "description": "Senior SRE on Kubernetes and AWS. Mostly on-site in Berlin (4 days). English. EUR 95-115k.",
+  "tier": "medium",
+  "claudeScore": 62
+ },
+ {
+  "id": "fx-13",
+  "title": "Senior SRE",
+  "company": "Seine Systems",
+  "location": "Remote (EU)",
+  "description": "Fully remote, but fluent French required for customer calls. Kubernetes, Prometheus. EUR 100-120k.",
+  "tier": "medium",
+  "claudeScore": 58
+ },
+ {
+  "id": "fx-14",
+  "title": "Platform Engineer",
+  "company": "Tiber Tech",
+  "location": "Milan",
+  "description": "Platform team, Kubernetes. Hybrid in Milan, 3 days on site. Italian or English. EUR 80-95k.",
+  "tier": "medium",
+  "claudeScore": 55
+ },
+ {
+  "id": "fx-15",
+  "title": "Senior Backend Engineer (Go)",
+  "company": "Rhone Retail",
+  "location": "Zurich",
+  "description": "Go microservices, some Kubernetes exposure, no on-call. Hybrid. English. CHF 140-160k.",
+  "tier": "medium",
+  "claudeScore": 52
+ },
+ {
+  "id": "fx-16",
+  "title": "Senior Security Engineer (Cloud)",
+  "company": "Zermatt Secure",
+  "location": "Zurich",
+  "description": "Cloud security on AWS: IAM, guardrails, Terraform. Some Kubernetes. English. CHF 140-160k.",
+  "tier": "medium",
+  "claudeScore": 48
+ },
+ {
+  "id": "fx-17",
+  "title": "Data Platform Engineer",
+  "company": "Valais Data",
+  "location": "Sion",
+  "description": "Spark and Airflow platform; Kubernetes a plus. Hybrid, German B2 required. CHF 125-140k.",
+  "tier": "medium",
+  "claudeScore": 45
+ },
+ {
+  "id": "fx-18",
+  "title": "Senior Release Engineer",
+  "company": "Emmental Embedded",
+  "location": "Winterthur",
+  "description": "Release pipelines for embedded firmware, some Docker. On-site 4 days. English. CHF 120-135k.",
+  "tier": "medium",
+  "claudeScore": 42
+ },
+ {
+  "id": "fx-19",
+  "title": "SRE (Junior)",
+  "company": "Tessin Tools",
+  "location": "Lugano",
+  "description": "Entry-level SRE, 0-2 years, learn Kubernetes on the job. Hybrid. Italian required. CHF 85-95k.",
+  "tier": "medium",
+  "claudeScore": 38
+ },
+ {
+  "id": "fx-20",
+  "title": "Senior Systems Administrator",
+  "company": "Toggenburg Telecom",
+  "location": "St. Gallen",
+  "description": "Linux and VMware administration, some Ansible. German fluent required. On-site. CHF 110-125k.",
+  "tier": "medium",
+  "claudeScore": 35
+ },
+ {
+  "id": "fx-21",
+  "title": "Pastry Chef",
+  "company": "Café Rigi",
+  "location": "Lucerne",
+  "description": "Prepare pastries and desserts for our bakery. Early shifts, on-site. German required.",
+  "tier": "poor",
+  "claudeScore": 12
+ },
+ {
+  "id": "fx-22",
+  "title": "Registered Nurse",
+  "company": "Kantonsspital Example",
+  "location": "Aarau",
+  "description": "Ward nurse, shifts, patient care. Swiss nursing diploma and fluent German required.",
+  "tier": "poor",
+  "claudeScore": 11
+ },
+ {
+  "id": "fx-23",
+  "title": "Truck Driver (CE licence)",
+  "company": "Furka Logistics",
+  "location": "Chur",
+  "description": "Regional deliveries, category CE licence, early starts. German required.",
+  "tier": "poor",
+  "claudeScore": 9
+ },
+ {
+  "id": "fx-24",
+  "title": "Kindergarten Teacher",
+  "company": "Primarschule Example",
+  "location": "Thun",
+  "description": "Teach a class of 20 children. Swiss teaching diploma, German required.",
+  "tier": "poor",
+  "claudeScore": 8
+ },
+ {
+  "id": "fx-25",
+  "title": "Retail Sales Assistant",
+  "company": "Bahnhof Boutique",
+  "location": "Zurich",
+  "description": "Customer service in a fashion store, weekends, German and English.",
+  "tier": "poor",
+  "claudeScore": 7
+ },
+ {
+  "id": "fx-26",
+  "title": "Hotel Receptionist",
+  "company": "Hotel Edelweiss",
+  "location": "Davos",
+  "description": "Front desk, night shifts, German and English, on-site.",
+  "tier": "poor",
+  "claudeScore": 5
+ },
+ {
+  "id": "fx-27",
+  "title": "Civil Engineer (Bridges)",
+  "company": "Brücken AG",
+  "location": "Bern",
+  "description": "Design and inspect bridges. Civil engineering degree, German fluent, on-site.",
+  "tier": "poor",
+  "claudeScore": 4
+ },
+ {
+  "id": "fx-28",
+  "title": "Marketing Intern",
+  "company": "Brandhaus",
+  "location": "Zurich",
+  "description": "3-month internship, social media content. Student status required.",
+  "tier": "poor",
+  "claudeScore": 3
+ },
+ {
+  "id": "fx-29",
+  "title": "Electrician",
+  "company": "Strom AG",
+  "location": "Olten",
+  "description": "Install and maintain electrical systems. Apprenticeship certificate, German.",
+  "tier": "poor",
+  "claudeScore": 1
+ },
+ {
+  "id": "fx-30",
+  "title": "Barista",
+  "company": "Bean There",
+  "location": "Basel",
+  "description": "Make coffee, serve customers, part-time, on-site, German.",
+  "tier": "poor",
+  "claudeScore": 0
+ }
+]

@@ -3,7 +3,7 @@
 // translation (site/src/free-ai-translate.js) on Workers AI models and prints a markdown table: valid JSON, schema, rank against Claude's scores, cost.
 //   node tools/free-ai-eval.mjs --cases <cases.json> [--models small,strong] [--backend rest|mock] [--out table.md]
 // Cases (made by tools/free-ai-cases.py, fictional data only): [{id, action, params: <Anthropic request>, baseline?: <Claude's score>}].
-// rest: needs CF_ACCOUNT_ID + CF_API_TOKEN, or the Keychain items job-pilotto.cloudflare.account_id / job-pilotto.cloudflare.workers_ai_token. A few hundred calls cost cents.
+// rest: needs a token with Account > Workers AI > Read + Edit: CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token; the account id is CF_ACCOUNT_ID, the Keychain item job-pilotto.cloudflare.account_id, or the token's only account. A few hundred calls cost cents.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
@@ -20,6 +20,12 @@ export const rest = ({account, token, fetcher = fetch}) => async (model, input) 
   if (!response.ok) throw new Error(`Workers AI ${response.status}: ${(await response.text()).slice(0, 200)}`);
   return response.json();
 };
+
+// The token's own account (one account per token here), when no account id is given.
+export async function accountOf(token, fetcher = fetch) {
+  const body = await (await fetcher('https://api.cloudflare.com/client/v4/accounts', {headers: {authorization: `Bearer ${token}`}})).json().catch(() => ({}));
+  return body.result?.length === 1 ? body.result[0].id : '';
+}
 
 // Runs every case on one model. `run(model, input)` is the backend. Never throws on one bad answer: it is a row that failed.
 export async function evaluate(cases, model, run, now = () => Date.now()) {
@@ -57,7 +63,8 @@ async function main(argv) {
   let run;
   if ((option('backend') || 'rest') === 'mock') run = mock(cases);
   else {
-    const account = process.env.CF_ACCOUNT_ID || keychain('job-pilotto.cloudflare.account_id'), token = process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token');
+    const token = process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token');
+    const account = process.env.CF_ACCOUNT_ID || keychain('job-pilotto.cloudflare.account_id') || (token ? await accountOf(token) : '');
     if (!account || !token) throw new Error('No Workers AI credential: set CF_ACCOUNT_ID and CF_API_TOKEN, or the Keychain items job-pilotto.cloudflare.account_id and job-pilotto.cloudflare.workers_ai_token (or --backend mock).');
     run = rest({account, token});
   }
