@@ -30,10 +30,12 @@ function kitCases() {
   return Object.keys(traps).map(id => ({feature: 'letter', id, trap: traps[id], params: all.find(item => item.id === id).params}));
 }
 
-const writing = JSON.parse(execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(here, 'free-ai-writing-prompts.py')], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}));
+let dumped;   // the app's own prose prompts, dumped by Python on first use (not at import)
+const prompts = () => (dumped ||= JSON.parse(execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(here, 'free-ai-writing-prompts.py')], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})));
 
 // Prep: the interview kit.
 function prepCases() {
+  const writing = prompts();
   const facts = (j, stage, extra = '') => `Role: ${j.title}\nEmployer: ${j.company}\nVia: — (contact: —)\nStage: ${stage}\nSalary: unknown\nInterview: Tue 20 Oct 10:00 (48 h from now)${extra}`;
   const text = (j, stage, extra) => `${facts(j, stage, extra)}\n\n# The job\n${j.title} at ${j.company}, ${j.location}. ${j.description}\n\n# Owner's Profile\n${PROFILE}\n\n${ANSWERS}`;
   const system = writing.prep.system;
@@ -49,6 +51,7 @@ function prepCases() {
 
 // Weekly insight: the analysis of the search.
 function weeklyCases() {
+  const writing = prompts();
   const stats = (market, applications, interviews, learning = []) => 'Statistics as of today (JSON):\n' + JSON.stringify({market, applications, interviews, recent_insights: [], learning}, null, 0);
   const system = `${writing.weekly.system}${PROFILE}`;
   const make = (id, user, trap) => ask('weekly', `weekly-${id}`, system, user, writing.weekly.schema, trap, 4000);
@@ -63,6 +66,7 @@ function weeklyCases() {
 
 // Rejection review: why an application ended.
 function rejectionCases() {
+  const writing = prompts();
   const system = `${writing.rejection.system}${PROFILE}`;
   const app = (j, lines, extra = '') => `## Application\nJob: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}\nStage: Rejected\n${lines}\n\n${extra}## Job posting\n${j.description}`;
   const make = (id, user, trap) => ask('rejection', `rejection-${id}`, system, user, writing.rejection.schema, trap, 3000);
