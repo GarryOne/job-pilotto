@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-description-${{ github.event.pull_request.number }}
+  # an edit and a push are kept apart (an opened + edited pair arriving together cancelled one and showed red, #1050, 16 Oct)
+  group: pr-description-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && 'edit' || 'push' }}
   cancel-in-progress: true
 
 jobs:
