@@ -3,7 +3,7 @@
 const freeOn = settings => !!(settings?.aiFree || settings?.aiTrial);
 export const usingFree = settings => freeOn(settings) && (!settings.aiEngine || settings.aiEngine === 'api');   // Free is the engine in charge (a later pick of another engine wins)
 // The one-time hint after AI-written text on Free AI (renderer/own-key-hint.js): its words, and when it is wanted (Free, not shown yet).
-export const HINT = {text: 'Want stronger letters? Connect your Claude or ChatGPT.', link: 'Open AI engine settings', dismiss: 'Dismiss'};
+export const HINT = {text: 'Want stronger letters? Connect your Claude account or ChatGPT.', link: 'Open AI engine settings', dismiss: 'Dismiss'};
 export const hintWanted = settings => usingFree(settings) && !settings?.ownKeyHintSeen;   // = lib/ai-free.js isOn (the renderer cannot import lib/)
 
 export const TEXT = {
