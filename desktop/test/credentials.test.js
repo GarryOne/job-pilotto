@@ -68,3 +68,20 @@ test('a test account is listed as one (test: true, its key), never as a real sit
   assert.equal(reveal('test-account.richemont.wd3.myworkdayjobs.com', 'darwin', () => 'pw'), 'pw');   // Show / Copy name the key
   assert.deepEqual(forExtension('test-account.richemont.wd3.myworkdayjobs.com', {applying: true, read: () => 'pw'}), {ok: false});
 });
+
+test('a test account row shows the address kept in its sibling email item; a real row never borrows one', () => {
+  const dump = [item('job-pilotto.test-account.a.example.password'), item('job-pilotto.test-account.a.example.email'), item('job-pilotto.b.example.password'),
+    item('job-pilotto.test-account.c.example.password')].join('');
+  const asked = [];
+  const exec = (cmd, args) => {
+    if (args.includes('dump-keychain')) return dump;
+    const service = args[args.indexOf('-s') + 1];
+    asked.push(service);
+    if (service === 'job-pilotto.test-account.a.example.email') return 'owner+jp@example.com\n';
+    throw new Error('no item');
+  };
+  const {rows} = list('darwin', exec);
+  const byHost = Object.fromEntries(rows.map(row => [row.host, row.email]));
+  assert.deepEqual(byHost, {'a.example': 'owner+jp@example.com', 'b.example': '', 'c.example': ''});   // c: a test account with no email item says so; b: a real account, no address of its own
+  assert.deepEqual(asked.sort(), ['job-pilotto.test-account.a.example.email', 'job-pilotto.test-account.c.example.email']);   // only test rows ask, only for their own .email item, never a password
+});

@@ -28,7 +28,16 @@ export function parseDump(text) {
 export function list(platform = process.platform, exec = execFileSync) {
   if (platform !== 'darwin' && !keychain.isolated()) return {ok: false, rows: [], error: 'Credentials are listed on a Mac only for now.'};
   const text = keychain.dump({exec, platform});
-  return text === null ? {ok: false, rows: [], error: 'The Keychain could not be read.'} : {ok: true, rows: parseDump(text)};
+  return text === null ? {ok: false, rows: [], error: 'The Keychain could not be read.'} : {ok: true, rows: parseDump(text).map(row => withTestEmail(row, platform, exec))};
+}
+
+// A test account keeps its email in a sibling item (job-pilotto.test-account.<host>.email, the address as its value, no comment on the password item): shown on its row so a
+// test account never reads "email not recorded" (owner, 16 Oct 2026). Test rows only; a real account's row is never given an address from anywhere but its own comment.
+function withTestEmail(row, platform, exec) {
+  if (!row.test || row.email) return row;
+  let email = '';
+  try { email = keychain.read(`job-pilotto.${row.key}.email`, {account: 'job-pilotto', exec, platform}) || ''; } catch { /* no email item: the row says so */ }
+  return {...row, email};
 }
 
 // One site's password, when you ask for it. host comes from the list: only a plain host name is read.
