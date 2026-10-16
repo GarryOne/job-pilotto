@@ -216,6 +216,13 @@ const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; dec
 // What the picture's look said about a blind page (the digest: the way on is not in its list): confirmed when the control it named led to a form, which the list lacked (the CI pool's daily rate:
 // e2e/lib/picture-asks.mjs). Kept out of consider(): a verdict is a log line, not a decision (tools/decision-branches.mjs).
 const blindVerdict = (blindLook, look, led) => { if (blindLook) decide('fill', led ? "blind spot confirmed: the picture's control led to a form" : 'blind spot not confirmed: the picture found no way on', {look}); };
+// The page moved on IN PLACE after a press of ours that was not a fill (an accepted sign-in: the next step keeps the address, so its read key is the one already read): the key is
+// forgotten and the page is read once more, as after the closer look's press below (Richemont Workday, 16 Oct 2026: signed in, then "Logging in…" for good, My Information never read).
+export async function readAgain(tab, jobUrl) {
+  started.delete(fillKey(tab.id, tab.url));
+  await pageStill(tab.id, {maxMs: 1500});
+  return consider(tab, jobUrl);
+}
 export async function consider(tab, jobUrl) {
   if (isStopped()) return;   // stopped by the person: nothing is read, pressed or filled until they press Apply again (stop.js)
   const key = fillKey(tab.id, tab.url);

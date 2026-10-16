@@ -126,3 +126,24 @@ test('a press the floor refuses hands the page to the person; only a press alrea
   const step = fs.readFileSync(new URL('../../extension/account-step.js', import.meta.url), 'utf8');
   assert.match(step, /else if \(pressMove\(result\) === 'person'\) \{ await flag\(tab, frameId, [^;]+\); await giveUp\(tab, host, PRESS_REASONS\[result\]/);
 });
+
+import {readsAgain} from '../../extension/account-step.js';
+import fs from 'node:fs';
+
+test('a page at the same address is read again when the account is usable, or when the AI had no word but the form that was pressed is gone; a page at a new address is left to its own navigation', () => {
+  const words = ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure', undefined, ''];
+  for (const word of words) for (const samePath of [true, false]) for (const moved of [true, false]) {
+    const action = resultAction(word);
+    assert.equal(readsAgain(action, samePath, moved), samePath && (action === 'confirmed' || (action === 'none' && moved)), `${word} samePath=${samePath} moved=${moved}`);
+  }
+  assert.deepEqual(['created', 'unsure'].map(word => readsAgain(resultAction(word), true, true)), [true, true]);   // Richemont 16 Oct 2026: the judge said "created" once and "unsure" once for the same accepted sign-in
+  assert.equal(readsAgain(resultAction('refused'), true, true), false);   // a refusal keeps the form: nothing to read again
+});
+
+test('the account outcome reads the page again through fill-flow\'s one readAgain, which forgets the page\'s read key first (Richemont Workday, 16 Oct 2026: signed in, then "Logging in…" for good)', () => {
+  const step = fs.readFileSync(new URL('../../extension/account-step.js', import.meta.url), 'utf8'), flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+  assert.match(step, /if \(readsAgain\(action, inPlace\)\) readAgain\(tab, id\.job\)/);
+  assert.match(step, /readsAgain\(action, inPlace, !!memo\.form && lastOutline\.get\(tab\.id\) !== memo\.form\)/);
+  const body = flow.slice(flow.indexOf('export async function readAgain'), flow.indexOf('export async function consider'));
+  assert.ok(body.indexOf('started.delete(fillKey(tab.id, tab.url))') > 0 && body.indexOf('started.delete') < body.indexOf('consider(tab, jobUrl)'), 'the key is forgotten before the page is considered');
+});

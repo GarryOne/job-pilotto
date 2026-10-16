@@ -6,7 +6,7 @@
 // Scenarios owned: "Sign-up page before the form", "Sign-in page where we have no account". Guards: worker/test/account-step.test.js, account-fill.test.js, npm run live.
 import {apiFor, settings} from './flow.js';
 import {decide} from './log.js';
-import {askKind, sayStep} from './fill-flow.js';
+import {askKind, readAgain, sayStep} from './fill-flow.js';
 import {deadEnd} from './ladder/dead-end.js';
 import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
@@ -49,6 +49,10 @@ export function consentMove({automation, needsKind, needs, presses = 0, consentR
 // What the account AI's answer after the press means for us: 'confirmed' (the account exists and is usable: signed in, or the site moved on), 'pending' (it exists but
 // awaits a confirmation mail, or a code the person types), 'exists' (it was there already: the sign-in is tried once), 'flag' (the person must do something: said on the
 // page), 'none' (unsure or no AI: nothing is claimed).
+// A page that is still at the same address (an in-place step change gives no new address to read it by) is read again when the account is usable (signed in, or the site moved on) OR when the
+// AI had no word but the controls on the page are no longer the form that was pressed (structure only: the AI's judgment of what the new page is comes from that read). A page at a new
+// address is read by its own navigation (never twice).
+export const readsAgain = (action, samePath, formMoved = false) => !!samePath && (action === 'confirmed' || (action === 'none' && !!formMoved));
 export function resultAction(answer) {
   if (answer === 'created') return 'confirmed';
   if (answer === 'created_confirm' || answer === 'needs_code') return 'pending';
@@ -154,10 +158,16 @@ async function outcomeOnce(tab, frameId, memo) {
     return;
   }
   if (action === 'flag') { await flag(tab, frameId, result.needs || ''); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
-  if (action === 'none') return;
+  let here = ''; try { here = new URL(tab.url).pathname.slice(0, 120); } catch { /* no address */ }
+  const inPlace = here === memo.path;
+  if (action === 'none') {
+    if (readsAgain(action, inPlace, !!memo.form && lastOutline.get(tab.id) !== memo.form)) { await chrome.storage.session.remove(memoKey(tab)).catch(() => {}); readAgain(tab, (await identityOf(tab)).job).catch(() => {}); }   // the form we pressed is gone: the new page is read (once: the memo goes)
+    return;
+  }
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
   const id = await identityOf(tab);
   apiFor(tab.id, config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: action, session: id.session})}).catch(() => {});
+  if (readsAgain(action, inPlace)) readAgain(tab, id.job).catch(() => {});   // the account is usable: the page it brought (often the same address) is read and filled as any other
   // The page asks for the code the site mailed (owner, 10 Oct 2026): in "Do it for me" the app reads it from Gmail (the AI picks it) and this types it into the box
   // the account AI named, then presses the form's button once (pressAccountButton's floors). The code is never logged; "Let me check each step": the person types it.
   if (result?.answer === 'needs_code') {
