@@ -79,7 +79,7 @@ test('the cheap look before anything is asked of the app: how many password boxe
   assert.deepEqual(look('<p>An account already exists</p>'), {boxes: 0, empty: 0, pending: false});   // a notice page has none: still looked at
 });
 
-import {pressRegister} from '../../extension/account-fill.js';
+import {pressRegister, pressConsent} from '../../extension/account-fill.js';
 
 function pressNamed(html, named) {
   const {window} = new JSDOM(`<body>${html}</body>`);
@@ -95,6 +95,25 @@ test('a control named a little long or short is pressed when it is the only near
   assert.deepEqual(pressNamed('<a id="a">Anmelden</a><a id="b">Anmelden mit Google</a>', 'Anmelden'), {result: 'pressed', clicked: ['a']});   // the exact one wins
   assert.deepEqual(pressNamed('<a id="a">Mein Profil</a><a id="b">Mein Profil neu</a>', 'Profil'), {result: 'several', clicked: []});
   assert.deepEqual(pressNamed('<a id="a">Hilfe</a>', 'Anmelden'), {result: 'not-found', clicked: []});
+});
+
+// The shape of a create-account page whose header and body both carry the text the AI named (captured 16 Oct 2026: a header "Sign In" button, the form, then "Already have an account? Sign In").
+const TWO_SIGN_INS = '<header><div><button id="head">Sign In</button></div></header><main><form><input type="email"><input type="password"><button type="submit">Create Account</button></form><div>Already have an account?<button id="body">Sign In</button></div></main>';
+
+test('several controls with the named text: the one beside the page\'s fields is pressed, never a guess when none is nearer', () => {
+  assert.deepEqual(pressNamed(TWO_SIGN_INS, 'Sign In'), {result: 'pressed', clicked: ['body']});
+  assert.deepEqual(pressNamed('<main><form><input type="email"></form><div><button id="a">Sign In</button><button id="b">Sign In</button></div></main>', 'Sign In'), {result: 'several', clicked: []});   // two equally near: still not guessed
+  assert.deepEqual(pressNamed('<header><a id="a">Sign In</a></header><footer><a id="b">Sign In</a></footer>', 'Sign In'), {result: 'several', clicked: []});   // no fields on the page: nothing to be beside
+});
+
+test('a consent named twice resolves the same way', () => {
+  const {window} = new JSDOM(`<body><header><a id="head">Privacy statement</a></header><main><form><input type="email"></form><p><a id="body">Privacy statement</a></p></main></body>`);
+  window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+  Object.assign(globalThis, {document: window.document});
+  const clicked = [];
+  window.document.querySelectorAll('a').forEach(el => el.addEventListener('click', event => { event.preventDefault(); clicked.push(el.id); }));
+  assert.equal(pressConsent('Privacy statement'), 'pressed');
+  assert.deepEqual(clicked, ['body']);
 });
 
 import {markAccountStep} from '../../extension/account-fill.js';
