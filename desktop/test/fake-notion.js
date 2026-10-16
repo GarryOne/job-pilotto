@@ -1,21 +1,32 @@
-// A tiny in-memory Notion page for tests: its blocks (bullets and headings) and a fetcher for notion.js calls
-// (list children, append — optionally after a block —, update a block's text, delete a block).
+// A tiny in-memory Notion page for tests: its blocks (bullets, headings and tables) and a fetcher for notion.js calls
+// (list children — a table's rows too —, append — optionally after a block —, update a block's text or a row's cells, delete a block).
+// A line is a bullet, "## heading", or {table: [[cell, …], …], header: true} (16 Oct 2026: tables, for the Profile tabs' cell edits).
 export function fakeNotion(lines = []) {
   let next = 1;
   const make = (type, text) => ({id: `b${next++}`, type, text});
-  const blocks = lines.map(line => (line.startsWith('## ') ? make('heading_2', line.slice(3)) : make('bulleted_list_item', line)));
+  const table = ({table: rows, header = true}) => ({id: `t${next++}`, type: 'table', header, rows: rows.map(cells => ({id: `r${next++}`, cells: [...cells]}))});
+  const blocks = lines.map(line => (typeof line === 'object' ? table(line) : line.startsWith('## ') ? make('heading_2', line.slice(3)) : make('bulleted_list_item', line)));
   const rich = text => ({rich_text: [{plain_text: text, text: {content: text}}]});
+  const cellsOf = row => row.cells.map(text => [{plain_text: text, text: {content: text}}]);
+  const asBlock = b => (b.type === 'table' ? {id: b.id, type: 'table', table: {has_column_header: b.header, table_width: b.rows[0]?.cells.length || 2}, has_children: true}
+    : {id: b.id, type: b.type, [b.type]: rich(b.text), has_children: false});
+  const rowById = id => blocks.filter(b => b.type === 'table').flatMap(b => b.rows).find(row => row.id === id);
   const fetcher = async (url, init = {}) => {
     const route = url.replace('https://api.notion.com/v1/', '').split('?')[0];
     const body = init.body ? JSON.parse(init.body) : {};
     let data = {};
-    if (init.method === 'GET' && route.endsWith('/children')) {
-      data = {results: blocks.map(b => ({id: b.id, type: b.type, [b.type]: rich(b.text), has_children: false})), has_more: false};
+    const tableRows = blocks.find(b => b.type === 'table' && route === `blocks/${b.id}/children`);
+    if (init.method === 'GET' && tableRows) {
+      data = {results: tableRows.rows.map(row => ({id: row.id, type: 'table_row', table_row: {cells: cellsOf(row)}, has_children: false})), has_more: false};
+    } else if (init.method === 'GET' && route.endsWith('/children')) {
+      data = {results: blocks.map(asBlock), has_more: false};
     } else if (init.method === 'PATCH' && route.endsWith('/children')) {
       const added = body.children.map(child => make(child.type, child[child.type].rich_text[0].text.content));
       const at = body.after ? blocks.findIndex(b => b.id === body.after) + 1 : blocks.length;
       blocks.splice(at, 0, ...added);
       data = {results: added.map(b => ({id: b.id}))};
+    } else if (init.method === 'PATCH' && body.table_row) {
+      rowById(route.replace('blocks/', '')).cells = body.table_row.cells.map(cell => cell.map(item => item.text?.content ?? item.plain_text ?? '').join(''));
     } else if (init.method === 'PATCH') {
       const block = blocks.find(b => `blocks/${b.id}` === route);
       block.text = body[block.type].rich_text[0].text.content;
@@ -28,5 +39,6 @@ export function fakeNotion(lines = []) {
     }
     return {ok: true, json: async () => data};
   };
-  return {blocks, fetcher, texts: () => blocks.map(b => (b.type === 'heading_2' ? `## ${b.text}` : b.text))};
+  const textOf = b => (b.type === 'heading_2' ? `## ${b.text}` : b.type === 'table' ? b.rows.map(row => `| ${row.cells.join(' | ')} |`).join('\n') : b.text);
+  return {blocks, fetcher, texts: () => blocks.map(textOf)};
 }

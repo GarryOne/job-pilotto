@@ -77,3 +77,43 @@ test('the IPC reads and edits any of the three texts, refuses another name, and 
   assert.equal((await handlers.textOutline(null, 'secrets')).ok, false);
   assert.ok(!JSON.stringify(logged).includes('a: b'));
 });
+
+// The store contract for the Profile tabs (cc review of #971): the same block edits on this Mac and on Notion (the fake, tables included) change
+// only their own block; every other block reads back exactly as before.
+const PAGE = ['## Eligibility', {table: [['Question', 'Answer'], ['Notice period', '❓ to confirm'], ['Salary', '100k']]}, 'Visa: EU citizen', 'Old line', '## Links', 'GitHub: ❓'];
+const MARKDOWN = '## Eligibility\n\n| Question | Answer |\n|---|---|\n| Notice period | ❓ to confirm |\n| Salary | 100k |\n\n- Visa: EU citizen\n- Old line\n\n## Links\n- GitHub: ❓\n';
+const STORES = {
+  sqlite: async () => { const page = store.openStore(storageWith({store: 'sqlite'})).page('answers'); await page.write(MARKDOWN); return page; },
+  notion: async () => {
+    const notion = fakeNotion(PAGE);
+    const storage = storageWith({store: 'notion', notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}}, {NOTION_TOKEN: 'secret'});
+    return store.openStore(storage, {fetcher: notion.fetcher}).page('answers');
+  },
+};
+const shape = items => items.map(item => (item.type === 'table' ? {table: item.rows.map(row => row.cells)} : {[item.type]: item.text}));
+
+for (const [name, open] of Object.entries(STORES)) {
+  test(`${name}: a cell, a line, a removal, an insert after a table and an append each change only their block`, async () => {
+    const page = await open();
+    const items = await page.outline();
+    const before = shape(items);
+    const table = items.find(item => item.type === 'table');
+    const visa = items.find(item => item.text === 'Visa: EU citizen'), old = items.find(item => item.text === 'Old line');
+    const {saved, missing} = await applyEdits(page, items, [
+      {op: 'cell', id: table.rows[1].id, index: 1, value: '3 months', was: '❓ to confirm'},
+      {op: 'text', id: visa.id, value: 'Visa: EU and Swiss', was: 'Visa: EU citizen'},
+      {op: 'remove', id: old.id, was: 'Old line'},
+      {op: 'insert', after: table.id, lines: ['Relocation: yes']},
+      {op: 'append', lines: ['Portfolio: none']},
+    ]);
+    assert.deepEqual([saved, missing], [5, []]);
+    const expected = before.flatMap(block => {
+      if (block.table) return [{table: block.table.map(cells => (cells[0] === 'Notice period' ? ['Notice period', '3 months'] : cells))}, {bulleted_list_item: 'Relocation: yes'}];
+      if (block.bulleted_list_item === 'Visa: EU citizen') return [{bulleted_list_item: 'Visa: EU and Swiss'}];
+      if (block.bulleted_list_item === 'Old line') return [];
+      return [block];
+    });
+    expected.push({bulleted_list_item: 'Portfolio: none'});
+    assert.deepEqual(shape(await page.outline()), expected);
+  });
+}
