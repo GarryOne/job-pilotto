@@ -10,3 +10,10 @@ export function withRetry(action, {tries = 3, delayMs = 4000, wait = ms => Atomi
 
 // fill-memo's log: "<row> check (no model): 0/0 live asks answered": the row stopped before any question (a posting with no form), so no model-memo.json exists and none is needed.
 export const nothingToRefill = log => /fill-memo: .*: 0\/0 live asks answered/.test(String(log));
+
+// A bundle's two release files, the bundle first and its key last (net-records-fetch.sh opens a bundle by finding its key, so a key without its bundle fails the decrypt; 15 Oct 2026 group 3: the key
+// reached the release, the bundle got HTTP 404, and every fetch after printed an openssl "No such file" for it). Each file is tried again on its own; a bundle that never uploads leaves no key.
+export function uploadBundle(upload, bundle, key, retry = withRetry) {
+  retry(() => upload(bundle));
+  retry(() => upload(key));
+}
