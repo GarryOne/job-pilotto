@@ -1,0 +1,12 @@
+{
+  // The one-off hosted Always on cost probe (deleted again by the workflow): one standard-1 container, at most one instance.
+  "name": "jp-hosted-probe",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "containers": [
+    {"class_name": "Probe", "image": "./Dockerfile", "image_build_context": "../..", "instance_type": "standard-1", "max_instances": 1}
+  ],
+  "durable_objects": {"bindings": [{"name": "PROBE", "class_name": "Probe"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["Probe"]}]
+}
