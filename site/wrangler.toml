@@ -54,6 +54,8 @@ FREE_AI_MONTH_STOP_USD = "100"
 FREE_AI_NEURONS = "off"
 # The Pro plan (src/pro.js, spec docs/superpowers/specs/2026-10-16-pro-plan.md): "off" = nothing visible, "test" = Stripe test mode only, "live" = the owner flips it.
 PRO_PLAN = "off"
+PRO_PRICE_USD = "29"      # shown in the app and on the site (VAT included)
+PRO_LAUNCH_USD = "19"     # the early-adopter launch price; "" ends it
 # Payment prices (public ids; the provider's dashboard, test mode first). Secrets (Worker): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. STRIPE_TAX = "on" once the owner turns Stripe Tax on. Webhook URL: https://www.jobpilotto.top/api/pro/webhook
 STRIPE_PRICE_PRO = ""
 STRIPE_PRICE_TOPUP5 = ""

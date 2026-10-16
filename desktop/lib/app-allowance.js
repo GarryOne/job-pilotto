@@ -5,19 +5,31 @@ import * as claudeCode from './claude-code.js';
 import * as pipeline from './pipeline.js';
 import * as terminals from './terminals.js';
 import * as viewCache from './view-cache.js';
+import * as aiFree from './ai-free.js';
+import {createPlan} from './plan.js';
 import {log as appLog} from './log.js';
 
 export function createAppAllowance(ctx) {
   const {DEMO, getLicense, log, getStorage, getTelemetry, toWindow} = ctx;
   const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
-  // Where the user stands (demo mode: a fixed fictional state for screenshots).
-  const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 20, daysLeft: 41, ended: false} : getLicense().state());
+  // The Pro plan (lib/plan.js), made when first asked: the storage may not exist yet when this is built.
+  let planOnce = null;
+  const getPlan = () => (planOnce ||= createPlan(getStorage(), {stored: DEMO}));
+  // Where the user stands (demo mode: a fixed fictional state for screenshots). A Pro account (the site says so, kept 14 days offline) is licensed with no limit; `proMode` says the plan is on at all.
+  const licenseState = () => {
+    const base = DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 20, daysLeft: 41, ended: false} : getLicense().state();
+    const plan = getPlan().state(), proMode = ['test', 'live'].includes(plan.mode) ? plan.mode : undefined;
+    if (!base.licensed && plan.plan === 'pro') return {...base, licensed: true, license: {id: 'pro', name: 'Pro', kind: 'pro', until: null}, ended: false, proMode, pro: {creditPercent: plan.creditPercent, warn: plan.warn}};
+    return {...base, proMode, offer: plan.offer};
+  };
   // Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
   // is over and there is no key, the window says so and the action answers with why. Never used for what is already under way.
   function allowanceBlock() {
-    const over = DEMO ? null : getLicense().blocked();
-    if (!over) return null;
-    toWindow('allowance', over);
+    const state = licenseState();
+    // Pro's credit is gone and our AI is the engine: no free fallback, top-up or own key (an application in progress finishes; this guards what starts new).
+    if (!DEMO && state.pro?.warn === 0 && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → AI engine (your own key is unlimited).'};
+    if (DEMO || !state.ended) return null;
+    toWindow('allowance', state);
     return {ok: false, allowance: true, error: 'The free allowance is over. Paste a license key in Settings → License to keep starting new applications.'};
   }
   // Jobs read in Chrome that match the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count
@@ -59,5 +71,5 @@ export function createAppAllowance(ctx) {
       prepared: reached('Prepared'), applied: reached('Applied'), replies: reached('Human reply'), screenings: reached('Screening'),
       interviews: reached('Interviews'), offers: reached('Offer')};
   }
-  return {licenseState, allowanceBlock, readSites, scoreVisitJobs, healthOnce};
+  return {licenseState, allowanceBlock, readSites, scoreVisitJobs, healthOnce, getPlan};
 }

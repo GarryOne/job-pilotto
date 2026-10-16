@@ -122,6 +122,12 @@ function paletteCommands() {
   for (const [choice, label, hint, words, family] of ENGINE_CHOICES) add('Settings', label, hint, `ai engine ${words}`, () => {
     openSetting('ai'); if (family) press(family, 300); press(choice, family ? 700 : 300);
   });
+  // The Pro plan (pages/plan.js), only when the site's plan is on: the Plan card in Settings → License.
+  if (['test', 'live'].includes(shared.plan?.mode)) {
+    const goPlan = () => { openSetting('plan'); };
+    if (shared.plan.plan === 'pro') { add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: $5, $10 or $20', 'pro top up topup credit buy ai more', goPlan); }
+    else add('Settings', 'Upgrade to Pro', 'One-time payment, no subscription', 'pro upgrade plan price buy pay unlimited license', goPlan);
+  }
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
