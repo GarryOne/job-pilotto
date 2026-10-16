@@ -7,10 +7,12 @@ import {cadence} from './cadence.js';
 
 // The same command .github/workflows/daily.yml runs for these inputs (mode, job, action, page, seed,
 // file, note), so Telegram buttons and commands work the same from the app as from the cloud.
+// Telegram is set up (token and chat): the only time a run is asked to send (--send). Without it the app shows the message itself. Guard: test/telegram-send.test.js.
+export const telegramReady = storage => !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
 export function dailyArgs(storage, inputs = {}) {
   const mode = inputs.mode || 'scheduled';
   const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
-  const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
+  const telegram = telegramReady(storage);
   // --log-run: every run from the app gets a row in Notion ⏰ Search runs (Notion is where the details live).
   const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : []), '--log-run'];
   if (inputs.job) args.push('--job', String(inputs.job), '--action', String(inputs.action || 'applied'));
@@ -44,7 +46,7 @@ export const syncMatchesArgs = () => ['src', 'daily', '--mode', 'today', '--log-
 // `updates` = what it recorded (the lines it prints under "Updates:"), shown in the app and the notification.
 export function mailArgs(storage, now = Date.now()) {
   const settings = storage.settings();
-  const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && settings.telegramChatId);
+  const telegram = telegramReady(storage);
   // Look back far enough to cover the time since the last check (the Mac may have been off), 2 to 14 days.
   const since = settings.lastMailOkAt ? (now - Date.parse(settings.lastMailOkAt)) / 86400000 : 0;
   const days = Math.min(14, Math.max(2, Math.ceil(since) + 1));

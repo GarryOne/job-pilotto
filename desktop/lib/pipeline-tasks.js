@@ -6,7 +6,7 @@ import {engineOf, familyOfEngine} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import {deliveryProblem, mailProblem as mailProblemFrom} from './run-result.js';
 
-import {dailyArgs, mailArgs, SCOUT_BUDGET_S, syncMatchesArgs, triggerEnv, visitsArgs} from './pipeline-args.js';
+import {dailyArgs, mailArgs, SCOUT_BUDGET_S, syncMatchesArgs, telegramReady, triggerEnv, visitsArgs} from './pipeline-args.js';
 import {appMessage, failedLine, taskSummary} from './pipeline-lines.js';
 import {tracked} from './pipeline-queue.js';
 import {run} from './pipeline-run.js';
@@ -55,7 +55,7 @@ export function mailResult(log) {
 }
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
 export function scout(storage, onLine, trigger = 'you', batch = null) {   // null: the engine's own size for the queue (src/scout.py batch_for)
-  const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
+  const send = telegramReady(storage) ? ['--send'] : [];  // no Telegram: the app shows it
   storage.saveSettings({lastScoutAt: new Date().toISOString()});
   return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : []), '--budget', String(SCOUT_BUDGET_S)], onLine, trigger);
 }
