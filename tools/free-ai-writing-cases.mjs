@@ -4,9 +4,10 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {REVIEW_INSTRUCTIONS, REVIEW_SCHEMA} from '../worker/src/written-answer.js';
 
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '..');
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 export const PROFILE = read('desktop/demo/profile.md'), ANSWERS = read('desktop/demo/answers.md');
 const jobs = JSON.parse(read('tools/free-ai-eval-jobs.json'));
@@ -17,7 +18,7 @@ const ask = (feature, id, system, user, schema, trap, maxTokens = 6000) => ({fea
 // Kit: the letter, answers and highlights, over the app's own request builder (tools/free-ai-kit-cases.py).
 function kitCases() {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'writing-kit-')), 'kit.json');
-  execFileSync('python3', [path.join(here, 'free-ai-kit-cases.py'), '--jobs', path.join(here, 'free-ai-eval-jobs.json'), '--profile', path.join(root, 'desktop/demo/profile.md'), '--answers', path.join(root, 'desktop/demo/answers.md'), '--out', out], {stdio: ['ignore', 'ignore', 'inherit']});
+  execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(here, 'free-ai-kit-cases.py'), '--jobs', path.join(here, 'free-ai-eval-jobs.json'), '--profile', path.join(root, 'desktop/demo/profile.md'), '--answers', path.join(root, 'desktop/demo/answers.md'), '--out', out], {stdio: ['ignore', 'ignore', 'inherit']});
   const traps = {
     'fx-01': 'A clean fit with a stated salary range of CHF 150-175k, above the profile minimum: the letter must not mention salary at all.',
     'fx-05': 'Remote Europe job: the profile prefers hybrid in Switzerland; the letter must not claim a salary position, a hybrid preference mismatch, or anything the posting does not say.',
@@ -29,7 +30,7 @@ function kitCases() {
   return Object.keys(traps).map(id => ({feature: 'letter', id, trap: traps[id], params: all.find(item => item.id === id).params}));
 }
 
-const writing = JSON.parse(execFileSync('python3', [path.join(here, 'free-ai-writing-prompts.py')], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}));
+const writing = JSON.parse(execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(here, 'free-ai-writing-prompts.py')], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}));
 
 // Prep: the interview kit.
 function prepCases() {
@@ -90,7 +91,7 @@ function reviewCases() {
 
 export const allCases = () => [...kitCases(), ...reviewCases(), ...prepCases(), ...weeklyCases(), ...rejectionCases()];
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const cases = allCases();
   fs.writeFileSync(process.argv[2], JSON.stringify(cases));
   console.log(`${cases.length} cases -> ${process.argv[2]}`);
