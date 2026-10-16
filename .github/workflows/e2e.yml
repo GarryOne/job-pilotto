@@ -435,7 +435,7 @@ jobs:
         run: |
           if [ "$RESULT" = failure ] || [ "$RESULT" = cancelled ]; then
             failed=$(gh run view "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")' 2>/dev/null || true)
-            node ci-alert.mjs failure "Failed: ${failed:-the run (see the link)}"
+            node ci-alert.mjs failure "Failed job: ${failed:-the run (see the link)}" "Open the failed job; the next scheduled run re-checks"
           else node ci-alert.mjs success; fi
 
   # The release step of a gate by hand (gh workflow run e2e.yml -f gate_tag=<tag>): beta-approve.yml, the same job the release run (desktop.yml) shows as its own

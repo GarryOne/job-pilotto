@@ -1,17 +1,16 @@
 // CI alerts on Telegram (ci-alert.mjs): 🔴 on every failure, 🟢 only on the first success after one, nothing without the secrets, never the token in a line.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {capMerged, failedJobs, isRepeat, messageOf, previousConclusion, send} from '../ci-alert.mjs';
+import {failedJobs, isRepeat, messageOf, previousConclusion, sinceGreen, send} from '../ci-alert.mjs';
 
 const env = {GITHUB_WORKFLOW: 'CI · Site replays · all (offline)', GITHUB_SHA: 'abcdef1234', GITHUB_REF_NAME: 'main', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '42',
   GITHUB_WORKFLOW_REF: 'o/r/.github/workflows/site-replays.yml@refs/heads/main', GH_TOKEN: 'gh'};
 const now = new Date('2026-10-14T00:30:00Z');
 
-test('a failure says which workflow, commit, time, what failed and the run; a success says something only after a failure', () => {
-  const red = messageOf({status: 'failure', what: '1 row worse: Join (reached posting, baseline account)', env, now});
-  assert.match(red, /^🔴 1 row worse: Join \(reached posting, baseline account\)\nCI · Site replays · all \(offline\) failed · main abcdef1 · 14 Oct, 02:30\n/);
-  assert.match(red, /https:\/\/github\.com\/o\/r\/actions\/runs\/42$/);
-  assert.match(messageOf({status: 'success', previous: 'failure', env, now}), /^🟢 .* back to green/);
+test('a failure says which workflow, cause, commit, next step and run; a success says something only after a failure', () => {
+  const red = messageOf({status: 'failure', what: '1 row worse: Join', next: 'label the PR replay-accepted', env, now});
+  assert.match(red.text, /^🔴 <b>CI · Site replays · all \(offline\)<\/b> failed\n\n• Cause: 1 row worse: Join\n• Commit: <a href="https:\/\/github\.com\/o\/r\/commit\/abcdef1234">abcdef1<\/a> · main · 14 Oct, 02:30\n• Next: label the PR replay-accepted\n\n<a href="https:\/\/github\.com\/o\/r\/actions\/runs\/42">Open run<\/a>$/);
+  assert.match(messageOf({status: 'success', previous: 'failure', env, now}).text, /^🟢 <b>.*<\/b> is back to green/);
   assert.equal(messageOf({status: 'success', previous: 'success', env, now}), '');
 });
 
@@ -42,14 +41,14 @@ test('no secrets: no send; a failed send never prints the token', async () => {
   assert.deepEqual([body.chat_id, body.text], ['7', 'hello']);
 });
 
-test('the first line is the cause; the merged-PR list shows the newest 5 and "+N more"', () => {
-  const prs = Array.from({length: 80}, (_, i) => `#${859 + i}`).join(', ');
-  const what = `Pinned rows no longer same: Join. PRs merged since then: ${prs}. If intended: label the PR replay-accepted`;
-  const capped = capMerged(what);
-  assert.match(capped, /PRs merged since then: #934, #935, #936, #937, #938 \+75 more\. If intended/);
-  assert.equal(capMerged('PRs merged since then: #1, #2.'), 'PRs merged since then: #1, #2.');
-  assert.equal(capMerged('plain'), 'plain');
-  assert.match(messageOf({status: 'failure', what, env, now}).split('\n')[0], /^🔴 Pinned rows no longer same: Join\.?$/);
+test('"Since green" names the newest 5 PRs as links and "+N more"; none when the last green run is this commit or unknown', async () => {
+  const commits = Array.from({length: 8}, (_, i) => ({commit: {message: `Fix ${i} (#${900 + i})\n\nbody`}})).concat([{commit: {message: 'A direct commit'}}]);
+  const fetcher = async url => ({json: async () => (/compare/.test(url) ? {commits} : {workflow_runs: [{head_sha: 'green0'}]})});
+  assert.deepEqual(await sinceGreen(env, fetcher), {prs: ['907', '906', '905', '904', '903'], more: 3});
+  assert.deepEqual(await sinceGreen({...env, GITHUB_SHA: 'green0'}, fetcher), {prs: [], more: 0});
+  assert.deepEqual(await sinceGreen(env, async () => { throw new Error('down'); }), {prs: [], more: 0});
+  const text = messageOf({status: 'failure', what: 'x', since: {prs: ['907', '906'], more: 3}, env, now}).text;
+  assert.match(text, /• Since green: <a href="https:\/\/github\.com\/o\/r\/pull\/907">#907<\/a>, <a href="https:\/\/github\.com\/o\/r\/pull\/906">#906<\/a> \+3 more/);
 });
 
 test('the same failure on the same commit alerts once: a repeat needs a new commit or other failed jobs', async () => {

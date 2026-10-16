@@ -1,8 +1,9 @@
 // Telegram alerts for the scheduled CI checks (owner, 14 Oct 2026): a failure of e2e.yml (scheduled and gate runs) and site-replays.yml sends 🔴 once per commit and set of failed jobs (16 Oct 2026), and the
 // first success after a failure sends 🟢. Bot @jobpilotto_ci_alerts_bot: CI_ALERTS_TELEGRAM_BOT_TOKEN + CI_ALERTS_TELEGRAM_CHAT_ID (missing: one line, no send).
 // The token is never printed; no AI. Guard: e2e/test/ci-alert.test.mjs.
-//   node ci-alert.mjs <failure|success> "<what failed>"      (GITHUB_* and GH_TOKEN from the runner)
+//   node ci-alert.mjs <failure|success> "<cause in a few words>" "<the one next action>"      (GITHUB_* and GH_TOKEN from the runner)
 import path from 'node:path';
+import {alertHtml} from './lib/telegram-html.mjs';
 
 // The previous finished run of this workflow on the same branch (not this one) -> its conclusion, or ''.
 // Until 28 Oct 2026 a renamed workflow's old file is read too (replay-offline.yml → site-replays.yml, 14 Oct 2026).
@@ -21,14 +22,6 @@ export async function previousConclusion(env = process.env, fetcher = fetch) {
   return '';
 }
 
-// The merged-PR list in an alert: the newest 5 and "+N more" (an old baseline named ~80 of them).
-export function capMerged(text) {
-  return String(text).replace(/(PRs merged since then: )((?:#\d+(?:, )?)+)/, (all, head, list) => {
-    const prs = list.split(', ').filter(Boolean);
-    return prs.length <= 5 ? all : `${head}${prs.slice(-5).join(', ')} +${prs.length - 5} more`;
-  });
-}
-
 const API = env => env.GITHUB_API_URL || 'https://api.github.com';
 const get = (url, env, fetcher) => fetcher(url, {headers: {Authorization: `Bearer ${env.GH_TOKEN || ''}`, Accept: 'application/vnd.github+json'}, signal: AbortSignal.timeout(15000)}).then(answer => answer.json());
 
@@ -36,6 +29,24 @@ const get = (url, env, fetcher) => fetcher(url, {headers: {Authorization: `Beare
 export async function failedJobs(runId, env = process.env, fetcher = fetch) {
   const body = await get(`${API(env)}/repos/${env.GITHUB_REPOSITORY}/actions/runs/${runId}/jobs?per_page=100`, env, fetcher);
   return (body.jobs || []).filter(job => job.conclusion === 'failure').map(job => job.name).sort();
+}
+
+// The failed jobs of this run with their pages. -> [{name, url}]
+export async function failedJobLinks(runId, env = process.env, fetcher = fetch) {
+  const body = await get(`${API(env)}/repos/${env.GITHUB_REPOSITORY}/actions/runs/${runId}/jobs?per_page=100`, env, fetcher);
+  return (body.jobs || []).filter(job => job.conclusion === 'failure').map(job => ({name: job.name, url: job.html_url}));
+}
+
+// The PRs that landed since this workflow's last green run on the branch (a commit "Title (#123)" is one), newest first. -> {prs: [number], more: number}; empty when unknown.
+export async function sinceGreen(env = process.env, fetcher = fetch, shown = 5) {
+  const file = path.basename(String(env.GITHUB_WORKFLOW_REF || '').split('@')[0]), repo = `${API(env)}/repos/${env.GITHUB_REPOSITORY}`;
+  try {
+    const green = (await get(`${repo}/actions/workflows/${file}/runs?branch=${encodeURIComponent(env.GITHUB_REF_NAME || 'main')}&status=success&per_page=1`, env, fetcher)).workflow_runs?.[0];
+    if (!green?.head_sha || green.head_sha === env.GITHUB_SHA) return {prs: [], more: 0};
+    const commits = (await get(`${repo}/compare/${green.head_sha}...${env.GITHUB_SHA}`, env, fetcher)).commits || [];
+    const all = commits.map(commit => /\(#(\d+)\)\s*$/.exec(String(commit.commit?.message || '').split('\n')[0])?.[1]).filter(Boolean).reverse();
+    return {prs: all.slice(0, shown), more: Math.max(0, all.length - shown)};
+  } catch { return {prs: [], more: 0}; }
 }
 
 // One alert per (workflow, commit, failed jobs): true when an earlier finished run of this workflow on this commit failed with the same failed jobs. Errors: false (alert).
@@ -52,30 +63,42 @@ export async function isRepeat(env = process.env, fetcher = fetch) {
   return false;
 }
 
-// -> the message, or '' when there is nothing to say (a success after a success).
-export function messageOf({status, what = '', previous = '', env = process.env, now = new Date()}) {
-  const name = env.GITHUB_WORKFLOW || 'CI', sha = String(env.GITHUB_SHA || '').slice(0, 7), link = `${env.GITHUB_SERVER_URL || 'https://github.com'}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
+// -> the message ({text, parse_mode, ...} from lib/telegram-html.mjs), or '' when there is nothing to say (a success after a success).
+// cause / next: a few words each (the caller knows them); since: sinceGreen()'s answer; jobs: failedJobLinks()'s answer.
+export function messageOf({status, what = '', next = '', previous = '', since = {prs: [], more: 0}, jobs = [], env = process.env, now = new Date()}) {
+  const name = env.GITHUB_WORKFLOW || 'CI', repo = env.GITHUB_REPOSITORY, site = env.GITHUB_SERVER_URL || 'https://github.com', branch = env.GITHUB_REF_NAME || 'main';
+  const sha = String(env.GITHUB_SHA || ''), run = `${site}/${repo}/actions/runs/${env.GITHUB_RUN_ID}`;
   const time = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'}).format(now);
+  const commit = {label: 'Commit', parts: [{text: sha.slice(0, 7), url: `${site}/${repo}/commit/${sha}`}, ` · ${branch} · ${time}`]};
   if (status === 'failure') {
-    const cause = capMerged(String(what || 'see the run')), head = cause.split('\n')[0].split(/(?<=\.)\s/)[0].slice(0, 90);   // first line: the cause in a few words
-    return [`🔴 ${head}`, `${name} failed · ${env.GITHUB_REF_NAME || 'main'} ${sha} · ${time}`, cause.slice(0, 1500), link].join('\n');
+    const bullets = [{label: 'Cause', parts: [String(what || 'see the run').replace(/\s*\n\s*/g, '; ').slice(0, 600)]}, commit];
+    if (since.prs.length) bullets.push({label: 'Since green', parts: [...since.prs.flatMap((number, i) => [i ? ', ' : '', {text: `#${number}`, url: `${site}/${repo}/pull/${number}`}]), since.more ? ` +${since.more} more` : '']});
+    if (next) bullets.push({label: 'Next', parts: [next]});
+    return alertHtml({icon: '🔴', title: name, verdict: 'failed', bullets, links: [{text: 'Open run', url: run}, ...jobs.slice(0, 3).map(job => ({text: `Failed job: ${job.name}`, url: job.url}))]});
   }
-  if (status === 'success' && ['failure', 'timed_out'].includes(previous)) return [`🟢 ${name} back to green · ${env.GITHUB_REF_NAME || 'main'} ${sha} · ${time}`, link].join('\n');
+  if (status === 'success' && ['failure', 'timed_out'].includes(previous)) return alertHtml({icon: '🟢', title: name, verdict: 'is back to green', bullets: [commit], links: [{text: 'Open run', url: run}]});
   return '';
 }
 
-export async function send(text, env = process.env, fetcher = fetch) {
-  if (!text) return 'ci-alert: nothing to send';
+// text: a message from messageOf (or a plain string) -> the line to print.
+export async function send(message, env = process.env, fetcher = fetch) {
+  if (!message) return 'ci-alert: nothing to send';
   if (!env.CI_ALERTS_TELEGRAM_BOT_TOKEN || !env.CI_ALERTS_TELEGRAM_CHAT_ID) return 'ci-alert: not sent (CI_ALERTS_TELEGRAM_BOT_TOKEN or CI_ALERTS_TELEGRAM_CHAT_ID not set)';
+  const payload = typeof message === 'string' ? {text: message, disable_web_page_preview: true} : message;
   try {
     const answer = await fetcher(`https://api.telegram.org/bot${env.CI_ALERTS_TELEGRAM_BOT_TOKEN}/sendMessage`, {method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({chat_id: env.CI_ALERTS_TELEGRAM_CHAT_ID, text, disable_web_page_preview: true}), signal: AbortSignal.timeout(15000)});
+      body: JSON.stringify({chat_id: env.CI_ALERTS_TELEGRAM_CHAT_ID, ...payload}), signal: AbortSignal.timeout(15000)});
     return answer.ok ? 'ci-alert: sent' : `ci-alert: not sent (Telegram ${answer.status})`;
   } catch (error) { return `ci-alert: not sent (${String(error?.name || 'error')})`; }   // never the error text: it can carry the URL with the token
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  const [status, what] = process.argv.slice(2);
-  const previous = status === 'success' ? await previousConclusion() : '';
-  console.log(status === 'failure' && await isRepeat() ? 'ci-alert: not sent (same failure on this commit already alerted)' : await send(messageOf({status, what, previous})));
+  const [status, what, next] = process.argv.slice(2);
+  if (status === 'failure' && await isRepeat()) console.log('ci-alert: not sent (same failure on this commit already alerted)');
+  else {
+    const failure = status === 'failure';
+    const previous = status === 'success' ? await previousConclusion() : '';
+    const since = failure ? await sinceGreen() : undefined, jobs = failure ? await failedJobLinks(process.env.GITHUB_RUN_ID).catch(() => []) : undefined;
+    console.log(await send(messageOf({status, what, next, previous, since, jobs})));
+  }
 }

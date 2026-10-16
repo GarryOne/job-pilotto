@@ -344,8 +344,8 @@ jobs:
           WHAT: ${{ steps.gate.outputs.what }}
           MERGED: ${{ steps.gate.outputs.merged }}
         run: |
-          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Pinned rows no longer same as live: ${WHAT:-see the run}. PRs merged since then: ${MERGED:-none}. If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
-          elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
+          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Pinned rows no longer same as live: ${WHAT:-see the run}" "If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
+          elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict" "Open the run; the next scheduled replay re-checks"
           else node ci-alert.mjs success; fi
       - name: Red when a counted row got worse
         if: steps.gate.outputs.red == '1'
