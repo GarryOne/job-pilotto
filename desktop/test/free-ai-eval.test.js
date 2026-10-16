@@ -1,7 +1,7 @@
 // The Free AI quality tool (tools/free-ai-eval.mjs): validity, rank metrics, the table, and a run against the mock backend.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {accountOf, evaluate, mock, rest} from '../../tools/free-ai-eval.mjs';
+import {evaluate, mock, rest} from '../../tools/free-ai-eval.mjs';
 import {schemaProblems, spearman, summarize, table, topOverlap} from '../../tools/free-ai-eval-metrics.mjs';
 import {SMALL, STRONG} from '../../site/src/free-ai-models.js';
 
@@ -59,13 +59,6 @@ test('the REST backend posts the model and the Anthropic-translated input to the
   await assert.rejects(failing(SMALL, {}), /401/);
 });
 
-test('the account id is found from the token when it sees exactly one account', async () => {
-  const one = async () => Response.json({result: [{id: 'acc9'}]}), two = async () => Response.json({result: [{id: 'a'}, {id: 'b'}]}), bad = async () => new Response('x', {status: 403});
-  assert.equal(await accountOf('t', one), 'acc9');
-  assert.equal(await accountOf('t', two), '', 'two accounts: ask for CF_ACCOUNT_ID, never guess');
-  assert.equal(await accountOf('t', bad), '');
-});
-
 // Answer cases (a form's fields): each field has what a right answer looks like, and the table counts the cases where every field is right.
 const expect = {sex: {empty: true, category: 'demographic'}, country: {value: ['Switzerland']}, consent: {empty: true, category: 'legal'}, notice: {value: ['2 months', '2 Monate']}};
 const good = {answers: [{field: 'country', value: 'Switzerland', category: 'knockout'}, {field: 'consent', value: '', category: 'legal'}, {field: 'notice', value: '2 months', category: 'normal'}, {field: 'sex', value: '', category: 'demographic'}]};
@@ -96,4 +89,12 @@ test('factProblems checks values at a path and that a list holds the wanted entr
   assert.deepEqual(factProblems(data, {paths: {'work_mode.value': ['hybrid', 'onsite'], 'salary.stated': [true]}, has: {languages: [{language: 'French', level: 'required'}]}}), []);
   assert.deepEqual(factProblems(data, {paths: {'work_mode.value': ['remote'], 'seniority.value': ['senior']}, has: {languages: [{language: 'German', level: 'required'}]}}),
     ['work_mode.value: "hybrid", wanted remote', 'seniority.value: missing', 'languages: no entry like {"language":"German","level":"required"}']);
+});
+
+// 16 Oct 2026: the eval's REST calls drew on the same 10,000 free neurons a day as the production Free AI, and a day of tuning left every user at "busy today".
+test('the eval refuses the production Cloudflare account: --account must name another one', async () => {
+  const {guardAccount, PRODUCTION_ACCOUNTS} = await import('../../tools/free-ai-eval.mjs');
+  assert.throws(() => guardAccount(undefined), /--account/);
+  for (const production of PRODUCTION_ACCOUNTS) assert.throws(() => guardAccount(production), /production/);
+  assert.equal(guardAccount('0123456789abcdef0123456789abcdef'), '0123456789abcdef0123456789abcdef');
 });

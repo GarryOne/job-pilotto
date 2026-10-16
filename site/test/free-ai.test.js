@@ -146,3 +146,38 @@ test('FREE_AI_NEURONS=off lifts the allowance (once the plan is paid)', async ()
   const e = env({FREE_AI_NEURONS: 'off'}); e.WAITLIST.m.set('freeai:neu:2026-10-16', '99999');
   assert.equal((await call(e, await key())).status, 200);
 });
+
+// 16 Oct 2026: an eval run on the same Cloudflare account used the whole free allowance and the Worker's own counter never saw it. The account's own usage (GraphQL aiInferenceAdaptiveGroups) is the truth.
+const usage = neurons => ({data: {viewer: {accounts: [{aiInferenceAdaptiveGroups: [{count: 3, sum: {totalNeurons: neurons}}]}]}}});
+const metered = (neurons, sent = [], graphql = []) => ({sent, graphql, fetcher: async (url, init) => {
+  if (String(url).includes('graphql')) { graphql.push(JSON.parse(init.body).query); if (neurons == null) throw new Error('down'); return Response.json(usage(neurons)); }
+  sent.push(JSON.parse(init.body).text); return new Response('{}');
+}});
+const withAccount = e => Object.assign(e, {CF_ACCOUNT_ID: 'acc', CF_ANALYTICS_TOKEN: 'analytics'});
+
+test('usage by any caller of the account counts: the day is over when Cloudflare says so, whatever the Worker counted', async () => {
+  const e = withAccount(env()), m = metered(10500), apiKey = await key();
+  const response = await freeAi(new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})}), e, new Date('2026-10-16T10:00:30Z'), null, m.fetcher);
+  assert.equal(response.status, 503); assert.match((await response.json()).error.message, /busy today/i);
+  assert.equal(e.seen.length, 0);
+  assert.match(m.graphql[0], /aiInferenceAdaptiveGroups/); assert.match(m.graphql[0], /acc/);
+});
+
+test('the 80% line is read from the account too, once, and the usage is asked once a minute', async () => {
+  const e = withAccount(env({BRAIN_BOT_TOKEN: 't', BRAIN_CHAT_ID: 'c'})), m = metered(8100), apiKey = await key();
+  const ask = at => freeAi(new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})}), e, new Date(at), null, m.fetcher);
+  await ask('2026-10-16T10:00:10Z'); await ask('2026-10-16T10:00:40Z');
+  assert.equal(m.sent.length, 1); assert.match(m.sent[0], /80%/);
+  assert.equal(m.graphql.length, 1, 'cached for a minute');
+  await ask('2026-10-16T10:01:30Z');
+  assert.equal(m.graphql.length, 2);
+});
+
+test('without the account settings, or when Cloudflare\'s usage cannot be read, the Worker\'s own count still guards the day', async () => {
+  const apiKey = await key(), body = JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]});
+  const ask = (e, fetcher) => freeAi(new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body}), e, new Date('2026-10-16T10:00:30Z'), null, fetcher);
+  assert.equal((await ask(env(), metered(99999).fetcher)).status, 200, 'no CF_ANALYTICS_TOKEN: not asked');
+  assert.equal((await ask(withAccount(env()), metered(null).fetcher)).status, 200, 'a failed read does not stop the service');
+  const own = withAccount(env()); own.WAITLIST.m.set('freeai:neu:2026-10-16', '10000');
+  assert.equal((await ask(own, metered(0).fetcher)).status, 503, 'the own counter still stops it');
+});
