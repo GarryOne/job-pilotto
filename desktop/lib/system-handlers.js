@@ -3,8 +3,6 @@
 // import tests in desktop/test.
 import * as backup from './backup.js';
 import * as contactDetails from './contact.js';
-import * as notion from './notion.js';   // Notion-only: archives the Notion workspace on a reset with a fresh workspace
-import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as reset from './reset.js';
 import * as profileAccounts from './profile-accounts.js';   // job-site accounts per profile: exported when ticked, removed at a reset
@@ -26,22 +24,13 @@ export function registerSystemHandlers(ctx) {
     : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
   ipcMain.handle('relaunch', () => restartApp('asked by the window (permission or update toast)'));
   // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
-  // freshNotion: the Notion workspace is archived first (its page renamed, nothing deleted), so the setup
-  // builds a new one; if Notion refuses, nothing is reset.
-  handleImportant('resetProfile', 'Resetting this computer', async (_, {backup = true, freshNotion = false} = {}) => {
+  // A reset only clears this Mac and never calls Notion (owner, 16 Oct 2026); connecting Notion later is the normal first-time flow.
+  handleImportant('resetProfile', 'Resetting this computer', async (_, {backup = true} = {}) => {
     const answer = dialog.showMessageBoxSync(getWindow(), {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
-      message: freshNotion ? 'Reset Job Pilotto and start a fresh Notion workspace?' : 'Reset Job Pilotto on this computer?',
+      message: 'Reset Job Pilotto on this computer?',
       detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
-        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. ${freshNotion
-        ? 'Your Job Pilotto page in Notion is renamed "… (archived)" and kept as it is; the setup then builds a new workspace in a new empty page.'   // about Notion
-        : 'Your Notion workspace and GitHub repo are not changed.'} Your Gmail sign-in is disconnected, so the next setup starts clean.`});
+        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. Your Notion workspace is not touched, and neither is your GitHub repo. Your Gmail sign-in is disconnected, so the next setup starts clean.`});   // about Notion
     if (answer !== 1) return {ok: false};
-    let archived = null;
-    if (freshNotion && notionGate.notionInUse(storage)) {   // a Notion that isn't the store holds none of this data: left alone
-      const when = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
-      try { archived = await notion.archiveWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, when); }
-      catch (error) { return {ok: false, error: `Notion: ${error.message}. Nothing was reset.`}; }
-    }
     // The Gmail sign-in lives in the Keychain, outside the data folder: forgotten too, or the fresh setup shows the old account (9 Oct 2026).
     if (!DEMO) {
       try { await pipeline.run(storage, ['src.sources.google', 'disconnect']); appLog('connections', 'Gmail disconnected', {from: 'reset'}); }
@@ -49,7 +38,7 @@ export function registerSystemHandlers(ctx) {
     }
     const removed = profileAccounts.onReset(profileAccounts.profileId(storage), {backup});   // no backup: this profile's job-site accounts go (a backup keeps its id, so its accounts stay for a restore)
     appLog('data', 'reset: job-site accounts removed', {count: removed});
-    reset.request(storage.dir, {backup, archived});
+    reset.request(storage.dir, {backup});
     restartApp('reset');
     return {ok: true};
   });

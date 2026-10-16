@@ -3,8 +3,7 @@
 // reset are requested, the app restarts, and the folder is swapped at the very start of the next launch,
 // before anything opens it. The current data is moved to a backup folder first (reset can delete instead).
 // Outside the folder, a reset touches only the Gmail sign-in (system-handlers.js disconnects it first); the Notion workspace, employer
-// passwords in the Keychain and a GitHub repo stay as they are. Two explicit extras (main.js): a reset can also archive the
-// Notion workspace (renamed, never deleted), and an export can carry a read-only copy of it (notion.json).
+// passwords in the Keychain and a GitHub repo stay as they are, and a reset never calls Notion (owner, 16 Oct 2026).
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -81,9 +80,8 @@ export function stageImport(dir, file) {
   return manifest;
 }
 
-// archived: the Notion page a fresh start archived ({title, url}), shown after the restart.
-export function request(dir, {backup = true, archived = null} = {}, now = new Date()) {
-  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, archived, at: now.toISOString()}));
+export function request(dir, {backup = true} = {}, now = new Date()) {
+  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, at: now.toISOString()}));
 }
 
 // Windows keeps a folder locked for a moment after the process that had files open in it exits: the relaunch after "Import an export…" tried to
@@ -101,7 +99,7 @@ export function whenUnlocked(work, {tries = 40, every = 250, waited = {ms: 0}} =
   }
 }
 
-// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {archived} / {waited: ms on a locked folder}.
+// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {waited: ms on a locked folder}.
 export function applyPending(dir, now = new Date()) {
   const marker = path.join(dir, MARKER);
   if (!fs.existsSync(marker)) return null;
@@ -116,7 +114,6 @@ export function applyPending(dir, now = new Date()) {
     unlocked(() => fs.rmSync(dir, {recursive: true, force: true}));
     done.deleted = true;
   }
-  if (wanted.archived) done.archived = wanted.archived;
   if (wanted.import && fs.existsSync(wanted.import)) {
     unlocked(() => fs.renameSync(wanted.import, dir));
     fs.rmSync(path.join(dir, 'manifest.json'), {force: true});

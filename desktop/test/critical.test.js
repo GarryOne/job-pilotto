@@ -37,7 +37,7 @@ test('the quit dialog names the work and offers to wait for it', () => {
 
 test('every handler that archives, copies or moves data, or sets up a service, is registered as important', () => {
   // The class: an IPC handler whose body does one of these is a handleImportant(…), never a bare ipcMain.handle.
-  const UNRECOVERABLE = /archiveWorkspace|dumpWorkspace|migrate\.run|reset\.(request|exportTo)|telegramCloud\.turn|github\.(connect|setup|enable|turnOff|create)|turnCloudOff\(|notion\.(build|connect)\w*\(/;
+  const UNRECOVERABLE = /dumpWorkspace|migrate\.run|reset\.(request|exportTo)|telegramCloud\.turn|github\.(connect|setup|enable|turnOff|create)|turnCloudOff\(|notion\.(build|connect)\w*\(/;
   const main = mainSource();
   const blocks = main.split(/\n(?=\s*(?:ipcMain\.handle|handleImportant)\()/).slice(1);
   // A handler ends at its first "  });" (a one-line one on its own line): helpers written after it are not part of it.

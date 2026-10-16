@@ -1444,16 +1444,13 @@
           <div class="setting danger-zone" id="setting-reset">
             <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Reset Job Pilotto on this Mac</h3></div>
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
-            <p class="small">Removes local settings and files. Your Notion workspace is kept unless you choose to start fresh.</p>
+            <p class="small">Removes local settings and files. Your Notion workspace is not touched.</p>
             <div id="reset-options" hidden>
               <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, this profile's job-site accounts (unless you keep a backup; other profiles' always stay), your CV and tailored CVs, call recordings and
                 interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
-              <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your GitHub repo. <b>Disconnected:</b> your Gmail sign-in.
+              <p class="small muted"><b>Not changed:</b> your Notion workspace, your GitHub repo. <b>Disconnected:</b> your Gmail sign-in.
                 The Chrome extension has to be connected again.</p>
               <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
-        <label class="radio"><input type="checkbox" id="reset-notion"><span><b>Also start a fresh Notion workspace</b> (a new job search, or
-          someone else using this computer): your Job Pilotto page is renamed "… (archived <span id="reset-notion-day"></span>)" and
-          kept, nothing in it is deleted; the setup builds a new workspace. Leave it off to reconnect to the same workspace.</span></label>
         <div class="inline"><input type="text" id="reset-confirm" placeholder='Type RESET to confirm' autocomplete="off">
           <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
         <p class="message" id="reset-message"></p>

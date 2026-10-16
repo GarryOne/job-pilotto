@@ -1,5 +1,5 @@
-// Starting over (Settings → Danger zone) and exporting (Settings → Your data) with Notion: an archived workspace
-// is renamed and never connected to again; an export can carry a copy of the whole workspace.
+// Notion and starting over (Settings → Danger zone) or exporting (Settings → Your data): a reset never calls Notion; a workspace
+// an older reset renamed "(archived …)" is never connected to again; an export carries no Notion copy.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -50,26 +50,20 @@ function workspace({oldTitle = 'Job Pilotto', rows = 2} = {}) {
   return {items, fetcher, patched};
 }
 
-test('archiving renames the workspace page, and connecting then ignores everything inside it', async () => {
-  const w = workspace();
-  const before = await notion.discover('t', w.fetcher);
-  assert.equal(before.missing.length, 0);
-  assert.equal(await notion.sharedRoot('t', w.fetcher), null);  // two top pages: not a fresh start yet
-  const done = await notion.archiveWorkspace('t', before.ids, '28 Sep 2026', w.fetcher);
-  assert.equal(done.title, 'Job Pilotto (archived 28 Sep 2026)');
-  assert.deepEqual(w.patched, ['pages/old']);  // only the root page's title changed: nothing deleted
-  const after = await notion.discover('t', w.fetcher);
-  assert.deepEqual(after.ids, {});
-  assert.equal(await notion.sharedRoot('t', w.fetcher), 'new');  // the setup builds the new workspace here
+// A reset only clears this Mac (owner, 16 Oct 2026: "a reset for sure shouldn't touch the current Notion"). Connecting Notion afterwards is the normal first-time flow.
+test('a reset never reaches Notion: no archive call, no checkbox, no remembered page', () => {
+  assert.equal(notion.archiveWorkspace, undefined, 'nothing renames a Notion page any more');
+  const here = rel => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
+  assert.ok(!/import .*['"]\.\/notion\.js['"]/.test(here('../lib/system-handlers.js')), 'the reset handlers do not import the Notion client');
+  assert.ok(!/freshNotion|archived/.test(here('../lib/system-handlers.js')));
+  assert.ok(!/reset-notion|fresh Notion/i.test(here('../renderer/index.html') + here('../renderer/pages/data.js')), 'no "fresh Notion workspace" option');
+  assert.match(here('../renderer/index.html'), /Your Notion workspace is not touched/);
 });
 
-test('archiving twice keeps one "(archived …)" suffix; renaming it back brings the workspace back', async () => {
+test('a page already renamed "(archived …)" by an older reset is still never connected to', async () => {
   const w = workspace({oldTitle: 'My jobs (archived 1 Jan 2026)'});
   assert.deepEqual((await notion.discover('t', w.fetcher)).ids, {});
-  w.items[0].properties.title.title = title('My jobs');
-  const ids = (await notion.discover('t', w.fetcher)).ids;
-  assert.ok(ids.NOTION_PROFILE_PAGE_ID);
-  assert.equal((await notion.archiveWorkspace('t', ids, '28 Sep 2026', w.fetcher)).title, 'My jobs (archived 28 Sep 2026)');
+  assert.equal(await notion.sharedRoot('t', w.fetcher), 'new');
 });
 
 test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', () => {
@@ -85,12 +79,12 @@ test('an export carries no Notion copy; an older one that does imports without k
   assert.ok(!fs.existsSync(path.join(dir, reset.NOTION_FILE)));
 });
 
-test('a fresh-start reset remembers the archived page for the message after the restart', () => {
+test('a reset leaves nothing about Notion for after the restart', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Job Pilotto');
   fs.mkdirSync(dir);
-  reset.request(dir, {backup: false, archived: {title: 'Job Pilotto (archived 28 Sep 2026)', url: 'u'}});
-  assert.deepEqual(reset.applyPending(dir), {deleted: true, archived: {title: 'Job Pilotto (archived 28 Sep 2026)', url: 'u'}});
+  reset.request(dir, {backup: false});
+  assert.deepEqual(reset.applyPending(dir), {deleted: true});
 });
 
 // Two installs that each connected the same Notion left two pages both called "Job Pilotto" (6 Oct 2026): a page made by a connect is
