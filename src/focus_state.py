@@ -150,7 +150,8 @@ def questions(rows, events):
     for event in events:
         if not event.get('needs_you') or event.get('app_id'):
             continue
-        suggested = by_url.get(event.get('suggested_job') or '')
+        link = event.get('suggested_job')
+        suggested = by_url.get(link if isinstance(link, str) else '')   # a link that is not text (Sentry APP-23: a dict) asks "which job?" instead of failing Focus
         note, kind = event.get('note') or '', event.get('kind') or ''
         at = _when(event.get('at') or '')
         label = f"{_field(suggested, 'company') or _field(suggested, 'via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
