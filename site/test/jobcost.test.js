@@ -174,8 +174,16 @@ test('the page shows Free AI from the relay\'s log: today, per step, per install
     {day: '2026-10-15', who: 'a1', action: 'score', model: 'claude-haiku-5-5', calls: 99, tokens_in: 1, tokens_out: 1, micro_usd: 5000000}];
   const html = page([], [], [], '', now, '30d', free);
   assert.match(html, /Free AI \(Workers AI\)/);
-  assert.match(html, /Today \$0\.0114 · 42 calls · 2 installs/);
+  assert.match(html, /neurons \(\d+%\) of the free plan · \$0\.0114 · 42 calls · 2 installs/);
   assert.match(html, /<td>score<\/td><td class="n">40<\/td>/);
   assert.doesNotMatch(html, /<td class="n">99<\/td>/, 'a Claude row in the relay log is not Free AI');
   assert.match(page([], [], [], '', now, '30d', []), /No Free AI calls yet/);
+});
+
+test('Free AI section shows the day\'s neurons as a share of the free allowance', async () => {
+  const {freeSection, freeSummary} = await import('../src/free-ai-cost.js');
+  const now = new Date('2026-10-16T10:00:00Z');
+  const summary = freeSummary([{day: '2026-10-16', who: 'a', action: 'score', model: '@cf/qwen/qwen3-30b-a3b-fp8', calls: 10, tokens_in: 1, tokens_out: 1, micro_usd: 55000}], now);
+  assert.equal(summary.todayNeurons, 5000); assert.equal(summary.allowancePct, 50);
+  assert.match(freeSection(summary, 'last 30 days'), /5000 of 10000 neurons \(50%\)/);
 });

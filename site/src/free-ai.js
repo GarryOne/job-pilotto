@@ -5,11 +5,12 @@ import {record as recordCost} from './aicost.js';
 import {authorize, digestOf} from './guard.js';
 import {verifyLicense} from './license.js';
 import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from './free-ai-translate.js';
-import {costUsd, modelFor} from './free-ai-models.js';
+import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-models.js';
 
 // Per install: 30 calls a minute, 300 calls and 1.5M tokens a day. Global: alert at $3 a day, stop at $10 a day (env FREE_AI_ALERT_USD / FREE_AI_STOP_USD).
 export const LIMITS = {perMinute: 30, perDay: 300, tokensPerDay: 1_500_000, alertUsd: 3, stopUsd: 10};
 
+const BUSY = 'Free AI is busy today. Try again tomorrow, or add your own key in Settings → AI engine (Claude or ChatGPT).';
 const error = (status, message, type = 'api_error') => Response.json({type: 'error', error: {type, message}}, {status});
 const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
 const count = async (kv, key) => Number(await kv.get(key)) || 0;
@@ -34,9 +35,11 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
 
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), minute = now.toISOString().slice(0, 16);
-  const keys = {minute: `freeai:min:${access.who}:${minute}`, day: `freeai:day:${access.who}:${day}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`};
-  const [perMinute, perDay, tokens, microUsd] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
-  if (microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, 'Free AI is busy today. Try again tomorrow, or add your own key in Settings → AI engine.');
+  const keys = {minute: `freeai:min:${access.who}:${minute}`, day: `freeai:day:${access.who}:${day}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, neurons: `freeai:neu:${day}`};
+  const [perMinute, perDay, tokens, microUsd, neurons] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
+  if (microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
+  const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
+  if (neurons >= allowance) return error(503, BUSY);
   if (perMinute >= LIMITS.perMinute) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
   if (perDay >= LIMITS.perDay || tokens >= LIMITS.tokensPerDay) return error(429, 'You reached today\'s Free AI use. It resets tomorrow, or add your own key in Settings → AI engine.', 'rate_limit_error');
 
@@ -59,6 +62,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
       result = {...again, usage: {prompt_tokens: (again.usage?.prompt_tokens || 0) + first.input_tokens, completion_tokens: (again.usage?.completion_tokens || 0) + first.output_tokens}};
     }
   } catch (caught) {
+    if (/daily free allocation|4006/i.test(String(caught?.message))) return error(503, BUSY);
     if (caught instanceof Unsupported) return error(422, `${caught.message} Add your own key in Settings → AI engine for this step.`, 'invalid_request_error');
     return error(502, 'Free AI could not answer just now.');
   }
@@ -67,9 +71,10 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const after = Math.round(usd * 1e6);
   const work = Promise.all([
     kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.day, String(perDay + 1), {expirationTtl: 2 * 86400}),
-    kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + after), {expirationTtl: 2 * 86400}),
+    kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + after), {expirationTtl: 2 * 86400}), kv.put(keys.neurons, String(Math.round(neurons + neuronsOf(usd))), {expirationTtl: 2 * 86400}),
     recordCost(env, access.who, request.headers.get('x-jp-action'), model, message.usage, usd, now),
     alertOnce(env, kv, day, microUsd, microUsd + after, fetcher),
+    neuronAlert(env, kv, day, neurons, neurons + neuronsOf(usd), allowance, fetcher),
   ]);
   ctx?.waitUntil ? ctx.waitUntil(work) : await work;
   if (body.stream) return new Response(asStream(message), {headers: {'content-type': 'text/event-stream', 'cache-control': 'no-cache'}});
@@ -86,3 +91,12 @@ async function alertOnce(env, kv, day, before, after, fetcher) {
 }
 
 const isJson = text => { try { JSON.parse(text); return true; } catch { return false; } };
+
+// One Telegram line the day the free plan's allowance is 80% used (Free AI then stops at 100% until 00:00 UTC).
+async function neuronAlert(env, kv, day, before, after, allowance, fetcher) {
+  const line = allowance * 0.8;
+  if (!Number.isFinite(allowance) || before >= line || after < line || !env.BRAIN_BOT_TOKEN || !env.BRAIN_CHAT_ID || await kv.get(`freeai:neualert:${day}`)) return;
+  await kv.put(`freeai:neualert:${day}`, '1', {expirationTtl: 2 * 86400});
+  await fetcher(`https://api.telegram.org/bot${env.BRAIN_BOT_TOKEN}/sendMessage`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({chat_id: env.BRAIN_CHAT_ID, text: `⚠️ <b>Free AI</b> used 80% of today's free allowance (${Math.round(line)} of ${allowance} neurons). It stops at 100% until 00:00 UTC. /admin/ai-cost has the day.`, parse_mode: 'HTML'})}).catch(() => {});
+}

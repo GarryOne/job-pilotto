@@ -13,3 +13,8 @@ export function costUsd(model, usage = {}) {
   const [input, output] = PRICES[model] || [0.5, 1.5];   // an unknown model is charged like a dear one so it can never dodge the daily line
   return ((usage.input_tokens || 0) * input + (usage.output_tokens || 0) * output) / 1e6;
 }
+
+// The Workers Free plan answers up to 10,000 neurons a day (resets 00:00 UTC); 1 neuron = $0.000011, so a call's neurons follow from its cost. Past it Cloudflare refuses until the next day.
+export const FREE_NEURONS_PER_DAY = 10_000;
+export const NEURON_USD = 0.000011;
+export const neuronsOf = usd => usd / NEURON_USD;
