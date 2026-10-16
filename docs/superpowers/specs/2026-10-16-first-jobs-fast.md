@@ -41,6 +41,13 @@ Time = seconds from the engine's start to the first row in the store.
 - Correction of the first draft: on this Mac's own store a score is listed the moment it is saved (the "every 10 scores" only paces the Notion sync), so
   "today" is the crawl + triage + first score, not 10 scores.
 
+## Notion installs (cc's question on #999)
+The Jobs list on a Notion install is Notion's list **plus** the jobs only this Mac has (`desktop_jobs.jobs`, marked unsynced). So the first scored job is
+listed at once from local state, before any Job Matches write has landed; the sync after every one of the 3 first scores (`every=1`) only fills Notion. Guard:
+`tests/test_first_jobs_notion.py` (the Notion stand-in: before the first sync the job is listed unsynced, after it the same job comes from Notion). The sync runs
+in the scoring loop after the save, so on real Notion (one row write, ~1-3 s) it delays the saves of scores 2 and 3, never the first. Later scores (4+) sync every 10
+as before; they are in the window's list from local state in the same way. Measured on the stand-in: see the PR.
+
 ## What was built (differences from the first draft)
 - `src/first_jobs.py` + `--first-jobs` (daily_args, daily_search): slice of 15 feeds (fast JSON kinds first), 3 jobs scored 3 at a time, `on_scored` after every score
   (sync to the store's Job Matches). A failure there is a warning; the full search does everything the slice did. The slice's jobs count as "seen" in the
