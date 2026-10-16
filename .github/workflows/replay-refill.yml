@@ -239,7 +239,7 @@ jobs:
       - name: Pack the refilled memo (encrypted with the public key; the page parts never sit in the clear)
         if: success()
         working-directory: desktop/e2e
-        run: node refill-pack.mjs "$GITHUB_WORKSPACE/records" "${{ matrix.row }}" "$RUNNER_TEMP/fill" "$RUNNER_TEMP/pack/row"
+        run: node refill-pack.mjs "$GITHUB_WORKSPACE/records" "${{ matrix.row }}" "$RUNNER_TEMP/fill" "$RUNNER_TEMP/pack/row" "$RUNNER_TEMP/fill.log"
       - uses: actions/upload-artifact@v6
         if: success()
         with:

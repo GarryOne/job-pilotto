@@ -6,12 +6,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {newestPerRow} from './replay-records.mjs';
+import {nothingToRefill} from './lib/refill-resilience.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-const [root, name, fillOut, pack] = process.argv.slice(2);
+const [root, name, fillOut, pack, fillLog] = process.argv.slice(2);   // fillLog (optional): fill-memo's output; a fill that asked nothing is not a failure
 if (!root || !name || !fillOut || !pack) { console.error('usage: node refill-pack.mjs <records dir> "<row>" <fill out dir> <pack dir>'); process.exit(2); }
 const row = newestPerRow(root).find(one => one.name === name);
 const memo = row && path.join(row.dir, 'model-memo.json');
+if ((!memo || !fs.existsSync(memo)) && fillLog && nothingToRefill(fs.existsSync(fillLog) ? fs.readFileSync(fillLog, 'utf8') : '')) { console.log(`refill-pack: ${name}: nothing to refill (the fill asked no question)`); process.exit(0); }
 if (!memo || !fs.existsSync(memo)) { console.error(`refill-pack: no memo for "${name}"`); process.exit(1); }
 const spend = (() => { try { return JSON.parse(fs.readFileSync(path.join(fillOut, 'fill', 'refill-spend.json'), 'utf8')); } catch { return {}; } })();
 fs.mkdirSync(pack, {recursive: true});
