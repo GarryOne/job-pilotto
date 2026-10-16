@@ -3,7 +3,7 @@
 // It can also fail on purpose (setMode): the API answering 429 / 500 / 401, an empty credit balance, or never answering, so the failure states of a run are tested
 // without a real outage and without spending anything.
 import http from 'node:http';
-import {markPlanted} from './planted.mjs';
+import {HUNG_REPORTS, markPlanted} from './planted.mjs';
 import {count, countError, countReplay, keep, keepMiss, recall, requestKey, usageOf} from './ai-meter.mjs';
 
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
@@ -32,7 +32,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     if (follow) follow.stats.calls++;   // the suite's proxy counts every AI call of the turn, as it counts the faults below: steps compare its `calls` before and after (10 Oct 2026: apply failed on an OpenAI turn, "the AI was never asked")
     const control = follow ? follow.stats : stats, openai = shape === 'openai';   // the faults and the delay a step set on the suite's proxy
     await new Promise(resolve => setTimeout(resolve, control.delayMs));
-    if (control.mode !== 'pass') { control.failed++; markPlanted(`ai ${control.mode}`); }
+    if (control.mode !== 'pass') { control.failed++; markPlanted(`ai ${control.mode}`, control.mode === 'hang' ? HUNG_REPORTS : undefined); }
     if (control.mode === 'hang') return;   // never answers; the connection closes with the proxy
     const failure = openai ? openaiFailureFor(control.mode) : failureFor(control.mode);
     if (failure) { res.writeHead(failure.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(failure.body), 'retry-after-ms': '10'}); res.end(failure.body); return; }   // retry-after-ms: the SDK retries a 429 / 500 after what the answer says, not after seconds of backoff
