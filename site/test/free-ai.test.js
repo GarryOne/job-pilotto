@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {freeAi, LIMITS} from '../src/free-ai.js';
 import {tokenFor} from '../src/guard.js';
 import {SMALL, STRONG, costUsd, modelFor} from '../src/free-ai-models.js';
-import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from '../src/free-ai-translate.js';
+import {asStream, fromWorkersAi, REASONING_ROOM, toWorkersAi, Unsupported} from '../src/free-ai-translate.js';
 
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
 const answer = (text = 'hi', usage = {prompt_tokens: 1000, completion_tokens: 1000}) => ({choices: [{message: {content: text}, finish_reason: 'stop'}], usage});
@@ -79,4 +79,10 @@ test('steps that write documents use the stronger model only when it is switched
   assert.equal(modelFor('kit', {}), SMALL);
   assert.equal(modelFor('kit', {STRONG_ON: 'on'}), STRONG);
   assert.equal(modelFor('score', {STRONG_ON: 'on'}), SMALL);
+});
+
+test('the model gets room to think on top of the caller\'s max_tokens (a live call with 200 came back empty)', async () => {
+  const sent = await toWorkersAi({max_tokens: 200, messages: [{role: 'user', content: 'x'}]});
+  assert.equal(sent.max_tokens, 200 + REASONING_ROOM);
+  assert.equal((await toWorkersAi({messages: [{role: 'user', content: 'x'}]})).max_tokens, 1024 + REASONING_ROOM);
 });

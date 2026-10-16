@@ -84,7 +84,7 @@ test('measuring starts at AI_COST_SINCE: older rows are not read, and the first 
   const bound = [];
   const env = {AI_COST_SINCE: '2099-01-01', STATS: {prepare: () => ({bind: from => { bound.push(from); return {all: async () => ({results: []})}; }})}};
   await read(env);
-  assert.deepEqual(bound, ['2099-01-01', '2099-01-01', '2099-01-01'], 'runs, billed and per-key rows all start there');
+  assert.deepEqual(bound, ['2099-01-01', '2099-01-01', '2099-01-01', '2099-01-01'], 'runs, billed, per-key and Free AI rows all start there');
   const now = new Date('2026-10-12T10:00:00Z');
   assert.match(page([], [], [], '2026-10-09', now), /Since 2026-10-09/);
   assert.match(page([], [], [], '2026-08-01', now), /Last 30 days/, 'a start older than 30 days changes nothing');
@@ -164,4 +164,18 @@ test('the page lists the API keys first and the workspaces after, each from its 
   assert.match(spacesPart, /<td>job-pilotto-self-heal<\/td><td class="n">\$3\.00/);
   assert.doesNotMatch(spacesPart, /ui-fix/);
   for (const id of Object.keys(RANGES)) assert.match(page([], [], keyRows, '', at, id), /By workspace/, id);
+});
+
+// Free AI (Workers AI) is counted by the relay, not billed by Anthropic: its own section, per step, never in the jobs' total.
+test('the page shows Free AI from the relay\'s log: today, per step, per install, and only Workers AI models', () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const free = [{day: '2026-10-16', who: 'a1', action: 'score', model: '@cf/qwen/qwen3-30b-a3b-fp8', calls: 40, tokens_in: 60000, tokens_out: 20000, micro_usd: 9700},
+    {day: '2026-10-16', who: 'b2', action: 'kit', model: '@cf/qwen/qwen3-30b-a3b-fp8', calls: 2, tokens_in: 8000, tokens_out: 4000, micro_usd: 1700},
+    {day: '2026-10-15', who: 'a1', action: 'score', model: 'claude-haiku-5-5', calls: 99, tokens_in: 1, tokens_out: 1, micro_usd: 5000000}];
+  const html = page([], [], [], '', now, '30d', free);
+  assert.match(html, /Free AI \(Workers AI\)/);
+  assert.match(html, /Today \$0\.0114 · 42 calls · 2 installs/);
+  assert.match(html, /<td>score<\/td><td class="n">40<\/td>/);
+  assert.doesNotMatch(html, /<td class="n">99<\/td>/, 'a Claude row in the relay log is not Free AI');
+  assert.match(page([], [], [], '', now, '30d', []), /No Free AI calls yet/);
 });

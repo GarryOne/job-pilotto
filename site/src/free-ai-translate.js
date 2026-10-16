@@ -2,6 +2,10 @@
 // Pure functions; the PDF reader (env.AI.toMarkdown) is passed in. A block no open model here can read is refused in words, never dropped silently.
 export class Unsupported extends Error {}
 
+// Qwen3 and GLM think before they answer, and the thinking counts against max_tokens: a live call with max_tokens 200 came back empty (16 Oct 2026, ~450-550 tokens of thinking for a
+// one-line answer). The model gets this much more room on top of the caller's limit (the answers the app asks for are short).
+export const REASONING_ROOM = 2000;
+
 const textOf = content => (typeof content === 'string' ? content : (content || []).map(block => (block?.type === 'text' ? block.text : '')).join(''));
 
 // -> {messages, response_format?, max_tokens}. `readPdf(base64) -> text` turns a document block into text.
@@ -20,7 +24,7 @@ export async function toWorkersAi(body, readPdf) {
     messages.push({role: message.role, content: parts.join('\n\n')});
   }
   const schema = body.output_config?.format?.schema;
-  return {messages, max_tokens: body.max_tokens || 1024,
+  return {messages, max_tokens: (body.max_tokens || 1024) + REASONING_ROOM,
     ...(schema ? {response_format: {type: 'json_schema', json_schema: {name: 'answer', schema}}} : {}),
     ...(body.temperature != null ? {temperature: body.temperature} : {})};
 }
