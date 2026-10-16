@@ -31,6 +31,7 @@ async function seed(withPro = true) {
   for (let i = 0; i < 10; i++) tel(db, `install-${i}-aaaaaaaa`, 'setup', {step: i < 8 ? 'done' : 'ai'}, '2026-10-05T08:00:00Z');
   for (let i = 0; i < 6; i++) health(db, `install-${i}-aaaaaaaa`, {applicationsUsed: i === 1 ? 20 : i + 1, allowanceEnded: i === 0 || i === 2 || i === 3}, '2026-10-15T08:00:00Z');
   tel(db, 'founder-aaaaaaaa', 'setup', {step: 'done'}, '2026-10-05T08:00:00Z'); health(db, 'founder-aaaaaaaa', {licensed: true, applicationsUsed: 40, allowanceEnded: true}, '2026-10-15T08:00:00Z');
+  for (const [at, platform] of [['2026-10-04T08:00:00Z', 'mac'], ['2026-10-04T09:00:00Z', 'windows'], ['2026-10-15T09:00:00Z', 'mac']]) db.prepare("INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device) VALUES (?,?,'v',?,'hero','home','direct','CH','desktop')").run(at.slice(0, 10), at, platform);
   await cost(db, 'install-1-aaaaaaaa', 2.5); await cost(db, 'install-2-aaaaaaaa', 0.5); await cost(db, 'install-0-aaaaaaaa', 1.5);
   if (withPro) {
     db.exec("INSERT INTO pro_accounts (id, email_hash, email, created_at, status, credit_micro) VALUES ('a1','h','hidden@example.com','2026-10-12','active',4000000); INSERT INTO pro_devices (account, install, added_at, last_seen) VALUES ('a1','install-0-aaaaaaaa','2026-10-12','2026-10-15');");
@@ -47,8 +48,8 @@ test('colours: >=5% green, 2-5% yellow, <2% red, and "not enough trials yet" und
 
 test('the funnel, the conversion and the cost per user (founders left out; the e-mail never shown)', async () => {
   const env = await seed(), data = await collect(env, 'all', now);
-  assert.deepEqual(data.funnel, {installs: 10, activated: 8, applied: 6, trials: 4, pro: 1});
-  assert.equal(data.conversion.ofTrials, 0.25); assert.equal(data.conversion.ofInstalls, 0.1); assert.equal(data.conversion.colour, 'grey');   // 4 trials: too few to judge
+  assert.deepEqual(data.funnel, {downloads: 3, installs: 10, setup: 8, activated: 6, trials: 4, pro: 1});
+  assert.equal(data.conversion.ofTrials, 0.25); assert.equal(data.conversion.ofSignups, 0.125); assert.equal(data.conversion.colour, 'grey');   // 4 trials: too few to judge
   assert.equal(data.cost.free.users, 2); assert.equal(data.cost.free.atCap, 1); assert.ok(Math.abs(data.cost.free.average - 1.5) < 1e-9); assert.ok(Math.abs(data.cost.free.median - 2.5) < 1e-9);
   assert.ok(Math.abs(data.cost.pro.average - 1.5) < 1e-9); assert.equal(data.cost.pro.users, 1);
   assert.equal(data.cost.month.usd, 12);
@@ -88,4 +89,13 @@ test('the month cap on the page is the one free-ai.js enforces ($100 from wrangl
   assert.equal(wrangled, 100); assert.equal((await collect(env, 'all', now)).cost.month.cap, monthStopUsd(env));
   assert.equal((await collect(await seed(), 'all', now)).cost.month.cap, monthStopUsd({}));   // unset: the same default, never a second one
   assert.deepEqual(Object.fromEntries(FIXED_COSTS_YEAR), {'Cloudflare Workers Paid': 60, Domain: 5, 'Apple Developer': 99, 'Windows signing': 250, 'Bookkeeping SaaS': 100});
+});
+
+test('the funnel is six steps (downloads, first run, signup = setup finished, activated, trial, Pro) with the drop from the step before', async () => {
+  const env = await seed(), data = await collect(env, 'all', now), html = page(data, {range: 'all', now});
+  for (const label of ['Download clicks', 'First run', 'Signup: setup finished', 'Activated: first application', 'Trial completed', 'Pro']) assert.ok(html.includes(label), label);
+  assert.match(html, /8 · −20%/);   // 10 first runs -> 8 finished setup
+  assert.match(html, /10 · –</);                  // 10 first runs from 3 download clicks: a step larger than the one before shows no drop
+  assert.match(html, /Signups/); assert.match(html, /12.5% of signups/);   // Pro 1 of 8 who finished setup
+  assert.equal((await collect(env, '7d', now)).funnel.downloads, 1);       // only the click of 15 Oct is in the last 7 days
 });

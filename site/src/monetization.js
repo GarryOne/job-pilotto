@@ -14,20 +14,22 @@ const DOT = {green: '🟢', yellow: '🟡', red: '🔴', grey: '⚪'};
 
 function tiles({funnel, conversion}) {
   const tile = (label, value, note) => `<section class="card tile"><span class="muted">${label}</span><b>${value}</b><span class="muted">${note}</span></section>`;
-  return `<div class="tiles">${tile('Free installs', n(funnel.installs), 'first seen in this period, founders left out')}
+  return `<div class="tiles">${tile('Signups', n(funnel.setup), 'installs that finished setup (not downloads)')}
 ${tile('Trials completed', n(funnel.trials), '20 applications or 60 days reached')}
-${tile('Activated', n(funnel.activated), `${n(funnel.applied)} reached a first application`)}
+${tile('Activated', n(funnel.activated), 'reached a first application')}
 ${tile('Pro buyers', n(funnel.pro), 'of these installs')}
 <section class="card tile verdict ${conversion.colour}"><span class="muted">Conversion ${DOT[conversion.colour]}</span><b>${funnel.trials ? pct(conversion.ofTrials) : '–'}</b>
-<span class="muted">Pro ÷ trials completed · ${esc(conversion.note)} · ${funnel.installs ? pct(conversion.ofInstalls) : '–'} of all installs</span></section></div>`;
+<span class="muted">Pro ÷ trials completed · ${esc(conversion.note)} · ${funnel.setup ? pct(conversion.ofSignups) : '–'} of signups</span></section></div>`;
 }
 
-function funnelBars({funnel}) {
-  const steps = [['Installs', funnel.installs], ['Activated', funnel.activated], ['First application', funnel.applied], ['Trial completed', funnel.trials], ['Pro', funnel.pro]];
-  const segments = [{id: 'reached', label: 'reached this step', color: '#5ec4b6'}, {id: 'left', label: 'not (yet)', color: '#3a424b'}];
-  if (!funnel.installs) return '<p class="muted">No installs in this period.</p>';
-  const list = steps.map(([label, count]) => ({label, title: label, counts: {reached: count, left: funnel.installs - count}}));
-  return `${legend(segments)}${barRows(segments, list, (row, total) => `${n(row.counts.reached)} of ${n(total)} · ${pct(row.counts.reached / total)}`)}`;
+// The whole way, one step per row; the bar is the step against the largest step, the right-hand text the drop from the step before ("–" when a step is larger, e.g. installs that never came through the website).
+export function funnelBars({funnel}) {
+  const steps = [['Download clicks', funnel.downloads], ['First run', funnel.installs], ['Signup: setup finished', funnel.setup], ['Activated: first application', funnel.activated], ['Trial completed', funnel.trials], ['Pro', funnel.pro]];
+  const top = Math.max(...steps.map(([, count]) => count));
+  const segments = [{id: 'reached', label: 'reached this step', color: '#5ec4b6'}, {id: 'left', label: 'did not (yet)', color: '#3a424b'}];
+  if (!top) return '<p class="muted">No downloads or installs in this period.</p>';
+  const list = steps.map(([label, count], i) => ({label, title: label, count, drop: i && steps[i - 1][1] >= count && steps[i - 1][1] ? 1 - count / steps[i - 1][1] : null, counts: {reached: count, left: top - count}}));
+  return `${legend(segments)}${barRows(segments, list, row => `${n(row.count)} · ${row.drop === null ? (row.label === 'Download clicks' ? 'website' : '–') : `−${pct(row.drop)}`}`)}`;
 }
 
 function costCard({cost}) {
@@ -56,10 +58,10 @@ export function page(data, {range = '30d', now = new Date()} = {}) {
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}`]), range);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Monetization · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
-.verdict.green{border-color:#3fb68b}.verdict.yellow{border-color:#f5b54a}.verdict.red{border-color:#e5484d}.filters{margin:8px 0 16px}h2{margin:0 0 8px}tr.total td{font-weight:700}${BARS_CSS}.funnel .night{grid-template-columns:140px minmax(0,1fr) 150px}@media (max-width:640px){.funnel .night{grid-template-columns:110px minmax(0,1fr)}}</style></head><body><main>
+.verdict.green{border-color:#3fb68b}.verdict.yellow{border-color:#f5b54a}.verdict.red{border-color:#e5484d}.filters{margin:8px 0 16px}h2{margin:0 0 8px}tr.total td{font-weight:700}${BARS_CSS}.funnel .night{grid-template-columns:190px minmax(0,1fr) 190px}@media (max-width:640px){.funnel .night{grid-template-columns:110px minmax(0,1fr)}}</style></head><body><main>
 <header><h1>💰 Monetization</h1><span class="muted">Free vs Pro · ${esc(RANGES[range].name.toLowerCase())} · below ${TRIAL_MIN_FOR_VERDICT} completed trials the colour waits</span></header>
 ${filters}${tiles(data)}
-<section class="card nights funnel"><h2>Funnel</h2>${funnelBars(data)}</section>
+<section class="card nights funnel"><h2>Funnel</h2><p class="muted" style="margin:0 0 8px">Right: the drop from the step before (– when a step is larger, e.g. installs that did not come through the website)</p>${funnelBars(data)}</section>
 ${costCard(data)}${moneyCard(data)}
 </main></body></html>`;
 }
