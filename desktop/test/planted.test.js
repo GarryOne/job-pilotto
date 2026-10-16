@@ -8,19 +8,20 @@ const E2E = {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_PLANTED_FILE: '/x'};
 const line = plant => `${JSON.stringify(plant)}\n`;
 const AI = line({at: 99_000, why: 'ai limit', kinds: ['run_warning', 'run_failed'], text: ''});
 const RECALL = line({at: 99_000, why: 'recall tiny', kinds: ['crash'], text: 'recall planted'});
-const HUNG = line({at: 99_000, why: 'ai hang', kinds: ['run_failed', 'stuck'], text: 'no output'});
+const HUNG = line({at: 99_000, why: 'ai hang', kinds: ['run_failed', 'stuck'], text: ''});
 const asked = (report, text, now = 100_000, env = E2E) => causedByPlant(report, env, now, () => text);
 
 test('a report is dropped when a recent plant names its kind and its words', () => {
   assert.equal(asked({kind: 'run_warning', message: 'AI limit reached'}, AI), true);
   assert.equal(asked({kind: 'crash', message: 'Uncaught Error: recall planted error'}, RECALL), true);
   assert.equal(asked({kind: 'run_failed', message: 'src discover: stopped by the app: no output for 10 s'}, HUNG), true);
+  assert.equal(asked({kind: 'run_failed', message: ''}, HUNG), true, 'a run the test stopped has no words');
 });
 
 test('a real error in the same minute as a plant is sent', () => {
   assert.equal(asked({kind: 'crash', message: 'TypeError: x is undefined'}, AI), false, 'a service plant causes run reports, not a crash');
   assert.equal(asked({kind: 'crash', message: 'TypeError: x is undefined'}, RECALL), false, 'a recall plant says "recall planted"');
-  assert.equal(asked({kind: 'run_failed', message: 'src.focus: TypeError: unhashable type'}, HUNG), false, 'a hung plant causes "no output" only');
+  assert.equal(asked({kind: 'crash', message: 'TypeError: real bug'}, HUNG), false, 'a hung plant stops a run; it does not crash the app');
   assert.equal(asked({kind: 'fill_error', message: 'anything'}, AI), false);
 });
 
