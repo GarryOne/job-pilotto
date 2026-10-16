@@ -19,14 +19,18 @@ export function schemaProblems(value, schema, at = '$') {
 
 // A form-answer reply against what each field should get: expect = {<field id>: {value?: [acceptable values], match?: regex text, empty?: true, category?}} -> [problems].
 export function answerProblems(data, expect) {
-  const answers = Array.isArray(data?.answers) ? data.answers : [], found = [];
+  // What reaches the page: the product floors a proposal on a legal or demographic question to an empty kind (worker/src/extension.js answerForm), an unchecked box is no answer, and a
+  // proposal is shown, never typed, so an "empty" expectation only fails on a typed answer. A multi-choice value (" && ") is right when every part is.
+  const answers = (Array.isArray(data?.answers) ? data.answers : []).map(a => (a.use === 'propose' && ['legal', 'demographic'].includes(a.category)) || a.value === 'unchecked' ? {...a, value: ''} : a), found = [];
   for (const [field, want] of Object.entries(expect)) {
     const got = answers.find(answer => answer.field === field);
     const given = got && String(got.value ?? '') !== '';
-    if (want.empty) { if (given) found.push(`${field}: answered, wanted empty`); }
-    else if (!got) { found.push(`${field}: no answer`); continue; }
-    else if (want.value && !want.value.includes(got.value)) found.push(`${field}: "${got.value}", wanted ${want.value.join(' or ')}`);
-    else if (want.match && !new RegExp(want.match, 'i').test(got.value)) found.push(`${field}: "${got.value}", wanted /${want.match}/`);
+    const parts = String(got?.value ?? '').split(' && ');
+    if (want.empty) { if (given && got.use === 'fill') found.push(`${field}: typed "${got.value}", wanted empty`); }
+    else if (!got) { if (!want.maybeEmpty && (want.value || want.match || want.category)) found.push(`${field}: no answer`); continue; }
+    else if (want.value && !(want.maybeEmpty && !given) && !parts.every(part => want.value.includes(part)) && !want.value.includes(got.value)) found.push(`${field}: "${got.value}", wanted ${want.value.join(' or ')}`);
+    else if (want.match && !(want.maybeEmpty && !given) && !new RegExp(want.match, 'i').test(got.value)) found.push(`${field}: "${got.value}", wanted /${want.match}/`);
+    if (want.within && given && !parts.every(part => want.within.includes(part))) found.push(`${field}: "${got.value}" is not one of the options`);
     if (want.category && got && got.category !== want.category) found.push(`${field}: category ${got.category}, wanted ${want.category}`);
   }
   return found;
