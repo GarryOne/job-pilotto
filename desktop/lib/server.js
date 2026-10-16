@@ -13,6 +13,8 @@ import * as pipeline from './pipeline.js';
 import * as viewCache from './view-cache.js';
 import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension, developmentCopy, extensionChangedNote, newestExtensionFile} from './server-env.js';
 import {me} from './server-contact.js';
+import {extensionBuild} from './build-state.js';
+import {packagedBuild} from './build-handlers.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHandler, sitePasswordHandler, reviewHandler,
@@ -139,7 +141,7 @@ export function start(storage, onError = () => {}) {
           } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? {ok, latest: latestExtension(), ...(reread.length ? {reread} : {}), ...(stopAsked() ? {stop: stopAsked()} : {})} : {ok}));
+        res.end(JSON.stringify(ok ? {ok, latest: latestExtension(), build: extensionBuild({repo: pipeline.REPO, version: seen?.version || '', latest: latestExtension(), packaged: developmentCopy() ? null : packagedBuild()}), ...(reread.length ? {reread} : {}), ...(stopAsked() ? {stop: stopAsked()} : {})} : {ok}));
         return;
       }
       if (req.url === '/extension/open') {

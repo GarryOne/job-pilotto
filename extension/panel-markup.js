@@ -72,6 +72,7 @@
     .foot { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
     .foot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
     .foot.on::before { background: var(--good); }
+    .foot .reload { margin-left: auto; font: inherit; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
     .knock { margin: 0 0 8px; padding: 7px 9px; border-radius: 7px; background: #fff3e0; color: #7a4a00; font-size: 12px; line-height: 1.4; }
     .tailor { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 10px 0 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink); }
     .tailor .secondary { padding: 5px 9px; }

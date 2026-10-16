@@ -64,6 +64,7 @@ export function createTabReport(ctx) {
       const running = await runningVersion();
       const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, browser, worker: WORKER, reading, sessions, version: running})});
       connected(true);
+      await chrome.storage.local.set({appBuild: answer?.build ? {...answer.build, version: running} : null}).catch(() => {});   // what the panel shows: the commit this copy runs, and the fixes it lacks (desktop/lib/build-state.js)
       await stopFromApp(answer);   // the app's Stop button reaches a tab with no panel too (stop.js)
       // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
       // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
@@ -90,6 +91,13 @@ export function createTabReport(ctx) {
       connected(false, error.status ? NOT_CONNECTED : NO_APP);
     }
   }
+
+  // The panel asks which build this copy is (extension/review.js foot) and can ask it to load the newer copy the app already has.
+  chrome.runtime.onMessage.addListener((message, sender, reply) => {
+    if (message?.type === 'panelBuild' && sender.tab) { chrome.storage.local.get('appBuild').then(({appBuild}) => reply(appBuild || null), () => reply(null)); return true; }
+    if (message?.type === 'panelReload' && sender.tab) { keepMemory().catch(() => {}).then(() => { reply({ok: true}); chrome.runtime.reload(); }); return true; }
+    return undefined;
+  });
 
   function connected(ok, why = '') {
     chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});

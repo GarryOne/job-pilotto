@@ -9,6 +9,7 @@ import * as poolShare from './pool-share.js';
 import * as setupFunnel from './setup-funnel.js';
 import * as sharedLog from './shared-log.js';
 import * as updater from './updater.js';
+import {registerBuildHandlers} from './build-handlers.js';
 import {log as appLog} from './log.js';
 
 export function registerAppMetaHandlers(ctx) {
@@ -50,6 +51,7 @@ export function registerAppMetaHandlers(ctx) {
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: getUpdateOffer(), checkedAt: getUpdateCheckedAt(), fromSource: FROM_SOURCE}));
   ipcMain.handle('updateInstall', () => installUpdate());
+  registerBuildHandlers({app, ipcMain, FROM_SOURCE, repo: pipeline.REPO});   // which build runs, and Restart to get N fixes (lib/build-handlers.js)
   // Beta and Test builds (Settings → Diagnostics): asked and saved by lib/update-channel.js, the same switch as the menu's Update Channel.
   // Only a click on its native dialog turns one on, never a script in the window. "Back to stable" installs the latest stable release even though it is older.
   ipcMain.handle('betaState', async () => {

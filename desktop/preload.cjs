@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('pilot', {
   reportFormGet: call('reportFormGet'), reportFormSet: call('reportFormSet'), reportFormCancel: call('reportFormCancel'), reportFormSent: call('reportFormSent'), reportFormDeleteAll: call('reportFormDeleteAll'), reportFormSend: call('reportFormSend'),
   poolShareGet: call('poolShareGet'), poolShareSet: call('poolShareSet'), poolShareShown: call('poolShareShown'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'), betaState: call('betaState'), betaSet: call('betaSet'), testSet: call('testSet'), betaRollback: call('betaRollback'),
+  buildState: call('buildState'), restartApp: call('restartApp'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
   onUpdateChannel: callback => ipcRenderer.on('updateChannel', (_, channel) => callback(channel)),   // the menu's Update Channel changed it
   sendFeedback: call('sendFeedback'), leaveReason: call('leaveReason'),

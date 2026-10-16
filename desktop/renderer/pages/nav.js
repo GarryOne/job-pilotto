@@ -19,6 +19,7 @@ import {bestSession, renderDock, sessionList} from './sessions.js';
 import {settingsPage, showServicesNow} from './settings.js';
 import {loadStrategy} from './strategy.js';
 import * as viewHistory from '../view-history.js';
+import {buildCommands} from './build.js';
 
 // ---------- app ----------
 // The page (and Settings section) open now, kept for a reload (⌘R): the app comes back where it was.
@@ -160,6 +161,7 @@ function paletteCommands() {
     });
   });
   document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
+  for (const command of buildCommands()) add(command.group, command.label, command.hint, command.keywords, command.run);   // Restart to get N fixes (pages/build.js)
   return commands;
 }
 

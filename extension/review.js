@@ -34,7 +34,7 @@
   const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
-  let moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, build = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -137,6 +137,13 @@
     foot.classList.toggle('on', !!connection?.connected);
     const state = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
       : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…'; const version = chrome.runtime.getManifest().version; foot.textContent = `${state} · v${version}`; foot.title = `Job Pilotto extension v${version}`;   // the build is in every screenshot (owner, 11 Oct 2026)
+    // The commit this copy runs, and when it lacks fixes the app already has, a button to load them (tab-report.js answers panelBuild; owner, 16 Oct 2026: a build older than the merged fixes ran unseen).
+    if (build?.label) { foot.textContent += ` · ${build.label}`; foot.title += ` (${build.label})`; }
+    if (build && build.behind !== 0 && build.behind !== undefined) {
+      const reload = Object.assign(document.createElement('button'), {className: 'reload', textContent: build.reloadLabel || 'Reload the extension to get the latest fixes'});
+      reload.addEventListener('click', () => { reload.disabled = true; reload.textContent = 'Reloading…'; send({type: 'panelReload'}).catch(() => {}); });
+      foot.append(reload);
+    }
     return {list, left, total, busy, over, account};
   }
 
@@ -265,6 +272,7 @@
       // form", never wait for them.
       if (jobAsked !== wanted) {
         jobAsked = wanted;
+        send({type: 'panelBuild'}).then(answer => { build = answer; render(); }).catch(() => {});
         send({type: 'panelJob', url: wanted}).catch(() => ({connected: false})).then(answer => {
           connection = answer;
           // The app answered with an error (Notion busy): ask again in 30 s instead of never on this page.

@@ -73,7 +73,7 @@ if (process.argv.includes('--app')) {
   // Which build this is, for the About box and the sidebar: CI's run number (the release's build N) and commit.
   let commit = (process.env.GITHUB_SHA || '').slice(0, 7);
   try { commit ||= execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {cwd: repo}).toString().trim(); } catch {}
-  const info = {build: process.env.GITHUB_RUN_NUMBER || 'local', commit, date: new Date().toISOString().slice(0, 10)};
+  const info = {build: process.env.GITHUB_RUN_NUMBER || 'local', commit, date: new Date().toISOString().slice(0, 10), at: new Date().toISOString()};
   fs.writeFileSync(path.join(desktop, 'build-info.json'), JSON.stringify(info, null, 2) + '\n');
   console.log(`Build info: build ${info.build}, ${info.commit}`);
 }
