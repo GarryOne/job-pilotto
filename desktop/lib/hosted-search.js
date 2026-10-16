@@ -12,16 +12,16 @@ const EVERY = 10 * 60 * 1000;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const keyOf = storage => storage.secret(TRIAL_KEY) || (/^JPF1\./.test(storage.secret('ANTHROPIC_API_KEY') || '') ? storage.secret('ANTHROPIC_API_KEY') : '');
-export const state = storage => ({on: false, email: '', marketing: false, ...storage.settings().hostedSearch});
+export const state = storage => ({on: false, skipped: false, email: '', marketing: false, ...storage.settings().hostedSearch});
 const save = (storage, patch) => storage.saveSettings({hostedSearch: {...state(storage), ...patch}});
 
 async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch} = {}) {
   const key = keyOf(storage);
-  if (!key || !isFreeKey(key) || siteIsOff()) return {ok: false, error: 'Hosted search needs a regular install with its key.'};
+  if (!key || !isFreeKey(key) || siteIsOff()) return {ok: false, error: 'Always on needs a regular install with its key.'};
   try {
     const response = await fetcher(`${BASE}${route}`, {method, headers: {'x-api-key': key, 'Content-Type': 'application/json'}, ...(body ? {body: JSON.stringify(body)} : {})});
     const text = await response.text(), json = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-    return response.ok ? {ok: true, ...json} : {ok: false, status: response.status, error: json.error || 'Hosted search is not available just now.'};
+    return response.ok ? {ok: true, ...json} : {ok: false, status: response.status, error: json.error || 'Always on is not available just now.'};
   } catch { return {ok: false, error: 'Could not reach Job Pilotto just now. Check your connection.'}; }
 }
 
@@ -40,19 +40,25 @@ export async function turnOn(storage, {email, marketing = false}, options = {}) 
   if (!EMAIL.test(address)) return {ok: false, error: 'Enter an email address like you@example.com.'};
   const set = await call(storage, '/api/hosted/schedule', {method: 'PUT', body: {on: true, email: address, marketing: !!marketing}, ...options});
   if (!set.ok) return set;
-  save(storage, {on: true, email: address, marketing: !!marketing, after: state(storage).after || 0});
+  save(storage, {on: true, skipped: false, email: address, marketing: !!marketing, after: state(storage).after || 0});
   const pushed = await pushConfig(storage, options);
   return pushed.ok ? {ok: true} : {ok: true, warning: 'On, but your profile was not sent yet; it is sent again at the next start.'};
 }
 
 // Turn off: the schedule stops and everything we hold is deleted at once (the person's own words in the wizard: "turn it off anytime and it's deleted").
 export async function turnOff(storage, options = {}) {
-  if (!state(storage).on) return {ok: true, receipt: null};   // never turned on here (Skip in the wizard): nothing to delete, no call to the site
+  if (!state(storage).on) { save(storage, {skipped: true}); return {ok: true, receipt: null}; }   // never turned on here (Skip in the wizard): nothing to delete, no call to the site
   const gone = await call(storage, '/api/hosted/data', {method: 'DELETE', ...options});
   if (!gone.ok && gone.status !== 401) return gone;
   await call(storage, '/api/hosted/schedule', {method: 'PUT', body: {on: false}, ...options});
-  save(storage, {on: false, after: 0});
+  save(storage, {on: false, skipped: true, after: 0});
   return {ok: true, receipt: gone.receipt || null};
+}
+
+// The server's schedule for this install (state, why it paused, the next run): null when it has none or cannot be reached.
+export async function schedule(storage, options = {}) {
+  const got = await call(storage, '/api/hosted/schedule', options);
+  return got.ok ? got.schedule || null : null;
 }
 
 // "Download my hosted data": the JSON we hold, written to `file`.
