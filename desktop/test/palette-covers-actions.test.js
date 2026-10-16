@@ -31,7 +31,8 @@ test('a button that starts a task an Actions card offers is not listed twice in 
   const buttons = JSON.parse(activity.match(/export const TASK_BUTTONS = (\[.*\]);/)[1].replace(/'/g, '"'));
   const carded = new Set([...html.matchAll(/class="[^"]*\baction\b[^"]*" data-command="(\w+)"/g)].map(match => match[1]));
   assert.ok(carded.has('run') && carded.has('mail'), 'the Actions cards were not found');
-  for (const [kind, ...selectors] of buttons) for (const selector of selectors) assert.ok(html.includes(`id="${selector.slice(1)}"`), `${kind}: ${selector} is not in the page`);
+  const builtInJs = fs.readFileSync(new URL('../renderer/pages/actions-board.js', import.meta.url), 'utf8');   // cards built by script, not in index.html (which may only shrink): "Read this board"
+  for (const [kind, ...selectors] of buttons) for (const selector of selectors) assert.ok(html.includes(`id="${selector.slice(1)}"`) || builtInJs.includes(`.id = '${selector.slice(1)}'`), `${kind}: ${selector} is not in the page`);
   assert.match(nav, /if \(node && !twins\.has\(node\)/);                         // button(view, id, …)
   assert.match(nav, /!node\.disabled && shown\(node\) && !twins\.has\(node\)/);   // the Settings sweep
   assert.match(nav, /if \(danger && buttons\.length === 1\) return;/);   // a section's sole danger button is its own entry ("Reset Job Pilotto" was listed twice)

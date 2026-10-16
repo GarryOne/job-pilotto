@@ -1,5 +1,5 @@
 // The toolbar popup: whether the extension can reach the Job Pilotto app and, on a tab the app opened and manages, what fits that tab (Apply on this page,
-// Allow, Stop). On any other tab it only says where things happen: no control at all (popup-controls.js, owner 16 Oct 2026).
+// Allow, Read on a board it opened for you, Stop). On any other tab it only says where things happen: no control at all (popup-controls.js, owner 16 Oct 2026).
 import {api, settings} from './flow.js';
 import {popupMode} from './tab-pages.js';
 import {POPUP_CONTROLS, judgedUrl, popupControls} from './popup-controls.js';
@@ -65,7 +65,7 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
     });
     return checked;
   }
-  if (mode !== 'read') return checked;   // the person's own tab: only the line that says where things happen
+  if (mode !== 'read' && mode !== 'board') return checked;   // the person's own tab: only the line that says where things happen
   // A tab the app opened to read its jobs: it reads by itself (visit.js), so nothing to press but Stop; only what it does.
   $('visit').hidden = false;
   const host = new URL(tab.url).hostname;
@@ -75,6 +75,17 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
   if (!allowed) {
     $('visit-text').textContent = 'The Job Pilotto app opened this site to read its jobs. Allow the extension, once, to read the sites the app opens for you:';
     allowButton('Allowed: reading starts on the tabs the app opened.');
+  } else if (mode === 'board') {
+    // "Read this board": the app opened it and waits; the person signs in here if the board asks, then presses Read (their own visit, in their own Chrome).
+    $('visit-text').textContent = `The Job Pilotto app opened ${host} for you to read. Sign in in this tab if it asks, then press Read.`;
+    for (const [id, filter] of [['read-filter', true], ['read-as-is', false]]) $(id).addEventListener('click', () => {
+      $('read-filter').disabled = $('read-as-is').disabled = true;
+      $('visit-progress').textContent = filter ? 'Claude is choosing the filters for your search…' : 'Reading…';
+      chrome.runtime.sendMessage({type: 'visitRead', tabId: tab.id, filter}, state => {
+        $('read-filter').disabled = $('read-as-is').disabled = false;
+        if (!state?.ok) $('visit-progress').textContent = `Not read: ${state?.error || 'the app did not answer'}.`;
+      });
+    });
   } else {
     $('visit-text').textContent = 'The Job Pilotto app opened this page and the extension is reading it by itself.';
   }

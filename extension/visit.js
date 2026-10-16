@@ -105,6 +105,12 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       }
       if (first?.blank) throw new Error('the page stayed blank, even loaded again: open it yourself once (it may want you to sign in), then Open again');
     }
+    // A sign-in or a check first: nothing is filtered, typed or read here (a filter step types into the page's boxes). Said, so the person deals with it.
+    if (first?.login || first?.challenge) {
+      state.blocked = first.login ? 'login' : 'check';
+      state.stopped = first.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again';
+      pages = 0;   // the read loop below has nothing to do
+    }
     if (first && !first.login && !first.challenge && !plausible(first.cards)) {
       await tellStep(tabId, config, ticket, 'looking for this site\'s job list…');
       const found = await thinking(() => api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null));
@@ -117,7 +123,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         await consent();
       }
     }
-    if (filter) {
+    if (filter && !state.blocked) {
       await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
       await thinking(() => setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ }));
       await tellStep(tabId, config, ticket, state.filters.length ? `filters set: ${state.filters.join(', ').slice(0, 100)}` : `no filters set${state.note ? ` (${state.note})` : ''}: reading the page as it is`);
@@ -144,7 +150,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       await tellStep(tabId, config, ticket, `reading page ${page + 1}…`);
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
-      if (seen.login || seen.challenge) { state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
+      if (seen.login || seen.challenge) { state.blocked = seen.login ? 'login' : 'check'; state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
       let cards = recipe ? await run(tabId, cardsByRecipe, [recipe]) : seen.cards;
       if (recipe && !cards.length && page === 0) {
         if (plausible(seen.cards)) {   // the quick guess reads a list the recipe misses: it no longer fits this site, forgotten and read afresh
@@ -279,15 +285,17 @@ export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
 export const POSTING_MARK = /#jp-posting-([a-z0-9]{4,16})$/;
 // A mark may carry the app's id for the tab (#jp-read-filter-a1b2c3): reported back, so a site that redirects (www.glassdoor.com to
 // de.glassdoor.ch, 7 Oct 2026) is still matched to the run that opened it.
-export const MARK = /#(jp-read(-filter)?)(?:-([a-z0-9]{4,16}))?$/;
+export const MARK = /#(jp-read(-filter)?|jp-board)(?:-([a-z0-9]{4,16}))?$/;
+// A board the person asked the app to open ("Read this board", #jp-board-<ticket>): nothing is read until they press Read in the popup (startBoard), so they can
+// sign in first, in their own Chrome, themselves. The extension never types a password and never passes a login wall.
 export {ALL_SITES};   // site-allow.js: as declared in manifest.json; asking or checking more is always refused
 const started = new Set();
 // Sites this worker is reading now: an update of the extension waits for them (a reload ends every reading; 7 Oct 2026: two runs lost their sites).
 export const readingNow = () => started.size;
-export async function autoRead(tabId, url) {
+export async function autoRead(tabId, url, {board = false} = {}) {
   const posting = POSTING_MARK.exec(String(url));
   const found = posting || MARK.exec(String(url));
-  if (!found || started.has(tabId) || !mayAct()) return;   // stopped by the person: no read starts (stop.js); the next load of the tab asks again
+  if (!found || found[1] === 'jp-board' || started.has(tabId) || !mayAct()) return;   // stopped by the person: no read starts (stop.js); the next load of the tab asks again
   started.add(tabId);   // at once: the page-ready and page-complete events can both arrive while the next line waits
   const mark = found[0], filter = !posting && !!found[2], ticket = (posting ? found[1] : found[3]) || '';
   if (!(await chrome.permissions.contains(ALL_SITES))) {
@@ -305,6 +313,13 @@ export async function autoRead(tabId, url) {
     await readPosting(tabId, ticket).catch(() => {});
   } else {
     const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
+    if (board && state.blocked) {   // a sign-in or a check on a board: the tab stays, the person deals with it and presses Read again
+      started.delete(tabId);
+      const words = `Sign in to ${new URL(start).hostname.replace(/^www\./, '')} in this tab, then press Read`;
+      await tellStep(tabId, await settings(), ticket, state.blocked === 'login' ? words : 'Answer the check in this tab, then press Read');
+      await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: start, ticket, why: state.blocked})}).catch(() => {});
+      return;
+    }
     await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
   }
   started.delete(tabId);
@@ -340,4 +355,23 @@ export async function startWaiting() {
     await chrome.storage.session.remove(key);
     autoRead(Number(key.slice(8)), url);
   }
+}
+
+// The person pressed Read (popup, "Read this board"): the tab must be one the app opened for it (its board mark, kept for the tab), never any other.
+export async function startBoard(tabId, filter) {
+  const key = `readmark:${tabId}`;
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  const mark = /^#jp-board-([a-z0-9]{4,16})$/.exec((await chrome.storage.session.get(key))[key] || '')?.[1]
+    || /#jp-board-([a-z0-9]{4,16})$/.exec(String(tab?.url || ''))?.[1];
+  if (!tab?.url || !/^https?:/.test(tab.url) || !mark) return {ok: false, error: 'this is not a tab the app opened to read'};
+  if (started.has(tabId)) return {ok: false, error: 'it is reading already'};
+  if (!mayAct()) return {ok: false, error: 'stopped: press Read again when you want it to go on'};
+  await autoRead(tabId, `${tab.url.split('#')[0]}#jp-read${filter ? '-filter' : ''}-${mark}`, {board: true});
+  return {ok: true};
+}
+
+// A board tab loaded (#jp-board-<ticket>): said on the page and the toolbar icon that it waits for the person's Read (once a load: the banner stays).
+export async function holdBoard(tabId) {
+  badge(tabId, 'Read', 'Job Pilotto: sign in here if the board asks, then press Read in the toolbar popup');
+  await run(tabId, pageBanner, ['Job Pilotto: sign in here if the board asks, then press Read in the toolbar popup']).catch(() => {});
 }

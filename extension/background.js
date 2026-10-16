@@ -17,7 +17,7 @@ import {createStopMessages} from './stop-messages.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {closePopupOrLayer} from './consent.js';
 import {closeFillDialogs, holdFill, layerOnTop} from './dialog-after-fill.js';
-import {autoRead, siteUnreachable, startWaiting} from './visit.js';
+import {autoRead, holdBoard, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, withMark, stripMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
@@ -120,11 +120,13 @@ if (chrome.webNavigation) {
   // autoRead runs once a tab, whichever comes first.
   const readWhenLoaded = details => {
     if (details.frameId !== 0 || !/^https?:/.test(details.url)) return;
+    if (/#jp-board-[a-z0-9]{4,16}$/.test(details.url)) { holdBoard(details.tabId); return; }   // a board the person reads: nothing starts until they press Read
     if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$|#jp-posting-[a-z0-9]{4,16}$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
     // A site that redirected and dropped the mark (iwc.com to iwc.com/ch-en, 7 Oct 2026: the tab sat there unread): the mark it was opened with.
     const key = `readmark:${details.tabId}`;
     sessionGet(key).then(kept => {
-      if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
+      if (/^#jp-board/.test(kept[key] || '')) holdBoard(details.tabId);   // after a sign-in the page moved on and lost its mark: still the person's board
+      else if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
     }).catch(() => {});
   };
   chrome.webNavigation.onDOMContentLoaded.addListener(readWhenLoaded);
@@ -132,18 +134,18 @@ if (chrome.webNavigation) {
   // A site the app opened that cannot be reached: the app hears it at once (visit.js siteUnreachable), with the mark kept if it redirected first.
   chrome.webNavigation.onErrorOccurred.addListener(details => {
     if (details.frameId !== 0) return;
-    if (/#jp-read(-filter)?-[a-z0-9]{4,16}$/.test(details.url)) { siteUnreachable(details.tabId, details.url, details.error); return; }
+    if (/#jp-(read(-filter)?|board)-[a-z0-9]{4,16}$/.test(details.url)) { siteUnreachable(details.tabId, details.url, details.error); return; }
     const key = `readmark:${details.tabId}`;
     sessionGet(key).then(kept => { if (kept[key]) siteUnreachable(details.tabId, `${details.url.split('#')[0]}${kept[key]}`, details.error); }).catch(() => {});
   });
   // The mark of a tab the app opened to read, kept for the tab: its next pages may have lost it (a redirect).
   chrome.webNavigation.onBeforeNavigate.addListener(details => {
-    const found = details.frameId === 0 && /#jp-(?:read(?:-filter)?|posting)(?:-([a-z0-9]{4,16}))?$/.exec(details.url);
+    const found = details.frameId === 0 && /#jp-(?:read(?:-filter)?|posting|board)(?:-([a-z0-9]{4,16}))?$/.exec(details.url);
     if (!found) return;
     chrome.storage.session.set({[`readmark:${details.tabId}`]: found[0]}).catch(() => {});
     // The app hears at once that the extension has the tab (its site row says so, and it is not silence): "never started reading" then
     // means the extension never saw it (an old version, the extension off), not a slow page.
-    if (found[1]) settings().then(config => api(config, '/extension/visit-state', {method: 'POST', body: JSON.stringify({ticket: found[1], words: 'the extension has the tab: waiting for the page to load'})})).catch(() => {});
+    if (found[1] && !/^#jp-board/.test(found[0])) settings().then(config => api(config, '/extension/visit-state', {method: 'POST', body: JSON.stringify({ticket: found[1], words: 'the extension has the tab: waiting for the page to load'})})).catch(() => {});
   });
   chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {}); });
   chrome.permissions.onAdded.addListener(() => { startWaiting(); resumeFillWaiting({decide}); });

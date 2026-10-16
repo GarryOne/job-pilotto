@@ -11,6 +11,7 @@ import {chromeCommand, extensionBrowser, launchBrowser} from './apply.js';
 import {focusTabAt, focusTabById} from './form-tab.js';
 import * as pipeline from './pipeline.js';
 import {log} from './log.js';
+import {cutShort, resultMessage} from './visit-result.js';
 
 const NO_BROWSER = 'No Chrome (or Edge, Brave, Vivaldi) found to open it in. Install Chrome and the Job Pilotto extension.';
 
@@ -172,6 +173,14 @@ export async function read(storage, page, runEngine = pipeline.run) {
 // each marked so the extension filters (if asked) and reads it by itself (extension/visit.js autoRead); each reports back (done) and closes,
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
+export const BOARD_WAIT_MS = 30 * 60 * 1000;   // a held board waits for the person to sign in and press Read
+// "Read this board": the address as a site of one, named by its host; null when it is not an https address.
+export function boardSite(address) {
+  try {
+    const url = new URL(String(address || '').trim());
+    return url.protocol === 'https:' && !url.username && !url.password ? {name: url.hostname.replace(/^www\./, ''), url: url.href.split('#')[0], kind: 'board'} : null;
+  } catch { return null; }
+}
 export const QUIET_MS = 30 * 1000;   // a site that sends no news (no page read, no wait) for this long is skipped, said in plain words
 // One minute per site (owner, 7 Oct 2026): the extension stops its own read then (extension/visit.js SITE_MS); this is the app's cap
 // for an extension that hangs, a little later so its own stop arrives first. Waiting on the person (the one-time Allow) is not counted.
@@ -262,12 +271,25 @@ export async function showTab(url, {focusById = focusTabById, focusAt = focusTab
 }
 export const percent = (done, total) => (total ? Math.round(done / total * 100) : 0);
 const blocked = new Set();
+// "Read this board": a tab opened for the person's own read (#jp-board): held, with no clock, until the extension has news (they pressed Read).
+const held = new Map();   // ticket -> starts that site's minute now (its clock stays off while the ticket is in `blocked`)
+const HELD_LINE = '⏳ Waiting for you in Chrome: ';   // the banner's step (renderer/pages/runs-page.js shows its Go to Chrome button on it)
+const HELD_WORDS = {press: 'sign in to the board in its tab if it asks, then press Read in the Job Pilotto extension',
+  login: 'sign in to the board in its tab, then press Read in the Job Pilotto extension', check: 'answer the check in the board\'s tab, then press Read in the Job Pilotto extension'};
 let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
 export function onWaiting(fn) { waitingNotice = fn; }   // start addresses waiting on the person (the one-time Allow in Chrome)
 // The extension waits on the person for a site: said in the task's log and as its running step (the banner), not "Reading …".
 export function waitingFor(payload) {
   const url = which(payload);
-  if (!waiting.has(url) || blocked.has(url)) return {ok: true};
+  if (!waiting.has(url)) return {ok: true};
+  if (['login', 'check'].includes(payload?.why) && marks.get(url) === 'jp-board') {   // a board asked for a sign-in or a check: the person does it in that tab, then presses Read again
+    blocked.add(url);
+    const words = payload.why === 'login' ? HELD_WORDS.login : HELD_WORDS.check;
+    watchers.get(url)?.({waiting: words});
+    taskTee?.(`${HELD_LINE}${words}`);
+    return {ok: true};
+  }
+  if (blocked.has(url)) return {ok: true};
   blocked.add(url);
   watchers.get(url)?.({waiting: true});
   waitingNotice?.();
@@ -301,6 +323,7 @@ export function stepOf(payload) {
   const ticket = String(payload?.ticket || ''), words = String(payload?.words || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   if (!ticket || !words) return {ok: true};
   heardFrom(ticket);
+  if (held.has(ticket) && blocked.has(ticket)) { held.get(ticket)(); blocked.delete(ticket); }   // the person pressed Read: the extension has news, the site's minute starts
   lastStep.set(ticket, words);
   watchers.get(ticket)?.({step: words});
   return {ok: true};
@@ -313,7 +336,7 @@ export function done(payload) {
 // `prepare` (a site -> the site to open, e.g. with its job page found): run in the site's own lane just before its tab opens, so the first tab
 // opens after one lookup, not after all of them (7 Oct 2026: "Finding the job page of 7 employers…" held every tab for about 2 minutes).
 // signal: Stop (lib/pipeline.js work): no further site opens, and the ones reading now end at once (their tabs are left as they are).
-export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS, prepare = null, signal = null} = {}) {
+export async function runAll(sites, {hold = false, atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS, prepare = null, signal = null} = {}) {
   const queue = [...sites], results = [];
   const mine = new Set();   // this run's tickets still waiting, for Stop
   signal?.addEventListener('abort', () => {
@@ -333,9 +356,10 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     siteNames.set(ticket, site.name);
     active?.tickets.set(key(site.url), ticket);
     lastNews.set(ticket, Date.now());
-    const openedAt = Date.now();
+    let openedAt = Date.now();   // a held board: from the person's Read (release below)
     if (signal?.aborted) return {...site, start: chosen.url, ok: false, why: 'Stopped by you', jobs: 0, added: 0};
     mine.add(ticket);
+    if (hold) { held.set(ticket, () => { openedAt = Date.now(); }); blocked.add(ticket); }   // "Read this board": waits for the person's Read, no clock runs
     const finished = new Promise(resolve => {
       waiting.set(ticket, resolve);
       const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
@@ -370,23 +394,25 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
         resolve?.({stopped: 'You closed the tab', closed: true, jobs: 0, added: 0});
       }
       if (event.step) tee(siteLine('reading', site.name, `${event.step}${jobs ? ` · ${jobs} jobs so far` : ''}`));
-      if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
+      if (event.waiting) tee(siteLine('waiting', site.name, typeof event.waiting === 'string' ? event.waiting : 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
       if (event.page) { active?.lastPage.set(key(chosen.url), event.url); seenPages.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
-    marks.set(ticket, filter ? 'jp-read-filter' : 'jp-read');
-    const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
+    const mark = hold ? 'jp-board' : filter ? 'jp-read-filter' : 'jp-read';
+    marks.set(ticket, mark);
+    const opened = openTab(`${key(site.url)}#${mark}-${ticket}`);
     if (!opened.ok) {
-      waiting.delete(ticket); watchers.delete(ticket);
+      waiting.delete(ticket); watchers.delete(ticket); blocked.delete(ticket); held.delete(ticket);
       doneCount += 1;
       tee(siteLine('stopped', site.name, opened.error));
       return {...site, start: chosen.url, ok: false, why: opened.error, jobs: 0, added: 0};
     }
     tee(siteLine('opening', site.name, 'Opening in Chrome…'));
-    tee(`⏳ Finding jobs in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
+    if (hold) { tee(siteLine('waiting', site.name, HELD_WORDS.press)); tee(`${HELD_LINE}${HELD_WORDS.press}`); }
+    if (!hold) tee(`⏳ Finding jobs in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads (a held board's step says what waits on the person)
     const state = await finished;
     mine.delete(ticket);
     watchers.delete(ticket);
-    blocked.delete(ticket);
+    blocked.delete(ticket); held.delete(ticket);
     lastNews.delete(ticket);
     lastStep.delete(ticket); thoughtMs.delete(ticket);
     marks.delete(ticket);
@@ -418,21 +444,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
   fitsLast = last.reduce((sum, result) => sum + (result?.ok ? result.fits || 0 : 0), 0);
   return last;
 }
-// Why a site read in part stopped, worth saying beside its jobs; a list read to its end is not (extension/visit.js readSite's own words).
-const cutShort = why => !!why && !/end of the list|^no next page$/.test(String(why));
-// The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
-// `added`: jobs the run's scoring wrote to the Jobs list (null when it did not score), said on the head line.
-export function resultMessage(results, {added: listed = null, postings = null} = {}) {
-  const read = results.filter(result => result.ok);
-  const jobs = read.reduce((sum, result) => sum + result.jobs, 0), added = read.reduce((sum, result) => sum + result.added, 0);
-  const fits = read.reduce((sum, result) => sum + (result.fits || 0), 0);
-  const fit = n => `${n} matching your search`;
-  const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
-  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}${listed === null ? '' : ` · ${listed} added to your Jobs`}`,
-    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} job${result.jobs === 1 ? '' : 's'} (${result.added} new), ${fit(result.fits || 0)}${cutShort(result.why) ? `; ${clean(result.why)}` : ''} · ${key(result.url)}`
-      : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`),
-    ...(postings ? [`📄 Read ${postings.read} of ${postings.asked} job${postings.asked === 1 ? '' : 's'} we couldn't read`] : [])].join('\n');
-}
+export {cutShort, resultMessage};   // lib/visit-result.js
 
 // "Jobs we couldn't read" (8 Oct 2026): open jobs in your places whose posting only a browser can read (a sign-in site, a site that refused this
 // Mac, a page drawn by scripts). The extension opens each posting (mark #jp-posting-<ticket>), reads its text and sends it to /extension/posting;

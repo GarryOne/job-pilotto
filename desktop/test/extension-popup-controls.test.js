@@ -22,6 +22,7 @@ const TABS = [
   [{url: 'https://calendly.com/acme/30min', armed: true}, true],                            // a later page of an apply tab
   [{url: 'https://www.jobs.ch/en/vacancies/#jp-read-filter-ab12'}, true],
   [{url: 'https://www.jobs.ch/en/vacancies/detail/e644/#jp-posting-ab12cd'}, true],
+  [{url: 'https://board.example/jobs/search/?keywords=sre#jp-board-ab12'}, true],           // "Read this board": the person's read, on a tab the app opened
 ];
 
 test('every popup button starts hidden and is one the gate knows', () => {
@@ -46,6 +47,19 @@ test('a tab the app does not manage gets no control at all; a managed one gets S
   assert.deepEqual(popupControls('fill', {allowed: true}).sort(), ['apply-here', 'stop']);
   assert.deepEqual(popupControls('fill', {allowed: false}).sort(), ['stop', 'visit-allow']);
   assert.deepEqual(popupControls('read', {allowed: true}), ['stop']);
+  assert.deepEqual(popupControls('board', {allowed: true}).sort(), ['read-as-is', 'read-filter', 'stop']);
+  assert.deepEqual(popupControls('board', {allowed: false}).sort(), ['stop', 'visit-allow']);
+});
+
+// The two reads exist on an app-opened board tab only: no other kind of tab is ever offered them (the class #966 closed).
+test('the two reads are offered on a board tab and on no other kind of tab', () => {
+  for (const [tab] of TABS) {
+    const mode = popupMode(tab);
+    const shown = popupControls(mode);
+    const board = /#jp-board-/.test(tab.url || '');
+    assert.equal(shown.includes('read-filter') || shown.includes('read-as-is'), board, JSON.stringify(tab));
+  }
+  assert.equal(popupMode({url: judgedUrl('https://board.example/feed', '#jp-board-ab12')}), 'board');   // a sign-in moved the tab on and dropped the mark
 });
 
 test('a read tab whose site dropped its mark is still the app\'s tab; a marked or unmarked one is judged as it is', () => {

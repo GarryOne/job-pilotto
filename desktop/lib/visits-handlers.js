@@ -61,10 +61,13 @@ export function registerVisitsHandlers(ctx) {
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false, visits: []}; }
   });
   // "Find jobs using your browser" (Actions): a tracked task like Tailor CVs, so the banner, Recent activity and the result card follow it.
-  ipcMain.handle('visitsRun', async (_, {urls = [], postings = [], atOnce = 2, filter = true} = {}) => {
+  // `board`: "Read this board" (owner, 16 Oct 2026): one address the person typed or picked, opened as a tab the app manages and held for their own Read.
+  ipcMain.handle('visitsRun', async (_, {urls = [], postings = [], atOnce = 2, filter = true, board = ''} = {}) => {
+    const boardSite = visits.boardSite(board);
+    if (board && !boardSite) return {text: 'Paste the board\'s address (it starts with https://).'};
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     const listed = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()).visits || []; } catch { return []; } })();
-    const chosen = listed.filter(site => urls.includes(site.url));
+    const chosen = boardSite ? [boardSite] : listed.filter(site => urls.includes(site.url));
     const unread = postings.length ? (await visits.stuckJobs(storage)).filter(job => postings.includes(job.url)) : [];
     if (!chosen.length && !unread.length) return {text: 'Tick at least one site or job to read.'};
     const n = Math.max(1, Math.min(5, Number(atOnce) || 2));
@@ -79,7 +82,8 @@ export function registerVisitsHandlers(ctx) {
       const results = [];
       if (chosen.length) {
         tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
-        results.push(...await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal}));
+        results.push(...await visits.runAll(chosen, boardSite ? {hold: true, tee, waitMs: visits.BOARD_WAIT_MS, signal}   // the board's own address is the page: no job-page search
+          : {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal}));
         if (!signal?.aborted) await visits.remember(storage, results);   // failures remembered: a site failing twice is offered unticked, with why
       }
       // Postings only a browser can read: their text is kept for the job, and the light run below scores them with the sites' matches.
