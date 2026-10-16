@@ -59,6 +59,9 @@ Same invented cases for every model. Open models: Cloudflare, Paid plan. Claude:
 - GLM-5.3 Flash needs the **Workers Paid** plan; Qwen3-30B-A3B runs on the free tier. PR 1 ships with `STRONG_ON="off"` (all steps on the small model); the switch flips when Paid is on.
 - CV steps send the PDF as a `document` block: the route reads it with `env.AI.toMarkdown`; images (the ladder's picture rung) are refused with words, those steps fall to other rungs.
 - Old apps keep working: a `JP1.` founder key is still accepted by the route until PR 2 moves them to `JPF1.<install>.<token>`.
+- **Pre-score filters already exist (16 Oct 2026):** a job open in the store has passed the title words and AI title triage, the Profile's level (`src/levels.py`), and place rank with AI place triage at import; `to_score` holds vague places and `digest.hard_filtered` drops blocked languages and excluded companies. No new pre-filter was built.
+- **Language is not certain by structure:** a posting's language needs a word list or an AI read (the enrich step); a filter on it would break the "meaning from AI" rule. The per-step cost of reading and scoring shows on /admin/ai-cost (each feature tags its calls).
+- **Seniority from the title** (`src/ai/seniority.py`, #1052) settles the level where a title word decides; Free's Staff/Principal/Lead misses came from the model, not from the pre-score filters.
 
 ## Progress
 - [x] Spec read by the owner (via job-pilotto-cc) (proof: none: owner answered "Yes" and "retire" through job-pilotto-cc on 16 Oct)
