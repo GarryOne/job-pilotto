@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
 import {CATEGORIES, CATEGORY_IDS, RULES_VERSION, TOP_LEVEL, categoryOfFile, classify, prRow} from '../src/ops-categories.js';
-import {bars, page, windowOf} from '../src/ops-overview.js';
+import {RANGES, bars, bucketsOf, buildSnapshot, page, rangeOf, windowOf} from '../src/ops-overview.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -94,15 +94,46 @@ test('the page: first entry of Operations, owner only, and every state renders',
   const snapshot = {at: now.toISOString(), daily: [
     {day: '2026-10-15', category: 'forms', prs: 1, lines: 50, hours: 1, ci: 5}, {day: '2026-10-15', category: 'ci', prs: 3, lines: 300, hours: 6, ci: 30},
     {day: '2026-10-10', category: 'replay', prs: 4, lines: 400, hours: 8, ci: 40}, {day: '2026-09-10', category: 'site', prs: 9, lines: 1, hours: 1, ci: 1}], latest: [{number: 5, title: '<b>x</b>', category: 'ci', lines: 3, hours: 1.5}]};
-  for (const days of [1, 7, 30]) assert.ok(page(snapshot, {days, now}).includes('Latest 20 merged PRs'));
-  const today = windowOf(snapshot, 1, now), week = windowOf(snapshot, 7, now), month = windowOf(snapshot, 30, now);
-  assert.deepEqual([today.forms.prs, today.ci.prs, today.replay.prs], [1, 3, 0]);
-  assert.deepEqual([week.replay.prs, month.site.prs], [4, 0]);   // 2026-09-10 is outside 30 days
-  assert.match(page(snapshot, {days: 7, now}), /25%[\s\S]*1 of 4 merged PRs/);   // today's form-fix share: 1 of 4
+  for (const range of Object.keys(RANGES)) assert.ok(page(snapshot, {range, now}).includes('Latest 20 merged PRs'));
+  const week = windowOf(snapshot, '7d', now), month = windowOf(snapshot, '30d', now);
+  assert.deepEqual([week.forms.prs, week.ci.prs, week.replay.prs], [1, 3, 4]);
+  assert.deepEqual([month.site.prs], [0]);   // 2026-09-10 is outside 30 days
+  assert.match(page(snapshot, {range: '7d', now}), /13%[\s\S]*1 of 8 merged PRs/);   // form-fix share: 1 of 8
   assert.ok(!page(snapshot, {now}).includes('<b>x</b>'));   // titles are escaped
   assert.match(page({at: now.toISOString(), daily: [], latest: []}, {now}), /No merged PRs in this period[\s\S]*No merged PRs yet/);
-  assert.equal((bars(snapshot, now).match(/<rect/g) || []).length, 3);   // 14 days: forms + ci today, replay on the 10th
 });
+
+test('each range returns its own window: 24 hours by hour, 7 and 30 days by day; the choice comes from ?range= and defaults to 7 days', async () => {
+  assert.deepEqual([rangeOf('24h'), rangeOf('30d'), rangeOf('x'), rangeOf(null)], ['24h', '30d', '7d', '7d']);
+  assert.deepEqual(Object.keys(RANGES).map(range => bucketsOf(range, now).length), [24, 7, 30]);
+  assert.deepEqual([bucketsOf('7d', now)[0].key, bucketsOf('7d', now)[6].key], ['2026-10-15', '2026-10-09']);
+  assert.deepEqual([bucketsOf('24h', now)[0].key, bucketsOf('24h', now)[23].key], ['2026-10-15T12', '2026-10-14T13']);
+  const e = env();
+  await put(e, {prs: [pr(1, 'forms', '2026-10-15T11:30:00Z'), pr(2, 'ci', '2026-10-15T11:50:00Z'), pr(3, 'ci', '2026-10-14T12:30:00Z'), pr(4, 'pool', '2026-10-14T14:00:00Z'),
+    pr(5, 'docs', '2026-10-10T09:00:00Z'), pr(6, 'site', '2026-09-20T09:00:00Z')]});
+  const snapshot = await buildSnapshot(e.STATS, now);
+  const total = range => Object.values(windowOf(snapshot, range, now)).reduce((sum, cell) => sum + cell.prs, 0);
+  assert.deepEqual(['24h', '7d', '30d'].map(total), [3, 5, 6]);   // 24h = #1, #2, #4 (#3 is 24h30 old); 7d adds #3, #5; 30d adds #6 (25 days old)
+  assert.equal(windowOf(snapshot, '24h', now).ci.prs, 1);
+  const rows = html => html.match(/class="night"/g)?.length || 0;
+  assert.equal(rows(bars(snapshot, '24h', now)), 2);   // hours with PRs only: 11:00 and 14:00
+  assert.equal(rows(bars(snapshot, '7d', now)), 7);
+  assert.equal(rows(bars(snapshot, '30d', now)), 30);
+  const day = bars(snapshot, '7d', now);
+  assert.ok(day.indexOf('15 Oct') < day.indexOf('14 Oct'));   // newest first
+  assert.match(day, /<i[^>]*>1<\/i><i[^>]*>1<\/i>[\s\S]*2 PRs · top: /);   // counts inside the segments, total and top category on the right
+  assert.match(day, /<div class="key"><span class="pill"/);   // legend as pills
+  assert.match(barsThin(), /class="thin"/);
+  const html = async range => (await (await call(e, `/admin/operations/overview${range}`, owner)).text());
+  assert.match(await html(''), /aria-current="true">Last 7 days/);   // default
+  assert.match(await html('?range=24h'), /aria-current="true">Last 24 hours/);
+  assert.match(await html('?range=30d'), /Merged PRs per day · last 30 days/);
+  assert.match(await html('?range=24h'), /Merged PRs per hour/);
+  assert.match(await html('?range=bogus'), /aria-current="true">Last 7 days/);
+});
+function barsThin() {   // a 1-in-20 segment hides its count (shown on hover through the title)
+  return bars({daily: [{day: '2026-10-15', category: 'forms', prs: 1}, {day: '2026-10-15', category: 'ci', prs: 19}]}, '7d', now);
+}
 
 test('a new rules version re-reads stored PRs and replaces their category; the same version changes nothing', async () => {
   const e = env(), auth = {headers: {Authorization: 'Bearer pub'}};

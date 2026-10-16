@@ -12,6 +12,7 @@ import {ORDER_SOURCE, needsFixOrder} from './applying-order.js';
 import {TILE_RULE, tileTones} from './applying-tiles.js';
 import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
+import {BARS_CSS} from './day-bars.js';
 import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
 import {topCauses} from './applying-cause.js';
 import {readReplays, replayCases} from './applying-replays.js';
@@ -217,7 +218,6 @@ export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 .tile{background:var(--card);padding:14px 16px}.tile b{display:block;font-size:26px;line-height:1.2}.tile .what{display:block;font-size:14px;margin-top:2px}.tile span.note{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 .tile.warn b{color:var(--amber)}.tile.bad b{color:var(--red)}.tile.good b{color:var(--green)}section{margin:36px 0 0;padding-top:24px;border-top:1px solid var(--line)}section>h2{margin:0 0 12px}table{width:100%;border-collapse:collapse}
 th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .st-works{background:var(--green)}.st-held{background:var(--violet)}.st-site{background:var(--muted)}.st-fix{background:var(--red)}.st-unrun{background:var(--line)}.s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}.s-holds{background:#4cc3c9}
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}.dots i.last{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--text);margin-left:2px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick.search{min-width:240px}.pick input[type=search],.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}.chiprow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:34px}.chiprow .chip{height:28px;display:inline-flex;align-items:center}
@@ -231,9 +231,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 .fit th.c-case{width:26%}.fit th.c-rung{width:7%}.fit th.c-origin{width:9%}.fit th.c-result{width:26%}.fit th.c-runs{width:12%}.fit th.c-last{width:10%}.fit th.c-since{width:10%}.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 @media (max-width:640px){table td,table th{white-space:normal!important;overflow-wrap:anywhere}.fit .c-rung,.fit .c-origin{display:none}.fit th.c-case{width:24%}.fit th.c-result{width:22%}.fit th.c-runs{width:18%}.fit th.c-last,.fit th.c-since{width:18%}.fit .dots{white-space:normal}.fit .hash{font-size:11px;padding:1px 4px}}
 @media (max-width:900px){.pooltable .c-flow,.pooltable .c-runs{display:none}.pooltable th.c-site{width:50%}.pooltable th.c-result{width:36%}.pooltable th.c-rung{width:14%}.detail .narrow{display:block}.detail{grid-template-columns:minmax(0,1fr)}}
-.nights{margin-top:24px;padding-top:18px}.nights .key{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.night{display:grid;grid-template-columns:56px minmax(0,1fr) 240px;gap:12px;align-items:center;margin:6px 0}
-.nightbar{display:flex;gap:2px;height:28px;border-radius:7px;overflow:hidden}.nightbar i{display:flex;align-items:center;justify-content:center;min-width:0;font-style:normal;font-size:12px;font-weight:600;color:#0b0d10;overflow:hidden}
-@media (max-width:640px){.night{grid-template-columns:44px minmax(0,1fr)}.night>span{grid-column:2}}
+${BARS_CSS}
 </style></head><body><main>
 <header><h1>🛡️ Lab Form Filling</h1></header>
 <p class="muted">What is broken, what we fixed, and does it hold? A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
