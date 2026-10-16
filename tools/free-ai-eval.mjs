@@ -3,7 +3,7 @@
 // translation (site/src/free-ai-translate.js) on Workers AI models and prints a markdown table: valid JSON, schema, rank against Claude's scores, cost.
 //   node tools/free-ai-eval.mjs --cases <cases.json> [--models small,strong] [--backend rest|mock] [--out table.md]
 // Cases (made by tools/free-ai-cases.py, fictional data only): [{id, action, params: <Anthropic request>, baseline?: <Claude's score>}].
-// rest: needs a token with Account > Workers AI > Read + Edit: CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token; the account id is CF_ACCOUNT_ID, the Keychain item job-pilotto.cloudflare.account_id, or the token's only account. A few hundred calls cost cents.
+// rest: needs a token with Account > Workers AI > Read + Edit: CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token; --account <id> names the Cloudflare account the token belongs to, never the production one (its free daily allowance is the live Free AI's). A few hundred calls cost cents.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
@@ -20,12 +20,6 @@ export const rest = ({account, token, fetcher = fetch}) => async (model, input) 
   if (!response.ok) throw new Error(`Workers AI ${response.status}: ${(await response.text()).slice(0, 200)}`);
   return response.json();
 };
-
-// The token's own account (one account per token here), when no account id is given.
-export async function accountOf(token, fetcher = fetch) {
-  const body = await (await fetcher('https://api.cloudflare.com/client/v4/accounts', {headers: {authorization: `Bearer ${token}`}})).json().catch(() => ({}));
-  return body.result?.length === 1 ? body.result[0].id : '';
-}
 
 // Runs every case on one model. `run(model, input)` is the backend. Never throws on one bad answer: it is a row that failed.
 export async function evaluate(cases, model, run, now = () => Date.now()) {
@@ -48,6 +42,15 @@ export async function evaluate(cases, model, run, now = () => Date.now()) {
   return results;
 }
 
+// The REST calls draw on the same free daily allowance (10,000 neurons) as the production Free AI: a day of tuning once left every user at "busy today" (16 Oct 2026).
+// So a run never uses the production account: --account names another one (a separate Cloudflare account and a Workers AI token made in it).
+export const PRODUCTION_ACCOUNTS = ['f192582d62c440f34f9ca7997558cee3'];
+export function guardAccount(account) {
+  if (!account) throw new Error('Name the Cloudflare account to measure on with --account <id>: never the production one, whose free daily allowance the live Free AI shares.');
+  if (PRODUCTION_ACCOUNTS.includes(account)) throw new Error('That is the production Cloudflare account: its free daily allowance is the live Free AI\'s. Use a separate account (--account <id>).');
+  return account;
+}
+
 // A deterministic stand-in for Workers AI (the tests, and a dry run with no key): the score follows the case's baseline, a little off.
 export const mock = cases => async (model, input) => {
   const item = cases.find(each => input.messages.at(-1).content.includes(each.id)) || cases[0];
@@ -65,8 +68,8 @@ async function main(argv) {
   if ((option('backend') || 'rest') === 'mock') run = mock(cases);
   else {
     const token = process.env.CF_API_TOKEN || keychain('job-pilotto.cloudflare.workers_ai_token');
-    const account = process.env.CF_ACCOUNT_ID || keychain('job-pilotto.cloudflare.account_id') || (token ? await accountOf(token) : '');
-    if (!account || !token) throw new Error('No Workers AI credential: set CF_ACCOUNT_ID and CF_API_TOKEN, or the Keychain items job-pilotto.cloudflare.account_id and job-pilotto.cloudflare.workers_ai_token (or --backend mock).');
+    const account = guardAccount(option('account'));
+    if (!token) throw new Error('No Workers AI token: set CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token (one made in the --account account), or use --backend mock.');
     run = rest({account, token});
   }
   const rows = [], usd = {};
