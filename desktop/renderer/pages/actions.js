@@ -7,6 +7,7 @@ import {el} from '../components.js';
 import {openCvChange, showCvChanged} from './cv-change.js';
 import {openView} from './nav.js';
 import {showStatusCard} from './runs-page.js';
+import {initBoard} from './actions-board.js';
 
 // A pressed task button is held off (syncRunButtons in runs-page.js turns it on again when its task ends); a refusal releases it at once.
 const hold = button => { button.disabled = true; button.dataset.runBusy = '1'; };
@@ -175,6 +176,7 @@ export async function init() {
     release(button);
     answer(result?.text || result?.error || 'Done.');
   });
+  initBoard({answer});   // Read this board: its card and dialog (actions-board.js)
   $('visits-at-once').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); if (!$('visits-start').disabled) $('visits-start').click(); } });
   // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
   // the fit scores) is offered, never applied by itself.

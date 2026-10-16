@@ -12,6 +12,7 @@ import {onAccountPage} from './account.js';
 import {pageFingerprint} from './tab-pages.js';
 import {pageKey} from './tab-pages.js';
 import {sessionGet} from './tab-memory.js';
+import {startBoard} from './visit.js';
 import {settings} from './flow.js';
 import {submissionOutcome} from './tab-pages.js';
 import {tabArmed} from './tab-pages.js';
@@ -19,6 +20,13 @@ import {tabArmed} from './tab-pages.js';
 export function createLearningMessages(ctx) {
   const {arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission} = ctx;
   return function messages_learning(message, sender, reply) {
+    // "Read this board": the person pressed Read in the popup on a tab the app opened for it (visit.js startBoard refuses any other tab).
+    if (message?.type === 'visitRead') {
+      const tabId = Number(message.tabId);
+      if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
+      startBoard(tabId, !!message.filter).then(reply, error => reply({ok: false, error: error.message}));
+      return true;
+    }
     // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
     if (message?.type === 'armTab') {
       const tabId = Number(message.tabId);

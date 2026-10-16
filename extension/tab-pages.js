@@ -23,14 +23,18 @@ export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').incl
 
 // What the toolbar popup offers on a tab, one kind each (8 Oct 2026: a tab the app opened to apply showed the "read this job list" buttons):
 //   fill:   the app opened it to apply (Apply); the panel on the page does the work, nothing to read
+//   board:  the app opened it for "Read this board" and waits for the person's Read (popup-controls.js)
 //   read:   the app opened it to read its jobs (Read sites, #jp-read) or one posting (#jp-posting); it reads by itself, no buttons
 //   browse: any other web page; "Read the jobs on this page" is offered
 //   none:   not a web page (chrome://, a file)
-const OPENED_TO_READ = /#jp-read(-filter)?(-[a-z0-9]{4,16})?$|#jp-posting-[a-z0-9]{4,16}$/;   // with or without its ticket (READ_MARK below needs one)
+const OPENED_TO_READ = /#jp-read(-filter)?(-[a-z0-9]{4,16})?$|#jp-posting-[a-z0-9]{4,16}$/;
+// A board the person asked the app to open ("Read this board", #jp-board-<ticket>): theirs to read, so the popup offers the two reads there and nowhere else.
+const OPENED_TO_HOLD = /#jp-board-[a-z0-9]{4,16}$/;   // with or without its ticket (READ_MARK below needs one)
 export const popupMode = ({url, armed} = {}) => {
   const href = String(url || '');
   if (!/^https?:/.test(href)) return 'none';
   if (tabArmed({url: href, armed}) && !neverForm(href)) return 'fill';
+  if (OPENED_TO_HOLD.test(href)) return 'board';
   return OPENED_TO_READ.test(href) ? 'read' : 'browse';
 };
 
@@ -290,7 +294,7 @@ export const startsOwnJob = (prior, url) => !prior || pageKey(prior) !== pageKey
 // Read sites (the app's Actions task): which open tab reads which site, by the ticket in the mark the app opened it with
 // (#jp-read-<ticket> or #jp-read-filter-<ticket>). A tab keeps its ticket after a redirect drops the mark (`kept`: tab id -> ticket from
 // chrome.storage.session read:<id>). Returns {reading: {ticket: tab id}, mark: {tab id: ticket}} (mark: ones to keep), open tabs only.
-export const READ_MARK = /#jp-(?:read(?:-filter)?|posting)-([a-z0-9]{4,16})$/;   // a site read, or one job posting read (visit.js POSTING_MARK)
+export const READ_MARK = /#jp-(?:read(?:-filter)?|posting|board)-([a-z0-9]{4,16})$/;   // a site read, or one job posting read (visit.js POSTING_MARK)
 export function readTabs(tabs = [], kept = {}) {
   const reading = {}, mark = {};
   for (const tab of tabs) {
