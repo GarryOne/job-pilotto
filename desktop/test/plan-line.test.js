@@ -7,7 +7,7 @@ import {planLine} from '../renderer/plan-line.js';
 const read = rel => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 
 test('the line says what the trial is and what comes after, and nothing else', () => {
-  assert.equal(planLine({limit: 20}), 'Free trial: 20 applications or 60 days. Then Pro: $29 one-time, no subscription (coming soon).');
+  assert.equal(planLine({limit: 20}), 'Free trial: 20 applications or 60 days, whichever lasts longer. Then Pro: $29 one-time, no subscription (coming soon).');
   assert.equal(planLine(), planLine({limit: 20}), 'the default is the same 20');
 });
 
