@@ -80,6 +80,13 @@ class UnreadPartTest(unittest.TestCase):
                 self.assertEqual(1, len(client.requests))
                 self.assertIsNone(data['components'][part])
 
+    def test_the_basis_question_counts_the_people_a_role_leads_as_a_stated_scope(self):
+        # "Engineering Manager, Infrastructure" ("Lead a team of 8 ... Management role") came back level_stated=false on 5 of 6 local runs, so Growth
+        # stayed empty until the facts arrived (quality suite, 16 Oct 2026); with this wording 8 of 8 gave a number and a posting with no role kept null.
+        text = score.SCHEMA['properties']['basis']['properties']['level_stated']['description']
+        self.assertIn('leads', text)
+        self.assertIn('team', text)
+
     def test_a_part_with_no_basis_stays_unknown_without_a_second_call(self):
         for part in score.UNKNOWN_OK:
             with self.subTest(part=part):

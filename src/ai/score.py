@@ -77,7 +77,7 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False, 'required': ['salary_stated', 'level_stated'],
             'properties': {
                 'salary_stated': {'type': 'boolean', 'description': 'The posting states a salary or pay range, in any currency'},
-                'level_stated': {'type': 'boolean', 'description': "The posting states the role's level or scope"},
+                'level_stated': {'type': 'boolean', 'description': "The title or text says what kind of role this is: its seniority (junior, senior, lead, manager ...) or what it owns or leads (a team, a system, a budget). A role that leads people is a stated scope."},
             },
         },
         'reason': {'type': 'string', 'description': 'One line, at most 90 characters, why it fits or not'},
