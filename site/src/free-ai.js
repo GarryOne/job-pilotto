@@ -50,7 +50,14 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
       const [page] = await env.AI.toMarkdown([{name: 'cv.pdf', blob: new Blob([bytes], {type: 'application/pdf'})}]);
       return page?.data || '';
     };
-    result = await env.AI.run(model, await toWorkersAi(body, readPdf));
+    const input = await toWorkersAi(body, readPdf);
+    result = await env.AI.run(model, input);
+    // Live (16 Oct 2026, 1 of 30): the model looped on whitespace to the token limit. A structured ask gets one more try, and both attempts are paid for.
+    if (input.response_format && !isJson(fromWorkersAi(result, model).content[0].text)) {
+      const first = fromWorkersAi(result, model).usage, again = await env.AI.run(model, {...input, temperature: body.temperature ?? 0.3});
+      if (!isJson(fromWorkersAi(again, model).content[0].text)) return error(502, 'Free AI could not answer just now.');
+      result = {...again, usage: {prompt_tokens: (again.usage?.prompt_tokens || 0) + first.input_tokens, completion_tokens: (again.usage?.completion_tokens || 0) + first.output_tokens}};
+    }
   } catch (caught) {
     if (caught instanceof Unsupported) return error(422, `${caught.message} Add your own key in Settings → AI engine for this step.`, 'invalid_request_error');
     return error(502, 'Free AI could not answer just now.');
@@ -77,3 +84,5 @@ async function alertOnce(env, kv, day, before, after, fetcher) {
   await fetcher(`https://api.telegram.org/bot${env.BRAIN_BOT_TOKEN}/sendMessage`, {method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({chat_id: env.BRAIN_CHAT_ID, text: `⚠️ <b>Free AI</b> spend today passed $${line / 1e6} (stops at $${num(env.FREE_AI_STOP_USD, LIMITS.stopUsd)}). /admin/ai-cost has the steps.`, parse_mode: 'HTML'})}).catch(() => {});
 }
+
+const isJson = text => { try { JSON.parse(text); return true; } catch { return false; } };

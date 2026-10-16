@@ -86,3 +86,30 @@ test('the model gets room to think on top of the caller\'s max_tokens (a live ca
   assert.equal(sent.max_tokens, 200 + REASONING_ROOM);
   assert.equal((await toWorkersAi({messages: [{role: 'user', content: 'x'}]})).max_tokens, 1024 + REASONING_ROOM);
 });
+
+// Live (16 Oct 2026, 1 of 30 scoring asks): Qwen looped on whitespace until the token limit, so the caller got text that is not JSON.
+const schemaBody = {max_tokens: 50, messages: [{role: 'user', content: 'score'}], output_config: {format: {type: 'json_schema', schema: {type: 'object', properties: {score: {type: 'number'}}}}}};
+const runaway = {choices: [{message: {content: '{"score": 20, "x": "\n\t \n\t'}, finish_reason: 'length'}], usage: {prompt_tokens: 1000, completion_tokens: 6000}};
+
+test('a structured ask whose reply is not JSON is asked once more, and both attempts are counted', async () => {
+  const replies = [runaway, answer('{"score": 61}')], e = env();
+  e.AI.run = async (model, input) => { e.seen.push({model, input}); return replies.shift(); };
+  const message = await (await call(e, await key(), schemaBody)).json();
+  assert.equal(message.content[0].text, '{"score": 61}');
+  assert.equal(e.seen.length, 2);
+  assert.equal(message.usage.output_tokens, 7000, 'the failed attempt is paid for too');
+});
+
+test('a second bad reply is a clear 502, never invalid text passed on as an answer', async () => {
+  const e = env();
+  e.AI.run = async (model, input) => { e.seen.push({model, input}); return runaway; };
+  const response = await call(e, await key(), schemaBody);
+  assert.equal(response.status, 502); assert.match((await response.json()).error.message, /Free AI/);
+  assert.equal(e.seen.length, 2);
+});
+
+test('a plain-text ask is never retried', async () => {
+  const e = env();
+  await call(e, await key());
+  assert.equal(e.seen.length, 1);
+});
