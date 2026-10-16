@@ -89,5 +89,5 @@ test('the month cap on the page is the one free-ai.js enforces ($100 from wrangl
   const env = {...(await seed()), FREE_AI_MONTH_STOP_USD: String(wrangled)};
   assert.equal(wrangled, 100); assert.equal((await collect(env, 'all', now)).cost.month.cap, monthStopUsd(env));
   assert.equal((await collect(await seed(), 'all', now)).cost.month.cap, monthStopUsd({}));   // unset: the same default, never a second one
-  assert.deepEqual(Object.fromEntries(FIXED_COSTS_YEAR), {'Cloudflare Workers Paid': 60, Domain: 5, 'Apple Developer': 99, 'Windows signing': 250, Accountant: 1500});
+  assert.deepEqual(Object.fromEntries(FIXED_COSTS_YEAR), {'Cloudflare Workers Paid': 60, Domain: 5, 'Apple Developer': 99, 'Windows signing': 250, 'Bookkeeping SaaS': 100});
 });
