@@ -58,7 +58,7 @@ test('a reset never reaches Notion: no archive call, no checkbox, no remembered 
   assert.ok(!/import .*['"]\.\/notion\.js['"]/.test(here('../lib/system-handlers.js')), 'the reset handlers do not import the Notion client');
   assert.ok(!/freshNotion|archived/.test(here('../lib/system-handlers.js')));
   assert.ok(!/reset-notion|fresh Notion/i.test(here('../renderer/index.html') + here('../renderer/pages/data.js')), 'no "fresh Notion workspace" option');
-  assert.match(here('../renderer/index.html'), /Your Notion workspace is not touched/);
+  assert.match(here('../renderer/index.html'), /Your Notion and GitHub are not touched/);
 });
 
 test('a page already renamed "(archived …)" by an older reset is still never connected to', async () => {

@@ -405,6 +405,16 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .choice-card { display: flex; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .choice-card p { margin: var(--sp-1) 0 var(--sp-3); }
+/* Settings → Advanced → Reset: three short lists side by side (stacked when narrow) and the two steps under them; the cards, tiles and inline rows are the shared ones. */
+.reset-lists, .reset-steps { display: grid; gap: var(--sp-3); }
+.reset-lists { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.reset-steps { margin-top: var(--sp-3); }
+.reset-lists .file-tile { width: 32px; height: 32px; }
+.reset-lists .file-tile svg { width: 18px; height: 18px; }
+.reset-lists ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); }
+.reset-steps .choice-card > div { flex: 1; min-width: 0; }
+.reset-steps .inline input { flex: 1; min-width: 0; }
+@media (max-width: 1180px) { .reset-lists { grid-template-columns: minmax(0, 1fr); } }
 .path-line { display: flex; align-items: center; gap: var(--sp-3); }
 .path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .summary-rows.is-lined { grid-template-columns: 200px minmax(0, 1fr); gap: 0; margin: 0; }
