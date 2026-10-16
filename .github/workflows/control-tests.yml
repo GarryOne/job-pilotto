@@ -48,6 +48,7 @@ on:
       - 'worker/src/answer-facts.js'
       - 'worker/src/pay-convert.js'
       - 'worker/src/written-answer.js'
+      - 'worker/src/writing-rules.js'
       - 'worker/src/answer-missing.js'
       - 'worker/src/cv-facts.js'
       - 'worker/src/extension-log.js'
