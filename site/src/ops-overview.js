@@ -7,10 +7,14 @@ import {equal} from './guard.js';
 import {esc, remember} from './stats.js';
 import {CATEGORIES, CATEGORY_IDS} from './ops-categories.js';
 import {filterLinks} from './admin.js';
+import {BARS_CSS, barRows, legend} from './day-bars.js';
 
-const DAY = 86400000, KEEP_DAYS = 30, LATEST = 20, BAR_DAYS = 14;
+const HOUR = 3600000, DAY = 24 * HOUR, KEEP_DAYS = 30, LATEST = 20;
 const dayOf = date => date.toISOString().slice(0, 10);
-const PERIODS = [['1', 'Today'], ['7', '7 days'], ['30', '30 days']];
+// The page-wide range (?range=24h|7d|30d, default 7d): `n` buckets back from now, `unit` = the bucket (hour or day).
+export const RANGES = {'24h': {name: 'Last 24 hours', n: 24, unit: 'hour'}, '7d': {name: 'Last 7 days', n: 7, unit: 'day'}, '30d': {name: 'Last 30 days', n: 30, unit: 'day'}};
+export const rangeOf = value => (RANGES[value] ? value : '7d');
+const hourOf = date => date.toISOString().slice(0, 13);
 
 function authorized(request, env) {
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -20,10 +24,12 @@ function authorized(request, env) {
 // The snapshot from the stored rows: the last 30 days grouped by day and category (≤ ~1500 rows read, once per write, never per page load).
 export async function buildSnapshot(db, now = new Date()) {
   const from = dayOf(new Date(now.getTime() - (KEEP_DAYS - 1) * DAY));
-  const [{results: daily = []}, {results: latest = []}] = await Promise.all([
+  const fromHour = hourOf(new Date(now.getTime() - 47 * HOUR));
+  const [{results: daily = []}, {results: hourly = []}, {results: latest = []}] = await Promise.all([
     db.prepare('SELECT day, category, COUNT(*) AS prs, SUM(lines) AS lines, SUM(hours) AS hours, SUM(ci_min) AS ci FROM ops_prs WHERE day >= ? GROUP BY day, category').bind(from).all(),
+    db.prepare('SELECT substr(merged_at, 1, 13) AS hour, category, COUNT(*) AS prs, SUM(lines) AS lines, SUM(hours) AS hours, SUM(ci_min) AS ci FROM ops_prs WHERE substr(merged_at, 1, 13) >= ? GROUP BY hour, category').bind(fromHour).all(),
     db.prepare('SELECT number, title, category, mixed, lines, hours, ci_min AS ci, merged_at AS mergedAt FROM ops_prs ORDER BY merged_at DESC LIMIT ?').bind(LATEST).all()]);
-  return {schema: 1, at: now.toISOString(), daily: daily.map(row => ({...row})), latest: latest.map(row => ({...row}))};
+  return {schema: 2, at: now.toISOString(), daily: daily.map(row => ({...row})), hourly: hourly.map(row => ({...row})), latest: latest.map(row => ({...row}))};
 }
 
 const clean = pr => Number.isInteger(pr?.number) && pr.number > 0 && /^\d{4}-\d{2}-\d{2}T/.test(pr.mergedAt || '') && CATEGORY_IDS.includes(pr.category);
@@ -60,24 +66,36 @@ const one = value => (Number(value) || 0).toLocaleString('en-US', {maximumFracti
 const label = id => CATEGORIES.find(category => category.id === id)?.label || id;
 const swatch = id => `<span class="sw" style="background:${CATEGORIES.find(category => category.id === id)?.color || '#8d949c'}"></span>`;
 
-// Per category over the last `days` days (1 = today): prs, lines, hours (summed), ci minutes.
-export function windowOf(snapshot, days, now = new Date()) {
-  const from = dayOf(new Date(now.getTime() - (days - 1) * DAY)), rows = (snapshot?.daily || []).filter(row => row.day >= from);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// The buckets of a range, newest first: [{key, label, title}]. Days: every day; hours: the last 24 (UTC).
+export function bucketsOf(range, now = new Date()) {
+  const {n, unit} = RANGES[rangeOf(range)], step = unit === 'hour' ? HOUR : DAY;
+  return Array.from({length: n}, (_, i) => {
+    const date = new Date(now.getTime() - i * step), key = unit === 'hour' ? hourOf(date) : dayOf(date);
+    const [, month, dd] = dayOf(date).split('-'), words = `${Number(dd)} ${MONTHS[Number(month) - 1]}`;
+    return {key, label: unit === 'hour' ? `${words} ${key.slice(11)}:00` : words, title: unit === 'hour' ? `${words} ${key.slice(11)}:00 UTC` : dayOf(date)};
+  });
+}
+const rowsOf = (snapshot, range) => (RANGES[rangeOf(range)].unit === 'hour' ? (snapshot?.hourly || []).map(row => ({...row, key: row.hour})) : (snapshot?.daily || []).map(row => ({...row, key: row.day})));
+
+// Per category over the range: prs, lines, hours (summed), ci minutes.
+export function windowOf(snapshot, range, now = new Date()) {
+  const keys = new Set(bucketsOf(range, now).map(bucket => bucket.key));
   const out = Object.fromEntries(CATEGORY_IDS.map(id => [id, {prs: 0, lines: 0, hours: 0, ci: 0}]));
-  for (const row of rows) { const cell = out[row.category]; if (cell) { cell.prs += row.prs || 0; cell.lines += row.lines || 0; cell.hours += row.hours || 0; cell.ci += row.ci || 0; } }
+  for (const row of rowsOf(snapshot, range)) { const cell = keys.has(row.key) && out[row.category]; if (cell) { cell.prs += row.prs || 0; cell.lines += row.lines || 0; cell.hours += row.hours || 0; cell.ci += row.ci || 0; } }
   return out;
 }
 const totalOf = byCategory => Object.values(byCategory).reduce((sum, cell) => ({prs: sum.prs + cell.prs, lines: sum.lines + cell.lines, hours: sum.hours + cell.hours, ci: sum.ci + cell.ci}), {prs: 0, lines: 0, hours: 0, ci: 0});
 
-function tiles(snapshot, now) {
-  return `<div class="tiles">${PERIODS.map(([days, name]) => {
-    const w = windowOf(snapshot, Number(days), now), total = totalOf(w);
-    return `<section class="card tile"><span class="muted">${name}</span><b>${pct(w.forms.prs, total.prs)}</b><span class="muted">${num(w.forms.prs)} of ${num(total.prs)} merged PRs changed how forms are filled</span></section>`;
-  }).join('')}</div>`;
+function tiles(snapshot, range, now) {
+  const w = windowOf(snapshot, range, now), total = totalOf(w), top = CATEGORIES.filter(category => w[category.id].prs).sort((a, b) => w[b.id].prs - w[a.id].prs)[0];
+  return `<div class="tiles"><section class="card tile"><span class="muted">Form fixes</span><b>${pct(w.forms.prs, total.prs)}</b><span class="muted">${num(w.forms.prs)} of ${num(total.prs)} merged PRs changed how forms are filled</span></section>
+<section class="card tile"><span class="muted">Merged PRs</span><b>${num(total.prs)}</b><span class="muted">${top ? `most: ${esc(top.label)} (${num(w[top.id].prs)})` : 'none in this range'}</span></section>
+<section class="card tile"><span class="muted">Open→merge</span><b>${one(total.prs ? total.hours / total.prs : 0)} h</b><span class="muted">average over ${num(total.lines)} lines changed</span></section></div>`;
 }
 
-function table(snapshot, days, now) {
-  const w = windowOf(snapshot, days, now), total = totalOf(w);
+function table(snapshot, range, now) {
+  const w = windowOf(snapshot, range, now), total = totalOf(w);
   const rows = CATEGORIES.filter(category => w[category.id].prs).sort((a, b) => w[b.id].prs - w[a.id].prs).map(category => {
     const cell = w[category.id];
     return `<tr><td>${swatch(category.id)}${esc(category.label)}<div class="muted small">${esc(category.hint)}</div></td><td class="num">${num(cell.prs)}</td><td class="num">${pct(cell.prs, total.prs)}</td><td class="num">${num(cell.lines)}</td>
@@ -87,38 +105,31 @@ function table(snapshot, days, now) {
   return `<table><tr><th>Category</th><th class="num">PRs</th><th class="num">Share</th><th class="num">Lines changed</th><th class="num">Open→merge, avg h</th><th class="num">CI minutes</th></tr>${rows}${foot}</table>`;
 }
 
-// The last 14 days, one stacked bar per day (PRs by category).
-export function bars(snapshot, now = new Date()) {
-  const days = Array.from({length: BAR_DAYS}, (_, i) => dayOf(new Date(now.getTime() - (BAR_DAYS - 1 - i) * DAY)));
-  const per = days.map(day => Object.fromEntries(CATEGORY_IDS.map(id => [id, (snapshot?.daily || []).find(row => row.day === day && row.category === id)?.prs || 0])));
-  const max = Math.max(1, ...per.map(counts => Object.values(counts).reduce((a, b) => a + b, 0)));
-  const W = 1000, H = 170, gap = 8, bw = (W - gap * (BAR_DAYS - 1)) / BAR_DAYS, plot = H - 22;
-  const shapes = per.map((counts, i) => {
-    let y = plot;
-    const x = i * (bw + gap), total = Object.values(counts).reduce((a, b) => a + b, 0);
-    const parts = CATEGORIES.filter(category => counts[category.id]).map(category => {
-      const h = (counts[category.id] / max) * (plot - 14); y -= h;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${category.color}"><title>${esc(days[i])} · ${esc(category.label)}: ${counts[category.id]} PRs</title></rect>`;
-    }).join('');
-    return `${parts}${total ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 3).toFixed(1)}" text-anchor="middle" fill="#8d949c" font-size="11">${total}</text>` : ''}<text x="${(x + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle" fill="#8d949c" font-size="11">${days[i].slice(5)}</text>`;
-  }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Merged PRs per day, by category, last ${BAR_DAYS} days">${shapes}</svg>`;
+// One horizontal stacked row per bucket (a day, or an hour for the 24-hour range), newest first; empty hours are left out (24 mostly empty rows read badly), empty days stay.
+export function bars(snapshot, range = '7d', now = new Date()) {
+  const rows = rowsOf(snapshot, range), unit = RANGES[rangeOf(range)].unit;
+  const list = bucketsOf(range, now).map(bucket => ({...bucket, counts: Object.fromEntries(CATEGORY_IDS.map(id => [id, rows.find(row => row.key === bucket.key && row.category === id)?.prs || 0]))}))
+    .filter(row => unit === 'day' || Object.values(row.counts).some(Boolean));
+  if (!list.length) return '<p class="muted">No merged PRs in this range.</p>';
+  const summary = (row, total) => { const top = CATEGORIES.reduce((best, category) => (row.counts[category.id] > (row.counts[best.id] || 0) ? category : best), CATEGORIES[0]);
+    return total ? `${total} ${total === 1 ? 'PR' : 'PRs'} · top: ${top.label}` : 'none'; };
+  return `${legend(CATEGORIES)}${barRows(CATEGORIES, list, summary)}`;
 }
 
-export function page(snapshot, {days = 7, repo = 'GarryOne/job-pilotto', now = new Date()} = {}) {
-  const period = PERIODS.find(([value]) => Number(value) === days) || PERIODS[1];
-  const filters = filterLinks(PERIODS.map(([value, name]) => [value, name, `?days=${value}`]), period[0]);
+export function page(snapshot, {range = '7d', repo = 'GarryOne/job-pilotto', now = new Date()} = {}) {
+  range = rangeOf(range);
+  const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}`]), range), name = RANGES[range].name;
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>ops-overview.yml</code> publishes the merged PRs on every push to main and hourly; the first run fills this page.</p></section>`
-    : `${tiles(snapshot, now)}
-<section class="card"><h2>By category · ${esc(period[1])}</h2>${filters}${table(snapshot, Number(period[0]), now)}</section>
-<section class="card"><h2>Merged PRs per day · last ${BAR_DAYS} days</h2><p class="legend">${CATEGORIES.map(category => `<span>${swatch(category.id)}${esc(category.label)}</span>`).join('')}</p>${bars(snapshot, now)}</section>
+    : `${filters}${tiles(snapshot, range, now)}
+<section class="card"><h2>By category · ${esc(name)}</h2>${table(snapshot, range, now)}</section>
+<section class="card nights${RANGES[range].unit === 'hour' ? ' hourly' : ''}"><h2>Merged PRs per ${RANGES[range].unit} · ${esc(name.toLowerCase())}</h2>${bars(snapshot, range, now)}</section>
 <section class="card"><h2>Latest ${LATEST} merged PRs</h2><table><tr><th>PR</th><th>Category</th><th class="num">Lines</th><th class="num">Open→merge h</th></tr>${(snapshot.latest || []).map(pr =>
   `<tr><td><a href="https://github.com/${esc(repo)}/pull/${Number(pr.number)}">#${Number(pr.number)}</a> ${esc(pr.title)}</td><td class="nowrap">${swatch(pr.category)}${esc(label(pr.category))}</td><td class="num">${num(pr.lines)}</td><td class="num">${one(pr.hours)}</td></tr>`).join('')
   || '<tr><td colspan="4" class="muted">No merged PRs yet.</td></tr>'}</table></section>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Operations · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
-.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}.small{font-size:12px;margin-left:18px}.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:#8d949c;margin:8px 0}
-.filters{margin:8px 0}tr.total td{font-weight:700}h2{margin:0}</style></head><body><main>
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}.small{font-size:12px;margin-left:18px}
+.filters{margin:8px 0 16px}tr.total td{font-weight:700}h2{margin:0}.hourly .night{grid-template-columns:112px minmax(0,1fr) 240px}.hourly .night b{white-space:nowrap}@media (max-width:640px){.hourly .night{grid-template-columns:112px minmax(0,1fr)}}${BARS_CSS}</style></head><body><main>
 <header><h1>⏱️ Where our time goes</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · merged PRs, by what they change` : ''}</span></header>
 ${body}</main></body></html>`;
 }
@@ -129,6 +140,6 @@ export async function view(request, env) {
   if (url.searchParams.has('key')) return remember(url, env, request);
   let snapshot = null;
   try { const row = env.STATS ? await env.STATS.prepare('SELECT body FROM ops_snapshot WHERE id = 1').first() : null; snapshot = row ? JSON.parse(row.body) : null; } catch { snapshot = null; }
-  const days = Number(url.searchParams.get('days')) || 7;
-  return new Response(page(snapshot, {days, repo: env.GITHUB_REPO || undefined}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const range = rangeOf(url.searchParams.get('range'));
+  return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
