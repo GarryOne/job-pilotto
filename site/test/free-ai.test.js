@@ -1,0 +1,82 @@
+// Free AI (src/free-ai.js): install-token auth, Anthropic <-> Workers AI translation, per-install limits, the daily line, the kill switch.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {freeAi, LIMITS} from '../src/free-ai.js';
+import {tokenFor} from '../src/guard.js';
+import {SMALL, STRONG, costUsd, modelFor} from '../src/free-ai-models.js';
+import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from '../src/free-ai-translate.js';
+
+const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
+const answer = (text = 'hi', usage = {prompt_tokens: 1000, completion_tokens: 1000}) => ({choices: [{message: {content: text}, finish_reason: 'stop'}], usage});
+const env = (extra = {}) => { const seen = []; return {seen, WAITLIST: kv(), STATS_SALT: 'salt', AI: {run: async (model, input) => { seen.push({model, input}); return answer(); }, toMarkdown: async () => [{data: 'CV TEXT'}]}, ...extra}; };
+const key = async (install = 'install-0001') => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
+const call = async (e, apiKey, body = {model: 'claude-haiku-5-5', max_tokens: 50, messages: [{role: 'user', content: 'hello'}]}, headers = {}, path = '/api/ai/v1/messages') =>
+  freeAi(new Request(`https://www.jobpilotto.top${path}`, {method: path.endsWith('messages') ? 'POST' : 'GET', headers: {'x-api-key': apiKey, ...headers}, ...(path.endsWith('messages') ? {body: JSON.stringify(body)} : {})}), e, new Date('2026-10-16T10:00:30Z'));
+
+test('an install token gets an Anthropic-shaped answer from the small model, and the spend is counted', async () => {
+  const e = env(), response = await call(e, await key());
+  assert.equal(response.status, 200);
+  const message = await response.json();
+  assert.deepEqual([message.type, message.content[0].text, message.usage], ['message', 'hi', {input_tokens: 1000, output_tokens: 1000}]);
+  assert.equal(e.seen[0].model, SMALL);
+  assert.equal(Number(e.WAITLIST.m.get('freeai:usd:2026-10-16')), Math.round(costUsd(SMALL, message.usage) * 1e6));
+});
+
+test('no key, a forged token, another install\'s token: 401 and the model never runs', async () => {
+  const e = env();
+  for (const bad of ['', 'sk-ant-real', 'JPF1.install-0001.deadbeef', `JPF1.install-0002.${(await key()).split('.')[2]}`]) assert.equal((await call(e, bad)).status, 401);
+  assert.equal(e.seen.length, 0);
+});
+
+test('per install: the 31st call in a minute and the 301st in a day are refused with words', async () => {
+  const e = env(), apiKey = await key();
+  const who = async () => [...e.WAITLIST.m.keys()].find(k => k.startsWith('freeai:min:')).split(':')[2];
+  await call(e, apiKey);
+  const id = await who();
+  e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, String(LIMITS.perMinute));
+  const slow = await call(e, apiKey);
+  assert.equal(slow.status, 429); assert.match((await slow.json()).error.message, /minute/);
+  e.WAITLIST.m.set(`freeai:min:${id}:2026-10-16T10:00`, '0'); e.WAITLIST.m.set(`freeai:day:${id}:2026-10-16`, String(LIMITS.perDay));
+  const daily = await call(e, apiKey);
+  assert.equal(daily.status, 429); assert.match((await daily.json()).error.message, /own key/);
+  assert.equal(e.seen.length, 1);
+});
+
+test('the daily line: an alert once when $3 is crossed, a stop at $10, and FREE_AI=off pauses it', async () => {
+  const sent = [], e = env({BRAIN_BOT_TOKEN: 't', BRAIN_CHAT_ID: 'c'}), apiKey = await key();
+  e.WAITLIST.m.set('freeai:usd:2026-10-16', String(2.9999 * 1e6));
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body).text); return new Response('{}'); };
+  const request = () => new Request('https://www.jobpilotto.top/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': apiKey}, body: JSON.stringify({max_tokens: 5, messages: [{role: 'user', content: 'x'}]})});
+  await freeAi(request(), e, new Date('2026-10-16T10:00:30Z'), null, fetcher);
+  await freeAi(request(), e, new Date('2026-10-16T10:05:30Z'), null, fetcher);
+  assert.equal(sent.length, 1); assert.match(sent[0], /Free AI/);
+  e.WAITLIST.m.set('freeai:usd:2026-10-16', String(10 * 1e6));
+  assert.equal((await call(e, apiKey)).status, 503);
+  assert.equal((await call({...e, FREE_AI: 'off'}, apiKey)).status, 503);
+});
+
+test('a founder key from an older app still works', async () => {
+  // not signed here: an unsigned JP1 key is refused like any forged key
+  assert.equal((await call(env({LICENSE_PUBLIC_KEY: 'x'}), 'JP1.e30.bad')).status, 401);
+});
+
+test('translation: system + messages + schema in, a PDF read as text, an image refused in words', async () => {
+  const sent = await toWorkersAi({max_tokens: 9, system: [{type: 'text', text: 'Be brief.'}], output_config: {format: {type: 'json_schema', schema: {type: 'object'}}},
+    messages: [{role: 'user', content: [{type: 'document', source: {type: 'base64', data: 'AAAA'}}, {type: 'text', text: 'Read it.'}]}]}, async () => 'CV TEXT');
+  assert.deepEqual(sent.messages, [{role: 'system', content: 'Be brief.'}, {role: 'user', content: 'CV TEXT\n\nRead it.'}]);
+  assert.equal(sent.response_format.json_schema.schema.type, 'object');
+  await assert.rejects(toWorkersAi({messages: [{role: 'user', content: [{type: 'image', source: {}}]}]}), Unsupported);
+});
+
+test('the answer drops reasoning text, and a streamed ask gets the SDK events', () => {
+  const message = fromWorkersAi(answer('<think>hmm</think>{"a":1}'), SMALL);
+  assert.equal(message.content[0].text, '{"a":1}');
+  const events = asStream(message);
+  for (const type of ['message_start', 'content_block_delta', 'message_delta', 'message_stop']) assert.match(events, new RegExp(`event: ${type}`));
+});
+
+test('steps that write documents use the stronger model only when it is switched on', () => {
+  assert.equal(modelFor('kit', {}), SMALL);
+  assert.equal(modelFor('kit', {STRONG_ON: 'on'}), STRONG);
+  assert.equal(modelFor('score', {STRONG_ON: 'on'}), SMALL);
+});

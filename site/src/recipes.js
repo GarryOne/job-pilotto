@@ -73,7 +73,7 @@ export async function recipes(request, env, now = new Date()) {
 // ---- access: a token per install, and lookups by fingerprint ----
 // Recipe tokens are scarce (a token is a lookup quota); index tokens are plentiful because Always-on runs share GitHub's network
 // addresses and one download is the whole index anyway. A token only opens what it was minted for.
-const MINTS_PER_ADDRESS_PER_DAY = {recipes: 10, index: 300, report: 5}, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
+const MINTS_PER_ADDRESS_PER_DAY = {recipes: 10, index: 300, report: 5, ai: 20}, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
 
 // POST /api/install-token {install, purpose?}: the app's token ('recipes' by default, 'index' for the employer index, or 'report' for "Report this form"). New tokens are limited per network address, so minting installs to
 // raise the lookup quota is slow; the quota is per install.
@@ -82,7 +82,7 @@ export async function installToken(request, env, now = new Date()) {
   const body = await request.json().catch(() => ({}));
   const install = String(body.install || '');
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
-  const purpose = ['index', 'report'].includes(body.purpose) ? body.purpose : 'recipes';
+  const purpose = ['index', 'report', 'ai'].includes(body.purpose) ? body.purpose : 'recipes';
   const kv = env.WAITLIST;
   if (kv) {
     const address = await digest(request.headers.get('CF-Connecting-IP') || 'unknown');
