@@ -24,17 +24,23 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     if (run.requests.get(request.id) === request) run.requests.delete(request.id);   // a finished request's body lives in the buffer only (and is evicted there)
     const reply = request.status > 0;
     const entry = {method: request.method, url: request.url, type: request.type, mode: request.mode, startMs: request.began - run.t0, waitMs: now() - request.began, bodyKey: '',
-      status: request.status, failed: failed && !reply, headers: request.headers, hadCookie: false, body: request.body ?? null, size: request.size ?? 0};
+      status: request.status, failed: failed && !reply, headers: request.headers, hadCookie: false, body: request.body ?? null, size: request.size ?? 0, ...(request.bodyLost ? {bodyLost: true} : {})};
     buffer.add(run.tabId, entry, request.body ? request.body.length : 0);
   }
 
+  // The body is read the instant Chrome says the loading finished (the earliest the protocol allows: Network.getResponseBody answers only after loadingFinished), never later. A page that navigates away
+  // right after a reply (a form built from the answer and submitted) has its body evicted a moment later; when that read still fails on a reply that carried bytes (a 2xx whose encodedDataLength > 0),
+  // the entry is flagged bodyLost, never kept as a clean empty reply: a report replaying it would serve an EMPTY answer (the same class as the recorder's, net-record.mjs, 16 Oct 2026).
   async function onFinished(run, request, encoded) {
     try {
       if (!TEXTUAL.has(request.type)) throw new Error('not read');
       const {body, base64Encoded} = await send(run.tabId, 'Network.getResponseBody', {requestId: request.id});
       const text = base64Encoded ? body : btoa(unescape(encodeURIComponent(body)));
       request.body = text; request.size = Math.floor(text.length * 3 / 4);
-    } catch { request.body = null; request.size = Math.floor(encoded || 0); }   // a redirect, a cached reply or an image: the entry is kept without a body
+    } catch {   // a redirect, a cached reply or an image: the entry is kept without a body; a text reply that had bytes and could not be read is flagged
+      request.body = null; request.size = Math.floor(encoded || 0);
+      request.bodyLost = TEXTUAL.has(request.type) && request.status >= 200 && request.status < 300 && Number(encoded) > 0;
+    }
     if (runs.get(run.tabId) === run && !run.paused) finish(run, request, false);
   }
 

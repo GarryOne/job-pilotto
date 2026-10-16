@@ -135,3 +135,21 @@ test('the class: every report entry point hands the trace over; nothing reloads 
     assert.ok(!/chrome\.debugger\.(attach|detach)\(/.test(code(file)), `${file} attaches or detaches the debugger itself: use attachDebugger / detachDebugger (stop-state.js)`);
   }
 });
+
+test('a text reply whose body Chrome no longer has (the page navigated away right after it) is flagged bodyLost; a redirect, a cached reply and a read body are not', async () => {
+  const fake = fakeChrome({R: {body: '{"payload":"abc"}', base64Encoded: false}}), {trace} = make(fake), real = fake.chrome.debugger.sendCommand;
+  fake.chrome.debugger.sendCommand = async (target, method, params) => { if (method === 'Network.getResponseBody' && ['L', 'X', 'C'].includes(params.requestId)) throw new Error('No resource with given identifier found'); return real(target, method, params); };
+  assert.equal(await trace.start(7), true);
+  page(fake, 7, 'D', 'https://jobs.example.test/apply');
+  const xhr = (id, status, encoded, url) => { fake.emit(7, 'Network.requestWillBeSent', {requestId: id, loaderId: 'x', frameId: 'top', type: 'XHR', request: {url, method: 'POST', headers: {}}});
+    fake.emit(7, 'Network.responseReceived', {requestId: id, response: {status, headers: {'Content-Type': 'application/json'}}}); fake.emit(7, 'Network.loadingFinished', {requestId: id, encodedDataLength: encoded}); };
+  xhr('R', 200, 17, 'https://jobs.example.test/read');       // read: kept with its body
+  xhr('L', 200, 17, 'https://jobs.example.test/lost');       // bytes arrived, the read failed: lost
+  xhr('X', 302, 0, 'https://jobs.example.test/redirect');    // a redirect has no body
+  xhr('C', 200, 0, 'https://jobs.example.test/cached');      // a cached reply: no bytes on the wire
+  await tick(); await tick();
+  const byUrl = Object.fromEntries(trace.snapshot(7).entries.map(entry => [entry.url.split('/').pop(), entry]));
+  assert.deepEqual([byUrl.read.bodyLost, byUrl.lost.bodyLost, byUrl.redirect.bodyLost, byUrl.cached.bodyLost], [undefined, true, undefined, undefined]);
+  assert.equal(Buffer.from(byUrl.read.body, 'base64').toString(), '{"payload":"abc"}');
+  assert.ok(byUrl.lost.body === null && byUrl.lost.size === 17);
+});
