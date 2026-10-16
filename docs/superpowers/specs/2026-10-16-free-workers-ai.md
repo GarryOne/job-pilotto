@@ -46,7 +46,8 @@ A task where the open model is clearly worse says so; then: keep it on the stron
 
 ## Progress
 - [x] Spec read by the owner (via job-pilotto-cc) (proof: none: owner answered "Yes" and "retire" through job-pilotto-cc on 16 Oct)
-- [ ] Measurement script `tools/free-ai-eval.mjs` (+ its table in this spec)
+- [x] Measurement tool `tools/free-ai-eval.mjs` + `tools/free-ai-cases.py` (proof: desktop/test/free-ai-eval.test.js)
+- [ ] The quality table in this spec (needs the Workers AI credential; fictional postings only, owner's yes before any real job or CV goes to Cloudflare)
 - [x] PR 1 (site): `free-ai.js` route, install-token auth, limits, kill switch, alert, tests (proof: site/test/free-ai.test.js); ai-cost already groups by model, Workers AI prices in `free-ai-models.js`
 - [ ] PR 2 (app): credit → Free everywhere in §4 + migration + grep guard
 - [ ] PR 3 (UI): picker with logos, ⌘K, before/after shots
