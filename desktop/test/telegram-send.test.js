@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {dailyArgs, mailArgs, deliveryReady, telegramReady} from '../lib/pipeline-args.js';
+import {dailyArgs, mailArgs, telegramReady} from '../lib/pipeline-args.js';
 
 const storage = ({token = '', chat = ''} = {}) => ({secret: name => (name === 'TELEGRAM_BOT_TOKEN' ? token : ''), settings: () => ({telegramChatId: chat})});
 
