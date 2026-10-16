@@ -1,7 +1,11 @@
 """A newer push to a pull request cancels its older runs, so the superseded jobs free their runners (owner, 15 Oct 2026: a flow PR started ~25 jobs, GitHub runs ~20 at once,
 8 PRs are often open, and ship.sh re-pushes up to 5 times). Every workflow a PR starts has a concurrency group per PR with cancel-in-progress on the PR only; main's runs never cancel
 (tests/test_main_runs_finish.py). By-hand and comment-driven workflows are listed with the reason."""
+import json
+import os
 import re
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -59,6 +63,20 @@ class PrRunsCancel(unittest.TestCase):
         self.assertIn('actions: write', text)
         self.assertIn('github.event.pull_request.head.repo.full_name == github.repository', text, 'a fork\'s PR is skipped')
         for status in ('queued', 'in_progress'): self.assertIn(status, text)
+
+    def test_a_closed_pr_never_cancels_the_runs_of_a_new_pr_on_the_same_branch_name(self):
+        # 16 Oct 2026: #1048 merged, a new PR #1056 reused the branch name and pushed 10 s before the cancel job started: every run of #1056 was cancelled.
+        # Only runs created up to the close belong to the closed PR; later ones belong to whatever PR uses the name now.
+        text = (WORKFLOWS / 'pr-closed-cancel.yml').read_text(encoding='utf-8')
+        self.assertIn('CLOSED_AT: ${{ github.event.pull_request.closed_at }}', text)
+        match = re.search(r"-q '([^']*select\(\.createdAt <= env\.CLOSED_AT[^']*)'", text)
+        self.assertTrue(match, 'the listing keeps only runs created up to the close')
+        if not shutil.which('jq'): self.skipTest('jq is not installed')
+        runs = [{'databaseId': 1, 'createdAt': '2026-10-16T18:20:30Z'}, {'databaseId': 2, 'createdAt': '2026-10-16T18:58:57Z'},
+                {'databaseId': 3, 'createdAt': '2026-10-16T19:00:09Z'}]   # the last one is a new PR's, after the close at 18:58:57Z
+        out = subprocess.run(['jq', '-r', match.group(1)], input=json.dumps(runs), capture_output=True, text=True, check=True,
+                             env={'CLOSED_AT': '2026-10-16T18:58:57Z', 'PATH': os.environ['PATH']}).stdout
+        self.assertEqual(out.split(), ['1', '2'])
 
     def test_the_by_hand_exceptions_still_exist(self):
         for name in NOT_CANCELLED: self.assertTrue((WORKFLOWS / name).exists(), name)
