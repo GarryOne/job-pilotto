@@ -68,7 +68,7 @@ export async function init() {
   $('export-data').addEventListener('click', async () => {
     $('export-data').disabled = true;
     // Notion data is not exported: it stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026)
-    const result = await window.pilot.exportProfile({keys: $('export-keys').checked});
+    const result = await window.pilot.exportProfile({keys: $('export-keys').checked, accounts: $('export-accounts').checked});
     $('export-data').disabled = false;
     if (result.ok) message('data-message', `Exported ✓ ${result.file}`, 'ok');
     else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');

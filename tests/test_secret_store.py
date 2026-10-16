@@ -54,6 +54,12 @@ class SecretStoreTest(unittest.TestCase):
         self.assertEqual(stored[stored.index('-j') + 1], 'email=ilie@example.com job=https://jobs.migros.ch/x')
         self.assertEqual(passwords.note('', ''), None)
 
+    def test_a_site_account_is_named_after_the_profile_so_profiles_never_share_one(self):
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_PROFILE_ID': 'profile-0123456789ab'}):
+            self.assertEqual(passwords.service('a.example.com'), 'job-pilotto.profile-0123456789ab.a.example.com.password')
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_PROFILE_ID': 'x; evil'}):   # not an id: the old name, which the app lists as unassigned
+            self.assertEqual(passwords.service('a.example.com'), 'job-pilotto.a.example.com.password')
+
     def test_new_with_no_copy_stores_and_leaves_the_clipboard_alone(self):
         store, copied = FakeKeyring(), []
         with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
