@@ -23,11 +23,23 @@ test('a page that never settles is read as it stands after the cap, with the cau
   assert.equal(logs[0][2].cause, 'cap');
 });
 
-test('a drawn page, or no answer, costs no wait', async () => {
+test('a drawn page, or no answer on a page with controls, costs no wait', async () => {
   const {deps, state} = rig([]);
   assert.deepEqual(await readWhileDrawing({role: 'form'}, deps), {role: 'form'});
   assert.equal(await readWhileDrawing(null, deps), null);
+  assert.equal(await readWhileDrawing(null, {...deps, unanswered: async () => false}), null);
   assert.equal(state.waits, 0);
+});
+
+test('no answer on an empty shell is waited on and asked again, at the cap; a late-drawn page then gets its answer', async () => {
+  const {deps, state, logs} = rig([{role: 'account', stillDrawing: false}]);
+  const got = await readWhileDrawing(null, {...deps, unanswered: async () => true});
+  assert.equal(got.role, 'account');
+  assert.deepEqual([state.waits, state.asks], [1, 1]);
+  assert.equal(logs[0][2].cause, 'settled');
+  const never = rig([]);
+  assert.equal(await readWhileDrawing(null, {...never.deps, unanswered: async () => true}), null);
+  assert.equal(never.state.waits, 1);   // an ask that still has no answer ends the wait: the page is read as it stands
 });
 
 test('the fill reads the page-kind answer through it', () => {

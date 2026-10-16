@@ -6,9 +6,12 @@ export const MAX_LOOKS = 2;
 export const STILL_MS = {quietMs: 500, maxMs: 2500, afterChange: true};
 
 // asked: the first answer; again(): the page-kind ask once more, fresh; still(): resolves when the page has been still (pageStill); log: decide.
-export async function readWhileDrawing(asked, {again, still, log, host = ''}) {
+// unanswered(): true when there is NO answer and the page shows no control at all (an empty shell): a missing answer is never kept as sure (CLAUDE.md), so it is waited on and asked again like a
+// "still drawing" one, at the same cap (16 Oct 2026: a signed-in Workday step read as an empty "Careers" shell on a slow machine ended at "no Apply button to press").
+export async function readWhileDrawing(asked, {again, still, log, host = '', unanswered}) {
   let looks = 0, answer = asked;
-  while (answer?.stillDrawing === true && looks < MAX_LOOKS) {
+  const drawing = async () => answer?.stillDrawing === true || (!answer && !!(await unanswered?.()));
+  while (looks < MAX_LOOKS && await drawing()) {
     looks++;
     await still();
     const next = await again();
