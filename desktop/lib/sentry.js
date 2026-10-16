@@ -95,7 +95,7 @@ export function create({dsn, release, environment = 'production', installId, pla
     },
     capture(kind, fields = {}) {
       try {
-        if (!target || !enabled() || !CAPTURED.includes(kind)) return false;
+        if (!target || !enabled(kind, fields) || !CAPTURED.includes(kind)) return false;
         const event = buildEvent(kind, fields, {release, environment, installId, platform, os, now: now(), trail, tags});
         const key = event.fingerprint.join('|');
         const t = now();

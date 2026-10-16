@@ -5,22 +5,29 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
 import {startAiProxy} from '../lib/ai-proxy.mjs';
 import {startGoogleFake} from '../lib/google-fake.mjs';
 import {startNotionProxy} from '../lib/notion-proxy.mjs';
 import {startTelegramFake} from '../lib/telegram-fake.mjs';
-import {markPlanted} from '../lib/planted.mjs';
-import {plantedRecently} from '../../lib/planted.js';
+import {HUNG_REPORTS, markPlanted, RECALL_REPORTS} from '../lib/planted.mjs';
+import {causedByPlant} from '../../lib/planted.js';
 
-const LIB = path.dirname(new URL('../lib/planted.mjs', import.meta.url).pathname);
+const LIB = path.dirname(fileURLToPath(new URL('../lib/planted.mjs', import.meta.url)));
 
-test('markPlanted writes a line the app reads, and does nothing without a file', () => {
+test('markPlanted writes the kinds a plant causes, and does nothing without a file', () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-planted-')), 'planted.log');
-  assert.equal(markPlanted('x', {}), false);
-  assert.equal(markPlanted('ai server-error', {JOB_PILOTTO_E2E_PLANTED_FILE: file}, 1000), true);
+  assert.equal(markPlanted('x', undefined, {}), false);
   const env = {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_PLANTED_FILE: file};
-  assert.equal(plantedRecently(env, 1000 + 60_000), true);
-  assert.equal(plantedRecently(env, 1000 + 200_000), false, 'an old plant does not hide a later, real error');
+  assert.equal(markPlanted('ai server-error', undefined, env, 1000), true);
+  assert.equal(markPlanted('ai hang', HUNG_REPORTS, env, 1000), true);
+  assert.equal(markPlanted('recall x', RECALL_REPORTS, env, 1000), true);
+  const at = 1000 + 60_000;
+  assert.equal(causedByPlant({kind: 'run_warning', message: 'AI limit'}, env, at), true);
+  assert.equal(causedByPlant({kind: 'stuck', message: 'no output for 10 s'}, env, at), true);
+  assert.equal(causedByPlant({kind: 'crash', message: 'Uncaught Error: recall planted error'}, env, at), true);
+  assert.equal(causedByPlant({kind: 'crash', message: 'TypeError: real'}, env, at), false, 'a real crash in the same minute is sent');
+  assert.equal(causedByPlant({kind: 'run_warning', message: 'AI limit'}, env, 1000 + 200_000), false, 'an old plant hides nothing');
 });
 
 test('every fake that serves a failure marks it planted', async () => {

@@ -6,7 +6,7 @@ import {inspect, LIMITS} from './uicheck.mjs';
 import {checkA11y} from './a11y.mjs';
 import {probePage} from './interact.mjs';
 import {journey} from './journey.mjs';
-import {markPlanted} from './planted.mjs';
+import {markPlanted, RECALL_REPORTS} from './planted.mjs';
 import {lateShiftFindings, nowInPage, shiftsIn, watchShifts} from './shift.mjs';
 
 export const PLANTS = [
@@ -65,7 +65,7 @@ export async function measureRecall({page, view, ipc, wait = ms => new Promise(d
   const baseA11y = await checkA11y(page);
   for (const plant of PLANTS) {
     let caught = false, saw = '';
-    markPlanted(`recall ${plant.id}`);   // the plant's window error is reported by the app; the marker keeps it out of Sentry
+    markPlanted(`recall ${plant.id}`, RECALL_REPORTS);   // the plant's window error is reported by the app; the marker keeps it out of Sentry
     try {
       if (plant.html) { await page.evaluate(insert, plant.html); await wait(400); }
       if (plant.detector === 'layout') {
@@ -92,7 +92,7 @@ export async function measureRecall({page, view, ipc, wait = ms => new Promise(d
       }
     } catch (error) { saw = `error: ${String(error.message).slice(0, 80)}`; }
     await page.evaluate(takeOut).catch(() => {});
-    markPlanted(`recall ${plant.id} removed`);
+    markPlanted(`recall ${plant.id} removed`, RECALL_REPORTS);
     rows.push({id: plant.id, detector: plant.detector, caught, saw: saw.slice(0, 160)});
   }
   // Whatever the window recorded DURING the plants is planted, not real: never filed. Matching the text was not enough (4 Oct 2026: the broken-image plant's
