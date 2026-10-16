@@ -234,7 +234,7 @@ def interview_mode(args, stores=None):
     # Telegram only to send the summary or fetch a file sent to the bot; the app's reviews work without it.
     from_bot = bool(args.file) and not Path(args.file).is_file()
     token, chat_id = telegram.credentials() if args.send or from_bot else (None, None)
-    sender = (lambda text: telegram.send(text, token, chat_id)) if args.send else None
+    sender = (lambda text: telegram.send(text, token, chat_id, urgent=True)) if args.send else None   # an interview review is answered at once, never held for a batch
     run = new_cron_run('interview')
     run['interview'] = {}
     reviewed = {}  # the job the interview is linked to, once known (interviews.run fills it)

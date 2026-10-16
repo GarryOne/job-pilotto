@@ -302,6 +302,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .focus-settings > * + * { padding-left: var(--sp-5); border-left: 1px solid var(--line); }
 .inline-field { display: flex; align-items: center; gap: var(--sp-3); }
 .inline-field input { width: 90px; }
+#setting-notify .inline-field input { width: 22rem; max-width: 100%; }   /* an e-mail address, not a number */
 .chips { display: flex; gap: var(--sp-2); margin: var(--sp-1) 0; }
 .time-chip { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
 

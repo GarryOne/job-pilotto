@@ -3,6 +3,7 @@
 // Guards: the notify-watch, run-history, few-jobs and activity tests in desktop/test.
 import * as fewJobs from './few-jobs.js';
 import * as github from './github.js';
+import * as notifyChannel from './notify-channel.js';
 import * as notifyWatch from './notify-watch.js';
 import * as pipeline from './pipeline.js';
 import * as runHistory from './run-history.js';
@@ -92,7 +93,8 @@ export function createAppNotify(ctx) {
     else notify(said.title, said.body, {run: found.runId});
     toWindow('few-jobs', {runId: found.runId});
     const token = getStorage().secret('TELEGRAM_BOT_TOKEN'), chat = getStorage().settings().telegramChatId;
-    if (what.telegram && token && chat && !DEMO) {
+    if (what.telegram && !DEMO) notifyChannel.sendEmail(getStorage(), {subject: said.title, text: said.telegram}).catch(() => {});   // the e-mail form, when e-mail is chosen
+    if (what.telegram && token && chat && !DEMO && notifyChannel.channelsOf(getStorage()).includes('telegram')) {
       telegram.api(token, 'sendMessage', {chat_id: chat, text: said.telegram})
         .catch(error => appLog('advice', 'few new jobs Telegram line not sent', {error: error.message}));
     }

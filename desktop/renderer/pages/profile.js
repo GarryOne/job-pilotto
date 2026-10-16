@@ -21,6 +21,7 @@ import {hintAfter} from '../own-key-hint.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
+import {showNotify} from './notify-settings.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Experience, Preferences, Application answers, Cover letter) ----------
 export function profileTab(name) {
@@ -198,6 +199,7 @@ export async function loadSettings() {
   showEngineSettings();
   showCloud();
   showSchedule();
+  showNotify();
   showContact();
   showClaudeAuto();
   showMode(shared.state.settings);

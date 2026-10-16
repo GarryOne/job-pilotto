@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('pilot', {
   platform: process.platform,
   takeNotionNeed: () => (need ? {name: need.name, reason: need.reason} : null),
   retryNotionNeed: () => (need ? ipcRenderer.invoke(need.name, ...need.args) : Promise.resolve(null)),
-  state: call('state'), saveSettings: call('saveSettings'), saveSecret: call('saveSecret'),
+  state: call('state'), notifyState: call('notifyState'), notifySave: call('notifySave'), saveSettings: call('saveSettings'), saveSecret: call('saveSecret'),
   lookAround: call('lookAround'), leaveDemo: call('leaveDemo'),
   checkAnthropic: call('checkAnthropic'), chooseCv: call('chooseCv'),
   draftStrategy: call('draftStrategy'), cachedDraft: call('cachedDraft'), cacheDraftEdits: call('cacheDraftEdits'), saveStrategy: call('saveStrategy'),
