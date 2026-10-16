@@ -26,6 +26,7 @@ on:
       - 'docs/superpowers/specs/2026-10-10-ai-ladder.md'
       - 'site/src/knowledge.js'
       - 'site/src/ladder-moves.js'
+      - 'site/src/pro-pay.js'
       - 'site/src/telemetry.js'
       - 'site/test/host-cases.json'
       - 'src/ai/inbox_fields.py'
