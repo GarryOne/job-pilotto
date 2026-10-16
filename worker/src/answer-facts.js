@@ -27,6 +27,10 @@ export function typeGuess(answer) {
     || /^(https?:\/\/|www\.)\S+$/i.test(String(answer.value || '').trim());
   return kept ? {...answer, use: 'propose'} : {...answer, use: 'fill', guess: true};
 }
+// A box is ticked only from a saved fact (16 Oct 2026): a lone checkbox is a statement the applicant agrees with, and a consent the AI read as an ordinary question (category "normal",
+// fact "none") would otherwise be typed as a guess. Structure only: the field's type and the answer's own fact, no wording. A guess on a box stays a proposal the person confirms.
+export const floorBoxGuess = (answer, type) => (type === 'checkbox' && answer.use === 'fill' && answer.fact === 'none' && answer.value !== '' && !['legal', 'demographic', 'written'].includes(answer.category)
+  ? { ...answer, use: 'propose', guess: undefined } : answer);
 // The identity floor (12 Oct 2026: with no profile sent, a plan-path model typed the signed-in account holder's country, city and surname into a test form).
 // A contact answer (name, e-mail, phone, address) or one resting on the home location is typed only when its value is in what the ask was given (the
 // profile, standard answers, CV facts, search settings, drafted kit): accents and case aside, every word of it, or the phone's last nine digits. Otherwise it
