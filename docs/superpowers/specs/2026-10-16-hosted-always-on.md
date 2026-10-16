@@ -100,7 +100,16 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
   - **The global Free AI caps bind first:** $10/day stop, $100/month stop. At 1,000 installs a month the *likely* total ($500) is above the $100/month cap, so Free AI (and hosted for everyone, trial users first) would stop mid-month. At 100 installs the likely case ($50) fits under the cap. **Owner decision needed before default-on goes live at scale:** raise the monthly caps (the early-adopter values in `wrangler.toml` are config), or lower the trial budget for hosted.
   - Conversion has to carry it: at $19, a conversion of c% of installs covers the likely $0.50 per install if c ≥ ~3-4% (net after VAT and fees ≈ $14).
 - **Trial user** (1 run a day, 60 days max): 60 runs ≈ **$0.15 our compute cost**, debit $0.30 from the $2 trial budget; the AI of a Free search is the rest of the $2.
-- **Not measured yet.** Replace the table by the probe's numbers before launch.
+- **Measured locally, 16 Oct 2026** (the engine, `JOB_PILOTTO_STORE=sqlite`, empty state, an isolated app folder and no keys, config = the repo's example search; a Mac, not a container): **147 s wall, 33 s user + 6 s system CPU (≈ 27% of one core), peak memory ≈ 0.8 GB (RSS) / 1.2 GB (macOS footprint)**, 1,068 employer feeds read, 8,883 jobs listed, 142 new, no AI. **Consequences for the estimate above:** `basic` (1 GiB) is too small, use **`standard-1` (1/2 vCPU, 4 GiB, 8 GB disk)**; a later run with a warm state reads the same feeds, so 147 s is the planning figure.
+  | Part (standard-1, 147 s) | Per run, measured basis |
+  |---|---|
+  | Memory 4 GiB × 147 s × $0.0000025 | $0.00147 |
+  | CPU 39 s active × $0.00002 | $0.00078 |
+  | Disk 8 GB × 147 s × $0.00000007 | $0.00008 |
+  | Egress (not measured yet; assume 50 MB) | $0.00125 |
+  | Worker, Queue, D1, R2 | $0.0003 |
+  | **Total** | **≈ $0.0039** |
+  The $0.005 debit is then **1.3x** the cost, not 2x; the container probe measures egress and the Linux footprint, and the debit is re-set (rule: 2x the measured cost, so about $0.008) before launch. The earlier table above stays as the first estimate.
 
 ## 4. Product
 - **Settings → Plan → "Search for me while my Mac is off"** (Pro only), one switch + frequency choice: **once a day (default)**, twice a day, every 4 hours (the cap, 6/day). Built from `choiceCards`/existing parts; ⌘K "Turn hosted search on/off"; sidebar line "Hosted search · next 14:00".
@@ -134,6 +143,20 @@ Prices: Cloudflare Containers (Workers Paid, 5 Oct 2026 docs): memory $0.0000025
 - **Unsubscribe:** every email has a one-click unsubscribe link (signed token, no sign-in) that turns the email channel off for that schedule (`List-Unsubscribe` header too), plus the switch in Settings. Turning the schedule off, deleting the data or ending the trial deletes the address.
 - **Abuse:** the sender is rate-limited per address (max 6 a day) and per account; a bounce or complaint turns email off automatically.
 - E-mail depends on the Cloudflare Email Sending path of Pro PR 5 (device codes): the same sender, domain and templates.
+
+### 4d. Email + signups (owner, 16 Oct 2026: "we'll need an email for them... On the wizard. Also this way we'll be able to keep track of the signups. We'll be able to follow up on them.")
+- **The wizard asks for an email; Skip is allowed.** Skip only turns hosted Always on off (the rest of the app works as today).
+- **Two kinds of mail, two lists:**
+  | | Service mail | Marketing mail |
+  |---|---|---|
+  | What | the daily digest, trial-ending reminders, account mail (confirm, Pro receipt, sign-in codes) | tips and the Pro launch offer |
+  | Opt-in | always allowed once an address is given | **separate and opt-in: an UNTICKED box** "Send me tips and the Pro launch offer (unsubscribe anytime)" (EU and Swiss rules forbid pre-ticking) |
+  | Unsubscribe | one click, ends the daily searches' email (`service_mail_off_at`) | one click, `marketing_opt_in = 0` |
+  Each email carries only its own list's links; a service mail never carries a promotion (§4b consent check).
+- **No code step at signup.** The first digest carries a "confirm your email" link (`email_confirmed_at`). An unconfirmed address still gets the digest (the address is the person's own to type; a wrong one costs us one bounce and turns email off).
+- **The email creates a trial account on the server,** in the same table as Pro accounts (`pro_accounts`, coordinated with job-pilotto-a6; migration 0080 adds `plan` ('trial'|'pro', default 'pro'), `email_confirmed_at`, `marketing_opt_in`, `marketing_opt_in_at`, `trial_started_at`, `service_mail_off_at`). A trial account never gets Pro treatment (the Pro lane needs `plan = 'pro'` and `status = 'active'`). A later purchase finds the account by the same email hash and flips `plan` to `pro`: **one click**, no second sign-up. The install is linked in `pro_devices` (raw install id, max 3 devices).
+- **Signup metric:** `/admin` counts **trial accounts** (confirmed / unconfirmed / marketing opt-in / paused / converted) instead of counting installs. Installs without an email stay a separate "anonymous" number.
+- **Data rule:** the address is stored once per person (hash for lookup, plain for sending), deleted with the account; hosted data deletion (§2) does not delete the account, "Delete my account" does.
 
 ## 5. Abuse and limits
 | Case | Guard |
@@ -174,6 +197,7 @@ Hosted Always on for trial users needs the **trial budget, not payments** (owner
 - [ ] PR 1 (site): tables, install-bound tokens, routes, flag (proof: site/test/hosted-schedule.test.js)
 - [ ] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py)
 - [ ] PR 3 (site): cron tick, Queue, container start, trial-budget debit, global caps, 14-day auto-pause, guards, export and delete (proof: site/test/hosted-guards.test.js)
+- [ ] PR 0 (site, job-pilotto-a6): migration 0080 trial columns on `pro_accounts`, `createAccount(..., {plan})` (proof: site/test/pro-credit.test.js)
 - [ ] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling (proof: site/test/hosted-notify.test.js)
 - [ ] PR 4 (app): onboarding switch on + disclosure + email field, inbox merge, Settings, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
 - [ ] Owner decides the Free AI monthly cap vs default-on exposure (§3)
