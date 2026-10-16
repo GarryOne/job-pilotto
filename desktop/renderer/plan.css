@@ -1,0 +1,5 @@
+/* The Plan card (pages/plan.js): its included list, a plain list in the panel, tokens only. */
+.plan-list { margin: var(--sp-2) 0 var(--sp-3); padding-left: var(--sp-4); }
+.plan-list li { margin-bottom: var(--sp-1); }
+#plan-body .bar { margin: var(--sp-2) 0; }
+#plan-body .inline { margin: var(--sp-3) 0; }

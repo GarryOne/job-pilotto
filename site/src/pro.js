@@ -65,7 +65,8 @@ export async function status(request, env) {
   const access = given && await authorize(env, given.install, given.token, 'ai');
   if (!access?.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
   const account = await accountOf(env, given.install);
-  if (!account || account.status !== 'active') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN});
+  // The price to show (the launch price while there is one: PRO_LAUNCH_USD empty ends it), so the app never hard-codes a number.
+  if (!account || account.status !== 'active') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offer: {price: env.PRO_PRICE_USD || '29', launch: env.PRO_LAUNCH_USD ?? '19'}});
   const percent = percentOf(account);
   return Response.json({ok: true, plan: 'pro', mode: env.PRO_PLAN, creditPercent: percent, warn: warnOf(percent), devices: DEVICES_PER_ACCOUNT});
 }

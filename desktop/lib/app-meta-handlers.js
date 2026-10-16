@@ -13,7 +13,7 @@ import {registerBuildHandlers} from './build-handlers.js';
 import {log as appLog} from './log.js';
 
 export function registerAppMetaHandlers(ctx) {
-  const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getTelemetry, getUpdateOffer, getUpdateCheckedAt, channels} = ctx;
+  const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getPlan, shell, getTelemetry, getUpdateOffer, getUpdateCheckedAt, channels} = ctx;
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
   // Settings → License: where the user stands, pasting a key (checked offline), removing it.
@@ -22,6 +22,14 @@ export function registerAppMetaHandlers(ctx) {
     if (DEMO) return {ok: false, error: 'Demo mode: keys are not saved.'};
     const result = getLicense().set(String(key || ''));
     return result.ok ? {ok: true, state: {...result.state, text: licenseLib.text(result.state)}} : result;
+  });
+  // The Pro plan (lib/plan.js): the site's answer (kept 14 days offline), and a one-time payment opened in the browser. Both only when the plan is on at the site.
+  ipcMain.handle('planState', async () => { const plan = getPlan(), now = plan.state(); return DEMO || (now.at && !now.stale) ? now : plan.refresh(); });
+  ipcMain.handle('planCheckout', async (_, kind) => {
+    if (!['pro', 'topup5', 'topup10', 'topup20'].includes(kind)) return {ok: false, error: 'Unknown purchase.'};
+    const made = await getPlan().checkout(kind);
+    if (made.ok) shell.openExternal(made.url);
+    return made.ok ? {ok: true} : made;
   });
   ipcMain.handle('licenseRemove', () => { const state = getLicense().remove(); return {...state, text: licenseLib.text(state)}; });
   ipcMain.handle('telemetryRecord', (_, kind, fields) => {

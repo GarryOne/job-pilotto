@@ -84,6 +84,8 @@ test('the status the app reads: free, then pro with a percent and a warning, nev
   assert.equal((await ask2('JPF1.install-x-01.deadbeef')).status, 401);
   const none = await (await ask2(await keyOf('install-none-1'))).json();
   assert.deepEqual([none.ok, none.plan], [true, 'free']);
+  assert.deepEqual(none.offer, {price: '29', launch: '19'}, 'the app shows the price the site says');
+  assert.deepEqual((await (await ask2(await keyOf('install-none-1'), {...e, PRO_LAUNCH_USD: ''})).json()).offer, {price: '29', launch: ''}, 'an empty launch price ends it');
   const pro = await proInstall(e, 'install-pro-05', 5_000_000);
   e.STATS.db.prepare('UPDATE pro_accounts SET credit_micro = ?').run(1_400_000);   // 28%: rounds down to 25, the 30% warning
   const body = await (await ask2(pro.key)).json();

@@ -4,9 +4,10 @@ import {$, message} from './core.js';
 import {openSetting} from './settings.js';
 import {chip} from '../license-chip.js';
 import {planLine} from '../plan-line.js';
+import {initPlan} from './plan.js';
 import {byStore} from '../store-words.js';
 
-const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass'};
+const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass', pro: 'Pro'};
 
 // The sidebar counter: "12 of 20 applications used" with a thin bar; a click opens Settings → License. Hidden for a licensed install.
 function showChip(state) {
@@ -24,7 +25,7 @@ function showChip(state) {
 export function showLicense(state) {
   showChip(state);
   const {licensed, ended} = state;
-  $('license-pill').textContent = licensed ? `${KIND[state.license.kind]} key` : ended ? 'Free period over' : 'Free';
+  $('license-pill').textContent = licensed ? (state.license.kind === 'pro' ? 'Pro' : `${KIND[state.license.kind]} key`) : ended ? 'Free period over' : 'Free';
   $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'info'}`;
   // Same count as the sidebar chip: applications USED, filling, red for the last 5.
   const shown = chip(state);
@@ -43,6 +44,7 @@ export function showLicense(state) {
   const plan = planLine(state);   // the one honest line about Pro while it is off (plan-line.js)
   $('license-plan').hidden = !plan;
   $('license-plan').textContent = plan || '';
+  $('setting-license-key').hidden = state.license?.kind === 'pro';   // a Pro account has no key to paste
   $('license-paste').hidden = licensed;
   $('license-held').hidden = !licensed;
   $('license-holder').textContent = licensed ? `${state.license.name} · ${KIND[state.license.kind]} key${state.license.until ? ` · until ${state.license.until}` : ''}` : '';
@@ -62,6 +64,7 @@ async function unlock(input, messageId) {
 export async function init() {
   const refresh = async () => showLicense(await window.pilot.license());
   await refresh();
+  initPlan(refresh);   // the Plan card: Upgrade or the AI credit (pages/plan.js); it asks again so the counter and the line follow the site's answer
   $('allowance-chip').addEventListener('click', () => openSetting('license'));
   // The count moves as applications are sent: look again now and then, and when the window comes back to the front.
   setInterval(() => refresh().catch(() => {}), 10 * 60 * 1000);

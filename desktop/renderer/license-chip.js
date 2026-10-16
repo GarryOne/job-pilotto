@@ -4,6 +4,11 @@
 // Focus (applications today) is a different thing that resets each day and fills up. null when licensed: there is nothing to count.
 import {byWhere} from './store-name.js';
 export function chip(state) {
+  if (state?.license?.kind === 'pro') {   // a Pro account: the AI credit left, a thin bar, red from 10%
+    const percent = state.pro?.creditPercent;
+    return {plan: 'Pro', text: percent == null ? 'Pro plan' : `AI credit ${percent}%`, tone: (state.pro?.warn ?? 99) <= 10 ? 'bad' : 'info', percent: Math.max(2, percent ?? 100), left: 0, used: state.used || 0,
+      title: 'Pro: no application limit. The bar is the AI credit left; your own AI key is unlimited and saves it.'};
+  }
   if (!state || state.licensed) return null;
   const left = Math.max(0, (state.limit || 0) - (state.used || 0));
   const used = Math.min(state.used || 0, state.limit || 0);
