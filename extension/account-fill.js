@@ -73,8 +73,13 @@ export function pressAccountButton(named = '') {
   // The button the AI named (its text, copied from the page's own list), else the form's one submit button.
   const text = el => String(el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const wanted = String(named || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const buttons = wanted ? [...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(el => visible(el) && text(el) === wanted).slice(0, 1)
+  let buttons = wanted ? [...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(el => visible(el) && text(el) === wanted)
     : [...scope.querySelectorAll('button[type=submit], input[type=submit], button:not([type])')].filter(visible);
+  if (buttons.length > 1) {   // several carry the named text (the header's "Sign In" and the form's): the one in the smallest block that also holds the filled box is the form's own. Inline: injected alone.
+    const span = el => { for (let at = el.parentElement; at; at = at.parentElement) if (at.contains(box)) return at.getElementsByTagName('*').length; return Infinity; };
+    const sizes = buttons.map(span), best = Math.min(...sizes), nearest = buttons.filter((el, i) => sizes[i] === best);
+    if (best !== Infinity && nearest.length === 1) buttons = nearest;
+  }
   const lone = buttons.length === 1 ? buttons[0] : null;
   if (!lone) return buttons.length ? 'several-buttons' : 'no-button';
   document.documentElement.setAttribute('data-jobpilotto-account-pressed', '1');

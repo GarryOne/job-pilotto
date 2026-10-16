@@ -97,6 +97,21 @@ test('a control named a little long or short is pressed when it is the only near
   assert.deepEqual(pressNamed('<a id="a">Hilfe</a>', 'Anmelden'), {result: 'not-found', clicked: []});
 });
 
+test('the account button named twice: the one beside the filled box is pressed, the header\'s is not (Richemont, 16 Oct 2026: the first "Sign In" opened a pop-up)', () => {
+  const run = (html, named) => {
+    const dom = new JSDOM(`<body>${html}</body>`);
+    dom.window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+    Object.assign(globalThis, {document: dom.window.document, Node: dom.window.Node});
+    const clicked = [];
+    dom.window.document.querySelectorAll('button').forEach(el => el.addEventListener('click', event => { event.preventDefault(); clicked.push(el.id); }));
+    dom.window.document.querySelector('input[type=password]').setAttribute('data-jobpilotto-filled', '1');
+    return {reason: pressAccountButton(named), clicked};
+  };
+  const page = tail => `<header><div><button id="head" aria-label="Sign In"></button></div></header><main><form><input type="text" value="a@b.c"><input type="password" value="x">${tail}</form></main>`;
+  assert.deepEqual(run(page('<button id="body" type="submit" aria-label="Sign In"></button>'), 'Sign In'), {reason: 'pressed', clicked: ['body']});
+  assert.deepEqual(run('<main><form><input type="password" value="x"></form><div><button id="a" aria-label="Sign In"></button><button id="b" aria-label="Sign In"></button></div></main>', 'Sign In'), {reason: 'several-buttons', clicked: []});   // two equally near: never a guess
+});
+
 // The shape of a create-account page whose header and body both carry the text the AI named (captured 16 Oct 2026: a header "Sign In" button, the form, then "Already have an account? Sign In").
 const TWO_SIGN_INS = '<header><div><button id="head">Sign In</button></div></header><main><form><input type="email"><input type="password"><button type="submit">Create Account</button></form><div>Already have an account?<button id="body">Sign In</button></div></main>';
 
