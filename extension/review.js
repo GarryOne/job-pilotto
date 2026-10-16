@@ -41,6 +41,10 @@
   $('.x').onclick = () => { userMoved = true; setOpen(false); };
   // "Report this form", always there on every state (owner, 16 Oct 2026: "a small icon that will trigger Report this form"): the same card as the corner ⚑ (panel-report.js).
   $('.report-flag').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
+  // The labelled button for the same card (owner, 16 Oct 2026: the icon alone was not found); shown once the app says the switch is on (panel-report.js).
+  $('.report-open').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
+  const showReport = () => { $('.report-open').hidden = !window.__jobPilottoReportOn; };
+  window.addEventListener('jobpilotto-report-ready', showReport);
 
   // ---- drawing ----
   function render(list = fields()) {
@@ -127,6 +131,7 @@
     if (SHOW_TIPS && tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
+    showReport();
     window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, takeover: claudeAsk.takeover !== false, report: !!window.__jobPilottoReportOn, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
