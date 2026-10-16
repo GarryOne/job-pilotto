@@ -1,0 +1,91 @@
+# Journey tests (owner, 16 Oct 2026): a PR that changes the apply flow replays whole recorded journeys offline (desktop/e2e/journeys.json: signed-in Richemont, SuccessFactors, a
+# Lever form) with the real extension and the app, and judges what the person SEES at every step: the card's line and the panel's headline, count and Report button, against the live
+# run's own steps, plus never Submitted / never Ready early (desktop/e2e/journey.mjs, lib/journey-check.mjs). One runner per journey, $0 (memo-only AI), minutes. Fixes passed unit tests on
+# pieces and failed on the owner's real journey ("Logging in…" for ever, "Apply button detected" on an error page); this is the test of the whole. Not a required check (paths can skip it).
+name: CI · Journeys · PR (card and panel per step)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/journeys-pr.yml'
+      - 'extension/**'
+      - 'desktop/lib/**'
+      - 'desktop/renderer/session-state.js'
+      - 'desktop/renderer/session-message.js'
+      - 'desktop/e2e/journey.mjs'
+      - 'desktop/e2e/journey-run.mjs'
+      - 'desktop/e2e/journeys.json'
+      - 'desktop/e2e/replay-net.mjs'
+      - 'desktop/e2e/replay-records.mjs'
+      - 'desktop/e2e/net-records-fetch.sh'
+      - 'desktop/e2e/lib/journey-*.mjs'
+      - 'desktop/e2e/lib/live-row.mjs'
+      - 'desktop/e2e/lib/offline-app*.mjs'
+      - 'desktop/e2e/lib/net-record.mjs'
+      - 'desktop/e2e/lib/real-extension.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: journeys-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  journey:
+    name: journey ${{ matrix.row }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        row: ['Richemont Workday', 'Lever: single page, no account']   # journeys.json rows that are not pending (desktop/e2e/test/journey-run.test.mjs keeps them equal)
+    env:
+      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's queue; this runner is its own machine
+    steps:
+      - name: The record key is set
+        env:
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: |
+          if [ -z "$NET_RECORD_KEY" ]; then echo "::error::journeys: key not set (NET_RECORD_KEY): nothing can be replayed"; exit 1; fi
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            desktop/e2e/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+      - name: The pool's records, decrypted on the runner only
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+          NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+        run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
+      - name: Replay the journey and judge the card and the panel at every step
+        working-directory: desktop/e2e
+        env:
+          ROW: ${{ matrix.row }}
+        run: node journey-run.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/journey-out" "--only=$ROW" 2>&1 | tee "$GITHUB_WORKSPACE/journey.log"; test "${PIPESTATUS[0]}" = 0
+      - name: The journey's steps and its card (for the review)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: journey-${{ strategy.job-index }}
+          path: |
+            journey.log
+            journey-out/*/journey-steps.json
+            journey-out/*/journey-verdict.json
+            journey-out/*/end.png
+            journey-out/*/app.log
+          retention-days: 7
+          if-no-files-found: ignore

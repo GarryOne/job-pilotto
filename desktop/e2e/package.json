@@ -26,6 +26,7 @@
     "fill-memo": "node fill-memo.mjs",
     "row": "bash ../../tools/heavy-lock.sh row-replay node row.mjs",
     "rows": "bash ../../tools/heavy-lock.sh row-replay node row.mjs --all",
+    "journey": "bash ../../tools/heavy-lock.sh row-replay node journey-run.mjs",
     "measure": "bash ../../tools/heavy-lock.sh row-replay node measure.mjs",
     "captures": "node captures.mjs",
     "row-to-case": "bash ../../tools/heavy-lock.sh row-replay node row-to-case.mjs",

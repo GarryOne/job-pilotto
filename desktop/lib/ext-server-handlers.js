@@ -19,6 +19,7 @@ import * as review from './review.js';
 import * as server from './server.js';
 import * as sharedLog from './shared-log.js';
 import * as terminals from './terminals.js';
+import {pageStepHandler} from './page-step.js';
 import * as visits from './visits.js';
 import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './question-labels.js';
 import {log as appLog} from './log.js';
@@ -82,7 +83,7 @@ export function registerExtServerHandlers(ctx) {
   });
   // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
   // The page's step as it happens (extension/page-mark.js): the session the tab carries, nothing guessed.
-  server.setPageHandler(({session, page} = {}) => { if (session && terminals.get(String(session)) && review.notePage(String(session), String(page || ''))) appLog('review', `page ${session}: ${page}`); });
+  server.setPageHandler(pageStepHandler({terminals, review, appLog}));   // lib/page-step.js
   server.setAccountPressedHandler(async ({host, state, session: carried, job, url} = {}) => {
     const session = resolveSession({session: carried, job, url}, ids);
     const email = await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');

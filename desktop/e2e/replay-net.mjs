@@ -23,8 +23,9 @@ import {keepFilled} from './lib/fill-memo.mjs';
 import {usage, apiErrors} from './lib/ai-meter.mjs';
 import {outOfCredits, creditsLine} from './lib/refill.mjs';
 import {slotsLeftOf} from './lib/upload-slots.mjs';
+import {watchJourney} from './lib/journey-watch.mjs';
 
-const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FILL = process.argv.includes('--fill-memo'), FAKE_TIMERS = process.argv.includes('--fake-timers'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
+const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), FILL = process.argv.includes('--fill-memo'), FAKE_TIMERS = process.argv.includes('--fake-timers'), JOURNEY = process.argv.includes('--journey'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock] [--fill-memo]'); process.exit(2); }
 if (FILL && process.env.CI && process.env.JP_REFILL_CI !== '1') { console.error('replay-net: --fill-memo asks the plan\'s claude -p: a Mac, or CI only through the refill workflow (lib/refill.mjs)'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
@@ -67,7 +68,7 @@ export const replaySeconds = text => { const times = String(text).split('\n').ma
   return times.length > 1 ? Math.min(300, Math.max(120, Math.round((times.at(-1) - times[0]) / 1000) + 90)) : 120; };
 let seen = null;   // the zone and date the page itself read at the end (replay.json pageSees): proof the live run's zone reached it
 let wrong = null;   // the typed values that are not the decided ones, and the decided ones that are not the applicant's (lib/wrong-values.mjs): at the last tab, before the browser closes
-const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await tab.evaluate(() => ({zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})).catch(() => null); wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog), fill: FILL, loose: path.join(out, 'loose.jsonl')});   // loose: a kept answer is served although only the system side or the model changed (cc, 14 Oct 2026: a replay cannot judge a prompt change, its answers are recorded); a user-side change is still a miss
+const result = await runLiveRow({atEnd: async (tab, replies) => { seen = await tab.evaluate(() => ({zone: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})).catch(() => null); wrong = await wrongValues(tab, replies, CONTACT); }, posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log, seconds: replaySeconds(liveLog), fill: FILL, loose: path.join(out, 'loose.jsonl'), watch: JOURNEY ? watchJourney : null});   // loose: a kept answer is served although only the system side or the model changed (cc, 14 Oct 2026: a replay cannot judge a prompt change, its answers are recorded); a user-side change is still a miss
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
@@ -77,6 +78,7 @@ const firstMiss = (() => { try { return JSON.parse(fs.readFileSync(path.join(out
 const filled = FILL && !result.tripped ? keepFilled(recordDir, out) : [];   // a tripped run keeps nothing
 const looseLines = (() => { try { return fs.readFileSync(path.join(out, 'loose.jsonl'), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { return []; } })();   // each loose hit with the parts that differ (lib/ai/model-memo.js)
 const summary = {looseHits: looseLines.length, looseParts: [...new Set(looseLines.flatMap(hit => hit.differs || []))].slice(0, 8), filled: FILL ? filled.length : undefined, pageSees: seen, firstMiss, outcome: {...outcomeOf(log), wrong: wrong ? wrong.wrong.length : null}, wrongValues: wrong, liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
+if (JOURNEY) fs.writeFileSync(path.join(out, 'journey-steps.json'), `${JSON.stringify(result.journey || [], null, 1)}\n`);   // what the card and the panel said, step by step (lib/journey-watch.mjs; judged by journey.mjs)
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 for (const one of wrong?.wrong || []) console.log(`replay-net: WRONG ${one.layer} ${one.field}: holds "${one.held}", answer "${one.answer}"`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);
