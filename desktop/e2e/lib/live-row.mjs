@@ -158,6 +158,8 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', where: process.env.CI ? 'ci' : 'mac', eligibility: eligibilityOff(process.env) ? 'off' : 'on', testAccountHosts: signedInHosts(app.logText()), startMs: netStart, seed: netStart, timezone: hereZone(), url, scrollbar, unfinished: settled.unfinished, unfinishedKinds: settled.kinds || {}, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
+      const lostNow = kept.entries.filter(entry => entry.bodyLost).length;
+      if (lostNow) say(`live: ${lostNow} reply body(ies) could not be read while recording (the page navigated away): this record would replay an empty answer there; the publish guard refuses it`);
     }
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(proxy ? {ai: spend()} : {})};
   } finally {

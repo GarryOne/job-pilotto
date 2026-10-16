@@ -44,6 +44,11 @@ export function notWorse(now, old) {
   return '';
 }
 
+// The replies a recording could not read (record.json entries flagged bodyLost by lib/net-record.mjs): -> [host + path, ...]. A record whose reply was lost replays an EMPTY answer where live had one.
+export function lostBodies(dir) {
+  try { return (JSON.parse(fs.readFileSync(path.join(dir, 'record.json'), 'utf8')).entries || []).filter(entry => entry.bodyLost).map(entry => { try { const u = new URL(entry.url); return u.host + u.pathname; } catch { return 'an address'; } }); } catch { return []; }
+}
+
 const RUN = (name, why) => `node records-publish.mjs <dir with only this row> --accept "${name} — <reason>" (the owner's word only), or re-record it: ${why}`;
 
 // (items: [{name, dir, replay, replaced}], {pins, accepts: ['<row> — <reason>']}) -> {refusals: [{row, check, why, run}], notes: [text]}.
@@ -55,6 +60,8 @@ export function judgeRecords(items, {pins = [], accepts = []} = {}) {
     const add = (check, why, run = '') => refusals.push({row: name, check, why, run});
     const bad = mojibakeBodies(dir);
     if (bad.length) add('text', `${bad.length} kept page(s) are double-encoded (UTF-8 text stored as a single-byte charset, e.g. body ${bad[0].slice(0, 10)}…)`, 'fix the charset at record time (net-keep.js) and re-record this row');
+    const lost = lostBodies(dir);
+    if (lost.length) add('answers', `${lost.length} recorded repl${lost.length === 1 ? 'y' : 'ies'} lost ${lost.length === 1 ? 'its' : 'their'} body while recording (the page navigated away right after, e.g. ${lost[0]}): the replay would serve an empty answer`, 're-record this row on a recorder that reads each reply when it arrives (net-record.mjs); never an owner\'s accept');
     const memo = memoProblem(dir);
     if (memo) add('answers', memo, 're-record this row: the live run\'s kept answers must travel with it');
     const accepted = acceptNamed(name, entries, names);   // the owner's named word: it lifts the pinned and worse refusals of this row (acceptedFor), nothing else
