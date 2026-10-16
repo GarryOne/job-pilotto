@@ -4,7 +4,7 @@
 import {digestOf, equal, tokenFor} from './guard.js';
 
 const LISTS = ['service', 'marketing'];
-const page = (title, body, status = 200) => new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>`
+export const page = (title, body, status = 200) => new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>`
   + `<body style="font:16px system-ui;max-width:28rem;margin:4rem auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1>${body}`, {status, headers: {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store'}});
 const MEANING = {service: 'the daily search mails (new matches, reminders)', marketing: 'product news and offers'};
 
