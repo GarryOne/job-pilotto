@@ -33,7 +33,7 @@ export async function showSearchStatus() {
   const searching = running && (running.kind || 'search') === 'search';
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
   // Running: a link to its progress (the bottom bar's panel); done: what it found.
-  if (searching) { title.textContent = 'Refreshing jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
+  if (searching) { title.textContent = 'Finding jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
   if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
   const found = last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : '';
@@ -71,9 +71,9 @@ export function searchPhase(step = '') {
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
 // icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
-export const KIND = {search: {icon: '🔎', line: 'search', name: 'Refresh jobs'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
+export const KIND = {search: {icon: '🔎', line: 'search', name: 'Find jobs'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
   interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'}, visits: {icon: '🌐', line: 'globe', name: 'Find jobs using your browser'},
-  weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
+  weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'More employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
   add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
   prep: {icon: '🎤', line: 'mic', name: 'Interview prep kit'}};
@@ -237,7 +237,7 @@ export const runButton = kind => {
   const command = Object.keys(COMMAND_KIND).find(key => COMMAND_KIND[key] === kind);
   return command ? document.querySelector(`button.action[data-command="${command}"]`) : null;
 };
-export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
+export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', mail: 'mail', run: 'search'};
 // Buttons outside the Actions cards that start the same task (Jobs → Refresh jobs, Settings → Check Gmail now, Tailor's own card): turned off while
 // it runs (runs-page.js syncRunButtons) and left out of ⌘K when an Actions card already offers it (nav.js paletteCommands), so a task is listed once.
 export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n'], ['visits', '#visits-run', '#visits-at-once']];

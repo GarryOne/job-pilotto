@@ -15,7 +15,7 @@ Reference, read when the task touches these areas. Linked from CLAUDE.md. For an
   by AI", "… left for the next check", "Skipped job <id>: …"); `humanError` is for what the owner reads. API JSON must never reach the UI.
 
 ## Layout
-- Python package `src/` (`python -m src <check|scout|discover|feeds|enrich>`; `check` = the jobs check, also `daily`; `scout` = Find new employers):
+- Python package `src/` (`python -m src <check|scout|discover|feeds|enrich>`; `check` = the jobs check, also `daily`; `scout` = the employer finder, the last step of Find jobs):
   `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite cache; `scout.py`;
   `paths.py`; `features.py` optional-feature registry and `JOB_PILOTTO_DISABLE` (only crawl + digest are required; new features are optional, on
   when their keys exist, and listed there). `src/stores/`: the store interface ([data-ownership.md](data-ownership.md)).

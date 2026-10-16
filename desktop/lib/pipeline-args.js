@@ -27,6 +27,7 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.note) args.push('--note', String(inputs.note));
   if (inputs.origin) args.push('--origin', String(inputs.origin));
   if (inputs.interview) args.push('--interview', String(inputs.interview));
+  if (inputs.firstJobs) args.push('--first-jobs');   // a small slice of fast feeds is read and 3 jobs scored first (src/first_jobs.py)
   if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
   // A search's AI steps stop at 3 minutes (owner, 7 Oct 2026: "never more than 2-3 minutes"); what is left waits for the next search (src/budget.py).
   if (ai && ['scheduled', 'run'].includes(mode)) args.push('--budget', String(SEARCH_BUDGET_S));

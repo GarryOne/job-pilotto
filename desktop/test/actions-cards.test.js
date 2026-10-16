@@ -1,4 +1,4 @@
-// The Actions page's six cards (renderer/index.html): each one is wired to something that exists, and Tune's words and guard hold.
+// The Actions page's cards (renderer/index.html): each one is wired to something that exists, and Tune's words and guard hold.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +18,7 @@ const main = mainSource();
 const grid = html.slice(html.indexOf('<div class="task-grid">'), html.indexOf('<section class="card runs-card">'));
 const cards = grid.split('<div class="task-card">').slice(1);
 
-test('there are six cards, an even grid', () => assert.equal(cards.length, 6));
+test('there are five cards, an odd grid on purpose: Find jobs is one card (Find new employers was merged into it, 16 Oct 2026)', () => assert.equal(cards.length, 5));
 
 test('every card button runs a task the app knows', () => {
   const kinds = activity.match(/export const COMMAND_KIND = \{([^}]*)\}/)[1];
@@ -30,9 +30,9 @@ test('every card button runs a task the app knows', () => {
   }
 });
 
-test('the cards are the agreed six, and the dropped ones stay dropped', () => {
+test('the cards are the agreed five, and the dropped ones stay dropped', () => {
   const titles = cards.map(card => card.match(/<div class="task-words"><b>([^<]+)<\/b>/)[1].replace('&amp;', '&'));
-  assert.deepEqual(titles, ['Find new employers', 'Refresh jobs', 'Check Gmail & Calendar', 'Tailor CVs for top matches',
+  assert.deepEqual(titles, ['Find jobs', 'Check Gmail & Calendar', 'Tailor CVs for top matches',
     'Tune my strategy', 'Analyze my job search']);
 });
 

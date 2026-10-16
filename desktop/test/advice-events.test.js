@@ -76,13 +76,13 @@ test('every button Recent activity redraws that waits on something keeps its bus
   assert.doesNotMatch(box, /\.disabled = (true|false)/, 'no button in the few-jobs box is disabled by hand');
 });
 
-test('Your employers says how many searches are left before they rest, and what Find new employers has untried', async () => {
+test('Your employers says how many searches are left before they rest, and what Find jobs has untried', async () => {
   const {fewJobsGroups, runwayWords} = await import('../renderer/coverage-actions.js');
   const soon = {resting: 0, until: null, soon: {runs: 2, count: 242}, rest_after: 5, rest_days: 7};
   const groups = fewJobsGroups({employers: {read: 252, matched: 3, pending: 609, batch: 100, runway: soon}});
   assert.equal(groups.employers.runway, 'If the next 2 searches find nothing new for them, 242 of 252 employers rest for 7 days. An employer rests after 5 searches in a row with nothing for you.');
   assert.equal(groups.employers.explore, 'Checks up to 100 employer ideas per run · About 3 min');
   assert.match(runwayWords({resting: 242, until: '2026-10-14T03:00:00+00:00', soon: null, rest_after: 5, rest_days: 7}, 252),
-    /^242 of 252 employers resting until 14 Oct: Find new employers to keep searching$/);
+    /^242 of 252 employers resting until 14 Oct: Find jobs again to keep searching$/);
   assert.equal(runwayWords(null, 252), '');
 });

@@ -28,6 +28,10 @@ const RULES = [
   [/^⏱ This refresh sorts (\d+) of (\d+) job titles/, m => `🏷️ Asking ${aiName()} about ${m[1]} of ${m[2]} job titles your role words miss`],
   [/^Titles: asking \S+/, () => null],
   [/^Titles: \S+ sorted (\d+) new title\(s\) in your places; (\d+) could fit/, m => `🏷️ ${aiName()} checked ${plural(m[1], 'job title')}: ${m[2]} could fit you`],
+  [/^First jobs: reading (\d+) of (\d+)/, m => `⚡ Reading ${m[1]} of ${plural(m[2], 'employer site')} first`],
+  [/^First jobs: (\d+) found$/, m => `⚡ ${plural(m[1], 'job')} found in the first sites`],
+  [/^First jobs: (\d+) found, none to score/, () => null],
+  [/^First jobs: (\d+) scored in (\d+) s/, m => `🎉 ${plural(m[1], 'first job')} scored in ${m[2]} s; the full search goes on`],
   [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
   [/^(Closed|Expired|Unmatched|Removed) 0 job\(s\)/, () => null],
   // Since 10 Oct 2026 the engine says what happened to a job: expired (the posting is gone) or unmatched (outside your search); older runs said Closed.

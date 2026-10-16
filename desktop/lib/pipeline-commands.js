@@ -12,7 +12,9 @@ import {afterWrite} from './shared-read.js';
 
 // limit: how many of the best rows to send (the list's "Show more" raises it); the counts cover every row (src/desktop.py jobs).
 export async function jobs(storage, limit = 200) {
-  const {code, stdout} = await run(storage, ['src.desktop', 'jobs', '--limit', String(limit)]);
+  // Until the first search has ended, the jobs it found and has not scored yet are listed too (they say "Scoring…"): the list grows while it runs.
+  const firstRun = !storage.settings().lastSearchAt;
+  const {code, stdout} = await run(storage, ['src.desktop', 'jobs', '--limit', String(limit), ...(firstRun ? ['--first-run'] : [])]);
   if (code !== 0) throw new Error('Could not read the job list');
   return JSON.parse(stdout.trim().split('\n').pop());
 }

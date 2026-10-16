@@ -3,17 +3,17 @@
 // Guarded by: test/mail-report.test.js, test/run-join.test.js, test/run-note.test.js, test/run-cards.test.js, test/run-kinds.test.js, test/stop-task.test.js.
 // Split out of pipeline.js (a pure move); pipeline.js re-exports everything.
 import {engineOf, familyOfEngine} from './ai/names.js';
-import * as claudeCode from './claude-code.js';
 import {deliveryProblem, mailProblem as mailProblemFrom} from './run-result.js';
 
-import {dailyArgs, mailArgs, SCOUT_BUDGET_S, syncMatchesArgs, telegramReady, triggerEnv, visitsArgs} from './pipeline-args.js';
+import {mailArgs, SCOUT_BUDGET_S, syncMatchesArgs, telegramReady, triggerEnv, visitsArgs} from './pipeline-args.js';
 import {appMessage, failedLine, taskSummary} from './pipeline-lines.js';
 import {tracked} from './pipeline-queue.js';
 import {run} from './pipeline-run.js';
+import {searchSteps} from './search-steps.js';
 
 // note: what this search is for beyond a refresh ("Re-scoring 75 older scores"), shown on its row from queued to finished.
-export function refresh(storage, onLine, mode = 'run', trigger = 'you', {note = ''} = {}) {
-  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, (record, log) => {
+export function refresh(storage, onLine, mode = 'run', trigger = 'you', {note = '', employers = false} = {}) {
+  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger, employers), {mode}, (record, log) => {
     const problem = deliveryProblem(log);   // the digest the bot could not deliver: said on the run, not only as "Failed"
     let summary = {};
     try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
@@ -73,14 +73,10 @@ export function task(storage, kind, args, onLine, trigger = 'you', {note = ''} =
     return {ok: code === 0, result};
   }, {args}, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}), {note});
 }
-function searchOnce(storage, onLine, mode, trigger = 'you') {
+function searchOnce(storage, onLine, mode, trigger = 'you', employers = false) {
   return (async () => {
-    const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
     const startedAt = new Date().toISOString();   // "Your search changed" compares with when a refresh began, not ended (renderer/search-changed.js)
-    onLine('Searching job boards…');
-    await run(storage, ['src', 'discover', '--pages', '5', '--max-companies', '40'], onLine);
-    onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
-    const {code, result} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
+    const {code, result} = await searchSteps(storage, onLine, mode, trigger, undefined, {employers});
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchStartedAt: startedAt, lastSearchOk: code === 0});
     return {ok: code === 0, result};
   })();

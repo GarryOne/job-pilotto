@@ -2513,3 +2513,10 @@ details.qa-section { margin-top: var(--sp-3); }
 .pref-language { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; width: 100%; }
 .pref-language .link svg { width: 16px; height: 16px; }
 .pref-sub { margin: var(--sp-2) 0 0; }
+
+/* Jobs → the Find jobs card on top (pages/jobs-find.js): the shared card, header, number strip, pills and rows; only its spacing and the big first button are new. */
+.find-card { display: grid; gap: var(--sp-3); padding: var(--sp-5); margin-bottom: var(--sp-4); }
+.find-card[hidden] { display: none; }
+.find-card .run-card-row { padding: var(--sp-1) 0; color: var(--ink-2); }
+.find-card .find-big { justify-self: start; font-size: var(--fs-md, 1rem); padding: var(--sp-3) var(--sp-6); }
+.find-card.is-failed { border-color: var(--warn); }

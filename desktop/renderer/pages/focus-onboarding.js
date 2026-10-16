@@ -15,7 +15,6 @@ let lastFunnel = null;   // Focus's funnel (its "Applied" step ticks the last st
 // Get started: the first steps after the setup (renderer/onboarding.js says which are done). Each button starts what the app's own button
 // starts (the Actions card, the Notion dialog, Tailor's card, Apply), so a running task keeps it off the same way. Gone for good once all are done.
 const ONBOARDING_GO = {
-  scout: () => document.querySelector('.action[data-command="scout"]')?.click(),
   search: () => document.querySelector('.action[data-command="run"]')?.click(),
   notion: () => openNotionConnect({reason: 'focus', where: 'view', from: 'onboarding', then: () => openView('focus')}),   // connected: the whole Focus
   tailor: () => { openView('actions'); const count = $('tailor-top-n'); count?.focus(); count?.select(); },

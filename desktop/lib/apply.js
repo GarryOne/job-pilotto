@@ -38,7 +38,7 @@ export function pickMissing(jobs, n) {
 export function nothingToTailor(jobs) {
   return jobs.some(job => open(job) && job.code)
     ? 'Every one of your best matches already has a tailored CV.'
-    : 'There are no jobs to tailor CVs for yet. Run Refresh jobs first.';
+    : 'There are no jobs to tailor CVs for yet. Run Find jobs first.';
 }
 
 // The best open jobs without a tailored CV (saved first, then by fit): what "Tailor CVs for top matches" works through.

@@ -25,9 +25,9 @@ export const TASKS = {
   tailor: {name: 'Tailor CVs', result: /^Tailored \d+ of \d+ CV/},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   // The older wording, and the card's second line: "7 checked · 7 new to the search · 2 new sources" (counts between the two may come and go; 3c45aa3 added one).
-  scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · (?:.* · )?\d+ new sources?\b/},
+  scout: {name: 'More employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · (?:.* · )?\d+ new sources?\b/},
 };
-export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Refresh jobs');
+export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Find jobs');
 export function failedLine(log) {
   const line = (log || []).map(String).find(entry => /^\s*✗ \S/.test(entry));
   return line ? line.replace(/^\s*✗\s*/, '').replace(/: skipped, you can close its tab$/, '').slice(0, 240) : undefined;

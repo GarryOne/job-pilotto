@@ -2,8 +2,7 @@
 // Pure (no DOM): pages/focus.js draws it. A step once done stays done (settings.onboarding), and the card is gone for good once every step is.
 
 export const STEPS = [
-  {key: 'scout', label: 'Find new employers', hint: 'Adds employers’ career sites to search · a few minutes', button: 'Run'},
-  {key: 'search', label: 'Refresh jobs', hint: 'Reads every job site: adds new jobs, removes gone ones, AI scores the new', button: 'Run'},
+  {key: 'search', label: 'Find jobs', hint: 'Your first matches in under a minute; then every job site and more employers', button: 'Run'},
   {key: 'notion', label: 'Connect Notion', hint: 'Where your applications are tracked', button: 'Connect'},
   {key: 'tailor', label: 'Tailor CVs for top matches', hint: 'A CV rewritten for each of your best matches', button: 'Open'},
   {key: 'apply', label: 'Apply to your first job', hint: 'The extension fills the form; you press Submit', button: 'Apply'},
@@ -16,13 +15,11 @@ const newest = list => Math.max(0, ...list.map(run => Number(run.id) || 0));
 // keptOnMac: the data is kept on this Mac (lib/store, the default): the Notion step is left out until Notion is connected.
 export function onboarding({runs = [], settings = {}, notionConnected = false, keptOnMac = false, funnel = null} = {}) {
   const saved = settings.onboarding || {};
-  const scoutAt = Math.max(newest(finished(runs, 'scout')), Date.parse(settings.lastScoutAt || '') || 0);
   const searches = finished(runs, 'search');
   const searchAt = Math.max(newest(searches), settings.lastSearchOk ? Date.parse(settings.lastSearchAt || '') || 0 : 0);
   const applied = (funnel?.steps || []).find(step => /applied/i.test(step.step || ''))?.reached || 0;
   const now = {
-    scout: scoutAt > 0,
-    search: scoutAt > 0 && searchAt > scoutAt,   // a search after the employers were found: that's the one that brings their jobs
+    search: searchAt > 0,   // Find jobs also finds the employers, so one finished search is the whole step
     notion: notionConnected || keptOnMac,
     tailor: finished(runs, 'tailor').length > 0,
     apply: applied > 0,
@@ -43,15 +40,15 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, k
 export const focusMode = ({notionConnected = false, gettingStarted = false} = {}) =>
   notionConnected ? 'full' : gettingStarted ? 'started' : 'locked';
 
-// A search's result suggests Find new employers when it can't have found much yet: no employer search has ever finished, or the search read
+// A search's result suggests another Find jobs (it grows the employer list) when it can't have found much yet: no employer search has ever finished, or the search read
 // fewer than ENOUGH_FEEDS employer sites (owner, 6 Oct 2026: "the call to action"). null = nothing to suggest.
 export const ENOUGH_FEEDS = 10;
 export function employersAdvice(run, {runs = [], settings = {}} = {}) {
   if (!run || run.kind !== 'search' || run.live || run.ok === false) return null;
   const scouted = !!settings.lastScoutAt || finished(runs, 'scout').length > 0;
-  if (!scouted) return {text: 'Find new employers hasn’t run yet. It adds employers’ own career sites, so your next search finds more jobs.'};
+  if (!scouted) return {text: 'Employers haven’t been added yet. Find jobs adds employers’ own career sites, so your next search finds more jobs.'};
   if (run.feeds != null && run.feeds < ENOUGH_FEEDS) {
-    return {text: `Only ${run.feeds} employer site${run.feeds === 1 ? '' : 's'} searched. Find new employers adds more, so your next search finds more jobs.`};
+    return {text: `Only ${run.feeds} employer site${run.feeds === 1 ? '' : 's'} searched. Find jobs again adds more, so your next search finds more jobs.`};
   }
   return null;
 }

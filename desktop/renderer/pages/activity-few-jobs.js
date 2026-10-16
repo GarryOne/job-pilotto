@@ -9,6 +9,7 @@ import {openView} from './nav.js';
 import {reviewSuggestion} from './strategy.js';
 import {keepPress, setPress, pressedButton, pressWhile} from './activity-visits.js';
 import {openActivity} from './activity-panel.js';
+import {startSearch} from './jobs.js';
 
 // A jobs check with few new jobs: why, and what would bring more, as buttons on the card itself (owner, 6 Oct 2026). The actions come from the
 // coverage answer (renderer/coverage-actions.js), least effort first; "Explain with AI" asks Claude only when clicked (src/ai/few_jobs.py).
@@ -102,9 +103,9 @@ export function withFewJobsHelp(runId) {
       // Numbers, not a bar: the bar read as loading progress (owner, 7 Oct 2026). The shared .insight-numbers cells.
       const numbers = numberStrip([[e.matched, `employer${e.matched === 1 ? '' : 's'} had a job for you`], [e.read, `employer${e.read === 1 ? '' : 's'} checked`],
         [e.pending, `employer idea${e.pending === 1 ? '' : 's'} not tried yet`]].map(([value, label]) => ({value: value.toLocaleString('en-US'), label})), {valueFirst: true});
-      const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find new employers →');
+      const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find jobs →');
       scout.type = 'button';
-      scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); document.querySelector('.action[data-command="scout"]')?.click(); });
+      scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); startSearch({employers: true}); });
       adviceEvent('shown', 'employer', 'few-jobs');
       coverage.append(numbers, rows([row('', 'Explore more employers', e.explore, scout)]));
       if (e.runway) {

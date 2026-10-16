@@ -5,6 +5,7 @@ import {applicationStats, inboundCount, inProcess, openMatches, statClick, stats
 import {shared} from './shared.js';
 import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
+import {renderFindCard, wireFindCard} from './jobs-find.js';
 import {$, message, savedAgo} from './core.js';
 import {refreshSessions, sessionJob, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
@@ -114,7 +115,7 @@ async function showMore() {
 // then, without the loading state, so the counts move as it works (owner, 7 Oct 2026: "I want to see the 2971 decrease live").
 // Each scored job counts too (owner, 7 Oct 2026: the total stayed at 51 while a refresh scored), at most one read every RELOAD_MS, the last one
 // always made, so the number climbs as the refresh works.
-export const LIST_CHANGED = /^Closed [1-9]\d* job\(s\)|^Job Matches: \d+ created, \d+ updated \(so far\)|^Scored [1-9]\d* of \d+ job\(s\)$/;
+export const LIST_CHANGED = /^First jobs: [1-9]\d* (?:found|scored)|^Closed [1-9]\d* job\(s\)|^Job Matches: \d+ created, \d+ updated \(so far\)|^Scored [1-9]\d* of \d+ job\(s\)$/;
 export const RELOAD_MS = 10000;
 let quietReload = null, lastReload = 0, reloadLater = null;
 function reloadQuietly() {
@@ -192,7 +193,7 @@ export async function startSearch(why = undefined) {
   $('refresh').disabled = true;
   renderJobs();   // the empty list stops offering "Refresh jobs" while one runs
   shared.selectedRun = null;
-  setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
+  setTimeout(() => { showSearchStatus(); refreshActivity(); window.pilot.runs().then(renderFindCard).catch(() => {}); }, 300);
   try {
     await window.pilot.refresh(why);
   } finally {
@@ -326,6 +327,7 @@ export async function init() {
     refreshActivity();   // draws the selected run's detail
   });
   $('refresh').addEventListener('click', () => startSearch());
+  wireFindCard(() => startSearch());
 
   $('jobs-unscored-go').addEventListener('click', () => $('refresh').click());
   $('apply-open').addEventListener('click', () => {

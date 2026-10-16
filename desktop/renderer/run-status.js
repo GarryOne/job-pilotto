@@ -51,7 +51,7 @@ export function aiLimitHead(run, name = 'The run') {
   const kind = LIMIT_KINDS.find(one => one.test(hit, run));
   if (kind) return {problem: hit, title, summary: `${kind.why} ${what} could not complete.`, hint: typeof kind.hint === 'function' ? kind.hint(hit) : kind.hint, fix: kind.fix};
   return {problem: hit, title, summary: `The AI provider’s usage limit was reached. ${what} could not complete.`,
-    hint: `Increase your limit, then run the ${name === 'Gmail check' ? 'check' : name === 'Refresh jobs' ? 'refresh' : 'task'} again.`,
+    hint: `Increase your limit, then run the ${name === 'Gmail check' ? 'check' : name === 'Find jobs' ? 'search' : 'task'} again.`,
     fix: {label: 'Manage AI limit', url: {'Claude subscription': 'https://claude.ai/settings/usage', 'ChatGPT plan': CODEX_USAGE, 'OpenAI API credits': OPENAI_LIMITS}[run.billing]
       || 'https://console.anthropic.com/settings/limits'}};
 }

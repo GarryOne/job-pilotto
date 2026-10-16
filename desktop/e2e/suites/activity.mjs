@@ -11,7 +11,7 @@ import {LABEL, appReady, chooseMenu, noRowStaysRunning, openPanel, openRun, pane
 
 export const minutes = 15;
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): the relaunch steps read a weekly run, and the filter shows only with two runs.
-export const stepNeeds = {'without its message': ['Analyze my job search', 'Refresh jobs'], 'read only from Notion': ['Analyze my job search', 'Refresh jobs']};
+export const stepNeeds = {'without its message': ['Analyze my job search', 'Find jobs'], 'read only from Notion': ['Analyze my job search', 'Find jobs']};
 export const name = 'activity';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;
@@ -33,10 +33,9 @@ export async function run(ctx) {
   const page = await prepare(ctx);
   // ---------- (1) every task card ----------
   const TASKS = [
-    {command: 'run', kind: 'search', what: 'Refresh jobs (an empty feed: nothing new)', maxMs: 240000},
-    // announces: the line the task says as it starts its work (src/scout.py run()): on the fixtures it ends in seconds, too fast for the live-log timer, so a scout that
-    // printed none of its steps passed (#352, the scout-silent mutant). Its own sentence, checked in its finished log.
-    {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000, announces: /Scout: checking \d+ employer/},
+    // announces: the line the finder says as it starts its work (src/scout.py run()), now the last step of Find jobs: on the fixtures it ends in seconds, too fast for the
+    // live-log timer, so a finder that printed none of its steps passed (#352, the scout-silent mutant). Its own sentence, checked in the finished search's log.
+    {command: 'run', kind: 'search', what: 'Find jobs (an empty feed: nothing new)', maxMs: 240000, announces: /Scout: checking \d+ employer/},
     {command: 'mail', kind: 'mail', what: 'Check Gmail & Calendar with no Google connection', maxMs: 120000},
     {command: 'weekly', kind: 'weekly', what: 'Analyze my job search', maxMs: 240000},
   ];
@@ -81,7 +80,7 @@ export async function run(ctx) {
     await page.click('#activity-filter');
     const entries = await page.locator('.ui-menu button').allTextContents();
     console.log(`  panel rows: ${all.length}; filter menu: ${entries.join(' | ')}`);
-    for (const wanted of [LABEL.search, LABEL.mail, LABEL.weekly, LABEL.scout]) {
+    for (const wanted of [LABEL.search, LABEL.mail, LABEL.weekly]) {
       if (!entries.some(entry => entry.replace(/^✓ /, '').startsWith(`${wanted} ·`))) throw new Error(`the filter has no "${wanted}" entry although that task ran`);
     }
     await chooseMenu(page, new RegExp(`^${LABEL.mail}`));

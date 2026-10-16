@@ -6,6 +6,7 @@ import {columnOf} from '../jobs-board-rules.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {fitRing} from '../fit-ring.js';
+import {searchingNow} from './jobs-find.js';
 import {icon} from '../icons.js';
 import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchLabel, openMatches, PLACE_UNCLEAR, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, unscoredWhy, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
@@ -102,7 +103,7 @@ export function renderJobs() {
   // rows show "Not scored" and a friend took that for a bug (2 Oct 2026, a search whose AI calls had stalled).
   // A job whose place is unclear is not the AI failing: its row says why (unscoredWhy).
   const unscored = shared.allJobs.filter(job => job.fit == null && job.status === 'unreviewed' && !job.place_unclear).length;
-  show($('jobs-unscored'), unscored >= 5);
+  show($('jobs-unscored'), unscored >= 5 && !searchingNow());   // while the search runs they are being scored: the card on top says so
   $('jobs-unscored-text').textContent = `${unscored} jobs are not scored yet. The AI scores new jobs during each check; if this stays, open Recent activity to see why (Claude Code not answering, a usage limit), or Settings → Connections → AI.`;
   const body = $('jobs-body');
   body.replaceChildren();
@@ -117,8 +118,9 @@ export function renderJobs() {
     const caret = icon('chevron', `icon fit-caret${canOpen ? '' : ' is-hidden'}`);  // on every row: the rings line up
     const ringRow = el('div', 'fit-ring-row');
     ringRow.append(ring, caret);
-    fit.append(ringRow, el('span', 'fit-label', matchLabel(job.fit)));
-    fit.title = job.fit == null ? unscoredWhy(job) : fitTooltip(job.fit, canOpen ? 'Click to see why' : '');
+    const scoring = job.fit == null && searchingNow() && !job.place_unclear;   // found by the search that is running: its score comes next
+    fit.append(ringRow, el('span', 'fit-label', scoring ? 'Scoring…' : matchLabel(job.fit)));
+    fit.title = scoring ? 'Being scored now: the fit appears in a moment' : job.fit == null ? unscoredWhy(job) : fitTooltip(job.fit, canOpen ? 'Click to see why' : '');
     const live = sessionFor(job.url);
     const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
@@ -428,12 +430,12 @@ export function renderJobs() {
   document.querySelectorAll('.stat-cards').forEach(cards => cards.classList.toggle('is-dimmed', !!jobsState.statFilter?.urls));
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String(statPressed(card.dataset.stat, jobsState.statFilter, filter))));
   if (jobsState.jobsLoading && !shared.allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
-  show($('jobs-empty'), rows.length === 0);
+  show($('jobs-empty'), rows.length === 0 && !document.body.dataset.findCard?.match(/^(empty|searching|failed)$/));   // the Find jobs card on top says it
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
     dismissed: 'No dismissed jobs.', inbound: 'Nothing found you yet. A recruiter\'s message you log (<b>+ Log job activity…</b>) shows here.'};
-  $('jobs-empty').innerHTML = !shared.allJobs.length ? ($('refresh').disabled ? 'Refreshing jobs now: the first refresh takes a few minutes, and the jobs appear here as it finishes.'
-      : 'No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Refresh jobs</b></button>; the first refresh takes a few minutes.')
+  $('jobs-empty').innerHTML = !shared.allJobs.length ? ($('refresh').disabled ? 'Searching now: the jobs appear here as they are found.'
+      : 'No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Find jobs</b></button>.')
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !jobsState.statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || jobsState.statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
