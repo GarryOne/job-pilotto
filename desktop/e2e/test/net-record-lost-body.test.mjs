@@ -154,3 +154,12 @@ test('a lost redirect, font or picture body is not an empty answer; a lost XHR, 
   fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [lost('xhr', 200), lost('fetch', 200), lost('script', 200), lost('document', 200), lost('stylesheet', 200)]}));
   assert.equal(lostBodies(dir).length, 5);
 });
+
+test('a lost HEAD reply or a fetch the page aborted is not an empty answer; the same fetch lost without an abort still is', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-lost-body-'));
+  const entry = extra => ({url: 'https://site.example.test/x', type: 'fetch', status: 200, bodyLost: true, ...extra});
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [entry({method: 'HEAD'}), entry({method: 'POST', error: 'net::ERR_ABORTED'}), entry({method: 'GET', type: 'xhr', error: 'net::ERR_ABORTED'})]}));
+  assert.deepEqual(lostBodies(dir), []);
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [entry({method: 'POST'}), entry({method: 'GET', type: 'script', error: 'net::ERR_ABORTED'}), entry({method: 'GET', error: 'net::ERR_FAILED'})]}));
+  assert.equal(lostBodies(dir).length, 3);
+});

@@ -45,7 +45,9 @@ export function notWorse(now, old) {
 }
 
 // A redirect has no body and a font, picture or media file is never an answer the page reads: their lost bodies do not make a replay answer empty.
-const NO_ANSWER = entry => /^3\d\d$/.test(String(entry.status)) || /^(font|image|media)$/.test(entry.type || '');
+// A HEAD reply never has a body, and a request the page itself cancelled (a tracking beacon aborted by a navigation) was never read by the page.
+const NO_ANSWER = entry => /^3\d\d$/.test(String(entry.status)) || /^(font|image|media)$/.test(entry.type || '') || entry.method === 'HEAD'
+  || (/^(fetch|xhr|ping)$/.test(entry.type || '') && entry.error === 'net::ERR_ABORTED');
 
 // The replies a recording could not read (record.json entries flagged bodyLost by lib/net-record.mjs): -> [host + path, ...]. A record whose reply was lost replays an EMPTY answer where live had one.
 export function lostBodies(dir) {
