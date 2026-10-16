@@ -1,5 +1,6 @@
 // The owner's page /ai-cost: everything the product's own scheduled jobs spend on AI (central scout, self-heal, product brain, proposers, form lab...).
 // Not the users' Always-on runs: those are paid with their own keys. Owner-only like /stats (STATS_KEY), never a static page.
+import {freeSection, freeSummary} from './free-ai-cost.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, esc, remember} from './stats.js';
 import {equal} from './guard.js';
@@ -77,7 +78,7 @@ export function byKey(rows, now = new Date(), range = '30d') {
   return Object.values(keys).filter(k => k.range > 0 || RANGES[range].hours >= 720).sort((a, b) => b.range - a.range);
 }
 
-export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d') {
+export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d', freeRows = []) {
   const spaceRows = keyRows.filter(row => String(row.key).startsWith('ws.')).map(row => ({...row, key: row.key.slice(3)}));   // a workspace's days: the sum of its keys (ai-cost-report.mjs)
   const s = summarize(rows, billed, now, range), keys = byKey(keyRows.filter(row => !String(row.key).startsWith('ws.')), now, range), spaces = byKey(spaceRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
   const fresh = range === '30d' && start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
@@ -108,6 +109,7 @@ td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-v
 ${s.providers.map(p => `<tr><td>${esc(PROVIDERS[p.id])}</td><td class="n">${money(p.today)}</td><td class="n">${money(p.usd)}</td><td class="n">${s.total ? Math.round(100 * p.usd / s.total) : 0}%</td><td class="n">${p.runs}</td></tr>`).join('')}
 <tr class="total"><td>Total</td><td class="n">${money(s.today)}</td><td class="n">${money(s.total)}</td><td class="n">${s.total ? '100%' : '–'}</td><td class="n">${s.runs}</td></tr>
 </table></div></section>
+${freeSection(freeSummary(freeRows, now, Math.max(1, Math.round(r.hours / 24))), r.label)}
 <div class="grid">
 <section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>${last}</th></tr>
 ${Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([group, usd]) => `<tr><td>${esc(group)}</td><td class="n">${money(usd)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Nothing reported yet: each job reports at the end of its run.</td></tr>'}
@@ -179,8 +181,9 @@ export async function read(env) {
       .catch(() => env.STATS.prepare('SELECT job, run_id, day, at, usd, calls FROM ai_cost_runs WHERE day >= ?').bind(from).all())).results || [];   // before migration 0043: no provider
     const billed = (await env.STATS.prepare('SELECT day, usd FROM ai_cost_billed WHERE day >= ?').bind(from).all()).results || [];
     const keys = await env.STATS.prepare('SELECT day, key, usd FROM ai_cost_keys WHERE day >= ?').bind(from).all().then(r => r.results || []).catch(() => []);   // before migration 0036: none
-    return {runs, billed, keys};
-  } catch { return {runs: [], billed: [], keys: []}; }
+    const free = await env.STATS.prepare("SELECT day, who, action, model, calls, tokens_in, tokens_out, micro_usd FROM ai_calls WHERE day >= ? AND model LIKE '@cf/%'").bind(from).all().then(r => r.results || []).catch(() => []);
+    return {runs, billed, keys, free};
+  } catch { return {runs: [], billed: [], keys: [], free: []}; }
 }
 
 // GET /ai-cost (?key=<STATS_KEY> once; the cookie after that)
@@ -188,6 +191,6 @@ export async function view(request, env) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
-  const {runs, billed, keys} = env.STATS ? await read(env) : {runs: [], billed: [], keys: []};
-  return new Response(page(runs, billed, keys, since(env), new Date(), rangeOf(url.searchParams.get('range'))), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const {runs, billed, keys, free} = env.STATS ? await read(env) : {runs: [], billed: [], keys: [], free: []};
+  return new Response(page(runs, billed, keys, since(env), new Date(), rangeOf(url.searchParams.get('range')), free), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
