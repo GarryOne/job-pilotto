@@ -26,7 +26,7 @@ export function answerProblems(data, expect) {
     const got = answers.find(answer => answer.field === field);
     const given = got && String(got.value ?? '') !== '';
     const parts = String(got?.value ?? '').split(' && ');
-    if (want.empty) { if (given && got.use === 'fill') found.push(`${field}: typed "${got.value}", wanted empty`); }
+    if (want.empty) { if (given && got.use !== 'propose') found.push(`${field}: answered, wanted empty`); }
     else if (!got) { if (!want.maybeEmpty && (want.value || want.match || want.category)) found.push(`${field}: no answer`); continue; }
     else if (want.value && !(want.maybeEmpty && !given) && !parts.every(part => want.value.includes(part)) && !want.value.includes(got.value)) found.push(`${field}: "${got.value}", wanted ${want.value.join(' or ')}`);
     else if (want.match && !(want.maybeEmpty && !given) && !new RegExp(want.match, 'i').test(got.value)) found.push(`${field}: "${got.value}", wanted /${want.match}/`);
