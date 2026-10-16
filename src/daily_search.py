@@ -302,11 +302,11 @@ def search(args, stores=None):
         refused = None
         for message, keyboard in zip(messages, keyboards):
             try:
-                telegram.send(message, token, chat_id, keyboard)
+                telegram.send(message, token, chat_id, keyboard, kind='matches')
             except Exception as error:  # a blocked bot, a removed chat, no network: the run says so in words, it does not crash
                 refused = telegram.failure_words(error)
                 break
-        if not refused and notify.wants_email() and not notify.flush() and not token:   # the digest's e-mail goes now, so a failure keeps the jobs unshown like a refused Telegram message
+        if not refused and notify.wants_email() and not notify.flush('matches') and not token:   # the digest's e-mail goes now, so a failure keeps the jobs unshown like a refused Telegram message
             refused = notify.failure_words()
         if refused:
             # The jobs are imported and saved; only the delivery failed. Not marked as shown, so the next digest lists them again.

@@ -52,10 +52,10 @@ def api_base():
     return override.rstrip('/') if os.environ.get('JOB_PILOTTO_E2E') and override else 'https://api.telegram.org'
 
 
-def send(text, token, chat_id, reply_markup=None, urgent=False):
-    """Deliver a message by the chosen channels: Telegram (when there is a token) and/or e-mail (held for this run's one e-mail; urgent = at once)."""
+def send(text, token, chat_id, reply_markup=None, urgent=False, kind='activity'):
+    """Deliver a message by the chosen channels: Telegram (when there is a token) and/or e-mail (kind 'matches' = the run's one new-matches e-mail, 'activity' = the digest, urgent = at once; src/notify.py)."""
     MESSAGES.append(text)
-    notify.queue(text, reply_markup, urgent)
+    notify.queue(text, reply_markup, urgent, kind)
     if not (token and chat_id) or not notify.wants_telegram():
         return {'ok': True, 'channel': 'email'}
     endpoint = f"{api_base()}/bot{token}/sendMessage"

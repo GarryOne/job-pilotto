@@ -31,7 +31,8 @@ class Site:
 
 
 def run_with(env, site, work):
-    notify._QUEUE.clear()
+    for held in notify._QUEUE.values():
+        held.clear()
     with mock.patch.dict(os.environ, env, clear=True), mock.patch('src.notify.urllib.request.urlopen', site), mock.patch('src.notify.atexit.register'):
         return work()
 
@@ -65,22 +66,37 @@ class ChannelTests(unittest.TestCase):
 
 
 class DeliveryTests(unittest.TestCase):
-    def test_messages_of_one_run_are_one_email_with_the_first_title_as_subject(self):
+    def test_new_matches_are_one_email_per_run_and_the_rest_goes_to_the_digest(self):
         site = Site()
 
         def work():
-            telegram.send(CARD, None, None)
+            telegram.send(CARD, None, None, kind='matches')
+            telegram.send(CARD, None, None, kind='matches')
             telegram.send('🔔 <b>Budget</b>\n80% used', None, None)
+            telegram.send('📮 <b>Rejection</b>\nAcme', None, None)
             self.assertEqual(site.sent, [])   # held until the run ends
             return notify.flush()
         self.assertTrue(run_with(EMAIL, site, work))
+        self.assertEqual(len(site.sent), 2)
+        matches, activity = site.sent
+        self.assertEqual(matches['url'], 'https://site.test/api/notify/email')
+        self.assertEqual(matches['key'], EMAIL['JOB_PILOTTO_TRIAL_KEY'])
+        self.assertEqual(matches['body']['subject'], '3 new matches and 1 more')
+        self.assertIn('Data Engineer', matches['body']['html'])
+        self.assertNotIn('kind', matches['body'], 'new matches go at once')
+        self.assertEqual(activity['body']['kind'], 'activity', 'everything else waits for the digest')
+        self.assertEqual(activity['body']['subject'], 'Budget and 1 more')
+
+    def test_flushing_the_matches_leaves_the_activity_for_the_end_of_the_run(self):
+        site = Site()
+
+        def work():
+            telegram.send(CARD, None, None, kind='matches')
+            telegram.send('📮 <b>Rejection</b>', None, None)
+            return notify.flush('matches')
+        self.assertTrue(run_with(EMAIL, site, work))
         self.assertEqual(len(site.sent), 1)
-        sent = site.sent[0]
-        self.assertEqual(sent['url'], 'https://site.test/api/notify/email')
-        self.assertEqual(sent['key'], EMAIL['JOB_PILOTTO_TRIAL_KEY'])
-        self.assertEqual(sent['body']['subject'], '3 new matches and 1 more')
-        self.assertIn('Data Engineer', sent['body']['html'])
-        self.assertIn('Budget', sent['body']['html'])
+        self.assertIn('Data Engineer', site.sent[0]['body']['html'])
 
     def test_urgent_goes_at_once_alone(self):
         site = Site()

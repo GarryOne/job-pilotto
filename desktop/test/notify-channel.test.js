@@ -75,6 +75,17 @@ test('an e-mail the app sends itself needs e-mail chosen, and never throws', asy
   const asked = [], on = storage({secrets: {JOB_PILOTTO_TRIAL_KEY: KEY.JOB_PILOTTO_TRIAL_KEY}, settings: {notifyEmail: 'a@b.co'}});
   assert.equal(await sendEmail(on, {subject: 'Few <new> jobs', text: 'a & b'}, site([{ok: true}], asked)), true);
   assert.equal(asked[0].body.html, '<b>Few &lt;new&gt; jobs</b>\na &amp; b');
+  assert.equal(asked[0].body.kind, 'activity', 'the app\'s own notices wait for the digest');
   assert.equal(await sendEmail(on, {subject: 's', text: 't'}, site([new Error('offline')])), false);
   assert.equal(await sendEmail(storage(), {subject: 's', text: 't'}, site([])), false);
+});
+
+test('the digest cadence (daily or weekly) goes to the site with the address; anything else is ignored', async () => {
+  const s = storage({secrets: {JOB_PILOTTO_TRIAL_KEY: KEY.JOB_PILOTTO_TRIAL_KEY}, settings: {notifyEmail: 'a@b.co'}}), asked = [];
+  assert.equal((await save(s, {by: ['email'], email: 'a@b.co', cadence: 'weekly'}, site([{ok: true}], asked))).ok, true);
+  assert.deepEqual([asked[0].body, s.settings().notifyCadence], [{email: 'a@b.co', cadence: 'weekly'}, 'weekly']);
+  await save(s, {by: ['email'], email: 'a@b.co', cadence: 'hourly'}, site([{ok: true}], asked));
+  assert.equal(asked.length, 1, 'an unknown cadence is not sent');
+  assert.equal((await state(s, site([{ok: true, email: 'a@b.co', cadence: 'weekly'}], []))).cadence, 'weekly');
+  assert.equal((await state(storage({settings: {}}), site([{ok: false}], []))).cadence, 'daily');
 });

@@ -47,25 +47,26 @@ export async function state(storage, fetcher = globalThis.fetch) {
   const settings = storage.settings(), site = await call(storage, 'GET', '/api/account/email', null, fetcher);
   if (site.ok && site.email && site.email !== settings.notifyEmail) storage.saveSettings({notifyEmail: site.email});
   return {by: channelsOf(storage), chosen: Array.isArray(settings.notifyBy) ? settings.notifyBy : null, telegram: telegramReady(storage), email: site.ok ? site.email || '' : emailOf(storage),
-    confirmed: !!site.confirmed, marketing: site.ok ? !!site.marketing : settings.notifyMarketing !== false, reached: !!site.ok};
+    confirmed: !!site.confirmed, cadence: site.ok ? site.cadence || 'daily' : settings.notifyCadence || 'daily', marketing: site.ok ? !!site.marketing : settings.notifyMarketing !== false, reached: !!site.ok};
 }
 
 // Saves the choice. A changed address or opt-in goes to the site first; the choice is kept only if it was accepted.
-export async function save(storage, {by, email, marketing}, fetcher = globalThis.fetch) {
+export async function save(storage, {by, email, marketing, cadence}, fetcher = globalThis.fetch) {
   const clean = String(email || '').trim().toLowerCase();
   if (Array.isArray(by) && by.includes('email') && !clean && !emailOf(storage)) return {ok: false, error: 'Enter your email address to be told by email.'};
-  if (clean && (clean !== emailOf(storage) || typeof marketing === 'boolean')) {
-    const site = await call(storage, 'PUT', '/api/account/email', {email: clean, ...(typeof marketing === 'boolean' ? {marketing} : {})}, fetcher);
+  const digest = ['daily', 'weekly'].includes(cadence) ? cadence : null;   // how often the digest of everything but new matches comes
+  if (clean && (clean !== emailOf(storage) || typeof marketing === 'boolean' || digest)) {
+    const site = await call(storage, 'PUT', '/api/account/email', {email: clean, ...(typeof marketing === 'boolean' ? {marketing} : {}), ...(digest ? {cadence: digest} : {})}, fetcher);
     if (!site.ok) return site;
-    storage.saveSettings({notifyEmail: clean, ...(typeof marketing === 'boolean' ? {notifyMarketing: marketing} : {})});
+    storage.saveSettings({notifyEmail: clean, ...(typeof marketing === 'boolean' ? {notifyMarketing: marketing} : {}), ...(digest ? {notifyCadence: digest} : {})});
   }
   if (Array.isArray(by)) storage.saveSettings({notifyBy: by.filter(name => CHANNELS.includes(name))});
   return {ok: true};
 }
 
-// One message the app itself sends (not an engine run): by the chosen channels' e-mail form. Plain text in, never throws. -> true when the site took it.
+// One message the app itself sends (not an engine run): by the chosen channels' e-mail form. Plain text in, never throws. It joins the digest (kind 'activity'), never a mail of its own. -> true when the site took it.
 export async function sendEmail(storage, {subject, text}, fetcher = globalThis.fetch) {
   if (!channelsOf(storage).includes('email')) return false;
   const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return (await call(storage, 'POST', '/api/notify/email', {subject, html: `<b>${escape(subject)}</b>\n${escape(text)}`}, fetcher)).ok === true;
+  return (await call(storage, 'POST', '/api/notify/email', {subject, html: `<b>${escape(subject)}</b>\n${escape(text)}`, kind: 'activity'}, fetcher)).ok === true;
 }

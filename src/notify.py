@@ -2,7 +2,9 @@
 
 The app (or the Always on repo) says which channels the person chose in JOB_PILOTTO_NOTIFY, a comma list of email, telegram, app. Unset = the old behaviour (Telegram only).
 Every message src/telegram.py sends goes through here too, so each Telegram message has its e-mail form with the same layout (src/tgcard.py's Telegram HTML; the site keeps a safe subset).
-Messages are batched: ONE e-mail per run (sent when the process ends, or at once with urgent=True or flush()). The run identifies as the install (JOB_PILOTTO_TRIAL_KEY,
+Cadence (owner, 17 Oct 2026): new matches (kind 'matches') go as ONE e-mail per run, sent when the process ends or at flush(); an urgent message (an interview) goes at once, alone;
+everything else (kind 'activity': mail-check results, insights, finished jobs) is handed to the site as ONE message per run, which holds it for the person's daily or weekly digest (site/src/mail-held.js).
+The run The run identifies as the install (JOB_PILOTTO_TRIAL_KEY,
 or the Free AI key JPF1.<install>.<token>), never an SMTP secret. Guarded by tests/test_notify.py.
 """
 import atexit
@@ -14,7 +16,8 @@ import urllib.request
 SITE = 'https://www.jobpilotto.top'
 MAX_HTML = 18000   # the site keeps 20000 characters
 SEPARATOR = '\n\n———\n\n'
-_QUEUE = []
+_QUEUE = {'matches': [], 'activity': []}
+KINDS = tuple(_QUEUE)
 _registered = []
 
 
@@ -62,26 +65,30 @@ def _buttons(markup):
     return found
 
 
-def queue(text, markup=None, urgent=False):
-    """Hold a message for this run's e-mail. urgent=True sends it at once, alone (an interview notice)."""
+def queue(text, markup=None, urgent=False, kind='activity'):
+    """Hold a message for this run's e-mail. urgent=True sends it at once, alone (an interview notice). kind: 'matches' = the run's one new-matches mail; 'activity' = held by the site for the digest."""
     if not wants_email():
         return True
     if urgent:
         return _post([(text, markup)])
-    _QUEUE.append((text, markup))
+    _QUEUE[kind if kind in KINDS else 'activity'].append((text, markup))
     if not _registered:
         _registered.append(True)
         atexit.register(flush)
     return True
 
 
-def flush():
-    """Send everything held as ONE e-mail. True when nothing was held or the site took it; False (and a printed warning) when it did not."""
-    items, _QUEUE[:] = list(_QUEUE), []
-    return _post(items) if items else True
+def flush(kind=None):
+    """Send what is held (one kind, or all) as ONE e-mail per kind. True when nothing was held or the site took it; False (and a printed warning) when it did not."""
+    ok = True
+    for name in ([kind] if kind else KINDS):
+        items, _QUEUE[name][:] = list(_QUEUE[name]), []
+        if items and not _post(items, kind=name):
+            ok = False
+    return ok
 
 
-def _post(items, urlopen=None, env=None):
+def _post(items, urlopen=None, env=None, kind='matches'):
     env = os.environ if env is None else env
     urlopen = urlopen or urllib.request.urlopen
     key = _key(env)
@@ -93,7 +100,7 @@ def _post(items, urlopen=None, env=None):
         return False
     html = SEPARATOR.join(item[0] for item in items)[:MAX_HTML]
     buttons = [b for item in items for b in _buttons(item[1])][:6]
-    body = json.dumps({'subject': _subject(items), 'html': html, 'buttons': buttons}).encode()
+    body = json.dumps({'subject': _subject(items), 'html': html, 'buttons': buttons, **({'kind': 'activity'} if kind == 'activity' else {})}).encode()
     request = urllib.request.Request(f'{base}/api/notify/email', data=body, method='POST', headers={'x-api-key': key, 'content-type': 'application/json'})
     try:
         with urlopen(request, timeout=20) as response:
