@@ -69,7 +69,7 @@ class HeavyLineTest(unittest.TestCase):
     def test_every_hold_logs_branch_session_run_seconds_and_load(self):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / 'gate-timing.log'
-            env = {**os.environ, 'JOB_PILOTTO_HEAVY_DIR': str(Path(d) / 'heavy'), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK), 'JOB_PILOTTO_HEAVY_TIMING_LOG': str(log),
+            env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': str(Path(d) / 'heavy'), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK), 'JOB_PILOTTO_HEAVY_TIMING_LOG': str(log),
                    'JOB_PILOTTO_SESSION': 'sess-x', 'JOB_PILOTTO_HEAVY_SLOTS': '1'}
             self.assertEqual(subprocess.run(['bash', str(LOCK), 'row-replay', 'bash', '-c', 'exit 3'], env=env, capture_output=True, text=True).returncode, 3)
             line = log.read_text().splitlines()[-1]
