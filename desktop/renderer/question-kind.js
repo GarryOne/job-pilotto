@@ -4,10 +4,15 @@
 // on every adapter. Spec docs/superpowers/specs/2026-10-17-base-facts.md. Pure (no DOM): guarded by test/question-kind.test.js.
 import {countryNames} from './countries.js';
 
-export const KINDS = ['text', 'long_text', 'single', 'multi', 'yes_no', 'date', 'amount'];
+export const KINDS = ['text', 'long_text', 'single', 'multi', 'yes_no', 'date', 'amount', 'salary', 'duration', 'link', 'per_country', 'language', 'range'];
+// What the AI may judge from a label. per_country, language and range are base facts' own controls (renderer/question-values.js): never the AI's pick.
+export const AI_KINDS = KINDS.filter(kind => !['per_country', 'language', 'range'].includes(kind));
+// A kind whose answer has parts: its control is drawn by renderer/question-control-composite.js.
+export const COMPOSITE = ['salary', 'duration', 'link', 'per_country', 'language', 'range'];
 // Raise it when a kind is added: the AI's older judgments (stamped lower, or not at all) are asked again, lazily and once (lib/question-formats.js ensure).
-export const KINDS_VERSION = 2;   // 2: date and amount
-const WORDS = {long_text: 'long text', single: 'pick one', multi: 'pick several', yes_no: 'yes/no', date: 'date', amount: 'amount'};
+export const KINDS_VERSION = 3;   // 2: date and amount; 3: salary, duration, link
+const WORDS = {long_text: 'long text', single: 'pick one', multi: 'pick several', yes_no: 'yes/no', date: 'date', amount: 'amount', salary: 'salary', duration: 'duration', link: 'link',
+  per_country: 'per country', language: 'language', range: 'range'};
 const KIND_OF_WORD = Object.fromEntries(Object.entries(WORDS).map(([kind, word]) => [word, kind]));
 export const YES_NO = ['Yes', 'No'];
 export const CURRENCIES = ['CHF', 'EUR', 'USD', 'GBP'];   // an amount question with no currencies of its own
@@ -15,7 +20,7 @@ export const CURRENCIES = ['CHF', 'EUR', 'USD', 'GBP'];   // an amount question 
 export const STORED_OPTIONS = 8, STORED_CHARS = 160;
 const MAX_OPTIONS = 60;
 const COUNTRY = 'pick a country';   // a single choice among the countries (renderer/countries.js), however the form named them
-const MARK = /\s*\[(long text|pick one|pick several|yes\/no|pick a country|date|amount)(\s*\+\s*constraints)?(?::\s*([^\]]*))?\]\s*$/;
+const MARK = /\s*\[(long text|pick one|pick several|yes\/no|pick a country|date|amount|salary|duration|link|per country|language|range)(\s*\+\s*constraints)?(?::\s*([^\]]*))?\]\s*$/;
 
 const clean = text => String(text ?? '').replace(/\s+/g, ' ').trim();
 export function cleanOptions(options) {
@@ -44,7 +49,7 @@ export function markOf({kind = 'text', options = [], list = '', constraints = fa
   if (!WORDS[kind]) return '';
   if (kind === 'single' && list === 'countries') return `[${COUNTRY}]`;
   if (kind === 'date') return constraints ? '[date + constraints]' : '[date]';
-  const picks = kind === 'yes_no' || kind === 'date' ? [] : cleanOptions(options);
+  const picks = kind === 'yes_no' || kind === 'date' || COMPOSITE.includes(kind) ? [] : cleanOptions(options);
   const joined = picks.join(' | ');
   const fits = picks.length && picks.length <= STORED_OPTIONS && joined.length <= STORED_CHARS && !picks.some(option => /[|\]]/.test(option));
   return `[${WORDS[kind]}${fits ? `: ${joined}` : ''}]`;
@@ -57,7 +62,7 @@ export function splitMark(text) {
   if (!match) return {text: raw, kind: '', options: [], marked: false};
   if (match[1] === COUNTRY) return {text: raw.slice(0, match.index), kind: 'single', list: 'countries', options: [], marked: true};
   const kind = KIND_OF_WORD[match[1]];
-  const found = {text: raw.slice(0, match.index), kind, options: kind === 'yes_no' || kind === 'date' ? [] : cleanOptions((match[3] || '').split('|')), marked: true};
+  const found = {text: raw.slice(0, match.index), kind, options: kind === 'yes_no' || kind === 'date' || COMPOSITE.includes(kind) ? [] : cleanOptions((match[3] || '').split('|')), marked: true};
   return kind === 'date' ? {...found, constraints: Boolean(match[2])} : found;
 }
 
@@ -75,14 +80,14 @@ export function formatFor({marked = null, kept = null, locale = 'en'} = {}) {
   const kind = KINDS.includes(from.kind) ? from.kind : 'text';
   const list = kind === 'single' && (from.list || (kept?.kind === kind && kept.list)) === 'countries' ? 'countries' : '';
   const own = cleanOptions(from.options?.length ? from.options : kept?.kind === kind ? kept.options : []);
-  const options = kind === 'yes_no' ? YES_NO : list ? countryNames(locale) : kind === 'amount' ? (own.length ? own : CURRENCIES) : kind === 'date' ? [] : own;
+  const options = kind === 'yes_no' ? YES_NO : list ? countryNames(locale) : kind === 'amount' || kind === 'salary' ? (own.length ? own : CURRENCIES) : kind === 'date' || COMPOSITE.includes(kind) ? [] : own;
   const constraints = kind === 'date' && Boolean(from.constraints || kept?.constraints);
-  const control = kind === 'yes_no' ? 'yes_no' : kind === 'long_text' ? 'textarea' : kind === 'date' || kind === 'amount' ? kind : (kind === 'single' || kind === 'multi') && options.length ? kind : 'text';
+  const control = kind === 'yes_no' ? 'yes_no' : kind === 'long_text' ? 'textarea' : kind === 'date' || kind === 'amount' || COMPOSITE.includes(kind) ? kind : (kind === 'single' || kind === 'multi') && options.length ? kind : 'text';
   return {kind, list, options, constraints, control};
 }
 
 // The mark a drawn format writes to the store (a text question: none): {kind, options, list} | null.
-export const markFor = format => (!format || !WORDS[format.kind] ? null : {kind: format.kind, options: format.list || format.kind === 'yes_no' || format.kind === 'date' ? [] : format.options || [],
+export const markFor = format => (!format || !WORDS[format.kind] ? null : {kind: format.kind, options: format.list || format.kind === 'yes_no' || format.kind === 'date' || COMPOSITE.includes(format.kind) ? [] : format.options || [],
   ...(format.list ? {list: format.list} : {}), ...(format.kind === 'date' && format.constraints ? {constraints: true} : {})});
 
 // A multi answer is stored as one line: "A, B"; read back into its picks (only those that are options).
@@ -92,13 +97,13 @@ export const picksOf = (value, options) => options.filter(option => String(value
 // A proposed answer as the row's control can take it: the option that names it (a pick: each part), else '' (the person answers); a text box takes any value.
 export function proposalIn(value, {control = 'text', options = []} = {}) {
   const text = String(value || '').trim();
-  if (control === 'text' || control === 'textarea' || control === 'date' || control === 'amount') return text;
+  if (control === 'text' || control === 'textarea' || control === 'date' || control === 'amount' || COMPOSITE.includes(control)) return text;
   if (control === 'multi') return joinPicks(picksOf(text, options));
   return options.find(option => option.toLowerCase() === text.toLowerCase()) || '';
 }
 
 // The words a person reads for a kind (the "Answer as" choice).
-export const KIND_NAMES = {text: 'Text', long_text: 'Long text', single: 'Pick one', multi: 'Pick several', yes_no: 'Yes / No', date: 'Date', amount: 'Amount'};
+export const KIND_NAMES = {text: 'Text', long_text: 'Long text', single: 'Pick one', multi: 'Pick several', yes_no: 'Yes / No', date: 'Date', amount: 'Amount', salary: 'Salary', duration: 'Duration', link: 'Link', per_country: 'Work status per country', language: 'Language level', range: 'Range'};
 
 // A date is saved in the person's words ("1 December 2026"), the form's own fields take it as written; a date input reads ISO (2026-12-01).
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

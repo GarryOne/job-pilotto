@@ -23,10 +23,10 @@ export const refresh = (group, isOn) => group.querySelectorAll('button').forEach
 });
 
 const NONE = 'No constraints', ADD = '+ Add constraints';
-const savedAs = text => el('p', 'muted small qa-saved-as', `Saved as: ${text}`);
+export const savedAs = text => el('p', 'muted small qa-saved-as', `Saved as: ${text}`);
 
 // A composite control: a div whose .value is the answer and .complete says whether it can be confirmed.
-function composite(read, complete) {
+export function composite(read, complete) {
   const node = el('div', 'qa-values');
   Object.defineProperty(node, 'value', {get: read, set: () => {}, configurable: true});
   Object.defineProperty(node, 'complete', {get: complete, configurable: true});

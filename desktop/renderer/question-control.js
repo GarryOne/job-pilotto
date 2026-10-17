@@ -3,7 +3,8 @@
 // of its own. Used by Jobs → Answer once and Profile → Application answers; the value it gives is the meaning the fill maps to each form's own options.
 // Guarded by test/question-control.test.js.
 import {el} from './components.js';
-import {KINDS, KIND_NAMES, joinPicks, picksOf} from './question-kind.js';
+import {COMPOSITE, KINDS, KIND_NAMES, joinPicks, picksOf} from './question-kind.js';
+import {compositeControl} from './question-control-composite.js';
 import {amountControl, dateControl, refresh, segmented} from './question-control-values.js';
 
 const FEW = 3, SHORT = 18, FEW_PICKS = 6;
@@ -42,6 +43,8 @@ export function answerControl(format, value, onChange, {placeholder = 'Your answ
     node = dateControl(format, current, next => { current = next; onChange(next); }, {ariaLabel});
   } else if (control === 'amount') {
     node = amountControl(format, current, next => { current = next; onChange(next); }, {ariaLabel});
+  } else if (COMPOSITE.includes(control)) {
+    node = compositeControl(control, format, current, next => { current = next; onChange(next); }, {ariaLabel, placeholder});
   } else if (control === 'textarea') {
     node = Object.assign(el('textarea', ''), {value: current, placeholder, ariaLabel, rows: 3});
     node.addEventListener('input', () => { current = node.value; onChange(current); });
