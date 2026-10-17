@@ -9,10 +9,12 @@ export const MODEL = 'claude-haiku-5-5';
 // A topic as kept: a few lowercase words (the same question on two forms, in any wording, gets the same ones: "seen twice", lib/question-verdicts.js).
 export const topicOf = text => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').slice(0, 5).join(' ');
 export const VERDICTS = ['reusable', 'one_job', 'consent'];
+// A label that means a fact of Your details is answered from there and never asked (owner, 17 Oct 2026): its verdict is "details", with the fact's label.
+export const DETAILS = 'details';
 
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['verdicts'], properties: {verdicts: {type: 'array', items: {type: 'object', additionalProperties: false,
-  required: ['label', 'verdict', 'covered_by', 'value', 'topic'], properties: {label: {type: 'string'}, verdict: {type: 'string', enum: VERDICTS}, covered_by: {type: 'string'}, value: {type: 'string'},
-  topic: {type: 'string'}}}}}};
+  required: ['label', 'verdict', 'covered_by', 'value', 'topic', 'fact'], properties: {label: {type: 'string'}, verdict: {type: 'string', enum: VERDICTS}, covered_by: {type: 'string'}, value: {type: 'string'},
+  topic: {type: 'string'}, fact: {type: 'string'}}}}}};
 const INSTRUCTIONS = `A job-application form asked these questions. For each decide its verdict:
 - "reusable": a fact about the applicant or a stable stance they will want to give again on OTHER employers' forms (notice period, visa, salary, how they heard of jobs, a degree).
 - "one_job": it belongs to this one job or employer (it names the company or its product, asks why this company, a motivation or essay written for this role, a trivia or skill test).
@@ -20,26 +22,27 @@ const INSTRUCTIONS = `A job-application form asked these questions. For each dec
 Then covered_by: when one of the applicant's saved answers already settles it, the EXACT saved question (a differently worded notice-period question is covered by the notice period answer; "Do you need visa sponsorship?" by a saved work permit); otherwise "".
 And value: the answer to THIS question that saved answer gives: "" when the saved answer answers it as it is; otherwise the short answer it implies (a permanent permit -> "No" to needing sponsorship). Only when it follows for sure: otherwise covered_by "" and value "".
 And topic: 2-4 lowercase English words naming what it asks, the SAME words for the same question however it is worded or in whatever language ("notice period", "visa sponsorship", "salary expectation").
+And fact: when the question asks for one of the applicant's facts listed in <facts> (street, postal code, name, salutation, notice period, a work permit... in any language and however it is worded), the EXACT fact label from <facts>; otherwise "". A question about something else, or about a fact that is not listed, is "".
 Answer every label exactly as given; when unsure answer "one_job", "" and "".`;
 
 // labels, answered: [{question, answer}] -> Map(label -> {reuse, covered_by (an exact answered question or ''), proposal (the deduced answer, else the saved one),
 // from (the saved answer it was deduced from: a changed one is judged again)}); a label the AI left out or mangled is absent.
-export async function classify({labels, answered = [], company = '', host = '', apiKey = '', client = null}) {
+export async function classify({labels, answered = [], facts = [], company = '', host = '', apiKey = '', client = null}) {
   const out = new Map();
   if (!labels.length) return out;
   const ai = client || (apiKey ? anthropicApi(apiKey) : null);
   if (!ai) return out;
   const response = await ai.messages.create({
     model: MODEL, max_tokens: 2000, system: INSTRUCTIONS,
-    messages: [{role: 'user', content: `<employer>${company}</employer>\n<site>${host}</site>\n<saved_answers>\n${JSON.stringify(answered.map(a => ({question: a.question, answer: String(a.answer || '').slice(0, 300)}))).slice(0, 12000)}\n</saved_answers>\n<questions>\n${JSON.stringify(labels)}\n</questions>`}],
+    messages: [{role: 'user', content: `<employer>${company}</employer>\n<site>${host}</site>\n<saved_answers>\n${JSON.stringify(answered.map(a => ({question: a.question, answer: String(a.answer || '').slice(0, 300)}))).slice(0, 12000)}\n</saved_answers>\n<facts>\n${JSON.stringify(facts.map(fact => fact.label))}\n</facts>\n<questions>\n${JSON.stringify(labels)}\n</questions>`}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
   });
   const text = response.content?.find(block => block.type === 'text')?.text || '{"verdicts":[]}';
-  const byQuestion = new Map(answered.map(a => [a.question, a.answer]));
-  for (const {label, verdict, covered_by: covered, value = '', topic = ''} of JSON.parse(text).verdicts || []) {
+  const byQuestion = new Map(answered.map(a => [a.question, a.answer])), known = new Set(facts.map(fact => fact.label));
+  for (const {label, verdict, covered_by: covered, value = '', topic = '', fact = ''} of JSON.parse(text).verdicts || []) {
     if (!labels.includes(label) || !VERDICTS.includes(verdict)) continue;
-    const answer = byQuestion.get(covered) || '';
-    out.set(label, {reuse: verdict, covered_by: answer ? covered : '', proposal: answer ? String(value).trim() || answer : '', from: answer, topic: topicOf(topic)});
+    const answer = byQuestion.get(covered) || '', own = known.has(fact) && verdict !== 'consent' ? fact : '';   // a fact the AI invented keeps nothing
+    out.set(label, {reuse: own ? DETAILS : verdict, covered_by: answer ? covered : '', proposal: answer ? String(value).trim() || answer : '', from: answer, topic: topicOf(topic), fact: own});
   }
   out.usage = response.usage || {};
   return out;

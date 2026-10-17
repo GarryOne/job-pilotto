@@ -13,9 +13,10 @@ import {claimOverlay, registerOverlay, releaseOverlay} from '../overlay-slot.js'
 import {button, skeleton, stateCard} from '../job-drawer/parts.js';
 import {loadQuestions, questionsNow} from './jobs-questions.js';
 import {$} from './core.js';
+import {fromDetailsLine} from '../answered-from-details.js';
 
 const DRAFTS = 'questionDrafts';
-const state = {open: false, queue: [], setAside: [], consent: 0, at: 0, aside: null, saved: '', error: '', busy: false, loading: false, failed: ''};
+const state = {open: false, queue: [], setAside: [], consent: 0, fromDetails: 0, at: 0, aside: null, saved: '', error: '', busy: false, loading: false, failed: ''};
 const drafts = new Map();
 const jobOnly = new Set();   // the questions whose "Reuse for matching questions" the person turned off (this job only)
 try { for (const [key, value] of Object.entries(JSON.parse(localStorage.getItem(DRAFTS) || '{}'))) drafts.set(key, String(value)); } catch {}
@@ -41,6 +42,7 @@ function header() {
   title.append(el('h2', '', 'Application questions'), el('p', 'muted', 'Review answers before they are reused for matching questions.'));
   top.append(el('span', 'qr-head-icon', icon('chat')), title, close);
   head.append(top);
+  if (state.fromDetails > 0) head.append(el('p', 'muted small qr-details', fromDetailsLine(state.fromDetails)));
   if (!state.queue.length && !state.aside) return head;
   const where = el('div', 'qr-where');
   const at = state.aside ? 'A set-aside question' : `Question ${state.at + 1} of ${state.queue.length}`;
@@ -155,7 +157,7 @@ async function answer(q, value) {
   state.busy = true;
   state.error = '';
   draw();
-  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format), ...(onlyHere ? [{jobOnly: true, company: q.company || ''}] : [])).catch(error => ({ok: false, error: error.message}));
+  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format), ...(onlyHere || q.also?.length ? [{...(onlyHere ? {jobOnly: true, company: q.company || ''} : {}), ...(q.also?.length ? {also: q.also.map(each => each.key)} : {})}] : [])).catch(error => ({ok: false, error: error.message}));
   state.busy = false;
   if (!result?.ok) { state.error = result?.error || 'It did not save; try again.'; draw(); return; }
   drafts.delete(q.key);
@@ -211,6 +213,7 @@ export async function openQuestionReview({force = false, start = ''} = {}) {
   state.failed = now.error || '';
   state.queue = [...now.list];
   state.setAside = [...now.hidden];
+  state.fromDetails = now.fromDetails || 0;
   state.consent = now.consent || 0;
   state.aside = null;
   state.saved = state.error = '';
@@ -230,6 +233,7 @@ function syncQueue() {
   state.failed = '';
   state.queue = [...now.list];
   state.setAside = [...now.hidden];
+  state.fromDetails = now.fromDetails || 0;
   state.consent = now.consent || 0;
   if (state.aside) state.aside = state.setAside.find(q => q.key === keep) || null;
   if (!state.aside) { const at = state.queue.findIndex(q => q.key === keep); state.at = at < 0 ? Math.min(state.at, Math.max(state.queue.length - 1, 0)) : at; }

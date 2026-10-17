@@ -10,17 +10,27 @@ export const looksLikeFieldId = text => {
   return !label || (!/\s/.test(label) && /\d/.test(label) && /^[\w.:[\]-]+$/.test(label));
 };
 
-// verdicts: {[keyOf(question)]: {reuse: 'reusable' | 'one_job' | 'consent', covered_by: '' | an answered question, proposal: its answer, asked: how many forms}}.
+// A question that means a fact of Your details ({reuse: 'details', fact}) is answered from there and never shown (owner, 17 Oct 2026): it is counted apart (fromDetails),
+// not "hidden". Same-topic wordings (any language) are ONE item: the first carries the others in .also, and answering it answers them all.
+// verdicts: {[keyOf(question)]: {reuse: 'reusable' | 'one_job' | 'consent' | 'details', covered_by: '' | an answered question, proposal: its answer, asked: how many forms}}.
 // rows: anything with .question. → {shown: rows (covered ones carry .proposal; most-asked first), hidden: rows}.
 export function visibleQuestions(rows, verdicts = {}) {
-  const shown = [], hidden = [];
+  const shown = [], hidden = [], fromDetails = [];
   for (const row of rows) {
     const verdict = verdicts[keyOf(row.question)];
-    if (looksLikeFieldId(row.question) || (verdict && verdict.reuse !== 'reusable')) hidden.push(row);
+    if (verdict?.reuse === 'details' && !looksLikeFieldId(row.question)) fromDetails.push(row);
+    else if (looksLikeFieldId(row.question) || (verdict && verdict.reuse !== 'reusable')) hidden.push(row);
     else shown.push(verdict?.covered_by && verdict.proposal ? {...row, proposal: verdict.proposal, coveredBy: verdict.covered_by} : row);
   }
   // value first: a question that blocked a fill, then the most asked
   const weight = row => { const v = verdicts[keyOf(row.question)] || {}; return (v.blocked ? 1e6 : 0) + (v.asked || 0); };
   shown.sort((a, b) => weight(b) - weight(a));
-  return {shown, hidden};
+  const byTopic = new Map(), one = [];
+  for (const row of shown) {
+    const topic = (verdicts[keyOf(row.question)] || {}).topic;
+    const first = topic && byTopic.get(topic);
+    if (first) first.also = [...(first.also || []), row];
+    else { const copy = {...row}; one.push(copy); if (topic) byTopic.set(topic, copy); }
+  }
+  return {shown: one, hidden, fromDetails};
 }

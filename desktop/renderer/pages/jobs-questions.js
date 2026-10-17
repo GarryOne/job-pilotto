@@ -5,11 +5,12 @@
 import {el} from '../components.js';
 import {$, show} from './core.js';
 import {questionsProblem} from '../questions-view.js';
+import {fromDetailsLine} from '../answered-from-details.js';
 
 // The questions saved last time show at once (cached on this computer), then the store's answer replaces them. No cache yet: a shimmer where the count goes.
 const QUESTIONS_CACHE = 'questionsCache';
 let questionsShown = '';
-const now = {list: [], hidden: [], consent: 0, error: '', read: false};
+const now = {list: [], hidden: [], consent: 0, fromDetails: 0, error: '', read: false};
 // What the drawer walks through: the queue (list), the set-aside ones (hidden), the consent count, the last error, and whether the store answered yet.
 export const questionsNow = () => now;
 $('questions-retry')?.addEventListener('click', () => { questionsShown = ''; loadQuestions({force: true}); });
@@ -38,24 +39,26 @@ async function readQuestions({force}) {
     }
   }
   if (!force && questionsReadAt && Date.now() - questionsReadAt < QUESTIONS_FRESH_MS && Array.isArray(cached)) return;   // fresh enough: what is shown stands
-  const {list, hidden = [], consent = 0, error} = await window.pilot.openQuestions();
+  const {list, hidden = [], consent = 0, fromDetails = 0, error} = await window.pilot.openQuestions();
   $('questions').classList.remove('is-loading');
   if (!error) questionsReadAt = Date.now();
   if (error && Array.isArray(cached)) { Object.assign(now, {error, read: true}); return; }  // the store unreachable: keep the saved questions
   if (!error) try { localStorage.setItem(QUESTIONS_CACHE, JSON.stringify(list)); } catch {}
-  renderQuestions(list || [], error, hidden, consent);
+  renderQuestions(list || [], error, hidden, consent, fromDetails);
   now.read = true;
 }
 
-function renderQuestions(list, error = '', hidden = [], consent = 0) {
-  Object.assign(now, {list, hidden, consent, error: error || ''});
-  const shown = JSON.stringify([list.length, error]);
+function renderQuestions(list, error = '', hidden = [], consent = 0, fromDetails = null) {
+  Object.assign(now, {list, hidden, consent, error: error || '', ...(fromDetails === null ? {} : {fromDetails})});
+  const shown = JSON.stringify([list.length, error, now.fromDetails]);
   if (shown === questionsShown) return;
   questionsShown = shown;
   // Shown whenever there's something to review or a read failed; the store not connected yet (trying only): nothing to read, so no error card.
   if (error && questionsProblem(error).hide) { show($('questions'), false); return; }
   show($('questions'), list.length > 0 || !!error);
   $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} need${list.length === 1 ? 's' : ''} review`;
+  $('questions-details').textContent = fromDetailsLine(now.fromDetails);
+  show($('questions-details'), !error && now.fromDetails > 0);
   $('questions-error').textContent = error ? questionsProblem(error).text : '';
   show($('questions-error'), !!error);
   show($('questions-retry'), !!error);

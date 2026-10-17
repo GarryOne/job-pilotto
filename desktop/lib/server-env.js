@@ -31,6 +31,7 @@ import {answerReporter, appliedHook, errorWatcher, formIssue, jobName, notify, p
 import {NAMES} from './ai/names.js';
 import {cvFactsText} from '../shared/worker/cv-facts.js';
 import {configForPrompt} from './config-text.js';
+import {factsOf} from './base-facts.js';
 import {OWNER_VALUES} from './owner-guard-env.js';   // test harness only: null in a user's app
 
 export function extensionToken(storage) {
@@ -159,7 +160,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});
       const job = await find(run.url).catch(() => null);
-      const added = await questions.collect(storage, run, job?.company || '', undefined, async labels => verdicts.judge(storage, labels, {answered: await verdicts.answeredOf(storage, await questions.standardAnswers(storage)),
+      const added = await questions.collect(storage, run, job?.company || '', undefined, async labels => verdicts.judge(storage, labels, {facts: await factsOf(storage), answered: await verdicts.answeredOf(storage, await questions.standardAnswers(storage)),
         company: job?.company || '', url: run.url, host: learn.siteOf(run.url), ai: claudeAi(storage)}),
         labels => verdicts.record(storage, labels, {url: run.url, company: job?.company || ''}),
         labels => notify('Remembered for future forms', `${labels.length} answer${labels.length > 1 ? 's' : ''} you gave before, asked again by ${job?.company || 'a second employer'}: kept as standard answers. Undo in the job's drawer.`, {view: 'jobs'})).catch(error => {

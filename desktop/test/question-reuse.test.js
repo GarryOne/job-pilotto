@@ -60,9 +60,9 @@ test('classify: a deduced answer comes from a saved answer; the answer itself wh
     {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start', value: ''},
     {label: 'Are you a robot?', verdict: 'reusable', covered_by: '', value: 'No'}]})}]}; }}};
   const got = await classify({labels, answered, client});
-  assert.deepEqual(got.get('Do you require visa sponsorship?'), {reuse: 'reusable', covered_by: 'Work permit', proposal: 'No', from: 'Swiss C permit', topic: ''});
+  assert.deepEqual(got.get('Do you require visa sponsorship?'), {reuse: 'reusable', covered_by: 'Work permit', proposal: 'No', from: 'Swiss C permit', topic: '', fact: ''});
   assert.equal(got.get('Earliest start?').proposal, '3 months', 'the same meaning: the saved answer');
-  assert.deepEqual(got.get('Are you a robot?'), {reuse: 'reusable', covered_by: '', proposal: '', from: '', topic: ''}, 'a value with no saved answer behind it is dropped');
+  assert.deepEqual(got.get('Are you a robot?'), {reuse: 'reusable', covered_by: '', proposal: '', from: '', topic: '', fact: ''}, 'a value with no saved answer behind it is dropped');
   assert.match(sent[0], /Swiss C permit/, 'the AI reads the saved values to deduce from');
 });
 

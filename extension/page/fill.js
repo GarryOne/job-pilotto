@@ -7,6 +7,8 @@
 (() => {
   if (window.__jobPilottoFillLoaded) return;
   window.__jobPilottoFillLoaded = true;
+  // A question's wording is kept whole (owner, 17 Oct 2026: labels cut at 120 characters were saved as "…We t: Yes" and never matched the form again); the cap only guards a runaway page.
+  const TRACE_LABEL_MAX = 500;
 
   const {LEGAL, asksQuestion, clean, norm, once, sleep, visible, labelOf, questionOf, radioOps, PROFILE_LABELS, aliasFor, DIAL, dialOf, armCombo, phoneParts,
     pickCheckboxOption, setCheckbox, wantsUnchecked, boxOf, tickConsents, markAttention, markDraft} = window.__jobPilottoFillKit;
@@ -227,7 +229,7 @@
       const once = event => {
         if (!event.isTrusted) return;
         el.removeEventListener('input', once); el.removeEventListener('change', once);
-        if (window.__jobPilottoCorrections.length < 40) window.__jobPilottoCorrections.push(clean(label).slice(0, 100));
+        if (window.__jobPilottoCorrections.length < 40) window.__jobPilottoCorrections.push(clean(label).slice(0, 500));
       };
       el.addEventListener('input', once); el.addEventListener('change', once);
     };
@@ -276,7 +278,7 @@
       // The form's own choices (never a value): the app keeps the question's kind (desktop/lib/question-formats.js). A menu's placeholder (an option with an empty value) is not a choice.
       const menu = (el => (el?.tagName === 'SELECT' ? el : null))(document.getElementById(row.field) || document.querySelector(`select[name="${CSS.escape(row.field)}"]`));
       const choices = (menu ? Array.from(menu.options).filter(o => o.value !== '').map(o => o.text.replace(/\s+/g, ' ').trim()) : rowOf[row.field]?.options || row.options || []).filter(Boolean).slice(0, 60).map(option => String(option).slice(0, 120));
-      return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
+      return {label: label.slice(0, TRACE_LABEL_MAX), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
         ...(choices.length ? {options: choices} : {}), ...(rowOf[row.field]?.multiple ? {multiple: true} : {}),
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         fact: (answer || proposedOf[row.field])?.fact || '', category: (answer || proposedOf[row.field])?.category || '', known: knownKey(row),   // fixed words for the fill card's meaning (fill-meaning.js)
