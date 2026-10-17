@@ -5,6 +5,7 @@ Spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §1-2. The run token 
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -16,6 +17,7 @@ from pathlib import Path
 
 SEARCH_ARGS = ['--mode', 'scheduled', '--enrich-max', '100', '--score-max', '60', '--auto-kit-max', '0', '--budget', '600']
 MAX_MATCHES = 200
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / 'config'
 
 
 def _call(url, token, method='GET', data=None):
@@ -45,7 +47,7 @@ def pull_config(site, token, folder):
         if error.code == 404:
             return False
         raise
-    (folder / 'config').mkdir(parents=True, exist_ok=True)
+    shutil.copytree(DEFAULT_CONFIG, folder / 'config', dirs_exist_ok=True)   # the engine's own files (preferences, schemas) under what the app pushed: a run never starts on a bare folder
     (folder / 'config' / 'search.json').write_text(json.dumps(given.get('search') or {}))
     (folder / 'config' / 'profile.md').write_text(given.get('profile') or '')
     (folder / 'config' / 'cv.md').write_text(given.get('cv') or '')
@@ -134,7 +136,7 @@ def serve(port=8080):
             except ValueError:
                 return self.reply(400, {'ok': False})
             token, site = str(given.get('token', '')), str(given.get('site', ''))
-            if self.path != '/run' or not token.startswith('HR1.') or not site.startswith('https://'):
+            if self.path != '/run' or not token.startswith('HR1.') or not (site.startswith('https://') or site.startswith('http://127.0.0.1:')):   # loopback http only for the e2e (tools/hosted-e2e)
                 return self.reply(400, {'ok': False})
             if not lock.acquire(blocking=False):
                 return self.reply(409, {'ok': False, 'error': 'a run is in progress'})

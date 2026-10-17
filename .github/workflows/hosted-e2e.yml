@@ -1,0 +1,51 @@
+name: CI · Hosted Always on e2e
+# Zero-setup Always on end to end (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md step 7; owner, 17 Oct 2026): a fresh install with no Notion, keys or GitHub turns Always on on,
+# the cron tick queues a run, the real hosted image runs in Docker against fixture feeds, AI goes through the Worker's /api/ai to a fake model, the debit and the digest e-mail are checked,
+# the app pulls the matches into its own store, Turn off deletes everything, a used-up trial pauses with the functional notice. Everything Cloudflare is an in-process fake: $0, no secrets.
+# A PR that touches the hosted code starts it (GitHub's `paths:`); also every night. Not a required check (a `paths:` skip never reports).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'hosted/**'
+      - 'site/src/hosted*'
+      - 'site/src/free-ai.js'
+      - 'site/src/mail*.js'
+      - 'site/migrations/**'
+      - 'src/hosted_run.py'
+      - 'desktop/lib/hosted-*.js'
+      - 'tools/hosted-e2e/**'
+      - '.github/workflows/hosted-e2e.yml'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-e2e-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  hosted-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The app side (its own engine, for the merge into the Jobs store)
+        run: pip install -r requirements.txt
+      - run: node desktop/scripts/stage.mjs
+      - name: Run the scenario against the real hosted image
+        env:
+          HOSTED_E2E_RUNNER: docker
+        run: node tools/hosted-e2e/run.mjs 2>&1 | tee hosted-e2e.log
+      - name: The scenario's steps
+        if: always()
+        run: grep '^hosted-e2e:' hosted-e2e.log >> "$GITHUB_STEP_SUMMARY" || true
