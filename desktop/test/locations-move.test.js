@@ -121,10 +121,10 @@ test('a conflict shows place names, never a pattern; Use Strategy value keeps th
   assert.deepEqual(resolveConflict(plan, 'acceptable', 'separate').resolved.searchOverride, PATTERNS.country);
 });
 
-test('a pattern with no plain name is shown as written, kept, and never counted as a Profile place', () => {
-  const odd = ['\\b(?:zug|luzern)\\b'];
-  const plan = classify(SEARCH(odd), PROFILE(['Zug']));
+test('every pattern shape is shown as place names, never as a pattern, and kept as the pattern it is', () => {
+  const odd = ['\\b(?:zug|luzern)\\b', '"zug"', 'st\\.? ?gallen'];
+  const plan = classify(SEARCH(odd), PROFILE(['Bern']));
   assert.equal(plan.conflicts.length, 1);
-  assert.deepEqual(plan.conflicts[0].strategy, ['/\\b(?:zug|luzern)\\b/']);
+  assert.deepEqual(plan.conflicts[0].strategy, ['zug', 'luzern', 'st. gallen']);
   assert.deepEqual(resolveConflict(plan, 'preferred', 'strategy').resolved.preferred, odd);
 });

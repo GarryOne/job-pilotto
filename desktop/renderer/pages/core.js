@@ -34,7 +34,7 @@ export const aiReady = () => {
 };
 export function message(id, text, tone = '') { const el = $(id); el.textContent = plainError(text); el.className = `message ${tone}`; }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
-export const readable = fragment => fragment.replace(/\\b/g, '').replace(/\[([^\]])[^\]]*\]/g, '$1').replace(/[.?*+()]/g, '').trim();
+export {fragmentWords as readable} from '../fragment-words.js';   // a crawl pattern as words (one rule for every screen)
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {

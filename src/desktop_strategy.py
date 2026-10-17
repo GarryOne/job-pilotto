@@ -24,11 +24,10 @@ def _previous_locations(db, stage_map):
 
 
 def _readable(fragment):
-    """A search regex fragment as words ("z[uü]rich" -> "zürich", "\\bsre\\b" -> "sre")."""
-    import re
-    text = re.sub(r'\\b', '', str(fragment))
-    text = re.sub(r'\[[^\]]*?([^\]])\]', r'\1', text)  # a letter choice: its last letter (z[uü]rich -> zürich)
-    return re.sub(r'[.?*+()^$|\\]', '', text).strip()
+    """A search regex fragment as words ("z[uü]rich" -> "zürich", "\\bsre\\b" -> "sre", '"tax"' -> "tax"): src/fragment_words.py, the twin of
+    desktop/renderer/fragment-words.js (one rule for every screen)."""
+    from .fragment_words import fragment_words
+    return fragment_words(fragment)
 
 
 # Your details' sections on the Profile (desktop/lib/profile-sections.js SECTIONS, same titles): facts, not search goals. Strategy shows

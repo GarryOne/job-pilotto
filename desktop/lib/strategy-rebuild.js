@@ -8,7 +8,8 @@
 export const SCORE_USD = 0.015;       // one Sonnet 5 fit score, measured on the owner's runs (about 1.2 to 1.8 cents)
 export const SCORES_PER_SEARCH = 60;  // the app's --score-max
 const FORM_ONLY = /contact|\blinks?\b|application form answers|📎/i;
-export const wordsOf = fragment => String(fragment).replace(/\\b/g, '').replace(/\([^()]*\)\?/g, '').replace(/\(([^()|]*)\|[^()]*\)/g, '$1').replace(/\[[^\]]*?([^\]])\]/g, '$1').replace(/[.?*+()^$|\\]/g, '').trim();
+import {fragmentWords} from '../renderer/fragment-words.js';
+export const wordsOf = fragmentWords;   // a crawl pattern as words (one rule for every screen)
 function sections(markdown, skipFormOnly = false) {
   const found = new Map();
   let name = '', skipping = false;

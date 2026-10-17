@@ -8,7 +8,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {createStorage} from '../lib/storage.js';
 import * as store from '../lib/store/index.js';
-import {moveLocations, resolveLocation} from '../lib/locations-store.js';
+import {moveLocations, recheckQueue, resolveLocation} from '../lib/locations-store.js';
 
 const plainCrypto = {encrypt: v => v, decrypt: v => v};
 const PROFILE = '## Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Countries | Switzerland (anywhere) |\n| Home base | Zurich |\n| Preferred cities | Zurich, Zug |\n| Relocation | Within Europe |\n| Work permit | EU citizen |\n';
@@ -66,4 +66,30 @@ test('resolving a conflict writes the pick, reads it back, clears the queue', as
 test('a write that does not read back stops with the copy named and the queue kept', async () => {
   const storage = await fresh();
   await assert.rejects(moveLocations(storage, {ai: ai(ANSWER), backup: noBackup, write: () => {}}), /did not save/);
+});
+
+// 17 Oct 2026: a queue saved before the place-name fix kept raw patterns, so the card still showed "\bz[uü]rich\b, "zug" ..." after the fix landed.
+const OLD_QUEUE = [
+  {kind: 'preferred', strategy: ['\\bz[uü]rich\\b', '\\bwinterthur\\b', '"zug"'], profile: ['Zurich and surroundings']},
+  {kind: 'relocation', strategy: ['\\bberlin\\b', '\\blondon\\b', '\\bparis\\b'], profile: ['Berlin', 'London'], profileMode: 'yes'}];
+
+test('a queue saved by an older build is read again on open: place names, never patterns; the same places leave it, the search unchanged', async () => {
+  const storage = await fresh();
+  const search = {...SEARCH, locations: {...SEARCH.locations, top_tier: OLD_QUEUE[0].strategy, abroad: OLD_QUEUE[1].strategy}};
+  storage.writeText('config/search.json', JSON.stringify(search));
+  storage.saveSettings({locationsMovedAt: '2026-10-17T18:52:01.036Z', locationsConflicts: OLD_QUEUE});
+  const writes = [];
+  const write = (s, next) => { writes.push(next); s.writeText('config/search.json', JSON.stringify(next)); };
+  const offline = await recheckQueue(storage, {write});   // no AI: names only, nothing resolved
+  assert.deepEqual(offline.map(each => each.strategy), [['zürich', 'winterthur', 'zug'], ['berlin', 'london', 'paris']]);
+  assert.deepEqual(offline[0].strategyFragments, OLD_QUEUE[0].strategy, 'the patterns are kept for the crawl');
+  assert.equal(writes.length, 0);
+  const answers = [{onlyStrategy: [], onlyProfile: []}, {onlyStrategy: ['paris'], onlyProfile: []}];
+  const client = {messages: {create: async () => ({content: [{type: 'text', text: JSON.stringify(answers.shift())}]})}};
+  const now = await recheckQueue(storage, {ai: {client}, write});
+  assert.deepEqual(now.map(each => each.kind), ['relocation']);
+  assert.deepEqual(now[0].onlyStrategy, ['paris']);
+  assert.deepEqual(searchOf(storage).locations.top_tier, OLD_QUEUE[0].strategy, 'the crawl keeps its own list');
+  for (const entry of storage.settings().locationsConflicts) for (const name of entry.strategy) assert.doesNotMatch(name, /[\\[\]"|]/);
+  assert.equal(storage.settings().locationsConflicts.length, 1);
 });

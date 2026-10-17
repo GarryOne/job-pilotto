@@ -11,6 +11,8 @@ import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep, saveState} from './wizard.js';
 import {byStore} from '../store-words.js';
+import {titleCase} from '../fragment-words.js';
+export {titleCase};   // one place for it: renderer/fragment-words.js
 
 // ---------- step 5: review the drafted strategy ----------
 // The draft's lists, as the cards show them: [draft path, how an entry is shown, how a typed entry is stored].
@@ -29,9 +31,6 @@ const listOf = name => {
   const path = LISTS[name][0], parent = path.slice(0, -1).reduce((node, key) => node?.[key], shared.draft);
   return parent ? (parent[path.at(-1)] ||= []) : [];
 };
-// Each word capitalised (accents too: "zürich" -> "Zürich"), known acronyms in capitals.
-export const titleCase = text => String(text).replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_, gap, letter) => gap + letter.toUpperCase())
-  .replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd|Eu|Eea|Uk|Usa?)\b/g, w => w.toUpperCase());
 let draftSavedTimer, editsTimer;
 function draftChanged(fields) {
   clearTimeout(editsTimer);

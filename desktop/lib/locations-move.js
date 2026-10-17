@@ -2,8 +2,10 @@
 // Countries / Preferred cities / Relocation rows and says per kind: same, one side unset, or conflict. Pure planning; nothing is written here.
 // Matching values move by themselves; an unset side yields to the populated one; "No relocation" and "Anywhere" are values, not missing data; a conflict
 // is queued with both values and NO preselected winner (profile / strategy / choose / separate). The AI only reads the Profile rows into a fixed answer
-// (judgeProfile); it never writes a place. The crawl lists are match PATTERNS (\bz[uü]rich\b): read as place names to compare and show (placeNames), kept as patterns when written back. Guarded by test/locations-move.test.js. Where you live (Home base) is Your details' and is not compared here.
+// (judgeProfile); it never writes a place. The crawl lists are match PATTERNS (\bz[uü]rich\b): read as place names to compare and show (placeNames), kept as patterns when written back;
+// lists that differ in words but may mean the same places go to the AI's same-meaning check (lib/locations-same.js). Guarded by test/locations-move.test.js. Where you live (Home base) is Your details' and is not compared here.
 import {anthropicApi} from './ai/anthropic-api.js';
+import {fragmentNames} from '../renderer/fragment-words.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const KINDS = ['preferred', 'acceptable', 'relocation'];
@@ -18,28 +20,15 @@ const INSTRUCTIONS = `You read the "where to work" rows of a job seeker's Profil
 - relocation: "yes" if they would move for a job, "no" if they say they would not, "unspecified" if the rows do not say.
 - destinations: the places they would move to, when named.`;
 
-const bare = text => String(text).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\\b|["^$]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+const bare = text => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\\b|["^$]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const clean = list => (Array.isArray(list) ? list : []).map(item => String(item).trim()).filter(Boolean);
-// A crawl match pattern as the place names it matches: \bz[uü]rich\b -> zürich, "a|b" -> a, b. Structure only (the settings page's own rule,
-// src/notion/search_settings.py readable()): a pattern with anything else in it has no plain name -> null, and is shown as /pattern/.
-const META = /[\\^$.|?*+()[\]{}]/;
-export function placeNames(fragment) {
-  const parts = /[()[\]]/.test(String(fragment).replace(/\[(\w)(\p{L})\]|\[(\p{L})(\w)\]/gu, '')) ? [String(fragment)] : String(fragment).split('|');
-  const names = parts.map(part => {
-    const plain = part.trim().replace(/^\\b(.+)\\b$/, '$1').replace(/\[(\w)(\p{L})\]|\[(\p{L})(\w)\]/gu, (_, a, b, c, d) => (b || c)).replace(/\\([\\^$.|?*+()[\]{}-])/g, '$1');
-    return plain && !META.test(plain) ? plain : null;
-  });
-  return names.every(Boolean) ? names : null;
-}
+// A crawl match pattern as the place names it matches (renderer/fragment-words.js, the one rule every screen uses): \bz[uü]rich\b -> zürich,
+// "a|b" -> a, b, st\.? ?gallen -> st. gallen. Never shown as a pattern.
+export const placeNames = fragment => fragmentNames(fragment);
 // A side as {shown: what the card says, names: the plain ones to compare, keep: the patterns exactly as they are}.
-const readSide = fragments => {
-  const shown = [], names = [];
-  let odd = false;
-  for (const fragment of fragments) {
-    const found = placeNames(fragment);
-    if (found) { shown.push(...found); names.push(...found); } else { shown.push(`/${fragment}/`); odd = true; }
-  }
-  return {shown, names, odd, keep: fragments};
+export const readSide = fragments => {
+  const names = [...new Set(fragments.flatMap(placeNames))];
+  return {shown: names, names, keep: fragments};
 };
 const sameSet = (a, b) => a.length === b.length && new Set(a.map(bare)).size === new Set([...a, ...b].map(bare)).size;
 
@@ -62,7 +51,7 @@ export async function judgeProfile(rows, {client = null, apiKey = ''} = {}) {
 function compareList(fragments, profile) {
   if (!fragments.length) return {value: profile};
   const side = readSide(fragments);
-  if (!profile.length || (!side.odd && sameSet(side.names, profile))) return {value: fragments};
+  if (!profile.length || sameSet(side.names, profile)) return {value: fragments};
   return {conflict: {strategy: side.shown, strategyFragments: fragments, profile}};
 }
 
@@ -80,7 +69,7 @@ export function classify(search, profile) {
   else {
     const side = readSide(abroad), seen = {kind: 'relocation', strategy: side.shown, strategyFragments: abroad};
     if (mode === 'no') conflicts.push({...seen, profile: [], profileMode: 'no'});
-    else if (mode === 'unspecified' || !profile.destinations.length || (!side.odd && sameSet(side.names, profile.destinations))) resolved.relocation = {mode: 'yes', places: abroad};
+    else if (mode === 'unspecified' || !profile.destinations.length || sameSet(side.names, profile.destinations)) resolved.relocation = {mode: 'yes', places: abroad};
     else conflicts.push({...seen, profile: profile.destinations, profileMode: mode});
   }
   return {resolved, conflicts};

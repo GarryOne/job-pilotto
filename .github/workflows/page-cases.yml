@@ -67,6 +67,7 @@ on:
       - 'desktop/e2e/test/recorded-pages.test.mjs'
       - 'desktop/lib/**'
       - 'desktop/renderer/countries.js'
+      - 'desktop/renderer/fragment-words.js'
       - 'desktop/renderer/question-filter.js'
       - 'desktop/renderer/question-kind.js'
       - 'desktop/renderer/run-status.js'
