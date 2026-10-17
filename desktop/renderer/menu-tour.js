@@ -11,4 +11,6 @@ export const STEP_MS = 3000;   // five stops, about 15 seconds
 export const stopsFor = present => STOPS.filter(stop => present(stop.target));
 const KEY = 'jp.menu.tour';
 export const seen = storage => { try { return storage.getItem(KEY) === 'done'; } catch { return true; } };   // storage blocked: do not nag
+// A screenshot run (lib/e2e-hidden.js captureQuery: `?capture=1`) never shows the tour: it covered the sidebar in PR shots (owner, 17 Oct 2026).
+export const captureRun = search => new URLSearchParams(search || '').has('capture');
 export const markSeen = storage => { try { storage.setItem(KEY, 'done'); } catch { /* ignore */ } };

@@ -1,7 +1,8 @@
 // An e2e run keeps the app's windows hidden and out of focus; a user never gets that.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {test} from 'node:test';
-import {hiddenRun, hideWindows} from '../lib/e2e-hidden.js';
+import {captureQuery, hiddenRun, hideWindows} from '../lib/e2e-hidden.js';
 import {browserCommand} from '../lib/browser-launch.js';
 
 const fakes = () => {
@@ -59,4 +60,14 @@ test('a hidden run opens browser tabs in the background', () => {
   const exists = () => true;
   assert.deepEqual(browserCommand(['https://x'], 'darwin', {HOME: '/h'}, exists)[1], ['-a', 'Google Chrome', 'https://x']);
   assert.deepEqual(browserCommand(['https://x'], 'darwin', {HOME: '/h', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1'}, exists)[1], ['-g', '-a', 'Google Chrome', 'https://x']);
+});
+
+test('a screenshot run opens the window marked as a capture; a normal or e2e run does not', () => {
+  // Owner, 17 Oct 2026: the first-launch tour covered the sidebar in PR shots. Every capture tool (shot, ui-shots, screenshots, drawer-shots,
+  // find-card-shots, site-demo, smoke-screens) sets JOB_PILOTTO_SMOKE, so the mark is given here once and the renderer leaves its one-time overlays out.
+  assert.deepEqual(captureQuery({JOB_PILOTTO_SMOKE: '/x/shot.png'}), {capture: '1'});
+  assert.equal(captureQuery({}), undefined);
+  assert.equal(captureQuery({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1'}), undefined);
+  const windowCode = fs.readFileSync(new URL('../lib/main-window.js', import.meta.url), 'utf8');
+  assert.match(windowCode, /loadFile\([^\n]*captureQuery\(\)/, 'the main window passes the capture mark when it loads its page');
 });

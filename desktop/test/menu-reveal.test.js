@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {PROGRESSIVE, load, looks, navOf, nextState, save, stillLocked} from '../renderer/menu-reveal.js';
-import {STOPS, markSeen, seen, stopsFor} from '../renderer/menu-tour.js';
+import {STOPS, captureRun, markSeen, seen, stopsFor} from '../renderer/menu-tour.js';
 
 const read = name => fs.readFileSync(new URL(`../renderer/${name}`, import.meta.url), 'utf8');
 const empty = {revealed: [], opened: []};
@@ -100,4 +100,11 @@ test('the tour: five stops in order, only those on screen, shown once', () => {
   assert.equal(seen(storage), true);
   assert.equal(seen({getItem: () => { throw new Error('blocked'); }}), true);   // blocked storage: never nag
   for (const stop of STOPS) assert.ok(read('index.html').includes(stop.target.startsWith('#') ? `id="${stop.target.slice(1)}"` : `data-view="${stop.target.match(/data-view="([a-z]+)"/)[1]}"`), stop.id);
+});
+
+test('the tour never shows in a screenshot run (owner, 17 Oct 2026: it covered the sidebar in PR shots)', () => {
+  assert.equal(captureRun('?capture=1'), true);
+  assert.equal(captureRun(''), false);
+  assert.equal(captureRun(undefined), false);
+  assert.match(read('pages/menu.js'), /if \(seen\(window\.localStorage\) \|\| captureRun\(window\.location\.search\)/);
 });
