@@ -105,3 +105,15 @@ test('Delete: isolated runs delete from their own file only; the app deletes the
   assert.equal(forget('a b.com; rm', 'darwin', none.exec), false);
   assert.deepEqual(none.calls, []);
 });
+
+test('the twin also reads the one Ready to send owner secret item, read-only, and no other job-pilotto item', () => {
+  const dir = folder(), env = {JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: dir};
+  const {calls, exec} = spy(() => 'real-secret\n');
+  assert.equal(keychain.read('job-pilotto.ready.owner_secret', {env, exec, platform: 'darwin'}), 'real-secret');
+  for (const other of ['job-pilotto.ready.other', 'job-pilotto.anthropic.ready_key', 'job-pilotto.cloudflare.api_token', 'job-pilotto.notion.token-desktop-real']) {
+    const before = calls.length;
+    assert.equal(keychain.read(other, {env, exec, platform: 'darwin'}), null, other);
+    assert.equal(calls.length, before);
+  }
+  assert.equal(keychain.read('job-pilotto.ready.owner_secret', {env: {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_USER_DATA: dir}, exec, platform: 'darwin'}), null);   // an e2e run never reaches it
+});
