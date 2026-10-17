@@ -166,6 +166,14 @@ def merge(path):
         stores.matches.upsert({'url': url, 'title': match['title'], 'company': match.get('company') or '', 'fit': match.get('fit') or 0,
                                'reason': match.get('line') or '', 'status': 'Open'})
         added += 1
+    if added:
+        # The run card in Recent activity (spec §4b): what arrived while this Mac was off, one row of this Mac's own run history. Written directly: the AI ran on our
+        # servers, so none of the run log's own words (cost, warnings) apply here.
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        stores.cron_runs.put({'kind': 'scheduled', 'where': 'cloud', 'status': 'OK', 'started_at': now.isoformat(timespec='seconds'), 'finished_at': now.isoformat(timespec='seconds'),
+                              'progress': [], 'trigger': 'Always on', 'mode': 'scheduled', 'title': f"{now.astimezone().strftime('%Y-%m-%d %H:%M')} · Always on",
+                              'summary': f"{added} new {'job' if added == 1 else 'jobs'} while you were away", 'report': '', 'result': '', 'log': '', 'stats': {'new_jobs': added}})
     return added
 
 

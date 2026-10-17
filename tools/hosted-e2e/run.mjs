@@ -74,9 +74,11 @@ function app(cloud, install) {
     child.on('exit', code => resolve({code, stdout})); });
   const matches = () => JSON.parse(spawnSync(PYTHON, ['-c', 'import json; from src import store_access; print(json.dumps(store_access.open_run().matches.list(), default=str))'], {cwd: ROOT, encoding: 'utf8',
     env: {...process.env, JOB_PILOTTO_STORE: 'sqlite', JOB_PILOTTO_DATA_DIR: path.join(home, 'data'), JOB_PILOTTO_CONFIG_DIR: path.join(home, 'config'), JOB_PILOTTO_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
+  const runs = () => JSON.parse(spawnSync(PYTHON, ['-c', 'import json; from src import store_access; print(json.dumps(store_access.open_run().cron_runs.list(), default=str))'], {cwd: ROOT, encoding: 'utf8',
+    env: {...process.env, JOB_PILOTTO_STORE: 'sqlite', JOB_PILOTTO_DATA_DIR: path.join(home, 'data'), JOB_PILOTTO_CONFIG_DIR: path.join(home, 'config'), JOB_PILOTTO_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
   return (async () => {
     secrets.set(TRIAL_KEY, `JPF1.${install}.${await tokenFor(install, {STATS_SALT: cloud.env.STATS_SALT}, 'ai')}`);
-    return {storage, options: {fetcher}, engine, matches, home};
+    return {storage, options: {fetcher}, engine, matches, runs, home};
   })();
 }
 const due = (cloud, account) => cloud.env.STATS.db.prepare("UPDATE hosted_schedules SET next_run_at = '2000-01-01T00:00:00.000Z' WHERE account = ?").run(account);
@@ -131,6 +133,7 @@ async function main() {
     assert.ok(pulled.ok && pulled.added >= 1, `the app added the matches: ${JSON.stringify(pulled)}`);
     const titles = mac.matches().map(match => match.title);
     assert.ok(titles.some(title => /reliability|platform/i.test(title)), `Jobs shows them: ${titles.join(' | ')}`);
+    assert.deepEqual(mac.runs().map(run => [run.where, run.summary]), [['cloud', `${pulled.added} new ${pulled.added === 1 ? 'job' : 'jobs'} while you were away`]], 'Recent activity has the run card');
     assert.deepEqual(trip.hits, [], 'nothing reached Notion or Telegram');
     log(`4 the app pulled ${pulled.added} into its own store`);
 
@@ -157,6 +160,22 @@ async function main() {
     assert.ok(!/pro launch|offer|upgrade|get pro/i.test(`${notice.subject} ${notice.text}`), `no sales line:\n${notice.text}`);
     assert.deepEqual(trip.hits, [], 'still nothing reached Notion or Telegram');
     log(`6 trial-over paused, notice "${notice.subject}"`);
+
+    // 7. 14 days without the app: the schedule pauses, the notice says to open the app, and opening it resumes (the card's Resume does the same).
+    const third = await app(cloud, 'e2e-install-0003');
+    await turnOn(third.storage, {email: 'kim@example.com', marketing: false}, third.options);
+    const kim = rows(cloud, "SELECT id FROM pro_accounts WHERE email = 'kim@example.com'")[0];
+    cloud.env.STATS.db.prepare("UPDATE hosted_schedules SET last_seen_at = ? WHERE account = ?").run(new Date(Date.now() - 15 * 864e5).toISOString(), kim.id);
+    due(cloud, kim.id);
+    assert.deepEqual((await tick(cloud.env, new Date())).paused, {inactive: 1});
+    const sentBefore = cloud.sent.length;
+    await lifecycle(cloud.env, new Date());
+    const idle = cloud.sent.slice(sentBefore).find(message => message.to === 'kim@example.com');
+    assert.match(`${idle?.subject} ${idle?.text}`, /open the app to resume/i);
+    assert.equal((await schedule(third.storage, third.options)).state, 'paused');
+    await pullInbox(third.storage, third.engine, third.options);   // the app opens: its start-up inbox pull
+    assert.equal((await schedule(third.storage, third.options)).state, 'on', 'opening the app (the inbox pull) resumed it');
+    log('7 inactive pause: notice sent, opening the app resumed');
     log('PASS');
   } finally {
     engine.stop();

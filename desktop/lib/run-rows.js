@@ -6,7 +6,7 @@ import {CRASH_LINE} from './crash-line.js';
 export const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
   weekly: 'weekly', kits: 'kits', tailor: 'tailor', visits: 'visits', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
 // What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
-const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
+const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule', 'Always on': 'schedule'};
 export const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
 // A "Running" row nobody edited for this long lost its job too: a running engine edits it at least every 5 minutes (HEARTBEAT_S,
 // src/notion/cron_runs.py). 7 Oct 2026: a run killed hard (a GitHub force-cancel) cannot close its row and showed as running for 3 h.
@@ -25,7 +25,7 @@ function rowJob(p, mode, summary) {
 // record's `where`), else, on a run from before it, its Run URL (GitHub) or Trigger ("Mac …"). 9 Oct 2026, the storemove e2e: a run made on
 // this Mac read as GitHub on Notion and as nowhere on this Mac's store.
 const placeOf = (written, runUrl, trigger) => {
-  if (['mac', 'github'].includes(written)) return written;
+  if (['mac', 'github', 'cloud'].includes(written)) return written;   // cloud: Always on on our servers (src/hosted_run.py merge)
   return runUrl ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere';
 };
 
@@ -94,5 +94,5 @@ export function fromRecord(row, now = Date.now()) {
   const ok = status !== 'Failed' && status !== 'Running';
   const job = ok && mode === 'add' && row.application ? {pageId: row.application, url: null, title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: stats.new_jobs ?? null, feeds: stats.feeds ?? null, usd: stats.ai_cost_usd || 0,
-    billing: stats.billed_to || null, telegram: !!stats.telegram, result: result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
+    billing: stats.billed_to || null, telegram: !!stats.telegram, result: where === 'cloud' ? summary : result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
 }

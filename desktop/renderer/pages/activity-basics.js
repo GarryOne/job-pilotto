@@ -80,7 +80,7 @@ export const KIND = {search: {icon: '🔎', line: 'search', name: 'Find jobs'}, 
 export const KITS_CARD = new Set(['kits', 'prepare', 'tailor']);   // the runs whose result is a list of jobs on the kits card
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 export const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
-export const WHERE = {github: 'GitHub', mac: 'this Mac'};  // where a run ran, after who started it
+export const WHERE = {github: 'GitHub', mac: 'this Mac', cloud: 'our servers'};  // where a run ran, after who started it
 // The warnings in one plain sentence (the list is one click away).
 export function warningSummary(warnings) {
   // The Anthropic account's spending limit: jobs were left unscored. Said plainly, with what to do.
