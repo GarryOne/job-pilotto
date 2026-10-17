@@ -42,6 +42,36 @@ class PlaybookTest(unittest.TestCase):
         self.assertEqual(service.playbook('lever', base='https://x.test', install='install-12345', post=lambda u, b: {'token': 't'}, get=broken), '')
 
 
+class SiteTokenTest(unittest.TestCase):
+    """site_token: asked once and kept; after a 429 not asked again the same UTC day; offline is asked again (17-18 Oct 2026: the day's tokens ran out)."""
+
+    def test_kept_refused_and_offline(self):
+        import urllib.error
+        with tempfile.TemporaryDirectory() as tmp:
+            path, asks = Path(tmp) / 'tokens.json', []
+            def given():
+                asks.append(1)
+                return 'tok'
+            self.assertEqual(service.site_token('install-1', 'index', given, path=path, today='2026-10-17'), 'tok')
+            self.assertEqual(service.site_token('install-1', 'index', given, path=path, today='2026-10-18'), 'tok')
+            self.assertEqual(len(asks), 1)
+            def refused():
+                asks.append(1)
+                raise urllib.error.HTTPError('u', 429, 'limit', {}, None)
+            for _ in range(5):
+                self.assertEqual(service.site_token('install-1', 'recipes', refused, path=path, today='2026-10-17'), '')
+            self.assertEqual(len(asks), 2, 'one refusal, then quiet for the day')
+            service.site_token('install-1', 'recipes', refused, path=path, today='2026-10-18')
+            self.assertEqual(len(asks), 3, 'asked again the next day')
+            def offline():
+                asks.append(1)
+                raise OSError('offline')
+            service.site_token('install-2', 'report', offline, path=path, today='2026-10-18')
+            service.site_token('install-2', 'report', offline, path=path, today='2026-10-18')
+            self.assertEqual(len(asks), 5, 'offline is not a refusal')
+            self.assertEqual(service.site_token('install-1', 'index', given, path=path, today='2026-10-19'), 'tok', 'the other purposes are kept')
+
+
 if __name__ == '__main__':
     unittest.main()
 

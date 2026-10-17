@@ -16,6 +16,7 @@ import urllib.request
 
 from . import role_kinds
 from .paths import DATA
+from . import service
 from .sources import ats, page_recipes
 
 REGION_NAMES = ('europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote')   # site/src/pool.js REGIONS
@@ -43,11 +44,10 @@ def _mint(base, install):
     request = urllib.request.Request(f'{base}/api/install-token', method='POST',
                                      data=json.dumps({'install': install, 'purpose': 'index'}).encode(),
                                      headers={'User-Agent': ats.USER_AGENT, 'Content-Type': 'application/json'})
-    try:
+    def ask():
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             return str(json.load(response).get('token') or '')
-    except Exception:  # noqa: BLE001 — a missing token only means the website decides
-        return ''
+    return service.site_token(install, 'index', ask)   # kept once given; quiet the rest of the day after a refusal (the download is then tried without)
 
 
 def fresh_of(fresh):
