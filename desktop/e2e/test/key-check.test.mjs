@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {CHECKED_ENGINES, CLAUDE_MODELS, checkKeyAccepted} from '../lib/key-check.mjs';
+import {CHECKED_ENGINES, CLAUDE_MODELS, checkKeyAccepted, checkOtherKeys} from '../lib/key-check.mjs';
 
 const replying = status => async () => ({status});
 
@@ -43,4 +43,18 @@ test('a model the API refuses stops the suite with the model and the API\'s word
   await assert.rejects(checkKeyAccepted({engine: 'api', key: 'k', fetchImpl: refusing(404, 'not_found')}), /\(404\)/);
   await checkKeyAccepted({engine: 'api', key: 'k', fetchImpl: refusing(429, 'rate limited')});
   await checkKeyAccepted({engine: 'openai', key: 'k', fetchImpl: refusing(400, 'never asked: OpenAI has no count_tokens here')});
+});
+
+test('the key of the other family is checked on every run, whichever family runs: a refusal is a printed warning with the API\'s words, never a stop', async () => {
+  const env = {E2E_ANTHROPIC_KEY: 'a', E2E_OPENAI_KEY: 'o'};
+  const refusing = async url => url.endsWith('/count_tokens') ? {status: 400, json: async () => ({error: {message: 'credit balance is too low'}})} : {status: 200};
+  for (const engine of CHECKED_ENGINES) {
+    const lines = [];
+    await checkOtherKeys({engine, env, log: line => lines.push(line), fetchImpl: refusing});
+    assert.equal(lines.length, 1, engine);
+    assert.match(lines[0], engine === 'openai' ? /⚠ preflight: E2E_ANTHROPIC_KEY: the API refused model claude-haiku-5-5 \(400\).*credit balance is too low/ : /preflight: E2E_OPENAI_KEY is accepted/, engine);
+  }
+  const lines = [];
+  await checkOtherKeys({engine: 'openai', env: {}, log: line => lines.push(line), fetchImpl: refusing});
+  assert.deepEqual(lines, ['  preflight: no E2E_ANTHROPIC_KEY here']);
 });
