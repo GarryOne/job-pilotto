@@ -66,3 +66,16 @@ export function floorLinkKind(answer, label, given, { test = false } = {}) {
   const backed = lines.some((line) => linkWords(line).some((word) => wanted.has(word)));
   return backed ? answer : { ...answer, use: 'propose' };
 }
+
+// The figure floor (17 Oct 2026, fill-quality measure: "How many years of experience do you have with AWS?" typed "4 years", the profile says 8 and no line says 4): a number the AI
+// types into a text box must appear in what it was given (profile, answers, CV facts, search, kit) or in the question itself; otherwise it is only proposed and the applicant confirms it
+// once (a wrong typed answer is worse than an empty one). By shape, no words: digit runs only. Left alone: contact and place answers (their own floor), a salary (the code converts it),
+// a written answer (an outline or draft, marked), and any box that is not free text (a number, date or menu is checked by its own control).
+const digitRuns = (text) => String(text || '').match(/\d+/g) || [];
+export function floorInventedFigure(answer, label, given, type, { test = false } = {}) {
+  if (test || answer.use !== 'fill' || answer.value === '' || answer.converted || answer.fact === 'salary') return answer;
+  if (['written', 'legal', 'demographic', 'contact'].includes(answer.category) || ['contact', 'home_location', 'salary'].includes(answer.fact)) return answer;
+  if (!['text', 'textarea'].includes(String(type || ''))) return answer;
+  const known = new Set([...digitRuns(given), ...digitRuns(label)]);
+  return digitRuns(answer.value).every((run) => known.has(run)) ? answer : { ...answer, use: 'propose' };
+}
