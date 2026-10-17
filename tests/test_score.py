@@ -304,6 +304,19 @@ class ScoringProfileTests(unittest.TestCase):
         kept = score.scoring_profile(self.PROFILE)
         self.assertEqual(kept, '# Hard constraints\n- EU citizen\n# Experience\n## SRE — Acme\n- Kubernetes')
 
+    def test_your_details_facts_are_read_even_under_a_links_heading(self):
+        # The owner's Profile (18 Oct 2026): 🛂 / 💶 / 🗣️ sat under "# Links", so the scorer never saw his work permit or languages.
+        profile = ('# Links\n- Medium: x\n## 📎 CV\n- cv.pdf\n## 📇 Contact details\n- Phone: +00 000\n## 🛂 Work eligibility\n- Work permit: B permit\n'
+                   '## 💶 Availability & compensation\n- Notice period: 1 month\n## 🗣️ Languages\n- Languages I can work in: English\n# Experience\n- SRE')
+        self.assertEqual(score.scoring_profile(profile), '## 🛂 Work eligibility\n- Work permit: B permit\n## 💶 Availability & compensation\n- Notice period: 1 month\n'
+                         '## 🗣️ Languages\n- Languages I can work in: English\n# Experience\n- SRE')
+
+    def test_the_fact_sections_are_the_desktop_ones(self):
+        from src import desktop_strategy
+        for _, title in desktop_strategy.DETAILS_SECTIONS:
+            self.assertTrue(score.FACT_SECTION.search(f'🛂 {title}'), title)
+        self.assertFalse(score.FACT_SECTION.search('📇 Contact details'))
+
     def test_a_new_phone_number_rescores_nothing_but_a_new_skill_does(self):
         import sqlite3
         db = sqlite3.connect(':memory:')

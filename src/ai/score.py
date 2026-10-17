@@ -144,6 +144,9 @@ def input_hash(job, facts, profile):
 
 # Profile sections that are about filling forms, not about which jobs fit: editing them must not re-score anything.
 FORM_ONLY = re.compile(r'contact|\blinks?\b|application form answers|📎', re.I)
+# Your details' fact sections (desktop/lib/profile-sections.js SECTIONS, src/desktop_strategy.py DETAILS_SECTIONS): work rights, notice and pay, languages
+# say which jobs fit, so they are read even under a skipped heading (owner's Profile, 18 Oct 2026: they sat under "# Links" and the scorer never saw them).
+FACT_SECTION = re.compile(r'^\W*(work eligibility|availability & compensation|languages)\s*$', re.I)
 
 
 CURRENT_METHOD, PREVIOUS_METHOD = 'Current', 'Previous'  # Job Matches "Scoring method"
@@ -157,7 +160,7 @@ def scoring_profile(profile):
         heading = re.match(r'\s*(#+)\s+(.*)', line)
         if heading:
             depth = len(heading[1])
-            if skipping and depth > level:
+            if skipping and depth > level and not FACT_SECTION.search(heading[2]):
                 continue  # a sub-heading of a skipped section
             skipping, level = bool(FORM_ONLY.search(heading[2])), depth
         if not skipping:
