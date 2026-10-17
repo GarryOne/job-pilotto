@@ -21,7 +21,7 @@ export async function loadExperienceProfile(tab = 'experience') {
   const [boxId, messageId] = BOXES[tab];
   if (!$(boxId)) return;
   const box = $(boxId);
-  await swr('outline:profile', () => window.pilot.textOutline('profile'), {
+  await swr('profile-parts', () => window.pilot.textOutline('profile'), {
     loading: () => box.replaceChildren(loadingCard('Reading your Profile…')),
     paint: (result, kept) => { if (kept || !editing.size) { parts[tab] = profileParts(result.items); draw(tab); } },   // a refresh never redraws a card under edit
     fail: result => message(messageId, `Couldn't read your Profile: ${result?.error || 'try again'}`, 'error'),
@@ -121,7 +121,7 @@ function editor(tab, each) {
     if (!changes.length) { editing.delete(key); draw(tab); return; }
     save.disabled = true;
     const result = await window.pilot.textEdit('profile', changes).catch(error => ({ok: false, error: error.message}));
-    if (result.items) { parts[tab] = profileParts(result.items); keep('outline:profile', {...result, ok: true}); }
+    if (result.items) { parts[tab] = profileParts(result.items); keep('profile-parts', {...result, ok: true}); }
     message(BOXES[tab][1], result.ok ? 'Saved ✓ The next tailored CVs, letters and scores use it.' : result.error, result.ok ? 'ok' : 'error');
     if (result.ok) editing.delete(key);
     if (result.ok || result.items) draw(tab); else save.disabled = false;
