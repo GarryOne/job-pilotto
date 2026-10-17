@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, screen, session, shell, systemPreferences} from 'electron';
 import {aiNameOf, claudeFamily} from './lib/ai/names.js';
 import {takeoverOffered, takeoverOn} from './lib/claude-ready.js';
 import {setPdfReader} from './lib/ai/codex-cli.js';
@@ -89,7 +89,7 @@ import {registerSetupHandlers} from './lib/setup-handlers.js';
 import {registerExtServerHandlers} from './lib/ext-server-handlers.js';
 import {registerBackgroundHandlers} from './lib/background-handlers.js';
 import {createAppNotify} from './lib/app-notify.js';
-import {createAppUpdates} from './lib/app-updates.js';
+import {createAppUpdates} from './lib/app-updates.js'; import {createZoom} from './lib/zoom-handlers.js';
 import {createMainWindow} from './lib/main-window.js';
 import {createAppReminders} from './lib/app-reminders.js';
 import {createCvWindows} from './lib/cv-windows.js';
@@ -105,9 +105,9 @@ let trail = null;  // lib/sentry.js note(): the last steps, attached to the next
 const track = (event, props) => { analytics?.track(event, props); if (event !== 'screen_time' && event !== 'ui_click') trail?.(event, props); };   // usage signals stay out of the crash trail
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
+const zoom = createZoom({screen, getWindow: () => window, getStorage: () => storage, toWindow});   // the window's size, remembered (lib/zoom-handlers.js)
 const {getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, channels} =
-  createAppUpdates({Menu, app, dialog, isDemo: () => DEMO, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window, openExternal: url => shell.openExternal(url)});   // lib/app-updates.js
-
+  createAppUpdates({zoom, Menu, app, dialog, isDemo: () => DEMO, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window, openExternal: url => shell.openExternal(url)});   // lib/app-updates.js
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
 // profile and jobs for screenshots (scripts/screenshots.mjs). Nothing is contacted: no Python, Telegram,
@@ -143,7 +143,7 @@ function restartTelegram() {
   polling = telegram.startPolling(storage, log, undefined, dispatchNote);
 }
 
-const {openNotion, applyTheme, createWindow} = createMainWindow({BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow: () => window, setWindow: value => { window = value; }});   // lib/main-window.js
+const {openNotion, applyTheme, createWindow} = createMainWindow({BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow: () => window, setWindow: value => { window = value; }, getZoom: () => zoom});   // lib/main-window.js
 
 // Every message to the window goes through here: a closed or crashed window is skipped, never a crash.
 function toWindow(...args) {
@@ -272,7 +272,7 @@ function handlers() {
     sharedRead, shell, storage, toWindow, viewCache, getWindow: () => window});   // the Interviews page (lib/interview-handlers.js)
   registerLeadsHandlers({DEMO, aiReady, app, clipboard, ipcMain, log, nativeImage, needsNotion, storage, toWindow});   // lib/leads-handlers.js
   registerSystemHandlers({DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, getWindow: () => window});   // lib/system-handlers.js
-  registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
+  zoom.register(ipcMain); registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
   const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, extensionGate, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});

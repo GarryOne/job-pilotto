@@ -267,14 +267,19 @@
     <button class="nav" data-view="focus"><i data-icon="target"></i>Focus</button>
     <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs<span class="nav-badge nav-count" id="nav-jobs-badge" hidden></span></button>
     <button class="nav" data-view="sessions"><i data-icon="send"></i>Applying<span class="nav-badge" id="nav-applying-badge" hidden></span></button>
-    <button class="nav" data-view="actions"><i data-icon="check"></i>Tasks<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
+    <button class="nav" data-view="actions"><i data-icon="check"></i>Actions<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
     <!-- Interviews and Reports appear when they have something (renderer/menu-reveal.js); Calendar is a tab inside Interviews. All stay in ⌘K. -->
     <button class="nav" data-view="interviews" id="nav-interviews" hidden><i data-icon="mic"></i>Interviews<span class="nav-dot" hidden></span></button>
     <button class="nav" data-view="reports" id="nav-reports" hidden><i data-icon="chart"></i>Reports<span class="nav-dot" hidden></span></button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
-    <button class="nav" data-view="employers"><i data-icon="building"></i>Employers</button>
+    <button class="nav" data-view="employers" id="nav-employers" hidden><i data-icon="building"></i>Employers<span class="nav-dot" hidden></span></button>
     <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
+    <!-- Pages not shown yet, with when they unlock (renderer/menu-reveal.js stillLocked, pages/nav.js): closed by default, its state remembered. -->
+    <div class="nav-more" id="nav-more" hidden>
+      <button class="nav-more-head" id="nav-more-head" aria-expanded="false"><i data-icon="chevron"></i><span id="nav-more-title">More</span></button>
+      <div class="nav-more-list" id="nav-more-list" hidden></div>
+    </div>
     <!-- The Notion pages: in ⌘K (Search & commands), not in the menu. -->
     <div class="notion-links" id="notion-links" hidden></div>
     </div>
@@ -1405,6 +1410,13 @@
               <button data-theme-choice="system">System</button><button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button>
             </div>
             <p class="muted" id="theme-text"></p>
+          </div>
+          <div class="setting panel" id="setting-text-size">
+            <div class="summary-head"><i data-icon="sliders"></i><h3>Text size</h3></div>
+            <div class="segmented" role="group" aria-label="Text size">
+              <button id="text-size-small" data-size-choice="small">Small</button><button id="text-size-default" data-size-choice="default">Default</button><button id="text-size-large" data-size-choice="large">Large</button>
+            </div>
+            <p class="muted" id="text-size-text"></p>
           </div>
         </div>
         <div class="settings-page" data-settings-page="advanced" hidden>

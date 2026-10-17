@@ -8,7 +8,7 @@ import {createUpdateChannel} from './update-channel.js';
 import {log as appLog, logFile} from './log.js';
 
 export function createAppUpdates(ctx) {
-  const {Menu, app, dialog, getStorage, getTelemetry, toWindow, track, getWindow, isDemo = () => false, openExternal = () => {}} = ctx;
+  const {Menu, app, dialog, getStorage, getTelemetry, toWindow, track, getWindow, isDemo = () => false, openExternal = () => {}, zoom = null} = ctx;
   const storage = {settings: () => getStorage().settings(), saveSettings: patch => getStorage().saveSettings(patch)};   // storage is made after this runs: every use goes through the getter
   let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
   let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
@@ -68,7 +68,7 @@ export function createAppUpdates(ctx) {
     Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
       checkForUpdates: checkForUpdatesNow, channel: getStorage() ? channels.current() : 'stable', pickChannel: FROM_SOURCE ? null : pickChannel,   // built once before storage exists, then again
       sendFeedback: () => { if (getWindow() && !getWindow().isDestroyed()) { getWindow().show(); toWindow('openFeedback'); } },
-      find: what => toWindow('find', what)})));
+      find: what => toWindow('find', what), zoom})));
   }
 
   // Setup funnel (lib/setup-funnel.js): the furthest step each install reached, sent at once so a quit mid-setup still counts.
