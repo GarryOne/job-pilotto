@@ -34,9 +34,10 @@ class AutoPullTest(unittest.TestCase):
         if repo == self.other:
             git(repo, 'push', '-q', 'origin', 'main')
 
-    def run_pull(self):
+    def run_pull(self, now=None):
         env = {**os.environ, 'JP_AUTOPULL_REPO': str(self.repo), 'JP_AUTOPULL_LOG': str(self.tmp / 'log'),
-               'JP_AUTOPULL_STATE': str(self.tmp / 'state'), 'JP_AUTOPULL_NOTIFY_FILE': str(self.notices)}
+               'JP_AUTOPULL_STATE': str(self.tmp / 'state'), 'JP_AUTOPULL_NOTIFY_FILE': str(self.notices),
+               'JP_AUTOPULL_NOW': str(1_000_000 + (now or 0))}
         subprocess.run(['bash', str(SCRIPT)], check=True, env=env, capture_output=True)
         return self.notices.read_text().splitlines() if self.notices.exists() else []
 
@@ -76,25 +77,69 @@ class AutoPullTest(unittest.TestCase):
         self.assertEqual(git(self.repo, 'rev-parse', 'HEAD'), git(self.origin, 'rev-parse', 'main'))
         self.assertEqual((self.repo / 'scratch.txt').read_text(), 'mine')
 
-    def test_the_class_of_unsafe_states_is_skipped_and_said_once(self):
-        before = git(self.repo, 'rev-parse', 'HEAD')
-        (self.repo / 'README.md').write_text('edited by the owner')
+    # Every state auto-pull can meet that is not "clean main": (name, setup, healed, reason). healed = ends on main at origin/main by itself;
+    # otherwise HEAD stays put and the owner hears about it once it lasts 10 minutes, then hourly (17 Oct 2026: detached HEAD sat 80 minutes unsaid).
+    def cases(self):
+        r = self.repo
+        def detach(): git(r, 'switch', '-q', '--detach')
+        def edit(): (r / 'README.md').write_text('edited by the owner')
+        def local_commit(): self.commit('local.txt', 'local', repo=r)
+        def detached_with_commit(): detach(); local_commit()
+        def detached_edit(): detach(); edit()
+        def detached_untracked(): detach(); (r / 'scratch.txt').write_text('mine')
+        def detached_no_main(): detach(); git(r, 'branch', '-q', '-D', 'main')
+        def detached_rebase(): detach(); (r / '.git' / 'rebase-merge').mkdir()
+        def other_branch(): git(r, 'switch', '-q', '-c', 'other')
+        def merge_in_progress(): (r / '.git' / 'MERGE_HEAD').write_text(git(r, 'rev-parse', 'HEAD') + '\n')
+        def offline(): git(r, 'remote', 'set-url', 'origin', str(self.tmp / 'gone.git'))
+        return [
+            ('detached on an old main commit', detach, True, None),
+            ('detached, untracked files only', detached_untracked, True, None),
+            ('detached with a local commit', detached_with_commit, False, 'has commits origin/main lacks'),
+            ('detached with an edited tracked file', detached_edit, False, 'modified tracked files'),
+            ('detached and no local main', detached_no_main, False, 'no local main'),
+            ('detached during a rebase', detached_rebase, False, 'rebase-merge is in progress'),
+            ('another branch', other_branch, False, 'on branch other'),
+            ('modified tracked file on main', edit, False, 'modified tracked files'),
+            ('local commit on main', local_commit, False, 'not a fast-forward'),
+            ('merge in progress', merge_in_progress, False, 'MERGE_HEAD is in progress'),
+            ('fetch fails', offline, False, 'fetch failed'),
+        ]
+
+    def test_every_state_either_heals_or_warns_after_ten_minutes_then_hourly(self):
+        for i in range(len(self.cases())):
+            self.setUp()
+            name, setup, healed, reason = self.cases()[i]
+            with self.subTest(name):
+                self.commit('docs/c.md', 'c')   # origin is ahead: there is something to pull
+                setup()
+                head = git(self.repo, 'rev-parse', 'HEAD') if reason != 'no local main' else None
+                self.run_pull(0)
+                if healed:
+                    self.assertEqual(git(self.repo, 'symbolic-ref', '--short', 'HEAD'), 'main')
+                    self.assertEqual(git(self.repo, 'rev-parse', 'HEAD'), git(self.origin, 'rev-parse', 'main'))
+                    self.assertFalse((self.tmp / 'state').exists())
+                    continue
+                if head: self.assertEqual(git(self.repo, 'rev-parse', 'HEAD'), head, 'never moved')
+                self.assertIn(reason, (self.tmp / 'state').read_text())
+                self.assertEqual(self.run_pull(300), [], 'quiet before 10 minutes')
+                warned = self.run_pull(660)
+                self.assertEqual(len(warned), 1, 'one notice at 10 minutes')
+                self.assertIn("isn't updating", warned[0]); self.assertIn(reason, warned[0]); self.assertIn('Fix:', warned[0])
+                self.assertEqual(len(self.run_pull(1260)), 1, 'not again within the hour')
+                self.assertEqual(len(self.run_pull(660 + 3600)), 2, 'again after an hour')
+
+    def test_a_heal_never_discards_the_edit_and_a_resolved_skip_resets_the_clock(self):
         self.commit('docs/c.md', 'c')
-        first, second = self.run_pull(), self.run_pull()
-        self.assertEqual(git(self.repo, 'rev-parse', 'HEAD'), before, 'a dirty tree is never touched')
+        (self.repo / 'README.md').write_text('edited by the owner')
+        self.run_pull(0)
         self.assertEqual((self.repo / 'README.md').read_text(), 'edited by the owner')
-        self.assertEqual(len(second), len(first), 'the same skip is said once')
-        self.assertIn('modified tracked files', first[-1])
         git(self.repo, 'checkout', '-q', 'README.md')
-        git(self.repo, 'switch', '-q', '-c', 'other')
-        self.assertIn('on branch other', self.run_pull()[-1])
-        git(self.repo, 'switch', '-q', 'main')
-        git(self.repo, 'switch', '-q', '--detach')
-        self.assertIn('detached HEAD', self.run_pull()[-1])
-        git(self.repo, 'switch', '-q', 'main')
-        self.commit('local.txt', 'local', repo=self.repo)
-        self.assertIn('not a fast-forward', self.run_pull()[-1])
-        self.assertNotEqual(git(self.repo, 'rev-parse', 'HEAD'), git(self.origin, 'rev-parse', 'main'))
+        self.run_pull(100)   # healthy again: pulls and ends the streak
+        self.assertFalse((self.tmp / 'state.since').exists())
+        self.commit('docs/d.md', 'd')
+        (self.repo / 'README.md').write_text('edited again')
+        self.assertFalse([n for n in self.run_pull(700) if "isn't updating" in n], 'the clock restarted at the new streak')
 
 
 if __name__ == '__main__':
