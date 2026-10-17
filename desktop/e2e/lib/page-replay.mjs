@@ -102,7 +102,7 @@ export async function judgeCase(item, scope) {
     for (const one of [...pending]) if (await one.check(one.arg)) pending.splice(pending.indexOf(one), 1);
     if (pending.length) await wait(500);
   }
-  if (!Object.keys(checks).some(kind => (expect[kind] || []).length)) await watchWindow(page, all, deadline);   // only "must not happen" checks: watch the window, but end it when the fill has finished and the page went quiet
+  if (!Object.keys(checks).some(kind => (expect[kind] || []).length)) (windowMode() === 'quick' ? watchWindow(page, all, deadline) : wait(Math.max(0, deadline - Date.now())));   // only "must not happen" checks: watch the window, but end it when the fill has finished and the page went quiet
   for (const left of pending) failures.push(`${left.kind}: ${left.arg}`);
   const readings = await falseReadings(item, {page, mine}, {deadline});   // truth and agreement at the case's end (lib/replay-truth.mjs): a false reading fails every case
   failures.push(...readings.failures);
@@ -142,7 +142,10 @@ export async function judgeCase(item, scope) {
   return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, truth: readings.counts, moves: () => movesFromRequests(mine()), repairs: () => repairsFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
 }
 
-// The window a case with only "must not happen" checks is watched for. It ends early, on the real signal, once the page's fill state has left "running" (done/error/no-form: written by
+// JP_REPLAY_WINDOW: 'quick' (a pull request's page cases: .github/workflows/page-cases.yml) ends the window early; anything else is 'full', the whole window (main, the daily run, a local run).
+export const windowMode = () => (process.env.JP_REPLAY_WINDOW === 'quick' ? 'quick' : 'full');
+
+// The window a case with only "must not happen" checks is watched for. In 'quick' mode it ends early, on the real signal, once the page's fill state has left "running" (done/error/no-form: written by
 // the hand-off fill) and no request but the panel's repeated report has come for `quietMs` (12 s: the extension's longest idle wait before it acts again is 8 s, "no form came", cookie-banner-links-1); a page with no fill state (a panel-started fill) is watched the whole window, as before. Never past the deadline.
 export async function watchWindow(page, all, deadline, {quietMs = 12000, minMs = 12000} = {}) {
   const began = Date.now();

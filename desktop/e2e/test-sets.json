@@ -191,6 +191,7 @@
   "replay-time.test.mjs",
   "replay-truth-page.test.mjs",
   "replay-truth.test.mjs",
+  "replay-watch-window.test.mjs",
   "replay-windows.test.mjs",
   "replay.test.mjs",
   "repo-counts.test.mjs",
