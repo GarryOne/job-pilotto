@@ -12,6 +12,7 @@ import {LIMITS, inspect} from '../lib/uicheck.mjs';
 import {isSafe, probePage} from '../lib/interact.mjs';
 import {createVariation} from '../lib/variation.mjs';
 import {describe, planWalk} from '../lib/wander.mjs';
+import {goView} from '../lib/go-view.mjs';
 
 export const name = 'wander';
 export const keepGoing = true;
@@ -44,7 +45,7 @@ export async function run(ctx) {
   // A modal dialog left open by an earlier step covers the menu, as it should: a person closes it (Escape) and goes on. A dialog that does not close that way is the finding.
   const goto = async view => {
     if (!await hasNav()) return;
-    const click = () => ctx.page.click(`.nav[data-view="${view}"]`, {timeout: 5000});
+    const click = () => goView(ctx.page, view, {timeout: 5000});
     try { await click(); } catch (error) {
       if (!await ctx.page.locator('dialog[open]').count()) throw error;
       await ctx.page.keyboard.press('Escape');

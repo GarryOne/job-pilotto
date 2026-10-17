@@ -13,6 +13,7 @@ import {settle} from '../lib/app.mjs';
 import {VIEWS} from '../lib/uicheck.mjs';
 import {measureRecall, recallFindings} from '../lib/recall.mjs';
 import {lateShiftFindings, nowInPage, shiftsIn, watchShifts} from '../lib/shift.mjs';
+import {goView} from '../lib/go-view.mjs';
 
 export const macos = true;   // runs on a macOS runner: pixels, fonts and window sizes: judged on the Mac people use (lib/plan.mjs runnerOf)
 export const name = 'interactions';
@@ -52,7 +53,7 @@ export async function run(ctx) {
   await page.evaluate(watchShifts);
   for (const view of VIEWS) {
     await ctx.run(`${view}: stays still once it has loaded`, async () => {
-      await page.click(`.nav[data-view="${view}"]`);
+      await goView(page, view);
       await settle(page);
       const since = await page.evaluate(nowInPage);
       await page.waitForTimeout(STILL_MS);
@@ -70,7 +71,7 @@ export async function run(ctx) {
     await ctx.run(`${view}: every safe control does something`, async () => {
       await goTo(view);
       await settle(page);
-      const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, arrange: vary.shuffle, reset: async () => { await page.click(`.nav[data-view="${view}"]`); await settle(page); },
+      const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, arrange: vary.shuffle, reset: async () => { await goView(page, view); await settle(page); },
         onFlag: async (_control, flagged) => { const shot = `probe-${view}-${++shots}`; await ctx.session.shot(`ui-${shot}`); for (const item of flagged) item.shot = shot; }});
       all.push(...results.map(item => ({...item, view})));
       ctx.replayPath.pages.push(view);

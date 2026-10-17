@@ -11,6 +11,7 @@ import {finish, snap} from '../lib/layout.mjs';
 import {pickJob} from '../lib/picker.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {answerConfirms, captureExternal, ids, independent} from '../lib/steps.mjs';
+import {goView} from '../lib/go-view.mjs';
 
 export const name = 'interviews';
 const REVIEW_MS = 5 * 60 * 1000;
@@ -30,7 +31,7 @@ export async function run(ctx) {
   const row = id => page.locator(`#iv-saved tr[data-id="${id}"]`);
   const openInterviews = async expected => {
     await page.click('.nav[data-view="focus"]');
-    await page.click('.nav[data-view="interviews"]');
+    await goView(page, 'interviews');
     // A timeout says what the page was showing (the gate, the lock, the window's Notion ids, the stats line): 9 Oct 2026 it said only "Timeout 90000ms".
     if (expected != null) await page.waitForFunction(n => document.querySelectorAll('#iv-saved tr[data-id]').length === n, expected, {timeout: 90000}).catch(async error => {
       const seen = await page.evaluate(() => { const view = document.querySelector('.view[data-view="interviews"]'); return {rows: document.querySelectorAll('#iv-saved tr[data-id]').length,

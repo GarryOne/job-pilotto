@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="plan.css">
+<link rel="stylesheet" href="menu.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
@@ -266,10 +267,10 @@
     <button class="nav" data-view="focus"><i data-icon="target"></i>Focus</button>
     <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs<span class="nav-badge nav-count" id="nav-jobs-badge" hidden></span></button>
     <button class="nav" data-view="sessions"><i data-icon="send"></i>Applying<span class="nav-badge" id="nav-applying-badge" hidden></span></button>
-    <button class="nav" data-view="actions"><i data-icon="check"></i>Actions<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
-    <button class="nav" data-view="calendar"><i data-icon="calendar"></i>Calendar</button>
-    <button class="nav" data-view="interviews"><i data-icon="mic"></i>Interviews</button>
-    <button class="nav" data-view="reports"><i data-icon="chart"></i>Reports</button>
+    <button class="nav" data-view="actions"><i data-icon="check"></i>Tasks<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
+    <!-- Interviews and Reports appear when they have something (renderer/menu-reveal.js); Calendar is a tab inside Interviews. All stay in ⌘K. -->
+    <button class="nav" data-view="interviews" id="nav-interviews" hidden><i data-icon="mic"></i>Interviews<span class="nav-dot" hidden></span></button>
+    <button class="nav" data-view="reports" id="nav-reports" hidden><i data-icon="chart"></i>Reports<span class="nav-dot" hidden></span></button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
     <button class="nav" data-view="employers"><i data-icon="building"></i>Employers</button>
@@ -280,9 +281,11 @@
     <div class="sidebar-bottom">
       <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
       <button class="allowance-chip" id="allowance-chip" hidden aria-live="polite"><span class="allowance-chip-plan" id="allowance-chip-plan"></span><span class="allowance-chip-text" id="allowance-chip-text"></span><span class="allowance-chip-bar"><i id="allowance-chip-fill"></i></span></button>
-      <button class="nav" id="nav-feedback" title="Tell the maker what works and what doesn't"><i data-icon="chat"></i>Send feedback</button>
-      <button class="theme-toggle" id="theme-toggle" title="Switch theme"><i data-icon="moon"></i><span id="theme-toggle-label">Dark theme</span></button>
-      <button class="theme-toggle rail-toggle" id="rail-toggle" title="Collapse the menu"><i data-icon="collapse"></i><span id="rail-toggle-label">Collapse menu</span></button>
+      <div class="nav-tools">
+        <button class="nav" id="nav-feedback" title="Send feedback: tell the maker what works and what doesn't" aria-label="Send feedback"><i data-icon="chat"></i><span hidden>Send feedback</span></button>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch theme"><i data-icon="moon"></i><span id="theme-toggle-label" hidden>Dark theme</span></button>
+        <button class="theme-toggle rail-toggle" id="rail-toggle" title="Collapse the menu" aria-label="Collapse the menu"><i data-icon="collapse"></i><span id="rail-toggle-label" hidden>Collapse menu</span></button>
+      </div>
       <button class="palette-hint" id="palette-hint" title="Search every command"><i data-icon="search"></i><kbd>⌘K</kbd><span>Search &amp; commands</span></button>
       <button class="nav-update" id="nav-update" hidden><i data-icon="upload"></i><span id="nav-update-text">Update available</span></button>
       <button class="nav-update" id="nav-restart" hidden><i data-icon="upload"></i><span id="nav-restart-text">Restart</span></button>
@@ -638,6 +641,7 @@
       <header class="view-head jobs-head">
         <div><h1>Calendar</h1><p class="muted subtitle">Your screenings and interviews.</p></div>
       </header>
+      <div class="tabs" role="tablist" aria-label="Interviews" data-iv-tabs></div>
       <div class="cal-layout">
         <section class="card cal-card">
           <div class="cal-bar">
@@ -671,6 +675,7 @@
           <button class="primary with-icon" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded"><i data-icon="mic"></i><span>Record interview</span></button>
         </div>
       </header>
+      <div class="tabs" role="tablist" aria-label="Interviews" data-iv-tabs></div>
       <div class="ss-tips" id="tips-interviews" aria-label="Tips"></div>
       <section class="card iv-recorder" id="iv-recorder" hidden>
         <span class="rec-dot" aria-hidden="true"></span><b>Recording</b><span class="iv-timer" id="iv-timer">00:00</span>

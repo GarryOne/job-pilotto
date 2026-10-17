@@ -8,6 +8,7 @@ import {clearData} from '../lib/start-state.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 import {captureExternal, ids, independent} from '../lib/steps.mjs';
+import {goView} from '../lib/go-view.mjs';
 
 export const name = 'calendar';
 export const env = {TZ: 'Asia/Tokyo'};
@@ -43,7 +44,7 @@ export async function run(ctx) {
   };
   const openCalendar = async () => {
     await page.click('.nav[data-view="focus"]');
-    await page.click('.nav[data-view="calendar"]');
+    await goView(page, 'calendar');
     await backToToday(page);
     await ready(page);
   };
@@ -190,7 +191,7 @@ export async function run(ctx) {
       if (!sameMac) await fastSeed({...ctx, page: other.page, profile: other.profile});
       const zone = await other.page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
       if (zone !== 'Pacific/Honolulu') throw new Error(`the second app runs in "${zone}"`);
-      await other.page.click('.nav[data-view="calendar"]');
+      await goView(other.page, 'calendar');
       await backToToday(other.page);
       await ready(other.page);
       // Acme: 23:30 UTC on (l1 - 1) is 13:30 on that same day in Honolulu (and 08:30 the day after in Tokyo).

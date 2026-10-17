@@ -138,6 +138,7 @@ export function showJobsData(data) {
       toastMessage('Posting taken down', `${job.company ? `${job.company} · ` : ''}${job.title || job.url}: its job board no longer lists it, so it moved to Closed. Your kit is kept.`);
     }
     shared.allJobs = data.jobs;
+    document.dispatchEvent(new Event('menu:refresh'));   // pages/nav.js: Interviews appears with the first application
     const scored = shared.allJobs.filter(job => job.fit != null).length;
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
     const matched = openMatches(shared.allJobs);

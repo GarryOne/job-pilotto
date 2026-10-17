@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {goView} from '../lib/go-view.mjs';
 
 export const name = 'stores';
 export const notion = false;
@@ -32,7 +33,7 @@ const KEY = 'sk-ant-api03-e2e-stores-not-a-real-key-0000000000000000000000000000
 export async function run(ctx) {
   const {page} = ctx;
   // Interviews is a view that asks for Notion in "trying" (Focus shows "Get started" there since 396d94e).
-  const goInterviews = async () => { await page.click('.nav[data-view="interviews"]'); await page.waitForSelector('.view[data-view="interviews"]:not([hidden])'); };
+  const goInterviews = async () => { await goView(page, 'interviews'); await page.waitForSelector('.view[data-view="interviews"]:not([hidden])'); };
   const gateShown = () => page.evaluate(() => !!document.querySelector('.view[data-view="interviews"] .notion-gate-host')?.children.length);
   const settle = async () => { await page.reload(); await page.waitForSelector('.view:not([hidden])', {timeout: 60000}); };
 
@@ -148,7 +149,7 @@ export async function run(ctx) {
     storeCall(ctx, 'insights', 'add', {record: {day: today, category: 'Weekly report', title: 'E2E quiet week', body: '### Change next week\n\n- E2E send the drafted kits', fields: {confidence: 'Low'}}});
     const daily = storeCall(ctx, 'insights', 'add', {record: {day: today, category: 'Timing', title: 'E2E replies come fast', fields: {evidence: 'E2E 3 of 4 within 2 days', action: 'E2E follow up on day 3'}}});
     await settle();
-    await page.click('.nav[data-view="reports"]');
+    await goView(page, 'reports');
     await page.waitForSelector('.view[data-view="reports"]:not([hidden])');
     await page.waitForFunction(() => document.getElementById('reports-body')?.textContent.includes('E2E quiet week'), null, {timeout: 30000})
       .catch(async () => { throw new Error(`Weekly: ${await page.evaluate(() => document.getElementById('reports-body')?.textContent.slice(0, 200))}`); });
@@ -161,7 +162,7 @@ export async function run(ctx) {
     const kept = storeCall(ctx, 'insights', 'list', {}).find(row => row.id === daily.id);
     if (kept?.fields?.feedback !== 'Acting on it' || kept.fields.evidence !== 'E2E 3 of 4 within 2 days') throw new Error(`the store holds ${JSON.stringify(kept?.fields)}`);
     await settle();
-    await page.click('.nav[data-view="reports"]');
+    await goView(page, 'reports');
     await page.click('[data-reports-tab="insights"]');
     await page.waitForFunction(() => [...document.querySelectorAll('#reports-body .segmented button.is-active')].some(button => button.textContent === 'Acting on it'), null, {timeout: 30000})
       .catch(() => { throw new Error('after a reload the feedback is not shown'); });

@@ -11,6 +11,7 @@ import {ensureSetUp} from '../lib/seed.mjs';
 import {VIEWS} from '../lib/uicheck.mjs';
 import {PRICES, usageCost} from '../lib/vision.mjs';
 import {SYSTEM, explore, observePage, replay, stepWords, tools} from '../lib/explore.mjs';
+import {goView} from '../lib/go-view.mjs';
 
 export const name = 'explore';
 export const keepGoing = true;
@@ -40,7 +41,7 @@ export async function run(ctx) {
     click: async i => { await tagged(i).scrollIntoViewIfNeeded({timeout: 2000}).catch(() => {}); await tagged(i).click({timeout: 3000, noWaitAfter: true}); await page.waitForTimeout(700); },
     type: async (i, text) => { await tagged(i).fill(String(text || '').slice(0, 200), {timeout: 3000}); await page.waitForTimeout(300); },
     press: async key => { await page.keyboard.press(key); await page.waitForTimeout(400); },
-    go: async view => { await page.click(`.nav[data-view="${view}"]`, {timeout: 4000}); await settle(page); },
+    go: async view => { await goView(page, view, {timeout: 4000}); await settle(page); },
     readText: () => page.evaluate(() => (document.querySelector('.view:not([hidden])')?.innerText || document.body.innerText || '')),
     errorMark: () => errors.length,
     errorsSince: mark => errors.slice(mark),
