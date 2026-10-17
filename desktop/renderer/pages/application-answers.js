@@ -9,7 +9,8 @@ import {icon} from '../icons.js';
 import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answers-model.js';
 import {outlineTab} from './outline-tab.js';
 import {isStyle} from './letter-style.js';
-import {keyOf, visibleQuestions} from '../question-filter.js';
+import {detailsIn, keyOf, visibleQuestions} from '../question-filter.js';
+import {loadQuestions, questionsNow} from './jobs-questions.js';
 import {fromDetailsLine} from '../answered-from-details.js';
 import {stageAnswer} from '../question-wordings.js';
 import {formatFor, markFor, markOf} from '../question-kind.js';
@@ -20,7 +21,8 @@ const TEXT = 'answers';
 const filters = {query: '', view: 'all'};   // view: all | review | saved
 const opened = new Set();   // rows shown open (answer ids, review keys)
 const drafts = new Map();   // answer id → the value typed; new questions under `new-<n>`: {section, question, value}
-let added = 0, tab = null, rulesOpen = false, verdicts = {}, keptFormats = {}, askedFor = '', showHidden = false;
+let added = 0, tab = null, rulesOpen = false, verdicts = {}, keptFormats = {}, askedFor = '', showHidden = false, queueAsked = false, lastView = null;
+document.addEventListener?.('questions-read', () => lastView?.redraw());
 const kinds = new Map();   // answer id → the kind the person picked ("Answer as"), written with the question
 
 const valueOf = item => drafts.get(item.id) ?? item.value;
@@ -155,7 +157,10 @@ function draw(view, into) {
   for (const key of [...drafts.keys()].filter(k => String(k).startsWith('new-'))) into.append(newQuestion(view, key, list));
 
   // The banner counts what the drawer walks through (the questions, owner 17 Oct 2026: "make the count match the review queue"); website rules stay under Needs review.
-  const asked = shownRows.length;
+  // Your details' unclear fields are in that queue too (owner, 18 Oct 2026: "One queue for all"): the queue's own list, read once if Jobs has not read it yet.
+  lastView = view;
+  if (!questionsNow().read && !queueAsked) { queueAsked = true; loadQuestions().catch(() => {}); }
+  const asked = shownRows.length + detailsIn(questionsNow().list).length;
   if (filters.view === 'all' && asked) {
     const banner = el('div', 'notice qa-banner');
     const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});

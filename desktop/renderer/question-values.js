@@ -2,6 +2,7 @@
 // net or gross), a duration (a notice period), a work status per country, a language level, a range and a link. Each pair reads the text the store keeps and
 // writes it back the same way; text the code cannot read gives empty parts, so the control shows it as it was written and nothing is lost.
 // Pure (no DOM): guarded by test/question-kinds-composite.test.js.
+import {COMPOSITE} from './question-kind.js';
 
 export const CURRENCIES_ALL = ['CHF', 'EUR', 'USD', 'GBP', 'AED', 'AUD', 'CAD', 'SEK'];
 export const PERIODS = ['hour', 'day', 'week', 'month', 'year'];
@@ -60,6 +61,8 @@ export function canonical(kind, value) {
   if (kind === 'language') return LEVELS.find(level => level.toLowerCase() === text.toLowerCase()) || '';
   return kind === 'link' && isLink(text) ? text : '';
 }
+// A typed line kept as written (its "Check" chip on Your details, an item of the review queue: lib/details-review.js): one rule for both.
+export const needsCheck = (kind, value) => COMPOSITE.includes(kind) && Boolean(String(value ?? '').trim()) && !canonical(kind, value);
 
 // An AI-written canonical text keeps the original's meaning: every number appears once, in the value or in the note (no more, no fewer), the note's pieces are
 // copied from the original word for word (pieces are joined with " · "), and a language level is one the original names.

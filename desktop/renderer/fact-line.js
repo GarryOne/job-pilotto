@@ -5,7 +5,7 @@ import {el, pill} from './components.js';
 import {answerControl} from './question-control.js';
 import {COMPOSITE, formatFor} from './question-kind.js';
 import {keyOf} from './question-filter.js';
-import {canonical} from './question-values.js';
+import {needsCheck} from './question-values.js';
 
 const LONG = 60;   // characters: past this a text value wraps in a growing box
 
@@ -27,7 +27,7 @@ export function factRow(key, {label = '', value = '', kind = '', note = ''} = {}
   control.dataset.factValue = key;
   row.dataset.kind = composite ? format.kind : '';
   row.append(name, control);
-  if (composite && value && !canonical(format.kind, value)) row.append(pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}));
+  if (needsCheck(format.kind, value)) row.append(pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}));
   // The words the value does not hold (a rule, a date it was confirmed) sit under it, never in it: folded as "Note for the AI" in a box that grows
   // (owner, 18 Oct 2026: "Folded Note for the AI"; the same fold as Profile → Application answers).
   if (note) {

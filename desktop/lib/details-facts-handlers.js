@@ -3,6 +3,7 @@
 // lib/contact-handlers.js. Guarded by test/details-facts.test.js and test/ipc.test.js.
 import * as sections from './profile-sections.js';
 import {move, openConflicts, resolve} from './profile-move.js';
+import {recheck} from './details-review.js';
 import {claudeAi} from './question-ai.js';
 import * as kinds from './details-kinds.js';
 import * as notes from './details-notes.js';
@@ -38,6 +39,9 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
         log('profile', 'facts moved into Your details', {moved, conflicts: conflicts.length});   // counts, never a value
       } catch (failed) { error = failed.message; log('profile', 'the facts move stopped', {error: failed.message}); }
     }
+    // A Profile moved before "unsure" existed: its lines that stayed are judged once more; the unsure ones join the review queue (lib/details-review.js).
+    const rechecked = await recheck(storage, {ai: ai()}).catch(failed => { log('profile', 'the unsure re-check stopped', {error: failed.message}); return {queued: 0}; });
+    if (rechecked.queued) log('profile', 'unsure lines queued for review', {queued: rechecked.queued});   // a count, never a value
     try {
       const tidy = await kinds.tidy(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the kinds tidy stopped', {error: failed.message}); return {changed: 0}; });
       const split = await notes.split(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the notes split stopped', {error: failed.message}); return {changed: 0}; });

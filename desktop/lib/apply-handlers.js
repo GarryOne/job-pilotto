@@ -11,6 +11,7 @@ import * as github from './github.js';
 import * as pipeline from './pipeline.js';
 import * as questions from './questions.js';
 import * as questionLists from './question-lists.js';
+import * as detailsReview from './details-review.js';
 import {claudeAi} from './question-ai.js';
 import * as review from './review.js';
 import {noteTabMiss} from './tab-expect.js';
@@ -251,7 +252,7 @@ export function registerApplyHandlers(ctx) {
     return {...seen, latest, note: server.staleExtension(seen.version, latest)};
   });
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
-  ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve({list: storage.settings().openQuestions || [], hidden: storage.settings().hiddenQuestions || []}) : questionLists.openShown(storage))
+  ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve({list: [...(storage.settings().openQuestions || []), ...(storage.settings().demoDetailsReview || [])], hidden: storage.settings().hiddenQuestions || []}) : questionLists.openShown(storage))
     .then(({list, hidden, consent = 0, fromDetails = 0}) => ({ok: true, list, hidden, consent, fromDetails}), error => ({ok: false, error: error.message, list: [], hidden: []})));
   ipcMain.handle('jobQuestions', (_, url) => questionLists.jobQuestions(storage, url));
   ipcMain.handle('jobQuestionOnly', (_, question) => (DEMO ? {ok: true} : needsNotion('profile') || questionLists.onlyThisJob(storage, String(question || '')).catch(error => ({ok: false, error: error.message}))));
@@ -263,8 +264,10 @@ export function registerApplyHandlers(ctx) {
   // mark: the kind the window drew it with ({kind, options, list}), written with the first answer of a question that had none (lib/questions.js answer).
   // options.jobOnly (the drawer's "Reuse for matching questions" off): kept with the application that asked (options.company), nowhere else.
   // options.also: the keys of the other wordings of the same question (one item in the queue, renderer/question-filter.js): they get the same answer.
-  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark, options) => needsNotion('profile') || questions.answerAll(storage, [questionKey, ...(Array.isArray(options?.also) ? options.also.map(String).slice(0, 20) : [])], answer, undefined, mark && typeof mark === 'object' ? mark : null,
-    {ai: claudeAi(storage), ...(options?.jobOnly ? {jobOnly: {company: String(options.company || '')}} : {})})
+  // A Your details item of the queue (lib/details-review.js) is answered into its section or Profile line.
+  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark, options) => needsNotion('profile') || (detailsReview.isDetailsKey(questionKey)
+    ? detailsReview.answer(storage, String(questionKey), String(answer ?? ''), {ai: claudeAi(storage)}) : questions.answerAll(storage, [questionKey, ...(Array.isArray(options?.also) ? options.also.map(String).slice(0, 20) : [])], answer, undefined, mark && typeof mark === 'object' ? mark : null,
+    {ai: claudeAi(storage), ...(options?.jobOnly ? {jobOnly: {company: String(options.company || '')}} : {})}))
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // A session's ❓ fact, answered with one tick on the session page: saved to its home (Your details or the standard answers page, lib/answer-home.js).
   ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer, undefined, {ai: claudeAi(storage)}))
