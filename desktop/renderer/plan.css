@@ -3,3 +3,8 @@
 .plan-list li { margin-bottom: var(--sp-1); }
 #plan-body .bar { margin: var(--sp-2) 0; }
 #plan-body .inline { margin: var(--sp-3) 0; }
+/* Settings → Plan with Pro closed: the Free card and the Pro card side by side (one column when narrow); the other cards take the whole row. */
+.settings-page[data-settings-page="license"]:not([hidden]) { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-3); align-items: start; }
+.settings-page[data-settings-page="license"] > :not(.setting) , .settings-page[data-settings-page="license"] > #setting-plan, .settings-page[data-settings-page="license"] > #setting-license-key { grid-column: 1 / -1; }
+.plan-joined { margin: var(--sp-3) 0 0; font-weight: 600; }
+.pro-waitlist-dialog input { width: 100%; }

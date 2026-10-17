@@ -4,7 +4,7 @@
 export const TOPUPS = [{kind: 'topup5', price: '$5', credit: '$2.80'}, {kind: 'topup10', price: '$10', credit: '$5.80'}, {kind: 'topup20', price: '$20', credit: '$11.80'}];
 export const INCLUDED = ['Unlimited applications, no time limit', '$5 of our AI included: enough for about a whole job search', 'Your own AI key: unlimited, nothing counted',
   'Top-ups when you need more AI: $5, $10 or $20, one-time', '14-day refund, any reason'];
-const ALWAYS_ON = 'Always on: new matches every morning, even when your Mac is off';
+export const ALWAYS_ON = 'Always on: new matches every morning, even when your Mac is off';
 export const TOPUP_NOTE = 'Top-ups are one-time: $5 adds $2.80 of AI credit, $10 adds $5.80, $20 adds $11.80 (VAT is included in the price).';
 export const OWN_KEY = 'Your own key is unlimited and saves your AI credit.';
 export const NOTES = {

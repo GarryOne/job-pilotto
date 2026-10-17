@@ -89,12 +89,13 @@ export async function waitlist(request, env) {
 
   const key = `signup:${email}`;
   if (await env.WAITLIST.get(key)) return json(200, {ok: true, already: true});
-  const entry = {email, role, at: new Date().toISOString(), country: request.cf?.country || ''};
-  await env.WAITLIST.put(key, JSON.stringify(entry), {metadata: {at: entry.at, role}});
+  const source = form.source === 'app' ? 'app' : 'web';   // the Plan screen in the Desktop App says "app"; the website form says nothing
+  const entry = {email, role, source, at: new Date().toISOString(), country: request.cf?.country || ''};
+  await env.WAITLIST.put(key, JSON.stringify(entry), {metadata: {at: entry.at, role, source}});
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({chat_id: env.TELEGRAM_CHAT_ID, text: `✈️ Pro early access: ${email}${role ? ` · ${role}` : ''}`})}).catch(() => {});
+      body: JSON.stringify({chat_id: env.TELEGRAM_CHAT_ID, text: `✈️ Pro early access: ${email}${role ? ` · ${role}` : ''}${source === 'app' ? ' · from the app' : ''}`})}).catch(() => {});
   }
   return json(200, {ok: true});
 }

@@ -18,6 +18,8 @@ import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
 import {openSetting, settingsPage, showServicesNow} from './settings.js';
 import {ENGINE_CHOICES} from '../ai-engine-view.js';
+import {openWaitlist} from './plan-waitlist.js';
+import {showsProWaitlist} from '../plan-line.js';
 import {loadStrategy} from './strategy.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
@@ -136,6 +138,8 @@ function paletteCommands() {
       add('Settings', 'I have Pro', 'Add this computer with a code sent by e-mail', 'pro sign in signin code add device computer have', () => { goPlan(); setTimeout(() => $('plan-have-pro')?.click(), 300); });
     }
   }
+  // Pro is not open yet: the Pro card on the Plan page, and its waitlist (pages/plan-waitlist.js).
+  if (showsProWaitlist(shared.licenseState || {}) && !shared.state?.settings?.proWaitlist?.email) add('Settings', 'Join the Pro waitlist', 'Get one e-mail when Pro opens', 'pro waitlist early access upgrade plan price join email', () => { openSetting('license'); setTimeout(openWaitlist, 150); });
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
