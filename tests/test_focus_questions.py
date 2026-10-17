@@ -9,7 +9,7 @@ from src import crash_reporting, focus
 from tests.test_focus import event, row
 
 DSN = 'https://key@o1.ingest.example.test/1'
-SECRET_VALUE = 'https://private.example/jobs/12345?token=abc'
+SECRET_VALUE = 'https://private.example/jobs/12345?token=zqxw'   # never hex: the report's random event id once contained "abc" (flaky, 17 Oct 2026)
 
 
 class Sent:
@@ -45,7 +45,7 @@ class QuestionsToleratesABadLinkTest(unittest.TestCase):
         self.assertIn('dict', body)
         self.assertIn('name,url', body)
         self.assertIn('notion', body)
-        for value in (SECRET_VALUE, 'Jane Doe', 'private.example', 'abc'):
+        for value in (SECRET_VALUE, 'Jane Doe', 'private.example', 'zqxw'):
             self.assertNotIn(value, body, 'the report carries names, never values')
         self.assertEqual(json.loads(body.split('\n')[2])['level'], 'warning')
 
