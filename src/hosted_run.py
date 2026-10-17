@@ -158,7 +158,7 @@ def merge(path):
     -> how many were added. The Mac's store stays the primary copy; the hosted copy is a cache (spec §2)."""
     from . import store_access
     stores = store_access.open_run()
-    added = 0
+    added, lines = 0, []
     for match in json.loads(Path(path).read_text()):
         url = match.get('url') or ''
         if not url or not match.get('title') or stores.matches.get(url):
@@ -166,6 +166,8 @@ def merge(path):
         stores.matches.upsert({'url': url, 'title': match['title'], 'company': match.get('company') or '', 'fit': match.get('fit') or 0,
                                'reason': match.get('line') or '', 'status': 'Open'})
         added += 1
+        clean = lambda text: str(text or '').replace('|', '/').replace('\n', ' ').strip()   # the log line's own separator
+        lines.append(f"New job: {clean(match['title'])} | {clean(match.get('company'))} | {url} | {int(match.get('fit') or 0)}")
     if added:
         # The run card in Recent activity (spec §4b): what arrived while this Mac was off, one row of this Mac's own run history. Written directly: the AI ran on our
         # servers, so none of the run log's own words (cost, warnings) apply here.
@@ -173,7 +175,8 @@ def merge(path):
         now = datetime.now(timezone.utc)
         stores.cron_runs.put({'kind': 'scheduled', 'where': 'cloud', 'status': 'OK', 'started_at': now.isoformat(timespec='seconds'), 'finished_at': now.isoformat(timespec='seconds'),
                               'progress': [], 'trigger': 'Always on', 'mode': 'scheduled', 'title': f"{now.astimezone().strftime('%Y-%m-%d %H:%M')} · Always on",
-                              'summary': f"{added} new {'job' if added == 1 else 'jobs'} while you were away", 'report': '', 'result': '', 'log': '', 'stats': {'new_jobs': added}})
+                              'summary': f"{added} new {'job' if added == 1 else 'jobs'} while you were away", 'report': '', 'result': '',
+                              'log': '\n'.join(['Ran on our servers: no technical log is kept.', *lines]), 'stats': {'new_jobs': added}})   # the New job lines are the run card's items (renderer/new-jobs-card.js)
     return added
 
 
