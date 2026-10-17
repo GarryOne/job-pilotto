@@ -40,6 +40,7 @@ export function openSetting(id) {
   // behind the screen that was open and the click seemed to do nothing.
   if (document.querySelector('.view[data-view="settings"]')?.hidden) openView('settings');
   settingsPage(card.closest('[data-settings-page]')?.dataset.settingsPage || 'overview');
+  if (card.dataset.profilePanel) profileTab(card.dataset.profilePanel);   // a card on a Profile tab (Your details' sections): that tab, not the default
   if (card.classList.contains('conn-panel')) document.querySelectorAll('.conn-panel').forEach(panel => show(panel, panel === card));
   setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
   arrived(card);

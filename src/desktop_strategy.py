@@ -23,12 +23,37 @@ def _readable(fragment):
     return re.sub(r'[.?*+()^$|\\]', '', text).strip()
 
 
+# Your details' sections on the Profile (desktop/lib/profile-sections.js SECTIONS, same titles): facts, not search goals. Strategy shows
+# them read-only and never takes a search value from them (owner, 17 Oct 2026: the minimum salary and the expectation stay apart).
+DETAILS_SECTIONS = (('eligibility', 'Work eligibility'), ('availability', 'Availability & compensation'), ('languages', 'Languages'))
+
+
+def _details_key(heading):
+    """The Your details section a heading names ('## 🛂 Work eligibility' -> 'eligibility'), or ''."""
+    bare = re.sub(r'^\W+', '', heading.lstrip('#').strip()).strip().lower()
+    return next((key for key, title in DETAILS_SECTIONS if title.lower() == bare), '')
+
+
+def _details(profile):
+    """Your details' sections as {key: [{label, value}]}: their "Label: value" lines."""
+    out, current = {key: [] for key, _ in DETAILS_SECTIONS}, ''
+    for line in (profile or '').splitlines():
+        if line.lstrip().startswith('#'):
+            current = _details_key(line)
+            continue
+        label, _, value = line.strip().lstrip('-* ').partition(':')
+        label, value = label.replace('**', '').strip(), value.replace('**', '').strip()
+        if current and label and value:
+            out[current].append({'label': label, 'value': value})
+    return out
+
+
 def _section(profile, word):
-    """The first line under the Profile heading that names `word` (e.g. Compensation), or ''."""
+    """The first line under the Profile heading that names `word` (e.g. Compensation), or ''; never a Your details section."""
     lines, inside = profile.splitlines(), False
     for line in lines:
         if line.lstrip().startswith('#'):
-            inside = word.lower() in line.lower()
+            inside = word.lower() in line.lower() and not _details_key(line)
             continue
         if inside and line.strip():
             return line.strip('- ').strip()
@@ -94,7 +119,7 @@ def strategy(db, tracker=None, stores=None):
             average = round(sum(values) / len(values))
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
     stages = {}
-    insight, compensation, goals, profile = None, '', {}, None
+    insight, compensation, goals, profile, details = None, '', {}, None, _details('')
     def latest_insight():
         """The newest insight in the active store, not the Interviews page's own row (Interview patterns)."""
         found = stores
@@ -106,7 +131,7 @@ def strategy(db, tracker=None, stores=None):
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
         for stage in (url_stages or {}).values():
             stages[stage] = stages.get(stage, 0) + 1
-        goals = _goals(profile)
+        goals, details = _goals(profile), _details(profile)
         compensation = goals.get('minimum_salary') or _section(profile or '', 'compensation') or _section(profile or '', 'salary')
     else:
         rows = _quietly(latest_insight)
@@ -123,7 +148,7 @@ def strategy(db, tracker=None, stores=None):
     # whose Notion is fictional: desktop/lib/pipeline.js), so the demo's goals show.
     if not tracker or (profile is None and local_profile()):
         own_text = local_profile() or ('' if tracker else profile or '')
-        goals = _goals(own_text)
+        goals, details = _goals(own_text), _details(own_text)
         compensation = goals.get('minimum_salary') or _section(own_text, 'compensation')
     stale = 0
     if tracker or profile:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
@@ -161,6 +186,7 @@ def strategy(db, tracker=None, stores=None):
         'digest_min_score': prefs.get('digest_min_score'),
         'remote_jobs': feeds_remote_wanted(search),
         'goals': goals,
+        'details': details,   # Your details' facts, shown read-only ("Edit in Your details")
         'level': levels.level_of(search.get('level')),
         'compensation': compensation,
         'avoid': [f'Requires {language}' for language in prefs.get('disqualifying_languages') or []]

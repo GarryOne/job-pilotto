@@ -1,6 +1,7 @@
 // The setup goals as label/value rows (Target level, Work mode, Minimum salary, Languages you work in): the setup review and the Strategy page
 // draw them alike (owner, 7 Oct 2026). A click on a value or its pencil edits it in place (Enter or click away saves, Esc cancels); a long value
-// is clamped to two lines, with the whole text on hover and while editing. onSave(key, text) null: read-only.
+// is clamped to two lines, with the whole text on hover and while editing. onSave(key, text) null: read-only. fixed: {key: open()} for a tile whose
+// value lives elsewhere (Strategy: Work eligibility and Languages are Your details' facts, owner 17 Oct 2026): shown read-only, "Edit in Your details".
 import {el} from './components.js';
 import {icon} from './icons.js';
 import {goalNote} from './strategy-parts.js';
@@ -8,8 +9,8 @@ import {goalNote} from './strategy-parts.js';
 export const GOAL_TILES = [['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary'],
   ['languages', 'globe', 'Languages you work in']];
 
-export function goalTiles(goals, onSave) {
-  return GOAL_TILES.flatMap(([key, glyph, label]) => {
+export function goalTiles(goals, onSave, {tiles = GOAL_TILES, fixed = {}} = {}) {
+  return tiles.flatMap(([key, glyph, label]) => {
     const term = el('dt', '', icon(glyph));
     term.append(label);
     const box = el('dd', 'goal');
@@ -19,6 +20,15 @@ export function goalTiles(goals, onSave) {
     const value = el('span', 'goal-value', current || '—');
     value.title = current || 'Not set';
     box.append(value);
+    if (fixed[key]) {
+      const line = el('p', 'goal-note goal-elsewhere');
+      const edit = el('button', 'link', 'Edit in Your details');
+      edit.type = 'button';
+      edit.addEventListener('click', fixed[key]);
+      line.append(edit);
+      box.append(line);
+      return [term, box];
+    }
     if (!onSave) return [term, box];
     let noteLine = null;   // added after the pencil: the value and its pencil stay on one line
     if (note) {

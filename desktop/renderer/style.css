@@ -2320,7 +2320,7 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .card-edit .icon { width: 14px; height: 14px; }
 /* Goals: four columns, label over value; label/value rows when narrow. */
 .strategy-page .goals-card .card-head { display: block; }
-.strategy-page .goal-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; margin-top: var(--sp-3); }
+.strategy-page .goal-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; margin-top: var(--sp-3); }
 .strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-top: 0; border-left: 1px solid var(--line); padding: 0 var(--sp-4); }
 .strategy-page .goal-strip dt { padding-top: var(--sp-2); font-weight: 500; font-size: var(--fs-sm); color: var(--muted); }
 .strategy-page .goal-strip dd { padding-bottom: var(--sp-2); flex-wrap: wrap; font-weight: 600; }
@@ -2329,6 +2329,7 @@ button.is-busy { cursor: progress; opacity: .7; }
 .review .goal-rows dd.goal { display: grid; grid-template-columns: minmax(0, max-content) auto; justify-content: start; align-items: start; }
 .goal-note { grid-column: 1 / -1; margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 500; color: var(--warn); }
 .goal-note .link { padding: 0; font-size: inherit; }
+.goal-note.goal-elsewhere { color: var(--muted); }   /* a fact kept in Your details: read here, edited there */
 @media (max-width: 1000px) {
   .strategy-page .goal-strip { grid-template-columns: 170px minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; }
   .strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-left: 0; border-top: 1px solid var(--line); padding: var(--sp-2) 0; }
@@ -2438,6 +2439,7 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .goal-strip dt:nth-of-type(2) { --tone: var(--teal); --tone-soft: var(--teal-soft); }
 .strategy-page .goal-strip dt:nth-of-type(3) { --tone: var(--good); --tone-soft: var(--good-soft); }
 .strategy-page .goal-strip dt:nth-of-type(4) { --tone: var(--info); --tone-soft: var(--info-soft); }
+.strategy-page .goal-strip dt:nth-of-type(5) { --tone: var(--warn); --tone-soft: var(--warn-soft); }
 /* Improve your search, a row still on its way: the row's own shape, greyed (pages/strategy.js placeholderRow). */
 .strategy-page .improve-placeholder .skeleton.tile { width: 32px; height: 32px; border-radius: var(--r-md); }
 .strategy-page .improve-placeholder .skeleton.button.small { width: 110px; height: 30px; justify-self: end; }

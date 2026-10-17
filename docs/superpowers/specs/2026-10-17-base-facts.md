@@ -54,6 +54,6 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] Profile tabs: CV and Your details apart; ⌘K reaches every tab and section; Strategy titled "Search strategy" (proof: desktop/test/profile-tab-split.test.js @24817c7)
 - [x] Your details gains Work eligibility, Availability & compensation, Languages on every store (proof: desktop/test/profile-sections.test.js @134bc4c)
 - [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js @134bc4c)
-- [ ] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart
+- [x] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart (proof: tests/test_desktop.py)
 - [ ] Preferences tab removed; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
 - [ ] One test over every questionnaire screen
