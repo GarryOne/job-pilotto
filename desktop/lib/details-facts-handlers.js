@@ -9,8 +9,11 @@ import {list} from './set-aside.js';
 
 // Demo mode: fictional lines (the screenshots), one "Which is right?".
 const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Switzerland', value: 'allowed, B permit', kind: 'per_country'}, {label: 'United States', value: 'needs visa', kind: 'per_country'}],
-  availability: [{label: 'Notice period', value: '1 month, ends at month-end', kind: 'duration'}, {label: 'Salary expectation, Switzerland', value: '140000 CHF/year gross', kind: 'salary'}, {label: 'Salary expectation, UK', value: 'GBP 100k a year', kind: 'salary'}],
-  languages: [{label: 'English', value: 'native', kind: 'language'}, {label: 'German', value: 'B1', kind: 'language'}]};
+  availability: [{label: 'Target', value: '10000 CHF/month net', kind: 'salary', note: 'Treat as a target, not a posted field.'},
+    {label: 'Salary expectation, UK', value: '120000 GBP/year', kind: 'salary', note: 'Minimum · Confirmed 26 Sep 2026.'},
+    {label: 'Notice period', value: '1 month, ends at month-end', kind: 'duration', note: 'For a start-date field, give a concrete date.'}],
+  languages: [{label: 'English', value: 'B2', kind: 'language'}, {label: 'Romanian', value: 'native', kind: 'language'}, {label: 'Russian', value: 'B1', kind: 'language'},
+    {label: 'Languages I can work in (note)', value: 'No French, German or Italian.'}]};
 const DEMO_WHICH = [{home: 'availability', topic: 'notice period', choices: [{label: 'Notice period', value: '2 months', page: 'profile'}, {label: 'Notice period / earliest start', value: '3 months', page: 'answers'}]}];
 const empty = () => Object.fromEntries(Object.keys(sections.SECTIONS).map(key => [key, []]));
 
@@ -43,7 +46,7 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
     const gate = needsNotion('profile');
     if (gate) return gate;
     try {
-      for (const key of Object.keys(sections.SECTIONS)) if (Array.isArray(facts?.[key])) await sections.save(storage, key, facts[key].map(line => ({label: String(line?.label || ''), value: String(line?.value || ''), ...(kinds.COMPOSITE_KINDS.includes(line?.kind) ? {kind: line.kind} : {})})));
+      for (const key of Object.keys(sections.SECTIONS)) if (Array.isArray(facts?.[key])) await sections.save(storage, key, facts[key].map(line => ({label: String(line?.label || ''), value: String(line?.value || ''), ...(kinds.COMPOSITE_KINDS.includes(line?.kind) ? {kind: line.kind} : {}), ...(String(line?.note || '').trim() ? {note: String(line.note)} : {})})));
       return {ok: true};
     } catch (error) { return {ok: false, error: error.message}; }
   });

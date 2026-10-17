@@ -8,8 +8,9 @@ import {keyOf} from './question-filter.js';
 import {canonical} from './question-values.js';
 
 // key: the section; line: {label, value, kind}; formats: the kinds judged for labels ({[keyOf(label)]: {kind, options}}); onChange(): marks the page dirty.
-export function factRow(key, {label = '', value = '', kind = ''} = {}, formats = {}, onChange = () => {}) {
+export function factRow(key, {label = '', value = '', kind = '', note = ''} = {}, formats = {}, onChange = () => {}) {
   const row = el('label', 'fact-line');
+  if (!label && !kind && key === 'languages') kind = 'language';   // a new line in Languages is a language: its name, then level chips
   const format = formatFor({marked: kind ? {kind} : null, kept: formats[keyOf(label)]});
   const composite = COMPOSITE.includes(format.kind);
   const name = Object.assign(document.createElement('input'), {type: 'text', value: label, placeholder: 'What (e.g. Notice period)'});
@@ -22,10 +23,19 @@ export function factRow(key, {label = '', value = '', kind = ''} = {}, formats =
   row.dataset.kind = composite ? format.kind : '';
   row.append(name, control);
   if (composite && value && !canonical(format.kind, value)) row.append(pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}));
+  // The words the value does not hold (a remark, a date it was confirmed) sit under it, never in it.
+  if (note) {
+    const remark = Object.assign(document.createElement('input'), {type: 'text', value: note, ariaLabel: `${label || 'Answer'}: note`});
+    remark.className = 'fact-note';
+    remark.dataset.factNote = key;
+    remark.addEventListener('input', onChange);
+    row.append(remark);
+  }
   return row;
 }
 
-// -> {label, value, kind}; kind only for a base-fact kind (the others ride on this Mac's judgment, never in the line).
+// -> {label, value, kind, note?}; kind only for a base-fact kind (the others ride on this Mac's judgment, never in the line).
 export function factOf(row) {
-  return {label: row.querySelector('[data-fact-label]').value.trim(), value: String(row.querySelector('[data-fact-value]').value ?? '').trim(), kind: row.dataset.kind || ''};
+  const note = row.querySelector('[data-fact-note]')?.value.trim();
+  return {label: row.querySelector('[data-fact-label]').value.trim(), value: String(row.querySelector('[data-fact-value]').value ?? '').trim(), kind: row.dataset.kind || '', ...(note ? {note} : {})};
 }
