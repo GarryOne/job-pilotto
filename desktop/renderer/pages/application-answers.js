@@ -10,6 +10,7 @@ import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answe
 import {outlineTab} from './outline-tab.js';
 import {isStyle} from './letter-style.js';
 import {keyOf, visibleQuestions} from '../question-filter.js';
+import {fromDetailsLine} from '../answered-from-details.js';
 import {formatFor, markFor, markOf} from '../question-kind.js';
 import {answerControl, kindPicker} from '../question-control.js';
 import {drawRules, input, labelled, newRule, resetRules, reviewRows, select} from './website-rules.js';
@@ -135,7 +136,7 @@ function draw(view, into) {
     const unmarked = candidates.filter(each => !each.item.mark?.kind).map(each => each.item.question);
     Promise.resolve(window.pilot.questionVerdicts(labels, unmarked)).then(result => { if (result?.ok) { verdicts = {...verdicts, ...result.verdicts}; keptFormats = {...keptFormats, ...(result.formats || {})}; view.redraw(); } }).catch(() => {});
   }
-  const {shown: shownRows, hidden: hiddenRows} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
+  const {shown: shownRows, hidden: hiddenRows, fromDetails} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
   const ruleRows = reviewRows(view, filters.query).filter(each => !each.value);
   const reviewCount = shownRows.length + ruleRows.length;
 
@@ -149,7 +150,7 @@ function draw(view, into) {
     const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});
     // The questions are reviewed one at a time in the drawer Jobs opens too (pages/question-review.js): one review flow, two ways in.
     go.addEventListener('click', () => import('./question-review.js').then(review => review.openQuestionReview()));
-    banner.append(el('span', '', `⚠ ${asked} question${asked === 1 ? '' : 's'} need${asked === 1 ? 's' : ''} review`), go);
+    banner.append(el('span', '', `⚠ ${asked} question${asked === 1 ? '' : 's'} need${asked === 1 ? 's' : ''} review`), ...(fromDetails.length ? [el('span', 'muted small', fromDetailsLine(fromDetails.length))] : []), go);
     into.append(banner);
   }
 
@@ -173,10 +174,13 @@ function draw(view, into) {
   // Saved answers: one card, a small header per section, one line per answer.
   const saved = card('Saved answers', 'file-text');
   saved.classList.add('qa-saved');
+  // Base facts live in Your details only (owner, 17 Oct 2026): a row there with no answer here is not repeated as "Not set".
+  const inDetails = new Set(fromDetails.map(each => each.item.id));
+  if (fromDetails.length && filters.view !== 'review') saved.append(el('p', 'muted small qa-from-details', `${fromDetailsLine(fromDetails.length)}: edit them in Your details`));
   if (intro) for (const item of intro.items) saved.append(el('p', 'muted small qa-intro', shown(item.question ? `${item.question}: ${item.value}` : item.value || item.text)));
   let any = false;
   for (const section of list) {
-    const items = section.items.filter(item => item.kind !== 'note' && (filters.view !== 'saved' || !missing(item))
+    const items = section.items.filter(item => item.kind !== 'note' && !(missing(item) && inDetails.has(item.id)) && (filters.view !== 'saved' || !missing(item))
       && matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query}));
     if (!items.length) continue;
     any = true;

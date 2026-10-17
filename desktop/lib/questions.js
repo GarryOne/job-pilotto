@@ -100,6 +100,15 @@ export async function collect(storage, run, company = '', fetcher, reusable = nu
   if (remembered && found.remembered.length) remembered(found.remembered);
   return added;
 }
+// New questions have their own heading (owner, 17 Oct 2026: they were appended at the page's end, inside "# Cover letter style > ## Form-filling time").
+export const QUESTIONS_HEADING = '❓ Questions to answer';
+const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase();
+async function addLines(page, lines) {
+  const heading = (await page.blocks()).find(block => block.type.startsWith('heading') && bare(block.text) === bare(QUESTIONS_HEADING));
+  await page.insertAfter(heading?.id || await page.appendHeading(QUESTIONS_HEADING), lines);
+}
+// A question worded another way is the same one when it has the same topic as a line already on the page (the AI's judgment, kept per question: lib/question-verdicts.js).
+const topicsOf = (storage, labels) => new Set(labels.map(each => verdicts.cached(storage)[key(each)]?.topic).filter(Boolean));
 async function collectNew(storage, run, company, fetcher, reusable, found) {
   // A contact or file field by the shared label meanings too (any language: "Nome", "Currículo"), not only these words.
   const aliases = await sharedMeanings.lookup(storage).catch(() => []);
@@ -110,7 +119,8 @@ async function collectNew(storage, run, company, fetcher, reusable, found) {
   found.labels = wanted.map(field => unmarked(field.label));
   const page = answersPage(storage, fetcher);
   const fresh = [];
-  const known = new Set((await page.blocks()).map(block => key(label(block.text))));
+  const blocks = await page.blocks();
+  const known = new Set(blocks.map(block => key(label(block.text))));
   const formatOf = new Map();
   for (const field of wanted) {
     const k = key(field.label);
@@ -120,13 +130,14 @@ async function collectNew(storage, run, company, fetcher, reusable, found) {
     formatOf.set(unmarked(field.label), formatOfField(field));
   }
   const keep = reusable && fresh.length ? await reusable(fresh) : null;
-  const kept = keep ? fresh.filter(question => keep.has(question)) : fresh;
+  const open = topicsOf(storage, blocks.filter(block => isQuestionLine(block.text)).map(block => parseLine(block).question));
+  const kept = (keep ? fresh.filter(question => keep.has(question)) : fresh).filter(question => !open.has(verdicts.cached(storage)[key(question)]?.topic));
   if (!kept.length) return 0;
   // "Seen twice": what you typed for this question (or its earlier wording) on a form is kept with it (🧠 Form knowledge, lib/learned.js).
   const typed = keep?.from ? await knowledge.notes(storage, fetcher).catch(() => []) : [];
   const typedFor = question => typed.find(note => note.value && [question, ...(keep.from.get(question) || [])].some(each => key(each) === key(note.field)))?.value || '';
   found.remembered = kept.filter(question => typedFor(question));
-  await page.append(kept.map(question => {
+  await addLines(page, kept.map(question => {
     const line = questionLine(question, company, formatOf.get(question)), value = typedFor(question);
     return value ? answeredLine(line, value) : line;
   }));
@@ -174,6 +185,15 @@ export async function answer(storage, questionKey, value, fetcher, mark = null, 
   if (value) await page.setText(block, mark?.kind && !splitMark(answered).marked ? withMark(answered, mark) : answered);
   else await page.remove(block);
   return {ok: true};
+}
+
+// One question asked in several wordings is one item (renderer/question-filter.js .also): the first key's answer decides the result, the others get the same answer
+// and an error on one of them never undoes the first. -> the first key's result.
+export async function answerAll(storage, keys, value, fetcher, mark = null, options = {}) {
+  const [first, ...others] = keys;
+  const result = await answer(storage, first, value, fetcher, mark, options);
+  if (result.ok) for (const each of others) await answer(storage, each, value, fetcher, mark, options).catch(() => {});
+  return result;
 }
 
 // The standard answers page as the app's Standard answers tab shows it: one group per heading, each with its

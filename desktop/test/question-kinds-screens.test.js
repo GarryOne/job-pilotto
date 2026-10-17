@@ -25,7 +25,7 @@ const hasInput = (control, type) => control.querySelectorAll('input').some(input
 const SCREENS = {
   // Jobs' card opens the review drawer (pages/question-review.js): one question at a time; walking the queue draws each one's control.
   'Jobs → Application questions → review drawer': async () => {
-    for (const id of ['questions', 'questions-count', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-panel']) {
+    for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-panel']) {
       const node = globalThis.document.createElement('div');
       node.id = id;
       body.append(node);

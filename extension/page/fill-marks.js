@@ -40,7 +40,7 @@
     frame.classList.add('jobpilotto-review');
     el.title = 'Written by AI: read it before submitting';
     el.setAttribute('data-jobpilotto-ai', '');
-    attention.set(field, clean(label).slice(0, 120));
+    attention.set(field, clean(label).slice(0, 500));
     const clear = event => {
       if (!event.isTrusted) return;
       frame.classList.remove('jobpilotto-review');

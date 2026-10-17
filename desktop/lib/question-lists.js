@@ -7,6 +7,7 @@ import * as jobAnswers from './job-answers.js';
 import {claudeAi} from './question-ai.js';
 import {tidy} from './answers-tidy.js';
 import * as formats from './question-formats.js';
+import {factsOf} from './base-facts.js';
 import {keyOf, visibleQuestions} from '../renderer/question-filter.js';
 import {formatFor, proposalIn} from '../renderer/question-kind.js';
 
@@ -28,16 +29,16 @@ const withFormat = (rows, kept) => rows.map(row => {
 // Jobs → Answer once: {list: shown (a covered question carries .proposal; each row its .format), hidden: [...], usage}.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {
   if (!rows) await tidy(storage, {fetcher}).catch(() => {});   // the junk an older fill saved goes first (lib/answers-tidy.js)
-  const {shown, hidden, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), ai});
+  const {shown, hidden, fromDetails, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), facts: await factsOf(storage, fetcher), ai});
   const kept = await keptFormats(storage, shown, ai);
-  return {list: withFormat(shown, kept), hidden: withFormat(hidden, kept), usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
+  return {list: withFormat(shown, kept), hidden: withFormat(hidden, kept), fromDetails: fromDetails.length, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
 
 // Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions; and the kinds this Mac kept for
 // them ({[keyOf]: {kind, options, list}}), the window drawing each row with formatFor (its store mark first). unmarked: the labels whose line has no mark (the AI judges those once).
 export async function reviewVerdicts(storage, labels, {ai = claudeAi(storage), groups = null, unmarked = labels} = {}) {
   if (!groups) await tidy(storage).catch(() => {});
-  const {verdicts: map, usage} = await verdicts.ensure(storage, labels, {answered: await answeredNow(storage, groups), ai});
+  const {verdicts: map, usage} = await verdicts.ensure(storage, labels, {answered: await answeredNow(storage, groups), facts: await factsOf(storage), ai});
   const kept = await keptFormats(storage, unmarked.map(question => ({question})), ai);
   return {verdicts: Object.fromEntries(labels.map(label => [keyOf(label), map[keyOf(label)]]).filter(([, v]) => v)), usage,
     formats: Object.fromEntries(labels.map(label => [keyOf(label), kept[keyOf(label)]]).filter(([, v]) => v))};
