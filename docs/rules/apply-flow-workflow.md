@@ -15,7 +15,9 @@
 - **Recordings are a debugging tool, not a gate.** A failure (a person's "Report this form", the daily replay, a bake-off row) → record THAT one site once →
   reproduce and bisect offline (`npm run row`, seconds, $0) → fix → **freeze it as a page case** (the PR guard: it never goes stale). **Every bug a replay finds ends as a page case.**
 - **Keep small:** the daily replay ~7 rows (one per kind of form users meet), alert only on a worse outcome; refill and re-record only the rows the daily run flags
-  (a row whose re-record will not reproduce is dropped); the bake-off is a monthly trend; journeys run daily and are **retired on 1 Nov 2026 if they caught nothing real**.
+  (a row whose re-record will not reproduce is dropped); the bake-off is a monthly trend; journeys run daily for the multi-step flows.
+- **Daily set leans on multi-step flows** (owner, 17 Oct 2026): Richemont Workday, signed-in SuccessFactors and the like first, then one row per kind of form; journeys stay for these flows (no 1 Nov cut). Unpinned rows stay recorded: offline replay and bisect still work, they only leave the daily set.
+- **Weekly discovery batch:** ≤ 5 NEW hard sites a week (Workday, SuccessFactors, SAP, Taleo, iCIMS…; ~$0.30), recorded in CI (`record-sites.yml`), replayed offline, what breaks is fixed and each bug is frozen as a page case. By hand from the coordinator unless the owner asks for a weekly schedule. Account-creation flows use per-tenant test accounts the owner creates (Keychain / GitHub secrets); never Submit, no captcha.
 - **Stop:** replays or journeys on PRs; a refill after every merge that changes a prompt (there is none: the daily run starts it for the rows it flags); many pins kept current;
   red runs over AI wording; re-recording forms nobody uses.
 - Why: [why.md](why.md) "Recordings are a debugging tool" (0 real PR catches in ~300 runs, 10 of 37 recordings stale in a week, 1 real catch offline).
