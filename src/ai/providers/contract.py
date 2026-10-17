@@ -10,6 +10,7 @@ limit, not signed in, not installed; every other call would fail the same way), 
 this file in desktop/lib/ai/contract.js. Guarded by tests/test_ai_providers.py.
 """
 from dataclasses import dataclass, field
+import re
 import sys
 
 API, SUBSCRIPTION = 'api', 'subscription'
@@ -38,13 +39,17 @@ class AiLimit(AiError):
 
 def error_facts(error):
     """What the log needs to tell a limit from a bad key or a wrong model, from any provider's error: "HTTP 429 insufficient_quota, model gpt-x, engine openai".
-    Only the status, the code, the model asked for and the engine (stamped by Adapter.create): never the message text, which can echo a key or a prompt."""
+    The status, the code, the model asked for, the engine (stamped by Adapter.create) and, for a refusal with a status, the API's own message cut to 160 characters
+    with anything key-shaped removed (17 Oct 2026: a bare "400 invalid_request_error" could not be told from a spent limit or a bad request)."""
     body = getattr(error, 'body', None)
     body = body.get('error', body) if isinstance(body, dict) else {}
     code = getattr(error, 'code', None) or (body.get('code') or body.get('type') if isinstance(body, dict) else '')
     status = getattr(error, 'status_code', None) or getattr(error, 'ai_status', None)
+    said = (body.get('message') if isinstance(body, dict) else '') or (str(error) if status else '')
+    said = re.sub(r'sk-[\w-]{6,}|Bearer\s+\S+|\b[A-Za-z0-9_-]{32,}\b', '…', ' '.join(str(said).split()))[:160] if status else ''
     parts = [f'HTTP {status}' + (f' {code}' if code else '') if status else (str(code) if code else ''),
-             f'model {error.ai_model}' if getattr(error, 'ai_model', '') else '', f'engine {error.ai_engine}' if getattr(error, 'ai_engine', '') else '']
+             f'model {error.ai_model}' if getattr(error, 'ai_model', '') else '', f'engine {error.ai_engine}' if getattr(error, 'ai_engine', '') else '',
+             f'said "{said}"' if said else '']
     return ', '.join(part for part in parts if part)
 
 
