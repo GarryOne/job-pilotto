@@ -15,6 +15,7 @@
   "net-records-rate-limit.test.mjs",
   "no-local-key.test.mjs",
   "key-check.test.mjs",
+  "folder-free.test.mjs",
   "offline-guard.test.mjs",
   "owner-guard-env.test.mjs",
   "privacy-tripwire.test.mjs",
