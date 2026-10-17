@@ -11,6 +11,7 @@ import {fieldFor} from '../renderer/preferences-model.js';
 import {applyLocations, classify, judgeProfile, resolveConflict} from './locations-move.js';
 import {publishSearchSettings} from './strategy-settings.js';
 import * as backup from './backup.js';
+import {keep} from './set-aside.js';
 
 const SEARCH_FILE = 'config/search.json';
 const KEYS = new Set(['countries', 'cities', 'relocation']);
@@ -71,6 +72,26 @@ export async function resolveLocation(storage, kind, choice, {places = [], deps 
   await write(storage, applyLocations(search, plan.resolved), deps);
   const missing = readBack(storage, plan.resolved);
   if (missing.length) return {ok: false, error: 'It did not save; nothing else changed'};
+  setAsideReplaced(storage, search.locations || {}, readSearch(storage).locations || {});
   storage.saveSettings({locationsConflicts: plan.conflicts});
   return {ok: true};
+}
+
+// A pick that replaced a search list sets the old one aside (never lost): shown with Undo, which writes it back (restoreLocation).
+const LISTS = [['top_tier', 'Preferred locations'], ['country_wide', 'Acceptable locations'], ['abroad', 'Relocation']];
+function setAsideReplaced(storage, before, after) {
+  const kept = new Set(after.search_override || []);
+  keep(storage, LISTS.filter(([key]) => (before[key] || []).length && !same(before[key], after[key]) && !before[key].every(place => kept.has(place)))
+    .map(([key, title]) => ({source: 'locations', title, label: title, value: before[key].join(', '),
+      restore: {key, list: before[key], ...(key === 'abroad' ? {relocation: before.relocation} : {})}})));
+}
+
+// Undo of a set-aside list: written back to the search settings, read back. -> {ok, error}.
+export async function restoreLocation(storage, entry, {deps = null, write = defaultWrite} = {}) {
+  const {key, list, relocation} = entry.restore || {};
+  if (!LISTS.some(([each]) => each === key) || !Array.isArray(list)) return {ok: false, error: 'That list has no place to go back to'};
+  const search = readSearch(storage);
+  const locations = {...search.locations, [key]: list, ...(relocation ? {relocation} : {})};
+  await write(storage, {...search, locations}, deps);
+  return same(readSearch(storage).locations?.[key], list) ? {ok: true} : {ok: false, error: 'It did not save'};
 }

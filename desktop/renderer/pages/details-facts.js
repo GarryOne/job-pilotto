@@ -7,6 +7,7 @@ import {swr} from '../swr.js';
 import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
+import {setAsideRows} from './set-aside.js';
 
 export const KEYS = ['eligibility', 'availability', 'languages'];
 const box = key => document.querySelector(`[data-facts="${key}"]`);
@@ -36,8 +37,9 @@ function draw(sections) {
   }
 }
 
-function drawWhich(conflicts) {
-  showOnTab($('setting-which'), conflicts.length > 0);
+function drawWhich(conflicts, aside = []) {
+  showOnTab($('setting-which'), conflicts.length > 0 || aside.length > 0);
+  $('facts-set-aside').replaceChildren(...setAsideRows(aside, showFacts, text => { $('facts-message').textContent = text; }));
   $('which-list').replaceChildren(...conflicts.map(conflict => {
     const row = el('div', 'chip-row');
     row.append(el('b', '', conflict.topic.replace(/^./, letter => letter.toUpperCase())));
@@ -63,7 +65,7 @@ export async function showFacts() {
       if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
       $('facts-message').textContent = '';
       draw(result.sections || {});
-      drawWhich(result.conflicts || []);
+      drawWhich(result.conflicts || [], result.setAside || []);
     },
     fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
   });

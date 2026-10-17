@@ -4,6 +4,7 @@
 import {el} from '../components.js';
 import {$, message} from './core.js';
 import {shared} from './shared.js';
+import {setAsideRows} from './set-aside.js';
 
 export const KIND_NAMES = {preferred: 'Preferred locations', acceptable: 'Acceptable locations', relocation: 'Relocation'};
 const MODE_WORDS = {no: 'No relocation', yes: 'Yes', unspecified: 'Not specified'};
@@ -49,7 +50,9 @@ export async function loadLocationsWhich() {
   const result = await window.pilot.locationsWhich().catch(error => ({ok: false, error: error.message}));
   const conflicts = result.conflicts || [];
   shared.locationsOpen = conflicts.length > 0;   // ⌘K lists "Which locations are right?" only while one is open
-  card.hidden = !conflicts.length;
+  const aside = result.setAside || [];
+  card.hidden = !conflicts.length && !aside.length;
   message('locations-which-message', result.ok ? '' : result.error || '');
+  $('locations-set-aside').replaceChildren(...setAsideRows(aside, loadLocationsWhich, text => message('locations-which-message', text)));
   $('locations-which-list').replaceChildren(...conflicts.map(conflict => row(conflict, loadLocationsWhich)));
 }
