@@ -1,4 +1,4 @@
-// The owner's five live examples (17 Oct 2026: "pay attention to the field/question format") drawn on EVERY screen that lists open questions: each gets the
+// The owner's live examples (17 Oct 2026: "pay attention to the field/question format"; date + amount added the same day) drawn on EVERY screen that lists open questions: each gets the
 // control of its kind, never a text box for a choice. A new screen that lists them is added to SCREENS (the class, not the case).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -13,9 +13,14 @@ const EXAMPLES = [
   {question: 'Title', mark: {kind: 'single', options: ['Mr', 'Mrs', 'Ms']}, want: 'single'},
   {question: 'Country/Region of Residence', mark: {kind: 'single', options: [], list: 'countries'}, want: 'single'},
   {question: 'Notice period', mark: null, want: 'text'},
+  {question: 'Earliest start date', mark: {kind: 'date', options: []}, want: 'date'},
+  {question: 'What is your earliest start date, and are there any constraints we should be aware of?', mark: {kind: 'date', options: [], constraints: true}, want: 'date'},
+  {question: 'Expected annual salary', mark: {kind: 'amount', options: []}, want: 'amount'},
 ];
 const kindsIn = node => node.querySelectorAll('[data-answer-kind]').map(control => control.dataset.answerKind);
 const isChoice = control => control.tagName === 'SELECT' || control.className.includes('segmented');
+const VALUES = {date: 'date', amount: 'number'};   // a value kind is drawn as its own input, never a plain text box
+const hasInput = (control, type) => control.querySelectorAll('input').some(input => input.type === type);
 
 const SCREENS = {
   // Jobs' card opens the review drawer (pages/question-review.js): one question at a time; walking the queue draws each one's control.
@@ -53,12 +58,18 @@ const SCREENS = {
 };
 
 for (const [name, draw] of Object.entries(SCREENS)) {
-  test(`${name}: each of the five examples gets the control of its kind`, async () => {
+  test(`${name}: each example gets the control of its kind`, async () => {
     const node = await draw();
     assert.ok(node, 'the screen drew its list');
     const kinds = kindsIn(node);
     assert.deepEqual([...kinds].sort(), EXAMPLES.map(each => each.want).sort(), kinds.join(', '));
     const controls = node.querySelectorAll('[data-answer-kind]');
-    for (const control of controls.filter(each => each.dataset.answerKind !== 'text')) assert.ok(isChoice(control), `${control.dataset.answerKind} is a choice, not a text box`);
+    for (const control of controls.filter(each => each.dataset.answerKind !== 'text')) {
+      const kind = control.dataset.answerKind;
+      if (VALUES[kind]) assert.ok(hasInput(control, VALUES[kind]), `${kind} has its own ${VALUES[kind]} input`);
+      else assert.ok(isChoice(control), `${kind} is a choice, not a text box`);
+    }
+    const constraint = controls.find(each => each.querySelectorAll('.segmented').length && each.dataset.answerKind === 'date');
+    assert.ok(constraint, 'a date that asks about constraints offers No constraints / Add constraints');
   });
 }

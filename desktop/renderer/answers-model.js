@@ -26,7 +26,7 @@ export function labelledLine(text) {
   const match = String(text).match(LABELLED);
   return match && plain(match[2] || match[3]) ? {head: match[1], question: plain(match[2] || match[3]), raw: match[4]} : null;
 }
-const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {})} : null);
+const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {}), ...(split.constraints ? {constraints: true} : {})} : null);
 function lineItem(item) {
   const split = splitMark(item.text), line = labelledLine(split.text);
   if (!line) return {id: item.id, kind: 'note', question: '', ...valueOf(item.text), text: item.text, mark: null};
