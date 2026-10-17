@@ -13,6 +13,15 @@
 | Authorised to work in the EU? | Yes, EU citizen |
 | Do you need visa sponsorship? | ❓ to confirm |
 | Willing to relocate | ❓ (only within Switzerland) |
+| Notice period | ❓ |
 
 ## Links
-- GitHub: ❓
+- LinkedIn: linkedin.com/in/alex-morgan
+- GitHub: ❓ optional
+
+## Common questions
+
+| Question | Answer |
+|---|---|
+| How did you hear about us? | Company careers page |
+| Salary expectation, monthly | ❓ |
