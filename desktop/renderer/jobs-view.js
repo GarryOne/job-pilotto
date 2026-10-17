@@ -27,6 +27,18 @@ export function stats(jobs, total, now = Date.now()) {
   };
 }
 
+// Every job count on the Jobs page (the counters, the menu badge's siblings, the Find jobs card) comes from here, so two numbers for the same
+// thing cannot appear (18 Oct 2026: a search said "206 Listed" over "351 Total matches"). `data` is what desktop_jobs.jobs() returns: the loaded
+// rows (a cut list: 200 + every application) and the whole-store figures. Matches = job matches (no applications, no inbound), loaded or not.
+export function jobCounts(data, now = Date.now()) {
+  const loaded = data?.jobs || [], matched = openMatches(loaded);
+  const beyond = data?.total == null ? 0 : Math.max(0, data.total - loaded.length);   // matches the cut list did not load
+  const count = stats(matched, matched.length + beyond, now);
+  count.week += data?.week_beyond || 0;
+  count.high += data?.high_beyond || 0;
+  return {...count, scored: matched.filter(job => job.fit != null).length + (data?.scored_beyond || 0)};
+}
+
 // Applications right now, by their Notion Stage, with the same stage sets as the Focus funnel (src/notion/funnel.py):
 // sent = an outcome stage (not "Applying", a form still being filled); ended = rejected, withdrawn, no answer;
 // in process = screening (Screening, Interview scheduled: often a screening call) or interviews (Interviewing, Offer).

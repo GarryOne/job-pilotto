@@ -151,6 +151,7 @@ class CutListTests(unittest.TestCase):
             result = desktop.jobs(sqlite3.connect(':memory:'), limit=4, notion_jobs=rows)
         self.assertEqual((len(result['jobs']), result['total']), (4, 10))
         self.assertEqual(result['week_beyond'], 3, 'rows 5, 7 and 9 are new and not sent')
+        self.assertEqual((result['scored_beyond'], result['high_beyond']), (6, 6), 'scored and high fit among the rows not loaded')
         self.assertEqual(result['review_beyond'], 6, 'the Jobs badge counts the 6 unsent jobs to review')
 
 
