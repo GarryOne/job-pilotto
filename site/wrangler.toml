@@ -76,6 +76,9 @@ HOSTED_ALWAYS_ON = "off"
 HOSTED_MAX_RUNS_DAY = "2000"         # global cap of hosted runs a day (src/hosted-tick.js); trial runs are capped first by HOSTED_TRIAL_MAX_RUNS_DAY
 HOSTED_TRIAL_MAX_RUNS_DAY = "1500"
 HOSTED_RUN_MICRO = "11000"   # compute debited per finished run, micro-USD: 2x the $0.0055 measured in a container (owner, 17 Oct 2026: "$0.011, keep 2x")
+# Ready to send, phase 1 (src/ready.js, spec docs/superpowers/specs/2026-10-17-ready-to-send.md): "off" = every route answers 404. Secret READY_OWNER = the owner's install id (only that install reaches a route).
+READY_TO_SEND = "off"
+READY_NIGHT_MAX_USD = "1"   # a night's container + AI cost stops the batch here (owner, 17 Oct 2026: a cap per night)
 STRONG_ON = "off"   # "on" once the Workers Paid plan is on: kits/CVs/insights then use the stronger model
 LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports that recur are queued for the private triage (secrets REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
