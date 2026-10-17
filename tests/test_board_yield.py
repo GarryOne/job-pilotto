@@ -77,6 +77,14 @@ class YieldTests(Fixture):
             found_boards.read(SEARCH, [board(n) for n in range(9)], is_relevant=self.relevant)
         self.assertEqual(asked, [f'b{n}.example' for n in range(6)], 'only the boards read before, no new one')
 
+    def test_each_board_read_says_how_far_the_step_is(self):
+        lines = []
+        with mock.patch.object(found_boards, 'read_board', lambda *a, **k: ([], 'empty', None)), \
+                mock.patch('builtins.print', lambda *a, **k: lines.append(' '.join(map(str, a)))):
+            found_boards.read(SEARCH, [board(1), board(2)], is_relevant=self.relevant)
+        self.assertEqual([l.split(' · ')[0] for l in lines if l.startswith('⏳')],
+                         ['⏳ Reading job boards: 0 of 2', '⏳ Reading job boards: 1 of 2', '⏳ Reading job boards: 2 of 2'])
+
     def test_the_kind_of_source_is_kept(self):
         self.read([board(1)], {'b1.example': [job('Controller', 'Amsterdam')]})
         self.assertEqual(board_ideas.load()['boards']['b1.example']['source_kind'], 'general')
