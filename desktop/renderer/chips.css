@@ -1,0 +1,27 @@
+/* Chips: a value from a list (design system, docs/rules/desktop-ui.md "Chips vs pills vs tags"). One component, components.js chip(): .chip-tag
+   (read), .chip-tag.removable (edit, × drops it, input.add adds one), and the pressed filter .chip-button (Jobs → saved views). The older classes
+   below (.chips, .chip.removable) are moved here as they were; new screens use chip(). Guarded by test/chip.test.js (no new chip class). */
+.chips { display: flex; gap: var(--sp-2); margin: var(--sp-1) 0; }
+.chip-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.chip-tag { background: var(--surface-2); border-radius: var(--r-pill); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+.chip-tag.tone-bad { background: var(--bad-soft); color: var(--bad); }
+.chip-tag { display: inline-flex; align-items: center; gap: var(--sp-1); }   /* chip(): the value, then a muted detail ("C1"), then × when removable */
+.chip-tag .chip-detail { color: var(--muted); }
+.chip-tag .chip-detail::before { content: "· "; }
+.chip-tag.removable { padding-right: var(--sp-1); }
+.chip-tag .x { background: transparent; border: 0; padding: 0 var(--sp-1); color: var(--muted); font-size: var(--fs-md); line-height: 1; cursor: pointer; }
+.chip-tag .x:hover { color: var(--bad); }
+/* A removable chip (× drops it) and the small field that adds one: the setup review's lists and Strategy → What you're targeting → Edit. */
+.chip.removable { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: var(--fs-sm); background: var(--sky); }
+.chip.removable .x { background: transparent; border: 0; padding: 0 4px; color: var(--muted); font-size: var(--fs-md); line-height: 1; cursor: pointer; }
+.chip.removable .x:hover { color: var(--bad); }
+.chip.removable.is-added { background: var(--good-soft); }
+input.add { font-size: var(--fs-md); padding: 6px 10px; }
+/* A row of toggle chips that narrow a list (Jobs → saved views): pressed = on, a count beside each label. */
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.chip-button { display: inline-flex; align-items: center; min-height: var(--control-h); gap: var(--sp-2); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--r-pill); padding: 2px var(--sp-3); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
+.chip-button:hover { background: var(--surface-2); }
+.chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }
+.chip-button .chip-count { color: var(--muted); font-size: var(--fs-xs); }
+.chip-button[aria-pressed="true"] .chip-count { color: inherit; }

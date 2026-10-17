@@ -9,6 +9,29 @@ The owner designs by mockup and judges by screenshot. A screen is done when it l
 *and* like the mockup, not when the code works. Before you say a UI change is finished, render it (below) and
 look at it.
 
+## 0. The design system: pick the control from the value (owner, 17 Oct 2026)
+Approved page with Do/Don't pictures: https://claude.ai/artifact/15HyjPkVFpyrVW4FSEMurR · living copy `npm run gallery` · rules and the
+checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawing any value, name its kind and use this row:
+
+| Kind of value | Read view | Edit view |
+|---|---|---|
+| Short text (name, title, city) | the words | text field sized to the value (≤ 40ch) |
+| Long text (motivation) | 3 lines + More | box that grows |
+| Yes / No | "Yes" / "No" | two buttons (segmented) |
+| One of ≤ 3 short options | `chip()` | segmented |
+| One of many (country, age bracket) | the words | a menu (select) |
+| Several from a list (skills, regions) | `chip()` each | chips with × + "Add, then Enter" |
+| Date · Amount · Salary · Duration · Link · Range | formatted ("CHF 140,000 / year, gross", "1 month, ends at month-end") | `answerControl(formatFor({marked: {kind}}))` |
+| Per country (right to work) | `chip(country, {detail: 'Allowed · B permit'})`, `tone: 'bad'` for needs visa | Allowed / Needs visa + permit |
+| Language + level | `chip('English', {detail: 'C1'})` | level buttons A1…native |
+| Note for the AI | muted line with the bot icon, under its value | folded "Note for the AI" |
+| Missing | `pill('Not set', 'warn')` + its action | the kind's control, empty |
+
+- Prose that holds several values (a salary per country, "No French or Italian") is split: values into their controls, the rest into a note.
+- Many values of one kind (salaries per country) read as a small `.data-table`, not a box each.
+- Chips show what a person would write: the screen turns syntax into meaning first ("Tax" in quotes → the group "Whole word only"; "Zurich,Zurich,Switzerland · de" → "Zurich, Switzerland · German").
+- After rendering, `npm run shot` prints any saved value cut by its box: fix each one. Look at the result in light and dark (`JOB_PILOTTO_THEME=light npm run shot -- …`, then `=dark`).
+
 ## 1. Look first
 - Reference screenshots of today's screens: `desktop/docs/ui/*.jpg` (fictional demo data). Open the one closest
   to what you build and match it: spacing, density, card style, where actions sit.
@@ -20,7 +43,7 @@ look at it.
 - Refresh the reference images only after big UI changes, about once a day, or when the owner asks:
   `npm run ui-shots` (all, 4 at a time, ~15 s) or `npm run ui-shots -- session jobs` (only those). Commit only the
   images of screens that changed.
-- Tokens and components: `desktop/renderer/tokens.css`, `components.js`/`components.css`, `npm run gallery`.
+- Tokens and components: `desktop/renderer/tokens.css`, `components.js`/`components.css` (`chip()` for values, `pill()` for status, `tag()` for labels; chip styles in `chips.css`), `npm run gallery`.
   Only `var(--…)` values: `desktop/test/design.test.js` fails on a raw colour, radius, font size or font family.
 
 | Screen | File | Shows |

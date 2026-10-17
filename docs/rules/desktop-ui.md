@@ -3,6 +3,24 @@
 Read before building or changing a screen in `desktop/renderer`. Also read the skill `ui-look-and-feel`. Linked from CLAUDE.md.
 Why each rule exists: [why.md](why.md#desktop-ui).
 
+## Design system (owner, 17 Oct 2026): read first
+The approved page: https://claude.ai/artifact/15HyjPkVFpyrVW4FSEMurR (Do/Don't from real screens, every kind's read and edit view, contrast).
+Living copy: `npm run gallery` (sections "Chips" and "Value → control", drawn by the screens' own code). How to apply it: skill **ui-look-and-feel** §0.
+- **The value's kind picks the control.** Short text → a field sized to it; long text → a box that grows; yes/no → two buttons; one of ≤ 3 short → segmented;
+  one of many → a menu; several → chips with × + Add; date, amount, salary, duration, link, per country, language + level, range → `answerControl(formatFor(...))`
+  (`renderer/question-control.js`). Never prose in a text box: a value is split into its parts, the rest is a note.
+- **Read views are rows and chips, never prose bullets.** Label → value rows (`.summary-rows`), several values as chips, a missing one as `pill('Not set', 'warn')` with its action.
+- **A note for the AI** (a date it was confirmed, "use the closest option") is a muted line under its value, never inside it; edit: a folded "Note for the AI".
+- **Chips are values, pills are status, tags are labels.** `chip(text, {detail, tone, onRemove})` (components.js) shows a value as a person writes it: no quotes,
+  /regex/, codes or stored comma lists (show their meaning: a group "Whole word only"); duplicates folded. No new chip class (14 existed; they move to chip()).
+- **Nothing cut.** A saved value always fits its box; a row title is one line with … and the full text on hover; a question two lines. Prose ≤ 72 characters wide.
+- **Spacing from the scale:** label → field 4, field → field 12, card padding 16 (a settings card 24), card → card 16, section → section 32. Two columns only for short fields.
+- **Card or section:** a card is one topic you read or act on; never a card in a card (inside: rows, dividers, a table). One primary button per card.
+- **Contrast AA in both themes:** text 4.5:1, a field's edge 3:1. A filled accent under white text uses `--signal-solid`.
+- **What fails a change:** `desktop/test/contrast.test.js` (token pairs, both themes), `text-fields.test.js` (a new free text box: use the typed control, or
+  raise the file's count in `text-fields-allowed.json` with the reason), `chip.test.js` (raw chip text, a new chip class), `design.test.js` (raw values);
+  `npm run shot` prints every saved value cut by its box; `tools/pr-body.sh` refuses a desktop-window PR without the 6 **Design checks** ticked.
+
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
   uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an imported binding is read-only.

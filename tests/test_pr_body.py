@@ -89,7 +89,14 @@ class PrBodyTest(unittest.TestCase):
             git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a screen')
             result = run(ok)
             self.assertEqual(result.returncode, 2, screen); self.assertIn('no before/after image', result.stderr)
-            self.assertEqual(run(ok + '\n| What changed | Before | After |\n|---|---|---|\n| The card shows the start date | ![before](https://x/b.png) | ![after](https://x/a.png) |\n').returncode, 0, screen)
+            images = '\n| What changed | Before | After |\n|---|---|---|\n| The card shows the start date | ![before](https://x/b.png) | ![after](https://x/a.png) |\n'
+            if screen.startswith('desktop/renderer/'):
+                # The desktop window also carries the 6 design checks, ticked (owner, 17 Oct 2026: the design system).
+                result = run(ok + images)
+                self.assertEqual(result.returncode, 2, screen); self.assertIn('0 of the 6 design checks', result.stderr)
+                self.assertEqual(run(ok + images + '\n**Design checks**\n' + '- [x] a\n' * 5 + '- [ ] b\n').returncode, 2, 'five ticked of six is refused')
+                images += '\n**Design checks**\n' + '- [x] checked\n' * 6
+            self.assertEqual(run(ok + images).returncode, 0, screen)
             self.assertEqual(run(ok + 'No screenshots: an API route, nothing drawn changed\n').returncode, 0, screen)
         git(self.repo, 'reset', '-q', '--hard', self.base)
         (self.repo / 'site' / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'site' / 'test' / 'a.test.js').write_text('x\n')

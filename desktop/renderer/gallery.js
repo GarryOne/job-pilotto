@@ -1,5 +1,6 @@
 // The component gallery: every token and component, built with the same code the screens use.
 import {fillIcons, icon} from './icons.js';
+import {chipRow, kindsTable} from './gallery-kinds.js';
 import {cardHead, choiceCards, el, moreButton, notionBenefits, notionGate, numberStrip, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
@@ -13,7 +14,7 @@ const token = name => getComputedStyle(document.documentElement).getPropertyValu
 
 // Colours: each token's swatch, name and value (read from tokens.css, so this can't go stale).
 const COLOURS = ['bg', 'surface', 'surface-2', 'ink', 'ink-2', 'muted', 'line', 'line-strong', 'navy', 'navy-active', 'on-navy-2',
-  'signal', 'signal-ink', 'signal-soft', 'teal', 'teal-soft', 'amber', 'good', 'good-soft', 'warn', 'warn-soft',
+  'signal', 'signal-solid', 'signal-ink', 'signal-soft', 'field', 'field-line', 'teal', 'teal-soft', 'amber', 'good', 'good-soft', 'warn', 'warn-soft',
   'bad', 'bad-soft', 'info', 'info-soft', 'violet', 'violet-soft'];
 section('Colours', 'tokens.css → var(--name)', row(...COLOURS.map(name => {
   const swatch = el('div', 'g-swatch');
@@ -54,6 +55,9 @@ section('Pills', "pill(text, tone, {dot}) — tones: " + TONES.join(', '),
 section('Tags', 'tag(text, {title, onClick, busy})', row(
   tag('Kubernetes'), tag('Observability'), tag('+3', {title: 'AWS, Go, Linux'}), tag('📝 Kit', {onClick: () => {}}),
   tag('📄 Tailored CV', {onClick: () => {}}), tag('✂️ Tailoring CV…', {busy: true})));
+
+section('Chips', 'chip(text, {detail, tone, onRemove}): a value from a list, written as a person writes it (no quotes, codes or regex). A pill is a status, a tag a label', chipRow());
+section('Value → control', 'The kind of value picks the control (docs/rules/desktop-ui.md). Edit views are answerControl(formatFor(...)) from question-control.js', kindsTable());
 
 section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, amber glow from the top-left, thin amber edge. The one thing on a page that says "start here"', (() => {
   const box = document.createElement('div');

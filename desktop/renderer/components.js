@@ -2,6 +2,7 @@
 // pills, tags, tiles and ⋯ menus with these, so the same thing looks and behaves the same everywhere;
 // gallery.html shows every one of them side by side.
 import {icon} from './icons.js';
+import {isRawValue} from './chip-text.js';
 import {GATE_FOOTNOTE, GATE_TITLE, NOTION_BENEFITS} from './notion-benefits.js';
 
 // el(tag, class, content): content is text, or a node (an icon, another element) that is appended, never
@@ -25,6 +26,26 @@ export function tag(text, {title = '', onClick = null, busy = false} = {}) {
   const node = el(onClick ? 'button' : 'span', `ui-tag${onClick ? ' is-action' : ''}${busy ? ' is-busy' : ''}`, text);
   if (title) node.title = title;
   if (onClick) node.addEventListener('click', onClick);
+  return node;
+}
+
+// Chip: one value from a list (a skill, a place, a language and its level). Design system (docs/rules/desktop-ui.md): a chip is a value, a pill a status,
+// a tag a label. text: the value as a person writes it, never syntax (quotes, /regex/, codes: the screen turns those into meaning first, e.g. a group
+// "Whole word only"); such text is marked data-raw (renderer/chip-text.js) and the render tests fail on it. detail: a muted part after it ("C1", "German");
+// tone 'bad': a value that blocks (needs a visa); onRemove: an × to take it out (edit), its label names the value.
+export function chip(text, {detail = '', tone = '', onRemove = null, title = ''} = {}) {
+  const value = String(text ?? '').trim();
+  const node = el('span', `chip-tag${tone ? ` tone-${tone}` : ''}${onRemove ? ' removable' : ''}`);
+  node.append(el('span', 'chip-value', value));
+  if (detail) node.append(el('span', 'chip-detail', detail));
+  if (title) node.title = title;
+  if (isRawValue(value)) node.dataset.raw = '1';
+  if (onRemove) {
+    const remove = Object.assign(el('button', 'x', '×'), {type: 'button', title: `Remove ${value}`});
+    remove.setAttribute('aria-label', `Remove ${value}`);
+    remove.addEventListener('click', onRemove);
+    node.append(remove);
+  }
   return node;
 }
 
