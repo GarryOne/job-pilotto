@@ -146,6 +146,8 @@ function paletteCommands() {
   // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.
   add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries countries relocation workload',
     () => { openView('strategy'); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); });
+  if (shared.locationsOpen) add('Strategy', 'Which locations are right?', 'Your search settings and Profile named different places', 'locations places conflict which right preferred acceptable relocation cities countries',
+    () => { openView('strategy'); setTimeout(() => $('strategy-locations-which')?.scrollIntoView({block: 'start'}), 300); });
   button('strategy', 'preferences-review', 'job preferences review clean values ai');
   button('jobs', 'apply-open', 'apply fill forms');
   button('jobs', 'applied-open', 'track add application outside');

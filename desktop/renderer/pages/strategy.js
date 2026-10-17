@@ -11,6 +11,7 @@ import {strategyState, showTab} from './strategy-state.js';
 import {CARD_TONE, TARGET_CARDS, dirty, inColumns, discardTargets, saveTargets, renderStrategy} from './strategy-targets.js';
 import {pendingImprove, drawImprove, loadCoverage} from './strategy-suggestions.js';
 import {loadPreferences, reviewPreferences} from './job-preferences.js';
+import {loadLocationsWhich} from './locations-which.js';
 export {TARGET_CARDS, TARGET_LISTS, editedList} from './strategy-targets.js';
 export {reviewSuggestion, loadCoverage} from './strategy-suggestions.js';
 
@@ -20,6 +21,7 @@ export async function loadStrategy() {
   pendingImprove.add('previous');   // the older scores come with the fresh read only (the saved copy leaves them out)
   loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows
   loadPreferences();   // Job preferences: the Profile's must-haves and ranking preferences
+  loadLocationsWhich();   // Which locations are right?: shown only while the old lists and the Profile disagree
   // The last good read at once (lib/view-cache.js), then the fresh one.
   const saved = await window.pilot.cached('strategy');
   if (saved?.result?.ok && !strategyState.strategyShown) {
