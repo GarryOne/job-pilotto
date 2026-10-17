@@ -817,6 +817,12 @@
             <div class="card-head"><h3>Goals</h3><p class="muted small" id="goals-note">What every job is scored against. Click a value to correct it.</p></div>
             <dl class="target-rows goal-rows goal-strip" id="strategy-goals"></dl>
           </section>
+          <!-- Owner, 17 Oct 2026: where you want to work has one home; a difference between the old lists is asked once (pages/locations-which.js). -->
+          <section class="card setting" id="strategy-locations-which" hidden>
+            <div class="card-head"><div><h3>Which locations are right?</h3><p class="muted small">Your search settings and your Profile named different places. Pick for each; nothing changes until you do.</p></div></div>
+            <p class="muted small" id="locations-which-message"></p>
+            <div id="locations-which-list"></div>
+          </section>
           <!-- Owner, 17 Oct 2026: must-haves / deal-breakers apart from preferences that rank; from Profile → Preferences (pages/job-preferences.js). -->
           <section class="card job-prefs setting" id="strategy-job-prefs">
             <div class="card-head job-prefs-head"><div><h3>Job preferences</h3><p class="muted small">What a job must have, and what ranks it higher. Scoring reads them.</p></div>
