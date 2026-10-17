@@ -17,7 +17,10 @@ export const blockedWords = kind => BLOCKED_WORDS[kind] || BLOCKED_WORDS.overlay
 
 // A blocked page is judged once more a little later (11 Oct 2026, Louis Vuitton: a "wait, importing" dialog covered the form for a few seconds and then went): a page that recovers is not a failure, one that does not stays blocked.
 export const timing = {recheckMs: 8000};
-const looking = new Set(), judged = new Map();
+// A page the judge never answers (no AI, an answer that is not one of the fixed words) is asked a few times, then left to the panel's own count until the page changes: every look
+// before this asked again (beta 17 Oct 2026, a sign-in form ending at the person: 595 account-judge calls in 5 minutes, one a second, to the end of the run). Guard: worker/test/form-ready.test.js.
+export const MAX_NO_ANSWER = 3;
+const looking = new Set(), judged = new Map(), unanswered = new Map();
 // The structure says the form is ready: every counted required field is filled, on an application page (not an account page).
 export const claimsReady = payload => !!payload && !payload.account && Number(payload.total) > 0 && Number(payload.left) === 0;
 
@@ -65,8 +68,11 @@ async function askForm(tab, frameId, again = false) {
     sketch.onTop = await run(tab, frameId, onTop, [], 'MAIN') || null;   // what sits on top of the form, by structure (on-top.js)
     const sig = JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames, sketch.onTop]);
     if (judged.get(tab.id) === sig) return;   // the page is as it was when it was judged: the flag stays as it is
+    const silent = unanswered.get(tab.id);
+    if (silent?.sig === sig && silent.n >= MAX_NO_ANSWER) return;   // asked enough times without an answer: the same page is not asked again
     const answer = await apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'form', sketch})}).catch(() => null);
-    if (!answer?.answer) return;   // no AI or no answer: the panel keeps its own count
+    if (!answer?.answer) { unanswered.set(tab.id, {sig, n: silent?.sig === sig ? silent.n + 1 : 1}); return; }   // no AI or no answer: the panel keeps its own count
+    unanswered.delete(tab.id);
     judged.set(tab.id, sig);
     let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
     decide('panel', `application form ready?: ${answer.answer}`, {host, step: answer.step || '', ...(answer.answer === 'blocked' ? {blocked: answer.blockedKind || 'overlay'} : {}), ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
