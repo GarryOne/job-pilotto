@@ -82,14 +82,14 @@ test('weekly backup: due after 7 days, keeps the last 4, never the keys', () => 
   assert.equal(backup.due(s.settings(), Date.parse('2026-09-13T10:00:00Z')), true);
   const listing = String(fs.readFileSync(path.join(target, kept[3])));
   assert.ok(!listing.includes('sk-secret'));
-  assert.equal(backup.folder('/home/x', () => false, {env: {}, platform: 'linux'}), path.join('/home/x', 'Documents', 'Job Pilotto Backups'));
+  assert.equal(backup.folder('/home/x', () => false, {env: {}, platform: 'linux'}), '/home/x/Documents/Job Pilotto Backups');
 });
 
 test('the backup folder: iCloud Drive on a Mac, OneDrive\'s Documents on Windows when they exist, else Documents; a test run names its own', () => {
   const mac = {env: {}, platform: 'darwin'}, win = {platform: 'win32'};
   assert.equal(backup.folder('/Users/a', () => true, mac), '/Users/a/Library/Mobile Documents/com~apple~CloudDocs/Job Pilotto Backups');
   assert.equal(backup.folder('/Users/a', () => false, mac), '/Users/a/Documents/Job Pilotto Backups');
-  assert.equal(backup.folder('C:\\Users\\a', () => true, {env: {}, platform: 'linux'}), path.join('C:\\Users\\a', 'Documents', 'Job Pilotto Backups'), 'no iCloud outside a Mac');
+  assert.equal(backup.folder('C:\\Users\\a', () => true, {env: {}, platform: 'linux'}), 'C:\\Users\\a/Documents/Job Pilotto Backups', 'no iCloud outside a Mac');
   const one = 'C:\\Users\\a\\OneDrive';
   assert.equal(backup.folder('C:\\Users\\a', dir => dir === `${one}\\Documents`, {...win, env: {OneDrive: one}}), `${one}\\Documents\\Job Pilotto Backups`);
   assert.equal(backup.folder('C:\\Users\\a', dir => dir === `${one}\\Documents`, {...win, env: {}}), 'C:\\Users\\a\\Documents\\Job Pilotto Backups', 'OneDrive not set up');

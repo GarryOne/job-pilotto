@@ -15,7 +15,7 @@ const PREFIX = 'Job Pilotto backup ';
 // Cloud folders are found by looking, never by a user name: iCloud Drive on a Mac, OneDrive's Documents (its "backed up" Documents folder) on Windows.
 export function folder(home = os.homedir(), exists = fs.existsSync, {env = process.env, platform = process.platform} = {}) {
   if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_BACKUP_DIR) return env.JOB_PILOTTO_BACKUP_DIR;
-  const join = platform === 'win32' ? path.win32.join : path.join;
+  const join = platform === 'win32' ? path.win32.join : path.posix.join;   // by the platform asked about, so a test can ask about either from any host
   const icloud = join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
   const oneDrive = [env.OneDriveConsumer, env.OneDrive, env.OneDriveCommercial].filter(Boolean).map(root => join(root, 'Documents')).find(dir => exists(dir));
   const base = platform === 'darwin' && exists(icloud) ? icloud : platform === 'win32' && oneDrive ? oneDrive : join(home, 'Documents');
