@@ -69,7 +69,7 @@ function dayCard(row, {open = false, repo}) {
 export function page(rows, {repo = 'GarryOne/job-pilotto', day = ''} = {}) {
   const list = day ? rows.filter(row => row.day === day) : rows;
   const body = list.length ? list.map((row, i) => dayCard(row, {open: i === 0, repo})).join('') : `<section class="card"><h2>No digest yet</h2><p class="muted">The workflow <code>daily-digest.yml</code> writes the day's digest every hour when a PR was merged; the first run fills this page.</p></section>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Build log · Engineering · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Build log · Operations · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.day{margin-bottom:22px}.day>summary,.goal summary{cursor:pointer;list-style:none}.day>summary{padding:6px 0 12px}.day>summary b{font-size:17px}
 .goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;margin-bottom:12px}.goal{margin:0}.goal h2{margin:0 0 8px}.goal ul{margin:0;padding:0;list-style:none}
 .goal li{padding:7px 0;border-top:1px solid #262c33}.goal li:first-child{border-top:0}.goal details p{margin:4px 0 0;font-size:14px}.goal li>b{font-weight:600}
