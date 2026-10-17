@@ -267,10 +267,7 @@ workflows() { SHELLCHECK_OPTS='--severity=warning' actionlint .github/workflows/
 # - install drift: the pre-push tests run with dev dependencies installed, so CI must install them too, or a
 #   test needing one (e.g. esbuild in desktop's pretest) passes here and fails on every CI run.
 ci_installs_dev() {
-  if grep -nE 'npm (ci|install)[^#]*--(omit|only)[= ](dev|prod)|--production' .github/workflows/build.yml; then
-    echo "build.yml: the test jobs must install dev dependencies like a developer does (drop --omit/--production)"
-    return 1
-  fi
+  python3 tools/ci-installs-dev.py .github/workflows/build.yml   # the replays' own runtime-only install (id: replay-install) is exempt
 }
 e2e_npm_test() { (cd desktop/e2e && npm test); }
 e2e_unit() {
