@@ -236,12 +236,22 @@ def load_search_config(matching=True):
     return with_matching_words(config) if matching else config
 
 
+def searched_places(places):
+    """The places the crawl matches, derived from the person's places (Locations, 17 Oct 2026): preferred and acceptable always; places abroad unless
+    relocation says "no" (no key = as before); a non-empty search-only list (Advanced) replaces them all. The settings keep what was written."""
+    if places.get('search_override'):
+        return {**places, 'top_tier': list(places['search_override']), 'country_wide': [], 'abroad': []}
+    if [str(item).lower() for item in places.get('relocation') or []] == ['no']:
+        return {**places, 'abroad': []}
+    return places
+
+
 def with_matching_words(config):
     """The settings as the crawl matches them: a region word in the places (Romandie, Switzerland) stands for its cities (src/regions.py), and a
     level (junior, mid, senior, lead) adds the titles that plainly name another level to the skipped titles (src/levels.py). In memory only:
     config/search.json and the Notion page keep what the user wrote."""
     from . import levels, regions
-    places = config.get('locations') or {}
+    places = searched_places(config.get('locations') or {})
     from . import places as ai_places
     cache = ai_places.load()   # place words worked out by AI once and kept (src/places.py): no call here
     config['locations'] = {**places, **{key: ai_places.expand(regions.expand(places[key]), cache) for key in ('top_tier', 'country_wide', 'abroad') if key in places}}
