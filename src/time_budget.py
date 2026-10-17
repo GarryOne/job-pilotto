@@ -20,6 +20,18 @@ def start(seconds, now=None):
     score_first(False)
 
 
+def restart(now=None):
+    """The crawl is over: the AI steps get the whole budget from here. 17 Oct 2026: the clock started with the process, the employer crawl
+    (910 feeds, 6-40 min) outlasted the 3 minutes, and every AI step found "No time left": 0 jobs scored since 10 Oct, 2868 waiting.
+    The budget (set 7 Oct, a9bedff, when the crawl took ~1 min) is for the AI steps, not for downloading."""
+    global DEADLINE, STARTED
+    if DEADLINE is None:
+        return
+    seconds = DEADLINE - STARTED
+    STARTED = now if now is not None else time.monotonic()
+    DEADLINE = STARTED + seconds
+
+
 def score_first(on=True):
     """This refresh scores first and reads the facts after (src/daily_search.py). Scoring then stops FACTS seconds early and the reading goes
     to the end of the budget. 10 Oct 2026: scoring took every second, the reading started with "Time is up" on every refresh, and no job ever

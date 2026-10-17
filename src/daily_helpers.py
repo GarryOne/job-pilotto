@@ -45,6 +45,14 @@ def time_budget_on():
     return time_budget.DEADLINE is not None
 
 
+def none_scored(waiting, stats):
+    """A warning when jobs wait for a score and this run scored none: never silent again (17 Oct 2026: every run since 10 Oct scored 0 while
+    2,868 waited, and each said only "Completed"; the clock had run out in the crawl, src/time_budget.restart)."""
+    if (waiting or 0) > 0 and not (stats or {}).get('done'):
+        return [f'{waiting} job(s) waiting, none scored this run']
+    return []
+
+
 def no_profile(score_max, tracker, profile):
     """A warning when scoring is on but there is no Profile to score against (no Notion, no local profile.md): the run
     said "Completed" while every new job stayed unscored (6 Oct 2026, after an import that brought no Profile)."""

@@ -377,6 +377,8 @@ def scan(sources, db, fetcher=fetch, details=None):
         return got
     with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
         downloads = list(pool.map(fetch, sources))
+    from .. import time_budget
+    time_budget.restart()   # downloading is not AI time: the places, titles and scoring after it get the whole budget (src/time_budget.py)
     report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = coverage.Tally()
     triage_places([job for jobs, failure in downloads if not failure for job in jobs or []])   # where the new locations are: Claude, once each
