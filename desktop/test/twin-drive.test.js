@@ -27,3 +27,13 @@ test('every action in the app window is a visible one through its own screens, a
   }
   for (const name of ['click', 'press']) assert.match(source.slice(source.indexOf(`async ${name}(`)).split('\n  },')[0], /looksLikeSubmit/, `${name} refuses a Submit`);
 });
+
+// An icon-only control (the drawer's ×, labelled "Close") shows no text: press finds it by its accessible name too (18 Oct 2026: the review drawer
+// could not be closed, so the Profile banner's count could not be read). Its name goes through the same Submit check.
+test('press reaches an icon-only control by its accessible name, after visible text, and still refuses a Submit', () => {
+  const source = fs.readFileSync(new URL('../e2e/twin-drive.mjs', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('async press('), source.indexOf('\n  },', source.indexOf('async press(')));
+  assert.match(body, /getByRole\('button', \{name: text, exact: true\}\)/);
+  assert.ok(body.indexOf('getByText(text, {exact: true})') < body.indexOf("getByRole('button'"), 'visible text first');
+  assert.match(body, /looksLikeSubmit\(await target\.evaluate\(el => `\$\{el\.textContent \|\| ''\} \$\{el\.getAttribute\('aria-label'\) \|\| ''\} \$\{el\.title \|\| ''\}`\)/);
+});

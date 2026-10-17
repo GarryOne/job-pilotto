@@ -109,10 +109,13 @@ const commands = {
     const win = appWindow(app.pages);
     // The control whose whole text is the words first, then one that contains them (9 Oct 2026: "OpenAI" pressed the AI row's
     // "Claude or OpenAI: …" description instead of the switch's "OpenAI" half).
+    // Then an icon-only control by its accessible name (aria-label, title: the drawer's × is "Close"; 18 Oct 2026).
     const exact = win.getByText(text, {exact: true}).filter({visible: true}).first();
-    const target = (await exact.count()) ? exact : win.getByText(text, {exact: false}).filter({visible: true}).first();
+    const partial = win.getByText(text, {exact: false}).filter({visible: true}).first();
+    const named = win.getByRole('button', {name: text, exact: true}).filter({visible: true}).first();
+    const target = (await exact.count()) ? exact : (await partial.count()) ? partial : named;
     if (!(await target.count())) { await app.close(); throw new Error(`nothing in the app shows "${text}"`); }
-    if (looksLikeSubmit(await target.evaluate(el => el.textContent || ''), false)) { await app.close(); throw new Error('refused: that looks like a Submit'); }
+    if (looksLikeSubmit(await target.evaluate(el => `${el.textContent || ''} ${el.getAttribute('aria-label') || ''} ${el.title || ''}`), false)) { await app.close(); throw new Error('refused: that looks like a Submit'); }
     await win.bringToFront();
     await show(target, why || `pressing "${text}"`);
     await target.click();
