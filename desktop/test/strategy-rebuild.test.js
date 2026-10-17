@@ -60,3 +60,13 @@ test('the review names a search pattern by its words', () => {
   assert.deepEqual(['photograph(e|er)?', 'vendeu(r|se)', 'conseill(er|ère) de vente', 'responsable de (magasin|boutique)', '\\bsales associate\\b', 'z[uü]rich']
     .map(strategy.wordsOf), ['photograph', 'vendeur', 'conseiller de vente', 'responsable de magasin', 'sales associate', 'zürich']);
 });
+
+// The JS twin of the fit score's heading filter (tests/test_profile_readers.py lists both): a Your details fact under an old "Links" heading is part of what
+// the fit score reads, so a rebuild that changes it says so; a contact line changes nothing (owner's Profile, 18 Oct 2026).
+test('a rebuild counts a Your details fact under "# Links" as a Profile change, a contact line not', async () => {
+  const {rebuildGroups} = await import('../lib/strategy-rebuild.js');
+  const before = '# Links\n- Medium: x\n## 📇 Contact details\n- Phone: +00 000\n## 🛂 Work eligibility\n- Work permit: B permit\n# Experience\n- SRE';
+  const profileOf = after => rebuildGroups({profile: before}, {profile_markdown: after}).find(group => group.id === 'profile')?.changes || [];
+  assert.deepEqual(profileOf(before.replace('B permit', 'C permit')), ['~ 🛂 Work eligibility']);
+  assert.deepEqual(profileOf(before.replace('+00 000', '+11 111')), []);
+});
