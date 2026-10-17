@@ -64,7 +64,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   if (!root || !out) { console.error('usage: node replay-records.mjs <records dir> <out dir>'); process.exit(2); }
   // JP_REPLAY_ONLY: row names, one a line (the gate's retry of the rows that came out worse).
   const only = new Set(String(process.env.JP_REPLAY_ONLY || '').split('\n').map(line => line.trim()).filter(Boolean));
-  const here = path.dirname(new URL(import.meta.url).pathname), watch = replaySkipped(json(new URL('./smoke-sites.json', import.meta.url), {}).shapes || [], pinnedRows(loadPins())), rows = shardOf(newestPerRow(root).filter(row => only.has(row.name) || (!only.size && !watch.has(row.name))), process.env.JP_REPLAY_SHARD)   // a daily-watch row's fresh live recording is its debugging copy: not replayed daily (owner, 17 Oct 2026), records = [], deferred = deferredRows();
+  const here = path.dirname(new URL(import.meta.url).pathname), watch = replaySkipped(json(new URL('./smoke-sites.json', import.meta.url), {}).shapes || [], pinnedRows(loadPins())), rows = shardOf(newestPerRow(root).filter(row => only.has(row.name) || (!only.size && !watch.has(row.name))), process.env.JP_REPLAY_SHARD), records = [], deferred = deferredRows();   // a daily-watch row's fresh live recording is its debugging copy: not replayed daily (owner, 17 Oct 2026)
   const refused = wideLocalRefusal(rows.length);   // many rows: CI's job (lib/wide-local.mjs)
   if (refused) { console.error(refused); process.exit(4); }
   fs.mkdirSync(path.join(out, 'step4'), {recursive: true});
