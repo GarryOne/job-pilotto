@@ -1,6 +1,6 @@
 // Writes desktop/e2e/slow-cases.json: the slowest recorded cases, left to main and the daily run on a pull request (desktop/e2e/lib/replay-slow.mjs).
 // Measured: node tools/slow-page-cases.mjs <replay-results-*.json from a FULL run (main or the daily one)>; each entry holds the case's seconds in its browser.
-// It also writes case-seconds.json (every measured case), which balances the shards. With no results it estimates from each case's declared window (lib/replay-shard.mjs caseCost) and says so in the file. Keeps the 30 slowest.
+// It also writes case-seconds.json (every measured case), which balances the shards. With no results it estimates from each case's declared window (lib/replay-shard.mjs caseCost) and says so in the file. Keeps the 40 slowest.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -8,7 +8,7 @@ import {loadCases} from '../desktop/e2e/lib/page-replay.mjs';
 import {caseCost} from '../desktop/e2e/lib/replay-shard.mjs';
 import {isRowCase} from '../desktop/e2e/lib/row-case-run.mjs';
 
-const KEEP = 30, files = process.argv.slice(2);
+const KEEP = 40, files = process.argv.slice(2);
 const measured = new Map();
 for (const file of files) for (const row of JSON.parse(fs.readFileSync(file, 'utf8'))) if (typeof row.seconds === 'number') measured.set(row.name, Math.max(measured.get(row.name) || 0, row.seconds));
 const cases = loadCases().filter(item => !isRowCase(item));
