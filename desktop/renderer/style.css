@@ -263,21 +263,6 @@ table.runs tr.run:hover, table.runs tr.run.open { background: var(--surface-2); 
 /* Narrow windows: buttons wrap inside their cell instead of running off the edge; header buttons stay on one line. */
 .row-actions { flex-wrap: wrap; }
 .head-actions button { white-space: nowrap; }
-/* Answer once: a collapsible card, closed by default; its heading carries the count. */
-details.questions { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: var(--r-md); padding: 0 14px; margin: 0 0 12px; }
-details.questions > summary { display: flex; align-items: center; gap: 8px; padding: 9px 0; font-size: var(--fs-md); list-style: none; cursor: pointer; }
-details.questions > summary::-webkit-details-marker { display: none; }
-details.questions > summary::before { content: '▸'; color: var(--muted); font-size: var(--fs-xs); transition: transform .15s; }
-details.questions[open] > summary::before { transform: rotate(90deg); }
-details.questions > summary .muted { margin-left: auto; }
-details.questions[open] { padding-bottom: 6px; }
-details.questions > p { margin: 0 0 6px; }
-.question { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
-.question label { font-weight: 600; font-size: var(--fs-sm); margin: 0; }
-.question input, .question select, .question textarea { font-size: var(--fs-sm); }
-.question label small { font-weight: 400; color: var(--muted); }
-.question input, .question select, .question textarea { padding: 7px 9px; border: 1px solid var(--field-line); border-radius: var(--r-md); font: inherit; }
-.question .message { grid-column: 1 / -1; }
 .toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
 .toast { background: var(--navy); color: var(--on-accent); border-radius: var(--r-md); padding: 12px 14px; box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .3); display: grid; gap: 4px; cursor: pointer; font-size: var(--fs-md); }
 .toast-link { cursor: pointer; }
@@ -577,10 +562,6 @@ button.with-icon .icon { width: 15px; height: 15px; }
   .last-search { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .last-search[data-state="busy"] .dot { animation: none; } }
-/* Answer once rows at the list's scale; the per-row error line only takes space when it says something. */
-.question .message:empty { display: none; }
-.question input, .question select, .question textarea { font-size: var(--fs-sm); padding: 5px 8px; }
-.question button { font-size: var(--fs-sm); padding: 5px 10px; }
 
 /* ---------- Interviews (redesign): consent card, local recordings, interview library ---------- */
 .consent-card { display: flex; align-items: center; gap: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--r-md);
@@ -1956,10 +1937,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .filter-chip-x:hover { background: var(--signal-line); }
 .filter-chip-x .icon { width: 12px; height: 12px; }
 
-/* Answer once while it loads: the box in place, a shimmer where the count goes, not openable yet. */
-.questions.is-loading summary { pointer-events: none; }
-.questions.is-loading #questions-count { background: transparent; padding: 0; }
-.questions-skeleton { width: 90px; height: 18px; }
 
 /* Jobs boxes while a filter from another page is on: none of them is selected. Hover brings one back (a click switches to it). */
 .stat-cards.is-dimmed .stat { opacity: .5; filter: grayscale(1); transition: opacity .15s, filter .15s; }

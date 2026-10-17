@@ -33,6 +33,7 @@ const CHEVRON_FILES = {
   'pages/session-next-step.js': 'a link line, not a fold',
   'funnel-view.js': 'a separator arrow, not a fold',
   'job-drawer/header.js': 'previous / next buttons, not a fold',
+  'pages/question-review.js': 'the arrow on Confirm & next, not a fold',
 };
 test('every file that draws a chevron is accounted for', () => {
   const found = sources.filter(f => /(icon|control)\('chevron'/.test(read(f)));

@@ -1,5 +1,6 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
+import {openQuestionReview} from './question-review.js';
 import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, openActivity, prepareActions, unqueue} from './activity.js';
 import {$, show} from './core.js';
 import {shared} from './shared.js';
@@ -142,6 +143,9 @@ function paletteCommands() {
   if (showsProWaitlist(shared.licenseState || {}) && !shared.state?.settings?.proWaitlist?.email) add('Settings', 'Join the Pro waitlist', 'Get one e-mail when Pro opens', 'pro waitlist early access upgrade plan price join email', () => { openSetting('license'); setTimeout(openWaitlist, 150); });
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
+  // Application questions, one at a time (pages/question-review.js): the same drawer as Jobs' card and Profile → Application answers.
+  add('Jobs', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing suggested forms application',
+    () => openQuestionReview());
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.
   add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries countries relocation workload',

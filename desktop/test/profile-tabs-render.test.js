@@ -53,7 +53,8 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     assert.ok(saved.querySelectorAll('.qa-group').length, 'section headers drawn');
     assert.equal(saved.querySelectorAll('.qa-row button.qa-add').length, 0, 'no per-row button');
     // Needs review: an optional row is not in it (owner, 17 Oct 2026).
-    node.querySelector('#answers-review-go').listeners.click[0]();
+    assert.ok(node.querySelector('#answers-review-go'), 'the banner opens the question review (pages/question-review.js)');
+    node.querySelectorAll('.segmented button').find(button => button.dataset.view === 'review').listeners.click[0]();   // the Needs review list
     assert.ok(!/portfolio/i.test(node.querySelector('.is-review').textContent), 'an optional row is not in Needs review');
     node.querySelector('.qa-add').click();
     const field = node.querySelector('.qa-edit input');

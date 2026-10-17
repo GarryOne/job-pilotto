@@ -142,11 +142,14 @@ function draw(view, into) {
   toolbar(view, into, reviewCount);
   for (const key of [...drafts.keys()].filter(k => String(k).startsWith('new-'))) into.append(newQuestion(view, key, list));
 
-  if (filters.view === 'all' && reviewCount) {
+  // The banner counts what the drawer walks through (the questions, owner 17 Oct 2026: "make the count match the review queue"); website rules stay under Needs review.
+  const asked = shownRows.length;
+  if (filters.view === 'all' && asked) {
     const banner = el('div', 'notice qa-banner');
     const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});
-    go.addEventListener('click', () => { filters.view = 'review'; view.redraw(); });
-    banner.append(el('span', '', `⚠ ${reviewCount} question${reviewCount === 1 ? '' : 's'} need${reviewCount === 1 ? 's' : ''} review`), go);
+    // The questions are reviewed one at a time in the drawer Jobs opens too (pages/question-review.js): one review flow, two ways in.
+    go.addEventListener('click', () => import('./question-review.js').then(review => review.openQuestionReview()));
+    banner.append(el('span', '', `⚠ ${asked} question${asked === 1 ? '' : 's'} need${asked === 1 ? 's' : ''} review`), go);
     into.append(banner);
   }
 
@@ -209,6 +212,8 @@ export function addQuestion() {
   drafts.set(key, {section: list[list.length - 1]?.title || '', question: '', value: ''});
   tab?.redraw();
 }
+// The question review's "Manage saved answers" / "View source": the tab opens searched for that answer.
+export function searchAnswers(query = '') { filters.query = String(query || ''); }
 export function addRule() { newRule(); rulesOpen = true; tab?.redraw(); }
 
 export async function loadApplicationAnswers() {
