@@ -1,5 +1,6 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
+import {stillOnPage} from './one-fill.js';
 import {KEY} from './tab-identity.js';
 import {attachDebugger, detachDebugger} from './stop-state.js';
 import {StepTimeout, within} from './step-bound.js';
@@ -472,7 +473,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],
     sent: [...(debug.sentToClaude || []), ...later.map(f => f.field)], ai, aiError, useAI, kit: withKit, version: debug.version, startedAt});
   await markCauses(inPage, tab.id, summary.card);   // each left control carries its cause for the panel (ladder/control-marks.js)
-  await inPage(tab.id, id => { document.documentElement.dataset.jobpilottoFill = id; }, [summary.card.id]).catch(() => {});
+  // Only into the page this fill filled: a tab that moved on (the sign-up's form) shows another page, whose own fill writes its own mark (extension/one-fill.js).
+  if (stillOnPage(tab.url, (await chrome.tabs.get(tab.id).catch(() => null))?.url)) await inPage(tab.id, id => { document.documentElement.dataset.jobpilottoFill = id; }, [summary.card.id]).catch(() => {});
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   const runBody = {url: job, started: startedAt.toISOString(),
