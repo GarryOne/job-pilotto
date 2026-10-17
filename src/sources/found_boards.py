@@ -10,6 +10,7 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 
+from ..progress import Ticker
 from . import board_routes, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board per run
@@ -86,7 +87,9 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
     kept = data.setdefault('boards', {})
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
-    for board in board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now)):
+    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now))
+    ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
+    for done, board in enumerate(todo, 1):
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url'], 'misses': 0})
         found, state, route = read_board(board, search, fetch, entry.get('route'))
         entry.pop('route', None)
@@ -98,5 +101,6 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
         board_yield.record(entry, len(found), len(relevant), state)
         print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
         jobs.extend(found)
+        ticker.tick(done, f" · {board['name']}")
     board_ideas.save(data)
     return jobs
