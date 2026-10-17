@@ -4,3 +4,4 @@
 .ready-rows { display: grid; gap: var(--sp-1); }
 .ready-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-2); }
 .ready-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ready-buttons { display: flex; gap: var(--sp-2); }

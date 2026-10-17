@@ -14,8 +14,8 @@ test('the pick: open jobs from fit 60, best first, saved first, at most 10, noth
 });
 
 test('settings stay in range', () => {
-  assert.deepEqual(settingsOf({}), {on: false, minFit: DEFAULT_MIN_FIT, perNight: DEFAULT_PER_NIGHT});
-  assert.deepEqual(settingsOf({on: true, minFit: 500, perNight: 99}), {on: true, minFit: 100, perNight: 15});
+  assert.deepEqual(settingsOf({}), {on: false, told: '', minFit: DEFAULT_MIN_FIT, perNight: DEFAULT_PER_NIGHT});
+  assert.deepEqual(settingsOf({on: true, minFit: 500, perNight: 99}), {on: true, told: '', minFit: 100, perNight: 15});
   assert.equal(settingsOf({minFit: 'x', perNight: 0}).perNight, DEFAULT_PER_NIGHT);
 });
 
