@@ -20,5 +20,5 @@ test('the card is hidden until a conflict exists, Strategy loads it, ⌘K lists 
   assert.match(read('renderer/index.html'), /id="strategy-locations-which" hidden/);
   assert.match(read('renderer/pages/strategy.js'), /loadLocationsWhich\(\);/);
   assert.match(read('renderer/pages/nav.js'), /if \(shared\.locationsOpen\) add\('Strategy', 'Which locations are right\?'/);
-  assert.match(screen, /card\.hidden = !conflicts\.length/);
+  assert.match(screen, /card\.hidden = !conflicts\.length && !aside\.length/);   // set-aside values keep the card (with Undo)
 });

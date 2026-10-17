@@ -4,14 +4,16 @@
 import {moveLocations, resolveLocation} from './locations-store.js';
 import {CHOICES} from './locations-move.js';
 import {claudeAi} from './question-ai.js';
+import {list} from './set-aside.js';
+import {undo} from './set-aside-undo.js';
 
 // Demo mode: fictional places (the screenshots), one conflict.
 const DEMO_WHICH = [{kind: 'acceptable', strategy: ['Netherlands', 'Germany'], profile: ['Switzerland']}];
 
 export function registerLocationsHandlers({ipcMain, storage, DEMO, needsNotion, settingsDeps, log, ai: aiFor = claudeAi, backup}) {
   ipcMain.handle('locationsWhich', async () => {
-    if (DEMO) return {ok: true, conflicts: storage.settings().demoLocationsWhich ?? DEMO_WHICH};
-    if (needsNotion('profile')) return {ok: true, conflicts: []};
+    if (DEMO) return {ok: true, conflicts: storage.settings().demoLocationsWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
+    if (needsNotion('profile')) return {ok: true, conflicts: [], setAside: []};
     let error = '';
     if (!storage.settings().locationsMovedAt) {
       const ai = aiFor(storage);
@@ -21,13 +23,20 @@ export function registerLocationsHandlers({ipcMain, storage, DEMO, needsNotion, 
         if (ai.client || ai.apiKey) storage.saveSettings({locationsMovedAt: new Date().toISOString()});   // judged once, not asked again
       } catch (failed) { error = failed.message; log('strategy', 'the Locations move stopped', {error: failed.message}); }
     }
-    return {ok: !error, error, conflicts: storage.settings().locationsConflicts || []};
+    return {ok: !error, error, conflicts: storage.settings().locationsConflicts || [], setAside: list(storage).filter(each => each.source === 'locations')};
   });
   ipcMain.handle('resolveLocationConflict', async (_, kind, choice, places) => {
     if (DEMO) return {ok: true};
     if (!CHOICES.includes(choice)) return {ok: false, error: 'Unknown choice'};
     const result = await resolveLocation(storage, String(kind || ''), choice, {places: Array.isArray(places) ? places.map(String) : [], deps: settingsDeps?.()})
       .catch(error => ({ok: false, error: error.message}));
+    if (result.ok) storage.saveSettings({searchChangedAt: new Date().toISOString()});
+    return result;
+  });
+  // Undo of a value a pick set aside (Locations or a Profile fact: lib/set-aside.js).
+  ipcMain.handle('undoSetAside', async (_, id) => {
+    if (DEMO) return {ok: true};
+    const result = await undo(storage, String(id || ''), {deps: settingsDeps?.()}).catch(error => ({ok: false, error: error.message}));
     if (result.ok) storage.saveSettings({searchChangedAt: new Date().toISOString()});
     return result;
   });

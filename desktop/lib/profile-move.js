@@ -11,6 +11,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import {openStore} from './store/index.js';
 import * as sections from './profile-sections.js';
 import * as backup from './backup.js';
+import {keep} from './set-aside.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const HOMES = [...Object.keys(sections.SECTIONS), 'stay'];
@@ -22,6 +23,7 @@ const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved f
 - "languages": a language they speak or work in, with its level.
 - "stay": anything else: roles, places, work mode, seniority, the MINIMUM salary they accept for a search, strengths, deal-breakers, contact details, other questions.
 And topic: 2-4 lowercase English words naming the fact, the same words for the same fact however it is worded ("work permit switzerland", "notice period", "language german").
+Two lines whose amount, period (month, year) or basis (net, gross) or kind (target, minimum) differ are different facts: give them different topics.
 Answer every id exactly as given; when unsure answer "stay".`;
 
 const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase();
@@ -29,6 +31,7 @@ const OURS = new Set([...Object.values(sections.SECTIONS), '📇 Contact details
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const same = text => plain(text).toLowerCase();
 const OPEN = /❓|^— \(leave blank\)$/;
+const isMoney = text => /\d/.test(text) && (/\p{Sc}/u.test(text) || /\b[A-Z]{3}\b/.test(text));   // an amount by its shape: a number with a currency sign or code
 
 function split(text) {
   const at = text.indexOf(':');
@@ -85,13 +88,17 @@ export function planOf(items, judged) {
   const moves = [], conflicts = [];
   for (const {home, topic, items: group} of groups.values()) {
     const values = [...new Set(group.map(item => same(item.value)))];
-    if (values.length > 1) {
+    // Amounts that differ (amount, period or basis) are different facts, each its own line: nothing to choose between, nothing to lose.
+    if (values.length > 1 && !group.every(item => isMoney(item.value))) {
       conflicts.push({home, topic, choices: group.map(({label, value, page}) => ({label, value, page}))});
       continue;
     }
-    const kept = group.find(item => item.home) || group[0];
-    const from = group.filter(item => !item.home);
-    if (from.length) moves.push({home, label: kept.label || topic, value: kept.value, from});
+    for (const value of values) {
+      const same_ = group.filter(item => same(item.value) === value);
+      const kept = same_.find(item => item.home) || same_[0];
+      const from = same_.filter(item => !item.home);
+      if (from.length) moves.push({home, label: kept.label || topic, value: kept.value, from});
+    }
   }
   return {moves, conflicts};
 }
@@ -143,8 +150,8 @@ export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = s
   return {moved: moves.length, conflicts, copy: kept};
 }
 
-// "Which is right?" (owner: "Show me, I pick"): the picked value becomes the section's line, then every copy of that fact elsewhere goes (the pages
-// before the move are in its copy and the backup). -> {ok, error}.
+// "Which is right?" (owner: "Show me, I pick"): the picked value becomes the section's line, and every other value of that fact is set aside (never deleted:
+// lib/set-aside.js shows it with Undo; the pages before the move are in its copy and the backup). -> {ok, error}.
 export async function resolve(storage, topic, pick, {fetcher, save = sections.save} = {}) {
   const queue = storage.settings().profileConflicts || [];
   const conflict = queue.find(each => each.topic === topic), chosen = conflict?.choices[pick];
@@ -153,6 +160,8 @@ export async function resolve(storage, topic, pick, {fetcher, save = sections.sa
   const current = (await sections.read(storage, fetcher))[conflict.home];
   await save(storage, conflict.home, [...current.filter(line => !values.has(same(line.value))), {label: chosen.label || topic, value: chosen.value}], fetcher);
   if (!(await sections.read(storage, fetcher))[conflict.home].some(line => same(line.value) === same(chosen.value))) return {ok: false, error: 'It did not save; nothing else changed'};
+  const others = [...new Map(conflict.choices.filter(choice => same(choice.value) !== same(chosen.value)).map(choice => [same(choice.value), choice])).values()];
+  keep(storage, others.map(({label, value}) => ({source: 'profile', title: conflict.topic, label, value, restore: {home: conflict.home, label: label || topic, value}})));
   const opened = openStore(storage, {fetcher});
   for (const name of ['answers', 'profile']) {
     const doomed = itemsOf(await opened.page(name).outline(), name).filter(item => !item.home && conflict.choices.some(choice => choice.page === name && same(choice.value) === same(item.value) && same(choice.label) === same(item.label)));
@@ -160,4 +169,13 @@ export async function resolve(storage, topic, pick, {fetcher, save = sections.sa
   }
   storage.saveSettings({profileConflicts: queue.filter(each => each !== conflict)});
   return {ok: true};
+}
+
+// Undo of a set-aside fact: its line goes back into its section (once). -> {ok, error}.
+export async function restoreFact(storage, entry, {fetcher, save = sections.save} = {}) {
+  const {home, label, value} = entry.restore || {};
+  if (!sections.SECTIONS[home]) return {ok: false, error: 'That fact has no place to go back to'};
+  const current = (await sections.read(storage, fetcher))[home];
+  if (!current.some(line => same(line.value) === same(value))) await save(storage, home, [...current, {label, value}], fetcher);
+  return (await sections.read(storage, fetcher))[home].some(line => same(line.value) === same(value)) ? {ok: true} : {ok: false, error: 'It did not save'};
 }

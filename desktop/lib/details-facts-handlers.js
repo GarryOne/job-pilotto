@@ -4,6 +4,7 @@
 import * as sections from './profile-sections.js';
 import {move, resolve} from './profile-move.js';
 import {claudeAi} from './question-ai.js';
+import {list} from './set-aside.js';
 
 // Demo mode: fictional lines (the screenshots), one "Which is right?".
 const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Work permit', value: 'Swiss B permit'}, {label: 'Need visa sponsorship?', value: 'No'}],
@@ -13,8 +14,8 @@ const empty = () => Object.fromEntries(Object.keys(sections.SECTIONS).map(key =>
 
 export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected, needsNotion, log}) {
   ipcMain.handle('detailsFacts', async () => {
-    if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH};
-    if (!connected()) return {ok: true, sections: empty(), conflicts: []};
+    if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
+    if (!connected()) return {ok: true, sections: empty(), conflicts: [], setAside: []};
     let error = '';
     if (!storage.settings().profileMovedAt) {
       try {
@@ -23,8 +24,8 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
       } catch (failed) { error = failed.message; log('profile', 'the facts move stopped', {error: failed.message}); }
     }
     try {
-      return {ok: !error, error, sections: await sections.read(storage), conflicts: storage.settings().profileConflicts || []};
-    } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: []}; }
+      return {ok: !error, error, sections: await sections.read(storage), conflicts: storage.settings().profileConflicts || [], setAside: list(storage).filter(each => each.source === 'profile')};
+    } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
   });
   ipcMain.handle('saveDetailsFacts', async (_, facts) => {
     const gate = needsNotion('profile');
