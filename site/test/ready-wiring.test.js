@@ -20,11 +20,11 @@ function d1() {
 }
 const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
   head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
-const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', ...extra});
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const evening = new Date('2026-10-17T21:00:00Z');
 const call = async (e, method, path, body, headers = {}, at = evening) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, at);
-const owner = async () => ({'x-api-key': await keyOf('owner-install-1')});
+const owner = async () => ({'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1')});
 const batchBody = fillAt => ({night: '2026-10-18', readyBy: '07:30', ...(fillAt ? {fillAt} : {}), contact: {name: 'Alex Example', email: 'alex@example.invalid'},
   jobs: [{id: 'j1', url: 'https://boards.example.com/acme/jobs/1', title: 'SRE', company: 'Acme', fit: 80, kit: {}, letter: '', cv: ''}]});
 const queue = () => { const sent = []; return {sent, send: async m => { sent.push(m); }}; };
@@ -64,7 +64,7 @@ test('the morning routes: owner only, 503 while the runner is not wired, the rig
   const wired = env({READY_QUEUE: queue(), READY_RUNNER: runner()});
   const made = await (await call(wired, 'POST', 'batch', batchBody(), await owner())).json();
   await tick(wired, new Date('2026-10-18T01:05:00Z'));
-  const stranger = {'x-api-key': await keyOf('someone-else-9')};
+  const stranger = {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('someone-else-9')};
   for (const sub of ['live', 'handoff', 'held']) {
     assert.equal((await call(wired, 'GET', `${sub}?job=j1`, undefined, stranger)).status, 401, `${sub} stranger`);
     assert.equal((await call(wired, 'GET', `${sub}?job=j1`)).status, 401, `${sub} anonymous`);
@@ -92,7 +92,7 @@ test('the consumer starts each night once and always acknowledges, even when the
 
 test('the owner runs a queued night by hand: owner only, once, and only with the Queue', async () => {
   const e = env({READY_QUEUE: queue()});
-  const stranger = {'x-api-key': await keyOf('someone-else-9')};
+  const stranger = {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('someone-else-9')};
   assert.equal((await call(e, 'POST', 'run', undefined, stranger)).status, 401);
   assert.equal((await call(e, 'POST', 'run', undefined, await owner())).status, 404);   // nothing queued
   const made = await (await call(e, 'POST', 'batch', batchBody('2099-01-01T00:00:00Z'), await owner())).json();   // its fill time is far away

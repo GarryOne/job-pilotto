@@ -21,7 +21,8 @@ async function keyFor(storage, {fetcher = globalThis.fetch} = {}) {
   }
   return minted.get(install) || '';
 }
-const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options)});
+// Every call carries the owner secret too (a Keychain item of this Mac, never the install id): without it the site opens no owner route and the card stays closed.
+const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': String(storage.secret('READY_OWNER_SECRET') || '')}});
 
 const words = result => (result.ok ? result : {ok: false, status: result.status, error: result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
 

@@ -21,14 +21,14 @@ const sent = [];
 const model = usage => async (url, init) => { sent.push({url, init}); return new Response(JSON.stringify({content: [{type: 'text', text: '{}'}], usage}), {status: 200}); };
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
 const MINE = 'sk-ant-the-users-own-key-0123456789';
-const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_NIGHT_MAX_USD: '0.01', WAITLIST: kv(), AI: {run: async () => ({choices: [{message: {content: '{}'}, finish_reason: 'stop'}], usage: {prompt_tokens: 1000, completion_tokens: 100}}), toMarkdown: async () => []},
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', READY_NIGHT_MAX_USD: '0.01', WAITLIST: kv(), AI: {run: async () => ({choices: [{message: {content: '{}'}, finish_reason: 'stop'}], usage: {prompt_tokens: 1000, completion_tokens: 100}}), toMarkdown: async () => []},
   fetchFn: model({input_tokens: 1000, output_tokens: 100}), ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T02:00:00Z');
 const call = (e, method, path, body, headers = {}) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, now);
 async function night(e, ai = {key: MINE}) {
   const made = await (await call(e, 'POST', 'batch', {night: '2026-10-18', readyBy: '07:30', ai, facts: {profile: 'secretprofile Alex', standard: 'secretstandard'},
-    jobs: [{id: 'j1', url: 'https://boards.example.com/a/1', title: 'SRE', company: 'Acme', fit: 80, kit: {}}]}, {'x-api-key': await keyOf('owner-install-1')})).json();
+    jobs: [{id: 'j1', url: 'https://boards.example.com/a/1', title: 'SRE', company: 'Acme', fit: 80, kit: {}}]}, {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1')})).json();
   const token = await start(e, made.batch, now);
   return {made, bearer: {authorization: `Bearer ${token}`}};
 }
@@ -50,7 +50,7 @@ test('the facts are sealed at rest and the night token reads them back; a strang
   assert.equal(read.facts.profile, 'secretprofile Alex');
   assert.equal(read.facts.search, '');
   assert.equal((await call(e, 'POST', 'ai', ask, {authorization: `Bearer RR1.${made.batch}.wrong`})).status, 401);
-  assert.equal((await call(e, 'POST', 'ai', ask, {'x-api-key': await keyOf('owner-install-1')})).status, 401);   // the owner's key is not a night token
+  assert.equal((await call(e, 'POST', 'ai', ask, {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1')})).status, 401);   // the owner's key is not a night token
   assert.ok(![...e.HOSTED_STATE.m.values()].some(v => new TextDecoder().decode(v).includes(MINE)));   // the user's key is sealed too
   assert.ok(!JSON.stringify(read).includes(MINE));   // and never read back
 });
@@ -90,7 +90,7 @@ test('without a key of his own the night uses the install\'s Free AI: no product
   for (const k of [...e.WAITLIST.m.keys()]) if (k.startsWith('freeai:dusd:')) e.WAITLIST.m.set(k, String(0.5 * 1e6));   // the install's day is used up
   assert.equal((await call(e, 'POST', 'ai', ask, bearer)).status, 402);
   assert.equal(e.STATS.db.prepare('SELECT ai_stopped FROM ready_batches').get().ai_stopped, 1);
-  const state = await (await call(e, 'GET', 'state', undefined, {'x-api-key': await keyOf('owner-install-1')})).json();
+  const state = await (await call(e, 'GET', 'state', undefined, {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1')})).json();
   assert.equal(state.batch.aiStopped, true);
 });
 

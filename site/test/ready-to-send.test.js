@@ -18,11 +18,11 @@ function d1() {
 }
 const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
   head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
-const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', ...extra});
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T02:00:00Z');
 const call = async (e, method, path, body, headers = {}) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, now);
-const owner = async (headers = {}) => ({'x-api-key': await keyOf('owner-install-1'), ...headers});
+const owner = async (headers = {}) => ({'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1'), ...headers});
 const batchBody = () => ({night: '2026-10-18', readyBy: '07:30', contact: {name: 'Alex Example', email: 'alex@example.invalid'},
   jobs: [{id: 'j1', url: 'https://boards.example.com/acme/jobs/1', title: 'SRE', company: 'Acme', fit: 80, kit: {answers: {notice: 'two months secretword'}}, letter: 'Dear Acme secretletter', cv: 'JVBERi0=', letterPdf: 'JVBERi1x'},
     {id: 'j2', url: 'https://jobs.example.org/p/2', title: 'DevOps', company: 'Nordlicht', fit: 70, kit: {}, letter: '', cv: ''}]});
@@ -37,7 +37,7 @@ test('off, or any install but the owner, reaches nothing: a class check over eve
   const off = env({READY_TO_SEND: 'off'});
   for (const sub of subs) assert.equal((await call(off, 'GET', sub)).status, 404, `${sub} off`);
   const e = env();
-  const stranger = {'x-api-key': await keyOf('someone-else-9')};
+  const stranger = {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('someone-else-9')};
   for (const sub of subs) for (const method of ['GET', 'POST', 'DELETE']) {
     const response = await call(e, method, sub, method === 'POST' ? {job: 'j1'} : undefined, stranger);
     assert.ok([401, 405].includes(response.status), `${method} ${sub} -> ${response.status}`);
