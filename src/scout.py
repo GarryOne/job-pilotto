@@ -3,8 +3,8 @@
 
 Each run
 1. harvests candidate employers (seed list with Tier 1 first, Hacker News "Who is
-   hiring?", the open hiring-without-whiteboards list, and employers already seen
-   on jobs.ch),
+   hiring?", the open hiring-without-whiteboards list, employers already seen
+   on jobs.ch, and boards found by searching for the user's roles),
 2. probes a small batch of them for a public job feed (Greenhouse, Lever, Ashby,
    Workable, Recruitee, Personio, SmartRecruiters, plus Amazon and Netflix),
 3. scores every feed it finds for quality (0-100) against the owner's goals,
@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import contribute, employer_index, run_log, scout_core, store, telegram, tgcard
+from . import contribute, employer_index, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -106,6 +106,9 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
         ideas = ai_ideas(db, harvest_sources)
         if ideas:
             added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
+        searched = scout_role_search.guarded(db, load_search_config(), harvest_sources)
+        if searched and searched['candidates']:
+            added += harvest(db, seeds, [lambda: searched['candidates']], skip)
     batch = batch_for(pending_count(db), batch)
     candidates, left = next_batch(db, batch, skip), 0
     # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take
