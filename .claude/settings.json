@@ -24,9 +24,27 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/tools/pr-red-check.sh",
+            "timeout": 10,
+            "statusMessage": "Checking that your pull request is not red…"
+          },
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/tools/stop-test-check.sh",
             "timeout": 600,
             "statusMessage": "Running the tests that match your changes, as CI does…"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/tools/pr-red-check.sh",
+            "timeout": 10,
+            "statusMessage": "Checking that your pull request is not red…"
           }
         ]
       }

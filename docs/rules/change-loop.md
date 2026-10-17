@@ -46,3 +46,9 @@ Why each rule exists: [why.md](why.md#change-loop).
 - **Other sessions share the suite's Notion token.** Check `logs/notion-requests.log` for 429s and runs you did not start; the app's Notion calls
   queue (~340 ms apart, 25 s+ after a start).
 - **Nothing is swallowed silently.** A `.catch(() => …)` logs what it caught. A failing step saves the app's state before it closes anything.
+
+## A red PR is never left alone (18 Oct 2026)
+- #1321 sat red on two desktop jobs for hours: ship's run ended before `ship: REVIEW` with nothing after the checks, so no watcher ran and no session looked.
+- `tools/ship-watch.sh` now starts when the PR **opens** (not after REVIEW) and writes `ship: RED #n <check>` / `ship: GREEN #n` / `MERGED` / `CLOSED` to the ship log whatever way the run ends; Monitor `^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED|GREEN)`.
+- The project hook `tools/pr-red-check.sh` (UserPromptSubmit + Stop) adds "PR #n is red: <checks> <job url>; fix it now" to the context and blocks the stop once. Fix the cause and push through ship.sh;
+  blocked for real: `tools/pr-red-ack.sh <n> "<why>"` (holds for exactly those red checks). Guard: tests/test_pr_red_hook.py, tests/test_ship_watch.py.

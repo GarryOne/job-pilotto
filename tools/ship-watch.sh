@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Watches a PR that tools/ship.sh left at `ship: REVIEW` and appends the ending to ship's log: `ship: MERGED #n <sha>`, `ship: CLOSED #n (unmerged)`,
-# `ship: RED #n <check>` (a required check turned red after REVIEW; it keeps watching) or `ship: WATCH ENDED #n (still open)` after the cap. No AI, only gh.
+# Watches a PR from the moment tools/ship.sh opens it (so also when ship itself ends FAILED or is killed) and appends to ship's log: `ship: RED #n <check>` (a check
+# failed; once per red check, it keeps watching), `ship: GREEN #n` (every check passed; once per green), `ship: MERGED #n <sha>`, `ship: CLOSED #n (unmerged)`
+# or `ship: WATCH ENDED #n (still open)` after the cap. No AI, only gh.
 #   tools/ship-watch.sh <n> <log> <pidfile>      SHIP_WATCH_POLL=<s> between looks (default 60)   SHIP_WATCH_CAP=<s> give up after (default 172800 = 48 h)
-# Started detached by tools/ship.sh; a second ship of the same branch replaces the old watcher through the pid file (18 Oct 2026: the owner merges by hand and
+# Started detached by tools/ship.sh when the PR opens (18 Oct 2026: #1321 sat red for hours because the watcher began only after REVIEW); a second ship of the same branch replaces the old watcher through the pid file (18 Oct 2026: the owner merges by hand and
 # sessions only learned of it when told). Guard: tests/test_ship_watch.py.
 set -u
 n="${1:?usage: ship-watch.sh <n> <log> <pidfile>}"; log="${2:?}"; pidfile="${3:?}"
@@ -12,7 +13,7 @@ echo $$ > "$pidfile"   # before the kill: the old watcher's exit trap then sees 
 [ -z "$old" ] || [ "$old" = "$$" ] || kill "$old" 2>/dev/null || true   # one watcher per branch
 trap '[ "$(cat "$pidfile" 2>/dev/null)" != "$$" ] || rm -f "$pidfile"' EXIT
 say() { echo "ship: $*" >> "$log"; }
-waited=0; red=""
+waited=0; red=""; green=""
 while :; do
   view="$(gh pr view "$n" --json state,mergeCommit 2>/dev/null)" || view=""
   state="$(jq -r '.state // empty' <<<"$view" 2>/dev/null)"
@@ -21,8 +22,12 @@ while :; do
     CLOSED) say "CLOSED #$n (unmerged)"; exit 0 ;;
   esac
   if [ -n "$state" ]; then
-    now="$(gh pr checks "$n" --json name,bucket 2>/dev/null | jq -r '[.[]? | select(.bucket == "fail") | .name] | first // empty' 2>/dev/null)" || now=""
+    checks="$(gh pr checks "$n" --json name,bucket 2>/dev/null)" || checks=""
+    now="$(jq -r '[.[]? | select(.bucket == "fail") | .name] | first // empty' <<<"${checks:-[]}" 2>/dev/null)" || now=""
     [ "$now" = "$red" ] || { [ -z "$now" ] || say "RED #$n $now"; red="$now"; }   # once per red check; green again re-arms it
+    if jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1; then
+      [ -n "$green" ] || say "GREEN #$n"; green=1   # once per green; a new push that restarts the checks re-arms it
+    else green=""; fi
   fi
   [ "$waited" -lt "$cap" ] || { say "WATCH ENDED #$n (still open)"; exit 0; }
   sleep "$poll"; waited=$((waited + poll + 1))

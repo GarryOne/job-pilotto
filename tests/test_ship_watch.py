@@ -16,7 +16,7 @@ d="$FAKE_GH_DIR"; n=$(cat "$d/looks" 2>/dev/null || echo 0)
 case "$1 $2" in
   "pr view") n=$((n + 1)); echo $n > "$d/looks"; s=$(sed -n "${n}p" "$d/states"); [ -n "$s" ] || s=$(tail -n 1 "$d/states")
              set -- $s; if [ "$1" = MERGED ]; then echo "{\\"state\\":\\"MERGED\\",\\"mergeCommit\\":{\\"oid\\":\\"$2\\"}}"; else echo "{\\"state\\":\\"$1\\",\\"mergeCommit\\":null}"; fi ;;
-  "pr checks") c=$(sed -n "${n}p" "$d/checks" 2>/dev/null); if [ -n "$c" ]; then echo "[{\\"name\\":\\"$c\\",\\"bucket\\":\\"fail\\"}]"; else echo '[{"name":"x","bucket":"pass"}]'; fi ;;
+  "pr checks") c=$(sed -n "${n}p" "$d/checks" 2>/dev/null); if [ "$c" = pending ]; then echo '[{"name":"x","bucket":"pending"}]'; elif [ -n "$c" ]; then echo "[{\\"name\\":\\"$c\\",\\"bucket\\":\\"fail\\"}]"; else echo '[{"name":"x","bucket":"pass"}]'; fi ;;
 esac
 """
 
@@ -31,7 +31,7 @@ class ShipWatchTest(unittest.TestCase):
         gh.write_text(FAKE)
         gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
         self.log, self.pidfile = self.tmp / 'ship.log', self.tmp / 'watch.pid'
-        self.log.write_text('ship: REVIEW #7 https://example.test/pull/7\n')
+        self.log.write_text('ship: [3s] opened the pull request: https://example.test/pull/7\n')
 
     def watch(self, states, checks='', cap=60, poll=0):
         (self.tmp / 'states').write_text(states)
@@ -42,18 +42,27 @@ class ShipWatchTest(unittest.TestCase):
         return self.log.read_text().splitlines()[1:]
 
     def test_open_then_merged_reports_the_merge_commit_and_stops(self):
-        self.assertEqual(self.watch('OPEN\nOPEN\nMERGED abc1234def\n'), ['ship: MERGED #7 abc1234'])
+        self.assertEqual(self.watch('OPEN\nOPEN\nMERGED abc1234def\n', checks='pending\npending\n'), ['ship: MERGED #7 abc1234'])
         self.assertFalse(self.pidfile.exists(), 'the pid file goes with the watcher')
 
     def test_open_then_closed_says_unmerged(self):
-        self.assertEqual(self.watch('OPEN\nCLOSED\n'), ['ship: CLOSED #7 (unmerged)'])
+        self.assertEqual(self.watch('OPEN\nCLOSED\n', checks='pending\n'), ['ship: CLOSED #7 (unmerged)'])
 
-    def test_a_check_turning_red_is_reported_once_and_watching_goes_on_to_the_merge(self):
-        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nMERGED fff0000\n', checks='\npython\npython\n\n')
-        self.assertEqual(lines, ['ship: RED #7 python', 'ship: MERGED #7 fff0000'])
+    def test_a_check_turning_red_is_reported_once_then_green_once_and_watching_goes_on_to_the_merge(self):
+        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nOPEN\nMERGED fff0000\n', checks='pending\npython\npython\npending\n\n')
+        self.assertEqual(lines, ['ship: RED #7 python', 'ship: GREEN #7', 'ship: MERGED #7 fff0000'])
+
+    def test_red_from_the_first_look_is_reported_without_any_review_line(self):
+        """Started when the PR opens: the log has no REVIEW line, ship may have ended FAILED."""
+        self.log.write_text('ship: FAILED pull request #7 check python failed\n')
+        self.assertEqual(self.watch('OPEN\nCLOSED\n', checks='python\n'), ['ship: RED #7 python', 'ship: CLOSED #7 (unmerged)'][:2])
+
+    def test_a_second_red_after_a_rerun_speaks_again(self):
+        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nCLOSED\n', checks='python\npending\npython\n\n')
+        self.assertEqual(lines, ['ship: RED #7 python', 'ship: RED #7 python', 'ship: GREEN #7', 'ship: CLOSED #7 (unmerged)'])
 
     def test_a_pr_still_open_at_the_cap_ends_the_watch(self):
-        self.assertEqual(self.watch('OPEN\n', cap=2, poll=1), ['ship: WATCH ENDED #7 (still open)'])
+        self.assertEqual(self.watch('OPEN\n', checks='pending\n' * 4, cap=2, poll=1), ['ship: WATCH ENDED #7 (still open)'])
 
     def test_a_second_watcher_replaces_the_first_by_pid_file(self):
         env = {**os.environ, 'PATH': f'{self.tmp / "bin"}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_DIR': str(self.tmp), 'SHIP_WATCH_POLL': '1', 'SHIP_WATCH_CAP': '60'}
