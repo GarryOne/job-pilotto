@@ -11,6 +11,7 @@ const wsBase = base.replace(/^http/, 'ws');
 const pct = (list, p) => { const s = [...list].sort((a, b) => a - b); return s.length ? Math.round(s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)]) : null; };
 const get = async (path, query = '') => { const r = await fetch(`${base}${path}?t=${token}${query}`); return {status: r.status, json: await r.json().catch(() => null)}; };
 const result = {base, at: new Date().toISOString()};
+const attempt = async (name, fn) => { try { await fn(); } catch (e) { (result.errors ||= []).push(`${name}: ${String(e).slice(0, 300)}`); console.error(name, 'failed:', String(e).slice(0, 300)); } };
 
 // 0. Wait for the container (cold start).
 const t0 = Date.now(); let stats;
@@ -18,7 +19,7 @@ for (let n = 0; n < 60; n++) { try { stats = (await get('/stats')).json; if (sta
 result.coldStartMs = Date.now() - t0;
 
 // 1. The night: the session is filled and held.
-result.prepare = (await get('/prepare', `&base=${encodeURIComponent(base)}`)).json;
+await attempt('prepare', async () => { result.prepare = (await get('/prepare', `&base=${encodeURIComponent(base)}`)).json; if (!result.prepare || result.prepare.error) throw new Error(JSON.stringify(result.prepare)); });
 
 // A live view connection: frames in, input out.
 function connect(which = 'form') {
@@ -34,6 +35,7 @@ function connect(which = 'form') {
       }
       if (m.kind === 'pong') view.waiters.splice(0).forEach(w => w(now));
     });
+    ws.on('unexpected-response', (req, res) => { let b = ''; res.on('data', d => { b += d; }); res.on('end', () => reject(new Error(`HTTP ${res.statusCode} ${b.slice(0, 200)}`))); });
     ws.on('error', reject); setTimeout(() => reject(new Error('no first frame in 20 s')), 20000);
   });
 }
@@ -42,11 +44,11 @@ const input = (view, message) => view.ws.send(JSON.stringify(message));
 
 // 2. "Click to a filled form you can use": open time, 20 times, each a fresh connection.
 const opens = [];
-for (let n = 0; n < 20; n++) { const {view, firstMs} = await connect(); opens.push(firstMs); view.ws.close(); await new Promise(r => setTimeout(r, 300)); }
-result.open = {samples: opens, p50: pct(opens, 0.5), p90: pct(opens, 0.9), max: Math.max(...opens)};
+await attempt('open', async () => { for (let n = 0; n < 20; n++) { const {view, firstMs} = await connect(); opens.push(firstMs); view.ws.close(); await new Promise(r => setTimeout(r, 300)); }
+result.open = {samples: opens, p50: pct(opens, 0.5), p90: pct(opens, 0.9), max: Math.max(...opens)}; });
 
 // 3. Act like a person in the stream: a mouse path to the human check, a click, typing, Submit.
-{
+await attempt('act', async () => {
   const {view} = await connect();
   await new Promise(r => setTimeout(r, 1200));   // the page's own dwell time
   const box = {x: 40, y: 0};   // the check's position is read from a fresh page load of the same page on this side
@@ -70,10 +72,10 @@ result.open = {samples: opens, p50: pct(opens, 0.5), p90: pct(opens, 0.9), max: 
   input(view, {t: 'mouse', type: 'mousePressed', ...sub, button: 'left', clickCount: 1, buttons: 1}); input(view, {t: 'mouse', type: 'mouseReleased', ...sub, button: 'left', clickCount: 1});
   await new Promise(r => setTimeout(r, 2500)); view.ws.close();
   result.submit = (await (await fetch(`${base}/fake/state`)).json());
-}
+});
 
 // 4. "Move to my browser": the container's storage into a second browser (this machine's), then open the same pages.
-{
+await attempt('move', async () => {
   const state = (await get('/storage')).json;
   const mine = await chromium.launch(); const ctx = await mine.newContext({storageState: state}); const bare = await mine.newContext();
   const one = await ctx.newPage(); await one.goto(`${base}/fake/form`);
@@ -84,7 +86,7 @@ result.open = {samples: opens, p50: pct(opens, 0.5), p90: pct(opens, 0.9), max: 
   result.move = {cookiesCopied: state.cookies.length, onePageValuesKept: values.filter(Boolean).length, refillLocalMs: Date.now() - refill,
     flowWithCookies: withCookies.replace(/\s+/g, ' ').slice(0, 90), flowWithoutCookies: withoutCookies.replace(/\s+/g, ' ').slice(0, 90)};
   await mine.close();
-}
+});
 
 
 // 4b. Option 2: the server walked account -> step 2 -> step 3 and filled it. The user's browser (this machine) opens the LAST step with the session imported and the values restored by field identity.
@@ -95,7 +97,7 @@ const restoreIn = async (page, snapshot) => page.evaluate(snap => {
   return done;
 }, snapshot);
 result.handoff = [];
-for (const variant of ['plain', 'ip', 'ss']) {
+await attempt('handoff', async () => { for (const variant of ['plain', 'ip', 'ss']) {
   const h = (await get('/handoff', `&base=${encodeURIComponent(base)}&v=${variant}`)).json;
   const want = h.snapshot.fields.filter(f => (f.type === 'checkbox' ? f.value : f.value)).length;
   for (const mode of ['cookies', 'full']) {
@@ -117,7 +119,7 @@ for (const variant of ['plain', 'ip', 'ss']) {
     } else row.pageSays = (await page.locator('body').innerText()).replace(/\s+/g, ' ').slice(0, 80);
     result.handoff.push(row); await mine.close();
   }
-}
+} });
 
 // 5. Ten public postings, one read-only visit each, from the container's address.
 const ROWS = [['Lever', 'https://jobs.lever.co/sonarsource/54743786-1ad7-4be7-bcbe-67f660e9c381'], ['Personio', 'https://seitenbau-gmbh.jobs.personio.de/job/2825574'], ['Recruitee', 'https://jobs.channable.com/o/talent-acquisition-partner'],
@@ -125,7 +127,7 @@ const ROWS = [['Lever', 'https://jobs.lever.co/sonarsource/54743786-1ad7-4be7-bc
   ['SmartRecruiters', 'https://jobs.smartrecruiters.com/Nexthink/744000154703604'], ['Workday', 'https://redhat.wd5.myworkdayjobs.com/jobs/job/Remote-US-NC/TDP-Architect---RHEL_R-054302-2'],
   ['SuccessFactors', 'https://careers.adnovum.com/job/Switzerland-Business-Application-Manager-%28a%29/116542435'], ['Workable', 'https://apply.workable.com/j/288875C2F2']];
 result.reach = [];
-if (!local) for (const [platform, url] of ROWS) { const r = (await get('/reach', `&url=${encodeURIComponent(url)}`)).json; result.reach.push({platform, ...r}); }
+await attempt('reach', async () => { if (!local) for (const [platform, url] of ROWS) { const r = (await get('/reach', `&url=${encodeURIComponent(url)}`)).json; result.reach.push({platform, ...r}); } });
 
 // 6. What the container used.
 result.stats = (await get('/stats')).json; result.statsFirst = stats; result.wallS = Math.round((Date.now() - t0) / 1000);
