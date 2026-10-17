@@ -41,7 +41,8 @@ export async function initReadyCard() {
   const anchor = $('tailor-top')?.closest('.task-pair');
   if (!state?.owner || !anchor) return;
   const {card, send, run} = build(), note = card.querySelector('.ready-note'), names = {};
-  const refresh = async () => { const next = await window.pilot.readyState().catch(() => null); if (next?.owner) { Object.assign(names, next.names || {}); paint(card, next, names, act); } };
+  let tonightNow = state.tonight || [];
+  const refresh = async () => { const next = await window.pilot.readyState().catch(() => null); if (next?.owner) { Object.assign(names, next.names || {}); paint(card, {...next, tonight: tonightNow}, names, act); } };
   const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this form in your browser and press Submit yourself'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };

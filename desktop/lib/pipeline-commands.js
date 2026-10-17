@@ -8,23 +8,25 @@ import {log as appLog} from './log.js';
 import {dailyArgs, deliveryReady, triggerEnv} from './pipeline-args.js';
 import {readable} from './pipeline-env.js';
 import {run} from './pipeline-run.js';
-import {afterWrite} from './shared-read.js';
+const engineRun = run;   // the default of the shared reads below (a test passes its own)
+import {afterWrite, sharedRead} from './shared-read.js';
 
 // limit: how many of the best rows to send (the list's "Show more" raises it); the counts cover every row (src/desktop.py jobs).
-export async function jobs(storage, limit = 200) {
+// One read at a time per limit, for every caller (17 Oct 2026: a card asked for the list on every activity event, each read took ~60 s on a slow Notion day and 187 Python runs piled up): a second ask joins the running one.
+export const jobs = sharedRead('engine jobs', async (storage, limit = 200, run = engineRun) => {
   // Until the first search has ended, the jobs it found and has not scored yet are listed too (they say "Scoring…"): the list grows while it runs.
   const firstRun = !storage.settings().lastSearchAt;
   const {code, stdout} = await run(storage, ['src.desktop', 'jobs', '--limit', String(limit), ...(firstRun ? ['--first-run'] : [])]);
   if (code !== 0) throw new Error('Could not read the job list');
   return JSON.parse(stdout.trim().split('\n').pop());
-}
+}, {keyOf: (storage, limit) => limit ?? 200});
 
 // The Calendar's jobs: Applications rows only (src/desktop.py calendar), a fraction of the full list's read.
-export async function calendarJobs(storage) {
+export const calendarJobs = sharedRead('engine calendar', async (storage, run = engineRun) => {
   const {code, stdout} = await run(storage, ['src.desktop', 'calendar']);
   if (code !== 0) throw new Error('Could not read the calendar');
   return JSON.parse(stdout.trim().split('\n').pop());
-}
+});
 
 // A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
 // check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.

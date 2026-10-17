@@ -5,8 +5,13 @@ import {$} from './core.js';
 import {openView} from './nav.js';
 import {waitingOf} from './ready-rows.js';
 
-let strip = null;
+let strip = null, reading = false;
 async function paint() {
+  if (reading) return;   // an activity event while the last read runs: one at a time
+  reading = true;
+  try { await show(); } finally { reading = false; }
+}
+async function show() {
   const state = await window.pilot.readyState().catch(() => null), waiting = state?.owner ? waitingOf(state.site?.jobs || []) : null;
   if (!waiting) { strip?.remove(); strip = null; return; }
   const anchor = $('focus-up-title')?.closest('section');
