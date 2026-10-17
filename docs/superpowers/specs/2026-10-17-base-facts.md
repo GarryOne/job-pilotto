@@ -77,7 +77,7 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] Experience → Professional summary and Strengths: a short preview with Edit, saved line by line on every store (proof: desktop/test/experience-profile.test.js)
 - [x] Preferences tab removed; its old name opens Strategy → Job preferences; education, role history and unknown sections on Experience, voluntary surveys on Your details, every template heading with a home (proof: desktop/test/experience-profile.test.js)
 - [x] Cover-letter style moves to the Cover letter tab (the letter prompts keep the style rules) (proof: desktop/test/letter-style.test.js)
-- [ ] Notion template + Profile title (old title kept as a former title)
+- [x] Notion template: each section names its one editor in the app; the page keeps its title (owner, 17 Oct 2026: "Keep title") (proof: docs/notion-profile-template.md)
 - [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
 - [ ] One test over every questionnaire screen
 - [x] Strategy → Job preferences: Must-haves & deal-breakers apart from Preferences (ranking), rules folded under a summary, Add a deal-breaker / preference; the Profile tab keeps only lines with no other home (proof: desktop/test/job-preferences.test.js)

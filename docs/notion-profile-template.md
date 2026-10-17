@@ -11,6 +11,12 @@ for review," never as a fact.
 The AI scorer (stage 2) reads this page at every run to judge how well each job fits. Edit freely;
 changing it re-scores all open jobs on the next run.
 
+In the app, each section has one editor (the page keeps its title; nothing on it moves):
+**Hard constraints** and **Preferences** → Strategy → Job preferences (deal-breakers apart from what ranks);
+work mode, seniority and **Compensation**'s minimum → Strategy → Goals; **Summary**, **Core skills**,
+**Education**, **Experience** and any section of your own → Profile → Experience; **Links** and the
+voluntary surveys → Profile → Your details.
+
 # Hard constraints
 
 Jobs that break these are filtered out before any AI scoring.
@@ -82,7 +88,8 @@ invents experience.
 
 Standard answers for job application forms. Kept separate from Profile on purpose: editing this
 page does not re-trigger AI scoring. Contact details (email, phone, address) should **not** go on
-this page — see "Where the CV file and contact details live" below.
+this page — see "Where the CV file and contact details live" below. In the app, **Cover letter style**
+is edited on Profile → Cover letter; the rest on Profile → Application answers.
 
 # Eligibility
 
