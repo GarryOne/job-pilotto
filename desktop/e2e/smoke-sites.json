@@ -53,6 +53,7 @@
   },
   {
    "shape": "Join: form on join.com",
+   "stage": "watch",
    "urls": [
     "https://join.com/companies/join/16780626-engineering-manager-m-f-d",
     "https://join.com/companies/join/16778091-engineering-manager"
@@ -60,6 +61,7 @@
   },
   {
    "shape": "jobs.ch -> Deloitte: email-first account, email code, CV choice step",
+   "stage": "watch",
    "urls": [
     "https://www.jobs.ch/en/vacancies/detail/10606ac6-4ae8-4bb4-86bd-1579ee4aa035/",
     "https://www.jobs.ch/en/vacancies/detail/32c036f1-8bf2-403f-b325-c6fe96aa0972/"
@@ -144,6 +146,7 @@
   },
   {
    "shape": "Migros group: Denner (migros-gruppe.jobs)",
+   "stage": "watch",
    "urls": [
     "https://migros-gruppe.jobs/de/unsere-unternehmen/job/denner-ag/assistentin-filialleitung/03f55afb-d4bb-4f42-95a1-79f662b9be48"
    ]
@@ -169,6 +172,7 @@
   },
   {
    "shape": "HelloFresh careers (Greenhouse behind its own site)",
+   "stage": "watch",
    "urls": [
     "https://careers.hellofresh.com/global/en/job/6190849?gh_jid=6190849"
    ]
@@ -193,6 +197,7 @@
   },
   {
    "shape": "Richemont Workday",
+   "stage": "watch",
    "urls": [
     "https://richemont.wd3.myworkdayjobs.com/richemont/job/GENEVA/Sales-Associate---60-_JR134503"
    ]
@@ -205,6 +210,7 @@
   },
   {
    "shape": "Breitling SuccessFactors",
+   "stage": "watch",
    "urls": [
     "https://careers.breitling.com/job/Geneva-Universal-Gen%C3%A8ve-Grand-Vendeur-Geneva-Flagship-%28fmx%29-GE-1201/1410143633/"
    ]
@@ -229,6 +235,7 @@
   },
   {
    "shape": "Chanel Workday",
+   "stage": "watch",
    "urls": [
     "https://cc.wd3.myworkdayjobs.com/en-US/ChanelCareers/job/Zrich/After-Sales-Service-Assistant_JOBREQ00115604"
    ]
@@ -367,6 +374,7 @@
   },
   {
    "shape": "Starling Bank (found 2026-10-10)",
+   "stage": "watch",
    "urls": [
     "https://apply.workable.com/j/288875C2F2"
    ],
@@ -395,6 +403,7 @@
   },
   {
    "shape": "Adnovum (found 2026-10-10)",
+   "stage": "watch",
    "urls": [
     "https://careers.adnovum.com/job/Zurich-AI-Platform-Engineer-%28a%29/1164908455/"
    ],
@@ -507,6 +516,7 @@
   },
   {
    "shape": "Databricks (found 2026-10-10)",
+   "stage": "watch",
    "urls": [
     "https://databricks.com/company/careers/open-positions/job?gh_jid=8532682002"
    ],

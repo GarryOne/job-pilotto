@@ -87,3 +87,11 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 - New / Needs a fix / Working / Fixed are **derived** from runs and the fixes ledger (`site/src/applying-stage.js`); Daily watch and Archived are **data** on the row (`stage`, `stage_why` in `smoke-sites.json` uploads).
 - **Archived rows are never run** by lists, shares, `--all` or CI (only an explicit `--only` names one); nothing is deleted, the recording stays for history and offline debugging.
 - `node desktop/e2e/archive-pool-rows.mjs` lists rows that may be archived (fixed, working 3 clean runs, posting gone); `--write` archives them.
+
+## Daily watch list (owner, 17 Oct 2026)
+- **What:** one pool row per multi-step platform (rows of `smoke-sites.json` with `"stage": "watch"`; the batch adds a row when it finds a new platform) recorded LIVE every day at 05:00 UTC by `.github/workflows/watch-live.yml`: test applicant, held, never Submit, ≤2 visits a host a day (the site ledger is shared with `record-sites.yml`), one pool run at a time.
+- **Cap:** its own $25 a calendar month from its `watch-state` artifacts, apart from the batch's $3 a week; spend reported as `pool-watch` on /admin/ai-cost. At the cap: no run, one Telegram note a month.
+- **Judge:** each fresh recording gets the discovery judge and the journey check (`journey-run.mjs --watch`), then is compared with the row's last live run (`lib/watch-list.mjs`). ONE Telegram message, only when a flow got worse; the first run sends nothing.
+- **Held, not failed:** a row without a test account (secret `POOL_TEST_ACCOUNTS`), a bot wall or a gone posting is never worse and never the next baseline.
+- **Debugging copy:** the fresh recording (`net-records-<run>`) is the row's copy: no refill, and the daily offline replay skips watch rows (a row still pinned in `replay-faithful.json` stays until the owner's Replay-accept removes the pin).
+

@@ -11,11 +11,13 @@ const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..
 const workflows = Object.fromEntries(fs.readdirSync(DIR).filter(name => /\.ya?ml$/.test(name)).map(name => [name, fs.readFileSync(path.join(DIR, name), 'utf8')]));
 export const triggersOf = text => [...(text.match(/^on:\n((?:[ \t]+.*\n|\n)*)/m)?.[1] || '').matchAll(/^ {2}([a-z_]+):/gm)].map(match => match[1]);
 
-test('a workflow that records the pool sites starts by hand, plus the ONE daily discovery batch: never another schedule, a push, a call or a PR', () => {
+test('a workflow that records the pool sites starts by hand, plus the daily discovery batch and the daily watch list: never another schedule, a push, a call or a PR', () => {
   // A `paths:` entry naming a file (site-replays-pr.yml lists desktop/e2e/lib/record-sites.mjs, a library its replay imports) is not a run.
   const runs = text => text.split('\n').filter(line => !/^\s+- '[^']+'\s*$/.test(line)).join('\n');
   const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])(smoke|record-sites)\.mjs\b|npm run (smoke|record-sites)\b/m.test(runs(workflows[name])));
-  assert.deepEqual(runners, ['record-sites.yml']);
+  assert.deepEqual(runners, ['record-sites.yml', 'watch-live.yml']);   // the daily watch list records the same way (owner, 17 Oct 2026)
+  assert.deepEqual(triggersOf(workflows['watch-live.yml']), ['schedule', 'workflow_dispatch']);
+  assert.deepEqual([...workflows['watch-live.yml'].matchAll(/^ +- cron: '([^']+)'/gm)].map(match => match[1]), ['0 5 * * *'], 'one cron: the daily watch at 05:00 UTC');
   assert.deepEqual(triggersOf(workflows['record-sites.yml']), ['schedule', 'workflow_dispatch']);   // the schedule is the daily batch (owner, 17 Oct 2026)
   assert.deepEqual([...workflows['record-sites.yml'].matchAll(/^ +- cron: '([^']+)'/gm)].map(match => match[1]), ['0 6 * * *'], 'one cron: the daily batch at 06:00 UTC');
   const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/record-sites\.yml/.test(workflows[name]));
@@ -102,4 +104,24 @@ test('the daily discovery batch: picker without AI, recording only after a pick,
   const weekCap = fs.readFileSync(path.join(DIR, '..', '..', 'desktop', 'e2e', 'lib', 'discovery-pick.mjs'), 'utf8');
   assert.match(weekCap, /WEEK_CAP_USD = 3\b/);
   assert.match(weekCap, /MAX_ROWS = 5\b/);
+});
+
+test('the daily watch list: picker without AI, recording only when the month has room, its own $25 cap, never Submit, never merges, shares the site ledger and the queue', () => {
+  const watch = workflows['watch-live.yml'], section = name => { const start = watch.indexOf(`\n  ${name}:`), rest = watch.slice(start + 1), end = rest.slice(rest.indexOf('\n')).search(/\n  [a-z-]+:\n/); return end < 0 ? rest : rest.slice(0, rest.indexOf('\n') + end); };
+  const pick = section('pick'), record = section('smoke');
+  assert.doesNotMatch(pick, /ANTHROPIC|OPENAI|claude -p|xvfb|playwright|TEST_ACCOUNTS/i, 'the picker spends nothing, opens no browser, sees no account');
+  assert.match(record, /needs: pick/);
+  assert.match(record, /needs\.pick\.outputs\.count != '0'/, 'at the cap: no run');
+  assert.match(record, /MAX_USD: \$\{\{ needs\.pick\.outputs\.max_usd \}\}/);
+  assert.match(record, /JOB_PILOTTO_SITE_LIMIT: '2'/, 'at most 2 visits a host a day');
+  assert.match(record, /JP_APPLICANT: thin/);
+  assert.match(record, /JP_TEST_ACCOUNTS: \$\{\{ secrets\.POOL_TEST_ACCOUNTS \}\}/, 'test accounts only, from the secret');
+  assert.match(record, /AI_COST_JOB: pool-watch/, 'its spend has its own line on /admin/ai-cost');
+  assert.match(record, /POOL_WAIT_WORKFLOWS: record-sites\.yml,watch-live\.yml/, 'one pool run at a time across both');
+  assert.match(record, /for workflow in record-sites\.yml watch-live\.yml/, 'the site ledger counts both workflows');
+  assert.match(workflows['record-sites.yml'], /for workflow in record-sites\.yml pool-smoke\.yml watch-live\.yml/, 'and the batch counts the watch');
+  assert.doesNotMatch(watch, /gh pr (merge|create)|--auto|auto-merge|concurrency:/i);
+  assert.doesNotMatch(watch, /REPLAYS_PUBLISH_KEY|pool-ci-rows/, 'it writes nothing to the lab page itself');
+  const lib = fs.readFileSync(path.join(DIR, '..', '..', 'desktop', 'e2e', 'lib', 'watch-list.mjs'), 'utf8');
+  assert.match(lib, /MONTH_CAP_USD = 25\b/);
 });
