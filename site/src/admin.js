@@ -4,27 +4,28 @@
 import {esc} from './stats.js';
 import {viewer} from './auth.js';
 
+// name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
   {path: '/admin', group: 'Overview', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
   {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
   {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
-  {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
-  {path: '/admin/operations/overview', group: 'Operations', question: 'Where does our engineering time go: fixing forms or building tools?', name: 'Overview', icon: '⏱️'},
-  {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
-  {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
-  {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
-  {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
   {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
-  {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
-  {path: '/admin/form-learning', group: 'Intelligence', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', name: 'Form Learning', icon: '🧬'},
+  {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/real-form-filling', group: 'Form filling', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], title: 'Real Form Filling', name: 'Real users', icon: '📝'},
+  {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
+  {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
+  {path: '/admin/form-learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', name: 'Learning', icon: '🧬'},
+  {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
+  {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
-  {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
-  {path: '/admin/real-form-filling', group: 'Operations', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], name: 'Real Form Filling', icon: '📝'},
-  {path: '/admin/lab-form-filling', group: 'Operations', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', name: 'Lab Form Filling', icon: '🛡️'},
-  {path: '/admin/benchmark-form-filling', group: 'Operations', question: 'How does our form filling compare with other tools on the same forms?', name: 'Benchmark Form Filling', icon: '📏'},
-  {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin/operations/overview', group: 'Engineering', question: 'Where does our engineering time go: fixing forms or building tools?', name: 'Overview', icon: '⏱️'},
+  {path: '/admin/operations/build-log', group: 'Engineering', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
+  {path: '/admin/operations/pr-checks', group: 'Engineering', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
+  {path: '/admin/self-healing', group: 'Engineering', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/sentry', group: 'Engineering', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
+  {path: '/admin/ai-cost', group: 'Engineering', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/access', group: 'Engineering', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
 const OLD = {...Object.fromEntries(PAGES.flatMap(page => [page.old].flat().filter(Boolean).map(old => [old, page.path]))),
@@ -71,13 +72,16 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 .admin-nav .admin-sub{padding-top:0;font-size:13px}.admin-nav .admin-sub a[aria-current]{background:#1b2027;color:#f5b54a}
 .admin-question{margin:-10px 0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}`;
 
-// The menu for this viewer, in four groups (owner, 6 Oct 2026: one row of eleven pages had grown too long): the groups on the first row,
-// the pages of the open group on a second; the Access page only for the super admin; who is signed in, on the right.
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
+// The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
+// Form filling and Engineering): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
+// it is a lock link beside "super admin" and only for the super admin.
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Intelligence', '🧠'], ['Engineering', '🛠️']];
 export function nav(active, who = {role: 'superadmin'}) {
-  const shown = PAGES.filter(page => !page.superadmin || who.role === 'superadmin');
-  const me = who.role === 'superadmin' ? 'super admin' : `${who.name} · admin`;
-  const open = shown.find(page => page.path === active)?.group;
+  const isSuper = who.role === 'superadmin';
+  const shown = PAGES.filter(page => !page.superadmin);
+  const access = isSuper ? PAGES.find(page => page.superadmin) : null;
+  const me = isSuper ? 'super admin' : `${who.name} · admin`;
+  const open = PAGES.find(page => page.path === active)?.group;
   const groups = GROUPS.map(([name, icon]) => {
     const first = shown.find(page => page.group === name);
     return first ? `<a href="${first.path}"${name === open ? ' aria-current="page"' : ''}>${icon} ${esc(name)}</a>` : '';
@@ -85,7 +89,7 @@ export function nav(active, who = {role: 'superadmin'}) {
   const pages = shown.filter(page => page.group === open);
   const second = pages.length > 1 ? `<div class="admin-sub">${pages.map(page =>
     `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
-  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}</span></div>${second}</nav>`;
+  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}${access ? ` <a href="${access.path}"${access.path === active ? ' aria-current="page"' : ''} title="${esc(access.name)}" aria-label="${esc(access.name)}">${access.icon}</a>` : ''}</span></div>${second}</nav>`;
 }
 // The question a page answers, under the menu on every page (owner, 6 Oct 2026): what to read it for, in one line.
 export function question(active) {

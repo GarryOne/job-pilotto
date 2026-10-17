@@ -74,7 +74,7 @@ export function page(snapshot, {segment} = {}) {
     : `${key.endsWith(':user') ? '' : `<div class="banner">${esc(segmentLabel(key))}: not what real users run, and never added to user mode. Use it only to compare with itself.</div>`}
 ${keys.length > 1 ? filterLinks(keys.map(k => [k, segmentLabel(k), `?view=${encodeURIComponent(k)}`]), key) : ''}
 ${objectiveBlock(view)}${tiles(view)}${scoreboard(view)}${grid(view)}${trend(view)}${METHOD}`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Benchmark Form Filling · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Benchmark Form Filling · Engineering · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
 <header><h1>📏 Benchmark Form Filling</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · ${key ? esc(segmentLabel(key)) : ''}` : ''}</span></header>
 ${body}</main></body></html>`;

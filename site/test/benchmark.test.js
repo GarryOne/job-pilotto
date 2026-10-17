@@ -114,8 +114,8 @@ test('tiles use the shared colour rule: green at 70% or more, amber 50-69, red u
   assert.equal(tile(ours(8, 2), 'Wrong answers'), 'warn');
 });
 
-test('the page is in the Operations menu beside Real and Lab, with a question, and the public code names no tool, form host or site', () => {
-  const paths = PAGES.filter(p => p.group === 'Operations').map(p => p.path);
+test('the page is in the Form filling menu after Real and Lab, with a question, and the public code names no tool, form host or site', () => {
+  const paths = PAGES.filter(p => p.group === 'Form filling').map(p => p.path);
   const at = paths.indexOf('/admin/benchmark-form-filling');
   assert.ok(at > 0 && at === paths.indexOf('/admin/lab-form-filling') + 1);
   assert.match(PAGES.find(p => p.path === '/admin/benchmark-form-filling').question, /\?$/);

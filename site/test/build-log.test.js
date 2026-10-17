@@ -62,7 +62,7 @@ test('the page is the owner\'s: 404 without the key, days newest first with thei
   assert.ok(!page([{day: '2026-10-16', groups: JSON.stringify([{emoji: '<b>', title: '<script>x</script>', bullets: []}]), open_line: '<i>', numbers: '[]', drafts: 1, usd: 0, updated_at: '2026-10-16T10:00:00Z', final_at: null}]).includes('<script>x'));
 });
 
-test('the menu lists the Build log under Operations', () => {
+test('the menu lists the Build log under Engineering', () => {
   const entry = PAGES.find(item => item.path === '/admin/operations/build-log');
-  assert.equal(entry.group, 'Operations');
+  assert.equal(entry.group, 'Engineering');
 });

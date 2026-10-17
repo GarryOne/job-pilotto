@@ -1,4 +1,4 @@
-// /admin/real-form-filling (Operations): how well REAL users' forms get filled, and what still trips the filler: headline, top weaknesses, what the fill missed, how applications ended,
+// /admin/real-form-filling (Form filling): how well REAL users' forms get filled, and what still trips the filler: headline, top weaknesses, what the fill missed, how applications ended,
 // efficiency day by day, the "*" cross-check. The lab's recorded sites are on /admin/lab-form-filling; the learning loop on /admin/form-learning. The digest download lives here. Guard: site/test/form-pages.test.js.
 import {viewer} from './auth.js';
 import {digest, markdown} from './digest.js';

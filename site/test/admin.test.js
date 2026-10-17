@@ -5,7 +5,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
-import {PAGES, byWeek, spark, weekOf} from '../src/admin.js';
+import {GROUPS, PAGES, byWeek, nav, spark, weekOf} from '../src/admin.js';
 import {report} from '../src/overview.js';
 import {appTrends, insightTrends} from '../src/trends.js';
 
@@ -24,6 +24,18 @@ const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST:
 const owner = {headers: {Cookie: 'jp_stats=k3y'}};
 const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
 const now = new Date('2026-10-12T12:00:00Z');
+
+test('the menu: every page has a group, no group row has more than 6 pages, Access is a lock link for the super admin only', () => {
+  const names = GROUPS.map(([name]) => name);
+  for (const page of PAGES) assert.ok(names.includes(page.group), `${page.path} has a group from GROUPS`);
+  for (const name of names) assert.ok(PAGES.filter(page => page.group === name && !page.superadmin).length <= 6, `${name} row is short`);
+  const access = PAGES.find(page => page.superadmin);
+  const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';
+  const sup = nav('/admin/website', {role: 'superadmin'}), adm = nav('/admin/website', {role: 'admin', name: 'Ann'});
+  assert.ok(sup.includes(`<span class="me">super admin <a href="${access.path}"`));
+  assert.ok(!adm.includes(access.path));
+  assert.ok(!row(nav('/admin/operations/overview', {role: 'superadmin'})).includes(access.path), 'Access is not in a row');
+});
 
 test('the old addresses send the owner to /admin (query kept); anyone else still gets a 404', async () => {
   const e = env();

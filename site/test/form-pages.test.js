@@ -1,4 +1,4 @@
-// The three form-filling admin pages (owner, 14 Oct 2026): Real Form Filling and Lab Form Filling side by side in Operations, Form Learning in Intelligence; the old addresses only redirect.
+// The three form-filling admin pages (owner, 14 Oct 2026): Real Form Filling and Lab Form Filling side by side in Form filling, with Benchmark and Learning; the old addresses only redirect.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -21,9 +21,9 @@ const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpil
 
 test('each page is in its menu group under its name, and Real and Lab sit side by side', () => {
   const by = path => PAGES.find(page => page.path === path);
-  assert.deepEqual([by('/admin/real-form-filling')?.name, by('/admin/real-form-filling')?.group], ['Real Form Filling', 'Operations']);
-  assert.deepEqual([by('/admin/lab-form-filling')?.name, by('/admin/lab-form-filling')?.group], ['Lab Form Filling', 'Operations']);
-  assert.deepEqual([by('/admin/form-learning')?.name, by('/admin/form-learning')?.group], ['Form Learning', 'Intelligence']);
+  assert.deepEqual([by('/admin/real-form-filling')?.name, by('/admin/real-form-filling')?.group], ['Real users', 'Form filling']);
+  assert.deepEqual([by('/admin/lab-form-filling')?.name, by('/admin/lab-form-filling')?.group], ['Lab', 'Form filling']);
+  assert.deepEqual([by('/admin/form-learning')?.name, by('/admin/form-learning')?.group], ['Learning', 'Form filling']);
   const order = PAGES.map(page => page.path);
   assert.equal(order.indexOf('/admin/lab-form-filling') - order.indexOf('/admin/real-form-filling'), 1);
 });
