@@ -184,6 +184,7 @@ class ReviewWithoutResultClosesItsRunTests(OnThisMac):
                 run_log._open.clear()
                 run_log.auto_begin(self.stores)
                 self.addCleanup(run_log._open.clear)
+                self.addCleanup(run_log._auto.clear)   # auto_begin leaves _auto set: the next test's new_run() would open a row (test_prep, when a shard put it after this)
                 args = SimpleNamespace(file=None, note='x', send=False, job=None, interview=None, log_run=True)
                 with mock.patch.object(interviews, 'run', side_effect=error), mock.patch.object(cost, 'limit_reached', return_value=not isinstance(error, ValueError)), \
                         mock.patch.object(cost, 'limit_reason', return_value='limit'), mock.patch.object(cost, 'limit_message', return_value='paused'), redirect_stdout(io.StringIO()):
