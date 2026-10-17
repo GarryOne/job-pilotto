@@ -98,3 +98,14 @@ test('--dry changes nothing', () => {
   assert.equal(result.rows, 3);
   assert.deepEqual(fs.readdirSync(live).sort(), before);
 });
+
+test('a half pair (a key with no data: an upload cut short) is backed up, then removed; a stray file still stops it', () => {
+  const {priv, pub, work, live, store} = setup();
+  fs.writeFileSync(path.join(live, 'net-records-20261015T233241Z-g3.k.enc'), 'k'.repeat(512));
+  const result = compactRelease(fakeGh(store), {repo: 'r/r', tag: 'net-records', backupTag: 'net-records-backup-x', work, privKeyFile: priv, pubKey: pub, stamp: 's', retry: f => f()});
+  assert.deepEqual([result.before, result.after, result.rows], [7, 2, 3]);
+  assert.equal(fs.readdirSync(store.get('net-records-backup-x')).length, 7);
+  const second = setup();
+  fs.writeFileSync(path.join(second.live, 'notes.txt'), 'x');
+  assert.throws(() => compactRelease(fakeGh(second.store), {repo: 'r/r', tag: 'net-records', backupTag: 'net-records-backup-x', work: second.work, privKeyFile: second.priv, pubKey: second.pub, stamp: 's', retry: f => f()}), /not a bundle file/);
+});

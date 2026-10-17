@@ -39,9 +39,13 @@ export function backupRelease(gh, {repo, tag, backupTag, work, retry = withRetry
 
 // The bundles on a release: every <name>.tgz.enc with its <name>.k.enc beside it. An asset that is neither half of a pair is named, never silently dropped.
 export function bundlesOf(assets) {
-  const names = new Set(assets.map(a => a.name)), bundles = [...names].filter(n => n.endsWith('.tgz.enc')).map(n => n.slice(0, -8));
-  const odd = [...names].filter(n => !(n.endsWith('.tgz.enc') && names.has(n.replace(/\.tgz\.enc$/, '.k.enc'))) && !(n.endsWith('.k.enc') && names.has(n.replace(/\.k\.enc$/, '.tgz.enc'))));
-  return {bundles, odd};
+  const names = new Set(assets.map(a => a.name)), part = n => n.replace(/\.(tgz|k)\.enc$/, '');
+  const isTgz = n => n.endsWith('.tgz.enc'), isKey = n => n.endsWith('.k.enc');
+  const bundles = [...names].filter(n => isTgz(n) && names.has(`${part(n)}.k.enc`)).map(part);
+  // A half pair (an upload cut short: a key with no data, or data with no key) holds no record a reader can open: it is backed up with everything else, then removed with the old assets.
+  const orphans = [...names].filter(n => (isTgz(n) && !names.has(`${part(n)}.k.enc`)) || (isKey(n) && !names.has(`${part(n)}.tgz.enc`)));
+  const odd = [...names].filter(n => !isTgz(n) && !isKey(n));
+  return {bundles, orphans, odd};
 }
 
 // Decrypts `bundles` (downloaded into `enc`) into <root>/<bundle>/ and returns the newest record per row, split into bins of at most maxBytes (uncompressed) -> [[{dir, as}]].
@@ -61,9 +65,10 @@ export function newestBins({enc, bundles, privKeyFile, root, maxBytes = 1.2e9}) 
 export function compactRelease(gh, {repo, tag, backupTag, work, privKeyFile, pubKey, dry = false, stamp, retry = withRetry, log = () => {}, maxBytes}) {
   const live = backupTag ? backupRelease(gh, {repo, tag, backupTag, work, retry, log}) : listAssets(gh, repo, tag), enc = path.join(work, 'live');
   if (!backupTag) { fs.mkdirSync(enc, {recursive: true}); gh(['release', 'download', tag, '-R', repo, '--pattern', '*', '--dir', enc, '--clobber']); }
-  const {bundles, odd} = bundlesOf(live);
-  if (odd.length) throw new Error(`compact: assets that are not a bundle pair, left alone: ${odd.join(', ')}`);
+  const {bundles, orphans, odd} = bundlesOf(live);
+  if (odd.length) throw new Error(`compact: assets that are not a bundle file, left alone: ${odd.join(', ')}`);
   const {rows, bins} = newestBins({enc, bundles, privKeyFile, root: path.join(work, 'plain'), maxBytes});
+  if (orphans.length) log(`compact: half pairs (nothing a reader can open), backed up then removed: ${orphans.join(', ')}`);
   log(`compact: ${live.length} assets, ${bundles.length} bundles -> ${rows} rows in ${bins.length} bundle(s)`);
   if (!rows) throw new Error('compact: no record found in any bundle; nothing is removed');
   if (dry) return {before: live.length, after: bins.length * 2, rows};
