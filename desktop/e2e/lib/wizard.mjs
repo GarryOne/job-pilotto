@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {pageText} from './notion.mjs';
+import {goView} from './go-view.mjs';
 
 export async function runWizard(ctx) {
   const {page, key: KEY} = ctx;
@@ -108,7 +109,7 @@ export async function runWizard(ctx) {
     await ctx.run("on this Mac's store no page asks to connect Notion: Focus and Interviews open their own content", async () => {
       await page.click('.nav[data-view="focus"]');
       await page.locator('.view[data-view="focus"]:not([hidden])').waitFor({timeout: 15000});
-      await page.click('.nav[data-view="interviews"]');
+      await goView(page, 'interviews');   // not in the menu until used: opened as the More row / ⌘K does
       await page.locator('.view[data-view="interviews"] #iv-add').waitFor({state: 'visible', timeout: 15000});
       for (const view of ['focus', 'interviews']) {
         if (await page.locator(`.view[data-view="${view}"] .ui-gate`).count()) throw new Error(`${view} shows the Notion prompt on this Mac's store`);
@@ -124,7 +125,7 @@ export async function runWizard(ctx) {
     await page.click('.nav[data-view="focus"]');
     await page.locator('.view[data-view="focus"].focus-started #focus-onboarding').waitFor({timeout: 15000});
     if (await page.locator('.view[data-view="focus"] .ui-gate').count()) throw new Error('Focus shows the Notion prompt instead of Get started');
-    await page.click('.nav[data-view="interviews"]');
+    await goView(page, 'interviews');   // not in the menu until used: opened as the More row / ⌘K does
     await page.locator('.view[data-view="interviews"] .ui-gate').waitFor({timeout: 15000});
     await page.locator('.view[data-view="interviews"] .ui-gate button.primary').click();
     await page.locator('#notion-connect-dialog[open]').waitFor({timeout: 5000});
