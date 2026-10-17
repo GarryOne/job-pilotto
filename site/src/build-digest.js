@@ -33,8 +33,8 @@ export function summarize(pr) {
 
 export const SYSTEM = `You write the owner's daily build digest for Job Pilotto, a job-search app. You get the PRs merged today (number, title, short notes). Group them by GOAL (what the owner was working towards),
 not by file. Plain words a non-engineer understands; no jargon, no session names, no PR titles copied. Answer ONLY a JSON object:
-{"groups":[{"emoji":"🧭","title":"Apply flow on real ATS sites","bullets":[{"lead":"Short bold lead","text":"One plain sentence on what changed for the user, with a measured number when the notes have one.","prs":[1000,1001]}]}],"open":"One line of what is still open."}
-Rules: 3 to 9 groups, 2 to 5 bullets each, lead up to 8 words, text up to 220 characters, one emoji per group. "prs" lists only numbers from the input. Put every PR in some bullet. "open" comes from the open PRs list (up to 220 characters; say "Nothing open." if the list is empty).`;
+{"groups":[{"emoji":"🧭","title":"Apply flow on real ATS sites","bullets":[{"lead":"Short bold lead","text":"One short plain line on what changed for the user.","prs":[1000,1001]}]}],"open":"One line of what is still open."}
+Rules: 3 to 9 groups, 2 to 5 bullets each, lead up to 8 words, text up to 90 characters (about 12 words, a number only when it fits), one emoji per group. "prs" lists only numbers from the input. Put every PR in some bullet. "open" comes from the open PRs list (up to 220 characters; say "Nothing open." if the list is empty).`;
 
 export function buildPrompt(summaries, open = []) {
   const merged = summaries.map(item => `#${item.number} ${item.title} :: ${item.text}`).join('\n');

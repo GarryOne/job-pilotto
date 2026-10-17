@@ -5,7 +5,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
-import {cleanGroups, page} from '../src/build-log.js';
+import {LINE, cleanGroups, cut, page} from '../src/build-log.js';
+import {SYSTEM} from '../src/build-digest.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -65,4 +66,30 @@ test('the page is the owner\'s: 404 without the key, days newest first with thei
 test('the menu lists the Build log under Engineering', () => {
   const entry = PAGES.find(item => item.path === '/admin/operations/build-log');
   assert.equal(entry.group, 'Engineering');
+});
+
+test('each goal is a card with its PR count; a long line is cut at a word and folds its full text; a short one does not; the prompt asks for the short form', () => {
+  const long = 'A radio group is now named by the question above it, so forms that repeat Yes and No no longer fill the wrong answer.';
+  const two = [{emoji: '🧭', title: 'Apply flow', bullets: [{lead: 'Radio', text: long, prs: [957, 959]}, {lead: 'Dropdown', text: 'Short line.', prs: [960]}]}, {emoji: '🛠️', title: 'Admin', bullets: [{lead: 'Menu', text: 'Five groups.', prs: [961]}]}];
+  const html = page([{day: '2026-10-16', groups: JSON.stringify(two), open_line: '', numbers: '[957,959,960,961]', drafts: 1, usd: 0.01, updated_at: '2026-10-16T10:00:00Z', final_at: null}]);
+  assert.equal((html.match(/<section class="card goal">/g) || []).length, 2);
+  assert.match(html, /Apply flow <span class="muted">3 PRs<\/span>/);
+  assert.match(html, /Admin <span class="muted">1 PR<\/span>/);
+  assert.match(html, /<details><summary><b>Radio<\/b> <span class="muted">A radio group is now named[^<]*…<\/span><\/summary><p class="muted">A radio group is now named by the question above it, so forms that repeat Yes and No no longer fill the wrong answer\.<\/p>/);
+  assert.doesNotMatch(html, /<details><summary><b>Dropdown/);
+  assert.ok(cut(long).length <= LINE + 1 && cut('Short.') === 'Short.');
+  assert.match(SYSTEM, new RegExp(`text up to ${LINE} characters`));
+});
+
+test('a closed day is replaced only by an explicit rewrite, and stays closed', async () => {
+  const e = env();
+  await put(e, digest({final: true}));
+  const text = groups => ({...digest(), groups, rewrite: true});
+  const short = [{emoji: '🧭', title: 'Apply flow', bullets: [{lead: 'Radio', text: 'Radio groups read right.', prs: [957, 959]}]}];
+  assert.equal((await (await put(e, digest({groups: short}))).json()).ignored, 'day is closed');
+  const done = await (await put(e, text(short))).json();
+  assert.deepEqual([done.final, done.rewritten], [true, true]);
+  const html = await (await call(e, '/admin/operations/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
+  assert.match(html, /Radio groups read right/);
+  assert.match(html, /Final/);
 });

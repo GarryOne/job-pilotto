@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Writes the daily build digest ("what we built today", spec docs/superpowers/specs/2026-10-16-daily-digest.md) from the PRs merged on one Zurich day, with Haiku (site/src/build-digest.js does the cutting, validating and rendering).
-//   node tools/daily-digest.mjs [--day YYYY-MM-DD] [--force [--final]] [--out results.json] [--cost cost.json] [--prs prs.json --open open.json]
+//   node tools/daily-digest.mjs [--day YYYY-MM-DD] [--force [--final] [--rewrite]] [--out results.json] [--cost cost.json] [--prs prs.json --open open.json]
 // Hourly (daily-digest.yml): asks the site what it holds (GET /digest/data), plans (build-digest.js plan: unchanged set, once an hour, 8 drafts, final from 23:00 Zurich) and stores the draft (PUT, SELFHEAL_PUBLISH_KEY).
 // Needs gh with GH_TOKEN (unless --prs) and DIGEST_ANTHROPIC_KEY (the Self-heal workspace key; a missing key fails loudly, no fallback). --out: a list of {day, final, markdown, groups, open, numbers, usd}; --cost: {usd, calls} for desktop/e2e/ai-cost-report.mjs --job daily-digest --file.
 import {execFileSync} from 'node:child_process';
@@ -34,13 +34,14 @@ async function runDay({day, late, key, publishKey, now}) {
   const digest = await makeDigest({day, prs, open, key});
   const usd = usageCost(MODEL, digest.usage) ?? 0, {count, min, max} = countOf(digest.numbers);
   console.log(`${day}: ${decision.final ? 'FINAL' : 'draft'}, ${count} PRs${count ? ` (#${min}-#${max})` : ''}, ${digest.groups.length} groups, $${usd.toFixed(4)}`);
-  const result = {day, final: decision.final, markdown: digest.markdown, groups: digest.groups, open: digest.open, numbers: digest.numbers, usd};
+  const rewrite = process.argv.includes('--rewrite');   // a closed day written again in the new form: stored over the old one, no Telegram post
+  const result = {day, final: decision.final, ...(rewrite ? {rewrite: true} : {}), markdown: digest.markdown, groups: digest.groups, open: digest.open, numbers: digest.numbers, usd};
   if (publishKey) {
     const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${publishKey}`, 'Content-Type': 'application/json'}, body: JSON.stringify(result)});
     if (!response.ok) throw new Error(`the site refused the digest (${response.status})`);
     const stored = await response.json().catch(() => ({}));
     // The post goes out once: only when the site stored THIS final digest (a closed day answers "ignored", so a repeat run posts nothing).
-    if (decision.final && stored.final && !stored.ignored) console.log(`Telegram: ${JSON.stringify(await post(result, {token: process.env.BUILDLOG_TELEGRAM_TOKEN, chat: process.env.BUILDLOG_TELEGRAM_CHAT}))}`);
+    if (decision.final && stored.final && !stored.ignored && !stored.rewritten) console.log(`Telegram: ${JSON.stringify(await post(result, {token: process.env.BUILDLOG_TELEGRAM_TOKEN, chat: process.env.BUILDLOG_TELEGRAM_CHAT}))}`);
   } else console.log('(SELFHEAL_PUBLISH_KEY is not set: nothing stored)');
   return result;
 }
