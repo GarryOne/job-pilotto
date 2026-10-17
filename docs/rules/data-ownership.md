@@ -9,6 +9,7 @@ Read before adding any stored field, file, setting or table. Linked from CLAUDE.
   **Always on needs Notion.**
 - **New stored data goes through the interface and every adapter**, never straight to Notion.
 - Spec and owners: `docs/superpowers/specs/2026-10-09-store-adapters.md`.
+- **A reader of an old shape that lives in stored data (Notion, config, store) is removed only once that data is migrated**, never because every install is past a version: the data stays old after the app updates (17 Oct 2026: telemetry showed 3 active installs and still no reader was safe to drop).
 - The sections below are the **Notion adapter's** rules (what "store" means when the active store is Notion). They are not a second data model.
 
 ## Where a piece of data lives

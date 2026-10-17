@@ -105,6 +105,7 @@ def fragment_of(entry):
     return rf'\b{text}\b' if quoted else text
 
 
+# Remove when: no Search settings page lacks "Format 2" (`upgrade` has rewritten every one), not when installs update.
 def fragment_v1(entry):
     """How pages without "Format 2" were read: a plain entry was a whole word."""
     entry = entry.strip()
