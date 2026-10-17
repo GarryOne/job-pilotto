@@ -73,9 +73,11 @@ export const ping = (name, state, options = {}) => upload('running', [{name, sta
 // The pool as the site lists it ("The pool" table, site/src/applying.js): every site of the pool, also one never run, with its start host and, when a run showed it,
 // its flow signature (page kinds @ end host # step). Hosts and fixed words only: a signature that is not exactly that is dropped, never sent.
 const SIGNATURE = /^(unclear|[a-z-]+(>[a-z-]+)*@[a-z0-9.-]+#(none|posting|account|code\/bot|form|ready))$/;
-export const poolRows = (shapes, signatures = {}) => shapes.map(({shape, urls = []}) => {
+export const poolRows = (shapes, signatures = {}) => shapes.map(({shape, urls = [], stage, stageWhy}) => {
   const row = {name: shape}, host = hostOnly(urls[0] || ''), signature = signatures[shape];
   if (host) row.start_host = host;
+  if (stage === 'watch' || stage === 'archived') row.stage = stage;   // the row's life-cycle data (site/src/applying-stage.js); the site keeps only its fixed words
+  if (stage === 'archived' && stageWhy) row.stage_why = stageWhy;
   if (SIGNATURE.test(signature || '')) row.signature = signature;
   return row;
 });

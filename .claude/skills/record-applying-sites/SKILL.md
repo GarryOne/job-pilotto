@@ -156,3 +156,6 @@ A row capture (the pool's candidate, on this Mac: `~/Library/Application Support
 - A run shows the isolation assertion failing, or lines in the live app's log: stop everything, say what was reached, fix the isolation first.
 - Two rounds in a row with the same shape failing for the same reason: stop re-running, write what is known and hand it to `/fix-recorded-sites`; do not loop the pool to see it again.
 - The owner says stop.
+
+## Pool life cycle
+Rows have a stage (New, Needs a fix, Working, Fixed, Daily watch, Archived). Archived rows are never re-run (only `--only` names one); `desktop/e2e/archive-pool-rows.mjs` lists candidates (dry run; `--write` archives). Details: docs/rules/apply-flow-workflow.md "Pool life cycle".

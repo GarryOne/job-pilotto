@@ -9,6 +9,7 @@ import {LEFT_EMPTY_CSS} from './left-empty-view.js';
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
 import {ORDER_SOURCE, needsFixOrder} from './applying-order.js';
+import {ARCHIVE_WHY, STAGE_DATA, STAGE_WORD, markStages, stageCounts} from './applying-stage.js';
 import {TILE_RULE, tileTones} from './applying-tiles.js';
 import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
@@ -65,10 +66,11 @@ async function ingestRows(db, body, now) {
     }
     if (kind === 'pool') {   // a pool site: its start host and flow signature, fixed words only (a later row without them keeps what is known)
       const signature = SIGNATURE.test(text(row.signature, 200)) ? text(row.signature, 200) : null, start = hostOf(row.start_host), old = (known ||= await knownPool(db)).get(name);
-      if (old && old.version === version && (start == null || start === old.start_host) && (signature == null || signature === old.signature)) continue;   // unchanged: nothing is written (the D1 write budget)
-      await db.prepare(`INSERT INTO applying_pool (name, start_host, signature, at, version) VALUES (?, ?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET
-        start_host = COALESCE(excluded.start_host, start_host), signature = COALESCE(excluded.signature, signature), at = excluded.at, version = excluded.version`)
-        .bind(name, start, signature, at, version).run();
+      const stage = STAGE_DATA.includes(row.stage) ? row.stage : null, why = stage === 'archived' && ARCHIVE_WHY.includes(row.stage_why) ? row.stage_why : null;   // the row's life-cycle data: only these words
+      if (old && old.version === version && (start == null || start === old.start_host) && (signature == null || signature === old.signature) && (old.stage ?? null) === stage && (old.stage_why ?? null) === why) continue;   // unchanged: nothing is written (the D1 write budget)
+      await db.prepare(`INSERT INTO applying_pool (name, start_host, signature, at, version, stage, stage_why) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET
+        start_host = COALESCE(excluded.start_host, start_host), signature = COALESCE(excluded.signature, signature), at = excluded.at, version = excluded.version, stage = excluded.stage, stage_why = excluded.stage_why`)
+        .bind(name, start, signature, at, version, stage, why).run();
       stored += 1; continue;
     }
     await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending, on_main, cause) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -98,7 +100,7 @@ async function syncRetired(db, rows, full, at) {
   }
 }
 
-const knownPool = async db => new Map(((await db.prepare('SELECT name, start_host, signature, version FROM applying_pool').all()).results || []).map(row => [row.name, row]));
+const knownPool = async db => new Map(((await db.prepare('SELECT name, start_host, signature, version, stage, stage_why FROM applying_pool').all()).results || []).map(row => [row.name, row]));
 const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
 const dayOf = date => date.toISOString().slice(0, 10);
 
@@ -145,6 +147,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   oneJudgment(pool, resolution);   // Needs a fix and Resolution read the same, newest judgment of a row (owner, 15 Oct 2026)
   const next = await nextToAdd(db, pool, now, slow).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
+  markStages(pool, fixed.rows);   // each row's life-cycle stage and why it may be archived (src/applying-stage.js)
   const live = sites.filter(site => ['works', 'fix', 'held'].includes(site.status.state) && site.status.rule !== 'posting closed');   // a hold is a live site; a site problem, a closed posting and a never-run row are not
   const dropped = await slow('boards', async () => (await digest(db, now)).boards).then(boards => boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   const fidelity = fidelityOf(await readFidelity(db).catch(() => []), pool);
@@ -160,7 +163,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
     whatWeTest: whatWeTestSection(testSets({replayRuns, pool, smokeRuns: runs.filter(run => run.kind === 'smoke'), records: fidelity.rows, now})),   // the sets the lab tests on (src/what-we-test.js)
     leftEmpty: leftEmptySection(await slow('left-empty', () => leftEmpty(db, now, 'lab')).catch(() => null) || {side: 'lab', days: 14, total: 0, groups: [], sample: null}, {wrap: 'bare'}),   // why the pool's fields were left empty (src/left-empty.js, shared with Real Form Filling); a scan of fill_cards, so behind the hour cache
     tileTones: tileTones(tiles, resolution?.raw), tileRules: TILE_RULE,
-    resolution, fidelity, sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, states: STATES, stateWords: STATE_WORD, now: now.toISOString()};
+    resolution, fidelity, sites, pool, stages: stageCounts(pool), stageWords: STAGE_WORD, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, states: STATES, stateWords: STATE_WORD, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -180,7 +183,7 @@ async function poolRows(db, sites, now) {
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
     return {name: displayName(name, start), shape: name, version: site?.version ?? null, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, hold: !!site?.hold, status: site?.status ?? rowStatus({reached}), states: site?.states ?? (step ? [{...rowStatus({reached: step}), step}] : []), rung: site?.rung ?? null, signal: site?.signal ?? null,
-      regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : []), days: site?.days ?? []};
+      stageData: row.stage || null, stageWhy: row.stage_why || null, regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : []), days: site?.days ?? []};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
@@ -287,13 +290,13 @@ ${NIGHTS_SCRIPT}${LADDER_SCRIPT}  // A status's meaning, as its pill's hover (ow
     return el('th', {className: 'sortable' + (on ? ' on' : ''), tabIndex: 0, title: 'Sort by ' + label, textContent: label + (on ? (pick.dir === 'asc' ? ' ▲' : ' ▼') : ''), onclick: flip, onkeydown: event => { if (event.key === 'Enter') flip(); }}); });
   // The pool: every smoke site, also one never run; filters by platform and by flow combine.
   const SMALL_MISS = 2;   // a form with this many unexplained fields or fewer is a small miss: drawn quietly on Needs a fix
-  const PER = 15, chosen = {platform: null, flow: null, query: '', page: 0}, table = el('div'), bars = {};
+  const PER = 15, chosen = {platform: null, flow: null, stage: null, query: '', page: 0}, table = el('div'), bars = {};
   // A filter's select; the pool's by default, another table passes its own state, redraw and unit (the replays: 'case').
   const pick = (key, list, label, all, {state = chosen, redraw = () => draw(), unit = 'site'} = {}) => list.length <= CHIP_MAX
     ? chipFilter(label, [['', all], ...list.map(item => [item.name, (item.label || item.name) + ' · ' + item.sites])], state[key], value => { state[key] = value || null; state.page = 0; redraw(); })
     : el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: label}), Object.assign(el('select', {onchange: event => { state[key] = event.target.value || null; state.page = 0; redraw(); }},
     el('option', {value: '', textContent: all}), ...list.map(item => el('option', {value: item.name, textContent: (item.label || item.name) + ' · ' + item.sites + ' ' + unit + (item.sites === 1 ? '' : 's') + (key === 'platform' ? ' · ' + item.flows + (item.flows === 1 ? ' flow' : ' flows') : '')})), ), {}));
-  const count = el('span', {className: 'muted count'}), pager = el('div', {className: 'pager'}), clear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { chosen.platform = chosen.flow = endingPick = null; chosen.query = ''; chosen.page = 0; filters.querySelectorAll('select').forEach(node => { node.value = ''; }); resetChips(filters); search.value = ''; draw(); }});
+  const count = el('span', {className: 'muted count'}), pager = el('div', {className: 'pager'}), clear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { chosen.platform = chosen.flow = chosen.stage = endingPick = null; chosen.query = ''; chosen.page = 0; filters.querySelectorAll('select').forEach(node => { node.value = ''; }); resetChips(filters); search.value = ''; draw(); }});
   // Search (owner, 11 Oct 2026): words in any order, all must match the site's name, platform, host, flow, last result, note or its "blocked at N" / regression text; it combines with the two filters.
   /*search*/ const poolText = s => [s.name, s.platform, s.start, s.end, flowText(s), s.reached ? STAGE[s.reached] || s.reached : 'not run yet', d.stateWords[s.status.state], s.status.rule, s.short ? shortText(s) : '', s.regression ? 'regression' : '', blocked(s) ? 'blocked at ' + s.rung : '', s.note, s.cause && s.cause.cause].filter(Boolean).join(' ').toLowerCase();
   const wordsIn = (text, query) => String(query || '').toLowerCase().split(/\\s+/).filter(Boolean).every(word => text.includes(word));   // every word, in any order
@@ -301,12 +304,13 @@ ${NIGHTS_SCRIPT}${LADDER_SCRIPT}  // A status's meaning, as its pill's hover (ow
   const caseMatches = (c, query) => wordsIn([c.name, c.ok ? 'passed' : 'failed', c.note, c.rung != null ? 'rung ' + c.rung : ''].filter(Boolean).join(' ').toLowerCase(), query); /*end search*/
   const search = el('input', {type: 'search', placeholder: 'Site, platform, host or result', 'aria-label': 'Search the pool', autocomplete: 'off', oninput: event => { chosen.query = event.target.value; chosen.page = 0; draw(); }});
   // Status filter: the options are the one status list (d.states, d.stateWords), each with its count; a row matches by the same status its Last result badge shows.
-  /*filter*/ const inPool = (s, c) => endingMatch(s) && (!c.platform || s.platform === c.platform) && (!c.flow || s.flow === c.flow) && poolMatches(s, c.query); /*end filter*/
+  /*filter*/ const stageMatch = (s, c) => (c.stage ? s.stage === c.stage : s.stage !== 'archived' || Boolean(c.query));   // archived rows stay out of the default view and come back by the Stage chip or a search (nothing is deleted)
+  const inPool = (s, c) => endingMatch(s) && stageMatch(s, c) && (!c.platform || s.platform === c.platform) && (!c.flow || s.flow === c.flow) && poolMatches(s, c.query); /*end filter*/
   // Ending filter (owner, 15 Oct 2026: Resolution's "Every pool row" joined this table): the same endings as the pills in the Outcomes tab, each with its count of pool rows.
   const endingCounts = Object.fromEntries([...WORST_FIRST, NO_ENDING].map(word => [word, d.pool.filter(s => endingWordOf(s) === word).length]));
   const endingChips = d.resolution ? chipFilter('Ending', [['', 'All'], ...WORST_FIRST.map(word => [word, word.replace('_', ' ') + ' · ' + endingCounts[word]]), [NO_ENDING, 'no ending yet · ' + endingCounts[NO_ENDING]]], endingPick, value => { endingPick = value || null; chosen.page = 0; draw(); drawResolution(resolutionBox, d.resolution); }) : null;
   syncEnding = () => endingChips && endingChips.querySelectorAll('.chip').forEach(chip => { chip.className = 'chip' + (chip.chipValue === (endingPick || '') ? ' on' : ''); });
-  const filters = el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), endingChips, count, clear, pager);
+  const filters = el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), endingChips, chipFilter('Stage', [['', 'Active'], ...(d.stages || []).map(item => [item.name, item.label + ' · ' + item.sites])], chosen.stage, value => { chosen.stage = value || null; chosen.page = 0; draw(); }), count, clear, pager);
   // The rung that made the last decision; a site that ran and did not reach the form is "blocked at N" (red) with the signal when known, "?" when the rung is unknown.
   const blocked = s => s.status.state === 'fix' && !['form', 'ready'].includes(s.reached) && s.rung != null;   // only a row that needs a fix is blocked (a hold or a site problem is not)
   const stateWord = s => el('span', {className: 'stw stw-' + s.status.state, textContent: s.status.state === 'held' ? 'Held' : s.status.next ? 'Blocked in CI' : d.stateWords[s.status.state]});   // a held or site-problem row shows its status where the rung would say Blocked
@@ -323,7 +327,7 @@ ${NIGHTS_SCRIPT}${LADDER_SCRIPT}  // A status's meaning, as its pill's hover (ow
   const twins = d.pool.reduce((out, s) => ((out[s.name + '|' + s.start] = (out[s.name + '|' + s.start] || 0) + 1), out), {}), twinTag = s => (twins[s.name + '|' + s.start] > 1 ? ' · ' + s.shape : '');
 // A row made from a report a person sent ("reported-<id>-<site>": tools/reports-fetch.mjs names it so).
 const reportedTag = s => (/^reported-/.test(s.shape || s.name || '') ? el('span', {className: 'stack inprogress', textContent: 'Reported by a person'}) : null);
-  const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '') + twinTag(s)}; };
+  const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '') + twinTag(s) + (s.stage && s.stage !== 'new' ? ' · ' + (d.stageWords || {})[s.stage] : '')}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
   const resultOf = s => [el('span', {className: 'pill st-' + s.status.state, title: (s.status.rule && s.status.from !== 'ending' ? s.status.rule + ': ' : '') + (MEANS[s.status.state] || ''), textContent: s.status.next ? s.status.rule.replace(/^./, c => c.toUpperCase()) : d.stateWords[s.status.state] + (s.status.rule && s.status.state !== 'fix' && s.status.from !== 'ending' ? ' · ' + s.status.rule : '')}),   // a rule that only names the row's ending is not repeated: the small ending pill under the status says it
     s.status.next ? el('span', {className: 'stack muted', textContent: 'Next: ' + s.status.next}) : null,
@@ -343,7 +347,7 @@ const reportedTag = s => (/^reported-/.test(s.shape || s.name || '') ? el('span'
       el('td', {className: 'c-rung'}, blocked(s) ? el('span', {className: 'flag', title: s.signal || ''}, 'Blocked', el('span', {className: 'stack', textContent: 'at ' + s.rung})) : ['held', 'site'].includes(s.status.state) ? stateWord(s) : s.rung == null ? el('span', {className: 'muted', title: 'not reported', textContent: s.reached ? '?' : '—'}) : el('span', {className: 'rungbox', textContent: s.rung})),
       el('td', {className: 'c-runs'}, runs()));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 5}, el('div', {className: 'detail'}, route(s), lastRun(s), el('div', {className: 'narrow'}, el('h4', {textContent: 'Flow'}), el('div', {textContent: flowText(s)})), el('div', {className: 'narrow'}, el('h4', {textContent: 'Recent runs · old → new'}), runs()))))] : [main]; };
-  const draw = () => { const rows = sortRows('pool', d.pool.filter(s => inPool(s, chosen)), POOL_GET), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow && !endingPick && !chosen.query;
+  const draw = () => { const rows = sortRows('pool', d.pool.filter(s => inPool(s, chosen)), POOL_GET), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow && !endingPick && !chosen.stage && !chosen.query;
     table.append(rows.length ? el('table', {className: 'pooltable'}, el('tr', {}, ...heads('pool', ['Site / platform', 'Flow', 'Last result', 'Rung', 'Recent runs · old → new'], () => { chosen.page = 0; draw(); }).map((th, at) => Object.assign(th, {className: th.className + ' ' + ['c-site', 'c-flow', 'c-result', 'c-rung', 'c-runs'][at]}))),
       ...shown.flatMap(siteRows)) : el('p', {className: 'muted', textContent: 'No site matches.'}), rows.length ? el('p', {className: 'muted', style: 'text-align:center;font-size:12px', textContent: 'Expand a row for the route and the last run.'}) : null);
     if (pages > 1) { const go = step => () => { chosen.page += step; draw(); };
