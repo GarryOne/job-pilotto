@@ -18,6 +18,7 @@ CLASSIFIED = {
     'CI · Page cases (all cases, real extension, Linux)': 'ignored: pull requests and by hand only; on main its cases are a step of CI · Tests (one Linux job, 15 Oct 2026)',
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
     'CI · PR description laid out': 'ignored: pull requests only (opened, edited, pushed); checks the description, never main',
+    'CI · Hosted Always on e2e': 'ignored: pull requests that touch the hosted code, and nightly; never on a push to main',
     'CI · Harness tests': 'ignored: pull requests that change the harness only (on: paths:)',
     'CI · Tests · python': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · worker': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
