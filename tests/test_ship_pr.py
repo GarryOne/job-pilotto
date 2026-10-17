@@ -2,6 +2,8 @@
 Run on a throwaway origin with a fake `gh` (tests/fake_gh.py) that merges the branch into origin's main when auto-merge is on. Fixture: ship_fixture.py."""
 import json
 import os
+import signal
+import time
 import shutil
 import stat
 import subprocess
@@ -24,7 +26,7 @@ class ShipPrTest(ShipFixture):
 
     def pr_ship(self, state=None, *flags, timeout=90, **extra):
         self.state.write_text(json.dumps({'origin': str(self.origin), **(state or {})}))
-        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_REVIEW': '0', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0', 'JOB_PILOTTO_SESSION': '', 'JP_SESSION': '', 'JP_SESSIONS_DIR': str(self.tmp / 'no-sessions'), **extra}   # SHIP_REVIEW=0 by default: the auto-merge path
+        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_REVIEW': '0', 'SHIP_WATCH': '0', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0', 'JOB_PILOTTO_SESSION': '', 'JP_SESSION': '', 'JP_SESSIONS_DIR': str(self.tmp / 'no-sessions'), **extra}   # SHIP_REVIEW=0 by default: the auto-merge path
         return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=timeout, env=env)
 
     def calls(self):
@@ -204,6 +206,41 @@ class ShipPrTest(ShipFixture):
         result = self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/9'}}, '--draft', SHIP_REVIEW='1')
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertTrue(json.loads(self.state.read_text())['draft'], 'a red PR is never marked ready')
+
+    # --- the watcher after REVIEW (tools/ship-watch.sh, 18 Oct 2026): review mode leaves one running, a second ship replaces it, SHIP_WATCH=0 starts none
+    def pid(self):
+        files = list((self.main / '.git').glob('ship-watch-*.pid'))
+        return int(files[0].read_text()) if files else None
+
+    def alive(self, pid):
+        try: os.kill(pid, 0)
+        except OSError: return False
+        return True
+
+    def test_review_starts_one_watcher_and_a_second_ship_replaces_it(self):
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        result = self.pr_ship({}, SHIP_REVIEW='1', SHIP_WATCH='1', SHIP_WATCH_POLL='1')
+        self.assertIn('ship: REVIEW #1', result.stdout)
+        for _ in range(50):
+            if self.pid(): break
+            time.sleep(0.1)
+        first = self.pid()
+        self.assertIsNotNone(first, 'a watcher pid file next to the git dir')
+        self.addCleanup(lambda: self.pid() and os.kill(self.pid(), signal.SIGTERM) if self.alive(self.pid() or 0) else None)
+        self.change(self.tree, 'more.txt', 'y\n', 'More')
+        self.pr_ship({}, SHIP_REVIEW='1', SHIP_WATCH='1', SHIP_WATCH_POLL='1')
+        for _ in range(50):
+            if self.pid() != first: break
+            time.sleep(0.1)
+        self.assertNotEqual(self.pid(), first)
+        time.sleep(0.5)
+        self.assertFalse(self.alive(first), 'the old watcher is gone: never two')
+
+    def test_ship_watch_zero_starts_none(self):
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        self.pr_ship({}, SHIP_REVIEW='1')   # setUp's SHIP_WATCH=0
+        time.sleep(0.5)
+        self.assertIsNone(self.pid())
 
 
 if __name__ == '__main__':

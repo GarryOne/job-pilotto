@@ -1,4 +1,4 @@
-"""Every place that tells a session how a tools/ship.sh run ends names all three endings: DONE (merged), FAILED, REVIEW (green, the owner merges by hand).
+"""Every place that tells a session how a tools/ship.sh run ends names every ending: DONE (merged), FAILED, REVIEW (green, the owner merges by hand), then MERGED / CLOSED / RED from the watcher (tools/ship-watch.sh, 18 Oct 2026).
 12 Oct 2026: review mode ends with 'ship: REVIEW #n'; ship's own announcement named only DONE and FAILED, and job-pilotto-next-move waited 10 min in the
 foreground for a line it never prints. A new doc, skill or tool line that names the endings without REVIEW fails here."""
 import re
@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ENDS = ('DONE', 'FAILED', 'REVIEW')
+ENDS = ('DONE', 'FAILED', 'REVIEW', 'MERGED', 'CLOSED', 'RED')
 NAMES_ENDINGS = re.compile(r'ship: \(?DONE|DONE\|FAILED')   # a line that tells how a ship run ends
 
 
@@ -17,7 +17,7 @@ def tracked():
 
 
 class ShipEndingsTest(unittest.TestCase):
-    def test_every_line_that_names_how_ship_ends_names_all_three(self):
+    def test_every_line_that_names_how_ship_ends_names_all(self):
         missing, seen = [], 0
         for path in tracked():
             try: text = (ROOT / path).read_text(encoding='utf-8')
@@ -29,16 +29,16 @@ class ShipEndingsTest(unittest.TestCase):
                     seen += 1
                     if not all(end in window for end in ENDS): missing.append(f'{path}:{number}: {line.strip()[:120]}')
         self.assertGreater(seen, 0, 'positive control: the scan finds the lines (tools/ship.sh announces its endings)')
-        self.assertEqual(missing, [], 'name REVIEW too: review mode ends with `ship: REVIEW #n <url>` (Monitor ^ship: (DONE|FAILED|REVIEW))')
+        self.assertEqual(missing, [], 'name every ending: review mode ends with `ship: REVIEW #n <url>`, then the watcher adds MERGED/CLOSED/RED (Monitor ^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED))')
 
     def test_the_background_announcement_names_the_monitor_pattern(self):
         announce = next(line for line in (ROOT / 'tools' / 'ship.sh').read_text().splitlines() if 'its last line says how it ended' in line)
         for end in ENDS: self.assertIn(f'ship: {end}', announce)
-        self.assertIn('^ship: (DONE|FAILED|REVIEW)', announce)
+        self.assertIn('^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED)', announce)
 
     def test_ship_prints_each_ending_it_announces(self):
-        source = (ROOT / 'tools' / 'ship.sh').read_text() + (ROOT / 'tools' / 'ship-pr.sh').read_text()
-        for end in ENDS: self.assertRegex(source, rf'echo "ship: {end}\b|ship: {end} ', end)
+        source = ''.join((ROOT / 'tools' / name).read_text() for name in ('ship.sh', 'ship-pr.sh', 'ship-watch.sh'))
+        for end in ENDS: self.assertRegex(source, rf'echo "ship: {end}\b|ship: {end} |say "{end} ', end)
 
 
 if __name__ == '__main__':
