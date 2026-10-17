@@ -14,6 +14,7 @@ import {VIEWS} from '../lib/uicheck.mjs';
 import {measureRecall, recallFindings} from '../lib/recall.mjs';
 import {lateShiftFindings, nowInPage, shiftsIn, watchShifts} from '../lib/shift.mjs';
 import {goView} from '../lib/go-view.mjs';
+import {probe, problems} from '../lib/rail-markers.mjs';
 
 export const macos = true;   // runs on a macOS runner: pixels, fonts and window sizes: judged on the Mac people use (lib/plan.mjs runnerOf)
 export const name = 'interactions';
@@ -95,6 +96,17 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
   await ctx.run('every page at four window sizes and in both themes: nothing is cut off, unreachable or broken (no screenshots, no AI)', async () => {
     await sweep(ctx, ['focus', 'jobs', 'actions', 'calendar', 'interviews', 'strategy', 'settings', 'sessions']);
+  }, {needs: ctx.needs});
+  await ctx.run('the icon rail: every badge and dot sits inside its button, clear of the icon', async () => {
+    const resize = size => ctx.app.evaluate(({BrowserWindow}, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; const was = win.getSize(); win.setSize(w, h); return was; }, size);
+    const was = await resize([1024, 640]);
+    try {
+      await ctx.page.click('.nav[data-view="jobs"]');
+      const bad = problems(await ctx.page.evaluate(probe));
+      if (bad.length) throw new Error(bad.join('; '));
+    } finally {
+      await resize(was);
+    }
   }, {needs: ctx.needs});
   fs.writeFileSync(path.join(ARTIFACTS, 'interactions.json'), JSON.stringify(all, null, 2));
   await ctx.run('interaction findings are written', async () => {
