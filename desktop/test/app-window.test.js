@@ -43,7 +43,7 @@ test('open questions are the ❓ lines of the Notion standard answers; answering
   assert.deepEqual(await questions.answer(storage, open[1].key, 'Yes, within Switzerland', fetcher), {ok: true});
   assert.equal(blocks.at(-1).text, 'Are you open to relocation?: Yes, within Switzerland');
   assert.deepEqual(await questions.answer(storage, open[0].key, '', fetcher), {ok: true});  // skip = line removed
-  assert.deepEqual(blocks.map(b => b.text), ['Salary expectation: CHF 130,000', 'Are you open to relocation?: Yes, within Switzerland']);
+  assert.deepEqual(blocks.map(b => b.text), ['Salary expectation: CHF 130,000', '❓ Questions to answer', 'Are you open to relocation?: Yes, within Switzerland']);
   assert.equal((await questions.list(storage, fetcher)).length, 0);
   assert.equal(storage.settings().openQuestions, undefined);  // nothing kept on the Mac
 });
@@ -72,7 +72,7 @@ test('contact fields left empty never become questions for the answers page (the
   const run = {url: 'https://x/1', trace: ['First Name', 'Last Name *', 'Email', 'Phone', 'LinkedIn Profile', 'Location (City)',
     'How did you perform in mathematics at high school?'].map(empty)};
   assert.equal(await questions.collect(storage, run, 'Canonical', fetcher), 1);
-  assert.deepEqual(blocks.map(b => b.text), ['How did you perform in mathematics at high school?: ❓ (asked by Canonical)']);
+  assert.deepEqual(blocks.map(b => b.text), ['❓ Questions to answer', 'How did you perform in mathematics at high school?: ❓ (asked by Canonical)']);
 });
 
 test('without Notion, open questions say so instead of keeping a copy on the Mac', async () => {
