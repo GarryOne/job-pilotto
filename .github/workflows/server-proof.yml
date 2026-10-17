@@ -1,0 +1,75 @@
+name: CI · Server proof (one-off)
+# One-off proof for docs/superpowers/specs/2026-10-17-ready-to-send.md (owner, 17 Oct 2026: "Run the ~$1 proof first", fictional data only): deploys a throwaway Worker + one standard-1 container
+# holding Chromium to our Cloudflare account (the same way as hosted-probe.yml), then from this runner measures the live view (open time, input latency, a human check and Submit on OUR fake form),
+# the hand-off of a multi-step fake flow to a second browser, ten public postings read once each from the container's address (no click, no fill), and the container's memory and CPU; then deletes the Worker.
+# No AI, no keys, no user data. Never scheduled. Starts when the label `run-server-proof` is put on the PR, or by hand. Delete this file and tools/server-proof/ after the numbers are in the spec.
+on:
+  pull_request:
+    types: [labeled]
+    paths:
+      - 'tools/server-proof/**'
+      - '.github/workflows/server-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: server-proof-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+jobs:
+  proof:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-server-proof'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the driver and its browser
+        working-directory: tools/server-proof
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Deploy the proof Worker and container
+        working-directory: tools/server-proof
+        run: |
+          token=$(openssl rand -hex 16)
+          echo "::add-mask::$token"
+          echo "PROBE_TOKEN=$token" >> "$GITHUB_ENV"
+          npx wrangler@4.151.1 deploy --var "PROBE_TOKEN:$token" 2>&1 | tee deploy.log
+      - name: Run the proof
+        working-directory: tools/server-proof
+        run: node run.mjs "https://jp-server-proof.jobpilotto.workers.dev" "$PROBE_TOKEN" "$GITHUB_WORKSPACE/proof.json" 2>&1 | tee proof.log
+      - name: The numbers
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json
+          r = json.load(open('proof.json'))
+          print('### Open time (ms)', r['open']['p50'], 'p50', r['open']['p90'], 'p90', r['open']['max'], 'max;', 'input to pixel', r['inputLatency'], 'stream', r['stream'])
+          print('### Submit on our fake form:', json.dumps(r['submit'])[:400])
+          print('### Move to my browser:', json.dumps(r['move']))
+          for h in r['handoff']: print('- hand-off', json.dumps(h))
+          for x in r['reach']: print('- reach', json.dumps(x))
+          s, s0 = r['stats'], r['statsFirst']
+          wall = r['wallS']; cpu = ((s['cpu_usec'] or 0) - (s0['cpu_usec'] or 0)) / 1e6
+          mem = 4 * wall * 0.0000025; cpuc = cpu * 0.00002; disk = 8 * wall * 0.00000007
+          print(f"### Container: peak memory {(s['mem_peak'] or 0)/2**20:.0f} MiB, CPU {cpu:.0f} s, wall {wall} s: memory ${mem:.4f} + cpu ${cpuc:.4f} + disk ${disk:.4f} = **${mem+cpuc+disk:.4f}** (standard-1; before Worker pennies)")
+          PY
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: server-proof-results
+          path: |
+            proof.json
+            tools/server-proof/proof.log
+            tools/server-proof/deploy.log
+          if-no-files-found: ignore
+      - name: Delete the proof Worker
+        if: always()
+        working-directory: tools/server-proof
+        run: |
+          npx wrangler@4.151.1 delete --name jp-server-proof --force || true
+          npx wrangler@4.151.1 containers list 2>&1 | head -20 || true
