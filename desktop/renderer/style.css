@@ -758,13 +758,13 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .ap-detail .log { font-size: var(--fs-xs); padding: 6px 10px; margin-bottom: 6px; }
 
 /* Settings → Danger zone */
-.setting.danger-zone { border-color: var(--bad-line); background: var(--surface); padding: var(--sp-5); gap: var(--sp-3); font-size: var(--fs-md); }
+.setting.danger-zone { border-color: var(--bad-line); background: var(--danger-surface); padding: var(--sp-5); gap: var(--sp-3); font-size: var(--fs-md); }
 .setting.danger-zone .small { font-size: var(--fs-md); }
 .setting.danger-zone p { margin: 0; }
 .setting.danger-zone h3 { color: var(--bad); }
 button.danger-solid { background: var(--bad); color: var(--on-accent); border-color: var(--bad); }
 @media (prefers-color-scheme: dark) { button.danger-solid { color: var(--surface); } }   /* white on the light dark-theme red is 2.7:1; the dark surface is 6+ */
-button.danger-solid:disabled { opacity: 1; background: var(--surface-2); color: var(--muted); border-color: var(--line-strong); cursor: not-allowed; }   /* readable, not a faded red (AA) */
+button.danger-solid:disabled { opacity: 1; background: var(--danger-surface); color: var(--muted); border-color: var(--bad-line); cursor: not-allowed; }   /* readable, not a faded red (AA) */
 
 /* Wizard → Notion: one button, the token way folded below */
 .oauth .step-field { display: grid; gap: var(--sp-3); justify-items: start; }

@@ -406,12 +406,12 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .choice-card { display: flex; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .choice-card p { margin: var(--sp-1) 0 var(--sp-3); }
-/* Settings → Advanced → Reset (owner, 17 Oct 2026: alignment and contrast): the normal card surface and text tokens; the danger colour only on the heading, the icons and the
-   Reset button. Every row (the three lists and the two steps) puts the 32px icon tile and the title on one top line; the lists are real lists, one item per line, in one column. */
+/* Settings → Advanced → Reset (owner, 17 Oct 2026: alignment and contrast; he likes the red): the wrapper is --danger-surface, the cards on it --danger-surface-raised, text on the
+   normal ink/muted tokens (AA on both shades, ratios in tokens.css). Every row (the three lists and the two steps) puts the 32px icon tile and the title on one top line; the lists are real lists, one item per line, in one column. */
 .reset-lists, .reset-steps { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); }
 .reset-steps { margin-top: var(--sp-3); }
-.reset-lists .choice-card, .reset-steps .choice-card { align-items: flex-start; }
-.reset-lists .file-tile, .reset-steps .file-tile { width: 32px; height: 32px; background: var(--surface-2); color: var(--bad); border: 1px solid var(--line); }
+.reset-lists .choice-card, .reset-steps .choice-card { align-items: flex-start; background: var(--danger-surface-raised); border-color: var(--bad-line); }   /* cards on the red wrapper: a different shade of the same family */
+.reset-lists .file-tile, .reset-steps .file-tile { width: 32px; height: 32px; background: var(--danger-surface); color: var(--bad); border: 1px solid var(--bad-line); }
 .reset-lists .file-tile svg, .reset-steps .file-tile svg { width: 18px; height: 18px; }
 .reset-lists .choice-card > div > b, .reset-steps .choice-card > div > b { display: block; padding-top: var(--sp-1); }   /* the title's text centres on the 32px tile */
 .reset-lists .choice-card > div { flex: 1; min-width: 0; display: grid; grid-template-columns: 12em minmax(0, 1fr); gap: var(--sp-1) var(--sp-5); align-items: start; }
