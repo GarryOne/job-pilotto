@@ -25,7 +25,7 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, sh
   const withChanges = (before, ok = true, extra = {}) => { const view = experience.view(storage); return {ok, ...view, changes: experience.viewChanges(before, view), ...extra}; };
   ipcMain.handle('experienceAddCv', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
-    if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV & details → Read my CV PDF): other versions are compared with it.'};
+    if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV → Read my CV PDF): other versions are compared with it.'};
     const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose other versions of your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile', 'multiSelections']});
     if (picked.canceled || !picked.filePaths.length) return {ok: false, cancelled: true};
     const before = experience.view(storage), results = [];
@@ -45,7 +45,7 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, sh
   });
   ipcMain.handle('experienceAddLinkedin', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
-    if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV & details → Read my CV PDF): LinkedIn is compared with it.'};
+    if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV → Read my CV PDF): LinkedIn is compared with it.'};
     const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose the .zip LinkedIn sent you, or your profile saved as PDF', filters: [{name: 'LinkedIn data (.zip) or profile (.pdf)', extensions: ['zip', 'pdf']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return {ok: false, cancelled: true};
     try {

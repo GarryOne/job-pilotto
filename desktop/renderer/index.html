@@ -786,7 +786,7 @@
     </div>
 
     <div class="view strategy-page" data-view="strategy" hidden>
-      <header class="view-head"><div><h1>Strategy</h1><p class="muted">Choose the jobs you want and how they are ranked.</p></div>
+      <header class="view-head"><div><h1>Search strategy</h1><p class="muted">Choose the jobs you want and how they are ranked.</p></div>
         <div class="head-actions"><span class="synced" id="strategy-synced"></span>
           <button class="secondary" id="strategy-redo">↻ Rebuild from CV…</button>
           <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button>
@@ -931,13 +931,14 @@
           <div class="settings-page-head"><h2>Profile</h2><p class="muted">Your CV, details and reusable application answers: what goes into your applications (nothing here re-scores jobs).</p></div>
 
           <div class="tabs" role="tablist">
-            <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
+            <button role="tab" data-profile-tab="cv" class="is-active">CV</button>
+            <button role="tab" data-profile-tab="details">Your details</button>
             <button role="tab" data-profile-tab="experience">Experience</button>
             <button role="tab" data-profile-tab="profiletext">Preferences</button>
             <button role="tab" data-profile-tab="answers">Application answers</button>
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
-          <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
+          <div class="setting cv-card" id="setting-cv" data-profile-panel="cv">
             <span class="file-tile"><i data-icon="file"></i></span>
             <div class="cv-card-text"><b>Current CV</b><span id="contact-cv">None yet</span>
               <span class="small muted">Used for tailoring and form filling <span id="cv-state"></span></span>
@@ -949,7 +950,7 @@
               <span class="small cv-card-links"><button class="link with-icon" id="cv-import"><i data-icon="refresh"></i><span>Read my CV PDF</span></button><button class="link with-icon" id="cv-folder"><i data-icon="folder"></i><span>CV folder</span></button></span>
             </div>
           </div>
-          <div class="setting panel cvc" id="setting-cvcheck" data-profile-panel="details">
+          <div class="setting panel cvc" id="setting-cvcheck" data-profile-panel="cv">
             <div class="panel-top"><div class="summary-head"><i data-icon="scale"></i><h3>CV check</h3></div>
               <div class="panel-actions"><span class="synced" id="cvc-state">Not checked yet</span></div></div>
             <p class="muted panel-lead">How a hiring system reads this CV, before any tailoring. Most of them turn a CV into fields that recruiters search, so a CV they cannot read cleanly never turns up.
@@ -967,7 +968,7 @@
               <button class="secondary" id="cvc-ai-run" hidden>Add the content review</button></div>
             <p class="message" id="cvc-message"></p>
           </div>
-          <div class="stale-draft" id="cv-changed" data-profile-panel="details" hidden><span id="cv-changed-text"></span>
+          <div class="stale-draft" id="cv-changed" data-profile-panel="cv" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Where your experience comes from</h3></div>
@@ -1023,7 +1024,7 @@
             <span class="message" id="contact-message"></span>
             <button class="secondary" id="contact-discard">Discard changes</button><button class="primary" id="contact-save" disabled>Save changes</button>
           </div>
-          <div class="setting info-bar" id="setting-profile-note" data-profile-panel="details"><i data-icon="info"></i>
+          <div class="setting info-bar" id="setting-profile-note" data-profile-panel="cv"><i data-icon="info"></i>
             <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
           <div class="setting panel" id="setting-claude" data-profile-panel="details">
             <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>

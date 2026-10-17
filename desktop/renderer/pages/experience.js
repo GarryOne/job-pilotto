@@ -6,7 +6,7 @@ import {$, message, runWhen} from './core.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-// One source row: its name and what it adds, then its action. The main CV is the reference and is replaced under CV & details.
+// One source row: its name and what it adds, then its action. The main CV is the reference and is replaced on the CV tab.
 export function sourceRow(source) {
   const row = el('li');
   const words = el('div', 'item-words');
@@ -49,7 +49,7 @@ export function onlyHereBlock(sources) {
     item.append(' ', pill(role.from, 'neutral'));
     list.append(item);
   }
-  box.append(head, el('p', 'muted small', 'Tailored CVs keep your main CV\'s jobs, so these are not used. If they belong on your CV, add them to it and replace the CV under CV & details.'), list);
+  box.append(head, el('p', 'muted small', 'Tailored CVs keep your main CV\'s jobs, so these are not used. If they belong on your CV, add them to it and replace it on the CV tab.'), list);
   return box;
 }
 
@@ -116,12 +116,12 @@ export function showExperience(view) {
     });
     row.append(button);
   }
-  $('exp-sources').replaceChildren(...(view.main ? [sourceRow({reference: true, name: 'Main CV', roles: view.main.roles})] : [el('li', 'muted', 'Read your main CV first (CV & details → Read my CV PDF).')]));
+  $('exp-sources').replaceChildren(...(view.main ? [sourceRow({reference: true, name: 'Main CV', roles: view.main.roles})] : [el('li', 'muted', 'Read your main CV first (CV → Read my CV PDF).')]));
   $('exp-versions').replaceChildren(...(view.sources.length ? [versionsBlock(rows, view.sources.length)] : []));
   const extras = view.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
   $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'job role')} · ${extras} from other versions` : '';
   const notInMain = onlyHereBlock(view.sources);
-  $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or under CV & details.')]), ...(notInMain ? [notInMain] : []));
+  $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or on the CV tab.')]), ...(notInMain ? [notInMain] : []));
   $('exp-add').disabled = $('exp-add-linkedin').disabled = !view.main;
 }
 
@@ -175,7 +175,7 @@ export function showLinkedin(status) {
         if (saved?.ok) filled.push(key.replace('_', ' '));
       }
       node.disabled = false;
-      message('exp-message', filled.length ? `Filled in your details: ${filled.join(', ')}. Check them under CV & details.` : 'Your details already have them.', filled.length ? 'ok' : '');
+      message('exp-message', filled.length ? `Filled in your details: ${filled.join(', ')}. Check them under Your details.` : 'Your details already have them.', filled.length ? 'ok' : '');
     }),
     button('Disconnect', 'link', async node => { node.disabled = true; await window.pilot.linkedinDisconnect(); showLinkedin(null); }));
 }

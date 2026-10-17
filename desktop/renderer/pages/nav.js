@@ -13,7 +13,7 @@ import {closeJobPanel, openJobPanel} from './job-panel.js';
 import {usage} from '../usage-signals.js';
 import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
-import {loadSettings} from './profile.js';
+import {loadSettings, profileTab} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
 import {openSetting, settingsPage, showServicesNow} from './settings.js';
@@ -164,20 +164,29 @@ function paletteCommands() {
     const name = labelOf(card.querySelector('.service-text b')), node = card.querySelector('button');
     if (name && node) add('Settings', `${name}: ${labelOf(node)}`, labelOf(card.querySelector('.service-text .muted')), 'settings connections connect', () => { openView('settings'); settingsPage('connections'); node.click(); });
   });
-  const shown = node => !node.closest('[hidden]:not(.view):not([data-settings-page])');
+  const hiddenAt = node => node.closest('[hidden]:not(.view):not([data-settings-page])');
+  const shown = node => !hiddenAt(node);
+  // A Profile section is hidden only because its tab is closed: still listed, and its entry opens that tab first (17 Oct 2026: CV and Your details split).
+  const openTab = () => document.querySelector('[data-profile-tab].is-active')?.dataset.profileTab;
+  const onClosedTab = section => !!section.dataset.profilePanel && section.dataset.profilePanel !== openTab() && hiddenAt(section) === section
+    && !hiddenAt(section.parentElement);
+  const reachable = (node, section) => shown(node) || (onClosedTab(section) && hiddenAt(node) === section);
+  document.querySelectorAll('[data-profile-tab]').forEach(tab => add('Settings', `Open Profile: ${labelOf(tab)}`, '', 'settings profile tab',
+    () => { openView('settings'); settingsPage('profile'); profileTab(tab.dataset.profileTab); }));
   const seen = new Set();
   document.querySelectorAll('[data-settings-page] .setting[id]').forEach(section => {
     const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary'));   // a summary's own heading, not its whole line
-    if (!shown(section) || !title || seen.has(title)) return;
+    if (!reachable(section, section) || !title || seen.has(title)) return;
     seen.add(title);
     const page = section.closest('[data-settings-page]').dataset.settingsPage;
     const open = () => {
       openView('settings'); settingsPage(page);
+      if (section.dataset.profilePanel) profileTab(section.dataset.profilePanel);
       if (section.tagName === 'DETAILS') section.open = true;
       section.scrollIntoView({block: 'start'});
     };
     add('Settings', title, '', `settings ${page}`, open);
-    const buttons = [...section.querySelectorAll('button[id]')].filter(node => !node.disabled && shown(node) && !twins.has(node));
+    const buttons = [...section.querySelectorAll('button[id]')].filter(node => !node.disabled && reachable(node, section) && !twins.has(node));
     buttons.forEach(node => {
       const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
       if (danger && buttons.length === 1) return;   // only focused, so a section's sole danger button lands where its own entry does: a duplicate row
