@@ -76,3 +76,12 @@ test('two overlapping opens of Your details move once: the second waits for the 
   assert.equal(lines, 2, 'both survey lines stay moved');
   assert.equal(asked.filter(text => /voluntary demographic|Each item is one line/.test(text)).length >= 1, true);
 });
+
+test('every one-time move of Your details runs inside the one shared open, so a new move cannot skip the guard', () => {
+  const source = read('lib/details-facts-handlers.js').replace(/\/\/.*$/gm, '');
+  const start = source.indexOf('const open = async'), end = source.indexOf("ipcMain.handle('detailsFacts'");
+  const moves = [...source.matchAll(/await (move|\w+\.(?:tidy|split|migrate))\(storage/g)];
+  assert.ok(moves.length >= 4, `expected the facts move, kinds tidy, notes split and survey move, found ${moves.map(each => each[1])}`);
+  for (const each of moves) assert.ok(each.index > start && each.index < end, `${each[1]} runs outside the shared open`);
+  assert.match(source, /ipcMain\.handle\('detailsFacts', \(\) => opening \|\|= open\(\)/);
+});
