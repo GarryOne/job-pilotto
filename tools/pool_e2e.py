@@ -101,7 +101,8 @@ def main():
             checks.append({'name': name, 'ok': False, 'detail': f'{type(error).__name__}: {error}'})
 
     def private_words(body):
-        text = json.dumps(body, ensure_ascii=False)
+        # The posting addresses of the daily discovery batch (`candidates`, owner 17 Oct 2026: address, host and source only; tests/test_contribute_candidates.py) are the one place an address may leave.
+        text = json.dumps([{k: v for k, v in part.items() if k != 'candidates'} for part in (body if isinstance(body, list) else [body])], ensure_ascii=False)
         return [word for word in PRIVATE if word in text]
 
     (WORK / 'data').mkdir()

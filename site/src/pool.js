@@ -2,6 +2,7 @@
 // employer career pages an app uses, tagged with coarse fixed-list roles and regions; GET /api/contributions (Bearer
 // INDEX_PUBLISH_KEY, the central scout only) gives the aggregate. Nothing here can identify a person: the install id is
 // hashed, and a feed's tags are only ever published from many installs (the scout's threshold).
+import {MAX_CANDIDATES, candidateStatements, cleanCandidates, pruneCandidates} from './discovery-candidates.js';
 import {familyOfInstall} from './engines.js';
 import {COUNTRIES, METROS, FAMILIES} from './pool-tags.js';
 
@@ -119,6 +120,8 @@ export async function contribute(request, env, now = new Date()) {
     facts.add(`${host}|${kind}`);
     sites.push({host, kind, url: ['browser', 'layout'].includes(kind) ? null : url, body});
   }
+  const candidates = cleanCandidates(body.candidates);   // the daily discovery batch's input (src/discovery-candidates.js)
+  drop('candidates', (Array.isArray(body.candidates) ? Math.min(body.candidates.length, MAX_CANDIDATES) : 0) - candidates.length);
   const boards = [], named = new Set();
   for (const item of (Array.isArray(body.boards) ? body.boards : []).slice(0, MAX_BOARDS)) {
     if (!BOARDS.includes(item?.board) || named.has(item.board)) { drop('boards'); continue; }
@@ -126,7 +129,7 @@ export async function contribute(request, env, now = new Date()) {
     named.add(item.board);
     boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), dup: count(item.dup), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
-  if (!feeds.length && !nofeed.length && !boards.length && !sites.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
+  if (!feeds.length && !nofeed.length && !boards.length && !sites.length && !candidates.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
   const aiFamily = await familyOfInstall(env.STATS, body.install);   // Claude or OpenAI, from the raw id's latest health report, before it is hashed (src/engines.js)
   const install = await hashed(env, body.install);
   const kv = env.WAITLIST, limit = `pool:${install}`;
@@ -154,6 +157,7 @@ export async function contribute(request, env, now = new Date()) {
     statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body')
       .bind(install, today, item.host, item.kind, item.url, item.body));
   }
+  statements.push(...candidateStatements(env.STATS, install, today, candidates));
   for (const item of boards) {
     statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families, ai_family) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, board) DO UPDATE SET day = excluded.day, roles = excluded.roles, regions = excluded.regions, countries = excluded.countries,
@@ -168,7 +172,7 @@ export async function contribute(request, env, now = new Date()) {
     const chunk = statements.slice(i, i + 500);
     if (env.STATS.batch) await env.STATS.batch(chunk); else for (const statement of chunk) await statement.run();
   }
-  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length, sites: sites.length, ...(Object.keys(dropped).length ? {dropped} : {})});
+  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length, sites: sites.length, candidates: candidates.length, ...(Object.keys(dropped).length ? {dropped} : {})});
 }
 
 // Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions. Added up in SQL and paged
@@ -301,5 +305,6 @@ export async function purge(env, now = new Date()) {
   await env.STATS.prepare('DELETE FROM nofeed WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM sitefacts WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM board_reads WHERE day < ?').bind(oldest).run();
+  await pruneCandidates(env.STATS, now);   // src/discovery-candidates.js
   await env.STATS.prepare('DELETE FROM host_uses WHERE day < ?').bind(oldest).run();   // src/hostuse.js
 }
