@@ -232,9 +232,13 @@ export async function runApply(ctx, parts) {
     if (!panel) throw new Error('no Job Pilotto panel on the form');
     await tab.locator('#jobpilotto-review-host .fill').click({timeout: 15000});
     await tab.waitForFunction(() => document.getElementById('salary')?.value, null, {timeout: 60000}).catch(() => { throw new Error('"Fill again" did not fill step 2 (salary stayed empty)'); });
+    // The consent boxes are ticked at the end of the fill, after the answers: the salary showing is not the end of it.
+    await tab.waitForFunction(ids => ids.every(id => document.getElementById(id)?.checked), form.consent, {timeout: 15000}).catch(() => {});
     actual = await readForm(tab);
     fail([...fillProblems({expected: expectedOf(form), left: form.legal, actual}), ...submitProblems(forms.fired, form.path)]);
-    const left = await readPanel(tab);
+    let left = await readPanel(tab);
+    // The panel's list is redrawn when the fill ends, a moment after the box is ticked.
+    for (let waited = 0; waited < 15000 && left.left.some(item => form.consentWords.some(word => item.toLowerCase().includes(word))); waited += 500) { await tab.waitForTimeout(500); left = await readPanel(tab); }
     fail([...leftProblems(left.left, ['sponsorship']), ...notLeftProblems(left.left, form.consentWords)]);   // the knockout question stays the person's; the consent box is ticked
     // The question a hiring system can be set to reject on comes first, with its warning, and any tip the panel shows carries one of the labels that say how strong it is.
     if (!/sponsorship/i.test(left.left[0] || '')) throw new Error(`the knockout question is not first in "Left for you" (the list: ${left.left.join(' | ')})`);
