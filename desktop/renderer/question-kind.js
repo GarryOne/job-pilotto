@@ -4,15 +4,16 @@
 // on every adapter. Spec docs/superpowers/specs/2026-10-17-base-facts.md. Pure (no DOM): guarded by test/question-kind.test.js.
 import {countryNames} from './countries.js';
 
-export const KINDS = ['text', 'long_text', 'single', 'multi', 'yes_no'];
-const WORDS = {long_text: 'long text', single: 'pick one', multi: 'pick several', yes_no: 'yes/no'};
+export const KINDS = ['text', 'long_text', 'single', 'multi', 'yes_no', 'date', 'amount'];
+const WORDS = {long_text: 'long text', single: 'pick one', multi: 'pick several', yes_no: 'yes/no', date: 'date', amount: 'amount'};
 const KIND_OF_WORD = Object.fromEntries(Object.entries(WORDS).map(([kind, word]) => [word, kind]));
 export const YES_NO = ['Yes', 'No'];
+export const CURRENCIES = ['CHF', 'EUR', 'USD', 'GBP'];   // an amount question with no currencies of its own
 // A short list rides in the store; a long menu (a country list) is kept on this Mac (lib/question-formats.js), rebuilt by the next fill.
 export const STORED_OPTIONS = 8, STORED_CHARS = 160;
 const MAX_OPTIONS = 60;
 const COUNTRY = 'pick a country';   // a single choice among the countries (renderer/countries.js), however the form named them
-const MARK = /\s*\[(long text|pick one|pick several|yes\/no|pick a country)(?::\s*([^\]]*))?\]\s*$/;
+const MARK = /\s*\[(long text|pick one|pick several|yes\/no|pick a country|date|amount)(\s*\+\s*constraints)?(?::\s*([^\]]*))?\]\s*$/;
 
 const clean = text => String(text ?? '').replace(/\s+/g, ' ').trim();
 export function cleanOptions(options) {
@@ -28,6 +29,8 @@ export function cleanOptions(options) {
 export function formatOfField({type = '', options = [], multiple = false} = {}) {
   const t = String(type).toLowerCase();
   if (t === 'textarea') return {kind: 'long_text', options: []};
+  if (t === 'date') return {kind: 'date', options: []};
+  if (t === 'number') return {kind: 'amount', options: []};   // by structure only: a number box, never its label's words
   if (t === 'checkbox') return {kind: 'yes_no', options: []};
   if (t === 'checkbox-group') return {kind: 'multi', options: cleanOptions(options)};
   if (t === 'select' || t === 'radio' || t === 'combobox') return {kind: multiple ? 'multi' : 'single', options: cleanOptions(options)};
@@ -35,10 +38,11 @@ export function formatOfField({type = '', options = [], multiple = false} = {}) 
 }
 
 // {kind, options} -> the mark the store keeps ('' for a text question). Options go in only when the list is short and none holds a | or ].
-export function markOf({kind = 'text', options = [], list = ''} = {}) {
+export function markOf({kind = 'text', options = [], list = '', constraints = false} = {}) {
   if (!WORDS[kind]) return '';
   if (kind === 'single' && list === 'countries') return `[${COUNTRY}]`;
-  const picks = kind === 'yes_no' ? [] : cleanOptions(options);
+  if (kind === 'date') return constraints ? '[date + constraints]' : '[date]';
+  const picks = kind === 'yes_no' || kind === 'date' ? [] : cleanOptions(options);
   const joined = picks.join(' | ');
   const fits = picks.length && picks.length <= STORED_OPTIONS && joined.length <= STORED_CHARS && !picks.some(option => /[|\]]/.test(option));
   return `[${WORDS[kind]}${fits ? `: ${joined}` : ''}]`;
@@ -51,7 +55,8 @@ export function splitMark(text) {
   if (!match) return {text: raw, kind: '', options: [], marked: false};
   if (match[1] === COUNTRY) return {text: raw.slice(0, match.index), kind: 'single', list: 'countries', options: [], marked: true};
   const kind = KIND_OF_WORD[match[1]];
-  return {text: raw.slice(0, match.index), kind, options: kind === 'yes_no' ? [] : cleanOptions((match[2] || '').split('|')), marked: true};
+  const found = {text: raw.slice(0, match.index), kind, options: kind === 'yes_no' || kind === 'date' ? [] : cleanOptions((match[3] || '').split('|')), marked: true};
+  return kind === 'date' ? {...found, constraints: Boolean(match[2])} : found;
 }
 
 // The text with its mark set to this format (a text format removes the mark).
@@ -67,12 +72,16 @@ export function formatFor({marked = null, kept = null, locale = 'en'} = {}) {
   const from = marked?.kind ? marked : kept?.kind ? kept : {kind: 'text', options: []};
   const kind = KINDS.includes(from.kind) ? from.kind : 'text';
   const list = kind === 'single' && (from.list || (kept?.kind === kind && kept.list)) === 'countries' ? 'countries' : '';
-  const options = kind === 'yes_no' ? YES_NO : list ? countryNames(locale) : cleanOptions(from.options?.length ? from.options : kept?.kind === kind ? kept.options : []);
-  return {kind, list, options, control: kind === 'yes_no' ? 'yes_no' : kind === 'long_text' ? 'textarea' : (kind === 'single' || kind === 'multi') && options.length ? kind : 'text'};
+  const own = cleanOptions(from.options?.length ? from.options : kept?.kind === kind ? kept.options : []);
+  const options = kind === 'yes_no' ? YES_NO : list ? countryNames(locale) : kind === 'amount' ? (own.length ? own : CURRENCIES) : kind === 'date' ? [] : own;
+  const constraints = kind === 'date' && Boolean(from.constraints || kept?.constraints);
+  const control = kind === 'yes_no' ? 'yes_no' : kind === 'long_text' ? 'textarea' : kind === 'date' || kind === 'amount' ? kind : (kind === 'single' || kind === 'multi') && options.length ? kind : 'text';
+  return {kind, list, options, constraints, control};
 }
 
 // The mark a drawn format writes to the store (a text question: none): {kind, options, list} | null.
-export const markFor = format => (!format || !WORDS[format.kind] ? null : {kind: format.kind, options: format.list || format.kind === 'yes_no' ? [] : format.options || [], ...(format.list ? {list: format.list} : {})});
+export const markFor = format => (!format || !WORDS[format.kind] ? null : {kind: format.kind, options: format.list || format.kind === 'yes_no' || format.kind === 'date' ? [] : format.options || [],
+  ...(format.list ? {list: format.list} : {}), ...(format.kind === 'date' && format.constraints ? {constraints: true} : {})});
 
 // A multi answer is stored as one line: "A, B"; read back into its picks (only those that are options).
 export const joinPicks = picks => picks.filter(Boolean).join(', ');
@@ -81,10 +90,39 @@ export const picksOf = (value, options) => options.filter(option => String(value
 // A proposed answer as the row's control can take it: the option that names it (a pick: each part), else '' (the person answers); a text box takes any value.
 export function proposalIn(value, {control = 'text', options = []} = {}) {
   const text = String(value || '').trim();
-  if (control === 'text' || control === 'textarea') return text;
+  if (control === 'text' || control === 'textarea' || control === 'date' || control === 'amount') return text;
   if (control === 'multi') return joinPicks(picksOf(text, options));
   return options.find(option => option.toLowerCase() === text.toLowerCase()) || '';
 }
 
 // The words a person reads for a kind (the "Answer as" choice).
-export const KIND_NAMES = {text: 'Text', long_text: 'Long text', single: 'Pick one', multi: 'Pick several', yes_no: 'Yes / No'};
+export const KIND_NAMES = {text: 'Text', long_text: 'Long text', single: 'Pick one', multi: 'Pick several', yes_no: 'Yes / No', date: 'Date', amount: 'Amount'};
+
+// A date is saved in the person's words ("1 December 2026"), the form's own fields take it as written; a date input reads ISO (2026-12-01).
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export function dateWords(iso) {
+  const match = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match && MONTHS[Number(match[2]) - 1] ? `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}` : '';
+}
+export function dateIso(text) {
+  const raw = String(text || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const match = raw.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  const month = match ? MONTHS.findIndex(name => name.toLowerCase() === match[2].toLowerCase()) : -1;
+  return month < 0 ? '' : `${match[3]}-${String(month + 1).padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+}
+// A date question that also asks about constraints: "1 December 2026; no constraints" or "1 December 2026; <the constraints>". constraints: '' (not chosen yet), 'none' or text.
+export function splitConstraints(value) {
+  const raw = String(value || ''), at = raw.indexOf(';');
+  if (at < 0) return {date: raw.trim(), constraints: ''};
+  const rest = raw.slice(at + 1).trim();
+  return {date: raw.slice(0, at).trim(), constraints: /^no constraints?$/i.test(rest) ? 'none' : rest};
+}
+export const joinConstraints = (date, constraints) => (!date ? '' : !constraints ? date : `${date}; ${constraints === 'none' ? 'no constraints' : constraints}`);
+// An amount is saved as "95000 CHF"; free text ("about 90k") is not split, so it stays visible as it was written.
+export function splitAmount(value) {
+  const raw = String(value || '').trim();
+  const after = raw.match(/^(\d[\d'’,.\s]*?)\s*([A-Z]{3})$/), before = raw.match(/^([A-Z]{3})\s*(\d[\d'’,.\s]*)$/);
+  if (after) return {number: after[1], currency: after[2]};
+  return before ? {number: before[2].trim(), currency: before[1]} : {number: '', currency: ''};
+}

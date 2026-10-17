@@ -37,3 +37,9 @@
 .qr-foot button { min-height: 36px; }
 .qr-foot .primary { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .qr-gap { flex: 1; }
+
+/* Date and amount answers (renderer/question-control-values.js), in the drawer and in Profile → Application answers. */
+.qa-values { display: grid; gap: var(--sp-3); }
+.qa-values input, .qa-values select { min-height: 36px; }
+.qa-values.is-amount { grid-template-columns: minmax(0, 1fr) 96px; }
+.qa-values .qa-saved-as { margin: 0; grid-column: 1 / -1; }

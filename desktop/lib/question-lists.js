@@ -13,7 +13,7 @@ const answeredNow = async (storage, groups, fetcher) => verdicts.answeredOf(stor
 
 // The kinds of answer for these labels: what this Mac kept (the last fill's, else the AI's one judgment, asked here for labels with no mark and none kept).
 async function keptFormats(storage, rows, ai) {
-  const {formats: kept} = await formats.ensure(storage, rows.filter(row => !row.mark?.kind).map(row => row.question), {ai}).catch(() => ({formats: formats.kept(storage)}));
+  const {formats: kept} = await formats.ensure(storage, rows.filter(row => !row.mark?.kind || (row.mark.kind === 'date' && !row.mark.constraints)).map(row => row.question), {ai}).catch(() => ({formats: formats.kept(storage)}));
   return kept;
 }
 // Each row with the control it is answered with (renderer/question-kind.js formatFor: the store's mark first); a proposal only as one of its options.

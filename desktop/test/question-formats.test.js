@@ -89,3 +89,36 @@ test('a kind mark never becomes one of the person\'s own values (privacy tripwir
   const values = personalValues(['Preferred name: ❓ (asked by Acme) [pick one: Option | Another]', 'Full name: Ana Pop']);
   assert.deepEqual([...values.keys()].sort(), ['ana', 'pop']);
 });
+
+test('the AI judges a date, an amount and whether a date question also asks about constraints (validated)', async () => {
+  const storage = storageWith({});
+  const asked = ['What is your earliest start date, and are there any constraints we should be aware of?', 'Earliest start date', 'Expected annual salary', 'Notice period'];
+  await formats.ensure(storage, asked, {ai: {client: fake([
+    {label: asked[0], kind: 'date', constraints: true, options: ['x'], list: ''},
+    {label: asked[1], kind: 'date', constraints: false, options: [], list: ''},
+    {label: asked[2], kind: 'amount', constraints: true, options: ['ignored'], list: ''},
+    {label: asked[3], kind: 'text', constraints: true, options: [], list: ''}])}});
+  assert.equal(formats.keptFor(storage, asked[0]).kind, 'date');
+  assert.equal(formats.keptFor(storage, asked[0]).constraints, true);
+  assert.equal(formats.keptFor(storage, asked[1]).constraints, false);
+  assert.equal(formats.keptFor(storage, asked[2]).kind, 'amount');
+  assert.equal(formats.keptFor(storage, asked[2]).kind, 'amount');
+  assert.deepEqual(formats.keptFor(storage, asked[0]).options, [], 'a date has no options');
+});
+
+test('a fill\'s date field keeps the AI\'s constraints judgment, and a fill-read date is judged once for it', async () => {
+  const storage = storageWith({});
+  const label = 'What is your earliest start date, and are there any constraints we should be aware of?';
+  formats.noteFields(storage, [{label, type: 'date'}]);
+  assert.equal(formats.keptFor(storage, label).kind, 'date', 'the field type decides the kind');
+  const seen = [];
+  const client = {messages: {create: async request => { seen.push(request); return {content: [{type: 'text', text: JSON.stringify({formats: [{label, kind: 'text', constraints: true, options: [], list: ''}]})}]}; }}};
+  await formats.ensure(storage, [label], {ai: {client}});
+  assert.equal(seen.length, 1, 'asked once for the constraints');
+  assert.equal(formats.keptFor(storage, label).kind, 'date', 'the AI never replaces what the fill saw');
+  assert.equal(formats.keptFor(storage, label).constraints, true);
+  formats.noteFields(storage, [{label, type: 'date'}]);
+  assert.equal(formats.keptFor(storage, label).constraints, true, 'a later fill keeps the judgment');
+  await formats.ensure(storage, [label], {ai: {client}});
+  assert.equal(seen.length, 1, 'judged once');
+});

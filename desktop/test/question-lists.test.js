@@ -123,3 +123,12 @@ test('a verdict from before deduction is judged once more, keeping its counts; t
   await lists.openShown(s, {rows: rows3, groups: groups3, ai: ai3});
   assert.equal(calls.length, 1);
 });
+
+test('a question the fill marked [date] gets the AI\'s one judgment of whether it also asks about constraints, and Jobs draws it', async () => {
+  const s = storage();
+  const label = 'Earliest start date?';
+  const formatsAnswer = {formats: [{label, kind: 'date', constraints: true, options: [], list: ''}]};
+  const router = {client: {messages: {create: async request => ({content: [{type: 'text', text: JSON.stringify(/job-application form asked/.test(request.system) ? formatsAnswer : ANSWER)}]})}}};
+  const list = (await lists.openShown(s, {rows: [{question: label, mark: {kind: 'date', options: []}}], groups, ai: router})).list;
+  assert.equal(list.find(row => row.question === label)?.format.constraints, true);
+});

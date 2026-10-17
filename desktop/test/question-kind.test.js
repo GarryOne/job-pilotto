@@ -1,7 +1,7 @@
 // A question's kind of answer (owner, 17 Oct 2026: a consent or a dropdown is not a text box): from the fill's field type, kept as a mark on the store's line.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {formatFor, formatOfField, markOf, picksOf, splitMark, withMark, joinPicks, KINDS} from '../renderer/question-kind.js';
+import {formatFor, formatOfField, markOf, markFor, proposalIn, picksOf, splitMark, withMark, joinPicks, KINDS, dateWords, dateIso, splitConstraints, joinConstraints, splitAmount} from '../renderer/question-kind.js';
 
 test('every fill field type maps to one kind, by structure only', () => {
   assert.deepEqual(formatOfField({type: 'text'}), {kind: 'text', options: []});
@@ -83,4 +83,48 @@ test('proposalIn: the option that names the value, else nothing; text takes any 
   assert.equal(proposalIn('English, french', {control: 'multi', options: ['English', 'French', 'German']}), 'English, French');
   assert.equal(proposalIn('3 months', {control: 'text', options: []}), '3 months');
   assert.equal(proposalIn('3 months', {control: 'textarea', options: []}), '3 months');
+});
+
+test('date and amount are kinds: a fill\'s date / number input gives them, by structure only', () => {
+  assert.ok(KINDS.includes('date') && KINDS.includes('amount'));
+  assert.deepEqual(formatOfField({type: 'date'}), {kind: 'date', options: []});
+  assert.deepEqual(formatOfField({type: 'number'}), {kind: 'amount', options: []});
+  assert.equal(formatOfField({type: 'text', label: 'Start date'}).kind, 'text', 'a label word never decides');
+});
+
+test('date and amount marks round-trip through the store text', () => {
+  assert.equal(withMark('Start: ❓ (asked by Acme)', {kind: 'date'}), 'Start: ❓ (asked by Acme) [date]');
+  assert.equal(withMark('Start: ❓', {kind: 'date', constraints: true}), 'Start: ❓ [date + constraints]');
+  assert.equal(withMark('Pay: ❓', {kind: 'amount', options: ['CHF', 'EUR']}), 'Pay: ❓ [amount: CHF | EUR]');
+  assert.equal(withMark('Pay: ❓', {kind: 'amount'}), 'Pay: ❓ [amount]');
+  assert.deepEqual(splitMark('Start: ❓ [date + constraints]'), {text: 'Start: ❓', kind: 'date', options: [], constraints: true, marked: true});
+  assert.equal(splitMark('Start: ❓ [date]').constraints, false);
+  assert.deepEqual(splitMark('Pay: ❓ [amount: CHF | EUR]').options, ['CHF', 'EUR']);
+  assert.deepEqual(markFor({kind: 'date', constraints: true, options: []}), {kind: 'date', options: [], constraints: true});
+});
+
+test('formatFor draws a date and an amount with their own control; a proposal is kept as typed', () => {
+  assert.equal(formatFor({marked: {kind: 'date'}}).control, 'date');
+  assert.equal(formatFor({marked: {kind: 'date', constraints: true}}).constraints, true);
+  assert.equal(formatFor({kept: {kind: 'date', constraints: true}}).constraints, true, 'the AI judgment of this Mac');
+  assert.equal(formatFor({marked: {kind: 'single', constraints: true, options: ['A']}}).constraints, false, 'constraints only on a date');
+  assert.equal(formatFor({marked: {kind: 'amount'}, kept: {kind: 'text', constraints: true}}).constraints, false);
+  assert.equal(formatFor({marked: {kind: 'date'}, kept: {kind: 'text', constraints: true}}).constraints, true, 'a [date] mark takes the AI\'s judgment of the label');
+  assert.deepEqual(formatFor({marked: {kind: 'amount'}}).options, ['CHF', 'EUR', 'USD', 'GBP']);
+  assert.deepEqual(formatFor({marked: {kind: 'amount', options: ['SEK']}}).options, ['SEK']);
+  assert.equal(proposalIn('1 December 2026', {control: 'date'}), '1 December 2026');
+  assert.equal(proposalIn('95000 CHF', {control: 'amount'}), '95000 CHF');
+});
+
+test('a date is saved in the person\'s words and read back; free text is not a date', () => {
+  assert.equal(dateWords('2026-12-01'), '1 December 2026');
+  assert.equal(dateIso('1 December 2026'), '2026-12-01');
+  assert.equal(dateIso('2026-12-01'), '2026-12-01');
+  assert.equal(dateIso('as soon as possible'), '');
+  assert.deepEqual(splitConstraints('1 December 2026; no constraints'), {date: '1 December 2026', constraints: 'none'});
+  assert.deepEqual(splitConstraints('1 December 2026; part-time until June'), {date: '1 December 2026', constraints: 'part-time until June'});
+  assert.deepEqual(splitConstraints('1 December 2026'), {date: '1 December 2026', constraints: ''});
+  assert.equal(joinConstraints('1 December 2026', 'none'), '1 December 2026; no constraints');
+  assert.deepEqual(splitAmount('95000 CHF'), {number: '95000', currency: 'CHF'});
+  assert.deepEqual(splitAmount('about 90k'), {number: '', currency: ''});
 });

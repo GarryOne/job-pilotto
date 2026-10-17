@@ -86,7 +86,7 @@ function question(q) {
   const control = answerControl(q.format, drafts.get(q.key) ?? q.proposal ?? '', value => {
     if (String(value) === String(q.proposal || '')) drafts.delete(q.key); else drafts.set(q.key, String(value));
     keepDrafts();
-    confirm.disabled = state.busy || !String(value).trim();
+    confirm.disabled = state.busy || !control.complete;
   }, {placeholder: 'Type your answer', ariaLabel: q.question});
   control.id = 'qr-control';
   box.append(label, control);
@@ -108,8 +108,8 @@ function question(q) {
   if (state.consent) body.append(el('p', 'muted small qr-consent', 'Terms and consent boxes are ticked for you on each form (Settings → Consent boxes turns that off).'));
   const confirm = Object.assign(el('button', 'primary', 'Confirm & next'), {type: 'button', id: 'qr-confirm'});
   confirm.append(icon('chevron'));
-  confirm.disabled = state.busy || !String(control.value).trim();
-  confirm.addEventListener('click', () => String(control.value).trim() && answer(q, String(control.value).trim()));
+  confirm.disabled = state.busy || !control.complete;
+  confirm.addEventListener('click', () => control.complete && answer(q, String(control.value).trim()));
   if (control.tagName === 'INPUT') control.addEventListener('keydown', event => { if (event.key === 'Enter' && control.value.trim()) answer(q, control.value.trim()); });
   return {body, confirm};
 }

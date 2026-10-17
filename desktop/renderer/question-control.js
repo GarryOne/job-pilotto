@@ -1,29 +1,13 @@
 // The one answer control for a question, drawn from its kind (renderer/question-kind.js formatFor): a text field, a paragraph box, Yes / No, the form's own
-// options (a segmented choice when they are few and short, else a menu) or several picks. Built from the shared parts (.segmented, a native select): no CSS
+// options (a segmented choice when they are few and short, else a menu), several picks, a date or an amount (renderer/question-control-values.js). Built from the shared parts (.segmented, a native select): no CSS
 // of its own. Used by Jobs → Answer once and Profile → Application answers; the value it gives is the meaning the fill maps to each form's own options.
 // Guarded by test/question-control.test.js.
 import {el} from './components.js';
 import {KINDS, KIND_NAMES, joinPicks, picksOf} from './question-kind.js';
+import {amountControl, dateControl, refresh, segmented} from './question-control-values.js';
 
 const FEW = 3, SHORT = 18, FEW_PICKS = 6;
 const segmentedOk = (options, most) => options.length <= most && options.every(option => option.length <= SHORT);
-
-function segmented(options, isOn, onPress, ariaLabel) {
-  const group = el('div', 'segmented is-fill');
-  group.setAttribute('role', 'group');
-  group.setAttribute('aria-label', ariaLabel);
-  for (const option of options) {
-    const button = Object.assign(el('button', isOn(option) ? 'is-active' : '', option), {type: 'button'});
-    button.setAttribute('aria-pressed', String(isOn(option)));
-    button.addEventListener('click', () => onPress(option, group));
-    group.append(button);
-  }
-  return group;
-}
-const refresh = (group, isOn) => group.querySelectorAll('button').forEach(button => {
-  button.classList.toggle('is-active', isOn(button.textContent));
-  button.setAttribute('aria-pressed', String(isOn(button.textContent)));
-});
 
 // format: {control, options}; value: the saved answer ('' = none); onChange(value). -> the control node (its .value reads the current answer).
 export function answerControl(format, value, onChange, {placeholder = 'Your answer', ariaLabel = 'Answer'} = {}) {
@@ -54,6 +38,10 @@ export function answerControl(format, value, onChange, {placeholder = 'Your answ
     const picks = picksOf(current, options);
     for (const option of options) node.append(new Option(option, option, false, picks.includes(option)));
     node.addEventListener('change', () => { current = joinPicks([...node.selectedOptions].map(option => option.value)); onChange(current); });
+  } else if (control === 'date') {
+    node = dateControl(format, current, next => { current = next; onChange(next); }, {ariaLabel});
+  } else if (control === 'amount') {
+    node = amountControl(format, current, next => { current = next; onChange(next); }, {ariaLabel});
   } else if (control === 'textarea') {
     node = Object.assign(el('textarea', ''), {value: current, placeholder, ariaLabel, rows: 3});
     node.addEventListener('input', () => { current = node.value; onChange(current); });
@@ -61,7 +49,9 @@ export function answerControl(format, value, onChange, {placeholder = 'Your answ
     node = Object.assign(el('input', ''), {type: 'text', value: current, placeholder, ariaLabel});
     node.addEventListener('input', () => { current = node.value; onChange(current); });
   }
-  if (node.tagName === 'DIV') Object.defineProperty(node, 'value', {get: () => current, set: next => { current = next; }, configurable: true});
+  if (node.tagName === 'DIV' && !('complete' in node)) Object.defineProperty(node, 'value', {get: () => current, set: next => { current = next; }, configurable: true});
+  // .complete: the answer can be confirmed (a date that also asks about constraints needs them chosen too).
+  if (!('complete' in node)) Object.defineProperty(node, 'complete', {get: () => String(node.value ?? '').trim() !== '', configurable: true});
   node.dataset.answerKind = format?.kind || 'text';
   return node;
 }

@@ -23,7 +23,7 @@ const answersPage = (storage, fetcher) => openStore(storage, {fetcher}).page('an
 // A form's "required" marker is not part of the question ("* Nationality", "Postal Code *").
 const unmarked = text => String(text || '').replace(/^[\s*]+|[\s*]+$/g, '');
 // A line's kind mark ("[pick one: Mr | Mrs]", renderer/question-kind.js), when it has one: {kind, options, list}.
-const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {})} : null);
+const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {}), ...(split.constraints ? {constraints: true} : {})} : null);
 // A ❓ line -> {key: block id, question, company, mark}.
 export function parseLine(block) {
   const split = splitMark(block.text), text = split.text;
