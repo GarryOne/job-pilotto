@@ -80,7 +80,7 @@ export function openView(name, {fromHistory = false} = {}) {
 // button or a missing Notion link isn't offered); running one opens its page, then clicks it.
 const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search check jobs find refresh scan crawl',
   tailor: 'tailor cv cover letter resume top matches', visits: 'linkedin indeed glassdoor sites read portals visit extension', board: 'board linkedin sign in login behind read list search',
-  scout: 'employers companies discover', status: 'health check', weekly: 'report stats weekly insight review', insight: 'tip advice', kits: 'kits prepare applications cover letter', tune: 'strategy settings roles places tune',
+  scout: 'employers companies discover', status: 'health check', weekly: 'report stats weekly insight review', insight: 'tip advice', kits: 'kits prepare applications cover letter', tune: 'strategy settings roles places tune', ready: 'ready to send overnight night fill forms submit morning',
   today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
 // A button's own words: the count badge and the dot inside a nav button are not part of its label.
 export const labelOf = node => {
@@ -111,7 +111,7 @@ function paletteCommands() {
     labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => { openView('actions'); node.click(); }));
   // An action card with its own handler (not a Telegram command): "Tailor CVs" costs minutes of AI, so the palette opens its card and focuses the count; Run stays a click.
   document.querySelectorAll('.action[data-palette]').forEach(node => !node.disabled && add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
-    labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
+    labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette === 'ready') { node.scrollIntoView({block: 'center'}); node.focus(); return; } if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
   // A task waiting its turn can be taken out of the queue from here too (activity.js unqueue).
   (lastActivity?.queued || []).forEach(run => add('Actions', `Remove ${KIND[kindOf(run)].name} from the queue`, 'It has not started: it will not run',
     'unqueue cancel queued waiting remove', () => unqueue(run)));

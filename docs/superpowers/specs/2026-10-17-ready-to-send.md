@@ -73,6 +73,8 @@ Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touc
 - [ ] PR 2 (container): extension copy that holds the account button, stand-in app, no-Submit net, live view, hand-off, image, fixture proof (proof: desktop/test/ready-fill.test.js)
 - [ ] PR 3 (site wiring): fill_at, cron start + queue, runner Worker, morning proxy; deploy only after the owner's yes to a Queue and a Worker (proof: site/test/ready-wiring.test.js)
 - [ ] PR 4 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
+- [x] PR 4a (app): Actions card shown only to the owner's install (site says), Send tonight, Run now, morning rows with Done, ⌘K entry, batch with CV + letter PDF + facts (proof: desktop/test/ready-batch.test.js)
+- [ ] PR 5: the live view page on the site (the morning's "Open live" link; the WebSocket route exists, the viewer page and its one-time link do not) and "Open in my browser" (extension restore step), Focus line, Telegram morning line (proof: none: not built)
 - [ ] First night measured: prepared / reached / complete / submitted, reported to the owner (proof: none: the morning line on /admin/ready)
 - [x] Site wiring (written, NOT deployed): fill time on a batch, cron tick starts due nights via Queue `ready-runs`, finishes over-time nights, morning routes `live`/`handoff`/`held` through a service binding, runner Worker `site/ready-runner` (proof: site/test/ready-wiring.test.js)
 - [ ] Owner yes, then create Queue `ready-runs` + Worker `www-ready-runner`, add `READY_RUNNER` binding and `READY_QUEUE` producer to the site config (proof: none: account change, owner's decision)

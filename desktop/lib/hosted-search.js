@@ -15,7 +15,7 @@ export const keyOf = storage => storage.secret(TRIAL_KEY) || (/^JPF1\./.test(sto
 export const state = storage => ({on: false, skipped: false, email: '', marketing: false, ...storage.settings().hostedSearch});
 const save = (storage, patch) => storage.saveSettings({hostedSearch: {...state(storage), ...patch}});
 
-async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch} = {}) {
+export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch} = {}) {
   const key = keyOf(storage);
   if (!key || !isFreeKey(key) || siteIsOff()) return {ok: false, error: 'Always on needs a regular install with its key.'};
   try {

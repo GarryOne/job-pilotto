@@ -11,12 +11,14 @@ import * as storeFiles from './store/files.js';
 import * as notionGate from './notion-gate.js';
 import {registerJobLetterHandlers} from './job-letter-handlers.js';
 import * as pipeline from './pipeline.js';
+import {registerReadyHandlers} from './ready-handlers.js';
 import * as strategy from './strategy.js';
 import fs from 'node:fs';
 import {log as appLog} from './log.js';
 
 export function registerKitHandlers(ctx) {
   const {allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, shell, storage, track} = ctx;
+  registerReadyHandlers({ipcMain, storage});   // Ready to send (the owner's install only): the card beside Tailor on Actions, its calls in lib/ready-handlers.js
   const {makeFor: makeJobLetter} = registerJobLetterHandlers({ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
