@@ -35,6 +35,10 @@ export function highlightProblems({actual, ai = [], plain = []}) {
 }
 
 // What the panel says is left for the person (its "Left for you" items) must name each of `wanted` (a part of the item's text, case-insensitive).
+// A ticked consent box (ticked by default, owner 17 Oct 2026) is no longer left for the person: the panel must not list it.
+export function notLeftProblems(items, unwanted) {
+  return unwanted.filter(part => items.some(item => item.toLowerCase().includes(part.toLowerCase()))).map(part => `the panel still lists "${part}" as left for you, although the box was ticked (it lists: ${items.join(' | ')})`);
+}
 export function leftProblems(items, wanted) {
   return wanted.filter(part => !items.some(item => item.toLowerCase().includes(part.toLowerCase()))).map(part => `the panel does not list "${part}" as left for you (it lists: ${items.join(' | ') || 'nothing'})`);
 }

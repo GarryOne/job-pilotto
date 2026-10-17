@@ -4,7 +4,7 @@
 // (lib/forms.mjs, behind the real job-site host names), the AI answer is canned, so the suite costs nothing and no employer site is contacted.
 import fs from 'node:fs';
 import path from 'node:path';
-import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
+import {cvProblems, fillProblems, highlightProblems, leftProblems, notLeftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, COLLAPSED, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, seedLivePosting, stageOf} from '../lib/seed-data.mjs';
@@ -167,7 +167,7 @@ export async function runApply(ctx, parts) {
     const panel = await panelOf(tab);
     if (!panel) throw new Error('no Job Pilotto panel on the form');
     console.log(`  panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
-    fail(leftProblems(panel.left, ['privacy']));
+    fail([...leftProblems(panel.left, []), ...notLeftProblems(panel.left, form.consentWords)]);   // the consent box is ticked, not left
   }, {needs: ctx.needs});
 
   await ctx.run('a Workday-shaped form: answers fill fields known only by opaque ids and aria labels, the list-button question is left for you by name, Submit untouched', async () => {
@@ -235,7 +235,7 @@ export async function runApply(ctx, parts) {
     actual = await readForm(tab);
     fail([...fillProblems({expected: expectedOf(form), left: form.legal, actual}), ...submitProblems(forms.fired, form.path)]);
     const left = await readPanel(tab);
-    fail(leftProblems(left.left, ['personal data', 'sponsorship']));
+    fail([...leftProblems(left.left, ['sponsorship']), ...notLeftProblems(left.left, form.consentWords)]);   // the knockout question stays the person's; the consent box is ticked
     // The question a hiring system can be set to reject on comes first, with its warning, and any tip the panel shows carries one of the labels that say how strong it is.
     if (!/sponsorship/i.test(left.left[0] || '')) throw new Error(`the knockout question is not first in "Left for you" (the list: ${left.left.join(' | ')})`);
     if (!/reject an application automatically|knockout rule/i.test(left.knock)) throw new Error(`no knockout warning above the list (it says: "${left.knock}")`);

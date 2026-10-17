@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import https from 'node:https';
-import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
+import {cvProblems, fillProblems, highlightProblems, leftProblems, notLeftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {FORMS, startForms} from '../lib/forms.mjs';
 import {expectedOf} from '../lib/apply-fixtures.mjs';
 import {message, startAiProxy} from '../lib/ai-proxy.mjs';
@@ -117,6 +117,11 @@ test('expectedOf: every fixture form\'s consent box is expected ticked, and neve
     for (const id of form.consent || []) {
       assert.equal(expectedOf(form)[id], true, `${name}: ${id} is expected ticked`);
       assert.ok(!form.legal.includes(id), `${name}: ${id} is not also a legal field`);
+    }
+    if ((form.consent || []).length) {
+      assert.ok((form.consentWords || []).length, `${name}: names the words the panel would use for its ticked consent box`);
+      assert.equal(notLeftProblems(['Your choice (legal): ' + form.consentWords[0]], form.consentWords).length, 1, `${name}: a panel still listing the ticked box is reported`);
+      assert.deepEqual(notLeftProblems(['Sponsorship question'], form.consentWords), []);
     }
   }
   assert.ok(FORMS.greenhouse.consent.includes('consent_privacy') && FORMS.multistep.consent.includes('consent_data'));
