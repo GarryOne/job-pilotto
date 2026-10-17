@@ -20,7 +20,6 @@ on:
       # Files outside desktop/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
       - '.github/workflows/e2e.yml'
       - '.gitignore'
-      - 'worker/src/extension.js'   # the answer engine the night's AI runs: desktop/test/ready-night-ai.test.js imports it
       - 'hosted/ready-fill/**'   # the night's filler: desktop/test/ready-fill.test.js imports it
       - 'config/notion_schema.json'
       - 'config/notion_template.json'
