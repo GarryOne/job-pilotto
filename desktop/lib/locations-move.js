@@ -2,7 +2,7 @@
 // Countries / Preferred cities / Relocation rows and says per kind: same, one side unset, or conflict. Pure planning; nothing is written here.
 // Matching values move by themselves; an unset side yields to the populated one; "No relocation" and "Anywhere" are values, not missing data; a conflict
 // is queued with both values and NO preselected winner (profile / strategy / choose / separate). The AI only reads the Profile rows into a fixed answer
-// (judgeProfile); it never writes a place. Guarded by test/locations-move.test.js. Where you live (Home base) is Your details' and is not compared here.
+// (judgeProfile); it never writes a place. The crawl lists are match PATTERNS (\bz[uü]rich\b): read as place names to compare and show (placeNames), kept as patterns when written back. Guarded by test/locations-move.test.js. Where you live (Home base) is Your details' and is not compared here.
 import {anthropicApi} from './ai/anthropic-api.js';
 
 export const MODEL = 'claude-haiku-5-5';
@@ -20,6 +20,27 @@ const INSTRUCTIONS = `You read the "where to work" rows of a job seeker's Profil
 
 const bare = text => String(text).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\\b|["^$]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const clean = list => (Array.isArray(list) ? list : []).map(item => String(item).trim()).filter(Boolean);
+// A crawl match pattern as the place names it matches: \bz[uü]rich\b -> zürich, "a|b" -> a, b. Structure only (the settings page's own rule,
+// src/notion/search_settings.py readable()): a pattern with anything else in it has no plain name -> null, and is shown as /pattern/.
+const META = /[\\^$.|?*+()[\]{}]/;
+export function placeNames(fragment) {
+  const parts = /[()[\]]/.test(String(fragment).replace(/\[(\w)(\p{L})\]|\[(\p{L})(\w)\]/gu, '')) ? [String(fragment)] : String(fragment).split('|');
+  const names = parts.map(part => {
+    const plain = part.trim().replace(/^\\b(.+)\\b$/, '$1').replace(/\[(\w)(\p{L})\]|\[(\p{L})(\w)\]/gu, (_, a, b, c, d) => (b || c)).replace(/\\([\\^$.|?*+()[\]{}-])/g, '$1');
+    return plain && !META.test(plain) ? plain : null;
+  });
+  return names.every(Boolean) ? names : null;
+}
+// A side as {shown: what the card says, names: the plain ones to compare, keep: the patterns exactly as they are}.
+const readSide = fragments => {
+  const shown = [], names = [];
+  let odd = false;
+  for (const fragment of fragments) {
+    const found = placeNames(fragment);
+    if (found) { shown.push(...found); names.push(...found); } else { shown.push(`/${fragment}/`); odd = true; }
+  }
+  return {shown, names, odd, keep: fragments};
+};
 const sameSet = (a, b) => a.length === b.length && new Set(a.map(bare)).size === new Set([...a, ...b].map(bare)).size;
 
 // rows: [{label, value}] of the Profile's location rows -> {preferred, acceptable, relocation, destinations}, or null (no AI, no rows, a mangled answer).
@@ -37,10 +58,12 @@ export async function judgeProfile(rows, {client = null, apiKey = ''} = {}) {
 }
 
 // One kind's two sides -> {value} (decided) or {conflict: {strategy, profile}}. An empty list is "unset".
-function compareList(strategy, profile) {
-  if (!strategy.length) return {value: profile};
-  if (!profile.length || sameSet(strategy, profile)) return {value: strategy};
-  return {conflict: {strategy, profile}};
+// The crawl side is patterns: compared by the place names they match, kept as the patterns they are, shown as names.
+function compareList(fragments, profile) {
+  if (!fragments.length) return {value: profile};
+  const side = readSide(fragments);
+  if (!profile.length || (!side.odd && sameSet(side.names, profile))) return {value: fragments};
+  return {conflict: {strategy: side.shown, strategyFragments: fragments, profile}};
 }
 
 // search: the parsed search settings; profile: judgeProfile's answer. -> {resolved, conflicts: [{kind, strategy, profile}]} (a conflicted kind is absent from resolved).
@@ -54,9 +77,12 @@ export function classify(search, profile) {
   // Relocation: the crawl lists only know "places abroad" (none = never said, not "no"); the Profile can say No, and that is a value.
   const abroad = clean(places.abroad), mode = profile.relocation;
   if (!abroad.length) resolved.relocation = {mode, places: profile.destinations};
-  else if (mode === 'no') conflicts.push({kind: 'relocation', strategy: abroad, profile: [], profileMode: 'no'});
-  else if (mode === 'unspecified' || !profile.destinations.length || sameSet(abroad, profile.destinations)) resolved.relocation = {mode: 'yes', places: abroad};
-  else conflicts.push({kind: 'relocation', strategy: abroad, profile: profile.destinations, profileMode: mode});
+  else {
+    const side = readSide(abroad), seen = {kind: 'relocation', strategy: side.shown, strategyFragments: abroad};
+    if (mode === 'no') conflicts.push({...seen, profile: [], profileMode: 'no'});
+    else if (mode === 'unspecified' || !profile.destinations.length || (!side.odd && sameSet(side.names, profile.destinations))) resolved.relocation = {mode: 'yes', places: abroad};
+    else conflicts.push({...seen, profile: profile.destinations, profileMode: mode});
+  }
   return {resolved, conflicts};
 }
 
@@ -64,10 +90,11 @@ export function classify(search, profile) {
 export function resolveConflict(plan, kind, choice, {places = []} = {}) {
   const conflict = plan.conflicts.find(each => each.kind === kind);
   if (!conflict || !CHOICES.includes(choice)) throw new Error(`No open "${kind}" conflict or unknown choice "${choice}"`);
-  const own = choice === 'strategy' ? conflict.strategy : choice === 'choose' ? clean(places) : conflict.profile;
+  const theirs = conflict.strategyFragments || conflict.strategy;   // the crawl's own patterns, never the names the card showed
+  const own = choice === 'strategy' ? theirs : choice === 'choose' ? clean(places) : conflict.profile;
   const value = kind !== 'relocation' ? own : {mode: own.length ? 'yes' : conflict.profileMode || 'no', places: own};
   const resolved = {...plan.resolved, [kind]: value};
-  if (choice === 'separate') resolved.searchOverride = [...(plan.resolved.searchOverride || []), ...conflict.strategy];
+  if (choice === 'separate') resolved.searchOverride = [...(plan.resolved.searchOverride || []), ...theirs];
   return {resolved, conflicts: plan.conflicts.filter(each => each !== conflict)};
 }
 
