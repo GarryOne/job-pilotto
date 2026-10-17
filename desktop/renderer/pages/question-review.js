@@ -14,6 +14,7 @@ import {button, skeleton, stateCard} from '../job-drawer/parts.js';
 import {loadQuestions, questionsNow} from './jobs-questions.js';
 import {$} from './core.js';
 import {fromDetailsLine} from '../answered-from-details.js';
+import {alsoKeys} from '../question-wordings.js';
 
 const DRAFTS = 'questionDrafts';
 const state = {open: false, queue: [], setAside: [], consent: 0, fromDetails: 0, at: 0, aside: null, saved: '', error: '', busy: false, loading: false, failed: ''};
@@ -157,7 +158,7 @@ async function answer(q, value) {
   state.busy = true;
   state.error = '';
   draw();
-  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format), ...(onlyHere || q.also?.length ? [{...(onlyHere ? {jobOnly: true, company: q.company || ''} : {}), ...(q.also?.length ? {also: q.also.map(each => each.key)} : {})}] : [])).catch(error => ({ok: false, error: error.message}));
+  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format), ...(onlyHere || q.also?.length ? [{...(onlyHere ? {jobOnly: true, company: q.company || ''} : {}), ...(q.also?.length ? {also: alsoKeys(q)} : {})}] : [])).catch(error => ({ok: false, error: error.message}));
   state.busy = false;
   if (!result?.ok) { state.error = result?.error || 'It did not save; try again.'; draw(); return; }
   drafts.delete(q.key);

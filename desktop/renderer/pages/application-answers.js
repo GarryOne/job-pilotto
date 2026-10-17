@@ -11,6 +11,7 @@ import {outlineTab} from './outline-tab.js';
 import {isStyle} from './letter-style.js';
 import {keyOf, visibleQuestions} from '../question-filter.js';
 import {fromDetailsLine} from '../answered-from-details.js';
+import {stageAnswer} from '../question-wordings.js';
 import {formatFor, markFor, markOf} from '../question-kind.js';
 import {answerControl, kindPicker} from '../question-control.js';
 import {drawRules, input, labelled, newRule, resetRules, reviewRows, select} from './website-rules.js';
@@ -34,8 +35,9 @@ function setAnswer(view, item, text) {
   if (item.kind === 'cell') { if (markChanged) view.change(TEXT, kindChange(item, mark)); else view.undo(TEXT, kindChange(item, mark)); }
 }
 // One row's answer control and its "Answer as" choice.
-function answerField(view, item, placeholder) {
-  return answerControl(formatOf(item), valueOf(item), text => setAnswer(view, item, text), {placeholder, ariaLabel: item.question || 'Note'});
+// row: a Needs review row; its other wordings (row.also) get the same answer (renderer/question-wordings.js).
+function answerField(view, item, placeholder, row = null) {
+  return answerControl(formatOf(item), valueOf(item), text => (row ? stageAnswer(row, text, each => setAnswer(view, each, text)) : setAnswer(view, item, text)), {placeholder, ariaLabel: item.question || 'Note'});
 }
 function kindField(view, item) {
   return kindPicker(formatOf(item).kind, kind => {
@@ -158,8 +160,11 @@ function draw(view, into) {
     const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
     const review = card('Needs review', 'alert', [pill(`${reviewCount} not set`, 'warn', {dot: true})]);
     review.classList.add('is-review');
-    for (const {item, section} of open) review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
-      field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer'), kind: () => kindField(view, item)}));
+    for (const entry of open) {
+      const {item, section} = entry;
+      review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
+      field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', entry), kind: () => kindField(view, item)}));
+    }
     for (const each of ruleRows) review.append(...row(view, {...each, needs: true}));
     if (hiddenRows.length) {
       const more = Object.assign(el('button', 'link', showHidden ? 'Hide the others' : `${hiddenRows.length} hidden · show`), {type: 'button', id: 'review-hidden'});
