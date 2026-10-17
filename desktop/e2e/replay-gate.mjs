@@ -36,6 +36,12 @@ export const outdated = firstMiss => { const parts = (firstMiss?.differs || []).
 const PAGE_SIDE = /^(user|assistant):/;
 export const askChanged = record => !!(record.network && record.network.extra > 0 && !record.network.notRecorded && (record.firstMiss?.differs || []).some(name => PAGE_SIDE.test(String(name).replace(/#\d+$/, '').replace(/ \(lines.*$/, ''))));
 
+// A changed ask whose OUTCOME did not get worse (owner, 17 Oct 2026: "judge outcomes, not wording"; Recruitee 9/7 -> 9/7 and Teamtailor 8/5 -> 8/5 on #1147 were red for the ask's text alone): the pin
+// means "the outcome is the live run's", so a row whose ask (or instructions) changed is judged by what it did: the step reached no earlier, no fewer filled, no more left, no more wrong values than live,
+// and no site request missing. Equal or better = "same (ask changed: N lines)", a note, never red. No live outcome or no replay outcome to compare = not judged (stays red). Safety checks are untouched.
+export const changedLines = differs => (differs || []).reduce((sum, name) => sum + (Number(/\(lines (\d+)/.exec(String(name))?.[1]) || 1), 0);
+export const keptOutcome = record => !!(record.outcome && record.liveOutcome && record.network && !record.network.notRecorded && !fell(record.liveOutcome, record.outcome));
+
 export const STREAK = 2;   // runs in a row a row must be 100% same as live before it counts
 
 // (this run's records, the baseline's results, a retry's records) -> {rows: {name: {same, outcome, counted, verdict, why}}, counted, worse, red}
@@ -62,13 +68,16 @@ export function judge(records, baseline = {}, retry = [], accepts = {}, pins = n
         if (accept?.reason) { verdict = 'accepted'; why = `${down}; PR #${accept.pr}${accept.url ? ` (${accept.url})` : ''}: ${accept.reason}`; } else if (accept) why = `${down}; add the reason: comment "Replay-accept: <reason>" on PR #${accept.pr}`;
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
-    const stale = verdict === 'ask changed' || verdict === 'out of date';   // its stored answers no longer match what the app asks: the refill workflow's job (lib/refill.mjs)
+    let stale = verdict === 'ask changed' || verdict === 'out of date', askNote = '';   // its stored answers no longer match what the app asks: the refill workflow's job (lib/refill.mjs)
     if (pinSet) {   // the ratchet: the pinned file decides what counts
       const held = pinSet.has(record.name) && !record.deferred;
       counted = held;
       if (!held) { if (same && !record.deferred) { verdict = 'newly same'; why = 'ratchet up: pin it with node lib/replay-ratchet.mjs pin <results.json>'; } else if (verdict === 'same') verdict = 'not counted'; }
       else if (same) { verdict = 'same'; why = ''; }
-      else {
+      else if (stale && keptOutcome(record)) {   // the ask changed, the outcome did not get worse: nothing to refill, nothing to accept
+        const lines = changedLines(record.firstMiss?.differs);
+        verdict = 'same'; why = ''; stale = false; askNote = `ask changed: ${lines} line${lines === 1 ? '' : 's'}`;
+      } else {
         const second = again.get(record.name), noise = second && isSame(second), was = verdict === 'not counted' ? 'not same as live' : verdict, reason = `pinned same as live, now ${was}${why ? `: ${why.replace(/^[a-z ]*: /, '')}` : ''}`;
         const accept = noise ? null : acceptNamed(record.name, accepts.entries, names);
         if (noise) { verdict = 'noise'; why = `${reason}; passed on retry`; }
@@ -79,7 +88,7 @@ export function judge(records, baseline = {}, retry = [], accepts = {}, pins = n
     // How often this row needed its retry lately (carried from the baseline run's results, a week back): a row that is "noise" 3 times a week is flagged, not left pinned on luck.
     const noiseAt = [...(before?.noiseAt || []).filter(at => now - Date.parse(at) < FLAKY_DAYS * 864e5), ...(pinSet && verdict === 'noise' ? [now.toISOString()] : [])];
     const asks = record.network ? {hit: record.network.hit ?? 0, of: record.live?.asks ?? null, extra: record.network.extra ?? 0} : null;   // the summary's table
-    rows[record.name] = {refill: stale, loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || '', formHost: record.formHost || '', ...(noiseAt.length ? {noiseAt} : {}), wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
+    rows[record.name] = {refill: stale, loose: record.network?.loose || 0, looseParts: record.network?.looseParts || [], same, streak, outcome, liveOutcome: record.liveOutcome || null, asks, counted, verdict, why, ...(askNote ? {askNote} : {}), seconds: record.seconds ?? null, site: record.site || '', formHost: record.formHost || '', ...(noiseAt.length ? {noiseAt} : {}), wrongValues: record.wrongValues || [], ...(verdict === 'worse' || verdict === 'accepted' ? {baseOutcome: before?.outcome || null, diff: fieldDiff(before?.outcome, outcome)} : {})};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   // A PR replays one pinned row per kind (replay-pick.mjs): a pinned row it did not pick is not judged there ("not replayed on PRs"), never worse; the scheduled run (no picked list) still needs every one.
   if (pinSet && picked) for (const name of pinSet) if (!rows[name] && !picked.has(name)) rows[name] = {loose: 0, looseParts: [], same: false, streak: 0, outcome: null, liveOutcome: null, asks: null, counted: false, verdict: 'not counted', why: 'not replayed on PRs (the scheduled runs check it)', seconds: null, site: '', wrongValues: []};
@@ -102,8 +111,10 @@ export function summary(result, {pr = process.env.PR} = {}) {
   if (shown.length) {
     lines.push('Asks: answered from the record / asked live (+ extra the live run never asked). Outcome: step, filled/left.', '',
       '| # | Row | Asks | Outcome | Live | Verdict | Why |', '|---|---|---|---|---|---|---|',
-      ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict === 'noise' ? 'noise (passed on retry)' : row.verdict} | ${row.why || '–'} |`));
+      ...shown.map(([name, row], at) => `| ${at + 1} | ${name} | ${asked(row)} | ${shortOutcome(row.outcome)} | ${shortOutcome(row.liveOutcome)} | ${MARK[row.verdict] || ''} ${row.verdict === 'noise' ? 'noise (passed on retry)' : row.askNote ? `${row.verdict} (${row.askNote})` : row.verdict} | ${row.why || '–'} |`));
   }
+  const noted = Object.entries(result.rows).filter(([, row]) => row.askNote);
+  if (noted.length) lines.push('', `### ✅ ${noted.length} row${noted.length === 1 ? '' : 's'} with a changed ask, outcome not worse than live (no refill needed)`, '', ...noted.map(([name, row]) => `- ${name}: ${shortOutcome(row.outcome)} vs live ${shortOutcome(row.liveOutcome)} (${row.askNote})`));
   const stale = Object.entries(result.rows).filter(([, row]) => row.refill).map(([name]) => name);
   if (stale.length) lines.push('', `### 🖥 ${stale.length} row${stale.length === 1 ? '' : 's'} need their answers refilled (${stale.join(', ')})`, '', `Next step: \`${refillLine(pr)}\``);
   // Kept answers served although the system side changed (cc, 14 Oct 2026): the replay cannot judge a prompt change, so it still hits; the line says which rows and which parts.

@@ -144,3 +144,28 @@ test('a deferred row is never pinned, whether the run\'s record says deferred or
   const data = pin({rows: {a: {same: true}, b: {same: true, deferred: 'x'}, c: {same: true, why: 'deferred: varies run to run'}, d: {same: true, why: ''}}}, {rows: {}}, {commit: 'c', at: 'T'});
   assert.deepEqual(Object.keys(data.rows).sort(), ['a', 'd']);
 });
+
+// Judge outcomes, not wording (owner, 17 Oct 2026; the #1147 shapes): a pinned row whose ask changed is red only when its outcome got worse than live's.
+const asked = (live, now, differs = ['user:left_unfilled (lines 2 of 3)'], extra = {}) => ({...rec('p', {hit: 3, extra: 1, firstMiss: {differs}, outcome: now}), liveOutcome: live, ...extra});
+test('a pinned row whose ask changed but whose outcome is equal or better is green with a note', () => {
+  for (const [kind, live, now] of [['same counts (Recruitee 9/7, Teamtailor 8/5)', form(9, 7), form(9, 7)], ['consent tick: one fewer left', form(9, 7), form(10, 6)]]) {
+    const result = judge([asked(live, now)], {}, [], {}, ['p']);
+    assert.equal(result.rows.p.verdict, 'same', kind);
+    assert.equal(result.rows.p.askNote, 'ask changed: 2 lines', kind);
+    assert.equal(result.rows.p.refill, false, `${kind}: nothing to refill`);
+    assert.equal(result.red, false, kind);
+    assert.match(summary(result, {pr: 1}), /✅ same \(ask changed: 2 lines\)/, kind);
+    assert.doesNotMatch(summary(result, {pr: 1}), /replay-refill/, kind);
+  }
+  assert.equal(judge([asked(form(9, 7), form(9, 7), ['system:0'])], {}, [], {}, ['p']).red, false, 'an instructions-only change too');
+});
+
+test('a changed ask is still red when the outcome got worse, the step is earlier, a value is wrong, a site request is missing or there is nothing to compare', () => {
+  const red = record => { const result = judge([record], {}, [], {}, ['p']); assert.equal(result.red, true); return result.rows.p; };
+  assert.equal(red(asked(form(9, 7), form(8, 8))).refill, true, 'a filled field now left: a refill may fix it');
+  red(asked(form(9, 7), {reached: 'account', filled: 9, left: 7}));
+  red(asked({reached: 'form', filled: 9, left: 7, wrong: 0}, {reached: 'form', filled: 9, left: 7, wrong: 1}));
+  red(asked(form(9, 7), form(9, 7), undefined, {network: {hit: 3, extra: 1, notRecorded: 2}}));
+  red({...asked(form(9, 7), form(9, 7)), liveOutcome: null});
+  red(asked(form(9, 7), form(9, 7), undefined, {firstMiss: null}));   // other asks without a named part: not an ask change
+});
