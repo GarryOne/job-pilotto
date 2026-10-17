@@ -1,15 +1,16 @@
-// Settings → License: the free allowance ("12 of 20 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
-// Mac, lib/license.js), and the friendly dialog when the allowance ends (main asks for it, 'allowance' event).
+// Settings → Plan: the free allowance ("12 of 20 free applications · 41 days left", one bar per number), also as a small counter in the sidebar, and the friendly
+// dialog when the allowance ends (main asks for it, 'allowance' event). No key can be entered any more (17 Oct 2026: the free trial is open to everyone); an install
+// that already holds one keeps it: it shows as Founder / Friend and can be removed here (lib/license.js still checks it).
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
 import {chip} from '../license-chip.js';
-import {planLine} from '../plan-line.js';
+import {planLine, endedLine} from '../plan-line.js';
 import {initPlan} from './plan.js';
 import {byStore} from '../store-words.js';
 
 const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass', pro: 'Pro'};
 
-// The sidebar counter: "12 of 20 applications used" with a thin bar; a click opens Settings → License. Hidden for a licensed install.
+// The sidebar counter: "12 of 20 applications used" with a thin bar; a click opens Settings → Plan. Hidden for a licensed install.
 function showChip(state) {
   const shown = chip(state);
   const button = $('allowance-chip');
@@ -34,31 +35,25 @@ export function showLicense(state) {
   $('license-days-label').textContent = licensed ? 'Licensed to' : 'Days left';
   $('license-days').textContent = licensed ? state.license.name : `${state.daysLeft} of 60`;
   $('license-bar').hidden = licensed;
+  $('license-days-bar').hidden = licensed;
   if (shown) {
     $('license-bar').firstElementChild.style.width = `${shown.percent}%`;
     $('license-bar').dataset.tone = shown.tone;
+    // The days bar fills as the days are used; red when the last 5 are left, like the applications.
+    const daysUsed = Math.max(0, Math.min(60, 60 - (state.daysLeft ?? 60)));
+    $('license-days-bar').firstElementChild.style.width = `${Math.max(2, Math.round(daysUsed / 60 * 100))}%`;
+    $('license-days-bar').dataset.tone = (state.daysLeft ?? 60) <= 5 ? 'bad' : 'info';
   }
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? `New applications, kits and searches are paused. ${byStore('Tracking, Notion, export and your data keep working.', 'Tracking, export and your data keep working.')}`
-      : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;
+      : '';   // the rule is the page's subtitle; the one line about Pro is below
   const plan = planLine(state);   // the one honest line about Pro while it is off (plan-line.js)
   $('license-plan').hidden = !plan;
   $('license-plan').textContent = plan || '';
-  $('setting-license-key').hidden = state.license?.kind === 'pro';   // a Pro account has no key to paste
-  $('license-paste').hidden = licensed;
-  $('license-held').hidden = !licensed;
+  $('license-note').hidden = !$('license-note').textContent;
+  $('setting-license-key').hidden = !licensed || state.license?.kind === 'pro';   // only an install that already holds a key; a Pro account has none
   $('license-holder').textContent = licensed ? `${state.license.name} · ${KIND[state.license.kind]} key${state.license.until ? ` · until ${state.license.until}` : ''}` : '';
-  $('license-key-title').textContent = licensed ? 'License key' : 'Have a key?';
   if (state.keyProblem) message('license-message', `Saved key: ${state.keyProblem}`, 'error');
-}
-
-async function unlock(input, messageId) {
-  const result = await window.pilot.licenseSet(input.value);
-  if (!result.ok) return message(messageId, result.error, 'error');
-  input.value = '';
-  message(messageId, `Unlocked ✓ Welcome, ${result.state.license.name}.`, 'ok');
-  showLicense(result.state);
-  $('allowance-dialog').open && setTimeout(() => $('allowance-dialog').close(), 900);
 }
 
 export async function init() {
@@ -70,16 +65,12 @@ export async function init() {
   setInterval(() => refresh().catch(() => {}), 10 * 60 * 1000);
   window.addEventListener('focus', () => refresh().catch(() => {}));
   document.querySelector('[data-settings-go="license"]').addEventListener('click', refresh);
-  $('license-save').addEventListener('click', () => unlock($('license-input'), 'license-message'));
-  $('license-input').addEventListener('keydown', event => { if (event.key === 'Enter') unlock($('license-input'), 'license-message'); });
   $('license-remove').addEventListener('click', async () => { message('license-message', ''); showLicense(await window.pilot.licenseRemove()); });
-  // The allowance ended and something new was started: say so once, kindly, and offer the key.
+  // The allowance ended and something new was started: say so once, kindly, and point to the Plan page.
   window.pilot.onAllowance(state => {
     showLicense(state);
-    message('allowance-message', '');
+    $('allowance-plan').textContent = endedLine(state);
     if (!$('allowance-dialog').open) $('allowance-dialog').showModal();
   });
-  $('allowance-unlock').addEventListener('click', () => unlock($('allowance-input'), 'allowance-message'));
-  $('allowance-input').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); unlock($('allowance-input'), 'allowance-message'); } });
   $('allowance-settings').addEventListener('click', () => { $('allowance-dialog').close(); openSetting('license'); });
 }

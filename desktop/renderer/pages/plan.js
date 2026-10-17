@@ -1,4 +1,4 @@
-// Settings → License → Plan (spec docs/superpowers/specs/2026-10-16-pro-plan.md §4): Upgrade to Pro for a free install, the AI credit bar and the top-ups for a Pro one. Shown only when the site's
+// Settings → Plan (spec docs/superpowers/specs/2026-10-16-pro-plan.md §4): Upgrade to Pro for a free install, the AI credit bar and the top-ups for a Pro one. Shown only when the site's
 // Pro plan is on (lib/plan.js says so); with it off nothing about Pro is on screen but the one honest line (plan-line.js). Words and numbers: renderer/plan-view.js. Guard: test/plan.test.js.
 import {el} from '../components.js';
 import {$, message, show} from './core.js';

@@ -30,7 +30,7 @@ export function createAppAllowance(ctx) {
     if (!DEMO && state.pro?.warn === 0 && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → AI engine (your own key is unlimited).'};
     if (DEMO || !state.ended) return null;
     toWindow('allowance', state);
-    return {ok: false, allowance: true, error: 'The free allowance is over. Paste a license key in Settings → License to keep starting new applications.'};
+    return {ok: false, allowance: true, error: 'The free trial is over. See Settings → Plan.'};
   }
   // Jobs read in Chrome that match the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count
   // never grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.

@@ -30,7 +30,7 @@ export function registerJobActionsHandlers(ctx) {
   ipcMain.handle('command', async (_, name, arg = '') => {
     if (name === 'kits') return prepareTopMatches();
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
-    if (name === 'run' && allowanceBlock()) return {text: 'The free allowance is over. Paste a license key in Settings → License to search again.'};
+    if (name === 'run' && allowanceBlock()) return {text: 'The free trial is over. See Settings → Plan.'};
     try { return await telegram.runCommand(storage, name, arg, log, undefined, dispatchNote); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.

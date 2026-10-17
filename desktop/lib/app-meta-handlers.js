@@ -16,7 +16,7 @@ export function registerAppMetaHandlers(ctx) {
   const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getPlan, shell, getTelemetry, getUpdateOffer, getUpdateCheckedAt, channels} = ctx;
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
-  // Settings → License: where the user stands, pasting a key (checked offline), removing it.
+  // Settings → Plan: where the user stands; a key from before 17 Oct 2026 is still checked offline and can be removed (no screen enters one any more).
   ipcMain.handle('license', () => ({...licenseState(), text: licenseLib.text(licenseState()), key: DEMO ? '' : getLicense().key()}));
   ipcMain.handle('licenseSet', (_, key) => {
     if (DEMO) return {ok: false, error: 'Demo mode: keys are not saved.'};

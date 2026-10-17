@@ -78,6 +78,10 @@ test('credit used up: our AI starts nothing new (top up or own key); an own key 
 });
 
 test('the plan card: nothing when off; Upgrade for Free with the price from the site; the credit bar, the warning and the top-ups for Pro; never dollars for the credit', () => {
+  // 17 Oct 2026: the credit warning names the level crossed, never a different number from the bar; the bullets say hosted keeps it always on.
+  assert.match(NOTES[30], /under 30%/); assert.match(NOTES[10], /under 10%/);
+  assert.ok(planView({mode: 'test', plan: 'free'}).included.includes('Always on: new matches every morning, even when your Mac is off'));
+  assert.ok(!planView({mode: 'test', plan: 'free'}).included.some(line => /Your data stays yours/.test(line)));
   assert.equal(planView({mode: 'off'}), null); assert.equal(planView(), null);
   const up = planView({mode: 'test', plan: 'free', offer: {price: '29', launch: '19'}});
   assert.equal(up.price, '$19 one-time, no subscription. Launch price while it lasts; usually $29.');
