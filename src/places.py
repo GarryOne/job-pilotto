@@ -111,6 +111,21 @@ def countries(search, cache=None, limit=3):
     return found[:limit]
 
 
+def in_switzerland(word, cache=None):
+    """True when this place word is in Switzerland: a Swiss region word, else the AI's countries for it (places.json), else Switzerland's fixed
+    town table (src/regions.py: the first market works offline, before the AI placed the word). 18 Oct 2026, persona runs: a Nuremberg
+    driver's "altdorf" (Altdorf bei Nürnberg, which the AI had placed in Germany) matched the Swiss town Altdorf, and jobs.ch was searched."""
+    from .notion.search_settings import readable
+    from .regions import SWITZERLAND, region_of
+    if region_of(word):
+        return True
+    cache = load() if cache is None else cache
+    known = (cache.get(_key(readable(str(word)).strip('"'))) or {}).get('countries')
+    if known:
+        return 'Switzerland' in known
+    return bool(re.search(SWITZERLAND, str(word), re.I))
+
+
 def pattern(names):
     """One regex fragment for these names: each as a whole word, accents ignored (the matcher also reads the posting without its accents)."""
     return '(?:' + '|'.join(rf"(?<!\w){re.escape(_plain(name).lower())}(?!\w)" for name in names) + ')'

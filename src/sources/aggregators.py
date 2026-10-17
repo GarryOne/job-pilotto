@@ -85,11 +85,12 @@ def _queries(search):
 
 def _countries(search):
     """The Adzuna countries of the user's places (at most four), from what places.countries() knows; [] before it knows any."""
-    from .. import places, regions
+    from .. import places
     from ..notion.search_settings import readable
     names = places.countries(search, limit=10)
     words = [readable(str(p)) for group in (search.get('locations') or {}).values() for p in group]
-    if any(regions.region_of(w) or re.search(regions.SWITZERLAND, w, re.I) for w in words) and 'Switzerland' not in names:
+    cache = places.load()
+    if any(places.in_switzerland(w, cache) for w in words) and 'Switzerland' not in names:
         names = ['Switzerland', *names]   # the first market from its fixed table, before (or without) the AI's answer
     from ..ai import meanings_pack
     codes = [code for name in names for code, country in ADZUNA_COUNTRIES.items() if country == name]

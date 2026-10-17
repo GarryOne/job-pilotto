@@ -62,8 +62,8 @@ def within_places(config, search_config):
     found = decide.decide('place-country', {name(loc).lower(): name(loc) for loc in config['locations']}, (*COUNTRY_NAMES, 'other'),
                           'A place name. Answer the code of the country it is in: ' + '; '.join(f'{c} = {n}' for c, n in COUNTRY_NAMES.items()))
     if found is None:   # no AI: Switzerland, the first market, from its fixed table (a drafted "France" for a Geneva search is left out)
-        from .. import regions
-        found = {name(loc).lower(): 'ch' for loc in config['locations'] if re.search(regions.SWITZERLAND, name(loc), re.I)}
+        from .. import places
+        found = {name(loc).lower(): 'ch' for loc in config['locations'] if places.in_switzerland(name(loc))}
     locations = [loc for loc in config['locations'] if found.get(name(loc).lower()) in countries]
     if not locations and config['locations']:
         language = next((loc.get('language') for loc in config['locations'] if isinstance(loc, dict) and loc.get('language')), 'en')
