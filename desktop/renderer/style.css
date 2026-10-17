@@ -2536,3 +2536,6 @@ details.qa-section { margin-top: var(--sp-3); }
 .find-card .run-card-row { padding: var(--sp-1) 0; color: var(--ink-2); }
 .find-card .find-big { justify-self: start; font-size: var(--fs-md, 1rem); padding: var(--sp-3) var(--sp-6); }
 .find-card.is-failed { border-color: var(--warn); }
+
+/* Your details → fact sections (pages/details-facts.js): "+ Add a line" sits at the start of its row, not centred in the grid. */
+[data-facts] > .link { justify-self: start; }

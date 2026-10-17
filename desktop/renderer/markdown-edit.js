@@ -28,7 +28,7 @@ export function withLine(markdown, index, line) {
 export const GOAL_ROWS = {
   seniority: {label: 'Minimum seniority', match: /seniority/i},
   work_mode: {label: 'Work mode', match: /^work mode$/i},
-  languages: {label: 'Languages I can work in', match: /languages i can work in/i},
+  languages: {label: 'Languages I can work in', match: /languages i can work in/i, line: true},   // a line too: Your details → Languages holds it (17 Oct 2026)
   minimum_salary: {label: 'Minimum acceptable', match: /minimum acceptable|minimum salary/i, line: true},
 };
 export function applyGoal(markdown, key, value) {
@@ -40,8 +40,9 @@ export function applyGoal(markdown, key, value) {
       const first = line.replace(/^\|/, '').split('|')[0].replace(/\*\*/g, '').trim();
       if (row.match.test(first) && !/^:?-{2,}:?$/.test(first)) return withLine(markdown, i, replaceCell(lines[i], 1, value));
     } else if (row.line) {
-      const m = lines[i].match(/^(\s*[-*]\s+)?(\**[^:]*?\**)\s*:/);
-      if (m && row.match.test(m[2].replace(/\*\*/g, ''))) return withLine(markdown, i, `${m[1] || ''}${m[2]}: ${clean(value)}`);
+      // "Label: v", "**Label:** v" or "**Label**: v": the bold kept where it was
+      const m = lines[i].match(/^(\s*[-*]\s+)?(\*\*)?([^:*]+?)(\*\*)?\s*:(\*\*)?/);
+      if (m && row.match.test(m[3])) return withLine(markdown, i, `${m[1] || ''}${m[2] || ''}${m[3]}${m[4] || ''}:${m[5] || ''} ${clean(value)}`);
     }
   }
   const heading = '# Confirmed during setup';
