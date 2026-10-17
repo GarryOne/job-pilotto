@@ -3,6 +3,7 @@
 import {el} from '../components.js';
 import {allAnswers} from '../job-page-view.js';
 import {copyButton, group, stateCard} from './parts.js';
+import {jobQuestionsView} from './application-questions.js';
 import {ownKeyHint} from '../own-key-hint.js';
 import {shared} from '../pages/shared.js';
 
@@ -44,9 +45,9 @@ export function documentsView(documents, title = '📎 Files on this job') {
   }))];
 }
 
-export function preparationView({parts}) {
+export function preparationView({job, parts}) {
   const nodes = [...(parts.kit ? kitView(parts.kit) : []), ...documentsView(parts.documents || []),
-    ...parts.groups.prep.map(part => group(part.title || '🎤 Interview preparation', part.lines))];
+    ...parts.groups.prep.map(part => group(part.title || '🎤 Interview preparation', part.lines)), ...jobQuestionsView(job)];
   const filled = nodes.length > 0 && (parts.has.application || parts.groups.prep.length > 0);
   if (!filled) return [stateCard({icon: 'file', title: 'Not prepared', text: 'Apply drafts the kit: a tailored CV, a cover letter and the form\'s answers. It shows here.'})];
   // The kit was written by the engine now in charge: on Free AI, a one-time hint that an own key writes stronger (own-key-hint.js).
