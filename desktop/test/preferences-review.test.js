@@ -10,7 +10,7 @@ const row = (id, ...cells) => ({id, type: 'table_row', cells});
 const profile = countries => [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 'p3', type: 'table', header: true, rows: [row('q0', 'Constraint', 'Value'),
   row('q1', 'Countries', countries), row('q2', 'Preferred cities', 'Most preferred: Zurich and surroundings. Abroad: Berlin'), row('q3', 'Work mode', 'Hybrid'), row('q4', 'Workload', '80–100%')]}];
 const PARSE = {countries: ['CH', 'DE'], cities: [{name: 'Zurich', country: 'CH'}, {name: 'Berlin', country: 'DE'}], remote: 'unknown', languages: [], relocation: {answer: 'unknown', where: ''},
-  roles: [], seniority: {min: 'unknown', max: 'unknown'}, employment: [],
+  roles: [], seniority: {min: 'unknown', max: 'unknown', open_ended: false}, employment: [],
   notes: [{field: 'cities', text: 'Anywhere else in Switzerland is fine'}, {field: 'countries', text: 'or remote roles'}], unparsed: ['countries', 'cities']};
 
 let opened = 0;   // a new read has a new key (Keep mine is remembered per key)
@@ -100,9 +100,16 @@ test('Accept all drafts ONE Original wording line holding only what the clean va
   assert.ok(up.textContent.startsWith('Other preferences') && !up.textContent.includes('The rest of your Profile'), 'under Other preferences, not The rest of your Profile');
 });
 
-test('a seniority range proposes "Senior to Staff or higher"; one level stays one level', async () => {
+test('a seniority range proposes "Senior to Staff" ("or higher" only when open-ended); one level stays one level', async () => {
   const {proposedTexts} = await import('../renderer/preferences-review-model.js');
-  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'staff'}}).seniority, 'Senior to Staff or higher');
-  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'senior'}}).seniority, 'Senior');
-  assert.equal(proposedTexts({seniority: {min: 'unknown', max: 'unknown'}}).seniority, '');
+  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'staff', open_ended: false}}).seniority, 'Senior to Staff', '"staff is fine too" is not "or higher"');
+  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'staff', open_ended: true}}).seniority, 'Senior to Staff or higher');
+  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'senior', open_ended: false}}).seniority, 'Senior');
+  assert.equal(proposedTexts({seniority: {min: 'unknown', max: 'unknown', open_ended: false}}).seniority, '');
+});
+
+test('Other preferences drops its "Nothing else yet" line once the Original wording note is there', async () => {
+  const withNote = [...profile('Switzerland'), {id: 'n1', type: 'bulleted_list_item', text: 'Original wording: Languages — No French'}];
+  assert.ok(!(await open(withNote, null)).textContent.includes('Nothing else yet'));
+  assert.ok((await open(profile('Switzerland'), null)).textContent.includes('Nothing else yet'));
 });

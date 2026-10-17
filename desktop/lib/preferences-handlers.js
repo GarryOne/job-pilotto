@@ -6,7 +6,7 @@ import * as parseFields from './preferences-parse.js';
 
 const DEMO_PARSE = {countries: ['CH'], cities: [{name: 'Zurich', country: 'CH'}], remote: 'yes', languages: [{name: 'English', level: 'C2'}, {name: 'German', level: 'B1'}, {name: 'Spanish', level: 'native'}],
   relocation: {answer: 'unknown', where: ''}, roles: [{title: 'Site Reliability Engineer', certainty: 'sure'}, {title: 'Platform Engineer', certainty: 'sure'}, {title: 'DevOps Engineer', certainty: 'sure'}],
-  seniority: {min: 'senior', max: 'senior'}, employment: [], notes: [], unparsed: ['cities', 'languages']};
+  seniority: {min: 'senior', max: 'senior', open_ended: false}, employment: [], notes: [], unparsed: ['cities', 'languages']};
 
 export function registerPreferencesHandlers({ipcMain, storage, DEMO, log}) {
   ipcMain.handle('preferencesParse', async (_, {fields = {}, again = false} = {}) => {

@@ -24,7 +24,7 @@ Use only the text given; never add a country, city, language or role from anywhe
 - languages: one entry per language, level as a CEFR code, "native" for mother tongue, "unknown" when not stated; "working language" is not a level. "No French" is not a language.
 - relocation: yes / no / maybe, and where (a short place, "" if none). Home base text is given for context.
 - roles: job titles they want, certainty "sure" or "maybe" (a "?" or ❓ mark means maybe). Titles only, no marks.
-- seniority: a range {min, max} of junior, mid, senior, staff (staff or higher) or unknown; "Senior, staff is fine too" is min senior, max staff; one level is min = max.
+- seniority: a range {min, max} of junior, mid, senior, staff (staff or higher) or unknown; "Senior, staff is fine too" is min senior, max staff; one level is min = max. open_ended is true only when the text says the top is open ("or higher", "and up", "no ceiling"), never for "is fine too".
 - employment: the kinds of contract they accept.
 - notes: the exact short phrases of the typed text whose meaning the clean values above cannot hold ("No French", "Anywhere else in Switzerland is fine"), each with its field key. Never a phrase the values already say, never dates or "Confirmed" marks.
 - unparsed: the keys of the fields whose typed text is NOT already a plain clean list of values (sentences, qualifiers like "or", "plus", "no", "?", dates such as "Confirmed 26 Sep", mixed fields). A field that is already clean is left out.
@@ -37,7 +37,7 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['countri
   languages: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['name', 'level'], properties: {name: {type: 'string'}, level: {type: 'string', enum: CEFR}}}},
   relocation: {type: 'object', additionalProperties: false, required: ['answer', 'where'], properties: {answer: {type: 'string', enum: ANSWER}, where: {type: 'string'}}},
   roles: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['title', 'certainty'], properties: {title: {type: 'string'}, certainty: {type: 'string', enum: ['sure', 'maybe']}}}},
-  seniority: {type: 'object', additionalProperties: false, required: ['min', 'max'], properties: {min: {type: 'string', enum: SENIORITY}, max: {type: 'string', enum: SENIORITY}}},
+  seniority: {type: 'object', additionalProperties: false, required: ['min', 'max', 'open_ended'], properties: {min: {type: 'string', enum: SENIORITY}, max: {type: 'string', enum: SENIORITY}, open_ended: {type: 'boolean'}}},
   employment: {type: 'array', items: {type: 'string', enum: EMPLOYMENT}},
   notes: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['field', 'text'], properties: {field: {type: 'string', enum: KEYS}, text: {type: 'string'}}}},
   unparsed: {type: 'array', items: {type: 'string', enum: KEYS}}}};
@@ -54,7 +54,8 @@ const region = code => {
 const seniorityRange = value => {
   const min = oneOf(value?.min, SENIORITY), max = oneOf(value?.max, SENIORITY);
   if (min !== 'unknown' && max !== 'unknown' && SENIORITY.indexOf(min) > SENIORITY.indexOf(max)) throw new Error('seniority min is above max');
-  return {min, max};
+  if (typeof value?.open_ended !== 'boolean') throw new Error('seniority open_ended is not true/false');
+  return {min, max, open_ended: value.open_ended};
 };
 
 // The answer in its fixed shape, or a thrown Error saying what is wrong (it is read back to the model on the second ask).
