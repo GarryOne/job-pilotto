@@ -15,6 +15,11 @@ Why each rule exists: [why.md](why.md#desktop-ui).
 - **Tier 1** (a feature, a screen or state): one targeted shot of the whole surrounding view at real size, compared with its siblings:
   `npm run shot -- <page> --js "<force the state>" --select '#id'` (~5 s); `--eval "…" --no-picture` reads `window.__jp` as JSON; `--reload` tests after ⌘R.
 - **The full reference set** (`npm run ui-shots`): only for big changes, about daily, or when the owner asks.
+- **PR screens are one table, always** (owner, 17 Oct 2026, #1290: two stacked full-window shots, no caption, "it's not clear"): every image sits in a row of
+  `| What changed | Before | After |`: the caption says what changed and where to look (a few words), then the before image, then the after image. A new screen: `—` before and the reason in the caption.
+  Shoot **the changed card, not the window**: `npm run shot -- <page> --select '<card>' --mark '<the changed control>'` with the SAME options on the before build and the after build
+  (`--mark` draws a red frame, `--mark` can repeat); a full window only for a layout change (sidebar, spacing between cards). Enforced twice: `tools/pr-body.sh` at ship time and
+  `tools/pr-body-check.py` in the required CI job (`tools/pr-screens.py`; tests `tests/test_pr_body.py`, `desktop/test/shot-mark.test.js`).
 - **PR images: at most 5 before/after pairs, usually 1-2** (owner, 17 Oct 2026; `tools/pr-body.sh` refuses more than 10 images).
 - **PR images are published with `node tools/pr-assets.mjs pr-assets-<branch> <png>...` (a git tag + raw URL), never a GitHub release**: a normal release becomes "Latest" and the Download link points at it (17 Oct 2026; `tests/test_release_guard.py`, hourly `release-guard.yml`).
 - A screenshot tool that fails for tooling reasons: drop it once, say so; don't sink time into it.

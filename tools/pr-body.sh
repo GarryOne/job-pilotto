@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The description of a PR that tools/ship.sh opens (owner, 12 Oct 2026: "I have 2-5 seconds to look at it; not an essay"). Guard: tests/test_pr_body.py.
 #   tools/pr-body.sh <base> [--body=<file>]   prints the body for the commits <base>..HEAD
-# Top: the session's 5-second summary (--body=<file>, template tools/pr-body-template.md: an emoji verdict line, **Why**, **Unblocks**, the coloured impact table, a few short bullets, a Before/After table, images when a screen changed: refused without them), else the first subject.
+# Top: the session's 5-second summary (--body=<file>, template tools/pr-body-template.md: an emoji verdict line, **Why**, **Unblocks**, the coloured impact table, a few short bullets, a Before/After table, images when a screen changed: refused without them, and only in a | What changed | Before | After | row), else the first subject.
 # Then a table of the trailers' facts (pool row, rung, fixture, ...). The commit messages are folded in a <details>, never above it.
 set -euo pipefail
 base="${1:?usage: tools/pr-body.sh <base> [--body=<file>]}"; summary=""
@@ -26,6 +26,8 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
   if [ -n "$screens" ] && ! grep -qiE '!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp)\)|<img |^No screenshots: .{8,}' "$summary"; then
     echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: `node tools/pr-assets.mjs pr-assets-<branch> <png>...` publishes a git tag, NEVER a release), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi
+  # Every image in a row of | What changed | Before | After | (owner, 17 Oct 2026, #1290: "just screens, it's not clear"): tools/pr-screens.py, the same check CI runs on the body.
+  python3 "$(dirname "$0")/pr-screens.py" < "$summary" || { echo 'pr-body: the screens are not in the | What changed | Before | After | table (tools/pr-body-template.md)' >&2; exit 2; }
   # At most 5 before/after pairs, usually 1-2 (owner, 17 Oct 2026): more than 10 images is refused.
   images="$(grep -oiE '!\[[^]]*\]\([^)]+\)|<img ' "$summary" | wc -l | tr -d ' ' || true)"
   [ "$images" -le 10 ] || { echo "pr-body: $images images; the rule is at most 5 before/after pairs (10 images), usually 1-2: keep the pairs that show the change (docs/rules/desktop-ui.md)" >&2; exit 2; }

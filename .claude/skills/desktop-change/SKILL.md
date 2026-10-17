@@ -19,6 +19,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 4. UI: `npm run shot -- jobs --select '<css>' --eval "(async()=>{…click…; await new Promise(r=>setTimeout(r,500)); return 'ok'})()"`
    then Read the printed PNG. Pages other than the first: reach them by clicking (`.nav[data-view=settings]`, `[data-settings-go=…]`).
    State instead of pixels: `--eval "…JSON.stringify(…)" --no-picture`.
+   For the PR: one table row per change, `| What changed | Before | After |`, the card cropped (`--select`) and the change framed (`--mark '<css>'`, same on both builds): docs/rules/desktop-ui.md.
 5. Commit (trailers from the session), then `tools/ship.sh --background --body=<file>` (rebase, fast checks, a PR; CI runs the suites)
    and a Monitor on `^ship: (DONE|FAILED|REVIEW)`. The owner merges every PR by hand: never push to main, never merge.
 6. Tell the owner **⌘R** (window only) or **restart** (main.js, lib/, preload.cjs, Python changed).
