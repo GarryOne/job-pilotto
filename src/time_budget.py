@@ -57,10 +57,10 @@ def over(step='score', now=None):
 # Each step's share of the time left when it starts: title sorting least (a backlog that shrinks to a few dozen titles a day), scoring all
 # that remains (it puts jobs in your list with a fit). Default paces (seconds of wall time per item, Claude Code taking 2 calls at a time):
 # measured on the owner's Mac, 7 Oct 2026; replaced by this computer's own after one refresh.
-SHARE = {'place_rounds': 0.15, 'place_vague': 0.05, 'place_reading': 0.1, 'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
-PACE = {'place_rounds': 10.0, 'place_vague': 6.0, 'place_reading': 15.0, 'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end; place_rounds: per round of calls
-NOUN = {'place_rounds': 'round(s) of place calls', 'place_vague': 'round(s) of vague-location calls', 'place_reading': 'round(s) of postings read for their place', 'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
-WORDS = {'place_rounds': 'places {n} of {total} job locations', 'place_vague': 'checks {n} of {total} locations for a town', 'place_reading': 'reads {n} of {total} postings for their place', 'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
+SHARE = {'place_rounds': 0.15, 'place_vague': 0.05, 'place_reading': 0.1, 'title_rounds': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
+PACE = {'place_rounds': 10.0, 'place_vague': 6.0, 'place_reading': 15.0, 'title_rounds': 10.0, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end; *_rounds: per round of calls
+NOUN = {'place_rounds': 'round(s) of place calls', 'place_vague': 'round(s) of vague-location calls', 'place_reading': 'round(s) of postings read for their place', 'title_rounds': 'round(s) of title calls', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
+WORDS = {'place_rounds': 'places {n} of {total} job locations', 'place_vague': 'checks {n} of {total} locations for a town', 'place_reading': 'reads {n} of {total} postings for their place', 'title_rounds': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
          'job': 'reads and scores {n} of {total} new jobs'}
 
 

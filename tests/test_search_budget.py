@@ -140,7 +140,7 @@ class SizedBatchTests(unittest.TestCase):
             self.assertEqual(budget.batch('score', 60, now=120), 20, '60 s left at 3 s a job')
             budget.record('score', 60, 30)   # this Mac scores at 2 s a job: the pace moves halfway there
             self.assertEqual(budget.batch('score', 60, now=120), 24, '60 s left at 2.5 s a job')
-            self.assertEqual(budget.batch('titles', 300, now=60), 13, '20% of 120 s at 1.8 s a title')
+            self.assertEqual(budget.in_calls('title_rounds', 300, 30, 2, now=60), 120, '20% of 120 s at 10 s a round: 2 rounds of 2 calls of 30')
             self.assertEqual(budget.batch('enrich', 5, now=0), 5, 'a small batch is taken whole, nothing said')
         self.assertIn('This refresh scores 20 of 60 jobs', out.getvalue())
         self.assertIn('40 wait for the next refresh, best places first', out.getvalue())

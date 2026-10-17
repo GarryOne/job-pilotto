@@ -62,6 +62,21 @@ class TriageTest(unittest.TestCase):
         self.assertIn(done[2], (3, 4))
         self.assertEqual(len(client.calls), 3)
 
+    def test_a_timed_search_asks_whole_rounds_of_calls(self):
+        """18 Oct 2026, persona runs: paced per title (0.5 s at least), a refresh planned "28 of 600 titles" for its 3 minutes, sorted them
+        in one 7 s call and left 572 waiting; sorted without a clock, the same 600 gave a finance search 41 titles that could fit instead of 1."""
+        from src import time_budget as budget
+        from src.ai import engine
+        client = Client(['analyst'])
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('src.paths.DATA', pathlib.Path(tmp)), mock.patch.object(engine, 'PARALLEL', 2), \
+                mock.patch.object(title_triage, 'BATCH', 30), mock.patch('builtins.print'):
+            budget.start(180)
+            try:
+                title_triage.decide([f'Analyst {n}' for n in range(600)], SEARCH, client)
+            finally:
+                budget.start(0)
+        self.assertEqual(len(client.calls), 6, '20% of 180 s at 10 s a round: 3 rounds of 2 calls of 30 titles, not 20 titles at 1.8 s each')
+
 
 if __name__ == '__main__':
     unittest.main()

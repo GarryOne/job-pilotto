@@ -38,7 +38,7 @@ the personas session's scratchpad).
 | 4 | **Employer from every board job**: the posting's hiring organisation (JSON-LD `hiringOrganization`, the card's employer) becomes the job's company, and goes to `scout_candidates.harvest` with origin "Board employer" (fc's queue ranks it) | new session | – |
 | 5 | **Widen or narrow by yield**: fewer than 10 relevant jobs in places → the AI's fixed-shape answer {phrases in the places' language, nearby towns, sort titles first}; above 40 → narrow by level and skills; shown in the log; the user's role list untouched (decision 1) | personas | 1 |
 | 6 | **Learn across installs**: "Help the pool grow" sends source host × role family × country counts (+ phrases at k ≥ 3); the site sums them; the ranking comes back in the employer index (`boards`), the one delivery path; each run starts from it and explores a little | personas or new | 1, 2 |
-| 7 | **Small fixes**: company name instead of a feed slug; a progress line for silent board/aggregator reads (driver: 7 min silent); title sorting before the timed step on the first run; drafted role regexes validated (an HTML entity "fp&amp;amp;a"); placeholder places ("Musterstadt") not kept | personas | – |
+| 7 | **Small fixes**: a timed search sorts its job titles in whole rounds of calls (it planned "28 of 600" and finished in 7 s). Moved out: the silent board read (in #1336's file, told 2e), the feed-slug company name (the index names that feed by its slug: index data), "fp&amp;amp;a" (kept: it may match titles a feed sends escaped), "Musterstadt" (an employer's own template posting; the place check drops it) | personas | – |
 
 ## Rules that bite (read before coding)
 - CLAUDE.md "Universal first": no site names, hosts or vendor lists in code (`tools/hardcoded-page-words.mjs`); a board is data.
@@ -56,5 +56,5 @@ the personas session's scratchpad).
 - [ ] PR 4 employer from every board job
 - [ ] PR 5 widen or narrow by yield
 - [ ] PR 6 learn across installs
-- [ ] PR 7 small fixes
+- [x] PR 7 small fixes: title rounds (proof: tests/test_title_triage.py)
 - [ ] AFTER: persona harness meets the target, SRE control no worse (proof: the Artifact, before/after)

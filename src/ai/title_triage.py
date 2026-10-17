@@ -56,7 +56,9 @@ def decide(titles, search, client=None):
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(t for t in (_norm(t) for t in titles) if t and t not in decided))[:MAX_NEW]
     from .. import time_budget as budget
-    ask = ask[:budget.batch('titles', len(ask))]   # a batch this refresh can finish (src/time_budget.py); the rest is asked next time
+    # A batch this refresh can finish, in whole rounds of calls (src/time_budget.py); the rest is asked next time. 18 Oct 2026, persona runs: paced
+    # per title (0.5 s at least), a refresh planned "28 of 600 titles" for its 3 minutes, sorted them in one 7 s call and left 572 waiting.
+    ask = ask[:budget.in_calls('title_rounds', len(ask), BATCH, engine.PARALLEL, noun='title(s)')]
     if not ask:
         return decided
     client = client or engine.client(action='title_triage')
@@ -92,7 +94,7 @@ def decide(titles, search, client=None):
     began = time.monotonic()
     with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
         list(pool.map(one, batches))
-    budget.record('titles', time.monotonic() - began, sorted_[0])
+    budget.record('title_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
     with LOCK:
         data = _load()
         data[key] = {**(data.get(key) or {}), **decided}
