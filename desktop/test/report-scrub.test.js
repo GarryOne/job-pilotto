@@ -114,3 +114,12 @@ test('a package version in a CDN address (name@1.142.5) is not an e-mail, a real
   for (const mail of ['rosalind.quill@mailbox.test', 'a@b.co', 'x+y@mail.example.test']) assert.equal(mail.match(EMAIL)?.[0], mail);
   assert.equal(cdn.match(EMAIL), null);
 });
+
+// 17 Oct 2026: after fonts were no longer read as addresses, the refill's gate still stopped Recruitee on a 1.1 MB captcha script: a long base64 run in it (an embedded binary) decodes to bytes that spell
+// "x@hZ.B". An address found only in the bytes of a decoded run counts when the text around it is text; one inside decoded text (JSON, a PDF's plain parts) still counts.
+test('an address read out of the garbage bytes of a decoded base64 run is not a hit; one inside decoded text is', () => {
+  const garbage = Buffer.from([0x9c, 0x01, 0xfe, 0x80, ...Buffer.from('xq@hZ.B'), 0x03, 0xff, 0xaa, 0x00, 0x91, 0xe2, 0x07, ...Array(30).fill(0xd4)]).toString('base64');
+  assert.deepEqual(personalHits(`var data = "${garbage}";`, {code: true}), [], 'binary noise is not a person');
+  const text = Buffer.from(JSON.stringify({applicant: 'someone.real@gmail.com', pad: 'x'.repeat(40)})).toString('base64');
+  assert.deepEqual(personalHits(`var data = "${text}";`, {code: true}), ['email'], 'an address inside decoded text still stops the record');
+});
