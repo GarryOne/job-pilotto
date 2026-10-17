@@ -23,10 +23,12 @@ button.ghost { background: transparent; color: var(--muted); }
 button.link { background: none; border: 0; padding: 0; color: var(--signal); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
 button.primary:disabled { opacity: 1; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line-strong); }   /* readable grey, not a faded orange (AA ≥ 4.5:1) */
-label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
-input, select, textarea { width: 100%; accent-color: var(--signal); font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 8px 10px; }
+label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; color: var(--label); }
+input, select, textarea { width: 100%; accent-color: var(--signal); font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--field);
+  border: 1px solid var(--field-line); border-radius: var(--r-md); padding: 8px 10px; }
 textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
+/* Three tones (owner, 17 Oct 2026): the label is muted, the typed value is ink, a placeholder is fainter than both. */
+::placeholder { color: var(--muted); opacity: .6; }
 /* Mono only where the content is code or a transcript. */
 #iv-text, #draft-profile, #draft-answers, .review textarea { font-family: var(--font-mono); }
 #feedback-text { font: var(--fs-md)/1.5 var(--font-sans); }
@@ -197,7 +199,7 @@ dialog { border: 0; border-radius: var(--r-lg); padding: 24px; width: 520px; box
 dialog::backdrop { background: rgb(var(--shadow-rgb) / .45); }
 fieldset { border: 0; padding: 0; margin: 14px 0 0; }
 legend { font-weight: 600; font-size: var(--fs-md); margin-bottom: 6px; }
-label.radio { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin: 6px 0; cursor: pointer; }
+label.radio { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; margin: 6px 0; cursor: pointer; }
 label.radio input { width: auto; margin-top: 3px; }
 
 .found { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 14px; margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: var(--fs-md); }
@@ -221,7 +223,7 @@ label.radio input { width: auto; margin-top: 3px; }
 .schedule { display: grid; gap: 10px; }
 .schedule label { display: grid; grid-template-columns: 1fr 330px; align-items: center; gap: 12px; font-weight: 600; }
 .schedule label small { display: block; font-weight: 400; color: var(--muted); }
-.schedule select { padding: 6px 8px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--surface); font: inherit; font-weight: 400; }
+.schedule select { padding: 6px 8px; border-radius: var(--r-md); border: 1px solid var(--field-line); background: var(--field); font: inherit; font-weight: 400; }
 /* A message while the app waits on something (e.g. Notion sharing the workspace): spinner + calm colour. */
 .message.waiting { color: var(--navy); display: flex; gap: 8px; align-items: center; }
 .message.waiting::before { content: ""; flex: none; width: 14px; height: 14px; border-radius: 50%;
@@ -244,7 +246,7 @@ table.runs tr.run:hover, table.runs tr.run.open { background: var(--surface-2); 
 .run-log { max-height: 420px; margin-top: 14px; }
 .contact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 14px; }
 .contact-grid label { display: grid; gap: 4px; font-size: var(--fs-md); font-weight: 600; }
-.contact-grid input { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-md); font: inherit; font-weight: 400; }
+.contact-grid input { padding: 7px 9px; border: 1px solid var(--field-line); border-radius: var(--r-md); font: inherit; font-weight: 400; }
 /* The row's main button (Prepare / Preparing… / Apply / Opened): one fixed width, so a ticking
    counter or a state change never shifts the buttons next to it, and rows line up. */
 .row-actions .row-main { width: 11.5em; flex: none; justify-content: center; text-align: center; font-variant-numeric: tabular-nums;
@@ -274,7 +276,7 @@ details.questions > p { margin: 0 0 6px; }
 .question label { font-weight: 600; font-size: var(--fs-sm); margin: 0; }
 .question input, .question select, .question textarea { font-size: var(--fs-sm); }
 .question label small { font-weight: 400; color: var(--muted); }
-.question input, .question select, .question textarea { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-md); font: inherit; }
+.question input, .question select, .question textarea { padding: 7px 9px; border: 1px solid var(--field-line); border-radius: var(--r-md); font: inherit; }
 .question .message { grid-column: 1 / -1; }
 .toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
 .toast { background: var(--navy); color: var(--on-accent); border-radius: var(--r-md); padding: 12px 14px; box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .3); display: grid; gap: 4px; cursor: pointer; font-size: var(--fs-md); }
@@ -1471,7 +1473,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
-.task-card input.task-count, #visits-dialog input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
+.task-card input.task-count, #visits-dialog input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--field); border: 1px solid var(--field-line); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
 /* A task's number box says what it counts, beside it (7 Oct 2026: "the 2 in the input field: what does it count?"): every .task-count has one. */
 .task-card .task-count-field, #visits-dialog .task-count-field { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); margin: 0; }   /* not the global label's 12 px top margin: level with its Run */
 .task-card .task-count-unit, #visits-dialog .task-count-unit { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
