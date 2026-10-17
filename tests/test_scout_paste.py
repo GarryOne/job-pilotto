@@ -48,6 +48,14 @@ class PasteTest(unittest.TestCase):
         self.assertTrue(all(row['priority'] == scout_paste.PRIORITY and row['status'] == 'pending' for row in rows))
         self.assertGreater(scout_paste.PRIORITY, 92, 'pasted names must be probed before the AI ideas')
 
+    def test_a_fresh_install_whose_scout_never_ran_keeps_the_pasted_names(self):
+        """18 Oct 2026, persona rerun: a new install pasted its matches before its first employer search; the paste read "no such table:
+        scout_candidates" and the names were lost (the scout creates its tables only in its own run, after the paste)."""
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        report = scout_paste.add(db, CLERA, client=FakeClient(NAMES))
+        self.assertEqual(report['new'], ['SolveAI', 'Zauber', 'ZenML', 'Wynd Labs'])
+
     def test_a_name_seen_before_is_reported_as_known_with_how_it_ended(self):
         db = memory_db()
         db.execute("INSERT INTO scout_candidates (key, name, origin, priority, status, added_at) VALUES ('zenml', 'ZenML', 'AI idea', 92, 'found', '2026-10-01')")
