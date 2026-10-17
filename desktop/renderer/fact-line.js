@@ -7,6 +7,8 @@ import {COMPOSITE, formatFor} from './question-kind.js';
 import {keyOf} from './question-filter.js';
 import {canonical} from './question-values.js';
 
+const LONG = 60;   // characters: past this a text value wraps in a growing box
+
 // key: the section; line: {label, value, kind}; formats: the kinds judged for labels ({[keyOf(label)]: {kind, options}}); onChange(): marks the page dirty.
 export function factRow(key, {label = '', value = '', kind = '', note = ''} = {}, formats = {}, onChange = () => {}) {
   const row = el('label', 'fact-line');
@@ -18,18 +20,22 @@ export function factRow(key, {label = '', value = '', kind = '', note = ''} = {}
   // A line read from the Profile keeps its words as its label; a new one is named by you.
   if (label) { name.hidden = true; row.append(el('span', '', label)); }
   name.addEventListener('input', onChange);
-  const control = answerControl(format, value, onChange, {ariaLabel: label || 'Answer'});
+  // A long value in words is a box that grows, never cut by a one-line field.
+  const long = format.control === 'text' && (String(value).length > LONG || String(value).includes('\n'));
+  const control = answerControl(long ? {...format, control: 'textarea'} : format, value, onChange, {ariaLabel: label || 'Answer'});
+  if (long) { control.rows = 1; row.classList.add('span-all'); }   // the whole row of the grid
   control.dataset.factValue = key;
   row.dataset.kind = composite ? format.kind : '';
   row.append(name, control);
   if (composite && value && !canonical(format.kind, value)) row.append(pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}));
-  // The words the value does not hold (a remark, a date it was confirmed) sit under it, never in it.
+  // The words the value does not hold (a rule, a date it was confirmed) sit under it, never in it: folded as "Note for the AI" in a box that grows
+  // (owner, 18 Oct 2026: "Folded Note for the AI"; the same fold as Profile → Application answers).
   if (note) {
-    const remark = Object.assign(document.createElement('input'), {type: 'text', value: note, ariaLabel: `${label || 'Answer'}: note`});
-    remark.className = 'fact-note';
+    const fold = el('details', 'plain qa-note-fold'), remark = Object.assign(el('textarea', 'fact-note'), {value: note, rows: 1, ariaLabel: `${label || 'Answer'}: note for the AI`});
     remark.dataset.factNote = key;
     remark.addEventListener('input', onChange);
-    row.append(remark);
+    fold.append(el('summary', 'muted small', 'Note for the AI'), remark);
+    row.append(fold);
   }
   return row;
 }

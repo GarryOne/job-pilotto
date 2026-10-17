@@ -25,7 +25,7 @@ function draw(sections, formats = {}) {
   }
 }
 
-// "Tidied": the lines that got their kind on first open, with Undo (lib/details-kinds.js).
+// "Tidied": the lines that got their kind, or their note for the AI, on first open, with Undo (lib/details-kinds.js, lib/details-notes.js).
 function drawTidied(tidied) {
   const box_ = $('facts-tidied');
   if (!tidied) { box_.replaceChildren(); return; }
@@ -36,7 +36,7 @@ function drawTidied(tidied) {
     const result = await window.pilot.undoDetailsTidy();
     if (result.ok) showFacts(); else { $('facts-message').textContent = result.error; undo.disabled = false; }
   });
-  box_.replaceChildren(el('p', 'muted small', `${tidied.changed} of your details got a typed control; the words you saved are kept, and the copy from before is backed up.`), undo);
+  box_.replaceChildren(el('p', 'muted small', `${tidied.changed} of your details were tidied: a typed control, or the rules folded as a note for the AI. The words you saved are kept, and the copy from before is backed up.`), undo);
 }
 
 function drawWhich(conflicts, aside = [], tidied = null) {
