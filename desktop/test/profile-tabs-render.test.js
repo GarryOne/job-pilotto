@@ -32,7 +32,7 @@ const TABS = {answers: {load: 'loadApplicationAnswers', file: 'application-answe
   preferences: {load: 'loadPreferences', file: 'job-preferences', body: 'preferences-body'}};   // Strategy's Job preferences (was this page's tab)
 
 for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
-  test(`${store}: Application answers shows Needs review, the answers and the website rules, with no textarea and no ❓`, async () => {
+  test(`${store}: Application answers shows the review banner, the saved answers and the website questions, with no textarea and no ❓`, async () => {
     const sent = [];
     const calls = {textOutline: async name => ({ok: true, items: items[name], store, link: null}),
       textEdit: async (name, changes) => { sent.push([name, changes]); return {ok: true, items: items[name], store}; }};
@@ -45,15 +45,16 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     const text = node.textContent;
     assert.equal(node.querySelectorAll('textarea').length, 0, 'no textarea');
     assert.ok(!text.includes('❓'), 'no ❓ on screen');
-    assert.match(text, /Needs review/);
-    assert.match(text, /Website-specific rules/);
+    assert.match(text, /\d+ questions? needs? review/, 'one banner instead of the Needs review list');
+    assert.match(text, /Website-specific questions/);
     assert.match(text, /Not set/);
-    // Every section but Needs review is collapsed with "N set · M missing"; an optional row is not missing and not in Needs review (owner, 17 Oct 2026).
-    const cards = node.querySelectorAll('.qa-section').filter(card => !card.classList.contains('is-review') && !card.classList.contains('kn-rules'));
-    assert.ok(cards.length, 'sections drawn');
-    for (const card of cards) { assert.ok(!card.open, 'collapsed by default'); assert.match(card.textContent, /\d+ set · \d+ missing/); }
+    // Saved answers: one card, a header per section, one line per answer with no button (owner's mockup, 17 Oct 2026).
+    const saved = node.querySelector('.qa-saved');
+    assert.ok(saved.querySelectorAll('.qa-group').length, 'section headers drawn');
+    assert.equal(saved.querySelectorAll('.qa-row button.qa-add').length, 0, 'no per-row button');
+    // Needs review: an optional row is not in it (owner, 17 Oct 2026).
+    node.querySelector('#answers-review-go').listeners.click[0]();
     assert.ok(!/portfolio/i.test(node.querySelector('.is-review').textContent), 'an optional row is not in Needs review');
-    // Add answer on the first item that needs one, type, save: one block edit of the answers page.
     node.querySelector('.qa-add').click();
     const field = node.querySelector('.qa-edit input');
     field.value = 'Yes, EU citizen';

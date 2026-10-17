@@ -20,12 +20,13 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
   bar.setAttribute('aria-label', 'Unsaved changes');
   const note = el('span', 'message');
   note.id = `outline-message-${id}`;
-  const discard = Object.assign(el('button', 'secondary', 'Discard changes'), {type: 'button', id: `outline-discard-${id}`});
+  const discard = Object.assign(el('button', 'secondary', 'Discard'), {type: 'button', id: `outline-discard-${id}`});
   const save = Object.assign(el('button', 'primary', 'Save changes'), {type: 'button', id: `outline-save-${id}`});
   const lead = el('div', 'save-bar-words');
-  lead.append(el('b', '', 'Unsaved changes'), el('span', 'muted small', `Your changes are kept as a draft. ${words}`));
+  const count = el('b', '', 'Unsaved changes');   // "1 unsaved change" (owner's Application answers mockup, 17 Oct 2026)
+  lead.append(count, el('span', 'muted small', `Your changes are kept as a draft. ${words}`));
   bar.append(lead, note, discard, save);
-  const follow = () => { bar.hidden = !size(); };
+  const follow = () => { const n = size(); bar.hidden = !n; if (n) count.textContent = `${n} unsaved change${n === 1 ? '' : 's'}`; };
 
   const view = () => ({...state, redraw, dirty: size,
     change(name, change) { pending[name].set(keyOf(change), change); follow(); },
