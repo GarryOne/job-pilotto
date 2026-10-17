@@ -2546,9 +2546,17 @@ details.qa-section { margin-top: var(--sp-3); }
 /* Profile → Experience and Your details: the Profile's own sections, a 3-line preview each with Edit (pages/experience-profile.js). */
 .exp-profile { display: grid; gap: var(--sp-4); }
 .exp-part { display: grid; gap: var(--sp-1); min-width: 0; }
+/* Experience cards (pages/experience-profile.js): the Application answers' fold card; only the body and the Strengths rows are their own. */
+.exp-part.qa-section { gap: 0; }
+.exp-part-gap { flex: 1; }
+.exp-part-body { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); min-width: 0; }
+.exp-part-body p { margin: 0; overflow-wrap: anywhere; }
+.exp-part-list { margin: 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }
+.exp-part-group { display: grid; grid-template-columns: minmax(0, 160px) minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.exp-part-group .tags { margin-top: 0; }
+@container (max-width: 520px) { .exp-part-group { grid-template-columns: 1fr; gap: var(--sp-1); } }
 .exp-part-head { display: flex; align-items: baseline; gap: var(--sp-3); }
 .exp-part-head .link { padding: 0; }
-.exp-part-preview { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
 .exp-part-lines { display: grid; gap: var(--sp-2); }
 .exp-part-lines input { width: 100%; }
 .exp-part-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-2); }

@@ -79,5 +79,6 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] Cover-letter style moves to the Cover letter tab (the letter prompts keep the style rules) (proof: desktop/test/letter-style.test.js)
 - [ ] Notion template + Profile title (old title kept as a former title)
 - [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
+- [x] Experience tab as folded cards: sources first, roles only in the job cards, Strengths as rows, notes small (owner, 17 Oct 2026: "collapsed, it should be using cards"; "Just duplicating data") (proof: desktop/test/experience-cards.test.js)
 - [ ] One test over every questionnaire screen
 - [x] Strategy → Job preferences: Must-haves & deal-breakers apart from Preferences (ranking), rules folded under a summary, Add a deal-breaker / preference; the Profile tab keeps only lines with no other home (proof: desktop/test/job-preferences.test.js)

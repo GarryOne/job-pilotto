@@ -93,7 +93,8 @@ test('each section on its tab; what Strategy or Your details edits, and the temp
   const parts = profileParts(TEMPLATE);
   const shown = tab => partsOn(parts, tab).map(each => [each.title, previewOf(each.part)]);
   assert.deepEqual(shown('experience'), [['Professional summary', ''], ['Strengths', ''], ['Education', 'ETH Zurich, MSc, Computer Science'],
-    ['Role history', 'SRE, Acme, 2019–2024'], ['Targets', 'Open to startups']]);
+    ['Targets', 'Open to startups']]);
+  assert.deepEqual(parts.roles.lines.map(line => line.text), ['SRE, Acme, 2019–2024'], 'the role history is read; the job cards draw it');
   assert.deepEqual(shown('details'), [['Voluntary surveys', 'Gender: Decline to self-identify']]);
   const all = JSON.stringify(parts);
   for (const elsewhere of ['Recruiter listings', 'Hybrid', 'GitHub', '2 months', 'The AI scorer', 'Jobs that break', 'Optional. Only']) assert.ok(!all.includes(elsewhere), elsewhere);
