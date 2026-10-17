@@ -2,6 +2,7 @@
 // good read kept on this Mac. Re-exported by server.js. Guarded by desktop/test/kept.test.js, cv.test.js and local-server.test.js.
 import * as cv from './cv.js';
 import * as letters from './cover-letter.js';
+import * as jobLetter from './job-letter.js';
 import fs from 'node:fs';
 import * as knowledge from './knowledge.js';
 import * as viewCache from './view-cache.js';
@@ -67,10 +68,12 @@ export async function me(storage, url = '') {
   // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
   const resume = pickCv({tailored: tailored ? {path: cv.pdfPath(storage, tailored.job.code), name: cv.finalName(storage, tailored)} : null,
     general: {path: storage.path('cv.pdf'), name: settings.cvName || 'CV.pdf'}, url});
-  // The approved general cover letter as a file, for forms that ask to upload one (Profile → Cover letter).
+  // The cover letter as a file, for forms that ask to upload one: this job's own (made with its tailored CV), else the approved general one (Profile → Cover letter).
   let coverLetterFile = null;
   try {
-    if (letters.status(storage).pdf) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
+    if (tailored && jobLetter.hasPdf(storage, tailored.job.code)) coverLetterFile = {name: jobLetter.finalName(storage, tailored), type: 'application/pdf',
+      data: fs.readFileSync(jobLetter.pdfPath(storage, tailored.job.code)).toString('base64'), tailored: true};
+    else if (letters.status(storage).pdf) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
   } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
   const notes = await kept(storage, 'knowledge', async () => {
@@ -82,7 +85,7 @@ export async function me(storage, url = '') {
   const details = await contactOf(storage);
   // Logged only when Notion was actually read or failed: an answer from the kept copy is the normal case (no noise).
   if (!details.contactSource?.startsWith('kept')) log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
-    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, coverLetter: !!coverLetterFile, ...(details.contactError ? {error: details.contactError} : {})});
+    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, coverLetter: !!coverLetterFile, tailoredLetter: !!coverLetterFile?.tailored, ...(details.contactError ? {error: details.contactError} : {})});
   // Twin only: while the file "twin-no-files" is in its folder, no CV and no cover letter go to the form (owner, 9 Oct 2026: test fills on
   // employers outside the owner's list, where a slot that uploads on choice would send the CV to their server). Never checked by a real install.
   if (withholdFiles(storage)) {

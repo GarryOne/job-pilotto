@@ -164,7 +164,7 @@ export function merge(notionRuns, localRuns, pending = []) {
 // (a Gmail check that recorded nothing, a Telegram button's small action).
 const NAMES = {search: 'Find jobs', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Search analysis', kits: 'Prepare top matches', today: "Today's list",
   scout: 'More employers', prepare: 'Application kit', interview: 'Interview review', add: 'Logged activity', rejection: 'Rejection review',
-  prep: 'Interview prep kit', import: 'Add a job', tailor: 'Tailor CVs'};
+  prep: 'Interview prep kit', import: 'Add a job', tailor: 'Tailor CV + cover letter'};
 // A notification is the news of one run, so a click opens that run's result (Recent activity, the run selected); renderer/targets.js says how.
 export function notice(run) {
   const said = noticeText(run);

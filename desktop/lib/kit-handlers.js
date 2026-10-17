@@ -9,13 +9,15 @@ import * as experience from './experience.js';
 import * as files from './files.js';
 import * as storeFiles from './store/files.js';
 import * as notionGate from './notion-gate.js';
+import {registerJobLetterHandlers} from './job-letter-handlers.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 import fs from 'node:fs';
 import {log as appLog} from './log.js';
 
 export function registerKitHandlers(ctx) {
-  const {allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, storage, track} = ctx;
+  const {allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, shell, storage, track} = ctx;
+  const {makeFor: makeJobLetter} = registerJobLetterHandlers({ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   const prepareKitFor = async (code, name = 'this job', {quiet = false} = {}) => {
@@ -70,6 +72,10 @@ export function registerKitHandlers(ctx) {
       const record = {job: {code, title: job.title, company: job.company, url: job.url}, createdAt: new Date().toISOString(),
         model: cvlib.MODEL, usd: Math.round(cost * 100) / 100, changes: result.changes, warnings: applied.warnings, cv: applied.cv, review: applied.review, result};
       cvlib.save(storage, code, record, printed.pdf);
+      // The job's cover letter with it (kit's or drafted from this CV); a failure leaves the CV standing and is said in the notification.
+      const {answers} = await strategy.profileTexts(storage);
+      const letter = await makeJobLetter({...job, code}, applied.cv, {profile, answers});
+      cost += letter.usd || 0;
       // Notion too, on the job's Applications row (the PDF isn't only on this Mac); no row yet -> said below.
       // With the data on this Mac (lib/store) the PDF is kept here only, and nothing is said about Notion.
       const notionStore = notionGate.notionInUse(storage);
@@ -84,10 +90,10 @@ export function registerKitHandlers(ctx) {
         kept = await storeFiles.attachToJob(storage, job.url, cvlib.pdfPath(storage, code), {name: fileName});
         appLog('cv', kept ? 'tailored CV kept on the job' : 'tailored CV not on a job yet', {code});
       } catch (error) { appLog('cv', 'tailored CV not kept on the job', {code, error: error.message}); }
-      if (!quiet) notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
+      if (!quiet) notify('Tailored CV + cover letter ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}${letter.ok ? ', cover letter made' : `. The cover letter was not made: ${String(letter.error || '').slice(0, 80)}`}.`
         + (!notionStore ? '' : inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});   // about Notion
       if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready
-      return {ok: true, usd: record.usd};
+      return {ok: true, usd: Math.round(cost * 100) / 100, letter: letter.ok};
     } catch (error) {
       if (!quiet) notify('CV not tailored', `${name}: ${error.message}`, {view: 'jobs', job: code});
       return {ok: false, error: error.message};
@@ -128,12 +134,12 @@ export function registerKitHandlers(ctx) {
         }
       }
       appLog('cv', 'tailor top matches done', {done, failed, usd: Math.round(usd * 100) / 100});
-      const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV to check it before you apply.`;
+      const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV and cover letter to check them before you apply.`;
       tee(text);
       // The card (renderer/kits-ready.js reads this shape): the count, then each tailored job's title with its link, and its company.
       tee('<<<message');
       if (tailored.length) {
-        tee('✂️ Tailored CVs ready');
+        tee('✂️ Tailored CVs + cover letters ready');
         tee(`${done} of ${picked.length} tailored${failed ? ` · ${failed} failed` : ''} · check each before you apply`);
         for (const job of tailored) { tee(''); tee(`${job.title} (${job.url})`); tee(job.company); }
       } else tee(text);

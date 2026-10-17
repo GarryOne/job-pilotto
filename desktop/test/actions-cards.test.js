@@ -32,7 +32,7 @@ test('every card button runs a task the app knows', () => {
 
 test('the cards are the agreed six in order of importance, and the dropped ones stay dropped', () => {
   const titles = cards.map(card => card.match(/<div class="task-words"><b>([^<]+)<\/b>/)[1].replace('&amp;', '&'));
-  assert.deepEqual(titles, ['Find jobs', 'Tailor CVs for top matches', 'Check Gmail & Calendar', 'Find jobs using your browser',
+  assert.deepEqual(titles, ['Find jobs', 'Tailor CV + cover letter for top matches', 'Check Gmail & Calendar', 'Find jobs using your browser',
     'Tune my strategy', 'Analyze my job search']);
 });
 

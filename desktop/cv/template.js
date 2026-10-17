@@ -15,7 +15,7 @@ export const DEFAULT_CSS = fs.readFileSync(path.join(here, 'default.css'), 'utf8
 // The look of a CV that has a photo, icons or logos (cv.look = 'rich', set when its PDF was read: lib/cv-look.js): the owner's Figma design, generalised.
 export const RICH_CSS = fs.readFileSync(path.join(here, 'rich.css'), 'utf8');
 const font = name => pathToFileURL(path.join(here, 'fonts', name)).href;
-const FONTS = `@font-face { font-family: Inter; font-weight: 100 900; src: url(${font('inter-latin.woff2')}) format('woff2'); }
+export const FONTS = `@font-face { font-family: Inter; font-weight: 100 900; src: url(${font('inter-latin.woff2')}) format('woff2'); }
 @font-face { font-family: Inter; font-weight: 100 900; src: url(${font('inter-latin-ext.woff2')}) format('woff2');
   unicode-range: U+0100-02AF, U+1E00-1EFF; }`;
 // Always applied, whatever the style: page size, fixed pages (never grow: overflow is checked), list reset.

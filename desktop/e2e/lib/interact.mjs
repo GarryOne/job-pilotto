@@ -8,7 +8,7 @@ const MAX_CONTROLS = 40;
 const IDLE_MS = 3000;      // how long a page is watched untouched, to learn the calls it makes by itself (a refresh, a poll)
 // Calls that only hand something to another program (a folder in Finder/Explorer, a link in the browser, system settings): reaching the app is the whole effect, and how
 // long the other program takes is not the app's to show (#90 "Open Settings" on Windows).
-export const EXTERNAL_CHANNELS = new Set(['openExternal', 'openPrivacy', 'showFolder', 'showCvFolder', 'showBackups', 'ivRecordings', 'coverLetterOpen']);
+export const EXTERNAL_CHANNELS = new Set(['openExternal', 'openPrivacy', 'showFolder', 'showCvFolder', 'jobLetterOpen', 'showBackups', 'ivRecordings', 'coverLetterOpen']);
 // Kinds that are pressed a second time, from a reset page, before they are filed: a state left by an earlier press (a row already open) or a timing fluke does not repeat.
 const RECHECK = new Set(['dead-control', 'silent-control', 'expand-broken', 'no-loading-state']);
 

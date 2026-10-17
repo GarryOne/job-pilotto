@@ -108,7 +108,7 @@ export async function runCvSteps(ctx, h) {
     try {
       await page.click('#tailor-top');
       // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
-      await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
+      await page.waitForFunction(() => /Tailor CV \+ cover letter/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
         .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
       // "View activity" on the banner opens the RUNNING task, even when a finished row was open before.
       await page.click('#run-banner-view');
