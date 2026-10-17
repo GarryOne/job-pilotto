@@ -59,6 +59,7 @@ import {status as trialStatus} from './trial.js';
 import * as hosted from './hosted.js';
 import * as hostedState from './hosted-state.js';
 import {tick as hostedTick} from './hosted-tick.js';
+import {ready, sweep as readySweep} from './ready.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
@@ -211,6 +212,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/hosted/state') return hostedState.state(request, env);   // the container's state, encrypted in R2 (src/hosted-state.js)
   if (pathname === '/api/hosted/config') return hostedState.config(request, env);   // profile, search and CV text the app pushes; the container reads
   if (pathname === '/api/hosted/export' || pathname === '/api/hosted/data') return hostedState.own(request, env);   // download and delete my hosted data
+  if (pathname.startsWith('/api/ready/')) return ready(request, env);   // Ready to send, phase 1: the owner's night batch and morning rows (src/ready.js; 404 while READY_TO_SEND is off)
   if (pathname === '/api/hosted/inbox') return hosted.inbox(request, env);   // the matches that arrived while the app was closed
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (src/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
@@ -240,6 +242,7 @@ export default {
   async scheduled(event, env, ctx) {
     if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (src/sentry-alert.js); the daily jobs below run once a day
       ctx.waitUntil(hostedTick(env).then(done => { if (done.enqueued || Object.keys(done.paused).length) console.log(`hosted tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`hosted tick: ${error.message}`)));   // hosted Always on: due schedules to the Queue (src/hosted-tick.js; nothing while HOSTED_ALWAYS_ON is off)
+      ctx.waitUntil(readySweep(env).catch(error => console.error(`ready sweep: ${error.message}`)));   // Ready to send: a batch older than a day loses its data (src/ready.js)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
       return;
     }

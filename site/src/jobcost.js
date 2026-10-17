@@ -26,6 +26,7 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'pool-live': ['Pool live runs', 'Live tests'],   // the CI pool on real sites (.github/workflows/record-sites.yml)
   'pool-watch': ['Pool daily watch', 'Live tests'],   // the daily live watch list, its own $25 month cap (.github/workflows/watch-live.yml)
   'replay-refill': ['Replay refill', 'Live tests'],   // the CI refill of replay answers, its own key (.github/workflows/replay-refill.yml)
+  'ready-fill': ['Ready to send: nightly fill', 'Live tests'],   // the owner's night batch on our container (src/ready.js reports each finished or capped night)
   'pr-live-proof': ['PR live proof', 'Live tests'],   // retired 15 Oct 2026 (no live run on a PR): kept so old cost rows keep their label
 };
 const day = at => String(at).slice(0, 10);
