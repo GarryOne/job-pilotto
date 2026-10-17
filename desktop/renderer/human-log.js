@@ -8,8 +8,20 @@ const SLOW_S = 20, WAITED_S = 30;   // a Claude answer this slow, or a wait for 
 const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
 
+// "job(s)" as the number before it says ("1 job", "3 jobs"); with no number before it, the plural. Every line passes through here, known or not.
+const COUNTED = /\((s|es)\)/g;
+export function realPlural(line) {
+  return String(line).replace(COUNTED, (found, ending, at, whole) => {
+    const clause = whole.slice(0, at).split(/[;:]/).pop();
+    const number = /(\d[\d,]*)\D*$/.exec(clause);
+    return number && Number(number[1].replace(/,/g, '')) === 1 ? '' : ending;
+  });
+}
+
 // [pattern, line -> text | null (dropped) | {key, text} (replaces the earlier line with the same key)]
 const RULES = [
+  // Runs before 18 Oct 2026 also said which place word made the search Swiss (a regex): the boards by name, as the engine says them now.
+  [/^Job boards: .+? \(Swiss place word: .*$/, m => m.input.replace(/ \(Swiss place word: .*?\)*(; developer boards left out.*)?$/, '$1')],
   [/^Claude Code (\w+): answered in (\d+) s.*?(?:waited (\d+) s for a free slot)?;/, (m) => {
     const took = Number(m[2]), waited = Number(m[3] || 0);
     if (waited >= WAITED_S) return `⏳ Waited ${waited} s for ${aiName()}: it answers two things at a time`;
@@ -86,13 +98,13 @@ export function readableLog(lines = []) {
     if (line === 'message>>>') { inMessage = false; continue; }
     if (inMessage || !line.trim() || /^[{[]/.test(line)) continue;   // data lines for the app
     const progress = PROGRESS.exec(line);
-    if (progress) { put(`progress:${progress[1]}`, line); continue; }
+    if (progress) { put(`progress:${progress[1]}`, realPlural(line)); continue; }
     const rule = RULES.find(([pattern]) => pattern.test(line));
-    if (!rule) { put('', line); continue; }
+    if (!rule) { put('', realPlural(line)); continue; }
     const result = rule[1](rule[0].exec(line), state);
     if (result == null) continue;
-    if (typeof result === 'string') put('', result);
-    else put(result.key, result.text);
+    if (typeof result === 'string') put('', realPlural(result));
+    else put(result.key, realPlural(result.text));
   }
   return out;
 }
