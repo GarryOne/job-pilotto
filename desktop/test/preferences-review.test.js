@@ -67,3 +67,12 @@ test('Workload stays in the Profile but is shown only when the countries include
   assert.equal(showWorkload(''), true);
   assert.equal(showWorkload('Ireland'), false);
 });
+
+test('accepting a Languages proposal redraws the language rows from the clean value', async () => {
+  const items = profile('Switzerland');
+  items[1].rows.push(row('q5', 'Languages', 'English B2, Romanian native, Russian B1. No French'));
+  const node = await open(items, {...PARSE, languages: [{name: 'English', level: 'B2'}, {name: 'Romanian', level: 'native'}], unparsed: ['languages']});
+  assert.equal(node.querySelectorAll('.pref-language').length, 3, 'chopped by commas before');
+  node.querySelector('[data-field="languages"]').querySelectorAll('button').find(button => button.textContent === 'Accept').click();
+  assert.equal(node.querySelectorAll('.pref-language').length, 2);
+});
