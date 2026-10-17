@@ -46,6 +46,7 @@ on:
       - 'desktop/e2e/lib/replay-candidate.mjs'
       - 'desktop/e2e/lib/replay-lines.mjs'
       - 'desktop/e2e/lib/replay-shard.mjs'
+      - 'desktop/e2e/lib/replay-slow.mjs'
       - 'desktop/e2e/lib/replay-time.mjs'
       - 'desktop/e2e/lib/replay-truth.mjs'
       - 'desktop/e2e/lib/repo-counts.mjs'
@@ -129,6 +130,17 @@ jobs:
       - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
+      - name: The files this pull request changes (a slow case runs on it only if it touches that case's folder)
+        id: changed
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'files<<CHANGED_END'
+            gh api "repos/$GITHUB_REPOSITORY/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename'
+            echo 'CHANGED_END'
+          } >> "$GITHUB_OUTPUT"
       - name: Replay this shard's recorded cases
         working-directory: desktop/e2e
         env:
@@ -136,6 +148,8 @@ jobs:
           JP_REPLAY_TABS: 4
           JP_REPLAY_WINDOW: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}   # lib/page-replay.mjs watchWindow: quick = end a must-not-happen window once the fill is over and the page quiet 12 s; full = the whole window
           JP_REPLAY_SHARD: ${{ matrix.shard }}/${{ env.JP_REPLAY_SHARD_COUNT }}
+          JP_REPLAY_PR_SPLIT: ${{ github.event_name == 'pull_request' && '1' || '' }}   # a PR leaves the slow cases (desktop/e2e/slow-cases.json) to main and the daily run unless it touches their folder; main and the daily run replay all
+          JP_REPLAY_CHANGED: ${{ steps.changed.outputs.files }}
           JP_REPLAY_RESULTS: replay-results-${{ matrix.shard }}.json
         run: node --test --test-concurrency=1 test/recorded-pages.test.mjs
       - name: Keep this shard's results for the report

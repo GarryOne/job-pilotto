@@ -8,6 +8,7 @@ import {loadCases, runCase} from '../lib/page-replay.mjs';
 import {replayInTabs} from '../lib/replay-browser.mjs';
 import {isRowCase, runRowCase} from '../lib/row-case-run.mjs';
 import {parseShard, shardOf} from '../lib/replay-shard.mjs';
+import {readSlow, splitForPr, touchedCases} from '../lib/replay-slow.mjs';
 
 const extensionDir = process.env.REAL_EXTENSION_DIR || undefined;
 const skip = process.env.JP_REPLAY ? false : 'opt-in: set JP_REPLAY=1 (npm run recorded); it starts Chromium with the real extension';
@@ -22,7 +23,12 @@ const only = process.env.REPLAY_ONLY || '';   // a part of a case name: replay j
 const shard = parseShard(process.env.JP_REPLAY_SHARD || '');   // CI: JP_REPLAY_SHARD=i/n runs one slice of the cases (lib/replay-shard.mjs)
 const picked = (process.env.JP_REPLAY_CASES || '').split(',').filter(Boolean);   // the exact cases a change can affect (lib/replay-select.mjs, tools/journey-gate.mjs); none: every case
 const everyCase = loadCases().filter(one => one.name.includes(only) && (!picked.length || picked.includes(one.name)));
-const cases = shard ? shardOf(everyCase, shard.index, shard.count) : everyCase;
+// A pull request (JP_REPLAY_PR_SPLIT=1, set by page-cases.yml for pull_request only) leaves the slow cases to main and the daily run unless it touches their folder (lib/replay-slow.mjs);
+// JP_REPLAY_CHANGED holds the PR's changed files, one per line. It says which it left, whole: the split is on the whole set, then sharded.
+const split = process.env.JP_REPLAY_PR_SPLIT && !picked.length ? splitForPr(everyCase, {slow: readSlow().slow, touched: touchedCases((process.env.JP_REPLAY_CHANGED || '').split('\n').filter(Boolean))}) : null;
+if (split?.left.length && !skip) console.log(`left to main and the daily run (${split.left.length} slow cases, ${readSlow().basis}): ${split.left.map(one => one.name).join(', ')}`);
+const planned = split ? split.run : everyCase;
+const cases = shard ? shardOf(planned, shard.index, shard.count) : planned;
 const pageCases = cases.filter(one => !isRowCase(one));   // a row case (case.json replay: "row", made by npm run row-to-case) is replayed on the row path, one at a time, below
 const tabs = Math.max(1, Number(process.env.JP_REPLAY_TABS || 4));
 const batchStarted = Date.now();
@@ -53,7 +59,7 @@ for (const item of cases) {
     let result = isRowCase(item) ? await runRowCase(item, {extensionDir, ordinal: true}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
     if (result.ordinal) console.log(`row case ${item.name}: WARNING: ${result.ordinal}`);
     if (result.loose) console.log(`row case ${item.name}: ${result.loose}`);   // a prompt or seed change since the capture: a warning, never a failure
-    results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200), fill: typeof result.fillTime === 'function' ? result.fillTime() : null, moves: result.ok && typeof result.moves === 'function' ? result.moves() : [], repairs: result.ok && typeof result.repairs === 'function' ? result.repairs() : []});   // a failed case confirms nothing; read after its run (lib/ladder-moves.mjs)
+    results.push({name: item.name, control: item.control, ...(typeof result.seconds === 'number' ? {seconds: Math.round(result.seconds)} : {}), ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200), fill: typeof result.fillTime === 'function' ? result.fillTime() : null, moves: result.ok && typeof result.moves === 'function' ? result.moves() : [], repairs: result.ok && typeof result.repairs === 'function' ? result.repairs() : []});   // a failed case confirms nothing; read after its run (lib/ladder-moves.mjs)
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);
   });
 }
