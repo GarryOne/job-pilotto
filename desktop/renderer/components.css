@@ -415,6 +415,10 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .reset-lists ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); }
 .reset-steps .choice-card > div { flex: 1; min-width: 0; }
 .reset-steps .inline input { flex: 1; min-width: 0; }
+.reset-steps .inline { align-items: center; }   /* the status chip sits on the buttons' centre line */
+.reset-steps label.small { display: block; margin-bottom: var(--sp-1); }
+.reset-steps .reset-hint { margin: var(--sp-2) 0 0; }
+.reset-steps .reset-hint.ready { color: var(--good); }
 @media (max-width: 1180px) { .reset-lists { grid-template-columns: minmax(0, 1fr); } }
 .path-line { display: flex; align-items: center; gap: var(--sp-3); }
 .path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

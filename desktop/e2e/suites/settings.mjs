@@ -162,7 +162,11 @@ async function roundTrip(ctx) {
   await page.waitForFunction(() => !document.getElementById('reset-confirm').disabled, null, {timeout: 60000})
     .catch(async () => { throw new Error(`the export before the reset did not finish: "${await page.locator('#reset-message').textContent().catch(() => '')}"`); });
   if (!fs.existsSync(resetExport)) throw new Error('the reset card said exported but wrote no file');
+  if (!/✓ Saved/.test(await page.locator('#reset-export-state').textContent())) throw new Error('the reset card shows no "✓ Saved" chip after the export');
+  await page.fill('#reset-confirm', 'RES');
+  if (!/2 more letters/.test(await page.locator('#reset-hint').textContent()) || !(await page.locator('#reset-go').getAttribute('title'))) throw new Error('the reset card does not say why the button is off while RESET is half typed');
   await page.fill('#reset-confirm', 'RESET');
+  if (!/Ready/.test(await page.locator('#reset-hint').textContent())) throw new Error('the reset card does not say Ready once RESET is typed');
   await page.click('#reset-go').catch(() => {});   // the app exits under the click
   await ctx.waitForExit();   // after its work (it disconnects Gmail first), not before: relaunch() closes the app
   await ctx.relaunch();

@@ -92,18 +92,37 @@ export async function init() {
 
   // ---------- danger zone: reset this computer's Job Pilotto data ----------
   // Reset is allowed after the export (the same one as Settings → Your data, the same save dialog) or after choosing to go without it.
-  const allowReset = state => { $('reset-confirm').disabled = false; $('reset-export-state').textContent = state; $('reset-confirm').focus(); };
+  const WORD = 'RESET';
+  // One place says whether the button can be pressed and why not: the hint under the field, the button's title and aria-label.
+  const syncReset = () => {
+    const typed = $('reset-confirm').value.trim(), unlocked = !$('reset-confirm').disabled;
+    const left = WORD.length - typed.length;
+    const ready = unlocked && typed === WORD;
+    const hint = !unlocked ? 'Save a copy or skip it in step 1 first.' : ready ? '✓ Ready' : !typed ? `Type ${WORD} to enable the button.`
+      : WORD.startsWith(typed) ? `${left} more letter${left === 1 ? '' : 's'}` : `Type ${WORD} in capital letters.`;
+    $('reset-go').disabled = !ready;
+    $('reset-go').title = ready ? '' : hint;
+    $('reset-go').setAttribute('aria-label', ready ? 'Reset and restart' : `Reset and restart (unavailable: ${hint})`);
+    $('reset-hint').textContent = hint;
+    $('reset-hint').classList.toggle('ready', ready);
+  };
+  const allowReset = (state, tone) => {
+    const chip = $('reset-export-state');
+    chip.textContent = state; chip.className = `ui-pill ${tone}`.trim(); chip.hidden = false;
+    $('reset-confirm').disabled = false; syncReset(); $('reset-confirm').focus();
+  };
   $('reset-export').addEventListener('click', async () => {
     $('reset-export').disabled = true;
     const result = await window.pilot.exportProfile({keys: false, accounts: $('reset-export-accounts').checked});
     $('reset-export').disabled = false;
-    if (result?.ok) allowReset(`✓ Saved: ${result.file.split(/[\\/]/).pop()}`);
+    if (result?.ok) allowReset(`✓ Saved: ${result.file.split(/[\\/]/).pop()}`, 'tone-good');
     else if (result?.error) message('reset-message', `Export failed: ${result.error}`, 'error');
   });
-  $('reset-skip-export').addEventListener('click', () => allowReset('Skipped'));
-  $('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
+  $('reset-skip-export').addEventListener('click', () => allowReset('✓ Skipped', ''));
+  $('reset-confirm').addEventListener('input', syncReset);
+  syncReset();
   $('reset-go').addEventListener('click', async () => {
-    if ($('reset-confirm').value.trim() !== 'RESET') return;
+    if ($('reset-confirm').value.trim() !== WORD) return;
     const result = await window.pilot.resetProfile();
     if (result?.error) message('reset-message', result.error, 'error');
     else if (!result?.ok) message('reset-message', 'Not reset.', 'waiting');

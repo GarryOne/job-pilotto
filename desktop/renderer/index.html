@@ -1483,13 +1483,16 @@
                   <div><b>1 · Save a copy (recommended)</b>
                     <p class="muted small">Importing the saved file brings everything back.</p>
                     <div class="inline"><button class="secondary" id="reset-export">Export everything</button>
-                      <button class="link" id="reset-skip-export">Skip</button><span class="small" id="reset-export-state"></span></div>
+                      <button class="link" id="reset-skip-export">Skip</button><span class="ui-pill" id="reset-export-state" hidden></span></div>
                     <label class="check-row"><input type="checkbox" id="reset-export-accounts"><span><span>Include this profile's job-site accounts</span>
                       <span class="muted small">Holds your job-site passwords in plain text: keep the file private.</span></span></label></div></div>
                 <div class="choice-card" id="reset-step-2"><span class="file-tile"><i data-icon="refresh"></i></span>
                   <div><b>2 · Reset</b>
-                    <div class="inline"><input type="text" id="reset-confirm" placeholder="RESET" autocomplete="off" disabled>
-                      <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div></div></div>
+                    <p class="muted small">This deletes this profile's data on this computer.</p>
+                    <label class="small" for="reset-confirm">Type <b>RESET</b> to confirm</label>
+                    <div class="inline"><input type="text" id="reset-confirm" placeholder="RESET" autocomplete="off" aria-describedby="reset-hint" disabled>
+                      <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
+                    <p class="muted small reset-hint" id="reset-hint" aria-live="polite"></p></div></div>
               </div>
               <p class="message" id="reset-message"></p>
             </div>
