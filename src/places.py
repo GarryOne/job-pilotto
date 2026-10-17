@@ -165,7 +165,7 @@ def refresh(search, client=None, file=None):
     cache.update(ask(client, words))
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text(json.dumps(cache, indent=1, ensure_ascii=False) + '\n')
-    print(f"Places: worked out {len(words)} place word(s) with AI: {', '.join(words)}")
+    print(f"Places: worked out {len(words)} place word{'' if len(words) == 1 else 's'} with AI: {', '.join(words)}")
     return len(words)
 
 

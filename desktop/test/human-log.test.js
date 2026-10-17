@@ -38,7 +38,7 @@ test('a refresh reads as what happened', () => {
     '📍 Claude placed 240 locations: 10 in your places',
     '➕ Added 3 new jobs: Lyss 1, Spreitenbach 1, Fribourg 1',
     '🗑️ Closed 18 jobs outside your places: Switzerland 18',
-    '⚠️ jobs.ch refused more searches for now (HTTP 403); 20 job(s) read before that are kept',
+    '⚠️ jobs.ch refused more searches for now (HTTP 403); 20 jobs read before that are kept',
     '🎯 Scored 29 of 29 jobs',
     '⏳ Waited 34 s for Claude: it answers two things at a time',
     '🐢 Claude was slow: 21 s for one answer',
