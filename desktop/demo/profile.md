@@ -44,3 +44,12 @@ Site Reliability Engineer with 8 years running Kubernetes on AWS; led the monito
 - Race / ethnicity: Decline to self-identify [pick one: White | Black or African American | Asian | Hispanic or Latino | Middle Eastern or North African | Native or Indigenous | Mixed or multiple | Another group | Decline to self-identify]
 - Veteran status: No [pick one: Yes | No | Decline to self-identify]
 - Notes for the AI: Use these answers for equivalent questions on any form.
+
+## ❓ Possible CV gaps
+- Prometheus (CV gap: to check)
+- Terraform (CV gap: to check)
+- Argo CD (CV gap: to check)
+- PagerDuty (CV gap: to check)
+- OpenTelemetry (CV gap: confirmed skill)
+- Vault (CV gap: not a gap)
+- Please confirm or discard each.

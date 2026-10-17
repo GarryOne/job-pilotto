@@ -9,6 +9,8 @@ import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {surveyBody, surveyForm} from '../survey-rows.js';
+import {gapsBody} from '../gaps-rows.js';
+import {setState} from '../gaps-model.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
 
 // Where each tab draws its parts: the box and its message line in index.html.
@@ -17,6 +19,7 @@ const OPEN_FIRST = new Set(['summary', 'strengths']);   // shown open until the 
 const parts = {};
 const folded = new Map();   // part key → open (true) or folded (false), as the person left it
 const editing = new Set();
+let gapsTidied = null, gapsAsked = false;   // the one-time CV gaps split: what it did (for Undo), and whether this window asked yet
 
 export async function loadExperienceProfile(tab = 'experience') {
   const [boxId, messageId] = BOXES[tab];
@@ -24,9 +27,34 @@ export async function loadExperienceProfile(tab = 'experience') {
   const box = $(boxId);
   await swr('profile-parts', () => window.pilot.textOutline('profile'), {
     loading: () => box.replaceChildren(loadingCard('Reading your Profile…')),
-    paint: (result, kept) => { if (kept || !editing.size) { parts[tab] = profileParts(result.items); draw(tab); } },   // a refresh never redraws a card under edit
+    paint: (result, kept) => { if (kept || !editing.size) { parts[tab] = profileParts(result.items); draw(tab); if (tab === 'experience') splitGaps(tab); } },   // a refresh never redraws a card under edit
     fail: result => message(messageId, `Couldn't read your Profile: ${result?.error || 'try again'}`, 'error'),
   });
+}
+
+// Once per window: the CV gaps paragraph becomes one line per gap (lib/gaps-move.js); the card then shows what it did, with Undo.
+async function splitGaps(tab) {
+  if (gapsAsked || !parts[tab]?.gaps) return;
+  gapsAsked = true;
+  const result = await window.pilot.moveCvGaps?.().catch(() => null);
+  gapsTidied = result?.tidied || null;
+  if (result?.ok && (result.changed || gapsTidied)) await reread(tab);
+}
+async function reread(tab) {
+  const fresh = await window.pilot.textOutline('profile').catch(() => null);
+  if (fresh?.items) { parts[tab] = profileParts(fresh.items); keep('profile-parts', {...fresh, ok: true}); draw(tab); }
+}
+// A chip pressed: ✓ a confirmed skill, ✕ not a gap, Undo back to "to check": that one line is rewritten in the store.
+async function pressGap(tab, part, item, state) {
+  const was = part.lines.find(line => line.id === item.id)?.text;
+  if (was === undefined) return;
+  const result = await window.pilot.textEdit('profile', [{op: 'text', id: item.id, value: setState(was, state), was}]).catch(error => ({ok: false, error: error.message}));
+  if (result.items) { parts[tab] = profileParts(result.items); keep('profile-parts', {...result, ok: true}); draw(tab); }
+  if (!result.ok) message(BOXES[tab][1], result.error, 'error');
+}
+async function undoGaps(tab) {
+  const result = await window.pilot.undoCvGaps().catch(error => ({ok: false, error: error.message}));
+  if (result.ok) { gapsTidied = null; await reread(tab); } else message(BOXES[tab][1], result.error, 'error');
 }
 
 function draw(tab) {
@@ -53,7 +81,7 @@ function card(tab, each) {
   const count = key === 'strengths' ? part?.lines.length : 0;
   head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
     el('span', 'exp-part-gap'), editButton(tab, each));
-  box.append(head, editing.has(key) ? editor(tab, each) : body(key, part));
+  box.append(head, editing.has(key) ? editor(tab, each) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
   return box;
 }
 
