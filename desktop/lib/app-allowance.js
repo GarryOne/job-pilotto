@@ -50,7 +50,7 @@ export function createAppAllowance(ctx) {
     getStorage().saveSettings({telemetryHealthAt: today});
     const has = name => !!getStorage().secret(name);
     getTelemetry().record('health', {ai: has('ANTHROPIC_API_KEY'), aiEngine: claudeCode.engine(settings, has('ANTHROPIC_API_KEY')) || 'none', notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
-      serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
+      serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'dark',
       sessions: terminals.list().length, runsKept: pipeline.runs(getStorage()).length, ...outcomes(settings), ...allowanceHealth(), ...getTelemetry().takeRuns()});
   }
   // The allowance on the health line, to measure it: licensed or not, the license kind and its random id (never the

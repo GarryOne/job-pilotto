@@ -7,7 +7,7 @@ import {$} from './core.js';
 
 const dark = matchMedia('(prefers-color-scheme: dark)');
 const TEXT = {system: 'Follows your Mac: light by day, dark at night if macOS switches.', light: 'Always light.', dark: 'Always dark, like the departures hall.'};
-let choice = 'system';
+let choice = 'dark';
 
 function paint() {
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.classList.toggle('is-active', button.dataset.themeChoice === choice));
@@ -28,7 +28,7 @@ async function pick(value) {
 }
 
 export async function init() {
-  choice = shared.state?.settings?.theme || 'system';
+  choice = shared.state?.settings?.theme || 'dark';   // no saved choice: dark, like main's applyTheme
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.addEventListener('click', () => pick(button.dataset.themeChoice)));
   $('theme-toggle')?.addEventListener('click', () => pick(dark.matches ? 'light' : 'dark'));
   dark.addEventListener('change', paint);

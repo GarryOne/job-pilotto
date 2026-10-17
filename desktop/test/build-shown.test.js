@@ -7,7 +7,7 @@ const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 
 
 test('the window has the build line and the Restart button, started with the other pages, and ⌘K lists the restart', () => {
   const html = read('desktop/renderer/index.html');
-  for (const id of ['build-line', 'nav-restart', 'nav-restart-text']) assert.match(html, new RegExp(`id="${id}"`), id);
+  for (const id of ['build-line', 'build-text', 'build-news', 'nav-restart', 'nav-restart-text']) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(read('desktop/renderer/app.js'), /await build\(\);/);
   assert.match(read('desktop/renderer/pages/nav.js'), /buildCommands\(\)/);
   assert.match(read('desktop/preload.cjs'), /buildState: call\('buildState'\), restartApp: call\('restartApp'\)/);
