@@ -18,6 +18,23 @@ test('hidden only in an e2e run that asks for it', () => {
   assert.equal(hiddenRun({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1'}), true);
 });
 
+test('a screenshot run is hidden too: no Dock icon, no show, no focus', () => {
+  assert.equal(hiddenRun({JOB_PILOTTO_SMOKE: '/tmp/a.png'}), true);
+  const {app, BrowserWindow, shell} = fakes();
+  assert.equal(hideWindows({app, BrowserWindow, shell, env: {JOB_PILOTTO_SMOKE: '/tmp/a.png'}, platform: 'darwin'}), true);
+  assert.equal(new BrowserWindow().show(), undefined);
+  assert.equal(new BrowserWindow().focus(), undefined);
+  assert.equal(app.focus(), undefined);
+  assert.equal(app.policy, 'accessory');
+});
+
+test('every script that starts electron for a picture sets JOB_PILOTTO_SMOKE (so it is hidden)', async () => {
+  const {readFileSync} = await import('node:fs');
+  for (const name of ['shot', 'ui-shots', 'site-demo', 'screenshots']) {
+    assert.match(readFileSync(new URL(`../scripts/${name}.mjs`, import.meta.url), 'utf8'), /JOB_PILOTTO_SMOKE:|JOB_PILOTTO_SMOKE:? /, name);
+  }
+});
+
 test('a hidden run never shows, focuses or opens anything', async () => {
   const {app, BrowserWindow, shell} = fakes();
   assert.equal(hideWindows({app, BrowserWindow, shell, env: {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1'}, platform: 'darwin'}), true);

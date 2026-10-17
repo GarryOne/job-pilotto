@@ -1,7 +1,9 @@
 // E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 // does not pull the app, a PDF or a browser tab in front of the terminal or browser the person is typing in. Playwright still clicks,
 // types and screenshots a hidden window. On by default only on a Mac outside CI (CI is unchanged); E2E_HIDDEN=0 to watch a run.
-export const hiddenRun = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_HIDDEN === '1';
+// A screenshot run (JOB_PILOTTO_SMOKE=<png>, npm run shot, ui-shots, drawer-shots, site-demo, screenshots) is hidden the same way (17 Oct 2026: several
+// at once left "Electron" icons in the Dock and took focus); capturePage works on a window that was never shown.
+export const hiddenRun = (env = process.env) => (!!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_HIDDEN === '1') || !!env.JOB_PILOTTO_SMOKE;
 
 export function hideWindows({app, BrowserWindow, shell, env = process.env, platform = process.platform}) {
   if (!hiddenRun(env)) return false;
