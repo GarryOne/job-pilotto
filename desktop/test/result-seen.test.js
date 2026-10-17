@@ -28,3 +28,25 @@ test('the list of shown ids stays short and never repeats an id', () => {
   assert.equal(many.length, SHOWN_MAX);
   assert.equal(many.at(-1), SHOWN_MAX + 20);
 });
+
+// 18 Oct 2026: the twin's Actions card showed skeleton bars for ever: each finished run of an old backlog (written before #1346, no Result on its page) took its turn, ~28 s of reads each.
+test('showing one run settles the older backlog: every kind, old-shape rows, ends after ONE card', async () => {
+  const {settledBy} = await import('../renderer/result-seen.js');
+  const src = (await import('./activity-source.js')).activitySource();
+  const kinds = [...src.slice(src.indexOf('export const KIND = {'), src.indexOf('export const KITS_CARD')).matchAll(/(\w+): \{icon/g)].map(m => m[1]);
+  assert.ok(kinds.length >= 15, 'the kinds are read from KIND, so a new one is covered');
+  const at = n => new Date(Date.UTC(2026, 9, 17, 20, n)).toISOString();
+  for (const kind of kinds) {
+    const runs = Array.from({length: 6}, (_, i) => run(6000 - i, {kind, endedAt: at(30 - i * 5), pageId: `p${i}`}));
+    let state = {base: 100, shown: []}, cards = 0;
+    for (let guard = 0; guard < 20; guard++) {
+      const next = unseenRun(runs, state);
+      if (!next) break;
+      cards++;
+      for (const id of settledBy(runs, next)) state = {...state, shown: withShown(state.shown, id)};
+    }
+    assert.equal(cards, 1, `${kind}: one card, the older backlog is not walked one run at a time`);
+  }
+  const slow = run(1000, {endedAt: at(40)}), quick = run(1010, {endedAt: at(20)});
+  assert.deepEqual(settledBy([quick, slow], quick), [1010], 'a run that ended later is still news (#280)');
+});
