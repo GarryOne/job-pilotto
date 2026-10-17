@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: '11 * * * *'
   workflow_dispatch:
+    inputs:
+      rewrite_days:
+        description: 'Days (YYYY-MM-DD, space separated) to write again in the current form; closed days are replaced, nothing is posted'
+        required: false
 
 permissions:
   contents: read
@@ -41,6 +45,16 @@ jobs:
           node-version: '22'
       - name: Write the day's digest and store it
         run: node tools/daily-digest.mjs --out "$RUNNER_TEMP/digest.json" --cost "$RUNNER_TEMP/cost.json"
+      - name: Write closed days again (by hand only)
+        if: github.event_name == 'workflow_dispatch' && inputs.rewrite_days != ''
+        env:
+          REWRITE_DAYS: ${{ inputs.rewrite_days }}
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          for day in $REWRITE_DAYS; do
+            node tools/daily-digest.mjs --day "$day" --force --final --rewrite --cost "$RUNNER_TEMP/cost-$day.json"
+            node desktop/e2e/ai-cost-report.mjs --job daily-digest --file "$RUNNER_TEMP/cost-$day.json"
+          done
       - name: Report the AI cost
         if: always()
         env:
