@@ -46,6 +46,21 @@ class ShipPrTest(ShipFixture):
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')
 
+    def test_a_branch_carrying_another_open_prs_commit_is_refused_before_any_push(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        oid = git(self.tree, 'rev-parse', 'HEAD')
+        result = self.pr_ship({'others': [{'number': 7, 'headRefName': 'other', 'commits': [{'oid': oid}]}]})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('carries commits of the open PR #7 (other)', result.stdout + result.stderr)
+        self.assertIn('no stacking', result.stdout + result.stderr)
+        self.assertNotIn('pr create', ' | '.join(self.calls()))
+        self.assertEqual(git(self.origin, 'branch', '--list', 'topic'), '', 'nothing was pushed')
+
+    def test_another_open_pr_with_its_own_commits_does_not_block(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        result = self.pr_ship({'others': [{'number': 7, 'headRefName': 'other', 'commits': [{'oid': 'f' * 40}]}]})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_the_pr_title_names_the_session_that_opened_it(self):
         # Owner, 15 Oct 2026: "add in the PR title the name of the session that opened that PR".
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')

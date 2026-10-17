@@ -25,9 +25,18 @@ ship_flow_step_red() {
 ship_pr_fail() { fail_reason="$1"; echo "ship: FAILED $1" >&2; exit 1; }
 # The lease names what origin has NOW (empty: nothing): the branch is deleted on merge, so the local tracking ref of an earlier landing is stale and a bare --force-with-lease refuses (12 Oct 2026). Only this session writes the branch.
 ship_pr_push() { local now; now="$(git ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)"; git push -q "--force-with-lease=refs/heads/$branch:$now" origin "HEAD:refs/heads/$branch" 2>&1 || ship_pr_fail "could not push the branch $branch to origin"; }
+# No stacking (owner, 17 Oct 2026: a PR on another PR's branch gets stuck when the base merges or is retargeted): refuse to push a branch that carries a commit of another open PR.
+ship_pr_no_stacking() {
+  local mine others hit
+  mine="$(git rev-list origin/main..HEAD)"
+  others="$(gh pr list --state open --limit 100 --json number,headRefName,commits 2>/dev/null)" || return 0
+  hit="$(printf '%s' "$others" | jq -r --arg b "$branch" --arg mine "$mine" '($mine | split("\n")) as $m | .[] | select(.headRefName != $b) | select(any(.commits[]?; .oid as $o | $m | index($o))) | "#\(.number) (\(.headRefName))"' 2>/dev/null | head -n 1)"
+  [ -z "$hit" ] || ship_pr_fail "this branch carries commits of the open PR $hit; one PR per branch off main, no stacking: start from origin/main (tools/worktree.sh) and bring over only your own commits (git cherry-pick)"
+}
 ship_pr_land() {
   local n="" out view state mergeable checks failing name link who tries=0 waited=0 last_say=0 body title poll="${SHIP_PR_POLL:-15}" limit="${SHIP_PR_TIMEOUT:-2700}"
   files="$(git diff --name-only origin/main HEAD)"
+  ship_pr_no_stacking
   step "pushing $branch (not main) and opening a pull request"
   ship_pr_push
   n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""

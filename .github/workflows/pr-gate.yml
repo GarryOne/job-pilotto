@@ -4,9 +4,12 @@ name: CI · Pull request
 # ONE required check on main, "All checks passed" (owner, 15 Oct 2026: four required jobs took four runner slots per PR and GitHub's queue was the wait): one job, four named
 # steps. Same list in tools/pr-settings.sh. The job always starts (a required workflow that never starts blocks the PR forever); a step that does not apply ends in seconds.
 # A red step does not hide the next ones (`!cancelled()`), so one run names every red; the last step waits for the other workflows and runs only when the steps before it passed.
+# `edited` (owner, 17 Oct 2026): a PR retargeted to main (its base edited from another branch) runs the gate, so no rebase is needed to get the required check. It runs the same
+# job, never a skipped one: a skipped required job would count as green and hide an earlier red.
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read

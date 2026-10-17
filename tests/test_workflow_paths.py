@@ -62,6 +62,11 @@ class TheClass(unittest.TestCase):
                 text = (WORKFLOWS / name).read_text()
                 self.assertEqual([c for c in checks if re.search(rf'(?m)^    name: {re.escape(c)}', text)], [], f'{name}: a required check in a workflow paths can skip')
 
+    def test_the_gate_runs_again_when_a_pr_is_retargeted_and_never_skips_its_job(self):
+        gate = (WORKFLOWS / 'pr-gate.yml').read_text()
+        self.assertRegex(gate, r'types: \[opened, synchronize, reopened, edited\]')
+        self.assertNotRegex(gate, r'(?m)^\s+if: .*github\.event', 'a skipped required job counts as green and would hide an earlier red')
+
     def test_no_workflow_asks_a_pick(self):
         for path in WORKFLOWS.glob('*.yml'):
             text = path.read_text()
