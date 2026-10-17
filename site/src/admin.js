@@ -11,6 +11,7 @@ export const PAGES = [
   {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
   {path: '/admin/operations/overview', group: 'Operations', question: 'Where does our engineering time go: fixing forms or building tools?', name: 'Overview', icon: '⏱️'},
   {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
+  {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
   {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
   {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
