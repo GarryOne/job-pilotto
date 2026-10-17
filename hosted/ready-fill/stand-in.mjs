@@ -1,0 +1,54 @@
+// The app the night's extension talks to (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): a small local server that answers like the Mac's, from the batch only. /extension/me and /extension/kit are keyed by the job's address;
+// every other call answers {} (no AI judging, no Notion, no Keychain, no site password: phase 1 has no accounts). It keeps what the fill reported: the run record's counts and the page's role (an account or sign-in page is a wall).
+// It holds no secret and no network access beyond 127.0.0.1. Guard: desktop/test/ready-fill.test.js.
+import http from 'node:http';
+
+const HEADERS = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Content-Type': 'application/json'};
+const file = (name, base64) => (base64 ? {data: base64, name, type: 'application/pdf'} : null);
+const key = address => String(address || '').split('#')[0];
+
+// batch: {contact, jobs: [{id, url, title, company, kit, cv, letterPdf}]}. -> {port, close, outcome(url), asked}
+export async function createStandIn(batch) {
+  const jobs = new Map(batch.jobs.map(job => [key(job.url), job]));
+  const passes = new Map(), roles = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
+  const answers = {
+    '/extension/pair': port => ({url: `http://127.0.0.1:${port}`, token: 'night'}),
+    '/extension/run': () => ({ok: true, id: 'night-run'}),
+    '/extension/answer': () => ({answers: [], usd: 0}),   // no AI in phase 1: the questions the kit and the rules do not cover stay open, and say so
+    '/extension/me': (port, url) => {
+      const job = jobs.get(key(url));
+      return {contact: batch.contact || {}, contactSource: 'night', ...(file('CV.pdf', job?.cv) ? {resume: file('CV.pdf', job.cv)} : {}), ...(file('Cover letter.pdf', job?.letterPdf) ? {coverLetterFile: file('Cover letter.pdf', job.letterPdf)} : {})};
+    },
+    '/extension/kit': (port, url) => { const job = jobs.get(key(url)); return job ? {job: {title: job.title, company: job.company, url: job.url}, kit: job.kit || null} : {error: 'not tracked'}; },
+  };
+  const server = http.createServer((request, response) => {
+    if (request.method === 'OPTIONS') { response.writeHead(204, HEADERS); response.end(); return; }
+    let body = '';
+    request.on('data', chunk => { body += chunk; });
+    request.on('end', () => {
+      const [route, query = ''] = request.url.split('?');
+      const url = new URLSearchParams(query).get('url') || '';
+      asked.push(route); if (process.env.JP_NIGHT_DEBUG && route === '/extension/event') console.log('event', body.slice(0, 300));
+      let parsed = null;
+      try { parsed = body ? JSON.parse(body) : null; } catch { /* not JSON */ }
+      if (route === '/extension/run' && parsed?.url) {   // the fill's own record: counts only. An update (`update` set) restates the last pass; a new record is a new pass.
+        const list = passes.get(key(parsed.url)) || [], pass = {fields: Number(parsed.fields) || 0, unfilled: Number(parsed.unfilled) || 0, usd: Number(parsed.usd) || 0};
+        if (parsed.update && list.length) list[list.length - 1] = {...pass, usd: list[list.length - 1].usd}; else list.push(pass);
+        passes.set(key(parsed.url), list);
+      }
+      if (route === '/extension/event' && parsed?.type === 'fill-started' && parsed.url) started.set(key(parsed.url), (started.get(key(parsed.url)) || 0) + 1);
+      if (route === '/extension/review' && parsed?.url) roles.set(key(parsed.url), String(parsed.role || ''));
+      const found = answers[route] ? answers[route](server.address().port, url) : {};
+      response.writeHead(200, HEADERS); response.end(JSON.stringify(found));
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return {
+    port: server.address().port, asked,
+    // What the fill reported for a job: filled count, required left, the page's role. null until the extension posted its record.
+    outcome: url => { const list = passes.get(key(url)); return list?.length ? {filled: list.reduce((sum, pass) => sum + pass.fields, 0), left: list.at(-1).unfilled, role: roles.get(key(url)) || '', usd: list.reduce((sum, pass) => sum + pass.usd, 0)} : null; },
+    started: url => started.get(key(url)) || 0,
+    role: url => roles.get(key(url)) || '',
+    close: () => new Promise(resolve => server.close(resolve)),
+  };
+}
