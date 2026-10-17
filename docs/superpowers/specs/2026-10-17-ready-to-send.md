@@ -74,6 +74,8 @@ Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touc
 - [ ] PR 3 (site wiring): fill_at, cron start + queue, runner Worker, morning proxy; deploy only after the owner's yes to a Queue and a Worker (proof: site/test/ready-wiring.test.js)
 - [ ] PR 4 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
 - [ ] First night measured: prepared / reached / complete / submitted, reported to the owner (proof: none: the morning line on /admin/ready)
+- [x] Site wiring (written, NOT deployed): fill time on a batch, cron tick starts due nights via Queue `ready-runs`, finishes over-time nights, morning routes `live`/`handoff`/`held` through a service binding, runner Worker `site/ready-runner` (proof: site/test/ready-wiring.test.js)
+- [ ] Owner yes, then create Queue `ready-runs` + Worker `www-ready-runner`, add `READY_RUNNER` binding and `READY_QUEUE` producer to the site config (proof: none: account change, owner's decision)
 - [ ] Delete `tools/server-proof/` and `.github/workflows/server-proof.yml` once the numbers are in this spec (proof: none: removal)
 - [ ] Listing: Notion ✨ Feature catalog (3e962be8fd868133aa3ed99f1b0debcd), `site/public/intelligence.html` + teaser, README "AI at every step", landing page: only when it opens beyond the owner
 

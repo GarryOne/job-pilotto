@@ -1,0 +1,98 @@
+// Ready to send, the wiring (src/ready-tick.js, ready-morning.js, ready-consume.js): the cron starts a due night once, finishes an over-time one, the owner's morning calls reach the runner with the night token, and nothing is reachable by anyone else.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {test} from 'node:test';
+import {tokenFor} from '../src/guard.js';
+import {ready, readyToken} from '../src/ready.js';
+import {consume} from '../src/ready-consume.js';
+import {tick} from '../src/ready-tick.js';
+
+const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
+function d1() {
+  const db = new DatabaseSync(':memory:');
+  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql']) db.exec(sql(file));
+  db.exec('CREATE TABLE anomalies (day TEXT, kind TEXT, who TEXT, n INTEGER, detail TEXT, PRIMARY KEY (day, kind, who))');
+  db.exec('CREATE TABLE IF NOT EXISTS revoked (who TEXT PRIMARY KEY, reason TEXT, at TEXT)');
+  const statement = (text, args = []) => ({bind: (...v) => statement(text, v), run: async () => { const r = db.prepare(text).run(...args); return {meta: {changes: Number(r.changes)}}; },
+    all: async () => ({results: db.prepare(text).all(...args).map(r => ({...r}))}), first: async () => { const r = db.prepare(text).get(...args); return r ? {...r} : null; }, text, args});
+  return {db, prepare: text => statement(text), batch: async list => { for (const item of list) await item.run(); }};
+}
+const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
+  head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', ...extra});
+const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
+const evening = new Date('2026-10-17T21:00:00Z');
+const call = async (e, method, path, body, headers = {}, at = evening) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, at);
+const owner = async () => ({'x-api-key': await keyOf('owner-install-1')});
+const batchBody = fillAt => ({night: '2026-10-18', readyBy: '07:30', ...(fillAt ? {fillAt} : {}), contact: {name: 'Alex Example', email: 'alex@example.invalid'},
+  jobs: [{id: 'j1', url: 'https://boards.example.com/acme/jobs/1', title: 'SRE', company: 'Acme', fit: 80, kit: {}, letter: '', cv: ''}]});
+const queue = () => { const sent = []; return {sent, send: async m => { sent.push(m); }}; };
+const runner = () => { const seen = []; return {seen, fetch: async request => { seen.push(request.url); return new Response('{"ok":true}', {status: 200}); }}; };
+
+test('the tick starts a due night once, with its token, and not before its fill time or without the Queue', async () => {
+  const e = env({READY_QUEUE: queue()});
+  const made = await (await call(e, 'POST', 'batch', batchBody('2026-10-18T01:00:00Z'), await owner())).json();
+  assert.deepEqual(await tick(e, new Date('2026-10-18T00:30:00Z')), {started: 0, finished: 0});   // not yet
+  assert.deepEqual(await tick(e, new Date('2026-10-18T01:05:00Z')), {started: 1, finished: 0});
+  assert.deepEqual(await tick(e, new Date('2026-10-18T01:10:00Z')), {started: 0, finished: 0});   // once
+  const [message] = e.READY_QUEUE.sent;
+  assert.equal(message.batch, made.batch);
+  assert.equal(message.token, await readyToken(e, made.batch));
+  const noQueue = env();
+  await call(noQueue, 'POST', 'batch', batchBody(), await owner());
+  assert.equal((await tick(noQueue, new Date('2026-10-18T01:05:00Z'))).started, 0);
+  assert.equal(noQueue.STATS.db.prepare("SELECT state FROM ready_batches").get().state, 'queued');
+  assert.deepEqual(await tick(env({READY_TO_SEND: 'off', READY_QUEUE: queue()}), new Date('2026-10-18T01:05:00Z')), {started: 0, finished: 0});
+});
+
+test('a night past its end is finished: unfilled jobs fail with timeout and its tabs are closed', async () => {
+  const runnerFake = runner();
+  const e = env({READY_QUEUE: queue(), READY_RUNNER: runnerFake});
+  const made = await (await call(e, 'POST', 'batch', batchBody(), await owner())).json();
+  await tick(e, new Date('2026-10-18T01:05:00Z'));
+  const expires = e.STATS.db.prepare('SELECT expires_at FROM ready_batches').get().expires_at;
+  const out = await tick(e, new Date(new Date(expires).getTime() + 60000));
+  assert.equal(out.finished, 1);
+  assert.equal(e.STATS.db.prepare('SELECT state FROM ready_batches').get().state, 'finished');
+  const job = e.STATS.db.prepare('SELECT state, wall FROM ready_jobs').get();
+  assert.deepEqual({...job}, {state: 'failed', wall: 'timeout'});
+  assert.ok(runnerFake.seen.some(url => url.startsWith(`https://runner/close?batch=${made.batch}`)));
+});
+
+test('the morning routes: owner only, 503 while the runner is not wired, the right path and token when it is', async () => {
+  const wired = env({READY_QUEUE: queue(), READY_RUNNER: runner()});
+  const made = await (await call(wired, 'POST', 'batch', batchBody(), await owner())).json();
+  await tick(wired, new Date('2026-10-18T01:05:00Z'));
+  const stranger = {'x-api-key': await keyOf('someone-else-9')};
+  for (const sub of ['live', 'handoff', 'held']) {
+    assert.equal((await call(wired, 'GET', `${sub}?job=j1`, undefined, stranger)).status, 401, `${sub} stranger`);
+    assert.equal((await call(wired, 'GET', `${sub}?job=j1`)).status, 401, `${sub} anonymous`);
+    const response = await call(wired, 'GET', `${sub}?job=j1`, undefined, await owner());
+    assert.equal(response.status, 200, sub);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  const urls = wired.READY_RUNNER.seen;
+  assert.ok(urls.some(url => url.startsWith(`https://runner/handoff?batch=${made.batch}&t=${encodeURIComponent(`RR1.${made.batch}.`)}`) && url.endsWith('&job=j1')), urls.join('\n'));
+  const unwired = env({READY_QUEUE: queue()});
+  await call(unwired, 'POST', 'batch', batchBody(), await owner());
+  await tick(unwired, new Date('2026-10-18T01:05:00Z'));
+  for (const sub of ['live', 'handoff', 'held']) assert.equal((await call(unwired, 'GET', `${sub}?job=j1`, undefined, await owner())).status, 503, sub);
+});
+
+test('the consumer starts each night once and always acknowledges, even when the container fails', async () => {
+  const acked = [];
+  const batch = {messages: [{body: {batch: 'a', token: 't', site: 's'}, ack: () => acked.push('a')}, {body: {batch: 'b', token: 't', site: 's'}, ack: () => acked.push('b')}]};
+  const bodies = [];
+  const done = await consume(batch, night => ({fetch: async request => { bodies.push(await request.text()); if (night === 'b') throw new Error('no container'); return new Response('{}', {status: 202}); }}), {error: () => {}});
+  assert.deepEqual(done, {ok: 1, failed: 1});
+  assert.deepEqual(acked.sort(), ['a', 'b']);
+  assert.deepEqual(JSON.parse(bodies[0]), {token: 't', site: 's'});
+});
+
+test('nothing in the deploy wiring is switched on: no service binding or queue in the site config or the deploy workflow', () => {
+  const config = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  assert.ok(!/READY_RUNNER|READY_QUEUE|ready-runs|www-ready-runner/.test(config), 'site/wrangler.toml');
+  const workflow = readFileSync(new URL('../../.github/workflows/site.yml', import.meta.url), 'utf8');
+  assert.ok(!/ready-runner|ready-runs/.test(workflow), 'site.yml');
+});

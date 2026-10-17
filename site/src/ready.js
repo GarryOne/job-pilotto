@@ -2,9 +2,11 @@
 // it with a one-night token, fills each form and posts only counts; the owner's page asks what is ready. The server never presses Submit: no route here accepts a submit from the container, only the owner marks one.
 // Only the owner's install (env.READY_OWNER) reaches any route; READY_TO_SEND = off answers 404. The data is deleted on Done, after 24 h (sweep, from the cron) and on Delete everything.
 // Counts, hosts and states stay 30 days for the morning measure; never a field value or an address. Guard: site/test/ready-to-send.test.js.
-import {equal, tokenFor} from './guard.js';
+import {equal, tokenFor} from './guard.js';   // tokenFor: the night token is checked in batchOf
 import {installOf} from './hosted.js';
 import {open, seal} from './hosted-state.js';
+import {closeNight, morning, readyToken} from './ready-morning.js';
+export {readyToken};
 
 export const readyOn = env => env.READY_TO_SEND === 'on' && !!env.HOSTED_STATE && !!env.READY_OWNER;
 export const MAX_JOBS = 15, MAX_BYTES = 8 * 1024 * 1024, KEEP_HOURS = 24, RUN_HOURS = 3, COUNTS_KEEP_DAYS = 30, DEFAULT_CAP_USD = 1;
@@ -22,7 +24,6 @@ async function ownerOf(request, env) {
   const install = await installOf(request, env);
   return install && equal(install, env.READY_OWNER) ? install : null;
 }
-export const readyToken = async (env, id) => `RR1.${id}.${await tokenFor(id, env, 'ready-run')}`;
 // A night token: good only while its batch is running (or capped, to read "stop") and unexpired.
 export async function batchOf(env, bearer, now = new Date()) {
   const [tag, id, token] = String(bearer || '').replace(/^Bearer /, '').split('.');
@@ -53,12 +54,12 @@ async function clear(env, install, id, jobs, now) {
   const marks = jobs ? jobs.map(() => '?').join(',') : '';
   const changed = await env.STATS.prepare(`UPDATE ready_jobs SET cleared_at = ? WHERE batch = ? AND cleared_at IS NULL${jobs ? ` AND job IN (${marks})` : ''}`).bind(stamp(now), id, ...(jobs || [])).run();
   const open_ = await env.STATS.prepare('SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ? AND cleared_at IS NULL').bind(id).first();
-  if (!open_.n) await env.STATS.prepare("UPDATE ready_batches SET state = 'deleted', deleted_at = ? WHERE id = ? AND deleted_at IS NULL").bind(stamp(now), id).run();
+  if (!open_.n) { await env.STATS.prepare("UPDATE ready_batches SET state = 'deleted', deleted_at = ? WHERE id = ? AND deleted_at IS NULL").bind(stamp(now), id).run(); await closeNight(env, id); }   // nothing left to hold: the container closes its tabs
   return changed.meta?.changes || 0;
 }
 
 // What the nightly run cost, on the owner's /admin/ai-cost beside the other scheduled jobs (job id 'ready-fill').
-async function report(env, row, now) {
+export async function reportNight(env, row, now) {
   const usd = row.cost_micro / 1e6, calls = (await env.STATS.prepare('SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ?').bind(row.id).first()).n;
   await env.STATS.prepare(`INSERT INTO ai_cost_runs (job, run_id, day, at, usd, calls, repo, provider) VALUES ('ready-fill', ?, ?, ?, ?, ?, '', 'anthropic')
     ON CONFLICT (job, run_id) DO UPDATE SET day = excluded.day, at = excluded.at, usd = excluded.usd, calls = excluded.calls`).bind(row.id, stamp(now).slice(0, 10), stamp(now), usd, calls).run().catch(() => {});
@@ -87,7 +88,8 @@ async function batch(request, env, now) {
   const id = crypto.randomUUID();
   const kept = jobs.map(job => ({id: job.id, url: job.url, title: String(job.title || '').slice(0, 200), company: String(job.company || '').slice(0, 200), fit: num(job.fit), kit: job.kit || {}, letter: String(job.letter || ''), cv: String(job.cv || '')}));
   await writeBlob(env, install, id, {contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), jobs: kept});
-  await env.STATS.batch([env.STATS.prepare('INSERT INTO ready_batches (id, install, night, created_at) VALUES (?, ?, ?, ?)').bind(id, install, given.night, stamp(now)),
+  const fillAt = Number.isFinite(Date.parse(given.fillAt)) ? new Date(given.fillAt).toISOString() : null;   // when the night should start filling (the cron starts it then); none: at the next tick
+  await env.STATS.batch([env.STATS.prepare('INSERT INTO ready_batches (id, install, night, created_at, fill_at) VALUES (?, ?, ?, ?, ?)').bind(id, install, given.night, stamp(now), fillAt),
     ...kept.map(job => env.STATS.prepare('INSERT INTO ready_jobs (batch, job, host) VALUES (?, ?, ?)').bind(id, job.id, new URL(job.url).hostname))]);
   return json({ok: true, batch: id, queued: kept.length});
 }
@@ -108,7 +110,7 @@ async function result(request, env, now) {
   const waiting = (await env.STATS.prepare("SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ? AND state = 'queued'").bind(row.id).first()).n;
   const next = capped ? 'capped' : waiting ? row.state : 'finished';
   await env.STATS.prepare('UPDATE ready_batches SET cost_micro = ?, state = ?, finished_at = ? WHERE id = ?').bind(total, next, next === row.state ? null : stamp(now), row.id).run();
-  if (next !== row.state) await report(env, {...row, cost_micro: total}, now);
+  if (next !== row.state) await reportNight(env, {...row, cost_micro: total}, now);
   return json({ok: true, stop: next !== 'running'});
 }
 
@@ -168,5 +170,6 @@ export async function ready(request, env, now = new Date()) {
   const sub = new URL(request.url).pathname.replace(/^\/api\/ready\/?/, '');
   if (sub === 'batch') return batch(request, env, now);
   if (sub === 'result') return result(request, env, now);
+  if (['live', 'handoff', 'held'].includes(sub)) { const install = await ownerOf(request, env); return install ? morning(request, env, install, sub) : deny(); }   // the morning: the container's tabs (src/ready-morning.js)
   return mine(request, env, now, sub);
 }
