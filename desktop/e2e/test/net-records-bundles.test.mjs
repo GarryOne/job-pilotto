@@ -95,7 +95,8 @@ test('a fetch that gets no record fails loudly with gh\'s error, never an empty 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-loud-')), bin = path.join(tmp, 'bin'), out = path.join(tmp, 'out');
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, 'gh'), '#!/usr/bin/env bash\necho "HTTP 403: API rate limit exceeded for user ID 1" >&2\nexit 1\n', {mode: 0o755});
-  const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, NET_RECORD_KEY: Buffer.from('not a key').toString('base64'), RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only', CI: 'true'};
+  // The fake gh answers a rate limit every time: no real pauses (the default 20 + 60 + 120 s made this one test take 200 s, 17 Oct 2026).
+  const env = {...process.env, PATH: `${bin}:${process.env.PATH}`, NET_RECORD_KEY: Buffer.from('not a key').toString('base64'), RUNNER_TEMP: tmp, NET_RECORDS_READ_TOKEN: 'read-only', CI: 'true', NET_RECORDS_RETRY_SLEEP: '0 0 0'};
   let failed = null;
   try { execFileSync('bash', [path.join(E2E, 'net-records-fetch.sh'), out], {env, stdio: ['ignore', 'pipe', 'pipe']}); } catch (error) { failed = error; }
   assert.ok(failed, 'the fetch exits non-zero when it found no record');
