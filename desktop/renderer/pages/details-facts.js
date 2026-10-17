@@ -1,7 +1,8 @@
 // Settings → Profile → Your details: the Work eligibility, Availability & compensation and Languages sections (owner, 17 Oct 2026: "Your details =
-// facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "Which is right?" for a fact two
-// copies said two ways (lib/profile-move.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
-// test/details-facts.test.js.
+// facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "To check": one line counting the
+// unclear details (a fact said two ways, a line with no clear home, a value to make exact, a ❓) that opens the one review queue (owner, 18 Oct 2026:
+// "One queue for all"; lib/details-review.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
+// test/details-facts.test.js and test/details-review.test.js.
 import {el, loadingCard} from '../components.js';
 import {swr} from '../swr.js';
 import {$} from './core.js';
@@ -9,10 +10,11 @@ import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
 import {setAsideRows} from './set-aside.js';
 import {factOf, factRow} from '../fact-line.js';
+import {detailsIn} from '../question-filter.js';
+import {loadQuestions, questionsNow} from './jobs-questions.js';
 
 export const KEYS = ['eligibility', 'availability', 'languages'];
 const box = key => document.querySelector(`[data-facts="${key}"]`);
-const PAGE_NAMES = {profile: 'your Profile', answers: 'your standard answers'};
 
 function draw(sections, formats = {}) {
   for (const key of KEYS) {
@@ -39,25 +41,22 @@ function drawTidied(tidied) {
   box_.replaceChildren(el('p', 'muted small', `${tidied.changed} of your details were tidied: a typed control, or the rules folded as a note for the AI. The words you saved are kept, and the copy from before is backed up.`), undo);
 }
 
-function drawWhich(conflicts, aside = [], tidied = null) {
-  showOnTab($('setting-which'), conflicts.length > 0 || aside.length > 0 || Boolean(tidied));
+// "To check": the review queue's Your details items, counted from the queue's own list (read once when Jobs has not read it yet), Review opens it at the first.
+let last = {aside: [], tidied: null}, queueAsked = false;
+document.addEventListener?.('questions-read', () => drawWhich(last.aside, last.tidied));
+function drawWhich(aside = [], tidied = null) {
+  last = {aside, tidied};
+  if (!questionsNow().read && !queueAsked) { queueAsked = true; loadQuestions().then(() => drawWhich(last.aside, last.tidied)).catch(() => {}); }
+  const items = detailsIn(questionsNow().list);
+  showOnTab($('setting-which'), items.length > 0 || aside.length > 0 || Boolean(tidied));
   drawTidied(tidied);
   $('facts-set-aside').replaceChildren(...setAsideRows(aside, showFacts, text => { $('facts-message').textContent = text; }));
-  $('which-list').replaceChildren(...conflicts.map(conflict => {
-    const row = el('div', 'chip-row');
-    row.append(el('b', '', conflict.topic.replace(/^./, letter => letter.toUpperCase())));
-    conflict.choices.forEach((choice, pick) => {
-      const button = el('button', 'secondary', `${choice.value}`);
-      button.title = `"${choice.label}" on ${PAGE_NAMES[choice.page] || choice.page}`;
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        const result = await window.pilot.resolveDetailsConflict(conflict.topic, pick);
-        if (result.ok) showFacts(); else { $('facts-message').textContent = result.error; button.disabled = false; }
-      });
-      row.append(button);
-    });
-    return row;
-  }));
+  if (!items.length) { $('which-list').replaceChildren(); return; }
+  const banner = el('div', 'notice qa-banner');
+  const go = Object.assign(el('button', 'primary small-btn', 'Review'), {type: 'button', id: 'details-review-go'});
+  go.addEventListener('click', () => import('./question-review.js').then(review => review.openQuestionReview({start: items[0].key})));
+  banner.append(el('span', '', `⚠ ${items.length} detail${items.length === 1 ? '' : 's'} to check`), go);
+  $('which-list').replaceChildren(banner);
 }
 
 // Reads and draws the sections (the first time, the app moves the facts in: copy and backup first, lib/profile-move.js).
@@ -68,7 +67,7 @@ export async function showFacts() {
       if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
       $('facts-message').textContent = '';
       draw(result.sections || {}, result.formats || {});
-      drawWhich(result.conflicts || [], result.setAside || [], result.tidied || null);
+      drawWhich(result.setAside || [], result.tidied || null);
     },
     fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
   });

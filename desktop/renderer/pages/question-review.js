@@ -9,6 +9,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {answerControl} from '../question-control.js';
 import {markFor} from '../question-kind.js';
+import {needsCheck} from '../question-values.js';
 import {claimOverlay, registerOverlay, releaseOverlay} from '../overlay-slot.js';
 import {button, skeleton, stateCard} from '../job-drawer/parts.js';
 import {loadQuestions, questionsNow} from './jobs-questions.js';
@@ -76,25 +77,35 @@ function picker() {
   return select;
 }
 
+// What a Your details item asks for (lib/details-review.js), over its answer box.
+const ASKS = {which: 'Pick the right one', where: 'Pick its home', check: 'Pick the parts', open: 'Missing answer'};
+
 function question(q) {
   const body = el('div', 'jd-body qr-body');
-  const asked = el('p', 'muted small qr-asked', [q.company, 'Application form'].filter(Boolean).join(' · '));
+  const mine = q.details;   // a Your details item: no form asked it, it is a fact about you
+  const asked = el('p', 'muted small qr-asked', mine ? mine.where || 'Your details' : [q.company, 'Application form'].filter(Boolean).join(' · '));
+  if (mine) asked.append(' ', pill(mine.source, 'warn'));
   if (state.aside) asked.append(' ', pill('Set aside', 'neutral'));
   body.append(asked, el('h3', 'qr-question', q.question));
+  if (mine?.line) body.append(el('p', 'qr-line', mine.line));
   const suggested = Boolean(q.proposal);
   const box = el('div', `qr-answer ${suggested ? 'is-suggested' : 'is-missing'}`);
   const kind = el('p', 'qr-answer-kind');
-  kind.append(icon(suggested ? 'sparkle' : 'alert'), el('span', '', suggested ? 'Suggested from saved answer' : 'Missing answer'));
+  kind.append(icon(suggested ? 'sparkle' : 'alert'), el('span', '', suggested ? 'Suggested from saved answer' : mine ? ASKS[mine.kind] || 'Missing answer' : 'Missing answer'));
   box.append(kind);
-  const label = el('label', 'qr-label', 'Your answer');
-  const control = answerControl(q.format, drafts.get(q.key) ?? q.proposal ?? '', value => {
+  const label = el('label', 'qr-label', mine?.kind === 'which' || mine?.kind === 'where' ? 'Your pick' : 'Your answer');
+  const control = answerControl(q.format, drafts.get(q.key) ?? q.proposal ?? q.value ?? '', value => {
     if (String(value) === String(q.proposal || '')) drafts.delete(q.key); else drafts.set(q.key, String(value));
     keepDrafts();
-    confirm.disabled = state.busy || !control.complete;
-  }, {placeholder: 'Type your answer', ariaLabel: q.question});
+    confirm.disabled = state.busy || !ready();
+  }, {placeholder: 'Type your answer', ariaLabel: q.question, chips: Boolean(mine)});
   control.id = 'qr-control';
+  // A value to make exact is ready only once its parts read (the same rule as the line's Check chip).
+  const ready = () => control.complete && !(mine?.kind === 'check' && needsCheck(q.format?.kind, control.value));
   box.append(label, control);
-  body.append(box, reuseCard(q));
+  body.append(box);
+  if (mine?.kind === 'which') body.append(el('p', 'muted small', `${q.hint}. The other is set aside, never deleted: Undo in Your details.`));
+  if (!mine) body.append(reuseCard(q));
   if (q.coveredBy) {
     const source = el('details', 'plain qr-source');
     const view = Object.assign(el('button', 'link small', 'View source →'), {type: 'button', id: 'qr-source-go'});
@@ -102,18 +113,18 @@ function question(q) {
     source.append(el('summary', '', 'Source'), el('p', 'muted small', `From your saved answer “${q.coveredBy}”.`), view);
     body.append(source);
   }
-  if (q.hint) body.append(el('p', 'muted small', q.hint));
+  if (q.hint && mine?.kind !== 'which') body.append(el('p', 'muted small', q.hint));
   const drop = Object.assign(el('button', 'link small qr-drop', 'Don’t keep an answer for this'), {type: 'button', id: 'qr-drop',
     title: q.hint !== undefined ? 'Forms leave this field empty (the line stays, answered "— (leave blank)")' : 'Not a question to keep an answer for'});
   drop.addEventListener('click', () => answer(q, ''));
-  body.append(drop);
+  if (!mine || mine.kind === 'open') body.append(drop);   // a choice or an exact value always has an answer
   if (state.saved) body.append(el('p', 'muted small qr-saved', state.saved));
   if (state.error) body.append(el('p', 'message error', state.error));
   if (state.consent) body.append(el('p', 'muted small qr-consent', 'Terms and consent boxes are ticked for you on each form (Settings → Consent boxes turns that off).'));
   const confirm = Object.assign(el('button', 'primary', 'Confirm & next'), {type: 'button', id: 'qr-confirm'});
   confirm.append(icon('chevron'));
-  confirm.disabled = state.busy || !control.complete;
-  confirm.addEventListener('click', () => control.complete && answer(q, String(control.value).trim()));
+  confirm.disabled = state.busy || !ready();
+  confirm.addEventListener('click', () => ready() && answer(q, String(control.value).trim()));
   if (control.tagName === 'INPUT') control.addEventListener('keydown', event => { if (event.key === 'Enter' && control.value.trim()) answer(q, control.value.trim()); });
   return {body, confirm};
 }

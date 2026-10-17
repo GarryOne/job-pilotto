@@ -46,6 +46,7 @@ async function readQuestions({force}) {
   if (!error) try { localStorage.setItem(QUESTIONS_CACHE, JSON.stringify(list)); } catch {}
   renderQuestions(list || [], error, hidden, consent, fromDetails);
   now.read = true;
+  document.dispatchEvent?.(new Event('questions-read'));   // the other counts of this queue (Profile banner, Your details' "To check") draw again
 }
 
 function renderQuestions(list, error = '', hidden = [], consent = 0, fromDetails = null) {

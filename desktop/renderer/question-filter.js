@@ -4,6 +4,9 @@
 // Pure (no DOM, no AI); guarded by test/question-filter.test.js.
 export const keyOf = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
+// The queue items that come from Your details (lib/details-review.js), not from a form: the Profile banner adds them to its own count of the answers page.
+export const detailsIn = list => (list || []).filter(row => row?.details);
+
 // A form field's own id where no label was readable ("text-3219", "tel-3519", "question_12"): one token with a digit, no spaces. By shape, no words.
 export const looksLikeFieldId = text => {
   const label = String(text || '').replace(/^[\s*]+|[\s*]+$/g, '');

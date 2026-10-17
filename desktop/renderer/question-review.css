@@ -76,3 +76,4 @@
 .gap-rows .tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .gap-rows .chip-tag button { font-weight: 700; color: var(--signal); }
 .gap-fold { margin-top: var(--sp-3); }
+.qr-line { margin: 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); white-space: pre-wrap; }   /* a Your details line the person places (lib/details-review.js) */

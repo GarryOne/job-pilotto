@@ -14,7 +14,7 @@ import * as backup from './backup.js';
 import {keep} from './set-aside.js';
 
 export const MODEL = 'claude-haiku-5-5';
-export const HOMES = [...Object.keys(sections.SECTIONS), 'stay'];
+export const HOMES = [...Object.keys(sections.SECTIONS), 'stay', 'unsure'];   // unsure: the person is asked (lib/details-review.js "Where does this go?")
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['items'], properties: {items: {type: 'array', items: {type: 'object', additionalProperties: false,
   required: ['id', 'home', 'topic'], properties: {id: {type: 'string'}, home: {type: 'string', enum: HOMES}, topic: {type: 'string'}}}}}};
 const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved form answers, in any language. Say where it belongs:
@@ -24,13 +24,15 @@ const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved f
 - "stay": anything else: roles, places, work mode, seniority, the MINIMUM salary they accept for a search, strengths, deal-breakers, contact details, other questions.
 And topic: 2-4 lowercase English words naming the fact, the same words for the same fact however it is worded ("work permit switzerland", "notice period", "language german").
 Two lines whose amount, period (month, year) or basis (net, gross) or kind (target, minimum) differ are different facts: give them different topics.
-Answer every id exactly as given; when unsure answer "stay".`;
+Answer every id exactly as given. When you cannot tell where a line belongs, answer "unsure": the person is asked.`;
 
 const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase();
 const OURS = new Set([...Object.values(sections.SECTIONS), '📇 Contact details', 'contact', 'links'].map(bare));
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const same = text => plain(text).toLowerCase();
 const OPEN = /❓|^— \(leave blank\)$/;
+// A verdict's section, or '' (stay, unsure, or no verdict): only a section moves a line.
+const placed = verdict => (verdict && sections.SECTIONS[verdict.home] ? verdict.home : '');
 const isMoney = text => /\d/.test(text) && (/\p{Sc}/u.test(text) || /\b[A-Z]{3}\b/.test(text));   // an amount by its shape: a number with a currency sign or code
 
 function split(text) {
@@ -68,10 +70,10 @@ export function itemsOf(outline, page, {withOpen = false} = {}) {
 export function staleOpen(open, items, judged) {
   const answered = new Set();
   for (const item of items) {
-    const verdict = judged.get(item.id), home = item.home || (verdict && verdict.home !== 'stay' ? verdict.home : '');
+    const verdict = judged.get(item.id), home = item.home || placed(verdict);
     if (home && verdict?.topic) answered.add(`${home}\n${verdict.topic}`);
   }
-  return open.filter(item => { const verdict = judged.get(item.id); return verdict && verdict.home !== 'stay' && answered.has(`${verdict.home}\n${verdict.topic}`); });
+  return open.filter(item => { const verdict = judged.get(item.id); return placed(verdict) && answered.has(`${verdict.home}\n${verdict.topic}`); });
 }
 
 // items -> Map(id -> {home, topic}); one small call. A mangled id, an unknown home or no topic keeps the item where it is.
@@ -93,7 +95,7 @@ export function planOf(items, judged) {
   const groups = new Map();
   for (const item of items) {
     const verdict = judged.get(item.id);
-    const home = item.home || (verdict && verdict.home !== 'stay' ? verdict.home : '');
+    const home = item.home || placed(verdict);
     if (!home) continue;
     const topic = (!item.home && verdict?.topic) || `line ${same(item.label || item.value)}`;
     const key = `${home}\n${topic}`;
@@ -116,6 +118,14 @@ export function planOf(items, judged) {
     }
   }
   return {moves, conflicts};
+}
+
+// The lines the AI could not place, kept for "Where does this go?" (lib/details-review.js) as {page, label, value}: found again by their words.
+export function keepUnsure(storage, items, now = new Date()) {
+  const known = storage.settings().profileUnsure || [];
+  const fresh = items.map(({page, label, value}) => ({page, label, value})).filter(each => !known.some(old => old.page === each.page && same(old.label) === same(each.label) && same(old.value) === same(each.value)));
+  storage.saveSettings({profileUnsure: [...known, ...fresh], profileUnsureAt: now.toISOString()});
+  return fresh.length;
 }
 
 // Both pages as text, copied into the app's folder (with Notion they live nowhere else on this Mac), then the backup that takes the folder.
@@ -142,6 +152,7 @@ export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = s
   const stale = staleOpen(open, items, judged);
   storage.saveSettings({profileConflicts: conflicts});
   const judgedNow = Boolean(ai.client || ai.apiKey);   // judged once: a Profile with nothing to move is not asked again
+  if (judgedNow) keepUnsure(storage, items.filter(item => !item.home && judged.get(item.id)?.home === 'unsure'), now);
   if (!moves.length && !stale.length) { if (judgedNow) storage.saveSettings({profileMovedAt: now.toISOString()}); return {moved: 0, conflicts, cleared: 0}; }
   const kept = await copy(storage, {fetcher, now});
   const before = items.map(item => same(item.value));
