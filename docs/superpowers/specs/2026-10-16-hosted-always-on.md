@@ -219,7 +219,7 @@ Hosted Always on for trial users needs the **trial budget, not payments** (owner
 - [x] PR 2 (engine + image): `--hosted` entry, Dockerfile, R2 round-trip (proof: tests/test_hosted_run.py)
 - [ ] PR 3 (site): cron tick, Queue, container start, trial-budget debit, global caps, 14-day auto-pause, guards, export and delete (proof: site/test/hosted-guards.test.js)
 - [ ] PR 0 (site, job-pilotto-a6, #1094): migration 0082 trial columns on `pro_accounts`, `createAccount(..., {plan})` (proof: site/test/pro-credit.test.js)
-- [ ] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling (proof: site/test/hosted-notify.test.js)
+- [x] PR 3c (site): email sender, daily digest, one-click stop link, bounce handling, trial/lifecycle mail off by default (#1115), digest hold + daily/weekly cadence (#1116, #1117), branded frame + Email settings page (#1124) Sends nothing until `MAIL="on"`. (proof: site/test/mail-frame.test.js @52f2e8a)
 - [ ] PR 4 (app): onboarding switch on + disclosure + email field, inbox merge, Settings, sidebar, ⌘K, run card, shots (proof: desktop/test/hosted-search.test.js)
 - [x] Owner decides the Free AI monthly cap: stop $200, alert $100 (proof: none: decided by the owner via cc, 16 Oct; the wrangler.toml change is its own small site PR)
 - [ ] Test end to end; owner flips `HOSTED_ALWAYS_ON=on`
