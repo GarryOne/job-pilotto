@@ -272,9 +272,9 @@ details.questions[open] { padding-bottom: 6px; }
 details.questions > p { margin: 0 0 6px; }
 .question { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
 .question label { font-weight: 600; font-size: var(--fs-sm); margin: 0; }
-.question input { font-size: var(--fs-sm); }
+.question input, .question select, .question textarea { font-size: var(--fs-sm); }
 .question label small { font-weight: 400; color: var(--muted); }
-.question input { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-md); font: inherit; }
+.question input, .question select, .question textarea { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-md); font: inherit; }
 .question .message { grid-column: 1 / -1; }
 .toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
 .toast { background: var(--navy); color: var(--on-accent); border-radius: var(--r-md); padding: 12px 14px; box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .3); display: grid; gap: 4px; cursor: pointer; font-size: var(--fs-md); }
@@ -577,7 +577,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 @media (prefers-reduced-motion: reduce) { .last-search[data-state="busy"] .dot { animation: none; } }
 /* Answer once rows at the list's scale; the per-row error line only takes space when it says something. */
 .question .message:empty { display: none; }
-.question input { font-size: var(--fs-sm); padding: 5px 8px; }
+.question input, .question select, .question textarea { font-size: var(--fs-sm); padding: 5px 8px; }
 .question button { font-size: var(--fs-sm); padding: 5px 10px; }
 
 /* ---------- Interviews (redesign): consent card, local recordings, interview library ---------- */
