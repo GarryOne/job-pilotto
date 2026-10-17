@@ -74,3 +74,30 @@ test('the Operations Overview draws the section tiles above the time page', asyn
   for (const page of headlinePages(PAGES.find(item => item.path === '/admin/operations/overview').group)) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
   assert.match(html, /class="tile/);
 });
+
+test('Form filling: real use under 3 installs says "Too few" with its counts, 3 installs give a percentage', async () => {
+  const e = env(), card = (id, install) => e.STATS.db.prepare("INSERT INTO fill_cards (id, day, board, required, filled, install, source) VALUES (?, '2026-10-14', 'b', 10, 8, ?, 'user')").run(id, install);
+  card('a', 'i1'); card('b', 'i1');
+  const [few] = await HEADLINES['/admin/real-form-filling'](e, now);
+  assert.deepEqual([few.value, few.status, few.few, few.sub.includes('2 forms from 1 install')], ['Too few', 'none', true, true]);
+  card('c', 'i2'); card('d', 'i3');
+  const [enough] = await HEADLINES['/admin/real-form-filling'](e, now);
+  assert.deepEqual([enough.value, enough.status], ['80%', 'good']);
+});
+
+test('Form filling: the benchmark tile reads the stored snapshot and the learning tiles read the recipe table', async () => {
+  const e = env();
+  e.STATS.db.prepare('INSERT INTO benchmark_snapshot (id, at, body) VALUES (1, ?, ?)').run('2026-10-15T00:00:00Z', JSON.stringify({segments: {'thin:user': {tools: [{tool: 'Our extension', ours: true, raw: 81}, {tool: 'Other', ours: false, raw: 70}], trend: [{raw: 60}, {raw: 81}]}}}));
+  const [bench] = await HEADLINES['/admin/benchmark-form-filling'](e, now);
+  assert.deepEqual([bench.value, bench.status, bench.series], ['81% vs 70%', 'none', [60, 81]]);
+  const rows = await HEADLINES['/admin/form-learning'](e, now);
+  assert.equal(rows.find(tile => tile.label === 'Learned recipes').value, '0');
+});
+
+test('the Form filling Overview is the first tab, draws a tile per page, and is owner-only', async () => {
+  const first = PAGES.find(page => page.group === 'Form filling');
+  assert.equal(first.overview, true);
+  assert.equal((await call(env(), first.path)).status, 404);
+  const html = await (await call(env(), first.path, owner)).text();
+  for (const page of headlinePages('Form filling')) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
+});
