@@ -14,7 +14,7 @@ export async function ensure(storage, labels, {answered = [], company = '', host
   if (!fresh.length || !(ai.client || ai.apiKey)) return {verdicts: known, usage: null};
   const found = await classify({labels: fresh, answered, company, host, apiKey: ai.apiKey, client: ai.client});
   const next = {...known};
-  for (const [label, verdict] of found) next[keyOf(label)] = {...verdict, asked: 1, at: new Date().toISOString().slice(0, 10)};
+  for (const [label, verdict] of found) next[keyOf(label)] = {...verdict, question: label, asked: 0, at: new Date().toISOString().slice(0, 10)};
   const keys = Object.keys(next);
   for (const key of keys.slice(0, Math.max(0, keys.length - MAX))) delete next[key];
   storage.saveSettings({questionVerdicts: next});
@@ -37,3 +37,21 @@ export async function judge(storage, labels, options = {}) {
   const {verdicts} = await ensure(storage, labels, options);
   return new Set(labels.filter(label => { const v = verdicts[keyOf(label)]; return v?.reuse === 'reusable' && !v.covered_by; }));
 }
+
+// A fill met these questions again: how many forms asked each, that a required one blocked the fill, and which job asked (a one-job question shows in that job's drawer).
+export function record(storage, labels, {url = '', company = ''} = {}) {
+  const known = cached(storage), next = {...known};
+  let changed = false;
+  for (const label of labels) {
+    const entry = next[keyOf(label)];
+    if (!entry) continue;
+    const jobs = (entry.jobs || []).filter(job => job.url !== url);
+    next[keyOf(label)] = {...entry, question: entry.question || label, asked: (entry.asked || 0) + 1, blocked: true, jobs: url ? [...jobs, {url, company}].slice(-5) : jobs};
+    changed = true;
+  }
+  if (changed) storage.saveSettings({questionVerdicts: next});
+}
+
+// The questions only this job asked ([{question}]): read from the kept verdicts, shown in the job's drawer.
+export const forJob = (storage, url) => Object.values(cached(storage)).filter(entry => entry.reuse === 'one_job' && (entry.jobs || []).some(job => job.url === url))
+  .map(entry => ({question: entry.question || ''})).filter(entry => entry.question);

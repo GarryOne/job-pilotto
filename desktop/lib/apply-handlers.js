@@ -251,7 +251,8 @@ export function registerApplyHandlers(ctx) {
   });
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve({list: storage.settings().openQuestions || [], hidden: storage.settings().hiddenQuestions || []}) : questionLists.openShown(storage))
-    .then(({list, hidden}) => ({ok: true, list, hidden}), error => ({ok: false, error: error.message, list: [], hidden: []})));
+    .then(({list, hidden, consent = 0}) => ({ok: true, list, hidden, consent}), error => ({ok: false, error: error.message, list: [], hidden: []})));
+  ipcMain.handle('jobQuestions', (_, url) => questionLists.jobQuestions(storage, url));
   // Profile → Needs review: the AI's verdict per open question (kept per question), filtered in the window by the same rule.
   ipcMain.handle('questionVerdicts', (_, labels) => (DEMO ? Promise.resolve({verdicts: storage.settings().questionVerdicts || {}}) : questionLists.reviewVerdicts(storage, (labels || []).map(String).slice(0, 200)))
     .then(({verdicts}) => ({ok: true, verdicts}), error => ({ok: false, error: error.message, verdicts: {}})));

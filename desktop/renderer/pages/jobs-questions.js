@@ -24,16 +24,16 @@ export async function loadQuestions({force = false} = {}) {
     }
   }
   if (!force && questionsReadAt && Date.now() - questionsReadAt < QUESTIONS_FRESH_MS && Array.isArray(cached)) return;   // fresh enough: what is shown stands
-  const {list, hidden = [], error} = await window.pilot.openQuestions();
+  const {list, hidden = [], consent = 0, error} = await window.pilot.openQuestions();
   $('questions').classList.remove('is-loading');
   if (!error) questionsReadAt = Date.now();
   if (error && Array.isArray(cached)) return;  // Notion unreachable: keep the saved questions
   if (!error) try { localStorage.setItem(QUESTIONS_CACHE, JSON.stringify(list)); } catch {}
-  renderQuestions(list, error, hidden);
+  renderQuestions(list, error, hidden, consent);
 }
 let showHidden = false;
-function renderQuestions(list, error = '', hidden = []) {
-  const shown = JSON.stringify([list, error, hidden, showHidden]);
+function renderQuestions(list, error = '', hidden = [], consent = 0) {
+  const shown = JSON.stringify([list, error, hidden, showHidden, consent]);
   if (shown === questionsShown) return;
   questionsShown = shown;
   // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.
@@ -72,15 +72,18 @@ function renderQuestions(list, error = '', hidden = []) {
     row.append(label, input, save, skip, note);
     return row;
   }));
-  hiddenLink(list, hidden, error);
+  hiddenLink(list, hidden, error, consent);
 }
 
 // "N hidden · show": what the shared filter (renderer/question-filter.js) set aside stays reachable, never deleted.
-function hiddenLink(list, hidden, error) {
-  const old = $('questions-hidden');
-  old?.remove();
+function hiddenLink(list, hidden, error, consent) {
+  $('questions-hidden')?.remove();
+  $('questions-consent')?.remove();
   if (error || !hidden.length) return;
   const link = Object.assign(document.createElement('button'), {id: 'questions-hidden', className: 'link', type: 'button', textContent: showHidden ? 'Hide the others' : `${hidden.length} hidden · show`});
-  link.addEventListener('click', () => { showHidden = !showHidden; questionsShown = ''; renderQuestions(list, error, hidden); });
+  link.addEventListener('click', () => { showHidden = !showHidden; questionsShown = ''; renderQuestions(list, error, hidden, consent); });
   $('questions-list').after(link);
+  // Consent boxes are not text questions and never ticked for you on a form: said once, with where to tick them.
+  if (consent) link.after(Object.assign(document.createElement('p'), {id: 'questions-consent', className: 'muted small',
+    textContent: 'Terms and consent boxes are never ticked for you; use “Tick these for me” in the page panel on each form.'}));
 }

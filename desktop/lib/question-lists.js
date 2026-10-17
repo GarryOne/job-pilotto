@@ -11,7 +11,7 @@ const answeredNow = async (storage, groups) => verdicts.answeredOf(storage, grou
 // Jobs → Answer once: {list: shown (a covered question carries .proposal), hidden: [...], usage}.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {
   const {shown, hidden, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups), ai});
-  return {list: shown, hidden, usage};
+  return {list: shown, hidden, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
 
 // Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions.
@@ -28,3 +28,6 @@ export function filterGroups(storage, groups) {
     return {...group, items: group.items.filter(item => !item.open || shown.some(each => each.question === item.question))};
   }).filter(group => group.items.length);
 }
+
+// A job's drawer: the questions only this job asked.
+export const jobQuestions = (storage, url) => verdicts.forJob(storage, String(url || ''));
