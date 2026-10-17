@@ -2,7 +2,7 @@
 // block or table cell, and the copy of the current strategy kept before a new one replaces it. Re-exported by notion.js.
 // Guarded by desktop/test/notion-cache.test.js, notion.test.js and notion-fresh.test.js.
 // ---------- text blocks of a page (the standard answers' ❓ lines, the 🧠 Form knowledge bullets) ----------
-import {call, listChildren, trees, reading, CHECKED_MS, SETTLE_MS, MAX_AGE_MS} from './notion-core.js';
+import {call, listChildren, trees, reading, writes, CHECKED_MS, SETTLE_MS, MAX_AGE_MS} from './notion-core.js';
 const plainOf = block => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('');
 // Every block with text, in page order, down to toggles and nested lists (2 levels): [{id, type, text, parent}].
 
@@ -28,8 +28,9 @@ export async function pageTree(token, pageId, fetcher = globalThis.fetch, {cache
     try { edited = (await call(token, 'GET', `pages/${pageId}`, null, fetcher)).last_edited_time || ''; } catch { /* not a page: read it */ }
     const settled = edited && Date.now() - Date.parse(edited) > SETTLE_MS;
     if (young && settled && kept.edited === edited) { kept.checkedAt = Date.now(); return kept.blocks; }
-    const blocks = await readTree(token, pageId, fetcher);
-    trees.set(key, {edited, blocks, checkedAt: Date.now(), readAt: started});
+    const before = writes.count, blocks = await readTree(token, pageId, fetcher);
+    if (writes.count === before) trees.set(key, {edited, blocks, checkedAt: Date.now(), readAt: started});
+    else trees.delete(key);   // the app wrote during the read: it may have missed it
     return blocks;
   })().finally(() => reading.delete(key));
   reading.set(key, job);

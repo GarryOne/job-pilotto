@@ -55,7 +55,7 @@ function count(method, route) {
 export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4, pace = fetcher === globalThis.fetch} = {}) {
   for (let attempt = 0; ; attempt++) {
     if (pace) { await turn(token); count(method, route); }
-    if (method !== 'GET') forgetChecks();  // the app changed something: kept pages are checked again before use
+    if (method !== 'GET') forgetWrite(route);  // the app changed something: the page it wrote is read again, the others checked
     const started = Date.now();
     const response = await fetcher(API + route, {
       method,
@@ -141,10 +141,23 @@ export const listBlocks = (token, pageId, fetcher) => listChildren(token, pageId
 // read the same pages (contact details, standard answers, the Profile for AI calls, form knowledge), so a page's
 // blocks are kept and read again only when Notion says the page changed: one cheap request for its
 // last_edited_time. Notion rounds that time to the minute, so a page edited in the last 2 minutes is always read
-// again. A check less than 20 s old is reused (a fill reads 3 pages at once); any write the app makes clears the
+// again. A check less than 20 s old is reused (a fill reads 3 pages at once); a write drops the page it touched and clears the
 // checks; everything is read again at least every 10 minutes. Notion stays the source of truth.
 export const trees = new Map();    // "token|page" -> {edited, blocks, checkedAt, readAt}
 export const reading = new Map();  // reads under way, shared by everyone asking for the same page
 export const CHECKED_MS = 20_000, SETTLE_MS = 120_000, MAX_AGE_MS = 10 * 60_000;
 export const _trees = {reset: () => { trees.clear(); reading.clear(); }};  // tests
-const forgetChecks = () => { for (const tree of trees.values()) tree.checkedAt = 0; };
+// A write drops the kept page it touched (the page itself, or one of its blocks at any kept depth): Notion's edit time can stay the same after it
+// (17 Oct 2026: the Your details move read its own sections back from the kept page and wrote them twice). Every other kept page is checked again.
+// A read under way while the app writes is not kept (it may have missed the write).
+const bare = id => String(id || '').replace(/-/g, '');
+const holds = (blocks, id) => (blocks || []).some(block => bare(block.id) === id || holds(block.children, id));
+export const writes = {count: 0};
+function forgetWrite(route) {
+  writes.count++;
+  const [kind, id] = route.split(/[?]/)[0].split('/'), target = ['blocks', 'pages'].includes(kind) ? bare(id) : '';
+  for (const [key, tree] of trees) {
+    if (target && (bare(key.split('|').pop()) === target || holds(tree.blocks, target))) trees.delete(key);
+    else tree.checkedAt = 0;
+  }
+}
