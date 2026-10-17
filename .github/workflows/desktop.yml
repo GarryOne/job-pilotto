@@ -105,13 +105,7 @@ jobs:
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "Changes since ${tag:-the start}: building."
-            # The offline replay gate (owner, 14 Oct 2026): the nightly builds only a commit whose replay of the pool rows is green; none yet = start one and wait.
-            verdict=$(tools/nightly-replay-gate.sh | tail -1)
-            if [ "$verdict" != pass ]; then
-              echo "### ⛔ No nightly beta: ${verdict#fail: }" >> "$GITHUB_STEP_SUMMARY"
-              CI_ALERTS_TELEGRAM_BOT_TOKEN="$ALERT_TOKEN" CI_ALERTS_TELEGRAM_CHAT_ID="$ALERT_CHAT" node desktop/e2e/ci-alert.mjs failure "No nightly beta: ${verdict#fail: }" "The nightly builds again once the offline replay is green" || true
-              echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
-            fi
+            # No offline replay gate (owner, 17 Oct 2026: replays are for debugging; the beta is gated by the e2e suites, page cases and unit tests, the daily live check reports real-site health separately).
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
       # Something to build: the release both lanes add their files to, here so each lane starts straight from this job (owner, 7 Oct 2026: "Anything new should

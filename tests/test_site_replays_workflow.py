@@ -36,10 +36,10 @@ class ReplayOfflineWorkflow(unittest.TestCase):
         for word in ('ANTHROPIC', 'OPENAI', 'claude -p', 'secrets: inherit'):
             self.assertNotIn(word, WORKFLOW)
 
-    def test_the_nightly_builds_only_after_a_green_replay(self):
+    def test_the_nightly_no_longer_waits_for_a_replay(self):
         desktop = (ROOT / '.github' / 'workflows' / 'desktop.yml').read_text()
-        self.assertIn('tools/nightly-replay-gate.sh', desktop)
-        self.assertIn('No nightly beta:', desktop)
+        self.assertNotIn('nightly-replay-gate', desktop, 'owner, 17 Oct 2026: the beta is gated by the e2e suites, page cases and unit tests')
+        self.assertFalse((ROOT / 'tools' / 'nightly-replay-gate.sh').exists())
 
 
     def test_the_mac_records_come_from_the_private_repo_with_a_read_only_token(self):
@@ -86,7 +86,7 @@ class DailyOnlyNotOnPrs(unittest.TestCase):
             self.assertNotRegex(on, r'(?m)^  (schedule|push):', f'{name}: replays are for debugging (owner, 17 Oct 2026)')
             self.assertIn('workflow_dispatch:', on, name)
         scheduler = (ROOT / 'worker' / 'src' / 'scheduler.js').read_text()
-        self.assertNotIn("workflow: 'site-replays.yml'", scheduler, 'the Worker starts no replay (the nightly gate starts one when its commit has none)')
+        self.assertNotIn("workflow: 'site-replays.yml'", scheduler, 'the Worker starts no replay')
         self.assertNotIn('gh workflow run replay-refill', (self.WF / 'site-replays.yml').read_text(), 'no refill trigger from the replay')
 
 
