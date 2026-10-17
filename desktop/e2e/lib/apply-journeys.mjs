@@ -311,6 +311,8 @@ export async function runJourneys(ctx, h) {
       throw new Error(`"Needs your attention" does not list Notice period (rows: ${(await page.locator('li.ss-need').allInnerTexts().catch(() => [])).map(text => text.replace(/\s+/g, ' ').slice(0, 60)).join(' | ') || 'none'})`);
     });
     const choice = row.locator('select.ss-ask-input');
+    // The row is drawn first and its menu a moment after (Windows, run 910: the check ran 0.7 s after the fill ended); a row that never gets one is the lost proposal.
+    await choice.first().waitFor({state: 'attached', timeout: 15000}).catch(() => {});
     if (!await choice.count()) problems.push('the row has no menu of the form\'s choices (a bare row: the proposal was lost)');
     else {
       const offered = (await choice.locator('option').allInnerTexts()).filter(Boolean);   // read before Use: the row leaves once the form has the answer
