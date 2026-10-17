@@ -16,14 +16,19 @@ const drafts = new Map();   // answer id → the value typed; new questions unde
 let added = 0, tab = null, rulesOpen = false;
 
 const valueOf = item => drafts.get(item.id) ?? item.value;
-const missing = item => item.open && !valueOf(item);
+const missing = item => item.open && !item.optional && !valueOf(item);
+// Sections are collapsed by default (owner, 17 Oct 2026); the ones the person opened are remembered on this Mac.
+const OPEN_KEY = 'answersOpenSections';
+const remembered = () => { try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]')); } catch { return new Set(); } };
+const remember = set => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...set])); } catch {} };
+const openSections = remembered();
 
 function setAnswer(view, item, text) {
   if (text === item.value) { drafts.delete(item.id); view.undo(TEXT, changeFor(item, text)); } else { drafts.set(item.id, text); view.change(TEXT, changeFor(item, text)); }
 }
 
 // One row: chevron · question (and its hint) · its answer or "Not set" · Add answer / Edit; open, the answer field under it.
-function row(view, {key, title, under, value, needs, field}) {
+function row(view, {key, title, under, value, needs, field, optional = false}) {
   const isOpen = opened.has(key);
   const head = el('div', `qa-row${isOpen ? ' is-open' : ''}`);
   const toggle = () => { if (isOpen) opened.delete(key); else opened.add(key); view.redraw(); };
@@ -34,7 +39,7 @@ function row(view, {key, title, under, value, needs, field}) {
   if (under) words.append(el('span', 'muted small', under));
   const action = Object.assign(el('button', needs ? 'secondary qa-add' : 'secondary', needs ? 'Add answer' : 'Edit'), {type: 'button'});
   action.addEventListener('click', () => { opened.add(key); view.redraw(); });
-  head.append(chevron, words, el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : 'Not set'), action);
+  head.append(chevron, words, el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'), action);
   if (!isOpen) return [head];
   const edit = el('div', 'qa-edit');
   edit.append(labelled('Answer', field()), el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
@@ -42,7 +47,7 @@ function row(view, {key, title, under, value, needs, field}) {
 }
 
 const answerRow = (view, item) => row(view, {key: item.id, title: item.kind === 'note' ? 'Note' : shown(item.question),
-  under: item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), value: valueOf(item), needs: missing(item),
+  under: item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), value: valueOf(item), needs: missing(item), optional: item.optional,
   field: () => input(valueOf(item), text => setAnswer(view, item, text), {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', ariaLabel: item.question || 'Note'})});
 
 function newQuestion(view, key, list) {
@@ -77,7 +82,7 @@ function draw(view, into) {
 
   // Needs review: what forms will still ask (an answer not set, a website rule with no value).
   const inScope = section => !filters.section || section.title === filters.section;
-  const open = list.filter(inScope).flatMap(section => section.items.filter(item => item.open && !drafts.has(item.id) && matches(item, {query: filters.query}))
+  const open = list.filter(inScope).flatMap(section => section.items.filter(item => item.open && !item.optional && !drafts.has(item.id) && matches(item, {query: filters.query}))
     .map(item => ({item, section})));
   const ruleRows = filters.section ? [] : reviewRows(view, filters.query).filter(each => !each.value);
   if (open.length || ruleRows.length) {
@@ -96,7 +101,13 @@ function draw(view, into) {
     const items = section.items.filter(item => matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query, attention: filters.review}));
     if (!items.length) continue;
     any = true;
-    const box = card(shown(section.title) || 'Your answers', 'file-text', section.items.some(missing) ? [pill('Some answers are missing', 'warn', {dot: true})] : []);
+    const title = shown(section.title) || 'Your answers', gaps = section.items.filter(missing).length;
+    const box = el('details', 'answer-item qa-section');
+    box.open = openSections.has(title) || !!filters.query || filters.review || !!filters.section;   // a search or filter shows what it found
+    box.addEventListener('toggle', () => { if (filters.query || filters.review || filters.section) return; if (box.open) openSections.add(title); else openSections.delete(title); remember(openSections); });
+    const head = el('summary', 'qa-section-head');
+    head.append(icon('file-text'), el('h4', '', title), el('span', 'muted small', `${section.items.length - gaps} set · ${gaps} missing`));
+    box.append(head);
     for (const item of items) box.append(...answerRow(view, item));
     into.append(box);
   }

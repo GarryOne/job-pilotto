@@ -13,10 +13,11 @@ const plain = text => String(text).replace(/\*\*/g, '').replace(/[\s:*]+$/, '').
 // "❓ to confirm — leave blank" → {open: true, hint: 'leave blank'}; "❓ (asked by Acme)" → {open, asked: 'Acme'}; "Leave blank" → {open: false}.
 export function valueOf(raw) {
   const text = String(raw ?? '').trim();
-  if (!UNSET.test(text)) return {open: false, value: text, hint: '', asked: ''};
+  if (!UNSET.test(text)) return {open: false, optional: false, value: text, hint: '', asked: ''};
   const asked = text.match(ASKED)?.[1] || '';
   const hint = text.replace(UNSET, '').replace(ASKED, '').replace(/^\(|\)$/g, '').replace(/^(to confirm|optional)\s*[—:-]?\s*/i, '').trim();
-  return {open: true, value: '', hint, asked};
+  // "❓ optional": the drafting AI found nothing in the CV for it (GitHub, a portfolio): it stays on the page but is not "missing".
+  return {open: true, optional: /^\s*❓\s*optional\b/i.test(text), value: '', hint, asked};
 }
 
 // "**Notice:** 3 months" → {head: '**Notice:**', question: 'Notice', raw: '3 months'}; a line with no label → null.
