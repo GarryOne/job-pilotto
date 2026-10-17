@@ -81,10 +81,14 @@ def cli_limit(error):
 def limit_reason(error):
     """The limit in a few words, for the run's log ("AI limit reached: …"): the chosen engine's, when it can't go on."""
     if not cli_limit(error):
-        return 'Anthropic API spending limit'
+        from .providers.contract import error_facts
+        said = error_facts(error)
+        return 'Anthropic API spending limit' + (f' ({said})' if said else '')
     from . import providers
+    from .providers.contract import error_facts
     chosen = providers.spec()
-    return 'Claude Code (your Claude plan) cannot go on' if chosen.name in ('api', 'cli') else f'{chosen.label} cannot go on'
+    said = error_facts(error)   # status, code, model, engine: tells a spent limit from a refused key or a model the key may not use
+    return ('Claude Code (your Claude plan) cannot go on' if chosen.name in ('api', 'cli') else f'{chosen.label} cannot go on') + (f' ({said})' if said else '')
 
 
 def limit_message(error, what, retry=''):

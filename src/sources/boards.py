@@ -20,6 +20,7 @@ from ..paths import DATA, REPORTS, keyword_regex, load_search_config
 from .feeds import wanted_title
 from ..ai.models import SMALL_MODEL
 from ..ai import meanings_pack
+from ..ai.providers.contract import named
 _SEARCH = load_search_config()
 ROLE = keyword_regex(_SEARCH['board_discovery_keywords'])
 CAREER = meanings_pack.matcher('page-words', 'board_careers_link')   # the meanings pack: the old list (seed) + rows the site adds
@@ -322,7 +323,7 @@ def board_queries(search, client=None):
         cost.side(QUERIES_MODEL, response.usage)
         queries = [str(q).strip()[:40] for q in json.loads(next(b.text for b in response.content if b.type == 'text')).get('queries') or [] if str(q).strip()][:8]
     except Exception as error:  # noqa: BLE001 — the user's own board searches only, this time
-        print(f'Job boards: searches from your roles not worked out ({type(error).__name__}); your own board searches only', flush=True)
+        print(f'Job boards: searches from your roles not worked out ({named(error)}); your own board searches only', flush=True)
         return []
     store.parent.mkdir(parents=True, exist_ok=True)
     store.write_text(json.dumps({key: queries}, ensure_ascii=False))
@@ -421,7 +422,7 @@ def main():
     from . import feeds
     board_jobs=[job for _,_,_,fresh in pages_found for job in fresh]
     try:feeds.triage_places(board_jobs);feeds.triage(board_jobs)
-    except Exception as e:print(f'Warning: job board titles not checked by AI ({type(e).__name__}): your role words decide',flush=True)
+    except Exception as e:print(f'Warning: job board titles not checked by AI ({named(e)}): your role words decide',flush=True)
     for url,listed,found,fresh in pages_found:
         fit=[job for job in found if feeds.wanted_title(job['title'])];fit_fresh=[job for job in fresh if feeds.wanted_title(job['title'])]
         jobs.extend(fit_fresh);sources.append({'source':url,'status':jobsch_status(listed,len(fit),len(fit_fresh))})

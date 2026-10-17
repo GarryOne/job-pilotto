@@ -25,6 +25,7 @@ import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
 import {readdirSync} from 'node:fs';
+import {checkKeyAccepted} from './key-check.mjs';
 export const SUITES = readdirSync(path.join(E2E, 'suites')).filter(file => file.endsWith('.mjs')).map(file => file.slice(0, -4)).sort();
 const KEY = () => testKey();   // empty on a Mac, whatever the environment holds: the key is for CI (lib/engine.mjs)
 // Each suite has its own Notion page and connection, so suites can run at the same time. E2E_NOTION_TOKEN is the wizard's; a suite without its own token falls
@@ -54,6 +55,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
   const key = light ? KEY() : testKey(process.env, engine), token = runToken({store, standIn, light, fromEnv: () => notionToken(notionTokenOf || suite, {own: store === 'notion'})});
   if (!light) console.log(`  AI family under test: ${familyOf(engine) === 'openai' ? 'OpenAI' : 'Claude'} (engine ${engine}${isCi() ? `, CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: odd runs OpenAI, even runs Claude` : ''})`);
+  if (!light && isCi()) await checkKeyAccepted({engine, key});   // a refused key stops the suite here, named, not as a puzzling AI step later
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).

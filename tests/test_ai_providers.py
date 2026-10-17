@@ -107,6 +107,52 @@ class AdapterTests(unittest.TestCase):
         self.assertIn(contract.AiUnavailable, engine.transient_errors())
 
 
+
+class ErrorFactsTests(unittest.TestCase):
+    """A failed call says what the provider said (status, code), the model asked for and the engine, in every provider: 17 Oct 2026, "AI limit reached:
+    OpenAI API cannot go on" could not be told from a refused key. Never the message text (it can echo a key or a prompt)."""
+
+    def adapters(self):
+        from src.ai.providers.claude_code import ClaudeCode
+        from src.ai.providers.codex_cli import Codex
+        from src.ai.providers.openai_api import OpenAIApi
+        return [AnthropicApi(client=object()), OpenAIApi(client=object()), ClaudeCode(binary='x'), Codex(binary='x')]
+
+    def test_every_engine_is_checked(self):
+        self.assertEqual(sorted(adapter.name for adapter in self.adapters()), sorted(providers.ENGINES))
+
+    def test_every_provider_error_names_status_code_model_and_engine_and_never_the_message(self):
+        for adapter in self.adapters():
+            class Refused(Exception):
+                status_code, code = 401, 'invalid_api_key'
+            def complete(request, _error=Refused('Incorrect API key provided: sk-secret-1234')):
+                raise _error
+            adapter.complete = complete
+            with self.assertRaises(Refused) as caught:
+                adapter.create(**PARAMS)
+            said = contract.named(caught.exception)
+            for part in ('HTTP 401', 'invalid_api_key', 'model claude-haiku-5-5', f'engine {adapter.name}'):
+                self.assertIn(part, said, adapter.name)
+            self.assertNotIn('sk-secret', said)
+
+    def test_openai_contract_errors_keep_the_status_and_code(self):
+        from src.ai.providers import openai_api
+        sdk = type('PermissionDeniedError', (Exception,), {'__module__': 'openai.errors'})
+        for status, code, kind in ((401, 'invalid_api_key', contract.AiLimit), (403, 'model_not_found', contract.AiLimit),
+                                   (429, 'insufficient_quota', contract.AiLimit), (429, 'rate_limit_exceeded', contract.AiUnavailable),
+                                   (400, 'invalid_prompt', contract.AiError)):
+            error = sdk('text')
+            error.status_code, error.code = status, code
+            mapped = openai_api.error_of(error)
+            self.assertIsInstance(mapped, kind)
+            self.assertIn(f'HTTP {status} {code}', contract.named(mapped))
+    def test_the_limit_line_carries_the_facts(self):
+        from src.ai import cost
+        error = contract.AiLimit('Your OpenAI key was refused.', final=True)
+        error.ai_status, error.code, error.ai_model, error.ai_engine = 401, 'invalid_api_key', 'gpt-x', 'openai'
+        self.assertIn('HTTP 401 invalid_api_key, model gpt-x, engine openai', cost.limit_reason(error))
+
+
 class RegistryTests(unittest.TestCase):
     def test_every_engine_is_covered(self):
         self.assertEqual(set(providers.ENGINES), set(ENGINE_CASES), 'a new engine needs a case in ENGINE_CASES')

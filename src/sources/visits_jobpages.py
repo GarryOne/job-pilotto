@@ -11,6 +11,7 @@ from datetime import timedelta
 
 from . import careers
 from ..ai import meanings_pack
+from ..ai.providers.contract import named
 
 
 JOBLIST = meanings_pack.matcher('page-words', 'job_list')   # the meanings pack: the old list (seed) + rows the site adds
@@ -139,7 +140,7 @@ def job_page(url, markup):
         try:
             found = choose(url, markup or '') if choose else []
         except Exception as error:  # noqa: BLE001 — no answer: the page is read as it is
-            print(f'Warning: job list link not chosen for {visits.host_of(url)} ({type(error).__name__})')
+            print(f'Warning: job list link not chosen for {visits.host_of(url)} ({named(error)})')
             found = []
     if not found:   # no careers link and no AI pick: "<company> jobs", as a person would (owner, 7 Oct 2026: the most reliable)
         from . import web_search
@@ -147,7 +148,7 @@ def job_page(url, markup):
             try:
                 found = web_search.job_sites(name, site=url.split('#')[0])
             except Exception as error:  # noqa: BLE001
-                print(f'Warning: web search for {name} jobs failed ({type(error).__name__})')
+                print(f'Warning: web search for {name} jobs failed ({named(error)})')
                 found = []
     bad = _bad_pages(visits._load(), visits._now())
     page = next((link for link in _best(found, _countries()) if link.split('#')[0] != url.split('#')[0] and link.split('#')[0].rstrip('/') not in bad), None)
