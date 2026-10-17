@@ -205,6 +205,12 @@ async function openQuestions(tab, form, kitAnswers, me, config) {
     !PERSONAL.test(f.field)).map(({field, label, type, required, options, multiple}) => ({field, label, type, required, options, ...(multiple ? {multiple} : {})}));
   return {fromKit, open};
 }
+// Claude's answers for a fill, or the news that they were dropped: api() gives null when the tab had left the page the answer was asked for (read-gen.js), and the fill went on to read
+// null.answers (beta 17 Oct 2026, "Cannot read properties of null (reading 'answers')" shown as "Claude did not answer"). A dropped answer is no error of the fill: the next read of the page asks again.
+export function answersOrDropped(ai) {
+  if (!ai) throw Object.assign(new Error('the tab left this page before Claude answered'), {dropped: true});
+  return ai;
+}
 const askAnswers = async (tab, config, open) => apiFor(tab.id, config, '/extension/answer', {method: 'POST',
   body: JSON.stringify({url: tab.url, fields: open, page_text: await inPage(tab.id, () => window.__jobPilottoPageText()), test: !!config.testMode})});
 // A page that already shows a form (fill-flow.js consider): its open questions go to the AI now, beside the page-kind ask; the fill takes the answer
@@ -406,7 +412,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     onStep(withKit ? `Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`
       : `Claude is answering ${later.length} question${later.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
     try {
-      ai = pendingAI ? await pendingAI : await askAnswers(tab, config, later);
+      ai = answersOrDropped(pendingAI ? await pendingAI : await askAnswers(tab, config, later));
       step('Claude answered (after the fill)');
       if (!withKit) {
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode, asked: later.map(f => f.field)}});
@@ -434,8 +440,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         step('filled Claude\'s answers');
       }
     } catch (error) {
-      aiError = error.message;
-      debug.errors.push(`Claude (after the fill): ${error.message}`);
+      if (error.dropped) debug.errors.push(`Claude (after the fill): ${error.message}`);   // not an AI failure: nothing to tell the person
+      else { aiError = error.message; debug.errors.push(`Claude (after the fill): ${error.message}`); }
     }
   }
   // Fields left for a mechanical reason (a widget the extension couldn't operate): a scrubbed HTML snapshot of each,

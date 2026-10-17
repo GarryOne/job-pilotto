@@ -156,14 +156,18 @@ export async function runJourneys(ctx, h) {
   // (never the Keychain: lib/keychain.js) holds the fixture host's test password with the applicant's email. The extension fills the email and the password, presses
   // "Sign in" once on the account AI's "ready", and the form behind it is filled from the kit; Settings → Credentials lists the host with the email. Then the same
   // page where the site refuses: pressed once, never again, and the person is told (Claude offered, never started).
-  const seedSitePassword = host => {
+  // Under the current profile's name (job-pilotto.profile-<id>.<host>.password, lib/credentials.js serviceOf, 16 Oct 2026): an item without the id is "unassigned" and never
+  // filled, so the extension made a new password, took the register route and ended on a sign-up page with a box only a person ticks (beta 17 Oct 2026, 7-minute budget).
+  const seedSitePassword = async host => {
     const file = path.join(ctx.profile, 'isolated-secrets.json');
     let items = {}; try { items = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { /* the first item */ }
-    items[`job-pilotto.${host}.password`] = {value: SIGNIN_PASSWORD, account: 'job-pilotto', comment: `email=${CONTACT.email}`, created: new Date().toISOString()};
+    let id = ''; try { id = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'settings.json'), 'utf8')).profileId; } catch { /* no settings yet */ }   // lib/profile-accounts.js profileId: made at the app's start
+    if (!/^profile-[0-9a-f]{12}$/.test(String(id || ''))) throw new Error('the app has no profile id in its settings: the seeded site password would be an unassigned one the fill never uses');
+    items[`job-pilotto.${id}.${host}.password`] = {value: SIGNIN_PASSWORD, account: 'job-pilotto', comment: `email=${CONTACT.email}`, created: new Date().toISOString()};
     writePrivate(file, JSON.stringify(items, null, 2));
   };
   const openAccount = async fixture => {
-    seedSitePassword(fixture.accountHost);
+    await seedSitePassword(fixture.accountHost);
     await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [fixture.url, {title: fixture.title, company: fixture.company}]);
     let tab = null;
     for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(fixture.accountUrl)) || null; await pause(1000); }

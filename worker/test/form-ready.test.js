@@ -117,3 +117,33 @@ test('nothing given up on hands nothing to the person (the given-up case is the 
   } finally { Object.assign(globalThis, keep); }
   assert.deepEqual(flagged, []);
 });
+
+// Beta 17 Oct 2026 (sign-in form ending at the person): the judge gave no usable answer, the panel's count claimed ready, and every look asked again: 595 calls in 5 minutes.
+test('a page the judge never answers is asked MAX_NO_ANSWER times, then left alone until it changes', async () => {
+  const {formNext, MAX_NO_ANSWER} = await import('../../extension/form-ready.js');
+  const asked = [];
+  let text = 'Sign in';
+  const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
+  globalThis.chrome = {
+    storage: {local: {get: async () => ({workerUrl: 'http://127.0.0.1:47111', token: 't'}), set: async () => {}}, session: {get: async () => ({}), set: async () => {}}},
+    scripting: {executeScript: async () => [{result: {url: 'https://apply.example/s', title: 'Sign in', headings: [], controls: [], buttons: [], texts: [text], frames: []}}]},
+    runtime: {getManifest: () => ({version: '0'})}};
+  globalThis.fetch = async (url, init) => { asked.push([String(url), JSON.parse(init?.body || '{}')]); return {ok: true, status: 200, json: async () => ({error: 'not an answer'}), text: async () => ''}; };
+  try {
+    for (let look = 0; look < 12; look++) await formNext({id: 90, url: 'https://apply.example/s'}, 0);
+    const first = asked.filter(([url]) => /account-judge/.test(url)).length;
+    assert.equal(first, MAX_NO_ANSWER, `asked ${first} times for one unchanged page`);
+    text = 'Something changed';   // a different page state is asked again
+    await formNext({id: 90, url: 'https://apply.example/s'}, 0);
+    assert.equal(asked.filter(([url]) => /account-judge/.test(url)).length, MAX_NO_ANSWER + 1);
+  } finally { Object.assign(globalThis, keep); }
+});
+
+// Same day: api() hands back null for an answer dropped as late; the fill read null.answers and the app logged "Claude did not answer the questions".
+test('Claude\'s answers dropped as late are a dropped answer, not a crash reading null.answers', async () => {
+  const {answersOrDropped} = await import('../../extension/flow.js');
+  assert.throws(() => answersOrDropped(null), error => error.dropped === true && !/Cannot read properties/.test(error.message));
+  assert.throws(() => answersOrDropped(undefined), error => error.dropped === true);
+  const found = {answers: [], eligible: true};
+  assert.equal(answersOrDropped(found), found);
+});
