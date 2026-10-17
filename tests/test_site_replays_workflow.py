@@ -47,7 +47,7 @@ class ReplayOfflineWorkflow(unittest.TestCase):
         fetch = (ROOT / 'desktop' / 'e2e' / 'net-records-fetch.sh').read_text()
         self.assertIn('GarryOne/job-pilotto-internal', fetch)
         self.assertIn('NET_RECORDS_READ_TOKEN', fetch)
-        for name in ('site-replays.yml', 'site-replays-pr.yml'):
+        for name in ('site-replays.yml',):
             flow = (ROOT / '.github' / 'workflows' / name).read_text()
             self.assertIn('bash net-records-fetch.sh', flow, name)
             self.assertIn('secrets.NET_RECORDS_READ_TOKEN', flow, name)
@@ -67,6 +67,31 @@ class BaselineReadsOldRuns(unittest.TestCase):
             out = subprocess.run(['bash', str(ROOT / 'desktop' / 'e2e' / 'replay-baseline.sh'), str(Path(tmp) / 'dir')], capture_output=True, text=True, env=env, timeout=30)
             self.assertTrue(out.stdout.strip().endswith('results.json'), out.stdout + out.stderr)
         self.assertIn('replay-offline.yml', (ROOT / '.github' / 'workflows' / 'site-replays.yml').read_text(), 'the workflow\'s own baseline step reads the old name too')
+
+
+class DailyOnlyNotOnPrs(unittest.TestCase):
+    """Owner, 17 Oct 2026: site replays and journeys are off PRs, scheduled once a day; the refill starts only for the rows the daily run flags."""
+    WF = ROOT / '.github' / 'workflows'
+
+    def test_no_replay_or_journey_workflow_starts_on_a_pull_request(self):
+        self.assertFalse((self.WF / 'site-replays-pr.yml').exists())
+        self.assertFalse((self.WF / 'site-replays-accept.yml').exists())
+        for name in ('site-replays.yml', 'journeys.yml', 'replay-refill.yml'):
+            on = (self.WF / name).read_text().split('\npermissions:')[0].split('\njobs:')[0]
+            self.assertNotRegex(on, r'(?m)^  (pull_request|pull_request_target):', name)
+
+    def test_the_site_replays_run_once_a_day_and_start_the_refill_for_flagged_rows_only(self):
+        text = (self.WF / 'site-replays.yml').read_text()
+        self.assertEqual(len(re.findall(r"(?m)^    - cron: ", text)), 1, 'one scheduled run a day')
+        self.assertIn('gh workflow run replay-refill.yml --ref main -f only=', text)
+        self.assertIn('rerecord.txt', text, 'a separate line for rows that need a re-record')
+        scheduler = (ROOT / 'worker' / 'src' / 'scheduler.js').read_text()
+        self.assertNotRegex(scheduler, r"47 21,23,1 \* \* \*'\) return \[[^\n]*site-replays", 'not beside each e2e run any more')
+
+    def test_the_journeys_run_daily_and_tell_telegram(self):
+        text = (self.WF / 'journeys.yml').read_text()
+        self.assertRegex(text, r"(?m)^  schedule:\n    - cron: ")
+        self.assertIn('ci-alert.mjs failure', text)
 
 
 if __name__ == '__main__':

@@ -34,10 +34,10 @@ class AllChecksGreen(unittest.TestCase):
 
     def test_a_red_cancelled_or_skipped_run(self):
         for conclusion, code_wanted in (('failure', 1), ('cancelled', 1), ('skipped', 0)):
-            code, out = self.run_with([f'completed\tsuccess\tCI · Tests · python\ncompleted\t{conclusion}\tCI · Site replays · PR (12 of 16 pinned rows)\n'])
+            code, out = self.run_with([f'completed\tsuccess\tCI · Tests · python\ncompleted\t{conclusion}\tCI · Page cases\n'])
             self.assertEqual(code, code_wanted, (conclusion, out))
             if code_wanted:
-                self.assertIn(f'CI · Site replays · PR (12 of 16 pinned rows) ({conclusion})', out)
+                self.assertIn(f'CI · Page cases ({conclusion})', out)
 
     def test_a_cancelled_run_is_superseded_by_a_newer_success_of_the_same_workflow(self):
         desc = 'CI · PR description laid out'

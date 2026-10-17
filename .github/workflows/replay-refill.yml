@@ -2,7 +2,8 @@
 # A PR that changes what the app asks the AI makes the site replays gate say "ask changed" / "out of date" for the pinned rows whose stored answers no longer match. This refills only those
 # asks, one pinned row per runner in parallel (fill-memo.mjs: the network record is replayed, no site visit, the fake applicant, the privacy tripwire on, old answers never changed),
 # publishes the refilled rows through the guard (records-publish.mjs, desktop/e2e/lib/record-guard.mjs: worse, garbled or pinned-breaking rows refused), then re-runs the PR's gate.
-# Two ways in. (1) By hand with a PR number (workflow_dispatch, as before): that PR's pinned rows. (2) AUTOMATICALLY on main (owner, 15 Oct 2026): a push to main that changes a ladder prompt fingerprint
+# Since 17 Oct 2026 (owner: "Off PRs now, scheduled only"): NO push trigger, no PR gate any more. It starts by hand, or from the daily site replays (site-replays.yml, `only` = the rows its verdict flagged "out of date" / "ask changed").
+# The text below on a push to main and on PRs is the history of the earlier design. Two ways in. (1) By hand with a PR number (workflow_dispatch, as before): that PR's pinned rows. (2) Was: AUTOMATICALLY on main (owner, 15 Oct 2026): a push to main that changes a ladder prompt fingerprint
 # (desktop/e2e/ladder-baseline.json, compared by refill-trigger.mjs with the file before the push; a score update alone does not count), OR a change to a file that builds the ask (the worker's instructions, fact rule, field list, CV facts; desktop/e2e/lib/prompt-sources.mjs; owner, 15 Oct 2026: #904 and #912 changed the ask and no refill ran), or a by-hand run with no PR number: EVERY recorded row, pinned or not.
 # NOT a pull_request trigger (owner rule, 13 Oct 2026: no workflow a PR starts can reach an AI key; desktop/e2e/test/pool-ci-triggers.test.mjs): a push to main is merged code the owner reviewed.
 # Never a fork PR: the key is never given to it. Never every PR. Refill runs take their turn one at a time (pool-ci-wait.mjs), so two never publish the same rows.
@@ -16,9 +17,6 @@ name: CI · Replay refill
 run-name: ${{ inputs.pr != '' && format('Replay refill PR {0} @ {1}', inputs.pr, inputs.head) || 'Replay refill' }}   # the PR gate looks for this title before it starts another automatic refill for the same commit
 
 on:
-  push:
-    branches: [main]
-    paths: ['desktop/e2e/ladder-baseline.json', 'desktop/lib/account-judge.js', 'desktop/lib/form-judge.js', 'desktop/lib/ladder/fill-repair.js', 'desktop/lib/ladder/fill-verify.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung4-picture.js', 'extension/page/fill-read.js', 'worker/src/answer-examples.js', 'worker/src/answer-facts.js', 'worker/src/answer-missing.js', 'worker/src/cv-facts.js', 'worker/src/written-answer.js', 'worker/src/extension.js']   # exactly the files that build an ask (lib/prompt-sources.mjs); the first job decides whether the ask really changed
   workflow_dispatch:
     inputs:
       pr:
@@ -39,6 +37,9 @@ on:
       max_asks:
         description: 'Refuse to start above this many asks (empty: 40 for a PR, 200 for main)'
         default: ''
+      only:
+        description: 'Main run: only these recorded rows (one name per line). The daily site replays start it with the rows its verdict flagged (owner, 17 Oct 2026); empty = every recorded row'
+        default: ''
 
 permissions:
   contents: read
@@ -48,8 +49,8 @@ permissions:
 concurrency:
   # The newest main commit wins (owner, 15 Oct 2026; tests/test_main_runs_finish.py): a push shares ONE group on main and cancels the older commit's run (only the newest prompt matters; a publish is additive per group, nothing half-written).
   # A by-hand run is its own group and never cancelled. Whatever runs, the trigger job makes the runs take turns, so two never publish the same rows.
-  group: replay-refill-${{ github.event_name == 'push' && 'main' || format('hand-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  group: replay-refill-hand-${{ github.run_id }}
+  cancel-in-progress: false
 
 env:
   PR: ${{ inputs.pr }}
@@ -75,7 +76,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = push ]; then
+          if [ "$EVENT" = push ]; then   # no push trigger since 17 Oct 2026 (owner: the daily replay starts the refill for the rows it flags); kept until refill-trigger.mjs goes
             if git show "$BEFORE:desktop/e2e/ladder-baseline.json" > "$RUNNER_TEMP/baseline-before.json" 2>/dev/null; then before="$RUNNER_TEMP/baseline-before.json"; else before=-; fi
             said="$(node refill-trigger.mjs "$before" ladder-baseline.json "$BEFORE" 2>/dev/null)"
             verdict="$(echo "$said" | tail -n 1)"
@@ -225,10 +226,12 @@ jobs:
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
           NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
           MAX_ASKS: ${{ inputs.max_asks || '200' }}
+          ONLY: ${{ inputs.only }}
         run: |
           bash net-records-fetch.sh "$RUNNER_TEMP/records"
-          node refill-pick.mjs --main "$RUNNER_TEMP/records" --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
-          { echo "### Replay refill: main (every recorded row)"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '%s' "$ONLY" > "$RUNNER_TEMP/only.txt"   # empty = every recorded row; else just the rows the daily replay flagged
+          node refill-pick.mjs --main "$RUNNER_TEMP/records" --max-asks "$MAX_ASKS" --only "$RUNNER_TEMP/only.txt" > "$RUNNER_TEMP/pick.json"
+          { echo "### Replay refill: main ($([ -s "$RUNNER_TEMP/only.txt" ] && echo 'the rows the daily replay flagged' || echo 'every recorded row'))"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
           echo "line=$(jq -r .line "$RUNNER_TEMP/pick.json" | head -n 1)" >> "$GITHUB_OUTPUT"
           [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
           echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"

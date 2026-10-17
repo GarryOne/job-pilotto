@@ -17,7 +17,7 @@ class RetiredWorkflowNames(unittest.TestCase):
         for name in RETIRED:
             out = subprocess.run(['git', 'grep', '-lI', '-F', name, '--', '.', ':!docs/superpowers'], cwd=ROOT, capture_output=True, text=True).stdout.split()
             found |= set(out)
-        self.assertEqual(sorted(found - READS_OLD_RUNS), [], 'a retired workflow name is still referenced (new names: control-tests, page-cases, site-replays-pr, site-replays, fix-verdicts)')
+        self.assertEqual(sorted(found - READS_OLD_RUNS), [], 'a retired workflow name is still referenced (new names: control-tests, page-cases, site-replays, fix-verdicts)')
 
 
 if __name__ == '__main__':

@@ -127,3 +127,9 @@ test('the pick says how many publish groups there are (both modes)', async () =>
   const out = JSON.parse(execFileSync(process.execPath, [path.join(import.meta.dirname, '..', 'refill-pick.mjs'), pins, '-', '--all'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim().split('\n').at(-1));
   assert.deepEqual(out.groups, Array.from({length: Math.ceil(out.rows.length / 3)}, (_, at) => at), 'one matrix entry per group of 3');
 });
+
+test('a main refill with `only` takes just those rows (the daily replay starts it for the rows it flags)', () => {
+  const names = ['a row', 'b row', 'c row'];
+  assert.deepEqual(pickMain({names, only: ['c row', 'a row']}).rows.map(row => row.name), ['a row', 'c row']);
+  assert.equal(pickMain({names, only: []}).rows.length, 3, 'empty = every recorded row');
+});

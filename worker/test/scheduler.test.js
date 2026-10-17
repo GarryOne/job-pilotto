@@ -15,7 +15,7 @@ test('the nightly build starts at 04:00 in Zurich, in summer (02:00 UTC) and in 
 });
 
 test('the three-a-day e2e runs start the scheduled plan; an unknown cron starts nothing', () => {
-  assert.deepEqual(jobsFor('47 21,23,1 * * *', at('2026-10-05T09:47:00Z')), [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}]);
+  assert.deepEqual(jobsFor('47 21,23,1 * * *', at('2026-10-05T09:47:00Z')), [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}]);
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T00:00:00Z')), [{workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}], 'the replay gate: 02:00 Zurich in summer');
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T01:00:00Z')), [], '03:00 in summer: nothing');
   assert.deepEqual(jobsFor('0 0,1,2,3 * * *', at('2026-10-05T02:00:00Z')), [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}], 'the nightly: 04:00 Zurich in summer');
