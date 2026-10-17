@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import {install} from './tiny-dom.js';
 
 install();
+const {document} = globalThis;   // the tiny DOM's, installed above
 const {LABELS} = await import('../lib/contact.js');
 const {CONTACT_KINDS} = await import('../renderer/contact-kinds.js');
 const {KINDS} = await import('../renderer/question-kind.js');
