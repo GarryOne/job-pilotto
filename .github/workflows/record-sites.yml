@@ -1,6 +1,11 @@
+# DAILY DISCOVERY BATCH (owner, 17 Oct 2026, "Everything daily"; sketch https://claude.ai/artifact/A48novQqV7PFTFEiJoquBQ): the one exception to "by hand only". At 06:00 UTC a `pick` job
+# (desktop/e2e/discovery-pick.mjs, lib/discovery-pick.mjs) ranks up to 5 sites from four real signals (real fills that missed, stuck applications, new shapes in matches, platform gaps; never
+# random sites; none already recorded) and records them here (rows file as RECORD_SITES, the same recorder, held, never Submit). Cap: $3 a calendar week counted from the batch's own spend
+# lines (discovery-state artifacts); at the cap no run, one Telegram note a week. No new candidate: the recording job does not start. The AI judge marks each row (fields left / wrong / stopped
+# early) and ONE Telegram message lists new failures (discovery-report.mjs); rows that reached a new shape join smoke-sites.json by a PR the owner merges (never merged here).
 # Record sites: this workflow's ONE job is recording (owner, 14 Oct 2026: record each site once, then test offline; renamed from "Pool smoke" on 15 Oct 2026, spec
 # docs/superpowers/specs/2026-10-15-record-once.md). It visits the pool's sites on a GitHub runner, started BY HAND (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
-# start simple, grow it over time, report to the coordinator before growing it). By hand ONLY: never a schedule, a push or a pull request (owner, 13 Oct 2026:
+# start simple, grow it over time, report to the coordinator before growing it). By hand, plus the daily batch above: never another schedule, a push or a pull request (owner, 13 Oct 2026:
 # "I don't want PR to generate an AI cost"; a fix is confirmed OFFLINE on a recording, never by a live run: record-once spec 15 Oct 2026). Guard: e2e/test/pool-ci-triggers.test.mjs.
 # - Rows: the pool list in the repo (desktop/e2e/smoke-sites.json: every row since 12 Oct 2026; postings are public pages, the owner's details never enter a run).
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
@@ -24,6 +29,8 @@
 name: CI · Record sites (by hand)
 
 on:
+  schedule:
+    - cron: '0 6 * * *'   # the daily discovery batch (header); a by-hand run is workflow_dispatch below
   workflow_dispatch:
     inputs:
       only:
@@ -40,18 +47,76 @@ permissions:
   actions: read   # the earlier CI runs' state artifacts (site ledger, last results)
 
 jobs:
+  # The daily batch's picker: no AI, no browser. Skipped on a by-hand run.
+  pick:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read   # the earlier batch runs' state artifacts (their rows and spend)
+    outputs:
+      count: ${{ steps.pick.outputs.count }}
+      only: ${{ steps.pick.outputs.only }}
+      max_usd: ${{ steps.pick.outputs.max_usd }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: The earlier batch runs' states (rows recorded, spend, the week the cap was told)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p discovery-states
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --workflow record-sites.yml --event schedule --limit 60 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null | grep -vx "$GITHUB_RUN_ID" | while read -r id; do
+            gh run download "$id" --name "discovery-state-$id" --dir "discovery-states/$id" >/dev/null 2>&1 || true
+            gh run download "$id" --name "discovery-alert-$id" --dir "discovery-states/$id-alert" >/dev/null 2>&1 || true
+          done
+          echo "earlier batch states: $(find discovery-states -name discovery.json | wc -l)"
+      - name: Pick the day's sites (red when the site's input cannot be read)
+        id: pick
+        env:
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+          BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # only the once-a-week "cap reached" note
+          BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
+        run: node desktop/e2e/discovery-pick.mjs discovery-out discovery-states 2>&1 | tee discovery-out.log
+      - name: The picked rows
+        uses: actions/upload-artifact@v6
+        with:
+          name: discovery-picked-${{ github.run_id }}
+          path: |
+            discovery-out/discovery-rows.json
+            discovery-out/picked.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: The cap note's state (told once a week)
+        if: steps.pick.outputs.cap_alert == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: discovery-alert-${{ github.run_id }}
+          path: discovery-out/alert-state/discovery.json
+          retention-days: 14
+
   smoke:
+    needs: pick
+    # By hand: always. The daily batch: only when the picker succeeded and found a new candidate (no candidate, no run, no cost).
+    if: ${{ always() && (github.event_name != 'schedule' || (needs.pick.result == 'success' && needs.pick.outputs.count != '0')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90   # up to 60 to wait its turn (pool-ci-wait.mjs), then the rows
     # No concurrency group: GitHub keeps one pending run per group and cancels the older one (12 Oct 2026: Ocado's dispatch was cancelled by FNAC's).
     # The queue step below waits for every earlier pool run instead: one at a time, oldest first, none dropped.
     env:
-      MAX_ROWS: 3          # the hard row cap (owner, 12 Oct 2026: start with 1-3 rows)
-      MAX_USD: '0.50'      # the hard AI dollar cap per run
+      MAX_ROWS: ${{ github.event_name == 'schedule' && '5' || '3' }}          # the hard row cap (owner, 12 Oct 2026: start with 1-3 rows; the daily batch: 5)
+      MAX_USD: ${{ github.event_name == 'schedule' && needs.pick.outputs.max_usd || '0.50' }}      # the hard AI dollar cap per run (the batch: twice its expected spend, never above what the week's $3 has left)
       # Public rows with no bot wall in the Mac's runs of 10-12 Oct 2026 (SmartRecruiters showed one every time: not in the default).
       DEFAULT_ROWS: 'Lever: single page|Personio form in German|Recruitee: one-page form'
-      ONLY: ${{ inputs.only }}
-      SHARE: ${{ inputs.share }}
+      ONLY: ${{ github.event_name == 'schedule' && needs.pick.outputs.only || inputs.only }}
+      SHARE: ${{ github.event_name == 'schedule' && '5' || inputs.share }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}               # the Tests key: the fallback while a live run's own key is not set
       LIVE_POOL_ANTHROPIC_KEY: ${{ secrets.LIVE_POOL_ANTHROPIC_KEY }}   # a pool run by hand (owner, 12 Oct 2026: each live run's cost apart)
       JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
@@ -66,9 +131,15 @@ jobs:
       RECORD_REPORTS: ${{ github.workspace }}/record-sites-out/smoke-reports
       RECORD_CANDIDATES: ${{ github.workspace }}/record-sites-out/replay-candidates
       RECORD_CAPTURES: ${{ github.workspace }}/record-sites-out/captures   # every row's whole journey (lib/capture-library.mjs): npm run measure re-runs a build on it offline
-      RECORD_SITES: ${{ github.workspace }}/record-sites-out/no-mac-list.json   # never present: the Mac's own rows stay on the Mac
+      RECORD_SITES: ${{ github.workspace }}/record-sites-out/${{ github.event_name == 'schedule' && 'discovery/discovery-rows.json' || 'no-mac-list.json' }}   # by hand: never present (the Mac's rows stay on the Mac); the batch: its picked rows
     steps:
       - uses: actions/checkout@v5
+      - name: The batch's picked rows
+        if: github.event_name == 'schedule'
+        uses: actions/download-artifact@v7
+        with:
+          name: discovery-picked-${{ github.run_id }}
+          path: record-sites-out/discovery
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -168,6 +239,24 @@ jobs:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
           AI_COST_JOB: pool-live
         run: node desktop/e2e/pool-ai-cost.mjs "$RECORD_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
+      - name: Discovery batch - verdicts, the one Telegram message, this run's state
+        if: always() && github.event_name == 'schedule'
+        env:
+          BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # the Build Log bot; missing: the message is skipped with a line
+          BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
+        run: |
+          mkdir -p discovery-states discovery-out
+          node desktop/e2e/discovery-report.mjs "$RECORD_REPORTS" record-sites-out/discovery/picked.json discovery-out discovery-states
+      - name: The batch's state (rows, spend) for the next runs and the pool PR
+        if: always() && github.event_name == 'schedule'
+        uses: actions/upload-artifact@v6
+        with:
+          name: discovery-state-${{ github.run_id }}
+          path: |
+            discovery-out/discovery.json
+            discovery-out/pool-add.json
+          retention-days: 14
+          if-no-files-found: warn
       - name: Every row's capture (capture once, measure many)
         if: always()
         uses: actions/upload-artifact@v6
@@ -186,3 +275,40 @@ jobs:
             record-sites-out/smoke-reports/
           retention-days: 14
           if-no-files-found: warn
+
+  # Rows that reached a new flow shape join the pool by a PR (never merged here: the owner merges every PR by hand).
+  pool-pr:
+    needs: smoke
+    if: ${{ always() && github.event_name == 'schedule' && needs.smoke.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The batch's new shapes
+        uses: actions/download-artifact@v7
+        with:
+          name: discovery-state-${{ github.run_id }}
+          path: discovery-out
+      - name: Add them to smoke-sites.json and open the PR
+        run: |
+          [ -s discovery-out/pool-add.json ] || { echo "no new shape"; exit 0; }
+          added=$(node desktop/e2e/discovery-pool-add.mjs discovery-out/pool-add.json)
+          echo "$added"
+          git diff --quiet -- desktop/e2e/smoke-sites.json && { echo "nothing to add"; exit 0; }
+          branch="discovery/$(date -u +%Y-%m-%d)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$branch"
+          git add desktop/e2e/smoke-sites.json
+          git commit -q -m "Add the daily discovery batch's new shapes to the pool" -m "$added"
+          git push -q origin "$branch"
+          printf '🟢 The daily discovery batch reached new flow shapes: they join the pool.\n\n%s\n\nOpened by record-sites.yml (daily discovery batch). The owner merges it; nothing here merges.\n' "$added" > pr-body.md
+          gh pr create --base main --head "$branch" --title "Add the daily discovery batch's new shapes to the pool" --body-file pr-body.md | tee -a "$GITHUB_STEP_SUMMARY"

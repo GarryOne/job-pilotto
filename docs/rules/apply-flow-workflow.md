@@ -23,7 +23,13 @@
 ## The signals that start each step
 - **Record (1):** a new site on the pool list; installs' outcomes on a job board dropping against its own last 14 days (counts only, k ≥ 3); a person's report;
   a "Blind spot" on the platform scorecard (real fills miss what the pool reaches: record that site).
-  Never a schedule. A replay that changed is our build, never a reason to re-record.
+  Never a schedule, except the **daily discovery batch** (owner, 17 Oct 2026, "Everything daily"): `record-sites.yml` at 06:00 UTC records up to 5 sites a day from four real
+  signals, never random sites: (1) real fills that missed (platform + cause from `/applying/discovery-input`), (2) applications an install started and did not send, (3) company career
+  sites in today's matches that no recording covers, (4) platforms with 2+ points more of the matches than of the pool. Installs share ≤40 public posting addresses (address, host, source only:
+  `src/contribute_candidates.py`, "Help the pool grow"); the picker is `desktop/e2e/lib/discovery-pick.mjs` (host already recorded = skipped; no new candidate = no run).
+  Cap **$3 a calendar week**, counted from the batch's own spend lines (`discovery-state-<run>` artifacts); at the cap no run and one Telegram note. The AI judge marks each row
+  (fields left / wrong / stopped early; `lib/discovery-judge.mjs`), ONE Telegram message per run and only when something new failed, and rows that reached a new shape join
+  `smoke-sites.json` by a PR the owner merges. The batch is the only signal-less start: a replay that changed is our build, never a reason to re-record.
 - **Fix (3):** a 🔴 row on `/admin/lab-form-filling` → Fixes → Needs a fix (one status per row: 🟢 works · 🟣 held on purpose · ⚪ site problem · 🔴 needs a fix).
   A "regression" row says whether it is **Our build** or **Site changed** (the same recording replayed on two builds).
 - **Verify (4):** a merge. "Needs a recording" means the fix took a route the recording never had: re-record that row with the full journey (step 1).
