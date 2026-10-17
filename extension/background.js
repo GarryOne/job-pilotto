@@ -2,6 +2,7 @@
 // opens, Apply with Claude's hand-off, the ring's messages to the app, and the connection check. The result of a
 // fill shows in a panel on the page and in the icon badge.
 import {NO_APP, api, fillTab, settings} from './flow.js';
+import {oneFillPerTab} from './one-fill.js';
 import {decide, pushDecisions} from './log.js';
 import {PANEL_FILES} from './panel-files.js';
 import {logFieldsLine} from './fill-fields.js';
@@ -327,8 +328,10 @@ const NO_ANSWER = 'no answer in the kit, Profile or your details';
 // Fills running now, by tab: an update waits for them (a reload mid-fill ended Claude's answers and reset the panel, 8 Oct 2026).
 const fillsNow = new Set();
 async function fillOpenedTab(tab, ...rest) {
-  fillsNow.add(tab.id);
-  try { return await fillOpenedTabNow(tab, ...rest); } finally { fillsNow.delete(tab.id); }
+  return oneFillPerTab(tab.id, async () => {
+    fillsNow.add(tab.id);
+    try { return await fillOpenedTabNow(tab, ...rest); } finally { fillsNow.delete(tab.id); }
+  }, {onJoin: () => decide('fill', 'a fill is already running on this tab: this ask joins it', {tab: tab.id})});
 }
 async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = false} = {}) {
   await arm(tab.id);
