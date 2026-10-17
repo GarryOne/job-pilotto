@@ -2494,9 +2494,25 @@ button.is-busy { cursor: progress; opacity: .7; }
 .qa-row.is-open, .qa-row.is-open + .qa-edit { background: var(--signal-soft); }
 .qa-words { display: flex; flex-direction: column; min-width: 0; }
 .qa-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qa-chevron svg { width: 16px; height: 16px; transform: rotate(90deg); transition: transform .15s var(--ease); }
+.qa-chevron svg { width: 16px; height: 16px; transition: transform .15s var(--ease); }   /* › closed, ˄ open (owner's mockup, 17 Oct 2026) */
 .qa-row.is-open .qa-chevron svg { transform: rotate(-90deg); }
 .qa-row > button:last-child { justify-self: end; }
+/* Application answers from the owner's mockup (pages/application-answers.js, 17 Oct 2026): one Saved answers card with a header band per section,
+   rows without a button, "Answer as" under Advanced options, a review banner. */
+.qa-row.no-action { grid-template-columns: auto minmax(0, 2fr) minmax(0, 2fr); }
+.qa-row.no-action > .ui-pill { justify-self: start; }
+.qa-row.is-open > .ui-pill { border: 1px solid var(--signal-line); }   /* "Editing" on the open row's own tint */
+.qa-saved .qa-group { margin: 0; padding: var(--sp-2) var(--sp-4); background: var(--surface-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.qa-saved .qa-intro, .qa-saved .qa-note { margin: 0; padding: var(--sp-1) var(--sp-4); }
+.qa-saved .qa-intro:last-of-type { padding-bottom: var(--sp-3); }
+.qa-section .qa-empty { margin: 0; padding: var(--sp-3) var(--sp-4); }
+.qa-advanced { margin-top: var(--sp-2); }
+.qa-advanced > summary { width: max-content; font-weight: 500; font-size: var(--fs-sm); color: var(--signal-ink); }
+.qa-advanced[open] > summary { margin-bottom: var(--sp-2); }
+.qa-banner { justify-content: space-between; margin: var(--sp-3) 0 0; }
+.kn-rules > summary .qa-words { flex: 1; }
+.kn-rules > summary .qa-words h4 { margin: 0; }
+.kn-rules[open] > summary .qa-chevron svg { transform: rotate(-90deg); }
 button.secondary.qa-add { color: var(--signal-ink); border-color: var(--signal); }
 .qa-edit { padding: 0 var(--sp-4) var(--sp-3) calc(var(--sp-4) + var(--sp-6)); }
 .qa-edit label > span, .kn-editor .form-grid label > span { display: block; font-weight: 600; margin-bottom: var(--sp-1); }

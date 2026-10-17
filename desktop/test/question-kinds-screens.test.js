@@ -42,6 +42,7 @@ const SCREENS = {
     await loadApplicationAnswers();
     await new Promise(resolve => setTimeout(resolve, 10));   // the verdicts arrive and the tab redraws
     // Open every Needs review row: its answer control is drawn open.
+    node.querySelector('#answers-review-go')?.listeners.click[0]();   // the banner opens Needs review
     for (const button of node.querySelectorAll('.is-review .qa-add')) button.listeners.click?.forEach(fn => fn({}));
     return node.querySelector('.is-review');
   },

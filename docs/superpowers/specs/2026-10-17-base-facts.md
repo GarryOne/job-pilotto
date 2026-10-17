@@ -80,5 +80,7 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] Notion template: each section names its one editor in the app; the page keeps its title (owner, 17 Oct 2026: "Keep title") (proof: docs/notion-profile-template.md)
 - [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
 - [x] Experience tab as folded cards: sources first, roles only in the job cards, Strengths as rows, notes small (owner, 17 Oct 2026: "collapsed, it should be using cards"; "Just duplicating data") (proof: desktop/test/experience-cards.test.js)
+- [x] Application answers from the owner's mockup: All · Needs review · Saved, a review banner, one Saved answers card, rows edited in place, "Answer as" under Advanced options, the page intro never as answers (owner, 17 Oct 2026: "Make it look like this") (proof: desktop/test/answers-layout.test.js)
+- [ ] Application answers rows link to their home (Your details ↗ / Strategy ↗); Eligibility, Availability and Links read from Your details (owner, 17 Oct 2026: "Layout now, links next")
 - [ ] One test over every questionnaire screen
 - [x] Strategy → Job preferences: Must-haves & deal-breakers apart from Preferences (ranking), rules folded under a summary, Add a deal-breaker / preference; the Profile tab keeps only lines with no other home (proof: desktop/test/job-preferences.test.js)

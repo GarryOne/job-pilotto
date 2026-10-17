@@ -1,8 +1,9 @@
-// Settings → Profile → Application answers (owner, 16 Oct 2026: Standard answers and Form knowledge merged, from the owner's mockups): one tab,
-// one save bar, two texts. Needs review (answers not set, website rules with no value) first; Your answers (a section card per heading of the
-// standard answers, "Some answers are missing", a row per question that opens to its answer field); Website-specific rules collapsed
-// (pages/website-rules.js). Never a ❓ on screen (renderer/answers-model.js). Same on every store: block edits through pages/outline-tab.js.
-// Guarded by test/profile-tabs-render.test.js.
+// Settings → Profile → Application answers (owner, 16 Oct 2026: Standard answers and Form knowledge merged; 17 Oct 2026: "too crowded… Make it
+// look like this", his mockup): one tab, one save bar, two texts. A search and All · Needs review (n) · Saved; on All, one banner "n questions need
+// review" instead of the list; Saved answers = one card, a small header per section, one line per answer (question · value), opened in place
+// ("Editing", the answer control of its kind, "Answer as" under Advanced options); the page's own intro (lines before its first heading) is shown
+// small, never as answers; Website-specific questions folded (pages/website-rules.js). Never a ❓ on screen (renderer/answers-model.js).
+// Same on every store: block edits through pages/outline-tab.js. Guarded by test/profile-tabs-render.test.js and test/answers-layout.test.js.
 import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answers-model.js';
@@ -14,7 +15,7 @@ import {answerControl, kindPicker} from '../question-control.js';
 import {drawRules, input, labelled, newRule, resetRules, reviewRows, select} from './website-rules.js';
 
 const TEXT = 'answers';
-const filters = {query: '', review: false, section: ''};
+const filters = {query: '', view: 'all'};   // view: all | review | saved
 const opened = new Set();   // rows shown open (answer ids, review keys)
 const drafts = new Map();   // answer id → the value typed; new questions under `new-<n>`: {section, question, value}
 let added = 0, tab = null, rulesOpen = false, verdicts = {}, keptFormats = {}, askedFor = '', showHidden = false;
@@ -22,11 +23,6 @@ const kinds = new Map();   // answer id → the kind the person picked ("Answer 
 
 const valueOf = item => drafts.get(item.id) ?? item.value;
 const missing = item => item.open && !item.optional && !valueOf(item);
-// Sections are collapsed by default (owner, 17 Oct 2026); the ones the person opened are remembered on this Mac.
-const OPEN_KEY = 'answersOpenSections';
-const remembered = () => { try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]')); } catch { return new Set(); } };
-const remember = set => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...set])); } catch {} };
-const openSections = remembered();
 
 // The kind a row is answered with: the person's pick, else its mark in the store, else what this Mac kept (a fill's reading, else the AI's one judgment).
 const formatOf = item => kinds.get(item.id) || formatFor({marked: item.mark, kept: keptFormats[keyOf(item.question)]});
@@ -49,10 +45,11 @@ function kindField(view, item) {
   });
 }
 
-// One row: chevron · question (and its hint) · its answer or "Not set" · Add answer / Edit; open, the answer field under it.
-function row(view, {key, title, under, value, needs, field, kind = null, optional = false}) {
+// One row: chevron · question (and its hint) · its answer or "Not set"; a row that needs an answer keeps "Add answer". Open: "Editing", the answer
+// field, and "Answer as" folded under Advanced options (the kind is read from forms or the AI; the picker only corrects it).
+function row(view, {key, title, under, value, needs, field, kind = null, optional = false, button = needs}) {
   const isOpen = opened.has(key);
-  const head = el('div', `qa-row${isOpen ? ' is-open' : ''}`);
+  const head = el('div', `qa-row${isOpen ? ' is-open' : ''}${button ? '' : ' no-action'}`);
   const toggle = () => { if (isOpen) opened.delete(key); else opened.add(key); view.redraw(); };
   const chevron = Object.assign(el('button', 'link qa-chevron', icon('chevron')), {type: 'button', ariaLabel: isOpen ? 'Close' : 'Open'});
   chevron.classList.add('is-bar-chevron');
@@ -61,18 +58,24 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
   const words = el('div', 'qa-words');
   words.append(el('b', '', title));
   if (under) words.append(el('span', 'muted small', under));
-  const action = Object.assign(el('button', needs ? 'secondary qa-add' : 'secondary', needs ? 'Add answer' : 'Edit'), {type: 'button'});
-  action.addEventListener('click', () => { opened.add(key); view.redraw(); });
-  head.append(chevron, words, el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'), action);
+  head.append(chevron, words, isOpen ? pill('Editing', 'signal') : el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'));
+  if (button) {
+    const action = Object.assign(el('button', 'secondary qa-add', 'Add answer'), {type: 'button'});
+    action.addEventListener('click', () => { opened.add(key); view.redraw(); });
+    head.append(action);
+  }
   if (!isOpen) return [head];
   const edit = el('div', 'qa-edit');
-  edit.append(labelled('Answer', field()));
-  if (kind) edit.append(labelled('Answer as', kind()));
-  edit.append(el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
+  edit.append(labelled('Your answer', field()));
+  const advanced = el('details', 'plain qa-advanced');
+  advanced.append(el('summary', 'link', 'Advanced options'));
+  if (kind) advanced.append(labelled('Answer as', kind()));
+  advanced.append(el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
+  edit.append(advanced);
   return [head, edit];
 }
 
-const answerRow = (view, item) => row(view, {key: item.id, title: item.kind === 'note' ? 'Note' : shown(item.question),
+const answerRow = (view, item) => row(view, {key: item.id, button: false, title: item.kind === 'note' ? 'Note' : shown(item.question),
   under: item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), value: valueOf(item), needs: missing(item), optional: item.optional,
   field: () => (item.kind === 'note' ? input(valueOf(item), text => setAnswer(view, item, text), {placeholder: 'Your answer', ariaLabel: 'Note'}) : answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer')),
   kind: item.kind === 'note' ? null : () => kindField(view, item)});
@@ -95,21 +98,35 @@ function card(title, glyph, extra = []) {
   return box;
 }
 
-function draw(view, into) {
-  const list = sections(view.items[TEXT] || []).filter(section => !isStyle(section.title));   // the letter style is the Cover letter tab's (letter-style.js)
+// The search and All · Needs review (n) · Saved.
+function toolbar(view, into, reviewCount) {
   const bar = el('div', 'toolbar');
-  const search = Object.assign(el('input', ''), {type: 'search', placeholder: 'Search answers and rules…', value: filters.query, ariaLabel: 'Search answers and rules'});
+  const search = Object.assign(el('input', ''), {type: 'search', placeholder: 'Search answers…', value: filters.query, ariaLabel: 'Search answers and rules'});
   search.addEventListener('input', () => { filters.query = search.value; const at = search.selectionStart; view.redraw(); const again = into.querySelector('input[type=search]'); again?.focus(); again?.setSelectionRange(at, at); });
   const box = el('label', 'search-box');
   box.append(icon('search'), search);
-  bar.append(box, select([['', 'All answers'], ['review', 'Needs review']], filters.review ? 'review' : '', value => { filters.review = !!value; view.redraw(); }, 'Show'),
-    select([['', 'All categories'], ...list.filter(s => s.title).map(s => [s.title, shown(s.title)])], filters.section, value => { filters.section = value; view.redraw(); }, 'Category'));
+  const views = el('div', 'segmented');
+  views.setAttribute('role', 'group');
+  views.setAttribute('aria-label', 'Show');
+  for (const [key, name] of [['all', 'All'], ['review', 'Needs review'], ['saved', 'Saved']]) {
+    const button = Object.assign(el('button', key === filters.view ? 'is-active' : '', name), {type: 'button'});
+    button.dataset.view = key;
+    if (key === 'review' && reviewCount) button.append(' ', pill(String(reviewCount), 'warn'));
+    button.addEventListener('click', () => { filters.view = key; view.redraw(); });
+    views.append(button);
+  }
+  bar.append(box, views);
   into.append(bar);
-  for (const key of [...drafts.keys()].filter(k => String(k).startsWith('new-'))) into.append(newQuestion(view, key, list));
+}
+
+function draw(view, into) {
+  const all = sections(view.items[TEXT] || []).filter(section => !isStyle(section.title));   // the letter style is the Cover letter tab's (letter-style.js)
+  // The page's own intro (the lines before its first heading) explains the page: shown small, never as answers (a page with no heading is all answers).
+  const intro = all.length > 1 && !all[0].title ? all[0] : null;
+  const list = intro ? all.slice(1) : all;
 
   // Needs review: what forms will still ask (an answer not set, a website rule with no value).
-  const inScope = section => !filters.section || section.title === filters.section;
-  const candidates = list.filter(inScope).flatMap(section => section.items.filter(item => item.open && !item.optional && !drafts.has(item.id) && matches(item, {query: filters.query}))
+  const candidates = list.flatMap(section => section.items.filter(item => item.open && !item.optional && !drafts.has(item.id) && matches(item, {query: filters.query}))
     .map(item => ({item, section})));
   // The same filter as Jobs → Answer once: readable, reusable, not already answered; the rest is "N hidden · show" (nothing deleted). The AI's verdicts are asked once per set of questions.
   const labels = candidates.map(each => each.item.question), signature = labels.join('\n');
@@ -119,10 +136,23 @@ function draw(view, into) {
     Promise.resolve(window.pilot.questionVerdicts(labels, unmarked)).then(result => { if (result?.ok) { verdicts = {...verdicts, ...result.verdicts}; keptFormats = {...keptFormats, ...(result.formats || {})}; view.redraw(); } }).catch(() => {});
   }
   const {shown: shownRows, hidden: hiddenRows} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
-  const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
-  const ruleRows = filters.section ? [] : reviewRows(view, filters.query).filter(each => !each.value);
-  if (open.length || ruleRows.length || hiddenRows.length) {
-    const review = card('Needs review', 'alert', [pill(`${shownRows.length + ruleRows.length} not set`, 'warn', {dot: true})]);
+  const ruleRows = reviewRows(view, filters.query).filter(each => !each.value);
+  const reviewCount = shownRows.length + ruleRows.length;
+
+  toolbar(view, into, reviewCount);
+  for (const key of [...drafts.keys()].filter(k => String(k).startsWith('new-'))) into.append(newQuestion(view, key, list));
+
+  if (filters.view === 'all' && reviewCount) {
+    const banner = el('div', 'notice qa-banner');
+    const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});
+    go.addEventListener('click', () => { filters.view = 'review'; view.redraw(); });
+    banner.append(el('span', '', `⚠ ${reviewCount} question${reviewCount === 1 ? '' : 's'} need${reviewCount === 1 ? 's' : ''} review`), go);
+    into.append(banner);
+  }
+
+  if (filters.view === 'review') {
+    const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
+    const review = card('Needs review', 'alert', [pill(`${reviewCount} not set`, 'warn', {dot: true})]);
     review.classList.add('is-review');
     for (const {item, section} of open) review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
       field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer'), kind: () => kindField(view, item)}));
@@ -132,49 +162,51 @@ function draw(view, into) {
       more.addEventListener('click', () => { showHidden = !showHidden; view.redraw(); });
       review.append(more);
     }
+    if (!open.length && !ruleRows.length && !hiddenRows.length) review.append(el('p', 'muted qa-empty', 'Nothing to review: forms have every answer they asked for.'));
     into.append(review);
+    return;
   }
 
-  // Your answers.
+  // Saved answers: one card, a small header per section, one line per answer.
+  const saved = card('Saved answers', 'file-text');
+  saved.classList.add('qa-saved');
+  if (intro) for (const item of intro.items) saved.append(el('p', 'muted small qa-intro', shown(item.question ? `${item.question}: ${item.value}` : item.value || item.text)));
   let any = false;
   for (const section of list) {
-    if (!inScope(section)) continue;
-    const items = section.items.filter(item => matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query, attention: filters.review}));
+    const items = section.items.filter(item => item.kind !== 'note' && (filters.view !== 'saved' || !missing(item))
+      && matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query}));
     if (!items.length) continue;
     any = true;
-    const title = shown(section.title) || 'Your answers', gaps = section.items.filter(missing).length;
-    const box = el('details', 'answer-item qa-section qa-fold');
-    box.open = openSections.has(title) || !!filters.query || filters.review || !!filters.section;   // a search or filter shows what it found
-    box.addEventListener('toggle', () => { if (filters.query || filters.review || filters.section) return; if (box.open) openSections.add(title); else openSections.delete(title); remember(openSections); });
-    const head = el('summary', 'qa-section-head');
-    head.append(icon('file-text'), el('h4', '', title), el('span', 'muted small', `${section.items.filter(item => !item.open).length} set · ${gaps} missing`));
-    box.append(head);
-    for (const item of items) box.append(...answerRow(view, item));
-    into.append(box);
+    saved.append(el('h5', 'qa-group', shown(section.title) || 'Answers'));
+    for (const note of section.items.filter(item => item.kind === 'note' && !filters.query)) saved.append(el('p', 'muted small qa-note', shown(note.value || note.text)));
+    for (const item of items) saved.append(...answerRow(view, item));
   }
-  if (!any && !filters.review) into.append(el('p', 'muted', list.length ? 'No answer matches these filters.' : 'No standard answers yet: they are added as forms ask questions, or with Add question.'));
+  if (!any) saved.append(el('p', 'muted qa-empty', list.length ? 'No answer matches this search.' : 'No standard answers yet: they are added as forms ask questions, or with Add answer.'));
+  into.append(saved);
 
-  // Website-specific rules, collapsed: exceptions and what Job Pilotto learned from forms.
+  // Website-specific questions, folded: exceptions and what Job Pilotto learned from forms.
   const rules = el('details', 'answer-item qa-section kn-rules');
   rules.open = rulesOpen || !!filters.query;
   rules.addEventListener('toggle', () => { rulesOpen = rules.open; });
   const summary = el('summary', 'qa-section-head');
+  const words = el('div', 'qa-words');
   const count = el('span', 'muted small');
-  summary.append(icon('globe'), el('h4', '', 'Website-specific rules'), count);
+  words.append(el('h4', '', 'Website-specific questions'), count);
   const add = Object.assign(el('button', 'secondary with-icon', icon('plus')), {type: 'button', id: 'rules-add'});
   add.append('Add rule');
   add.addEventListener('click', event => { event.preventDefault(); newRule(); rulesOpen = true; view.redraw(); });
-  summary.append(add);
+  summary.append(icon('globe'), words, add, Object.assign(el('span', 'qa-chevron', icon('chevron')), {ariaHidden: 'true'}));
   const inner = el('div', 'kn-body');
   rules.append(summary, inner);
-  count.textContent = `${drawRules(view, inner, filters.query).count} learned from forms`;
+  const learned = drawRules(view, inner, filters.query).count;
+  count.textContent = `Review how form questions map to your saved answers · ${learned} learned from forms`;
   into.append(rules);
 }
 
 export function addQuestion() {
   const key = `new-${++added}`;
   const list = sections(tab?.items(TEXT) || []);
-  drafts.set(key, {section: filters.section || list[list.length - 1]?.title || '', question: '', value: ''});
+  drafts.set(key, {section: list[list.length - 1]?.title || '', question: '', value: ''});
   tab?.redraw();
 }
 export function addRule() { newRule(); rulesOpen = true; tab?.redraw(); }
@@ -185,5 +217,6 @@ export async function loadApplicationAnswers() {
   if (!tab || tab.node !== node) {
     tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); kinds.clear(); opened.clear(); resetRules(); }}), node};
   }
+  filters.view = 'all';   // the tab opens on All
   await tab.load();
 }
