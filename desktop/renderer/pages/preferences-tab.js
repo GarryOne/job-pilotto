@@ -6,13 +6,18 @@ import {el} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, shown} from '../answers-model.js';
 import {FIELDS, GROUPS, LEVELS, MODES, chipsOf, chipsText, fieldChange, languagesOf, languagesText, modesOf, modesText, readProfile, workloadOf, workloadText} from '../preferences-model.js';
+import {showWorkload} from '../preferences-review-model.js';
 import {outlineTab} from './outline-tab.js';
+import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
 
 const TEXT = 'profile';
 const typed = new Map();   // field key or item id → the text as edited
 let tab = null;
 const folded = {pay: false, other: false, rest: false};
+const review = {key: '', parse: null, error: '', busy: false, asked: false};   // the AI's reading of the fields (preferences-review.js), asked once per tab load
+const handled = new Set();   // review fields accepted into the draft
+let lastView = null;       // the tab as last drawn, for the Review button
 let langs = null;          // the language rows as edited (a new one has no name yet), from the field's text
 
 // A field's current text, and the setter that drafts its change (or drops it when back to what the page says).
@@ -128,11 +133,28 @@ function card(key, body) {
   return box;
 }
 
+// One read of the fields' text (cached per text by the main process); the card appears when the AI flags a field as unparsed.
+async function readFields(view, again = false) {
+  const {fields} = readProfile(view.items[TEXT] || []);
+  review.busy = true; review.asked = true; view.redraw();
+  const answer = (await Promise.resolve(window.pilot.preferencesParse({fields: textsOf(fields), again})).catch(error => ({error: error.message}))) || {};
+  Object.assign(review, {busy: false, parse: answer.parse || null, key: answer.key || '', error: answer.error && answer.error !== 'no AI' ? answer.error : ''});
+  view.redraw();
+}
+
 function draw(view, into) {
   const {fields, other, rest, anchor} = readProfile(view.items[TEXT] || []);
+  if (!review.asked && window.pilot.preferencesParse) setTimeout(() => readFields(view), 0);
+  lastView = view;
+  const reviewNode = reviewCard({fields, state: review, handled, redraw: view.redraw,
+    apply: (field, item, text) => binding(view, field, item, anchor).set(text),
+    note: (field, item, old) => view.change(TEXT, {op: anchor ? 'insert' : 'append', ...(anchor ? {after: anchor} : {}), key: `note-${field.key}`, lines: [`Original wording: ${field.label} — ${old}`]})});
+  if (reviewNode) into.append(reviewNode);
   for (const key of ['location', 'languages', 'roles', 'pay']) {
     const grid = el('div', 'form-grid cols-2 pref-body');
-    for (const field of FIELDS.filter(each => each.group === key)) grid.append(control(view, field, fields[field.key], anchor));
+    // Workload is kept in the Profile but shown only for people whose countries include CH, DE or AT (owner, 17 Oct 2026).
+    const countries = typed.get('countries') ?? fields.countries?.value ?? '';
+    for (const field of FIELDS.filter(each => each.group === key && (each.key !== 'workload' || showWorkload(countries, review.parse?.countries)))) grid.append(control(view, field, fields[field.key], anchor));
     into.append(card(key, grid));
   }
   const others = el('div', 'form-grid cols-2 pref-body');
@@ -149,6 +171,10 @@ function draw(view, into) {
 export async function loadPreferences() {
   const node = document.getElementById('preferences-body');
   if (!node) return;
-  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); langs = null; }, words: 'Scores, kits and tailored CVs use them once you save.'}), node};
+  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); langs = null; handled.clear(); }, words: 'Scores, kits and tailored CVs use them once you save.'}), node};
+  review.asked = false;
   await tab.load();
 }
+
+// The "Review your preferences" button (also in ⌘K): read the fields again (asks the AI only when their text changed, or the last read failed).
+export const reviewPreferences = () => lastView && readFields(lastView, !!review.error);
