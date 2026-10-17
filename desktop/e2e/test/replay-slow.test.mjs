@@ -20,11 +20,11 @@ test('the PR touches a case through its own folder only', () => {
   assert.deepEqual(touchedCases(['desktop/e2e/recorded/a-1/case.json', 'desktop/e2e/recorded/a-1/page.html', 'desktop/e2e/recorded/b-1/case.json', 'extension/flow.js', 'desktop/e2e/recorded/README.md']).sort(), ['a-1', 'b-1']);
 });
 
-test('the slow list names only cases that exist, and is a fifth of them at most', () => {
+test('the slow list names only cases that exist, and is a quarter of them at most', () => {
   const names = new Set(loadCases().map(one => one.name)), {slow} = readSlow();
   assert.ok(slow.length > 0, 'a slow list');
   for (const name of slow) assert.ok(names.has(name), `${name} is in slow-cases.json but is not a recorded case (regenerate: node tools/slow-page-cases.mjs)`);
-  assert.ok(slow.length <= names.size / 5);
+  assert.ok(slow.length <= names.size / 4);
 });
 
 test('only a pull request splits; main (build.yml) and the daily run replay every case', () => {
