@@ -100,3 +100,24 @@ test('the Form filling Overview is the first tab, draws a tile per page, and is 
   const html = await (await call(env(), first.path, owner)).text();
   for (const page of headlinePages('Form filling')) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
 });
+
+test('Growth and Intelligence: each Overview is the first tab, owner-only, with a tile per page; the series come from the /admin Overview gatherer', async () => {
+  for (const group of ['Growth', 'Intelligence']) {
+    const first = PAGES.find(page => page.group === group);
+    assert.equal(first.overview, true, `${group}: the Overview is the first page`);
+    assert.equal((await call(env(), first.path)).status, 404);
+    const html = await (await call(env(), first.path, owner)).text();
+    for (const page of headlinePages(group)) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
+  }
+  const e = env();
+  e.STATS.db.prepare("INSERT INTO telemetry (day, install, kind, data, at, version, platform, fingerprint, summary) VALUES ('2026-10-14', 'i1', 'health', '{}', '2026-10-14T00:00:00Z', '1', 'mac', '', '')").run();
+  const [machines] = await HEADLINES['/admin/app'](e, now);
+  assert.deepEqual([machines.label, machines.value], ['Active installs', '1']);
+});
+
+test('Signups and Monetization tiles use their pages\' own collectors; too few trials is "Too few", not a colour', async () => {
+  const [trials] = await HEADLINES['/admin/monetization'](env(), now);
+  assert.deepEqual([trials.value, trials.status, trials.few], ['Too few', 'none', true]);
+  const [accounts] = await HEADLINES['/admin/signups'](env(), now);
+  assert.equal(accounts.value, '0');
+});
