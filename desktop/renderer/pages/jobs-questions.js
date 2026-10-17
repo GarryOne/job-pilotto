@@ -63,7 +63,7 @@ function renderQuestions(list, error = '', hidden = [], consent = 0) {
     const answer = async value => {
       save.disabled = skip.disabled = true;
       const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format));
-      if (result.ok) loadQuestions({force: true}); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !String(input.value).trim(); }
+      if (result.ok) { savedTo(result.homeName); loadQuestions({force: true}); } else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !String(input.value).trim(); }
     };
     // Save waits for an answer: an enabled Save that silently did nothing on an empty field read as broken (UI loop #64).
     save.disabled = true;
@@ -75,6 +75,12 @@ function renderQuestions(list, error = '', hidden = [], consent = 0) {
     return row;
   }));
   hiddenLink(list, hidden, error, consent);
+}
+
+// Answer once is an inbox (lib/answer-home.js): an answer that went to Your details says where, above the list, until the next one.
+function savedTo(homeName) {
+  $('questions-saved')?.remove();
+  if (homeName) $('questions-list').before(Object.assign(document.createElement('p'), {id: 'questions-saved', className: 'muted small', textContent: `✓ Saved to ${homeName}`}));
 }
 
 // "N hidden · show": what the shared filter (renderer/question-filter.js) set aside stays reachable, never deleted.
