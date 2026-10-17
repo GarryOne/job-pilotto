@@ -15,7 +15,7 @@ test('list and get read agent_runs; the transcript stays out (has_transcript say
   };
   assert.deepEqual(await formFills({}, {call}), [{id: 'r1', has_transcript: true}]);
   assert.deepEqual(await formFill({}, 'r2', {call}), {id: 'r2', has_transcript: false});
-  assert.deepEqual(calls, [['agent_runs', 'list', {limit: 200}], ['agent_runs', 'get', {run_id: 'r2'}]]);
+  assert.deepEqual(calls, [['agent_runs', 'list', {limit: 200, transcript: false}], ['agent_runs', 'get', {run_id: 'r2'}]]);
   assert.equal(await formFill({}, 'gone', {call: async () => null}), null);
 });
 

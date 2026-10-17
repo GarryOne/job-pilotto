@@ -218,6 +218,19 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         self.assertEqual([(e['kind'], e.get('text'), e.get('steps')) for e in back],
                          [('you', 'Apply please', None), ('steps', None, ['Filled']), ('claude', 'Done: **2 fields**', None)])
 
+    def test_listing_agent_runs_without_the_conversation_reads_no_page_body(self):
+        """Reports → Form fills: 200 runs took minutes because every row's body was read (one request or more per run)."""
+        for number in range(5):
+            self.s.agent_runs.add({'url': f'https://jobs.example.com/{number}', 'ats': 'Claude', 'transcript': 'talk'})
+        seen = []
+        real = self.tracker._request
+        with mock.patch.object(self.tracker, '_request', side_effect=lambda method, path, *a, **k: (seen.append(path), real(method, path, *a, **k))[1]):
+            self.s.agent_runs.list(limit=200, transcript=False)
+            light = [path for path in seen if path.startswith('blocks/')]
+            self.s.agent_runs.list(limit=200)
+        self.assertEqual(light, [])
+        self.assertGreaterEqual(len([path for path in seen if path.startswith('blocks/')]), 5)
+
 
 class NotionRecordsTests(unittest.TestCase):
     """Today's rows, as the engine wrote them before the stores, read as records."""

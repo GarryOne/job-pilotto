@@ -413,8 +413,9 @@ class AgentRuns(_Table):
         except KeyError:
             return None
 
-    def list(self, ats=None, limit=None):
-        return self._rows(*(('ats = ?', (ats,)) if ats is not None else ('', ())), order='seq DESC', limit=limit)
+    def list(self, ats=None, limit=None, transcript=True):
+        found = self._rows(*(('ats = ?', (ats,)) if ats is not None else ('', ())), order='seq DESC', limit=limit)
+        return found if transcript else [{**r, 'transcript': ''} for r in found]
 
 
 class CronRuns(_Table):

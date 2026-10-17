@@ -273,9 +273,9 @@ class AgentRuns(_Table):
         self.rows[row['id']] = row
         return dict(row)
 
-    def list(self, ats=None, limit=None):
+    def list(self, ats=None, limit=None, transcript=True):
         found = [dict(r) for r in reversed(list(self.rows.values())) if ats is None or r['ats'] == ats]
-        return found[:limit] if limit else found
+        return [r if transcript else {**r, 'transcript': ''} for r in (found[:limit] if limit else found)]
 
 
 class CronRuns(_Table):

@@ -349,6 +349,12 @@ class StoreContract:
         self.assertEqual([r['ats'] for r in self.s.agent_runs.list()], ['greenhouse', 'workday'])
         self.assertEqual(self.s.agent_runs.list(ats='workday')[0]['transcript'], 'talk')
 
+    def test_an_agent_run_list_can_leave_the_conversation_out_and_get_brings_it_back(self):
+        run = self.s.agent_runs.add({'url': JOB['url'], 'ats': 'Claude', 'learnings': 'kept', 'transcript': 'talk'})
+        light = self.s.agent_runs.list(transcript=False)
+        self.assertEqual([(r['id'], r['learnings'], r['transcript']) for r in light], [(run['id'], 'kept', '')])
+        self.assertEqual(self.s.agent_runs.get(run['id'])['transcript'], 'talk')
+
     def test_an_agent_runs_fields_are_known_columns_and_it_is_found_by_id(self):
         run = self.s.agent_runs.add({'url': JOB['url'], 'ats': 'Claude', 'fields': {'turns': 12, 'model': 'opus'}})
         self.s.agent_runs.update(run['id'], {'outcome': 'submitted', 'fields': {'turns': 14, 'times_asked': 2}})
