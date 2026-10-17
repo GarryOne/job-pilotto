@@ -33,7 +33,7 @@ async function night(e = env()) {
 }
 
 test('off, or any install but the owner, reaches nothing: a class check over every route', async () => {
-  const subs = ['batch', 'result', 'done', 'submitted', 'state', 'report', 'data'];
+  const subs = ['batch', 'result', 'ai', 'done', 'submitted', 'state', 'report', 'data'];
   const off = env({READY_TO_SEND: 'off'});
   for (const sub of subs) assert.equal((await call(off, 'GET', sub)).status, 404, `${sub} off`);
   const e = env();

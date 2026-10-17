@@ -5,12 +5,14 @@
 import {equal, tokenFor} from './guard.js';   // tokenFor: the night token is checked in batchOf
 import {installOf} from './hosted.js';
 import {open, seal} from './hosted-state.js';
+import {relay} from './ready-ai.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 export {readyToken};
 
 export const readyOn = env => env.READY_TO_SEND === 'on' && !!env.HOSTED_STATE && !!env.READY_OWNER;
 export const MAX_JOBS = 15, MAX_BYTES = 8 * 1024 * 1024, KEEP_HOURS = 24, RUN_HOURS = 3, COUNTS_KEEP_DAYS = 30, DEFAULT_CAP_USD = 1;
 export const OUTCOMES = ['prepared', 'partial', 'wall', 'no-form', 'failed'];   // what a container may report; never "submitted"
+const FACTS = ['profile', 'standard', 'search', 'cvFacts', 'knowledge'];
 const HOUR = 3600 * 1000;
 const label = install => `ready:${install}`, keyOf = (install, batch) => `ready/${install}/${batch}.json`;
 const json = (data, status = 200) => Response.json(data, {status});
@@ -71,7 +73,7 @@ async function batch(request, env, now) {
     const row = await batchOf(env, request.headers.get('authorization'), now);
     if (!row) return deny();
     const data = await readBlob(env, row.install, row.id);
-    return json({ok: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', jobs: data?.jobs || []});
+    return json({ok: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', facts: data?.facts || {}, jobs: data?.jobs || []});
   }
   if (request.method !== 'POST') return json({ok: false, error: 'Use GET or POST'}, 405);
   const install = await ownerOf(request, env);
@@ -87,7 +89,8 @@ async function batch(request, env, now) {
   if (old) { await clear(env, install, old.id, null, now); await env.STATS.batch([env.STATS.prepare('DELETE FROM ready_jobs WHERE batch = ?').bind(old.id), env.STATS.prepare('DELETE FROM ready_batches WHERE id = ?').bind(old.id)]); }
   const id = crypto.randomUUID();
   const kept = jobs.map(job => ({id: job.id, url: job.url, title: String(job.title || '').slice(0, 200), company: String(job.company || '').slice(0, 200), fit: num(job.fit), kit: job.kit || {}, letter: String(job.letter || ''), cv: String(job.cv || '')}));
-  await writeBlob(env, install, id, {contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), jobs: kept});
+  const facts = Object.fromEntries(FACTS.map(name => [name, String(given.facts?.[name] || '').slice(0, 40000)]));   // what the AI may answer from (profile, standard answers, ...): sealed with the batch, deleted with it
+  await writeBlob(env, install, id, {contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), facts, jobs: kept});
   const fillAt = Number.isFinite(Date.parse(given.fillAt)) ? new Date(given.fillAt).toISOString() : null;   // when the night should start filling (the cron starts it then); none: at the next tick
   await env.STATS.batch([env.STATS.prepare('INSERT INTO ready_batches (id, install, night, created_at, fill_at) VALUES (?, ?, ?, ?, ?)').bind(id, install, given.night, stamp(now), fillAt),
     ...kept.map(job => env.STATS.prepare('INSERT INTO ready_jobs (batch, job, host) VALUES (?, ?, ?)').bind(id, job.id, new URL(job.url).hostname))]);
@@ -112,6 +115,19 @@ async function result(request, env, now) {
   await env.STATS.prepare('UPDATE ready_batches SET cost_micro = ?, state = ?, finished_at = ? WHERE id = ?').bind(total, next, next === row.state ? null : stamp(now), row.id).run();
   if (next !== row.state) await reportNight(env, {...row, cost_micro: total}, now);
   return json({ok: true, stop: next !== 'running'});
+}
+
+// POST (a night token): one model call for the night's AI answers (src/ready-ai.js); its cost counts toward the night's cap.
+async function aiCall(request, env, now) {
+  if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+  const row = await batchOf(env, request.headers.get('authorization'), now);
+  if (!row) return deny();
+  return relay(request, env, row, async micro => {
+    const total = (await env.STATS.prepare('SELECT cost_micro FROM ready_batches WHERE id = ?').bind(row.id).first()).cost_micro + micro;
+    const capped = total >= cap(env);
+    await env.STATS.prepare('UPDATE ready_batches SET cost_micro = ?, state = ? WHERE id = ?').bind(total, capped ? 'capped' : row.state, row.id).run();
+    if (capped) await reportNight(env, {...row, cost_micro: total}, now);
+  });
 }
 
 // The owner's calls: Done (a job's data deleted), "I submitted it" (his word, from the app's Applied status), the morning's rows, the measure, Delete everything.
@@ -170,6 +186,7 @@ export async function ready(request, env, now = new Date()) {
   const sub = new URL(request.url).pathname.replace(/^\/api\/ready\/?/, '');
   if (sub === 'batch') return batch(request, env, now);
   if (sub === 'result') return result(request, env, now);
+  if (sub === 'ai') return aiCall(request, env, now);
   if (['live', 'handoff', 'held'].includes(sub)) { const install = await ownerOf(request, env); return install ? morning(request, env, install, sub) : deny(); }   // the morning: the container's tabs (src/ready-morning.js)
   return mine(request, env, now, sub);
 }
