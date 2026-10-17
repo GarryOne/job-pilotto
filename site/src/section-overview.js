@@ -2,7 +2,8 @@
 // (a number, what it counts, a weekly bar chart when there is one, a status dot, a link to the page). Same weekly series and bars as the /admin Overview (src/admin.js).
 // A number that cannot be judged says so (few: true -> "Too few", with its counts underneath). No AI; each loader reads rows or one snapshot the page already has. Guard: test/section-overview.test.js.
 import {PAGES, spark} from './admin.js';
-import {esc} from './stats.js';
+import {esc, remember} from './stats.js';
+import {viewer} from './auth.js';
 import {HEADLINES} from './headlines.js';
 
 export const STATUS = {good: 'g', warn: 'w', bad: 'b', none: 'n'};
@@ -33,3 +34,14 @@ export async function sectionTiles(env, group, now = new Date()) {
   return lists.flat();
 }
 export const tilesHtml = tiles => `<style>${SECTION_STYLE}</style><div class="tiles">${tiles.map(draw).join('')}</div>`;
+
+// The Overview page of a section that has no page of its own (Form filling, Growth, Intelligence): its tiles under the menu's title and question (src/admin.js adds the menu).
+export const overviewPage = (tiles, {title, icon}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · Admin</title>
+<link rel="icon" href="/favicon-32.png"></head><body><main><header><h1>${icon} ${esc(title)}</h1><span class="muted">each tile is one page's headline number: open the page for the detail</span></header>${tilesHtml(tiles)}</main></body></html>`;
+export const overviewView = (path, title) => async (request, env, now = new Date()) => {
+  if (!await viewer(request, env)) return new Response('Not found', {status: 404});
+  const url = new URL(request.url);
+  if (url.searchParams.has('key')) return remember(url, env, request);
+  const page = PAGES.find(item => item.path === path);
+  return new Response(overviewPage(await sectionTiles(env, page.group, now), {title, icon: page.icon}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+};

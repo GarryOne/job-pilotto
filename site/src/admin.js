@@ -13,6 +13,7 @@ export const PAGES = [
   {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
   {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/form-overview', group: 'Form filling', question: 'How is form filling doing: real users, our recorded sites, the benchmark and the learning loop?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/real-form-filling', group: 'Form filling', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], title: 'Real Form Filling', name: 'Real users', icon: '📝'},
   {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
   {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
