@@ -46,7 +46,9 @@ export function notWorse(now, old) {
 
 // A redirect has no body and a font, picture or media file is never an answer the page reads: their lost bodies do not make a replay answer empty.
 // A HEAD reply never has a body, and a request the page itself cancelled (a tracking beacon aborted by a navigation) was never read by the page.
-const NO_ANSWER = entry => /^3\d\d$/.test(String(entry.status)) || /^(font|image|media)$/.test(entry.type || '') || entry.method === 'HEAD'
+// A page (document) the site answered with a 4xx is a refusal, not an answer the page reads (owner, 17 Oct 2026: a third-party widget frame refused with 403 and gone at the navigation held two
+// Recruitee recordings back); the replay serves the same refusal. A fetch or xhr 4xx keeps its body (a 422's validation message is read by the page), so its loss still counts.
+const NO_ANSWER = entry => /^3\d\d$/.test(String(entry.status)) || /^(font|image|media)$/.test(entry.type || '') || entry.method === 'HEAD' || (entry.type === 'document' && /^4\d\d$/.test(String(entry.status)))
   || (/^(fetch|xhr|ping)$/.test(entry.type || '') && entry.error === 'net::ERR_ABORTED');
 
 // The replies a recording could not read (record.json entries flagged bodyLost by lib/net-record.mjs): -> [host + path, ...]. A record whose reply was lost replays an EMPTY answer where live had one.
