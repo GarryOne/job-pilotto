@@ -39,6 +39,8 @@ on:
       - 'desktop/e2e/widget-zoo.mjs'
       - 'desktop/e2e/widget-zoo/**'
       - 'desktop/lib/**'
+      - 'desktop/renderer/countries.js'
+      - 'desktop/renderer/question-kind.js'
       - 'desktop/scripts/extension-stamp.mjs'
       - 'desktop/scripts/stage.mjs'
       - 'extension/**'
