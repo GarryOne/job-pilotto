@@ -1019,6 +1019,27 @@
               <label>Website<input data-contact="website" type="url" placeholder="https://…"></label>
             </div>
           </div>
+          <div class="setting panel" id="setting-which" data-profile-panel="details" hidden>
+            <div class="summary-head"><i data-icon="help"></i><h3>Which is right?</h3></div>
+            <p class="muted panel-lead">Your Profile said these two ways. Pick the right one: it becomes the line forms use, the other goes.</p>
+            <div id="which-list"></div>
+          </div>
+          <div class="setting panel" id="setting-eligibility" data-profile-panel="details">
+            <div class="summary-head"><i data-icon="shield"></i><h3>Work eligibility</h3></div>
+            <p class="muted panel-lead">Your right to work: nationality, permits, sponsorship, per country.</p>
+            <div class="form-grid cols-2" data-facts="eligibility"></div>
+          </div>
+          <div class="setting panel" id="setting-availability" data-profile-panel="details">
+            <div class="summary-head"><i data-icon="coins"></i><h3>Availability &amp; compensation</h3></div>
+            <p class="muted panel-lead">Notice period, start date and the salary you tell employers (your search minimum stays in Strategy).</p>
+            <div class="form-grid cols-2" data-facts="availability"></div>
+          </div>
+          <div class="setting panel" id="setting-languages" data-profile-panel="details">
+            <div class="summary-head"><i data-icon="globe"></i><h3>Languages</h3></div>
+            <p class="muted panel-lead">The languages you speak, with your level.</p>
+            <div class="form-grid cols-2" data-facts="languages"></div>
+            <p class="message" id="facts-message"></p>
+          </div>
           <div class="save-bar" id="contact-savebar" role="region" aria-label="Unsaved changes to your details" hidden>
             <div class="save-bar-words"><b>Unsaved changes to your details</b><span class="muted small">The extension fills forms with them once saved.</span></div>
             <span class="message" id="contact-message"></span>

@@ -38,12 +38,22 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
   that means that answer, in whatever language"). The mark is never a constraint on another site.
 
 ## Progress
+
+### 1. Sketch and question kinds
 - [x] Sketch measured and approved (Artifact above) (proof: none: an owner decision relayed by job-pilotto-cc on 17 Oct 2026, quoted under "Owner's decisions")
-- [x] PR 1: controls per kind (store mark, fill options in the trace, shared control in Answer once + Needs review, AI kind for old rows, cross-site proof) (proof: desktop/test/question-kind.test.js @646619e)
-- Cross-site proof (PR 1, plan path, $0, 5 runs): saved English answers (Mr, Switzerland, Yes) filled a German/French form's own options: Herr, M., Ja typed 5/5; "Suisse" chosen 4/5 but only **proposed**: the grounding floor (worker/src/answer-facts.js floorUngrounded) compares words, and "Suisse" is not a word of the profile ("Switzerland"). PR 2 makes it compare meanings.
-- [ ] PR 2: topics + deduce from base facts (extends `covered_by` with a fact + deduced value validated against the form's options), "seen twice" lifecycle, Answer once as inbox with homes
-  - [x] 2a: a choice a base fact answers is filled from the Profile, in any language (rule f) (proof: worker/test/choice-from-fact.test.js @7013379)
-  - [x] 2b.1: deduce: a saved answer settles a question in other words or by what it implies; the proposal is one of the row's options or none; a changed saved answer is judged again (proof: desktop/test/question-lists.test.js)
-  - [ ] 2b.2: "seen twice": 1st employer = kept on that job + quiet candidate; 2nd employer, same topic = promoted, "✓ Remembered for future forms · Undo"
-  - [ ] 2b.3: Answer once as inbox: each answer written to its home (Your details / Application answers / the job's drawer)
-- [ ] PR 3: one home per value (Your details in 3 sections; Search strategy rename + relocation, work modes, minimum salary, level; Preferences tab removed; two salaries apart), migration with "Which is right?", one test over every questionnaire screen
+- [x] Controls per kind: store mark, fill options in the trace, shared control in Answer once + Needs review, AI kind for old rows (proof: desktop/test/question-kind.test.js @646619e)
+- Cross-site proof (plan path, $0, 5 runs): saved English answers (Mr, Switzerland, Yes) filled a German/French form's own options: Herr, M., Ja typed 5/5; "Suisse" then only proposed, fixed in item 2.
+
+### 2. Answers from base facts
+- [x] A choice a base fact answers is filled from the Profile, in any language (rule f) (proof: worker/test/choice-from-fact.test.js @7013379)
+- [x] Deduce: a saved answer settles a question in other words or by what it implies; the proposal is one of the row's options or none; a changed saved answer is judged again (proof: desktop/test/question-lists.test.js @dbdd709)
+- [ ] "Seen twice": 1st employer = kept on that job + quiet candidate (the typed answer: Form knowledge, 949c83c); 2nd employer, same topic = promoted, "✓ Remembered for future forms · Undo"
+- [ ] Answer once as inbox: each answer written to its home (Your details / Application answers / the job's drawer)
+
+### 3. One home per value
+- [x] Profile tabs: CV and Your details apart; ⌘K reaches every tab and section; Strategy titled "Search strategy" (proof: desktop/test/profile-tab-split.test.js @24817c7)
+- [x] Your details gains Work eligibility, Availability & compensation, Languages on every store (proof: desktop/test/profile-sections.test.js)
+- [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js)
+- [ ] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart
+- [ ] Preferences tab removed; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
+- [ ] One test over every questionnaire screen

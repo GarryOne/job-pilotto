@@ -253,6 +253,18 @@ test('a goal corrected in the review lands in the drafted Profile (its row, else
   assert.equal(out.match(/Languages I can work in/g).length, 1);
 });
 
+// 17 Oct 2026: languages moved into Your details → Languages as a line; Strategy's edit finds it there (no second copy), and a bold label stays bold.
+test('a goal kept as a line is edited in place, its bold kept', async () => {
+  const {applyGoal} = await import('../renderer/markdown-edit.js');
+  const moved = '## Targets\n- **Minimum acceptable:** CHF 1\n\n## 🗣️ Languages\n- Languages I can work in: English (fluent)\n';
+  let out = applyGoal(moved, 'languages', 'English (fluent), German (B1)');
+  assert.match(out, /## 🗣️ Languages\n- Languages I can work in: English \(fluent\), German \(B1\)\n/);
+  assert.doesNotMatch(out, /Confirmed during setup/);
+  out = applyGoal(out, 'minimum_salary', 'CHF 140,000');
+  assert.match(out, /- \*\*Minimum acceptable:\*\* CHF 140,000\n/);
+  assert.match(applyGoal('- **Work mode**: Hybrid\n- **Languages I can work in**: English\n', 'languages', 'Spanish'), /- \*\*Languages I can work in\*\*: Spanish/);
+});
+
 test('demo mode has a fictional draft with proposed goals (the setup review renders without AI)', () => {
   const demo = JSON.parse(fs.readFileSync(new URL('../demo/draft.json', import.meta.url), 'utf8'));
   for (const key of strategy.DRAFT_SCHEMA.required) assert.ok(key in demo.draft, key);

@@ -22,6 +22,7 @@ import {hintAfter} from '../own-key-hint.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
+import {factsNow, showFacts} from './details-facts.js';
 import {showNotify} from './notify-settings.js';
 
 // ---------- Settings → Application profile: tabs (CV, Your details, Experience, Preferences, Application answers, Cover letter) ----------
@@ -249,6 +250,7 @@ export function showContact() {
     fitDetailsToCandidate(contact);
     showLinks();
     loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
+    showFacts();   // Work eligibility, Availability & compensation, Languages (details-facts.js)
   }).catch(error => message('contact-panel-message', `${byStore('Couldn\'t read them from Notion', 'Couldn\'t read them from your Profile')}: ${error.message}`, 'error'));   // the panel's line: the save bar's is hidden until you change something (#409)
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
 }
@@ -327,7 +329,8 @@ export async function init() {
     const contact = Object.fromEntries([...document.querySelectorAll('[data-contact]')]
       .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
     $('contact-save').disabled = true;
-    const result = await window.pilot.saveContact(contact);
+    const saved = await window.pilot.saveContact(contact);
+    const result = saved.ok ? await window.pilot.saveDetailsFacts(factsNow()) : saved;   // the fact sections save with Contact: one bar
     if (!result.ok) $('contact-save').disabled = false; else clearProposals();   // saved: what was proposed is yours now
     if (result.ok) setTimeout(() => { if ($('contact-save').disabled) contactDirty(false); }, 2500);   // the bar says "Saved" a moment, then leaves
     message('contact-message', result.ok ? `${byStore('Saved in your Notion Profile ✓', 'Saved ✓')} The extension uses these from the next form it fills.`

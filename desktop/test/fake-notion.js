@@ -1,10 +1,11 @@
 // A tiny in-memory Notion page for tests: its blocks (bullets, headings and tables) and a fetcher for notion.js calls
 // (list children — a table's rows too —, append — optionally after a block —, update a block's text or a row's cells, delete a block).
 // A line is a bullet, "## heading", or {table: [[cell, …], …], header: true} (16 Oct 2026: tables, for the Profile tabs' cell edits).
-export function fakeNotion(lines = []) {
+// prefix: block ids start with it, so two fakes (a Profile and an answers page) can sit behind one fetcher without their ids meeting.
+export function fakeNotion(lines = [], {prefix = ''} = {}) {
   let next = 1;
-  const make = (type, text) => ({id: `b${next++}`, type, text});
-  const table = ({table: rows, header = true}) => ({id: `t${next++}`, type: 'table', header, rows: rows.map(cells => ({id: `r${next++}`, cells: [...cells]}))});
+  const make = (type, text) => ({id: `${prefix}b${next++}`, type, text});
+  const table = ({table: rows, header = true}) => ({id: `${prefix}t${next++}`, type: 'table', header, rows: rows.map(cells => ({id: `${prefix}r${next++}`, cells: [...cells]}))});
   const blocks = lines.map(line => (typeof line === 'object' ? table(line) : line.startsWith('## ') ? make('heading_2', line.slice(3)) : make('bulleted_list_item', line)));
   const rich = text => ({rich_text: [{plain_text: text, text: {content: text}}]});
   const cellsOf = row => row.cells.map(text => [{plain_text: text, text: {content: text}}]);
@@ -31,7 +32,11 @@ export function fakeNotion(lines = []) {
       const block = blocks.find(b => `blocks/${b.id}` === route);
       block.text = body[block.type].rich_text[0].text.content;
     } else if (init.method === 'DELETE') {
-      blocks.splice(blocks.findIndex(b => `blocks/${b.id}` === route), 1);
+      const row = rowById(route.replace('blocks/', ''));
+      const holder = row && blocks.find(b => b.type === 'table' && b.rows.includes(row));
+      if (holder) holder.rows.splice(holder.rows.indexOf(row), 1);   // a table row (17 Oct 2026: it deleted the page's last block instead)
+      else if (blocks.some(b => `blocks/${b.id}` === route)) blocks.splice(blocks.findIndex(b => `blocks/${b.id}` === route), 1);
+      else throw new Error(`fake Notion: no block ${route}`);
     } else if (init.method === 'GET' && route.startsWith('pages/')) {
       data = {parent: {page_id: 'parent'}};
     } else if (init.method === 'POST' && route === 'pages') {

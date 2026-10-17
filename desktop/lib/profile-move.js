@@ -1,0 +1,163 @@
+// The move of facts into Your details' sections (owner, 17 Oct 2026: "none of my fields/data will get lost, right? It will just move around"): each
+// Profile line and answered standard answer whose home is Work eligibility, Availability & compensation or Languages goes there, word for word.
+// The AI decides only where a line belongs and which fact it states (a fixed answer, validated); it never writes a value, so a moved line is the
+// original label and value. Before anything moves both pages are copied into the app's folder and the backup runs; two copies of one fact that
+// disagree are never resolved here: both stay where they are, queued for "Which is right?" (settings.profileConflicts). After the move every
+// original value is checked to be on a page still, else it throws with the backup's place. Works on every store (lib/store).
+// Guarded by test/profile-move.test.js.
+import fs from 'node:fs';
+import path from 'node:path';
+import {anthropicApi} from './ai/anthropic-api.js';
+import {openStore} from './store/index.js';
+import * as sections from './profile-sections.js';
+import * as backup from './backup.js';
+
+export const MODEL = 'claude-haiku-5-5';
+export const HOMES = [...Object.keys(sections.SECTIONS), 'stay'];
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['items'], properties: {items: {type: 'array', items: {type: 'object', additionalProperties: false,
+  required: ['id', 'home', 'topic'], properties: {id: {type: 'string'}, home: {type: 'string', enum: HOMES}, topic: {type: 'string'}}}}}};
+const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved form answers, in any language. Say where it belongs:
+- "eligibility": their right to work: citizenship, permits, visas, needing sponsorship (per country).
+- "availability": notice period, earliest start date, the salary expectation they state to employers.
+- "languages": a language they speak or work in, with its level.
+- "stay": anything else: roles, places, work mode, seniority, the MINIMUM salary they accept for a search, strengths, deal-breakers, contact details, other questions.
+And topic: 2-4 lowercase English words naming the fact, the same words for the same fact however it is worded ("work permit switzerland", "notice period", "language german").
+Answer every id exactly as given; when unsure answer "stay".`;
+
+const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase();
+const OURS = new Set([...Object.values(sections.SECTIONS), '📇 Contact details', 'contact', 'links'].map(bare));
+const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+const same = text => plain(text).toLowerCase();
+const OPEN = /❓|^— \(leave blank\)$/;
+
+function split(text) {
+  const at = text.indexOf(':');
+  return at < 0 ? {label: '', value: text} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).trim()};
+}
+
+// One page's movable items: {id, page, key (what finds it again), check (text its line must hold to be removed), label, value, home (a section's own line: fixed)}.
+export function itemsOf(outline, page) {
+  const out = [];
+  let under = '';
+  for (const entry of outline) {
+    if (entry.type?.startsWith('heading')) { under = bare(entry.text); continue; }
+    const section = Object.keys(sections.SECTIONS).find(key => bare(sections.SECTIONS[key]) === under) || '';
+    if (OURS.has(under) && !section) continue;   // Contact details: its own screen
+    if (entry.type === 'table') {
+      for (const row of entry.rows.slice(entry.header ? 1 : 0)) {
+        const [label, ...rest] = row.cells.map(plain), value = rest.join(' | ').trim();
+        if (label && value && !OPEN.test(value)) out.push({id: `${page}:${row.id}`, page, key: row.cells.join('|'), check: row.cells[0], label, value, home: section});
+      }
+    } else if (entry.text && !OPEN.test(entry.text)) {
+      const {label, value} = split(plain(entry.text));
+      if (value) out.push({id: `${page}:${entry.id}`, page, key: entry.text, check: entry.text, label, value, home: section});
+    }
+  }
+  return out;
+}
+
+// items -> Map(id -> {home, topic}); one small call. A mangled id, an unknown home or no topic keeps the item where it is.
+export async function judge(items, {client = null, apiKey = ''} = {}) {
+  const ai = client || (apiKey ? anthropicApi(apiKey) : null);
+  if (!ai || !items.length) return new Map();
+  const response = await ai.messages.create({model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,
+    messages: [{role: 'user', content: JSON.stringify(items.map(({id, label, value}) => ({id, line: label ? `${label}: ${value}` : value})))}],
+    output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'}});
+  const text = response.content?.find(block => block.type === 'text')?.text || '{"items":[]}';
+  const ids = new Set(items.map(item => item.id)), out = new Map();
+  for (const {id, home, topic} of JSON.parse(text).items || []) if (ids.has(id) && HOMES.includes(home) && same(topic)) out.set(id, {home, topic: same(topic)});
+  return out;
+}
+
+// -> {moves: [{home, label, value, from: [items]}], conflicts: [{home, topic, choices: [{label, value, page}]}]}. A section's own lines keep their home;
+// one fact said the same way twice becomes one line; said two ways, it is a conflict and nothing of it moves.
+export function planOf(items, judged) {
+  const groups = new Map();
+  for (const item of items) {
+    const verdict = judged.get(item.id);
+    const home = item.home || (verdict && verdict.home !== 'stay' ? verdict.home : '');
+    if (!home) continue;
+    const topic = verdict?.topic || `line ${same(item.label || item.value)}`;
+    const key = `${home}\n${topic}`;
+    if (!groups.has(key)) groups.set(key, {home, topic, items: []});
+    groups.get(key).items.push(item);
+  }
+  const moves = [], conflicts = [];
+  for (const {home, topic, items: group} of groups.values()) {
+    const values = [...new Set(group.map(item => same(item.value)))];
+    if (values.length > 1) {
+      conflicts.push({home, topic, choices: group.map(({label, value, page}) => ({label, value, page}))});
+      continue;
+    }
+    const kept = group.find(item => item.home) || group[0];
+    const from = group.filter(item => !item.home);
+    if (from.length) moves.push({home, label: kept.label || topic, value: kept.value, from});
+  }
+  return {moves, conflicts};
+}
+
+// Both pages as text, copied into the app's folder (with Notion they live nowhere else on this Mac), then the backup that takes the folder.
+export async function saveCopy(storage, {fetcher, now = new Date(), run = backup.run} = {}) {
+  const opened = openStore(storage, {fetcher});
+  const dir = path.join(storage.dir, 'before-your-details', now.toISOString().slice(0, 19).replace(/[:T]/g, '-'));
+  fs.mkdirSync(dir, {recursive: true});
+  for (const name of ['profile', 'answers']) fs.writeFileSync(path.join(dir, `${name}.md`), await opened.page(name).text());
+  const {file} = run(storage, {now});
+  return {dir, file};
+}
+
+const texts = async opened => (await Promise.all(['profile', 'answers'].map(name => opened.page(name).text()))).join('\n');
+
+// The whole move. → {moved, conflicts, copy} ({moved: 0} when there is nothing to move or no AI). Throws when a value is missing after it.
+// save: the section writer (a test passes one that fails).
+export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = sections.save, now = new Date()} = {}) {
+  const opened = openStore(storage, {fetcher});
+  const read = async () => [...itemsOf(await opened.page('profile').outline(), 'profile'), ...itemsOf(await opened.page('answers').outline(), 'answers')];
+  const items = await read();
+  const judged = await judge(items.filter(item => !item.home), ai);
+  const {moves, conflicts} = planOf(items, judged);
+  storage.saveSettings({profileConflicts: conflicts});
+  const judgedNow = Boolean(ai.client || ai.apiKey);   // judged once: a Profile with nothing to move is not asked again
+  if (!moves.length) { if (judgedNow) storage.saveSettings({profileMovedAt: now.toISOString()}); return {moved: 0, conflicts}; }
+  const kept = await copy(storage, {fetcher, now});
+  const before = items.map(item => same(item.value));
+  const current = await sections.read(storage, fetcher);
+  for (const home of Object.keys(sections.SECTIONS)) {
+    const added = moves.filter(each => each.home === home);
+    if (added.length) await save(storage, home, [...current[home], ...added.filter(each => !current[home].some(line => same(line.value) === same(each.value))).map(({label, value}) => ({label, value}))], fetcher);
+  }
+  // Each moved line must read back from its section before any original goes: a failed write stops here with both pages as they were.
+  const written = await sections.read(storage, fetcher);
+  const missing = moves.filter(each => !written[each.home].some(line => same(line.value) === same(each.value)));
+  if (missing.length) throw new Error(`Your details move: ${missing.length} line(s) did not save; nothing was removed (the pages before it are in ${kept.dir})`);
+  // The originals go once their line is written; found again by their text (an id may have shifted), last first, a section's own lines never.
+  const gone = new Set(moves.flatMap(each => each.from.map(item => `${item.page}\n${item.key}`)));
+  for (const name of ['answers', 'profile']) {
+    const doomed = itemsOf(await opened.page(name).outline(), name).filter(item => !item.home && gone.has(`${name}\n${item.key}`));
+    for (const item of doomed.reverse()) await opened.page(name).remove({id: item.id.slice(name.length + 1), text: item.check});
+  }
+  const after = same(await texts(opened));
+  const lost = before.filter(value => !after.includes(value));
+  if (lost.length) throw new Error(`Your details move: ${lost.length} value(s) not found after it; the pages before it are in ${kept.dir}`);
+  storage.saveSettings({profileMovedAt: now.toISOString()});
+  return {moved: moves.length, conflicts, copy: kept};
+}
+
+// "Which is right?" (owner: "Show me, I pick"): the picked value becomes the section's line, then every copy of that fact elsewhere goes (the pages
+// before the move are in its copy and the backup). -> {ok, error}.
+export async function resolve(storage, topic, pick, {fetcher, save = sections.save} = {}) {
+  const queue = storage.settings().profileConflicts || [];
+  const conflict = queue.find(each => each.topic === topic), chosen = conflict?.choices[pick];
+  if (!chosen) return {ok: false, error: 'That choice is no longer open'};
+  const values = new Set(conflict.choices.map(choice => same(choice.value)));
+  const current = (await sections.read(storage, fetcher))[conflict.home];
+  await save(storage, conflict.home, [...current.filter(line => !values.has(same(line.value))), {label: chosen.label || topic, value: chosen.value}], fetcher);
+  if (!(await sections.read(storage, fetcher))[conflict.home].some(line => same(line.value) === same(chosen.value))) return {ok: false, error: 'It did not save; nothing else changed'};
+  const opened = openStore(storage, {fetcher});
+  for (const name of ['answers', 'profile']) {
+    const doomed = itemsOf(await opened.page(name).outline(), name).filter(item => !item.home && conflict.choices.some(choice => choice.page === name && same(choice.value) === same(item.value) && same(choice.label) === same(item.label)));
+    for (const item of doomed.reverse()) await opened.page(name).remove({id: item.id.slice(name.length + 1), text: item.check});
+  }
+  storage.saveSettings({profileConflicts: queue.filter(each => each !== conflict)});
+  return {ok: true};
+}
