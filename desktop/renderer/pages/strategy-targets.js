@@ -17,6 +17,8 @@ import {coverage, relocationNow, relocationWords, remoteWords} from '../location
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
 import {byStore} from '../store-words.js';
+import {chipsOf, folded, loadMeanings, meaningLabels, placeText, typoHints} from './strategy-chips.js';
+import {matchGroups} from '../chip-meanings.js';
 
 // ---------- Your goals and the setup review's cards, with your live settings (owner, 7 Oct 2026: the page lacked work mode, salary,
 // languages, search terms, excluded languages and work rights, which the setup review shows). Lists: Edit → Save (lib/strategy.js editLists,
@@ -186,22 +188,6 @@ function targetCard([key, glyph, title, lists]) {
   return card;
 }
 // ---------- The cards as read (not editing): grouped and short; Edit shows every list in full as before ----------
-const chipsOf = (labels, cased = true) => {
-  const box = el('div', 'chips');
-  box.append(...labels.map(label => el('span', 'chip', cased ? titleCase(label) : label)));
-  return box;
-};
-// A few chips, the rest behind a toggle ("View title variants", "Show all"): nothing is dropped, only folded.
-function folded(labels, keep, more) {
-  const box = chipsOf(labels.slice(0, keep));
-  if (labels.length <= keep) return box;
-  const rest = labels.slice(keep), toggle = el('button', 'link chip-more', `${more} (${rest.length})`);
-  toggle.type = 'button';
-  toggle.setAttribute('aria-expanded', 'false');
-  toggle.addEventListener('click', () => { toggle.replaceWith(...rest.map(label => el('span', 'chip', titleCase(label)))); });
-  box.append(toggle);
-  return box;
-}
 // One labelled row: an icon, a label, then its value (words or chips).
 function settingRow(glyph, label, value) {
   const row = el('div', 'setting-row'), words = el('div', 'setting-body');
@@ -210,6 +196,31 @@ function settingRow(glyph, label, value) {
   return row;
 }
 const labelsOf = name => entriesOf(strategyState.lastStrategy, name).map(entry => entry.label);
+// As read: one chip per meaning (strategy-chips.js), whole-word entries apart when a list mixes both kinds, "Did you mean …?" lines under the chips.
+const shownOf = name => meaningLabels(name, labelsOf(name));
+function withHints(name, draw) {
+  const parts = matchGroups(entriesOf(strategyState.lastStrategy, name), shownOf(name));
+  const hints = typoHints(name, {fix: (entry, suggestion, button) => fixTypo(name, entry, suggestion, button), keep: keepTypo});
+  if (parts.length === 1 && !hints.length) return draw(parts[0].labels);
+  const box = el('div', 'setting-body');   // the row's own grid: groups and lines sit under each other at its gap
+  for (const part of parts) box.append(...(part.title ? [el('span', 'muted small', part.title)] : []), draw(part.labels));
+  box.append(...hints);
+  return box;
+}
+// Fix: the misspelt entry out, the suggestion in, saved like an edit (lib/strategy.js editLists). Keep: never flagged again.
+async function fixTypo(name, entry, suggestion, button) {
+  const stored = entriesOf(strategyState.lastStrategy, name).find(item => item.label === entry);
+  const edits = {[name]: {add: [suggestion], remove: stored ? [stored.fragment] : []}};
+  const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(edits)).catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) { toastMessage('Not fixed', result.error || 'Try again.'); renderTargets(); return; }
+  toastMessage({title: `"${suggestion}" saved ✓`, body: 'Refresh your jobs to search with it.', action: refreshAction});
+  await reloadTargets();
+}
+async function keepTypo(entry) {
+  strategyState.keptTypos = [...(strategyState.keptTypos || []), entry];
+  renderTargets();
+  await window.pilot.keepTypo(entry).catch(() => null);
+}
 // What is typed into the job boards, apart from the roles that decide a match (owner, 7 Oct 2026: a magnifier row read as a search box, with no
 // word of what it is for). A labelled row like the families, and one line on what it does.
 function boardSearches(queries) {
@@ -235,22 +246,26 @@ const VIEWS = {
   places() {
     const priority = el('div', 'priority');
     const places = labelsOf('places');
-    priority.append(el('b', '', 'Preferred locations'), places.length ? chipsOf(places) : el('span', 'muted small', 'None'));
+    priority.append(el('b', '', 'Preferred locations'), places.length ? withHints('places', chipsOf) : el('span', 'muted small', 'None'));
     const regions = labelsOf('country'), rights = labelsOf('rights');
     return [priority,
-      settingRow('globe', 'Acceptable locations', regions.length ? folded(regions, 4, 'Show all') : 'None selected'),
+      settingRow('globe', 'Acceptable locations', regions.length ? withHints('country', labels => folded(labels, 4, 'Show all')) : 'None selected'),
       settingRow('send', 'Relocation', relocationWords(relocationNow(strategyState.lastStrategy, null), strategyState.lastStrategy?.lists?.abroad)),
       settingRow('building', 'Remote work', remoteChoice()),
-      settingRow('shield', 'Work rights', rights.length ? chipsOf(rights) : 'Not set: jobs abroad are flagged "visa sponsorship needed"'),
+      settingRow('shield', 'Work rights', rights.length ? withHints('rights', chipsOf) : 'Not set: jobs abroad are flagged "visa sponsorship needed"'),
       // The goal "Work mode" (what you accept) and this (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026).
       el('p', 'muted small card-foot', 'Work mode (in Goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.')];
   },
   stack() {
     const stack = labelsOf('stack');
-    return [el('p', 'sub', 'Key skills and tools you want in jobs.'), stack.length ? folded(stack, 10, 'Show all') : el('span', 'muted small', 'None')];
+    return [el('p', 'sub', 'Key skills and tools you want in jobs.'), stack.length ? withHints('stack', labels => folded(labels, 10, 'Show all')) : el('span', 'muted small', 'None')];
   },
   search() {
-    const row = (glyph, label, name, none) => { const labels = labelsOf(name); return settingRow(glyph, label, !labels.length ? none : AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all')); };
+    const row = (glyph, label, name, none) => {
+      const draw = labels => (AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all'));
+      if (!labelsOf(name).length) return settingRow(glyph, label, none);
+      return settingRow(glyph, label, name === 'gplaces' ? draw(labelsOf(name).map(placeText)) : withHints(name, draw));
+    };
     return [settingRow('user', 'Your level', levelChoice()), settingRow('target', 'Minimum fit score for the digest', minScoreInput()),
       row('close', 'Job titles to skip', 'titleSkip', 'None'), row('building', 'Companies to skip', 'skip', 'None'), row('globe', 'Remote jobs: regions to skip', 'remoteSkip', 'None'),
       row('sparkle', 'Words that find new employers', 'finders', 'None'), row('search', 'Google Jobs searches', 'gqueries', 'None: Google Jobs is not searched'),
@@ -308,6 +323,7 @@ export function renderTargets() {
   shared.coverageActive = coverage(strategyState.lastStrategy).active;   // ⌘K lists "Reset search coverage" only while it is on
   $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(targetCard)));
   refreshDraft();
+  if (!editing && strategyState.lastStrategy) loadMeanings(labelsOf, renderTargets);   // once per set of lists; redraws when they come
 }
 // The save bar and the Edited badges, from the draft (typing redraws only these, so the input keeps its focus).
 let saving = false;
