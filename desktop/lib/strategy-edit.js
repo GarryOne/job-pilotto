@@ -42,8 +42,12 @@ export function cleanEdits(edits) {
     if (SCALARS[name]) { if (edit && SCALARS[name].valid(edit.set)) out[name] = {set: edit.set}; continue; }
     if (!EDITABLE_LISTS[name] || !edit || typeof edit !== 'object') continue;
     const plain = EDITABLE_LISTS[name][2];
+    // A match word typed as "word" (Strategy's "Whole word only" group, renderer/match-groups.js) is stored as \bword\b.
+    const whole = word => !plain && /^".*"$/s.test(word);
     const add = [...new Set((Array.isArray(edit.add) ? edit.add : []).map(word => String(word).trim()).map(word => (plain ? word : word.toLowerCase()))
-      .filter(word => word.length >= 2 && word.length <= 60 && !/[\n\r]/.test(word)).map(word => (plain ? word : escapeRegex(word))))].slice(0, 20);
+      .map(word => ({word: whole(word) ? word.slice(1, -1).trim() : word, whole: whole(word)}))
+      .filter(({word}) => word.length >= 2 && word.length <= 60 && !/[\n\r]/.test(word))
+      .map(({word, whole}) => (plain ? word : whole ? `\\b${escapeRegex(word)}\\b` : escapeRegex(word))))].slice(0, 20);
     const remove = (Array.isArray(edit.remove) ? edit.remove : []).map(String).filter(Boolean).slice(0, 100);
     if (add.length || remove.length) out[name] = {add, remove};
   }
