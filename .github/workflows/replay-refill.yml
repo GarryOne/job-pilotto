@@ -428,9 +428,16 @@ jobs:
           NET_RECORDS_BUNDLE_SUFFIX: -g${{ matrix.group }}   # two groups in the same second never write the same asset
         run: |
           if [ -z "$NET_RECORDS_WRITE_TOKEN" ]; then echo "refill: no NET_RECORDS_WRITE_TOKEN secret: the rows are refilled but not published (the owner adds it, then run again)" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
-          node records-publish.mjs "$RUNNER_TEMP/staged-group" --against "$GITHUB_WORKSPACE/records" 2>&1 | tee -a "$RUNNER_TEMP/publish.log"; code=${PIPESTATUS[0]}
+          node records-publish.mjs "$RUNNER_TEMP/staged-group" --against "$GITHUB_WORKSPACE/records" --report "$RUNNER_TEMP/yellow-g${{ matrix.group }}.json" 2>&1 | tee -a "$RUNNER_TEMP/publish.log"; code=${PIPESTATUS[0]}
           { echo "#### Publish group ${{ matrix.group }}"; echo '```'; tail -n 40 "$RUNNER_TEMP/publish.log" | cut -c1-300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$code"
+      # Rows that only need a re-record (pinned not same as live, step mismatch) end this job green; their list travels to the summary and the one yellow message (owner, 17 Oct 2026).
+      - name: Keep this group's list of rows that need a re-record
+        if: always() && hashFiles(format('{0}/yellow-g{1}.json', runner.temp, matrix.group)) != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: yellow-${{ github.run_id }}-g${{ matrix.group }}
+          path: ${{ runner.temp }}/yellow-g${{ matrix.group }}.json
   finish:
     # Once, after every group: the spend (job summary and /admin/ai-cost) and, for a PR run, the PR's gate again.
     needs: [pick, refill, publish]
@@ -451,6 +458,16 @@ jobs:
         run: |
           n="$(find "$RUNNER_TEMP/packs" -name meta.json | wc -l | tr -d ' ')"
           echo "packs=$n" >> "$GITHUB_OUTPUT"
+      - name: Rows that need a re-record (summary)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/yellow"
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -p "yellow-$GITHUB_RUN_ID-*" -D "$RUNNER_TEMP/yellow" || true
+          mapfile -t lists < <(find "$RUNNER_TEMP/yellow" -name '*.json')
+          node desktop/e2e/refill-yellow.mjs "$RUNNER_TEMP/yellow-merged.json" "${lists[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Spend (job summary and /admin/ai-cost)
         if: always() && steps.packs.outputs.packs != '0'
         env:
@@ -481,7 +498,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: Tell the owner on Telegram (a failure or a capped run, or back to green)
+      - name: Tell the owner on Telegram (a failure or a capped run, one yellow list, or back to green)
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
@@ -491,4 +508,21 @@ jobs:
           PICK: ${{ needs.pick.outputs.line }}
         run: |
           if echo "$RESULTS" | grep -qE '=(failure|cancelled)'; then node ci-alert.mjs failure "The replay refill on main did not finish (${RESULTS}). ${PICK:-the estimate is above the cap, or the key is missing: see the run}" "Run it again: gh workflow run replay-refill.yml (no pr); the recorded rows stay stale until then"
-          else node ci-alert.mjs success; fi
+            exit 0
+          fi
+          # Green run: the rows that need a re-record are ONE yellow message, and only when the set differs from the run before (this run's list is kept as an artifact for the next one).
+          mkdir -p "$RUNNER_TEMP/yellow" "$RUNNER_TEMP/before"
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -p "yellow-$GITHUB_RUN_ID-*" -D "$RUNNER_TEMP/yellow" || true
+          for id in $(gh run list -R "$GITHUB_REPOSITORY" -w replay-refill.yml -b main -s completed -L 8 --json databaseId -q '.[].databaseId'); do
+            gh run download "$id" -R "$GITHUB_REPOSITORY" -n "yellow-set-$id" -D "$RUNNER_TEMP/before" 2>/dev/null && break
+          done
+          mapfile -t lists < <(find "$RUNNER_TEMP/yellow" -name '*.json')
+          node refill-yellow.mjs "$RUNNER_TEMP/yellow-set-$GITHUB_RUN_ID.json" "${lists[@]}" --previous "$(find "$RUNNER_TEMP/before" -name 'yellow-set-*.json' | head -1)" --alert
+          if [ "${#lists[@]}" = 0 ]; then node ci-alert.mjs success; fi
+      - name: Keep this run's list for the next run to compare with
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: yellow-set-${{ github.run_id }}
+          path: ${{ runner.temp }}/yellow-set-${{ github.run_id }}.json
+          if-no-files-found: ignore
