@@ -3,7 +3,7 @@
 // GitHub release `net-records` of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026; CI reads it with NET_RECORDS_READ_TOKEN, net-records-fetch.sh) as a NEW bundle
 // beside the others (14 Oct 2026: a publish that replaced the set would have dropped 11 of 18 rows; adding needs only the public key). The reader keeps the newest record per row
 // across bundles. Decrypting (to edit a record's answers): the Keychain item job-pilotto.capture.key. Re-recording is by hand on the Mac (owner, 13 Oct 2026).
-// A row the guard refuses is named with why and left out; the rows that pass are still published, and the command ends red (exit 1) so a refusal is never silent (owner, 15 Oct 2026).
+// A row the guard refuses is named with why and left out; the rows that pass are still published, and the command ends red (exit 1) for a safety refusal; a row that only needs a re-record (pinned / step) ends green and is listed by --report <file> (owner, 15 and 17 Oct 2026).
 //   node records-publish.mjs <records dir> [--dry]      (record a row: JP_NET_RECORD_DIR=<records dir> npm run record-sites -- --only "<row>")
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,7 +12,7 @@ import {execFileSync} from 'node:child_process';
 import {dispatchGh, uploadBundle} from './lib/refill-resilience.mjs';
 import {newestPerRow} from './replay-records.mjs';
 import {stampZone} from './lib/replay-date.mjs';
-import {judgeRecords, partition, report} from './lib/record-guard.mjs';
+import {classify, judgeRecords, partition, report} from './lib/record-guard.mjs';
 import {load as loadPins, pinned as pinnedRows} from './lib/replay-ratchet.mjs';
 import {gateRecordDir, scrubRecordDir} from './lib/record-scrub.mjs';
 import {appProfileTexts, personalValues} from '../lib/owner-values.js';
@@ -59,7 +59,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     for (const [name, left] of leaks) console.error(`records-publish: refused ${name}: a person's value is left after the scrub (${left.map(hit => `${hit.kind} in ${hit.in}`).join(', ')})`);
     const publish = passed.filter(row => !leaks.has(row.name)), refused = [...guarded, ...leaks.keys()];
     if (refused.length) console.error(`records-publish: refused ${refused.length} row(s): ${refused.join(', ')}; ${publish.length ? `publishing the other ${publish.length}: ${publish.map(row => row.name).join(', ')}` : 'nothing is left to publish'}.`);
-    const refusedExit = refused.length ? 1 : 0;
+    // Only the safety refusals end red; a row that needs a re-record ends green with a list (--report <file> writes it for the workflow's summary and the one yellow Telegram message; owner, 17 Oct 2026).
+    const {rerecord, hard} = classify(judged, [...leaks.keys()]), refusedExit = hard.length ? 1 : 0, reportAt = flagValues('--report')[0];
+    if (rerecord.length) console.error(`records-publish: ${rerecord.length} row(s) need a re-record (not a failure): ${rerecord.map(one => one.row).join(', ')}`);
+    if (reportAt) fs.writeFileSync(reportAt, JSON.stringify({published: publish.map(row => row.name), rerecord, hard}));
     if (dry || !publish.length) { fs.rmSync(work, {recursive: true, force: true}); process.exit(refusedExit); }
     for (const row of rows) if (refused.includes(row.name)) fs.rmSync(path.join(stage, path.basename(row.dir)), {recursive: true, force: true});
     const run = (cmd, args) => execFileSync(cmd, args, {cwd: work, stdio: ['ignore', 'pipe', 'inherit']});

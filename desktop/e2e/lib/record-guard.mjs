@@ -91,3 +91,15 @@ const acceptedFor = (refusal, entries, names) => ['pinned', 'worse'].includes(re
 export const partition = (rows, judged) => { const refused = [...new Set(judged.refusals.map(one => one.row))]; return {publish: rows.filter(row => !refused.includes(row.name)), refused}; };
 
 export const report = ({refusals, notes}) => [...refusals.map(one => `refused: ${one.row}: ${one.check}: ${one.why}\n  to proceed: ${one.run}`), ...notes.map(text => `note: ${text}`)].join('\n');
+
+// The two refusals that only mean "this row's live site moved, record it again" (owner, 17 Oct 2026: about 10 rows no longer matched their live sites, so every refill went red): a pinned row that
+// no longer replays same as live, and a replay that stops before the step live reached. Everything else (a person's value left after the scrub, double-encoded or lost answers, a record worse than the
+// released one, a replay that did not run, a publish error) stays a red failure.
+export const NEEDS_RERECORD = ['pinned', 'step'];
+
+// (judgeRecords' answer, rows left by the scrub) -> {rerecord: [{row, why}], hard: [names]}: a row with any other refusal, or a leak, is hard even when it also needs a re-record.
+export function classify(judged, leaked = []) {
+  const hard = new Set(leaked), soft = new Map();
+  for (const one of judged.refusals) { if (NEEDS_RERECORD.includes(one.check)) { if (!soft.has(one.row)) soft.set(one.row, one.why); } else hard.add(one.row); }
+  return {rerecord: [...soft].filter(([row]) => !hard.has(row)).map(([row, why]) => ({row, why})), hard: [...hard]};
+}
