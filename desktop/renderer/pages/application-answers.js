@@ -7,13 +7,14 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, lineFor, matches, sections, shown} from '../answers-model.js';
 import {outlineTab} from './outline-tab.js';
+import {visibleQuestions} from '../question-filter.js';
 import {drawRules, input, labelled, newRule, resetRules, reviewRows, select} from './website-rules.js';
 
 const TEXT = 'answers';
 const filters = {query: '', review: false, section: ''};
 const opened = new Set();   // rows shown open (answer ids, review keys)
 const drafts = new Map();   // answer id → the value typed; new questions under `new-<n>`: {section, question, value}
-let added = 0, tab = null, rulesOpen = false;
+let added = 0, tab = null, rulesOpen = false, verdicts = {}, askedFor = '', showHidden = false;
 
 const valueOf = item => drafts.get(item.id) ?? item.value;
 const missing = item => item.open && !item.optional && !valueOf(item);
@@ -82,15 +83,28 @@ function draw(view, into) {
 
   // Needs review: what forms will still ask (an answer not set, a website rule with no value).
   const inScope = section => !filters.section || section.title === filters.section;
-  const open = list.filter(inScope).flatMap(section => section.items.filter(item => item.open && !item.optional && !drafts.has(item.id) && matches(item, {query: filters.query}))
+  const candidates = list.filter(inScope).flatMap(section => section.items.filter(item => item.open && !item.optional && !drafts.has(item.id) && matches(item, {query: filters.query}))
     .map(item => ({item, section})));
+  // The same filter as Jobs → Answer once: readable, reusable, not already answered; the rest is "N hidden · show" (nothing deleted). The AI's verdicts are asked once per set of questions.
+  const labels = candidates.map(each => each.item.question), signature = labels.join('\n');
+  if (labels.length && signature !== askedFor) {
+    askedFor = signature;
+    Promise.resolve(window.pilot.questionVerdicts(labels)).then(result => { if (result?.ok) { verdicts = {...verdicts, ...result.verdicts}; view.redraw(); } }).catch(() => {});
+  }
+  const {shown: shownRows, hidden: hiddenRows} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
+  const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
   const ruleRows = filters.section ? [] : reviewRows(view, filters.query).filter(each => !each.value);
-  if (open.length || ruleRows.length) {
-    const review = card('Needs review', 'alert', [pill(`${open.length + ruleRows.length} not set`, 'warn', {dot: true})]);
+  if (open.length || ruleRows.length || hiddenRows.length) {
+    const review = card('Needs review', 'alert', [pill(`${shownRows.length + ruleRows.length} not set`, 'warn', {dot: true})]);
     review.classList.add('is-review');
     for (const {item, section} of open) review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
       field: () => input(valueOf(item), text => setAnswer(view, item, text), {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', ariaLabel: item.question})}));
     for (const each of ruleRows) review.append(...row(view, {...each, needs: true}));
+    if (hiddenRows.length) {
+      const more = Object.assign(el('button', 'link', showHidden ? 'Hide the others' : `${hiddenRows.length} hidden · show`), {type: 'button', id: 'review-hidden'});
+      more.addEventListener('click', () => { showHidden = !showHidden; view.redraw(); });
+      review.append(more);
+    }
     into.append(review);
   }
 

@@ -5,6 +5,7 @@ import * as applicationOutcomes from './outcomes.js';
 import * as controlEvents from './control-events.js';
 import * as pipeline from './pipeline.js';
 import * as questions from './questions.js';
+import * as questionLists from './question-lists.js';
 import * as telegram from './telegram.js';
 import {log as appLog} from './log.js';
 
@@ -48,7 +49,7 @@ export function registerJobActionsHandlers(ctx) {
   });
   // Settings → Application profile → Standard answers (read from Notion) and the Strategy page's data.
   ipcMain.handle('standardAnswers', async () => {
-    try { return {ok: true, groups: await questions.standardAnswers(storage)}; } catch (error) { return {ok: false, error: error.message}; }
+    try { return {ok: true, groups: questionLists.filterGroups(storage, await questions.standardAnswers(storage))}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('rescorePrevious', async () => {
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-previous']);
