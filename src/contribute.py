@@ -1,8 +1,8 @@
 """Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 
 Only public facts go up (ATS, board slug, company, a fixed board id, job counts; facts about sites: a company's job page without its query,
-a site only a browser reads, a dead page) plus role families and regions from fixed lists. Nothing about jobs,
-applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on unless the user switched it off);
+a site only a browser reads, a dead page) plus role families and regions from fixed lists, and up to 40 public posting addresses (src/contribute_candidates.py: address, host and
+source only, for the daily discovery batch). Nothing else about jobs, applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on unless the user switched it off);
 `python -m src contribute --show` prints exactly what would be sent, on or off.
 """
 import argparse
@@ -14,6 +14,7 @@ import re
 import urllib.request
 
 from .paths import DATA, load_search_config
+from . import contribute_candidates
 from .sources import ats
 
 URL = 'https://www.jobpilotto.top/api/contribute'
@@ -303,7 +304,7 @@ def payload(feed_list, report, stores=None, install=None, search=None, db=None, 
     boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(search),
             'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {}),
-            **({'sites': sites} if (sites := site_facts()) else {})}
+            **({'sites': sites} if (sites := site_facts()) else {}), **({'candidates': found} if (found := contribute_candidates.candidates(db, stages)) else {})}
 
 
 def enabled(env=None):
@@ -385,6 +386,8 @@ def _signatures(body):
         yield ('nofeed', dead, f"dead:{dead.get('company')}", json.dumps([tags_sig, dead.get('host')]))
     for fact in body.get('sites') or []:
         yield ('sites', fact, f"site:{fact['host']}:{fact['kind']}", json.dumps([fact.get('url'), fact.get('recipe')], sort_keys=True))
+    for post in body.get('candidates') or []:
+        yield ('candidates', post, f"candidate:{post['url']}", json.dumps([post.get('source')]))
     for board in body.get('boards') or []:
         yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), board.get('dup'), _bucket(board.get('jobs')), board.get('out')]))
 
@@ -396,7 +399,7 @@ def only_changed(db, body, now=None):
     db.execute(SENT_TABLE)
     now = now or datetime.now(timezone.utc)
     last = {row[0]: (row[1], row[2]) for row in db.execute('SELECT key, sig, sent_at FROM pool_sent')}
-    keep, marks = {'feeds': [], 'nofeed': [], 'boards': [], 'sites': []}, []
+    keep, marks = {'feeds': [], 'nofeed': [], 'boards': [], 'sites': [], 'candidates': []}, []
     for field, item, key, sig in _signatures(body):
         before = last.get(key)
         if before and before[0] == sig and now - datetime.fromisoformat(before[1]) < REFRESH:
@@ -404,7 +407,7 @@ def only_changed(db, body, now=None):
         keep[field].append(item)
         marks.append((key, sig))
     out = {**body, 'feeds': keep['feeds']}
-    for field in ('nofeed', 'boards', 'sites'):
+    for field in ('nofeed', 'boards', 'sites', 'candidates'):
         out.pop(field, None)
         if keep[field]:
             out[field] = keep[field]
@@ -425,7 +428,7 @@ def maybe_send(feed_list, report, stores=None, **kwargs):
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
     body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, stores, search=kwargs.get('search'), db=kwargs.get('db'), stages=kwargs.get('stages')), kwargs.get('now'))
-    if not body['feeds'] and not body.get('nofeed') and not body.get('boards') and not body.get('sites'):
+    if not body['feeds'] and not any(body.get(name) for name in ('nofeed', 'boards', 'sites', 'candidates')):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
     if sent:

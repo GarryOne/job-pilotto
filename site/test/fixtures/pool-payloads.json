@@ -76,6 +76,13 @@
     "jobs": 10
    }
   ],
+  "candidates": [
+   {
+    "host": "jobs.example",
+    "source": "matches",
+    "url": "https://jobs.example/1"
+   }
+  ],
   "countries": [
    "ch"
   ],
