@@ -1,6 +1,7 @@
 // Runs a suite's steps: names, timings, a screenshot on the first failure, a summary, an exit code. Steps that need a secret that is not there are skipped, loudly.
 import path from 'node:path';
 import {ARTIFACTS} from './app.mjs';
+import {refusalNote} from './ai-refused.mjs';
 import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
 import {faultCheck, NEVER_FIRED, neverFiredNote} from './faults.mjs';
 
@@ -99,8 +100,11 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
       console.log(`✓ ${name} (${seconds}s)${retried ? ' after one retry' : ''}${vacuous ? ` ⚠ passed, but ${NEVER_FIRED}: it may test nothing` : ''}`);
     } catch (error) {
       await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
-      const note = unfired() ? `${error.message} ${neverFiredNote}` : error.message;
-      results.push({name, status: 'failed', note, ...(!faults && isEnvironment(error.message) ? {environment: true} : {}), ...(note !== error.message ? {faultNeverFired: true} : {})});
+      const base = unfired() ? `${error.message} ${neverFiredNote}` : error.message;
+      // The AI refusing every call (a spend limit) is the cause, whatever symptom the step saw: say it first, and it is the test environment's failure, never a product bug (lib/ai-refused.mjs).
+      const refused = faults ? '' : refusalNote(getSession()?.profile);
+      const note = refused ? `${refused}; the step then failed: ${base}` : base;
+      results.push({name, status: 'failed', note, ...(refused || (!faults && isEnvironment(error.message)) ? {environment: true} : {}), ...(base !== error.message ? {faultNeverFired: true} : {})});
       console.log(`✗ ${name}: ${note}`);
       if (keepGoing && !critical) return;   // recorded: the suite still fails at the end, and the next step runs
       throw error;
