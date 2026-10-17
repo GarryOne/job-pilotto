@@ -44,7 +44,8 @@ if argv[:1] == ['api']:
     if any('.steps' in a for a in argv): print('Core flow files up to date with main' if state.get('step_red') else ''); save(); sys.exit(0)
     print('example/repo' if '.full_name' in argv else ('true' if state.get('auto_merge_allowed') else 'false'))
 elif argv[:2] == ['pr', 'list']:
-    print(json.dumps([{'number': 1}] if state.get('state') == 'OPEN' else []))
+    # without --head: every open PR with its commits (state 'others', for the no-stacking check)
+    print(json.dumps(([{'number': 1}] if state.get('state') == 'OPEN' else []) if '--head' in argv else state.get('others', [])))
 elif argv[:2] == ['pr', 'create']:
     state.update(state='OPEN', head=flag('--head'), auto=False, draft='--draft' in argv)
     print('https://example.test/pull/1')
