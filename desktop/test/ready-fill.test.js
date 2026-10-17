@@ -90,7 +90,7 @@ test('a job costs its seconds of container plus the AI the extension reported', 
 
 test('a fresh extension worker is written only once chrome.storage exists, and every caller goes through that one wait', async () => {
   const {setExtensionStorage} = await import('../../hosted/ready-fill/extension-storage.mjs');
-  const saved = {}, worker = {evaluate: (fn, arg) => fn(arg)};   // runs "in the worker": here, this process's globalThis
+  const saved = {}, worker = {evaluate: async (fn, arg) => fn(arg)};   // runs "in the worker": here, this process's globalThis
   const before = globalThis.chrome;
   try {
     delete globalThis.chrome;
@@ -106,7 +106,7 @@ test('a fresh extension worker is written only once chrome.storage exists, and e
   }
 });
 
-test('a night that cannot start tells the site each job failed and why, at once, instead of leaving them "waiting"', async () => {
+test('a night that cannot start tells the site each job failed and why, at once, instead of leaving them "waiting", and leaves nothing open', {timeout: 20000}, async () => {
   const {runNight, NIGHT_FAILED} = await import('../../hosted/ready-fill/night.mjs');
   const posts = [];
   const fetchImpl = async (url, options) => {
