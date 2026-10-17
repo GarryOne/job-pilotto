@@ -14,17 +14,21 @@ runs() { gh run list -R "$repo" --commit "$sha" -L 100 --json databaseId,workflo
   -q ".[] | select(.event == \"pull_request\") | \"\(if (.databaseId | tostring) == \"$own\" then \"own\" else .status end)\t\(.conclusion // \"-\")\t\(.workflowName)\t\(.createdAt // \"\")\"" 2>/dev/null || true; }
 sleep "$appear"
 deadline=$(( $(date +%s) + wait_min * 60 ))
+# Another running copy of this gate's own workflow on the same commit (the code run and the description-edit run have separate concurrency groups) is never
+# waited for: each waited for the other until the deadline and both went red (17 Oct 2026, #1192-#1194 held 60 min). The other copy judges the same runs itself.
+waiting() { awk -F'\t' '$1 == "own" { gate = $3 } { s[NR] = $1; w[NR] = $3 } END { for (i = 1; i <= NR; i++) if (s[i] != "completed" && s[i] != "own" && w[i] != gate) print w[i] }' <<<"$1"; }
 while :; do
   list="$(runs)"
-  pending="$(grep -Ev '^(completed|own)' <<<"$list" | grep -c . || true)"
+  pending="$(waiting "$list" | grep -c . || true)"
   [ "$pending" = 0 ] && break
-  if [ "$(date +%s)" -gt "$deadline" ]; then echo "::error::$pending workflow(s) still running after ${wait_min} min:"; grep -Ev '^(completed|own)' <<<"$list" | cut -f3; exit 1; fi
+  if [ "$(date +%s)" -gt "$deadline" ]; then echo "::error::$pending workflow(s) still running after ${wait_min} min:"; waiting "$list"; exit 1; fi
   sleep "$poll"
 done
 bad="$(grep . <<<"$list" | awk -F'\t' '
-  { c[NR] = ($1 == "own") ? "success" : $2; w[NR] = $3; t[NR] = $4; o[NR] = ($1 == "own") }
+  { c[NR] = ($1 == "own") ? "success" : $2; w[NR] = $3; t[NR] = $4; o[NR] = ($1 == "own"); s[NR] = $1; if ($1 == "own") gate = $3 }
   END { for (i = 1; i <= NR; i++) {
           if (o[i]) continue
+          if (s[i] != "completed" && w[i] == gate) continue
           if (c[i] == "success" || c[i] == "skipped") continue
           gone = 0
           if (c[i] == "cancelled" && t[i] != "") for (j = 1; j <= NR; j++) if (w[j] == w[i] && c[j] == "success" && t[j] > t[i]) { gone = 1; break }
