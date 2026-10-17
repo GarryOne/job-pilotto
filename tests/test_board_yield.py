@@ -38,8 +38,8 @@ class YieldTests(Fixture):
         return [j for j in jobs if j['title'] == 'Controller' and j['location'] == 'Amsterdam']
 
     def read(self, boards_, jobs_by_host, now=None):
-        def fake(b, search, fetch):
-            return jobs_by_host.get(b['host'], []), 'ok' if jobs_by_host.get(b['host']) else 'empty'
+        def fake(b, search, fetch, route=None):
+            return jobs_by_host.get(b['host'], []), 'ok' if jobs_by_host.get(b['host']) else 'empty', None
         with mock.patch.object(found_boards, 'read_board', fake):
             return found_boards.read(SEARCH, boards_, is_relevant=self.relevant)
 
@@ -59,9 +59,9 @@ class YieldTests(Fixture):
 
     def test_at_most_three_untried_boards_a_run_and_none_once_ten_relevant_jobs_are_found(self):
         asked = []
-        def fake(b, search, fetch):
+        def fake(b, search, fetch, route=None):
             asked.append(b['host'])
-            return [], 'empty'
+            return [], 'empty', None
         with mock.patch.object(found_boards, 'read_board', fake):
             found_boards.read(SEARCH, [board(n) for n in range(6)], is_relevant=self.relevant)
         self.assertEqual(asked, ['b0.example', 'b1.example', 'b2.example'])
@@ -86,7 +86,7 @@ class StepTests(Fixture):
     def test_a_dutch_search_reads_the_found_boards_and_says_nothing_about_developer_boards(self):
         lines = []
         with mock.patch.object(board_ideas, 'ideas', return_value=[board(1)]), \
-                mock.patch.object(found_boards, 'read_board', return_value=([job('Controller', 'Amsterdam')], 'ok')), \
+                mock.patch.object(found_boards, 'read_board', return_value=([job('Controller', 'Amsterdam')], 'ok', None)), \
                 mock.patch('builtins.print', lambda *a, **k: lines.append(' '.join(map(str, a)))):
             sources = board_yield.step(SEARCH, is_relevant=lambda jobs: jobs)
         text = '\n'.join(lines)
