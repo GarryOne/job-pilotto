@@ -21,7 +21,7 @@ test('a newer read of the tab makes the older one stale; another tab is not touc
 });
 
 test('class: every ask consider() waits on is checked right after, and the read is begun once the call is not skipped', () => {
-  assert.match(consider, /if \(started\.has\(key\)\) return;\s*started\.add\(key\);\s*notePage\([^\n]*\n\s*const gen = beginRead\(tab\.id\);/, 'a call that returns at once is not a read');
+  assert.match(consider, /if \(started\.has\(key\)\) return;\s*started\.add\(key\);/, 'a call that returns at once is not a read');
   const waits = [...consider.matchAll(/await (kindAsk|outcomeLook|readWhileDrawing\(|climbOnUnsure\(|climbOnStall\()/g)];
   assert.ok(waits.length >= 4, `${waits.length} awaited asks found: the list of late-answer sites changed, update this test`);
   for (const wait of waits) {
@@ -52,4 +52,14 @@ test('class: the app asks of the account block are checked right after', () => {
 test('the late answer is logged, not silent, and the tab\'s reads are forgotten with the tab', () => {
   assert.match(flow, /const late = \(tab, gen, what\) => \{[^}]*decide\('fill', 'late answer dropped: a newer read of this tab answered'/);
   assert.match(fs.readFileSync(new URL('../../extension/read-gen.js', import.meta.url), 'utf8'), /tabs\?\.onRemoved\?\.addListener\(forgetReads\)/);
+});
+
+// 17 Oct 2026, CI journey "SuccessFactors: account and form" (run 38984259095): after the sign-in the page's form answer was dropped as "late: a newer read of this tab answered", no newer read
+// logged anything, the form was never filled and the run ended by cap 260 s later. Two holes: a read that found the tab already moved on (and returned) had bumped the generation first, so it
+// made the live read late; and a read dropped as late kept its key in `started`, so when the tab came back to that page nothing read it again.
+test('a read that abandons itself does not make the live read late, and a dropped read gives its page back', () => {
+  const body = consider.slice(0, consider.indexOf('await closeConsentEverywhere'));
+  assert.ok(body.indexOf('beginRead(tab.id)') > body.indexOf('pageKey(live.url) !== pageKey(tab.url)'), 'the generation moves only for a read that goes on past the moved-on check');
+  const lateLine = flow.slice(flow.indexOf('const late = '), flow.indexOf('const late = ') + 400);
+  assert.match(lateLine, /started\.delete\(fillKey\(tab\.id, tab\.url\)\)/, 'a read dropped as late forgets its key so the page can be read again');
 });
