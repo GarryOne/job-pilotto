@@ -23,10 +23,11 @@ def is_relevant(jobs):
 
 
 def record(entry, listed, relevant, state):
-    """Keep one read in the board's entry: jobs listed, relevant jobs, reads in a row with none ('misses') and the state."""
+    """Keep one read in the board's entry: jobs listed, relevant jobs, reads in a row with no relevant one ('misses') and the state (ok: it
+listed jobs; dead: 3 reads without a relevant one)."""
     entry.update({'jobs': listed, 'relevant': relevant, 'last_yield': date.today().isoformat()})
     entry['misses'] = 0 if relevant else entry.get('misses', 0) + 1
-    entry['state'] = 'browser' if state == 'browser' else 'dead' if entry['misses'] >= DEAD_AFTER else 'ok' if relevant else 'empty'
+    entry['state'] = 'browser' if state == 'browser' else 'dead' if entry['misses'] >= DEAD_AFTER else 'ok' if listed else 'empty'
 
 
 def total_relevant(kept):
