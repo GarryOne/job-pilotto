@@ -39,7 +39,8 @@ function split(text) {
 }
 
 // One page's movable items: {id, page, key (what finds it again), check (text its line must hold to be removed), label, value, home (a section's own line: fixed)}.
-export function itemsOf(outline, page) {
+// withOpen: also the ❓ lines outside Your details, in page order, as {open: true, value: ''} (the move clears the ones whose fact is answered).
+export function itemsOf(outline, page, {withOpen = false} = {}) {
   const out = [];
   let under = '';
   for (const entry of outline) {
@@ -50,13 +51,27 @@ export function itemsOf(outline, page) {
       for (const row of entry.rows.slice(entry.header ? 1 : 0)) {
         const [label, ...rest] = row.cells.map(plain), value = rest.join(' | ').trim();
         if (label && value && !OPEN.test(value)) out.push({id: `${page}:${row.id}`, page, key: row.cells.join('|'), check: row.cells[0], label, value, home: section});
+        else if (withOpen && label && OPEN.test(value) && !section) out.push({id: `${page}:${row.id}`, page, key: row.cells.join('|'), check: row.cells[0], label, value: '', home: '', open: true});
       }
     } else if (entry.text && !OPEN.test(entry.text)) {
       const {label, value} = split(plain(entry.text));
       if (value) out.push({id: `${page}:${entry.id}`, page, key: entry.text, check: entry.text, label, value, home: section});
+    } else if (withOpen && entry.text && !section) {
+      const {label} = split(plain(entry.text));
+      if (label && !OPEN.test(label)) out.push({id: `${page}:${entry.id}`, page, key: entry.text, check: entry.text, label, value: '', home: '', open: true});
     }
   }
   return out;
+}
+
+// The ❓ lines whose fact has an answer (a Your details line, or a line that moves there): stale asks the move clears. A ❓ with no answer stays the ask.
+export function staleOpen(open, items, judged) {
+  const answered = new Set();
+  for (const item of items) {
+    const verdict = judged.get(item.id), home = item.home || (verdict && verdict.home !== 'stay' ? verdict.home : '');
+    if (home && verdict?.topic) answered.add(`${home}\n${verdict.topic}`);
+  }
+  return open.filter(item => { const verdict = judged.get(item.id); return verdict && verdict.home !== 'stay' && answered.has(`${verdict.home}\n${verdict.topic}`); });
 }
 
 // items -> Map(id -> {home, topic}); one small call. A mangled id, an unknown home or no topic keeps the item where it is.
@@ -64,7 +79,7 @@ export async function judge(items, {client = null, apiKey = ''} = {}) {
   const ai = client || (apiKey ? anthropicApi(apiKey) : null);
   if (!ai || !items.length) return new Map();
   const response = await ai.messages.create({model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,
-    messages: [{role: 'user', content: JSON.stringify(items.map(({id, label, value}) => ({id, line: label ? `${label}: ${value}` : value})))}],
+    messages: [{role: 'user', content: JSON.stringify(items.map(({id, label, value, open}) => ({id, line: open ? `${label}: (not answered yet)` : label ? `${label}: ${value}` : value})))}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'}});
   const text = response.content?.find(block => block.type === 'text')?.text || '{"items":[]}';
   const ids = new Set(items.map(item => item.id)), out = new Map();
@@ -80,7 +95,7 @@ export function planOf(items, judged) {
     const verdict = judged.get(item.id);
     const home = item.home || (verdict && verdict.home !== 'stay' ? verdict.home : '');
     if (!home) continue;
-    const topic = verdict?.topic || `line ${same(item.label || item.value)}`;
+    const topic = (!item.home && verdict?.topic) || `line ${same(item.label || item.value)}`;
     const key = `${home}\n${topic}`;
     if (!groups.has(key)) groups.set(key, {home, topic, items: []});
     groups.get(key).items.push(item);
@@ -119,13 +134,15 @@ const texts = async opened => (await Promise.all(['profile', 'answers'].map(name
 // save: the section writer (a test passes one that fails).
 export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = sections.save, now = new Date()} = {}) {
   const opened = openStore(storage, {fetcher});
-  const read = async () => [...itemsOf(await opened.page('profile').outline(), 'profile'), ...itemsOf(await opened.page('answers').outline(), 'answers')];
-  const items = await read();
-  const judged = await judge(items.filter(item => !item.home), ai);
+  const all = [...itemsOf(await opened.page('profile').outline(), 'profile', {withOpen: true}), ...itemsOf(await opened.page('answers').outline(), 'answers', {withOpen: true})];
+  const items = all.filter(item => !item.open), open = all.filter(item => item.open);
+  // Your details' own lines are judged too, only to name their fact: a ❓ copy of it elsewhere is then cleared (owner's Profile, 18 Oct 2026).
+  const judged = await judge(all, ai);
   const {moves, conflicts} = planOf(items, judged);
+  const stale = staleOpen(open, items, judged);
   storage.saveSettings({profileConflicts: conflicts});
   const judgedNow = Boolean(ai.client || ai.apiKey);   // judged once: a Profile with nothing to move is not asked again
-  if (!moves.length) { if (judgedNow) storage.saveSettings({profileMovedAt: now.toISOString()}); return {moved: 0, conflicts}; }
+  if (!moves.length && !stale.length) { if (judgedNow) storage.saveSettings({profileMovedAt: now.toISOString()}); return {moved: 0, conflicts, cleared: 0}; }
   const kept = await copy(storage, {fetcher, now});
   const before = items.map(item => same(item.value));
   const current = await sections.read(storage, fetcher);
@@ -138,16 +155,16 @@ export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = s
   const missing = moves.filter(each => !written[each.home].some(line => same(line.value) === same(each.value)));
   if (missing.length) throw new Error(`Your details move: ${missing.length} line(s) did not save; nothing was removed (the pages before it are in ${kept.dir})`);
   // The originals go once their line is written; found again by their text (an id may have shifted), last first, a section's own lines never.
-  const gone = new Set(moves.flatMap(each => each.from.map(item => `${item.page}\n${item.key}`)));
+  const gone = new Set([...moves.flatMap(each => each.from), ...stale].map(item => `${item.page}\n${item.key}`));
   for (const name of ['answers', 'profile']) {
-    const doomed = itemsOf(await opened.page(name).outline(), name).filter(item => !item.home && gone.has(`${name}\n${item.key}`));
+    const doomed = itemsOf(await opened.page(name).outline(), name, {withOpen: true}).filter(item => !item.home && gone.has(`${name}\n${item.key}`));
     for (const item of doomed.reverse()) await opened.page(name).remove({id: item.id.slice(name.length + 1), text: item.check});
   }
   const after = same(await texts(opened));
   const lost = before.filter(value => !after.includes(value));
   if (lost.length) throw new Error(`Your details move: ${lost.length} value(s) not found after it; the pages before it are in ${kept.dir}`);
   storage.saveSettings({profileMovedAt: now.toISOString()});
-  return {moved: moves.length, conflicts, copy: kept};
+  return {moved: moves.length, conflicts, cleared: stale.length, copy: kept};
 }
 
 // "Which is right?" (owner: "Show me, I pick"): the picked value becomes the section's line, and every other value of that fact is set aside (never deleted:
