@@ -6,6 +6,6 @@ import fs from 'node:fs';
 
 test('Confirm & next starts disabled on an empty answer and follows the answer control', () => {
   const source = fs.readFileSync(new URL('../renderer/pages/question-review.js', import.meta.url), 'utf8');
-  assert.match(source, /confirm\.disabled = state\.busy \|\| !String\(value\)\.trim\(\);/, 'the control tells Confirm when it holds an answer');
-  assert.match(source, /confirm\.disabled = state\.busy \|\| !String\(control\.value\)\.trim\(\);/, 'drawn disabled when the answer is empty');
+  assert.match(source, /confirm\.disabled = state\.busy \|\| !control\.complete;/, 'the control tells Confirm when it holds an answer');
+  assert.match(source, /confirm\.disabled = state\.busy \|\| !control\.complete;\n  confirm\.addEventListener/, 'drawn disabled when the answer is empty');
 });
