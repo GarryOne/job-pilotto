@@ -3,6 +3,7 @@
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {$, message, runWhen} from './core.js';
+import {loadExperienceProfile} from './experience-profile.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -181,6 +182,7 @@ export function showLinkedin(status) {
 }
 
 export async function loadExperience() {
+  loadExperienceProfile();   // Professional summary and Strengths, from the Profile page
   showLinkedin(await window.pilot.linkedinStatus().catch(() => null));
   message('exp-message', '');
   const view = await window.pilot.experienceGet().catch(() => null);

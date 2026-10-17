@@ -2541,3 +2541,12 @@ details.qa-section { margin-top: var(--sp-3); }
 
 /* Your details → fact sections (pages/details-facts.js): "+ Add a line" sits at the start of its row, not centred in the grid. */
 [data-facts] > .link { justify-self: start; }
+
+/* Profile → Experience: Professional summary and Strengths, a 3-line preview each with Edit (pages/experience-profile.js). */
+.exp-profile { display: grid; gap: var(--sp-4); }
+.exp-part { display: grid; gap: var(--sp-1); min-width: 0; }
+.exp-part-head { display: flex; align-items: baseline; gap: var(--sp-3); }
+.exp-part-head .link { padding: 0; }
+.exp-part-preview { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+.exp-part-lines { display: grid; gap: var(--sp-2); }
+.exp-part-lines textarea { width: 100%; resize: vertical; }
