@@ -39,6 +39,7 @@ on:
       - 'desktop/e2e/lib/journey.mjs'
       - 'desktop/e2e/lib/live-readings.mjs'
       - 'desktop/e2e/lib/live-row.mjs'
+      - 'desktop/e2e/lib/stall-note.mjs'
       - 'desktop/e2e/lib/live-still.mjs'
       - 'desktop/e2e/lib/net-record.mjs'
       - 'desktop/e2e/lib/notion.mjs'

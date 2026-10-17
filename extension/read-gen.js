@@ -7,6 +7,18 @@ const gens = new Map();   // tabId -> the latest read's number
 
 export const beginRead = tabId => { const gen = (gens.get(tabId) || 0) + 1; gens.set(tabId, gen); return gen; };
 export const isCurrent = (tabId, gen) => !isStopped() && gens.get(tabId) === gen;   // Stop makes every read late: no answer on its way is applied (stop.js)
+// The two decisions of a read that can strand a page (17 Oct 2026, SuccessFactors journey: 260 s of nothing after a sign-in), pure so a test can script the sequence (worker/test/read-generation.test.js).
+// openRead: a read that finds the tab already moved on (`moved`) gives its page key back and begins nothing, so the live read of the page the tab is on stays current -> the generation, or 0.
+// dropIfLate: a read whose answer is late gives its page key back, so when the tab returns to that page it is read again -> true when dropped.
+export function openRead(tabId, key, started, moved) {
+  if (moved) { started.delete(key); return 0; }
+  return beginRead(tabId);
+}
+export function dropIfLate(tabId, gen, key, started) {
+  if (isCurrent(tabId, gen)) return false;
+  started.delete(key);
+  return true;
+}
 export const forgetReads = tabId => { gens.delete(tabId); };
 globalThis.chrome?.tabs?.onRemoved?.addListener(forgetReads);
 
