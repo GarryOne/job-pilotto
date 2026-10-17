@@ -17,7 +17,6 @@ CLASSIFIED = {
     'CI · Cancel the runs of a closed PR': 'ignored: pull_request_target on close; cancels the closed PR\'s own runs, never runs on main',
     'CI · Page cases (all cases, real extension, Linux)': 'ignored: pull requests and by hand only; on main its cases are a step of CI · Tests (one Linux job, 15 Oct 2026)',
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
-    'CI · PR description laid out': 'ignored: pull requests only (opened, edited, pushed); checks the description, never main',
     'CI · Hosted Always on e2e': 'ignored: pull requests that touch the hosted code, and nightly; never on a push to main',
     'CI · Harness tests': 'ignored: pull requests that change the harness only (on: paths:)',
     'CI · Harness tests · daily': 'ignored: its own daily run alerts the CI chat; not a main push check',
