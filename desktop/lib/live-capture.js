@@ -14,7 +14,8 @@ const QUERY = /\?[\w%.~-]+=[^\s"'<>&]*(?:&[\w%.~-]+=[^\s"'<>&]*)*/g;
 export const FAKE_EMAIL = 'test.candidate@example.com', FAKE_PHONE = '(phone)';
 // A phone: 9+ digits standalone; a digit run glued to a word character is an identifier (Greenhouse's question_4553828006: scrubbing it broke every label's for=, 11 Oct 2026).
 export const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z][\w-]*/g, PHONE = /(?<![\w])\+?\d[\d\s().-]{8,}\d(?![\w])/g;
-const EXAMPLE = /@example\.(com|org|net)$/i;   // words-ok: the reserved example domains (RFC 2606), never page text
+// The reserved example domains (RFC 2606: example.com, .org, .net and example.test) are never a person's: the offline runs' fake applicant is ada.tester@example.test. Other .test names stay personal (a test person's).
+export const EXAMPLE = /@example\.(?:com|org|net|test)$/i;   // words-ok: the reserved domains, never page text
 export const fakeContacts = value => value.replace(EMAIL, email => (EXAMPLE.test(email) ? email : FAKE_EMAIL))
   .replace(PHONE, number => (number.replace(/\D/g, '').length >= 9 ? FAKE_PHONE : number));
 const text = value => fakeContacts(value.replace(QUERY, ''));

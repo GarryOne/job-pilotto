@@ -123,3 +123,12 @@ test('an address read out of the garbage bytes of a decoded base64 run is not a 
   const text = Buffer.from(JSON.stringify({applicant: 'someone.real@gmail.com', pad: 'x'.repeat(40)})).toString('base64');
   assert.deepEqual(personalHits(`var data = "${text}";`, {code: true}), ['email'], 'an address inside decoded text still stops the record');
 });
+
+// 17 Oct 2026, the full refill: five rows were refused at the publish gate for "email in url": a request to an address checker carries the offline runs' fake applicant,
+// ada.tester@example.test. The example domains (RFC 2606, with example.test) are never a person's; a real provider's address still stops the record.
+test('an address on a reserved example or test domain is no person; a real one is', () => {
+  for (const fake of ['https://checker.example/address/validate?address=ada.tester%40example.test', 'mail ada.tester@example.test now', 'a@example.org'])
+    assert.deepEqual(personalHits(fake, {values: new Map()}), [], fake);
+  for (const real of ['https://checker.example/address/validate?address=igor.someone%40gmail.com', 'mail someone@company.ch now', 'rosalind.quill@mailbox.test'])
+    assert.deepEqual(personalHits(real, {values: new Map()}), ['email'], real);
+});

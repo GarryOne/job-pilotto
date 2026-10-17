@@ -2,7 +2,7 @@
 // whatever could be the person's: URL query values, typed-value attributes and text, the person's own values (lib/owner-values.js), any e-mail or phone. Then lastGate() scans the
 // result again with the same values: one hit and nothing is sent. Kinds and counts only ever leave here, never a value. Pure: no files, no network.
 // Guard: test/report-scrub.test.js.
-import {EMAIL, FAKE_EMAIL, PHONE, fakeContacts} from './live-capture.js';
+import {EMAIL, EXAMPLE, FAKE_EMAIL, PHONE, fakeContacts} from './live-capture.js';
 import {KEEP_HEADER, keepRecord, sha} from './net-keep.js';
 
 const CODE = /javascript|ecmascript|text\/css/i, TEXT = /^(text\/|application\/([\w.+-]*\+)?(json|xml)\b|application\/(x-)?(javascript|ecmascript|x-www-form-urlencoded)\b)/i;   // a text kind by its whole type ("vnd.openxmlformats..." is a Word file, not XML)
@@ -47,7 +47,6 @@ export function scrubUrl(url) {
 
 // What the person typed in a page's own markup: an input's value, a textarea's text, a chosen option. A button's, radio's or checkbox's value is the page's own wording.
 const KEEPS_VALUE = /\btype\s*=\s*["']?(submit|button|reset|image|radio|checkbox)\b/i;   // words-ok: HTML's own input type names, not page wording
-const EXAMPLE = /@example\.(com|org|net)$/i;   // words-ok: the reserved example domains (RFC 2606), never page text
 function blankTyped(html, counts) {
   let out = html.replace(/<input\b[^>]*>/gi, tag => (KEEPS_VALUE.test(tag) ? tag : tag.replace(/(\svalue\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)/i, (_, head) => { counts.typed += 1; return `${head}""`; })));
   out = out.replace(/(<textarea\b[^>]*>)([^<]+)(<\/textarea>)/gi, (_, open, body, close) => { counts.typed += 1; return `${open}${close}`; });
