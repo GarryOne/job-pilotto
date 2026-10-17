@@ -83,7 +83,7 @@ function hiddenLink(list, hidden, error, consent) {
   const link = Object.assign(document.createElement('button'), {id: 'questions-hidden', className: 'link', type: 'button', textContent: showHidden ? 'Hide the others' : `${hidden.length} hidden · show`});
   link.addEventListener('click', () => { showHidden = !showHidden; questionsShown = ''; renderQuestions(list, error, hidden, consent); });
   $('questions-list').after(link);
-  // Consent boxes are not text questions and never ticked for you on a form: said once, with where to tick them.
+  // Consent boxes are not text questions and ticked for you on a form unless you turned that off (Settings → Consent boxes): said once.
   if (consent) link.after(Object.assign(document.createElement('p'), {id: 'questions-consent', className: 'muted small',
-    textContent: 'Terms and consent boxes are never ticked for you; use “Tick these for me” in the page panel on each form.'}));
+    textContent: 'Terms and consent boxes are ticked for you on each form (Settings → Consent boxes turns that off).'}));
 }

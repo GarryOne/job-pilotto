@@ -87,7 +87,7 @@ export async function me(storage, url = '') {
   // employers outside the owner's list, where a slot that uploads on choice would send the CV to their server). Never checked by a real install.
   if (withholdFiles(storage)) {
     log('extension', 'files withheld for this form: a twin test run (twin-no-files)', {cv: !!resume, coverLetter: !!coverLetterFile});
-    return {...details, resume: null, coverLetterFile: null, knowledge: direct, menuChoices: choicesFor(storage)};
+    return {...details, resume: null, coverLetterFile: null, knowledge: direct, menuChoices: choicesFor(storage), acceptConsents: storage.settings().acceptConsents !== false};
   }
-  return {...details, resume, coverLetterFile, knowledge: direct, menuChoices: choicesFor(storage)};   // lib/menu-choices.js: all of them; the extension keeps the form tab's site (the url here is the posting's)
+  return {...details, resume, coverLetterFile, knowledge: direct, menuChoices: choicesFor(storage), acceptConsents: storage.settings().acceptConsents !== false};   // lib/menu-choices.js: all of them; the extension keeps the form tab's site (the url here is the posting's)
 }

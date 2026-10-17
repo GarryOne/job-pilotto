@@ -32,6 +32,7 @@
   };
 
   // Tick every visible terms/privacy/consent box and hand Submit to the user (the extension never submits).
+  const ATTESTS = /\b(certif\w*|affirm\w*|attest\w*|declare|under penalty|perjury)\b/i;   // words-ok: a safety floor that only removes a box from ticking, never decides one
   const tickConsents = () => {
     window.__jobPilottoHandOver?.();
     const ticked = [];
@@ -39,7 +40,12 @@
       const text = `${questionOf(box)} ${labelOf(box)}`;
       // Sites often hide the real checkbox behind a drawn one: then its label is what's on screen.
       const label = box.labels?.[0] || box.closest('label');
-      if (box.checked || !LEGAL.test(text) || !(visible(box) || (label && visible(label)))) continue;
+      // The AI's reading of the box decides (any language, page/categories.js marks it): "legal" is a consent or data notice; any other kind (a knockout, a
+      // demographic question) is the person's choice. Only a box the AI did not read falls back to the English LEGAL words. A statement of fact about the
+      // person (certify, affirm, attest) is never ticked either way: a floor that only removes.
+      const kind = box.dataset?.jobpilottoCategory || '';
+      const consent = kind ? kind === 'legal' : LEGAL.test(text);
+      if (box.checked || !consent || ATTESTS.test(text) || !(visible(box) || (label && visible(label)))) continue;
       (globalThis.__jobPilottoPress?.((visible(box) ? box : label)) || (visible(box) ? box : label).click());
       if (!box.checked && label && visible(box)) (globalThis.__jobPilottoPress?.(label) || label.click());
       if (box.checked) ticked.push(clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 90));
