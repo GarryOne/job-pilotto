@@ -3,7 +3,7 @@
 // standard answers, "Some answers are missing", a row per question that opens to its answer field); Website-specific rules collapsed
 // (pages/website-rules.js). Never a ❓ on screen (renderer/answers-model.js). Same on every store: block edits through pages/outline-tab.js.
 // Guarded by test/profile-tabs-render.test.js.
-import {el, pill} from '../components.js';
+import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, lineFor, matches, sections, shown} from '../answers-model.js';
 import {outlineTab} from './outline-tab.js';
@@ -28,7 +28,9 @@ function row(view, {key, title, under, value, needs, field}) {
   const head = el('div', `qa-row${isOpen ? ' is-open' : ''}`);
   const toggle = () => { if (isOpen) opened.delete(key); else opened.add(key); view.redraw(); };
   const chevron = Object.assign(el('button', 'link qa-chevron', icon('chevron')), {type: 'button', ariaLabel: isOpen ? 'Close' : 'Open'});
+  chevron.classList.add('is-bar-chevron');
   chevron.addEventListener('click', toggle);
+  toggleOnBar(head, toggle);
   const words = el('div', 'qa-words');
   words.append(el('b', '', title));
   if (under) words.append(el('span', 'muted small', under));

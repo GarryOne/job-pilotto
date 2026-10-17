@@ -1,4 +1,5 @@
 // Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept tests.
+import {badgeLabel} from '../badge-label.js';
 import {setCount} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
 import {applicationStats, inboundCount, inProcess, openMatches, statClick, stats, takenDown, toReview} from '../jobs-view.js';
@@ -161,7 +162,7 @@ export function showJobsData(data) {
     // a delta, not how many jobs there are: it goes in the tooltip and the line above the cards instead of the badge.
     const toReviewCount = toReview(shared.allJobs) + (data.review_beyond || 0);   // with the rows not loaded (a cut list)
     setCount($('nav-jobs-badge'), toReviewCount);
-    Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount,
+    Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount, textContent: badgeLabel(toReviewCount),
       title: `${toReviewCount} job${toReviewCount === 1 ? '' : 's'} to review · ${count.week} new this week`});
     setCount($('stat-companies'), count.companies);
     const applications = applicationStats(shared.allJobs);

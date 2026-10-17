@@ -1,4 +1,5 @@
 // Application sessions: the dock, the list, the next step.
+import {badgeLabel} from '../badge-label.js';
 import {el, pill} from '../components.js';
 import {avatar} from '../jobs-view.js';
 import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, sessionReview, sessionState} from '../session-state.js';
@@ -81,7 +82,7 @@ function renderNavBadge() {
   const [text, tone] = needs ? [`${plural(needs, 'session')} need${needs === 1 ? 's' : ''} you`, 'warn']
     : working ? [`${working} applying`, 'info'] : ready ? [`${ready} ready to submit`, 'good'] : [plural(sessionList.length, 'session'), 'neutral'];
   const {count, tone: countTone} = applyingBadge(sessionList, urgency);
-  Object.assign($('nav-applying-badge'), {hidden: !count, textContent: count, className: `nav-badge tone-${countTone}`, title: text});
+  Object.assign($('nav-applying-badge'), {hidden: !count, textContent: badgeLabel(count), className: `nav-badge tone-${countTone}`, title: text});
   $('nav-sessions').hidden = !sessionList.length;
   $('nav-sessions').className = `nav-sessions tone-${tone}`;
   $('nav-sessions-text').textContent = text;

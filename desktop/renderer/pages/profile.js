@@ -297,7 +297,8 @@ export async function init() {
     $('cv-import').disabled = false;
     show($('cv-limit-link'), false);
   });
-  collapsiblePanel($('setting-cvcheck'));
+  // Long detail cards start closed; the bar shows their summary (owner, 17 Oct 2026). Forms you fill in stay open.
+  for (const id of ['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles']) collapsiblePanel($(id), id, {collapsed: true});
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
   $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());

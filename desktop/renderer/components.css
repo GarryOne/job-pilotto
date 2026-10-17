@@ -234,6 +234,8 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .panel-lead { margin: 0; }
 .panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .panel-actions { display: flex; align-items: center; gap: var(--sp-4); }
+/* A bar or row that folds on a click anywhere on it (components.js toggleOnBar). */
+.is-bar-toggle { cursor: pointer; }
 /* Collapsible panel (components.js collapsiblePanel): the whole head bar toggles; collapsed keeps only the bar. */
 .panel-top.is-toggle { cursor: pointer; user-select: none; border-radius: var(--r-sm); }
 .panel-top.is-toggle:hover .panel-chevron { color: var(--ink); }

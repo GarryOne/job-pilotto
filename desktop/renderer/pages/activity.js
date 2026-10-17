@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel. This file keeps init() (the start-up wiring) and re-exports the rest of the panel,
 // which lives in activity-*.js (basics, visits, results, render, run-card, mail, cards, panel, few-jobs). Guarded by the tests that read activity-*.js (test/activity-source.js).
-import {openMenu} from '../components.js';
+import {openMenu, toggleOnBar} from '../components.js';
 import {shared} from './shared.js';
 import {openSetting} from './settings.js';
 import {$, show} from './core.js';
@@ -102,6 +102,7 @@ export async function init() {
     setFoldedWarnings(foldedWarnings === String(detailRunId) ? '' : String(detailRunId));
     renderActivity(lastActivity);
   });
+  toggleOnBar(document.querySelector('#activity-warnings .ap-warn-head'), () => $('activity-warnings-fold').click());
   $('check-mail').addEventListener('click', async () => {
     if ($('check-mail').dataset.connect) { openView('settings'); return; }
     $('check-mail').disabled = true;
