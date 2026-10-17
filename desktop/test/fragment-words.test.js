@@ -27,6 +27,5 @@ test('the screens and helpers that show crawl patterns all use the one rule', ()
   for (const file of ['renderer/pages/core.js', 'lib/strategy-rebuild.js', 'lib/locations-move.js', 'renderer/pages/locations-which.js', 'renderer/pages/strategy-review.js'])
     assert.match(read(file), /fragment-words\.js/, file);
   assert.match(read('lib/locations-store.js'), /readSide\(before\[key\]\)\.shown/, 'a set-aside list shows place names');
-  const python = fs.readFileSync(new URL('../../src/desktop_strategy.py', import.meta.url), 'utf8');
-  assert.match(python, /fragment-words\.js/, 'src/desktop_strategy.py _readable() names the JS rule it mirrors');
+  // the Strategy data's Python side: tests/test_fragment_words.py (same cases, read from this file)
 });
