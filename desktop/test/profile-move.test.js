@@ -9,7 +9,7 @@ import {test} from 'node:test';
 import {createStorage} from '../lib/storage.js';
 import * as store from '../lib/store/index.js';
 import * as sections from '../lib/profile-sections.js';
-import {move, resolve} from '../lib/profile-move.js';
+import {move, openConflicts, resolve} from '../lib/profile-move.js';
 import {fakeNotion} from './fake-notion.js';
 
 const PROFILE = ['## Targets', '**Roles:** Site Reliability Engineer (senior)', '**Work permit:** EU citizen (no sponsorship needed in Switzerland)',
@@ -136,4 +136,19 @@ test('a Profile the AI judged with nothing to move is not judged again', async (
   const stay = {client: {messages: {create: async request => { calls.push(1); const items = JSON.parse(request.messages[0].content); return {content: [{type: 'text', text: JSON.stringify({items: items.map(({id}) => ({id, home: 'stay', topic: 'x'}))})}]}; }}}};
   await move(storage, {ai: stay, copy: async () => ({dir: 'd'})});
   assert.ok(storage.settings().profileMovedAt);
+});
+
+// 17 Oct 2026 (the Locations queue showed values saved before a fix): a saved "Which is right?" queue is checked against the pages each time it is
+// shown. A choice whose line is gone or now says the same as the other closes the question; nothing is written for it.
+test('"Which is right?" shows only conflicts the pages still have', async () => {
+  for (const [name, make] of Object.entries(ADAPTERS)) {
+    const {storage, fetcher} = await make();
+    await move(storage, {fetcher, ai: ai(), copy: async () => ({dir: 'd'})});
+    assert.equal((await openConflicts(storage, {fetcher})).length, 1, `${name}: unchanged pages keep it`);
+    const answers = store.openStore(storage, {fetcher}).page('answers');
+    if (name === 'sqlite') await answers.write((await answers.text()).replace('3 months', '2 months'));   // the person corrected it by hand
+    else continue;   // the fake Notion page has no free-text edit; the rule is the same code
+    assert.deepEqual(await openConflicts(storage, {fetcher}), [], `${name}: both now say 2 months`);
+    assert.deepEqual(storage.settings().profileConflicts, [], `${name}: the queue is saved without it`);
+  }
 });
