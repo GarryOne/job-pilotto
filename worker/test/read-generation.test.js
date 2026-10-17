@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {beginRead, forgetReads, isCurrent} from '../../extension/read-gen.js';
+import {beginRead, dropIfLate, forgetReads, isCurrent, openRead} from '../../extension/read-gen.js';
 
 const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
 const consider = flow.slice(flow.indexOf('export async function consider('));
@@ -56,10 +56,30 @@ test('the late answer is logged, not silent, and the tab\'s reads are forgotten 
 
 // 17 Oct 2026, CI journey "SuccessFactors: account and form" (run 38984259095): after the sign-in the page's form answer was dropped as "late: a newer read of this tab answered", no newer read
 // logged anything, the form was never filled and the run ended by cap 260 s later. Two holes: a read that found the tab already moved on (and returned) had bumped the generation first, so it
-// made the live read late; and a read dropped as late kept its key in `started`, so when the tab came back to that page nothing read it again.
-test('a read that abandons itself does not make the live read late, and a dropped read gives its page back', () => {
-  const body = consider.slice(0, consider.indexOf('await closeConsentEverywhere'));
-  assert.ok(body.indexOf('beginRead(tab.id)') > body.indexOf('pageKey(live.url) !== pageKey(tab.url)'), 'the generation moves only for a read that goes on past the moved-on check');
-  const lateLine = flow.slice(flow.indexOf('const late = '), flow.indexOf('const late = ') + 400);
-  assert.match(lateLine, /started\.delete\(fillKey\(tab\.id, tab\.url\)\)/, 'a read dropped as late forgets its key so the page can be read again');
+// made the live read late; and a read dropped as late kept its key in `started`, so when the tab came back to that page nothing read it again. Scripted here as the flow does it.
+test('a read that abandons itself does not make the live read late', () => {
+  const started = new Set(['tab9 A', 'tab9 B']);
+  const readB = openRead(9, 'tab9 B', started, false);   // B: the page the tab is on, a read that goes on
+  const readC = openRead(9, 'tab9 C', started, true);   // C: found the tab moved on again and returned
+  assert.equal(readC, 0, 'an abandoned read begins nothing');
+  assert.equal(isCurrent(9, readB), true, 'B is still the current read, its answer is applied');
+  assert.equal(dropIfLate(9, readB, 'tab9 B', started), false);
+  assert.equal(started.has('tab9 B'), true, 'a read that is current keeps its page');
+  forgetReads(9);
+});
+
+test('a read dropped as late gives its page back, so a return to that page is read again', () => {
+  const started = new Set(['tab8 A']);
+  const readA = openRead(8, 'tab8 A', started, false);
+  openRead(8, 'tab8 B', started, false);   // a newer read of the tab begins: A is late
+  assert.equal(dropIfLate(8, readA, 'tab8 A', started), true);
+  assert.equal(started.has('tab8 A'), false, 'A\'s page can be read when the tab is back on it');
+  assert.ok(openRead(8, 'tab8 A', started, false) > 0);
+  forgetReads(8);
+});
+
+test('consider() goes through those two decisions only', () => {
+  assert.match(consider, /openRead\(tab\.id, key, started, /);
+  assert.doesNotMatch(consider, /beginRead\(/, 'no read begins before the moved-on check');
+  assert.match(flow, /dropIfLate\(tab\.id, gen, fillKey\(tab\.id, tab\.url\), started\)/);
 });

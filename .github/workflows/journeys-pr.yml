@@ -20,6 +20,7 @@ on:
       - 'desktop/e2e/net-records-fetch.sh'
       - 'desktop/e2e/lib/journey-*.mjs'
       - 'desktop/e2e/lib/live-row.mjs'
+      - 'desktop/e2e/lib/stall-note.mjs'
       - 'desktop/e2e/lib/offline-app*.mjs'
       - 'desktop/e2e/lib/net-record.mjs'
       - 'desktop/e2e/lib/real-extension.mjs'
