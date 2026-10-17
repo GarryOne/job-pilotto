@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
 import {watchWindow} from './window-log.js';
+import {captureQuery} from './e2e-hidden.js';
 
 // The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Job Pilotto and Chrome fit side by side (owner, 9 Oct 2026).
 export const MIN_WIDTH = 640;
@@ -56,7 +57,7 @@ export function createMainWindow(ctx) {
     win.window.on('page-title-updated', event => { event.preventDefault(); win.window.setTitle(windowTitle); });
     // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
     const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
-    win.window.loadFile(path.join(here, 'renderer', page));
+    win.window.loadFile(path.join(here, 'renderer', page), {query: captureQuery()});   // a screenshot run: no first-launch tour (lib/e2e-hidden.js)
     // Closed on the Mac, the app keeps running: forget the destroyed window so nothing calls into it.
     win.window.webContents.on('did-finish-load', () => getZoom()?.apply());   // the saved size (lib/zoom-handlers.js), after every load and ⌘R
     const opened = win.window;

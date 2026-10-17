@@ -5,7 +5,7 @@ import {shared} from './shared.js';
 import {lastActivity} from './activity.js';
 import {openView} from './nav.js';
 import * as reveal from '../menu-reveal.js';
-import {STEP_MS, markSeen, seen, stopsFor} from '../menu-tour.js';
+import {STEP_MS, captureRun, markSeen, seen, stopsFor} from '../menu-tour.js';
 import {moreGroup} from '../more-group.js';
 
 let menu = reveal.load(window.localStorage);
@@ -56,7 +56,7 @@ export function refreshMenu(opened = null) {
 
 // The tour: a small card by each stop, five stops, moving on by itself every few seconds; Skip (or Esc) ends it, and it is never shown again.
 function tour() {
-  if (seen(window.localStorage) || $('app').hidden) return;
+  if (seen(window.localStorage) || captureRun(window.location.search) || $('app').hidden) return;
   const present = selector => { const node = document.querySelector(selector); return !!node && !node.closest('[hidden]') && node.offsetParent !== null; };
   const stops = stopsFor(present);
   if (!stops.length) return;
