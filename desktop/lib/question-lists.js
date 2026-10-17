@@ -4,18 +4,21 @@
 import * as questions from './questions.js';
 import * as verdicts from './question-verdicts.js';
 import {claudeAi} from './question-ai.js';
+import {tidy} from './answers-tidy.js';
 import {keyOf, visibleQuestions} from '../renderer/question-filter.js';
 
-const answeredNow = async (storage, groups) => verdicts.answeredOf(storage, groups ?? await questions.standardAnswers(storage));
+const answeredNow = async (storage, groups, fetcher) => verdicts.answeredOf(storage, groups ?? await questions.standardAnswers(storage, fetcher));
 
 // Jobs → Answer once: {list: shown (a covered question carries .proposal), hidden: [...], usage}.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {
-  const {shown, hidden, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups), ai});
+  if (!rows) await tidy(storage, {fetcher}).catch(() => {});   // the junk an older fill saved goes first (lib/answers-tidy.js)
+  const {shown, hidden, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), ai});
   return {list: shown, hidden, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
 
 // Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions.
 export async function reviewVerdicts(storage, labels, {ai = claudeAi(storage), groups = null} = {}) {
+  if (!groups) await tidy(storage).catch(() => {});
   const {verdicts: map, usage} = await verdicts.ensure(storage, labels, {answered: await answeredNow(storage, groups), ai});
   return {verdicts: Object.fromEntries(labels.map(label => [keyOf(label), map[keyOf(label)]]).filter(([, v]) => v)), usage};
 }
