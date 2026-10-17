@@ -17,8 +17,8 @@ import {coverage, relocationNow, relocationWords, remoteWords} from '../location
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
 import {byStore} from '../store-words.js';
-import {chipsOf, folded, loadMeanings, meaningLabels, placeText, typoHints} from './strategy-chips.js';
-import {matchGroups} from '../chip-meanings.js';
+import {chipsOf, folded, loadMeanings, meaningLabels, typoHints} from './strategy-chips.js';
+import {GROUPS, asWholeWord, matchGroups, placeLabel, shownGroups, shownWord} from '../match-groups.js';
 
 // ---------- Your goals and the setup review's cards, with your live settings (owner, 7 Oct 2026: the page lacked work mode, salary,
 // languages, search terms, excluded languages and work rights, which the setup review shows). Lists: Edit → Save (lib/strategy.js editLists,
@@ -66,12 +66,12 @@ function listChips(name, placeholder) {
   const stored = entriesOf(strategyState.lastStrategy, name);
   const box = el('div', 'chips');
   const entries = editing ? editedList(stored, edit) : stored;
-  box.append(...entries.map(entry => {
+  const pillOf = entry => {
     const pill = el('span', `chip${editing ? ' removable' : ''}${entry.added ? ' is-added' : ''}`);
-    pill.append(el('span', '', AS_TYPED.has(name) ? entry.label : titleCase(entry.label)));
+    pill.append(el('span', '', name === 'gplaces' ? placeLabel(entry.label) : AS_TYPED.has(name) ? entry.label : titleCase(shownWord(entry.label))));
     if (editing) {
-      const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${entry.label}`});
-      remove.setAttribute('aria-label', `Remove ${entry.label}`);
+      const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${shownWord(entry.label)}`});
+      remove.setAttribute('aria-label', `Remove ${shownWord(entry.label)}`);
       remove.addEventListener('click', () => {
         if (entry.added) edit.add = edit.add.filter(word => word !== entry.label); else edit.remove.push(entry.fragment);
         renderTargets();
@@ -79,28 +79,38 @@ function listChips(name, placeholder) {
       pill.append(remove);
     }
     return pill;
-  }));
+  };
+  // A match list holding both kinds: its whole-word entries under their own name (match-groups.js), never shown with quotes.
+  const groups = PLAIN.has(name) ? null : matchGroups(entries);
+  if (groups?.anywhere.length && groups.whole.length) {
+    for (const [key, title] of GROUPS) box.append(el('span', 'muted small', title), ...groups[key].map(pillOf));
+  } else box.append(...entries.map(pillOf));
   if (!entries.length && !editing) box.append(el('span', 'muted small', 'None'));
   if (editing) {
     const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`, value: typed[name] || ''});
     input.dataset.list = name;
     input.addEventListener('input', () => { typed[name] = input.value; refreshDraft(); });
+    // A match word can be added as the whole word only (stored \bword\b by lib/strategy-edit.js cleanEdits), never by typing quotes.
+    const whole = PLAIN.has(name) ? null : Object.assign(document.createElement('input'), {type: 'checkbox', checked: !!wholeWords[name]});
+    whole?.addEventListener('change', () => { wholeWords[name] = whole.checked; });
     input.addEventListener('keydown', event => {
-      const typed = input.value.trim(), word = PLAIN.has(name) ? typed : typed.toLowerCase();
-      if (event.key !== 'Enter' || !word) return;
-      const same = entry => entry.label.toLowerCase() === word.toLowerCase();
+      const typed = input.value.trim(), plain = PLAIN.has(name) ? typed : typed.toLowerCase(), word = whole?.checked ? asWholeWord(plain) : plain;
+      if (event.key !== 'Enter' || !plain) return;
+      const same = entry => shownWord(entry.label).toLowerCase() === plain.toLowerCase();
       const back = stored.find(entry => edit.remove.includes(entry.fragment) && same(entry));
       if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);   // removed, then typed again: kept
-      else if (!edit.add.some(added => added.toLowerCase() === word.toLowerCase()) && !stored.some(same)) edit.add.push(word);
+      else if (!edit.add.some(added => shownWord(added).toLowerCase() === plain.toLowerCase()) && !stored.some(same)) edit.add.push(word);
       event.preventDefault();   // Enter adds a chip; it never saves the strategy
       delete typed[name];
       renderTargets();
       document.querySelector(`#strategy-targets input.add[data-list="${name}"]`)?.focus();
     });
     box.append(input);
+    if (whole) { const label = el('label', 'check-row muted small'); label.append(whole, el('span', '', 'Add as a whole word only')); box.append(label); }   // the shared checkbox row
   }
   return box;
 }
+const wholeWords = {};   // the "Whole word only" box per list while editing
 // Remote jobs (Search settings "Remote jobs"): a place of its own, or only jobs in your places.
 function remoteChoice() {
   const now = strategyState.lastStrategy?.remote_jobs !== false, chosen = strategyState.targetEdits?.remote ? strategyState.targetEdits.remote.set === 'Yes' : now;
@@ -199,7 +209,7 @@ const labelsOf = name => entriesOf(strategyState.lastStrategy, name).map(entry =
 // As read: one chip per meaning (strategy-chips.js), whole-word entries apart when a list mixes both kinds, "Did you mean …?" lines under the chips.
 const shownOf = name => meaningLabels(name, labelsOf(name));
 function withHints(name, draw) {
-  const parts = matchGroups(entriesOf(strategyState.lastStrategy, name), shownOf(name));
+  const parts = shownGroups(entriesOf(strategyState.lastStrategy, name), shownOf(name));
   const hints = typoHints(name, {fix: (entry, suggestion, button) => fixTypo(name, entry, suggestion, button), keep: keepTypo});
   if (parts.length === 1 && !hints.length) return draw(parts[0].labels);
   const box = el('div', 'setting-body');   // the row's own grid: groups and lines sit under each other at its gap
@@ -264,7 +274,7 @@ const VIEWS = {
     const row = (glyph, label, name, none) => {
       const draw = labels => (AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all'));
       if (!labelsOf(name).length) return settingRow(glyph, label, none);
-      return settingRow(glyph, label, name === 'gplaces' ? draw(labelsOf(name).map(placeText)) : withHints(name, draw));
+      return settingRow(glyph, label, name === 'gplaces' ? draw(labelsOf(name).map(placeLabel)) : withHints(name, draw));
     };
     return [settingRow('user', 'Your level', levelChoice()), settingRow('target', 'Minimum fit score for the digest', minScoreInput()),
       row('close', 'Job titles to skip', 'titleSkip', 'None'), row('building', 'Companies to skip', 'skip', 'None'), row('globe', 'Remote jobs: regions to skip', 'remoteSkip', 'None'),

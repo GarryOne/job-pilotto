@@ -1,22 +1,19 @@
 // Strategy's chips as read (not editing), owner's decisions of 17 Oct 2026: one chip per meaning ("United States · USA, US", the other spellings
-// kept inside it and still searched), a typo flagged as "Did you mean …? Fix · Keep" (never fixed silently), a Google Jobs place read as a place
-// ("Zurich, Switzerland · German", not "Zurich,Zurich,Switzerland · de"). The meanings come from lib/list-meanings.js (AI, cached by the lists).
+// kept inside it and still searched), a typo flagged as "Did you mean …? Fix · Keep" (never fixed silently), whole-word entries as their own group
+// and a Google Jobs place read as a place (renderer/match-groups.js, from the design system's PR B). The meanings come from lib/list-meanings.js (AI, cached by the lists).
 // chipsOf / folded moved here from strategy-targets.js (a pure move). Pure rules in ../chip-meanings.js. Guarded by test/strategy-chips.test.js.
-import {el} from '../components.js';
+import {chip as valueChip, el} from '../components.js';
 import {titleCase} from '../fragment-words.js';
 import {strategyState} from './strategy-state.js';
-import {MEANING_LISTS, meaningLabels as groupLabels, placeText} from '../chip-meanings.js';
+import {MEANING_LISTS, meaningLabels as groupLabels} from '../chip-meanings.js';
 
-// A chip: a word, or {main, others} for one meaning with its other spellings shown small inside it.
+// A chip (components.js chip()): a word, or {main, others} for one meaning with its other spellings as the muted detail.
 function chip(label, cased) {
   const words = text => (cased ? titleCase(text) : text);
-  if (typeof label === 'string') return el('span', 'chip', words(label));
-  const box = el('span', 'chip');
-  box.append(words(label.main), el('span', 'muted', ` · ${label.others.map(words).join(', ')}`));
-  return box;
+  return typeof label === 'string' ? valueChip(words(label)) : valueChip(words(label.main), {detail: label.others.map(words).join(', ')});
 }
 export const chipsOf = (labels, cased = true) => {
-  const box = el('div', 'chips');
+  const box = el('div', 'chip-list');
   box.append(...labels.map(label => chip(label, cased)));
   return box;
 };
@@ -34,7 +31,6 @@ export function folded(labels, keep, more) {
 
 // One list's labels, one chip per meaning (chip-meanings.js), from the meanings loaded below.
 export const meaningLabels = (name, labels) => groupLabels(strategyState.meanings?.[name]?.groups, labels);
-export {placeText};
 
 // "Did you mean …?" lines for one list's typos the person has not kept. fix(entry, suggestion, button) / keep(entry) do the work and redraw.
 export function typoHints(name, {fix, keep}) {
