@@ -4,6 +4,7 @@ import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {$, message, runWhen} from './core.js';
 import {loadExperienceProfile} from './experience-profile.js';
+import {swr} from '../swr.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -185,8 +186,7 @@ export async function loadExperience() {
   loadExperienceProfile();   // Professional summary and Strengths, from the Profile page
   showLinkedin(await window.pilot.linkedinStatus().catch(() => null));
   message('exp-message', '');
-  const view = await window.pilot.experienceGet().catch(() => null);
-  if (view) showExperience(view);
+  await swr('experience', async () => ({ok: true, view: await window.pilot.experienceGet()}), {paint: answer => { if (answer.view) showExperience(answer.view); }});
 }
 
 export function initExperience() {

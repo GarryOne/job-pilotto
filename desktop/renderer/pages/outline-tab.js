@@ -2,7 +2,8 @@
 // Profile), edited block by block on every store (IPC textOutline / textEdit, lib/text-outline-handlers.js). This module owns the loading, the pending
 // changes per text and ONE sticky save bar (.save-bar, as "Unsaved changes to your details"); a tab only draws and calls change(name, change).
 // A change to the same block replaces the earlier one. Guarded by test/profile-tabs-render.test.js.
-import {el} from '../components.js';
+import {el, loadingCard} from '../components.js';
+import {keep, swr} from '../swr.js';
 import {message} from './core.js';
 import {changeFor, shown} from '../answers-model.js';
 import {input, labelled} from './website-rules.js';
@@ -40,7 +41,7 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
     const errors = [];
     for (const name of names.filter(each => pending[each].size)) {
       const answer = await window.pilot.textEdit(name, [...pending[name].values()]).catch(error => ({ok: false, error: error.message}));
-      if (answer.items) { state.items[name] = answer.items; pending[name].clear(); }
+      if (answer.items) { state.items[name] = answer.items; pending[name].clear(); keep(`outline:${names.join('+')}`, {ok: true, results: names.map(each => ({ok: true, items: state.items[each], store: state.store, link: state.link[each]}))}); }
       if (!answer.ok) errors.push(answer.error);
     }
     save.disabled = false;
@@ -52,14 +53,21 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
 
   return {
     async load() {
-      body.replaceChildren(el('p', 'muted small', 'Loading…'));
-      const results = await Promise.all(names.map(name => window.pilot.textOutline(name).catch(error => ({ok: false, error: error.message}))));
-      const failed = results.find(result => !result.ok);
-      if (failed) { body.replaceChildren(el('p', 'message error', `Couldn't read it: ${failed.error}`)); return; }
-      state = {items: Object.fromEntries(names.map((name, i) => [name, results[i].items])), store: results[0].store,
-        link: Object.fromEntries(names.map((name, i) => [name, results[i].link]))};
-      clear();
-      redraw();
+      const settle = (results, kept) => {
+        state = {items: Object.fromEntries(names.map((name, i) => [name, results[i].items])), store: results[0].store,
+          link: Object.fromEntries(names.map((name, i) => [name, results[i].link]))};
+        if (kept) clear();
+        if (!size()) redraw();   // a refresh never redraws under the person's edits
+      };
+      await swr(`outline:${names.join('+')}`, async () => {
+        const results = await Promise.all(names.map(name => window.pilot.textOutline(name).catch(error => ({ok: false, error: error.message}))));
+        const failed = results.find(result => !result.ok);
+        return failed ? {ok: false, error: failed.error} : {ok: true, results};
+      }, {
+        loading: () => body.replaceChildren(loadingCard('Reading it from your store…')),
+        paint: (answer, kept) => settle(answer.results, kept),
+        fail: failed => body.replaceChildren(el('p', 'message error', `Couldn't read it: ${failed.error}`)),
+      });
     },
     redraw: () => redraw(),
     items: name => state.items[name] || [],

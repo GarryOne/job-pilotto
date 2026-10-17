@@ -245,3 +245,11 @@ export function numberStrip(cells, {valueFirst = false} = {}) {
   }
   return strip;
 }
+
+// The card a tab shows while nothing has been read yet: the shared shimmer lines under the line saying what is read (Profile tabs, renderer/swr.js).
+export function loadingCard(what = 'Reading it from your store…', lines = [40, 90, 75, 60]) {
+  const card = el('div', 'summary-card loading-card');
+  card.setAttribute('role', 'status');
+  card.append(...lines.map(width => Object.assign(el('span', 'skeleton'), {style: `width:${width}%`})), el('span', 'muted small', what));
+  return card;
+}

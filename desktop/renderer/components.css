@@ -673,3 +673,4 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
    is more (the Sites to visit list below, the Jobs board's columns to the right: 9 Oct 2026, its last column read as cut off). */
 .shows-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .shows-scrollbar::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
+.loading-card { display: grid; gap: var(--sp-3); }
