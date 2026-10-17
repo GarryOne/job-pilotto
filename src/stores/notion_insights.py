@@ -2,13 +2,13 @@
 
 Its columns beyond the title, date and category are the record's `fields` (EXTRAS); the body is the page's blocks,
 written from Markdown through notion_blocks (a listing reads the rows only, never the bodies: one call per row). A column
-an older workspace lacks yet is dropped from that write, never the row (_without_missing, as the engine did). Used by
+an older workspace lacks yet is dropped from that write, never the row (without_missing, as the engine did). Used by
 src/stores/notion.py. Guarded by tests/test_store_notion_insights.py.
 """
 import os
 
-from ..notion.cron_runs import _without_missing
 from . import base
+from .notion_columns import without_missing
 from . import notion_blocks
 from . import notion_rows
 
@@ -56,7 +56,7 @@ class NotionInsights:
         values = {k: v for k, v in record.items() if k not in ('id', 'created_at')}
         props = self._properties(values)
         body = notion_blocks.to_blocks(values.get('body') or '')
-        page = _without_missing(lambda p: self.tracker._request('POST', 'pages', {
+        page = without_missing(lambda p: self.tracker._request('POST', 'pages', {
             'parent': {'database_id': self.database_id}, 'properties': p, 'children': body[:100]}), props)
         if len(body) > 100:
             self.tracker.append_blocks(page['id'], body[100:])
@@ -72,7 +72,7 @@ class NotionInsights:
         if not page or page.get('archived') or page.get('in_trash'):
             raise KeyError(insight_id)
         if props:
-            page = _without_missing(lambda p: self.tracker._request('PATCH', f'pages/{insight_id}', {'properties': p}), props) or page
+            page = without_missing(lambda p: self.tracker._request('PATCH', f'pages/{insight_id}', {'properties': p}), props) or page
         if 'body' in values:
             for block in self.tracker._children(insight_id):
                 self.tracker._request('DELETE', f"blocks/{block['id']}")

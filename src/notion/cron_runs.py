@@ -16,6 +16,7 @@ import re
 import sys
 
 from .. import run_result, tz
+from ..stores.notion_columns import without_missing as _without_missing
 # Rendering lives in cron_report.py; every name stays importable from here.
 from .cron_report import (  # noqa: F401
     STAGES, clip, _text, _para, _linked, _sender, _clock, EMAIL_ACTION, email_lines, total_usd, total_tokens,
@@ -179,21 +180,6 @@ def _progress(line):
         pass
 
 
-
-
-def _without_missing(send, properties):
-    """send(properties); when Notion refuses a column this workspace doesn't have yet (the code is newer than its
-    schema: a GitHub run before the app's schema repair), drop that column and send again, so the row is never lost."""
-    for _ in range(5):
-        try:
-            return send(properties)
-        except Exception as error:  # noqa: BLE001 — only a missing column is retried
-            missing = re.search(r'([^:.\n]+?) is not a property that exists', str(error))
-            name = missing.group(1).strip().strip('"').strip("'") if missing else ''
-            if name not in properties:
-                raise
-            properties = {k: v for k, v in properties.items() if k != name}
-    return send(properties)
 
 
 def log_run(tracker, run, failed=False):

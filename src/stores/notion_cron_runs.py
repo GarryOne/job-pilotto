@@ -13,6 +13,7 @@ from ..notion.cron_report import _para, _result_paras
 from . import base
 from . import notion_blocks
 from . import notion_rows as rows
+from .notion_columns import KnownColumns
 
 COLUMNS = (('kind', 'Kind', 'select'), ('where', 'Where', 'select'), ('status', 'Status', 'select'),
            ('started_at', 'Started', 'date'), ('finished_at', 'Finished', 'date'), ('summary', 'Summary', 'rich_text'),
@@ -71,14 +72,12 @@ class NotionCronRuns:
 
     def __init__(self, tracker, database_id):
         self.tracker, self.database_id = tracker, database_id
-        self._have = None
+        self._known = KnownColumns(tracker, database_id)
 
     def _writable(self, props):
-        """The properties this workspace has: an older one (before the app repaired its schema) lacks Kind, Where, Progress,
-        Finished…, and Notion would refuse the whole row; read once per process, as src/stores/notion.py does."""
-        if self._have is None:
-            self._have = set((self.tracker._request('GET', f'databases/{self.database_id}').get('properties') or {}))
-        return {name: value for name, value in props.items() if name in self._have}
+        """Only the columns this workspace has: an older one (before the app repaired its schema) lacks Kind, Where, Progress,
+        Finished…, and Notion would refuse the whole row."""
+        return self._known.writable(props)
 
     def _record(self, page, body=None):
         props = page.get('properties') or {}

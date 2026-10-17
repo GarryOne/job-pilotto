@@ -1,11 +1,11 @@
 """The notion store's Employers: 🌍 Employers & Sources rows as store records, one per employer (matched by name, any case).
 
 Find employers (src/scout_notion.py) writes each checked employer here through `upsert`; the feed crawl reads the active ones
-with a feed through `list`. A column an older workspace lacks yet is dropped from that write, never the row (_without_missing).
+with a feed through `list`. A column an older workspace lacks yet is dropped from that write, never the row (without_missing).
 Columns: config/notion_schema.json NOTION_EMPLOYERS_DB. Guarded by tests/test_store_notion.py (the store contract on the stand-in).
 """
-from ..notion.cron_runs import _without_missing
 from . import base
+from .notion_columns import without_missing
 from . import notion_rows as rows
 
 COLUMNS = (('name', 'Company', 'title'), ('website', 'Website', 'url'), ('careers_url', 'Careers', 'url'),
@@ -45,7 +45,7 @@ class NotionEmployers:
         return rows.to_properties({k: v for k, v in values.items() if k not in ('id', 'created_at')}, COLUMNS)
 
     def _create(self, values):
-        return self._record(_without_missing(lambda p: self.tracker.create_page(self.database_id, p), self._properties(values)))
+        return self._record(without_missing(lambda p: self.tracker.create_page(self.database_id, p), self._properties(values)))
 
     def list(self, active=True):
         filter_ = None if active is None else {'property': 'Active', 'checkbox': {'equals': bool(active)}}
@@ -64,7 +64,7 @@ class NotionEmployers:
         props = self._properties({k: v for k, v in employer.items() if k != 'name'})  # the row keeps the name it was found by
         if not props:
             return self._record(page)
-        return self._record(_without_missing(lambda p: self.tracker.update_page(page['id'], p), props) or page)
+        return self._record(without_missing(lambda p: self.tracker.update_page(page['id'], p), props) or page)
 
     def put(self, record):
         """A record copied from another store (Notion sets its own created time)."""
