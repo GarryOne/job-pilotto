@@ -47,6 +47,8 @@ SECTIONS = [
     ('Best places', 'search', ('locations', 'top_tier'), 'match'),
     ('Anywhere in the country', 'search', ('locations', 'country_wide'), 'match'),
     ('Places abroad', 'search', ('locations', 'abroad'), 'match'),
+    ('Relocation', 'search', ('locations', 'relocation'), 'text'),   # one of yes / no / unspecified (17 Oct 2026: "No" is a value, an empty list is not)
+    ('Places to search instead', 'search', ('locations', 'search_override'), 'match'),   # an explicit search-only list (Locations, Advanced)
     ('Remote jobs', 'search', ('remote_jobs',), 'text'),   # "No": only jobs in your places (7 Oct 2026); missing or "Yes": remote counts as a place
     ('Remote jobs: regions to skip', 'search', ('remote_excluded_regions',), 'match'),
     ('Companies to skip', 'preferences', ('excluded_companies',), 'text'),

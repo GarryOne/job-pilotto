@@ -76,7 +76,8 @@ export function applyLocations(search, resolved) {
   const locations = {...search?.locations};
   if (resolved.preferred) locations.top_tier = [...resolved.preferred];
   if (resolved.acceptable) locations.country_wide = [...resolved.acceptable];
-  if (resolved.relocation) { locations.abroad = [...resolved.relocation.places]; locations.relocation = resolved.relocation.mode; }
+  // relocation is a one-item list, like remote_jobs (the settings page's text sections)
+  if (resolved.relocation) { locations.abroad = [...resolved.relocation.places]; locations.relocation = [resolved.relocation.mode]; }
   if (resolved.searchOverride?.length) locations.search_override = [...resolved.searchOverride];
   return {...search, locations};
 }
