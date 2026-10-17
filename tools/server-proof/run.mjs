@@ -2,6 +2,7 @@
 // (mouse path, the human check, typing, Submit on OUR fake form), copy the browser's storage into a second browser ("move to my browser"), check ten public postings, read the container's use.
 // Usage: node run.mjs <base url> <token> <out.json> [--local]   --local: the base is this machine (no container), the reach list is skipped.
 import fs from 'node:fs';
+import path from 'node:path';
 import {chromium} from 'playwright';
 import WebSocket from 'ws';
 
@@ -29,7 +30,7 @@ function connect(which = 'form') {
     ws.on('message', raw => {
       const m = JSON.parse(raw.toString()); const now = Date.now();
       if (m.kind === 'first' || m.kind === 'frame') {
-        view.bytes += m.data.length * 0.75; view.frames.push(now);
+        view.bytes += m.data.length * 0.75; view.last = m.data; view.frames.push(now);
         if (m.kind === 'first') resolve({view, firstMs: now - started});
         view.waiters.splice(0).forEach(w => w(now));
       }
@@ -70,7 +71,10 @@ await attempt('act', async () => {
   result.stream = {frames: view.frames.length, seconds: Math.round(span), kbPerSecond: Math.round(view.bytes / 1024 / Math.max(span, 1))};
   const sub = at(submit); for (const p of path(click, sub)) { input(view, {t: 'mouse', type: 'mouseMoved', ...p}); await new Promise(r => setTimeout(r, 16)); }
   input(view, {t: 'mouse', type: 'mousePressed', ...sub, button: 'left', clickCount: 1, buttons: 1}); input(view, {t: 'mouse', type: 'mouseReleased', ...sub, button: 'left', clickCount: 1});
-  await new Promise(r => setTimeout(r, 2500)); view.ws.close();
+  await new Promise(r => setTimeout(r, 2500));
+  result.peek = (await get('/peek')).json; result.rects = {human: rect, submit, notice};
+  try { fs.writeFileSync(path.join(path.dirname(out), 'last-frame.jpg'), Buffer.from(view.last, 'base64')); } catch { /* optional */ }
+  view.ws.close();
   result.submit = (await (await fetch(`${base}/fake/state`)).json());
 });
 
@@ -98,7 +102,8 @@ const restoreIn = async (page, snapshot) => page.evaluate(snap => {
 }, snapshot);
 result.handoff = [];
 await attempt('handoff', async () => { for (const variant of ['plain', 'ip', 'ss']) {
-  const h = (await get('/handoff', `&base=${encodeURIComponent(base)}&v=${variant}`)).json;
+  const got = await get('/handoff', `&base=${encodeURIComponent(base)}&v=${variant}`); const h = got.json;
+  if (!h?.snapshot) { (result.handoffFailed ||= []).push({variant, status: got.status, body: JSON.stringify(h).slice(0, 300)}); continue; }
   const want = h.snapshot.fields.filter(f => (f.type === 'checkbox' ? f.value : f.value)).length;
   for (const mode of ['cookies', 'full']) {
     const mine = await chromium.launch(); const ctx = await mine.newContext({viewport: {width: 900, height: 800}, storageState: mode === 'full' ? h.storage : {cookies: h.storage.cookies, origins: []}});
