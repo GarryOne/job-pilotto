@@ -121,8 +121,8 @@ test('a pinned row whose ask changed or prompt changed prints the refill next st
   assert.equal(pinnedRows.rows.a.verdict, 'worse', 'a pinned row that is not same as live is red');
   assert.deepEqual([pinnedRows.rows.a.refill, pinnedRows.rows.b.refill, pinnedRows.rows.c.refill], [true, true, false]);
   const text = summary(pinnedRows, {pr: 824});
-  assert.ok(text.includes('gh workflow run replay-refill.yml -f pr=824  (by hand, on the owner\'s go)'), 'the next step line');
+  assert.ok(text.includes('gh workflow run replay-refill.yml -f pr=824  (the PR gate starts it by itself'), 'the next step line');
   assert.match(text, /2 rows need their answers refilled \(a, b\)/);
-  assert.equal(refillLine(), "gh workflow run replay-refill.yml -f pr=<n>  (by hand, on the owner's go)");
+  assert.match(refillLine(), /^gh workflow run replay-refill\.yml -f pr=<n>  \(the PR gate starts it by itself, at most \$0\.50 a run and \$5 a month/);
   assert.doesNotMatch(summary(judge([rec('c', form(8, 4))], {}, [], {}, ['c']), {pr: 824}), /replay-refill/, 'no line when nothing is stale');
 });

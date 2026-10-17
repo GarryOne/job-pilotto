@@ -1,7 +1,7 @@
 // The rules of the CI refill (.github/workflows/replay-refill.yml; owner, 15 Oct 2026: "a separate CI workflow only for that, with a separate Anthropic API Key"): which pinned rows
 // to refill, what it may cost, which key it may use, and which PRs may start it. Pure parts; guard: e2e/test/refill.test.mjs. The key REPLAY_REFILL_ANTHROPIC_KEY has NO fallback
 // (no Tests key, no live-pool key): missing = the job says so and stops. Fake applicant only, a replay of the network record (no site visit), never Submit.
-import {askChanged, outdated} from '../replay-gate.mjs';
+import {askChanged, keptOutcome, outdated} from '../replay-gate.mjs';
 
 export const SECRET = 'REPLAY_REFILL_ANTHROPIC_KEY';
 export const FLAG = 'JP_REFILL_CI';   // set by the workflow only: the fill replay may ask the API on CI (lib/ai/model-memo.js fillOn, lib/offline-app.mjs)
@@ -21,15 +21,24 @@ export const keyRefusal = (env = process.env) => (refillKey(env) ? '' : `refill:
 export const forkRefusal = pr => (pr && pr.isCrossRepository === false ? '' : `refill: PR ${pr?.number ?? '?'} is from a fork or unknown: the key is never given to it`);
 
 // A replay record the refill is for: the ask changed (page-side), or the prompt changed (instructions only): the gate's own two verdicts (replay-gate.mjs).
-export const needsRefill = record => !!record && !record.deferred && (outdated(record.firstMiss) || askChanged(record));
+export const needsRefill = (record, {worseOnly = false} = {}) => !!record && !record.deferred && (outdated(record.firstMiss) || askChanged(record)) && !(worseOnly && keptOutcome(record));
+
+// The automatic refill a PR starts itself (owner, 17 Oct 2026: "Auto-refill PRs under a cap"): only rows a refill could turn green (the outcome fell: keptOutcome is the gate's rule), $0.50 a run, $5 a calendar month.
+export const AUTO_RUN_USD = 0.5, AUTO_MONTH_USD = 5;
+// (this run's estimate, the month's refill spend so far) -> '' (go) or why it does not run.
+export const autoRefusal = (estimate, month, {runUsd = AUTO_RUN_USD, monthUsd = AUTO_MONTH_USD} = {}) => (!Number.isFinite(month) ? 'refill (auto): this month\'s refill spend could not be read: nothing was asked'
+  : estimate > runUsd ? `refill (auto): about $${estimate.toFixed(3)} is above the $${runUsd} a run`
+  : month + estimate > monthUsd ? `refill (auto): this month's refill spend $${month.toFixed(2)} + about $${estimate.toFixed(3)} would pass the $${monthUsd} a month` : '');
+// The run's title: one automatic refill per PR commit (the gate looks for it before it starts another).
+export const autoRunName = (pr, head) => `Replay refill PR ${pr} @ ${String(head).slice(0, 7)}`;
 
 // (pinned names, the PR gate's replay records {name, network:{extra}, firstMiss}, all) -> {rows: [{name, asks}], asks, usd}
 // all: every pinned row (the PR gate replays one row per kind, so a pinned row it did not replay is unknown); else only the pinned rows the gate saw needing it.
-export function pickRefill({pins = [], records = [], all = false} = {}) {
+export function pickRefill({pins = [], records = [], all = false, worseOnly = false} = {}) {
   const byName = new Map(records.map(record => [record.name, record])), rows = [];
   for (const name of [...pins].sort()) {
     const record = byName.get(name);
-    if (all || needsRefill(record)) rows.push({name, asks: Math.max(1, Number(record?.network?.extra) || 0)});
+    if (all || needsRefill(record, {worseOnly})) rows.push({name, asks: Math.max(1, Number(record?.network?.extra) || 0)});
   }
   const asks = rows.reduce((sum, row) => sum + row.asks, 0);
   return {rows, asks, usd: Math.round(asks * PER_ASK_USD * 1000) / 1000};

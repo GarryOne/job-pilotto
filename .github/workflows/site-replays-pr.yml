@@ -285,6 +285,10 @@ jobs:
     needs: replay
     if: always()
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write   # starts replay-refill.yml (from main, with its own key and caps) when the gate finds stale answers; this job holds no AI key
+      pull-requests: read
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
@@ -320,6 +324,8 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.base_ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           # The owner's accept on THIS PR (label replay-accepted + comment "Replay-accept: ..."), read live: a re-run of this job (site-replays-accept.yml re-runs it on a label or comment) sees it.
           node replay-accepts.mjs - "$RUNNER_TEMP/accepts.json" --pr "$PR" || echo '{"entries":[]}' > "$RUNNER_TEMP/accepts.json"
@@ -334,5 +340,13 @@ jobs:
           node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" --accepts "$RUNNER_TEMP/accepts.json" --pinned replay-faithful.json --base-pinned "$RUNNER_TEMP/base-pins.json" --picked "$RUNNER_TEMP/picked.txt" --retry "$RUNNER_TEMP/retry4" | tee -a "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/gate-summary.md"; code=${PIPESTATUS[0]}
           set -e
           [ "$REPLAY" = success ] || { echo "::error::a replay runner did not finish ($REPLAY): the gate cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
-          if [ "$code" != 0 ] && grep -q 'replay-refill.yml' "$RUNNER_TEMP/gate-summary.md"; then echo "::error::next step for the rows whose answers are stale: gh workflow run replay-refill.yml -f pr=$PR  (by hand, on the owner's go)"; fi
+          # Stale answers (owner, 17 Oct 2026: "Auto-refill PRs under a cap"): the gate lists rows whose changed ask CAN turn green by a refill (outcome fell); the refill workflow, run from main with its own key,
+          # picks only those, stops above $0.50 a run or $5 a month and tells Telegram. Once per PR commit (the run's title), never for a fork.
+          if [ "$code" != 0 ] && grep -q 'replay-refill.yml' "$RUNNER_TEMP/gate-summary.md" && [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ]; then
+            HEAD="${HEAD:0:7}"
+            if gh run list -R "$GITHUB_REPOSITORY" -w replay-refill.yml -L 100 --json displayTitle -q '.[].displayTitle' | grep -qxF "Replay refill PR $PR @ $HEAD"; then echo "refill (auto): already started for $HEAD" | tee -a "$GITHUB_STEP_SUMMARY"
+            elif gh workflow run replay-refill.yml --ref main -f pr="$PR" -f auto=true -f head="$HEAD"; then echo "refill (auto): started for PR $PR @ $HEAD (only rows whose outcome fell; at most \$0.50 a run, \$5 a month); the gate re-runs by itself after it" | tee -a "$GITHUB_STEP_SUMMARY"
+            else echo "refill (auto): could not start it: by hand: gh workflow run replay-refill.yml -f pr=$PR" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          fi
+          if [ "$code" != 0 ] && grep -q 'replay-refill.yml' "$RUNNER_TEMP/gate-summary.md"; then echo "::error::next step for the rows whose answers are stale: the refill starts by itself under its cap; if it did not: gh workflow run replay-refill.yml -f pr=$PR"; fi
           [ "$code" = 0 ] || { echo "::error::a pinned row is no longer same as live (see the summary). If intended: label this PR replay-accepted and comment 'Replay-accept: <row> — <reason>' (the summary has the line): the gate re-judges by itself, and the nightly takes the new baseline after the merge"; exit 1; }

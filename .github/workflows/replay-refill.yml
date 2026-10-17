@@ -13,6 +13,7 @@
 # Needs also: NET_RECORD_KEY, NET_RECORDS_READ_TOKEN (as the replay), NET_RECORDS_WRITE_TOKEN (contents:write on the private job-pilotto-internal: only the publish job reads it), AI_COST_PUBLISH_KEY.
 # Guard: tests/test_refill_workflow.py, desktop/e2e/test/refill.test.mjs. Never posts a Replay-accept line.
 name: CI · Replay refill
+run-name: ${{ inputs.pr != '' && format('Replay refill PR {0} @ {1}', inputs.pr, inputs.head) || 'Replay refill' }}   # the PR gate looks for this title before it starts another automatic refill for the same commit
 
 on:
   push:
@@ -29,6 +30,12 @@ on:
         default: changed
         type: choice
         options: [changed, all]
+      auto:
+        description: 'Started by a PR gate itself (owner, 17 Oct 2026): only rows whose outcome fell, at most $0.50 a run and $5 a calendar month, Telegram when a cap stops it'
+        default: ''
+      head:
+        description: 'The PR commit the automatic run is for (its title; one automatic run per commit)'
+        default: ''
       max_asks:
         description: 'Refuse to start above this many asks (empty: 40 for a PR, 200 for main)'
         default: ''
@@ -154,6 +161,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ROWS: ${{ inputs.rows || 'changed' }}
           MAX_ASKS: ${{ inputs.max_asks || '40' }}
+          AUTO: ${{ inputs.auto }}
+          COST_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: |
           head="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefName -q .headRefName)"
           run="$(gh run list -R "$GITHUB_REPOSITORY" -w site-replays-pr.yml -b "$head" -L 1 --json databaseId -q '.[0].databaseId // empty')"
@@ -161,15 +170,29 @@ jobs:
           if [ -n "$run" ]; then gh run download "$run" -R "$GITHUB_REPOSITORY" -p "replay-pr-$run-*" -D "$RUNNER_TEMP/shards" || true; fi
           find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
           all=""; [ "$ROWS" = all ] && all="--all"
+          [ "$AUTO" = true ] && all="--worse-only --max-usd 0.5"   # the automatic run: only rows a refill can turn green, $0.50 a run (the month's $5 is checked next)
           cp replay-faithful.json "$RUNNER_TEMP/pins.json"   # main's pins, unless the PR's head has its own file (data only: the PR's code is not run here)
           if git fetch --quiet origin "refs/pull/$PR/head"; then git show FETCH_HEAD:desktop/e2e/replay-faithful.json > "$RUNNER_TEMP/pins-pr.json" 2>/dev/null && mv "$RUNNER_TEMP/pins-pr.json" "$RUNNER_TEMP/pins.json"; fi
           node refill-pick.mjs "$RUNNER_TEMP/pins.json" "$RUNNER_TEMP/step4" $all --max-asks "$MAX_ASKS" > "$RUNNER_TEMP/pick.json"
           { echo "### Replay refill: PR $PR"; echo; echo '```'; jq -r .line "$RUNNER_TEMP/pick.json"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
-          [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; exit 1; }
+          [ -z "$(jq -r .refused "$RUNNER_TEMP/pick.json")" ] || { echo "::error::the estimate is above the cap: nothing was asked"; jq -r .refused "$RUNNER_TEMP/pick.json" > "$RUNNER_TEMP/auto-why.txt"; exit 1; }
+          if [ "$AUTO" = true ] && [ "$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" != 0 ]; then   # the month's $5 (/admin/ai-cost, job replay-refill), read here: the PR's job holds no key
+            if AI_COST_PUBLISH_KEY="$COST_KEY" node refill-auto.mjs cap "$(jq .usd "$RUNNER_TEMP/pick.json")" > "$RUNNER_TEMP/auto-why.txt"; then tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/auto-why.txt"
+            else tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/auto-why.txt"; echo "::error::the automatic refill is over its cap: nothing was asked"; exit 1; fi
+          fi
           echo "rows=$(jq -c .rows "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.rows | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
           echo "line=$(jq -r .line "$RUNNER_TEMP/pick.json" | head -n 1)" >> "$GITHUB_OUTPUT"
+      - name: Tell the owner on Telegram when a cap stops the automatic refill
+        if: failure() && inputs.auto == 'true' && inputs.pr != ''
+        working-directory: desktop/e2e
+        env:
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+        run: |
+          why="$(head -n 3 "$RUNNER_TEMP/auto-why.txt" 2>/dev/null | tr '\n' ' ')"
+          node refill-auto.mjs alert "PR $PR: ${why:-the pick failed, see the run}. Nothing was asked. By hand: gh workflow run replay-refill.yml -f pr=$PR"
       - uses: actions/download-artifact@v7
         if: inputs.pr == ''
         with:

@@ -75,6 +75,10 @@ test('a day\'s reported spend for a job prefix, with the publishing key only', a
   const answer = await (await get('?day=2026-10-07&prefix=e2e-')).json();
   assert.deepEqual(answer, {day: '2026-10-07', prefix: 'e2e-', usd: 4.1235, runs: 17});
   assert.deepEqual(asked[0].args, ['2026-10-07', 'e2e-%']);
+  assert.deepEqual(await (await get('?month=2026-10&prefix=replay-refill')).json(), {month: '2026-10', prefix: 'replay-refill', usd: 4.1235, runs: 17}, 'a whole month');
+  assert.deepEqual(asked.at(-1).args, ['2026-10-%', 'replay-refill%']);
+  assert.match(asked.at(-1).sql, /day LIKE \?/);
+  assert.equal((await get('?month=October')).status, 400);
 });
 
 test('measuring starts at AI_COST_SINCE: older rows are not read, and the first tile says since when', async () => {
