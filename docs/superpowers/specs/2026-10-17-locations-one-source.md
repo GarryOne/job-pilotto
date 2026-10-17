@@ -15,6 +15,7 @@ Where you live and work rights stay in Your details. Crawl places are derived: P
 Both originals are kept until the person confirms. Cost estimate shown only when calculated, else "cost unavailable"; old scores are not rescored *automatically* (refresh is explicit, active jobs). A move that keeps meaning marks nothing and spends nothing.
 
 ## Progress
-- [ ] a. Model + one-time move: read both sides, classify (same / one unset / conflict), backup, conflict step with the options above, read-back (proof: desktop/test/locations-move.test.js)
-- [ ] b. Consumers: crawl derived from Locations, scoring reads it, scores marked "based on previous preferences", explicit refresh for active jobs (proof: tests/test_locations.py)
-- [ ] c. Strategy → Locations card (⌘K), Preferences location rows and old lists removed, override visible when collapsed (proof: tests/test_desktop.py)
+- [x] a. Model + one-time move (#1221, #1223): read both sides, classify (same / one unset / conflict), backup, conflict step with the options above, read-back (proof: desktop/test/locations-move.test.js @3a7cac2)
+- [x] b. Consumers: crawl derived from Locations, scoring reads it, scores marked "based on previous preferences", explicit refresh for active jobs, per-job mark in the drawer (#1234, #1242, #1249) (proof: tests/test_locations_search.py @0be8837, tests/test_score_locations.py @c3f7867, desktop/test/locations-drawer.test.js @c3f7867)
+- [x] c. Strategy → Locations card (⌘K), Preferences location rows removed, override visible when collapsed (#1255) (proof: desktop/test/locations-card.test.js @5c32fba, desktop/test/locations-model.test.js @5c32fba, tests/test_strategy_locations.py @5c32fba)
+- [ ] Open: Home base → Your details needs a profile-move step like 3b (it stays in Job preferences); the Workload rule still reads the Profile's Countries text
