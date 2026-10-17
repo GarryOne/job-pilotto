@@ -21,13 +21,13 @@ export const PAGES = [
   {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
-  {path: '/admin/operations/overview', group: 'Engineering', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
-  {path: '/admin/operations/build-log', group: 'Engineering', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
-  {path: '/admin/operations/pr-checks', group: 'Engineering', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
-  {path: '/admin/self-healing', group: 'Engineering', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/sentry', group: 'Engineering', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
-  {path: '/admin/ai-cost', group: 'Engineering', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
-  {path: '/admin/access', group: 'Engineering', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin/operations/overview', group: 'Operations', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
+  {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
+  {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
+  {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
+  {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
 const OLD = {...Object.fromEntries(PAGES.flatMap(page => [page.old].flat().filter(Boolean).map(old => [old, page.path]))),
@@ -75,9 +75,9 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 .admin-question{margin:-10px 0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}`;
 
 // The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
-// Form filling and Engineering): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
+// Form filling and Engineering, which was renamed Operations again on 18 Oct 2026: Lab and Benchmark are engineering too): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
 // it is a lock link beside "super admin" and only for the super admin.
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Intelligence', '🧠'], ['Engineering', '🛠️']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
 export function nav(active, who = {role: 'superadmin'}) {
   const isSuper = who.role === 'superadmin';
   const shown = PAGES.filter(page => !page.superadmin);
