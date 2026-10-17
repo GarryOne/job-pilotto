@@ -28,8 +28,9 @@ bad="$(grep . <<<"$list" | awk -F'\t' '
   { c[NR] = ($1 == "own") ? "success" : $2; w[NR] = $3; t[NR] = $4; o[NR] = ($1 == "own"); s[NR] = $1; if ($1 == "own") gate = $3 }
   END { for (i = 1; i <= NR; i++) {
           if (o[i]) continue
-          if (s[i] != "completed" && w[i] == gate) continue
-          if (c[i] == "cancelled" && w[i] == gate) continue   # a cancelled copy of this gate, older OR newer: it only repeats the judgment of this run (#1199, 17 Oct 2026)
+          # Any other copy of this gate (running, cancelled or failed): it only repeats the judgment of this run on the same commit. Two copies that
+          # counted each other failed each other, and re-runs could never clear it (#1199, 17 Oct 2026).
+          if (w[i] == gate) continue
           if (c[i] == "success" || c[i] == "skipped") continue
           gone = 0
           if (c[i] == "cancelled" && t[i] != "") for (j = 1; j <= NR; j++) if (w[j] == w[i] && c[j] == "success" && t[j] > t[i]) { gone = 1; break }
