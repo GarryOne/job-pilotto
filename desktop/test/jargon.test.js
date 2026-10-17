@@ -14,7 +14,7 @@ const BANNED = /\bSRE\b|\bdevops\b|\bkubernetes\b|\btech stack\b|\bsoftware engi
 const ALLOWED = {
   'jobs-view.js': 'detects skill chips in a posting: a tag only appears when the posting itself says it',
   'gallery.js': 'the demo and screenshot gallery, fictional data',
-  'strategy-review.js': 'capitalises acronyms in a list the user wrote or the draft proposed',
+  'fragment-words.js': 'capitalises acronyms in a list the user wrote or the draft proposed (titleCase, used by the Strategy screens)',
   'run-cards.js': 'parses the scout\'s run note ("N matching roles", and "N SRE-type roles" in notes written before 5 Oct 2026), never displayed as written',
   'demo.js': 'the demo data',
   'audience.js': 'the words that tell whether a candidate looks for IT work: matched against role keywords, never shown',

@@ -8,7 +8,8 @@ import path from 'node:path';
 import {openStore} from './store/index.js';
 import {itemsOf} from './profile-move.js';
 import {fieldFor} from '../renderer/preferences-model.js';
-import {applyLocations, classify, judgeProfile, resolveConflict} from './locations-move.js';
+import {applyLocations, classify, judgeProfile, readSide, resolveConflict} from './locations-move.js';
+import {settleSame} from './locations-same.js';
 import {publishSearchSettings} from './strategy-settings.js';
 import * as backup from './backup.js';
 import {keep} from './set-aside.js';
@@ -51,7 +52,13 @@ export async function moveLocations(storage, {fetcher, ai = {}, deps = null, wri
   const profile = await judgeProfile(await profileRows(storage, fetcher), ai);
   if (!profile) return {moved: 0, conflicts: []};
   const search = readSearch(storage);
-  const {resolved, conflicts} = classify(search, profile);
+  const plan = classify(search, profile);
+  const {same: alike, conflicts} = await settleSame(plan.conflicts, ai);   // the same places in other words move silently, like an exact match
+  const resolved = {...plan.resolved};
+  for (const kind of alike) {
+    const fragments = plan.conflicts.find(each => each.kind === kind).strategyFragments;
+    resolved[kind] = kind === 'relocation' ? {mode: 'yes', places: fragments} : fragments;
+  }
   storage.saveSettings({locationsConflicts: conflicts});
   const next = applyLocations(search, resolved);
   if (same(next, search)) return {moved: 0, conflicts};
@@ -60,6 +67,22 @@ export async function moveLocations(storage, {fetcher, ai = {}, deps = null, wri
   const missing = readBack(storage, resolved);
   if (missing.length) throw new Error(`Locations move: ${missing.join(', ')} did not save; the Profile is untouched (the copy is in ${copy.dir})`);
   return {moved: Object.keys(resolved).length, conflicts, copy};
+}
+
+// A queue saved by an older build (17 Oct 2026: saved before the place-name fix, so the card showed raw patterns): each entry is read again on
+// open: the crawl side as place names from its own patterns, and the same-meaning check for any not checked yet; the same places are resolved
+// to the crawl's list (nothing changes in the search) and leave the queue. -> the queue as it is now.
+export async function recheckQueue(storage, {ai = {}, deps = null, write = defaultWrite} = {}) {
+  const queue = storage.settings().locationsConflicts || [];
+  const read = queue.map(entry => {
+    const fragments = entry.strategyFragments || entry.strategy || [];
+    return {...entry, strategyFragments: fragments, strategy: readSide(fragments).shown};
+  });
+  if (!read.some(entry => !entry.checked) && same(read, queue)) return queue;
+  const {same: kinds, conflicts} = await settleSame(read, ai);
+  storage.saveSettings({locationsConflicts: [...conflicts, ...read.filter(entry => kinds.includes(entry.kind))]});
+  for (const kind of kinds) await resolveLocation(storage, kind, 'strategy', {deps, write});
+  return storage.settings().locationsConflicts || [];
 }
 
 // "Which is right?" for one kind: the pick is written and read back, then the question closes. → {ok, error}.
@@ -82,7 +105,7 @@ const LISTS = [['top_tier', 'Preferred locations'], ['country_wide', 'Acceptable
 function setAsideReplaced(storage, before, after) {
   const kept = new Set(after.search_override || []);
   keep(storage, LISTS.filter(([key]) => (before[key] || []).length && !same(before[key], after[key]) && !before[key].every(place => kept.has(place)))
-    .map(([key, title]) => ({source: 'locations', title, label: title, value: before[key].join(', '),
+    .map(([key, title]) => ({source: 'locations', title, label: title, value: readSide(before[key]).shown.join(', '),   // place names, never the patterns (restore keeps them)
       restore: {key, list: before[key], ...(key === 'abroad' ? {relocation: before.relocation} : {})}})));
 }
 
