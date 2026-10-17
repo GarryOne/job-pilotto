@@ -1,5 +1,24 @@
 [
  {
+  "id": 1790630000000,
+  "kind": "search",
+  "trigger": "schedule",
+  "where": "cloud",
+  "startedAt": "2026-09-28T19:00:00Z",
+  "endedAt": "2026-09-28T19:03:00Z",
+  "ok": true,
+  "new": 3,
+  "result": "3 new jobs while you were away",
+  "log": [
+   "Ran on our servers: no technical log is kept.",
+   "New job: Senior Site Reliability Engineer | Northwind AI | https://example.test/jobs/demo-sre-1 | 87",
+   "New job: Platform Engineer, Kubernetes | Alpine Cloud | https://example.test/jobs/demo-platform-1 | 74",
+   "New job: DevOps Engineer | Lumen Robotics | https://example.test/jobs/demo-devops-1 | 61"
+  ],
+  "pageId": "demo-nomsg-page",
+  "summary": "0 new jobs"
+ },
+ {
   "id": 1790626000000,
   "kind": "search",
   "trigger": "schedule",

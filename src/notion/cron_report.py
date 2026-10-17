@@ -357,12 +357,19 @@ def _result_paras(lines):
     return paras
 
 
-def extra_blocks(messages, lines):
-    """What the run produced (its last message) and a toggle with the last lines of its output."""
+def result_lines(messages, run):
+    """What the run says it did: its last message, else the report's headline ("Quiet run: nothing new..."). Never empty: a finished run
+    with no Result block left its card on Actions as skeleton bars (18 Oct 2026, a Find jobs run that found nothing)."""
+    said = [line for line in plain(messages[-1]).split('\n') if line.strip()] if messages else []
+    return said or [report_lines(run)[0]]
+
+
+def extra_blocks(messages, lines, run=None):
+    """What the run produced (its last message, else its headline when `run` is given) and a toggle with the last lines of its output."""
     blocks = []
-    if messages:
+    if messages or run:
         blocks.append(_para('Result', 'heading_3'))
-        blocks += _result_paras([line for line in plain(messages[-1]).split('\n') if line.strip()])
+        blocks += _result_paras(result_lines(messages, run) if run else [line for line in plain(messages[-1]).split('\n') if line.strip()])
     if lines:
         chunks = ['\n'.join(list(lines)[i:i + 25]) for i in range(0, len(lines), 25)]
         blocks.append({'object': 'block', 'type': 'toggle', 'toggle': {

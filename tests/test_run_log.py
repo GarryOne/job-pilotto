@@ -85,6 +85,22 @@ class StoreRunTests(Quiet):
                              {'new_jobs': 3, 'scored': 2, 'feeds': 40, 'duration_s': 95, 'top_new_score': 88})
             self.assertAlmostEqual(row['stats']['ai_cost_usd'], 0.034)
 
+    def test_a_run_that_sent_no_message_still_leaves_a_result_for_its_card(self):
+        # 18 Oct 2026: a Find jobs run with nothing new had no Result block; Actions drew skeleton bars for it for ever.
+        from src import telegram
+        saved, telegram.MESSAGES = telegram.MESSAGES, []
+        self.addCleanup(setattr, telegram, 'MESSAGES', saved)
+        for stores in self.stores():
+            run_log._open.clear()
+            run = sample_run(run_id='r-quiet', new=0, changed=0)
+            run_log.begin(stores, run)
+            named = run_log.log_run(stores, run)
+            row = stores.cron_runs.get(base.parse_ref(named)[1])
+            self.assertTrue(row['result'].strip())
+            self.assertIn('nothing new', row['result'])
+        blocks = cron_report.extra_blocks([], [], {'mode': 'run', 'new': 0, 'changed': 0, 'feeds': 3})
+        self.assertEqual(blocks[0]['heading_3']['rich_text'][0]['text']['content'], 'Result')
+
     def test_a_run_without_an_open_row_gets_a_whole_one_started_when_it_started(self):
         stores = memory.open_store()
         named = run_log.log_run(stores, sample_run())

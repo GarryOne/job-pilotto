@@ -193,7 +193,7 @@ def log_run(tracker, run, failed=False):
         properties, children = run_page(run, final=not failed)
         if failed:
             properties['Status'] = {'select': {'name': 'Failed'}}
-        children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output))
+        children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output), run)
         if _open.get('id') and _open.get('run') is run:
             _open.pop('run')
             try:

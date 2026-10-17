@@ -54,7 +54,7 @@ export async function closeLost(storage, startedAt, reason, {fetcher, size = 25,
 // 7 Oct 2026: runs made while trying the app stayed only in runs.json (listed by merge(), never in Notion or Telegram /status). Each
 // finished local run with no row is written as the engine would have (src/notion/cron_runs.py run_page + extra_blocks); a row of the
 // same kind that started within 3 minutes is taken as its own instead (its "Cronjob run logged" line was lost). A GitHub run writes its own.
-const MODE = {...Object.fromEntries(Object.entries(KIND).filter(([mode]) => !['scheduled', 'first'].includes(mode)).map(([mode, kind]) => [kind, mode])), interviewInsight: 'insight'};
+export const MODE = {...Object.fromEntries(Object.entries(KIND).filter(([mode]) => !['scheduled', 'first'].includes(mode)).map(([mode, kind]) => [kind, mode])), interviewInsight: 'insight'};
 const LOG_LINES = 80;
 const rich = value => ({rich_text: value ? [{text: {content: String(value).slice(0, 1900)}}] : []});
 const block = (type, content) => ({object: 'block', type, [type]: rich(content)});
@@ -80,7 +80,8 @@ export function localRow(run, name = kind => kind) {
     ...(run.runId ? {'Run id': rich(run.runId)} : {}),
   };
   const lines = (run.log || []).slice(-LOG_LINES);
-  const message = String(run.message || '').split('\n').filter(line => line.trim()).slice(0, 40);
+  // A run with no message of its own still says what it did: without a Result block its Actions card never filled (18 Oct 2026, a Find jobs run with nothing new).
+  const message = String(run.message || summary).split('\n').filter(line => line.trim()).slice(0, 40);
   const children = [block('heading_3', 'Report'), block('bulleted_list_item', summary),
     block('paragraph', 'Run on this Mac before this database had it (Notion not yet connected, or its row could not be written); copied from the app.'),   // about Notion
     ...(message.length ? [block('heading_3', 'Result'), ...message.map(line => block('paragraph', line))] : []),

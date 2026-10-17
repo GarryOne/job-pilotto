@@ -24,6 +24,14 @@ test('a window that loads and shows a page logs its load time and nothing else',
   assert.deepEqual(win.lines, ['[window] main: loaded in 1.2 s']);
 });
 
+test('a reload is timed from its own start, not from the window\'s creation', async () => {
+  const win = fakeWindow();
+  win.tick(2000); win.emit('did-finish-load');
+  win.tick(2516000); win.emit('did-start-loading'); win.tick(300); win.emit('did-finish-load');   // 18 Oct 2026: "loaded in 2516.9 s"
+  await win.runTimers();
+  assert.deepEqual(win.lines, ['[window] main: loaded in 2 s', '[window] main: loaded in 0.3 s']);
+});
+
 test('a window still blank after loading says so, with the page errors before it', async () => {
   const win = fakeWindow({shown: 0});
   win.emit('console-message', {level: 'error', message: 'Uncaught SyntaxError: x is not exported', lineNumber: 3, sourceId: 'file:///app.asar/renderer/app.js'});
