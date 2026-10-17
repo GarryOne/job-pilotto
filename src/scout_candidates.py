@@ -200,6 +200,23 @@ def skipped_origins(seeds, technical):
     return TECH_LIST_ORIGINS + (SEED_ORIGINS if seeds.get('tech_only', True) else ())
 
 
+def named(name, source, country=''):
+    """A list source with its name (for tests and logs) and the one country whose employers it lists ('' = any)."""
+    source.list_name, source.country = name, country
+    return source
+
+
+def default_sources(db, seeds, countries, skip=()):
+    """The lists a run reads. A list of one country's employers (jobs.ch, SwissDevJobs) only when one of the search's places is in that country
+    (owner, 18 Oct 2026: a Lisbon or Berlin search started with Swiss names); a search outside IT reads no tech-only list."""
+    every = [named('seeds', lambda: seed_candidates(seeds)), named('hacker news', hacker_news_candidates), named('whiteboards', whiteboards_candidates),
+             named('jobs.ch employers', lambda: local_company_candidates(db), 'Switzerland'), named('swissdevjobs', swissdevjobs_candidates, 'Switzerland'),
+             named('wikidata', lambda: wikidata_candidates(countries=countries))]
+    if skip:
+        every = [s for s in every if s.list_name not in ('hacker news', 'whiteboards', 'swissdevjobs')]
+    return [s for s in every if not s.country or s.country in countries]
+
+
 def harvest(db, seeds, sources=None, skip=()):
     """Add unseen candidates; returns how many were new. Failing sources are skipped, and so are candidates whose origin is in `skip`."""
     ensure_tables(db)
@@ -208,11 +225,7 @@ def harvest(db, seeds, sources=None, skip=()):
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     if sources is None:
         # JOB_PILOTTO_FIXTURE_DIR (the end-to-end journey, desktop/e2e): the seeds only, no Hacker News or whiteboard crawl.
-        sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else [
-            lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db),
-            swissdevjobs_candidates, wikidata_candidates]
-        if skip and not os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # a search outside IT: the lists of software employers are not even read
-            sources = [lambda: seed_candidates(seeds), lambda: local_company_candidates(db), wikidata_candidates]
+        sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else default_sources(db, seeds, search_countries(), skip)
     added = 0
     for source in sources:
         try:

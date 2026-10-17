@@ -20,8 +20,9 @@ SEEDS = CONFIG / 'scout_seeds.json'
 EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
 DEFAULT_BATCH = 40      # candidates probed per run (15 until 3 Oct 2026: the queue then held 400+ names and moved too slowly)
 # A long queue is worked through faster and not made longer (owner, 7 Oct 2026: 609 ideas waited, the app probed 15 a run while each run added ~200):
-# a run probes a sixth of the queue (40 to 100), and adds no new names while more than IDEAS_PAUSE wait.
-MAX_BATCH, IDEAS_PAUSE = 100, 100
+# a run probes a sixth of the queue (40 to 100). Since 18 Oct 2026 new names are added however long it is: the queue is worked by each
+# source's yield instead (src/scout_queue.py; the 100-name pause had frozen every new name for 12 days).
+MAX_BATCH = 100
 
 
 def batch_for(pending, asked=DEFAULT_BATCH):
