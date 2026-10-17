@@ -13,7 +13,7 @@ export function packBundle(work, name, rowDirs, pubKey) {
   for (const {dir, as} of rowDirs) fs.cpSync(dir, path.join(stage, as), {recursive: true});
   const bundle = `${name}.tgz.enc`, key = `${name}.k.enc`;
   execFileSync('tar', ['czf', `${name}.tgz`, '-C', stage, '.'], {cwd: work});
-  openssl(['rand', '-out', `${name}.k`, '32'], work);
+  openssl(['rand', '-hex', '-out', `${name}.k`, '32'], work);   // hex: a pass file's first line is the password (a raw key can start with a newline)
   openssl(['enc', '-aes-256-cbc', '-pbkdf2', '-salt', '-in', `${name}.tgz`, '-out', bundle, '-pass', `file:${name}.k`], work);
   openssl(['pkeyutl', '-encrypt', '-pubin', '-inkey', pubKey, '-pkeyopt', 'rsa_padding_mode:oaep', '-in', `${name}.k`, '-out', key], work);
   for (const gone of [`${name}.k`, `${name}.tgz`]) fs.rmSync(path.join(work, gone));
