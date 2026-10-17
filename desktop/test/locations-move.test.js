@@ -95,3 +95,36 @@ test('the AI reads the Profile rows into a fixed answer; a mangled one is "nothi
   assert.equal(await judgeProfile([], {client: good}), null);   // no rows: no call
   assert.equal(calls.length, 1);
 });
+
+// The crawl lists are match patterns (\bz[uü]rich\b), the Profile's are place names (17 Oct 2026: every kind conflicted, and "Use Strategy value" would have saved patterns as places).
+const PATTERNS = {top: ['\\bz[uü]rich\\b', '\\bbasel\\b'], country: ['\\bswitzerland\\b', 'deutschland|germany'], abroad: ['\\blisbon\\b']};
+
+test('patterns are read as place names before comparing: the same places in both words move silently', () => {
+  const plan = classify(SEARCH(PATTERNS.top, ['\\bswitzerland\\b']), PROFILE(['Zurich', 'Basel'], ['Switzerland']));
+  assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.resolved.preferred, PATTERNS.top);   // the crawl keeps its own patterns, untouched
+  assert.deepEqual(plan.resolved.acceptable, ['\\bswitzerland\\b']);
+  assert.deepEqual(applyLocations(SEARCH(PATTERNS.top), plan.resolved).locations.top_tier, PATTERNS.top);
+});
+
+test('a conflict shows place names, never a pattern; Use Strategy value keeps the crawl pattern, Use Profile value writes the Profile\'s place', () => {
+  const plan = classify(SEARCH(PATTERNS.top, PATTERNS.country, PATTERNS.abroad), PROFILE(['Geneva'], ['Austria'], 'yes', ['Madrid']));
+  assert.equal(plan.conflicts.length, 3);
+  const by = kind => plan.conflicts.find(each => each.kind === kind);
+  assert.deepEqual(by('preferred').strategy, ['zürich', 'basel']);
+  assert.deepEqual(by('acceptable').strategy, ['switzerland', 'deutschland', 'germany']);
+  assert.deepEqual(by('relocation').strategy, ['lisbon']);
+  for (const conflict of plan.conflicts) for (const name of [...conflict.strategy, ...conflict.profile]) assert.doesNotMatch(name, /[\\[\]|]/, `${conflict.kind}: "${name}" is a pattern`);
+  assert.deepEqual(resolveConflict(plan, 'preferred', 'strategy').resolved.preferred, PATTERNS.top);
+  assert.deepEqual(resolveConflict(plan, 'preferred', 'profile').resolved.preferred, ['Geneva']);
+  assert.deepEqual(resolveConflict(plan, 'relocation', 'strategy').resolved.relocation.places, PATTERNS.abroad);
+  assert.deepEqual(resolveConflict(plan, 'acceptable', 'separate').resolved.searchOverride, PATTERNS.country);
+});
+
+test('a pattern with no plain name is shown as written, kept, and never counted as a Profile place', () => {
+  const odd = ['\\b(?:zug|luzern)\\b'];
+  const plan = classify(SEARCH(odd), PROFILE(['Zug']));
+  assert.equal(plan.conflicts.length, 1);
+  assert.deepEqual(plan.conflicts[0].strategy, ['/\\b(?:zug|luzern)\\b/']);
+  assert.deepEqual(resolveConflict(plan, 'preferred', 'strategy').resolved.preferred, odd);
+});
