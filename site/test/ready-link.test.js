@@ -18,11 +18,11 @@ function d1() {
 const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
   head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
 const runner = () => { const seen = []; return {seen, fetch: async request => { seen.push(request.url); return new Response('{}', {status: 200}); }}; };
-const env = () => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_RUNNER: runner()});
+const env = () => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', READY_RUNNER: runner()});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T07:00:00Z');
 const call = (e, method, path, body, headers = {}, at = now) => ready(new Request(`https://www.jobpilotto.top/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, at);
-const owner = async () => ({'x-api-key': await keyOf('owner-install-1')});
+const owner = async () => ({'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('owner-install-1')});
 async function morning() {
   const e = env();
   const made = await (await call(e, 'POST', 'batch', {night: '2026-10-18', jobs: [{id: 'j1', url: 'https://boards.example.com/a/1'}, {id: 'j2', url: 'https://boards.example.com/a/2'}]}, await owner())).json();
@@ -33,7 +33,7 @@ const linkFor = async (e, job) => new URL((await (await call(e, 'POST', 'link', 
 
 test('only the owner gets a link, for a plain job id, and it lasts ten minutes', async () => {
   const e = await morning();
-  assert.equal((await call(e, 'POST', 'link', {job: 'j1'}, {'x-api-key': await keyOf('someone-else-9')})).status, 401);
+  assert.equal((await call(e, 'POST', 'link', {job: 'j1'}, {'x-ready-owner': 'owner-secret', 'x-api-key': await keyOf('someone-else-9')})).status, 401);
   assert.equal((await call(e, 'POST', 'link', {job: 'j1'})).status, 401);
   assert.equal((await call(e, 'POST', 'link', {job: '../x'}, await owner())).status, 400);
   const reply = await (await call(e, 'POST', 'link', {job: 'j1'}, await owner())).json();

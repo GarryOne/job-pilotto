@@ -24,7 +24,11 @@ const bad = error => json({ok: false, error}, 400);
 const cap = env => Math.round((Number(env.READY_NIGHT_MAX_USD) > 0 ? Number(env.READY_NIGHT_MAX_USD) : DEFAULT_CAP_USD) * 1e6);
 const num = value => (Number.isFinite(Number(value)) && Number(value) >= 0 ? Math.round(Number(value)) : null);
 
+// The owner: his install key AND the owner secret (x-ready-owner = the Worker secret READY_OWNER_SECRET). The install id travels to the site in reports and lookups, so it names the owner but proves nothing;
+// without the secret set, or sent, no owner route opens (owner, 17 Oct 2026). The night token and the 10-minute link are other credentials and do not pass here.
 async function ownerOf(request, env) {
+  const given = request.headers.get('x-ready-owner') || '';
+  if (!env.READY_OWNER_SECRET || !given || !equal(given, env.READY_OWNER_SECRET)) return null;
   const install = await installOf(request, env);
   return install && equal(install, env.READY_OWNER) ? install : null;
 }
