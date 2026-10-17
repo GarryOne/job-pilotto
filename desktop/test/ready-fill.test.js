@@ -105,3 +105,17 @@ test('a fresh extension worker is written only once chrome.storage exists, and e
     assert.ok(!/evaluate\([^\n]*chrome\.storage\.local\.set/.test(fs.readFileSync(`${root}${dir}/${file}`, 'utf8')), `${dir}/${file}: use setExtensionStorage (the API is missing right after start)`);
   }
 });
+
+test('a night that cannot start tells the site each job failed and why, at once, instead of leaving them "waiting"', async () => {
+  const {runNight, NIGHT_FAILED} = await import('../../hosted/ready-fill/night.mjs');
+  const posts = [];
+  const fetchImpl = async (url, options) => {
+    const route = url.split('/api/ready/')[1], body = options.body ? JSON.parse(options.body) : null;
+    posts.push({route, body});
+    return {json: async () => route === 'batch' ? {ok: true, jobs: [{id: 'a', url: 'https://boards.example.com/1', kit: {}}, {id: 'b', url: 'https://boards.example.com/2', kit: {}}], facts: {}} : {ok: true}};
+  };
+  const chromium = {launchPersistentContext: async () => { throw new Error('browser could not start at https://secret.example.com/x'); }};
+  await assert.rejects(runNight({chromium, site: 'https://site.example', token: 't', fetchImpl}), /browser could not start/);
+  const results = posts.filter(p => p.route === 'result').map(p => p.body);
+  assert.deepEqual(results.map(r => [r.job, r.state, r.wall]), [['a', 'failed', NIGHT_FAILED], ['b', 'failed', NIGHT_FAILED]]);
+});
