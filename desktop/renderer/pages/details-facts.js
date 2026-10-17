@@ -2,7 +2,8 @@
 // facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "Which is right?" for a fact two
 // copies said two ways (lib/profile-move.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
 // test/details-facts.test.js.
-import {el} from '../components.js';
+import {el, loadingCard} from '../components.js';
+import {swr} from '../swr.js';
 import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
@@ -56,10 +57,16 @@ function drawWhich(conflicts) {
 
 // Reads and draws the sections (the first time, the app moves the facts in: copy and backup first, lib/profile-move.js).
 export async function showFacts() {
-  const result = await window.pilot.detailsFacts().catch(error => ({ok: false, error: error.message}));
-  $('facts-message').textContent = result.ok ? '' : result.error || '';
-  draw(result.sections || {});
-  drawWhich(result.conflicts || []);
+  await swr('details-facts', () => window.pilot.detailsFacts(), {
+    loading: () => KEYS.forEach(key => box(key)?.replaceChildren(loadingCard('Reading your details…', [60, 80]))),
+    paint: (result, kept) => {
+      if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
+      $('facts-message').textContent = '';
+      draw(result.sections || {});
+      drawWhich(result.conflicts || []);
+    },
+    fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
+  });
 }
 
 // What the boxes hold now: {eligibility: [{label, value}], ...} (a line with no value is dropped on save).

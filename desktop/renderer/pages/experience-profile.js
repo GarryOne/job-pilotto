@@ -4,7 +4,8 @@
 // cards, never here. Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC
 // textOutline / textEdit); the model is renderer/experience-profile-model.js. Cards are the Application answers' folds (.answer-item.qa-fold).
 // Guarded by test/experience-profile.test.js and test/experience-cards.test.js.
-import {el, tag} from '../components.js';
+import {el, loadingCard, tag} from '../components.js';
+import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
@@ -19,10 +20,12 @@ const editing = new Set();
 export async function loadExperienceProfile(tab = 'experience') {
   const [boxId, messageId] = BOXES[tab];
   if (!$(boxId)) return;
-  const result = await window.pilot.textOutline('profile').catch(error => ({ok: false, error: error.message}));
-  if (!result?.ok) { message(messageId, `Couldn't read your Profile: ${result?.error || 'try again'}`, 'error'); return; }
-  parts[tab] = profileParts(result.items);
-  draw(tab);
+  const box = $(boxId);
+  await swr('outline:profile', () => window.pilot.textOutline('profile'), {
+    loading: () => box.replaceChildren(loadingCard('Reading your Profile…')),
+    paint: (result, kept) => { if (kept || !editing.size) { parts[tab] = profileParts(result.items); draw(tab); } },   // a refresh never redraws a card under edit
+    fail: result => message(messageId, `Couldn't read your Profile: ${result?.error || 'try again'}`, 'error'),
+  });
 }
 
 function draw(tab) {
@@ -118,7 +121,7 @@ function editor(tab, each) {
     if (!changes.length) { editing.delete(key); draw(tab); return; }
     save.disabled = true;
     const result = await window.pilot.textEdit('profile', changes).catch(error => ({ok: false, error: error.message}));
-    if (result.items) parts[tab] = profileParts(result.items);
+    if (result.items) { parts[tab] = profileParts(result.items); keep('outline:profile', {...result, ok: true}); }
     message(BOXES[tab][1], result.ok ? 'Saved ✓ The next tailored CVs, letters and scores use it.' : result.error, result.ok ? 'ok' : 'error');
     if (result.ok) editing.delete(key);
     if (result.ok || result.items) draw(tab); else save.disabled = false;
