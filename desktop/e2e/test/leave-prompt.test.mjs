@@ -9,6 +9,7 @@ function fakePage({prompt}) {
     count: async () => (selector === '#strategy-leave-dialog[open]' && prompt ? 1 : 0),
     locator: inner => ({click: async () => done.push(`click ${selector} ${inner}`)}),
     waitFor: async () => done.push(`wait ${selector}`),
+    first: () => ({isVisible: async () => true}),   // goView: the menu button is shown, so it is clicked
   });
   return {done, click: async selector => done.push(`click ${selector}`), locator};
 }

@@ -7,6 +7,7 @@ import {facts, settle} from './app.mjs';
 import {writeFindings} from './artifacts.mjs';
 import {LIMITS, inspect, motionFacts} from './uicheck.mjs';
 import {checkA11y, tally} from './a11y.mjs';
+import {goView} from './go-view.mjs';
 
 // Look at one thing on screen that is already showing: screenshot `name`, facts, checks. `view` names the page for the checks.
 // `busy`: a task is running on purpose, so its spinner is not a page stuck loading.
@@ -22,7 +23,7 @@ export async function snap(ctx, name, {view, situation = 'default', busy = false
 
 export async function visit(ctx, views) {
   for (const view of views) {
-    await ctx.page.click(`.nav[data-view="${view}"]`);
+    await goView(ctx.page, view);
     await snap(ctx, view);
   }
 }
@@ -38,7 +39,7 @@ export async function visitNarrow(ctx, views, {width = 1024, height = 640, take 
     if (!railed) ctx.findings.push({view: 'app-chrome', severity: 'warning', kind: 'layout', detail: `the sidebar did not become an icon rail at ${width} px wide (sidebar-rail.js: under 1180 px)`});
     for (const view of views) {
       const before = ctx.findings.length;
-      await ctx.page.click(`.nav[data-view="${view}"]`);
+      await goView(ctx.page, view);
       await take(ctx, `${view}-narrow`, {view});
       for (const finding of ctx.findings.slice(before)) finding.severity = 'warning';
     }
@@ -64,7 +65,7 @@ export async function sweep(ctx, views, {combos = SWEEP, settleFn = settle} = {}
       await theme(choice);
       await page.waitForTimeout(500);
       for (const view of views) {
-        await page.click(`.nav[data-view="${view}"]`);
+        await goView(page, view);
         await settleFn(page);
         for (const item of await page.evaluate(inspect, {view, limits: LIMITS})) {
           const shown = item.chrome ? 'app-chrome' : view, key = `${shown}|${item.kind}|${String(item.detail).split(' ')[0]}`;
