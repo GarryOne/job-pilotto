@@ -58,6 +58,7 @@ export function readParts(items, {elsewhere = () => false, taken = () => false} 
   return out;
 }
 
+// Remove when: no Profile page still has a Contact / Links section (Your details has moved them), not when installs update.
 const LEGACY = /^(📇\s*)?(contact|links)$/i;   // older Profiles' Contact / Links sections: Your details reads them (lib/contact.js)
 // The Profile's sections, without what other screens edit: Your details' sections and Strategy's fields and rules (preferences-model.js).
 export function profileParts(items) {

@@ -103,6 +103,7 @@ export async function searchAll(token, kind, fetcher) {
 // An archived workspace (an older reset, until 16 Oct 2026, renamed its page to
 // "Job Pilotto (archived 28 Sep 2026)"): still shared with the connection, but never connected to again, so
 // everything inside it is left out. Renaming the page back brings it back.
+// Remove when: no connected Notion still holds a workspace archived by a reset before 16 Oct 2026, not when installs update.
 export const ARCHIVED = /\(archived\b[^)]*\)\s*$/i;
 export function liveOnly(databases, pages) {
   const parent = new Map([...databases, ...pages].map(i => [i.id, i.parent?.page_id || i.parent?.database_id || i.parent?.block_id]));
