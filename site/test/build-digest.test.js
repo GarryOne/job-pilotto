@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {buildPrompt, countOf, dayWords, makeDigest, plan, prList, render, summarize, validate, zurichDay, zurichHour} from '../src/build-digest.js';
+import {ask, buildPrompt, countOf, dayWords, makeDigest, plan, prList, render, summarize, validate, whyRefused, zurichDay, zurichHour} from '../src/build-digest.js';
 
 const prs = JSON.parse(readFileSync(new URL('./fixtures/prs-2026-10-16.json', import.meta.url), 'utf8'));
 const numbers = prs.map(pr => pr.number);
@@ -114,4 +114,29 @@ test('a cut-off answer (stop_reason max_tokens) is retried once with more room a
   assert.equal(done.groups.length, 3);
   calls.length = 0;
   await assert.rejects(makeDigest({day: '2026-10-16', prs, key: 'k', fetch: cut([[half, 'max_tokens']])}), /unusable twice \(cut off at the 16000-token limit after 16000 tokens, 116 PRs\)/);
+});
+
+// A refused call says why (the daily digest failed with only "model answered 400", 17 Oct 2026): the API's error type and message, never the key.
+const refused = (status, body) => async () => ({ok: false, status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body))});
+const LIMIT = {type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits. You will regain access on 2026-11-01.'}};
+
+test('a refused ask names the API error type and message', async () => {
+  await assert.rejects(ask({system: 's', user: 'u'}, {key: 'sk-ant-secret-123', fetch: refused(400, LIMIT)}),
+    {message: 'model answered 400: invalid_request_error: You have reached your specified API usage limits. You will regain access on 2026-11-01.'});
+});
+
+test('the key never appears in the error, even when the API echoes it', async () => {
+  const echo = {error: {type: 'authentication_error', message: 'invalid x-api-key sk-ant-secret-123'}};
+  await assert.rejects(ask({system: 's', user: 'u'}, {key: 'sk-ant-secret-123', fetch: refused(401, echo)}), error => {
+    assert.ok(!error.message.includes('sk-ant-secret-123'), error.message);
+    assert.match(error.message, /^model answered 401: authentication_error: invalid x-api-key \[key\]$/);
+    return true;
+  });
+});
+
+test('a body that is not JSON, empty, or unreadable still gives a short reason', async () => {
+  assert.equal(await whyRefused({text: async () => '<html>Bad gateway</html>'}, 'k'), '<html>Bad gateway</html>');
+  assert.equal(await whyRefused({text: async () => ''}, 'k'), 'no reason given');
+  assert.equal(await whyRefused({text: async () => { throw new Error('stream'); }}, 'k'), 'no reason given');
+  assert.equal((await whyRefused({text: async () => 'x'.repeat(2000)}, 'k')).length, 300);
 });

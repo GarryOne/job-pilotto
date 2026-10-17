@@ -94,11 +94,21 @@ export function render({day, groups, open, numbers}) {
   return `${intro}\n\n${body}${body ? '\n\n' : ''}**Still open:** ${open || 'Nothing open.'}\n`;
 }
 
+// What the API said when it refused: its error type and message ("invalid_request_error: You have reached your specified API usage limits…"), never the key.
+export async function whyRefused(response, key = '') {
+  let text = '';
+  try { text = await response.text(); } catch { return 'no reason given'; }
+  let said = text;
+  try { const error = JSON.parse(text)?.error; if (error?.message) said = `${error.type ? `${error.type}: ` : ''}${error.message}`; } catch { /* not JSON: the raw text */ }
+  if (key) said = said.split(key).join('[key]');
+  return said.replace(/\s+/g, ' ').trim().slice(0, 300) || 'no reason given';
+}
+
 // Ask the model (fetch is injected, a test passes a fake). -> {text, usage, stopReason} of the Messages API; throws on a non-2xx.
 export async function ask({system, user}, {key, model = MODEL, fetch: doFetch = fetch, maxTokens = MAX_TOKENS}) {
   const response = await doFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'},
     body: JSON.stringify({model, max_tokens: maxTokens, system, messages: [{role: 'user', content: user}]})});
-  if (!response.ok) throw new Error(`model answered ${response.status}`);
+  if (!response.ok) throw new Error(`model answered ${response.status}: ${await whyRefused(response, key)}`);
   const out = await response.json();
   return {text: (out.content || []).map(part => part.text || '').join(''), usage: out.usage || {}, stopReason: out.stop_reason || ''};
 }
