@@ -1,4 +1,4 @@
-// The e2e run's HTML report (src/e2e-report.js): the run link, the signed files, and the old /admin/e2e pages going to /admin/self-healing.
+// The e2e run's HTML report (src/e2e-report.js): the run link, the signed files, and the old /admin/e2e pages going to /admin/operations/e2e.
 import assert from 'node:assert/strict';
 import {deflateRawSync} from 'node:zlib';
 import {test} from 'node:test';
@@ -30,12 +30,12 @@ const env = {STATS_KEY: 'k3y', GITHUB_TOKEN: 't0ken', GITHUB_REPO: 'o/r'};
 const owner = {headers: {Cookie: 'jp_stats=k3y'}};
 const ask = (path, init = {}, fetcher = async () => new Response('nope', {status: 404}), e = env) => view(new Request(`https://www.jobpilotto.top${path}`, init), e, fetcher);
 
-test('the dropped runs page and its data and trace addresses go to /admin/self-healing, for an admin only', async () => {
+test('the dropped runs page and its data and trace addresses go to /admin/operations/e2e, for an admin only', async () => {
   for (const path of ['/admin/e2e', '/admin/e2e?json=1', '/admin/e2e?steps=42', '/admin/e2e/trace/42/trace-jobs.zip']) {
     assert.equal((await ask(path)).status, 404, `${path}: signed out`);
     const sent = await ask(path, owner);
     assert.equal(sent.status, 302, path);
-    assert.equal(sent.headers.get('Location'), '/admin/self-healing', path);
+    assert.equal(sent.headers.get('Location'), '/admin/operations/e2e', path);
   }
 });
 
