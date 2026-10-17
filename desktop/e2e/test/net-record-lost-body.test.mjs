@@ -163,3 +163,13 @@ test('a lost HEAD reply or a fetch the page aborted is not an empty answer; the 
   fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [entry({method: 'POST'}), entry({method: 'GET', type: 'script', error: 'net::ERR_ABORTED'}), entry({method: 'GET', error: 'net::ERR_FAILED'})]}));
   assert.equal(lostBodies(dir).length, 3);
 });
+
+// 17 Oct 2026 (owner: "4xx pages count as no answer"): a refused PAGE (403 widget frame) is nothing to lose; a refused API call with a body (422) still is, and so is a page that answered 200.
+test('a lost 4xx page body is no empty answer; a lost 4xx fetch or xhr body, or a 200 page, still is', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-lost-body-'));
+  const lost = (type, status) => ({url: `https://site.example.test/${type}-${status}`, type, status, bodyLost: true});
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [lost('document', 403), lost('document', 404), lost('document', 429)]}));
+  assert.deepEqual(lostBodies(dir), []);
+  fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({entries: [lost('xhr', 422), lost('fetch', 403), lost('document', 200), lost('document', 500)]}));
+  assert.equal(lostBodies(dir).length, 4);
+});
