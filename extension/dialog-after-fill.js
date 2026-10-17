@@ -15,7 +15,7 @@ export async function settleDialogs(tabId, {close, look, settleMs = 600}) {
 // The fill's own end: close what opened, say what is still there (a log line the smoke reads: desktop/e2e/lib/record-sites.mjs parseLive).
 export async function closeFillDialogs(tab, {close, look, decide}) {
   const dialogs = await settleDialogs(tab.id, {close, look});
-  if (dialogs.closed) decide('fill', 'closed a dialog opened by the fill', {label: dialogs.closed.slice(0, 40)});
+  if (dialogs.closed) decide('fill', 'closed a dialog opened by the fill', {label: dialogs.closed.slice(0, 40), tab: tab.id});
   if (dialogs.left) decide('fill', LEFT_OPEN, {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), buttons: dialogs.left.buttons.length});
   return dialogs;
 }

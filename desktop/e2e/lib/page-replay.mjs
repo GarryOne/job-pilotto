@@ -12,7 +12,7 @@ import {endingOfStuck} from '../../../extension/ladder/endings.js';
 import {movesFromRequests, repairsFromRequests} from './ladder-moves.mjs';
 import {falseReadings} from './replay-truth.mjs';
 import {fillSeconds} from './replay-time.mjs';
-import {linesOfCase} from './replay-lines.mjs';
+import {linesOfCase, saysWord} from './replay-lines.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -70,8 +70,11 @@ export async function judgeCase(item, scope) {
   // The request-based checks over one list of requests (the strict list is only the case's own, the loose one adds lines no case's host names: see replay-browser.mjs).
   // The "can't reach" reports the extension sent the app (/extension/event, type stuck): {why, needs}.
   const stuckReports = list => list().filter(request => request.route === '/extension/event').map(request => { try { return JSON.parse(request.body); } catch { return null; } }).filter(body => body?.type === 'stuck');
+  // The extension's decision lines placed on this case: every push of the browser since it began, each line placed by its host or its tab (lib/replay-lines.mjs).
+  const logLines = () => (scope.every || mine)().filter(one => one.route === '/extension/log').flatMap(request => { try { return JSON.parse(request.body).entries; } catch { return []; } });   // a body cut at the recording limit: none
+  const placedLines = () => (scope.otherHosts ? linesOfCase(logLines(), {own: caseHosts(item), others: scope.otherHosts}).mine : logLines());
   const requestChecks = list => ({
-    told: word => list().some(request => request.body.includes(word)),
+    told: word => list().some(request => request.body.includes(word)) || (!!scope.otherHosts && saysWord(placedLines(), word)),   // in a shared browser a line also counts when it is placed on this case's own tab (lib/replay-lines.mjs), whichever push carried it
     // stuck: ["<why>"] or ["<why>|<the start of what the person is told>"]: a "can't reach" report with that reason (and need).
     stuck: spec => { const [why, needs = ''] = spec.split('|'); return stuckReports(list).some(body => body.why === why && String(body.needs || '').startsWith(needs)); },
     // ending: ["<ending>"]: a "can't reach" report names that ending of the outcome contract (extension/ladder/endings.js endingOfStuck).
@@ -128,14 +131,14 @@ export async function judgeCase(item, scope) {
   if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
   if (expect.maxNewTabs != null && opened > expect.maxNewTabs) failures.push(`maxNewTabs: ${opened} > ${expect.maxNewTabs}`);
   if (process.env.REPLAY_LOG || failures.length) {   // REPLAY_LOG=1, or any failed case (CI too, 14 Oct 2026): the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
-    const entries = mine().filter(one => one.route === '/extension/log').flatMap(request => { try { return JSON.parse(request.body).entries; } catch { return []; } });   // a body cut at the recording limit: none
-    const {mine: lines, unplaced} = scope.otherHosts ? linesOfCase(entries, {own: caseHosts(item), others: scope.otherHosts}) : {mine: entries, unplaced: 0};   // in a shared browser only this case's lines (lib/replay-lines.mjs)
-    for (const entry of lines) console.log(`  [extension ${item.name}] ${entry.text} ${JSON.stringify(entry.fields)}`);
+    for (const entry of placedLines()) console.log(`  [extension ${item.name}] ${entry.text} ${JSON.stringify(entry.fields)}`);
+    const unplaced = scope.otherHosts ? linesOfCase(logLines(), {own: caseHosts(item), others: scope.otherHosts}).unplaced : 0;
     if (unplaced) console.log(`  [extension ${item.name}] (${unplaced} more line(s) no case could be told apart on: left out)`);
   }
-  // A check that only a line no case's host names satisfied (it could be another tab's): the pass must be confirmed alone before it counts.
+  // A check that only a line no case's host names satisfied (it could be another tab's): the pass must be confirmed alone before it counts. A "told" word on a line placed on the case's own tab is attributed.
   const confirm = [];
   if (!failures.length && scope.strict) {
+    if (expect.maxNewTabs != null && scope.unplacedTabs?.()) confirm.push(`maxNewTabs: ${scope.unplacedTabs()} tab(s) opened by nobody we know`);   // could be this case's: proven alone
     const strict = requestChecks(scope.strict);
     if (expect.maxNewTabs != null && scope.unplacedTabs?.()) confirm.push(`maxNewTabs: ${scope.unplacedTabs()} tab(s) opened by nobody we know`);   // could be this case's: proven alone
     for (const kind of ['told', 'asked', 'judged', 'onTop', 'stuck', 'ending']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);

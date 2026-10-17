@@ -19,7 +19,7 @@ export const pressStays = async (tabId, press, {wait = ms => new Promise(resolve
   if (!pressed || !before) return pressed;
   await wait(MOVED_MS);
   const after = here((await chrome.tabs.get(tabId).catch(() => null))?.url);
-  if (after && after !== before) { decide('fill', 'popup: the press left the page, went back', {label: String(pressed).slice(0, 40)}); await chrome.tabs.goBack(tabId).catch(() => {}); onMoved(); return ''; }   // onMoved: the app forgets the pick, or the same press is made again on the next look
+  if (after && after !== before) { decide('fill', 'popup: the press left the page, went back', {label: String(pressed).slice(0, 40), tab: tabId}); await chrome.tabs.goBack(tabId).catch(() => {}); onMoved(); return ''; }   // onMoved: the app forgets the pick, or the same press is made again on the next look
   return pressed;
 };
 // cookiesOnly (the application flow): the free word rule only a box that speaks of cookies or tracking, never a privacy or terms box of the form itself.

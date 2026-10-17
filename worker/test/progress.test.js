@@ -19,8 +19,8 @@ test('fixed kinds; each is one "progress: <kind>" line with fixed values and the
   assert.equal(noteProgress(1, 'clicked', {}, 5000), false);
   assert.equal(noteProgress(null, 'navigated'), false);
   assert.deepEqual(logged.map(line => [line.area, line.what]), [['fill', 'progress: new_controls'], ['fill', 'progress: required_down']]);
-  assert.deepEqual(logged[0].data, {fields: 4, frames: 0});
-  assert.deepEqual(logged[1].data, {filled: 2, sinceMs: 3500}, 'page words never kept');
+  assert.deepEqual(logged[0].data, {tab: 1, fields: 4, frames: 0}, 'the tab the line came from: a replay in several tabs places it by that');
+  assert.deepEqual(logged[1].data, {tab: 1, filled: 2, sinceMs: 3500}, 'page words never kept');
   assert.deepEqual(lastProgress(1), {at: 4500, kind: 'required_down'});
   forgetProgress(1);
   assert.equal(lastProgress(1), null);

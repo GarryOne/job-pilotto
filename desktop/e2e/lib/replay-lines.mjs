@@ -30,3 +30,6 @@ export function linesOfCase(entries, {own, others}) {
   }
   return {mine, unplaced};
 }
+
+// Does one of the (placed) lines say the word: in its text or its fields. A "told" word on a line placed on the case's own tab needs no re-run alone.
+export const saysWord = (lines, word) => lines.some(entry => `${entry.text} ${JSON.stringify(entry.fields || {})}`.includes(word));

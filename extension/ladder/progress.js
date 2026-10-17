@@ -24,7 +24,7 @@ export function noteProgress(tabId, kind, data = {}, now = Date.now(), host = ''
   if (tabId == null || !PROGRESS_KINDS.includes(kind)) return false;
   const before = last.get(tabId);
   last.set(tabId, {at: now, kind});
-  log('fill', `progress: ${kind}`, {...evidenceOf(data), ...(before ? {sinceMs: now - before.at} : {})});
+  log('fill', `progress: ${kind}`, {tab: tabId, ...evidenceOf(data), ...(before ? {sinceMs: now - before.at} : {})});
   restartSilence(tabId, kind, {now, host});
   return true;
 }
