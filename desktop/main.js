@@ -310,9 +310,9 @@ function syncCv() {
   files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
     .catch(error => appLog('cover-letter', 'PDF not saved to Notion', {error: error.message}));
 }
-function backupNow() {
-  try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); return {ok: true, ...done}; }
-  catch (error) { console.error(`Backup failed: ${error.message}`); return {ok: false, error: error.message}; }
+function backupNow(why = 'button') {
+  try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); appLog('data', 'backup saved', {file: path.basename(done.file), decidedBy: why}); return {ok: true, ...done}; }
+  catch (error) { console.error(`Backup failed: ${error.message}`); appLog('data', 'backup failed', {error: error.message, decidedBy: why}); return {ok: false, error: error.message}; }
 }
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); resetDone = {failed: error.message}; }
 

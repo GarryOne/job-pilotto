@@ -100,7 +100,9 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   ctx.vary = createVariation();   // no E2E_SEED = the fixed path (the release gate); a seed = this run's varied data and timing (every suite: lib/feeds.mjs, lib/forms.mjs)
   // The browsers' user data the app may read (Chrome's profiles, the extension's install): this run's own empty folder, never the owner's
   // (lib/browser-profile.js browserData; 16 Oct 2026: a local run read the owner's Chrome Local State). Every suite, with or without a browser.
-  const browserEnv = {JOB_PILOTTO_BROWSER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-browser-data-'))};
+  // The automatic backup's folder likewise: the app backs up at its start once set up, and must never write to the owner's iCloud Drive or Documents (lib/backup.js folder).
+  ctx.backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-backups-'));
+  const browserEnv = {JOB_PILOTTO_BROWSER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-browser-data-')), JOB_PILOTTO_BACKUP_DIR: ctx.backupDir};
   if (browser) {
     // The app and the extension copy share a free port, so the test never meets the user's own app on 47111.
     ctx.appPort = await freePort();

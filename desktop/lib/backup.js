@@ -1,6 +1,7 @@
 // Automatic backup of what lives on this Mac (call recordings, tailored CVs, the CV, settings, job cache, and with the SQLite store
 // the user's whole record: data/tracker.sqlite and profile.md/answers.md/knowledge.md, their only copy): once a week an export
-// (lib/reset.js, never the keys) goes to iCloud Drive when it's set up, else Documents. The last KEEP backups are kept.
+// (lib/reset.js, never the keys) goes to iCloud Drive (Mac) or OneDrive's Documents (Windows) when it's set up, else Documents. The last KEEP backups are kept.
+// Guards: test/files.test.js, e2e/suites/backup.mjs (Mac, Linux and Windows).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,9 +11,20 @@ export const EVERY_MS = 7 * 24 * 3600 * 1000;
 export const KEEP = 4;
 const PREFIX = 'Job Pilotto backup ';
 
-export function folder(home = os.homedir(), exists = fs.existsSync) {
-  const icloud = path.join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
-  return path.join(exists(icloud) ? icloud : path.join(home, 'Documents'), 'Job Pilotto Backups');
+// -> the backups folder. A test run names its own (JOB_PILOTTO_BACKUP_DIR, honoured only under JOB_PILOTTO_E2E: it must never reach the owner's folders).
+// Cloud folders are found by looking, never by a user name: iCloud Drive on a Mac, OneDrive's Documents (its "backed up" Documents folder) on Windows.
+export function folder(home = os.homedir(), exists = fs.existsSync, {env = process.env, platform = process.platform} = {}) {
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_BACKUP_DIR) return env.JOB_PILOTTO_BACKUP_DIR;
+  const join = platform === 'win32' ? path.win32.join : path.join;
+  const icloud = join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
+  const oneDrive = [env.OneDriveConsumer, env.OneDrive, env.OneDriveCommercial].filter(Boolean).map(root => join(root, 'Documents')).find(dir => exists(dir));
+  const base = platform === 'darwin' && exists(icloud) ? icloud : platform === 'win32' && oneDrive ? oneDrive : join(home, 'Documents');
+  return join(base, 'Job Pilotto Backups');
+}
+
+// -> the place's name as the card shows it
+export function place(dir) {
+  return /CloudDocs/.test(dir) ? 'iCloud Drive' : /OneDrive/i.test(dir) ? 'OneDrive' : 'Documents';
 }
 
 export function due(settings, now = Date.now()) {

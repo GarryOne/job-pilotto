@@ -8,7 +8,7 @@ import {toastMessage} from './startup.js';
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
 async function showBackup() {
   const status = await window.pilot.backupStatus();
-  const where = status.folder.includes('CloudDocs') ? 'iCloud Drive → Job Pilotto Backups' : 'Documents → Job Pilotto Backups';
+  const where = `${status.place} → Job Pilotto Backups`;
   $('backup-last').textContent = status.at ? new Date(status.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
   $('backup-where').textContent = where.replace(' → ', ' / ');
 }
