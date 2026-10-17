@@ -90,9 +90,26 @@ test('the consumer starts each night once and always acknowledges, even when the
   assert.deepEqual(JSON.parse(bodies[0]), {token: 't', site: 's'});
 });
 
-test('nothing in the deploy wiring is switched on: no service binding or queue in the site config or the deploy workflow', () => {
+test('the owner runs a queued night by hand: owner only, once, and only with the Queue', async () => {
+  const e = env({READY_QUEUE: queue()});
+  const stranger = {'x-api-key': await keyOf('someone-else-9')};
+  assert.equal((await call(e, 'POST', 'run', undefined, stranger)).status, 401);
+  assert.equal((await call(e, 'POST', 'run', undefined, await owner())).status, 404);   // nothing queued
+  const made = await (await call(e, 'POST', 'batch', batchBody('2099-01-01T00:00:00Z'), await owner())).json();   // its fill time is far away
+  assert.equal((await call(e, 'GET', 'run', undefined, await owner())).status, 405);
+  assert.equal((await call(e, 'POST', 'run', undefined, await owner())).status, 202);
+  assert.equal(e.READY_QUEUE.sent[0].batch, made.batch);
+  assert.equal((await call(e, 'POST', 'run', undefined, await owner())).status, 404);   // started: not queued any more
+  const unwired = env();
+  await call(unwired, 'POST', 'batch', batchBody(), await owner());
+  assert.equal((await call(unwired, 'POST', 'run', undefined, await owner())).status, 503);
+});
+
+test('the site config binds the Queue and the runner Worker the code expects, and the runner consumes that Queue', () => {
   const config = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
-  assert.ok(!/READY_RUNNER|READY_QUEUE|ready-runs|www-ready-runner/.test(config), 'site/wrangler.toml');
-  const workflow = readFileSync(new URL('../../.github/workflows/site.yml', import.meta.url), 'utf8');
-  assert.ok(!/ready-runner|ready-runs/.test(workflow), 'site.yml');
+  assert.match(config, /binding = "READY_QUEUE"\s+queue = "ready-runs"/);
+  assert.match(config, /binding = "READY_RUNNER"\s+service = "www-ready-runner"/);
+  const runner = readFileSync(new URL('../ready-runner/wrangler.jsonc', import.meta.url), 'utf8');
+  assert.match(runner, /"name": "www-ready-runner"/);
+  assert.match(runner, /"queue": "ready-runs"/);
 });

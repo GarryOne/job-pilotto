@@ -29,3 +29,14 @@ export async function tick(env, now = new Date()) {
   }
   return out;
 }
+
+// The owner's "run it now" (a test, or a night he wants early): his latest queued night starts at once, as the cron would start it. -> {status, body}
+export async function runNow(env, install, now = new Date()) {
+  if (!env.READY_QUEUE) return {status: 503, body: {ok: false, error: 'not wired: the Queue is not set up'}};
+  const row = await env.STATS.prepare("SELECT id FROM ready_batches WHERE install = ? AND state = 'queued' ORDER BY created_at DESC LIMIT 1").bind(install).first();
+  if (!row) return {status: 404, body: {ok: false, error: 'no queued night to run'}};
+  const token = await start(env, row.id, now);
+  if (!token) return {status: 409, body: {ok: false, error: 'already started'}};
+  await env.READY_QUEUE.send({batch: row.id, token, site: env.READY_SITE || SITE});
+  return {status: 202, body: {ok: true, batch: row.id}};
+}
