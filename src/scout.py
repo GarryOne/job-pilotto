@@ -27,17 +27,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import contribute, employer_index, scout_role_search, run_log, scout_core, store, telegram, tgcard
+from . import contribute, employer_index, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
 from .scout_candidates import harvest, skipped_origins, starter_list
-from .scout_core import DEFAULT_BATCH, IDEAS_PAUSE, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, ensure_tables, key_for, now, pending_count
+from .scout_core import DEFAULT_BATCH, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, ensure_tables, key_for, now, pending_count
 from .scout_index import board_stats, build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
 from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
 from .scout_probe import READERS, find_feed, next_batch, quality, skipping
 from .scout_core import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
-    DEFAULT_BATCH, EMPLOYERS_DB, HN_THREADS, IDEAS_PAUSE, MAX_BATCH, RECHECK_DAYS, SEEDS, SEED_ORIGINS, SMALL_GUESS, TABLES, TECH_LIST_ORIGINS,
+    DEFAULT_BATCH, EMPLOYERS_DB, HN_THREADS, MAX_BATCH, RECHECK_DAYS, SEEDS, SEED_ORIGINS, SMALL_GUESS, TABLES, TECH_LIST_ORIGINS,
     TIER1_MIN_RELEVANT, _SEARCH, _get_json, _get_text, batch_for, clean_name, key_for, now, pending_count)
 from .scout_candidates import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
     LOCATION_WORDS, ROLE_WORDS, WIKIDATA_MAX_AGE, WIKIDATA_MIN_ROWS, WIKIDATA_QUERY, WIKIDATA_TIMEOUT_S, _seed_candidates,
@@ -96,19 +96,19 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     print('Scout: reading the employer lists…' if not skip else
           'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are left out)…')
     ensure_tables(db)
-    waiting = pending_count(db)
-    if waiting > IDEAS_PAUSE and harvest_sources is None:
-        added, ideas = 0, None
-        print(f'Scout: {waiting} candidates still untried, so no new names this run (more than {IDEAS_PAUSE} wait); checking them first…')
-    else:
-        added = harvest(db, seeds, harvest_sources, skip)
-        print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
-        ideas = ai_ideas(db, harvest_sources)
-        if ideas:
-            added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
-        searched = scout_role_search.guarded(db, load_search_config(), harvest_sources)
-        if searched and searched['candidates']:
-            added += harvest(db, seeds, [lambda: searched['candidates']], skip)
+    # New names every run, however long the queue (owner, 18 Oct 2026: the old 100-name pause froze them for 12 days): the queue is worked in
+    # order of each source's yield, and a source with no feed in many checks stops waiting (src/scout_queue.py).
+    added = harvest(db, seeds, harvest_sources, skip)
+    print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
+    ideas = ai_ideas(db, harvest_sources)
+    if ideas:
+        added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
+    searched = scout_role_search.guarded(db, load_search_config(), harvest_sources)
+    if searched and searched['candidates']:
+        added += harvest(db, seeds, [lambda: searched['candidates']], skip)
+    expired = scout_queue.expire(db)
+    if expired:
+        print('Scout: no longer waiting on ' + ', '.join(f'{n} from {kind} (no feed in its first checks)' for kind, n in expired.items()) + '.')
     batch = batch_for(pending_count(db), batch)
     candidates, left = next_batch(db, batch, skip), 0
     # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take

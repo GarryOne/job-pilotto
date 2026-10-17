@@ -36,13 +36,12 @@ def next_batch(db, size, skip=()):
     ensure_tables(db)   # a table from before 6 Oct 2026 lacks checked_with, and run() may skip harvest
     stamp = now().isoformat(timespec='seconds')
     where, params = skipping(skip)
-    return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
+    from . import scout_queue   # names never checked first, by their source's yield (src/scout_queue.py), then re-checks
+    rows = [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
         WHERE (status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
-           OR (status IN ('low', 'none', 'watch') AND (next_check <= ? OR COALESCE(checked_with, '') != ?))) {where}
-        ORDER BY status IN ('low', 'none', 'watch') ASC,   -- names never checked first, then re-checks
-                 (status IN ('low', 'none', 'watch') AND COALESCE(checked_with, '') != ?) DESC,   -- judged by older readers, then due by date
-                 priority DESC, added_at ASC LIMIT ?""",
-        (stamp, READERS, *params, READERS, size))]
+           OR (status IN ('low', 'none', 'watch') AND (next_check <= ? OR COALESCE(checked_with, '') != ?))) {where}""",
+        (stamp, READERS, *params))]
+    return scout_queue.ordered(rows, scout_queue.yields(db), READERS)[:size]
 
 
 def skipping(skip):
