@@ -10,7 +10,7 @@ const preload = read('../preload.cjs'), handlers = read('../lib/experience-handl
 
 test('the Experience tab opens its two panels and loads them', () => {
   assert.match(html, /data-profile-tab="experience"/);
-  for (const id of ['setting-experience-sources', 'setting-experience-roles']) assert.match(html, new RegExp(`id="${id}"[^>]*data-profile-panel="experience"`), id);
+  for (const id of ['setting-experience-profile', 'setting-experience-sources', 'setting-experience-roles']) assert.match(html, new RegExp(`id="${id}"[^>]*data-profile-panel="experience"`), id);
   for (const id of ['exp-add', 'exp-add-linkedin', 'exp-sources', 'exp-roles', 'exp-count', 'exp-message']) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(profile, /name === 'experience'\) loadExperience\(\)/);
   assert.match(profile, /initExperience\(\)/);

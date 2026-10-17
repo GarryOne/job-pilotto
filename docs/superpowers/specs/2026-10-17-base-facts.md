@@ -17,6 +17,18 @@ Owner-approved sketch (the review copy, an Artifact): https://claude.ai/artifact
    2nd employer (same topic, any wording) = promoted with the answer given, "✓ Remembered for future forms · Undo" (+ "only this job").
 6. Answer once is an inbox, not a store: each item is written to its home (Your details / Search strategy / Application answers); one-job
    questions go to that job's drawer; consent to the setting (#1147).
+7. Preferences content split by meaning (owner, 17 Oct 2026, 3c.2): "Professional summary → Profile → Experience → Professional summary;
+   Strengths and expertise → Profile → Experience → Strengths; Deal-breakers: no on-call, excluded industries, travel limits → Strategy → Criteria
+   → Deal-breakers; Desired roles, locations, work arrangements and minimum salary → Strategy → Criteria; Personal facts, eligibility and
+   availability → Profile → Your details." Experience shows "a short preview with Edit, rather than hiding it entirely or displaying a large
+   textarea". Strategy tells apart "Preferences: improve a job's ranking" and "Must-haves / deal-breakers: determine whether it is acceptable".
+   "Scoring can read both your professional background and your job preferences without duplicating their editors."
+8. Locations, one source (owner, 17 Oct 2026, 3c.2: "Aim for one source of truth, but don't blindly merge two lists that might mean different
+   things"): where you live → Your details; where you want to work / would relocate → Strategy → Criteria → Locations; where crawlers search →
+   derived from those, with optional advanced overrides. Keep preferred, acceptable, relocation and remote apart; compare the existing values in
+   the move and ask once on a conflict, never discard or combine silently; no automatic re-score: future scoring uses the new preferences, old
+   scores are marked "based on previous preferences" with an explicit refresh for active jobs. "Changing where a preference is stored shouldn't
+   itself trigger expensive AI work if its meaning hasn't changed."
 
 - **Profile tabs** (owner, 17 Oct 2026: "CV separate, Experience separate too"): **CV** (current CV, preview/replace, CV check, "Your CV changed") · **Experience** (extra CVs, LinkedIn export) · **Your details** (Contact incl. name, salutation, email, phone, address, date of birth, links · Work eligibility · Availability & compensation · languages) · **Application answers** · **Cover letter**. Preferences removed; "CV & details" splits into CV + Your details.
 - **Rule change for PR 2** (owner, 17 Oct 2026: "Why 'A choice (visa, relocation, demographic, any knockout)' is left for me? We should have this information in the Profile, as a standard/base."): docs/rules/applying.md lines 46 and 51: a choice a base fact answers is FILLED from the Profile (the AI maps the fact to one of the form's options, validated); an unsure match is left and goes to Answer once; demographics are filled from the answer given once; a choice no fact covers is left; certify/attest stays the person's; never Submit. Quote in applying.md and why.md. Tests: fact → option across languages; unsure → left; certify never touched.
@@ -55,5 +67,8 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] Your details gains Work eligibility, Availability & compensation, Languages on every store (proof: desktop/test/profile-sections.test.js @134bc4c)
 - [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js @134bc4c)
 - [x] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart (proof: tests/test_desktop.py)
-- [ ] Preferences tab removed; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
+- [x] Experience → Professional summary and Strengths: a short preview with Edit, saved line by line on every store (proof: desktop/test/experience-profile.test.js)
+- [ ] Strategy → Criteria: Must-haves / deal-breakers apart from Preferences (ranking), edited from the Profile's lines
+- [ ] Preferences tab removed; ⌘K and links to it land on the new homes; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
+- [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
 - [ ] One test over every questionnaire screen

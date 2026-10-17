@@ -24,7 +24,7 @@ export function index(items) {
 }
 
 // changes: [{op: 'cell', id, index, value, was} | {op: 'text', id, value, was} | {op: 'remove', id, was} | {op: 'insert', after, lines}
-// | {op: 'append', lines}] → {saved, missing: [ids]}. In-place edits first, then the ones that move lines, last line first (this Mac's ids are
+// | {op: 'append', lines} | {op: 'section', heading, lines} (a new heading at the end, its lines under it)] → {saved, missing: [ids]}. In-place edits first, then the ones that move lines, last line first (this Mac's ids are
 // line numbers: an earlier insert or removal would move the later ones), then appends.
 export async function applyEdits(page, items, changes) {
   const {blocks, rows} = index(items);
@@ -52,6 +52,12 @@ export async function applyEdits(page, items, changes) {
   }
   const appended = changes.filter(c => c.op === 'append').flatMap(c => (c.lines || []).map(oneLine)).filter(Boolean);
   if (appended.length) { await page.append(appended); saved += appended.length; }
+  for (const change of changes.filter(c => c.op === 'section')) {
+    const lines = (change.lines || []).map(oneLine).filter(Boolean), heading = oneLine(change.heading);
+    if (!heading || !lines.length) continue;
+    await page.insertAfter(await page.appendHeading(heading), lines);
+    saved++;
+  }
   return {saved, missing};
 }
 
