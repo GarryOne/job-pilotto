@@ -23,6 +23,12 @@
    "title": "DevOps Engineer",
    "company": "Brightline Cloud",
    "fit": 68
+  },
+  {
+   "code": "demo-4",
+   "title": "Cloud Engineer",
+   "company": "Harbor Freight Data",
+   "fit": 66
   }
  ],
  "site": {
@@ -57,12 +63,21 @@
     "filled": 0,
     "left_empty": 0,
     "wall": "account"
+   },
+   {
+    "job": "demo-4",
+    "host": "apply.example.com",
+    "state": "failed",
+    "filled": 0,
+    "left_empty": 0,
+    "wall": "the night could not start"
    }
   ]
  },
  "names": {
   "demo-1": "Site Reliability Engineer \u00b7 Alpenglow Logistics",
   "demo-2": "Platform Engineer \u00b7 Nordlicht Systems",
-  "demo-3": "DevOps Engineer \u00b7 Brightline Cloud"
+  "demo-3": "DevOps Engineer \u00b7 Brightline Cloud",
+  "demo-4": "Cloud Engineer \u00b7 Harbor Freight Data"
  }
 }

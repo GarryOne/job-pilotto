@@ -26,13 +26,25 @@ async function post(fetchImpl, site, token, route, body) {
 // chromium: Playwright's (main.mjs passes `playwright`'s; the fixture proof passes the desktop's), so this file loads without a browser package. -> {held: Map(jobId -> page), context, close()} once every job has been tried (the pages stay open).
 export async function runNight({chromium, site, token, fetchImpl = fetch, log = () => {}, fillSeconds = 120, extraArgs = [], launchOptions = {}}) {   // extraArgs/launchOptions: the fixture proof's host rules and certificate (proof.mjs)
   const batch = await post(fetchImpl, site, token, 'batch');
-  const held = new Map();
+  const held = new Map(), told = new Set();   // told: the jobs whose result the site already has
   if (!batch.ok || batch.stop || !batch.jobs?.length) { log('nothing to do', {stop: !!batch.stop}); return {held, close: async () => {}}; }
+  try { return await fillAll({told, batch, chromium, site, token, fetchImpl, log, fillSeconds, extraArgs, launchOptions, held}); }
+  catch (error) {   // the night could not start or stopped: each job not yet told is told, so the card says so at once instead of "waiting" until the night's end
+    for (const job of batch.jobs.filter(job => !held.has(job.id) && !told.has(job.id))) await post(fetchImpl, site, token, 'result', {job: job.id, state: 'failed', filled: 0, left: 0, humanCheck: false, wall: NIGHT_FAILED, ms: 0, costMicro: 0}).catch(() => {});
+    throw error;
+  }
+}
+
+export const NIGHT_FAILED = 'the night could not start';   // the word the card shows beside "could not fill"; the error itself stays in the container's /state and log
+// Starts the browser; when it cannot start, closes what was opened for it first (the stand-in's server, the profile folder) and throws.
+const launchOrClean = async (launch, clean) => { try { return await launch(); } catch (error) { await clean(); throw error; } };
+
+async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fillSeconds, extraArgs, launchOptions, held}) {
   const standIn = await createStandIn(batch, {answer: await answererFor({batch, site, token, fetchImpl})});
   const copy = copyForNight(standIn.port, EXTENSION_DIR);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-night-'));
-  const context = await chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,
-    args: ['--headless=new', '--no-sandbox', `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...extraArgs]});
+  const context = await launchOrClean(() => chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,
+    args: ['--headless=new', '--no-sandbox', `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...extraArgs]}), async () => { await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
   await setExtensionStorage(worker, {workerUrl: `http://127.0.0.1:${standIn.port}`, token: 'night'});  
   const guard = await net(context);
@@ -42,6 +54,7 @@ export async function runNight({chromium, site, token, fetchImpl = fetch, log = 
     if (done.page && ['prepared', 'partial'].includes(done.state)) held.set(job.id, done.page); else await done.page?.close().catch(() => {});   // only a filled form is worth holding
     const usd = standIn.outcome(job.url)?.usd || 0;
     const answer = await post(fetchImpl, site, token, 'result', {job: job.id, state: done.state, filled: done.filled, left: done.left, humanCheck: done.humanCheck, wall: done.wall, ms: done.ms, costMicro: costMicro(done.ms, usd)});
+    told.add(job.id);
     log('job', {id: job.id, state: done.state, filled: done.filled, left: done.left, ms: done.ms, blocked: guard.blocked.length});
     if (answer.stop) { log('stopped by the Worker (cost cap or finished)'); break; }
   }

@@ -102,3 +102,9 @@ test('the card never says "send" for what is only a fill on the server, and says
   assert.ok(!/'Send tonight'|'Run now'|Sending tonight/.test(card));
   for (const label of ['Fill tonight on the server', 'Fill now', 'nothing is submitted', 'not submitted']) assert.ok(card.includes(label), label);
 });
+
+test('a failed row says why when the night gave a reason, and never a bare internal word', () => {
+  assert.deepEqual(rowOf({state: 'failed', wall: 'the night could not start'}), {text: 'could not fill · the night could not start', tone: 'bad', done: false, submitted: false});
+  assert.equal(rowOf({state: 'failed', wall: 'error'}).text, 'could not fill');
+  assert.equal(rowOf({state: 'wall', wall: 'captcha'}).text, 'a wall · captcha');
+});

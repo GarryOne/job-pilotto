@@ -4,7 +4,7 @@ const WORDS = {prepared: ['complete', 'good'], partial: ['needs you', 'warn'], w
 export function rowOf(job) {
   const [text, tone] = WORDS[job.state] || ['waiting', 'info'];
   const left = job.state === 'partial' && job.left_empty ? ` · ${job.left_empty} left` : '';
-  const wall = job.state === 'wall' && job.wall ? ` · ${job.wall}` : '';
+  const wall = ['wall', 'failed'].includes(job.state) && job.wall && job.wall !== 'error' ? ` · ${job.wall}` : '';   // a failed night says why ("the night could not start")
   return {text: `${text}${left}${wall}`, tone, done: !!job.cleared_at, submitted: !!job.submitted_at};
 }
 
