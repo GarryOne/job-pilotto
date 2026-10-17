@@ -13,7 +13,10 @@ export function paint(card, state, names, act) {
   const rows = el('div', 'ready-rows');
   for (const job of jobs) {
     const row = rowOf(job), line = el('div', 'ready-row');
-    line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), act.done(job.job));
+    const buttons = el('span', 'ready-buttons');
+    if (['prepared', 'partial', 'wall'].includes(job.state)) buttons.append(act.live(job.job));
+    buttons.append(act.done(job.job));
+    line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), buttons);
     rows.append(line);
   }
   if (jobs.length) body.append(rows);
@@ -37,8 +40,9 @@ export async function initReadyCard() {
   const anchor = $('tailor-top')?.closest('.task-pair');
   if (!state?.owner || !anchor) return;
   const {card, send, run} = build(), note = card.querySelector('.ready-note'), names = {};
-  const refresh = async () => { const next = await window.pilot.readyState().catch(() => null); if (next?.owner) { for (const job of next.tonight) names[job.code] = `${job.title} · ${job.company}`; paint(card, next, names, act); } };
-  const act = {done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
+  const refresh = async () => { const next = await window.pilot.readyState().catch(() => null); if (next?.owner) { Object.assign(names, next.names || {}); paint(card, next, names, act); } };
+  const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this form in your browser and press Submit yourself'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+    done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };
   send.addEventListener('click', async () => {
     send.disabled = true; say('Sending tonight\'s jobs…');
@@ -53,6 +57,6 @@ export async function initReadyCard() {
     run.disabled = false; setTimeout(refresh, 30000);
   });
   anchor.after(card);
-  for (const job of state.tonight) names[job.code] = `${job.title} · ${job.company}`;
+  Object.assign(names, state.names || {});
   paint(card, state, names, act);
 }

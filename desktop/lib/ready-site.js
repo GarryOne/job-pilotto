@@ -10,3 +10,4 @@ export const send = async (storage, batch, options) => words(await call(storage,
 export const runNow = async (storage, options) => words(await call(storage, '/api/ready/run', {method: 'POST', body: {}, ...options}));
 export const done = async (storage, job, options) => words(await call(storage, '/api/ready/done', {method: 'POST', body: {job}, ...options}));
 export const deleteAll = async (storage, options) => words(await call(storage, '/api/ready/data', {method: 'DELETE', ...options}));
+export const link = async (storage, job, options) => words(await call(storage, '/api/ready/link', {method: 'POST', body: {job}, ...options}));   // -> {ok, url, expiresAt}: the 10-minute live-view link for one form

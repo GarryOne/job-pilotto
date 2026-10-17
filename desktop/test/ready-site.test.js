@@ -1,9 +1,9 @@
 // Ready to send, the app's calls to the site (lib/ready-site.js) and the window's handlers (lib/ready-handlers.js): the card shows only for the owner, a send reaches /api/ready/batch with the install key, and nothing else is sent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {done, owner, runNow, send} from '../lib/ready-site.js';
+import {done, link, owner, runNow, send} from '../lib/ready-site.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
-import {rowOf} from '../renderer/pages/ready-rows.js';
+import {rowOf, waitingOf} from '../renderer/pages/ready-rows.js';
 
 const storage = (extra = {}) => ({secret: name => (name === 'JOB_PILOTTO_TRIAL_KEY' || /TRIAL/.test(name) ? 'JPF1.install.token' : ''), settings: () => extra, saveSettings: patch => Object.assign(extra, patch), path: name => `/nowhere/${name}`});
 const site = (status = 200, body = {ok: true}) => { const seen = []; return {seen, fetcher: async (url, init) => { seen.push({url, init}); return new Response(JSON.stringify(body), {status}); }}; };
@@ -31,7 +31,7 @@ test('the window\'s handlers: not the owner = a closed card; the two numbers are
   try {
     registerReadyHandlers({ipcMain, storage: storage(kept)});
     assert.deepEqual(await handlers.readyState(), {owner: false});
-    assert.deepEqual((await handlers.readySettings({}, {minFit: 500, perNight: 99})).settings, {on: false, minFit: 100, perNight: 15});
+    assert.deepEqual((await handlers.readySettings({}, {minFit: 500, perNight: 99})).settings, {on: false, told: '', minFit: 100, perNight: 15});
   } finally { globalThis.fetch = realFetch; }
   for (const name of ['readyState', 'readySend', 'readyRun', 'readyDone', 'readyDeleteAll', 'readySettings']) assert.ok(handlers[name], name);
 });
@@ -41,4 +41,24 @@ test('a row says what the site counted: complete, what is left, a wall', () => {
   assert.equal(rowOf({state: 'partial', left_empty: 2}).text, 'needs you · 2 left');
   assert.equal(rowOf({state: 'wall', wall: 'account'}).text, 'a wall · account');
   assert.equal(rowOf({state: 'something-new'}).tone, 'info');
+});
+
+test('the morning line counts forms filled and not yet submitted or deleted, and those that still need you', () => {
+  assert.equal(waitingOf([]), null);
+  assert.equal(waitingOf([{state: 'wall'}, {state: 'failed'}, {state: 'prepared', cleared_at: 'x'}, {state: 'prepared', submitted_at: 'x'}]), null);
+  assert.deepEqual(waitingOf([{state: 'prepared'}, {state: 'partial'}, {state: 'partial'}, {state: 'wall'}]), {ready: 3, left: 2});
+});
+
+test('Open live asks the site for a link and opens it in the browser, never inside the app', async () => {
+  const handlers = {}, opened = [];
+  const ipcMain = {handle: (name, fn) => { handlers[name] = fn; }}, shell = {openExternal: async url => { opened.push(url); }};
+  const realFetch = globalThis.fetch; globalThis.fetch = async () => new Response(JSON.stringify({ok: true, url: 'https://www.jobpilotto.top/ready-live?job=j1&k=1.2'}), {status: 200});
+  try {
+    registerReadyHandlers({ipcMain, shell, storage: storage()});
+    assert.deepEqual(await handlers.readyLive({}, 'j1'), {ok: true});
+    globalThis.fetch = async () => new Response('{}', {status: 401});
+    assert.equal((await handlers.readyLive({}, 'j1')).ok, false);
+  } finally { globalThis.fetch = realFetch; }
+  assert.deepEqual(opened, ['https://www.jobpilotto.top/ready-live?job=j1&k=1.2']);
+  assert.equal((await link(storage(), 'j1', {fetcher: async () => new Response(JSON.stringify({ok: true, url: 'u'}), {status: 200})})).url, 'u');
 });

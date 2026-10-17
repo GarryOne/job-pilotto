@@ -7,3 +7,9 @@ export function rowOf(job) {
   const wall = job.state === 'wall' && job.wall ? ` · ${job.wall}` : '';
   return {text: `${text}${left}${wall}`, tone, done: !!job.cleared_at, submitted: !!job.submitted_at};
 }
+
+// The morning line: how many forms wait for you (filled, not yet submitted or deleted), and how many of them still need you. null when none.
+export function waitingOf(jobs) {
+  const open = jobs.filter(job => !job.cleared_at && !job.submitted_at && ['prepared', 'partial'].includes(job.state));
+  return open.length ? {ready: open.length, left: open.filter(job => job.state === 'partial').length} : null;
+}

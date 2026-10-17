@@ -13,7 +13,7 @@ const PERSONAL = /^(first_name|last_name|preferred_name|email|phone|resume|resum
 // The settings as numbers in range (a typed box can hold anything).
 export function settingsOf(raw = {}) {
   const fit = Number(raw.minFit), count = Number(raw.perNight);
-  return {on: raw.on === true,
+  return {on: raw.on === true, told: String(raw.told || ''),   // told: the night whose morning line was already sent
     minFit: Number.isFinite(fit) ? Math.max(0, Math.min(100, Math.round(fit))) : DEFAULT_MIN_FIT,
     perNight: Number.isFinite(count) && count >= 1 ? Math.min(MAX_PER_NIGHT, Math.round(count)) : DEFAULT_PER_NIGHT};
 }

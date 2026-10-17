@@ -10,6 +10,7 @@ import {showStatusCard} from './runs-page.js';
 import {initBoard} from './actions-board.js';
 import {initActionsLayout} from './actions-layout.js';
 import {initReadyCard} from './ready-card.js';
+import {initFocusReady} from './focus-ready.js';
 
 // A pressed task button is held off (syncRunButtons in runs-page.js turns it on again when its task ends); a refusal releases it at once.
 const hold = button => { button.disabled = true; button.dataset.runBusy = '1'; };
@@ -179,6 +180,7 @@ export async function init() {
     answer(result?.text || result?.error || 'Done.');
   });
   initBoard({answer});   // Read this board: its card and dialog (actions-board.js)
+  initFocusReady();   // Ready to send on Focus: one line above Up next, owner only (focus-ready.js)
   initReadyCard();   // Ready to send: its card, only on the owner's install (ready-card.js)
   initActionsLayout();   // the More group for the smaller tasks, the schedule lines (actions-layout.js)
   $('visits-at-once').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); if (!$('visits-start').disabled) $('visits-start').click(); } });

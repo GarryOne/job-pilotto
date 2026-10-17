@@ -6,6 +6,7 @@ import {equal, tokenFor} from './guard.js';   // tokenFor: the night token is ch
 import {installOf} from './hosted.js';
 import {open, seal} from './hosted-state.js';
 import {relay} from './ready-ai.js';
+import {makeLink, viaLink} from './ready-link.js';
 import {runNow} from './ready-tick.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 export {readyToken};
@@ -133,7 +134,8 @@ async function aiCall(request, env, now) {
 
 // The owner's calls: Done (a job's data deleted), "I submitted it" (his word, from the app's Applied status), the morning's rows, the measure, Delete everything.
 async function mine(request, env, now, sub) {
-  const install = await ownerOf(request, env);
+  const linked = sub === 'submitted' && !(await installOf(request, env)) ? await viaLink(request, env, now) : null;   // the page's "I submitted it": the link, for its own job only
+  const install = linked || await ownerOf(request, env);
   if (!install) return deny();
   const latest = job => env.STATS.prepare(`SELECT b.id FROM ready_jobs j JOIN ready_batches b ON b.id = j.batch WHERE b.install = ? AND j.job = ? ORDER BY b.created_at DESC LIMIT 1`).bind(install, job).first();
   if (sub === 'data' && request.method === 'DELETE') {
@@ -147,6 +149,7 @@ async function mine(request, env, now, sub) {
   if (sub === 'done' || sub === 'submitted') {
     if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
     const given = await request.json().catch(() => null), job = String(given?.job || ''), found = job && await latest(job);
+    if (linked && job !== new URL(request.url).searchParams.get('job')) return deny();
     if (!found) return json({ok: false, error: 'unknown job'}, 404);
     if (sub === 'done') return json({ok: true, cleared: await clear(env, install, found.id, [job], now)});
     await env.STATS.prepare('UPDATE ready_jobs SET submitted_at = COALESCE(submitted_at, ?) WHERE batch = ? AND job = ?').bind(stamp(now), found.id, job).run();
@@ -188,7 +191,14 @@ export async function ready(request, env, now = new Date()) {
   if (sub === 'batch') return batch(request, env, now);
   if (sub === 'result') return result(request, env, now);
   if (sub === 'ai') return aiCall(request, env, now);
-  if (['live', 'handoff', 'held'].includes(sub)) { const install = await ownerOf(request, env); return install ? morning(request, env, install, sub) : deny(); }   // the morning: the container's tabs (src/ready-morning.js)
+  if (['live', 'handoff', 'held'].includes(sub)) { const install = await ownerOf(request, env) || (sub === 'live' ? await viaLink(request, env, now) : null); return install ? morning(request, env, install, sub) : deny(); }   // the live view also opens with the 10-minute link   // the morning: the container's tabs (src/ready-morning.js)
+  if (sub === 'link') {   // the owner's app asks for the 10-minute link to one form's live view
+    const install = await ownerOf(request, env);
+    if (!install) return deny();
+    if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+    const job = String((await request.json().catch(() => null))?.job || '');
+    return /^[\w.:-]{1,64}$/.test(job) ? json({ok: true, ...(await makeLink(env, job, new URL(request.url).origin, now))}) : bad('bad job');
+  }
   if (sub === 'run') {   // the owner starts his queued night now (a manual test; the cron would start it at its fill time)
     const install = await ownerOf(request, env);
     if (!install) return deny();
