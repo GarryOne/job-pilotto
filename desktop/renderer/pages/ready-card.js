@@ -10,6 +10,7 @@ export function paint(card, state, names, act) {
   body.textContent = '';
   const tonight = state.tonight || [];
   body.append(el('div', 'muted', night ? `Last night (${night.night}): ${jobs.length} form${jobs.length === 1 ? '' : 's'} · $${(night.costUsd || 0).toFixed(2)} of AI and servers` : 'Nothing sent yet.'));
+  if (night?.aiStopped) body.append(el('div', 'muted', "Your AI stopped during the night (its limit or the night's cost cap): open questions are left for you, the rest is filled."));
   const rows = el('div', 'ready-rows');
   for (const job of jobs) {
     const row = rowOf(job), line = el('div', 'ready-row');

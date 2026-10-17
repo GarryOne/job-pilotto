@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {done, link, owner, runNow, send} from '../lib/ready-site.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
+import {withOwnAi} from '../lib/ready-batch.js';
 import {rowOf, waitingOf} from '../renderer/pages/ready-rows.js';
 
 const storage = (extra = {}) => ({secret: name => (name === 'JOB_PILOTTO_TRIAL_KEY' || /TRIAL/.test(name) ? 'JPF1.install.token' : ''), settings: () => extra, saveSettings: patch => Object.assign(extra, patch), path: name => `/nowhere/${name}`});
@@ -61,4 +62,25 @@ test('Open live asks the site for a link and opens it in the browser, never insi
   } finally { globalThis.fetch = realFetch; }
   assert.deepEqual(opened, ['https://www.jobpilotto.top/ready-live?job=j1&k=1.2']);
   assert.equal((await link(storage(), 'j1', {fetcher: async () => new Response(JSON.stringify({ok: true, url: 'u'}), {status: 200})})).url, 'u');
+});
+
+test('an install on its own engine (no JPF1 key) mints its token from the install id, once, and does not save it as its AI key', async () => {
+  const saved = {telemetryId: 'install-on-cli'}, minted = [], seen = [];
+  const bare = {secret: () => '', settings: () => saved, saveSettings: patch => Object.assign(saved, patch), path: name => `/nowhere/${name}`};
+  const fetcher = async (url, init) => {
+    if (String(url).endsWith('/api/install-token')) { minted.push(JSON.parse(init.body)); return new Response(JSON.stringify({token: 'tok123'}), {status: 200}); }
+    seen.push(init.headers['x-api-key']); return new Response('{}', {status: 200});
+  };
+  assert.equal(await owner(bare, {fetcher}), true);
+  await runNow(bare, {fetcher});
+  assert.deepEqual(minted, [{install: 'install-on-cli', purpose: 'ai'}]);   // one mint for two calls
+  assert.deepEqual(seen, ['JPF1.install-on-cli.tok123', 'JPF1.install-on-cli.tok123']);
+  assert.equal(saved.aiEngine, undefined);   // the engine did not change
+  assert.equal(await owner({...bare, settings: () => ({telemetryId: 'offline-install'})}, {fetcher: async () => { throw new Error('offline'); }}), false);
+});
+
+test('Send tonight carries his own Claude key only when he has one, else the batch has none (Free AI)', () => {
+  const batch = {night: '2026-10-18', jobs: []};
+  assert.deepEqual(withOwnAi(batch, 'sk-ant-api03-mine'), {...batch, ai: {key: 'sk-ant-api03-mine'}});
+  for (const other of ['JPF1.i.t', '', undefined, 'sk-openai-x']) assert.deepEqual(withOwnAi(batch, other), batch);
 });

@@ -15,8 +15,8 @@ export const keyOf = storage => storage.secret(TRIAL_KEY) || (/^JPF1\./.test(sto
 export const state = storage => ({on: false, skipped: false, email: '', marketing: false, ...storage.settings().hostedSearch});
 const save = (storage, patch) => storage.saveSettings({hostedSearch: {...state(storage), ...patch}});
 
-export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch} = {}) {
-  const key = keyOf(storage);
+export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch, key: given} = {}) {
+  const key = given || keyOf(storage);   // `key`: one minted for an install that runs on its own engine (lib/ready-site.js)
   if (!key || !isFreeKey(key) || siteIsOff()) return {ok: false, error: 'Always on needs a regular install with its key.'};
   try {
     const response = await fetcher(`${BASE}${route}`, {method, headers: {'x-api-key': key, 'Content-Type': 'application/json'}, ...(body ? {body: JSON.stringify(body)} : {})});

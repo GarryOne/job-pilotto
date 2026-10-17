@@ -35,3 +35,6 @@ export async function buildBatch(jobs, deps, {now = new Date(), readyBy = '07:30
   const {night, fillAt} = nightOf(now);
   return {batch: {night, fillAt, readyBy, contact, facts: sent.length ? await deps.facts() : {}, jobs: sent}, skipped};
 }
+
+// The night's AI is the user's own: his Claude key goes sealed with the batch (the site deletes it with the batch); without one the site answers with his Free AI.
+export const withOwnAi = (batch, secret) => (/^sk-ant-/.test(String(secret || '')) ? {...batch, ai: {key: String(secret)}} : batch);

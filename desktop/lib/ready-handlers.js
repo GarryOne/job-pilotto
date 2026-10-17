@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import * as pipeline from './pipeline.js';
 import {extensionStore} from './store/extension-store.js';
 import {me} from './server-contact.js';
-import {buildBatch, pickToSend} from './ready-batch.js';
+import {buildBatch, pickToSend, withOwnAi} from './ready-batch.js';
 import {settingsOf} from './ready.js';
 import * as site from './ready-site.js';
 import {waitingOf} from '../renderer/pages/ready-rows.js';
@@ -47,7 +47,7 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   ipcMain.handle('readySend', async () => {
     const mine = settings(), {batch, skipped} = await build(pickToSend(await jobs(), mine));
     if (!batch.jobs.length) return {ok: false, error: 'No job has its kit, CV and cover letter ready yet.', skipped};
-    const sent = await site.send(storage, batch);
+    const sent = await site.send(storage, withOwnAi(batch, storage.secret('ANTHROPIC_API_KEY')));
     return sent.ok ? {ok: true, queued: sent.queued, night: batch.night, skipped} : sent;
   });
   // The live view: the site gives a link for this form (10 minutes, only for you); your browser opens it, where you press Submit yourself.
