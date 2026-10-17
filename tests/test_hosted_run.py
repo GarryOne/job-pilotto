@@ -76,6 +76,13 @@ class HostedRun(unittest.TestCase):
         after = before + [{'url': 'https://a/2', 'title': 'Two', 'company': 'C', 'fit': 5, 'reason': 'ok'}, {'url': 'https://a/3', 'title': 'Three', 'fit': 8}]
         self.assertEqual([m['title'] for m in hosted_run.new_matches(before, after)], ['Three', 'Two'])
 
+    def test_the_pushed_config_sits_on_the_engines_own_config_files(self):
+        # 17 Oct 2026 (hosted e2e): the folder held only search/profile/cv, and `daily` died on a missing config/preferences.json
+        self.assertTrue(hosted_run.pull_config(self.site, 'HR1.r.t', self.folder))
+        for name in ('preferences.json', 'meanings_schema.json'):
+            self.assertTrue((self.folder / 'config' / name).exists(), name)
+        self.assertEqual(json.loads((self.folder / 'config' / 'search.json').read_text()), {'role_keywords': ['sre']})
+
     def test_state_round_trips_and_the_token_is_the_only_credential(self):
         FakeWorker.state = tar_of({'data/jobs.sqlite': 'x'})
         self.assertTrue(hosted_run.pull_state(self.site, 'HR1.r.t', self.folder))

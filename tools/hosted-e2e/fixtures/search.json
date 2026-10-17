@@ -1,0 +1,8 @@
+{
+  "role_keywords": ["site reliability", "\\bsre\\b", "platform engineer", "devops"],
+  "title_exclude_keywords": ["\\bintern(ship)?\\b", "\\bsales\\b", "account executive", "recruit(er|ing)"],
+  "board_discovery_keywords": ["sre", "platform"],
+  "quality_stack_keywords": ["kubernetes", "terraform", "aws"],
+  "locations": {"top_tier": ["zurich", "zürich"], "country_wide": ["switzerland"], "abroad": []},
+  "remote_excluded_regions": ["\\busa?\\b", "united states", "canada"]
+}

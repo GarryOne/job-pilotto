@@ -1,0 +1,1 @@
+Alex Example, senior site reliability engineer in Zurich. 9 years running Kubernetes platforms on AWS with Terraform, SLOs and on-call. Looking for senior SRE or platform roles, hybrid in Zurich, English working language.
