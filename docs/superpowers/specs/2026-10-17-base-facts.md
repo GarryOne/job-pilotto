@@ -47,13 +47,13 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 ### 2. Answers from base facts
 - [x] A choice a base fact answers is filled from the Profile, in any language (rule f) (proof: worker/test/choice-from-fact.test.js @7013379)
 - [x] Deduce: a saved answer settles a question in other words or by what it implies; the proposal is one of the row's options or none; a changed saved answer is judged again (proof: desktop/test/question-lists.test.js @dbdd709)
-- [ ] "Seen twice": 1st employer = kept on that job + quiet candidate (the typed answer: Form knowledge, 949c83c); 2nd employer, same topic = promoted, "✓ Remembered for future forms · Undo"
+- [x] "Seen twice": 1st employer = kept on that job + quiet candidate (the typed answer: Form knowledge, 949c83c); 2nd employer, same topic = promoted, "✓ Remembered for future forms · Undo" (proof: desktop/test/seen-twice.test.js)
 - [ ] Answer once as inbox: each answer written to its home (Your details / Application answers / the job's drawer)
 
 ### 3. One home per value
 - [x] Profile tabs: CV and Your details apart; ⌘K reaches every tab and section; Strategy titled "Search strategy" (proof: desktop/test/profile-tab-split.test.js @24817c7)
-- [x] Your details gains Work eligibility, Availability & compensation, Languages on every store (proof: desktop/test/profile-sections.test.js)
-- [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js)
+- [x] Your details gains Work eligibility, Availability & compensation, Languages on every store (proof: desktop/test/profile-sections.test.js @134bc4c)
+- [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js @134bc4c)
 - [ ] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart
 - [ ] Preferences tab removed; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
 - [ ] One test over every questionnaire screen
