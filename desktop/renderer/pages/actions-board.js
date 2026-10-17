@@ -16,7 +16,7 @@ export function boardCard() {
   run.id = 'board-run';
   run.dataset.palette = 'board';
   run.append(Object.assign(el('b', '', 'Read this board'), {hidden: true}), 'Run');
-  const card = el('div', 'task-card');
+  const card = el('div', 'task-card is-row');
   card.id = 'board-card';
   card.append(el('span', 'task-category', 'DISCOVERY'), (() => {
     const body = el('div', 'task-body');
@@ -73,7 +73,7 @@ export function boardDialog() {
 }
 
 export function initBoard({answer}) {
-  const grid = document.querySelector('.task-grid'), after = $('visits-card');
+  const grid = $('actions-more-list') || document.querySelector('.task-grid'), after = $('visits-card');
   if (!grid || $('board-card')) return;
   after ? after.after(boardCard()) : grid.append(boardCard());
   document.body.append(boardDialog());
