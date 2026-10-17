@@ -171,3 +171,14 @@ export function renderCardSkeleton(target = $('activity-card')) {
   target.replaceChildren(stats, body);
 }
 
+
+// A finished run whose page holds no result (the read came back empty after its retries): what the row itself says, plain words that no result was saved,
+// and what a person can do next. Never skeleton bars: those mean a read is in flight (18 Oct 2026, a Find jobs card that never filled).
+export function renderNoResult(outcomeText, {retry, log} = {}, target = $('activity-card')) {
+  const actions = el('div', 'run-card-actions');
+  for (const [label, handler] of [['Retry', retry], ['Log', log]]) {
+    if (!handler) continue;
+    actions.append(Object.assign(el('button', 'link small', label), {type: 'button', onclick: handler}));
+  }
+  target.replaceChildren(el('p', 'run-card-note', outcomeText), el('p', 'run-card-note muted', 'No result was saved for this run.'), actions);
+}

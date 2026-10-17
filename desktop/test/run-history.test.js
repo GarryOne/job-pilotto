@@ -197,3 +197,15 @@ test('a run started by you on this Mac reads as this Mac from a store record and
   const github = fromRecord({id: 'x3', kind: 'mail', where: 'github', status: 'OK', started_at: '2026-09-28T12:00:00Z'}, NOW);
   assert.deepEqual([older.where, github.where], ['mac', 'github']);
 });
+
+// 18 Oct 2026: a Find jobs run with nothing new wrote no Result block, so its Actions card read an empty page and stayed skeleton bars.
+test('every run kind\'s Mac row has a Result block, even a run with no message', () => {
+  for (const kind of Object.keys(history.MODE)) {
+    for (const ok of [true, false]) {
+      const {children} = history.localRow({kind, ok, trigger: 'you', startedAt: '2026-10-17T22:20:00Z', endedAt: '2026-10-17T22:21:00Z', new: 0, log: []});
+      const at = children.findIndex(block => block.type === 'heading_3' && block.heading_3.rich_text[0].text.content === 'Result');
+      assert.ok(at >= 0, `${kind} (ok: ${ok}) has no Result block`);
+      assert.ok(children[at + 1].paragraph.rich_text[0].text.content.trim(), `${kind}'s Result is empty`);
+    }
+  }
+});

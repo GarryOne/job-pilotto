@@ -171,7 +171,7 @@ def finished(run, failed=False):
     messages = telegram.MESSAGES
     return {'status': 'Failed' if failed else cron_report.status(run), 'title': cron_report.title(run, final=not failed),
             'summary': cron_report.report_lines(run)[0], 'report': notion_blocks.to_markdown(children),
-            'result': '\n'.join(line for line in cron_report.plain(messages[-1]).split('\n') if line.strip()) if messages else '',
+            'result': '\n'.join(cron_report.result_lines(messages, run)),
             'log': '\n'.join(_output), 'stats': stats_of(properties)}
 
 

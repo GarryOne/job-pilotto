@@ -11,10 +11,11 @@ const BLANK_CHECK = "document.querySelectorAll('.view:not([hidden])').length";  
 const MAX_ERRORS = 20;   // a broken page can throw on every frame: the first ones say enough
 
 export function watchWindow(contents, {log, now = Date.now, setTimer = setTimeout, loadTimeoutMs = 30000, blankAfterMs = 15000, label = 'main'} = {}) {
-  const started = now();
+  let started = now();   // restarted by every load: a reload (⌘R, a restarted page) is timed from its own start, not from the window's creation (18 Oct 2026: "loaded in 2516.9 s" was the window's age)
   let loaded = false, errors = 0;
   const seconds = () => Math.round((now() - started) / 100) / 10;
   const alive = () => !contents.isDestroyed?.();
+  contents.on('did-start-loading', () => { started = now(); });
   contents.on('did-finish-load', () => {
     loaded = true;
     log('window', `${label}: loaded in ${seconds()} s`);

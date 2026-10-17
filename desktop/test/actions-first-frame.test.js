@@ -19,6 +19,6 @@ test('Actions is drawn from what the window knows before it is shown', () => {
 test('a result still being read from Notion holds its place on Actions as skeleton bars', () => {
   const activity = activitySource();
   const body = activity.slice(activity.indexOf('function showAwaitedResult'), activity.indexOf('// The status bar'));
-  assert.ok(body.indexOf('showActionsResult(run, kind, renderCardSkeleton)') < body.indexOf('const read = (tries = 0)'), 'the skeleton is drawn before the page read starts');
+  assert.ok(body.indexOf('showActionsResult(run, kind, renderCardSkeleton)') < body.indexOf('read().then'), 'the skeleton is drawn before the page read starts');
   assert.match(activity, /function renderCardSkeleton\(target = \$\('activity-card'\)\)/);
 });

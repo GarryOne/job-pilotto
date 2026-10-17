@@ -7,7 +7,8 @@ import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {clockTime, KIND, kindOf, runResults, capital, outcome, cardFor} from './activity-basics.js';
 import {lastActivity, renderActivity} from './activity-render.js';
-import {renderCardSkeleton} from './activity-run-card.js';
+import {renderCardSkeleton, renderNoResult} from './activity-run-card.js';
+import {openActivity} from './activity-panel.js';
 function showActionsResult(run, kind, draw) {
   show($('command-answer'), false);
   const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
@@ -43,20 +44,27 @@ export function showAwaitedResult(runs, {opening = false} = {}) {
       renderActivity(lastActivity);
       return;
     }
-    // The same card as in Recent activity (counts, top matches, the report); a run without one gets its outcome in the same frame, never raw text.
-    const draw = cardFor(run, message) || (target => target.replaceChildren(el('p', 'run-card-note', message ? plainMessage(message) : capital(outcome(run)))));
+    // The same card as in Recent activity (counts, top matches, the report); a run without a message gets what its row says and a plain "No result was saved" with Retry / Log, never skeleton bars.
+    const draw = cardFor(run, message) || (message ? (target => target.replaceChildren(el('p', 'run-card-note', plainMessage(message))))
+      : (target => renderNoResult(capital(outcome(run)), {retry: () => load(),
+        log: () => { shared.selectedRun = run.id; openActivity(true); }}, target)));
     showActionsResult(run, kind, draw);
     markResultSeen(run.id);
   };
   if (run.message || !run.pageId) { show(run.message); return; }
   // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.
-  waitingForResult.add(run.id);
   // On Actions, the card takes its place at once, as skeleton bars, and fills in when the page is read: appearing seconds later at the top, it pushed the task grid
-  // down while a person was about to press a task (#286).
-  if ($('activity-panel').hidden) showActionsResult(run, kind, renderCardSkeleton);
+  // down while a person was about to press a task (#286). Retry runs the same read again.
   const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => detail?.message || tries >= 6 ? detail?.message : new Promise(resolve => setTimeout(resolve, 4000)).then(() => read(tries + 1)))
     .catch(() => null);
-  read().then(message => { waitingForResult.delete(run.id); show(message || null); });
+  function load() {
+    waitingForResult.add(run.id);
+    if ($('activity-panel').hidden) showActionsResult(run, kind, renderCardSkeleton);
+    // Whatever happens, the skeleton ends in a final state: a throw while drawing is drawn again as the plain no-result card.
+    read().then(message => { waitingForResult.delete(run.id); try { show(message || null); } catch (error) { console.error('actions: a result card was not drawn', error); show(null); } })
+      .catch(error => { console.error('actions: a result card was not drawn', error); waitingForResult.delete(run.id); });
+  }
+  load();
 }
 // The status bar's last finished state, kept on this Mac: shown the moment the window opens, instead of
 // "No search yet" until the run history has been read (from Notion). A running state is never kept.
