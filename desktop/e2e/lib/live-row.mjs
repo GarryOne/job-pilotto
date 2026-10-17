@@ -5,6 +5,7 @@
 // tripwire (lib/privacy-tripwire.mjs) checks every field every few seconds and before anything is written. -> {seconds, opened, evidence, tripped}.
 // CLI: live-row.mjs. Guard: e2e/test/live-row.test.mjs (a fake site, memo-only).
 /* global document, location */
+import {stallNote} from './stall-note.mjs';
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
 import {readLive, readingsLine} from './live-readings.mjs';
@@ -111,7 +112,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     let endedByCap = '';
     for (let turn = 0; ; turn++) {
       const age = Date.now() - started;
-      if (age >= hardMs || (age >= seconds * 1000 && !deciding)) { endedByCap = deciding ? `ended by cap while the extension was still deciding (${Math.round(hardMs / 1000)} s)` : ''; break; }
+      if (age >= hardMs || (age >= seconds * 1000 && !deciding)) { endedByCap = deciding ? `ended by cap while the extension was still deciding (${Math.round(hardMs / 1000)} s)${stallNote(app.logText(), Date.now()) ? `; ${stallNote(app.logText(), Date.now())}` : ''}` : ''; break; }
       const lines = app.logText().split('\n').filter(line => PAGE_LINE.test(line)).length;
       // Still = the page and its decisions stopped changing (as lib/apply-live.mjs: the extension's own check-ins to the app every few seconds are no news).
       const shape = await run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1)?.evaluate(() => `${location.href.split('#')[0]}|${document.querySelectorAll('input, select, textarea, button, a').length}`).catch(() => '');

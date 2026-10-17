@@ -212,7 +212,8 @@ function brokenPage(tab, jobUrl, key, counts) {
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
 // An answer that arrives after a newer read of the tab began is about a page this tab has moved past: dropped and logged, the newer read decides (read-gen.js).
-const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; decide('fill', 'late answer dropped: a newer read of this tab answered', {what, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()}); return true; };
+// A read dropped as late gives its page's key back (17 Oct 2026, SuccessFactors journey: the form's answer was dropped, the tab came back to that page, `started` still held it and nothing read it again).
+const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; started.delete(fillKey(tab.id, tab.url)); decide('fill', 'late answer dropped: a newer read of this tab answered', {what, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()}); return true; };
 // What the picture's look said about a blind page (the digest: the way on is not in its list): confirmed when the control it named led to a form, which the list lacked (the CI pool's daily rate:
 // e2e/lib/picture-asks.mjs). Kept out of consider(): a verdict is a log line, not a decision (tools/decision-branches.mjs).
 const blindVerdict = (blindLook, look, led) => { if (blindLook) decide('fill', led ? "blind spot confirmed: the picture's control led to a form" : 'blind spot not confirmed: the picture found no way on', {look}); };
@@ -229,10 +230,10 @@ export async function consider(tab, jobUrl) {
   if (started.has(key)) return;
   started.add(key);
   notePage(tab.id, key, {job: jobUrl || tab.url, page: tab.url});   // a new page in the tab is progress, for this application (ladder/progress.js)
-  const gen = beginRead(tab.id);
   await pageStill(tab.id, {maxMs: 1500});   // the form renders after the load event: read once the page has been still 0.5 s, at most the old 1.5 s (page-still.js)
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
+  const gen = beginRead(tab.id);   // only a read that goes on makes older ones late: one that found the tab moved on (above) must not kill the read of the page the tab is on now
   // A popup over the page (a cookie banner: Deloitte, 9 Oct 2026; any other, in any flow) is closed the way a person would, before the page is read (consent.js).
   const banner = await closeConsentEverywhere(tab.id, {cookiesOnly: true}).catch(() => '');
   if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40)}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await pageStill(tab.id, {maxMs: 800}); }
