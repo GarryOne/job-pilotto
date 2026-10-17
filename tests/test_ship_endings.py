@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ENDS = ('DONE', 'FAILED', 'REVIEW', 'MERGED', 'CLOSED', 'RED')
+ENDS = ('DONE', 'FAILED', 'REVIEW', 'MERGED', 'CLOSED', 'RED', 'GREEN')
 NAMES_ENDINGS = re.compile(r'ship: \(?DONE|DONE\|FAILED')   # a line that tells how a ship run ends
 
 
@@ -29,12 +29,12 @@ class ShipEndingsTest(unittest.TestCase):
                     seen += 1
                     if not all(end in window for end in ENDS): missing.append(f'{path}:{number}: {line.strip()[:120]}')
         self.assertGreater(seen, 0, 'positive control: the scan finds the lines (tools/ship.sh announces its endings)')
-        self.assertEqual(missing, [], 'name every ending: review mode ends with `ship: REVIEW #n <url>`, then the watcher adds MERGED/CLOSED/RED (Monitor ^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED))')
+        self.assertEqual(missing, [], 'name every ending: review mode ends with `ship: REVIEW #n <url>`, then the watcher adds MERGED/CLOSED/RED/GREEN (Monitor ^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED))')
 
     def test_the_background_announcement_names_the_monitor_pattern(self):
         announce = next(line for line in (ROOT / 'tools' / 'ship.sh').read_text().splitlines() if 'its last line says how it ended' in line)
         for end in ENDS: self.assertIn(f'ship: {end}', announce)
-        self.assertIn('^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED)', announce)
+        self.assertIn('^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED|GREEN)', announce)
 
     def test_ship_prints_each_ending_it_announces(self):
         source = ''.join((ROOT / 'tools' / name).read_text() for name in ('ship.sh', 'ship-pr.sh', 'ship-watch.sh'))
