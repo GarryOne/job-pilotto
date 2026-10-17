@@ -51,28 +51,35 @@ export async function plan(items, taken, {client = null, apiKey = ''} = {}) {
 
 const linesOf = async it => (profileParts(await it.page('profile').outline()).surveys?.lines || []);
 
-// The one move. -> {changed, copy}. ai: {client, apiKey}; none: nothing changes and it is tried again. copy/now: a test passes its own.
+// The one move. -> {changed, copy, reason}: reason (a word, never a value) says why nothing changed while lines were waiting. ai: {client, apiKey}; none: nothing changes and it is tried again. copy/now: a test passes its own.
 export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now = new Date()} = {}) {
-  if (storage.settings().surveyMovedAt || (!ai.client && !ai.apiKey)) return {changed: 0};
+  const {surveyMovedAt, surveyTidy: prior} = storage.settings();
+  if (!ai.client && !ai.apiKey) return {changed: 0, reason: 'no-ai'};
+  if (surveyMovedAt && (!prior?.before || prior.undone)) return {changed: 0};
   const it = store.openStore(storage, {fetcher}), lines = await linesOf(it);
+  // Moved before, but a line is back as the bullet it was (a rolled-back run, owner's app.log 17 Oct 2026): move those again. Not after Undo.
+  const kept = (prior?.before || []).filter(each => lines.some(line => line.text === each.value));
+  if (surveyMovedAt && !(prior.before || []).some(each => lines.some(line => line.text === each.was))) return {changed: 0};
   const read = lines.map(line => ({line, read: readLine(line.text)}));
   const todo = read.filter(each => each.read.type === 'other').map(each => ({id: String(lines.indexOf(each.line)), text: each.read.text, line: each.line}));
   const taken = new Set(read.filter(each => each.read.type === 'answer').map(each => each.read.key));
   const planned = await plan(todo, taken, ai);
   const changes = todo.filter(each => planned.has(each.id)).map(each => ({op: 'text', id: each.line.id, value: planned.get(each.id), was: each.line.text}));
-  if (!changes.length) { storage.saveSettings({surveyMovedAt: now.toISOString()}); return {changed: 0}; }
-  const kept = await copy(storage, {fetcher, now});
-  const undoAll = changes.map(change => ({op: 'text', id: change.id, value: change.was}));
+  if (!changes.length) { storage.saveSettings({surveyMovedAt: now.toISOString()}); return {changed: 0, ...(todo.length ? {reason: 'no-answer-trusted'} : {})}; }
+  const backup = await copy(storage, {fetcher, now});
   try {
     const {missing} = await applyEdits(it.page('profile'), await it.page('profile').outline(), changes);
     const written = (await linesOf(it)).map(line => line.text);
-    if (missing.length || !changes.every(change => written.includes(change.value))) throw new Error(`The survey answers: some lines did not save; nothing was removed (the pages before it are in ${kept.dir})`);
+    if (missing.length || !changes.every(change => written.includes(change.value))) throw new Error(`The survey answers: some lines did not save; nothing was removed (the pages before it are in ${backup.dir})`);
   } catch (error) {
-    await applyEdits(it.page('profile'), await it.page('profile').outline(), undoAll).catch(() => {});
+    // Put back only the lines still holding what this run wrote (another run's lines are not ours to roll back).
+    const current = await linesOf(it).catch(() => []);
+    const back = changes.map(change => ({op: 'text', id: current.find(line => line.text === change.value)?.id, value: change.was})).filter(change => change.id !== undefined);
+    await applyEdits(it.page('profile'), await it.page('profile').outline(), back).catch(() => {});
     throw error;
   }
-  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTidy: {at: now.toISOString(), dir: kept.dir, changed: changes.length, before: changes.map(change => ({value: change.value, was: change.was}))}});
-  return {changed: changes.length, copy: kept};
+  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTidy: {at: now.toISOString(), dir: backup.dir, changed: changes.length, before: [...kept, ...changes.map(change => ({value: change.value, was: change.was}))]}});
+  return {changed: changes.length, copy: backup};
 }
 
 // Undo: the bullets as they were. Not moved again.

@@ -71,3 +71,22 @@ test('no AI: nothing changes and it is tried again; a write that fails puts ever
   assert.deepEqual(await surveyLines(page), BULLETS);
   assert.deepEqual(await survey.undo(storage), {ok: false, error: 'There is nothing to undo'});
 });
+
+test('a bullet that came back after a rolled-back run is moved again, Undo covers both runs; nothing changed with lines waiting says why', async () => {
+  const {storage, page} = await fresh();
+  const none = await survey.migrate(storage, {ai: fakeAi([]), copy: async () => ({dir: 'd'})});
+  assert.deepEqual(none, {changed: 0, reason: 'no-answer-trusted'});
+  assert.deepEqual(await survey.migrate(storage, {ai: {}}), {changed: 0, reason: 'no-ai'});
+  storage.saveSettings({surveyMovedAt: undefined});
+  await survey.migrate(storage, {ai: fakeAi(said), copy: async () => ({dir: 'd'})});
+  const moved = await surveyLines(page);
+  const outline = await page.outline(), block = profileParts(outline).surveys.lines.find(line => line.text === moved[0]);
+  const {applyEdits} = await import('../lib/text-outline-handlers.js');
+  await applyEdits(page, outline, [{op: 'text', id: block.id, value: BULLETS[0]}]);   // a rolled-back write puts the bullet back
+  assert.equal((await surveyLines(page))[0], BULLETS[0]);
+  const again = await survey.migrate(storage, {ai: fakeAi(said), copy: async () => ({dir: 'd2'})});
+  assert.equal(again.changed, 1);
+  assert.deepEqual(await surveyLines(page), moved);
+  await survey.undo(storage);
+  assert.deepEqual(await surveyLines(page), BULLETS);
+});
