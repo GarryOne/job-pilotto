@@ -65,6 +65,18 @@ class AllChecksGreen(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn('2 workflow(s)', out, 'this run itself is not counted')
 
+    def test_another_running_copy_of_the_gate_is_not_waited_for(self):
+        # 17 Oct 2026: the code run and the description-edit run of the gate ran on one commit; each waited for the other until 60 min, both red.
+        gate = 'CI · Pull request'
+        code, out = self.run_with([f'in_progress\t-\t{gate}\t2026-10-17T14:45:00Z\nown\t-\t{gate}\t2026-10-17T14:45:01Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-17T14:45:02Z\n'])
+        self.assertEqual(code, 0, out)
+        # Another workflow still running is still waited for, and its red still counts.
+        code, out = self.run_with([f'in_progress\t-\t{gate}\t2026-10-17T14:45:00Z\nown\t-\t{gate}\t2026-10-17T14:45:01Z\nin_progress\t-\tCI · Tests · python\t2026-10-17T14:45:02Z\n',
+                                   f'in_progress\t-\t{gate}\t2026-10-17T14:45:00Z\nown\t-\t{gate}\t2026-10-17T14:45:01Z\ncompleted\tfailure\tCI · Tests · python\t2026-10-17T14:45:02Z\n'])
+        self.assertEqual(code, 1, out)
+        self.assertIn('CI · Tests · python (failure)', out)
+        self.assertNotIn(gate, out.split('not green', 1)[-1], 'the other gate copy is not listed as red')
+
     def test_a_cancelled_run_stays_red_when_this_run_is_older_or_of_another_workflow(self):
         gate, other = 'CI · Pull request', 'CI · Harness tests'
         cases = {
