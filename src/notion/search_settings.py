@@ -28,7 +28,7 @@ import os
 import re
 import sys
 
-from ..paths import CONFIG
+from ..paths import CONFIG, whole_word
 
 PAGE_ID = os.getenv('NOTION_SEARCH_SETTINGS_PAGE', '')
 TITLE = '⚙️ Search settings'
@@ -73,7 +73,11 @@ def _accents_to_plain(text):
 
 def readable(fragment):
     """A regex fragment as the page shows it, exactly reversible by fragment():
-    "site reliability" -> site reliability, "z[uü]rich" -> zürich, "\\bsre\\b" -> "sre", else /fragment/."""
+    "site reliability" -> site reliability, "z[uü]rich" -> zürich, "\\bsre\\b" -> "sre", else /fragment/.
+    A fragment stored with its quotes ("tax", from the first page format) is the whole word, as every list reader takes it (src/paths.whole_word):
+    it is read as the page entry it is, so it shows as "tax" and the next page read stores \\btax\\b, the same match without the quotes."""
+    if whole_word(fragment) != fragment:
+        fragment = fragment_of(fragment)
     whole = re.fullmatch(r'\\b(.+)\\b', fragment)
     inner = _accents_to_plain(whole.group(1) if whole else fragment)
     if META & set(inner) or '"' in inner or inner != inner.strip() or not inner:
