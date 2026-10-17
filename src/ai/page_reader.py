@@ -36,14 +36,15 @@ SCHEMA = {
     'properties': {'page': {'type': 'string', 'enum': list(PAGE_KINDS),
                             'description': 'jobs: it lists open jobs; no_open_jobs: a careers page that says it has none right now; not_careers: anything else'},
                    'jobs': {'type': 'array', 'maxItems': MAX_JOBS, 'items': {
-        'type': 'object', 'additionalProperties': False, 'required': ['name', 'place', 'link'],
+        'type': 'object', 'additionalProperties': False, 'required': ['name', 'place', 'link', 'employer'],
         'properties': {'name': {'type': 'string', 'description': 'The job title exactly as the page shows it'},
                        'place': {'type': 'string', 'description': 'City or region as the page shows it, or ""'},
-                       'link': {'type': 'string', 'description': 'The address of that job from the link list, or "" when none is shown'}}}}},
+                       'link': {'type': 'string', 'description': 'The address of that job from the link list, or "" when none is shown'},
+                       'employer': {'type': 'string', 'description': 'The company that hires for this job when the page shows it next to the job, or ""'}}}}},
 }
 
 SYSTEM = """You read the text of one employer's careers page. List the OPEN JOBS it offers, one entry per job: the title exactly as shown, the \
-place if shown, and the job's address from the link list if one matches. Do not list menu entries, departments, categories, \
+place if shown, the hiring company if the page names it next to the job (a job board does; an employer's own page does not), and the job's address from the link list if one matches. Do not list menu entries, departments, categories, \
 benefits, news, training places for students, or the general career page itself. If the page lists no concrete open jobs, answer with an empty list. \
 page: "jobs" when it lists open jobs; "no_open_jobs" when it is a careers or vacancies page that says, in any language, there are none right now; \
 "not_careers" otherwise. \
@@ -82,7 +83,8 @@ def clean(items, base):
             continue
         seen.add(key)
         place = re.sub(r'\s+', ' ', str(item.get('place') or '')).strip()[:80]
-        jobs.append(ats._job(link if link != base else f'{base}#{len(jobs) + 1}', title, place, link if link != base else base, '', '', False))
+        jobs.append({**ats._job(link if link != base else f'{base}#{len(jobs) + 1}', title, place, link if link != base else base, '', '', False),
+                     'employer': re.sub(r'\s+', ' ', str(item.get('employer') or '')).strip()[:120]})
     return jobs
 
 

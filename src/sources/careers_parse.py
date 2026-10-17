@@ -124,6 +124,11 @@ def _words(value):
     return str(value).strip() if value not in (None, '') else ''
 
 
+def hiring_organisation(posting):
+    """The name a JobPosting gives for the organisation that hires (a string, {"name": …} or a list of either), or ''."""
+    return re.sub(r'\s+', ' ', _words(posting.get('hiringOrganization'))).strip()[:120]
+
+
 def jsonld_jobs(markup, url):
     """The JobPosting entries a page publishes, in the common job shape (ats._job)."""
     jobs = []
@@ -160,8 +165,8 @@ def jsonld_jobs(markup, url):
             if isinstance(value, dict) and (value.get('minValue') or value.get('maxValue')):
                 salary_text = f"{salary.get('currency', '')} {value.get('minValue', '')}–{value.get('maxValue', '')}".strip()
             link = urllib.parse.urljoin(url, str(posting.get('url') or url))
-            jobs.append(ats._job(link, title, '; '.join(w for w in where if w), link, str(posting.get('datePosted') or '')[:10],
-                                 ats.plain(str(posting.get('description') or '')), remote, salary_text))
+            jobs.append({**ats._job(link, title, '; '.join(w for w in where if w), link, str(posting.get('datePosted') or '')[:10],
+                                    ats.plain(str(posting.get('description') or '')), remote, salary_text), 'employer': hiring_organisation(posting)})
     return jobs
 
 
