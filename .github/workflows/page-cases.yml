@@ -87,6 +87,7 @@ on:
       - 'worker/src/extension-log.js'
       - 'worker/src/extension-run-record.js'
       - 'worker/src/extension.js'
+      - 'worker/src/job-answers.js'
       - 'worker/src/owner-guard.js'
       - 'desktop/e2e/package.json'
       - 'desktop/e2e/package-lock.json'
