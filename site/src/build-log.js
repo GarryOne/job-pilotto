@@ -4,7 +4,7 @@
 import {viewer} from './auth.js';
 import {equal} from './guard.js';
 import {esc, remember} from './stats.js';
-import {countOf, dayWords, prList} from './build-digest.js';
+import {canClose, countOf, dayWords, isClosed, prList} from './build-digest.js';
 
 const SHOWN = 45, MAX_DRAFTS = 8;
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
@@ -25,7 +25,7 @@ export async function ingest(request, env, now = new Date()) {
   if (request.method === 'GET') {
     if (!isDay(day)) return json({error: 'day'}, 400);
     const row = await env.STATS.prepare('SELECT numbers, drafts, updated_at AS updatedAt, final_at AS finalAt FROM digest_days WHERE day = ?').bind(day).first();
-    return json(row ? {numbers: JSON.parse(row.numbers), drafts: row.drafts, updatedAt: row.updatedAt, finalAt: row.finalAt, maxDrafts: MAX_DRAFTS} : {numbers: null, drafts: 0, maxDrafts: MAX_DRAFTS});
+    return json(row ? {numbers: JSON.parse(row.numbers), drafts: row.drafts, updatedAt: row.updatedAt, finalAt: isClosed(day, row.finalAt) ? row.finalAt : null, maxDrafts: MAX_DRAFTS} : {numbers: null, drafts: 0, maxDrafts: MAX_DRAFTS});
   }
   const body = await request.text();
   if (body.length > 200000) return new Response('Too large', {status: 413});
@@ -36,12 +36,14 @@ export async function ingest(request, env, now = new Date()) {
   const at = now.toISOString(), usd = Number(data.usd) || 0;
   const existing = await env.STATS.prepare('SELECT final_at AS finalAt FROM digest_days WHERE day = ?').bind(data.day).first();
   // A closed day ignores later drafts; only an explicit rewrite (a re-run of an old day in the new form, by hand) replaces it, and the day stays closed.
-  if (existing?.finalAt && data.rewrite !== true) return json({ok: true, ignored: 'day is closed'});
-  const final = existing?.finalAt || (data.final === true ? at : null);
+  const closed = isClosed(data.day, existing?.finalAt);
+  if (closed && data.rewrite !== true) return json({ok: true, ignored: 'day is closed'});
+  // A final before 23:00 Zurich of its day is stored as a draft (canClose); a final stored earlier by mistake counts as a draft too (isClosed).
+  const final = closed ? existing.finalAt : (data.final === true && canClose(data.day, now) ? at : null);
   await env.STATS.prepare(`INSERT INTO digest_days (day, groups, open_line, numbers, drafts, usd, updated_at, final_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)
     ON CONFLICT(day) DO UPDATE SET groups = excluded.groups, open_line = excluded.open_line, numbers = excluded.numbers, drafts = digest_days.drafts + 1, usd = digest_days.usd + excluded.usd, updated_at = excluded.updated_at, final_at = excluded.final_at`)
     .bind(data.day, JSON.stringify(groups), text(data.open, 260), JSON.stringify(numbers), usd, at, final).run();
-  return json({ok: true, final: Boolean(final), rewritten: Boolean(existing?.finalAt)});
+  return json({ok: true, final: Boolean(final), rewritten: closed});
 }
 
 // ---- the page ----
@@ -59,7 +61,7 @@ function itemRow(bullet, link) {
 function dayCard(row, {open = false, repo}) {
   const groups = JSON.parse(row.groups), numbers = JSON.parse(row.numbers), {count, min, max} = countOf(numbers);
   const link = number => `<a href="https://github.com/${esc(repo)}/pull/${number}">#${number}</a>`;
-  const state = row.final_at ? `<span class="pill" style="background:#7bd88f">Final</span>` : `<span class="pill" style="background:#f2c14e">Draft ${row.drafts}</span>`;
+  const state = isClosed(row.day, row.final_at) ? `<span class="pill" style="background:#7bd88f">Final</span>` : `<span class="pill" style="background:#f2c14e">Draft ${row.drafts}</span>`;
   const goals = groups.map(group => `<section class="card goal"><h2>${esc(group.emoji)} ${esc(group.title)} <span class="muted">${prCount(group)}</span></h2><ul>${group.bullets.map(bullet => itemRow(bullet, link)).join('')}</ul></section>`).join('');
   return `<details class="day"${open ? ' open' : ''}><summary><b>${esc(dayWords(row.day))}</b> ${state} <span class="muted">${count} PRs${count ? `, #${min}-#${max}` : ''} · ${groups.length} goals · updated ${esc(String(row.updated_at).slice(11, 16))} UTC · ${usdText(row.usd)}</span></summary><div class="goals">${goals}</div><p><b>Still open:</b> ${esc(row.open_line || 'Nothing open.')}</p></details>`;
 }
