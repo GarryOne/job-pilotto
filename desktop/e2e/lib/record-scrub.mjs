@@ -9,6 +9,10 @@ import {EMAIL} from '../../lib/live-capture.js';
 import {sha} from '../../lib/net-keep.js';
 
 const TEXT_FILES = ['app.log', 'asks.jsonl', 'model-memo.json'], TEXT = /^(text\/|application\/([\w.+-]*\+)?(json|xml)\b|application\/(x-)?(javascript|ecmascript|x-www-form-urlencoded)\b)/i;
+// A file the site serves as a font, an image or media (by its type, or by its first bytes when the type is generic) is bytes, not text: its random bytes can spell "x@hZ.B", which is not a person's address.
+const BINARY_TYPE = /^(font\/|image\/|audio\/|video\/|application\/(x-)?(font|vnd\.ms-fontobject))/i;
+const MAGIC = [[0, 1, 0, 0], [0x4f, 0x54, 0x54, 0x4f], [0x77, 0x4f, 0x46, 0x46], [0x77, 0x4f, 0x46, 0x32], [0x89, 0x50, 0x4e, 0x47], [0xff, 0xd8, 0xff], [0x47, 0x49, 0x46, 0x38], [0x52, 0x49, 0x46, 0x46], [0, 0, 1, 0]];   // ttf, otf, woff, woff2, png, jpeg, gif, riff (webp), ico
+const isBinaryFile = (entry, body) => BINARY_TYPE.test(typeOf(entry)) || MAGIC.some(bytes => bytes.every((byte, at) => body[at] === byte));
 const read = file => { try { return fs.readFileSync(file); } catch { return null; } };
 const typeOf = entry => entry.headers?.['content-type'] || '';
 
@@ -50,7 +54,7 @@ export function gateRecordDir(dir, values = new Map()) {
     const body = entry.hash ? read(path.join(dir, 'bodies', entry.hash)) : null;
     if (!body) continue;
     if (TEXT.test(typeOf(entry))) for (const kind of personalHits(body.toString('utf8'), {code: /javascript|ecmascript|text\/css/i.test(typeOf(entry)), values})) add(kind, 'body');
-    else { EMAIL.lastIndex = 0; if ((body.toString('latin1').match(EMAIL) || []).some(email => !/@example\.(com|org|net)$/i.test(email))) add('email', 'body'); }
+    else if (!isBinaryFile(entry, body)) { EMAIL.lastIndex = 0; if ((body.toString('latin1').match(EMAIL) || []).some(email => !/@example\.(com|org|net)$/i.test(email))) add('email', 'body'); }
   }
   for (const name of TEXT_FILES) { const body = read(path.join(dir, name)); if (body) for (const kind of personalHits(body.toString('utf8'), {values})) add(kind, 'file'); }
   return hits;
