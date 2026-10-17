@@ -2,7 +2,7 @@
 // lib/profile-move.js, copy and backup first), save them with Contact, and the owner's pick for "Which is right?". Registered by
 // lib/contact-handlers.js. Guarded by test/details-facts.test.js and test/ipc.test.js.
 import * as sections from './profile-sections.js';
-import {move, resolve} from './profile-move.js';
+import {move, openConflicts, resolve} from './profile-move.js';
 import {claudeAi} from './question-ai.js';
 import * as kinds from './details-kinds.js';
 import * as surveys from './survey-move.js';
@@ -40,7 +40,7 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
       if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
       const found = await sections.read(storage);
-      return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: storage.settings().profileConflicts || [], setAside: list(storage).filter(each => each.source === 'profile')};
+      return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: await openConflicts(storage).catch(() => storage.settings().profileConflicts || []), setAside: list(storage).filter(each => each.source === 'profile')};
     } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
   });
   ipcMain.handle('undoDetailsTidy', async () => {

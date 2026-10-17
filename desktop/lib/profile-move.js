@@ -171,6 +171,20 @@ export async function resolve(storage, topic, pick, {fetcher, save = sections.sa
   return {ok: true};
 }
 
+// The saved "Which is right?" queue as the pages are now (17 Oct 2026: a queue saved once was shown stale after the pages or the code changed):
+// a choice whose line is gone from its page drops out, and a conflict left with one value closes; nothing is written to the pages. -> the queue.
+export async function openConflicts(storage, {fetcher} = {}) {
+  const queue = storage.settings().profileConflicts || [];
+  if (!queue.length) return queue;
+  const opened = openStore(storage, {fetcher});
+  const lines = new Set();
+  for (const name of ['profile', 'answers']) for (const item of itemsOf(await opened.page(name).outline(), name)) lines.add(`${name}\n${same(item.label)}\n${same(item.value)}`);
+  const open = queue.map(conflict => ({...conflict, choices: conflict.choices.filter(choice => lines.has(`${choice.page}\n${same(choice.label)}\n${same(choice.value)}`))}))
+    .filter(conflict => new Set(conflict.choices.map(choice => same(choice.value))).size > 1);
+  if (JSON.stringify(open) !== JSON.stringify(queue)) storage.saveSettings({profileConflicts: open});
+  return open;
+}
+
 // Undo of a set-aside fact: its line goes back into its section (once). -> {ok, error}.
 export async function restoreFact(storage, entry, {fetcher, save = sections.save} = {}) {
   const {home, label, value} = entry.restore || {};
