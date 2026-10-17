@@ -8,6 +8,7 @@ import {esc, remember} from './stats.js';
 import {CATEGORIES, CATEGORY_IDS} from './ops-categories.js';
 import {filterLinks} from './admin.js';
 import {BARS_CSS, barRows, legend} from './day-bars.js';
+import {groupOf, sectionTiles, tilesHtml} from './section-overview.js';
 
 const HOUR = 3600000, DAY = 24 * HOUR, KEEP_DAYS = 30, LATEST = 20;
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -116,7 +117,7 @@ export function bars(snapshot, range = '7d', now = new Date()) {
   return `${legend(CATEGORIES)}${barRows(CATEGORIES, list, summary)}`;
 }
 
-export function page(snapshot, {range = '7d', repo = 'GarryOne/job-pilotto', now = new Date()} = {}) {
+export function page(snapshot, {range = '7d', repo = 'GarryOne/job-pilotto', now = new Date(), lead = ''} = {}) {
   range = rangeOf(range);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}`]), range), name = RANGES[range].name;
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>ops-overview.yml</code> publishes the merged PRs on every push to main and hourly; the first run fills this page.</p></section>`
@@ -130,8 +131,8 @@ export function page(snapshot, {range = '7d', repo = 'GarryOne/job-pilotto', now
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}.small{font-size:12px;margin-left:18px}
 .filters{margin:8px 0 16px}tr.total td{font-weight:700}h2{margin:0}.hourly .night{grid-template-columns:112px minmax(0,1fr) 240px}.hourly .night b{white-space:nowrap}@media (max-width:640px){.hourly .night{grid-template-columns:112px minmax(0,1fr)}}${BARS_CSS}</style></head><body><main>
-<header><h1>⏱️ Where our time goes</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · merged PRs, by what they change` : ''}</span></header>
-${body}</main></body></html>`;
+<header><h1>⏱️ Overview</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · merged PRs, by what they change` : ''}</span></header>
+${lead}${snapshot ? '<h2 style="margin:8px 0 12px">⏱️ Where our time goes</h2>' : ''}${body}</main></body></html>`;
 }
 
 export async function view(request, env) {
@@ -141,5 +142,6 @@ export async function view(request, env) {
   let snapshot = null;
   try { const row = env.STATS ? await env.STATS.prepare('SELECT body FROM ops_snapshot WHERE id = 1').first() : null; snapshot = row ? JSON.parse(row.body) : null; } catch { snapshot = null; }
   const range = rangeOf(url.searchParams.get('range'));
-  return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const lead = tilesHtml(await sectionTiles(env, groupOf('/admin/operations/overview')));
+  return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined, lead}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

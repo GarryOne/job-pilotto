@@ -4,6 +4,7 @@
 import {esc} from './stats.js';
 import {viewer} from './auth.js';
 
+// overview: true = the section's Overview tab (src/section-overview.js draws the headline numbers every other page of the group declares in src/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
   {path: '/admin', group: 'Overview', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
@@ -19,7 +20,7 @@ export const PAGES = [
   {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
-  {path: '/admin/operations/overview', group: 'Engineering', question: 'Where does our engineering time go: fixing forms or building tools?', name: 'Overview', icon: '⏱️'},
+  {path: '/admin/operations/overview', group: 'Engineering', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
   {path: '/admin/operations/build-log', group: 'Engineering', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
   {path: '/admin/operations/pr-checks', group: 'Engineering', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
   {path: '/admin/self-healing', group: 'Engineering', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
