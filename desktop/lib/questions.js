@@ -8,6 +8,7 @@ import {openStore} from './store/index.js';
 import {aliasKey, fileKind} from '../shared/alias-schema.js';
 import * as sharedMeanings from './aliases.js';
 import {asksQuestion} from './label-shape.js';
+import {looksLikeFieldId} from './question-reuse.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -76,12 +77,13 @@ const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
 
 // Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
 // fields, which come from the Profile).
-export async function collect(storage, run, company = '', fetcher) {
+// reusable: async labels -> the Set worth keeping (the AI's judgment, lib/question-reuse.js); left out, every candidate is kept (unit tests).
+export async function collect(storage, run, company = '', fetcher, reusable = null) {
   // A contact or file field by the shared label meanings too (any language: "Nome", "Currículo"), not only these words.
   const aliases = await sharedMeanings.lookup(storage).catch(() => []);
   const byMeaning = label => !!aliasKey(unmarked(label), aliases) || !!fileKind(unmarked(label), aliases);
   const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && (asksQuestion(field.label) || !CONTACT.test(unmarked(field.label)))
-    && !unanswerable(field.label) && !byMeaning(field.label));
+    && !unanswerable(field.label) && !looksLikeFieldId(field.label) && !byMeaning(field.label));
   if (!wanted.length) return 0;
   const page = answersPage(storage, fetcher);
   const fresh = [];
@@ -92,9 +94,11 @@ export async function collect(storage, run, company = '', fetcher) {
     known.add(k);
     fresh.push(unmarked(field.label));
   }
-  if (!fresh.length) return 0;
-  await page.append(fresh.map(question => questionLine(question, company)));
-  return fresh.length;
+  const keep = reusable && fresh.length ? await reusable(fresh) : null;
+  const kept = keep ? fresh.filter(question => keep.has(question)) : fresh;
+  if (!kept.length) return 0;
+  await page.append(kept.map(question => questionLine(question, company)));
+  return kept.length;
 }
 
 // answer '' = skip: the line is removed (not a question to keep an answer for); in a table the row stays and its

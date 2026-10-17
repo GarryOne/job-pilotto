@@ -14,6 +14,7 @@ import * as notionGate from './notion-gate.js';
 import {openStore} from './store/index.js';
 import {extensionStore} from './store/extension-store.js';
 import * as questions from './questions.js';
+import * as reuse from './question-reuse.js';
 import * as terminals from './terminals.js';
 import * as strategy from './strategy.js';
 import * as knowledge from './knowledge.js';
@@ -157,7 +158,8 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});
       const job = await find(run.url).catch(() => null);
-      const added = await questions.collect(storage, run, job?.company || '').catch(error => {
+      const added = await questions.collect(storage, run, job?.company || '', undefined, labels => reuse.reusable({labels, company: job?.company || '', host: learn.siteOf(run.url),
+        apiKey: storage.secret('ANTHROPIC_API_KEY'), client: claudeCode.client(storage)})).catch(error => {
         console.error('Open questions:', error.message);
         return 0;
       });
