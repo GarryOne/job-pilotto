@@ -10,7 +10,7 @@ import {activitySource} from './activity-source.js';
 const html = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'renderer', 'index.html'), 'utf8');
 
 test('every Run button on an Actions card is in the command palette', () => {
-  const cards = [...html.matchAll(/<div class="task-card">([\s\S]*?)<\/div>\s*<\/div>/g)].map(match => match[1]);
+  const cards = [...html.matchAll(/<div class="task-card[ "][^>]*>([\s\S]*?)<\/div>\s*<\/div>/g)].map(match => match[1]);
   assert.ok(cards.length >= 5, 'the Actions cards were not found');
   const missing = cards.filter(card => /class="[^"]*\baction\b/.test(card) && !/data-command="\w+"|data-palette="\w+"/.test(card)).map(card => card.match(/<b>([^<]+)<\/b>/)?.[1]);
   assert.deepEqual(missing, []);
