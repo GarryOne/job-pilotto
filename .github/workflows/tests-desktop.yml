@@ -43,6 +43,7 @@ on:
       - 'tools/e2e-unit-wanted.mjs'
       - 'tools/file-size.mjs'
       - 'tools/flow-fresh.mjs'
+      - 'tools/pr-check-scorecard.mjs'
       - 'tools/free-ai-eval.mjs'
       - 'tools/free-ai-eval-claude.mjs'
       - 'tools/free-ai-eval-metrics.mjs'

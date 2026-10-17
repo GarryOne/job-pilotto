@@ -1,0 +1,48 @@
+name: CI · PR checks scorecard
+# Monthly (owner, 17 Oct 2026): per PR check, its runs, real catches, false reds and minutes over 30 days (tools/pr-check-scorecard.mjs); a check with 0 catches is flagged for review.
+# Posts ONE Telegram message through the CI alerts bot. No AI, $0. By hand: Actions → run workflow (days input).
+on:
+  schedule:
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Window in days
+        default: '30'
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: pr-check-scorecard-${{ github.run_id }}   # a run of its own (tests/test_workflow_contract.py)
+  cancel-in-progress: false
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/pr-check-scorecard.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Count the last window's PR runs
+        run: node tools/pr-check-scorecard.mjs --days "${{ inputs.days || 30 }}" --out "$RUNNER_TEMP/scorecard.json" --message "$RUNNER_TEMP/message.txt" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Post it to Telegram
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -sS -o /dev/null --fail "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" --data-urlencode "text@$RUNNER_TEMP/message.txt"
+          else
+            echo "::notice::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not set: nothing posted."
+          fi
