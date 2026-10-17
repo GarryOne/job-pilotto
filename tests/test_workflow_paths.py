@@ -67,6 +67,11 @@ class TheClass(unittest.TestCase):
         self.assertRegex(gate, r'types: \[opened, synchronize, reopened, edited\]')
         self.assertNotRegex(gate, r'(?m)^\s+if: .*github\.event', 'a skipped required job counts as green and would hide an earlier red')
 
+    def test_a_description_edit_never_cancels_the_run_of_a_push_or_a_retarget(self):
+        gate = (WORKFLOWS / 'pr-gate.yml').read_text()
+        self.assertIn("github.event.action == 'edited' && !github.event.changes.base && 'text' || 'code'", gate)
+        self.assertIn('cancel-in-progress: true', gate)
+
     def test_no_workflow_asks_a_pick(self):
         for path in WORKFLOWS.glob('*.yml'):
             text = path.read_text()

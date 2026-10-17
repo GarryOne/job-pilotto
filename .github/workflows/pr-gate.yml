@@ -14,8 +14,9 @@ on:
 permissions:
   contents: read
 
+# A title or description edit (ship refreshes the body) runs the same gate in its OWN group, so it never cancels the run of a push or a retarget (17 Oct 2026: #1162 went red on a cancelled older gate run).
 concurrency:
-  group: pr-gate-${{ github.event.pull_request.number }}
+  group: pr-gate-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && !github.event.changes.base && 'text' || 'code' }}
   cancel-in-progress: true
 
 jobs:
