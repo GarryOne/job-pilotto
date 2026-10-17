@@ -138,6 +138,7 @@ class HostedRun(unittest.TestCase):
         rows = json.loads(subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1])
         self.assertEqual([(r['kind'], r['where'], r['trigger'], r['summary']) for r in rows], [('scheduled', 'cloud', 'Always on', '1 new job while you were away')])
         self.assertIn('Always on', rows[0]['title'])
+        self.assertIn('New job: One | Co | https://a/1 | 7', rows[0]['log'].split('\n'))   # the run card's item, with its fit (renderer/new-jobs-card.js)
 
     def test_the_image_starts_the_server_and_bakes_in_no_secret(self):
         text = (Path(__file__).resolve().parent.parent / 'hosted' / 'Dockerfile').read_text()

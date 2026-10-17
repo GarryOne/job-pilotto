@@ -12,6 +12,12 @@ test('the new jobs are read from the log: title, company, link, never scored', (
     ['Site Reliability Engineer', 'Acme', 'https://x.test/1', null, 'new'], ['Platform | Pipe', 'Co', 'https://x.test/2', null, 'new']]);
 });
 
+test('a run that has the scores (Always on) puts the fit after the address, and a title with a bar still reads right', () => {
+  const lines = ['New job: Staff SRE | Acme | https://x.test/1 | 87', 'New job: Platform | Pipe | Co | https://x.test/2 | 64', 'New job: No score | Co | https://x.test/3'];
+  assert.deepEqual(newJobItems(lines).map(i => [i.title, i.company, i.url, i.fit]), [
+    ['Staff SRE', 'Acme', 'https://x.test/1', 87], ['Platform | Pipe', 'Co', 'https://x.test/2', 64], ['No score', 'Co', 'https://x.test/3', null]]);
+});
+
 test('every state of a finished search with new jobs and no digest draws a card; others do not', () => {
   const ok = {ok: true, new: 8};
   assert.equal(newJobsCard(ok, LINES).fresh, 8);
