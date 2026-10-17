@@ -657,3 +657,14 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 .shows-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .shows-scrollbar::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
 .loading-card { display: grid; gap: var(--sp-3); }
+
+/* Palette flash: the card ⌘K brought you to (pages/palette-busy.js reveal): a ring that grows and fades twice, over a faint tint; none for people who ask for less motion. */
+.palette-flash { animation: palette-flash 1.6s ease-out; }
+@keyframes palette-flash {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent); background-color: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
+  40% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal) 0%, transparent); }
+  50% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent); }
+  90% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal) 0%, transparent); background-color: color-mix(in srgb, var(--signal) 8%, var(--surface)); }
+  100% { box-shadow: 0 0 0 8px transparent; background-color: var(--surface); }
+}
+@media (prefers-reduced-motion: reduce) { .palette-flash { animation: none; outline: 2px solid var(--signal); outline-offset: 2px; } }

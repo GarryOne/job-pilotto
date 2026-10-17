@@ -34,7 +34,7 @@ test('a button that starts a task an Actions card offers is not listed twice in 
   const builtInJs = fs.readFileSync(new URL('../renderer/pages/actions-board.js', import.meta.url), 'utf8');   // cards built by script, not in index.html (which may only shrink): "Read this board"
   for (const [kind, ...selectors] of buttons) for (const selector of selectors) assert.ok(html.includes(`id="${selector.slice(1)}"`) || builtInJs.includes(`.id = '${selector.slice(1)}'`), `${kind}: ${selector} is not in the page`);
   assert.match(nav, /if \(node && !twins\.has\(node\)/);                         // button(view, id, …)
-  assert.match(nav, /!node\.disabled && reachable\(node, section\) && !twins\.has\(node\)/);   // the Settings sweep (a section on a closed Profile tab too)
+  assert.match(nav, /filter\(node => reachable\(node, section\) && !twins\.has\(node\)\)/);   // the Settings sweep (a section on a closed Profile tab too)
   assert.match(nav, /if \(danger && buttons\.length === 1\) return;/);   // a section's sole danger button is its own entry ("Reset Job Pilotto" was listed twice)
 });
 
@@ -56,11 +56,9 @@ test('every Actions Run that starts a task is turned off while it runs, through 
   assert.match(runsPage, /for \(const \[kind, \.\.\.selectors\] of TASK_BUTTONS\) for \(const selector of selectors\) set\(document\.querySelector\(selector\), kind\);/);
 });
 
-// ⌘K offers what can be pressed now (nav.js: "a disabled button ... isn't offered"): a task card whose Run is off because its task runs is not listed, in both card loops.
-test('the palette does not offer an Actions card whose Run is off', () => {
+// ⌘K offers what can be pressed now, and a task that is running (palette-busy.js, owner 18 Oct 2026): a card whose Run is off for another reason is not listed,
+// one that is off because its task runs is listed and opens the run (palette-running-task.test.js), in both card loops.
+test('both Actions card loops go through buttonEntry, which drops a button that is off for another reason', () => {
   const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
-  for (const attr of ['data-command', 'data-palette']) {
-    const loop = nav.match(new RegExp(`document\\.querySelectorAll\\('\\.action\\[${attr}\\]'\\)\\.forEach\\(node => ([^\\n]*)`))?.[1] || '';
-    assert.match(loop, /^!node\.disabled && add\(/, `the .action[${attr}] loop lists a card whose Run is off`);
-  }
+  for (const attr of ['data-command', 'data-palette']) assert.match(nav, new RegExp(`querySelectorAll\\('\\.action\\[${attr}\\]'\\)\\.forEach\\(node => addNode\\(node, 'Actions'`));
 });
