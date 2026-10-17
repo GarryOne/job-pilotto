@@ -160,8 +160,9 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});
       const job = await find(run.url).catch(() => null);
       const added = await questions.collect(storage, run, job?.company || '', undefined, async labels => verdicts.judge(storage, labels, {answered: await verdicts.answeredOf(storage, await questions.standardAnswers(storage)),
-        company: job?.company || '', host: learn.siteOf(run.url), ai: claudeAi(storage)}),
-        labels => verdicts.record(storage, labels, {url: run.url, company: job?.company || ''})).catch(error => {
+        company: job?.company || '', url: run.url, host: learn.siteOf(run.url), ai: claudeAi(storage)}),
+        labels => verdicts.record(storage, labels, {url: run.url, company: job?.company || ''}),
+        labels => notify('Remembered for future forms', `${labels.length} answer${labels.length > 1 ? 's' : ''} you gave before, asked again by ${job?.company || 'a second employer'}: kept as standard answers. Undo in the job's drawer.`, {view: 'jobs'})).catch(error => {
         console.error('Open questions:', error.message);
         return 0;
       });

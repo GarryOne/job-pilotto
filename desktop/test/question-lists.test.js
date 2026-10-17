@@ -84,7 +84,7 @@ test('record: how many forms asked, blocked, and which job; a one-job question c
   assert.equal(kept[keyOf('Why Colonist?')].jobs.length, 1, 'the same job once');
   assert.ok(kept[keyOf('Notice period')].blocked);
   assert.ok(!kept[keyOf('Never judged')], 'no stub for an unjudged question');
-  assert.deepEqual(forJob(s, 'https://jobs.example/colonist'), [{question: 'Why Colonist?'}]);
+  assert.deepEqual(forJob(s, 'https://jobs.example/colonist'), [{question: 'Why Colonist?', state: 'one_job'}, {question: 'Notice period', state: 'once'}]);
   assert.deepEqual(forJob(s, 'https://jobs.example/other'), []);
 });
 
