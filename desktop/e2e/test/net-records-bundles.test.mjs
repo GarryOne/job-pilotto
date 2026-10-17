@@ -37,7 +37,7 @@ test('the fetch unpacks every bundle (the first set and each added one) and the 
   const bundle = (bundleFile, keyFile, rows) => {
     const work = fs.mkdtempSync(path.join(tmp, 'b-'));
     for (const [dir, record] of rows) { fs.mkdirSync(path.join(work, 'net-records', dir), {recursive: true}); fs.writeFileSync(path.join(work, 'net-records', dir, 'record.json'), JSON.stringify(record)); }
-    sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, bundleFile)}" -pass file:k`
+    sh(`tar czf net.tgz net-records && openssl rand -hex -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, bundleFile)}" -pass file:k`
       + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(release, keyFile)}"`, work);
   };
   bundle('net-records.tgz.enc', 'net-records.k.enc', [['a', {name: 'row a', url: 'https://a.example.test/', startMs: 1}], ['b', {name: 'row b', url: 'https://b.example.test/', startMs: 1}]]);
@@ -69,7 +69,7 @@ test('a recording that only sits in a record-sites run artifact is not read; the
   const pack = (rows, tgz, keyFile, into) => {
     const work = fs.mkdtempSync(path.join(tmp, 'b-'));
     for (const [dir, record] of rows) { fs.mkdirSync(path.join(work, 'net-records', dir), {recursive: true}); fs.writeFileSync(path.join(work, 'net-records', dir, 'record.json'), JSON.stringify(record)); }
-    sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(into, tgz)}" -pass file:k`
+    sh(`tar czf net.tgz net-records && openssl rand -hex -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(into, tgz)}" -pass file:k`
       + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(into, keyFile)}"`, work);
   };
   pack([['a', {name: 'row a', url: 'https://a.example.test/', startMs: 1}]], 'net-records.tgz.enc', 'net-records.k.enc', release);
@@ -123,7 +123,7 @@ const shared = () => {
   const work = fs.mkdtempSync(path.join(tmp, 'b-'));
   fs.mkdirSync(path.join(work, 'net-records', 'a'), {recursive: true});
   fs.writeFileSync(path.join(work, 'net-records', 'a', 'record.json'), JSON.stringify({name: 'row a', url: 'https://a.example.test/', startMs: 1}));
-  sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, 'net-records.tgz.enc')}" -pass file:k`
+  sh(`tar czf net.tgz net-records && openssl rand -hex -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, 'net-records.tgz.enc')}" -pass file:k`
     + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(release, 'net-records.k.enc')}"`, work);
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env bash
 echo "$@" >> "${calls}"
