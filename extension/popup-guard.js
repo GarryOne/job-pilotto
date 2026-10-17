@@ -7,7 +7,7 @@ import {clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
 
 export async function answerGate(tabId, {close = closePopupOrLayer, look = layerOnTop, say = decide} = {}) {
   const out = await clearBeforeFill(tabId, {close, look});
-  if (out.closed.length) say('fill', 'closed a dialog during the fill', {label: out.closed[0].slice(0, 40)});
+  if (out.closed.length) say('fill', 'closed a dialog during the fill', {label: out.closed[0].slice(0, 40), tab: tabId});
   return {held: out.held, layer: out.layer};
 }
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {

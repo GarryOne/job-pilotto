@@ -65,7 +65,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
   const answer = await apiFor(tab.id, config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind, sketch, image: image || '', reason})}).catch(() => null);
   const action = answer?.action || 'none';
   lastLook.set(tab.id, {action, control: String(answer?.control || ''), why: String(answer?.why || '')});
-  decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', picture: !!image, usd: Number(answer?.usd) || 0, ...viewOf(answer), why: String(answer?.why || '').slice(0, 80)});
+  decide('fill', `closer look: ${action}`, {tab: tab.id, reason, by: answer?.by || '', picture: !!image, usd: Number(answer?.usd) || 0, ...viewOf(answer), why: String(answer?.why || '').slice(0, 80)});
   if (action === 'click' && answer.control) {
     // An application page is pressed with the next-step press (never a control that submits or reads like Submit); an account page with the register press.
     if (!mayAct()) return 'none';   // stopped by the person (stop.js)
@@ -73,7 +73,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
     const result = kind === 'form' || kind === 'page'
       ? ((await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.control]}).then(rows => rows?.[0]?.result).catch(() => null))?.pressed ? 'pressed' : 'refused')
       : await run(tab, frameId, pressRegister, [answer.control]);
-    decide('fill', `closer look: pressed (${result})`, {});
+    decide('fill', `closer look: pressed (${result})`, {tab: tab.id});
     if (result === 'pressed') {   // did the page move on? then the app remembers this click for the page shape
       await new Promise(resolve => setTimeout(resolve, 3000));
       const after = await sketchOf(tab.id, frameId);

@@ -96,12 +96,12 @@ async function clickCombosNow(tabId) {
       }
       const {picked, last} = outcome;
       if (outcome.capped && !outcome.picked) giveUp(tabId, spot.label);
-      if (outcome.capped) decide('fill', 'a dropdown kept the wait going: stopped waiting', {field: spot.label.slice(0, 60), ms: Date.now() - started}).catch(() => {});
+      if (outcome.capped) decide('fill', 'a dropdown kept the wait going: stopped waiting', {tab: tabId, field: spot.label.slice(0, 60), ms: Date.now() - started}).catch(() => {});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
       const matched = !picked || !last ? null : last.same === true || String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.
       results.push({label: spot.label, picked, matched, ms: Date.now() - started, opened: last?.opened ?? null, found: last?.found ?? null, selectedAfter: last?.selectedAfter ?? null, trusted: last?.trusted ?? null});
-      if (!picked && last && last.found === false) decide('fill', 'a menu showed no choice that matched', {field: spot.label.slice(0, 60), choices: last.choices || [], peek: last.peek || ''}).catch(() => {});   // the form's wording, not the answer
+      if (!picked && last && last.found === false) decide('fill', 'a menu showed no choice that matched', {tab: tabId, field: spot.label.slice(0, 60), choices: last.choices || [], peek: last.peek || ''}).catch(() => {});   // the form's wording, not the answer
       if (!picked) skip += 1;
     }
     // A phone widget whose country was just picked: type the number for real, so the form registers it.
@@ -257,7 +257,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   onStep('Reading the form…');
   // Nothing is typed under a dialog: what covers the form's controls is closed first (the AI's non-agreeing button, kept), or the fill is held and the person told (dialog-after-fill.js).
   const gate = await clearBeforeFill(tab.id, {close: closePopupOrLayer, look: layerOnTop});
-  if (gate.closed.length) decide('fill', 'closed a dialog before the fill', {label: gate.closed[0].slice(0, 40)});
+  if (gate.closed.length) decide('fill', 'closed a dialog before the fill', {label: gate.closed[0].slice(0, 40), tab: tab.id});
   if (gate.held) return {held: true, layer: gate.layer, note: HELD, usd: 0};
   await expandSections(tab);   // collapsed sections open first, so their fields are read (a no-op when consider already did: sections.js marks what it opened)
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
@@ -455,7 +455,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (retyped) step(`typed ${retyped} box${retyped === 1 ? '' : 'es'} again that the page emptied`);
   // Rung 0 of the fill ladder: a text box that did not take its answer is typed again for real, one key at a time, and read back (extension/fill-verify.js); same debugger turn as the menus.
   const real = await debuggerTurn(() => typeNotTakenOnTab(tab.id)).catch(() => ({tried: 0, taken: 0}));
-  if (real.tried) { step(`typed ${real.taken} of ${real.tried} box${real.tried === 1 ? '' : 'es'} again for real`); decide('fill', 'typed for real a box that did not take its answer', {tried: real.tried, taken: real.taken}).catch(() => {}); }
+  if (real.tried) { step(`typed ${real.taken} of ${real.tried} box${real.tried === 1 ? '' : 'es'} again for real`); decide('fill', 'typed for real a box that did not take its answer', {tab: tab.id, tried: real.tried, taken: real.taken}).catch(() => {}); }
   // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   const gaveUp = await inPage(tab.id, () => window.__jobPilottoRetypeGaveUp?.() || []).catch(() => []);

@@ -83,7 +83,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     try {
       await tab.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
       const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? loose() : run.requests.slice(first)), strict: state.shared ? strict : null, otherHosts: state.shared ? allHosts.filter(host => !hosts.includes(host)) : null,
-        all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => theTabs().ours.length, unplacedTabs: () => theTabs().unplaced.length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
+        every: () => run.requests.slice(first), all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => theTabs().ours.length, unplacedTabs: () => theTabs().unplaced.length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
       return {name: item.name, ...result, seconds: (Date.now() - began) / 1000, fillTime: () => fillSeconds(run.requests.slice(first), hosts)};   // read after the tab settled (lib/replay-time.mjs)
     } finally {
       await fillSettled(tab);   // a fill still running reports its moves before the tab goes (page-replay.mjs)

@@ -236,7 +236,7 @@ export async function consider(tab, jobUrl) {
   if (!gen) return;   // only a read that goes on makes older ones late: one that found the tab moved on (above) must not kill the read of the page the tab is on now
   // A popup over the page (a cookie banner: Deloitte, 9 Oct 2026; any other, in any flow) is closed the way a person would, before the page is read (consent.js).
   const banner = await closeConsentEverywhere(tab.id, {cookiesOnly: true}).catch(() => '');
-  if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40)}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await pageStill(tab.id, {maxMs: 800}); }
+  if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40), tab: tab.id}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await pageStill(tab.id, {maxMs: 800}); }
   await expandSections(live);   // a form drawn with collapsed sections (SuccessFactors) is read open, or it looks empty and is judged "no form" (sections.js)
   // The page can refuse a read right after its load (still swapping documents, the worker just woke): look again before giving up,
   // or the tab is left with no fill and no state at all, for Claude and the app to wait on.
