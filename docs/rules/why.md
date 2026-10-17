@@ -53,6 +53,10 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
   four cards had drifted from the engine's message format, hence the message contract test.
 - **Confirm a mockup before code** (28 Sep 2026): Profile moved and back, Settings saving changed twice, Actions redesigned 3× in one day.
 - **Screenshot the whole view** (7 Oct 2026): a box checked alone was indented past its card's heading, spaced far apart, with oversized buttons.
+- **The design system: the kind picks the control** (17 Oct 2026): rules existed (this file, the skill, tokens) but nothing made a session pick the
+  right control: Voluntary surveys as prose bullets and cut one-line boxes, Languages as one text line, Availability as ten boxes of prose, "Tax" in
+  quotes on Strategy, full-window PR shots without a caption. Owner: "Let's use the proper field types ... proper spacing ... contrasts ... cards ... chips."
+  Measured then: 14 chip classes, 5 of 30 token pairs under AA (field edges 1.8:1). Hence the checks, not more prose.
 - **But not at Tier 0** (28 Sep 2026): a spinner change lost minutes to three failed offscreen screenshots and CI polling.
 
 ## Files

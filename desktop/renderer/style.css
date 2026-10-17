@@ -16,7 +16,7 @@ code { font: var(--fs-sm) var(--font-mono); background: var(--sky); padding: 2px
 :focus:not(:focus-visible) { outline: none; }   /* a mouse click never leaves a ring (every tab bar, button); keyboard focus keeps it */
 
 button { font: 600 var(--fs-md) var(--font-sans); border-radius: var(--r-md); padding: 8px 14px; cursor: pointer; border: 1px solid transparent; }
-button.primary { background: var(--signal); color: var(--on-accent); }
+button.primary { background: var(--signal-solid); color: var(--on-accent); }
 button.primary:hover { filter: brightness(1.05); }
 button.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
 button.ghost { background: transparent; color: var(--muted); }
@@ -274,7 +274,7 @@ table.runs tr.run:hover, table.runs tr.run.open { background: var(--surface-2); 
 .row-actions .state-prepare:hover { background: var(--bg); }
 .row-actions .state-busy { background: var(--signal-soft); color: var(--signal-ink); border-color: var(--signal-line); }
 .row-actions .row-main.state-busy::before { border-color: color-mix(in srgb, var(--signal-ink) 30%, transparent); border-top-color: var(--signal-ink); }
-.row-actions .state-apply { background: var(--signal); color: var(--on-accent); }
+.row-actions .state-apply { background: var(--signal-solid); color: var(--on-accent); }
 .row-actions .state-apply:hover { filter: brightness(1.08); }
 .row-actions .state-opened { background: var(--teal-soft); color: var(--teal); border-color: var(--teal-line); }
 @keyframes pulse { 50% { opacity: 0.45; } }
@@ -799,7 +799,7 @@ button.danger-solid:disabled { opacity: 1; background: var(--danger-surface); co
 .review .priority b { color: var(--good); font-size: var(--fs-md); }
 .review .sub { margin: 2px 0 0; font-size: var(--fs-md); color: var(--muted); }
 .review .questions-card { background: var(--signal-soft); border-color: var(--signal-line); }
-.review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: var(--on-accent); font-size: var(--fs-md); margin-right: 4px; }
+.review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal-solid); color: var(--on-accent); font-size: var(--fs-md); margin-right: 4px; }
 .review .q-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; background: var(--surface); border-radius: var(--r-md); padding: 8px 12px; font-size: var(--fs-base); }
 .review .q-row + .q-row { margin-top: 6px; }
 .review .q-row input { grid-column: 2 / 4; font-size: var(--fs-md); }
@@ -2154,7 +2154,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-cell.out .cal-num { opacity: .5; }
 .cal-cell.weekend { background: var(--surface-2, var(--surface)); }
 .cal-cell.today { background: var(--signal-soft); }
-.cal-cell.today .cal-num { background: var(--signal); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
+.cal-cell.today .cal-num { background: var(--signal-solid); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
 .cal-num { font-size: var(--fs-sm); align-self: flex-start; }
 .cal-chip { text-align: left; border: 0; border-radius: var(--r-sm); padding: 2px 6px; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--info-soft); color: inherit; }
 .cal-chip-time { display: block; font-size: var(--fs-xs); color: var(--muted); }

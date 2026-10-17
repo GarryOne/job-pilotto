@@ -14,7 +14,7 @@
   --line: #d3dde7;          /* borders, dividers */
   --line-strong: #b8c4d3;   /* input borders, hovered borders */
   --field: var(--surface);  /* inputs, selects, textareas: their own token so dark mode can set them apart from the card */
-  --field-line: var(--line-strong);
+  --field-line: #7f8fa3;   /* a field's edge: 3.3:1 on the card (WCAG AA for a control's edge; was 1.8, owner 17 Oct 2026 "fields hard to see"). test/contrast.test.js */
   --label: var(--muted);   /* a field's caption: quieter than the value typed in the field (owner, 17 Oct 2026) */
   --on-accent: #ffffff;     /* text on orange, navy, green… */
 
@@ -38,8 +38,9 @@
   --on-rail-3: #8b94a3;
 
   /* Brand accent: orange (actions), teal (done), amber (the board) */
-  --signal: #d9540b;
-  --signal-rgb: 217 84 11;
+  --signal: #c74d0a;        /* white on it 4.7:1, as text on white 4.7:1 (AA; was #d9540b, 4.0) */
+  --signal-rgb: 199 77 10;
+  --signal-solid: var(--signal);   /* a filled accent (primary button) under white text: dark mode needs a deeper orange than its links */
   --signal-ink: #a3470f;    /* orange text on the soft background */
   --signal-soft: #fdeee4;
   --signal-line: #f5c9ab;
@@ -123,15 +124,16 @@
     --line-strong: #2f3f51;
     /* Fields sit darker than the card, with a clearer edge (owner, 17 Oct 2026: fields were hard to see on the card's own color). */
     --field: #090d12;
-    --field-line: #3d5168;
+    --field-line: #5f7590;   /* 3.7:1 on the card, 4.1:1 on the field (was 2.2) */
 
     --navy: #0d131a;
     --navy-hover: #16202b;
     --navy-active: #1b2735;
     --navy-line: #2f3f51;
 
-    --signal: #e8661b;
+    --signal: #e8661b;        /* links and accents on the dark card: 5.3:1 */
     --signal-rgb: 232 102 27;
+    --signal-solid: #c2500e;  /* white on the primary button 4.7:1 (#e8661b was 3.3) */
     --signal-ink: #ffab76;
     --signal-soft: #2a1a10;
     --signal-line: #5c3218;

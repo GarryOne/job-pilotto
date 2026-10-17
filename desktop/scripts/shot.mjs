@@ -8,6 +8,7 @@
 //   --reload           reload the window (⌘R) afterwards, and expand the log again if --log
 //   --js <code>        more steps to run first (a statement; await allowed)
 //   --eval <expr>      write this expression's value as JSON (window.__jp has the state; __jp.terminal() the log)
+//                      Without --eval, it prints every saved value cut by its text box (scripts/cut-fields.mjs).
 //   --no-picture       only the --eval result, no screenshot
 //   --output <file>    a recorded terminal output to show as the session's log (e.g. a real session's)
 //   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
@@ -20,6 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {markSteps} from './shot-mark.mjs';
+import {cutFields, cutReport} from './cut-fields.mjs';
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
@@ -57,7 +59,7 @@ const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data,
 if (option('width')) env.JOB_PILOTTO_SHOT_WIDTH = option('width');
 if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script((flag('log') ? expandLog : wait(500)) + (options('mark').length ? markSteps(options('mark')) : ''));   // a reload wipes the frames
 if (option('select')) env.JOB_PILOTTO_SMOKE_SELECTOR = option('select');
-if (option('eval')) env.JOB_PILOTTO_SMOKE_EVAL = option('eval');
+env.JOB_PILOTTO_SMOKE_EVAL = option('eval') || cutFields(option('select'));
 if (flag('no-picture')) env.JOB_PILOTTO_SMOKE_NO_PICTURE = '1';
 if (option('output')) env.JOB_PILOTTO_DEMO_OUTPUT = path.resolve(option('output'));
 const started = Date.now();
@@ -69,3 +71,4 @@ if (!flag('no-picture')) {
   console.log(`${out} (${seconds} s)`);
 }
 if (option('eval')) console.log(fs.existsSync(`${out}.json`) ? fs.readFileSync(`${out}.json`, 'utf8') : 'no --eval result');
+else if (fs.existsSync(`${out}.json`)) for (const line of cutReport(JSON.parse(fs.readFileSync(`${out}.json`, 'utf8')))) console.log(line);

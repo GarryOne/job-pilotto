@@ -13,3 +13,9 @@ body.gallery h1 { font-size: var(--fs-2xl); margin: 0; }
 .g-box { width: 110px; height: 64px; display: grid; place-items: center; font-size: var(--fs-xs); color: var(--muted);
   background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius, var(--r-md)); }
 .g-box.g-shadow { background: var(--surface); border-color: transparent; box-shadow: var(--shadow); }
+.g-kinds td { vertical-align: top; }
+.g-kinds td:first-child { width: 22%; } .g-kinds td:nth-child(2) { width: 30%; }
+.g-kinds input[type="text"] { max-width: 40ch; }
+.g-clamp { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.g-note { display: flex; gap: var(--sp-1); align-items: flex-start; margin: 0; }
+.g-note .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; }

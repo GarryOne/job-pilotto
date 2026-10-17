@@ -19,6 +19,15 @@
 |---|---|---|
 | <the measured or seen difference> | <before> | <after> |
 
+**Design checks**
+<desktop window changes: tick each on the after-shot (docs/rules/desktop-ui.md); a failing one is fixed, never left unticked>
+- [ ] Each value uses its kind's control (Value → control)
+- [ ] No saved value is cut by its box; long text grows
+- [ ] Chips show values only (no quotes, codes, regex); a note for the AI is a muted line under its value
+- [ ] One primary button per card; no card inside a card
+- [ ] Spacing from the scale (label → field 4, field → field 12, card padding 16)
+- [ ] Looked at in light and dark
+
 <When a screen changed: every image in this table, one row per change; or: No screenshots: <why>.
 Caption = what changed and where to look (a few words); crop to the changed card and frame the change: `npm run shot -- <page> --select '<card>' --mark '<changed control>'` (same options for before and after). A new screen: "—" before, the reason in the caption.>
 
