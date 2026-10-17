@@ -5,6 +5,10 @@
 import {el} from './components.js';
 import {icon} from './icons.js';
 import {goalNote} from './strategy-parts.js';
+import {answerControl} from './question-control.js';
+import {formatFor, picksOf} from './question-kind.js';
+import {savedAs} from './question-control-values.js';
+import {GOAL_KINDS} from './goal-kinds.js';
 
 export const GOAL_TILES = [['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary'],
   ['languages', 'globe', 'Languages you work in']];
@@ -50,7 +54,30 @@ export function goalTiles(goals, onSave, {tiles = GOAL_TILES, fixed = {}} = {}) 
     edit.addEventListener('click', () => value.click());
     box.append(edit);
     if (noteLine) box.append(noteLine);
+    // A goal with a kind (renderer/goal-kinds.js) is edited with its control, Save and Cancel; any other with free text.
+    const kinded = GOAL_KINDS[key]?.kind ? GOAL_KINDS[key] : null;
+    const openControl = () => {
+      if (box.querySelector('.goal-editor')) return;
+      const format = formatFor({marked: {kind: kinded.kind, options: kinded.options || []}});
+      let draft = current;
+      const editor = el('div', 'goal-editor');
+      const control = answerControl(format, current, next => { draft = next; }, {ariaLabel: label, chips: kinded.chips});
+      const save = Object.assign(el('button', 'primary', 'Save'), {type: 'button'}), cancel = Object.assign(el('button', 'secondary', 'Cancel'), {type: 'button'});
+      const actions = el('div', 'inline');
+      actions.append(save, cancel);
+      editor.append(control, ...(kinded.kind === 'multi' && current && !current.split(/\s*,\s*/).every(part => picksOf(part, format.options).length) ? [savedAs(current)] : []), actions);
+      const finish = keep => {
+        editor.remove();
+        value.hidden = edit.hidden = false;
+        if (keep && draft.trim() && draft.trim() !== current) onSave(key, draft.trim(), value);
+      };
+      save.addEventListener('click', () => finish(true));
+      cancel.addEventListener('click', () => finish(false));
+      value.hidden = edit.hidden = true;   // the editor stands in for the value and its pencil
+      box.insertBefore(editor, edit);
+    };
     value.addEventListener('click', () => {
+      if (kinded) { openControl(); return; }
       if (value.isContentEditable) return;
       value.contentEditable = 'plaintext-only';
       if (!current) value.textContent = '';
