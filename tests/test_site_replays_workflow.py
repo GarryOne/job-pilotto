@@ -11,10 +11,10 @@ TRIGGER = re.search(r'(?m)^on:\n((?:  .*\n|\n)+?)(?=^\S)', WORKFLOW).group(1)
 
 
 class ReplayOfflineWorkflow(unittest.TestCase):
-    def test_never_on_a_pr_started_by_the_worker_with_a_backup_schedule(self):
+    def test_never_on_a_pr_and_on_no_schedule_by_hand_or_the_nightly_gate(self):
         self.assertNotIn('pull_request', TRIGGER)
         self.assertIn('workflow_dispatch:', TRIGGER)
-        self.assertIn('schedule:', TRIGGER)
+        self.assertNotIn('schedule:', TRIGGER, 'owner, 17 Oct 2026: replays are for debugging, the daily check is live')
         self.assertIn("'Replay check · on time (Worker cron)'", WORKFLOW)
         self.assertIn('Anything changed since the last green replay?', WORKFLOW)
         self.assertIn("':!desktop/test'", WORKFLOW, 'a change to the tests alone replays nothing')
@@ -70,7 +70,7 @@ class BaselineReadsOldRuns(unittest.TestCase):
 
 
 class DailyOnlyNotOnPrs(unittest.TestCase):
-    """Owner, 17 Oct 2026: site replays and journeys are off PRs, scheduled once a day; the refill starts only for the rows the daily run flags."""
+    """Owner, 17 Oct 2026: site replays and journeys are off PRs and run by hand (debugging); the daily check is a live run elsewhere."""
     WF = ROOT / '.github' / 'workflows'
 
     def test_no_replay_or_journey_workflow_starts_on_a_pull_request(self):
@@ -80,18 +80,14 @@ class DailyOnlyNotOnPrs(unittest.TestCase):
             on = (self.WF / name).read_text().split('\npermissions:')[0].split('\njobs:')[0]
             self.assertNotRegex(on, r'(?m)^  (pull_request|pull_request_target):', name)
 
-    def test_the_site_replays_run_once_a_day_and_start_the_refill_for_flagged_rows_only(self):
-        text = (self.WF / 'site-replays.yml').read_text()
-        self.assertEqual(len(re.findall(r"(?m)^    - cron: ", text)), 1, 'one scheduled run a day')
-        self.assertIn('gh workflow run replay-refill.yml --ref main -f only=', text)
-        self.assertIn('rerecord.txt', text, 'a separate line for rows that need a re-record')
+    def test_the_replays_and_journeys_run_by_hand_only_with_no_schedule_and_no_refill_trigger(self):
+        for name in ('site-replays.yml', 'journeys.yml', 'replay-refill.yml'):
+            on = (self.WF / name).read_text().split('\njobs:')[0]
+            self.assertNotRegex(on, r'(?m)^  (schedule|push):', f'{name}: replays are for debugging (owner, 17 Oct 2026)')
+            self.assertIn('workflow_dispatch:', on, name)
         scheduler = (ROOT / 'worker' / 'src' / 'scheduler.js').read_text()
-        self.assertNotRegex(scheduler, r"47 21,23,1 \* \* \*'\) return \[[^\n]*site-replays", 'not beside each e2e run any more')
-
-    def test_the_journeys_run_daily_and_tell_telegram(self):
-        text = (self.WF / 'journeys.yml').read_text()
-        self.assertRegex(text, r"(?m)^  schedule:\n    - cron: ")
-        self.assertIn('ci-alert.mjs failure', text)
+        self.assertNotIn("workflow: 'site-replays.yml'", scheduler, 'the Worker starts no replay (the nightly gate starts one when its commit has none)')
+        self.assertNotIn('gh workflow run replay-refill', (self.WF / 'site-replays.yml').read_text(), 'no refill trigger from the replay')
 
 
 if __name__ == '__main__':
