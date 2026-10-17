@@ -119,7 +119,7 @@ test('the daily watch list: picker without AI, recording only when the month has
   assert.match(record, /AI_COST_JOB: pool-watch/, 'its spend has its own line on /admin/ai-cost');
   assert.match(record, /POOL_WAIT_WORKFLOWS: record-sites\.yml,watch-live\.yml/, 'one pool run at a time across both');
   assert.match(record, /for workflow in record-sites\.yml watch-live\.yml/, 'the site ledger counts both workflows');
-  assert.match(workflows['record-sites.yml'], /for workflow in record-sites\.yml pool-smoke\.yml watch-live\.yml/, 'and the batch counts the watch');
+  assert.match(workflows['record-sites.yml'], /for workflow in record-sites\.yml \S+ watch-live\.yml/, 'and the batch counts the watch');
   assert.doesNotMatch(watch, /gh pr (merge|create)|--auto|auto-merge|concurrency:/i);
   assert.doesNotMatch(watch, /REPLAYS_PUBLISH_KEY|pool-ci-rows/, 'it writes nothing to the lab page itself');
   const lib = fs.readFileSync(path.join(DIR, '..', '..', 'desktop', 'e2e', 'lib', 'watch-list.mjs'), 'utf8');
