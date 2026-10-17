@@ -4,7 +4,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from src import telegram
+from src import run_log, telegram
 from src.notion import cron_runs
 
 
@@ -19,6 +19,7 @@ class FakeTracker:
 
 class RunHistoryTest(unittest.TestCase):
     def setUp(self):
+        run_log._open.clear()   # one run log per process: a row another module left open would raise BothLogs here
         cron_runs._open.clear()
         cron_runs._auto.clear()
         cron_runs._output.clear()
