@@ -72,3 +72,15 @@ test('the mark a drawn format writes', async () => {
   assert.deepEqual(markFor({kind: 'single', list: 'countries', options: ['A']}), {kind: 'single', options: [], list: 'countries'});
   assert.deepEqual(markFor({kind: 'yes_no', options: ['Yes', 'No']}), {kind: 'yes_no', options: []});
 });
+
+// PR 2b step 1: a deduced answer is offered only as one of the question's own options (unsure: none, the person answers).
+test('proposalIn: the option that names the value, else nothing; text takes any value', async () => {
+  const {proposalIn} = await import('../renderer/question-kind.js');
+  assert.equal(proposalIn('no', {control: 'yes_no', options: ['Yes', 'No']}), 'No');
+  assert.equal(proposalIn('Maybe', {control: 'yes_no', options: ['Yes', 'No']}), '');
+  assert.equal(proposalIn('mr', {control: 'single', options: ['Mr', 'Mrs']}), 'Mr');
+  assert.equal(proposalIn('Herr', {control: 'single', options: ['Mr', 'Mrs']}), '');
+  assert.equal(proposalIn('English, french', {control: 'multi', options: ['English', 'French', 'German']}), 'English, French');
+  assert.equal(proposalIn('3 months', {control: 'text', options: []}), '3 months');
+  assert.equal(proposalIn('3 months', {control: 'textarea', options: []}), '3 months');
+});

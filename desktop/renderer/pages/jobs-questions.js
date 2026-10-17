@@ -54,7 +54,7 @@ function renderQuestions(list, error = '', hidden = [], consent = 0) {
     if (q.company) label.append(Object.assign(document.createElement('small'), {textContent: ` · asked by ${q.company}`}));
     // The control matches the question's kind (owner, 17 Oct 2026): Yes / No, the form's options, a menu, or text (renderer/question-control.js).
     const input = answerControl(q.format, q.proposal || '', value => { save.disabled = !String(value).trim(); }, {placeholder: 'Your standard answer', ariaLabel: q.question});
-    if (q.coveredBy) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · already answered by “${q.coveredBy}”`}));
+    if (q.coveredBy) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · from your saved answer “${q.coveredBy}”`}));
     if (q.hint) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · ${q.hint}`}));
     const save = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Save'});
     const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip',
