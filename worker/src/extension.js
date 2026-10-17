@@ -16,7 +16,7 @@ import { withholdOwner } from './owner-guard.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
-import { FACT_KEYS, FACT_RULE, floorBoxGuess, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
+import { FACT_KEYS, FACT_RULE, floorBoxGuess, floorInventedFigure, floorLinkKind, floorUngrounded, typeGuess } from './answer-facts.js';
 import { applyPay } from './pay-convert.js';
 import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
 import { ANSWER_EXAMPLES } from './answer-examples.js';
@@ -258,7 +258,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const paid = await applyPay(Array.isArray(result.answers) ? result.answers : [], result.pay_asks, fields, { fetchFn: env.fetchFn || globalThis.fetch });   // a salary in another currency or period, converted by the code
   const typeOf = Object.fromEntries(fields.map((f) => [f.field, f.type]));
   const optionsOf = Object.fromEntries(fields.map((f) => [f.field, Array.isArray(f.options) ? f.options : []]));
-  const floorsApplied = paid.map((a) => floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test, options: optionsOf[a.field] }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]));
+  const floorsApplied = paid.map((a) => floorInventedFigure(floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test, options: optionsOf[a.field] }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]), labelOf[a.field] || '', given, typeOf[a.field], { test }));
   // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
