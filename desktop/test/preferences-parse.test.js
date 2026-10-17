@@ -8,7 +8,7 @@ import {proposedTexts, reviewOf} from '../renderer/preferences-review-model.js';
 const memoryStorage = () => { const files = {}; return {files, readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }}; };
 const reply = answers => { const calls = []; return {calls, messages: {create: async request => { calls.push(request); const answer = answers[Math.min(calls.length, answers.length) - 1];
   return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify(answer)}]}; }}}; };
-const base = {countries: [], cities: [], remote: 'unknown', languages: [], relocation: {answer: 'unknown', where: ''}, roles: [], seniority: 'unknown', employment: [], unparsed: []};
+const base = {countries: [], cities: [], remote: 'unknown', languages: [], relocation: {answer: 'unknown', where: ''}, roles: [], seniority: {min: 'unknown', max: 'unknown'}, employment: [], notes: [], unparsed: []};
 const fieldsOf = values => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {value}]));
 
 // Each profile: [what the person typed, the model's (fixed) answer, the clean text per field it must give].
@@ -19,14 +19,15 @@ const PROFILES = {
       seniority: 'Senior. Confirmed 26 Sep 2026.', employment: 'Permanent or contract. Confirmed 26 Sep 2026.'},
     {...base, countries: ['CH', 'DE', 'GB', 'AE'], cities: [{name: 'Zurich', country: 'CH'}, {name: 'Berlin', country: 'DE'}], remote: 'yes',
       languages: [{name: 'English', level: 'B2'}, {name: 'Romanian', level: 'native'}, {name: 'Russian', level: 'B1'}], relocation: {answer: 'yes', where: 'Zurich'},
-      roles: [{title: 'DevOps', certainty: 'maybe'}, {title: 'Cloud Engineer', certainty: 'maybe'}], seniority: 'senior', employment: ['permanent', 'contract'],
+      roles: [{title: 'DevOps', certainty: 'maybe'}, {title: 'Cloud Engineer', certainty: 'maybe'}], seniority: {min: 'senior', max: 'staff'}, employment: ['permanent', 'contract'],
+      notes: [{field: 'languages', text: 'No French'}, {field: 'cities', text: 'Anywhere else in Switzerland is fine'}],
       unparsed: ['countries', 'cities', 'languages', 'relocation', 'roles', 'seniority', 'employment']},
     {countries: 'Switzerland, Germany, United Kingdom, United Arab Emirates', cities: 'Zurich (Switzerland), Berlin (Germany)', languages: 'English (Upper intermediate (B2)), Romanian (Native), Russian (Intermediate (B1))',
-      relocation: 'Yes (Zurich)', roles: 'DevOps, Cloud Engineer', seniority: 'Senior', employment: 'Permanent or contract'}],
+      relocation: 'Yes (Zurich)', roles: 'DevOps, Cloud Engineer', seniority: 'Senior to Staff or higher', employment: 'Permanent or contract'}],
   'a nurse': [
     {countries: 'Ireland and maybe Australia, not the US', cities: 'Dublin or Cork', languages: 'English (mother tongue), Tagalog fluent', roles: 'Staff nurse, ward sister?', seniority: 'a few years in', employment: 'Permanent, part-time ok'},
     {...base, countries: ['IE', 'AU'], cities: [{name: 'Dublin', country: 'IE'}, {name: 'Cork', country: 'IE'}], languages: [{name: 'English', level: 'native'}, {name: 'Tagalog', level: 'C2'}],
-      roles: [{title: 'Staff nurse', certainty: 'sure'}, {title: 'Ward sister', certainty: 'maybe'}], seniority: 'mid', employment: ['permanent', 'part_time'], unparsed: ['countries', 'cities', 'languages', 'roles', 'seniority', 'employment']},
+      roles: [{title: 'Staff nurse', certainty: 'sure'}, {title: 'Ward sister', certainty: 'maybe'}], seniority: {min: 'mid', max: 'mid'}, employment: ['permanent', 'part_time'], unparsed: ['countries', 'cities', 'languages', 'roles', 'seniority', 'employment']},
     {countries: 'Ireland, Australia', cities: 'Dublin, Cork', languages: 'English (Native), Tagalog (Fluent)', roles: 'Staff nurse, Ward sister', seniority: 'Mid-level', employment: 'Permanent, Part-time'}],
   'a teacher': [
     {countries: 'Spain, anywhere in the EU really', cities: 'Madrid; Valencia (not Barcelona)', languages: 'Spanish C1, English native', roles: 'Primary teacher, or secondary maths', relocation: 'Happy to move for the right school'},
@@ -36,7 +37,7 @@ const PROFILES = {
   'a sales rep': [
     {countries: 'DACH', cities: 'Munich, Vienna or Zurich, hybrid', mode: 'Hybrid, 2 days remote', languages: 'German native; English fluent', roles: 'Account executive / SDR', seniority: 'senior if possible', employment: 'Permanent only, with commission'},
     {...base, countries: ['DE', 'AT', 'CH'], cities: [{name: 'Munich', country: 'DE'}, {name: 'Vienna', country: 'AT'}, {name: 'Zurich', country: 'CH'}], remote: 'unknown', languages: [{name: 'German', level: 'native'}, {name: 'English', level: 'C2'}],
-      roles: [{title: 'Account executive', certainty: 'sure'}, {title: 'SDR', certainty: 'sure'}], seniority: 'senior', employment: ['permanent'], unparsed: ['countries', 'cities', 'mode', 'languages', 'roles', 'seniority', 'employment']},
+      roles: [{title: 'Account executive', certainty: 'sure'}, {title: 'SDR', certainty: 'sure'}], seniority: {min: 'senior', max: 'senior'}, employment: ['permanent'], unparsed: ['countries', 'cities', 'mode', 'languages', 'roles', 'seniority', 'employment']},
     {countries: 'Germany, Austria, Switzerland', cities: 'Munich (Germany), Vienna (Austria), Zurich (Switzerland)', languages: 'German (Native), English (Fluent)', roles: 'Account executive, SDR', seniority: 'Senior', employment: 'Permanent only'}],
 };
 
@@ -61,7 +62,7 @@ test('a field the AI did not flag, or already equal, is never proposed over; an 
 
 test('an answer outside the shape is rejected', () => {
   for (const bad of [null, {...base, countries: ['Switzerland']}, {...base, countries: 'CH'}, {...base, languages: [{name: 'English', level: 'working language'}]},
-    {...base, seniority: 'principal'}, {...base, unparsed: ['salary']}, {...base, employment: ['gig']}, {...base, roles: [{title: '', certainty: 'sure'}]}, {...base, remote: true}]) {
+    {...base, seniority: 'senior'}, {...base, seniority: {min: 'staff', max: 'junior'}}, {...base, seniority: {min: 'principal', max: 'staff'}}, {...base, notes: [{field: 'salary', text: 'x'}]}, {...base, unparsed: ['salary']}, {...base, employment: ['gig']}, {...base, roles: [{title: '', certainty: 'sure'}]}, {...base, remote: true}]) {
     assert.throws(() => cleanAnswer(bad), undefined, JSON.stringify(bad));
   }
   assert.deepEqual(cleanAnswer({...base, roles: [{title: 'DevOps?', certainty: 'maybe'}, {title: 'devops', certainty: 'sure'}]}).roles, [{title: 'DevOps', certainty: 'maybe'}], 'marks stripped, duplicates dropped');

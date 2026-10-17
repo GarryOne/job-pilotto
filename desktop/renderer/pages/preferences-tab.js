@@ -6,7 +6,7 @@ import {el} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, shown} from '../answers-model.js';
 import {FIELDS, GROUPS, LEVELS, MODES, chipsOf, chipsText, fieldChange, languagesOf, languagesText, modesOf, modesText, readProfile, workloadOf, workloadText} from '../preferences-model.js';
-import {showWorkload} from '../preferences-review-model.js';
+import {NOTE_LABEL, noteText, showWorkload} from '../preferences-review-model.js';
 import {outlineTab} from './outline-tab.js';
 import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
@@ -121,6 +121,14 @@ function itemField(view, item) {
   return labelled(item.label ? shown(item.label) : '', field, !item.label);
 }
 
+// The Original wording note: collapsed, the sentences kept from what you typed before the review.
+function noteBox(view, note) {
+  const box = el('details', 'span-all pref-note');
+  box.append(el('summary', '', 'Original wording'));
+  box.append(itemField(view, {...note, label: ''}));
+  return box;
+}
+
 function card(key, body) {
   const group = GROUPS[key] || {title: 'The rest of your Profile', lead: 'Your summary, skills, experience and notes, line by line. The AI reads them with the rest.', icon: 'file-text', folded: true};
   const head = el(group.folded ? 'summary' : 'div', 'qa-section-head pref-head');
@@ -133,6 +141,17 @@ function card(key, body) {
   return box;
 }
 
+// The one "Original wording" note: the phrases the clean values lose, for the accepted fields; added to a note already there, or a new line.
+let noteDraft = null;
+function draftNote(view, fields, note, anchor) {
+  if (noteDraft) view.undo(TEXT, noteDraft);
+  const labels = Object.fromEntries(FIELDS.map(field => [field.key, field.label]));
+  const text = noteText(review.parse, labels, [...handled]);
+  noteDraft = !text ? null : note ? changeFor(note, [note.value, text].filter(Boolean).join('; '))
+    : fieldChange({key: 'original-wording', label: NOTE_LABEL}, null, text, anchor);
+  if (noteDraft) view.change(TEXT, noteDraft);
+}
+
 // One read of the fields' text (cached per text by the main process); the card appears when the AI flags a field as unparsed.
 async function readFields(view, again = false) {
   const {fields} = readProfile(view.items[TEXT] || []);
@@ -143,12 +162,12 @@ async function readFields(view, again = false) {
 }
 
 function draw(view, into) {
-  const {fields, other, rest, anchor} = readProfile(view.items[TEXT] || []);
+  const {fields, other, note, rest, anchor} = readProfile(view.items[TEXT] || []);
   if (!review.asked && window.pilot.preferencesParse) setTimeout(() => readFields(view), 0);
   lastView = view;
   const reviewNode = reviewCard({fields, state: review, handled, redraw: view.redraw,
     apply: (field, item, text) => { if (field.key === 'languages') langs = null; binding(view, field, item, anchor).set(text); },   // the language rows are read again from the new text
-    note: (field, item, old) => view.change(TEXT, {op: anchor ? 'insert' : 'append', ...(anchor ? {after: anchor} : {}), key: `note-${field.key}`, lines: [`Original wording: ${field.label} — ${old}`]})});
+    note: () => draftNote(view, fields, note, anchor)});
   if (reviewNode) into.append(reviewNode);
   for (const key of ['location', 'languages', 'roles', 'pay']) {
     const grid = el('div', 'form-grid cols-2 pref-body');
@@ -160,6 +179,7 @@ function draw(view, into) {
   const others = el('div', 'form-grid cols-2 pref-body');
   if (other.length) for (const item of other) others.append(itemField(view, item));
   else others.append(el('p', 'muted span-all', 'Nothing else yet: rows you add to your Profile\'s Preferences show here.'));
+  if (note) others.append(noteBox(view, note));
   into.append(card('other', others));
   if (rest.length) {
     const lines = el('div', 'form-grid cols-2 pref-body');
@@ -171,7 +191,7 @@ function draw(view, into) {
 export async function loadPreferences() {
   const node = document.getElementById('preferences-body');
   if (!node) return;
-  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); langs = null; handled.clear(); }, words: 'Scores, kits and tailored CVs use them once you save.'}), node};
+  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); langs = null; handled.clear(); noteDraft = null; }, words: 'Scores, kits and tailored CVs use them once you save.'}), node};
   review.asked = false;
   await tab.load();
 }

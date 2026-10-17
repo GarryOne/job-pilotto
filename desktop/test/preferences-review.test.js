@@ -10,10 +10,12 @@ const row = (id, ...cells) => ({id, type: 'table_row', cells});
 const profile = countries => [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 'p3', type: 'table', header: true, rows: [row('q0', 'Constraint', 'Value'),
   row('q1', 'Countries', countries), row('q2', 'Preferred cities', 'Most preferred: Zurich and surroundings. Abroad: Berlin'), row('q3', 'Work mode', 'Hybrid'), row('q4', 'Workload', '80–100%')]}];
 const PARSE = {countries: ['CH', 'DE'], cities: [{name: 'Zurich', country: 'CH'}, {name: 'Berlin', country: 'DE'}], remote: 'unknown', languages: [], relocation: {answer: 'unknown', where: ''},
-  roles: [], seniority: 'unknown', employment: [], unparsed: ['countries', 'cities']};
+  roles: [], seniority: {min: 'unknown', max: 'unknown'}, employment: [],
+  notes: [{field: 'cities', text: 'Anywhere else in Switzerland is fine'}, {field: 'countries', text: 'or remote roles'}], unparsed: ['countries', 'cities']};
 
+let opened = 0;   // a new read has a new key (Keep mine is remembered per key)
 async function open(items, parse, sent = [], asked = []) {
-  globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items, store: 'Notion'}), preferencesParse: async request => { asked.push(request); return {parse, key: 'k1', fresh: true}; },
+  globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items, store: 'Notion'}), preferencesParse: async request => { asked.push(request); return {parse, key: `k${++opened}`, fresh: true}; },
     textEdit: async (name, changes) => { sent.push([name, changes]); return {ok: true, items}; }}, {get: (all, key) => all[key] || (() => null)});
   const node = globalThis.document.createElement('div');
   node.id = 'preferences-body';
@@ -41,7 +43,8 @@ test('the card shows what the AI flagged (old -> proposed); Accept drafts the va
   const [[name, changes]] = sent;
   assert.equal(name, 'profile');
   assert.ok(changes.some(change => change.op === 'cell' && change.id === 'q1' && change.value === 'Switzerland, Germany'), JSON.stringify(changes));
-  assert.ok(changes.some(change => /^Original wording: Countries — Switzerland \(anywhere\), plus Berlin, or remote roles$/.test(change.lines?.[0] || '')), 'nothing lost');
+  const notes = changes.filter(change => /^Original wording:/.test(change.lines?.[0] || ''));
+  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Countries — or remote roles']], 'ONE note line, only the phrase the clean value loses (never the whole old text)');
 });
 
 test('Keep mine drafts nothing and the card drops that field; no card when the AI flagged nothing or is unavailable', async () => {
@@ -75,4 +78,31 @@ test('accepting a Languages proposal redraws the language rows from the clean va
   assert.equal(node.querySelectorAll('.pref-language').length, 3, 'chopped by commas before');
   node.querySelector('[data-field="languages"]').querySelectorAll('button').find(button => button.textContent === 'Accept').click();
   assert.equal(node.querySelectorAll('.pref-language').length, 2);
+});
+
+test('Accept all drafts ONE Original wording line holding only what the clean values lose, and it shows collapsed under Other preferences for any profile', async () => {
+  const sent = [];
+  const items = [{id: 'h', type: 'heading_1', text: 'Targets'}, {id: 'b1', type: 'bulleted_list_item', text: 'Countries: Switzerland (anywhere), plus Berlin, or remote roles'},
+    {id: 'b2', type: 'bulleted_list_item', text: 'Preferred cities: Zurich. Anywhere else in Switzerland is fine.'}];   // "Targets" is no known section
+  const node = await open(items, PARSE, sent);
+  node.querySelector('#preferences-review-accept-all').click();
+  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  const notes = sent[0][1].filter(change => /^Original wording:/.test(change.lines?.[0] || ''));
+  // In the AI's order:
+  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Preferred cities — Anywhere else in Switzerland is fine; Countries — or remote roles']]);
+  // Read back: the saved line is Other preferences' own note, whatever section it was written in, drawn collapsed.
+  const saved = [...items, {id: 'n1', type: 'bulleted_list_item', text: 'Original wording: Countries — or remote roles'}];
+  const again = await open(saved, null);
+  const box = again.querySelectorAll('details.pref-note');
+  assert.equal(box.length, 1);
+  assert.ok(!box[0].open, 'collapsed');
+  let up = box[0]; while (up && !(up.className || '').includes('pref-section')) up = up.parentNode;
+  assert.ok(up.textContent.startsWith('Other preferences') && !up.textContent.includes('The rest of your Profile'), 'under Other preferences, not The rest of your Profile');
+});
+
+test('a seniority range proposes "Senior to Staff or higher"; one level stays one level', async () => {
+  const {proposedTexts} = await import('../renderer/preferences-review-model.js');
+  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'staff'}}).seniority, 'Senior to Staff or higher');
+  assert.equal(proposedTexts({seniority: {min: 'senior', max: 'senior'}}).seniority, 'Senior');
+  assert.equal(proposedTexts({seniority: {min: 'unknown', max: 'unknown'}}).seniority, '');
 });

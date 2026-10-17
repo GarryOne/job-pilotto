@@ -24,19 +24,22 @@ Use only the text given; never add a country, city, language or role from anywhe
 - languages: one entry per language, level as a CEFR code, "native" for mother tongue, "unknown" when not stated; "working language" is not a level. "No French" is not a language.
 - relocation: yes / no / maybe, and where (a short place, "" if none). Home base text is given for context.
 - roles: job titles they want, certainty "sure" or "maybe" (a "?" or ❓ mark means maybe). Titles only, no marks.
-- seniority: junior, mid, senior, staff (staff or higher) or unknown. employment: the kinds of contract they accept.
+- seniority: a range {min, max} of junior, mid, senior, staff (staff or higher) or unknown; "Senior, staff is fine too" is min senior, max staff; one level is min = max.
+- employment: the kinds of contract they accept.
+- notes: the exact short phrases of the typed text whose meaning the clean values above cannot hold ("No French", "Anywhere else in Switzerland is fine"), each with its field key. Never a phrase the values already say, never dates or "Confirmed" marks.
 - unparsed: the keys of the fields whose typed text is NOT already a plain clean list of values (sentences, qualifiers like "or", "plus", "no", "?", dates such as "Confirmed 26 Sep", mixed fields). A field that is already clean is left out.
 A ❓ mark in the text means "not confirmed". Leave a field empty ([] or unknown) when the text does not say.`;
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['countries', 'cities', 'remote', 'languages', 'relocation', 'roles', 'seniority', 'employment', 'unparsed'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['countries', 'cities', 'remote', 'languages', 'relocation', 'roles', 'seniority', 'employment', 'notes', 'unparsed'], properties: {
   countries: {type: 'array', items: {type: 'string'}},
   cities: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['name', 'country'], properties: {name: {type: 'string'}, country: {type: 'string'}}}},
   remote: {type: 'string', enum: ANSWER},
   languages: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['name', 'level'], properties: {name: {type: 'string'}, level: {type: 'string', enum: CEFR}}}},
   relocation: {type: 'object', additionalProperties: false, required: ['answer', 'where'], properties: {answer: {type: 'string', enum: ANSWER}, where: {type: 'string'}}},
   roles: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['title', 'certainty'], properties: {title: {type: 'string'}, certainty: {type: 'string', enum: ['sure', 'maybe']}}}},
-  seniority: {type: 'string', enum: SENIORITY},
+  seniority: {type: 'object', additionalProperties: false, required: ['min', 'max'], properties: {min: {type: 'string', enum: SENIORITY}, max: {type: 'string', enum: SENIORITY}}},
   employment: {type: 'array', items: {type: 'string', enum: EMPLOYMENT}},
+  notes: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['field', 'text'], properties: {field: {type: 'string', enum: KEYS}, text: {type: 'string'}}}},
   unparsed: {type: 'array', items: {type: 'string', enum: KEYS}}}};
 
 const text = (value, max = 80) => (typeof value === 'string' ? value.replace(/[❓?]+/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : null);
@@ -46,6 +49,12 @@ const named = value => { const clean = text(value); if (clean === null || !clean
 const region = code => {
   if (!/^[A-Z]{2}$/.test(code)) throw new Error(`"${String(code).slice(0, 24)}" is not an ISO country code`);
   return code;
+};
+
+const seniorityRange = value => {
+  const min = oneOf(value?.min, SENIORITY), max = oneOf(value?.max, SENIORITY);
+  if (min !== 'unknown' && max !== 'unknown' && SENIORITY.indexOf(min) > SENIORITY.indexOf(max)) throw new Error('seniority min is above max');
+  return {min, max};
 };
 
 // The answer in its fixed shape, or a thrown Error saying what is wrong (it is read back to the model on the second ask).
@@ -59,8 +68,9 @@ export function cleanAnswer(raw) {
     languages: unique(list(raw.languages, each => ({name: named(each?.name), level: oneOf(each?.level, CEFR)})), 'name'),
     relocation: {answer: oneOf(raw.relocation?.answer, ANSWER), where: text(raw.relocation?.where) ?? ''},
     roles: unique(list(raw.roles, role => ({title: named(role?.title), certainty: oneOf(role?.certainty, ['sure', 'maybe'])})), 'title'),
-    seniority: oneOf(raw.seniority, SENIORITY),
+    seniority: seniorityRange(raw.seniority),
     employment: [...new Set(list(raw.employment, kind => oneOf(kind, EMPLOYMENT)))],
+    notes: list(raw.notes, note => ({field: oneOf(note?.field, KEYS), text: named(note?.text)})),
     unparsed: [...new Set(list(raw.unparsed, key => oneOf(key, KEYS)))],
   };
 }

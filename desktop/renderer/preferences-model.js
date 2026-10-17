@@ -39,8 +39,10 @@ export const fieldFor = label => FIELDS.find(field => field.match.test(String(la
 export function readProfile(items) {
   const fields = Object.fromEntries(FIELDS.map(field => [field.key, null]));
   const other = [], rest = [];
-  let known = false, anchor = null;
+  let known = false, anchor = null, note = null;
   const take = (item, label) => {
+    // The one "Original wording" note (preferences-review-model.js) is Other preferences' own, in whichever section it was written.
+    if (/^original wording$/i.test(String(label).trim())) { note ||= {...item, label: 'Original wording'}; return true; }
     const field = fieldFor(label);
     if (field && !fields[field.key]) { fields[field.key] = {...item, label: field.label}; return true; }
     return false;
@@ -72,7 +74,7 @@ export function readProfile(items) {
   };
   walk(items);
   // Headings with nothing of their own left in the rest are not shown there.
-  return {fields, other, rest: rest.filter((entry, i) => !entry.heading || (rest[i + 1] && !rest[i + 1].heading)), anchor};
+  return {fields, other, note, rest: rest.filter((entry, i) => !entry.heading || (rest[i + 1] && !rest[i + 1].heading)), anchor};
 }
 
 // The change that writes a field: its own cell or line, or a new "Label: value" line after the known sections (or at the end of the page).
