@@ -33,6 +33,7 @@ export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows 
   if (!rows) await tidy(storage, {fetcher}).catch(() => {});   // the junk an older fill saved goes first (lib/answers-tidy.js)
   const {shown, hidden, fromDetails, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), facts: await factsOf(storage, fetcher), ai});
   const kept = await keptFormats(storage, shown, ai);
+  if (!rows) await detailsReview.judgeNew(storage, {fetcher, ai}).catch(() => {});   // each save: answers saved since the last load get the AI's word (no new line: no call)
   const details = rows ? [] : await detailsReview.pending(storage, {fetcher}).catch(() => []);
   return {list: [...withFormat(shown, kept), ...details], hidden: withFormat(hidden, kept), fromDetails: fromDetails.length, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }

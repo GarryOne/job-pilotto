@@ -6,6 +6,8 @@ export const keyOf = question => String(question || '').toLowerCase().replace(/[
 
 // The queue items that come from Your details (lib/details-review.js), not from a form: the Profile banner adds them to its own count of the answers page.
 export const detailsIn = list => (list || []).filter(row => row?.details);
+// The answer "Keep as is" on an answer the AI found unclear (lib/details-review.js): never asked again for that value.
+export const KEEP_AS_IS = 'Keep as is';
 
 // A form field's own id where no label was readable ("text-3219", "tel-3519", "question_12"): one token with a digit, no spaces. By shape, no words.
 export const looksLikeFieldId = text => {

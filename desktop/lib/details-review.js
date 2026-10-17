@@ -9,14 +9,16 @@ import {itemsOf, judge, keepUnsure, openConflicts, resolve} from './profile-move
 import * as formats from './question-formats.js';
 import {HOME_NAMES, homeOf, writeHome} from './answer-home.js';
 import {formatFor} from '../renderer/question-kind.js';
-import {keyOf} from '../renderer/question-filter.js';
+import {KEEP_AS_IS, keyOf} from '../renderer/question-filter.js';
 import {needsCheck} from '../renderer/question-values.js';
 import {PARTS, splitNote} from '../renderer/experience-profile-model.js';
+import * as clarity from './answer-clarity.js';
 
 export const PREFIX = 'details:';
-export const KINDS = ['which', 'where', 'check', 'open'];
+export const KINDS = ['which', 'where', 'check', 'open', 'unclear'];
 export const KEEP = 'Keep on the Profile';
-const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: '❓ on your Profile'};
+export {KEEP_AS_IS};   // an unclear answer the person keeps: never asked again for that value
+const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: '❓ on your Profile', unclear: 'Unclear'};
 const PAGES = {profile: 'Profile', answers: 'Application answers'};
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const same = text => plain(text).toLowerCase();
@@ -33,6 +35,8 @@ function ownedElsewhere(outline) {
   }
   return ids;
 }
+// A page's answered lines outside Your details and outside the parts with their own screen: the lines the AI judges and an unclear one is asked from.
+const answered = (outline, page, owned = new Set()) => itemsOf(outline, page).filter(each => !each.home && !owned.has(each.id.slice(page.length + 1)));
 // A ❓ that stands for the answer ("Industries: ❓ to confirm"), not one inside an answer ("SRE; ❓ DevOps?").
 const isAsk = (label, text) => /^❓/.test(plain(text).slice(plain(label).length).replace(/^[\s|:—–-]+/, ''));
 const hintOf = text => plain(text).split('❓').slice(1).join(' ').replace(/^[\s|:—–-]+/, '').replace(/^(to confirm|optional)\b\s*[—:-]?\s*/i, '').trim();
@@ -52,7 +56,8 @@ export async function pending(storage, {fetcher} = {}) {
   const outlines = {profile: await opened.page('profile').outline()};
   const outline = async page => (outlines[page] ||= await opened.page(page).outline());
   const out = [];
-  for (const conflict of await openConflicts(storage, {fetcher}).catch(() => [])) {
+  const conflicts = await openConflicts(storage, {fetcher}).catch(() => []);
+  for (const conflict of conflicts) {
     const values = [...new Map(conflict.choices.map(each => [same(each.value), each.value])).values()];
     out.push(item('which', {topic: conflict.topic}, {question: `${conflict.topic.replace(/^./, letter => letter.toUpperCase())}: which is right?`, format: choice(values),
       hint: conflict.choices.map(each => `${each.value} on your ${PAGES[each.page] || each.page}`).join(' · '), details: {where: HOME_NAMES[conflict.home]}}));
@@ -63,14 +68,26 @@ export async function pending(storage, {fetcher} = {}) {
     out.push(item('where', {page: entry.page, label: entry.label, value: entry.value}, {question: 'Where does this line go?', format: choice([...Object.values(sections.SECTIONS), KEEP]),
       details: {where: PAGES[entry.page] || entry.page, line: entry.label ? `${entry.label}: ${entry.value}` : entry.value}}));
   }
+  const unclear = (line, ref, where, format) => {   // the AI's word on a saved answer (lib/answer-clarity.js): asked when it is not clear
+    const said = clarity.UNCLEAR[clarity.verdictOf(storage, line)];
+    if (said) out.push(item('unclear', ref, {question: line.label || line.value, format, value: line.value, details: {where, source: said, line: `Saved: ${line.value}`}}));
+  };
   for (const [home, lines] of Object.entries(found)) {
     for (const line of lines) {
       const format = formatFor({marked: line.kind ? {kind: line.kind} : null, kept: kept[keyOf(line.label)]});
       if (asked(line.value)) out.push(item('open', {home, label: line.label}, {question: line.label, format, hint: hintOf(line.value), details: {where: HOME_NAMES[home]}}));
       else if (needsCheck(format.kind, line.value)) out.push(item('check', {home, label: line.label, kind: format.kind}, {question: `${line.label}: make it exact`, format, value: line.value, details: {where: HOME_NAMES[home]}}));
+      else unclear(line, {home, label: line.label, value: line.value}, HOME_NAMES[home], format);
     }
   }
   const owned = ownedElsewhere(outlines.profile);
+  const askedAlready = new Set([...conflicts.flatMap(each => each.choices), ...storage.settings().profileUnsure || []].map(clarity.sigOf));
+  for (const page of ['profile', 'answers']) {
+    for (const line of answered(await outline(page), page, owned)) {
+      if (askedAlready.has(clarity.sigOf(line))) continue;   // already asked as Which is right? / Where does this go?
+      unclear(line, {page, label: line.label, value: line.value}, PAGES[page], formatFor({kept: kept[keyOf(line.label)]}));
+    }
+  }
   const asks = itemsOf(outlines.profile, 'profile', {withOpen: true})
     .filter(each => each.open && /\p{L}/u.test(each.label) && !each.label.includes('❓') && !owned.has(each.id.slice('profile:'.length)) && isAsk(each.label, each.key));
   for (const each of asks) {
@@ -120,6 +137,7 @@ export async function answer(storage, key, value, {fetcher, ai = {}, save = sect
     drop();
     return {ok: true, homeName: HOME_NAMES[home]};
   }
+  if (kind === 'unclear') return answerUnclear(storage, ref, text, {fetcher, save});
   if (kind === 'check') return text && !needsCheck(ref.kind || '', text) ? setLine(storage, ref.home, ref.label, text, {fetcher, save}) : {ok: false, error: 'Pick the parts first'};
   if (kind === 'open' && ref.home) return setLine(storage, ref.home, ref.label, text, {fetcher, save});
   if (kind === 'open') {
@@ -136,14 +154,31 @@ export async function answer(storage, key, value, {fetcher, ai = {}, save = sect
   return {ok: false, error: 'That question is no longer open'};
 }
 
-// A Profile moved before "unsure" existed (owner, 18 Oct 2026: "Re-check the lines that stayed, once"): its answered lines outside Your details are
-// judged once more and the unsure ones queued; nothing moves. No AI: tried again later. -> {queued}.
-export async function recheck(storage, {fetcher, ai = {}, now = new Date()} = {}) {
-  const settings = storage.settings();
-  if (!settings.profileMovedAt || settings.profileUnsureAt || !(ai.client || ai.apiKey)) return {queued: 0};
+// An unclear answer: "Keep as is" closes it for that value; a new value replaces it on its line (a section's, or the Profile / answers page's own).
+async function answerUnclear(storage, ref, text, {fetcher, save}) {
+  if (!text) return {ok: false, error: 'Type the answer, or keep it as is'};
+  if (text === KEEP_AS_IS) { clarity.keepAsIs(storage, ref); return {ok: true, homeName: ref.home ? HOME_NAMES[ref.home] : `your ${PAGES[ref.page] || ref.page}`}; }
+  if (ref.home) return setLine(storage, ref.home, ref.label, text, {fetcher, save});
+  const line = await lineOn(storage, ref.page, each => same(each.label) === same(ref.label) && same(each.value) === same(ref.value), {fetcher});
+  if (!line) return {ok: false, error: 'That line changed; nothing was saved'};
+  if (line.table) await line.page.setCell(line.block, 1, text.slice(0, 1900));
+  else await line.page.setText(line.block, ref.label ? `${ref.label}: ${text}` : text);
+  return {ok: true, homeName: `your ${PAGES[ref.page] || ref.page}`};
+}
+
+// The AI's word on each saved answer not judged yet (owner, 18 Oct 2026: "Every answered line, all 3 pages", "Once now + each save"): the Profile, the
+// answers page and Your details; a line is judged once and again only when its value changes (lib/answer-clarity.js). The first pass on a Profile moved
+// before "unsure" existed also queues the lines the AI cannot place (owner: "Re-check the lines that stayed, once"); nothing moves. No AI: tried later.
+// -> {judged, queued, unclear}.
+export async function judgeNew(storage, {fetcher, ai = {}, now = new Date()} = {}) {
+  if (!(ai.client || ai.apiKey)) return {judged: 0, queued: 0, unclear: 0};
   const opened = openStore(storage, {fetcher});
-  const items = [];
-  for (const page of ['profile', 'answers']) items.push(...itemsOf(await opened.page(page).outline(), page).filter(each => !each.home));
-  const judged = await judge(items, ai);
-  return {queued: keepUnsure(storage, items.filter(each => judged.get(each.id)?.home === 'unsure'), now)};
+  const profile = await opened.page('profile').outline(), owned = ownedElsewhere(profile);
+  const lines = [...itemsOf(profile, 'profile').filter(each => !owned.has(each.id.slice('profile:'.length))), ...itemsOf(await opened.page('answers').outline(), 'answers')];
+  const fresh = clarity.unjudged(storage, lines, now);
+  if (!fresh.length) { clarity.record(storage, [], new Map(), {now, present: lines}); return {judged: 0, queued: 0, unclear: 0}; }
+  const settings = storage.settings(), judged = await judge(fresh, ai);
+  clarity.record(storage, fresh, judged, {now, present: lines});
+  const queued = settings.profileMovedAt && !settings.profileUnsureAt ? keepUnsure(storage, fresh.filter(each => !each.home && judged.get(each.id)?.home === 'unsure'), now) : 0;
+  return {judged: fresh.length, queued, unclear: fresh.filter(each => clarity.UNCLEAR[judged.get(each.id)?.clarity]).length};
 }
