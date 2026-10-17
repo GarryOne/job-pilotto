@@ -26,3 +26,14 @@ export async function checkKeyAccepted({engine, key, fetchImpl = fetch}) {
   }
 }
 export const CHECKED_ENGINES = Object.keys(CHECKS);
+
+// The other family's key, on every run (17 Oct 2026: an OpenAI-family run could not show why the Claude calls were refused until the next, 1.5 hours later). It never stops the
+// suite (this suite does not run on it, though its judges may): a refusal is printed as a preflight warning with the API's words; a pass prints one line.
+const KEY_OF = {openai: 'E2E_OPENAI_KEY', api: 'E2E_ANTHROPIC_KEY'};
+export async function checkOtherKeys({engine, env = process.env, log = console.log, fetchImpl = fetch}) {
+  for (const other of CHECKED_ENGINES.filter(name => name !== engine)) {
+    const secret = CHECKS[other].secret;
+    try { await checkKeyAccepted({engine: other, key: env[KEY_OF[other]], fetchImpl}); log(env[KEY_OF[other]] ? `  preflight: ${secret} is accepted${other === 'api' ? ` for ${CLAUDE_MODELS.join(', ')}` : ''}` : `  preflight: no ${secret} here`); }
+    catch (error) { log(`  ⚠ preflight: ${error.message}`); }
+  }
+}
