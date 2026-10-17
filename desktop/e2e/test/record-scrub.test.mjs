@@ -87,3 +87,15 @@ test('the replay sets its fake accounts before the row runs, the recorder names 
   assert.ok(publish.indexOf('scrubRecordDir(into, values)') > 0 && publish.indexOf('scrubRecordDir(into, values)') < publish.indexOf('replayOf(stage, row.name)'));
   assert.match(publish, /leaks\.has\(row\.name\)/);
 });
+
+// 17 Oct 2026: the refill's publish refused every Lever and Recruitee record, "a person's value is left after the scrub (email in body)": the hit was in a font file (Lato-Regular.ttf, served as
+// application/octet-stream), whose random bytes spell "x@hZ.B". A binary the site serves as a font, an image or any media (by its type or its first bytes) has no e-mail address in it to find; a body that
+// is text with a real address in it, whatever type it is served as, still stops the row.
+test('the gate does not read an e-mail address out of the bytes of a font or an image, and still finds one in a body that is text', () => {
+  const noise = 'xx@hZ.B\u0001\u0002 more@nS.mdU';
+  const font = (type, head) => ({url: 'https://cdn.site.example.test/f.ttf', type, body: head + noise});
+  const clean = recordIn([font('application/octet-stream', '\u0000\u0001\u0000\u0000\u0000\u0010'), font('font/ttf', 'abcd'), font('application/octet-stream', 'wOF2\u0000'), {url: 'https://s.example.test/a.png', type: 'application/octet-stream', body: PNG + noise}]);
+  assert.deepEqual(gateRecordDir(clean).filter(hit => hit.in === 'body'), [], 'binary files are not read as addresses');
+  const leaky = recordIn([{url: 'https://site.example.test/blob', type: 'application/octet-stream', body: `{"who":"${ADDRESS}"}`}]);
+  assert.ok(gateRecordDir(leaky).some(hit => hit.in === 'body'), 'an address in a text body served as octet-stream still stops the row');
+});
