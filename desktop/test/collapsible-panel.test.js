@@ -1,7 +1,7 @@
 // The collapsible panel: the whole head bar toggles (not only the chevron); CV check uses it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 
 const read = f => readFileSync(new URL(`../renderer/${f}`, import.meta.url), 'utf8');
 
@@ -16,5 +16,34 @@ test('collapsed keeps only the bar', () => {
   assert.match(read('components.css'), /\.panel\.is-collapsed > :not\(\.panel-top\) \{ display: none/);
 });
 test('every panel that opts in is wired through the shared function', () => {
-  assert.match(read('pages/profile.js'), /collapsiblePanel\(\$\('setting-cvcheck'\)\)/);
+  assert.match(read('pages/profile.js'), /collapsiblePanel\(\$\(id\)/);
+});
+
+// The class (owner, 17 Oct 2026): every chevron fold is a whole bar, never only its small arrow.
+const listing = (dir) => readdirSync(new URL(`../renderer/${dir}`, import.meta.url)).filter(f => f.endsWith('.js')).map(f => `${dir}${f}`.replace(/^\.\//, ''));
+const sources = ['', 'pages/', 'job-drawer/'].flatMap(d => listing(d || './'));
+// Each file that draws a chevron fold, and how its whole bar toggles. A new file with a chevron fails here until it is listed.
+const CHEVRON_FILES = {
+  'components.js': 'collapsiblePanel + toggleOnBar',
+  'pages/application-answers.js': 'toggleOnBar',
+  'pages/activity-mail.js': 'the fold is one full-width button',
+  'interview-insight.js': 'the bar folds, the arrow bubbles',
+  'pages/jobs-fit.js': 'Collapse button, not a fold bar',
+  'pages/jobs-render.js': 'the fit cell opens the breakdown',
+  'pages/session-next-step.js': 'a link line, not a fold',
+  'funnel-view.js': 'a separator arrow, not a fold',
+  'job-drawer/header.js': 'previous / next buttons, not a fold',
+};
+test('every file that draws a chevron is accounted for', () => {
+  const found = sources.filter(f => /(icon|control)\('chevron'/.test(read(f)));
+  assert.deepEqual(found.sort(), Object.keys(CHEVRON_FILES).sort());
+});
+test('rows with their own chevron button toggle on the whole bar, with the pointer cursor', () => {
+  assert.match(read('components.js'), /export function toggleOnBar/);
+  assert.match(read('components.css'), /\.is-bar-toggle \{ cursor: pointer; \}/);
+  assert.match(read('pages/application-answers.js'), /toggleOnBar\(head, toggle\)/);
+  assert.match(read('pages/activity.js'), /toggleOnBar\(document\.querySelector\('#activity-warnings \.ap-warn-head'\)/);
+});
+test('long detail cards start closed, forms stay open', () => {
+  assert.match(read('pages/profile.js'), /'setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'\]\) collapsiblePanel\(\$\(id\), id, \{collapsed: true\}\)/);
 });

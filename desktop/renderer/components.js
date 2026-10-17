@@ -180,13 +180,24 @@ export function setCount(node, value) {
 // Collapsible panel: the whole head bar (.panel-top) of a .panel is the toggle, not only the chevron. Keyboard: Enter / Space.
 // A click on a button, link or field inside the bar (its actions) does not toggle. The choice is remembered per `key`.
 // Collapsed hides everything but the bar (components.css .panel.is-collapsed). Use it for any panel that can get long.
+// `collapsed: true` is the start state until the user has chosen (long detail cards start closed).
 const COLLAPSE_KEY = 'collapsed-panels';
 const savedCollapsed = () => { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {}; } catch { return {}; } };
 export function isInteractiveTarget(target, bar) {
   const hit = target?.closest?.('button, a, input, select, textarea, label');
   return !!hit && bar.contains(hit) && hit !== bar;
 }
-export function collapsiblePanel(panel, key = panel.id) {
+// The same for a bar or row that already has its own chevron button (not a .panel): a click anywhere on `bar` runs `toggle`, except on its other
+// buttons, links and fields; the bar gets the pointer cursor (.is-bar-toggle). The chevron button keeps Enter/Space for the keyboard.
+export function toggleOnBar(bar, toggle) {
+  bar.classList.add('is-bar-toggle');
+  bar.addEventListener('click', event => {
+    const hit = event.target.closest?.('button, a, input, select, textarea, label');
+    if (hit && bar.contains(hit) && hit !== bar && !hit.classList.contains('is-bar-chevron')) return;
+    if (!hit?.classList.contains('is-bar-chevron')) toggle();
+  });
+}
+export function collapsiblePanel(panel, key = panel.id, {collapsed = false} = {}) {
   const bar = panel.querySelector(':scope > .panel-top');
   if (!bar || bar.dataset.collapsible) return null;
   bar.dataset.collapsible = '1';
@@ -207,7 +218,7 @@ export function collapsiblePanel(panel, key = panel.id) {
     event.preventDefault();
     set(!panel.classList.contains('is-collapsed'));
   });
-  set(!!savedCollapsed()[key], {remember: false});
+  set(key in savedCollapsed() ? !!savedCollapsed()[key] : collapsed, {remember: false});
   return {set};
 }
 
