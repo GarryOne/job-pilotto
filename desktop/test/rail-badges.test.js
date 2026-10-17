@@ -1,11 +1,12 @@
-// In the icon rail every nav badge and dot is a small marker inside its 48px button, above the icon, never over it (owner, 17 Oct 2026). Renders the demo app (electron); skipped where it is not installed.
+// In the icon rail every nav badge and dot is a small marker inside its 48px button, above the icon, never over it (owner, 17 Oct 2026). Renders the demo app (electron); skipped in CI (no display) and where electron is not installed.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 import {badgeLabel} from '../renderer/badge-label.js';
 
-const desktop = new URL('..', import.meta.url).pathname;
+const desktop = fileURLToPath(new URL('..', import.meta.url));
 const probe = `JSON.stringify((() => {
   document.querySelector('.app').classList.add('rail');
   const set = (id, text) => { const n = document.getElementById(id); n.hidden = false; n.textContent = text; };
@@ -21,7 +22,7 @@ test('badge counts are capped to fit the rail', () => {
   assert.deepEqual([6, 99, 100, 474].map(badgeLabel), ['6', '99', '99+', '99+']);
 });
 
-test('in the rail, each badge and dot sits inside its button and clear of the icon', { skip: !existsSync(`${desktop}node_modules/.bin/electron`) }, () => {
+test('in the rail, each badge and dot sits inside its button and clear of the icon', {skip: process.env.CI || !existsSync(`${desktop}node_modules/.bin/electron`)}, () => {
   const run = spawnSync('node', ['scripts/shot.mjs', 'jobs', '--no-picture', '--eval', probe], {cwd: desktop, encoding: 'utf8', timeout: 90000});
   const marks = JSON.parse(JSON.parse(run.stdout.trim().split('\n').pop()));
   assert.ok(marks.length >= 6, `badges and dots found: ${marks.length}`);
