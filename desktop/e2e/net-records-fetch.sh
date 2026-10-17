@@ -18,16 +18,20 @@ mkdir -p "$out" "$enc"
 umask 077 && printf '%s' "${NET_RECORD_KEY:-}" | base64 -d > "$key"   # unset in --bundles-only: nothing is decrypted there
 # gh release download with a retry on GitHub's own rate limit (19:06Z, 16 Oct 2026: the read token belongs to the owner's account, so every session's gh calls and every CI fetch drew on one
 # 5,000/h and the PR journeys went red as "no record"). A rate limit waits 20 s then 60 s (NET_RECORDS_RETRY_SLEEP="20 60"), then says RATE LIMITED, never "no record". $1 token (may be empty), rest: gh args.
+# 17 Oct 2026: bursts of PR runs reading the release at once were answered "release not found" (a 404 for the private repo, not a missing release) and the fetch gave up at once, failing "Site replays ·
+# PR / bundles" repo-wide. With a read token, a 404, a 403, a 5xx or a rate-limit wording are all GitHub pushing back: waits 20 s, 60 s, 120 s (NET_RECORDS_RETRY_SLEEP), every answer is kept and shown.
+# $1 token (may be empty), $2 label for the log, rest: gh args. The tokenless fallback (the public repo, which has no such release) is tried once.
 gh_get() {
-  local token="$1" tries=0 pause; shift
-  for pause in ${NET_RECORDS_RETRY_SLEEP:-20 60} stop; do
+  local token="$1" label="$2" pause; shift 2
+  for pause in ${NET_RECORDS_RETRY_SLEEP:-20 60 120} stop; do
     : > "$work/try.err"
     if GH_TOKEN="${token:-${GH_TOKEN:-}}" gh release download net-records "$@" --pattern 'net-records*' --dir "$enc/mac" >/dev/null 2>"$work/try.err"; then return 0; fi
-    cat "$work/try.err" >> "$work/gh.err"
-    grep -qi 'rate limit' "$work/try.err" || return 1
-    touch "$work/rate-limited"
+    echo "$label: $(head -n 1 "$work/try.err" | cut -c1-200)" >> "$work/gh.err"
+    [ -n "$token" ] && grep -qiE 'rate limit|release not found|HTTP (403|404|429|5[0-9][0-9])|abuse|secondary|timed? ?out|temporar' "$work/try.err" || { grep -qi 'rate limit' "$work/try.err" && touch "$work/rate-limited"; return 1; }
+    touch "$work/burst"
+    grep -qi 'rate limit' "$work/try.err" && touch "$work/rate-limited"
     [ "$pause" = stop ] && return 1
-    echo "net-records-fetch: rate limited by GitHub (the token's account hourly limit, shared with every other use of it): retrying in ${pause}s" >&2; sleep "$pause"
+    echo "net-records-fetch: GitHub pushed back on the read ($(head -n 1 "$work/try.err" | cut -c1-120)): retrying in ${pause}s" >&2; sleep "$pause"
   done
   return 1
 }
@@ -35,8 +39,9 @@ mac_records() {   # the run's shared bundles when given (no gh call); else the p
   if [ -n "${NET_RECORDS_BUNDLES:-}" ] && ls "$NET_RECORDS_BUNDLES"/net-records*.k.enc >/dev/null 2>&1; then
     mkdir -p "$enc/mac" && cp "$NET_RECORDS_BUNDLES"/net-records* "$enc/mac/" && { echo "net-records-fetch: Mac records from the run's shared bundles"; return 0; }
   fi
-  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && gh_get "$NET_RECORDS_READ_TOKEN" -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
-  gh_get "" && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
+  echo "net-records-fetch: read token: $([ -n "${NET_RECORDS_READ_TOKEN:-}" ] && echo set || echo EMPTY) (the private repo is read with it; without it only this repo's own release is tried)" >&2
+  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && gh_get "$NET_RECORDS_READ_TOKEN" "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
+  gh_get "" "${GITHUB_REPOSITORY:-this repo}" && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
   echo "net-records-fetch: no Mac records"; return 1
 }
 # every bundle on the release (records-publish.mjs adds one per publish; the first set is net-records.tgz.enc): each into mac/<bundle> (whereOf reads the mac/ folder), the newest record per row wins
@@ -56,8 +61,9 @@ count="$(find "$out" -name record.json | wc -l | tr -d ' ')"
 echo "net-records-fetch: $count records"
 # Nothing fetched is a failure, never an empty set for a gate to judge (15 Oct 2026: gh failed, its error went to /dev/null and the gate called all 16 pinned rows "worse: no result"). gh's own words are shown.
 if [ "$count" = 0 ]; then
-  [ -e "$work/rate-limited" ] && echo "net-records-fetch: FAILED: RATE LIMITED: GitHub's API limit for the read token's account is used up; the records are there, this is not a missing record (gh said:)" >&2 \
-    || echo "net-records-fetch: FAILED: no record fetched (gh said:)" >&2
-  tail -n 5 "$work/gh.err" >&2 2>/dev/null || true
+  if [ -e "$work/burst" ]; then echo "net-records-fetch: FAILED: BURST-LIMITED: GitHub refused the read after every wait (20/60/120 s); the records are there, this is not a missing record. Every answer, in order (gh said:)" >&2
+  elif [ -z "${NET_RECORDS_READ_TOKEN:-}" ]; then echo "net-records-fetch: FAILED: the read token is EMPTY in this run (the secret was not given), so the private release cannot be seen (gh said:)" >&2
+  else echo "net-records-fetch: FAILED: no record fetched (gh said:)" >&2; fi
+  tail -n 12 "$work/gh.err" >&2 2>/dev/null || true
   exit 1
 fi
