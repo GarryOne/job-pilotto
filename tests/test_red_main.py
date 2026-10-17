@@ -28,7 +28,7 @@ CLASSIFIED = {
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Site replays · all (offline)': 'ignored: scheduled once a day, alerts on a real drop by itself, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/lab-form-filling after the nightly replay, never required',
-    'CI · Journeys (card and panel per step, daily)': 'ignored: scheduled once a day, tells Telegram itself, never required',
+    'CI · Journeys (card and panel per step)': 'ignored: by hand only, tells Telegram itself, never required',
     'CI · Replay refill': 'ignored: by hand, or on main after a prompt change; a failed run sends its own Telegram alert and must never block a push',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',

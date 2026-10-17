@@ -6,10 +6,9 @@
 name: CI · Site replays · all (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
-# When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (at night, 23:47, 01:47, 03:47 Zurich in summer; owner, 15 Oct 2026), started on time by the Worker (worker/src/scheduler.js);
-# GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min each).
+# (Until 17 Oct 2026 it ran 4 times a day, started by the Worker; a scheduled run with nothing changed since the last green replay stopped at once. The `scheduled` input and that check stay for a by-hand run.) Never on a PR (15+ min each).
 # Since 17 Oct 2026 (owner: "Replays stay for debugging only"; the daily check is a LIVE run of one site per multi-step platform, not this): never on a PR, no schedule, no Worker start.
-# By hand (debugging, bisecting), and the nightly beta's gate starts one when its commit has none (tools/nightly-replay-gate.sh).
+# By hand only (debugging, bisecting); the nightly beta no longer waits for it (owner, 17 Oct 2026).
 on:
   workflow_dispatch:
     inputs:
