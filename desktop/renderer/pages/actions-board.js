@@ -32,11 +32,11 @@ export function boardCard() {
 
 // The dialog: the board's search address (typed or pasted), or a site the app knows from its list.
 export function boardDialog() {
-  const dialog = el('dialog', 'save-dialog panel-dialog cv-dialog');
+  const dialog = el('dialog', 'save-dialog panel-dialog cv-dialog board-dialog');
   dialog.id = 'board-dialog';
   const head = el('div', 'dialog-head');
   const lead = el('div', 'cv-head');
-  lead.append(el('h2', '', 'Read this board'), el('p', 'dialog-lead', 'Open the board\'s search results in Chrome, as yourself.'));
+  lead.append(el('h2', '', 'Read this board'));
   const close = el('button', 'ghost icon-btn', '');
   close.id = 'board-close';
   close.setAttribute('aria-label', 'Close');
@@ -44,13 +44,20 @@ export function boardDialog() {
   const tile = el('span', 'dialog-icon');
   tile.append(icon('globe'));
   head.append(tile, lead, close);
+  // One left edge under the head: the subtitle, the labelled field, its helper line and the steps (17 Oct 2026: the subtitle touched the field and sat under the title's text).
+  const subtitle = el('p', 'dialog-lead', 'Open the board\'s search results in Chrome, as yourself.');
+  const label = el('label', '', 'Search results link');
+  label.htmlFor = 'board-url';
   const field = el('input', 'board-url');
   Object.assign(field, {id: 'board-url', type: 'url', placeholder: 'https://… the board\'s search results', autocomplete: 'off'});
   field.setAttribute('list', 'board-known');
   field.setAttribute('aria-label', 'The board\'s address');
   const known = el('datalist', '');
   known.id = 'board-known';
-  const note = el('p', 'muted small', 'The tab opens in your Chrome. Sign in there yourself if it asks, then press Read in the Job Pilotto extension: choose "Filter for my search, then read" or "Read the jobs as they are". Job Pilotto never types your password.');
+  const hint = el('p', 'muted small field-hint', 'The tab opens in your Chrome.');
+  const steps = el('ol', 'board-steps muted small', '');
+  for (const text of ['Sign in yourself if Chrome asks.', 'Press Read in the Job Pilotto extension.', 'Choose "Filter for my search, then read" or "Read the jobs as they are".']) steps.append(el('li', '', text));
+  const never = el('p', 'muted small', 'Job Pilotto never types your password.');
   const message = el('p', 'message', '');
   message.id = 'board-message';
   const cancel = el('button', 'ghost', 'Cancel');
@@ -61,7 +68,7 @@ export function boardDialog() {
   const buttons = el('span', 'inline');
   buttons.append(cancel, start);
   foot.append(el('span', 'muted small', 'You read it; the app keeps the jobs that fit.'), buttons);
-  dialog.append(head, field, known, note, message, foot);
+  dialog.append(head, subtitle, label, field, known, hint, steps, never, message, foot);
   return dialog;
 }
 

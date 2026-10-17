@@ -91,3 +91,15 @@ test('startBoard refuses a tab that is not a board the app opened, and starts on
   assert.equal(store['readmark:3'], '#jp-board-ab12cd34', 'the board mark is kept for the tab');
   delete globalThis.chrome;
 });
+
+// 17 Oct 2026 (owner: "fix UI on this popup. Add more spacing"): one left edge, a labelled field, short steps, and a readable disabled button.
+test('the board dialog has the subtitle under the head, a labelled field, numbered steps and the password line', async () => {
+  const {readFile} = await import('node:fs/promises');
+  const page = await readFile(new URL('../renderer/pages/actions-board.js', import.meta.url), 'utf8');
+  assert.match(page, /label\.htmlFor = 'board-url'/, 'the field has a visible label');
+  assert.match(page, /el\('ol', 'board-steps/, 'the steps are a list');
+  assert.match(page, /never types your password/);
+  assert.match(page, /dialog\.append\(head, subtitle, label, field/, 'the subtitle is not inside the title column');
+  const css = await readFile(new URL('../renderer/style.css', import.meta.url), 'utf8');
+  assert.match(css, /button\.primary:disabled \{ opacity: 1; background: var\(--surface-2\); color: var\(--muted\)/, 'a disabled primary button stays readable (AA)');
+});

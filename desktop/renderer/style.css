@@ -21,6 +21,7 @@ button.secondary { background: var(--surface); color: var(--ink); border-color: 
 button.ghost { background: transparent; color: var(--muted); }
 button.link { background: none; border: 0; padding: 0; color: var(--signal); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
+button.primary:disabled { opacity: 1; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line-strong); }   /* readable grey, not a faded orange (AA ≥ 4.5:1) */
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
 input, select, textarea { width: 100%; accent-color: var(--signal); font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 8px 10px; }
@@ -881,6 +882,11 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .cv-dialog .dialog-head { align-items: flex-start; }
 .cv-dialog .cv-head { flex: 1; min-width: 0; }
 .cv-dialog .cv-head h2 { font-size: var(--fs-2xl); }
+/* Read this board: title row, subtitle, a gap, the labelled field, a helper line and the steps, all on the dialog's left edge. */
+.board-dialog .dialog-lead { margin: var(--sp-3) 0 0; }
+.board-dialog label { margin-top: var(--sp-5); }
+.board-dialog .board-steps { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }
+.board-dialog .board-steps + p { margin: var(--sp-3) 0 0; }
 .cv-file { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); }
 .cv-file-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--ink-2); }
 .cv-file-icon svg { width: 20px; height: 20px; }
