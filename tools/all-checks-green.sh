@@ -9,10 +9,13 @@
 #   tools/all-checks-green.sh <owner/repo> <the PR's head sha> [own run id]      Guard: tests/test_all_checks_green.py
 set -u
 repo="${1:?usage: tools/all-checks-green.sh <owner/repo> <head sha> [own run id]}" sha="${2:?head sha}" own="${3:-${GITHUB_RUN_ID:-}}"
-appear="${APPEAR_S:-90}" wait_min="${WAIT_MIN:-60}" poll="${POLL_S:-20}"
+appear="${APPEAR_S:-60}" wait_min="${WAIT_MIN:-60}" poll="${POLL_S:-10}"
 runs() { gh run list -R "$repo" --commit "$sha" -L 100 --json databaseId,workflowName,status,conclusion,event,createdAt \
   -q ".[] | select(.event == \"pull_request\") | \"\(if (.databaseId | tostring) == \"$own\" then \"own\" else .status end)\t\(.conclusion // \"-\")\t\(.workflowName)\t\(.createdAt // \"\")\"" 2>/dev/null || true; }
-sleep "$appear"
+# The workflows GitHub starts appear within seconds of the push: counted from the commit's FIRST run, not from this job's start (it starts after
+# its own setup and fast checks), so a late gate never sleeps again (owner, 17 Oct 2026: a green PR's gate sat ~2 min on a fixed 90 s sleep).
+epoch() { date -u -d "$1" +%s 2>/dev/null || date -u -j -f %Y-%m-%dT%H:%M:%SZ "$1" +%s 2>/dev/null || echo 0; }
+first_run() { cut -f4 <<<"$1" | grep . | sort | head -n 1; }
 deadline=$(( $(date +%s) + wait_min * 60 ))
 # Another running copy of this gate's own workflow on the same commit (the code run and the description-edit run have separate concurrency groups) is never
 # waited for: each waited for the other until the deadline and both went red (17 Oct 2026, #1192-#1194 held 60 min). The other copy judges the same runs itself.
@@ -20,7 +23,8 @@ waiting() { awk -F'\t' '$1 == "own" { gate = $3 } { s[NR] = $1; w[NR] = $3 } END
 while :; do
   list="$(runs)"
   pending="$(waiting "$list" | grep -c . || true)"
-  [ "$pending" = 0 ] && break
+  first="$(first_run "$list")"; settled=$(( $( [ -n "$first" ] && epoch "$first" || date +%s ) + appear ))
+  [ "$pending" = 0 ] && [ "$(date +%s)" -ge "$settled" ] && break
   if [ "$(date +%s)" -gt "$deadline" ]; then echo "::error::$pending workflow(s) still running after ${wait_min} min:"; waiting "$list"; exit 1; fi
   sleep "$poll"
 done

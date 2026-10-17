@@ -11,7 +11,7 @@ SCRIPT = ROOT / 'tools/all-checks-green.sh'
 
 
 class AllChecksGreen(unittest.TestCase):
-    def run_with(self, polls):
+    def run_with(self, polls, **extra):
         """polls: what each `gh run list` call prints (TAB-separated status, conclusion, workflow), the last repeats."""
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -22,7 +22,7 @@ class AllChecksGreen(unittest.TestCase):
                                     f'last={len(polls) - 1}; [ "$n" -gt "$last" ] && n=$last\n'
                                     'cat "$FAKE/poll$n"\n')
             (tmp / 'gh').chmod(0o755)
-            env = {**os.environ, 'PATH': f'{tmp}{os.pathsep}{os.environ["PATH"]}', 'FAKE': str(tmp), 'APPEAR_S': '0', 'POLL_S': '0', 'WAIT_MIN': '1'}
+            env = {**os.environ, 'PATH': f'{tmp}{os.pathsep}{os.environ["PATH"]}', 'FAKE': str(tmp), 'APPEAR_S': '0', 'POLL_S': '0', 'WAIT_MIN': '1', **extra}
             done = subprocess.run(['bash', str(SCRIPT), 'o/r', 'abcdef1234', '99'], env=env, capture_output=True, text=True, timeout=60)
             return done.returncode, done.stdout
 
@@ -31,6 +31,21 @@ class AllChecksGreen(unittest.TestCase):
                                    'completed\tsuccess\tCI · Tests · python\ncompleted\tsuccess\tCI · Harness tests\n'])
         self.assertEqual(code, 0, out)
         self.assertIn('2 workflow(s)', out)
+
+    def test_the_settle_time_counts_from_the_commits_first_run_not_from_the_gates_start(self):
+        # Owner, 17 Oct 2026: every gate slept a fixed 90 s even when all checks had ended long before.
+        import time
+        started = time.time()
+        old = 'completed\tsuccess\tCI · Tests · python\t2026-10-17T10:00:00Z\nown\t-\tCI · Pull request\t2026-10-17T10:00:05Z\n'
+        code, out = self.run_with([old], APPEAR_S='60')
+        self.assertEqual(code, 0, out)
+        self.assertLess(time.time() - started, 20, 'a commit pushed long ago is judged at once')
+        now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        fresh = f'completed\tsuccess\tCI · Tests · python\t{now}\nown\t-\tCI · Pull request\t{now}\n'
+        started = time.time()
+        code, out = self.run_with([fresh], APPEAR_S='3', POLL_S='1')
+        self.assertEqual(code, 0, out)
+        self.assertGreaterEqual(time.time() - started, 2, 'a fresh push still waits for late workflows to appear')
 
     def test_a_red_cancelled_or_skipped_run(self):
         for conclusion, code_wanted in (('failure', 1), ('cancelled', 1), ('skipped', 0)):
