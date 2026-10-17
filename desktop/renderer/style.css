@@ -2519,6 +2519,10 @@ details.qa-section { margin-top: var(--sp-3); }
 .pref-words { display: flex; flex-direction: column; gap: 2px; }
 .answer-item.pref-section > summary { display: flex; list-style: none; cursor: pointer; }
 .answer-item.pref-section > summary::-webkit-details-marker { display: none; }
+.pref-review-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.pref-review-text h5 { margin: 0 0 var(--sp-1); }
+.pref-review-buttons, .pref-review-actions { display: flex; gap: var(--sp-2); }
+.pref-review-actions { padding: 0 var(--sp-4) var(--sp-4); }
 .pref-chips .chip-list { margin-bottom: var(--sp-2); }
 .pref-chips .chip-list:empty { display: none; }
 .pref-languages { display: grid; gap: var(--sp-2); justify-items: start; }

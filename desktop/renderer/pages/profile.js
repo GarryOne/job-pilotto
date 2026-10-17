@@ -6,7 +6,7 @@ import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
 import {pick} from '../tab-choice.js';
-import {loadPreferences} from './preferences-tab.js';
+import {loadPreferences, reviewPreferences} from './preferences-tab.js';
 import {initExperience, loadExperience} from './experience.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -269,6 +269,7 @@ export async function init() {
   });
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('answers-add').addEventListener('click', addQuestion);
+  $('preferences-review').addEventListener('click', reviewPreferences);
   $('preferences-open-notion').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
