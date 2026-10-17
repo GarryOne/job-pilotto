@@ -2504,6 +2504,9 @@ details.qa-section { margin-top: var(--sp-3); }
 .kn-rules > summary::-webkit-details-marker { display: none; }
 .kn-rules:not([open]) > summary { border-bottom: 0; }
 .kn-rules > summary #rules-add { margin-left: auto; }
+.answer-item.qa-fold > summary { display: flex; list-style: none; cursor: pointer; }
+.qa-fold > summary::-webkit-details-marker { display: none; }
+.qa-fold:not([open]) > summary { border-bottom: 0; }
 .kn-body { padding: var(--sp-2) var(--sp-4) var(--sp-4); }
 .kn-body .data-table { margin-top: 0; }
 .qa-section.is-review { border-color: var(--warn-line); }
