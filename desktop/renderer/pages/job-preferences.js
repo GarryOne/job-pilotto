@@ -156,7 +156,8 @@ function draftNote(view, fields, note, anchor) {
 
 // One read of the fields' text (cached per text by the main process); the card appears when the AI flags a field as unparsed.
 async function readFields(view, again = false) {
-  const fields = drawn(readProfile(view.items[TEXT] || []).fields);
+  const all = readProfile(view.items[TEXT] || []).fields;
+  const fields = {...drawn(all), countries: all.countries};   // Countries are no longer drawn here (Strategy → Locations), but the Workload rule reads them
   review.busy = true; review.asked = true; view.redraw();
   const answer = (await Promise.resolve(window.pilot.preferencesParse({fields: textsOf(fields), again})).catch(error => ({error: error.message}))) || {};
   Object.assign(review, {busy: false, parse: answer.parse || null, key: answer.key || '', error: answer.error && answer.error !== 'no AI' ? answer.error : ''});

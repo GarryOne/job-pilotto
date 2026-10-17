@@ -35,7 +35,7 @@ test('a row\'s side is its section\'s; a sentence is a rule only under Deal-brea
 test('every Preferences field is drawn on a side or edited elsewhere: Goals edits the ones it names', () => {
   for (const field of FIELDS) {
     if (field.side) { assert.ok(SIDES[field.side], field.key); continue; }
-    assert.ok(['goals', 'details'].includes(field.editedIn), `${field.key}: no side and no home`);
+    assert.ok(['goals', 'details', 'locations'].includes(field.editedIn), `${field.key}: no side and no home`);
   }
   // The Profile template's own labels for what Goals edits (docs/notion-profile-template.md).
   for (const label of ['Work mode', 'Minimum seniority', 'Minimum acceptable']) {
@@ -84,8 +84,8 @@ test('"Add a deal-breaker" writes a sentence under Deal-breakers, else a labelle
 });
 
 test('the AI review offers only the fields the card draws, even when it read work mode, seniority and languages', async () => {
-  const parse = {countries: ['CH', 'DE'], cities: [], remote: 'yes', languages: [{name: 'English', level: 'Fluent'}], relocation: {answer: 'unknown', where: ''}, roles: [],
-    seniority: {min: 'senior', max: 'senior', open_ended: false}, employment: [], notes: [], unparsed: ['countries', 'mode', 'languages', 'seniority']};
+  const parse = {countries: ['CH', 'DE'], cities: [], remote: 'yes', languages: [{name: 'English', level: 'Fluent'}], relocation: {answer: 'unknown', where: ''}, roles: [{title: 'Site reliability engineer', certainty: 'sure'}],
+    seniority: {min: 'senior', max: 'senior', open_ended: false}, employment: [], notes: [], unparsed: ['countries', 'mode', 'languages', 'seniority', 'roles']};
   globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items: TEMPLATE, store: 'Notion'}), preferencesParse: async () => ({parse, key: 'k-drawn'})},
     {get: (all, key) => all[key] || (() => null)});
   const node = globalThis.document.createElement('div');

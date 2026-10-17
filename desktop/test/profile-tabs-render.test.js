@@ -85,7 +85,7 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
   }
 }
 
-test('Job preferences: a country removed writes only its own cell, on the Notion shape', async () => {
+test('Job preferences: a workload typed writes only its own cell, on the Notion shape; Countries are Locations\' (Strategy), not drawn here', async () => {
   const sent = [];
   globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items: NOTION.profile, store: 'Notion'}),
     textEdit: async (name, changes) => { sent.push([name, changes]); return {ok: true, items: NOTION.profile}; }}, {get: (all, key) => all[key] || (() => null)});
@@ -93,7 +93,10 @@ test('Job preferences: a country removed writes only its own cell, on the Notion
   node.id = 'preferences-body';
   body.replaceChildren(node);
   await (await import('../renderer/pages/job-preferences.js')).loadPreferences();
-  node.querySelectorAll('.chip .x').find(button => button.ariaLabel === 'Remove Germany').click();
+  assert.equal(node.querySelectorAll('.chip .x').filter(button => button.ariaLabel === 'Remove Germany').length, 0, 'no Countries chips here');
+  const minimum = node.querySelectorAll('input').find(input => input.ariaLabel === 'Workload (minimum %)');
+  minimum.value = '60';
+  minimum.listeners.input[0]();
   await node.querySelector('#outline-save-preferences').listeners.click[0]();
-  assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q1', index: 1, value: 'Switzerland', was: 'Switzerland, Germany'}]]]);
+  assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q4', index: 1, value: '60%', was: '❓ full-time or a percentage'}]]]);
 });

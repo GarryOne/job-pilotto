@@ -7,7 +7,7 @@ import re
 import sys
 
 from . import digest, levels
-from .ai import score
+from .ai import locations, score
 from .desktop_jobs import stage_status
 
 
@@ -18,7 +18,6 @@ COMPONENTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensa
 def _previous_locations(db, stage_map):
     """How many ACTIVE jobs were scored with other places than the ones set now (src/ai/locations.py); 0 when it cannot be told."""
     try:
-        from .ai import locations
         return len(set(locations.previous(score.load(db), locations.current())) & locations.active_ids(db, stage_map))
     except Exception:  # noqa: BLE001
         return 0
@@ -183,7 +182,7 @@ def strategy(db, tracker=None, stores=None):
         'lists': {name: [{'fragment': str(item), 'label': _readable(item), **({'kind': role_kinds.kind_of(_readable(item))} if name == 'roles' else {})}
                          for item in items or [] if _readable(item)]
                   for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
-                                      ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
+                                      ('country', places.get('country_wide')), ('abroad', places.get('abroad')), ('searchOverride', places.get('search_override')),
                                       ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')),
                                       ('remoteSkip', search.get('remote_excluded_regions')), ('titleSkip', search.get('title_exclude_keywords')), ('finders', search.get('board_discovery_keywords')))},
         # Plain lists, shown as written: board search phrases and the languages that hide a job.
@@ -196,6 +195,7 @@ def strategy(db, tracker=None, stores=None):
                               if isinstance(p, dict) and p.get('location')]},
         'digest_min_score': prefs.get('digest_min_score'),
         'remote_jobs': feeds_remote_wanted(search),
+        'relocation': locations.places(search)['relocation'],   # Yes / No / Not specified are all answers (Locations, 17 Oct 2026)
         'goals': goals,
         'details': details,   # Your details' facts, shown read-only ("Edit in Your details")
         'level': levels.level_of(search.get('level')),

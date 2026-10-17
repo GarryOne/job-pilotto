@@ -148,8 +148,12 @@ function paletteCommands() {
     () => openQuestionReview());
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.
-  add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries countries relocation workload',
+  add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries workload',
     () => { openView('strategy'); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); });
+  // Strategy → Locations (pages/locations-card.js): preferred, acceptable, relocation, remote work; the reset only while a search-only list is active.
+  const locationsCard = () => { openView('strategy'); setTimeout(() => document.querySelector('#strategy-targets [data-list="places"]')?.scrollIntoView({block: 'start'}), 300); };
+  add('Strategy', 'Locations', 'Preferred and acceptable places, relocation, remote work', 'locations places cities countries relocation remote preferred acceptable search coverage', locationsCard);
+  if (shared.coverageActive) add('Strategy', 'Reset search coverage', 'Searches use your preferences again', 'reset search coverage override custom locations places', locationsCard);
   if (shared.locationsOpen) add('Strategy', 'Which locations are right?', 'Your search settings and Profile named different places', 'locations places conflict which right preferred acceptable relocation cities countries',
     () => { openView('strategy'); setTimeout(() => $('strategy-locations-which')?.scrollIntoView({block: 'start'}), 300); });
   button('strategy', 'preferences-review', 'job preferences review clean values ai');
