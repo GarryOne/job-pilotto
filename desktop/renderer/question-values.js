@@ -48,3 +48,23 @@ export const joinRange = ({from = '', to = ''} = {}) => (String(from).trim() && 
 
 // Only a web address; "javascript:" and the like are never a link.
 export const isLink = text => /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(String(text ?? '').trim());
+
+// The saved text of a kind in its own wording, or '' when the code cannot read it (the line then stays as written, with its mark and a "Check").
+export function canonical(kind, value) {
+  const text = String(value ?? '').trim();
+  if (kind === 'salary') return joinSalary(splitSalary(text));
+  if (kind === 'duration') return joinDuration(splitDuration(text));
+  if (kind === 'per_country') return joinPermit(splitPermit(text));
+  if (kind === 'range') return joinRange(splitRange(text));
+  if (kind === 'language') return LEVELS.find(level => level.toLowerCase() === text.toLowerCase()) || '';
+  return kind === 'link' && isLink(text) ? text : '';
+}
+
+// An AI-written canonical text keeps the original's meaning: the same numbers (no more, no fewer), and a language level the original names.
+const numbersOf = text => (String(text).match(/\d[\d'’,.]*\d|\d/g) || []).map(each => each.replace(/\D/g, '')).sort().join('|');
+export function faithful(kind, original, text) {
+  if (!canonical(kind, text)) return false;
+  if (kind === 'salary' || kind === 'duration' || kind === 'range') return numbersOf(original) === numbersOf(text);
+  if (kind === 'language') return String(original).toLowerCase().includes(String(text).toLowerCase());
+  return String(original).trim() === String(text).trim();
+}

@@ -4,34 +4,46 @@
 import * as sections from './profile-sections.js';
 import {move, resolve} from './profile-move.js';
 import {claudeAi} from './question-ai.js';
+import * as kinds from './details-kinds.js';
 import {list} from './set-aside.js';
 
 // Demo mode: fictional lines (the screenshots), one "Which is right?".
-const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Work permit', value: 'Swiss B permit'}, {label: 'Need visa sponsorship?', value: 'No'}],
-  availability: [{label: 'Salary expectation', value: 'CHF 140,000 a year'}], languages: [{label: 'Languages I can work in', value: 'English (native), German (B1), Spanish (native)'}]};
+const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Switzerland', value: 'allowed, B permit', kind: 'per_country'}, {label: 'United States', value: 'needs visa', kind: 'per_country'}],
+  availability: [{label: 'Notice period', value: '1 month, ends at month-end', kind: 'duration'}, {label: 'Salary expectation, Switzerland', value: '140000 CHF/year gross', kind: 'salary'}, {label: 'Salary expectation, UK', value: 'GBP 100k a year', kind: 'salary'}],
+  languages: [{label: 'English', value: 'native', kind: 'language'}, {label: 'German', value: 'B1', kind: 'language'}]};
 const DEMO_WHICH = [{home: 'availability', topic: 'notice period', choices: [{label: 'Notice period', value: '2 months', page: 'profile'}, {label: 'Notice period / earliest start', value: '3 months', page: 'answers'}]}];
 const empty = () => Object.fromEntries(Object.keys(sections.SECTIONS).map(key => [key, []]));
 
-export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected, needsNotion, log}) {
+// ai/copy: a test passes its own.
+export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected, needsNotion, log, ai = () => claudeAi(storage), copy}) {
+  const tidied = () => { const done = storage.settings().detailsTidy; return done && !done.undone ? {changed: done.changed, at: done.at} : null; };
   ipcMain.handle('detailsFacts', async () => {
     if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
     if (!connected()) return {ok: true, sections: empty(), conflicts: [], setAside: []};
     let error = '';
     if (!storage.settings().profileMovedAt) {
       try {
-        const {moved, conflicts} = await move(storage, {ai: claudeAi(storage)});
+        const {moved, conflicts} = await move(storage, {ai: ai()});
         log('profile', 'facts moved into Your details', {moved, conflicts: conflicts.length});   // counts, never a value
       } catch (failed) { error = failed.message; log('profile', 'the facts move stopped', {error: failed.message}); }
     }
     try {
-      return {ok: !error, error, sections: await sections.read(storage), conflicts: storage.settings().profileConflicts || [], setAside: list(storage).filter(each => each.source === 'profile')};
+      const tidy = await kinds.tidy(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the kinds tidy stopped', {error: failed.message}); return {changed: 0}; });
+      if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
+      const found = await sections.read(storage);
+      return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: storage.settings().profileConflicts || [], setAside: list(storage).filter(each => each.source === 'profile')};
     } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
+  });
+  ipcMain.handle('undoDetailsTidy', async () => {
+    if (DEMO) return {ok: true};
+    const gate = needsNotion('profile');
+    return gate || kinds.undo(storage).catch(failed => ({ok: false, error: failed.message}));
   });
   ipcMain.handle('saveDetailsFacts', async (_, facts) => {
     const gate = needsNotion('profile');
     if (gate) return gate;
     try {
-      for (const key of Object.keys(sections.SECTIONS)) if (Array.isArray(facts?.[key])) await sections.save(storage, key, facts[key].map(line => ({label: String(line?.label || ''), value: String(line?.value || '')})));
+      for (const key of Object.keys(sections.SECTIONS)) if (Array.isArray(facts?.[key])) await sections.save(storage, key, facts[key].map(line => ({label: String(line?.label || ''), value: String(line?.value || ''), ...(kinds.COMPOSITE_KINDS.includes(line?.kind) ? {kind: line.kind} : {})})));
       return {ok: true};
     } catch (error) { return {ok: false, error: error.message}; }
   });
