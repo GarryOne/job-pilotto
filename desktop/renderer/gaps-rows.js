@@ -1,11 +1,11 @@
 // The Profile's Possible CV gaps as one chip per gap with ✓ (I have this skill) and ✕ (not a gap) (owner, 17 Oct 2026, review M7), in Settings → Profile → Experience. A ✓ makes it a confirmed
 // skill the CV and the fill read as one; a ✕ folds it away so it is not asked again; a chip you already answered can be put back. Lines of the part are the model's (gaps-model.js).
-// Drawn from the shared parts (.tags, .tag, link buttons); no CSS of its own beyond question-review.css. Guarded by test/gaps-rows.test.js.
-import {el} from './components.js';
+// Drawn from the shared chip() and link buttons; question-review.css only lays the rows out. Guarded by test/gaps-rows.test.js.
+import {chip as valueChip, el} from './components.js';
 import {readLines} from './gaps-model.js';
 
 const button = (label, aria, onClick) => {
-  const node = Object.assign(el('button', 'link', label), {type: 'button'});
+  const node = Object.assign(el('button', 'x link', label), {type: 'button'});
   node.setAttribute('aria-label', aria);
   node.addEventListener('click', event => { event.preventDefault(); onClick(); });
   return node;
@@ -14,12 +14,11 @@ const button = (label, aria, onClick) => {
 // part: {lines}; onPress(item, state): the person pressed ✓ (skill), ✕ (dropped) or put one back (check).
 export function gapsBody(part, onPress, {tidied = null, onUndo = null} = {}) {
   const box = el('div', 'exp-part-body gap-rows'), read = readLines(part?.lines || []);
-  const chip = item => {
-    const row = el('span', `gap-chip is-${item.state}`);
+  const chip = item => {   // the shared chip(); its ✓ / ✕ (or Undo) sit inside it as the shared .x buttons
+    const row = valueChip(item.item, {detail: item.state === 'check' ? '' : item.state === 'skill' ? 'confirmed' : 'not a gap'});
     row.dataset.gap = item.item;
-    row.append(el('span', 'gap-name', item.item));
     if (item.state === 'check') row.append(button('✓', `${item.item}: I have this skill`, () => onPress(item, 'skill')), button('✕', `${item.item}: not a gap`, () => onPress(item, 'dropped')));
-    else row.append(el('span', 'muted small', item.state === 'skill' ? 'confirmed' : 'not a gap'), button('Undo', `${item.item}: put back`, () => onPress(item, 'check')));
+    else row.append(button('Undo', `${item.item}: put back`, () => onPress(item, 'check')));
     return row;
   };
   const by = state => read.items.filter(item => item.state === state);
