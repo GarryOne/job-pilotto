@@ -53,5 +53,29 @@ export async function save(storage, contact, fetcher) {
   const headingId = heading?.id || await page.appendHeading(HEADING);
   const fresh = Object.entries(LABELS).filter(([key]) => clean[key]).map(([key, label]) => `${label}: ${clean[key]}`);
   if (fresh.length) await page.insertAfter(headingId, fresh);
+  await moveOldLines(page, clean);
   return clean;
+}
+
+// Profiles written before 📇 kept these lines under "Contact" and "Links": once 📇 holds a line's value, that line goes (a move, never a copy; the owner's
+// Profile had Name, Email, Phone, LinkedIn and GitHub twice, 18 Oct 2026). A label with no field here (Medium, Stack Overflow) or another value stays; an
+// old heading left with nothing under it goes too, one with sections under it stays. Guarded by test/contact-old-copies.test.js.
+const OLD_HEADING = /^(📇\s*)?(contact|links)$/i;
+const keyOf = label => KEY_BY_LABEL[label] || (label === 'name' ? 'full_name' : null);
+const sameText = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+const level = block => Number(block?.type.match(/^heading_(\d)/)?.[1] || 0);
+async function moveOldLines(page, saved) {
+  const blocks = await page.blocks();
+  const doomed = new Set();
+  let heading = null, left = 0;
+  const close = next => { if (heading && !left && (!next || level(next) <= level(heading))) doomed.add(heading); };
+  for (const block of blocks) {
+    if (block.type.startsWith('heading')) { close(block); heading = OLD_HEADING.test(block.text.trim()) ? block : null; left = 0; continue; }
+    if (!heading) continue;
+    const [label, ...rest] = block.text.split(':');
+    const key = keyOf(sameText(label));
+    if (key && saved[key] && sameText(rest.join(':')) === sameText(saved[key])) doomed.add(block); else left++;
+  }
+  close(null);
+  for (const block of blocks.filter(each => doomed.has(each)).reverse()) await page.remove(block);   // last first: this Mac's ids are line numbers
 }

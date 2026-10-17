@@ -1,12 +1,13 @@
 // A tiny in-memory Notion page for tests: its blocks (bullets, headings and tables) and a fetcher for notion.js calls
 // (list children — a table's rows too —, append — optionally after a block —, update a block's text or a row's cells, delete a block).
-// A line is a bullet, "## heading", or {table: [[cell, …], …], header: true} (16 Oct 2026: tables, for the Profile tabs' cell edits).
+// A line is a bullet, "# / ## / ### heading", or {table: [[cell, …], …], header: true} (16 Oct 2026: tables, for the Profile tabs' cell edits).
 // prefix: block ids start with it, so two fakes (a Profile and an answers page) can sit behind one fetcher without their ids meeting.
 export function fakeNotion(lines = [], {prefix = ''} = {}) {
   let next = 1;
   const make = (type, text) => ({id: `${prefix}b${next++}`, type, text});
   const table = ({table: rows, header = true}) => ({id: `${prefix}t${next++}`, type: 'table', header, rows: rows.map(cells => ({id: `${prefix}r${next++}`, cells: [...cells]}))});
-  const blocks = lines.map(line => (typeof line === 'object' ? table(line) : line.startsWith('## ') ? make('heading_2', line.slice(3)) : make('bulleted_list_item', line)));
+  const heading = line => line.match(/^(#{1,3}) (.*)$/);   // "# ", "## ", "### ": heading_1..3 (18 Oct 2026: an old Profile's "# Contact" over "## …" sections)
+  const blocks = lines.map(line => (typeof line === 'object' ? table(line) : heading(line) ? make(`heading_${heading(line)[1].length}`, heading(line)[2]) : make('bulleted_list_item', line)));
   const rich = text => ({rich_text: [{plain_text: text, text: {content: text}}]});
   const cellsOf = row => row.cells.map(text => [{plain_text: text, text: {content: text}}]);
   const asBlock = b => (b.type === 'table' ? {id: b.id, type: 'table', table: {has_column_header: b.header, table_width: b.rows[0]?.cells.length || 2}, has_children: true}
