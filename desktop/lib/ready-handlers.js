@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import * as pipeline from './pipeline.js';
 import {extensionStore} from './store/extension-store.js';
 import {me} from './server-contact.js';
+import * as viewCache from './view-cache.js';
 import {buildBatch, pickToSend, withOwnAi} from './ready-batch.js';
 import {settingsOf} from './ready.js';
 import * as site from './ready-site.js';
@@ -19,6 +20,8 @@ async function facts(storage) {
 export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}}) {
   const settings = () => settingsOf(storage.settings().ready);
   const jobs = async () => (await pipeline.jobs(storage)).jobs;
+  const cached = () => viewCache.recall(storage, 'jobs')?.result?.jobs || [];   // the last good list: the card never waits for a job read to say "owner" and show the night's rows
+  const tonightOf = (all, mine) => ({tonight: pickToSend(all, mine).map(job => ({code: job.code, title: job.title, company: job.company, fit: job.fit})), names: Object.fromEntries(all.map(job => [job.code, `${job.title} · ${job.company}`]))});
   const build = async list => buildBatch(list, {store: extensionStore(storage), me: url => me(storage, url), facts: () => facts(storage), ...deps});
   // A form you marked "I submitted it" on the page: your word, so the job becomes Applied here and its data is deleted from the server.
   const settleSubmitted = async (rows, all) => {
@@ -39,11 +42,13 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   ipcMain.handle('readyState', async () => {
     if (process.env.JOB_PILOTTO_DEMO) { try { return JSON.parse(fs.readFileSync(storage.path('ready.json'), 'utf8')); } catch { return {owner: false}; } }   // the demo's fictional night (desktop/demo/ready.json)
     if (!(await site.owner(storage))) return {owner: false};
-    const mine = settings(), all = await jobs(), tonight = pickToSend(all, mine), rows = await site.rows(storage);
-    await settleSubmitted(rows, all);
+    const mine = settings(), rows = await site.rows(storage);
+    if ((rows.jobs || []).some(each => each.submitted_at && !each.cleared_at)) await settleSubmitted(rows, await jobs());   // only then the list is read
     tellMorning(rows);
-    return {owner: true, settings: mine, tonight: tonight.map(job => ({code: job.code, title: job.title, company: job.company, fit: job.fit})), names: Object.fromEntries(all.map(job => [job.code, `${job.title} · ${job.company}`])), site: rows};
+    return {owner: true, settings: mine, ...tonightOf(cached(), mine), site: rows};
   });
+  // What tonight would send, from a fresh job read (joins one already running): the card asks after it has painted.
+  ipcMain.handle('readyTonight', async () => { try { return {ok: true, ...tonightOf(await jobs(), settings())}; } catch { return {ok: false}; } });
   ipcMain.handle('readySend', async () => {
     const mine = settings(), {batch, skipped} = await build(pickToSend(await jobs(), mine));
     if (!batch.jobs.length) return {ok: false, error: 'No job has its kit, CV and cover letter ready yet.', skipped};
