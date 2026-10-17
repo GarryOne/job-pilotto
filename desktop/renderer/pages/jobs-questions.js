@@ -17,7 +17,16 @@ $('questions-retry')?.addEventListener('click', () => { questionsShown = ''; loa
 // It is read again at the first load, after 10 minutes, and at once when something changed it: Retry, an answer, a fill that added questions (`onMoved`, from lib/server.js).
 const QUESTIONS_FRESH_MS = 10 * 60 * 1000;
 let questionsReadAt = 0;
-export async function loadQuestions({force = false} = {}) {
+// One read at a time: the Jobs card and the drawer asking together share the store's answer (17 Oct 2026: both started the ~50-call walk).
+let reading = null;
+export function loadQuestions({force = false} = {}) {
+  if (reading && !force) return reading;
+  const after = reading || Promise.resolve();   // a forced read (an answer was saved) starts after the one under way, which may have missed it
+  const job = after.then(() => readQuestions({force})).finally(() => { if (reading === job) reading = null; });
+  reading = job;
+  return job;
+}
+async function readQuestions({force}) {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(QUESTIONS_CACHE) || 'null'); } catch {}
   if (!questionsShown) {
