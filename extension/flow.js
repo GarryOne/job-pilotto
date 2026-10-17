@@ -205,7 +205,7 @@ async function openQuestions(tab, form, kitAnswers, me, config) {
     !PERSONAL.test(f.field)).map(({field, label, type, required, options, multiple}) => ({field, label, type, required, options, ...(multiple ? {multiple} : {})}));
   return {fromKit, open};
 }
-// Claude's answers for a fill, or the news that they were dropped: api() gives null when the tab had left the page the answer was asked for (read-gen.js), and the fill went on to read
+// Claude's answers for a fill, or the news that they were dropped: the app call gives null when the tab had left the page the answer was asked for (read-gen.js), and the fill went on to read
 // null.answers (beta 17 Oct 2026, "Cannot read properties of null (reading 'answers')" shown as "Claude did not answer"). A dropped answer is no error of the fill: the next read of the page asks again.
 export function answersOrDropped(ai) {
   if (!ai) throw Object.assign(new Error('the tab left this page before Claude answered'), {dropped: true});
