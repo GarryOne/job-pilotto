@@ -5,6 +5,7 @@ import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
+import {pick} from '../tab-choice.js';
 import {loadPreferences} from './preferences-tab.js';
 import {initExperience, loadExperience} from './experience.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
@@ -24,7 +25,8 @@ import {clearProposals, contactDirty, loadProposals} from './contact-proposals.j
 import {showNotify} from './notify-settings.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Experience, Preferences, Application answers, Cover letter) ----------
-export function profileTab(name) {
+export function profileTab(name, {byDefault = false} = {}) {
+  if (!byDefault) pick();   // a person's pick (or a deep link) wins over a default that arrives late (tab-choice.js)
   if (name === 'knowledge') name = 'answers';   // Form knowledge is a section of Application answers since 16 Oct 2026 (owner)
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.profileTab === name));
   document.querySelectorAll('[data-profile-panel]').forEach(panel => {
