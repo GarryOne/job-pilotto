@@ -187,6 +187,7 @@
   "replay-ratchet.test.mjs",
   "replay-records.test.mjs",
   "replay-select.test.mjs",
+  "replay-slow.test.mjs",
   "replay-shard.test.mjs",
   "replay-time.test.mjs",
   "replay-truth-page.test.mjs",
