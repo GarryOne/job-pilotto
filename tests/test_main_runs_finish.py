@@ -12,6 +12,7 @@ EXCEPTIONS = {
     'site.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
     'site-next.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
     'worker.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
+    'release-ready-runner.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
 }
 
 
