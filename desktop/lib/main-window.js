@@ -11,7 +11,7 @@ import {watchWindow} from './window-log.js';
 // The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Job Pilotto and Chrome fit side by side (owner, 9 Oct 2026).
 export const MIN_WIDTH = 640;
 export function createMainWindow(ctx) {
-  const {BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow, setWindow} = ctx;
+  const {BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow, setWindow, getZoom = () => null} = ctx;
   const win = {get window() { return getWindow(); }, set window(value) { setWindow(value); }};   // main.js owns the window: read and set through it
   // Notion inside the app: its own window (Notion refuses to be shown in an iframe). The session is kept
   // (partition persist:notion), so the user signs in to Notion once; links to other sites open in the browser.
@@ -58,6 +58,7 @@ export function createMainWindow(ctx) {
     const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
     win.window.loadFile(path.join(here, 'renderer', page));
     // Closed on the Mac, the app keeps running: forget the destroyed window so nothing calls into it.
+    win.window.webContents.on('did-finish-load', () => getZoom()?.apply());   // the saved size (lib/zoom-handlers.js), after every load and ⌘R
     const opened = win.window;
     opened.on('closed', () => { appLog('window', 'main: closed'); if (win.window === opened) win.window = null; });
     // Smoke test of the in-app terminal (JOB_PILOTTO_PTY_SMOKE=<file>): a real pseudo-terminal runs a shell command;

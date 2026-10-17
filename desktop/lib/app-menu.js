@@ -5,7 +5,7 @@
 // (⇧⌘G): find(what) tells the window ('open' | 'next' | 'previous'; renderer/pages/find.js).
 export const CHANNEL_LABELS = {stable: 'Stable', beta: 'Beta', test: 'Test Builds (unchecked)'};
 
-export function template({name, mac, checkForUpdates, sendFeedback = () => {}, find = () => {}, channel = 'stable', pickChannel = null}) {
+export function template({name, mac, checkForUpdates, sendFeedback = () => {}, find = () => {}, channel = 'stable', pickChannel = null, zoom = null}) {
   const feedback = {label: 'Send Feedback…', click: sendFeedback};
   const channels = pickChannel ? [{label: 'Update Channel', submenu: Object.entries(CHANNEL_LABELS).map(([id, label]) =>
     ({label, type: 'radio', checked: id === channel, click: () => pickChannel(id)}))}] : [];
@@ -19,10 +19,16 @@ export function template({name, mac, checkForUpdates, sendFeedback = () => {}, f
       {label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => find('open')},
       {label: 'Find Next', accelerator: 'CmdOrCtrl+G', click: () => find('next')},
       {label: 'Find Previous', accelerator: 'Shift+CmdOrCtrl+G', click: () => find('previous')}]},
-    {role: 'viewMenu'}, {role: 'windowMenu'},
+    zoom ? view(zoom) : {role: 'viewMenu'}, {role: 'windowMenu'},
     {role: 'help', submenu: mac ? [feedback] : [feedback, ...check]},
   ];
 }
+
+// View, as Electron's own but with the zoom keys kept in the app's settings (lib/zoom-handlers.js), so the size comes back after a restart.
+const view = zoom => ({label: 'View', submenu: [{role: 'reload'}, {role: 'forceReload'}, {role: 'toggleDevTools'}, {type: 'separator'},
+  {label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => zoom.reset()},
+  {label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', click: () => zoom.zoomIn()},
+  {label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => zoom.zoomOut()}, {type: 'separator'}, {role: 'togglefullscreen'}]});
 
 // What "Check for Updates…" answers: {message, detail, buttons, install?}.
 export function answer(result, current) {

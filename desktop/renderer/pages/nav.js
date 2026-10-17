@@ -21,24 +21,9 @@ import {ENGINE_CHOICES} from '../ai-engine-view.js';
 import {loadStrategy} from './strategy.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
-import * as reveal from '../menu-reveal.js';
+import {navOf} from '../menu-reveal.js';
+import {initMenu, refreshMenu} from './menu.js';
 
-// ---------- the menu: Interviews and Reports appear when they have something (renderer/menu-reveal.js) ----------
-let menu = reveal.load(window.localStorage);
-// Signals from what the app already holds: an application exists (or an interview is booked), a weekly report was made.
-const menuSignals = () => ({
-  applied: (shared.allJobs || []).some(job => job.status === 'applied' || job.next_interview),
-  weeklyReport: (Array.isArray(lastActivity) ? lastActivity : lastActivity?.runs || []).some(run => run?.kind === 'weekly' && !/fail/i.test(run.status || '')),
-});
-export function refreshMenu(opened = null) {
-  menu = reveal.nextState(menu, menuSignals(), opened);
-  reveal.save(window.localStorage, menu);
-  for (const name of Object.keys(reveal.PROGRESSIVE)) {
-    const {shown, dot} = reveal.looks(menu, name);
-    $(`nav-${name}`).hidden = !shown;
-    $(`nav-${name}`).querySelector('.nav-dot').hidden = !dot;
-  }
-}
 // ---------- app ----------
 // The page (and Settings section) open now, kept for a reload (⌘R): the app comes back where it was.
 // sessionStorage: survives a reload of this window, not a restart of the app (that opens Focus as before).
@@ -67,7 +52,7 @@ export function openView(name, {fromHistory = false} = {}) {
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   if (name === 'actions') prepareActions();   // its banner and result card are in the first frame, not a moment later above the tasks (#286)
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
-  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === reveal.navOf(name)));   // Calendar lights Interviews
+  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === navOf(name)));   // Calendar lights Interviews
   refreshMenu(name);   // a page opened any way (⌘K too) is in the menu from then on
   // Notion later: a page that needs Notion shows only its gate card until it is connected (pages/notion-connect.js); connecting reopens it.
   // Focus without Notion shows its Get started list instead (pages/focus.js showFocusStarted): a fresh setup can search first.
@@ -244,9 +229,7 @@ export async function init() {
       strip.append(tab);
     }
   });
-  document.addEventListener('menu:refresh', () => refreshMenu());
-  window.addEventListener('activity-updated', () => refreshMenu());   // a weekly report was made
-  refreshMenu();
+  initMenu();   // pages/menu.js: the pages that appear when used, the More row, the first-launch tour
   // The sessions line at the foot does the same as Applying.
   $('nav-sessions').addEventListener('click', () => document.querySelector('.nav[data-view="sessions"]').click());
   $('palette-hint').addEventListener('click', () => openPalette(paletteCommands()));

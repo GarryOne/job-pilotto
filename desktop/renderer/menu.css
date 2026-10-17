@@ -7,3 +7,23 @@
 .nav-tools .icon { width: 17px; height: 17px; color: var(--on-rail); }
 .app.rail .nav-tools { flex-direction: column; align-items: center; }
 .app.rail .sidebar .nav-tools > button { width: 48px; flex: none; padding: 10px 0; }
+/* "More": the pages not shown yet, greyed, with when each unlocks. */
+.nav-more { margin-top: var(--sp-3); }
+.nav-more-head { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 8px 12px; background: transparent; border: 0; color: var(--on-rail-3); font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; text-align: left; }
+.nav-more-head:hover { color: var(--on-rail); }
+.nav-more-head .icon { width: 12px; height: 12px; transition: transform .15s; }
+.nav-more-head[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.nav-more-list { display: flex; flex-direction: column; gap: 2px; }
+.nav-more-list[hidden] { display: none; }
+.sidebar .nav-locked { display: flex; align-items: center; gap: 10px; width: 100%; opacity: .6; padding: 6px 12px; font-weight: 500; font-size: var(--fs-md); text-align: left; background: transparent; border: 1px solid transparent; border-left-width: 3px; border-radius: var(--r-md); color: var(--on-rail); cursor: pointer; }
+.sidebar .nav-locked:hover { background: var(--rail-hover); opacity: .9; }
+.nav-locked .icon { width: 17px; height: 17px; color: var(--on-rail); }
+.nav-locked .nav-locked-words { display: flex; flex-direction: column; min-width: 0; }
+.nav-locked small { color: var(--on-rail-3); font-size: var(--fs-xs); font-weight: 400; }
+.app.rail .nav-more { display: none; }
+/* The first-launch tour: a small card beside each menu stop. */
+.menu-tour { position: fixed; z-index: 60; width: 250px; display: grid; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-lg); }
+.menu-tour-row { display: flex; align-items: center; gap: var(--sp-3); }
+.menu-tour-row small { margin-right: auto; color: var(--ink-2); }
+.sidebar .menu-tour-lit { outline: 2px solid var(--amber); outline-offset: -2px; }
+#setting-text-size .segmented { width: fit-content; }
