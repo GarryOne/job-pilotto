@@ -10,6 +10,9 @@ const TOKEN_OK = url => url.searchParams.get('t') || '';
 let browser = null, held = null;   // held: {context, page, cdp, form, flow} the session kept open until "the user" comes
 const launch = async () => browser || (browser = await chromium.launch({args: ['--no-sandbox']}));
 const cg = name => { try { return Number(fs.readFileSync(`/sys/fs/cgroup/${name}`, 'utf8').trim()); } catch { return null; } };
+// The container may expose no cgroup memory files: sample /proc/meminfo every second and keep the peak (kB).
+let memPeakKb = 0; const memUsedKb = () => { try { const t = fs.readFileSync('/proc/meminfo', 'utf8'); const n = k => Number(new RegExp(`${k}:\\s+(\\d+)`).exec(t)[1]); return n('MemTotal') - n('MemAvailable'); } catch { return null; } };
+setInterval(() => { const u = memUsedKb(); if (u && u > memPeakKb) memPeakKb = u; }, 1000).unref();
 const cpuUsec = () => { try { return Number(/usage_usec (\d+)/.exec(fs.readFileSync('/sys/fs/cgroup/cpu.stat', 'utf8'))[1]); } catch { return null; } };
 
 // What the extension would have done by night: open the one-page form, fill the fields, stop before the human check; and walk the flow to its last step.
@@ -99,7 +102,8 @@ const server = http.createServer(async (req, res) => {
   if (handle(req, res, url, body)) return;
   const json = (code, data) => { res.writeHead(code, {'content-type': 'application/json'}); res.end(JSON.stringify(data)); };
   try {
-    if (url.pathname === '/stats') return json(200, {mem_peak: cg('memory.peak'), mem_now: cg('memory.current'), cpu_usec: cpuUsec(), uptime_s: Math.round(process.uptime()), held: !!held});
+    if (url.pathname === '/stats') return json(200, {mem_peak: cg('memory.peak'), mem_now: cg('memory.current'), cpu_usec: cpuUsec(), mem_used_kb: memUsedKb(), mem_peak_kb: memPeakKb, uptime_s: Math.round(process.uptime()), held: !!held});
+    if (url.pathname === '/peek' && held) return json(200, await held.page.evaluate(() => ({url: location.href, msg: document.getElementById('msg')?.textContent, box: document.getElementById('box')?.textContent, token: !!document.getElementById('token')?.value, notice: document.getElementById('notice')?.value, scrollY: scrollY, inner: [innerWidth, innerHeight]})));
     if (url.pathname === '/prepare') return json(200, await prepare(url.searchParams.get('base')));
     if (url.pathname === '/reach') return json(200, await reach(url.searchParams.get('url')));
     if (url.pathname === '/handoff') return json(200, await handoff(url.searchParams.get('base'), url.searchParams.get('v') || 'plain'));
