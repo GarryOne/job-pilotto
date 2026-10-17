@@ -29,7 +29,7 @@ export const PAGES = [
   {path: '/admin/operations/e2e', group: 'Operations', question: 'Where does our e2e fixing time go: which suites go red, and why?', name: 'E2E', icon: '🧪'},
   {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
   {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
-  {path: '/admin/ai-cost', group: 'Growth', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
