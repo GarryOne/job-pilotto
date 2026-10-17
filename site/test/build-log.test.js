@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
 import {LINE, cleanGroups, cut, ingest, page} from '../src/build-log.js';
-import {SYSTEM} from '../src/build-digest.js';
+import {SYSTEM, daysToRun, plan, zurichHour} from '../src/build-digest.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -109,4 +109,21 @@ test('a day closes only from 23:00 Zurich: a rewrite or final of today stays a d
   assert.equal(night.final, true);
   assert.ok((await get('2026-10-17T22:00:00Z')).finalAt);
   assert.equal((await send({...digest({day}), final: true}, '2026-10-17T22:30:00Z')).ignored, 'day is closed');
+});
+
+test('a day with no run between 23:00 and 02:00 is closed by the next run at 10:00, once, and posts once', async () => {
+  const e = env(), day = '2026-10-16', now = new Date('2026-10-17T08:00:00Z');   // 10:00 in Zurich on D+1
+  await put(e, digest({day, numbers: [900]}));   // the last draft of D
+  const stored = async () => (await call(e, `/digest/data?day=${day}`, {headers: {Authorization: 'Bearer pub'}})).json();
+  const run = async () => {
+    const [before] = daysToRun(now);
+    assert.deepEqual(before, {day, late: true});   // D is looked at on D+1 whatever the hour
+    const decision = plan({now, numbers: [900, 901], stored: await stored(), late: before.late, zurichHour: zurichHour(now)});
+    if (decision.skip) return {decision, posts: 0};
+    const result = await put(e, digest({day, numbers: [900, 901], final: decision.final})).then(r => r.json());
+    return {decision, posts: decision.final && result.final && !result.ignored && !result.rewritten ? 1 : 0};
+  };
+  assert.deepEqual(await run().then(r => [r.decision.final, r.posts]), [true, 1]);
+  assert.deepEqual(await run().then(r => [r.decision.skip, r.posts]), ['closed', 0]);   // the next hour: closed, nothing more
+  assert.deepEqual(daysToRun(now, '2026-10-10'), [{day: '2026-10-10'}]);   // --day still means exactly that day
 });

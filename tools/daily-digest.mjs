@@ -5,7 +5,7 @@
 // Needs gh with GH_TOKEN (unless --prs) and DIGEST_ANTHROPIC_KEY (the Self-heal workspace key; a missing key fails loudly, no fallback). --out: a list of {day, final, markdown, groups, open, numbers, usd}; --cost: {usd, calls} for desktop/e2e/ai-cost-report.mjs --job daily-digest --file.
 import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync} from 'node:fs';
-import {MODEL, countOf, makeDigest, plan, zurichDay, zurichHour} from '../site/src/build-digest.js';
+import {MODEL, countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from '../site/src/build-digest.js';
 import {post} from '../site/src/build-digest-telegram.js';
 import {usageCost} from '../desktop/e2e/lib/vision.mjs';
 
@@ -49,9 +49,9 @@ async function runDay({day, late, key, publishKey, now}) {
 async function main() {
   const key = process.env.DIGEST_ANTHROPIC_KEY, now = new Date(), results = [];
   if (!key) { console.error('::error::DIGEST_ANTHROPIC_KEY is not set (the Self-heal workspace key): no digest written.'); process.exit(1); }
-  const today = arg('day') || zurichDay(now), publishKey = process.env.SELFHEAL_PUBLISH_KEY;
-  // Just after midnight the day before is closed first (its final digest), then today starts.
-  const days = !arg('day') && zurichHour(now) < 2 ? [{day: zurichDay(new Date(now.getTime() - 3 * 3600000)), late: true}, {day: today}] : [{day: today}];
+  const publishKey = process.env.SELFHEAL_PUBLISH_KEY;
+  // Yesterday too, until a run has closed it (daysToRun): a missed night no longer leaves a day open.
+  const days = daysToRun(now, arg('day'));
   for (const item of days) { const result = await runDay({...item, key, publishKey, now}); if (result) results.push(result); }
   if (arg('out')) writeFileSync(arg('out'), JSON.stringify(results));
   if (arg('cost')) writeFileSync(arg('cost'), JSON.stringify({usd: results.reduce((sum, item) => sum + item.usd, 0), calls: results.length}));
