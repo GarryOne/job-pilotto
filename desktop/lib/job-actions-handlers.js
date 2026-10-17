@@ -55,6 +55,12 @@ export function registerJobActionsHandlers(ctx) {
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-previous']);
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
+  // Strategy → "scored with other places" → Refresh: queues the ACTIVE jobs scored with other places (src/ai/locations.py); a change of places never does it alone.
+  ipcMain.handle('refreshLocations', async () => {
+    if (DEMO) return {ok: true, queued: 0};
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'refresh-locations']);
+    return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
+  });
   // "Your search may be too narrow" (src/coverage.py): how much of the market the role keywords catch, and what adding a term would add.
   // The one-tap "why?" after Dismiss and the daily score snapshot (renderer/intel.js): counts for the product, on the Technical reports switch.
   ipcMain.handle('dismissReason', (_, input) => { getRecipeReporter()?.dismissal(String(input?.reason || ''), String(input?.bucket || '')); return {ok: true}; });

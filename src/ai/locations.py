@@ -87,3 +87,10 @@ def refresh(db, search, active_ids):
     db.executemany("UPDATE scores SET input_hash='' WHERE job_id=?", [(job_id,) for job_id in ids])
     db.commit()
     return len(ids)
+
+
+def active_ids(db, stages=None):
+    """The jobs a refresh may touch: the ones the search shows, minus any with an application (stages: job url -> stage, whatever the stage)."""
+    from .. import digest
+    hidden = frozenset(url for url, stage in (stages or {}).items() if stage)
+    return {job['id'] for job in digest.eligible_jobs(db, hidden_urls=hidden)[0]}
