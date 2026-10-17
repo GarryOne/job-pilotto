@@ -9,7 +9,7 @@
 #   tools/all-checks-green.sh <owner/repo> <the PR's head sha> [own run id]      Guard: tests/test_all_checks_green.py
 set -u
 repo="${1:?usage: tools/all-checks-green.sh <owner/repo> <head sha> [own run id]}" sha="${2:?head sha}" own="${3:-${GITHUB_RUN_ID:-}}"
-appear="${APPEAR_S:-60}" wait_min="${WAIT_MIN:-60}" poll="${POLL_S:-10}"
+appear="${APPEAR_S:-60}" wait_min="${WAIT_MIN:-60}" poll="${POLL_S:-5}"   # 5 s (owner, 17 Oct 2026); one gh call per poll, well inside the API limit for one job
 runs() { gh run list -R "$repo" --commit "$sha" -L 100 --json databaseId,workflowName,status,conclusion,event,createdAt \
   -q ".[] | select(.event == \"pull_request\") | \"\(if (.databaseId | tostring) == \"$own\" then \"own\" else .status end)\t\(.conclusion // \"-\")\t\(.workflowName)\t\(.createdAt // \"\")\"" 2>/dev/null || true; }
 # The workflows GitHub starts appear within seconds of the push: counted from the commit's FIRST run, not from this job's start (it starts after
