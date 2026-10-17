@@ -56,7 +56,8 @@ def facts(job):
     """The scoring facts of one scored job, each as its Job Matches column holds it (src/notion/matches.py properties)."""
     fit, ai = job['fit'], job.get('ai') or {}
     found = {'tier': fit.get('tier') or '', 'confidence': fit.get('confidence') or '', 'code': job_code(job['url']),
-             'scored': datetime.now(timezone.utc).date().isoformat(), 'scoring_method': fit.get('method') or 'Current'}
+             'scored': datetime.now(timezone.utc).date().isoformat(), 'scoring_method': fit.get('method') or 'Current',
+             'places': fit.get('locations') or ''}
     if ai:
         found['seniority'] = SENIORITY.get(ai['seniority']['value'], '')
         found['languages'] = (['English'] if ai['english_is_enough']['value'] == 'yes' else []) + [

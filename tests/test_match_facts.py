@@ -8,7 +8,7 @@ from src.stores import notion_rows as rows
 from tests.store_contract import AI, scored
 
 FACTS = ('tier', 'confidence', 'code', 'scored', 'scoring_method', 'seniority', 'languages', 'salary', 'recruiter', 'technologies',
-         'role_family', 'workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted', 'responsibilities')
+         'role_family', 'workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted', 'responsibilities', 'places')
 
 
 class MatchFactsTests(unittest.TestCase):

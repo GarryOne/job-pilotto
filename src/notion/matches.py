@@ -68,6 +68,7 @@ def properties(job, status):
         'Scored': {'date': {'start': datetime.now(timezone.utc).date().isoformat()}},
         # Scored from the whole Profile before contact/links were left out ("Previous"), or with today's inputs.
         'Scoring method': {'select': {'name': fit.get('method') or 'Current'}},
+        'Scored with places': _text(fit.get('locations') or ''),   # which places the score used (src/ai/locations.py): the drawer says when they changed
     }
     if job.get('first_seen_at'):  # when a search first found it: "new this week" and the newest-first sort read this
         props['First seen'] = {'date': {'start': job['first_seen_at'][:10]}}

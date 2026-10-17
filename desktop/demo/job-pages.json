@@ -196,9 +196,11 @@
       "contract": "Permanent",
       "posted": "2026-09-30",
       "responsibilities": "Build the internal developer platform.\nImprove build and deploy speed for product teams.",
-      "first_seen": "2026-10-01"
+      "first_seen": "2026-10-01",
+      "places": "3f9a1c0b2d44"
     },
-    "interviews": []
+    "interviews": [],
+    "placesNow": "8e21b7c05a19"
   },
   "https://example.com/jobs/3": {
     "app": {

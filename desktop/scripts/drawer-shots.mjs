@@ -26,6 +26,7 @@ const CASES = [
   ['03-overview-not-scored', open(8, 'overview')],
   ['04-match-scored', open(1, 'match')],
   ['05-match-not-scored', open(8, 'match')],
+  ['05b-match-older-places', open(2, 'match')],
   ['06-description-saved', open(4, 'description', wait(500))],
   ['07-description-none', open(2, 'description', wait(500))],
   ['08-application-submitted', open(1, 'application')],

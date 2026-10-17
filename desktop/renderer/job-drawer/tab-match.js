@@ -16,10 +16,22 @@ export function matchTab({job, page}) {
       actions: [button('Check now', () => document.getElementById('refresh').click(), 'primary')]})];
   }
   const nodes = [];
+  if (match.older_places) nodes.push(olderPlacesCard(job));
   if (match.scoring_method === 'Previous') {
     nodes.push(stateCard({title: 'Score from an earlier Profile', text: 'It was scored before your Profile last changed. The next check scores it again.'}));
   }
   if (match.fit_detail) nodes.push(fitDetail(match));
   nodes.push(...matchGroups(match).filter(part => part.title === 'Fit').map(part => group(part.title, part.lines)));
   return nodes;
+}
+
+// Scored with other places than today's (owner, 17 Oct 2026): said on this job, with a Refresh for this one job. Nothing re-scores by itself.
+function olderPlacesCard(job) {
+  const refresh = button('Refresh this score', async event => {
+    const control = event.currentTarget;
+    control.disabled = true;
+    const result = await window.pilot.refreshLocations(job.url).catch(error => ({ok: false, error: error.message}));
+    control.textContent = result.ok ? (result.queued ? 'Queued: the next check scores it again' : 'Nothing to refresh') : result.error || 'Not queued';
+  });
+  return stateCard({title: 'Scored with older places', text: 'Your locations changed after this score. It is kept as it is until you refresh it.', actions: [refresh]});
 }

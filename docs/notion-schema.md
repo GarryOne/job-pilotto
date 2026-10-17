@@ -133,6 +133,7 @@ delete and let it repopulate.
 | Last update | Last edited time |  |
 | First seen | Date |  |
 | Scoring method | Select | Options: `Current`, `Previous` |
+| Scored with places | Text |  |
 
 ## Employers & Sources (database)
 

@@ -250,3 +250,18 @@ test('the committed schema: Cronjob Runs → Application is two-way, shown on th
   assert.deepEqual(databases.NOTION_CRON_RUNS_DB.columns.Application, {type: 'relation', database: 'NOTION_APPLICATIONS_DB', synced_property: 'Runs'});
   assert.deepEqual(databases.NOTION_APPLICATIONS_DB.columns.Runs, {type: 'relation', database: 'NOTION_CRON_RUNS_DB', synced_property: 'Application'});
 });
+
+// Locations (17 Oct 2026): a score records which places it used, one more Job Matches column; a workspace made before it gets the column by itself.
+test('an older Job Matches database gets the "Scored with places" column from the committed schema, and nothing else', async () => {
+  const schema = load();
+  const [env, matches] = Object.entries(schema.databases).find(([, database]) => database.columns['Scoring method']);
+  assert.equal(matches.columns['Scored with places']?.type, 'rich_text');
+  const older = Object.keys(matches.columns).filter(name => name !== 'Scored with places');
+  const databases = {old: new Set(older)};
+  const {fetcher} = fakeWorkspace(databases);
+  const only = {databases: {[env]: matches}, pages: {}};
+  const fixed = await repair('ntn_x', {[env]: 'old', NOTION_PROFILE_PAGE_ID: 'profile'}, only, fetcher);
+  assert.deepEqual(fixed.columns, [`${matches.title}: Scored with places`]);
+  assert.ok(databases.old.has('Scored with places'));
+  assert.deepEqual((await repair('ntn_x', fixed.ids, only, fetcher)).columns, []);   // once
+});

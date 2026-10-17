@@ -288,6 +288,21 @@ class StoreContract:
         self.assertTrue(row['id'])
         self.assertTrue(row['scored'] and row['last_update'])
 
+    def test_a_match_keeps_which_places_its_score_used_so_the_drawer_can_say_older(self):
+        # Locations (17 Oct 2026): one more column on every store, empty for a score made before places were recorded.
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        base_job = scored('https://jobs.example/places', 70)
+        with_places = {**base_job, 'fit': {**base_job['fit'], 'locations': 'abc123def456'}}
+        self.s.matches.sync(db, [with_places])
+        [row] = [m for m in self.s.matches.list() if m['url'].rstrip('/') == with_places['url'].rstrip('/')]
+        self.assertEqual(row['places'], 'abc123def456')
+        older = scored('https://jobs.example/older', 60)
+        self.s.matches.sync(db, [older])
+        [row] = [m for m in self.s.matches.list() if m['url'].rstrip('/') == older['url'].rstrip('/')]
+        self.assertEqual(row['places'], '')
+
     # Interviews, insights, employers
 
     def test_an_interview_is_saved_updated_and_archived(self):

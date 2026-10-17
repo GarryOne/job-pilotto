@@ -49,7 +49,8 @@ def main(argv=None):
     sub.add_parser('calendar')   # the Calendar's jobs: Applications rows only, no search cache (a fraction of `jobs`)
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
-    sub.add_parser('refresh-locations')
+    sub.add_parser('refresh-locations').add_argument('--url', default='')   # one job's refresh from its drawer; none = every active one
+    sub.add_parser('places-now')   # the fingerprint of today's places: a job whose score used another says "older places" (lib/places-now.js)
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-outcome').add_argument('file')   # a browser run's results (JSON [{url, ok, why}]): failures remembered (src/sources/visits.py)
@@ -288,6 +289,10 @@ def main(argv=None):
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))
             return 0
+        if args.command == 'places-now':
+            from .ai import locations
+            print(json.dumps({'places': locations.fingerprint_now()}))
+            return 0
         if args.command == 'refresh-locations':   # the explicit refresh after a change of places: active jobs only (src/ai/locations.py)
             from .ai import locations
             from .store_access import run_stores
@@ -297,7 +302,10 @@ def main(argv=None):
                 stages = url_stages(stores)
             except Exception:  # noqa: BLE001 (stages that cannot be read: every shown job counts as active)
                 stages = {}
-            print(json.dumps({'queued': locations.refresh(db, locations.current(), locations.active_ids(db, stages))}))
+            active = locations.active_ids(db, stages)
+            if args.url:
+                active &= locations.id_for_url(db, args.url)
+            print(json.dumps({'queued': locations.refresh(db, locations.current(), active)}))
             return 0
         if args.command == 'tune':
             from .store_access import run_stores, url_stages
