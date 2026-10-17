@@ -30,6 +30,13 @@ export function openerRoot(entries, entry) {
   return undefined;
 }
 
+// The tabs a page (or one of its popups) opens: the page tells us at once, before a quick close can lose the opener (page.opener() on a closed tab is null). -> Set, filled as they open.
+export function trackPopups(tab) {
+  const popups = new Set(), adopt = open => { popups.add(open); open.on('popup', adopt); };
+  tab.on('popup', adopt);
+  return popups;
+}
+
 // The cases that may start now, given the hosts of the ones running: in order, skipping a case whose host is taken (it waits for that tab to finish).
 export function nextRunnable(queue, runningHosts) {
   const index = queue.findIndex(item => !caseHosts(item).some(host => runningHosts.has(host)));
@@ -70,11 +77,12 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     const first = run.requests.length, began = Date.now(), tab = await run.context.newPage();
     const strict = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)));
     const loose = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)) || !allHosts.some(host => request.body.includes(host)));   // the case's own, and lines no case's host names (the extension's log lines often carry no host)
+    const popups = trackPopups(tab);
     const theTabs = () => {   // the tabs opened since this case began (not its own), told apart by who opened them; alone, every tab is the case's
       const ours = [], unplaced = [];
       for (const one of everyOpened.filter(entry => entry.page !== tab && entry.at >= state.from)) {
         const root = state.shared === false ? tab : rootOf(one);
-        if (root === tab || (root === undefined && hosts.some(host => one.page.url().includes(host)))) ours.push(one);
+        if (root === tab || popups.has(one.page) || (root === undefined && hosts.some(host => one.page.url().includes(host)))) ours.push(one);
         else if (root === undefined && !allHosts.some(host => one.page.url().includes(host))) unplaced.push(one);   // opened by nobody we know, at an address of no case: it could be this case's
       }
       return {ours, unplaced};

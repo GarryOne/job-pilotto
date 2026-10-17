@@ -1,7 +1,8 @@
 // Guards lib/replay-browser.mjs without a browser: which case a request belongs to, and that two cases on one host never run at once.
 import assert from 'node:assert/strict';
+import {EventEmitter} from 'node:events';
 import {test} from 'node:test';
-import {caseForRequest, contactForUrl, nextRunnable, openerRoot} from '../lib/replay-browser.mjs';
+import {caseForRequest, contactForUrl, nextRunnable, openerRoot, trackPopups} from '../lib/replay-browser.mjs';
 
 const item = (name, ...hosts) => ({name, pages: hosts.map(host => ({url: `https://${host}/p`}))});
 
@@ -60,4 +61,14 @@ test('a new tab belongs to the case tab at the end of its opener chain; one with
   assert.equal(openerRoot(entries, other), tabB);
   assert.equal(openerRoot(entries, orphan), undefined);
   assert.equal(openerRoot(entries, notYet), undefined);
+});
+
+test('a tab the case\'s page opens, and one that popup opens, are the case\'s; another page\'s popup is not', () => {
+  const tab = new EventEmitter(), other = new EventEmitter(), first = new EventEmitter(), second = new EventEmitter(), foreign = new EventEmitter();
+  const popups = trackPopups(tab);
+  tab.emit('popup', first);
+  first.emit('popup', second);
+  other.emit('popup', foreign);
+  assert.ok(popups.has(first) && popups.has(second));
+  assert.ok(!popups.has(foreign));
 });
