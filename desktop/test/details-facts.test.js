@@ -52,3 +52,27 @@ test('handlers: once the move ran, opening Your details never moves again', asyn
   await handlers.detailsFacts();
   assert.equal(logged.length, 0);
 });
+
+test('two overlapping opens of Your details move once: the second waits for the first and never rolls its lines back (owner log 17 Oct 2026, 22:28 + 22:29)', async () => {
+  const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-facts-')), {encrypt: v => v, decrypt: v => v});
+  storage.saveSettings({store: 'sqlite', profileMovedAt: '2026-10-17T10:00:00Z'});
+  const page = store.openStore(storage).page('profile');
+  await page.insertAfter(await page.appendHeading('Application form answers — voluntary demographic surveys'), ['Gender identity: Man (or Male when that is the equivalent option).', 'Identifies as transgender: No.']);
+  const asked = [], logged = [];
+  const slow = {client: {messages: {create: async request => {
+    asked.push(request.system.slice(0, 40));
+    await new Promise(done => setTimeout(done, 60));
+    return {content: [{type: 'text', text: JSON.stringify({items: [
+      {id: '0', kind: 'answer', question: 'gender', option: 'Man', note: 'or Male when that is the equivalent option'}, {id: '1', kind: 'answer', question: 'transgender', option: 'No', note: ''}]})}]};
+  }}}};
+  const handlers = {};
+  registerDetailsFactsHandlers({ipcMain: {handle: (name, fn) => { handlers[name] = (...args) => fn(null, ...args); }}, storage, DEMO: false,
+    connected: () => true, needsNotion: () => null, log: (...line) => logged.push(line), ai: () => slow, copy: async () => ({dir: 'd'})});
+  const [first, second] = await Promise.all([handlers.detailsFacts(), handlers.detailsFacts()]);
+  assert.equal(first.ok, true, first.error);
+  assert.equal(second.ok, true, second.error);
+  assert.equal(logged.filter(line => /survey move stopped/.test(line[1])).length, 0);
+  const lines = (await page.outline()).filter(block => /pick one/.test(block.text || '')).length;
+  assert.equal(lines, 2, 'both survey lines stay moved');
+  assert.equal(asked.filter(text => /voluntary demographic|Each item is one line/.test(text)).length >= 1, true);
+});

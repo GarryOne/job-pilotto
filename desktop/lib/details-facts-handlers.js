@@ -25,7 +25,10 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
     const {detailsTidy: lines, surveyTidy: survey} = storage.settings(), live = [lines, survey].filter(done => done && !done.undone);
     return live.length ? {changed: live.reduce((sum, done) => sum + done.changed, 0), at: live.map(done => done.at).sort().at(-1)} : null;
   };
-  ipcMain.handle('detailsFacts', async () => {
+  // One open at a time: the moves read, change and read back the same lines, so a second open in the middle (a slow Notion open takes ~45 s) saw the first's
+  // lines as "did not save" and rolled them back (owner's app.log, 17 Oct 2026). A second open gets the first's answer.
+  let opening = null;
+  const open = async () => {
     if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
     if (!connected()) return {ok: true, sections: empty(), conflicts: [], setAside: []};
     let error = '';
@@ -40,12 +43,14 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
       const split = await notes.split(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the notes split stopped', {error: failed.message}); return {changed: 0}; });
       if (split.changed) log('profile', 'long Your details lines got a note for the AI', {changed: split.changed});   // a count, never a value
       const moved = await surveys.migrate(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the survey move stopped', {error: failed.message}); return {changed: 0}; });
+      if (!moved.changed && moved.reason && moved.reason !== 'no-ai') log('profile', 'survey answers not moved', {reason: moved.reason});   // a reason word, never a value
       if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
       const found = await sections.read(storage);
       return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: await openConflicts(storage).catch(() => storage.settings().profileConflicts || []), setAside: list(storage).filter(each => each.source === 'profile')};
     } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
-  });
+  };
+  ipcMain.handle('detailsFacts', () => opening ||= open().finally(() => { opening = null; }));
   ipcMain.handle('undoDetailsTidy', async () => {
     if (DEMO) return {ok: true};
     const gate = needsNotion('profile');
