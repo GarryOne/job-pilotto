@@ -16,6 +16,7 @@ on:
       - 'desktop/lib/apply-handlers.js'
       - 'desktop/lib/apply.js'
       - 'desktop/lib/background-chrome.js'
+      - 'desktop/lib/backup.js'
       - 'desktop/lib/browser-launch.js'
       - 'desktop/lib/browser-profile.js'
       - 'desktop/lib/claude-code.js'
