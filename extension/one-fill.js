@@ -5,6 +5,9 @@ const pageOf = url => String(url || '').split('#')[0];
 // A fill's card id goes onto the page it filled, never onto the one the tab shows now.
 export const stillOnPage = (fillUrl, nowUrl) => !nowUrl || pageOf(fillUrl) === pageOf(nowUrl);
 
+// The tab's address now ('' when it cannot be read: nothing to protect).
+export const addressNow = async tabId => { try { return (await chrome.tabs.get(tabId))?.url || ''; } catch { return ''; } };
+
 export function oneFillPerTab(tabId, url, start, {onJoin = () => {}} = {}) {
   const page = pageOf(url), live = running.get(tabId);
   if (live && live.page === page) { onJoin(); return live.fill; }
