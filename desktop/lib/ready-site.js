@@ -2,6 +2,7 @@
 // The install's own key (the one Free AI uses) is the only credential; the site answers 404 or 401 to anyone but the owner, so the card is shown only when `owner` says yes. Guard: test/ready-site.test.js.
 import {FREE_BASE} from './ai-free.js';
 import {call as callWith, keyOf} from './hosted-search.js';
+import {read as keychainRead} from './keychain.js';
 import {installId} from './pool-share.js';
 
 // The install's key for the site. An install on its own engine (Claude Code, its own key) has no JPF1 key, so its token is minted from the install id (as Free AI does) and kept in memory only:
@@ -21,8 +22,12 @@ async function keyFor(storage, {fetcher = globalThis.fetch} = {}) {
   }
   return minted.get(install) || '';
 }
-// Every call carries the owner secret too (a Keychain item of this Mac, never the install id): without it the site opens no owner route and the card stays closed.
-const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': String(storage.secret('READY_OWNER_SECRET') || '')}});
+// Every call carries the owner secret too, never the install id: the app's own store, else this Mac's Keychain item job-pilotto.ready.owner_secret (read through lib/keychain.js, so a test or twin never reaches it).
+// Without it the site opens no owner route and the card stays closed. Tests replace the reader.
+let readKeychain = service => keychainRead(service, {account: 'job-pilotto'});
+export const useKeychainReader = fn => { readKeychain = fn; };
+export const ownerSecret = storage => String(storage.secret('READY_OWNER_SECRET') || readKeychain('job-pilotto.ready.owner_secret') || '');
+const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': ownerSecret(storage)}});
 
 const words = result => (result.ok ? result : {ok: false, status: result.status, error: result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
 

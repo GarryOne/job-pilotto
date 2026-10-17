@@ -1,11 +1,12 @@
 // Ready to send, the app's calls to the site (lib/ready-site.js) and the window's handlers (lib/ready-handlers.js): the card shows only for the owner, a send reaches /api/ready/batch with the install key, and nothing else is sent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {done, link, owner, runNow, send} from '../lib/ready-site.js';
+import {done, link, owner, ownerSecret, runNow, send, useKeychainReader} from '../lib/ready-site.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
 import {withOwnAi} from '../lib/ready-batch.js';
 import {rowOf, waitingOf} from '../renderer/pages/ready-rows.js';
 
+useKeychainReader(() => null);   // no test reads this Mac's Keychain
 const storage = (extra = {}) => ({secret: name => (name === 'JOB_PILOTTO_TRIAL_KEY' || /TRIAL/.test(name) ? 'JPF1.install.token' : ''), settings: () => extra, saveSettings: patch => Object.assign(extra, patch), path: name => `/nowhere/${name}`});
 const site = (status = 200, body = {ok: true}) => { const seen = []; return {seen, fetcher: async (url, init) => { seen.push({url, init}); return new Response(JSON.stringify(body), {status}); }}; };
 
@@ -83,4 +84,14 @@ test('Send tonight carries his own Claude key only when he has one, else the bat
   const batch = {night: '2026-10-18', jobs: []};
   assert.deepEqual(withOwnAi(batch, 'sk-ant-api03-mine'), {...batch, ai: {key: 'sk-ant-api03-mine'}});
   for (const other of ['JPF1.i.t', '', undefined, 'sk-openai-x']) assert.deepEqual(withOwnAi(batch, other), batch);
+});
+
+test('every call carries the owner secret from the app\'s store or the Keychain item, and never the install id', async () => {
+  const fake = site(), has = {...storage(), secret: name => (name === 'READY_OWNER_SECRET' ? 'from-store' : 'JPF1.install.token')};
+  await runNow(has, {fetcher: fake.fetcher});
+  assert.equal(fake.seen[0].init.headers['x-ready-owner'], 'from-store');
+  const asked = []; useKeychainReader(service => { asked.push(service); return 'from-keychain'; });
+  try { assert.equal(ownerSecret(storage()), 'from-keychain'); assert.deepEqual(asked, ['job-pilotto.ready.owner_secret']); assert.equal(ownerSecret(has), 'from-store'); }
+  finally { useKeychainReader(() => null); }
+  assert.equal(ownerSecret(storage()), '');
 });
