@@ -69,7 +69,7 @@ export function page(data, who = {role: 'superadmin'}) {
   const attention = data.attention.filter(item => !item.superadmin || who.role === 'superadmin');
   const cards = PAGES.filter(item => item.path !== '/admin' && !item.superadmin).map(item => {   // Access is not a dashboard
     const key = item.path.slice('/admin/'.length), series = data.cards[key] || [];
-    return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.name)}</h2>${series.map(s => {
+    return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.title || item.name)}</h2>${series.map(s => {
       const known = s.values.filter(v => v != null), format = s.format || (v => String(Math.round(v)));
       return `<div class="metric"><small class="muted">${esc(s.label)}</small><div class="line">${known.length >= 2 ? spark(s.values, {...s, width: 140, height: 30})
         : `<span>${known.length ? esc(format(known.at(-1))) : '–'}</span>`}</div></div>`;

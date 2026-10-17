@@ -48,7 +48,7 @@ export function page(rows) {
 ${latest.card.checks.map(check => `<tr><td>${esc(check.name)}</td><td>${check.runs}</td><td>${check.realCatches}</td><td>${check.falseReds}</td><td>${check.p90Min}</td><td>${check.addedMin} min</td><td>${pill(check.verdict)}</td><td class="muted">${trend(check.name)}</td></tr>`).join('')}
 </tbody></table><p class="muted">Real catch = red, then green after a later commit that changed product files (not tests or docs). False red = red then green on the same commit (flaky), or a failing setup step. A check with 0 catches is flagged 🟡 for review.</p></section>`
     : `<section class="card"><h2>No scorecard yet</h2><p class="muted">The workflow <code>pr-check-scorecard.yml</code> posts it on the 1st of each month (or by hand); the first run fills this page.</p></section>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>PR checks · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>PR checks · Engineering · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.card table{width:100%;border-collapse:collapse}.card th,.card td{text-align:left;padding:6px 10px;border-bottom:1px solid #2a2f37;font-size:14px}.card td:nth-child(n+2):nth-child(-n+6){font-variant-numeric:tabular-nums}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10;white-space:nowrap}</style></head><body><main>
 <header><h1>✅ PR checks</h1><span class="muted">monthly · per check, over 30 days</span></header>

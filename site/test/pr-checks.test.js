@@ -52,6 +52,6 @@ test('the page is the owner\'s: 404 without the key, an empty state, one row per
   assert.ok(!page([{month: '2026-11', card: JSON.stringify(card([check('<script>x</script>')]))}]).includes('<script>x'));
 });
 
-test('the menu lists PR checks under Operations', () => {
-  assert.equal(PAGES.find(item => item.path === '/admin/operations/pr-checks').group, 'Operations');
+test('the menu lists PR checks under Engineering', () => {
+  assert.equal(PAGES.find(item => item.path === '/admin/operations/pr-checks').group, 'Engineering');
 });
