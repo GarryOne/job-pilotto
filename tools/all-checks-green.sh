@@ -29,6 +29,7 @@ bad="$(grep . <<<"$list" | awk -F'\t' '
   END { for (i = 1; i <= NR; i++) {
           if (o[i]) continue
           if (s[i] != "completed" && w[i] == gate) continue
+          if (c[i] == "cancelled" && w[i] == gate) continue   # a cancelled copy of this gate, older OR newer: it only repeats the judgment of this run (#1199, 17 Oct 2026)
           if (c[i] == "success" || c[i] == "skipped") continue
           gone = 0
           if (c[i] == "cancelled" && t[i] != "") for (j = 1; j <= NR; j++) if (w[j] == w[i] && c[j] == "success" && t[j] > t[i]) { gone = 1; break }
