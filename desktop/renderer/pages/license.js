@@ -4,7 +4,8 @@
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
 import {chip} from '../license-chip.js';
-import {planLine, endedLine} from '../plan-line.js';
+import {endedLine} from '../plan-line.js';
+import {showProCard} from './plan-waitlist.js';
 import {initPlan} from './plan.js';
 import {byStore} from '../store-words.js';
 
@@ -26,8 +27,10 @@ function showChip(state) {
 export function showLicense(state) {
   showChip(state);
   const {licensed, ended} = state;
-  $('license-pill').textContent = licensed ? (state.license.kind === 'pro' ? 'Pro' : `${KIND[state.license.kind]} key`) : ended ? 'Free period over' : 'Free';
-  $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'info'}`;
+  // Free is named and marked "Your plan" (17 Oct 2026, owner: it must be clear I'm on the free plan); the Pro card beside it is the offer.
+  $('license-title').textContent = licensed ? 'Your allowance' : 'Free';
+  $('license-pill').textContent = licensed ? (state.license.kind === 'pro' ? 'Pro' : `${KIND[state.license.kind]} key`) : ended ? 'Free period over' : 'Your plan';
+  $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'good'}`;
   // Same count as the sidebar chip: applications USED, filling, red for the last 5.
   const shown = chip(state);
   $('license-used-label').textContent = licensed ? 'Applications sent' : 'Applications used';
@@ -47,9 +50,7 @@ export function showLicense(state) {
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? `New applications, kits and searches are paused. ${byStore('Tracking, Notion, export and your data keep working.', 'Tracking, export and your data keep working.')}`
       : '';   // the rule is the page's subtitle; the one line about Pro is below
-  const plan = planLine(state);   // the one honest line about Pro while it is off (plan-line.js)
-  $('license-plan').hidden = !plan;
-  $('license-plan').textContent = plan || '';
+  showProCard(state);   // the Pro card with the waitlist button, while Pro is off (pages/plan-waitlist.js)
   $('license-note').hidden = !$('license-note').textContent;
   $('setting-license-key').hidden = !licensed || state.license?.kind === 'pro';   // only an install that already holds a key; a Pro account has none
   $('license-holder').textContent = licensed ? `${state.license.name} · ${KIND[state.license.kind]} key${state.license.until ? ` · until ${state.license.until}` : ''}` : '';

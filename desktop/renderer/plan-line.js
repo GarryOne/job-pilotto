@@ -13,3 +13,8 @@ export function endedLine(state = {}) {
   if (['test', 'live'].includes(state.proMode)) return 'Upgrade to Pro in Settings → Plan.';
   return `Pro: ${PRO_PRICE} one-time, no subscription (coming soon).`;
 }
+
+// The Pro card with the waitlist button shows while Pro is off (same gate as planLine); with Pro on the real plan block takes its place.
+export const showsProWaitlist = state => planLine(state) !== null;
+// The ONE switch for payments (owner, 17 Oct 2026: "on the first 1-2 users we'll enable the Stripe payment"): false = the Pro button joins the waitlist; the checkout comes later.
+export const PRO_CHECKOUT = false;

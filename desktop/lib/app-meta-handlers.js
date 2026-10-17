@@ -11,6 +11,7 @@ import * as sharedLog from './shared-log.js';
 import * as updater from './updater.js';
 import {registerBuildHandlers} from './build-handlers.js';
 import {log as appLog} from './log.js';
+import {joinProWaitlist} from './pro-waitlist.js';
 
 export function registerAppMetaHandlers(ctx) {
   const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getPlan, shell, getTelemetry, getUpdateOffer, getUpdateCheckedAt, channels} = ctx;
@@ -31,6 +32,7 @@ export function registerAppMetaHandlers(ctx) {
     if (made.ok) shell.openExternal(made.url);
     return made.ok ? {ok: true} : made;
   });
+  ipcMain.handle('proWaitlistJoin', (_, email) => DEMO ? {ok: false, error: 'Demo mode: nobody is added to the waitlist.'} : joinProWaitlist(storage, email));   // Pro is not open yet: the address goes on the website's waitlist
   ipcMain.handle('planSignin', async (_, step, body = {}) => {   // "I have Pro": a code by e-mail adds this computer to the Pro account
     if (DEMO) return {ok: false, error: 'Demo mode: no sign-in.'};
     if (!['start', 'verify'].includes(step)) return {ok: false, error: 'Unknown step.'};
