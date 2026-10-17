@@ -14,8 +14,9 @@ changing it re-scores all open jobs on the next run.
 In the app, each section has one editor (the page keeps its title; nothing on it moves):
 **Hard constraints** and **Preferences** → Strategy → Job preferences (deal-breakers apart from what ranks);
 work mode, seniority and **Compensation**'s minimum → Strategy → Goals; **Summary**, **Core skills**,
-**Education**, **Experience** and any section of your own → Profile → Experience; **Links** and the
-voluntary surveys → Profile → Your details.
+**Education**, **Experience** and any section of your own → Profile → Experience; **Work eligibility**,
+**Availability & compensation**, **Languages** and the voluntary surveys → Profile → Your details (each fact in
+one place; the app adds 📇 Contact details, links included, from your CV).
 
 # Hard constraints
 
@@ -27,8 +28,6 @@ Jobs that break these are filtered out before any AI scoring.
 | Home base | ❓ your current city; open to relocating? |
 | Acceptable cities / commute | ❓ |
 | Work mode | ❓ on-site / hybrid / remote acceptable? |
-| Work permit / visa | ❓ your citizenship and status, and whether you need sponsorship anywhere you're applying (the digest's "visa sponsorship needed" flag follows ⚙️ Search settings → "Where you can work without a visa") |
-| Languages I can work in | ❓ |
 | Languages that disqualify a job if required | ❓ |
 | Minimum seniority | ❓ e.g. "Senior or higher" |
 | Workload | ❓ 100% only, or a range |
@@ -37,7 +36,6 @@ Jobs that break these are filtered out before any AI scoring.
 
 # Compensation
 
-- Target: ❓ a figure or range, and whether it's net or gross
 - Minimum acceptable: ❓ per country/currency you apply in, if it varies
 
 # Preferences (soft, used for ranking)
@@ -49,7 +47,6 @@ Jobs that break these are filtered out before any AI scoring.
 | Company size | ❓ |
 | Industries to prefer / avoid | ❓ |
 | Leadership | ❓ IC only, or tech lead / manager roles too? |
-| Start date / notice period | ❓ |
 
 # Application form answers — voluntary demographic surveys
 
@@ -76,11 +73,24 @@ Optional. Only fill this in if you want a standing answer for equal-opportunity 
 have them. Verbatim from your CV is fine — the kit drafter only uses facts stated here, never
 invents experience.
 
-# Links
+## 🛂 Work eligibility
 
-- LinkedIn: ❓
-- GitHub: ❓
-- Website / portfolio: ❓
+- Work permit / visa: ❓ your citizenship and status, and whether you need sponsorship anywhere you're applying (the digest's "visa sponsorship needed" flag follows ⚙️ Search settings → "Where you can work without a visa")
+- Authorised to work in [your home country/region]?: ❓
+- Authorised to work in [each other region/country you apply to]?: ❓ add one line per country you're likely to apply in
+- Remote from your base for a foreign employer?: ❓
+
+## 💶 Availability & compensation
+
+- Target: ❓ a figure or range, and whether it's net or gross
+- Notice period / earliest start: ❓
+- Salary expectation — [country 1]: ❓
+- Salary expectation — [country 2]: ❓ add one line per currency/region you apply in
+- If a salary field is optional: ❓ leave blank, or always fill
+
+## 🗣️ Languages
+
+- Languages I can work in: ❓ e.g. "English (fluent), German (B1)"
 
 ---
 
@@ -88,35 +98,9 @@ invents experience.
 
 Standard answers for job application forms. Kept separate from Profile on purpose: editing this
 page does not re-trigger AI scoring. Contact details (email, phone, address) should **not** go on
-this page — see "Where the CV file and contact details live" below. In the app, **Cover letter style**
-is edited on Profile → Cover letter; the rest on Profile → Application answers.
-
-# Eligibility
-
-| Question | Answer |
-|---|---|
-| Authorised to work in [your home country/region]? | ❓ |
-| Authorised to work in [each other region/country you apply to]? | ❓ Add one row per country you're likely to apply in |
-| Remote from your base for a foreign employer? | ❓ |
-
-# Availability and pay
-
-| Question | Answer |
-|---|---|
-| Notice period / earliest start | ❓ |
-| Salary expectation — [country 1] | ❓ |
-| Salary expectation — [country 2] | ❓ Add one row per currency/region you apply in |
-| If a salary field is optional | ❓ leave blank, or always fill |
-| Willing to relocate | ❓ |
-| Current location | ❓ |
-
-# Links
-
-| Field | Value |
-|---|---|
-| LinkedIn | ❓ |
-| GitHub | ❓ optional |
-| Website / portfolio | ❓ optional |
+this page — see "Where the CV file and contact details live" below; work rights, notice and salary
+expectations are facts on the Profile (Your details), not here. In the app, **Cover letter style** is
+edited on Profile → Cover letter; the rest on Profile → Application answers.
 
 # Common questions
 
@@ -126,6 +110,7 @@ is edited on Profile → Cover letter; the rest on Profile → Application answe
 | Previously worked for / applied to this company? | Answered per job |
 | Demographic / EEO questions | ❓ default, e.g. "Decline to self-identify," or point at the Profile page's demographic section |
 | Pronouns | ❓ or leave blank |
+| Willing to relocate | ❓ |
 | Consent to keep data for future roles | ❓ yes / no |
 
 # Cover letter style
@@ -137,10 +122,8 @@ is edited on Profile → Cover letter; the rest on Profile → Application answe
 
 ## Where the CV file and contact details live
 
-Neither belongs in Notion:
-
 - **CV file path**: set `JOB_PILOTTO_CV_PATH` in your local `.env` (see `.env.example`). Never
   commit the PDF itself — `.gitignore` already excludes `*.pdf`.
-- **Contact details** (email, phone, address): keep these wherever your form-filling tool reads
-  them from locally (e.g. the macOS Keychain, or a local-only file outside the repo). Job Pilotto
-  never sends these to Notion.
+- **Contact details** (name, email, phone, address, links): the app writes them as 📇 Contact details
+  on your Profile, from your CV; edit them in Profile → Your details. Forms read them from there; the
+  fit score leaves them out.

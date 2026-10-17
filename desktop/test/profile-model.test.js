@@ -68,7 +68,7 @@ test('an edited value lands in its row; a pipe typed in a value cannot break the
 test('the app\'s own template survives: every word of it, its rows and sections', () => {
   const model = parseProfile(TEMPLATE);
   assert.deepEqual(model.sections.map(s => s.kind), ['constraints', 'pay', 'preferences']);
-  assert.ok(model.sections[0].rows.length >= 10);
+  assert.ok(model.sections[0].rows.length >= 9);   // work permit and languages are Your details' since 18 Oct 2026 (test/profile-template-typed.test.js)
   const written = serializeProfile(model);
   for (const word of words(TEMPLATE)) assert.ok(written.includes(word), `kept: ${word}`);
   assert.match(written, /# Education/);
