@@ -1,6 +1,6 @@
 """Reading the job boards found for the user's countries (src/ai/board_ideas.py; spec docs/superpowers/specs/2026-10-08-job-board-discovery.md).
 No code per board: each board's public search page, filled with the user's own board searches and places, is read like a careers page
-(schema.org JobPosting first, then the job links and the AI page reader within its caps, then learned recipes: src/sources/careers.py).
+(schema.org JobPosting first (its hiringOrganization is the job's company, else "via <board>"; also from the job pages a list links to), then the job links and the AI page reader within its caps, then learned recipes: src/sources/careers.py).
 A board whose page only scripts fill first tries what it declares itself (feed alternates, robots.txt sitemaps: board_routes.py; the route
 that worked is kept per host). A board that refuses (401/403/429, a bot check) or gives no route is marked 'browser' (the visit list offers
 it) and looked at again after 30 days; one that gave no relevant job (title and place the search wants) three reads running is 'dead'
@@ -11,7 +11,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from ..progress import Ticker
-from . import board_routes, careers
+from . import board_employers, board_routes, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board per run
 MAX_PLACES = 2        # and places
@@ -62,9 +62,8 @@ def read_board(board, search, fetch=careers.get_text, route=None):
                 except board_routes.Stop:
                     return jobs, 'browser', None
                 return (declared, 'ok', found_route) if declared else (jobs, 'browser', None)
-            employers = board_routes.companies(page)
             for job in found:
-                jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], employers.get(job['url']) or f"via {board['name']}",
+                jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
                                  job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
             state = 'ok' if jobs else state
     return list({job['url']: job for job in jobs}.values()), state, None
@@ -103,4 +102,5 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
         jobs.extend(found)
         ticker.tick(done, f" · {board['name']}")
     board_ideas.save(data)
+    board_employers.note(jobs, 'Job boards found')
     return jobs

@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from . import ats, feeds
+from . import ats, board_employers, feeds
 
 SPACING_HOURS = 6
 PAGES = 2
@@ -221,6 +221,8 @@ def scan(db, search, now=None, readers=None):
                                     'salary_text': job['salary'], 'notes': f'Found on {name}', 'source': name, 'source_kind': 'job board',
                                     'status': feeds.record(db, name.lower(), job, now.isoformat(timespec='seconds'))})
                 db.execute('INSERT OR REPLACE INTO aggregator_runs (source, at) VALUES (?, ?)', (name, now.isoformat(timespec='seconds')))
+            board_employers.fill_missing(matched)   # the page's own hiringOrganization, a few per run
+            board_employers.note(matched, name)
             report['jobs'].extend(matched)
             report['sources'].append({'company': name, 'ok': True, 'total': len(found), 'matches': len(matched)})
         except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:

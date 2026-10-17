@@ -192,6 +192,12 @@ def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
             yield dict(name=name, origin=origin, priority=60 if staff >= 200 else 50 if staff else 45, website=site)
 
 
+def board_employer_candidates():
+    """Employers named on the jobs that boards and aggregators list, whatever the role: origin "Board employer" (src/sources/board_employers.py)."""
+    from .sources import board_employers
+    return board_employers.candidates()
+
+
 def skipped_origins(seeds, technical):
     """The origins (prefixes) a search does not harvest or probe: none for an IT search, the tech-only lists for any other."""
     if technical:
@@ -210,7 +216,7 @@ def default_sources(db, seeds, countries, skip=()):
     (owner, 18 Oct 2026: a Lisbon or Berlin search started with Swiss names); a search outside IT reads no tech-only list."""
     every = [named('seeds', lambda: seed_candidates(seeds)), named('hacker news', hacker_news_candidates), named('whiteboards', whiteboards_candidates),
              named('jobs.ch employers', lambda: local_company_candidates(db), 'Switzerland'), named('swissdevjobs', swissdevjobs_candidates, 'Switzerland'),
-             named('wikidata', lambda: wikidata_candidates(countries=countries))]
+             named('wikidata', lambda: wikidata_candidates(countries=countries)), named('board employers', board_employer_candidates)]
     if skip:
         every = [s for s in every if s.list_name not in ('hacker news', 'whiteboards', 'swissdevjobs')]
     return [s for s in every if not s.country or s.country in countries]

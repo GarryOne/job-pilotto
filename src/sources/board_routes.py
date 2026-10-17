@@ -23,22 +23,6 @@ class Stop(Exception):
     """The board (or one of its declared routes) refused: 401/403/429 or a bot check. No further route is tried."""
 
 
-def companies(markup):
-    """{job url: employer} from the page's JobPosting data (hiringOrganization), where it says."""
-    out = {}
-    for block in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', markup, re.S | re.I):
-        try:
-            data = json.loads(block)
-        except ValueError:
-            continue
-        for item in data if isinstance(data, list) else data.get('@graph') or [data]:
-            org = isinstance(item, dict) and item.get('hiringOrganization')
-            name = org.get('name') if isinstance(org, dict) else org if isinstance(org, str) else ''
-            if name and item.get('url'):
-                out[item['url']] = str(name)[:120]
-    return out
-
-
 def _get(fetch, url):
     """The text at url, or '' when it is not there; Stop for a refusal."""
     try:
@@ -146,8 +130,7 @@ def _sitemap_jobs(url, fetch, board, terms):
     def one(link):
         try:
             page = _get(fetch, link)
-            employers = companies(page)
-            return [{**job, 'company': employers.get(job['url'])} for job in jsonld_jobs(page, link)]
+            return [{**job, 'company': job.get('employer')} for job in jsonld_jobs(page, link)]
         except Stop:
             refused.append(link)
             return []
