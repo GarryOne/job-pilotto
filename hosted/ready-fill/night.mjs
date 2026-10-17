@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {copyForNight} from './extension-copy.mjs';
+import {setExtensionStorage} from './extension-storage.mjs';
 import {fillJob} from './fill-job.mjs';
 import {answererFor} from './night-ai.mjs';
 import {net} from './no-submit.mjs';
@@ -13,6 +14,9 @@ import {createStandIn} from './stand-in.mjs';
 export const EXTENSION_DIR = process.env.EXTENSION_DIR || path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'extension');
 // Pure: what a job cost us, micro-USD: the container's seconds (standard-1: 4 GiB memory + 8 GB disk + CPU, measured ≈ $0.000012 a second) plus the AI the extension reported.
 export const costMicro = (ms, usd = 0) => Math.round((Number(ms) || 0) / 1000 * 12 + (Number(usd) || 0) * 1e6);
+
+// Why a night failed, for the owner's /state (behind the night token) and the log: the error's first words, with any address cut out (counts and words only).
+export const why = error => String(error?.message || error).replace(/\b(?:https?|wss?):\/\/\S+/g, '<address>').split('\n')[0].slice(0, 160);
 
 async function post(fetchImpl, site, token, route, body) {
   const response = await fetchImpl(`${site}/api/ready/${route}`, {method: body ? 'POST' : 'GET', headers: {authorization: `Bearer ${token}`, 'content-type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
@@ -30,7 +34,7 @@ export async function runNight({chromium, site, token, fetchImpl = fetch, log = 
   const context = await chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,
     args: ['--headless=new', '--no-sandbox', `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...extraArgs]});
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
-  await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'night'}), `http://127.0.0.1:${standIn.port}`);  
+  await setExtensionStorage(worker, {workerUrl: `http://127.0.0.1:${standIn.port}`, token: 'night'});  
   const guard = await net(context);
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
   for (const job of batch.jobs) {

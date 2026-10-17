@@ -5,7 +5,7 @@ import http from 'node:http';
 import {chromium} from 'playwright';
 import {WebSocketServer} from 'ws';
 import {attach, handoff} from './live.mjs';
-import {runNight} from './night.mjs';
+import {runNight, why} from './night.mjs';
 
 let night = null, token = '', status = {state: 'idle', jobs: 0, filled: 0};
 const log = (what, data = {}) => console.log(JSON.stringify({what, ...data}));   // counts and words only
@@ -21,7 +21,7 @@ const server = http.createServer(async (request, response) => {
       if (night || status.state === 'running') return json(response, 409, {ok: false, error: 'already running'});
       token = String(given.token || ''); status = {state: 'running', jobs: 0, filled: 0};
       runNight({chromium, site: String(given.site || ''), token, log: (what, data) => { log(what, data); if (what === 'job') { status.jobs++; if (['prepared', 'partial'].includes(data.state)) status.filled++; } }})
-        .then(done => { night = done; status.state = 'held'; }, error => { status.state = 'failed'; log('night failed', {error: String(error).slice(0, 120)}); });
+        .then(done => { night = done; status.state = 'held'; }, error => { status = {...status, state: 'failed', error: why(error)}; log('night failed', {error: status.error}); });
       return json(response, 202, {ok: true});
     }
     if (url.pathname === '/health') return json(response, 200, {ok: true, ...status});
