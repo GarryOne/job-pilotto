@@ -16,7 +16,9 @@ export const isolated = (env = process.env) => !!(env.JOB_PILOTTO_E2E || env.JOB
 // The run's own secrets file, or null (a user's app; or an isolated run without its own folder, which then reads and keeps nothing).
 export const isolatedFile = (env = process.env) => (isolated(env) && env.JOB_PILOTTO_USER_DATA ? path.join(path.resolve(env.JOB_PILOTTO_USER_DATA), 'isolated-secrets.json') : null);
 const SITE_PASSWORD = /^job-pilotto\.[a-z0-9.-]+\.password$/i;
-export const twinMayRead = service => SITE_PASSWORD.test(String(service)) && service !== 'job-pilotto.mac-sign.password';
+// The twin may also read the Ready to send owner secret (owner, 17 Oct 2026: "Let the twin read that one item"): it is the same install, so its Send tonight / Run now reach the site as the owner's; read-only, never written.
+export const TWIN_OWNER_SECRET = 'job-pilotto.ready.owner_secret';
+export const twinMayRead = service => (SITE_PASSWORD.test(String(service)) && service !== 'job-pilotto.mac-sign.password') || service === TWIN_OWNER_SECRET;
 
 // {service: {value, account, comment, created}} as the run saved them.
 export function isolatedItems(env = process.env) {
