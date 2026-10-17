@@ -47,14 +47,14 @@ test('the kind of a row is the platform of the host its FORM was on, not of its 
   assert.equal(kindFor({formHost: 'omegach.recruitmentplatform.com', startHost: 'a.example', name: 'Swatch'}), 'Swatch', 'a site on no platform is its own kind');
 });
 
-test('on the real pinned rows: every row has a kind, the 3 Greenhouse forms are ONE kind, no two picked rows share a kind, no kind goes unpicked under the cap, and the name says k of n', () => {
+test('on the real pinned rows: every row has a kind, the Greenhouse forms are ONE kind, no two picked rows share a kind, no kind goes unpicked under the cap, and the name says k of n', () => {
   const data = load(), pins = pinned(data), kinds = data.rows;
   assert.deepEqual(pins.filter(name => !kinds[name].kind), [], 'a pinned row without a kind: run lib/replay-ratchet.mjs pin/kinds');
-  const greenhouse = ['Greenhouse board form', 'coreweave (found 2026-10-10)', 'Databricks (found 2026-10-10)'];
-  assert.deepEqual(greenhouse.map(name => kinds[name]?.kind), ['Greenhouse', 'Greenhouse', 'Greenhouse'], 'the golden: these three fill a Greenhouse form');
+  const greenhouse = ['Greenhouse board form', 'Databricks (found 2026-10-10)'];   // coreweave was the third until 17 Oct 2026 (unpinned: its re-record did not replay same as live)
+  assert.deepEqual(greenhouse.map(name => kinds[name]?.kind), ['Greenhouse', 'Greenhouse'], 'the golden: these fill a Greenhouse form');
   const pool = new Map(), picked = pickPinned(pins, {hosts: pool, kinds}), pickedKinds = picked.map(name => kinds[name].kind);
   assert.equal(new Set(pickedKinds).size, pickedKinds.length, 'two picked rows share a kind');
-  assert.equal(picked.filter(name => greenhouse.includes(name)).length, 1, 'Greenhouse: 1 of 3');
+  assert.equal(picked.filter(name => greenhouse.includes(name)).length, 1, 'Greenhouse: 1 of 2');
   const unpicked = new Set(pins.map(name => kinds[name].kind)); for (const kind of pickedKinds) unpicked.delete(kind);
   assert.ok(unpicked.size === 0 || picked.length === MAX, 'a kind goes unpicked while the cap is not reached');
   for (const name of ['Join: form on join.com', 'Swatch Group careers']) if (pins.includes(name)) assert.ok(picked.includes(name) || picked.length === MAX, `${name} is a kind no other row covers`);
