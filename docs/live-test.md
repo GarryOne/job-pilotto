@@ -47,6 +47,9 @@
 - **After each fill** the twin's log has one `fill: fields: N filled, M left` line: every field's outcome, source and reason, as the page holds it at the end.
 - Its log: `…/Job Pilotto (live test)/home/logs/app.log`. The owner's `app.log` must show none of its lines.
 
+## Accepting proposals (17 Oct 2026)
+`LIVE_USE_PROPOSALS=1` on a held run or replay takes the fill's proposed answers the way the person's "Use" press does (`lib/proposals-to-use.mjs`; a menu answer only when one of the form's own choices says it), then the extension goes on by its own rules (Next only when the form judge says ready; never Submit). Off by default. A live visit with it needs its own yes.
+
 ## Rules
 - Never the owner's main app window or process; never Submit; nothing destructive anywhere.
 - DOM reads are narrow: never read a password field's value.

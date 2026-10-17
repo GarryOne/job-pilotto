@@ -30,6 +30,7 @@ on:
       - 'desktop/e2e/lib/live-still.mjs'
       - 'desktop/e2e/lib/offline-app-child.mjs'
       - 'desktop/e2e/lib/offline-app-commands.mjs'
+      - 'desktop/e2e/lib/proposals-to-use.mjs'
       - 'desktop/e2e/lib/offline-app.mjs'
       - 'desktop/e2e/lib/offline-guard.mjs'
       - 'desktop/e2e/lib/offline-site-password.mjs'
