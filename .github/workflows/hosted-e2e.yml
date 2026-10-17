@@ -41,6 +41,10 @@ jobs:
           node-version: '22'
       - name: The app side (its own engine, for the merge into the Jobs store)
         run: pip install -r requirements.txt
+      - run: npm ci
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: node desktop/scripts/stage.mjs
       - name: Run the scenario against the real hosted image
         env:
