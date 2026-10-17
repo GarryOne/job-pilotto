@@ -2481,6 +2481,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 .qa-row.is-open > .ui-pill { border: 1px solid var(--signal-line); }   /* "Editing" on the open row's own tint */
 .qa-saved .qa-group { margin: 0; padding: var(--sp-2) var(--sp-4); background: var(--surface-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
 .qa-saved .qa-intro, .qa-saved .qa-note { margin: 0; padding: var(--sp-1) var(--sp-4); }
+.qa-saved .qa-note-fold > summary { padding: var(--sp-1) var(--sp-4); cursor: pointer; }
+.qa-saved .qa-note-fold > summary::after { content: ' · Show'; color: var(--signal); font-weight: 600; }
+.qa-saved .qa-note-fold[open] > summary::after { content: ' · Hide'; }
 .qa-saved .qa-intro:last-of-type { padding-bottom: var(--sp-3); }
 .qa-section .qa-empty { margin: 0; padding: var(--sp-3) var(--sp-4); }
 .qa-advanced { margin-top: var(--sp-2); }

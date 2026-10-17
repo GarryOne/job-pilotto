@@ -43,3 +43,15 @@
 - Tone: direct and personal, no clichés
 - Always mention: on-call ownership and measurable reliability wins
 - Never mention: salary
+
+## Form-filling time
+
+For each application, count only the active time spent researching the role, preparing answers, navigating the form and checking the completed draft. Stop the timer when the form is ready for review; keep the stage as Saved until the employer confirms.
+
+Earliest start date: 1 March
+
+We require all colleagues to meet in person 2-4 times a year, at internal company events lasting between 1-2 weeks. We t: Yes
+
+Are you able to provide professional references and criminal record checks? As a regulated bank, we need to ask for it p: ❓ (asked by Northwind Bank)
+
+To be eligible to work in Switzerland, employees need to have Swiss or EU/EFTA citizenship or a work permit. Please sele: ❓ (asked by Acme Robotics)
