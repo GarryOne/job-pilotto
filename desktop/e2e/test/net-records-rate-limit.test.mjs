@@ -20,7 +20,7 @@ function fetchWith(limited) {
   const work = fs.mkdtempSync(path.join(tmp, 'b-'));
   fs.mkdirSync(path.join(work, 'net-records', 'a'), {recursive: true});
   fs.writeFileSync(path.join(work, 'net-records', 'a', 'record.json'), JSON.stringify({name: 'row a', url: 'https://a.example.test/', startMs: 1}));
-  sh(`tar czf net.tgz net-records && openssl rand -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, 'net-records.tgz.enc')}" -pass file:k`
+  sh(`tar czf net.tgz net-records && openssl rand -hex -out k 32 && openssl enc -aes-256-cbc -pbkdf2 -salt -in net.tgz -out "${path.join(release, 'net-records.tgz.enc')}" -pass file:k`
     + ` && openssl pkeyutl -encrypt -pubin -inkey "${path.join(tmp, 'pub.pem')}" -pkeyopt rsa_padding_mode:oaep -in k -out "${path.join(release, 'net-records.k.enc')}"`, work);
   fs.writeFileSync(counter, '0');
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env bash

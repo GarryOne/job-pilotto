@@ -18,7 +18,7 @@ if (!memo || !fs.existsSync(memo)) { console.error(`refill-pack: no memo for "${
 const spend = (() => { try { return JSON.parse(fs.readFileSync(path.join(fillOut, 'fill', 'refill-spend.json'), 'utf8')); } catch { return {}; } })();
 fs.mkdirSync(pack, {recursive: true});
 const key = path.join(pack, 'k');
-execFileSync('openssl', ['rand', '-out', key, '32']);
+execFileSync('openssl', ['rand', '-hex', '-out', key, '32']);
 execFileSync('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-salt', '-in', memo, '-out', path.join(pack, 'memo.enc'), '-pass', `file:${key}`]);
 execFileSync('openssl', ['pkeyutl', '-encrypt', '-pubin', '-inkey', path.join(here, 'net-record.pub.pem'), '-pkeyopt', 'rsa_padding_mode:oaep', '-in', key, '-out', path.join(pack, 'k.enc')]);
 fs.rmSync(key);

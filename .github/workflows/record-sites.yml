@@ -121,7 +121,7 @@ jobs:
         run: |
           [ -d net-records ] && [ -n "$(ls -A net-records)" ] || { echo "no network record"; exit 0; }
           mkdir -p net-out && tar czf "$RUNNER_TEMP/net.tgz" net-records && rm -rf net-records
-          openssl rand -out "$RUNNER_TEMP/k" 32
+          openssl rand -hex -out "$RUNNER_TEMP/k" 32
           openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/net.tgz" -out net-out/net.tgz.enc -pass "file:$RUNNER_TEMP/k"
           openssl pkeyutl -encrypt -pubin -inkey desktop/e2e/net-record.pub.pem -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/k" -out net-out/k.enc
           rm -f "$RUNNER_TEMP/k" "$RUNNER_TEMP/net.tgz"
