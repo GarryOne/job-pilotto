@@ -21,7 +21,7 @@ const sent = [];
 const model = usage => async (url, init) => { sent.push({url, init}); return new Response(JSON.stringify({content: [{type: 'text', text: '{}'}], usage}), {status: 200}); };
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
 const MINE = 'sk-ant-the-users-own-key-0123456789';
-const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', READY_NIGHT_MAX_USD: '0.01', WAITLIST: kv(), AI: {run: async () => ({choices: [{message: {content: '{}'}, finish_reason: 'stop'}], usage: {prompt_tokens: 1000, completion_tokens: 100}}), toMarkdown: async () => []},
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', READY_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', READY_NIGHT_MAX_USD: '0.01', WAITLIST: kv(), AI: {run: async () => ({choices: [{message: {content: '{}'}, finish_reason: 'stop'}], usage: {prompt_tokens: 1000, completion_tokens: 100}}), toMarkdown: async () => []},
   fetchFn: model({input_tokens: 1000, output_tokens: 100}), ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T02:00:00Z');

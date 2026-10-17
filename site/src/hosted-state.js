@@ -9,20 +9,21 @@ const notFound = () => new Response('Not found', {status: 404});
 const deny = () => Response.json({ok: false, error: 'unauthorized'}, {status: 401});
 const keyOf = (account, name) => `hosted/${account}/${name}`;
 
-async function aesKey(env, account) {
-  if (!env.HOSTED_KEK) throw new Error('HOSTED_KEK is not set');
-  const mac = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.HOSTED_KEK), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
+// secret: the Worker secret the key derives from (Hosted Always on: HOSTED_KEK; Ready to send has its own, READY_KEK, so the two never share a key).
+async function aesKey(env, account, secret = 'HOSTED_KEK') {
+  if (!env[secret]) throw new Error(`${secret} is not set`);
+  const mac = await crypto.subtle.importKey('raw', new TextEncoder().encode(env[secret]), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
   const raw = await crypto.subtle.sign('HMAC', mac, new TextEncoder().encode(`hosted-state:${account}`));
   return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
-export async function seal(env, account, bytes) {
+export async function seal(env, account, bytes, secret) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const out = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv}, await aesKey(env, account), bytes));
+  const out = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv}, await aesKey(env, account, secret), bytes));
   const joined = new Uint8Array(12 + out.length); joined.set(iv); joined.set(out, 12);
   return joined;
 }
-export async function open(env, account, bytes) {
-  return new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: bytes.slice(0, 12)}, await aesKey(env, account), bytes.slice(12)));
+export async function open(env, account, bytes, secret) {
+  return new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: bytes.slice(0, 12)}, await aesKey(env, account, secret), bytes.slice(12)));
 }
 async function read(env, account, name) {
   const object = await env.HOSTED_STATE.get(keyOf(account, name));

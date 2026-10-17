@@ -12,6 +12,7 @@ import {closeNight, morning, readyToken} from './ready-morning.js';
 export {readyToken};
 
 export const readyOn = env => env.READY_TO_SEND === 'on' && !!env.HOSTED_STATE && !!env.READY_OWNER;
+const notSetUp = () => json({ok: false, error: 'Ready to send is not set up on the server yet (READY_KEK).'}, 503);   // the batch is sealed with its own Worker secret, never shared with Always on
 export const MAX_JOBS = 15, MAX_BYTES = 8 * 1024 * 1024, KEEP_HOURS = 24, RUN_HOURS = 3, COUNTS_KEEP_DAYS = 30, DEFAULT_CAP_USD = 1;
 export const OUTCOMES = ['prepared', 'partial', 'wall', 'no-form', 'failed'];   // what a container may report; never "submitted"
 const FACTS = ['profile', 'standard', 'search', 'cvFacts', 'knowledge'];
@@ -47,9 +48,9 @@ export async function start(env, id, now = new Date()) {
 
 const readBlob = async (env, install, id) => {
   const object = await env.HOSTED_STATE.get(keyOf(install, id));
-  return object ? JSON.parse(new TextDecoder().decode(await open(env, label(install), new Uint8Array(await object.arrayBuffer())))) : null;
+  return object ? JSON.parse(new TextDecoder().decode(await open(env, label(install), new Uint8Array(await object.arrayBuffer()), 'READY_KEK'))) : null;
 };
-const writeBlob = (env, install, id, data) => seal(env, label(install), new TextEncoder().encode(JSON.stringify(data))).then(bytes => env.HOSTED_STATE.put(keyOf(install, id), bytes));
+const writeBlob = (env, install, id, data) => seal(env, label(install), new TextEncoder().encode(JSON.stringify(data)), 'READY_KEK').then(bytes => env.HOSTED_STATE.put(keyOf(install, id), bytes));
 const stamp = at => at.toISOString();
 
 // Takes the listed jobs' data out of a batch (all of them when `jobs` is null): the blob shrinks or goes, the rows keep their counts. -> how many jobs were cleared.
@@ -84,6 +85,7 @@ async function batch(request, env, now) {
   if (request.method !== 'POST') return json({ok: false, error: 'Use GET or POST'}, 405);
   const install = await ownerOf(request, env);
   if (!install) return deny();
+  if (!env.READY_KEK) return notSetUp();
   const text = await request.text();
   if (text.length > MAX_BYTES) return json({ok: false, error: 'too large'}, 413);
   let given;

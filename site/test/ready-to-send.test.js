@@ -18,7 +18,7 @@ function d1() {
 }
 const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
   head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
-const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', HOSTED_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', ...extra});
+const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', READY_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T02:00:00Z');
 const call = async (e, method, path, body, headers = {}) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, now);
@@ -53,6 +53,13 @@ test('the batch is unreadable at rest, the rows hold the host and never the addr
   assert.deepEqual(rows.map(r => r.host), ['boards.example.com', 'jobs.example.org']);
   assert.ok(!JSON.stringify(rows).includes('/acme/jobs/1'));
   assert.equal((await call(e, 'POST', 'batch', {...batchBody(), jobs: [{id: 'x', url: 'http://plain.example.com'}]}, await owner())).status, 400);   // https only
+});
+
+test('the batch is sealed with Ready to send\'s own secret: without READY_KEK it is refused, and Always on\'s HOSTED_KEK is not borrowed', async () => {
+  const e = env({READY_KEK: '', HOSTED_KEK: 'always-on-key'});
+  const response = await call(e, 'POST', 'batch', batchBody(), await owner());
+  assert.equal(response.status, 503);
+  assert.equal(e.HOSTED_STATE.m.size, 0);
 });
 
 test('a container reads the night with its token and nothing else does', async () => {
@@ -106,7 +113,7 @@ test('deleted three ways: Done, Delete everything, and the 24 h sweep; the count
   let {e} = await night();
   await call(e, 'POST', 'done', {job: 'j1'}, await owner());
   assert.equal((await (await call(e, 'GET', 'state', undefined, await owner())).json()).jobs[0].cleared_at !== null, true);
-  const after = JSON.parse(new TextDecoder().decode((await (async () => { const {open} = await import('../src/hosted-state.js'); return open(e, 'ready:owner-install-1', [...e.HOSTED_STATE.m.values()][0]); })())));
+  const after = JSON.parse(new TextDecoder().decode((await (async () => { const {open} = await import('../src/hosted-state.js'); return open(e, 'ready:owner-install-1', [...e.HOSTED_STATE.m.values()][0], 'READY_KEK'); })())));
   assert.deepEqual(after.jobs.map(j => j.id), ['j2']);   // j1's kit, letter and CV are gone from the blob
   await call(e, 'POST', 'done', {job: 'j2'}, await owner());
   assert.equal(e.HOSTED_STATE.m.size, 0);
