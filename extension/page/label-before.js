@@ -9,7 +9,7 @@
   if (window.__jobPilottoLabelBefore) return;
   const CONTROL = 'input:not([type=hidden]), select, textarea, button';
   const text = el => String(el.textContent || '').replace(/\s+/g, ' ').trim();
-  window.__jobPilottoLabelBefore = el => {
+  const labelBefore = el => {
     for (let node = el, hops = 0; node && hops < 4; node = node.parentElement, hops++) {
       for (let prev = node.previousSibling; prev; prev = prev.previousSibling) {
         if (prev.nodeType === 3) { if (prev.textContent.trim()) return ''; continue; }   // words between the label and the box: not its label
@@ -71,4 +71,20 @@
     const found = window.__jobPilottoTitleAbove(group, selector);
     return found ? {text: text(found), el: found} : null;
   };
+  // A bare heading right above a control with no label of its own names it (17 Oct 2026, Breezy HR: <div><h3>Desired Salary</h3><select name=salaryCurrency><input name=cSalary></div>,
+  // <li><div><h3>Provide your city and state of residence</h3><input name=section_..._question_5>: the boxes were asked as their field names). Structure only: the nearest
+  // earlier h1-h6/role=heading holding no control, in the closest wrapper (up to two up) with at most three visible boxes, none of which has a label of its own (a section
+  // title over labelled fields is never a box's name). -> the heading's words, or ''.
+  const HEADING = 'h1, h2, h3, h4, h5, h6, [role=heading]';
+  const ownLabel = c => !!(c.labels && c.labels.length) || !!c.getAttribute('aria-label') || !!c.getAttribute('aria-labelledby');
+  const headingFor = el => {
+    for (let up = el.parentElement, i = 0; up && i < 2; up = up.parentElement, i++) {
+      const boxes = [...up.querySelectorAll(CONTROL)].filter(c => c.type !== 'hidden' && !c.closest('[hidden], [aria-hidden=true]'));
+      if (boxes.length > 3 || boxes.some(ownLabel)) return '';
+      const found = [...up.querySelectorAll(HEADING)].filter(h => !h.contains(el) && !h.querySelector(CONTROL) && text(h) && text(h).length <= 200 && before(h, el));
+      if (found.length) return text(found[found.length - 1]);
+    }
+    return '';
+  };
+  window.__jobPilottoLabelBefore = el => labelBefore(el) || headingFor(el);   // the label right before the box, else the heading above its block
 })();

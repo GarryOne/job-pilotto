@@ -119,3 +119,26 @@ test('a group never takes a title that another control sits between: the previou
   assert.equal(new Set(labels).size, labels.length, `two fields share one label: ${labels.join(' | ')}`);
   window.close();
 });
+
+// 17 Oct 2026, Breezy HR: the question is a bare <h3> above its box; a salary block is one heading over a currency menu and an amount box.
+const HEADINGS = `<form>
+  <div class="desired-salary"><h3><span>Desired Salary</span><span class="required">*</span></h3>
+    <select name="salaryCurrency"><option>US Dollar</option><option>Swiss Franc</option></select><input name="cSalary"></div>
+  <ul><li><div><h3>Provide your city and state of residence*</h3><input name="section_1774295790652_question_5"></div></li>
+  <li><div><h3>LinkedIn Profile link</h3><div class="question-body"><p><br></p></div><input name="section_1774295790652_question_0"></div></li></ul></form>`;
+// A section title over labelled boxes, and over many boxes, is not any one box's name.
+const SECTIONS = `<form><div><h3>Contact</h3>
+  <label for="e">Email</label><input id="e" name="email"><input name="phone"><input name="zip"><input name="town"></div>
+  <div><h3>Personal</h3><label for="n">Name</label><input id="n" name="n"><input name="nick"></div></form>`;
+
+test('a heading right above a box with no label of its own names it', { skip }, () => {
+  const window = openPage(JSDOM, HEADINGS);
+  const all = [...window.document.querySelectorAll('input, select')].map((el) => window.__jobPilottoFillKit.labelOf(el));
+  assert.deepEqual(all, ['Desired Salary', 'Desired Salary', 'Provide your city and state of residence', 'LinkedIn Profile link']);
+});
+
+test('a section heading over labelled boxes or over more than three boxes names none of them', { skip }, () => {
+  const window = openPage(JSDOM, SECTIONS);
+  const all = [...window.document.querySelectorAll('input')].map((el) => window.__jobPilottoFillKit.labelOf(el));
+  assert.deepEqual(all, ['Email', 'phone', 'zip', 'town', 'Name', 'nick']);
+});
