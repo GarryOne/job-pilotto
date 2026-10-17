@@ -20,6 +20,7 @@ on:
       # Files outside desktop/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
       - '.github/workflows/e2e.yml'
       - '.gitignore'
+      - 'hosted/ready-fill/**'   # the night's filler: desktop/test/ready-fill.test.js imports it
       - 'config/notion_schema.json'
       - 'config/notion_template.json'
       - 'docs/notion-profile-template.md'
