@@ -39,6 +39,7 @@ test('the note is folded behind "+ note" until it has text; the lists are sized 
   assert.equal(all(age).find(box => box.ariaLabel === 'Age bracket: note').hidden, true);
   assert.equal(all(age).find(box => box.textContent === '+ note').hidden, false);
   const css = fs.readFileSync(new URL('../renderer/question-review.css', import.meta.url), 'utf8');
+  assert.match(css, /\.survey-rows textarea \{[^}]*field-sizing: content/);
   assert.match(css, /\.survey-rows select \{ width: auto;/);
-  assert.match(css, /grid-template-columns: 200px max-content auto/);
+  assert.match(css, /grid-template-columns: 200px max-content minmax\(0, 1fr\)/);
 });
