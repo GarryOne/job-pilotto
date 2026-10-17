@@ -35,3 +35,17 @@ test('the panel\'s repeated report is not an act: it does not keep the window op
   clearInterval(timer);
   assert.ok(ms < 4000, `took ${ms} ms`);
 });
+
+test('only a pull request\'s page cases run the quick window; main, the daily run and a local run wait the whole window', async () => {
+  const fs = await import('node:fs'), path = await import('node:path'), {windowMode} = await import('../lib/page-replay.mjs');
+  const flow = fs.readFileSync(path.join(import.meta.dirname, '../../../.github/workflows/page-cases.yml'), 'utf8');
+  assert.match(flow, /JP_REPLAY_WINDOW: \$\{\{ github\.event_name == 'pull_request' && 'quick' \|\| 'full' \}\}/);
+  assert.match(flow, /schedule:\s*\n\s*- cron:/, 'the daily full run');
+  assert.ok(!/JP_REPLAY_WINDOW/.test(fs.readFileSync(path.join(import.meta.dirname, '../../../.github/workflows/build.yml'), 'utf8')), 'main sets no quick mode');
+  const was = process.env.JP_REPLAY_WINDOW;
+  try {
+    delete process.env.JP_REPLAY_WINDOW; assert.equal(windowMode(), 'full');
+    process.env.JP_REPLAY_WINDOW = 'full'; assert.equal(windowMode(), 'full');
+    process.env.JP_REPLAY_WINDOW = 'quick'; assert.equal(windowMode(), 'quick');
+  } finally { if (was === undefined) delete process.env.JP_REPLAY_WINDOW; else process.env.JP_REPLAY_WINDOW = was; }
+});
