@@ -92,6 +92,10 @@ export async function init() {
     $('activity-log').open = true;
     $('activity-log').scrollIntoView({block: 'nearest', behavior: 'smooth'});
   });
+  $('activity-partial-details').addEventListener('click', () => {
+    $('activity-log').open = true;
+    $('activity-log').scrollIntoView({block: 'nearest', behavior: 'smooth'});
+  });
   $('activity-warnings-external').addEventListener('click', event => { const url = event.currentTarget.dataset.url; if (url) window.pilot.openExternal(url); });
   $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });
   $('activity-warnings-fold').addEventListener('click', () => {

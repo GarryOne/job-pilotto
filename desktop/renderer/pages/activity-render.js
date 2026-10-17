@@ -33,6 +33,7 @@ import {renderInsightCard, renderInterviewCard, renderKitsCard, renderWeeklyCard
 import {kindFilter, barLabel, PANEL_KEY, panelMemory} from './activity-panel.js';
 import {byStore} from '../store-words.js';
 import {startSearch} from './jobs.js';
+import {showPartial, splitPartial} from './activity-partial.js';
 export let lastActivity = null;
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
@@ -382,7 +383,10 @@ export function renderActivity(fresh) {
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
-  const warnings = detailWarnings;
+  // A result with only a few sources that did not answer keeps its card first: one small line under it, no box (pages/activity-partial.js).
+  const split = splitPartial(detailWarnings);
+  const partial = run?.ok && !run.live && split.partial ? split : null;
+  const warnings = partial ? split.rest : detailWarnings;
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
   const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)})
@@ -391,7 +395,8 @@ export function renderActivity(fresh) {
   // A message not delivered comes after the run's results; every other box comes first. Its icon says what it is about.
   if (head?.delivery) $('activity-phases').after($('activity-warnings')); else $('activity-phases').before($('activity-warnings'));
   $('activity-warnings').querySelector('.ap-warn-icon').replaceChildren(icon(head?.icon || 'alert'));
-  const warnedOnly = !warnings.length && !run?.live && !!run?.warned && !head;
+  const warnedOnly = !warnings.length && !partial && !run?.live && !!run?.warned && !head;
+  showPartial(partial?.partial);
   const limited = limitedJobs(warnings);
   show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
   if (warnings.length || warnedOnly || head?.problem) {
