@@ -133,7 +133,17 @@ class ErrorFactsTests(unittest.TestCase):
             said = contract.named(caught.exception)
             for part in ('HTTP 401', 'invalid_api_key', 'model claude-haiku-5-5', f'engine {adapter.name}'):
                 self.assertIn(part, said, adapter.name)
+            self.assertIn('Incorrect API key provided', said, adapter.name)   # the API's own words are in the line, cut to 160 characters
             self.assertNotIn('sk-secret', said)
+            self.assertLessEqual(len(said.split('said "')[1]), 161)
+
+    def test_a_key_in_the_api_message_never_reaches_the_line(self):
+        error = Exception('Error code: 400 - {"message": "credit balance is too low. key=sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789ABCDEF"}')
+        error.status_code = 400
+        said = contract.named(error)
+        self.assertIn('credit balance is too low', said)
+        self.assertNotIn('abcdefghijkl', said)
+        self.assertNotIn('sk-ant', said)
 
     def test_openai_contract_errors_keep_the_status_and_code(self):
         from src.ai.providers import openai_api
