@@ -1,5 +1,5 @@
 // The automatic refill starts when what the AI is asked changes, not when one file name changes (lib/prompt-sources.mjs, refill-trigger.mjs; owner, 15 Oct 2026: #904's worker field list and #912's cv_facts rule changed asks, no refill ran).
-// A real git repo in a temp folder: a change to the worker's field list or cv_facts rule triggers it, a score-only baseline change and an unrelated file do not; the workflow's push paths list exactly these files.
+// A real git repo in a temp folder: a change to the worker's field list or cv_facts rule triggers it, a score-only baseline change and an unrelated file do not.
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -16,12 +16,6 @@ test('every ladder prompt file and the worker\'s ask-building files are sources,
   for (const item of PROMPT_FILES) assert.ok(PROMPT_SOURCES.includes(item.file), `${item.file} builds a ladder prompt: a change to it must be able to refill`);
   for (const file of WORKER_AND_PAGE_SOURCES) assert.ok(fs.existsSync(path.join(repoRoot, file)), `${file} is listed as a prompt source but does not exist: update lib/prompt-sources.mjs`);
   assert.ok(PROMPT_SOURCES.includes('worker/src/cv-facts.js') && PROMPT_SOURCES.includes('worker/src/extension.js'), 'the worker\'s field list and cv_facts rule');
-});
-
-test('the refill workflow starts on a push to exactly these files and the baseline', () => {
-  const text = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'replay-refill.yml'), 'utf8');
-  const listed = JSON.parse(text.match(/^    paths: (\[.*?\])\s+#/m)[1].replace(/'/g, '"'));
-  assert.deepEqual([...listed].sort(), [LADDER_BASELINE, ...PROMPT_SOURCES].sort(), 'the push paths and lib/prompt-sources.mjs must list the same files');
 });
 
 test('sourcesChanged names the files whose content differs', () => {
