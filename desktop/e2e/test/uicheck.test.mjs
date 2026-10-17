@@ -168,7 +168,7 @@ test('the real menu at the smallest window height: the old hidden-scrollbar colu
     const open = async extra => {
       await page.goto(`file://${css}/index.html`);
       await page.waitForTimeout(300);
-      await page.evaluate(styles => { for (let e = document.querySelector('.sidebar'); e; e = e.parentElement) e.hidden = false; const tag = document.createElement('style'); tag.textContent = styles; document.head.append(tag); }, extra);
+      await page.evaluate(styles => { for (let e = document.querySelector('.sidebar'); e; e = e.parentElement) e.hidden = false; document.querySelectorAll('.nav[hidden]').forEach(nav => { nav.hidden = false; });   /* the longest menu: Interviews and Reports shown once they have content */ const tag = document.createElement('style'); tag.textContent = styles; document.head.append(tag); }, extra);
       return (await page.evaluate(inspect, {view: 'jobs', limits: LIMITS})).filter(item => ['unreachable-control', 'hidden-scroll'].includes(item.kind));
     };
     const old = await open('.sidebar{overflow-y:auto !important;scrollbar-width:none !important}.sidebar .nav-scroll{display:contents !important}');
