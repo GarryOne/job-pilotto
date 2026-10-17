@@ -65,3 +65,29 @@ test('every file that reads the open questions is a known consumer of the shared
   // each reads through lib/question-lists.js (Jobs, Needs review's verdicts, what Claude needs) or is the filter's own source; a new reader fails here until it is added with its filter
   assert.deepEqual(readers.sort(), ['lib/job-actions-handlers.js', 'lib/question-lists.js', 'lib/server-env.js', 'renderer/pages/jobs-questions.js', 'renderer/pages/session-needs.js'].sort());
 });
+
+test('ranking: a question that blocked a fill, then the most asked, first', () => {
+  const v = {[keyOf('Visa?')]: {reuse: 'reusable', asked: 5}, [keyOf('Pronouns')]: {reuse: 'reusable', asked: 1, blocked: true}, [keyOf('Degree?')]: {reuse: 'reusable', asked: 3}};
+  assert.deepEqual(visibleQuestions([{question: 'Degree?'}, {question: 'Visa?'}, {question: 'Pronouns'}], v).shown.map(row => row.question), ['Pronouns', 'Visa?', 'Degree?']);
+});
+
+test('record: how many forms asked, blocked, and which job; a one-job question comes back for that job only', async () => {
+  const {record, forJob} = await import('../lib/question-verdicts.js');
+  const s = storage();
+  s.saveSettings({questionVerdicts: {[keyOf('Why Colonist?')]: {reuse: 'one_job', question: 'Why Colonist?', asked: 0}, [keyOf('Notice period')]: {reuse: 'reusable', question: 'Notice period', asked: 0}}});
+  record(s, ['Why Colonist?', 'Notice period', 'Never judged'], {url: 'https://jobs.example/colonist', company: 'Colonist'});
+  record(s, ['Why Colonist?'], {url: 'https://jobs.example/colonist', company: 'Colonist'});
+  const kept = s.settings().questionVerdicts;
+  assert.equal(kept[keyOf('Why Colonist?')].asked, 2);
+  assert.equal(kept[keyOf('Why Colonist?')].jobs.length, 1, 'the same job once');
+  assert.ok(kept[keyOf('Notice period')].blocked);
+  assert.ok(!kept[keyOf('Never judged')], 'no stub for an unjudged question');
+  assert.deepEqual(forJob(s, 'https://jobs.example/colonist'), [{question: 'Why Colonist?'}]);
+  assert.deepEqual(forJob(s, 'https://jobs.example/other'), []);
+});
+
+test('consent boxes are counted for the one-line note, never listed', async () => {
+  const result = await lists.openShown(storage(), {rows, groups, ai});
+  assert.equal(result.consent, 1);
+  assert.ok(!result.list.some(row => /GDPR/.test(row.question)));
+});

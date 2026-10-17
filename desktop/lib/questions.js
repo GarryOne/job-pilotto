@@ -78,13 +78,21 @@ const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
 // Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
 // fields, which come from the Profile).
 // reusable: async labels -> the Set worth keeping (the AI's judgment, lib/question-reuse.js); left out, every candidate is kept (unit tests).
-export async function collect(storage, run, company = '', fetcher, reusable = null) {
+// seen: (labels) after the fill, for every required question it could not answer, new or not (ranking: how many forms asked, blocked a fill).
+export async function collect(storage, run, company = '', fetcher, reusable = null, seen = null) {
+  const found = {labels: []};
+  const added = await collectNew(storage, run, company, fetcher, reusable, found);
+  if (seen && found.labels.length) await seen(found.labels);
+  return added;
+}
+async function collectNew(storage, run, company, fetcher, reusable, found) {
   // A contact or file field by the shared label meanings too (any language: "Nome", "Currículo"), not only these words.
   const aliases = await sharedMeanings.lookup(storage).catch(() => []);
   const byMeaning = label => !!aliasKey(unmarked(label), aliases) || !!fileKind(unmarked(label), aliases);
   const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && (asksQuestion(field.label) || !CONTACT.test(unmarked(field.label)))
     && !unanswerable(field.label) && !looksLikeFieldId(field.label) && !byMeaning(field.label));
   if (!wanted.length) return 0;
+  found.labels = wanted.map(field => unmarked(field.label));
   const page = answersPage(storage, fetcher);
   const fresh = [];
   const known = new Set((await page.blocks()).map(block => key(label(block.text))));

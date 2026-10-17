@@ -19,6 +19,8 @@ export function visibleQuestions(rows, verdicts = {}) {
     if (looksLikeFieldId(row.question) || (verdict && verdict.reuse !== 'reusable')) hidden.push(row);
     else shown.push(verdict?.covered_by && verdict.proposal ? {...row, proposal: verdict.proposal, coveredBy: verdict.covered_by} : row);
   }
-  shown.sort((a, b) => (verdicts[keyOf(b.question)]?.asked || 0) - (verdicts[keyOf(a.question)]?.asked || 0));
+  // value first: a question that blocked a fill, then the most asked
+  const weight = row => { const v = verdicts[keyOf(row.question)] || {}; return (v.blocked ? 1e6 : 0) + (v.asked || 0); };
+  shown.sort((a, b) => weight(b) - weight(a));
   return {shown, hidden};
 }
