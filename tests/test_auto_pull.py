@@ -52,6 +52,23 @@ class AutoPullTest(unittest.TestCase):
         self.commit('docs/a.md', 'a')
         self.assertIn('nothing to restart', self.run_pull()[-1])
 
+    def test_shared_inputs_are_restaged_after_an_update_and_other_changes_are_not(self):
+        stage = "import fs from 'node:fs'; fs.appendFileSync(new URL('../../staged.txt', import.meta.url), process.argv.slice(2).join(' ') + '\\n');"
+        self.commit('desktop/scripts/stage.mjs', stage)
+        self.run_pull()
+        staged = self.repo / 'staged.txt'
+        staged.unlink(missing_ok=True)
+        # the class: every input stage.mjs copies, and nothing else
+        for path in ('worker/src/a.js', 'extension/recipe-schema.js', 'extension/alias-schema.js', 'extension/ladder/core.js'):
+            self.commit(path, 'x')
+            notices = self.run_pull()
+            self.assertEqual(staged.read_text().splitlines()[-1], '--files-only', path)
+            self.assertIn('restart the app', notices[-1], path)
+            staged.unlink()
+        self.commit('docs/d.md', 'd')
+        self.run_pull()
+        self.assertFalse(staged.exists(), 'an unrelated change restages nothing')
+
     def test_untracked_files_do_not_stop_an_update(self):
         (self.repo / 'scratch.txt').write_text('mine')
         self.commit('docs/b.md', 'b')
