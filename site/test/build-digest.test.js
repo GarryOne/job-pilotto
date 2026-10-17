@@ -99,3 +99,19 @@ test('plan: a draft only when the PR set changed, once an hour, 8 a day; the fin
   assert.equal(zurichHour(new Date('2026-12-16T22:10:00Z')), 23);   // winter time
   assert.equal(zurichHour(new Date('2026-10-16T22:10:00Z')), 0);
 });
+
+// 16 Oct 2026: 116 PRs, 3,000 tokens of room: Haiku's JSON was cut off at max_tokens, twice, and the run said only "not JSON".
+test('a cut-off answer (stop_reason max_tokens) is retried once with more room and, if still cut, named as such', async () => {
+  const calls = [];
+  const cut = (answers) => async (url, init) => {
+    const body = JSON.parse(init.body); calls.push(body.max_tokens);
+    const [text, stop] = answers[Math.min(calls.length - 1, answers.length - 1)];
+    return {ok: true, json: async () => ({content: [{text}], stop_reason: stop, usage: {input_tokens: 9000, output_tokens: body.max_tokens}})};
+  };
+  const half = fakeAnswer(numbers).slice(0, 300);
+  const done = await makeDigest({day: '2026-10-16', prs, key: 'k', fetch: cut([[half, 'max_tokens'], [fakeAnswer(numbers), 'end_turn']])});
+  assert.deepEqual(calls, [8000, 16000]);
+  assert.equal(done.groups.length, 3);
+  calls.length = 0;
+  await assert.rejects(makeDigest({day: '2026-10-16', prs, key: 'k', fetch: cut([[half, 'max_tokens']])}), /unusable twice \(cut off at the 16000-token limit after 16000 tokens, 116 PRs\)/);
+});

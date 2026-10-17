@@ -2,6 +2,8 @@
 // Haiku groups them by goal and answers a FIXED JSON shape, and this file validates that answer and writes the markdown (the intro and the PR numbers are code's, never the AI's).
 // Used by tools/daily-digest.mjs (CI) and the admin page. Guard: test/build-digest.test.js (a fixture of the 16 Oct 2026 PRs, no live AI).
 export const MODEL = 'claude-haiku-5-5';
+// The answer's room: 9 groups x 5 bullets x ~100 tokens is ~4,500 for a busy day (16 Oct 2026: ~50 PRs, 3,000 cut the JSON off: "not JSON" twice). A cut-off answer is retried once with MORE_TOKENS.
+export const MAX_TOKENS = 8000, MORE_TOKENS = 16000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // The calendar day in Zurich (YYYY-MM-DD): the day of the digest, whatever the server clock says.
@@ -92,13 +94,13 @@ export function render({day, groups, open, numbers}) {
   return `${intro}\n\n${body}${body ? '\n\n' : ''}**Still open:** ${open || 'Nothing open.'}\n`;
 }
 
-// Ask the model (fetch is injected, a test passes a fake). -> {text, usage} of the Messages API; throws on a non-2xx.
-export async function ask({system, user}, {key, model = MODEL, fetch: doFetch = fetch, maxTokens = 3000}) {
+// Ask the model (fetch is injected, a test passes a fake). -> {text, usage, stopReason} of the Messages API; throws on a non-2xx.
+export async function ask({system, user}, {key, model = MODEL, fetch: doFetch = fetch, maxTokens = MAX_TOKENS}) {
   const response = await doFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'},
     body: JSON.stringify({model, max_tokens: maxTokens, system, messages: [{role: 'user', content: user}]})});
   if (!response.ok) throw new Error(`model answered ${response.status}`);
   const out = await response.json();
-  return {text: (out.content || []).map(part => part.text || '').join(''), usage: out.usage || {}};
+  return {text: (out.content || []).map(part => part.text || '').join(''), usage: out.usage || {}, stopReason: out.stop_reason || ''};
 }
 
 // The whole step: summaries + open PRs -> {markdown, groups, numbers, usage} (one retry on a bad answer), or throws.
@@ -107,10 +109,11 @@ export async function makeDigest({day, prs, open = [], key, model, fetch: doFetc
   if (!numbers.length) return {markdown: render({day, groups: [], open: '', numbers}), groups: [], open: '', numbers, usage: {}};
   const prompt = buildPrompt(summaries, open);
   const usage = {input_tokens: 0, output_tokens: 0};
-  let failure = '';
+  let failure = '', maxTokens = MAX_TOKENS;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const {text, usage: used} = await ask(prompt, {key, model, fetch: doFetch});
+    const {text, usage: used, stopReason} = await ask(prompt, {key, model, fetch: doFetch, maxTokens});
     usage.input_tokens += used.input_tokens || 0; usage.output_tokens += used.output_tokens || 0;
+    if (stopReason === 'max_tokens') { failure = `cut off at the ${maxTokens}-token limit after ${used.output_tokens || '?'} tokens, ${numbers.length} PRs`; maxTokens = MORE_TOKENS; continue; }
     const checked = validate(text, numbers);
     if (!checked.error) return {markdown: render({day, groups: checked.groups, open: checked.open, numbers}), groups: checked.groups, open: checked.open, numbers, usage};
     failure = checked.error;
