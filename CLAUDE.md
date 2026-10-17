@@ -54,6 +54,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   skill **ui-look-and-feel**; `desktop/` changes: skill **desktop-change**.
 - **Every lesson lands in its strongest form** (a failing test, a gate, a skill step, memory, a spec checklist; a note is the weakest).
   Before saying done: what did this teach, and where does it live? Detail: [docs/rules/knowledge.md](docs/rules/knowledge.md).
+- **Local tests never wait for our own clock** (owner, 18 Oct 2026): no waiting for a schedule, a fill time, "tomorrow" or a daily limit of our own site; trigger it by hand (a "now" button, `gh workflow run`) or lift our own limit for the test. Only live third-party sites keep their limits.
 - **No subagents** unless the owner asks: work inline. **One issue per session**; new splittable work goes to a hand-off.
 
 ## The change loop
