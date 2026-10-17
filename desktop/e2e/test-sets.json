@@ -250,6 +250,7 @@
   "truth-data.test.mjs",
   "truth.test.mjs",
   "twin-check.test.mjs",
+  "real-notion-token.test.mjs",
   "twin-refresh.test.mjs",
   "uicheck.test.mjs",
   "upload-slot.test.mjs",
