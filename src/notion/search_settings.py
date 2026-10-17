@@ -107,8 +107,10 @@ def fragment_of(entry):
 
 # Remove when: no Search settings page lacks "Format 2" (`upgrade` has rewritten every one), not when installs update.
 def fragment_v1(entry):
-    """How pages without "Format 2" were read: a plain entry was a whole word."""
+    """How pages without "Format 2" were read: a plain entry was a whole word; a "quoted" one too, without its quotes (17 Oct 2026: kept them)."""
     entry = entry.strip()
+    if len(entry) > 2 and entry.startswith('"') and entry.endswith('"'):
+        return fragment_of(entry)
     if len(entry) > 2 and entry.startswith('/') and entry.endswith('/'):
         return entry[1:-1]
     text = re.escape(entry)

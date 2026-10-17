@@ -270,9 +270,16 @@ def place_regex(fragments):
                           for fragment in fragments])
 
 
+def whole_word(fragment):
+    """An entry stored with its quotes ("tax": the settings page's whole-word form) as the whole-word pattern it means (\\btax\\b); any other
+    fragment as it is. 17 Oct 2026: such entries were compiled with their quotes and never matched (tests/test_quoted_patterns.py)."""
+    text = str(fragment)
+    return rf'\b{text[1:-1]}\b' if len(text) > 2 and text.startswith('"') and text.endswith('"') else text
+
+
 def keyword_regex(fragments):
     """Case-insensitive regex matching any of these already-regex fragments (word boundaries,
 
-    optional chars etc. are the fragment author's choice — see config/search.json)."""
+    optional chars etc. are the fragment author's choice — see config/search.json). A quoted entry is read as a whole word (whole_word)."""
     import re
-    return re.compile('|'.join(fragments), re.I)
+    return re.compile('|'.join(whole_word(fragment) for fragment in fragments), re.I)
