@@ -1,0 +1,57 @@
+{
+ "origin": "hand-cut",
+ "shape": "a question whose words are a bare heading (<h3>) above its box, not a <label> and not a class named label/title: the box and a currency menu beside it were asked as their field names (cSalary, salaryCurrency, section_..._question_5), so the AI could not tell a salary currency or a city from a code",
+ "why": "17 Oct 2026, fill-quality measure on main 71da1a8 (Breezy HR, two forms): Desired Salary left as a proposal with the page's USD kept, 5 custom questions logged 'question on the page not read' (LinkedIn, city, work arrangement...). The heading right above a control that has no label of its own names it, when the heading's block holds at most three controls and none has its own label. Hand-cut from the captured structure (names, texts and layout; values removed)",
+ "control": {
+  "guard": "fails on origin/main at c605c1c (the fill log names the boxes salaryCurrency, cSalary and section_..._question_5); passes with page/label-before.js headingFor"
+ },
+ "sample": "two Breezy HR application pages (structure only, values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.ch/jobs/apply/platform-engineer",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "section_1774295790652_question_5",
+     "value": "Zurich, Switzerland"
+    },
+    {
+     "field": "section_1774295790652_question_0",
+     "value": "https://www.linkedin.com/in/ada-tester"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "filled": [
+   "input[name=\"section_1774295790652_question_5\"]",
+   "input[name=\"section_1774295790652_question_0\"]"
+  ],
+  "valueIs": [
+   "input[name=\"section_1774295790652_question_5\"]|Zurich, Switzerland"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60,
+  "told": [
+   "\"label\":\"Desired Salary\",\"type\":\"select\"",
+   "\"label\":\"Provide your city and state of residence\"",
+   "\"label\":\"Please provide your LinkedIn Profile link\""
+  ]
+ },
+ "start": "panel"
+}

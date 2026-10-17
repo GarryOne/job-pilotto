@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Platform Engineer</title></head><body>
+<form id="apply" action="/apply/send" method="post">
+  <div class="field"><h3><span>Full name</span><span class="required" title="Required">*</span></h3>
+  <input required type="text" name="cName"></div>
+  <div class="field"><h3><span>Email</span><span class="required" title="Required">*</span></h3>
+  <input required type="email" name="cEmail"></div>
+  <div class="desired-salary"><h3><span>Desired Salary</span><span class="required" title="Required">*</span></h3>
+    <select name="salaryCurrency" required><option value="USD">US Dollar ($)</option><option value="EUR">Euro (€)</option><option value="CHF">Swiss Franc (CHF)</option></select>
+    <input required type="text" name="cSalary" inputmode="numeric">
+  </div>
+  <ul class="questions">
+    <li class="question"><div><h3><span>Provide your city and state of residence</span><span class="required" title="Required">*</span></h3>
+      <input required type="text" name="section_1774295790652_question_5" placeholder=""></div></li>
+    <li class="question"><div><h3><span>Please provide your LinkedIn Profile link</span><span class="required" title="Required">*</span></h3>
+      <div class="question-body"><p><br></p></div>
+      <input required type="text" name="section_1774295790652_question_0" placeholder=""></div></li>
+  </ul>
+  <input type="submit" value="Submit Application">
+</form></body></html>
