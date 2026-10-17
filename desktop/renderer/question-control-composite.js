@@ -20,7 +20,7 @@ const cap = text => text.charAt(0).toUpperCase() + text.slice(1);
 const readable = (raw, parts) => raw && !parts;
 
 function salary(format, raw, onChange, label) {
-  const start = splitSalary(raw), empty = !raw;
+  const start = splitSalary(raw), empty = !start.number;   // nothing readable (empty or free words): a new amount starts per year, gross
   const state = {number: start.number, currency: start.currency || format?.options?.[0] || 'CHF', period: empty ? 'year' : start.period, basis: empty ? 'gross' : start.basis};
   const currencies = [...new Set([...(format?.options?.length ? format.options : CURRENCIES_ALL), state.currency])];
   const answer = () => (state.number ? joinSalary(state) : readable(raw, start.number) ? raw : '');

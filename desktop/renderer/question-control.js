@@ -11,12 +11,12 @@ const FEW = 3, SHORT = 18, FEW_PICKS = 6;
 const segmentedOk = (options, most) => options.length <= most && options.every(option => option.length <= SHORT);
 
 // format: {control, options}; value: the saved answer ('' = none); onChange(value). -> the control node (its .value reads the current answer).
-export function answerControl(format, value, onChange, {placeholder = 'Your answer', ariaLabel = 'Answer'} = {}) {
+export function answerControl(format, value, onChange, {placeholder = 'Your answer', ariaLabel = 'Answer', chips = false} = {}) {
   const control = format?.control || 'text', options = format?.options || [];
   let current = String(value ?? '');
   const set = next => { current = next; node.value = next; onChange(next); };
   let node;
-  if (control === 'yes_no' || (control === 'single' && segmentedOk(options, FEW))) {
+  if (control === 'yes_no' || (control === 'single' && segmentedOk(options, chips ? FEW_PICKS : FEW))) {
     const isOn = option => option.toLowerCase() === current.toLowerCase();
     node = segmented(options, isOn, (option, group) => { set(isOn(option) ? '' : option); refresh(group, isOn); }, ariaLabel);
   } else if (control === 'single') {
