@@ -96,7 +96,7 @@ on:
   schedule:
     - cron: '0 3 * * *'   # daily, the FULL window (owner, 17 Oct 2026): a pull request ends a must-not-happen window early (JP_REPLAY_WINDOW=quick); main (build.yml) and this daily run wait the whole window, so a late forbidden action is caught once a day
 
-concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, and a newer push to main cancels the older commit's run (the newest commit's run decides); a by-hand run is its own group and never cancelled
+concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, (main runs these cases inside build.yml, so no push group here); a by-hand and the daily run is its own group and never cancelled
   group: recorded-pages-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
