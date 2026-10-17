@@ -406,17 +406,16 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .choice-card { display: flex; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .choice-card p { margin: var(--sp-1) 0 var(--sp-3); }
-/* Settings → Advanced → Reset: three short lists, one per row (title left, items inline), then the two steps; the cards, tiles and inline rows are the shared ones. */
-.reset-lists, .reset-steps { display: grid; gap: var(--sp-3); }
-.reset-lists { grid-template-columns: minmax(0, 1fr); }
+/* Settings → Advanced → Reset (owner, 17 Oct 2026: alignment and contrast): the normal card surface and text tokens; the danger colour only on the heading, the icons and the
+   Reset button. Every row (the three lists and the two steps) puts the 32px icon tile and the title on one top line; the lists are real lists, one item per line, in one column. */
+.reset-lists, .reset-steps { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); }
 .reset-steps { margin-top: var(--sp-3); }
-.reset-lists .file-tile { width: 32px; height: 32px; }
-.reset-lists .file-tile svg { width: 18px; height: 18px; }
-.reset-lists .choice-card { align-items: center; }
-.reset-lists .choice-card > div { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-5); }
-.reset-lists .choice-card > div > b { flex: 0 0 12em; white-space: nowrap; }
-.reset-lists ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); flex: 1; min-width: 0; }
-.reset-lists li { white-space: nowrap; }
+.reset-lists .choice-card, .reset-steps .choice-card { align-items: flex-start; }
+.reset-lists .file-tile, .reset-steps .file-tile { width: 32px; height: 32px; background: var(--surface-2); color: var(--bad); border: 1px solid var(--line); }
+.reset-lists .file-tile svg, .reset-steps .file-tile svg { width: 18px; height: 18px; }
+.reset-lists .choice-card > div > b, .reset-steps .choice-card > div > b { display: block; padding-top: var(--sp-1); }   /* the title's text centres on the 32px tile */
+.reset-lists .choice-card > div { flex: 1; min-width: 0; display: grid; grid-template-columns: 12em minmax(0, 1fr); gap: var(--sp-1) var(--sp-5); align-items: start; }
+.reset-lists ul { margin: 0; padding: var(--sp-1) 0 0 var(--sp-4); }
 .reset-steps .choice-card > div { flex: 1; min-width: 0; }
 .reset-steps .inline input { flex: 1; min-width: 0; }
 .reset-steps .inline { align-items: center; }   /* the status chip sits on the buttons' centre line */
