@@ -77,10 +77,15 @@ class AllChecksGreen(unittest.TestCase):
         self.assertIn('CI · Tests · python (failure)', out)
         self.assertNotIn(gate, out.split('not green', 1)[-1], 'the other gate copy is not listed as red')
 
+    def test_a_newer_cancelled_copy_of_the_gate_is_ignored(self):
+        # #1199, 17 Oct 2026: a 2nd gate run on the same commit was cancelled AFTER this one started; it was read as not green.
+        gate = 'CI · Pull request'
+        code, out = self.run_with([f'completed\tcancelled\t{gate}\t2026-10-17T10:05:00Z\nown\t-\t{gate}\t2026-10-17T10:00:00Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-17T10:01:00Z\n'])
+        self.assertEqual(code, 0, out)
+
     def test_a_cancelled_run_stays_red_when_this_run_is_older_or_of_another_workflow(self):
         gate, other = 'CI · Pull request', 'CI · Harness tests'
         cases = {
-            'this run is older': f'completed\tcancelled\t{gate}\t2026-10-17T10:05:00Z\nown\t-\t{gate}\t2026-10-17T10:00:00Z\n',
             'this run is another workflow': f'completed\tcancelled\t{other}\t2026-10-17T10:00:00Z\nown\t-\t{gate}\t2026-10-17T10:05:00Z\n',
             'no own row': f'completed\tcancelled\t{gate}\t2026-10-17T10:00:00Z\n',
             'a failure of the gate workflow': f'completed\tfailure\t{gate}\t2026-10-17T10:00:00Z\nown\t-\t{gate}\t2026-10-17T10:05:00Z\n',
