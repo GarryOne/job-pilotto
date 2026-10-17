@@ -87,3 +87,21 @@ test('a job costs its seconds of container plus the AI the extension reported', 
   assert.equal(costMicro(0, 0.031), 31000);
   assert.equal(costMicro(undefined, undefined), 0);
 });
+
+test('a fresh extension worker is written only once chrome.storage exists, and every caller goes through that one wait', async () => {
+  const {setExtensionStorage} = await import('../../hosted/ready-fill/extension-storage.mjs');
+  const saved = {}, worker = {evaluate: (fn, arg) => fn(arg)};   // runs "in the worker": here, this process's globalThis
+  const before = globalThis.chrome;
+  try {
+    delete globalThis.chrome;
+    setTimeout(() => { globalThis.chrome = {storage: {local: {set: async values => Object.assign(saved, values)}}}; }, 150);   // the API appears late, as in the container
+    await setExtensionStorage(worker, {workerUrl: 'http://127.0.0.1:5', token: 'night'});
+    assert.deepEqual(saved, {workerUrl: 'http://127.0.0.1:5', token: 'night'});
+    delete globalThis.chrome;
+    await assert.rejects(setExtensionStorage(worker, {a: 1}, 100), /did not appear/);
+  } finally { globalThis.chrome = before; if (before === undefined) delete globalThis.chrome; }
+  const root = new URL('../../', import.meta.url).pathname;   // the class: no direct chrome.storage write through a worker's evaluate
+  for (const dir of ['hosted/ready-fill', 'desktop/e2e/lib', 'desktop/e2e']) for (const file of fs.readdirSync(root + dir).filter(f => f.endsWith('.mjs') && f !== 'extension-storage.mjs')) {
+    assert.ok(!/evaluate\([^\n]*chrome\.storage\.local\.set/.test(fs.readFileSync(`${root}${dir}/${file}`, 'utf8')), `${dir}/${file}: use setExtensionStorage (the API is missing right after start)`);
+  }
+});

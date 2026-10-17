@@ -16,6 +16,7 @@ import path from 'node:path';
 import {E2E} from './app.mjs';
 import {EXTENSION_DIR, browserChannel, copyExtension, freePort} from './extension.mjs';
 import {LAUNCH_TIMEOUT_MS, launchGuard} from './launch-guard.mjs';
+import {setExtensionStorage} from '../../../hosted/ready-fill/extension-storage.mjs';
 
 export const FIXTURE_CV = path.join(E2E, 'fixtures', 'cv.pdf');
 const pdf = (name, source = FIXTURE_CV) => ({data: fs.readFileSync(source).toString('base64'), name, type: 'application/pdf'});
@@ -65,7 +66,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
     await context?.close().catch(() => {}); stub?.close();
     throw error;
   }
-  await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'e2e', ladderAct: true}), `http://127.0.0.1:${port}`);   // ladderAct: the fill ladder's repair acts in test runs only (fake applicant; extension/ladder/fill-climb.js)
+  await setExtensionStorage(worker, {workerUrl: `http://127.0.0.1:${port}`, token: 'e2e', ladderAct: true});   // ladderAct: the fill ladder's repair acts in test runs only (fake applicant; extension/ladder/fill-climb.js)
   const close = async () => { await context.close().catch(() => {}); stub?.close(); };
 
   // Fails the run unless the extension talks to the stand-in only.

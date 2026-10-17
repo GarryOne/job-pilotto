@@ -5,6 +5,7 @@
 // Guard: e2e/test/pool-eligibility.test.mjs.
 /* global chrome */
 import {recordVar} from '../../../tools/record-env.mjs';
+import {setExtensionStorage} from '../../../hosted/ready-fill/extension-storage.mjs';
 
 export const ELIGIBILITY_ENV = 'LIVE_ELIGIBILITY';
 
@@ -19,7 +20,7 @@ export const POOL_LINE = 'eligibility check: OFF in this run (a pool run measure
 // a switch that did not take fails the run before anything is pressed. -> true when it was turned off, false when the env leaves it on.
 export async function applyPoolEligibility(worker, {env = process.env, say = () => {}} = {}) {
   if (!eligibilityOff(env)) { say('eligibility check: on (LIVE_ELIGIBILITY is not "off")'); return false; }
-  await worker.evaluate(() => chrome.storage.local.set({checkEligibility: false}));
+  await setExtensionStorage(worker, {checkEligibility: false});
   const stored = await worker.evaluate(() => chrome.storage.local.get('checkEligibility'));
   if (stored?.checkEligibility !== false) throw new Error(`eligibility check: asked OFF, but the extension's storage says ${JSON.stringify(stored)}`);
   say(POOL_LINE);
