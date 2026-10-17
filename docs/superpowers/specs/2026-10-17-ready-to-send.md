@@ -69,7 +69,7 @@ Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touc
 - [x] Sketch B and the proof approved; phase 1 chosen by the owner (17 Oct 2026, via job-pilotto-cc) (proof: none: decisions relayed by cc, see top)
 - [x] Proof on Cloudflare: open 155 ms, human check + Submit through the stream, hand-off measured (proof: none: one-off CI run 39047884877, numbers in the sketch; tools/server-proof/)
 - [x] Repeat the stream Submit test that recorded no click in run 6: accepted again in run 8, 2 of 3 runs (proof: none: one-off CI runs 39047884877 and 39048751160, tools/server-proof/)
-- [x] PR 1 (site): tables, owner-only routes, encrypted batch, deletion (24 h, Done, Delete everything), cost row + cap (#1224) (proof: site/test/ready-to-send.test.js)
+- [x] PR 1 (site): tables, owner-only routes, encrypted batch, deletion (24 h, Done, Delete everything), cost row + cap (#1224) (proof: site/test/ready-to-send.test.js @c605c1c)
 - [ ] PR 2 (container): extension copy that holds the account button, stand-in app, no-Submit net, live view, hand-off, image, fixture proof (proof: desktop/test/ready-fill.test.js)
 - [ ] PR 3 (site wiring): fill_at, cron start + queue, runner Worker, morning proxy; deploy only after the owner's yes to a Queue and a Worker (proof: site/test/ready-wiring.test.js)
 - [ ] PR 4 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
