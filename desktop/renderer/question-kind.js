@@ -5,6 +5,8 @@
 import {countryNames} from './countries.js';
 
 export const KINDS = ['text', 'long_text', 'single', 'multi', 'yes_no', 'date', 'amount'];
+// Raise it when a kind is added: the AI's older judgments (stamped lower, or not at all) are asked again, lazily and once (lib/question-formats.js ensure).
+export const KINDS_VERSION = 2;   // 2: date and amount
 const WORDS = {long_text: 'long text', single: 'pick one', multi: 'pick several', yes_no: 'yes/no', date: 'date', amount: 'amount'};
 const KIND_OF_WORD = Object.fromEntries(Object.entries(WORDS).map(([kind, word]) => [word, kind]));
 export const YES_NO = ['Yes', 'No'];

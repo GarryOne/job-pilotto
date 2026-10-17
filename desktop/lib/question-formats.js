@@ -3,12 +3,13 @@
 // "Country/Region of Residence" were text boxes). The store's mark on the line wins over both (renderer/question-kind.js formatFor). Rebuildable form structure,
 // never the person's answers. Spec docs/superpowers/specs/2026-10-17-base-facts.md. Guarded by test/question-formats.test.js.
 import {anthropicApi} from './ai/anthropic-api.js';
-import {KINDS, cleanOptions, formatOfField} from '../renderer/question-kind.js';
+import {KINDS, KINDS_VERSION, cleanOptions, formatOfField} from '../renderer/question-kind.js';
 import {keyOf, looksLikeFieldId} from '../renderer/question-filter.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const LISTS = ['', 'countries'];
 const MAX = 600;
+export const RECHECK_MAX = 10;   // old judgments asked again per call, never a mass run
 export const kept = storage => storage.settings().questionFormats || {};
 
 function save(storage, next) {
@@ -57,7 +58,10 @@ export async function ensure(storage, labels, {ai = {}} = {}) {
   const known = kept(storage);
   // A date the fill saw has no constraints judgment yet: asked once (the AI never changes what the fill saw).
   const needs = label => !known[keyOf(label)] || (known[keyOf(label)].from === 'fill' && known[keyOf(label)].kind === 'date' && known[keyOf(label)].constraints === undefined);
-  const fresh = [...new Set(labels.filter(label => label && !looksLikeFieldId(label) && needs(label)))].slice(0, 80);
+  // An AI judgment made before the current kinds existed (stamped lower, or not at all) is asked again, once; a kind read from a form's own field is never.
+  const stale = label => known[keyOf(label)]?.from === 'ai' && (known[keyOf(label)].kinds || 0) < KINDS_VERSION;
+  const asked = [...new Set(labels.filter(label => label && !looksLikeFieldId(label)))];
+  const fresh = [...asked.filter(needs).slice(0, 80), ...asked.filter(label => !needs(label) && stale(label)).slice(0, RECHECK_MAX)];
   const client = ai.client || (ai.apiKey ? anthropicApi(ai.apiKey) : null);
   if (!fresh.length || !client) return {formats: known, usage: null};
   const response = await client.messages.create({model: MODEL, max_tokens: 4000, system: INSTRUCTIONS,
@@ -66,11 +70,13 @@ export async function ensure(storage, labels, {ai = {}} = {}) {
   const next = {...kept(storage)}, at = new Date().toISOString().slice(0, 10);
   // A label the AI left out or answered wrongly is kept as text: judged once, never asked again (a fill's reading replaces it).
   const seen = new Set(fresh.filter(label => !known[keyOf(label)]));
-  for (const label of seen) next[keyOf(label)] = {kind: 'text', options: [], list: '', constraints: false, from: 'ai', at};
+  for (const label of seen) next[keyOf(label)] = {kind: 'text', options: [], list: '', constraints: false, from: 'ai', at, kinds: KINDS_VERSION};
+  for (const label of fresh) if (stale(label)) next[keyOf(label)] = {...known[keyOf(label)], kinds: KINDS_VERSION};   // asked again: the AI's answer below replaces the kind, a silent one keeps it
   for (const each of judged(response, fresh)) {
     const before = known[keyOf(each.label)];
-    if (before) next[keyOf(each.label)] = {...before, constraints: each.constraints};
-    else next[keyOf(each.label)] = {kind: each.kind, options: each.options, list: each.list, constraints: each.constraints, from: 'ai', at};
+    if (before && stale(each.label)) next[keyOf(each.label)] = {kind: each.kind, options: each.options, list: each.list, constraints: each.constraints, from: 'ai', at, kinds: KINDS_VERSION};
+    else if (before) next[keyOf(each.label)] = {...before, constraints: each.constraints};
+    else next[keyOf(each.label)] = {kind: each.kind, options: each.options, list: each.list, constraints: each.constraints, from: 'ai', at, kinds: KINDS_VERSION};
   }
   // A fill-read date the AI left unanswered is judged "no constraints": asked once, never again.
   for (const label of fresh) if (known[keyOf(label)] && next[keyOf(label)].constraints === undefined) next[keyOf(label)] = {...next[keyOf(label)], constraints: false};
