@@ -18,7 +18,7 @@ async function readTree(token, id, fetcher, depth = 0) {
 // A page's blocks, two levels deep (children in block.children). cache: on for real Notion calls, off for test fakes.
 export async function pageTree(token, pageId, fetcher = globalThis.fetch, {cache = fetcher === globalThis.fetch} = {}) {
   if (!cache) return readTree(token, pageId, fetcher);
-  const key = `${token}|${pageId}`;
+  const key = `${token}|${String(pageId).replace(/-/g, '')}`;   // Notion takes an id with or without dashes: one page, one kept tree
   if (reading.has(key)) return reading.get(key);
   const job = (async () => {
     const kept = trees.get(key), started = Date.now();
