@@ -19,6 +19,17 @@ export function caseForRequest(live, route, sent) {
 // The applicant details of the live case whose host the page's address names; null: the harness default (a case with no `contact`, or an address no live case owns).
 export const contactForUrl = (live, url) => contactOf(live.find(state => state.hosts.includes(hostOfUrl(url)))?.item || {});
 
+// The tab at the end of a new tab's opener chain (the case tab that, through its popups, opened it); undefined: no opener known, so it cannot be placed by who opened it.
+export function openerRoot(entries, entry) {
+  for (let step = 0, now = entry; now && step < 6; step += 1) {
+    if (!now.opener) return undefined;
+    const parent = entries.find(one => one.page === now.opener);
+    if (!parent) return now.opener;
+    now = parent;
+  }
+  return undefined;
+}
+
 // The cases that may start now, given the hosts of the ones running: in order, skipping a case whose host is taken (it waits for that tab to finish).
 export function nextRunnable(queue, runningHosts) {
   const index = queue.findIndex(item => !caseHosts(item).some(host => runningHosts.has(host)));
@@ -39,7 +50,13 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     return answerPage(route, files, statuses, delays);
   });
   const everyOpened = [];   // [{page, at}] every non-extension tab opened since the browser started
-  run.context.on('page', open => { if (!isExtensionPage(open)) everyOpened.push({page: open, at: Date.now()}); });
+  run.context.on('page', open => {
+    if (isExtensionPage(open)) return;
+    const entry = {page: open, at: Date.now(), opener: undefined};   // opener: the tab that opened it (null: none; undefined: not known yet)
+    everyOpened.push(entry);
+    open.opener().then(from => { entry.opener = from; }, () => { entry.opener = null; });
+  });
+  const rootOf = entry => openerRoot(everyOpened, entry);
 
   // One case in its own tab: -> {name, ok, failures, seen}.
   async function runInTab(item) {
@@ -53,11 +70,20 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     const first = run.requests.length, began = Date.now(), tab = await run.context.newPage();
     const strict = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)));
     const loose = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)) || !allHosts.some(host => request.body.includes(host)));   // the case's own, and lines no case's host names (the extension's log lines often carry no host)
+    const theTabs = () => {   // the tabs opened since this case began (not its own), told apart by who opened them; alone, every tab is the case's
+      const ours = [], unplaced = [];
+      for (const one of everyOpened.filter(entry => entry.page !== tab && entry.at >= state.from)) {
+        const root = state.shared === false ? tab : rootOf(one);
+        if (root === tab || (root === undefined && hosts.some(host => one.page.url().includes(host)))) ours.push(one);
+        else if (root === undefined && !allHosts.some(host => one.page.url().includes(host))) unplaced.push(one);   // opened by nobody we know, at an address of no case: it could be this case's
+      }
+      return {ours, unplaced};
+    };
     const ours = open => !isExtensionPage(open) && open !== run.page && (open === tab || state.shared === false || hosts.some(host => open.url().includes(host)) || !/^https?:/.test(open.url()));   // alone: every tab is the case's
     try {
       await tab.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
       const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? loose() : run.requests.slice(first)), strict: state.shared ? strict : null, otherHosts: state.shared ? allHosts.filter(host => !hosts.includes(host)) : null,
-        all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => everyOpened.filter(one => one.page !== tab && one.at >= state.from && ours(one.page)).length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
+        all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => theTabs().ours.length, unplacedTabs: () => theTabs().unplaced.length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
       return {name: item.name, ...result, seconds: (Date.now() - began) / 1000, fillTime: () => fillSeconds(run.requests.slice(first), hosts)};   // read after the tab settled (lib/replay-time.mjs)
     } finally {
       await fillSettled(tab);   // a fill still running reports its moves before the tab goes (page-replay.mjs)

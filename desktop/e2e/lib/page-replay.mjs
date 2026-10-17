@@ -137,6 +137,7 @@ export async function judgeCase(item, scope) {
   const confirm = [];
   if (!failures.length && scope.strict) {
     const strict = requestChecks(scope.strict);
+    if (expect.maxNewTabs != null && scope.unplacedTabs?.()) confirm.push(`maxNewTabs: ${scope.unplacedTabs()} tab(s) opened by nobody we know`);   // could be this case's: proven alone
     for (const kind of ['told', 'asked', 'judged', 'onTop', 'stuck', 'ending']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
   }
   return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, truth: readings.counts, moves: () => movesFromRequests(mine()), repairs: () => repairsFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
