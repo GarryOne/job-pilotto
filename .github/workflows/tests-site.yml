@@ -20,6 +20,7 @@ on:
       - 'extension/fill-meaning.js'
       - 'src/ai/providers/anthropic_api.py'
       - 'tools/applying-page-copy.mjs'
+      - 'tools/e2e-intel.mjs'
       - 'tools/fixer-brief.mjs'
       - 'tools/needs-fix-causes.mjs'
       - 'tools/needs-fix-order.mjs'
