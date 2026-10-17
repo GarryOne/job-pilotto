@@ -42,17 +42,21 @@ jobs:
           npx wrangler@4.151.1 deploy --var "PROBE_TOKEN:$token" 2>&1 | tee deploy.log
       - name: Run the proof
         working-directory: tools/server-proof
+        shell: bash
         run: node run.mjs "https://jp-server-proof.jobpilotto.workers.dev" "$PROBE_TOKEN" "$GITHUB_WORKSPACE/proof.json" 2>&1 | tee proof.log
       - name: The numbers
         run: |
           python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json
           r = json.load(open('proof.json'))
-          print('### Open time (ms)', r['open']['p50'], 'p50', r['open']['p90'], 'p90', r['open']['max'], 'max;', 'input to pixel', r['inputLatency'], 'stream', r['stream'])
-          print('### Submit on our fake form:', json.dumps(r['submit'])[:400])
-          print('### Move to my browser:', json.dumps(r['move']))
-          for h in r['handoff']: print('- hand-off', json.dumps(h))
-          for x in r['reach']: print('- reach', json.dumps(x))
+          g = lambda k: r.get(k)
+          print('### Errors:', g('errors'))
+          print('### Prepare:', g('prepare'), 'cold start ms', g('coldStartMs'))
+          print('### Open time (ms)', g('open'), 'input to pixel', g('inputLatency'), 'stream', g('stream'))
+          print('### Submit on our fake form:', json.dumps(g('submit'))[:400])
+          print('### Move to my browser:', json.dumps(g('move')))
+          for h in g('handoff') or []: print('- hand-off', json.dumps(h))
+          for x in g('reach') or []: print('- reach', json.dumps(x))
           s, s0 = r['stats'], r['statsFirst']
           wall = r['wallS']; cpu = ((s['cpu_usec'] or 0) - (s0['cpu_usec'] or 0)) / 1e6
           mem = 4 * wall * 0.0000025; cpuc = cpu * 0.00002; disk = 8 * wall * 0.00000007
