@@ -76,3 +76,37 @@ test('the app and the Python engine take turns through the same pace file', asyn
   assert.equal(await pace.claim(token, clock), 5_002_000);
   (await import('node:fs')).rmSync(pace.paceFile(token), {force: true});
 });
+
+// 17 Oct 2026, the owner's Profile: the Your details move appended its sections, read them back from the kept page (Notion still said the page was
+// last edited 30 min ago), found "5 line(s) did not save", and its retry appended every section a second time. A write to a kept page drops it.
+test('a write to a kept page (its children, one of its blocks, a nested block) drops that page: the next read sees the write', async () => {
+  notion._trees.reset();
+  const state = {edited: ago(30), salary: 'CHF 150k'};
+  const {fetcher, routes} = fakeNotion(state);
+  const lines = ['Contact'];
+  const page = async (url, options = {}) => {
+    const route = url.replace('https://api.notion.com/v1/', '').split('?')[0], method = options.method || 'GET';
+    if (route === 'blocks/profile/children' && method === 'GET') {
+      routes.push(`${method} ${route}`);
+      return {ok: true, status: 200, json: async () => ({results: lines.map((text, at) => ({id: `b${at}`, type: 'paragraph', paragraph: {rich_text: rich(text)}}))})};
+    }
+    if (route === 'blocks/profile/children') lines.push('🛂 Work eligibility');
+    if (route === 'blocks/b1' && method === 'DELETE') lines.splice(1, 1);
+    return fetcher(url, options);
+  };
+  assert.equal(await notion.pageText('t', 'profile', page, cache), 'Contact');
+  await notion.call('t', 'PATCH', 'blocks/profile/children', {children: []}, page);
+  assert.equal(await notion.pageText('t', 'profile', page, cache), 'Contact\n🛂 Work eligibility', 'appended: read again, though Notion\'s edit time did not move');
+  await notion.call('t', 'DELETE', 'blocks/b1', null, page);
+  assert.equal(await notion.pageText('t', 'profile', page, cache), 'Contact', 'one of its blocks removed: read again');
+  const reads = routes.filter(route => route === 'GET blocks/profile/children').length;
+  await notion.call('t', 'PATCH', 'blocks/elsewhere', {}, page);
+  await notion.pageText('t', 'profile', page, cache);
+  assert.equal(routes.filter(route => route === 'GET blocks/profile/children').length, reads, 'a write elsewhere: the kept page stays');
+  notion._trees.reset();
+  await notion.pageText('t', 'profile', fetcher, cache);
+  const before = routes.filter(route => route === 'GET blocks/profile/children').length;
+  await notion.call('t', 'PATCH', 'blocks/p', {}, fetcher);   // the paragraph inside the toggle
+  await notion.pageText('t', 'profile', fetcher, cache);
+  assert.equal(routes.filter(route => route === 'GET blocks/profile/children').length, before + 1, 'a nested block edited: its page is read again');
+});
