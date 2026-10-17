@@ -110,3 +110,14 @@ test('a write to a kept page (its children, one of its blocks, a nested block) d
   await notion.pageText('t', 'profile', fetcher, cache);
   assert.equal(routes.filter(route => route === 'GET blocks/profile/children').length, before + 1, 'a nested block edited: its page is read again');
 });
+
+test('a database query or a search is a read: it does not clear the kept pages\' checks', async () => {
+  notion._trees.reset();
+  const {fetcher, routes} = fakeNotion({edited: ago(30), salary: 'a'});
+  await notion.pageText('t', 'profile', fetcher, cache);
+  const first = routes.length;
+  await notion.call('t', 'POST', 'databases/db1/query', {}, fetcher).catch(() => {});
+  await notion.call('t', 'POST', 'search', {}, fetcher).catch(() => {});
+  await notion.pageText('t', 'profile', fetcher, cache);
+  assert.deepEqual(routes.slice(first).filter(route => route.startsWith('GET')), [], 'no check, no read after the queries');
+});

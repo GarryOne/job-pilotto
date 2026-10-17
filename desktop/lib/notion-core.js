@@ -55,7 +55,7 @@ function count(method, route) {
 export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4, pace = fetcher === globalThis.fetch} = {}) {
   for (let attempt = 0; ; attempt++) {
     if (pace) { await turn(token); count(method, route); }
-    if (method !== 'GET') forgetWrite(route);  // the app changed something: the page it wrote is read again, the others checked
+    if (method !== 'GET' && !isRead(method, route)) forgetWrite(route);  // the app changed something: the page it wrote is read again, the others checked
     const started = Date.now();
     const response = await fetcher(API + route, {
       method,
@@ -153,6 +153,9 @@ export const _trees = {reset: () => { trees.clear(); reading.clear(); }};  // te
 const bare = id => String(id || '').replace(/-/g, '');
 const holds = (blocks, id) => (blocks || []).some(block => bare(block.id) === id || holds(block.children, id));
 export const writes = {count: 0};
+// Notion reads that need POST (a database query, a search) change nothing: they must not reset the kept pages' checks
+// (17 Oct 2026: ~4 queries a minute made every Profile tab open pay a check per page, or a 20-40 request tree read).
+const isRead = (method, route) => method === 'POST' && /^(databases\/[^/?]+\/query|search)(\?|$)/.test(route);
 function forgetWrite(route) {
   writes.count++;
   const [kind, id] = route.split(/[?]/)[0].split('/'), target = ['blocks', 'pages'].includes(kind) ? bare(id) : '';
