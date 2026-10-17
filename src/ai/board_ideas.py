@@ -9,27 +9,29 @@ import json
 import re
 import urllib.parse
 
-from .models import SMALL_MODEL
+from .models import MAIN_MODEL
 from .providers.contract import named
 
-MODEL = SMALL_MODEL
-MAX_BOARDS = 12
+MODEL = MAIN_MODEL   # owner, 18 Oct 2026: the main model; the small one proposed 2 useless boards for a Dutch controller
+MAX_BOARDS = 16
 OWN_READERS = ('jobs.ch', 'swissdevjobs.ch', 'techtree.io')   # src/sources/boards.py BOARDS: read by their own code, never twice
 PORTALS = ('linkedin.', 'indeed.', 'glassdoor.', 'levels.fyi')  # src/sources/visits_portals.py: offered as visits already
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['boards'], 'properties': {'boards': {'type': 'array', 'items': {
-    'type': 'object', 'additionalProperties': False, 'required': ['name', 'search_url', 'countries', 'kinds'],
+    'type': 'object', 'additionalProperties': False, 'required': ['name', 'search_url', 'countries', 'kinds', 'source_kind'],
     'properties': {'name': {'type': 'string'},
                    'search_url': {'type': 'string', 'description': 'Its public search page, https, with {role} where the keywords go and {place} '
                                                                    'where the place goes (left out when the board takes no place)'},
                    'countries': {'type': 'array', 'items': {'type': 'string'}, 'description': 'English country names it serves'},
-                   'kinds': {'type': 'array', 'items': {'type': 'string'}}}}}}}
+                   'kinds': {'type': 'array', 'items': {'type': 'string'}},
+                   'source_kind': {'type': 'string', 'enum': ['public_service', 'general', 'sector', 'regional', 'agency']}}}}}}
 SYSTEM = """You know the job boards people really use to find work in each country. You get a job seeker's countries, places and roles. \
-List up to 12 job boards (not company career sites, not recruiters) where jobs for these roles in these places are posted: the country's \
-general boards first, then boards for these kinds of role (a developer board for developers, a hospitality board for chefs). Leave out \
+List 8 to 16 job boards (at least 8 when the country has them; not company career sites) where jobs for these roles in these places are posted: the country's \
+public job service first (the state's own), then the general boards, then boards for these kinds of role (a developer board for developers, a hospitality board for chefs), then regional boards for these places and staffing agencies' boards. source_kind: public_service, general, sector, regional or agency. Leave out \
 LinkedIn, Indeed, Glassdoor and levels.fyi. For each, its public search page as a template: https, the board's own address, {role} where \
 the keywords go and {place} where the place goes (no {place} when the board has no place search). Only boards you are confident exist with \
 that search address; fewer is better than a guess. kinds: from software, sales_b2b, sales_retail, logistics, hospitality, healthcare, \
 creative_media, finance_admin, education, trades, any."""
+SOURCE_KINDS = ('public_service', 'general', 'sector', 'regional', 'agency')
 KINDS = ('software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education',
          'trades', 'any')
 
@@ -53,7 +55,8 @@ def valid(board):
         return None
     countries = [re.sub(r'\s+', ' ', str(c)).strip()[:40] for c in board.get('countries') or [] if str(c).strip()][:10]
     kinds = [k for k in board.get('kinds') or [] if k in KINDS] or ['any']
-    return {'name': name, 'host': host, 'search_url': url, 'countries': countries, 'kinds': kinds}
+    source_kind = board.get('source_kind') if board.get('source_kind') in SOURCE_KINDS else 'general'
+    return {'name': name, 'host': host, 'search_url': url, 'countries': countries, 'kinds': kinds, 'source_kind': source_kind}
 
 
 def _store():
@@ -86,7 +89,7 @@ def ideas(search, client=None):
         return []
     kinds = sorted(of_search(search) or [])
     place_words = [w for w in places.words_of(search)][:10]
-    key = hashlib.sha256(json.dumps([countries, sorted(roles), kinds], ensure_ascii=False).encode()).hexdigest()[:12]
+    key = hashlib.sha256(json.dumps([countries, sorted(roles), kinds, 'main-model'], ensure_ascii=False).encode()).hexdigest()[:12]
     data = load()
     shared = served(countries)
     if key in (data.get('ideas') or {}):
@@ -98,7 +101,7 @@ def ideas(search, client=None):
                 return shared   # no AI: the boards other installs found for these countries
             client = engine.client(action='scout')
         response = client.messages.create(
-            model=MODEL, max_tokens=4000, system=[{'type': 'text', 'text': SYSTEM}],
+            model=MODEL, max_tokens=6000, system=[{'type': 'text', 'text': SYSTEM}],
             messages=[{'role': 'user', 'content': json.dumps({'countries': countries, 'places': place_words, 'roles': roles, 'kinds': kinds},
                                                              ensure_ascii=False)}],
             output_config=engine.structured(SCHEMA, MODEL, 'low'))
