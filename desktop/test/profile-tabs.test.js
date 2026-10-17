@@ -1,4 +1,4 @@
-// Settings → Profile's tabs (index.html + pages/profile.js): the rest of the Profile and Application answers (the standard answers + Form knowledge,
+// Settings → Profile's tabs (index.html + pages/profile.js): Application answers (the standard answers + Form knowledge,
 // merged 16 Oct 2026) and Strategy's Job preferences are drawn from their texts' outlines on every store; no textarea; every Notion button is Notion-only.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,20 +8,20 @@ const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 const html = read('../renderer/index.html'), profile = read('../renderer/pages/profile.js');
 const page = html.slice(html.indexOf('data-settings-page="profile"'), html.indexOf('data-settings-page="automation"'));
 
-test('the tabs: the rest of the Profile and Application answers open their outline tabs; Form knowledge is a section, its old tab name still lands there', () => {
-  assert.match(html, /data-profile-tab="profiletext">Preferences</);
+test('the tabs: Application answers opens its outline tab, the old Preferences name opens Strategy; Form knowledge is a section, its old tab name still lands there', () => {
+  assert.doesNotMatch(html, /data-profile-tab="profiletext"/, 'the Preferences tab is gone');
   assert.match(html, /data-profile-tab="answers">Application answers</);
   assert.doesNotMatch(html, /data-profile-tab="knowledge"/);
   assert.match(profile, /if \(name === 'knowledge'\) name = 'answers';/);
   assert.match(profile, /if \(name === 'answers'\) loadApplicationAnswers\(\);/);
-  assert.match(profile, /else if \(name === 'profiletext'\) loadProfileRest\(\);/);
-  for (const [file, texts] of [['application-answers', "\\[TEXT, 'knowledge'\\]"], ['job-preferences', '\\[TEXT\\]'], ['profile-rest', '\\[TEXT\\]']]) {
+  assert.match(profile, /if \(name === 'profiletext'\) \{ openJobPreferences\(\); return; \}/, 'its old name opens Strategy → Job preferences');
+  for (const [file, texts] of [['application-answers', "\\[TEXT, 'knowledge'\\]"], ['job-preferences', '\\[TEXT\\]']]) {
     assert.match(read(`../renderer/pages/${file}.js`), new RegExp(`outlineTab\\('\\w+', ${texts}`), file);
   }
 });
 
 test('no textarea anywhere on the Profile page\'s texts (owner, 16 Oct 2026)', () => {
-  for (const file of ['outline-tab', 'application-answers', 'website-rules', 'job-preferences', 'profile-rest']) {
+  for (const file of ['outline-tab', 'application-answers', 'website-rules', 'job-preferences', 'experience-profile']) {
     assert.doesNotMatch(read(`../renderer/pages/${file}.js`), /'textarea'/, file);
   }
   assert.doesNotMatch(page.slice(page.indexOf('id="setting-answers"')), /<textarea/);
