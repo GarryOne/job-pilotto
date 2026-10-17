@@ -116,10 +116,13 @@ export function scrubPersonal(text, {type = '', url = '', values = new Map()} = 
 
 // What a scrubbed replay record must no longer hold, in every decoded form (URL, JSON, HTML entities, base64): an e-mail address that is not an example one, and any of the person's own values.
 // Narrower than lastGate (no phone SHAPE, no token shapes: those would fire on a replay's own numbers). -> [kind, ...] (kinds only, never a value)
+// An address found in the bytes of a decoded base64 run counts only when the text around it is text (6 characters each side printable): random bytes of an embedded binary spell "x@hZ.B" by chance (17 Oct 2026).
+const printable = ch => ch >= 0x20 && ch < 0x7f || ch === 0x09 || ch === 0x0a || ch === 0x0d;
+const inText = (form, at, length) => { const around = form.slice(Math.max(0, at - 6), at) + form.slice(at + length, at + length + 6); return [...around].every(char => printable(char.charCodeAt(0))); };
 export function personalHits(text, {code = false, values = new Map()} = {}) {
-  const hits = new Set(), run = form => {
+  const hits = new Set(), run = (form, bytes = false) => {
     EMAIL.lastIndex = 0;
-    if ((form.match(EMAIL) || []).some(email => !EXAMPLE.test(email))) hits.add('email');
+    if ([...form.matchAll(EMAIL)].some(found => !EXAMPLE.test(found[0]) && (!bytes || inText(form, found.index, found[0].length)))) hits.add('email');
     const folded = form.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     for (const [value, kind] of values) {
       if (kind === 'email' || (kind === 'phone' && String(value).replace(/\D/g, '').length < 9)) continue;
@@ -128,7 +131,7 @@ export function personalHits(text, {code = false, values = new Map()} = {}) {
     }
   };
   for (const form of decodedForms(String(text))) run(form);
-  for (const form of b64Forms(String(text))) for (const inner of decodedForms(form)) run(inner);
+  for (const form of b64Forms(String(text))) for (const inner of decodedForms(form)) run(inner, true);
   return [...hits];
 }
 
