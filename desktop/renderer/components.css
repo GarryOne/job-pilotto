@@ -406,20 +406,23 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .choice-card { display: flex; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .choice-card p { margin: var(--sp-1) 0 var(--sp-3); }
-/* Settings → Advanced → Reset: three short lists side by side (stacked when narrow) and the two steps under them; the cards, tiles and inline rows are the shared ones. */
+/* Settings → Advanced → Reset: three short lists, one per row (title left, items inline), then the two steps; the cards, tiles and inline rows are the shared ones. */
 .reset-lists, .reset-steps { display: grid; gap: var(--sp-3); }
-.reset-lists { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.reset-lists { grid-template-columns: minmax(0, 1fr); }
 .reset-steps { margin-top: var(--sp-3); }
 .reset-lists .file-tile { width: 32px; height: 32px; }
 .reset-lists .file-tile svg { width: 18px; height: 18px; }
-.reset-lists ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); }
+.reset-lists .choice-card { align-items: center; }
+.reset-lists .choice-card > div { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-5); }
+.reset-lists .choice-card > div > b { flex: 0 0 12em; white-space: nowrap; }
+.reset-lists ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); flex: 1; min-width: 0; }
+.reset-lists li { white-space: nowrap; }
 .reset-steps .choice-card > div { flex: 1; min-width: 0; }
 .reset-steps .inline input { flex: 1; min-width: 0; }
 .reset-steps .inline { align-items: center; }   /* the status chip sits on the buttons' centre line */
 .reset-steps label.small { display: block; margin-bottom: var(--sp-1); }
 .reset-steps .reset-hint { margin: var(--sp-2) 0 0; }
 .reset-steps .reset-hint.ready { color: var(--good); }
-@media (max-width: 1180px) { .reset-lists { grid-template-columns: minmax(0, 1fr); } }
 .path-line { display: flex; align-items: center; gap: var(--sp-3); }
 .path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .summary-rows.is-lined { grid-template-columns: 200px minmax(0, 1fr); gap: 0; margin: 0; }
