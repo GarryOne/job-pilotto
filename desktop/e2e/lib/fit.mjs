@@ -4,6 +4,7 @@
 // The Finder holds no list of professions or words. It collects what the app shows and judges it against who the candidate is, with a model; the checks around the model are plain code:
 // its quotes must really be on the page (a quote it made up is dropped), and an unreadable reply is never a pass. Pure functions here; `judge` makes the one call.
 import {modelFetch} from './model.mjs';
+import {goView} from './go-view.mjs';
 export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-haiku-5-5';   // Haiku unless a suite asks (quality: Sonnet, set in the workflows); 7 Oct 2026, "$30 a week"
 const MAX_PAGE_CHARS = 6000;
 
@@ -78,7 +79,7 @@ export async function tipsOnPage(page, rounds = 60) {
 export async function collect(page, views, {wait = ms => page.waitForTimeout(ms)} = {}) {
   const pages = [];
   for (const view of views) {
-    await page.click(`.nav[data-view="${view}"]`);
+    await goView(page, view);
     await wait(900);
     const tips = await tipsOnPage(page);
     pages.push({view, text: [await pageText(page, view), tips.length ? `[tips this page can show]\n${tips.join('\n')}` : ''].filter(Boolean).join('\n')});

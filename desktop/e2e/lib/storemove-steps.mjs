@@ -8,6 +8,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {openPanel, panelRows} from './activity-steps.mjs';
 import {appLogLines} from './app-log.mjs';
+import {goView} from './go-view.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // The seeded jobs and the match (lib/store_seed.py): every screen is read for these names only, so the app's own rows (a hint, an empty state) never count.
@@ -41,7 +42,7 @@ async function named(page, selector, {timeout = 30000, want = 1, exact = false} 
 // {jobs, focus, interviews, activity}: which seeded items each screen shows. Compared before and after a move or an import.
 // jobs: how many seeded jobs the Jobs list is expected to show (4 unless a search has marked one not seen, which hides it): the wait is for exactly that many.
 export async function screens(page, {jobs: expectedJobs = COMPANIES.length} = {}) {
-  const go = async view => { await page.click(`.nav[data-view="${view}"]`); await page.waitForSelector(`.view[data-view="${view}"]:not([hidden])`); await settled(page); };
+  const go = async view => { await goView(page, view); await page.waitForSelector(`.view[data-view="${view}"]:not([hidden])`); await settled(page); };
   await go('jobs');
   await page.selectOption('#filter-status', 'everything');   // the default shows new matches only; All matches leaves applied jobs out (76d1cdd), Everything keeps the applications
   const jobs = await named(page, 'article.job-row', {want: expectedJobs, exact: true});

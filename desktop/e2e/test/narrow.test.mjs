@@ -7,7 +7,7 @@ import {expectedFor} from '../lib/vision.mjs';
 function fakeCtx({railed = true} = {}) {
   const calls = {sizes: [], clicks: []};
   const ctx = {findings: [], app: {evaluate: async (_fn, size) => { calls.sizes.push(size); return [1280, 820]; }},
-    page: {waitForFunction: async () => { if (!railed) throw new Error('timeout'); }, click: async selector => { calls.clicks.push(selector); }}};
+    page: {waitForFunction: async () => { if (!railed) throw new Error('timeout'); }, click: async selector => { calls.clicks.push(selector); }, locator: () => ({first: () => ({isVisible: async () => true})})}};
   return {ctx, calls};
 }
 
@@ -41,7 +41,7 @@ test('the sweep visits every page at every size and theme, tells each finding on
   const sizes = [], themes = [], clicks = [];
   let current = '';
   const ctx = {findings: [], app: {evaluate: async (_fn, size) => { sizes.push(size); return [1280, 820]; }},
-    page: {click: async selector => { clicks.push(selector); current = selector; }, waitForTimeout: async () => {},
+    page: {locator: () => ({first: () => ({isVisible: async () => true})}), click: async selector => { clicks.push(selector); current = selector; }, waitForTimeout: async () => {},
       evaluate: async (fn, arg) => {
         if (arg?.limits) return current.includes('"jobs"') ? [{view: 'jobs', severity: 'warning', kind: 'hidden-scroll', detail: '"Settings" is cut off at this window size and nothing shows it scrolls'}] : [];
         if (typeof arg === 'string') { themes.push(arg); return arg; }
