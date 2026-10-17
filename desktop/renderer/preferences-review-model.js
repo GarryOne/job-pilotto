@@ -27,11 +27,18 @@ export function proposedTexts(parse, current = {}) {
   out.relocation = relocation.answer === 'unknown' || !relocation.answer ? ''
     : `${{yes: 'Yes', no: 'No', maybe: 'Maybe'}[relocation.answer]}${relocation.where ? ` (${relocation.where})` : ''}`;
   out.roles = [...(parse.roles || [])].sort((a, b) => (a.certainty === 'sure' ? 0 : 1) - (b.certainty === 'sure' ? 0 : 1)).map(role => role.title).join(', ');
-  out.seniority = SENIORITY_TEXT[parse.seniority] || '';
+  const {min, max} = parse.seniority || {}, low = SENIORITY_TEXT[min] || SENIORITY_TEXT[max] || '', high = SENIORITY_TEXT[max] || low;
+  out.seniority = low && high !== low ? `${low} to ${high}` : low;
   const kinds = [...new Set(parse.employment || [])];
   out.employment = !kinds.length ? '' : kinds.length === 1 && kinds[0] === 'permanent' ? 'Permanent only' : kinds.length === 1 && kinds[0] === 'contract' ? 'Contract only'
     : kinds.length === 2 && kinds.includes('permanent') && kinds.includes('contract') ? 'Permanent or contract' : kinds.map(kind => EMPLOYMENT_TEXT[kind]).join(', ');
   return out;
+}
+
+// The one "Original wording" line: only the phrases the AI said the clean values lose, for the fields accepted ("Cities — Anywhere else in Switzerland is fine; Languages — No French").
+export const NOTE_LABEL = 'Original wording';
+export function noteText(parse, labels, accepted) {
+  return (parse?.notes || []).filter(note => accepted.includes(note.field)).map(note => `${labels[note.field]} — ${note.text}`).join('; ');
 }
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();

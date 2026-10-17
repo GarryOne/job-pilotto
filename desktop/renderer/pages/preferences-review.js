@@ -1,6 +1,6 @@
 // Settings → Profile → Preferences, the "Review your preferences" card (owner, 17 Oct 2026): where the AI read a field's text differently from how it
 // is stored (lib/preferences-parse.js), each field shows what you have now → what it proposes, with Accept / Keep mine and Accept all. Accepting only
-// drafts the change into the tab's one save bar (the old wording is kept as an "Original wording" line, nothing is lost); nothing is written until Save.
+// drafts the change into the tab's one save bar (the phrases the clean values lose are kept in ONE collapsed "Original wording" note under Other preferences); nothing is written until Save.
 // "Keep mine" is remembered per text in this window. Guarded by test/preferences-review-render.test.js.
 import {el} from '../components.js';
 import {FIELDS} from '../preferences-model.js';
@@ -15,7 +15,7 @@ const ORDER = ['countries', 'cities', 'mode', 'relocation', 'languages', 'roles'
 // The text the AI reads for each field: what the page holds (a ❓ row's hint is still what was typed), and the Home base for context.
 export const textsOf = fields => Object.fromEntries([...ORDER, 'home'].map(key => [key, fields[key]?.value || fields[key]?.hint || '']));
 
-// state: {key, parse, error, busy}; handled: keys accepted into the draft; apply(field, item, text); note(field, item, old) drafts the Original wording line.
+// state: {key, parse, error, busy}; handled: keys accepted into the draft; apply(field, item, text); note() re-drafts the one Original wording line from the accepted fields.
 export function reviewCard({fields, state, handled, apply, note, redraw}) {
   const skipped = kept();
   const rows = reviewOf(fields, state.parse, ORDER).filter(row => !handled.has(row.key) && !skipped.has(`${state.key}:${row.key}`));
@@ -27,7 +27,7 @@ export function reviewCard({fields, state, handled, apply, note, redraw}) {
   head.append(words);
   box.append(head);
   if (!rows.length) return state.busy || state.error ? box : null;
-  const accept = row => { const field = FIELDS.find(each => each.key === row.key), item = fields[row.key]; apply(field, item, row.proposed); if (row.old) note(field, item, row.old); handled.add(row.key); };
+  const accept = row => { const field = FIELDS.find(each => each.key === row.key), item = fields[row.key]; apply(field, item, row.proposed); handled.add(row.key); note(); };
   const bar = el('div', 'pref-review-actions');
   const all = Object.assign(el('button', 'primary', 'Accept all'), {type: 'button', id: 'preferences-review-accept-all'});
   all.addEventListener('click', () => { rows.forEach(accept); redraw(); });
