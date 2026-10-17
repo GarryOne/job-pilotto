@@ -37,7 +37,8 @@ export function createMainWindow(ctx) {
   // prefers-color-scheme follow it, so tokens.css switches; the window's own background matches (no flash).
   // JOB_PILOTTO_THEME=light|dark forces one (screenshots of the dark screens in demo mode).
   function applyTheme(value) {
-    const theme = ['light', 'dark'].includes(value) ? value : 'system';
+    // A new install (no saved choice) starts dark (owner, 17 Oct 2026); a saved choice, 'system' included, is kept.
+    const theme = value == null || value === '' ? 'dark' : ['light', 'dark'].includes(value) ? value : 'system';
     nativeTheme.themeSource = theme;
     if (win.window && !win.window.isDestroyed()) win.window.setBackgroundColor(windowBackground());
     return theme;
