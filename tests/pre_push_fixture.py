@@ -50,6 +50,7 @@ class PrePushFixture(unittest.TestCase):
         shutil.copy(HOOK, self.repo / 'tools' / 'pre-push-check.sh')
         shutil.copy(ROOT / 'tools' / 'commit-subject.py', self.repo / 'tools' / 'commit-subject.py')
         shutil.copy(ROOT / 'tools' / 'gate-watchdog.sh', self.repo / 'tools' / 'gate-watchdog.sh')   # the hook sources it when it sits beside it
+        shutil.copy(ROOT / 'tools' / 'ci-installs-dev.py', self.repo / 'tools' / 'ci-installs-dev.py')   # the build.yml dev-dependency gate
         shutil.copy(ROOT / 'tools' / 'red-main.sh', self.repo / 'tools' / 'red-main.sh')   # main's state: green, red or unknown
         (self.repo / 'tools' / 'stale-expectations.mjs').write_text('')
         for path, text in ((self.repo / 'tools' / 'check.sh', CHECK), (self.bin / 'gh', GH), (self.bin / 'actionlint', '#!/bin/sh\n')):

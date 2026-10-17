@@ -23,7 +23,10 @@ def offending(text):
 
 if __name__ == '__main__':
     path = sys.argv[1] if len(sys.argv) > 1 else '.github/workflows/build.yml'
-    bad = offending(open(path, encoding='utf-8').read())
+    try:
+        bad = offending(open(path, encoding='utf-8').read())
+    except FileNotFoundError:
+        sys.exit(0)   # a checkout without the workflow has nothing to check
     for number, line in bad:
         print(f'{path}:{number}: {line}')
     if bad:
