@@ -4,6 +4,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, show} from './core.js';
+import {showOnTab} from './tab-part.js';
 import {loadCvSetting} from './profile.js';
 import {byStore} from '../store-words.js';
 
@@ -24,7 +25,7 @@ function setPill(id, text, tone) { $(id).replaceChildren(pill(text, tone)); }
 export async function showCvChanged() {
   const change = await window.pilot.cvChange();
   $('cv-changed-text').textContent = `Your CV changed${change.at ? ` on ${new Date(change.at).toLocaleDateString()}` : ''}: review what it changes.`;
-  show($('cv-changed'), !!change.at);
+  showOnTab($('cv-changed'), !!change.at);
   show($('strategy-cv-changed'), !!change.at);
 }
 export async function openCvChange() {

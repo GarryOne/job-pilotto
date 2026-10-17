@@ -3,7 +3,8 @@
 // copies said two ways (lib/profile-move.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
 // test/details-facts.test.js.
 import {el} from '../components.js';
-import {$, show} from './core.js';
+import {$} from './core.js';
+import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
 
 export const KEYS = ['eligibility', 'availability', 'languages'];
@@ -35,7 +36,7 @@ function draw(sections) {
 }
 
 function drawWhich(conflicts) {
-  show($('setting-which'), conflicts.length > 0);
+  showOnTab($('setting-which'), conflicts.length > 0);
   $('which-list').replaceChildren(...conflicts.map(conflict => {
     const row = el('div', 'chip-row');
     row.append(el('b', '', conflict.topic.replace(/^./, letter => letter.toUpperCase())));

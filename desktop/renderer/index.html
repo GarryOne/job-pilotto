@@ -969,7 +969,7 @@
               <button class="secondary" id="cvc-ai-run" hidden>Add the content review</button></div>
             <p class="message" id="cvc-message"></p>
           </div>
-          <div class="stale-draft" id="cv-changed" data-profile-panel="cv" hidden><span id="cv-changed-text"></span>
+          <div class="stale-draft" id="cv-changed" data-profile-panel="cv" data-wanted="0" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Where your experience comes from</h3></div>
@@ -1020,7 +1020,7 @@
               <label>Website<input data-contact="website" type="url" placeholder="https://…"></label>
             </div>
           </div>
-          <div class="setting panel" id="setting-which" data-profile-panel="details" hidden>
+          <div class="setting panel" id="setting-which" data-profile-panel="details" data-wanted="0" hidden>
             <div class="summary-head"><i data-icon="help"></i><h3>Which is right?</h3></div>
             <p class="muted panel-lead">Your Profile said these two ways. Pick the right one: it becomes the line forms use, the other goes.</p>
             <div id="which-list"></div>
@@ -1041,7 +1041,7 @@
             <div class="form-grid cols-2" data-facts="languages"></div>
             <p class="message" id="facts-message"></p>
           </div>
-          <div class="save-bar" id="contact-savebar" role="region" aria-label="Unsaved changes to your details" hidden>
+          <div class="save-bar" id="contact-savebar" data-profile-panel="details" data-wanted="0" role="region" aria-label="Unsaved changes to your details" hidden>
             <div class="save-bar-words"><b>Unsaved changes to your details</b><span class="muted small">The extension fills forms with them once saved.</span></div>
             <span class="message" id="contact-message"></span>
             <button class="secondary" id="contact-discard">Discard changes</button><button class="primary" id="contact-save" disabled>Save changes</button>
