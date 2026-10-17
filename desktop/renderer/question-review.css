@@ -60,9 +60,14 @@
 .fact-line .qa-note-fold > summary { width: max-content; cursor: pointer; }
 .fact-line .qa-note-fold > summary::after { content: ' · Show'; color: var(--signal); font-weight: 600; }
 .fact-line .qa-note-fold[open] > summary::after { content: ' · Hide'; }
-/* Voluntary surveys (renderer/survey-rows.js): the question, its fixed list and its note on one line. */
-.survey-rows .fact-line { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) minmax(160px, 2fr); gap: var(--sp-2); align-items: center; }
-@container (max-width: 560px) { .survey-rows .fact-line { grid-template-columns: minmax(0, 1fr); } }
+/* Voluntary surveys (renderer/survey-rows.js): label | list sized to its choices | "+ note"; an open note runs under the list; other lines wrap, never cut. */
+.survey-rows { display: grid; gap: var(--sp-3); }
+.survey-rows .survey-row { display: grid; grid-template-columns: 200px max-content auto; gap: var(--sp-1) var(--sp-3); align-items: center; justify-content: start; }
+.survey-rows .survey-row > .fact-note { grid-column: 2 / -1; width: 100%; max-width: 72ch; }
+.survey-rows select { width: auto; max-width: 100%; }
+.survey-rows textarea { width: 100%; max-width: 72ch; }
+.survey-rows .survey-notes > summary { cursor: pointer; font-weight: 600; margin-bottom: var(--sp-1); }
+@container (max-width: 560px) { .survey-rows .survey-row { grid-template-columns: minmax(0, 1fr); } .survey-rows .survey-row > .fact-note { grid-column: 1; } }
 /* A goal edited in place with its control (renderer/goal-tiles.js): the chips wrap in the narrow tile instead of cutting their words. */
 .goal-editor { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; width: 100%; }
 .goal-editor .segmented.is-fill { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }

@@ -11,7 +11,7 @@ const all = node => [node, ...(node.children || []).flatMap(all)];
 
 test('the form has one row per question with Decline in its list, and the note under the choice', () => {
   const {node} = surveyForm(part);
-  const rows = node.children.filter(child => child.className === 'fact-line');
+  const rows = node.children.filter(child => child.className === 'survey-row');
   assert.equal(rows.length, SURVEYS.length);
   assert.ok(SURVEYS.every(each => each.options.at(-1) === DECLINE));
   assert.equal(all(rows[1]).filter(each => each.className === 'fact-note').length, 1);
