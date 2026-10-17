@@ -12,6 +12,7 @@ import {looksLikeFieldId} from '../renderer/question-filter.js';
 import {noteFields} from './question-formats.js';
 import {formatOfField, splitMark, withMark} from '../renderer/question-kind.js';
 import * as knowledge from './knowledge.js';
+import {HOME_NAMES, homeOf, writeHome} from './answer-home.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -142,16 +143,23 @@ export async function forget(storage, question, fetcher) {
 // answer becomes "— (leave blank)", so the table keeps the question and forms leave that field empty.
 export const SKIPPED = '— (leave blank)';
 // mark: the kind the answer was given with ({kind, options, list}); a question with no mark yet keeps it, so every later screen draws the same control.
-export async function answer(storage, questionKey, value, fetcher, mark = null) {
+// ai: the inbox (lib/answer-home.js): a fact of Your details goes to its section and the open question leaves this page once that line reads back.
+export async function answer(storage, questionKey, value, fetcher, mark = null, {ai = {}} = {}) {
   const page = answersPage(storage, fetcher);
   const open = openRows(await page.outline()).find(({row}) => row.id === questionKey);
+  const block = open ? null : (await page.blocks()).find(b => b.id === questionKey);
+  if (!open && (!block || !block.text.includes('❓'))) return {ok: false, error: 'Already answered'};
+  const question = open ? unmarked(splitMark(open.cells[0]).text.replace(/❓/g, '')) : parseLine(block).question;
+  const home = value ? await homeOf(question, value, ai) : '';
+  if (home && await writeHome(storage, home, question, value, fetcher)) {
+    await page.remove(open ? {id: open.row.id, text: open.cells[0]} : block);
+    return {ok: true, home, homeName: HOME_NAMES[home]};
+  }
   if (open) {
     await page.setCell(open.row, 1, (value || SKIPPED).slice(0, 1900));
     if (value && mark?.kind && !splitMark(open.cells[0]).marked) await page.setCell(open.row, 0, withMark(open.cells[0], mark));
     return {ok: true};
   }
-  const block = (await page.blocks()).find(b => b.id === questionKey);
-  if (!block || !block.text.includes('❓')) return {ok: false, error: 'Already answered'};
   const answered = answeredLine(block.text, value);
   if (value) await page.setText(block, mark?.kind && !splitMark(answered).marked ? withMark(answered, mark) : answered);
   else await page.remove(block);
@@ -195,13 +203,19 @@ export async function standardAnswers(storage, fetcher) {
 // A fact Claude asked about in a session ("❓ Bachelor's degree result … Suggested: 8.5/10"), confirmed with one tick:
 // it answers that open ❓ line or table row when the page has one, rewrites the line that already gives this
 // question an answer, or adds "Question: answer" at the end, so the next kit and fill know it.
-export async function remember(storage, question, value, fetcher) {
+// A fact of Your details goes to its section instead (lib/answer-home.js), and this page's old line for it goes once that line reads back.
+export async function remember(storage, question, value, fetcher, {ai = {}} = {}) {
   const text = unmarked(question), answerText = String(value || '').trim();
   if (!text || !answerText) return {ok: false, error: 'Write an answer first'};
   const page = answersPage(storage, fetcher), wanted = key(text);
   const open = (await list(storage, fetcher)).find(q => key(q.question) === wanted);
-  if (open) return answer(storage, open.key, answerText, fetcher);
+  if (open) return answer(storage, open.key, answerText, fetcher, null, {ai});
   const line = (await page.blocks()).find(block => /list_item|paragraph/.test(block.type) && key(label(block.text)) === wanted);
+  const home = await homeOf(text, answerText, ai);
+  if (home && await writeHome(storage, home, text, answerText, fetcher)) {
+    if (line) await page.remove(line);
+    return {ok: true, home, homeName: HOME_NAMES[home]};
+  }
   if (line) await page.setText(line, `${text}: ${answerText}`);
   else await page.append([`${text}: ${answerText}`]);
   return {ok: true};

@@ -11,6 +11,7 @@ import * as github from './github.js';
 import * as pipeline from './pipeline.js';
 import * as questions from './questions.js';
 import * as questionLists from './question-lists.js';
+import {claudeAi} from './question-ai.js';
 import * as review from './review.js';
 import {noteTabMiss} from './tab-expect.js';
 import * as server from './server.js';
@@ -260,10 +261,10 @@ export function registerApplyHandlers(ctx) {
     : questionLists.reviewVerdicts(storage, (labels || []).map(String).slice(0, 200), Array.isArray(unmarked) ? {unmarked: unmarked.map(String).slice(0, 200)} : {}))
     .then(({verdicts, formats = {}}) => ({ok: true, verdicts, formats}), error => ({ok: false, error: error.message, verdicts: {}, formats: {}})));
   // mark: the kind the window drew it with ({kind, options, list}), written with the first answer of a question that had none (lib/questions.js answer).
-  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark) => needsNotion('profile') || questions.answer(storage, questionKey, answer, undefined, mark && typeof mark === 'object' ? mark : null)
+  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark) => needsNotion('profile') || questions.answer(storage, questionKey, answer, undefined, mark && typeof mark === 'object' ? mark : null, {ai: claudeAi(storage)})
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
-  // A session's ❓ fact, answered with one tick on the session page: saved to the standard answers page.
-  ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer))
+  // A session's ❓ fact, answered with one tick on the session page: saved to its home (Your details or the standard answers page, lib/answer-home.js).
+  ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer, undefined, {ai: claudeAi(storage)}))
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
   ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'OPENAI_API_KEY', 'BRAVE_SEARCH_API_KEY']

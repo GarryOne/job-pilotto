@@ -387,7 +387,7 @@ export function askRow(need, item) {
     tick.disabled = input.disabled = true;
     note.textContent = `Saving to ${storeName()}…`;
     const result = await window.pilot.rememberAnswer(need.question, value);
-    if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = `Remembered ${shown()} for future forms`; box.classList.add('is-saved'); return; }
+    if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = `Remembered ${shown()} for future forms${result.homeName ? ` (in ${result.homeName})` : ''}`; box.classList.add('is-saved'); return; }
     tick.checked = tick.disabled = input.disabled = false;
     note.textContent = result.error || 'Couldn\'t save';
     box.classList.add('is-error');
