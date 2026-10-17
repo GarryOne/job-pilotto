@@ -225,7 +225,7 @@ test('the pool search is an input of the filter bar, resets the page, is combine
   assert.match(PAGE, /oninput: event => \{ chosen\.query = event\.target\.value; chosen\.page = 0; draw\(\); \}/);
   assert.match(PAGE, /\(!c\.flow \|\| s\.flow === c\.flow\) && poolMatches\(s, c\.query\)/);
   assert.match(PAGE, /chosen\.query = ''; chosen\.page = 0;[\s\S]{0,160}search\.value = ''/);                    // Clear
-  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !endingPick && !chosen\.query/);
+  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !endingPick && !chosen\.stage && !chosen\.query/);
   assert.match(PAGE, /\.pick input\[type=search\]/);
 });
 

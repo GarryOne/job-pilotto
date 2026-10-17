@@ -144,7 +144,9 @@ async function main() {
     console.log(`record-sites: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
     console.log(`record-sites: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ending: item.ending || '', cause: item.cause || '', ...rungFields(item), ...verdictFields(item)}])}`);
   };
-  const pool = selectRows(shapes, only);   // a row's exact name, one row's words, or several rows' joined by |
+  const archived = shapes.filter(item => item.stage === 'archived');   // life cycle (site/src/applying-stage.js): an archived row is never re-run by a list or a share; only a fixer's --only names it
+  const pool = selectRows(shapes, only).filter(item => only || item.stage !== 'archived');   // a row's exact name, one row's words, or several rows' joined by |
+  if (archived.length && !only) console.log(`record-sites: ${archived.length} archived row(s) not run (kept for history and offline debugging)`);
   const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too
   // Every mode starts with the rows tested the least (lib/record-sites-order.mjs); only --only is a fixer's own choice. A row resting today (site-ledger) is skipped and listed.
   const postingOf = ({urls = [], like = []}) => pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
