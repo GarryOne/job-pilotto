@@ -12,6 +12,8 @@ import {GOAL_TILES, goalTiles} from '../goal-tiles.js';
 import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {dirtyLists, exclusionGroups, roleFamilies, withTyped} from '../strategy-parts.js';
 import {strategyState} from './strategy-state.js';
+import {coverageLine, relocationChoice} from './locations-card.js';
+import {coverage, relocationNow, relocationWords, remoteWords} from '../locations-model.js';
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
 import {byStore} from '../store-words.js';
@@ -24,8 +26,8 @@ import {byStore} from '../store-words.js';
 export const CARD_TONE = {roles: 'violet', places: 'teal', stack: 'info', languages: 'warn', search: 'neutral'};   // the same colours as the suggestions of each kind
 export const TARGET_CARDS = [
   ['roles', 'briefcase', 'Roles & job board searches', [['roles', '', 'Add a job title'], ['queries', 'Job board searches: what we type into job boards such as jobs.ch', 'Add a job board search']]],
-  ['places', 'pin', 'Locations & eligibility', [['places', 'Priority locations', 'Add a city or region'], ['country', 'Additional regions', 'Add a country or region'],
-    ['abroad', 'Relocation (open to)', 'Add a city abroad'], ['rights', 'Work rights: where you can work without a visa', 'Add a country or EU']]],
+  ['places', 'pin', 'Locations', [['places', 'Preferred locations', 'Add a city or region'], ['country', 'Acceptable locations', 'Add a country or region'],
+    ['abroad', 'Places you would relocate to', 'Add a city abroad'], ['rights', 'Work rights: where you can work without a visa', 'Add a country or EU']]],
   ['stack', 'layers', 'Skills & experience', [['stack', 'Key skills and tools you want in jobs.', 'Add a skill or tool']]],
   ['languages', 'shield', 'Exclusions & preferences', [['languages', 'Languages that rule a job out', 'Add a language']]],
   // What only the ⚙️ Search settings page had (P8, 9 Oct 2026), so every store edits it here (lib/strategy-edit.js), with the level and the digest's minimum.
@@ -34,7 +36,7 @@ export const TARGET_CARDS = [
     ['gplaces', 'Google Jobs places: "City,Region,Country · language"', 'Add a place, e.g. Zurich,Zurich,Switzerland · de']]],
 ];
 // A card's one-value settings, edited as {set} (not lists): they mark the card Edited too.
-const CARD_VALUES = {places: ['remote'], search: ['level', 'minScore']};
+const CARD_VALUES = {places: ['remote', 'relocation'], search: ['level', 'minScore']};
 const valuesDirty = (key, changed) => (CARD_VALUES[key] || []).some(name => changed.has(name));
 export const TARGET_LISTS = TARGET_CARDS.flatMap(([, , , lists]) => lists.map(([name]) => name));
 // targetEdits (on strategyState): {list: {add: [words], remove: [stored entries]}, remote: {set}} while editing
@@ -100,10 +102,10 @@ function listChips(name, placeholder) {
 // Remote jobs (Search settings "Remote jobs"): a place of its own, or only jobs in your places.
 function remoteChoice() {
   const now = strategyState.lastStrategy?.remote_jobs !== false, chosen = strategyState.targetEdits?.remote ? strategyState.targetEdits.remote.set === 'Yes' : now;
-  if (!strategyState.targetEdits) return el('span', '', now ? 'Anywhere: remote jobs count as one of your places' : 'Only those based in your locations');
+  if (!strategyState.targetEdits) return el('span', '', remoteWords(now, labelsOf('country').slice(0, 1).map(titleCase)));
   const group = el('div', 'segmented');
   group.setAttribute('role', 'group');
-  group.setAttribute('aria-label', 'Remote jobs');
+  group.setAttribute('aria-label', 'Remote work');
   for (const [label, yes] of [['Yes', true], ['No', false]]) {
     const button = el('button', yes === chosen ? 'is-active' : '', label);
     button.type = 'button';
@@ -169,14 +171,17 @@ function targetCard([key, glyph, title, lists]) {
     head.append(edit);
   }
   card.append(head);
+  if (key === 'places') card.append(...[coverageLine(reloadTargets)].filter(Boolean));   // visible in both modes, Advanced or not
   if (!strategyState.targetEdits) { card.append(...VIEWS[key]()); return card; }
   for (const [name, label, placeholder] of lists) {
+    // Relocation is a value (Yes / No / Not specified); its places are asked only for Yes, and kept whatever the mode.
+    if (name === 'abroad') { card.append(el('p', 'sub', 'Relocation'), relocationChoice(renderTargets)); if (relocationNow(strategyState.lastStrategy, strategyState.targetEdits) !== 'yes') continue; }
     const box = listChips(name, placeholder);
     if (name === 'places') { const priority = el('div', 'priority'); priority.append(el('b', '', label), box); card.append(priority); continue; }
     if (label) card.append(el('p', 'sub', label));
     card.append(box);
   }
-  if (key === 'places') card.append(el('p', 'sub', 'Remote jobs'), remoteChoice());
+  if (key === 'places') card.append(el('p', 'sub', 'Remote work'), remoteChoice());
   if (key === 'search') card.append(el('p', 'sub', 'Your level'), levelChoice(), el('p', 'sub', 'Minimum fit score for the digest'), minScoreInput());
   return card;
 }
@@ -230,15 +235,15 @@ const VIEWS = {
   places() {
     const priority = el('div', 'priority');
     const places = labelsOf('places');
-    priority.append(el('b', '', 'Priority locations'), places.length ? chipsOf(places) : el('span', 'muted small', 'None'));
-    const regions = labelsOf('country'), abroad = labelsOf('abroad'), rights = labelsOf('rights');
+    priority.append(el('b', '', 'Preferred locations'), places.length ? chipsOf(places) : el('span', 'muted small', 'None'));
+    const regions = labelsOf('country'), rights = labelsOf('rights');
     return [priority,
-      settingRow('globe', 'Additional regions', regions.length ? folded(regions, 4, 'Show all') : 'None selected'),
-      settingRow('send', 'Relocation', abroad.length ? chipsOf(abroad) : 'Not enabled'),
-      settingRow('building', 'Remote jobs', remoteChoice()),
+      settingRow('globe', 'Acceptable locations', regions.length ? folded(regions, 4, 'Show all') : 'None selected'),
+      settingRow('send', 'Relocation', relocationWords(relocationNow(strategyState.lastStrategy, null), strategyState.lastStrategy?.lists?.abroad)),
+      settingRow('building', 'Remote work', remoteChoice()),
       settingRow('shield', 'Work rights', rights.length ? chipsOf(rights) : 'Not set: jobs abroad are flagged "visa sponsorship needed"'),
       // The goal "Work mode" (what you accept) and this (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026).
-      el('p', 'muted small card-foot', 'Work mode (in Goals) is the kind of job you accept; Remote jobs is where the search looks for them.')];
+      el('p', 'muted small card-foot', 'Work mode (in Goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.')];
   },
   stack() {
     const stack = labelsOf('stack');
@@ -296,9 +301,11 @@ function renderGoals() {
   $('strategy-goals').replaceChildren(...goalTiles(shown, goals ? saveGoal : null,
     {tiles: [...GOAL_TILES, ['eligibility', 'shield', 'Work eligibility']], fixed: {eligibility: () => openSetting('eligibility'), languages: () => openSetting('languages')}}));
 }
+const reloadTargets = async () => { await loadStrategy(); renderTargets(); };
 export function renderTargets() {
   const editing = !!strategyState.targetEdits;
   $('strategy-live').classList.toggle('is-editing', editing);
+  shared.coverageActive = coverage(strategyState.lastStrategy).active;   // ⌘K lists "Reset search coverage" only while it is on
   $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(targetCard)));
   refreshDraft();
 }

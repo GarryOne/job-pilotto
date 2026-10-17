@@ -8,10 +8,11 @@ import {showWorkload} from '../renderer/preferences-review-model.js';
 const body = install();
 const row = (id, ...cells) => ({id, type: 'table_row', cells});
 const profile = countries => [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 'p3', type: 'table', header: true, rows: [row('q0', 'Constraint', 'Value'),
-  row('q1', 'Countries', countries), row('q2', 'Preferred cities', 'Most preferred: Zurich and surroundings. Abroad: Berlin'), row('q3', 'Work mode', 'Hybrid'), row('q4', 'Workload', '80–100%')]}];
+  row('q1', 'Countries', countries), row('q2', 'Role priorities', 'SRE, or platform engineering'), row('q3', 'Work mode', 'Hybrid'), row('q4', 'Workload', '80–100%')]}];
+// Countries, cities and relocation are Strategy → Locations' now (17 Oct 2026): the review still reads Countries for the Workload rule, but offers no row for them.
 const PARSE = {countries: ['CH', 'DE'], cities: [{name: 'Zurich', country: 'CH'}, {name: 'Berlin', country: 'DE'}], remote: 'unknown', languages: [], relocation: {answer: 'unknown', where: ''},
-  roles: [], seniority: {min: 'unknown', max: 'unknown', open_ended: false}, employment: [],
-  notes: [{field: 'cities', text: 'Anywhere else in Switzerland is fine'}, {field: 'countries', text: 'or remote roles'}], unparsed: ['countries', 'cities']};
+  roles: [{title: 'Site reliability engineer', certainty: 'sure'}], seniority: {min: 'unknown', max: 'unknown', open_ended: false}, employment: [],
+  notes: [{field: 'roles', text: 'or platform engineering'}, {field: 'countries', text: 'or remote roles'}], unparsed: ['countries', 'cities', 'roles']};
 
 let opened = 0;   // a new read has a new key (Keep mine is remembered per key)
 async function open(items, parse, sent = [], asked = []) {
@@ -29,22 +30,23 @@ test('the card shows what the AI flagged (old -> proposed); Accept drafts the va
   const sent = [], asked = [];
   const node = await open(profile('Switzerland (anywhere), plus Berlin, or remote roles'), PARSE, sent, asked);
   assert.equal(asked.length, 1);
-  assert.match(asked[0].fields.cities, /Zurich and surroundings/, 'the AI is sent the typed text');
+  assert.match(asked[0].fields.roles, /platform engineering/, 'the AI is sent the typed text');
+  assert.match(asked[0].fields.countries, /Switzerland/, 'Countries are still read: the Workload rule needs them');
   const card = node.querySelector('#preferences-review-card');
   assert.ok(card, 'the review card is drawn');
   const lines = card.querySelectorAll('.pref-review-row');
-  assert.deepEqual(lines.map(line => line.dataset.field), ['countries', 'cities']);
-  assert.match(lines[0].textContent, /plus Berlin, or remote roles/);
-  assert.match(lines[0].textContent, /Switzerland, Germany/);
+  assert.deepEqual(lines.map(line => line.dataset.field), ['roles'], 'no row for Countries or Preferred cities: Locations edits them');
+  assert.match(lines[0].textContent, /SRE, or platform engineering/);
+  assert.match(lines[0].textContent, /Site reliability engineer/);
   assert.equal(node.querySelector('.save-bar').hidden, true, 'nothing drafted yet');
   lines[0].querySelectorAll('button').find(button => button.textContent === 'Accept').click();
   assert.equal(node.querySelector('.save-bar').hidden, false);
   await node.querySelector('#outline-save-preferences').listeners.click[0]();
   const [[name, changes]] = sent;
   assert.equal(name, 'profile');
-  assert.ok(changes.some(change => change.op === 'cell' && change.id === 'q1' && change.value === 'Switzerland, Germany'), JSON.stringify(changes));
+  assert.ok(changes.some(change => change.op === 'cell' && change.id === 'q2' && change.value === 'Site reliability engineer'), JSON.stringify(changes));
   const notes = changes.filter(change => /^Original wording:/.test(change.lines?.[0] || ''));
-  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Countries — or remote roles']], 'ONE note line, only the phrase the clean value loses (never the whole old text)');
+  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Role priorities — or platform engineering']], 'ONE note line, only the phrase the clean value loses (never the whole old text)');
 });
 
 test('Keep mine drafts nothing and the card drops that field; no card when the AI flagged nothing or is unavailable', async () => {
@@ -53,8 +55,8 @@ test('Keep mine drafts nothing and the card drops that field; no card when the A
   node.querySelector('.pref-review-row').querySelectorAll('button').find(button => button.textContent === 'Keep mine').click();
   assert.equal(node.querySelector('.save-bar').hidden, true);
   assert.equal(sent.length, 0);
-  assert.deepEqual(node.querySelectorAll('.pref-review-row').map(line => line.dataset.field), ['cities'], 'countries kept as mine');
-  const none = await open(profile('Switzerland, Germany'), {...PARSE, countries: ['CH', 'DE'], cities: [], unparsed: []});
+  assert.deepEqual(node.querySelectorAll('.pref-review-row').map(line => line.dataset.field), [], 'roles kept as mine');
+  const none = await open(profile('Switzerland, Germany'), {...PARSE, roles: [], unparsed: []});
   assert.equal(none.querySelector('#preferences-review-card'), null);
   const off = await open(profile('Switzerland (anywhere), or remote'), null);
   assert.equal(off.querySelector('#preferences-review-card'), null);
@@ -84,15 +86,14 @@ test('languages and the permit are Your details\': not on the Job preferences ca
 test('Accept all drafts ONE Original wording line holding only what the clean values lose, and it shows collapsed under Other preferences for any profile', async () => {
   const sent = [];
   const items = [{id: 'h', type: 'heading_1', text: 'Targets'}, {id: 'b1', type: 'bulleted_list_item', text: 'Countries: Switzerland (anywhere), plus Berlin, or remote roles'},
-    {id: 'b2', type: 'bulleted_list_item', text: 'Preferred cities: Zurich. Anywhere else in Switzerland is fine.'}];   // "Targets" is no known section
+    {id: 'b2', type: 'bulleted_list_item', text: 'Role priorities: SRE, or platform engineering'}];   // "Targets" is no known section
   const node = await open(items, PARSE, sent);
   node.querySelector('#preferences-review-accept-all').click();
   await node.querySelector('#outline-save-preferences').listeners.click[0]();
   const notes = sent[0][1].filter(change => /^Original wording:/.test(change.lines?.[0] || ''));
-  // In the AI's order:
-  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Preferred cities — Anywhere else in Switzerland is fine; Countries — or remote roles']]);
+  assert.deepEqual(notes.map(change => change.lines), [['Original wording: Role priorities — or platform engineering']]);
   // Read back: the saved line is Other preferences' own note, whatever section it was written in, drawn collapsed.
-  const saved = [...items, {id: 'n1', type: 'bulleted_list_item', text: 'Original wording: Countries — or remote roles'}];
+  const saved = [...items, {id: 'n1', type: 'bulleted_list_item', text: 'Original wording: Role priorities — or platform engineering'}];
   const again = await open(saved, null);
   const box = again.querySelectorAll('details.pref-note');
   assert.equal(box.length, 1);

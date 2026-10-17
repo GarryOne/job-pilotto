@@ -16,7 +16,8 @@ export const GROUPS = {
 };
 // Strategy → Job preferences (owner, 17 Oct 2026: "Preferences: improve a job's ranking. Must-haves / deal-breakers: determine whether it is
 // acceptable"): a row's side is its Profile section's (Hard constraints or Deal-breakers = must, Preferences = rank); a field's is its own.
-// A field with no side is edited elsewhere (editedIn): 'goals' = Strategy's Goals strip, 'details' = Profile → Your details.
+// A field with no side is edited elsewhere (editedIn): 'goals' = Strategy's Goals strip, 'details' = Profile → Your details, 'locations' = Strategy's
+// Locations card (owner, 17 Oct 2026: one source for where you search and score; the Profile rows stay as text, read by nothing that asks the person twice).
 export const SIDES = {
   must: {title: 'Must-haves & deal-breakers', lead: 'A job that breaks one is left out before scoring.', icon: 'shield', add: 'Add a deal-breaker'},
   rank: {title: 'Preferences', lead: "They raise or lower a job's rank; nothing is left out.", icon: 'sliders', add: 'Add a preference'},
@@ -25,11 +26,11 @@ export const LEVELS = ['Native', 'Fluent', 'Advanced (C1)', 'Upper intermediate 
 export const MODES = ['On-site', 'Hybrid', 'Remote'];
 // The Profile template's own rows (docs/notion-profile-template.md), by the words their label starts with; first match wins.
 export const FIELDS = [
-  {key: 'countries', side: 'must', label: 'Countries', match: /^countr/i, widget: 'chips', group: 'location', add: 'Add countries'},
+  {key: 'countries', side: '', editedIn: 'locations', label: 'Countries', match: /^countr/i, widget: 'chips', group: 'location', add: 'Add countries'},
   {key: 'home', side: 'must', label: 'Home base', match: /^home base|^current location/i, widget: 'text', group: 'location', placeholder: 'City or region'},
-  {key: 'cities', side: 'rank', label: 'Preferred cities', match: /cities|^places/i, widget: 'chips', group: 'location', add: 'Add a city'},
+  {key: 'cities', side: '', editedIn: 'locations', label: 'Preferred cities', match: /cities|^places/i, widget: 'chips', group: 'location', add: 'Add a city'},
   {key: 'mode', side: '', editedIn: 'goals', label: 'Work modes', match: /^work mode/i, widget: 'modes', group: 'location'},
-  {key: 'relocation', side: 'must', label: 'Relocation', match: /relocat/i, widget: 'select', options: ['Yes', 'No', 'Within my country'], group: 'location'},
+  {key: 'relocation', side: '', editedIn: 'locations', label: 'Relocation', match: /relocat/i, widget: 'select', options: ['Yes', 'No', 'Within my country'], group: 'location'},
   {key: 'permit', side: '', editedIn: 'details', label: 'Work permit / visa', match: /permit|visa/i, widget: 'text', group: 'location'},
   {key: 'languages', side: '', editedIn: 'details', label: 'Languages', match: /^languages/i, widget: 'languages', group: 'languages'},
   {key: 'roles', side: 'rank', label: 'Role priorities', match: /^(target )?roles?\b|^role priorit/i, widget: 'chips', group: 'roles', add: 'Add a role'},

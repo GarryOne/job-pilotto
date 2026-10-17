@@ -8,7 +8,7 @@ import {ADD_ROLES_ATTEMPTS, escapeRegex, publishSearchSettings} from './strategy
 // Each list: [settings file, path in it, stored as written (plain) or as a match fragment]. The search phrases and the languages that hide a
 // job are plain text; the rest are match fragments (owner, 7 Oct 2026: the Strategy page shows and edits everything the setup review has).
 export const EDITABLE_LISTS = {roles: ['search', ['role_keywords']], places: ['search', ['locations', 'top_tier']], country: ['search', ['locations', 'country_wide']],
-  abroad: ['search', ['locations', 'abroad']], stack: ['search', ['quality_stack_keywords']], queries: ['search', ['jobs_board_search_queries'], true],
+  abroad: ['search', ['locations', 'abroad']], searchOverride: ['search', ['locations', 'search_override']], stack: ['search', ['quality_stack_keywords']], queries: ['search', ['jobs_board_search_queries'], true],
   languages: ['preferences', ['disqualifying_languages'], true], rights: ['preferences', ['work_rights']],
   // What only the ⚙️ Search settings page had (P8, 9 Oct 2026): every store edits them here. A Google Jobs place is stored as
   // {location, language} and edited as "Location · language", as the page writes it (src/notion/search_settings.py 'place').
@@ -16,7 +16,11 @@ export const EDITABLE_LISTS = {roles: ['search', ['role_keywords']], places: ['s
   gqueries: ['search', ['google_jobs', 'queries'], true], gplaces: ['search', ['google_jobs', 'locations'], true, 'place']};
 // One value each, set rather than added to: the level the search keeps to ('' = any) and the digest's minimum fit score.
 export const LEVELS = ['', 'junior', 'mid', 'senior', 'lead'];
+// Relocation (Locations, 17 Oct 2026) is a value of its own: "no" and "not specified" are answers, not missing data (the places abroad stay).
+const RELOCATION = ['yes', 'no', 'unspecified'];
 const SCALARS = {
+  relocation: {valid: value => RELOCATION.includes(value), apply: (next, value) => { next.search.locations.relocation = [value]; },
+    read: files => [files.search?.locations?.relocation].flat().filter(Boolean)[0] || ''},
   level: {valid: value => LEVELS.includes(value), apply: (next, value) => { next.search.level = value ? [value] : []; },
     read: files => [files.search?.level].flat().filter(Boolean)[0] || ''},
   minScore: {valid: value => Number.isInteger(value) && value >= 0 && value <= 100, apply: (next, value) => { next.preferences.digest_min_score = value; },
