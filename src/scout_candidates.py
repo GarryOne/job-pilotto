@@ -13,7 +13,7 @@ from pathlib import Path
 from . import scout_core
 from .paths import CONFIG, keyword_regex, load_search_config, place_regex
 from .sources import ats
-from .scout_core import HN_THREADS, SEED_ORIGINS, TABLES, TECH_LIST_ORIGINS, _SEARCH, _get_json, _get_text, clean_name, key_for, now
+from .scout_core import HN_THREADS, ensure_tables, SEED_ORIGINS, TECH_LIST_ORIGINS, _SEARCH, _get_json, _get_text, clean_name, key_for, now
 
 
 LOCATION_WORDS = place_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
@@ -202,12 +202,7 @@ def skipped_origins(seeds, technical):
 
 def harvest(db, seeds, sources=None, skip=()):
     """Add unseen candidates; returns how many were new. Failing sources are skipped, and so are candidates whose origin is in `skip`."""
-    db.executescript(TABLES)
-    columns = {row[1] for row in db.execute('PRAGMA table_info(scout_candidates)')}
-    if 'website' not in columns:
-        db.execute('ALTER TABLE scout_candidates ADD COLUMN website TEXT')   # a table made before 3 Oct 2026
-    if 'checked_with' not in columns:
-        db.execute('ALTER TABLE scout_candidates ADD COLUMN checked_with TEXT')   # the readers that judged it (READERS), since 6 Oct 2026
+    ensure_tables(db)
     extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
     excluded = {key_for(name.strip()) for name in seeds.get('excluded', []) + extra}
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}

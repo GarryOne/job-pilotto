@@ -32,7 +32,7 @@ from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests p
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
 from .scout_candidates import harvest, skipped_origins, starter_list
-from .scout_core import DEFAULT_BATCH, IDEAS_PAUSE, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, key_for, now, pending_count
+from .scout_core import DEFAULT_BATCH, IDEAS_PAUSE, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, ensure_tables, key_for, now, pending_count
 from .scout_index import board_stats, build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
 from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
 from .scout_probe import READERS, find_feed, next_batch, quality, skipping
@@ -95,6 +95,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     skip = skipped_origins(seeds, scout_ideas.technical(load_search_config()))
     print('Scout: reading the employer lists…' if not skip else
           'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are left out)…')
+    ensure_tables(db)
     waiting = pending_count(db)
     if waiting > IDEAS_PAUSE and harvest_sources is None:
         added, ideas = 0, None
@@ -361,7 +362,7 @@ def main():
             print('Employers: no employer list to write to; nothing to write.')
             return 0
         with store.connect(args.db) as db:
-            db.executescript(TABLES)
+            ensure_tables(db)
             written, failed = sync_employers(db, stores)
         print(f'Employers: {written} written to {where_of(stores)}')   # each one not written said so in its own Warning line
         return 1 if failed and not written else 0

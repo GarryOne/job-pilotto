@@ -200,9 +200,10 @@ def dead_ends(db, days=30):
     days (6 Oct 2026): shared so other installs do not probe the same employer again for a while. Public names and website hosts only."""
     if db is None:
         return []
-    from . import scout
+    from . import scout, scout_core
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec='seconds')
     try:
+        scout_core.ensure_tables(db)
         rows = db.execute("SELECT name, website FROM scout_candidates WHERE status = 'none' AND checked_at >= ? AND checked_with = ? LIMIT 300",
                           (since, scout.READERS)).fetchall()
     except Exception:  # noqa: BLE001 — no scout tables yet

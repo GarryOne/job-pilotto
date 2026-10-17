@@ -10,7 +10,7 @@ from collections import Counter
 from datetime import timedelta
 from .paths import keyword_regex, place_regex
 from .sources import ats, careers, feeds
-from .scout_core import SMALL_GUESS, _SEARCH, now
+from .scout_core import SMALL_GUESS, _SEARCH, ensure_tables, now
 
 
 # The code that decides whether an employer has a readable job feed: when it changes (a release with better readers), the employers an older
@@ -33,6 +33,7 @@ def next_batch(db, size, skip=()):
     """The next candidates to probe, best first; a search outside IT skips those a tech-only list queued earlier (or before its roles changed).
     Names never checked come first, all of them; an employer checked before waits at the end, even when newer readers would judge it again
     (owner, 7 Oct 2026: a run of 92 checked 36 again and 4 new names while 548 waited)."""
+    ensure_tables(db)   # a table from before 6 Oct 2026 lacks checked_with, and run() may skip harvest
     stamp = now().isoformat(timespec='seconds')
     where, params = skipping(skip)
     return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
