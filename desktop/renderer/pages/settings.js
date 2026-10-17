@@ -11,6 +11,7 @@ import {extensionState} from '../service-status.js';
 import {openView, remembered} from './nav.js';
 import {contactDirty} from './contact-proposals.js';
 import {profileTab, showContact} from './profile.js';
+import {startDefault} from '../tab-choice.js';
 import {byStore} from '../store-words.js';
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
@@ -52,12 +53,13 @@ function arrived(card) {
 }
 // Settings → Profile: CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
 async function openProfile() {
+  const stillDefault = startDefault();   // "CV & details" is only the default: a tab picked while the state loads stays (tab-choice.js)
   shared.state = await window.pilot.state();
   contactDirty(false);
   showClaudeAuto();
   showMode(shared.state.settings);
   showContact();
-  profileTab('details');
+  if (stillDefault()) profileTab('details', {byDefault: true});
 }
 
 // Connections status, shared by Overview (cards + alert), Connections (Connected / Available + alert) and the
