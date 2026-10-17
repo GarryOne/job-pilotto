@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import https from 'node:https';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {FORMS, startForms} from '../lib/forms.mjs';
+import {expectedOf} from '../lib/apply-fixtures.mjs';
 import {message, startAiProxy} from '../lib/ai-proxy.mjs';
 
 const text = value => ({type: 'text', value, checked: false, files: [], ai: false});
@@ -108,4 +109,15 @@ test('the test extension: a copy that talks to the test port, the real folder un
   fs.writeFileSync(path.join(other, 'flow.js'), `export const APP = "http://127.0.0.1:47111";`);
   fs.writeFileSync(path.join(other, 'extra.js'), `fetch("http://127.0.0.1:47111/x")`);
   assert.throws(() => copyExtension(port, other), /still mentions/);
+});
+
+// Consent boxes are ticked by default (owner, 17 Oct 2026): every form's consent box is expected ticked, none is also listed as left to the person.
+test('expectedOf: every fixture form\'s consent box is expected ticked, and never also left to the person', () => {
+  for (const [name, form] of Object.entries(FORMS)) {
+    for (const id of form.consent || []) {
+      assert.equal(expectedOf(form)[id], true, `${name}: ${id} is expected ticked`);
+      assert.ok(!form.legal.includes(id), `${name}: ${id} is not also a legal field`);
+    }
+  }
+  assert.ok(FORMS.greenhouse.consent.includes('consent_privacy') && FORMS.multistep.consent.includes('consent_data'));
 });

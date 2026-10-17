@@ -13,7 +13,7 @@ export const HOSTS = ['boards.greenhouse.io', 'jobs.lever.co', 'e2e.recruitee.co
 const LEVER_ID = '5e2e5e2e-0000-4000-8000-00000000a001';
 
 // One entry per form. `kit` is what the job's drafted kit holds for it (field ids of the form); `legal` the ids the extension must leave to the person even
-// though the kit says "checked"; `late` the ids that only appear after the page has loaded.
+// though the kit says "checked"; `consent` the consent / data-notice boxes it ticks by default (Settings -> Advanced -> Consent boxes, owner 17 Oct 2026); `late` the ids that only appear after the page has loaded.
 export const FORMS = {
   greenhouse: {
     title: 'Senior Site Reliability Engineer', company: 'E2E Greenhouse Labs', host: 'boards.greenhouse.io', path: '/e2e/jobs/4001001',
@@ -25,7 +25,7 @@ export const FORMS = {
         answer: 'I led the response to a cascading failure in our payments cluster, wrote the post-mortem and added load-shedding and SLO alerts afterwards.', needs_review: false},
       {field: 'consent_privacy', question: 'I agree to the privacy policy and the processing of my data', answer: 'checked', needs_review: false},
     ],
-    legal: ['consent_privacy'],
+    legal: [], consent: ['consent_privacy'],
   },
   lever: {
     title: 'Platform Engineer', company: 'E2E Lever Systems', host: 'jobs.lever.co', path: `/e2e/${LEVER_ID}`, formPath: `/e2e/${LEVER_ID}/apply`,
@@ -45,7 +45,7 @@ export const FORMS = {
       {field: 'start_date', question: 'Earliest start date', answer: '1 December 2026', needs_review: false},
       {field: 'consent_data', question: 'I agree to the processing of my personal data (privacy policy)', answer: 'checked', needs_review: false},
     ],
-    legal: ['consent_data'],
+    legal: [], consent: ['consent_data'],
   },
   // Workday's own shape (5 Oct 2026): opaque ids (input-7), labels tied only by aria-labelledby with the star in an <abbr>, aria-required instead of `required`,
   // a "How Did You Hear About Us?" that is a button opening a list (not a <select>), and data-automation-id everywhere. The kit's answers fill by id; the
