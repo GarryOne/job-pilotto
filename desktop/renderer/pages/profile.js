@@ -8,6 +8,7 @@ import {addQuestion, loadApplicationAnswers} from './application-answers.js';
 import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
+import {loadLetterStyle} from './letter-style.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -63,7 +64,7 @@ function letterButtons() {
   $('letter-save').disabled = !text || text === letterSaved.trim();
   $('letter-approve').disabled = !text || ($('letter-state').classList.contains('is-on') && text === letterSaved.trim());
 }
-async function loadLetter() { showLetter(await window.pilot.coverLetter()); }
+async function loadLetter() { loadLetterStyle(); showLetter(await window.pilot.coverLetter()); }
 async function letterAction(button, working, run) {
   const buttons = ['letter-draft', 'letter-save', 'letter-approve'].map($);
   buttons.forEach(b => { b.disabled = true; });
