@@ -1,10 +1,14 @@
-// One fill per tab at a time: a second ask to fill a tab that is filling joins the running fill and gets its result (Windows beta, 17 Oct 2026: two reads of the sign-up's next page started two fills 0.2 s apart; the first one's card-id write landed after the second's "done" and wiped it). Guard: worker/test/one-fill.test.js.
-const running = new Map();   // tabId -> the promise of the fill running on it
+// One fill per tab AND page at a time: a second ask for the page a fill is already on joins that fill; an ask for another page of the tab (the form after a sign-up) is its own fill (Windows beta, 17 Oct 2026, run 39060910058: the sign-up page's fill was still running when the tab moved to the form; the form's fill ended first, then the sign-up fill's card-id write wiped its "done"). Guard: worker/test/one-fill.test.js.
+const running = new Map();   // tabId -> {page, fill}: the fill running on it
+const pageOf = url => String(url || '').split('#')[0];
 
-export function oneFillPerTab(tabId, start, {onJoin = () => {}} = {}) {
-  const live = running.get(tabId);
-  if (live) { onJoin(); return live; }
-  const fill = Promise.resolve().then(start).finally(() => { if (running.get(tabId) === fill) running.delete(tabId); });
-  running.set(tabId, fill);
-  return fill;
+// A fill's card id goes onto the page it filled, never onto the one the tab shows now.
+export const stillOnPage = (fillUrl, nowUrl) => !nowUrl || pageOf(fillUrl) === pageOf(nowUrl);
+
+export function oneFillPerTab(tabId, url, start, {onJoin = () => {}} = {}) {
+  const page = pageOf(url), live = running.get(tabId);
+  if (live && live.page === page) { onJoin(); return live.fill; }
+  const entry = {page, fill: Promise.resolve().then(start).finally(() => { if (running.get(tabId) === entry) running.delete(tabId); })};
+  running.set(tabId, entry);
+  return entry.fill;
 }
