@@ -92,3 +92,9 @@ test('a Running store row with no sign of life for 30 minutes is not live, one w
   assert.equal(fromRecord(row(40, 39 * 60), now).live, true, 'started 40 min ago, beat a minute ago: alive');
   assert.equal(fromRecord(row(1, null), now).live, true, 'just started: alive');
 });
+
+test('an Always on run (matches that arrived while the Mac was off) reads as a run on our servers with its own words', () => {
+  const run = fromRecord({id: 'r1', kind: 'scheduled', mode: 'scheduled', where: 'cloud', status: 'OK', trigger: 'Always on', started_at: '2026-10-17T07:00:00+00:00',
+    finished_at: '2026-10-17T07:00:00+00:00', summary: '3 new jobs while you were away', stats: {new_jobs: 3}}, Date.parse('2026-10-17T08:00:00Z'));
+  assert.deepEqual([run.where, run.trigger, run.result, run.ok, run.kind], ['cloud', 'schedule', '3 new jobs while you were away', true, 'search']);
+});

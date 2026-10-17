@@ -104,14 +104,17 @@ export async function result(request, env, now = new Date()) {
   return Response.json({ok: true, stored: matches.length, mailed: mailed.sent});
 }
 
-// GET /api/hosted/inbox?after=<id> (install key): the matches that arrived while the app was closed. Also counts as app contact (resets the 14-day pause clock).
+// GET /api/hosted/inbox?after=<id> (install key): the matches that arrived while the app was closed. Also counts as app contact (resets the 14-day pause clock and resumes a pause that clock caused).
 export async function inbox(request, env, now = new Date()) {
   if (!hostedOn(env)) return notFound();
   const install = await installOf(request, env);
   if (!install) return deny();
   const account = await accountOf(env, install);
   if (!account) return Response.json({ok: true, matches: []});
-  await env.STATS.prepare('UPDATE hosted_schedules SET last_seen_at = ? WHERE account = ?').bind(now.toISOString(), account.id).run();
+  // Opening the app wakes a schedule the 14-day pause stopped (the pause mail says "Open the app to resume"); a trial-over or guard pause stays.
+  await env.STATS.prepare(`UPDATE hosted_schedules SET last_seen_at = ?,
+    state = CASE WHEN state = 'paused' AND pause_reason = 'inactive' THEN 'on' ELSE state END,
+    pause_reason = CASE WHEN state = 'paused' AND pause_reason = 'inactive' THEN NULL ELSE pause_reason END WHERE account = ?`).bind(now.toISOString(), account.id).run();
   const after = Math.max(0, Math.floor(Number(new URL(request.url).searchParams.get('after'))) || 0);
   const {results} = await env.STATS.prepare('SELECT id, job, payload, at FROM hosted_inbox WHERE account = ? AND id > ? ORDER BY id LIMIT ?').bind(account.id, after, INBOX_MAX).all();
   return Response.json({ok: true, matches: results.map(r => ({id: r.id, job: r.job, at: r.at, ...JSON.parse(r.payload)}))});

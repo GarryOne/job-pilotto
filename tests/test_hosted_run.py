@@ -133,6 +133,11 @@ class HostedRun(unittest.TestCase):
         self.assertIn('1 new matches added', run())
         self.assertIn('0 new matches added', run())   # the second time the job is already there
         self.assertEqual([m['title'] for m in hosted_run.read_matches(env)], ['One'])
+        # the run card: one row of this Mac's run history for the one time something arrived, on our servers, in Always on's words
+        code = 'import json; from src import store_access; print(json.dumps(store_access.open_run().cron_runs.list(), default=str))'
+        rows = json.loads(subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1])
+        self.assertEqual([(r['kind'], r['where'], r['trigger'], r['summary']) for r in rows], [('scheduled', 'cloud', 'Always on', '1 new job while you were away')])
+        self.assertIn('Always on', rows[0]['title'])
 
     def test_the_image_starts_the_server_and_bakes_in_no_secret(self):
         text = (Path(__file__).resolve().parent.parent / 'hosted' / 'Dockerfile').read_text()

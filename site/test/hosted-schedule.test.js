@@ -78,3 +78,15 @@ test('the inbox gives the app its matches after an id, per account, newest 200 k
   assert.deepEqual((await getInbox(e, 'install-bbbb2', 0)).map(m => m.title).filter(t => t === 'Other'), ['Other']);
   assert.deepEqual(await getInbox(e, 'install-cccc3'), []);
 });
+
+test('opening the app resumes a schedule the 14-day pause stopped, and only that pause', async () => {
+  const e = env();
+  await put(e, 'install-aaaa1', {on: true, email: 'a@example.com'});
+  const sql = (text, ...a) => e.STATS.db.prepare(text).run(...a);
+  sql("UPDATE hosted_schedules SET state = 'paused', pause_reason = 'trial-over'");
+  await getInbox(e, 'install-aaaa1');
+  assert.deepEqual(rows(e, 'SELECT state, pause_reason FROM hosted_schedules'), [{state: 'paused', pause_reason: 'trial-over'}]);   // out of budget: opening the app does not undo it
+  sql("UPDATE hosted_schedules SET state = 'paused', pause_reason = 'inactive'");
+  await getInbox(e, 'install-aaaa1');
+  assert.deepEqual(rows(e, 'SELECT state, pause_reason FROM hosted_schedules'), [{state: 'on', pause_reason: null}]);
+});
