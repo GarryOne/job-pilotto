@@ -37,6 +37,29 @@ class BudgetTests(unittest.TestCase):
         budget.start(180, now=0)
         self.assertTrue(budget.over('enrich', now=145), 'a fresh budget is back to reading first')
 
+    def test_the_crawl_does_not_use_up_the_ai_budget(self):
+        # 17 Oct 2026: the clock ran from the process start, the crawl took 10 min, and 2,868 jobs waited with "No time left" on every run.
+        budget.start(180, now=0)
+        self.assertTrue(budget.over('score', now=600), 'after a 10-minute crawl the old clock was spent')
+        self.assertEqual(budget.batch('score', 2868, now=600, say=False), 0)
+        budget.restart(now=600)   # feeds.scan calls this when the downloads are done
+        self.assertFalse(budget.over('score', now=700))
+        self.assertGreater(budget.batch('score', 2868, now=600, say=False), 0)
+        self.assertTrue(budget.over('score', now=780), 'the AI steps still end 180 s after the crawl')
+
+    def test_restart_without_a_budget_does_nothing(self):
+        budget.start(0)
+        budget.restart(now=5)
+        self.assertIsNone(budget.DEADLINE)
+
+    def test_a_run_that_scored_none_with_a_backlog_says_so(self):
+        from src.daily_helpers import none_scored
+        self.assertEqual(none_scored(2868, {'done': 0}), ['2868 job(s) waiting, none scored this run'])
+        self.assertEqual(none_scored(2868, {}), ['2868 job(s) waiting, none scored this run'])
+        self.assertEqual(none_scored(2868, {'done': 40}), [])
+        self.assertEqual(none_scored(0, {'done': 0}), [])
+        self.assertEqual(none_scored(None, {}), [])
+
     def test_no_budget_never_stops(self):
         budget.start(0)
         self.assertFalse(budget.over('score', now=10 ** 9))

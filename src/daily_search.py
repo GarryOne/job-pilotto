@@ -17,7 +17,7 @@ from .ai import engine as _engine
 from .store_access import open_run
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
-                            profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
+                            none_scored, profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
 
 
 def ai_ready():
@@ -214,6 +214,9 @@ def search(args, stores=None):
                     if run.get('waiting'):
                         print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be scored (best places first)', flush=True)
                 run['warnings'] += left_out(run['score'], 'scored')
+                for warning in none_scored(run.get('waiting'), run['score']):
+                    print(f'Warning: {warning}', flush=True)
+                    run['warnings'].append(warning)
                 if run['score'].get('paused'):   # said on the run's card, not only in its log
                     run['warnings'].append(score.PAUSED)
             except Exception as error:
