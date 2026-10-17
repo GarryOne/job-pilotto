@@ -1,6 +1,7 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
 import {openQuestionReview} from './question-review.js';
+import {buttonEntry, reveal} from './palette-busy.js';
 import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, openActivity, prepareActions, unqueue} from './activity.js';
 import {$, show} from './core.js';
 import {shared} from './shared.js';
@@ -92,13 +93,20 @@ export const labelOf = node => {
 function paletteCommands() {
   const commands = [];
   const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };
+  // A button's ⌘K entry brings you to it and does not press it (owner, 18 Oct 2026: "I don't want necessarily to trigger the action, I just want you to focus
+  // on it"): `open` shows its page, then the card scrolls into view, takes focus and pulses (palette-busy.js). A button off only because its task runs is listed too.
+  // Every button entry goes through addNode.
+  const addNode = (node, group, label, hint, keywords, open) => {
+    const entry = buttonEntry(node, {group, label, hint, keywords, run: () => { open(); reveal(node); }});
+    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run);
+  };
   // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Refresh jobs" and
   // "Check for new jobs" were listed side by side and ran the same jobs check).
   const carded = new Set([...document.querySelectorAll('.action[data-command]')].map(node => COMMAND_KIND[node.dataset.command]).filter(Boolean));
   const twins = new Set(TASK_BUTTONS.filter(([kind]) => carded.has(kind)).flatMap(([, ...selectors]) => selectors.map(s => document.querySelector(s))).filter(Boolean));
   const button = (view, id, keywords, hint = '') => {
     const node = $(id);
-    if (node && !twins.has(node) && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
+    if (node && !twins.has(node) && !node.closest('[hidden]:not(.view)')) addNode(node, view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => openView(view));
   };
   document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
   // Calendar is a tab inside Interviews, with no menu button of its own: its own entry.
@@ -106,12 +114,12 @@ function paletteCommands() {
   // The bottom bar's panel is not a page, so the loop above misses it (owner, 7 Oct 2026: "recent" found nothing).
   add('Go to', 'Open Recent activity', 'Every task run: its result, its log, and Stop for the one running', 'recent activity history runs tasks log results running',
     () => openActivity(true));
-  // A card whose Run is off (its task runs or waits: runs-page.js syncRunButtons) is not offered, as a disabled button anywhere else.
-  document.querySelectorAll('.action[data-command]').forEach(node => !node.disabled && add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
-    labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => { openView('actions'); node.click(); }));
-  // An action card with its own handler (not a Telegram command): "Tailor CVs" costs minutes of AI, so the palette opens its card and focuses the count; Run stays a click.
-  document.querySelectorAll('.action[data-palette]').forEach(node => !node.disabled && add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
-    labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette === 'ready') { node.scrollIntoView({block: 'center'}); node.focus(); return; } if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
+  // A card whose Run is off because its task runs or waits (runs-page.js syncRunButtons) is still listed: its entry brings you to the card.
+  document.querySelectorAll('.action[data-command]').forEach(node => addNode(node, 'Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
+    labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => openView('actions')));
+  // An action card with its own handler (not a Telegram command): "Tailor CVs" costs minutes of AI, so its entry only brings you to the card.
+  document.querySelectorAll('.action[data-palette]').forEach(node => addNode(node, 'Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
+    labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => openView('actions')));
   // A task waiting its turn can be taken out of the queue from here too (activity.js unqueue).
   (lastActivity?.queued || []).forEach(run => add('Actions', `Remove ${KIND[kindOf(run)].name} from the queue`, 'It has not started: it will not run',
     'unqueue cancel queued waiting remove', () => unqueue(run)));
@@ -166,8 +174,8 @@ function paletteCommands() {
   button('interviews', 'iv-record', 'start call audio', 'Record a call (everyone agreed)');
   button('interviews', 'iv-recordings', 'files folder finder');
   // Settings: every page, every section (by its heading) and every button in a section, read from the page itself so a new one is listed without being
-  // added here (6 Oct 2026: Export and Import data were not in ⌘K). A section opens its page and scrolls to it; a button does that and presses it,
-  // except in the danger zone, where it is only focused: the person presses it.
+  // added here (6 Oct 2026: Export and Import data were not in ⌘K). A section opens its page and scrolls to it; a button does that and brings you to the button
+  // (focus and a pulse) without pressing it.
   const pages = new Set();   // one entry a page: Overview's shortcuts ("Manage automation") lead to a page already listed
   document.querySelectorAll('[data-settings-go]').forEach(go => {
     if (pages.has(go.dataset.settingsGo)) return;
@@ -177,7 +185,7 @@ function paletteCommands() {
   // Connections are drawn as service cards (settings.js renderConnections): each one's Manage or Connect.
   document.querySelectorAll('#conn-on .service-card, #conn-off .service-card').forEach(card => {
     const name = labelOf(card.querySelector('.service-text b')), node = card.querySelector('button');
-    if (name && node) add('Settings', `${name}: ${labelOf(node)}`, labelOf(card.querySelector('.service-text .muted')), 'settings connections connect', () => { openView('settings'); settingsPage('connections'); node.click(); });
+    if (name && node) addNode(node, 'Settings', `${name}: ${labelOf(node)}`, labelOf(card.querySelector('.service-text .muted')), 'settings connections connect', () => { openView('settings'); settingsPage('connections'); });
   });
   const hiddenAt = node => node.closest('[hidden]:not(.view):not([data-settings-page])');
   const shown = node => !hiddenAt(node);
@@ -201,11 +209,11 @@ function paletteCommands() {
       section.scrollIntoView({block: 'start'});
     };
     add('Settings', title, '', `settings ${page}`, open);
-    const buttons = [...section.querySelectorAll('button[id]')].filter(node => !node.disabled && reachable(node, section) && !twins.has(node));
+    const buttons = [...section.querySelectorAll('button[id]')].filter(node => reachable(node, section) && !twins.has(node));
     buttons.forEach(node => {
       const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
-      if (danger && buttons.length === 1) return;   // only focused, so a section's sole danger button lands where its own entry does: a duplicate row
-      add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
+      if (danger && buttons.length === 1) return;   // a section's sole danger button lands where its own entry does: a duplicate row
+      addNode(node, 'Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, open);
     });
   });
   document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
