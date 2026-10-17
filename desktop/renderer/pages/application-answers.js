@@ -7,6 +7,7 @@ import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answers-model.js';
 import {outlineTab} from './outline-tab.js';
+import {isStyle} from './letter-style.js';
 import {keyOf, visibleQuestions} from '../question-filter.js';
 import {formatFor, markFor, markOf} from '../question-kind.js';
 import {answerControl, kindPicker} from '../question-control.js';
@@ -95,7 +96,7 @@ function card(title, glyph, extra = []) {
 }
 
 function draw(view, into) {
-  const list = sections(view.items[TEXT] || []);
+  const list = sections(view.items[TEXT] || []).filter(section => !isStyle(section.title));   // the letter style is the Cover letter tab's (letter-style.js)
   const bar = el('div', 'toolbar');
   const search = Object.assign(el('input', ''), {type: 'search', placeholder: 'Search answers and rules…', value: filters.query, ariaLabel: 'Search answers and rules'});
   search.addEventListener('input', () => { filters.query = search.value; const at = search.selectionStart; view.redraw(); const again = into.querySelector('input[type=search]'); again?.focus(); again?.setSelectionRange(at, at); });
