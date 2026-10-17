@@ -8,6 +8,7 @@ import {el, loadingCard, tag} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
+import {surveyBody, surveyForm} from '../survey-rows.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
 
 // Where each tab draws its parts: the box and its message line in index.html.
@@ -66,6 +67,7 @@ function solo(tab, each) {
 
 // What a card shows: Strengths as rows of tags; any other part its lines (a list when several), its table rows, its notes small.
 function body(key, part) {
+  if (key === 'surveys') return surveyBody(part);
   const box = el('div', 'exp-part-body');
   if (isEmpty(part)) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
   if (key === 'strengths') {
@@ -90,7 +92,8 @@ function body(key, part) {
 function editor(tab, each) {
   const {key, title, part} = each;
   const box = el('div', 'exp-part-body is-editing');
-  const lines = el('div', 'exp-part-lines');
+  const form = key === 'surveys' ? surveyForm(part) : null;   // the survey questions, each with its fixed list (renderer/survey-rows.js)
+  const lines = form ? form.node : el('div', 'exp-part-lines');
   const line = text => {
     const input = Object.assign(el('input', ''), {type: 'text', value: text.replace(/\*\*/g, '')});   // one line each, never a textarea (owner, 16 Oct 2026)
     input.dataset.partLine = key;
@@ -102,17 +105,17 @@ function editor(tab, each) {
     cells.append(...row.cells.map((cell, index) => Object.assign(el('input', ''), {type: 'text', value: unset(cell) ? '' : cell, ariaLabel: `${title} ${index + 1}`})));
     return cells;
   });
-  lines.append(...rows, ...(part?.lines.length ? part.lines.map(each => line(each.text)) : rows.length ? [] : [line('')]));
+  if (!form) lines.append(...rows, ...(part?.lines.length ? part.lines.map(each => line(each.text)) : rows.length ? [] : [line('')]));
   const add = Object.assign(el('button', 'link', '+ Add a line'), {type: 'button'});
   add.addEventListener('click', () => lines.append(line('')));
   const save = Object.assign(el('button', 'primary', 'Save'), {type: 'button'});
   const cancel = Object.assign(el('button', 'secondary', 'Cancel'), {type: 'button'});
   const actions = el('div', 'inline');
-  actions.append(save, cancel, add);
+  actions.append(save, cancel, ...(form ? [] : [add]));
   cancel.addEventListener('click', () => { editing.delete(key); draw(tab); });
   save.addEventListener('click', async () => {
     // A line whose words did not change keeps its own text (its bold, its list mark): only an edited line is rewritten.
-    const texts = [...lines.querySelectorAll('input[data-part-line]')].map((input, i) => {
+    const texts = form ? form.texts() : [...lines.querySelectorAll('input[data-part-line]')].map((input, i) => {
       const was = part?.lines[i]?.text;
       return was !== undefined && input.value.trim() === was.replace(/\*\*/g, '').trim() ? was : input.value;
     });

@@ -5,6 +5,7 @@ import * as sections from './profile-sections.js';
 import {move, resolve} from './profile-move.js';
 import {claudeAi} from './question-ai.js';
 import * as kinds from './details-kinds.js';
+import * as surveys from './survey-move.js';
 import {list} from './set-aside.js';
 
 // Demo mode: fictional lines (the screenshots), one "Which is right?".
@@ -19,7 +20,10 @@ const empty = () => Object.fromEntries(Object.keys(sections.SECTIONS).map(key =>
 
 // ai/copy: a test passes its own.
 export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected, needsNotion, log, ai = () => claudeAi(storage), copy}) {
-  const tidied = () => { const done = storage.settings().detailsTidy; return done && !done.undone ? {changed: done.changed, at: done.at} : null; };
+  const tidied = () => {
+    const {detailsTidy: lines, surveyTidy: survey} = storage.settings(), live = [lines, survey].filter(done => done && !done.undone);
+    return live.length ? {changed: live.reduce((sum, done) => sum + done.changed, 0), at: live.map(done => done.at).sort().at(-1)} : null;
+  };
   ipcMain.handle('detailsFacts', async () => {
     if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
     if (!connected()) return {ok: true, sections: empty(), conflicts: [], setAside: []};
@@ -32,6 +36,8 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
     }
     try {
       const tidy = await kinds.tidy(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the kinds tidy stopped', {error: failed.message}); return {changed: 0}; });
+      const moved = await surveys.migrate(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the survey move stopped', {error: failed.message}); return {changed: 0}; });
+      if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
       const found = await sections.read(storage);
       return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: storage.settings().profileConflicts || [], setAside: list(storage).filter(each => each.source === 'profile')};
@@ -40,7 +46,9 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
   ipcMain.handle('undoDetailsTidy', async () => {
     if (DEMO) return {ok: true};
     const gate = needsNotion('profile');
-    return gate || kinds.undo(storage).catch(failed => ({ok: false, error: failed.message}));
+    if (gate) return gate;
+    const [lines, survey] = await Promise.all([kinds.undo(storage), surveys.undo(storage)].map(done => done.catch(failed => ({ok: false, error: failed.message}))));
+    return lines.ok || survey.ok ? {ok: true} : lines;
   });
   ipcMain.handle('saveDetailsFacts', async (_, facts) => {
     const gate = needsNotion('profile');

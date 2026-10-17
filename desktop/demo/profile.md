@@ -38,3 +38,9 @@ Site Reliability Engineer with 8 years running Kubernetes on AWS; led the monito
 
 ## 🗣️ Languages
 - Languages I can work in: English (fluent), German (B1), Spanish (native)
+
+## Application form answers — voluntary demographic surveys
+- Gender identity: Man (note: or Male when that is the equivalent option) [pick one: Man | Woman | Non-binary | Decline to self-identify]
+- Race / ethnicity: Decline to self-identify [pick one: White | Black or African American | Asian | Hispanic or Latino | Middle Eastern or North African | Native or Indigenous | Mixed or multiple | Another group | Decline to self-identify]
+- Veteran status: No [pick one: Yes | No | Decline to self-identify]
+- Notes for the AI: Use these answers for equivalent questions on any form.

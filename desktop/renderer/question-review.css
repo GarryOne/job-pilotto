@@ -55,3 +55,6 @@
 .fact-line .qa-values input[type="checkbox"] { min-height: 0; width: 18px; height: 18px; }
 .fact-line .qa-values .qa-saved-as { flex: 1 1 100%; }
 .fact-line .fact-note { font-size: var(--fs-sm); color: var(--muted); }
+/* Voluntary surveys (renderer/survey-rows.js): the question, its fixed list and its note on one line. */
+.survey-rows .fact-line { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) minmax(160px, 2fr); gap: var(--sp-2); align-items: center; }
+@container (max-width: 560px) { .survey-rows .fact-line { grid-template-columns: minmax(0, 1fr); } }
