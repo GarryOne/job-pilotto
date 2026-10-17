@@ -7,6 +7,7 @@ import * as github from './github.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 import * as goals from './goals.js';
+import {levelFollowsGoal} from './goal-level.js';
 import * as benchmarkLib from './benchmarks.js';
 import {settingsDepsFor} from './settings-deps.js';
 import {registerLocationsHandlers} from './locations-handlers.js';
@@ -162,6 +163,13 @@ export function registerSearchTuningHandlers(ctx) {
     try {
       const result = await goals.setGoal(storage, key, value);
       appLog('strategy', 'goal corrected', {goal: key, where: result.where, length: String(value || '').trim().length});
+      // Target level is the search's level too (owner, 18 Oct 2026: "Goals only").
+      if (key === 'seniority') {
+        const now = viewCache.recall(storage, 'strategy')?.result?.level ?? null;
+        const level = await levelFollowsGoal(storage, value, now, {editLists: async (...args) => markSearchChanged(await strategy.editLists(...args)), deps: settingsDeps()});
+        if (level.changed) appLog('strategy', 'search level follows the target level', {level: level.level});
+        return {...result, level: level.level};
+      }
       return result;
     } catch (error) { appLog('strategy', 'goal not saved', {goal: key, error: error.message}); return {ok: false, error: error.message}; }
   });
@@ -183,6 +191,13 @@ export function registerSearchTuningHandlers(ctx) {
     if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
-    return viewCache.remember(storage, 'strategy', {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())});
+    const read = JSON.parse(stdout.trim().split('\n').pop());
+    // A search level apart from the Target level (set before "Goals only", 18 Oct 2026) follows it once.
+    if (!DEMO && read.goals?.seniority) {
+      const level = await levelFollowsGoal(storage, read.goals.seniority, read.level || '', {editLists: async (...args) => markSearchChanged(await strategy.editLists(...args)), deps: settingsDeps()})
+        .catch(error => { appLog('strategy', 'search level not synced', {error: error.message}); return {changed: false}; });
+      if (level.changed) { appLog('strategy', 'search level follows the target level', {level: level.level}); read.level = level.level; }
+    }
+    return viewCache.remember(storage, 'strategy', {ok: true, ...read});
   }, {log: appLog}));
 }

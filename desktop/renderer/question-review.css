@@ -71,8 +71,7 @@
 @container (max-width: 560px) { .survey-rows .survey-row { grid-template-columns: minmax(0, 1fr); } .survey-rows .survey-row > .fact-note { grid-column: 1; } }
 /* A goal edited in place with its control (renderer/goal-tiles.js): the chips wrap in the narrow tile instead of cutting their words. */
 .goal-editor { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; width: 100%; }
-.goal-editor .segmented.is-fill { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
-.goal-editor .segmented button { padding: var(--sp-2) var(--sp-3); white-space: nowrap; }
+
 /* Possible CV gaps (renderer/gaps-rows.js): a chip per gap with its ✓ and ✕. */
 .gap-rows .tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .gap-rows .chip-tag button { font-weight: 700; color: var(--signal); }

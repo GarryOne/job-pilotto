@@ -5,7 +5,7 @@
 import {el} from './components.js';
 import {COMPOSITE, KINDS, KIND_NAMES, joinPicks, picksOf} from './question-kind.js';
 import {compositeControl} from './question-control-composite.js';
-import {amountControl, dateControl, refresh, segmented} from './question-control-values.js';
+import {amountControl, dateControl, refresh, savedAs, segmented} from './question-control-values.js';
 
 const FEW = 3, SHORT = 18, FEW_PICKS = 6;
 const segmentedOk = (options, most) => options.length <= most && options.every(option => option.length <= SHORT);
@@ -51,6 +51,13 @@ export function answerControl(format, value, onChange, {placeholder = 'Your answ
   } else {
     node = Object.assign(el('input', ''), {type: 'text', value: current, placeholder, ariaLabel});
     node.addEventListener('input', () => { current = node.value; onChange(current); });
+  }
+  // A saved answer no option names stays visible as written under the choices ("Saved as: …"), never hidden behind nothing picked; a menu shows it as a choice.
+  if (node.classList.contains('segmented')) node.dataset.savedValue = current;   // the shot's check: a saved value its choice does not show (scripts/cut-fields.mjs)
+  if (current && ['yes_no', 'single', 'multi'].includes(control) && node.tagName !== 'SELECT' && !options.some(option => option.toLowerCase() === current.toLowerCase()) && !picksOf(current, options).length) {
+    const wrap = el('div', 'qa-values');
+    wrap.append(node, savedAs(current));
+    node = wrap;
   }
   if (node.tagName === 'DIV' && !('complete' in node)) Object.defineProperty(node, 'value', {get: () => current, set: next => { current = next; }, configurable: true});
   // .complete: the answer can be confirmed (a date that also asks about constraints needs them chosen too).

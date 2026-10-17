@@ -17,7 +17,7 @@ test('every goal has a kind (or is read-only), in the tiles and in the Profile r
   assert.deepEqual(GOAL_TILES.map(tile => tile[0]).sort(), Object.keys(GOAL_KINDS).sort());
 });
 
-test('level: chips in place of the text; picking one and Save writes the word; an unchanged Save writes nothing', () => {
+test('level: chips in place of the text, several picks (owner, 18 Oct 2026); a pick and Save writes them; an unchanged Save writes nothing', () => {
   const saved = [], box = boxes({seniority: 'Senior'}, saved).seniority;
   open(box);
   assert.ok(box.querySelector('.goal-editor'), 'the editor stands in for the value');
@@ -28,7 +28,7 @@ test('level: chips in place of the text; picking one and Save writes the word; a
   open(box);
   button(box, 'Staff / Principal').click();
   button(box, 'Save').click();
-  assert.deepEqual(saved.map(args => args.slice(0, 2)), [['seniority', 'Staff / Principal']]);
+  assert.deepEqual(saved.map(args => args.slice(0, 2)), [['seniority', 'Senior, Staff / Principal']]);
 });
 
 test('work mode: several picks joined; text it cannot read stays visible as written', () => {
