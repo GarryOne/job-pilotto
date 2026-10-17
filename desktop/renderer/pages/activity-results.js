@@ -1,6 +1,6 @@
 // Recent activity: the result of a finished task shown once, and the kept status bar / kept Recent activity.
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
-import {unseenRun, withShown} from '../result-seen.js';
+import {unseenRun, withShown, settledBy} from '../result-seen.js';
 import {el, pill} from '../components.js';
 import {plainMessage} from '../run-cards.js';
 import {shared} from './shared.js';
@@ -25,7 +25,8 @@ const SEEN_KEY = 'actionsResultSeen';
 const SHOWN_KEY = 'actionsResultShown';   // the ids shown since that first start (renderer/result-seen.js)
 const seenResult = () => { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch { return 0; } };
 const shownResults = () => { try { return JSON.parse(localStorage.getItem(SHOWN_KEY) || '[]').filter(Number.isFinite); } catch { return []; } };
-const markResultSeen = id => { try { if (!seenResult()) localStorage.setItem(SEEN_KEY, String(id)); localStorage.setItem(SHOWN_KEY, JSON.stringify(withShown(shownResults(), id))); } catch { /* private window: it shows again after a reload */ } };
+const withShown2 = (shown, id) => withShown(shown, id);
+const markResultSeen = (id, older = []) => { try { if (!seenResult()) localStorage.setItem(SEEN_KEY, String(id)); localStorage.setItem(SHOWN_KEY, JSON.stringify([id, ...older].reduce(withShown2, shownResults()))); } catch { /* private window: it shows again after a reload */ } };
 const waitingForResult = new Set();   // run ids whose Notion page is being read for the result
 export function showAwaitedResult(runs, {opening = false} = {}) {
   const newest = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)]);
@@ -40,7 +41,7 @@ export function showAwaitedResult(runs, {opening = false} = {}) {
     if (!$('activity-panel').hidden) {
       runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
       shared.selectedRun = run.id;
-      markResultSeen(run.id);
+      markResultSeen(run.id, settledBy(runs, run));
       renderActivity(lastActivity);
       return;
     }
@@ -49,7 +50,7 @@ export function showAwaitedResult(runs, {opening = false} = {}) {
       : (target => renderNoResult(capital(outcome(run)), {retry: () => load(),
         log: () => { shared.selectedRun = run.id; openActivity(true); }}, target)));
     showActionsResult(run, kind, draw);
-    markResultSeen(run.id);
+    markResultSeen(run.id, settledBy(runs, run));
   };
   if (run.message || !run.pageId) { show(run.message); return; }
   // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.

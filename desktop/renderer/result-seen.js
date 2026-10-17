@@ -8,3 +8,7 @@ export const unseenRun = (runs, {base = 0, shown = []} = {}, isCard = () => true
   runs.find(run => run.endedAt && !run.live && isCard(run) && run.id > base && !shown.includes(run.id)) || null;
 
 export const withShown = (shown, id) => (shown.includes(id) ? shown : [...shown, id]).slice(-SHOWN_MAX);
+
+// The ids a shown card settles: itself and every finished run that ended before it. Without this an old backlog (rows written before the card always ended in a result)
+// took its turn one run after another, each with its own skeleton and reads (18 Oct 2026). A run that ended later is still news.
+export const settledBy = (runs, run) => runs.filter(r => r.id === run.id || (r.endedAt && !r.live && Date.parse(r.endedAt) < Date.parse(run.endedAt))).map(r => r.id);
