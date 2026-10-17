@@ -143,6 +143,10 @@ function paletteCommands() {
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
+  // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.
+  add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries countries relocation workload',
+    () => { openView('strategy'); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); });
+  button('strategy', 'preferences-review', 'job preferences review clean values ai');
   button('jobs', 'apply-open', 'apply fill forms');
   button('jobs', 'applied-open', 'track add application outside');
   button('jobs', 'import-open', 'add job link paste posting');

@@ -18,7 +18,8 @@ export const textsOf = fields => Object.fromEntries([...ORDER, 'home'].map(key =
 // state: {key, parse, error, busy}; handled: keys accepted into the draft; apply(field, item, text); note() re-drafts the one Original wording line from the accepted fields.
 export function reviewCard({fields, state, handled, apply, note, redraw}) {
   const skipped = kept();
-  const rows = reviewOf(fields, state.parse, ORDER).filter(row => !handled.has(row.key) && !skipped.has(`${state.key}:${row.key}`));
+  // Only the fields the card draws (Strategy's Job preferences leaves work mode, seniority and languages to Goals and Your details).
+  const rows = reviewOf(fields, state.parse, ORDER).filter(row => row.key in fields && !handled.has(row.key) && !skipped.has(`${state.key}:${row.key}`));
   const box = el('section', 'answer-item qa-section pref-section pref-review');
   box.id = 'preferences-review-card';
   const head = el('div', 'qa-section-head pref-head'), words = el('div', 'pref-words');

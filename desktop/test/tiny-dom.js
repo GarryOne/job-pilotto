@@ -1,5 +1,5 @@
 // A tiny DOM for render tests of renderer pages in Node (no browser): elements, text, attributes, classes, events and simple selectors
-// (tag, .class, #id, [attr], [attr="v"], tag.class, descendant with a space). Enough for pages/application-answers.js and pages/preferences-tab.js;
+// (tag, .class, #id, [attr], [attr="v"], tag.class, descendant with a space). Enough for pages/application-answers.js and pages/job-preferences.js;
 // install() sets document, window, Node and Option on globalThis.
 class Element {
   constructor(tag) {

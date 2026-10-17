@@ -33,6 +33,13 @@ Owner-approved sketch (the review copy, an Artifact): https://claude.ai/artifact
 - **Profile tabs** (owner, 17 Oct 2026: "CV separate, Experience separate too"): **CV** (current CV, preview/replace, CV check, "Your CV changed") · **Experience** (extra CVs, LinkedIn export) · **Your details** (Contact incl. name, salutation, email, phone, address, date of birth, links · Work eligibility · Availability & compensation · languages) · **Application answers** · **Cover letter**. Preferences removed; "CV & details" splits into CV + Your details.
 - **Rule change for PR 2** (owner, 17 Oct 2026: "Why 'A choice (visa, relocation, demographic, any knockout)' is left for me? We should have this information in the Profile, as a standard/base."): docs/rules/applying.md lines 46 and 51: a choice a base fact answers is FILLED from the Profile (the AI maps the fact to one of the form's options, validated); an unsure match is left and goes to Answer once; demographics are filled from the answer given once; a choice no fact covers is left; certify/attest stays the person's; never Submit. Quote in applying.md and why.md. Tests: fact → option across languages; unsure → left; certify never touched.
 
+- **Decision 9, Job preferences** (owner, 17 Oct 2026, on the 3c.2 plan: "The proposal is largely right"): final Profile tabs "CV · Your details ·
+  Experience · Application answers · Cover letter"; deal-breakers "in Strategy, alongside job preferences. Clearly distinguish strict requirements from
+  preferences that influence ranking"; the card is "Job preferences" ("It includes priorities, not only acceptance conditions"); collapsed rules show
+  "a summary of active rules, such as 'No on-call · Exclude recruitment agencies · 2 more'"; the employer-facing salary expectation stays in Your
+  details and Application answers reuse it, the minimum stays in Strategy; duplicate location lists: "Merge true duplicates; keep deliberate search
+  overrides under Advanced"; old Preferences links: "Redirect field-specific links to their new editor. General Preferences links can open Strategy."
+
 ## Measured (read-only, 17 Oct 2026)
 59 forms (22 of the owner's Agent Runs with a field table, 37 pool captures), 426 distinct wordings → 39 topics. ~17 base facts cover 78%;
 consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 57 rows → 21 base, 25 deduced, 3 settings, 6 kit or one job,
@@ -72,3 +79,4 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [ ] Preferences tab removed; ⌘K and links to it land on the new homes; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
 - [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
 - [ ] One test over every questionnaire screen
+- [x] Strategy → Job preferences: Must-haves & deal-breakers apart from Preferences (ranking), rules folded under a summary, Add a deal-breaker / preference; the Profile tab keeps only lines with no other home (proof: desktop/test/job-preferences.test.js)

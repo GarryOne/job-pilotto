@@ -4,6 +4,8 @@
 // A change to the same block replaces the earlier one. Guarded by test/profile-tabs-render.test.js.
 import {el} from '../components.js';
 import {message} from './core.js';
+import {changeFor, shown} from '../answers-model.js';
+import {input, labelled} from './website-rules.js';
 
 const keyOf = change => (change.op === 'append' || change.op === 'insert' ? `${change.op}:${change.key}` : `${change.op}:${change.id}:${change.index ?? ''}`);
 
@@ -62,4 +64,14 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
     items: name => state.items[name] || [],
     dirty: () => size() > 0,
   };
+}
+
+// One row or line of a text as its label and one input (a line without a label is its own text); `typed` keeps the drafts by item id.
+export function lineInput(view, name, item, typed) {
+  const original = item.value;
+  const field = input(typed.get(item.id) ?? original, text => {
+    const change = changeFor(item, text);
+    if (text === original) { typed.delete(item.id); view.undo(name, change); } else { typed.set(item.id, text); view.change(name, change); }
+  }, {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Not set', ariaLabel: item.label || 'Line'});
+  return labelled(item.label ? shown(item.label) : '', field, !item.label);
 }

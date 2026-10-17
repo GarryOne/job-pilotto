@@ -20,7 +20,7 @@ async function open(items, parse, sent = [], asked = []) {
   const node = globalThis.document.createElement('div');
   node.id = 'preferences-body';
   body.replaceChildren(node);
-  await (await import('../renderer/pages/preferences-tab.js')).loadPreferences();
+  await (await import('../renderer/pages/job-preferences.js')).loadPreferences();
   await new Promise(resolve => setTimeout(resolve, 10));
   return node;
 }
@@ -71,15 +71,16 @@ test('Workload stays in the Profile but is shown only when the countries include
   assert.equal(showWorkload('Ireland'), false);
 });
 
-test('accepting a Languages proposal redraws the language rows from the clean value', async () => {
+test('languages and the permit are Your details\': not on the Job preferences card, never sent to the review', async () => {
   const items = profile('Switzerland');
-  items[1].rows.push(row('q5', 'Languages', 'English B2, Romanian native, Russian B1. No French'));
-  const node = await open(items, {...PARSE, languages: [{name: 'English', level: 'B2'}, {name: 'Romanian', level: 'native'}], unparsed: ['languages']});
-  assert.equal(node.querySelectorAll('.pref-language').length, 3, 'chopped by commas before');
-  node.querySelector('[data-field="languages"]').querySelectorAll('button').find(button => button.textContent === 'Accept').click();
-  assert.equal(node.querySelectorAll('.pref-language').length, 2);
+  items[1].rows.push(row('q5', 'Languages', 'English B2, Romanian native'), row('q6', 'Work permit / visa', 'EU citizen'));
+  const asked = [];
+  const node = await open(items, {...PARSE, unparsed: ['languages']}, [], asked);
+  assert.equal(node.querySelectorAll('.pref-language').length, 0);
+  assert.ok(!node.textContent.includes('Romanian') && !node.textContent.includes('EU citizen'), node.textContent);
+  assert.ok(!JSON.stringify(asked[0].fields).includes('Romanian'), 'their text is not sent');
+  assert.equal(node.querySelector('[data-field="languages"]'), null, 'no review row for them');
 });
-
 test('Accept all drafts ONE Original wording line holding only what the clean values lose, and it shows collapsed under Other preferences for any profile', async () => {
   const sent = [];
   const items = [{id: 'h', type: 'heading_1', text: 'Targets'}, {id: 'b1', type: 'bulleted_list_item', text: 'Countries: Switzerland (anywhere), plus Berlin, or remote roles'},
@@ -97,7 +98,7 @@ test('Accept all drafts ONE Original wording line holding only what the clean va
   assert.equal(box.length, 1);
   assert.ok(!box[0].open, 'collapsed');
   let up = box[0]; while (up && !(up.className || '').includes('pref-section')) up = up.parentNode;
-  assert.ok(up.textContent.startsWith('Other preferences') && !up.textContent.includes('The rest of your Profile'), 'under Other preferences, not The rest of your Profile');
+  assert.equal(up.dataset.side, 'rank', 'under Preferences → Other preferences');
 });
 
 test('a seniority range proposes "Senior to Staff" ("or higher" only when open-ended); one level stays one level', async () => {
@@ -108,8 +109,12 @@ test('a seniority range proposes "Senior to Staff" ("or higher" only when open-e
   assert.equal(proposedTexts({seniority: {min: 'unknown', max: 'unknown', open_ended: false}}).seniority, '');
 });
 
-test('Other preferences drops its "Nothing else yet" line once the Original wording note is there', async () => {
-  const withNote = [...profile('Switzerland'), {id: 'n1', type: 'bulleted_list_item', text: 'Original wording: Languages — No French'}];
-  assert.ok(!(await open(withNote, null)).textContent.includes('Nothing else yet'));
-  assert.ok((await open(profile('Switzerland'), null)).textContent.includes('Nothing else yet'));
+test('each side folds its other rules under a summary line; with none it says so', async () => {
+  const items = [...profile('Switzerland'), {id: 'h2', type: 'heading_1', text: 'Preferences (soft, used for ranking)'},
+    {id: 't2', type: 'table', header: true, rows: [row('s0', 'Preference', 'Value'), row('s1', 'On-call', 'No on-call'), row('s2', 'Company size', 'Under 500'), row('s3', 'Industries', 'No gambling'), row('s4', 'Leadership', '❓')]}];
+  const node = await open(items, null);
+  const summary = side => node.querySelectorAll('[data-side] .pref-summary').find(each => {
+    let up = each; while (up && !up.dataset?.side) up = up.parentNode; return up.dataset.side === side; }).textContent;
+  assert.equal(summary('rank'), 'On-call: No on-call · Company size: Under 500 · 1 more', 'the set rules, an open one left out');
+  assert.equal(summary('must'), 'None set');
 });

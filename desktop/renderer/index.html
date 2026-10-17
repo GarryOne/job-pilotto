@@ -817,6 +817,12 @@
             <div class="card-head"><h3>Goals</h3><p class="muted small" id="goals-note">What every job is scored against. Click a value to correct it.</p></div>
             <dl class="target-rows goal-rows goal-strip" id="strategy-goals"></dl>
           </section>
+          <!-- Owner, 17 Oct 2026: must-haves / deal-breakers apart from preferences that rank; from Profile → Preferences (pages/job-preferences.js). -->
+          <section class="card job-prefs setting" id="strategy-job-prefs">
+            <div class="card-head job-prefs-head"><div><h3>Job preferences</h3><p class="muted small">What a job must have, and what ranks it higher. Scoring reads them.</p></div>
+              <div class="panel-actions"><button class="secondary" id="preferences-review">Review your preferences</button> <button class="link" id="preferences-open-notion" data-notion-only>Open in Notion</button></div></div>
+            <div class="outline-body" id="preferences-body"></div>
+          </section>
           <div class="review-grid" id="strategy-targets"></div>
         </div>
       </section>
@@ -1101,11 +1107,11 @@
             <p class="muted panel-lead">What you want forms to say, and the rules Job Pilotto learned for each website. Used in future applications and kits.</p>
             <div class="outline-body" id="answers-body"></div>
           </div>
-          <div class="setting panel" id="setting-preferences" data-profile-panel="profiletext" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Preferences</h3></div>
-              <div class="panel-actions"><button class="secondary" id="preferences-review">Review your preferences</button> <button class="link" id="preferences-open-notion" data-notion-only>Open in Notion</button></div></div>
-            <p class="muted panel-lead">Your job requirements and ranking preferences: scores, kits and tailored CVs read them.</p>
-            <div class="outline-body" id="preferences-body"></div>
+          <div class="setting panel" id="setting-profile-rest" data-profile-panel="profiletext" hidden>
+            <div class="panel-top"><div class="summary-head"><i data-icon="file-text"></i><h3>More from your Profile</h3></div>
+              <div class="panel-actions"><button class="link" id="profile-rest-strategy">Job preferences are on Strategy →</button></div></div>
+            <p class="muted panel-lead">Education, role history, links and notes: scores, kits and tailored CVs read them.</p>
+            <div class="outline-body" id="profile-rest-body"></div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>

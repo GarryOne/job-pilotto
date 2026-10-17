@@ -6,7 +6,7 @@ import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
 import {pick} from '../tab-choice.js';
-import {loadPreferences, reviewPreferences} from './preferences-tab.js';
+import {loadProfileRest} from './profile-rest.js';
 import {initExperience, loadExperience} from './experience.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -37,7 +37,7 @@ export function profileTab(name, {byDefault = false} = {}) {
   showStoreParts();
   if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
-  else if (name === 'profiletext') loadPreferences();
+  else if (name === 'profiletext') loadProfileRest();
   else if (name === 'letter') loadLetter();
   else if (name === 'cv') { loadCvSetting(); showCvChanged(); }
 }
@@ -260,6 +260,8 @@ export async function init() {
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   initExperience();
   $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
+  // The job preferences moved to Strategy (owner, 17 Oct 2026): the sidebar's own Strategy button (nav.js imports this file), then the card.
+  $('profile-rest-strategy').addEventListener('click', () => { document.querySelector('.nav[data-view=strategy]')?.click(); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); });
   $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
   $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('links-edit').addEventListener('click', () => {
@@ -271,8 +273,6 @@ export async function init() {
   });
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('answers-add').addEventListener('click', addQuestion);
-  $('preferences-review').addEventListener('click', reviewPreferences);
-  $('preferences-open-notion').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
   // An error from the AI service is said in words, never shown as the API's JSON (#94: "400 {"type":"error",…}" sat in the CV card).

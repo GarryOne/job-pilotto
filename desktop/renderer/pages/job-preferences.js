@@ -1,24 +1,25 @@
-// Settings → Profile → Preferences (owner's mockup, 16 Oct 2026): section cards Location & work style, Languages, Roles & employment, then
-// Compensation, Other preferences and the rest of the Profile folded. Chips, segmented work modes, language levels, selects, workload min/max:
-// each writes back only its own cell or line of the Profile (renderer/preferences-model.js), on every store, through pages/outline-tab.js's one
-// save bar. No textarea, never a ❓ on screen. Guarded by test/profile-tabs-render.test.js.
+// Strategy → Job preferences (owner, 17 Oct 2026: "Must-haves / deal-breakers: determine whether it is acceptable. Preferences: improve a job's
+// ranking"; was Settings → Profile → Preferences, the owner's mockup of 16 Oct 2026). Two sides, each the fields it owns (chips, selects, workload
+// min/max) and its other rules folded under a one-line summary ("No on-call · Exclude recruitment agencies · 2 more"), plus "Add a deal-breaker" /
+// "Add a preference". Each control writes back only its own cell or line of the Profile (renderer/preferences-model.js), on every store, through
+// pages/outline-tab.js's one save bar. Work mode, seniority and the minimum salary are Goals' (above); permit, languages and the salary expectation
+// are Your details'. Guarded by test/job-preferences.test.js and test/profile-tabs-render.test.js.
 import {el} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, shown} from '../answers-model.js';
-import {FIELDS, GROUPS, LEVELS, MODES, chipsOf, chipsText, fieldChange, languagesOf, languagesText, modesOf, modesText, readProfile, workloadOf, workloadText} from '../preferences-model.js';
+import {FIELDS, MODES, SIDES, chipsOf, chipsText, fieldChange, modesOf, modesText, readProfile, summaryOf, workloadOf, workloadText} from '../preferences-model.js';
 import {NOTE_LABEL, noteText, showWorkload} from '../preferences-review-model.js';
-import {outlineTab} from './outline-tab.js';
+import {lineInput, outlineTab} from './outline-tab.js';
 import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
 
 const TEXT = 'profile';
 const typed = new Map();   // field key or item id → the text as edited
 let tab = null;
-const folded = {pay: false, other: false, rest: false};
+const folded = {must: false, rank: false};
 const review = {key: '', parse: null, error: '', busy: false, asked: false};   // the AI's reading of the fields (preferences-review.js), asked once per tab load
 const handled = new Set();   // review fields accepted into the draft
 let lastView = null;       // the tab as last drawn, for the Review button
-let langs = null;          // the language rows as edited (a new one has no name yet), from the field's text
 
 // A field's current text, and the setter that drafts its change (or drops it when back to what the page says).
 function binding(view, field, item, anchor) {
@@ -63,27 +64,6 @@ function modes(view, bind) {
   return box;
 }
 
-function languages(view, bind) {
-  const box = el('div', 'pref-languages');
-  langs ||= languagesOf(bind.text());
-  const list = langs;
-  const write = () => bind.set(languagesText(list));
-  list.forEach((language, i) => {
-    const line = el('div', 'pref-language');
-    const levels = [['', 'Select level'], ...[...new Set([...LEVELS, ...(language.level ? [language.level] : [])])].map(level => [level, level])];
-    const x = Object.assign(el('button', 'link', icon('close')), {type: 'button', ariaLabel: `Remove ${language.name}`});
-    x.addEventListener('click', () => { list.splice(i, 1); write(); view.redraw(); });
-    line.append(input(language.name, value => { language.name = value; write(); }, {placeholder: 'Language', ariaLabel: 'Language'}),
-      select(levels, language.level, value => { language.level = value; write(); }, 'Level'), x);
-    box.append(line);
-  });
-  const add = Object.assign(el('button', 'secondary with-icon', icon('plus')), {type: 'button'});
-  add.append('Add language');
-  add.addEventListener('click', () => { list.push({name: '', level: ''}); view.redraw(); });
-  box.append(add);
-  return box;
-}
-
 function workload(bind) {
   const box = el('div', 'form-grid cols-2');
   const now = workloadOf(bind.text());
@@ -101,7 +81,6 @@ function control(view, field, item, anchor) {
   const hint = item?.hint ? `e.g. ${shown(item.hint)}` : field.placeholder || 'Not set';
   if (field.widget === 'chips') return labelled(field.label, chips(view, field, bind));
   if (field.widget === 'modes') return labelled(field.label, modes(view, bind));
-  if (field.widget === 'languages') return labelled(field.label, languages(view, bind), true);
   if (field.widget === 'workload') { const box = workload(bind); box.classList.add('span-all'); return box; }
   if (field.widget === 'select') {
     const now = bind.text();
@@ -111,15 +90,8 @@ function control(view, field, item, anchor) {
   return labelled(field.label, input(bind.text(), value => bind.set(value), {placeholder: hint, ariaLabel: field.label}));
 }
 
-// A row of Other preferences or of the rest of the Profile: its label and one input (a line without a label is its own text).
-function itemField(view, item) {
-  const original = item.value;
-  const field = input(typed.get(item.id) ?? original, text => {
-    const change = changeFor(item, text);
-    if (text === original) { typed.delete(item.id); view.undo(TEXT, change); } else { typed.set(item.id, text); view.change(TEXT, change); }
-  }, {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Not set', ariaLabel: item.label || 'Line'});
-  return labelled(item.label ? shown(item.label) : '', field, !item.label);
-}
+// A rule of a side: its label and one input (a sentence without a label is its own text).
+const itemField = (view, item) => lineInput(view, TEXT, item, typed);
 
 // The Original wording note: collapsed, the sentences kept from what you typed before the review.
 function noteBox(view, note) {
@@ -129,15 +101,45 @@ function noteBox(view, note) {
   return box;
 }
 
-function card(key, body) {
-  const group = GROUPS[key] || {title: 'The rest of your Profile', lead: 'Your summary, skills, experience and notes, line by line. The AI reads them with the rest.', icon: 'file-text', folded: true};
-  const head = el(group.folded ? 'summary' : 'div', 'qa-section-head pref-head');
+// What "Add a deal-breaker" / "Add a preference" writes: a sentence under Deal-breakers, else a labelled line after the side's section (a sentence
+// there would read as the template's explanation); nothing when the Profile has no section for that side.
+function addChange(side, ends, text) {
+  if (side === 'must' && ends.rules) return {op: 'insert', after: ends.rules, key: 'add-must', lines: [text]};
+  const after = ends[side];
+  return after && {op: 'insert', after, key: `add-${side}`, lines: [`${side === 'must' ? 'Deal-breaker' : 'Preference'}: ${text}`]};
+}
+
+function side(view, key, {fields, other, ends, note}, anchor) {
+  const group = SIDES[key];
+  const box = el('section', 'answer-item qa-section pref-section');
+  box.dataset.side = key;
+  const head = el('div', 'qa-section-head pref-head');
   const words = el('div', 'pref-words');
   words.append(el('h4', '', group.title), el('span', 'muted small', group.lead));
   head.append(icon(group.icon), words);
-  const box = el(group.folded ? 'details' : 'section', 'answer-item qa-section pref-section');
-  if (group.folded) { box.open = folded[key]; box.addEventListener('toggle', () => { folded[key] = box.open; }); }
-  box.append(head, body);
+  const grid = el('div', 'form-grid cols-2 pref-body');
+  // Workload is kept in the Profile but shown only for people whose countries include CH, DE or AT (owner, 17 Oct 2026).
+  const countries = typed.get('countries') ?? fields.countries?.value ?? '';
+  for (const field of FIELDS.filter(each => each.side === key && (each.key !== 'workload' || showWorkload(countries, review.parse?.countries)))) grid.append(control(view, field, fields[field.key], anchor));
+  const rules = other.filter(item => item.side === key);
+  const more = el('details', 'span-all pref-more');
+  more.open = folded[key];
+  more.addEventListener('toggle', () => { folded[key] = more.open; });
+  const line = el('summary', 'pref-more-head');
+  line.append(el('b', '', key === 'must' ? 'Other deal-breakers' : 'Other preferences'), el('span', 'muted small pref-summary', summaryOf(rules)));
+  const list = el('div', 'form-grid cols-2 pref-body');
+  for (const item of rules) list.append(itemField(view, item));
+  if (key === 'rank' && note) list.append(noteBox(view, note));   // the review's one Original wording note
+  const adding = typed.get(`add-${key}`) || '';
+  const add = input(adding, text => {
+    const change = addChange(key, ends, text.trim());
+    if (!change) return;
+    if (!text.trim()) { typed.delete(`add-${key}`); view.undo(TEXT, change); } else { typed.set(`add-${key}`, text); view.change(TEXT, change); }
+  }, {placeholder: group.add, ariaLabel: group.add});
+  if (addChange(key, ends, 'x')) list.append(labelled(group.add, add, true));
+  more.append(line, list);
+  grid.append(more);
+  box.append(head, grid);
   return box;
 }
 
@@ -154,7 +156,7 @@ function draftNote(view, fields, note, anchor) {
 
 // One read of the fields' text (cached per text by the main process); the card appears when the AI flags a field as unparsed.
 async function readFields(view, again = false) {
-  const {fields} = readProfile(view.items[TEXT] || []);
+  const fields = drawn(readProfile(view.items[TEXT] || []).fields);
   review.busy = true; review.asked = true; view.redraw();
   const answer = (await Promise.resolve(window.pilot.preferencesParse({fields: textsOf(fields), again})).catch(error => ({error: error.message}))) || {};
   Object.assign(review, {busy: false, parse: answer.parse || null, key: answer.key || '', error: answer.error && answer.error !== 'no AI' ? answer.error : ''});
@@ -162,36 +164,23 @@ async function readFields(view, again = false) {
 }
 
 function draw(view, into) {
-  const {fields, other, note, rest, anchor} = readProfile(view.items[TEXT] || []);
+  const read = readProfile(view.items[TEXT] || []);
   if (!review.asked && window.pilot.preferencesParse) setTimeout(() => readFields(view), 0);
   lastView = view;
-  const reviewNode = reviewCard({fields, state: review, handled, redraw: view.redraw,
-    apply: (field, item, text) => { if (field.key === 'languages') langs = null; binding(view, field, item, anchor).set(text); },   // the language rows are read again from the new text
-    note: () => draftNote(view, fields, note, anchor)});
+  const reviewNode = reviewCard({fields: drawn(read.fields), state: review, handled, redraw: view.redraw,
+    apply: (field, item, text) => binding(view, field, item, read.anchor).set(text),
+    note: () => draftNote(view, read.fields, read.note, read.anchor)});
   if (reviewNode) into.append(reviewNode);
-  for (const key of ['location', 'languages', 'roles', 'pay']) {
-    const grid = el('div', 'form-grid cols-2 pref-body');
-    // Workload is kept in the Profile but shown only for people whose countries include CH, DE or AT (owner, 17 Oct 2026).
-    const countries = typed.get('countries') ?? fields.countries?.value ?? '';
-    for (const field of FIELDS.filter(each => each.group === key && (each.key !== 'workload' || showWorkload(countries, review.parse?.countries)))) grid.append(control(view, field, fields[field.key], anchor));
-    into.append(card(key, grid));
-  }
-  const others = el('div', 'form-grid cols-2 pref-body');
-  if (other.length) for (const item of other) others.append(itemField(view, item));
-  else if (!note) others.append(el('p', 'muted span-all', 'Nothing else yet: rows you add to your Profile\'s Preferences show here.'));
-  if (note) others.append(noteBox(view, note));
-  into.append(card('other', others));
-  if (rest.length) {
-    const lines = el('div', 'form-grid cols-2 pref-body');
-    for (const entry of rest) lines.append(entry.heading ? el('h5', 'span-all pref-sub', shown(entry.heading)) : itemField(view, entry));
-    into.append(card('rest', lines));
-  }
+  for (const key of Object.keys(SIDES)) into.append(side(view, key, read, read.anchor));
 }
+
+// Only the fields this card draws are reviewed (the others are edited in Goals or Your details).
+const drawn = fields => Object.fromEntries(Object.entries(fields).filter(([key]) => FIELDS.find(field => field.key === key)?.side));
 
 export async function loadPreferences() {
   const node = document.getElementById('preferences-body');
   if (!node) return;
-  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); langs = null; handled.clear(); noteDraft = null; }, words: 'Scores, kits and tailored CVs use them once you save.'}), node};
+  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); handled.clear(); noteDraft = null; }, words: 'Future searches and scores use them once you save.'}), node};
   review.asked = false;
   await tab.load();
 }
