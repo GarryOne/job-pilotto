@@ -13,6 +13,7 @@ code { font: var(--fs-sm) var(--font-mono); background: var(--sky); padding: 2px
 .lede { font-size: var(--fs-base); color: var(--muted); max-width: 60ch; }
 .eyebrow { font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--signal); }
 :focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }   /* a mouse click never leaves a ring (every tab bar, button); keyboard focus keeps it */
 
 button { font: 600 var(--fs-md) var(--font-sans); border-radius: var(--r-md); padding: 8px 14px; cursor: pointer; border: 1px solid transparent; }
 button.primary { background: var(--signal); color: var(--on-accent); }
@@ -549,7 +550,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .compact .job-row.is-selected, .board-card.is-selected { border-left-color: var(--signal); border-color: var(--line-strong); }
 .job-panel-shot { display: block; max-width: 100%; margin-top: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 /* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
-.reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.card.is-plain { background: none; border: 0; padding: 0; margin-bottom: 0; }   /* a card whose children are cards (Reports → Insights, Funnel) */
 .reports-insight .segmented { margin-top: var(--sp-2); }
 .job-drawer .iv-moments-group h3, .job-panel-line { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
 .job-drawer .iv-practice { margin-top: var(--sp-3); }   /* the Review tab's steps, after its list (the Interviews page spaces them by its own layout) */

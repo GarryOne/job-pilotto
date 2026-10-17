@@ -83,7 +83,7 @@ function insightsTab() {
   const items = insightItems(state.insights);
   if (!items.length) return empty('No insights yet: the first comes after a few days of searching and applying.');
   return items.map(item => {
-    const box = el('div', 'iv-moments-group reports-insight');
+    const box = el('section', 'card iv-moments-group reports-insight');   // one card per insight (#reports-body is then plain, see draw)
     const head = el('h3', '', item.title);
     head.prepend(pill(item.category || 'Insight', item.category === 'Process' ? 'warn' : 'info'), ' ');
     box.append(el('p', 'muted small', [dayLabel(item.day), item.confidence && `${item.confidence} confidence`].filter(Boolean).join(' · ')), head);
@@ -110,8 +110,11 @@ async function funnelTab() {
     table.append(line);
   }
   const improve = improveLines(funnel);
-  return [table, ...(improve.length ? [group('💡 Where to improve', improve.map(text => ({text})))] : []),
-    el('p', 'muted small', 'From previous = share of the previous step that got this far.')];
+  const steps = el('section', 'card');
+  steps.append(table, el('p', 'muted small', 'From previous = share of the previous step that got this far.'));
+  const better = el('section', 'card');
+  if (improve.length) better.append(group('💡 Where to improve', improve.map(text => ({text}))));
+  return improve.length ? [steps, better] : [steps];
 }
 
 async function fillsTab(box) {
@@ -125,6 +128,7 @@ async function fillsTab(box) {
 async function draw() {
   document.querySelectorAll('[data-reports-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.reportsTab === state.tab));
   const box = $('reports-body');
+  box.classList.toggle('is-plain', state.tab === 'insights' || state.tab === 'funnel');   // their items are cards of their own: no box in a box
   if (state.tab === 'fills') { const parts = await fillsTab(box); if (parts) box.replaceChildren(...parts); return; }
   if (state.tab === 'funnel') { box.replaceChildren(el('span', 'skeleton w-80'), el('span', 'skeleton w-60')); box.replaceChildren(...await funnelTab()); return; }
   if (state.error) { box.replaceChildren(...empty(`Could not read your insights: ${state.error}. Open Reports again to retry.`)); return; }
