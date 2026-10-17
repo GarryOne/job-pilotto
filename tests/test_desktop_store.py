@@ -43,6 +43,18 @@ class DesktopOnThisMacsStoreTests(unittest.TestCase):
         self.assertEqual(data['counts']['sent'], 1)                    # Interviewing counts as sent
         self.assertEqual(data['goals'], {'work_mode': 'Hybrid', 'minimum_salary': 'CHF 120,000'})
 
+    def test_strategy_averages_only_the_known_parts_of_a_fit(self):
+        # 17 Oct 2026: a fit with compensation None (no salary stated) broke the whole Search strategy page ("Could not read your strategy").
+        from src import desktop_strategy
+        jobs = [{'id': 'a'}, {'id': 'b'}]
+        fits = {'a': {'components': {'role_fit': 80, 'compensation': None}}, 'b': {'components': {'role_fit': 60, 'compensation': 70}}}
+        with mock.patch('src.paths.load_search_config', lambda matching=True: {}), \
+                mock.patch.object(desktop_strategy.digest, 'eligible_jobs', lambda db: (jobs, None)), \
+                mock.patch.object(desktop_strategy.score, 'load', lambda db: fits):
+            parts = {part['key']: part['value'] for part in self.command('strategy')['components']}
+        self.assertEqual(parts['role_fit'], 70)
+        self.assertEqual(parts['compensation'], 70, 'the None part is left out, not counted as 0')
+
     def test_the_calendar_lists_the_stores_applications(self):
         jobs = self.command('calendar')['jobs']
         self.assertEqual([(j['title'], j['next_interview']) for j in jobs if j['next_interview']], [('SRE', '2026-10-20T10:00:00+02:00')])
