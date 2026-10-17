@@ -11,7 +11,7 @@ test('while the allowance lasts it names the plan and says how many of the free 
   assert.deepEqual([shown.plan, shown.text, shown.tone, shown.percent], ['Free plan', '12 of 20 applications used', 'info', 60]);
   assert.match(shown.title, /Free plan: 12 of 20 applications used · 41 days left/);
   assert.match(shown.title, /whichever comes later/);
-  assert.match(shown.title, /license key lifts the limit/);
+  assert.match(shown.title, /then Pro \(coming soon\)/);
   assert.equal(chip(state({used: 19})).text, '19 of 20 applications used');
   assert.equal(chip(state({used: 0})).percent, 2, 'an empty bar still shows');
   assert.equal(chip(state({used: 20, daysLeft: 3})).percent, 100);
@@ -32,7 +32,7 @@ test('past the allowance it says so plainly, and a licensed install shows no cou
   assert.equal(chip(null), null);
 });
 
-test('Settings → License counts the same thing as the chip: applications used, from the chip', async () => {
+test('Settings → Plan counts the same thing as the chip: applications used, from the chip', async () => {
   const {readFile} = await import('node:fs/promises');
   const page = await readFile(new URL('../renderer/pages/license.js', import.meta.url), 'utf8');
   assert.match(page, /\$\{shown\.used\} of \$\{state\.limit\}/, 'the Settings number is the chip\'s used');

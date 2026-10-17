@@ -122,7 +122,7 @@ function paletteCommands() {
   for (const [choice, label, hint, words, family] of ENGINE_CHOICES) add('Settings', label, hint, `ai engine ${words}`, () => {
     openSetting('ai'); if (family) press(family, 300); press(choice, family ? 700 : 300);
   });
-  // The Pro plan (pages/plan.js), only when the site's plan is on: the Plan card in Settings → License.
+  // The Pro plan (pages/plan.js), only when the site's plan is on: the Plan card in Settings → Plan.
   if (['test', 'live'].includes(shared.plan?.mode)) {
     const goPlan = () => { openSetting('plan'); };
     if (shared.plan.plan === 'pro') { add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: $5, $10 or $20', 'pro top up topup credit buy ai more', goPlan); }
