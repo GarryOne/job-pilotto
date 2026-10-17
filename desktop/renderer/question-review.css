@@ -47,3 +47,10 @@
 /* "Reuse for matching questions" (the shared .switch-row): a card of the answer box's own frame. */
 .qr-reuse { padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .qr-reuse > span:last-child { gap: 2px; }
+
+/* A multi-part answer on a Your details line (renderer/fact-line.js): its parts sit in one wrapping row, not one under another. */
+.fact-line .qa-values { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.fact-line .qa-values input[type="number"] { flex: 2 1 120px; }
+.fact-line .qa-values select, .fact-line .qa-values .segmented { flex: 1 1 100px; }
+.fact-line .qa-values input[type="checkbox"] { min-height: 0; width: 18px; height: 18px; }
+.fact-line .qa-values .qa-saved-as { flex: 1 1 100%; }

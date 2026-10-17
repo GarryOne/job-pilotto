@@ -8,37 +8,40 @@ import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
 import {setAsideRows} from './set-aside.js';
+import {factOf, factRow} from '../fact-line.js';
 
 export const KEYS = ['eligibility', 'availability', 'languages'];
 const box = key => document.querySelector(`[data-facts="${key}"]`);
 const PAGE_NAMES = {profile: 'your Profile', answers: 'your standard answers'};
 
-function lineField(key, {label = '', value = ''} = {}) {
-  const row = el('label', 'fact-line');
-  const name = Object.assign(document.createElement('input'), {type: 'text', value: label, placeholder: 'What (e.g. Notice period)'});
-  const input = Object.assign(document.createElement('input'), {type: 'text', value, placeholder: 'Your answer'});
-  name.dataset.factLabel = key;
-  input.dataset.factValue = key;
-  // A line read from the Profile keeps its words as its label; a new one is named by you.
-  if (label) { name.hidden = true; row.append(el('span', '', label)); }
-  for (const each of [name, input]) each.addEventListener('input', () => contactDirty(true));
-  row.append(name, input);
-  return row;
-}
-
-function draw(sections) {
+function draw(sections, formats = {}) {
   for (const key of KEYS) {
     const into = box(key);
     if (!into) continue;
     const add = el('button', 'link span-all', '+ Add a line');
     add.type = 'button';
-    add.addEventListener('click', () => { into.insertBefore(lineField(key), add); contactDirty(true); });
-    into.replaceChildren(...(sections[key] || []).map(line => lineField(key, line)), add);
+    add.addEventListener('click', () => { into.insertBefore(factRow(key, {}, formats, () => contactDirty(true)), add); contactDirty(true); });
+    into.replaceChildren(...(sections[key] || []).map(line => factRow(key, line, formats, () => contactDirty(true))), add);
   }
 }
 
-function drawWhich(conflicts, aside = []) {
-  showOnTab($('setting-which'), conflicts.length > 0 || aside.length > 0);
+// "Tidied": the lines that got their kind on first open, with Undo (lib/details-kinds.js).
+function drawTidied(tidied) {
+  const box_ = $('facts-tidied');
+  if (!tidied) { box_.replaceChildren(); return; }
+  const undo = el('button', 'secondary', 'Undo');
+  undo.type = 'button';
+  undo.addEventListener('click', async () => {
+    undo.disabled = true;
+    const result = await window.pilot.undoDetailsTidy();
+    if (result.ok) showFacts(); else { $('facts-message').textContent = result.error; undo.disabled = false; }
+  });
+  box_.replaceChildren(el('p', 'muted small', `${tidied.changed} of your details got a typed control; the words you saved are kept, and the copy from before is backed up.`), undo);
+}
+
+function drawWhich(conflicts, aside = [], tidied = null) {
+  showOnTab($('setting-which'), conflicts.length > 0 || aside.length > 0 || Boolean(tidied));
+  drawTidied(tidied);
   $('facts-set-aside').replaceChildren(...setAsideRows(aside, showFacts, text => { $('facts-message').textContent = text; }));
   $('which-list').replaceChildren(...conflicts.map(conflict => {
     const row = el('div', 'chip-row');
@@ -64,15 +67,14 @@ export async function showFacts() {
     paint: (result, kept) => {
       if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
       $('facts-message').textContent = '';
-      draw(result.sections || {});
-      drawWhich(result.conflicts || [], result.setAside || []);
+      draw(result.sections || {}, result.formats || {});
+      drawWhich(result.conflicts || [], result.setAside || [], result.tidied || null);
     },
     fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
   });
 }
 
-// What the boxes hold now: {eligibility: [{label, value}], ...} (a line with no value is dropped on save).
+// What the boxes hold now: {eligibility: [{label, value, kind}], ...} (a line with no value is dropped on save).
 export function factsNow() {
-  return Object.fromEntries(KEYS.map(key => [key, [...(box(key)?.querySelectorAll('.fact-line') || [])].map(row => ({
-    label: row.querySelector('[data-fact-label]').value.trim(), value: row.querySelector('[data-fact-value]').value.trim()})).filter(line => line.label && line.value)]));
+  return Object.fromEntries(KEYS.map(key => [key, [...(box(key)?.querySelectorAll('.fact-line') || [])].map(factOf).filter(line => line.label && line.value)]));
 }

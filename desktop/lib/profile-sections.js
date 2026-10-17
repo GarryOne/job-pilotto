@@ -3,6 +3,7 @@
 // (lib/store): the Profile stays one page, so a value moved here never leaves it. Forms and Strategy read these facts from here: one source per value.
 // Guarded by test/profile-sections.test.js.
 import {openStore} from './store/index.js';
+import {splitMark, withMark} from '../renderer/question-kind.js';
 
 export const SECTIONS = {
   eligibility: '🛂 Work eligibility',
@@ -29,9 +30,11 @@ function grouped(blocks) {
   return out;
 }
 
-const itemOf = text => {
-  const at = String(text || '').indexOf(':');
-  return at < 0 ? {label: String(text || '').trim(), value: ''} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).trim()};
+// "Notice period: 1 month [duration]" -> {label, value, kind}: a line's kind is the mark at its end (renderer/question-kind.js), the same text on every store.
+const itemOf = line => {
+  const marked = splitMark(String(line || '')), text = marked.text, at = text.indexOf(':');
+  const item = at < 0 ? {label: text.trim(), value: ''} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).trim()};
+  return marked.marked ? {...item, kind: marked.kind} : item;
 };
 
 // -> {eligibility: [{label, value}], availability: [...], languages: [...]} (an empty section or a missing one: []).
@@ -40,13 +43,13 @@ export async function read(storage, fetcher) {
   return Object.fromEntries(Object.keys(SECTIONS).map(key => [key, (found[key]?.lines || []).map(line => itemOf(line.text)).filter(item => item.label)]));
 }
 
-// The section's lines replaced by these items ({label, value}); its heading is added at the end of the page the first time.
+// The section's lines replaced by these items ({label, value, kind?}); its heading is added at the end of the page the first time.
 export async function save(storage, key, items, fetcher) {
   if (!SECTIONS[key]) throw new Error(`"${key}" is not a Your details section`);
   const page = profile(storage, fetcher);
   const found = grouped(await page.blocks())[key];
   for (const line of [...(found?.lines || [])].reverse()) await page.remove(line);   // last first: this Mac's ids are line numbers
-  const lines = (items || []).filter(item => item?.label && String(item.value ?? '').trim()).map(item => `${String(item.label).trim()}: ${String(item.value).trim()}`);
+  const lines = (items || []).filter(item => item?.label && String(item.value ?? '').trim()).map(item => withMark(`${String(item.label).trim()}: ${String(item.value).trim()}`, {kind: item.kind || 'text'}));
   if (!lines.length) return [];
   const heading = found?.heading.id || await page.appendHeading(SECTIONS[key]);
   await page.insertAfter(heading, lines);

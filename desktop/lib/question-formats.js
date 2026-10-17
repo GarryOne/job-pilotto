@@ -37,9 +37,11 @@ export function noteFields(storage, rows = []) {
   if (changed) save(storage, next);
 }
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['formats'], properties: {formats: {type: 'array', items: {type: 'object', additionalProperties: false,
-  required: ['label', 'kind', 'constraints', 'options', 'list'], properties: {label: {type: 'string'}, kind: {type: 'string', enum: AI_KINDS}, constraints: {type: 'boolean'}, list: {type: 'string', enum: LISTS},
-    options: {type: 'array', items: {type: 'string'}}}}}}};
+// allow: kinds a caller may offer beyond AI_KINDS (Your details' sections: per country in Work eligibility, language in Languages).
+const schemaFor = (allow = []) => ({type: 'object', additionalProperties: false, required: ['formats'], properties: {formats: {type: 'array', items: {type: 'object', additionalProperties: false,
+  required: ['label', 'kind', 'constraints', 'options', 'list'], properties: {label: {type: 'string'}, kind: {type: 'string', enum: [...AI_KINDS, ...allow]}, constraints: {type: 'boolean'}, list: {type: 'string', enum: LISTS},
+    options: {type: 'array', items: {type: 'string'}}}}}}});
+const EXTRA = {per_country: '- "per_country": whether the person may work in a country (allowed, or needs a visa), with the permit.', language: '- "language": how well the person speaks a language (a level such as B2 or native).'};
 const INSTRUCTIONS = `A job-application form asked these questions; we no longer have the form, only each question's words, in any language. For each, say how such a question is answered on a form:
 - "text": a short typed answer (a name, a date, a number, a city, a link).
 - "long_text": a written paragraph (a motivation, a description).
@@ -57,7 +59,7 @@ list: "countries" when the choice is a country (then options []), else "".
 Answer every label exactly as given; when unsure answer "text", [], "".`;
 
 // The labels with no kept format yet -> one small call; kept with from: 'ai'. ai: {client, apiKey} (none: nothing new). -> {formats: the whole map, usage}.
-export async function ensure(storage, labels, {ai = {}} = {}) {
+export async function ensure(storage, labels, {ai = {}, allow = []} = {}) {
   const known = kept(storage);
   // A date the fill saw has no constraints judgment yet: asked once (the AI never changes what the fill saw).
   const needs = label => !known[keyOf(label)] || (known[keyOf(label)].from === 'fill' && known[keyOf(label)].kind === 'date' && known[keyOf(label)].constraints === undefined);
@@ -67,15 +69,15 @@ export async function ensure(storage, labels, {ai = {}} = {}) {
   const fresh = [...asked.filter(needs).slice(0, 80), ...asked.filter(label => !needs(label) && stale(label)).slice(0, RECHECK_MAX)];
   const client = ai.client || (ai.apiKey ? anthropicApi(ai.apiKey) : null);
   if (!fresh.length || !client) return {formats: known, usage: null};
-  const response = await client.messages.create({model: MODEL, max_tokens: 4000, system: INSTRUCTIONS,
+  const response = await client.messages.create({model: MODEL, max_tokens: 4000, system: [INSTRUCTIONS, ...allow.map(kind => EXTRA[kind]).filter(Boolean)].join('\n'),
     messages: [{role: 'user', content: `<questions>\n${JSON.stringify(fresh)}\n</questions>`}],
-    output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'}});
+    output_config: {format: {type: 'json_schema', schema: schemaFor(allow)}, effort: 'low'}});
   const next = {...kept(storage)}, at = new Date().toISOString().slice(0, 10);
   // A label the AI left out or answered wrongly is kept as text: judged once, never asked again (a fill's reading replaces it).
   const seen = new Set(fresh.filter(label => !known[keyOf(label)]));
   for (const label of seen) next[keyOf(label)] = {kind: 'text', options: [], list: '', constraints: false, from: 'ai', at, kinds: KINDS_VERSION};
   for (const label of fresh) if (stale(label)) next[keyOf(label)] = {...known[keyOf(label)], kinds: KINDS_VERSION};   // asked again: the AI's answer below replaces the kind, a silent one keeps it
-  for (const each of judged(response, fresh)) {
+  for (const each of judged(response, fresh, allow)) {
     const before = known[keyOf(each.label)];
     if (before && stale(each.label)) next[keyOf(each.label)] = {kind: each.kind, options: each.options, list: each.list, constraints: each.constraints, from: 'ai', at, kinds: KINDS_VERSION};
     else if (before) next[keyOf(each.label)] = {...before, constraints: each.constraints};
@@ -88,12 +90,12 @@ export async function ensure(storage, labels, {ai = {}} = {}) {
 }
 
 // The AI's answer, validated: a label we did not ask, an unknown kind or list is dropped; options only for a choice, at most 8.
-export function judged(response, asked) {
+export function judged(response, asked, allow = []) {
   let parsed = {};
   try { parsed = JSON.parse(response?.content?.find(block => block.type === 'text')?.text || '{}'); } catch { return []; }
   const out = [];
   for (const each of Array.isArray(parsed.formats) ? parsed.formats : []) {
-    if (!asked.includes(each?.label) || !AI_KINDS.includes(each.kind)) continue;
+    if (!asked.includes(each?.label) || ![...AI_KINDS, ...allow].includes(each.kind)) continue;
     const choice = each.kind === 'single' || each.kind === 'multi';
     const list = choice && LISTS.includes(each.list) ? each.list : '';
     out.push({label: each.label, kind: each.kind, list, constraints: each.constraints === true, options: choice && !list ? cleanOptions(each.options).slice(0, 8) : []});
