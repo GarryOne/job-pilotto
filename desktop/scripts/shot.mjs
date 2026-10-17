@@ -2,6 +2,8 @@
 //   pages: focus, jobs, session, actions, strategy, interviews, settings
 //   --select <css>     only that element (and a small margin), e.g. '#ss-decision'
 //   --session <text>   on the session page, open the session whose card contains this text (e.g. Acme)
+//   --mark <css>       draw a red frame around every element it matches ("where to look"); repeat the option for several. Use the SAME --mark on the before and the after shot.
+//                      A PR shot is the changed card (--select) with the change marked (--mark); a full window is only for a layout change (docs/rules/desktop-ui.md).
 //   --log              expand the session log
 //   --reload           reload the window (⌘R) afterwards, and expand the log again if --log
 //   --js <code>        more steps to run first (a statement; await allowed)
@@ -17,13 +19,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {markSteps} from './shot-mark.mjs';
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
 const args = process.argv.slice(2);
+const options = name => args.flatMap((arg, i) => arg === `--${name}` ? [args[i + 1]] : []);
 const flag = name => args.includes(`--${name}`);
 const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const VALUED = ['select', 'session', 'js', 'eval', 'output', 'out', 'width', 'settings'];
+const VALUED = ['select', 'mark', 'session', 'js', 'eval', 'output', 'out', 'width', 'settings'];
 const page = args.find((arg, i) => !arg.startsWith('--') && !VALUED.includes(args[i - 1]?.slice(2))) || 'focus';
 
 const wait = ms => `await new Promise(r => setTimeout(r, ${ms}));`;
@@ -35,6 +39,9 @@ if (page === 'session') {
   if (flag('log')) steps.push(expandLog);
 } else steps.push(`document.querySelector('.nav[data-view=${page}]')?.click(); ${wait(1500)}`);
 if (option('js')) steps.push(option('js'));
+// --select: bring the element to the middle at once (the app scrolls smoothly: a rectangle measured mid-scroll crops the wrong part).
+if (option('select')) steps.push(`document.querySelector(${JSON.stringify(option('select'))})?.scrollIntoView({block: 'center', behavior: 'instant'}); ${wait(400)}`);
+if (options('mark').length) steps.push(markSteps(options('mark')));
 const script = code => `(async () => { ${code} })()`;
 
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-'));
@@ -48,7 +55,7 @@ const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-sh
 fs.rmSync(`${out}.json`, {force: true});
 const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: out, JOB_PILOTTO_SMOKE_JS: script(steps.join('\n'))};
 if (option('width')) env.JOB_PILOTTO_SHOT_WIDTH = option('width');
-if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script(flag('log') ? expandLog : wait(500));
+if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script((flag('log') ? expandLog : wait(500)) + (options('mark').length ? markSteps(options('mark')) : ''));   // a reload wipes the frames
 if (option('select')) env.JOB_PILOTTO_SMOKE_SELECTOR = option('select');
 if (option('eval')) env.JOB_PILOTTO_SMOKE_EVAL = option('eval');
 if (flag('no-picture')) env.JOB_PILOTTO_SMOKE_NO_PICTURE = '1';

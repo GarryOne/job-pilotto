@@ -9,7 +9,8 @@ import sys
 RUN = re.compile(r'(?<![\[/\w])run (\d{8,})\b(?![\]\w])')
 HEADINGS = [   # (what starts the block, its heading)
     (re.compile(r'^\|\s*Area\s*\|\s*Impact\b', re.I), '### 📊 Impact'),
-    (re.compile(r'^\|[^|]*\|[^|]*\bBefore\s*\|[^|]*\bAfter\b', re.I), '### 🔍 Before → After'),   # also after style_before_after's emoji headers
+    (re.compile(r'^\|\s*What changed\s*\|\s*Before\s*\|\s*After\b', re.I), '### 🖼️ Screens'),   # the screens table (tools/pr-screens.py), before the numbers table
+    (re.compile(r'^\|(?!\s*What changed\s*\|)[^|]*\|[^|]*\bBefore\s*\|[^|]*\bAfter\b', re.I), '### 🔍 Before → After'),   # also after style_before_after's emoji headers
     (re.compile(r'^- '), '### ✅ What changed'),
     (re.compile(r'^(\*\*Before\*\*|!\[|<img |\|\s*!\[)', re.I), '### 🖼️ Screens'),
 ]
@@ -20,7 +21,7 @@ def link_runs(line, repo):
     return RUN.sub(lambda m: f'[run {m.group(1)}](https://github.com/{repo}/actions/runs/{m.group(1)})', line) if repo else line
 
 
-BEFORE_AFTER = re.compile(r'^\|([^|]*)\|\s*Before\s*\|\s*After\s*\|\s*$', re.I)
+BEFORE_AFTER = re.compile(r'^\|(?!\s*What changed\s*\|)([^|]*)\|\s*Before\s*\|\s*After\s*\|\s*$', re.I)   # not the screens table: its cells are images
 
 
 def cells(line):

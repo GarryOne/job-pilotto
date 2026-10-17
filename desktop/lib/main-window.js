@@ -104,6 +104,8 @@ export function createMainWindow(ctx) {
             width: Math.min(innerWidth, Math.ceil(r.width + 2 * m)), height: Math.min(innerHeight - Math.max(0, r.top - m), Math.ceil(r.height + 2 * m))};
         })()`) : null;
         if (selector && !rect) { console.error(`smoke: no element matches ${selector}`); app.quit(); return; }
+        // capturePage takes DIPs, the page measured CSS pixels: they differ by the app's saved zoom (0.8 in a 1280 px window, so a crop landed to the left and short).
+        if (rect) { const zoom = win.window.webContents.getZoomFactor(); for (const key of Object.keys(rect)) rect[key] = Math.round(rect[key] * zoom); }
         fs.writeFileSync(process.env.JOB_PILOTTO_SMOKE, (await (rect ? win.window.webContents.capturePage(rect) : win.window.webContents.capturePage())).toPNG());
         app.quit();
       }, 1500));

@@ -19,4 +19,9 @@
 |---|---|---|
 | <the measured or seen difference> | <before> | <after> |
 
-<Images when a screen changed (before/after), or: No screenshots: <why>>
+<When a screen changed: every image in this table, one row per change; or: No screenshots: <why>.
+Caption = what changed and where to look (a few words); crop to the changed card and frame the change: `npm run shot -- <page> --select '<card>' --mark '<changed control>'` (same options for before and after). A new screen: "—" before, the reason in the caption.>
+
+| What changed | Before | After |
+|---|---|---|
+| <e.g. Availability card: "Start date" now sits under the dropdown> | ![before](<url>) | ![after](<url>) |

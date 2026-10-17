@@ -89,7 +89,7 @@ class PrBodyTest(unittest.TestCase):
             git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a screen')
             result = run(ok)
             self.assertEqual(result.returncode, 2, screen); self.assertIn('no before/after image', result.stderr)
-            self.assertEqual(run(ok + '\n| Before | After |\n|---|---|\n| ![before](https://x/b.png) | ![after](https://x/a.png) |\n').returncode, 0, screen)
+            self.assertEqual(run(ok + '\n| What changed | Before | After |\n|---|---|---|\n| The card shows the start date | ![before](https://x/b.png) | ![after](https://x/a.png) |\n').returncode, 0, screen)
             self.assertEqual(run(ok + 'No screenshots: an API route, nothing drawn changed\n').returncode, 0, screen)
         git(self.repo, 'reset', '-q', '--hard', self.base)
         (self.repo / 'site' / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'site' / 'test' / 'a.test.js').write_text('x\n')
@@ -101,10 +101,10 @@ class PrBodyTest(unittest.TestCase):
         head = '### ✅ X\n\n- **Why:** the owner saw it\n- **Impact:** the page reads right\n\n**Unblocks:** the next PR\n\n| Area | Impact | How |\n|---|---|---|\n| Real users | ⚪ Low | x |\n| Form filling | — None | x |\n| Admin data accuracy | — None | x |\n| Offline replays | — None | x |\n| Tests & harness | 🟢 High | x |\n| Development speed | ⚪ Low | x |\n| Cost | — None | x |\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\n'
         summary = self.tmp / 'many.md'
         def run(count):
-            summary.write_text(head + ''.join(f'![i{n}](https://x/{n}.png)\n' for n in range(count)))
+            summary.write_text(head + '| What changed | Before | After |\n|---|---|---|\n' + ''.join(f'| Row {n} shows the new label | ![b{n}](https://x/b{n}.png) | ![a{n}](https://x/a{n}.png) |\n' for n in range(count // 2)))
             return subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
         self.assertEqual(run(10).returncode, 0)
-        result = run(11)
+        result = run(12)
         self.assertEqual(result.returncode, 2)
         self.assertIn('at most 5 before/after pairs', result.stderr)
 
@@ -185,3 +185,58 @@ class PrDescriptionLaidOutTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+SCREENS = ROOT / 'tools' / 'pr-screens.py'
+HEADER = '| What changed | Before | After |\n|---|---|---|\n'
+CASES = [   # (name, body, the part of the message expected, or None when it passes)
+    ('good row', HEADER + '| Start date sits under the dropdown | ![b](https://x/b.png) | ![a](https://x/a.png) |\n', None),
+    ('good row, html images', HEADER + '| Start date sits under the dropdown | <img src="https://x/b.png"> | <img src="https://x/a.png"> |\n', None),
+    ('new screen, reason in the caption', HEADER + '| A new Languages card, nothing was here before | — | ![a](https://x/a.png) |\n', None),
+    ('no images at all', 'No screenshots: an API route, nothing drawn changed\n', None),
+    ('image outside any table', '![after](https://x/a.png)\n', 'outside the screens table'),
+    ('image in the old two-column table', '| Before | After |\n|---|---|\n| ![b](https://x/b.png) | ![a](https://x/a.png) |\n', 'outside the screens table'),
+    ('image in the numbers table', '| | Before | After |\n|---|---|---|\n| ![b](https://x/b.png) | ![a](https://x/a.png) | x |\n', 'outside the screens table'),
+    ('image after the table ended', HEADER + '| Start date sits under the dropdown | ![b](https://x/b.png) | ![a](https://x/a.png) |\n\n![late](https://x/l.png)\n', 'outside the screens table'),
+    ('missing caption', HEADER + '| | ![b](https://x/b.png) | ![a](https://x/a.png) |\n', 'no caption'),
+    ('caption of one word', HEADER + '| Card | ![b](https://x/b.png) | ![a](https://x/a.png) |\n', 'no caption'),
+    ('image in the caption cell', HEADER + '| ![c](https://x/c.png) | ![b](https://x/b.png) | ![a](https://x/a.png) |\n', 'What changed" cell'),
+    ('one-sided row with a short caption', HEADER + '| New card | — | ![a](https://x/a.png) |\n', 'only one side'),
+    ('a side that is neither image nor dash', HEADER + '| Start date sits under the dropdown | later | ![a](https://x/a.png) |\n', 'neither an image'),
+    ('two cells', HEADER + '| Start date sits under the dropdown | ![a](https://x/a.png) |\n', 'not 3'),
+]
+
+
+class PrScreensTest(unittest.TestCase):
+    """tools/pr-screens.py (owner, 17 Oct 2026, #1290: two stacked full-window shots, no caption: "let it follow ALWAYS the columns Before/After, explain what changed, where to look").
+    The same cases run through the checker CI uses on an edited body (tools/pr-body-check.py), so ship time and GitHub agree."""
+
+    def run_tool(self, tool, body):
+        return subprocess.run(['python3', str(ROOT / 'tools' / tool)], input=body, capture_output=True, text=True)
+
+    def test_each_case_passes_or_names_its_gap(self):
+        for name, body, expected in CASES:
+            result = self.run_tool('pr-screens.py', body)
+            if expected is None:
+                self.assertEqual(result.returncode, 0, f'{name}: {result.stderr}')
+            else:
+                self.assertEqual(result.returncode, 1, name)
+                self.assertIn(expected, result.stderr, name)
+
+    def test_the_ci_checker_refuses_the_same_bodies(self):
+        laid_out = '## 🟢 X\n\n---\n\n### 🖼️ Screens\n\n'
+        for name, body, expected in CASES:
+            result = self.run_tool('pr-body-check.py', laid_out + body)
+            self.assertEqual(result.returncode, 0 if expected is None else 1, f'{name}: {result.stderr}')
+            if expected:
+                self.assertIn(expected, result.stderr, name)
+
+    def test_the_formatter_keeps_the_images_in_the_screens_table(self):
+        out = self.run_tool('pr-body-format.py', '🟢 X\n\n**Why:** a\n**Unblocks:** b\n\n| | Before | After |\n|---|---|---|\n| n | 1 | 2 |\n\n' + CASES[0][1]).stdout
+        self.assertIn('| Start date sits under the dropdown | ![b](https://x/b.png) | ![a](https://x/a.png) |', out)
+        self.assertIn('### 🖼️ Screens', out)
+        self.assertEqual(self.run_tool('pr-screens.py', out).returncode, 0)
+
+    def test_the_template_and_the_rules_show_the_row(self):
+        for path in ('tools/pr-body-template.md', 'docs/rules/desktop-ui.md'):
+            self.assertIn('| What changed | Before | After |', (ROOT / path).read_text(), path)
