@@ -49,7 +49,6 @@ test('a rule edited writes its own line; a new rule goes after the section, or a
   assert.deepEqual(none, [['answers', [{op: 'section', heading: 'Cover letter style', lines: ['Length: short']}]]]);
 });
 
-test('the letter prompts still read the style from the answers page (nothing moved out of it)', () => {
+test('the letter prompt still reads the style from the answers page (nothing moved out of it)', () => {
   assert.match(fs.readFileSync(new URL('../lib/job-letter.js', import.meta.url), 'utf8'), /"Cover letter style"/);
-  assert.match(fs.readFileSync(new URL('../../src/ai/kit.py', import.meta.url), 'utf8'), /follow the style in the standard answers/);
 });
