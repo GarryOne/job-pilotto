@@ -92,7 +92,8 @@ async function batch(request, env, now) {
   const id = crypto.randomUUID();
   const kept = jobs.map(job => ({id: job.id, url: job.url, title: String(job.title || '').slice(0, 200), company: String(job.company || '').slice(0, 200), fit: num(job.fit), kit: job.kit || {}, letter: String(job.letter || ''), cv: String(job.cv || ''), letterPdf: String(job.letterPdf || '')}));
   const facts = Object.fromEntries(FACTS.map(name => [name, String(given.facts?.[name] || '').slice(0, 40000)]));   // what the AI may answer from (profile, standard answers, ...): sealed with the batch, deleted with it
-  await writeBlob(env, install, id, {contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), facts, jobs: kept});
+  const ai = /^sk-ant-[\w-]{20,300}$/.test(String(given.ai?.key || '')) ? {key: given.ai.key} : undefined;   // the user's own Claude key (BYOK): sealed with the batch, never sent back, deleted with it
+  await writeBlob(env, install, id, {ai, contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), facts, jobs: kept});
   const fillAt = Number.isFinite(Date.parse(given.fillAt)) ? new Date(given.fillAt).toISOString() : null;   // when the night should start filling (the cron starts it then); none: at the next tick
   await env.STATS.batch([env.STATS.prepare('INSERT INTO ready_batches (id, install, night, created_at, fill_at) VALUES (?, ?, ?, ?, ?)').bind(id, install, given.night, stamp(now), fillAt),
     ...kept.map(job => env.STATS.prepare('INSERT INTO ready_jobs (batch, job, host) VALUES (?, ?, ?)').bind(id, job.id, new URL(job.url).hostname))]);
@@ -124,12 +125,14 @@ async function aiCall(request, env, now) {
   if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
   const row = await batchOf(env, request.headers.get('authorization'), now);
   if (!row) return deny();
+  const byok = (await readBlob(env, row.install, row.id).catch(() => null))?.ai?.key || '';
+  const stopped = () => env.STATS.prepare('UPDATE ready_batches SET ai_stopped = 1 WHERE id = ?').bind(row.id).run();
   return relay(request, env, row, async micro => {
     const total = (await env.STATS.prepare('SELECT cost_micro FROM ready_batches WHERE id = ?').bind(row.id).first()).cost_micro + micro;
     const capped = total >= cap(env);
     await env.STATS.prepare('UPDATE ready_batches SET cost_micro = ?, state = ? WHERE id = ?').bind(total, capped ? 'capped' : row.state, row.id).run();
     if (capped) await reportNight(env, {...row, cost_micro: total}, now);
-  });
+  }, {byok, stopped, now});
 }
 
 // The owner's calls: Done (a job's data deleted), "I submitted it" (his word, from the app's Applied status), the morning's rows, the measure, Delete everything.
@@ -162,7 +165,7 @@ async function mine(request, env, now, sub) {
       : await env.STATS.prepare('SELECT * FROM ready_batches WHERE install = ? ORDER BY night DESC LIMIT 1').bind(install).first();
     if (!row) return json({ok: true, batch: null, jobs: []});
     const {results} = await env.STATS.prepare('SELECT job, host, state, filled, left_empty, human_check, wall, ms, submitted_at, cleared_at FROM ready_jobs WHERE batch = ? ORDER BY job').bind(row.id).all();
-    return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at}, jobs: results});
+    return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at, aiStopped: !!row.ai_stopped}, jobs: results});
   }
   if (sub === 'report') {   // the morning line: prepared / reached a form / filled completely / he submitted, per night
     const {results} = await env.STATS.prepare(`SELECT b.night, b.cost_micro, COUNT(*) AS prepared_for, SUM(j.state IN ('prepared','partial')) AS reached, SUM(j.state = 'prepared') AS complete,
