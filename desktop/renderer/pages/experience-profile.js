@@ -1,14 +1,20 @@
-// Settings → Profile: the Profile page's own sections as short previews with Edit (owner, 17 Oct 2026: "Show a short preview with Edit, rather than
-// hiding it entirely or displaying a large textarea"). Experience: summary, strengths, education, role history and any section the app does not
-// know; Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC textOutline /
-// textEdit); the model is renderer/experience-profile-model.js. Guarded by test/experience-profile.test.js.
-import {el} from '../components.js';
+// Settings → Profile: the Profile page's own sections as folded cards with Edit (owner, 17 Oct 2026: "It should be properly formatted. It should be
+// collapsed, it should be using cards"). Experience: summary and strengths open, education and any section the app does not know folded; Strengths
+// as one row per "Label:" with its values as tags; a heading's "(…)" note and lines in brackets shown small. The role history is drawn by the job
+// cards, never here. Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC
+// textOutline / textEdit); the model is renderer/experience-profile-model.js. Cards are the Application answers' folds (.answer-item.qa-fold).
+// Guarded by test/experience-profile.test.js and test/experience-cards.test.js.
+import {el, tag} from '../components.js';
+import {icon} from '../icons.js';
 import {$, message} from './core.js';
-import {changesFor, isEmpty, partsOn, previewOf, profileParts, unset} from '../experience-profile-model.js';
+import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
 
 // Where each tab draws its parts: the box and its message line in index.html.
 const BOXES = {experience: ['exp-profile', 'exp-profile-message'], details: ['details-profile', 'details-profile-message']};
+const OPEN_FIRST = new Set(['summary', 'strengths']);   // shown open until the person folds them (owner, 17 Oct 2026)
 const parts = {};
+const folded = new Map();   // part key → open (true) or folded (false), as the person left it
+const editing = new Set();
 
 export async function loadExperienceProfile(tab = 'experience') {
   const [boxId, messageId] = BOXES[tab];
@@ -21,29 +27,66 @@ export async function loadExperienceProfile(tab = 'experience') {
 
 function draw(tab) {
   const list = partsOn(parts[tab], tab);
-  // A panel with one part (Your details' Voluntary surveys) already says its name: the part shows only its preview and link.
-  $(BOXES[tab][0]).replaceChildren(...list.map(each => preview(tab, list.length === 1 ? {...each, solo: true} : each)));
+  // A panel with one part (Your details' Voluntary surveys) already says its name: no card around it.
+  $(BOXES[tab][0]).replaceChildren(...list.map(each => (list.length === 1 ? solo(tab, each) : card(tab, each))));
 }
 
-function preview(tab, each) {
+const editButton = (tab, each) => {
+  const empty = isEmpty(each.part);
+  const button = Object.assign(el('button', 'link', empty ? 'Add' : 'Edit'), {type: 'button'});
+  button.setAttribute('aria-label', `${empty ? 'Add' : 'Edit'} ${each.title.toLowerCase()}`);
+  button.addEventListener('click', event => { event.preventDefault(); editing.add(each.key); folded.set(each.key, true); draw(tab); });
+  return button;
+};
+
+function card(tab, each) {
   const {key, title, part} = each;
-  const empty = isEmpty(part);
-  const row = el('div', 'exp-part');
-  row.dataset.part = key;
-  const head = el('div', 'exp-part-head');
-  const edit = Object.assign(el('button', 'link', empty ? 'Add' : 'Edit'), {type: 'button'});
-  edit.setAttribute('aria-label', `${empty ? 'Add' : 'Edit'} ${title.toLowerCase()}`);
-  head.append(...(each.solo ? [] : [el('b', '', title)]), edit);
-  row.append(head, el('p', `exp-part-preview${empty ? ' muted' : ''}`, previewOf(part) || 'Not set yet.'));
-  edit.addEventListener('click', () => row.replaceWith(editor(tab, each)));
-  return row;
+  const box = el('details', 'answer-item qa-section qa-fold exp-part');
+  box.dataset.part = key;
+  box.open = folded.has(key) ? folded.get(key) : OPEN_FIRST.has(key) || editing.has(key);
+  box.addEventListener('toggle', () => folded.set(key, box.open));
+  const head = el('summary', 'qa-section-head');
+  const count = key === 'strengths' ? part?.lines.length : 0;
+  head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
+    el('span', 'exp-part-gap'), editButton(tab, each));
+  box.append(head, editing.has(key) ? editor(tab, each) : body(key, part));
+  return box;
+}
+
+function solo(tab, each) {
+  const box = el('div', 'exp-part');
+  box.dataset.part = each.key;
+  if (editing.has(each.key)) box.append(editor(tab, {...each, solo: true}));
+  else { const head = el('div', 'exp-part-head'); head.append(editButton(tab, each)); box.append(body(each.key, each.part), head); }
+  return box;
+}
+
+// What a card shows: Strengths as rows of tags; any other part its lines (a list when several), its table rows, its notes small.
+function body(key, part) {
+  const box = el('div', 'exp-part-body');
+  if (isEmpty(part)) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
+  if (key === 'strengths') {
+    for (const group of groupsOf(part)) {
+      if (!group.label) { box.append(el('p', '', group.items[0])); continue; }
+      const row = el('div', 'exp-part-group'), tags = el('div', 'tags');
+      tags.append(...group.items.map(item => tag(item)));
+      row.append(el('b', '', group.label), tags);
+      box.append(row);
+    }
+    return box;
+  }
+  const notes = part.lines.filter(line => isNote(line.text)), lines = part.lines.filter(line => !isNote(line.text));
+  if (lines.length === 1) box.append(el('p', '', shownText(lines[0].text)));
+  else if (lines.length) { const list = el('ul', 'exp-part-list'); list.append(...lines.map(line => el('li', '', shownText(line.text)))); box.append(list); }
+  if (part.rows.length) box.append(el('p', '', previewOf({lines: [], rows: part.rows})));
+  for (const note of notes) box.append(el('p', 'muted small', shownText(note.text).replace(/^\(|\)$/g, '')));
+  return box;
 }
 
 // One input per line (a paragraph or a bullet) and one per table cell; "+ Add a line"; Save writes only what changed.
 function editor(tab, each) {
   const {key, title, part} = each;
-  const box = el('div', 'exp-part is-editing');
-  box.dataset.part = key;
+  const box = el('div', 'exp-part-body is-editing');
   const lines = el('div', 'exp-part-lines');
   const line = text => {
     const input = Object.assign(el('input', ''), {type: 'text', value: text.replace(/\*\*/g, '')});   // one line each, never a textarea (owner, 16 Oct 2026)
@@ -63,7 +106,7 @@ function editor(tab, each) {
   const cancel = Object.assign(el('button', 'secondary', 'Cancel'), {type: 'button'});
   const actions = el('div', 'inline');
   actions.append(save, cancel, add);
-  cancel.addEventListener('click', () => box.replaceWith(preview(tab, each)));
+  cancel.addEventListener('click', () => { editing.delete(key); draw(tab); });
   save.addEventListener('click', async () => {
     // A line whose words did not change keeps its own text (its bold, its list mark): only an edited line is rewritten.
     const texts = [...lines.querySelectorAll('input[data-part-line]')].map((input, i) => {
@@ -72,13 +115,14 @@ function editor(tab, each) {
     });
     const cells = rows.map((row, i) => [...row.querySelectorAll('input')].map((input, index) => (input.value.trim() === '' && unset(part.rows[i].cells[index]) ? part.rows[i].cells[index] : input.value)));
     const changes = changesFor(key, part, texts, cells);
-    if (!changes.length) { box.replaceWith(preview(tab, each)); return; }
+    if (!changes.length) { editing.delete(key); draw(tab); return; }
     save.disabled = true;
     const result = await window.pilot.textEdit('profile', changes).catch(error => ({ok: false, error: error.message}));
     if (result.items) parts[tab] = profileParts(result.items);
     message(BOXES[tab][1], result.ok ? 'Saved ✓ The next tailored CVs, letters and scores use it.' : result.error, result.ok ? 'ok' : 'error');
+    if (result.ok) editing.delete(key);
     if (result.ok || result.items) draw(tab); else save.disabled = false;
   });
-  box.append(...(each.solo ? [] : [el('b', '', title)]), lines, actions);
+  box.append(lines, actions);
   return box;
 }

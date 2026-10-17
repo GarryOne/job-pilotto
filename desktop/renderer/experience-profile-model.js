@@ -1,7 +1,8 @@
 // The Profile page's own sections, each on the tab its meaning belongs to (owner, 17 Oct 2026: "I'd split these fields by meaning"; "Experience
 // already holds the career evidence used for tailoring. A compact summary and strengths section fits naturally above the roles. Show a short preview
-// with Edit"): Experience = summary, strengths, education, role history and any section the app does not know (under its own title); Your details =
-// the voluntary survey answers. Lines Strategy's Job preferences or Your details already edit are left out (one editor per value). Read from the
+// with Edit"): Experience = summary, strengths, education and any section the app does not know (under its own title); Your details = the voluntary
+// survey answers. The role history stays on the page (prompts read it) but is drawn by the job cards, "What tailoring can draw on" (owner, 17 Oct
+// 2026: "this is redundant. Just duplicating data"). A heading's "(…)" is its note; a deeper heading belongs to the section above it. Lines Strategy's Job preferences or Your details already edit are left out (one editor per value). Read from the
 // page's outline on any store and written back block by block (lib/text-outline-handlers.js). No DOM: guarded by test/experience-profile.test.js.
 
 import {readProfile} from './preferences-model.js';
@@ -12,12 +13,18 @@ export const PARTS = {
   summary: {title: 'Professional summary', heading: 'Summary (from CV)', match: /^(professional\s+)?summary\b|^about me\b/i, tab: 'experience'},
   strengths: {title: 'Strengths', heading: 'Strengths', match: /^strengths?\b|^core skills\b|^key skills\b|^expertise\b/i, tab: 'experience'},
   education: {title: 'Education', heading: 'Education', match: /^education\b/i, tab: 'experience'},
-  roles: {title: 'Role history', heading: 'Experience', match: /^((work|professional)\s+)?experience$|^employment history\b|^role history\b/i, tab: 'experience'},
+  roles: {title: 'Role history', heading: 'Experience', match: /^((work|professional)\s+)?experience$|^employment history\b|^role history\b/i, tab: 'job cards'},
   surveys: {title: 'Voluntary surveys', heading: 'Application form answers — voluntary demographic surveys', match: /demographic|voluntary survey/i, tab: 'details'},
 };
 // The template's explanations under its headings: instructions, not the person's words (shown nowhere).
 const TEMPLATE_NOTES = [/^the ai scorer \(stage 2\) reads this page/i, /^jobs that break these are filtered out/i, /^optional\. only fill this in if you want/i];
 const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+// "Experience (full detail, verbatim from CV, added 25 Sep 2026)" → title "Experience", note "full detail, verbatim from CV, added 25 Sep 2026".
+export function splitNote(heading) {
+  const found = /^(.*?\S)\s*\(([^()]+)\)\s*$/.exec(bare(heading));
+  return found ? {title: found[1], note: found[2].trim()} : {title: bare(heading), note: ''};
+}
+const levelOf = type => Number(String(type).slice(-1)) || 1;
 const isHint = text => /^\s*❓/.test(String(text || ''));
 export const unset = cell => !String(cell || '').trim() || isHint(cell);
 
@@ -26,13 +33,16 @@ export const unset = cell => !String(cell || '').trim() || isHint(cell);
 // taken(id) = a line or row edited elsewhere (Strategy's fields and rules).
 export function readParts(items, {elsewhere = () => false, taken = () => false} = {}) {
   const out = {...Object.fromEntries(Object.keys(PARTS).map(key => [key, null])), others: []};
-  let current = null;
+  let current = null, level = 0;   // the section the lines go to, and the level of the known section's heading (0: none)
   for (const item of items || []) {
     if (/^heading_/.test(item.type)) {
-      const key = Object.keys(PARTS).find(each => PARTS[each].match.test(bare(item.text)));
-      if (key) current = out[key] ? null : (out[key] = {headingId: item.id, lines: [], rows: [], hints: []});
-      else if (elsewhere(item.text)) current = null;
-      else out.others.push(current = {key: `section:${item.id}`, title: bare(item.text), headingId: item.id, lines: [], rows: [], hints: []});
+      const {title, note} = splitNote(item.text), depth = levelOf(item.type);
+      const key = Object.keys(PARTS).find(each => PARTS[each].match.test(title));
+      if (key) { current = out[key] ? null : (out[key] = {headingId: item.id, note, lines: [], rows: [], hints: []}); level = depth; }
+      else if (elsewhere(item.text)) { current = null; level = 0; }
+      // A sub-heading of a known section (a role under Experience) keeps its lines there; under a page title or an unknown section it is its own.
+      else if (level && depth > level) continue;
+      else { out.others.push(current = {key: `section:${item.id}`, title, note, headingId: item.id, lines: [], rows: [], hints: []}); level = 0; }
       continue;
     }
     if (!current || taken(item.id)) continue;
@@ -87,6 +97,26 @@ export function changesFor(key, part, texts, cells = []) {
   if (added.length) changes.push({op: 'insert', after: anchor, lines: added});
   return changes;
 }
+
+// Strengths as groups: "**Cloud:** AWS (ECS, EKS); Azure" → {label: 'Cloud', items: ['AWS (ECS, EKS)', 'Azure']} (split at commas and semicolons
+// outside brackets); a line with no "Label:" → {label: '', items: [the line]}.
+export function groupsOf(part) {
+  return (part?.lines || []).map(line => {
+    const text = shownText(line.text), found = /^([^:]{1,40}):\s+(.+)$/.exec(text);
+    if (!found) return {label: '', items: [text]};
+    const items = [];
+    let depth = 0, word = '';
+    for (const char of found[2]) {
+      depth += char === '(' ? 1 : char === ')' ? -1 : 0;
+      if (depth === 0 && /[,;]/.test(char)) { items.push(word); word = ''; } else word += char;
+    }
+    items.push(word);
+    return {label: found[1].trim(), items: items.map(each => each.trim().replace(/\.$/, '')).filter(Boolean)};
+  });
+}
+// A line's words on screen: no bold marks, no list mark, no ❓ (never a ❓ on screen); a line wholly in brackets is a note.
+export const shownText = text => String(text || '').replace(/\*\*/g, '').replace(/^[-*•]\s*/, '').replace(/❓\s*/g, '').trim();
+export const isNote = text => /^\(.*\)$/.test(String(text || '').trim());
 
 // What the preview shows: the lines without list marks or bold, then the table's rows, joined.
 export const previewOf = part => [...(part?.lines || []).map(line => line.text.replace(/\*\*/g, '').replace(/^[-*•]\s*/, '')),
