@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {copyForNight} from './extension-copy.mjs';
 import {setExtensionStorage} from './extension-storage.mjs';
 import {fillJob} from './fill-job.mjs';
@@ -11,7 +12,7 @@ import {answererFor} from './night-ai.mjs';
 import {net} from './no-submit.mjs';
 import {createStandIn} from './stand-in.mjs';
 
-export const EXTENSION_DIR = process.env.EXTENSION_DIR || path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'extension');
+export const EXTENSION_DIR = process.env.EXTENSION_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 // Pure: what a job cost us, micro-USD: the container's seconds (standard-1: 4 GiB memory + 8 GB disk + CPU, measured ≈ $0.000012 a second) plus the AI the extension reported.
 export const costMicro = (ms, usd = 0) => Math.round((Number(ms) || 0) / 1000 * 12 + (Number(usd) || 0) * 1e6);
 
@@ -36,17 +37,20 @@ export async function runNight({chromium, site, token, fetchImpl = fetch, log = 
 }
 
 export const NIGHT_FAILED = 'the night could not start';   // the word the card shows beside "could not fill"; the error itself stays in the container's /state and log
-// Starts the browser; when it cannot start, closes what was opened for it first (the stand-in's server, the profile folder) and throws.
-const launchOrClean = async (launch, clean) => { try { return await launch(); } catch (error) { await clean(); throw error; } };
-
 async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fillSeconds, extraArgs, launchOptions, held}) {
   const standIn = await createStandIn(batch, {answer: await answererFor({batch, site, token, fetchImpl})});
-  const copy = copyForNight(standIn.port, EXTENSION_DIR);
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-night-'));
-  const context = await launchOrClean(() => chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,
-    args: ['--headless=new', '--no-sandbox', `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...extraArgs]}), async () => { await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); });
-  const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
-  await setExtensionStorage(worker, {workerUrl: `http://127.0.0.1:${standIn.port}`, token: 'night'});  
+  let profile = '', context = null;
+  try {   // a setup that fails closes what it opened (the stand-in's server, the browser, the profile folder), so the process can end
+    const copy = copyForNight(standIn.port, EXTENSION_DIR);
+    profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-night-'));
+    context = await chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,
+      args: ['--headless=new', '--no-sandbox', `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check', ...extraArgs]});
+    const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
+    await setExtensionStorage(worker, {workerUrl: `http://127.0.0.1:${standIn.port}`, token: 'night'});  
+  } catch (error) {
+    await context?.close().catch(() => {}); await standIn.close().catch(() => {}); if (profile) fs.rmSync(profile, {recursive: true, force: true});
+    throw error;
+  }
   const guard = await net(context);
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
   for (const job of batch.jobs) {
