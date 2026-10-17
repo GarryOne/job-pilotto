@@ -45,6 +45,16 @@ def time_budget_on():
     return time_budget.DEADLINE is not None
 
 
+NEW_LISTED = 10   # new jobs named in the log, for the result card
+
+
+def new_job_lines(jobs, statuses):
+    """"New job: <title> | <company> | <url>" for the first new jobs of a crawl: the Find jobs card lists them when the run sends no digest (the new
+    jobs wait for a score; 17 Oct 2026: the owner's run showed only its header line)."""
+    new = [job for job, status in zip(jobs, statuses) if status == 'new']
+    return [f"New job: {job['title']} | {job['company']} | {job['url']}" for job in new[:NEW_LISTED]]
+
+
 def none_scored(waiting, stats):
     """A warning when jobs wait for a score and this run scored none: never silent again (17 Oct 2026: every run since 10 Oct scored 0 while
     2,868 waited, and each said only "Completed"; the clock had run out in the crawl, src/time_budget.restart)."""

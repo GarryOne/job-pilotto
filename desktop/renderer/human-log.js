@@ -33,6 +33,7 @@ const RULES = [
   [/^First jobs: (\d+) found, none to score/, () => null],
   [/^First jobs: (\d+) scored in (\d+) s/, m => `🎉 ${plural(m[1], 'first job')} scored in ${m[2]} s; the full search goes on`],
   [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
+  [/^New job: (.+?) \| (.*?) \| \S*$/, m => `➕ ${m[1]}${m[2] ? ` · ${m[2]}` : ''}`],
   [/^(Closed|Expired|Unmatched|Removed) 0 job\(s\)/, () => null],
   // Since 10 Oct 2026 the engine says what happened to a job: expired (the posting is gone) or unmatched (outside your search); older runs said Closed.
   [/^Expired (\d+) job\(s\) not seen for (\d+) days/, m => `🗓️ ${plural(m[1], 'job')} expired: no longer listed for ${m[2]} days`],
