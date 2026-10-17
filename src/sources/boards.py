@@ -33,14 +33,13 @@ CITIES = {'zurich':['zürich','zurich','zuerich'], 'geneva':['genève','geneva',
 def swiss_place_word(config):
     """The place word that makes the places the user searches in (config/search.json locations) Swiss, or None. A place is read as written and as plain
     words: the drafted fragment \\bz[uü]rich\\b is the word Zürich (5 Oct 2026: tested as written it matched nothing, so a Zurich-only search was not seen as Swiss)."""
-    from .. import places as places_, regions
+    from .. import places as places_
     from ..notion.search_settings import terms
-    places = config.get('locations') or {}
+    places, cache = config.get('locations') or {}, places_.load()
     for key in ('top_tier', 'country_wide', 'abroad'):
         fragments = places.get(key) or []
         for word in [*fragments, *terms(fragments)]:
-            # Switzerland, the first market: its fixed table (offline, tested); any other spelling or language: the AI's places.
-            if regions.region_of(word) or re.search(regions.SWITZERLAND, str(word), re.I) or 'Switzerland' in places_.countries({'locations': {'top_tier': [str(word)]}}):
+            if places_.in_switzerland(word, cache):   # the AI's country for the word first; Switzerland's fixed table before it knows
                 return str(word)   # which word made the search Swiss: the job boards line says it
     return None
 

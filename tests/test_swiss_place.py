@@ -35,5 +35,32 @@ class SwissPlaceTest(unittest.TestCase):
             self.assertIsNone(boards.swiss_place_word({'locations': {'top_tier': ['São Bernardo do Campo']}}))
 
 
+class PlaceCountryDecidesTest(unittest.TestCase):
+    """18 Oct 2026, persona runs: a Nuremberg driver's place "altdorf" (Altdorf bei Nürnberg, placed in Germany by the AI) matched the Swiss
+    town Altdorf in the fixed table, and jobs.ch was searched for Nuremberg. A place's country decides, never a shared word: every reader of
+    "is this search Swiss" goes through places.in_switzerland."""
+    SEARCH = {'locations': {'top_tier': ['n[uü]rnberg'], 'country_wide': ['altdorf'], 'abroad': []}}
+
+    def readers(self):
+        from src import pool_tags
+        from src.sources import aggregators, google_jobs
+        with mock.patch.object(pool_tags.meanings, 'labels', return_value=[]), mock.patch('src.ai.meanings_pack.every', return_value=[]), \
+                mock.patch('src.ai.decide.decide', return_value=None), mock.patch('builtins.print'):
+            return {'job boards': boards.swiss_place_word(self.SEARCH) is not None,
+                    'aggregator countries': 'ch' in aggregators._countries(self.SEARCH),
+                    'pool tags': 'ch' in pool_tags.places(['altdorf'])[0],
+                    'google jobs': 'Altdorf' in google_jobs.within_places({'locations': ['Altdorf'], 'country': ''}, self.SEARCH)['locations']}
+
+    def test_a_place_the_ai_put_in_another_country_is_not_swiss_anywhere(self):
+        known = {'altdorf': {'kind': 'city', 'countries': ['Germany']}, 'nürnberg': {'kind': 'city', 'countries': ['Germany']}}
+        with mock.patch('src.places.load', return_value=known):
+            self.assertEqual(self.readers(), dict.fromkeys(('job boards', 'aggregator countries', 'pool tags', 'google jobs'), False))
+
+    def test_before_the_ai_placed_it_the_fixed_table_still_answers(self):
+        with mock.patch('src.places.load', return_value={}):
+            got = self.readers()
+        self.assertTrue(all(got.values()), got)
+
+
 if __name__ == '__main__':
     unittest.main()

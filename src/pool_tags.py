@@ -52,9 +52,9 @@ FAMILIES = {
 def places(texts):
     """(countries, metros) named by these place words, as fixed-list ids. Switzerland, the first market, also from its fixed table
     (src/regions.py), so a Swiss search is Swiss offline and on its first run."""
-    import re
-    from . import regions
-    swiss = ['ch'] if any(regions.region_of(t) or re.search(regions.SWITZERLAND, str(t), re.I) for t in texts) else []
+    from . import places as places_
+    cache = places_.load()
+    swiss = ['ch'] if any(places_.in_switzerland(t, cache) for t in texts) else []
     return (sorted({*swiss, *meanings.labels('pool-country', texts, COUNTRIES, 'A place a job seeker searches in. Answer the country it is in.')}),
             meanings.labels('pool-metro', texts, METROS, 'A place a job seeker searches in. Answer its metro area, or none when it is a '
                             'whole country, a region, or a place outside these areas.'))
