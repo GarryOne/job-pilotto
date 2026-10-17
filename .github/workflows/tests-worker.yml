@@ -19,6 +19,7 @@ on:
       - 'desktop/lib/page-kind.js'
       - 'desktop/lib/question-labels.js'
       - 'desktop/lib/reports.js'
+      - 'tests/fixtures/stores/job-answers.md'
       - 'extension/**'
       - 'tools/browser-form-fastpath.js'
       - 'tools/free-ai-eval-metrics.mjs'
