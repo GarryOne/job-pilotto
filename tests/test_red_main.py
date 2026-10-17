@@ -20,6 +20,7 @@ CLASSIFIED = {
     'CI · PR description laid out': 'ignored: pull requests only (opened, edited, pushed); checks the description, never main',
     'CI · Hosted Always on e2e': 'ignored: pull requests that touch the hosted code, and nightly; never on a push to main',
     'CI · Harness tests': 'ignored: pull requests that change the harness only (on: paths:)',
+    'CI · Harness tests · daily': 'ignored: its own daily run alerts the CI chat; not a main push check',
     'CI · Tests · python': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · worker': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · site': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
