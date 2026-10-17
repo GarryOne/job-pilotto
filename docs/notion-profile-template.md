@@ -108,8 +108,8 @@ this page — see "Where the CV file and contact details live" below.
 | Field | Value |
 |---|---|
 | LinkedIn | ❓ |
-| GitHub | ❓ |
-| Website / portfolio | ❓ |
+| GitHub | ❓ optional |
+| Website / portfolio | ❓ optional |
 
 # Common questions
 

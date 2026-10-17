@@ -16,7 +16,7 @@ const NOTION = {
       row('r1', 'Authorised to work in [your home country/region]?', '❓'), row('r2', 'Remote from your base for a foreign employer?', 'Yes')]},
     {id: 'h2', type: 'heading_2', text: 'Availability and pay'}, {id: 't2', type: 'table', header: true, rows: [row('r3', 'Question', 'Answer'),
       row('r4', 'Salary expectation — Switzerland', '❓ (salary is not a priority; estimated floor CHF 48,000 a year)'), row('r5', 'If a salary field is optional', 'Leave blank')]},
-    {id: 'b1', type: 'bulleted_list_item', text: 'GitHub: ❓'}],
+    {id: 'b1', type: 'bulleted_list_item', text: 'GitHub: ❓'}, {id: 'b2', type: 'bulleted_list_item', text: 'Website / portfolio: ❓ optional'}],
   knowledge: [{id: 'p0', type: 'paragraph', text: 'What Job Pilotto learned from your form fills, used by every later kit and fill.'},
     {id: 'k1', type: 'bulleted_list_item', text: '[jobs.example.test · answer] Name :: Field ID x asks for last name only. → "Doe"'},
     {id: 'k2', type: 'bulleted_list_item', text: '[any · option] Salutation: the form offers Mr / Ms'}],
@@ -48,6 +48,11 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     assert.match(text, /Needs review/);
     assert.match(text, /Website-specific rules/);
     assert.match(text, /Not set/);
+    // Every section but Needs review is collapsed with "N set · M missing"; an optional row is not missing and not in Needs review (owner, 17 Oct 2026).
+    const cards = node.querySelectorAll('.qa-section').filter(card => !card.classList.contains('is-review') && !card.classList.contains('kn-rules'));
+    assert.ok(cards.length, 'sections drawn');
+    for (const card of cards) { assert.ok(!card.open, 'collapsed by default'); assert.match(card.textContent, /\d+ set · \d+ missing/); }
+    assert.ok(!/portfolio/i.test(node.querySelector('.is-review').textContent), 'an optional row is not in Needs review');
     // Add answer on the first item that needs one, type, save: one block edit of the answers page.
     node.querySelector('.qa-add').click();
     const field = node.querySelector('.qa-edit input');
