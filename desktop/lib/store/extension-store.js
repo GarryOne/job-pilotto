@@ -4,6 +4,7 @@
 import * as engine from './engine.js';
 import {jobKey, runRecord} from '../../shared/worker/extension.js';
 import {KIT_SECTION, kitOf} from './kit-section.js';
+import {JOB_ANSWERS_SECTION, jobAnswersOf} from '../../shared/worker/job-answers.js';
 
 export {KIT_SECTION, kitOf};   // their home is ./kit-section.js (a leaf module)
 
@@ -18,6 +19,8 @@ export function extensionStore(storage, {call = engine.call} = {}) {
   return {
     findJob,
     kit: async id => kitOf(await store('applications', 'section', {app_id: id, name: KIT_SECTION})),
+    // What the person answered for this job only (lib/job-answers.js): the fill's ask reads it for this job's form and no other.
+    jobAnswers: async id => jobAnswersOf(await store('applications', 'section', {app_id: id, name: JOB_ANSWERS_SECTION})),
     async logRun(run) {
       const job = await findJob(run.url).catch(() => null);
       const made = await store('agent_runs', 'add', {run: runRecord(run, job || {})});

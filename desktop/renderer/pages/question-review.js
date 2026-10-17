@@ -17,6 +17,7 @@ import {$} from './core.js';
 const DRAFTS = 'questionDrafts';
 const state = {open: false, queue: [], setAside: [], consent: 0, at: 0, aside: null, saved: '', error: '', busy: false, loading: false, failed: ''};
 const drafts = new Map();
+const jobOnly = new Set();   // the questions whose "Reuse for matching questions" the person turned off (this job only)
 try { for (const [key, value] of Object.entries(JSON.parse(localStorage.getItem(DRAFTS) || '{}'))) drafts.set(key, String(value)); } catch {}
 const keepDrafts = () => { try { localStorage.setItem(DRAFTS, JSON.stringify(Object.fromEntries(drafts))); } catch {} };
 
@@ -90,7 +91,7 @@ function question(q) {
   }, {placeholder: 'Type your answer', ariaLabel: q.question});
   control.id = 'qr-control';
   box.append(label, control);
-  body.append(box);
+  body.append(box, reuseCard(q));
   if (q.coveredBy) {
     const source = el('details', 'plain qr-source');
     const view = Object.assign(el('button', 'link small', 'View source →'), {type: 'button', id: 'qr-source-go'});
@@ -114,6 +115,21 @@ function question(q) {
   return {body, confirm};
 }
 
+// "Reuse for matching questions" (owner's mockup): on by default; off keeps the answer with this application only (lib/job-answers.js), never offered on other forms.
+function reuseCard(q) {
+  const input = Object.assign(document.createElement('input'), {type: 'checkbox', id: 'qr-reuse', checked: !jobOnly.has(q.key)});
+  input.setAttribute('aria-label', 'Reuse for matching questions');
+  const toggle = el('span', 'switch', input), words = el('span', ''), hint = el('small', 'muted', '');
+  toggle.append(document.createElement('span'));
+  const say = () => hint.replaceChildren(input.checked ? 'Job-specific details stay with this application.' : 'Used for this application only. Never offered on other forms.');
+  say();
+  words.append(el('b', '', 'Reuse for matching questions'), hint);
+  input.addEventListener('change', () => { if (input.checked) jobOnly.delete(q.key); else jobOnly.add(q.key); say(); });
+  const card = el('label', 'switch-row qr-reuse');
+  card.append(toggle, words);
+  return card;
+}
+
 function footer(confirm) {
   const bar = el('footer', 'jd-foot qr-foot');
   const back = button('← Back', () => step(-1), 'ghost');
@@ -135,13 +151,15 @@ function step(by) {
 
 // Confirm (or "Don't keep", value ''): the answer goes to its home (lib/answer-home.js); the question leaves the queue; the next one shows.
 async function answer(q, value) {
+  const onlyHere = Boolean(value) && jobOnly.has(q.key);
   state.busy = true;
   state.error = '';
   draw();
-  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format)).catch(error => ({ok: false, error: error.message}));
+  const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format), ...(onlyHere ? [{jobOnly: true, company: q.company || ''}] : [])).catch(error => ({ok: false, error: error.message}));
   state.busy = false;
   if (!result?.ok) { state.error = result?.error || 'It did not save; try again.'; draw(); return; }
   drafts.delete(q.key);
+  jobOnly.delete(q.key);
   keepDrafts();
   state.saved = value ? `✓ Saved to ${result.homeName || 'your application answers'}` : '✓ Not kept: forms will not ask you for it again';
   if (state.aside) { state.setAside = state.setAside.filter(each => each !== q); state.aside = null; }

@@ -261,7 +261,9 @@ export function registerApplyHandlers(ctx) {
     : questionLists.reviewVerdicts(storage, (labels || []).map(String).slice(0, 200), Array.isArray(unmarked) ? {unmarked: unmarked.map(String).slice(0, 200)} : {}))
     .then(({verdicts, formats = {}}) => ({ok: true, verdicts, formats}), error => ({ok: false, error: error.message, verdicts: {}, formats: {}})));
   // mark: the kind the window drew it with ({kind, options, list}), written with the first answer of a question that had none (lib/questions.js answer).
-  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark) => needsNotion('profile') || questions.answer(storage, questionKey, answer, undefined, mark && typeof mark === 'object' ? mark : null, {ai: claudeAi(storage)})
+  // options.jobOnly (the drawer's "Reuse for matching questions" off): kept with the application that asked (options.company), nowhere else.
+  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark, options) => needsNotion('profile') || questions.answer(storage, questionKey, answer, undefined, mark && typeof mark === 'object' ? mark : null,
+    {ai: claudeAi(storage), ...(options?.jobOnly ? {jobOnly: {company: String(options.company || '')}} : {})})
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // A session's ❓ fact, answered with one tick on the session page: saved to its home (Your details or the standard answers page, lib/answer-home.js).
   ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer, undefined, {ai: claudeAi(storage)}))
