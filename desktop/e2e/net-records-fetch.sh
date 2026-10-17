@@ -31,7 +31,9 @@ gh_get() {
     touch "$work/burst"
     grep -qi 'rate limit' "$work/try.err" && touch "$work/rate-limited"
     [ "$pause" = stop ] && return 1
-    echo "net-records-fetch: GitHub pushed back on the read ($(head -n 1 "$work/try.err" | cut -c1-120)): retrying in ${pause}s" >&2; sleep "$pause"
+    if grep -qi 'rate limit' "$work/try.err"; then echo "net-records-fetch: rate limited by GitHub (the token's account hourly limit, shared with every other use of it): retrying in ${pause}s" >&2
+    else echo "net-records-fetch: GitHub pushed back on the read ($(head -n 1 "$work/try.err" | cut -c1-120)): retrying in ${pause}s" >&2; fi
+    sleep "$pause"
   done
   return 1
 }
@@ -61,7 +63,8 @@ count="$(find "$out" -name record.json | wc -l | tr -d ' ')"
 echo "net-records-fetch: $count records"
 # Nothing fetched is a failure, never an empty set for a gate to judge (15 Oct 2026: gh failed, its error went to /dev/null and the gate called all 16 pinned rows "worse: no result"). gh's own words are shown.
 if [ "$count" = 0 ]; then
-  if [ -e "$work/burst" ]; then echo "net-records-fetch: FAILED: BURST-LIMITED: GitHub refused the read after every wait (20/60/120 s); the records are there, this is not a missing record. Every answer, in order (gh said:)" >&2
+  if [ -e "$work/rate-limited" ]; then echo "net-records-fetch: FAILED: RATE LIMITED: GitHub's API limit for the read token's account is used up; the records are there, this is not a missing record (gh said:)" >&2
+  elif [ -e "$work/burst" ]; then echo "net-records-fetch: FAILED: BURST-LIMITED: GitHub refused the read after every wait (20/60/120 s); the records are there, this is not a missing record. Every answer, in order (gh said:)" >&2
   elif [ -z "${NET_RECORDS_READ_TOKEN:-}" ]; then echo "net-records-fetch: FAILED: the read token is EMPTY in this run (the secret was not given), so the private release cannot be seen (gh said:)" >&2
   else echo "net-records-fetch: FAILED: no record fetched (gh said:)" >&2; fi
   tail -n 12 "$work/gh.err" >&2 2>/dev/null || true
