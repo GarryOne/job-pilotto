@@ -8,6 +8,8 @@ changed here: the app shows the proposals, and only the ones you accept are writ
 from collections import Counter
 import re
 
+from .paths import whole_word
+
 MIN_DISMISSED = 5          # a term needs this many dismissed jobs, and none kept, before it is called a miss
 MAX_EXCLUDES = 3           # title words proposed per run: the strongest ones
 NOT_ENGAGED = {None, '', 'Dismissed', 'Closed', 'Recruiter lead'}
@@ -21,7 +23,7 @@ FILLER = {'with', 'from', 'remote', 'hybrid', 'onsite', 'office', 'team', 'full'
 
 def _matches(fragment, text):
     try:
-        return bool(re.search(fragment, text or '', re.I))
+        return bool(re.search(whole_word(fragment), text or '', re.I))   # a quoted entry is a whole word (src/paths.py)
     except re.error:
         return False
 
