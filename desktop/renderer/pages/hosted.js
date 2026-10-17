@@ -59,11 +59,14 @@ export function mountCard() {
   const card = el('div', 'setting panel'); card.id = 'setting-hosted';
   const head = el('div', 'summary-head'), title = el('span'); title.id = 'hosted-pill';
   head.append(el('h3', '', NAME), title);
-  const row = el('div', 'aon-row'), info = el('div', 'aon-text'), status = el('p', 'muted small'); status.id = 'hosted-status';
+  // Rows, never one squeezed line (owner, 17 Oct 2026): 1 icon + status at full width, 2 the main button, 3 the small links.
+  const row = el('div', 'aon-row aon-stack'), info = el('div', 'aon-text'), status = el('p', 'muted small'); status.id = 'hosted-status';
   info.append(status);
-  const buttons = el('div', 'aon-actions');
-  buttons.append(button('hosted-turn-on', 'Turn on Always on', 'secondary'), button('hosted-resume', 'Resume Always on', 'secondary'), button('hosted-turn-off', 'Turn off Always on', 'ghost'), button('hosted-download', 'Download my Always on data', 'ghost'));
-  row.append(tile('cloud'), info, buttons);
+  const main = el('div', 'aon-actions');
+  main.append(button('hosted-turn-on', 'Turn on Always on', 'secondary'), button('hosted-resume', 'Resume Always on', 'secondary'));
+  const links = el('div', 'aon-actions aon-links');
+  links.append(button('hosted-turn-off', 'Turn off', 'ghost'), button('hosted-download', 'Download my data', 'ghost'));
+  row.append(tile('cloud'), info, main, links);
   const ask = el('div'); ask.id = 'hosted-ask';
   ask.append(emailField('hosted-set-email', 'Your email'), switchRow('hosted-set-news', NEWS, true));
   const msg = el('p', 'message'); msg.id = 'hosted-set-message';
