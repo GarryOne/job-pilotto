@@ -11,6 +11,7 @@ import {asksQuestion} from './label-shape.js';
 import {looksLikeFieldId} from '../renderer/question-filter.js';
 import {noteFields} from './question-formats.js';
 import {formatOfField, splitMark, withMark} from '../renderer/question-kind.js';
+import * as knowledge from './knowledge.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -87,11 +88,13 @@ const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
 // fields, which come from the Profile).
 // reusable: async labels -> the Set worth keeping (the AI's judgment, lib/question-reuse.js); left out, every candidate is kept (unit tests).
 // seen: (labels) after the fill, for every required question it could not answer, new or not (ranking: how many forms asked, blocked a fill).
-export async function collect(storage, run, company = '', fetcher, reusable = null, seen = null) {
+// remembered: (labels) the questions kept WITH the answer you typed on a form ("seen twice": the caller says "Remembered for future forms").
+export async function collect(storage, run, company = '', fetcher, reusable = null, seen = null, remembered = null) {
   noteFields(storage, run.trace || []);   // every labelled field's kind and options, kept on this Mac (lib/question-formats.js)
-  const found = {labels: []};
+  const found = {labels: [], remembered: []};
   const added = await collectNew(storage, run, company, fetcher, reusable, found);
   if (seen && found.labels.length) await seen(found.labels);
+  if (remembered && found.remembered.length) remembered(found.remembered);
   return added;
 }
 async function collectNew(storage, run, company, fetcher, reusable, found) {
@@ -116,8 +119,23 @@ async function collectNew(storage, run, company, fetcher, reusable, found) {
   const keep = reusable && fresh.length ? await reusable(fresh) : null;
   const kept = keep ? fresh.filter(question => keep.has(question)) : fresh;
   if (!kept.length) return 0;
-  await page.append(kept.map(question => questionLine(question, company, formatOf.get(question))));
+  // "Seen twice": what you typed for this question (or its earlier wording) on a form is kept with it (🧠 Form knowledge, lib/learned.js).
+  const typed = keep?.from ? await knowledge.notes(storage, fetcher).catch(() => []) : [];
+  const typedFor = question => typed.find(note => note.value && [question, ...(keep.from.get(question) || [])].some(each => key(each) === key(note.field)))?.value || '';
+  found.remembered = kept.filter(question => typedFor(question));
+  await page.append(kept.map(question => {
+    const line = questionLine(question, company, formatOf.get(question)), value = typedFor(question);
+    return value ? answeredLine(line, value) : line;
+  }));
   return kept.length;
+}
+
+// "Only this job" (the Undo of a question kept on its 2nd employer): its lines leave the answers page. -> how many went.
+export async function forget(storage, question, fetcher) {
+  const page = answersPage(storage, fetcher);
+  const doomed = (await page.blocks()).filter(block => key(label(block.text)) === key(question));
+  for (const block of doomed.reverse()) await page.remove(block);   // last first: this Mac's ids are line numbers
+  return doomed.length;
 }
 
 // answer '' = skip: the line is removed (not a question to keep an answer for); in a table the row stays and its

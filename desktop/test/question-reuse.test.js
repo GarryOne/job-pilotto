@@ -60,8 +60,18 @@ test('classify: a deduced answer comes from a saved answer; the answer itself wh
     {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start', value: ''},
     {label: 'Are you a robot?', verdict: 'reusable', covered_by: '', value: 'No'}]})}]}; }}};
   const got = await classify({labels, answered, client});
-  assert.deepEqual(got.get('Do you require visa sponsorship?'), {reuse: 'reusable', covered_by: 'Work permit', proposal: 'No', from: 'Swiss C permit'});
+  assert.deepEqual(got.get('Do you require visa sponsorship?'), {reuse: 'reusable', covered_by: 'Work permit', proposal: 'No', from: 'Swiss C permit', topic: ''});
   assert.equal(got.get('Earliest start?').proposal, '3 months', 'the same meaning: the saved answer');
-  assert.deepEqual(got.get('Are you a robot?'), {reuse: 'reusable', covered_by: '', proposal: '', from: ''}, 'a value with no saved answer behind it is dropped');
+  assert.deepEqual(got.get('Are you a robot?'), {reuse: 'reusable', covered_by: '', proposal: '', from: '', topic: ''}, 'a value with no saved answer behind it is dropped');
   assert.match(sent[0], /Swiss C permit/, 'the AI reads the saved values to deduce from');
+});
+
+// "Seen twice" (owner, 17 Oct 2026): the same question on two forms, in any wording or language, is known by its topic.
+test('classify: a topic per question, kept as a few lowercase words', async () => {
+  const client = {messages: {create: async () => ({content: [{type: 'text', text: JSON.stringify({verdicts: [
+    {label: 'Kündigungsfrist?', verdict: 'reusable', covered_by: '', value: '', topic: 'Notice Period!'},
+    {label: 'Why us?', verdict: 'one_job', covered_by: '', value: '', topic: ''}]})}]})}};
+  const got = await classify({labels: ['Kündigungsfrist?', 'Why us?'], client});
+  assert.equal(got.get('Kündigungsfrist?').topic, 'notice period');
+  assert.equal(got.get('Why us?').topic, '');
 });

@@ -51,5 +51,10 @@ export function filterGroups(storage, groups) {
   }).filter(group => group.items.length);
 }
 
-// A job's drawer: the questions only this job asked.
+// A job's drawer: this job's questions ({question, state}: one_job / once / remembered).
 export const jobQuestions = (storage, url) => verdicts.forJob(storage, String(url || ''));
+// "Only this job": a remembered question leaves the standard answers and is never kept again.
+export async function onlyThisJob(storage, question, {fetcher} = {}) {
+  verdicts.onlyThisJob(storage, question);
+  return {ok: true, removed: await questions.forget(storage, question, fetcher)};
+}

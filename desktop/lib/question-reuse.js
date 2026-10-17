@@ -6,16 +6,20 @@ import {keyOf, looksLikeFieldId} from '../renderer/question-filter.js';
 
 export {looksLikeFieldId};
 export const MODEL = 'claude-haiku-5-5';
+// A topic as kept: a few lowercase words (the same question on two forms, in any wording, gets the same ones: "seen twice", lib/question-verdicts.js).
+export const topicOf = text => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').slice(0, 5).join(' ');
 export const VERDICTS = ['reusable', 'one_job', 'consent'];
 
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['verdicts'], properties: {verdicts: {type: 'array', items: {type: 'object', additionalProperties: false,
-  required: ['label', 'verdict', 'covered_by', 'value'], properties: {label: {type: 'string'}, verdict: {type: 'string', enum: VERDICTS}, covered_by: {type: 'string'}, value: {type: 'string'}}}}}};
+  required: ['label', 'verdict', 'covered_by', 'value', 'topic'], properties: {label: {type: 'string'}, verdict: {type: 'string', enum: VERDICTS}, covered_by: {type: 'string'}, value: {type: 'string'},
+  topic: {type: 'string'}}}}}};
 const INSTRUCTIONS = `A job-application form asked these questions. For each decide its verdict:
 - "reusable": a fact about the applicant or a stable stance they will want to give again on OTHER employers' forms (notice period, visa, salary, how they heard of jobs, a degree).
 - "one_job": it belongs to this one job or employer (it names the company or its product, asks why this company, a motivation or essay written for this role, a trivia or skill test).
 - "consent": a legal or privacy consent / agreement checkbox or statement.
 Then covered_by: when one of the applicant's saved answers already settles it, the EXACT saved question (a differently worded notice-period question is covered by the notice period answer; "Do you need visa sponsorship?" by a saved work permit); otherwise "".
 And value: the answer to THIS question that saved answer gives: "" when the saved answer answers it as it is; otherwise the short answer it implies (a permanent permit -> "No" to needing sponsorship). Only when it follows for sure: otherwise covered_by "" and value "".
+And topic: 2-4 lowercase English words naming what it asks, the SAME words for the same question however it is worded or in whatever language ("notice period", "visa sponsorship", "salary expectation").
 Answer every label exactly as given; when unsure answer "one_job", "" and "".`;
 
 // labels, answered: [{question, answer}] -> Map(label -> {reuse, covered_by (an exact answered question or ''), proposal (the deduced answer, else the saved one),
@@ -32,10 +36,10 @@ export async function classify({labels, answered = [], company = '', host = '', 
   });
   const text = response.content?.find(block => block.type === 'text')?.text || '{"verdicts":[]}';
   const byQuestion = new Map(answered.map(a => [a.question, a.answer]));
-  for (const {label, verdict, covered_by: covered, value = ''} of JSON.parse(text).verdicts || []) {
+  for (const {label, verdict, covered_by: covered, value = '', topic = ''} of JSON.parse(text).verdicts || []) {
     if (!labels.includes(label) || !VERDICTS.includes(verdict)) continue;
     const answer = byQuestion.get(covered) || '';
-    out.set(label, {reuse: verdict, covered_by: answer ? covered : '', proposal: answer ? String(value).trim() || answer : '', from: answer});
+    out.set(label, {reuse: verdict, covered_by: answer ? covered : '', proposal: answer ? String(value).trim() || answer : '', from: answer, topic: topicOf(topic)});
   }
   out.usage = response.usage || {};
   return out;
