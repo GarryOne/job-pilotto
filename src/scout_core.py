@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS scout_candidates (
     stats_json TEXT,
     added_at TEXT NOT NULL,
     checked_at TEXT,
-    next_check TEXT
+    next_check TEXT,
+    checked_with TEXT
 );
 -- Which checked employers each Employers & Sources database already has a row for (sync_notion): a run without Notion, a failed
 -- write or a new workspace leaves some out, and they are written later instead of staying only on this computer (6 Oct 2026).
@@ -82,6 +83,24 @@ CREATE TABLE IF NOT EXISTS feed_sources (
     PRIMARY KEY (ats, slug)
 );
 """
+# Columns added to scout_candidates after it first shipped. A table made earlier lacks them, so ensure_tables adds them on EVERY path that opens
+# the table (17 Oct 2026: with more than IDEAS_PAUSE names waiting, run() skipped harvest() -- the only place that added them -- and next_batch
+# failed with "no such column: checked_with").
+ADDED_COLUMNS = {'scout_candidates': (('website', 'TEXT'),   # since 3 Oct 2026
+                                      ('checked_with', 'TEXT'))}   # the readers that judged it (scout.READERS), since 6 Oct 2026
+
+
+def ensure_tables(db):
+    """Create the scout tables and bring an older one up to date; call it before the first query on any path that reads them."""
+    db.executescript(TABLES)
+    for table, columns in ADDED_COLUMNS.items():
+        have = {row[1] for row in db.execute(f'PRAGMA table_info({table})')}
+        for name, kind in columns:
+            if name not in have:
+                db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {kind}')
+    return db
+
+
 _SEARCH = load_search_config()
 
 

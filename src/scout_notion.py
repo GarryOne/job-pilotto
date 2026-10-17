@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from . import employer_index, scout_core
 from .paths import CONFIG
 from .sources import ats, careers
-from .scout_core import TABLES, key_for, now
+from .scout_core import ensure_tables, key_for, now
 from .scout_probe import board_url
 
 
@@ -25,7 +25,7 @@ def excluded_companies(seeds=None):
 def active_sources(db, stores=None, static=(), index=()):
     """Feeds for feeds.scan: starter sources.json + the downloaded employer index + local feed_sources + the store's active
     employers with a feed (the owner's own list: Employers & Sources in Notion)."""
-    db.executescript(TABLES)
+    ensure_tables(db)
     skip = excluded_companies()
     sources = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): dict(s)
                for s in employer_index.merge(static, index, lambda company: key_for(company) in skip)}

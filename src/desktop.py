@@ -236,7 +236,7 @@ def main(argv=None):
                                  start=page.get('start') or '', known_list=bool(page.get('known_list')), place=str(page.get('place') or ''))
             with store.connect(JOBS_DB) as db:   # the page becomes one of this user's feeds: the next jobs check reads, filters and scores it
                 from . import scout
-                db.executescript(scout.TABLES)
+                scout.ensure_tables(db)
                 db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('visit', ?, ?, 'Standard', NULL, ?)""",
                            (result['feed'], result['name'], datetime.now(timezone.utc).isoformat(timespec='seconds')))
                 # A page that is a job system the engine reads by itself (Chanel's Workday, 7 Oct 2026): a feed like any other from now on, read

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from . import contribute, regions, role_kinds
 from .notion import cron_runs
 from .sources import ats, careers, feeds
-from .scout_core import TABLES, _get_text, clean_name, key_for, now
+from .scout_core import ensure_tables, _get_text, clean_name, key_for, now
 from .scout_probe import job_places, quality, relevant_roles
 
 
@@ -124,7 +124,7 @@ def fetch_boards(base_url, key, get=None):
 def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
-    db.executescript(TABLES)
+    ensure_tables(db)
     today = today or now().date().isoformat()
     known = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): {'company': s['company'], 'tier': 'Standard'}
              for s in starter}
