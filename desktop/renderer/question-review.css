@@ -43,3 +43,7 @@
 .qa-values input, .qa-values select { min-height: 36px; }
 .qa-values.is-amount { grid-template-columns: minmax(0, 1fr) 96px; }
 .qa-values .qa-saved-as { margin: 0; grid-column: 1 / -1; }
+
+/* "Reuse for matching questions" (the shared .switch-row): a card of the answer box's own frame. */
+.qr-reuse { padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.qr-reuse > span:last-child { gap: 2px; }

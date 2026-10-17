@@ -1,0 +1,3 @@
+- What is your earliest start date, and are there any constraints we should be aware of? — 1 December 2026; no constraints
+- Expected annual salary — 95000 CHF
+- Why this company? — Because the platform team owns reliability end to end — the work I want.

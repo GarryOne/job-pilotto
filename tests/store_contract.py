@@ -7,6 +7,7 @@ Spec: docs/superpowers/specs/2026-10-09-store-adapters.md. Not a test file itsel
 """
 import datetime
 import inspect
+from pathlib import Path
 from unittest import mock
 
 from src.stores import base
@@ -126,6 +127,16 @@ class StoreContract:
         self.s.applications.delete(row['id'])
         self.assertIsNone(self.s.applications.get(JOB['url']))
         self.assertIsNone(self.s.applications.section(row['id'], 'Kit'))
+
+    def test_a_job_only_answers_section_keeps_its_lines_on_every_store(self):
+        """An answer given for one job only (desktop/lib/job-answers.js) is a section of that job's record: the shared sample comes back whole."""
+        sample = (Path(__file__).parent / 'fixtures' / 'stores' / 'job-answers.md').read_text()
+        row = self.s.applications.create(JOB, 'Saved')
+        self.s.applications.set_section(row['id'], base.JOB_ANSWERS_SECTION, sample)
+        back = self.s.applications.section(row['id'], base.JOB_ANSWERS_SECTION)
+        self.assertEqual([line.strip() for line in back.strip().splitlines() if line.strip()],
+                         [line.strip() for line in sample.strip().splitlines() if line.strip()])
+        self.assertIsNone(self.s.applications.section(row['id'], base.KIT_SECTION), 'it never lands in the kit')
 
     def test_logged_entries_grow_one_section_in_order(self):
         """append_entry (src/ai/inbox.py's log): each entry is a '### {title}' in base.LOGGED, oldest first, beside the other sections."""

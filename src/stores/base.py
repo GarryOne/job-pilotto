@@ -136,6 +136,11 @@ def check_extras(values, allowed):
 # both sides test against: tests/fixtures/stores/kit-section.md.
 KIT_SECTION = '📝 Application kit'
 
+# An answer the person gave for ONE job only (the review drawer's "Reuse for matching questions" off): the section of that job's record that holds it,
+# one '- question — answer' line each, on every store. Read by the fill for that job's form only (worker/src/job-answers.js); never a standard answer.
+# The sample both sides test against: tests/fixtures/stores/job-answers.md.
+JOB_ANSWERS_SECTION = '💬 Answers for this job only'
+
 
 def kit_from(markdown):
     """The machine-readable kit (a dict) in a kit section's Markdown, or None."""

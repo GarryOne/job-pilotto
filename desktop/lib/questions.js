@@ -13,6 +13,8 @@ import {noteFields} from './question-formats.js';
 import {formatOfField, splitMark, withMark} from '../renderer/question-kind.js';
 import * as knowledge from './knowledge.js';
 import {HOME_NAMES, homeOf, writeHome} from './answer-home.js';
+import * as jobAnswers from './job-answers.js';
+import * as verdicts from './question-verdicts.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -144,12 +146,20 @@ export async function forget(storage, question, fetcher) {
 export const SKIPPED = '— (leave blank)';
 // mark: the kind the answer was given with ({kind, options, list}); a question with no mark yet keeps it, so every later screen draws the same control.
 // ai: the inbox (lib/answer-home.js): a fact of Your details goes to its section and the open question leaves this page once that line reads back.
-export async function answer(storage, questionKey, value, fetcher, mark = null, {ai = {}} = {}) {
+// jobOnly: {company, url, call} keeps the answer with that one application (lib/job-answers.js) and nowhere else: not Your details, not the standard answers.
+export async function answer(storage, questionKey, value, fetcher, mark = null, {ai = {}, jobOnly = null} = {}) {
   const page = answersPage(storage, fetcher);
   const open = openRows(await page.outline()).find(({row}) => row.id === questionKey);
   const block = open ? null : (await page.blocks()).find(b => b.id === questionKey);
   if (!open && (!block || !block.text.includes('❓'))) return {ok: false, error: 'Already answered'};
   const question = open ? unmarked(splitMark(open.cells[0]).text.replace(/❓/g, '')) : parseLine(block).question;
+  if (jobOnly && value) {
+    const kept = await jobAnswers.save(storage, question, value, jobOnly);
+    if (!kept.ok) return kept;
+    verdicts.onlyThisJob(storage, question);   // never promoted to a standard answer later
+    await page.remove(open ? {id: open.row.id, text: open.cells[0]} : block);
+    return {ok: true, jobOnly: true, homeName: `this application${kept.job.company ? ` (${kept.job.company})` : ''}`};
+  }
   const home = value ? await homeOf(question, value, ai) : '';
   if (home && await writeHome(storage, home, question, value, fetcher)) {
     await page.remove(open ? {id: open.row.id, text: open.cells[0]} : block);

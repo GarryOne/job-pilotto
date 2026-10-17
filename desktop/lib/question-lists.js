@@ -3,6 +3,7 @@
 // Guarded by test/question-lists.test.js.
 import * as questions from './questions.js';
 import * as verdicts from './question-verdicts.js';
+import * as jobAnswers from './job-answers.js';
 import {claudeAi} from './question-ai.js';
 import {tidy} from './answers-tidy.js';
 import * as formats from './question-formats.js';
@@ -52,7 +53,14 @@ export function filterGroups(storage, groups) {
 }
 
 // A job's drawer: this job's questions ({question, state}: one_job / once / remembered).
-export const jobQuestions = (storage, url) => verdicts.forJob(storage, String(url || ''));
+// This job's questions for its drawer, each with the answer the person kept for this job only when there is one (lib/job-answers.js).
+export async function jobQuestions(storage, url, {call} = {}) {
+  const list = verdicts.forJob(storage, String(url || ''));
+  const mine = await jobAnswers.forUrl(storage, String(url || ''), call ? {call} : {}).catch(() => []);
+  const key = text => keyOf(text);
+  const merged = list.map(item => ({...item, ...(mine.find(each => key(each.question) === key(item.question)) ? {answer: mine.find(each => key(each.question) === key(item.question)).answer} : {})}));
+  return [...merged, ...mine.filter(each => !list.some(item => key(item.question) === key(each.question))).map(each => ({question: each.question, state: 'one_job', answer: each.answer}))];
+}
 // "Only this job": a remembered question leaves the standard answers and is never kept again.
 export async function onlyThisJob(storage, question, {fetcher} = {}) {
   verdicts.onlyThisJob(storage, question);

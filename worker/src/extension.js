@@ -20,6 +20,7 @@ import { FACT_KEYS, FACT_RULE, floorBoxGuess, floorInventedFigure, floorLinkKind
 import { applyPay } from './pay-convert.js';
 import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
 import { ANSWER_EXAMPLES } from './answer-examples.js';
+import { JOB_ANSWERS_SECTION, asKitAnswers, jobAnswersOf } from './job-answers.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -103,6 +104,12 @@ async function readKit(env, pageId) {
   const code = (await children(env, heading.id)).find((b) => b.type === 'code');
   if (!code) return null;
   try { return JSON.parse(plain(code.code.rich_text)); } catch { return null; }
+}
+
+// The answers given for this job only (the section named JOB_ANSWERS_SECTION on its page): [{question, answer}], [] when it has none.
+async function readJobAnswers(env, pageId) {
+  const heading = (await children(env, pageId)).find((b) => plain(b[b.type]?.rich_text).startsWith(JOB_ANSWERS_SECTION));
+  return heading ? jobAnswersOf(await pageText(env, heading.id)) : [];
 }
 
 // Readable text of a Notion page (paragraphs, headings, lists, toggles, tables), two levels deep.
@@ -193,7 +200,10 @@ export async function answerContext(env, url) {
   const row = await findRow(env, url).catch(() => null);
   // With the data on this Mac (env.store, the default) the job and its drafted kit come from the store: before 12 Oct 2026 the ask got neither.
   const stored = !row && env.store ? await env.store.findJob(url).catch(() => null) : null;
-  const kit = row ? await readKit(env, row.id).catch(() => null) : stored ? await env.store.kit(stored.id).catch(() => null) : null;
+  const drafted = row ? await readKit(env, row.id).catch(() => null) : stored ? await env.store.kit(stored.id).catch(() => null) : null;
+  // What the person answered for THIS job only (never another's, never a standard answer): the job's own drafted answers, ahead of the kit's.
+  const mine = row ? await readJobAnswers(env, row.id).catch(() => []) : stored && env.store.jobAnswers ? await env.store.jobAnswers(stored.id).catch(() => []) : [];
+  const kit = asKitAnswers(drafted, mine);
   const found = row ? summary(row) : stored ? (({ id, ...rest }) => rest)(stored) : null;
   // The desktop app passes the local Profile and standard answers; the Worker reads them from Notion.
   const [profile, standard] = await Promise.all([
