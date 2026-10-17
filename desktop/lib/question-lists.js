@@ -5,22 +5,36 @@ import * as questions from './questions.js';
 import * as verdicts from './question-verdicts.js';
 import {claudeAi} from './question-ai.js';
 import {tidy} from './answers-tidy.js';
+import * as formats from './question-formats.js';
 import {keyOf, visibleQuestions} from '../renderer/question-filter.js';
+import {formatFor} from '../renderer/question-kind.js';
 
 const answeredNow = async (storage, groups, fetcher) => verdicts.answeredOf(storage, groups ?? await questions.standardAnswers(storage, fetcher));
 
-// Jobs → Answer once: {list: shown (a covered question carries .proposal), hidden: [...], usage}.
+// The kinds of answer for these labels: what this Mac kept (the last fill's, else the AI's one judgment, asked here for labels with no mark and none kept).
+async function keptFormats(storage, rows, ai) {
+  const {formats: kept} = await formats.ensure(storage, rows.filter(row => !row.mark?.kind).map(row => row.question), {ai}).catch(() => ({formats: formats.kept(storage)}));
+  return kept;
+}
+// Each row with the control it is answered with (renderer/question-kind.js formatFor: the store's mark first).
+const withFormat = (rows, kept) => rows.map(row => ({...row, format: formatFor({marked: row.mark, kept: kept[keyOf(row.question)]})}));
+
+// Jobs → Answer once: {list: shown (a covered question carries .proposal; each row its .format), hidden: [...], usage}.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {
   if (!rows) await tidy(storage, {fetcher}).catch(() => {});   // the junk an older fill saved goes first (lib/answers-tidy.js)
   const {shown, hidden, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), ai});
-  return {list: shown, hidden, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
+  const kept = await keptFormats(storage, shown, ai);
+  return {list: withFormat(shown, kept), hidden: withFormat(hidden, kept), usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
 
-// Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions.
-export async function reviewVerdicts(storage, labels, {ai = claudeAi(storage), groups = null} = {}) {
+// Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions; and the kinds this Mac kept for
+// them ({[keyOf]: {kind, options, list}}), the window drawing each row with formatFor (its store mark first). unmarked: the labels whose line has no mark (the AI judges those once).
+export async function reviewVerdicts(storage, labels, {ai = claudeAi(storage), groups = null, unmarked = labels} = {}) {
   if (!groups) await tidy(storage).catch(() => {});
   const {verdicts: map, usage} = await verdicts.ensure(storage, labels, {answered: await answeredNow(storage, groups), ai});
-  return {verdicts: Object.fromEntries(labels.map(label => [keyOf(label), map[keyOf(label)]]).filter(([, v]) => v)), usage};
+  const kept = await keptFormats(storage, unmarked.map(question => ({question})), ai);
+  return {verdicts: Object.fromEntries(labels.map(label => [keyOf(label), map[keyOf(label)]]).filter(([, v]) => v)), usage,
+    formats: Object.fromEntries(labels.map(label => [keyOf(label), kept[keyOf(label)]]).filter(([, v]) => v))};
 }
 
 // "What Claude needs": the standard answers' groups with the open questions the filter hides left out (cached verdicts only, no AI call here).

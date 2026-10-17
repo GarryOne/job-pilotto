@@ -47,8 +47,10 @@ test('verdicts are kept per question: a second read asks the AI nothing', async 
   let calls = 0;
   const counting = {client: {messages: {create: async (...args) => { calls += 1; return ai.client.messages.create(...args); }}}};
   await lists.openShown(s, {rows, groups, ai: counting});
+  const first = calls;   // the verdicts, and the kinds of the rows with no mark (lib/question-formats.js)
+  assert.ok(first >= 1 && first <= 2);
   await lists.openShown(s, {rows, groups, ai: counting});
-  assert.equal(calls, 1);
+  assert.equal(calls, first, 'a second read asks the AI nothing');
   const shown = (await lists.openShown(s, {rows, groups, ai: counting})).list.find(row => row.question === 'Earliest start date?');
   assert.equal(shown.proposal, '3 months');
 });

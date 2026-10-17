@@ -1,0 +1,76 @@
+// The one answer control for a question, drawn from its kind (renderer/question-kind.js formatFor): a text field, a paragraph box, Yes / No, the form's own
+// options (a segmented choice when they are few and short, else a menu) or several picks. Built from the shared parts (.segmented, a native select): no CSS
+// of its own. Used by Jobs → Answer once and Profile → Application answers; the value it gives is the meaning the fill maps to each form's own options.
+// Guarded by test/question-control.test.js.
+import {el} from './components.js';
+import {KINDS, KIND_NAMES, joinPicks, picksOf} from './question-kind.js';
+
+const FEW = 3, SHORT = 18, FEW_PICKS = 6;
+const segmentedOk = (options, most) => options.length <= most && options.every(option => option.length <= SHORT);
+
+function segmented(options, isOn, onPress, ariaLabel) {
+  const group = el('div', 'segmented is-fill');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', ariaLabel);
+  for (const option of options) {
+    const button = Object.assign(el('button', isOn(option) ? 'is-active' : '', option), {type: 'button'});
+    button.setAttribute('aria-pressed', String(isOn(option)));
+    button.addEventListener('click', () => onPress(option, group));
+    group.append(button);
+  }
+  return group;
+}
+const refresh = (group, isOn) => group.querySelectorAll('button').forEach(button => {
+  button.classList.toggle('is-active', isOn(button.textContent));
+  button.setAttribute('aria-pressed', String(isOn(button.textContent)));
+});
+
+// format: {control, options}; value: the saved answer ('' = none); onChange(value). -> the control node (its .value reads the current answer).
+export function answerControl(format, value, onChange, {placeholder = 'Your answer', ariaLabel = 'Answer'} = {}) {
+  const control = format?.control || 'text', options = format?.options || [];
+  let current = String(value ?? '');
+  const set = next => { current = next; node.value = next; onChange(next); };
+  let node;
+  if (control === 'yes_no' || (control === 'single' && segmentedOk(options, FEW))) {
+    const isOn = option => option.toLowerCase() === current.toLowerCase();
+    node = segmented(options, isOn, (option, group) => { set(isOn(option) ? '' : option); refresh(group, isOn); }, ariaLabel);
+  } else if (control === 'single') {
+    node = Object.assign(el('select', ''), {ariaLabel});
+    node.append(new Option('Choose…', ''));
+    // An answer saved in other words (typed before the kind was known) stays as a choice: nothing is lost.
+    if (current && !options.some(option => option.toLowerCase() === current.toLowerCase())) node.append(new Option(current, current));
+    for (const option of options) node.append(new Option(option, option));
+    node.value = options.find(option => option.toLowerCase() === current.toLowerCase()) || current;
+    node.addEventListener('change', () => { current = node.value; onChange(current); });
+  } else if (control === 'multi' && segmentedOk(options, FEW_PICKS)) {
+    const isOn = option => picksOf(current, options).includes(option);
+    node = segmented(options, isOn, (option, group) => {
+      const picks = picksOf(current, options);
+      set(joinPicks(options.filter(each => (each === option ? !picks.includes(each) : picks.includes(each)))));
+      refresh(group, isOn);
+    }, ariaLabel);
+  } else if (control === 'multi') {
+    node = Object.assign(el('select', ''), {multiple: true, ariaLabel, size: Math.min(6, options.length)});
+    const picks = picksOf(current, options);
+    for (const option of options) node.append(new Option(option, option, false, picks.includes(option)));
+    node.addEventListener('change', () => { current = joinPicks([...node.selectedOptions].map(option => option.value)); onChange(current); });
+  } else if (control === 'textarea') {
+    node = Object.assign(el('textarea', ''), {value: current, placeholder, ariaLabel, rows: 3});
+    node.addEventListener('input', () => { current = node.value; onChange(current); });
+  } else {
+    node = Object.assign(el('input', ''), {type: 'text', value: current, placeholder, ariaLabel});
+    node.addEventListener('input', () => { current = node.value; onChange(current); });
+  }
+  if (node.tagName === 'DIV') Object.defineProperty(node, 'value', {get: () => current, set: next => { current = next; }, configurable: true});
+  node.dataset.answerKind = format?.kind || 'text';
+  return node;
+}
+
+// "Answer as": the person changes a question's kind (it is written to the store with the question). onPick(kind).
+export function kindPicker(kind, onPick) {
+  const node = Object.assign(el('select', ''), {ariaLabel: 'Answer as'});
+  for (const each of KINDS) node.append(new Option(KIND_NAMES[each], each));
+  node.value = KINDS.includes(kind) ? kind : 'text';
+  node.addEventListener('change', () => onPick(node.value));
+  return node;
+}
