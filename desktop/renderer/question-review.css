@@ -62,3 +62,9 @@
 .goal-editor { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; width: 100%; }
 .goal-editor .segmented.is-fill { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
 .goal-editor .segmented button { padding: var(--sp-2) var(--sp-3); white-space: nowrap; }
+/* Possible CV gaps (renderer/gaps-rows.js): a chip per gap with its ✓ and ✕. */
+.gap-rows .tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.gap-chip { display: inline-flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: var(--sp-1) var(--sp-3); background: var(--surface); }
+.gap-chip.is-skill { background: var(--signal-soft); border-color: var(--signal); }
+.gap-chip button { padding: 0 var(--sp-1); font-weight: 700; }
+.gap-fold { margin-top: var(--sp-3); }

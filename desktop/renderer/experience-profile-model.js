@@ -14,6 +14,7 @@ export const PARTS = {
   strengths: {title: 'Strengths', heading: 'Strengths', match: /^strengths?\b|^core skills\b|^key skills\b|^expertise\b/i, tab: 'experience'},
   education: {title: 'Education', heading: 'Education', match: /^education\b/i, tab: 'experience'},
   roles: {title: 'Role history', heading: 'Experience', match: /^((work|professional)\s+)?experience$|^employment history\b|^role history\b/i, tab: 'job cards'},
+  gaps: {title: 'Possible CV gaps', heading: 'CV gaps', match: /^(possible\s+)?cv\s+gaps?\b/i, tab: 'experience'},
   surveys: {title: 'Voluntary surveys', heading: 'Application form answers — voluntary demographic surveys', match: /demographic|voluntary survey/i, tab: 'details'},
 };
 // The template's explanations under its headings: instructions, not the person's words (shown nowhere).
@@ -67,7 +68,7 @@ export function profileParts(items) {
   return readParts(items, {elsewhere: heading => isDetailsHeading(heading) || LEGACY.test(String(heading).trim()), taken: id => taken.has(id)});
 }
 
-export const partsOn = (parts, tab) => [...Object.keys(PARTS).filter(key => PARTS[key].tab === tab).map(key => ({key, title: PARTS[key].title, part: parts[key]})),
+export const partsOn = (parts, tab) => [...Object.keys(PARTS).filter(key => PARTS[key].tab === tab && (key !== 'gaps' || parts.gaps)).map(key => ({key, title: PARTS[key].title, part: parts[key]})),
   ...(tab === 'experience' ? parts.others.map(part => ({key: part.key, title: part.title, part})) : [])];
 
 // The changes that turn a part's lines into `texts` (the person's edited lines, in order): changed lines rewritten, emptied lines removed, new
