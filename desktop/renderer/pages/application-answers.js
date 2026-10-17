@@ -104,11 +104,11 @@ function draw(view, into) {
     if (!items.length) continue;
     any = true;
     const title = shown(section.title) || 'Your answers', gaps = section.items.filter(missing).length;
-    const box = el('details', 'answer-item qa-section');
+    const box = el('details', 'answer-item qa-section qa-fold');
     box.open = openSections.has(title) || !!filters.query || filters.review || !!filters.section;   // a search or filter shows what it found
     box.addEventListener('toggle', () => { if (filters.query || filters.review || filters.section) return; if (box.open) openSections.add(title); else openSections.delete(title); remember(openSections); });
     const head = el('summary', 'qa-section-head');
-    head.append(icon('file-text'), el('h4', '', title), el('span', 'muted small', `${section.items.length - gaps} set · ${gaps} missing`));
+    head.append(icon('file-text'), el('h4', '', title), el('span', 'muted small', `${section.items.filter(item => !item.open).length} set · ${gaps} missing`));
     box.append(head);
     for (const item of items) box.append(...answerRow(view, item));
     into.append(box);
