@@ -147,7 +147,7 @@ function draw(view, into) {
   if (!review.asked && window.pilot.preferencesParse) setTimeout(() => readFields(view), 0);
   lastView = view;
   const reviewNode = reviewCard({fields, state: review, handled, redraw: view.redraw,
-    apply: (field, item, text) => binding(view, field, item, anchor).set(text),
+    apply: (field, item, text) => { if (field.key === 'languages') langs = null; binding(view, field, item, anchor).set(text); },   // the language rows are read again from the new text
     note: (field, item, old) => view.change(TEXT, {op: anchor ? 'insert' : 'append', ...(anchor ? {after: anchor} : {}), key: `note-${field.key}`, lines: [`Original wording: ${field.label} — ${old}`]})});
   if (reviewNode) into.append(reviewNode);
   for (const key of ['location', 'languages', 'roles', 'pay']) {

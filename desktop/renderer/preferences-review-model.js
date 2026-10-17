@@ -42,7 +42,7 @@ export function reviewOf(fields, parse, order) {
   const flagged = new Set(parse.unparsed || []);
   const proposed = proposedTexts(parse, {mode: fields.mode?.value || ''});
   return order.flatMap(key => {
-    const text = proposed[key], old = fields[key]?.value || '';
+    const text = proposed[key], old = fields[key]?.value || fields[key]?.hint || '';   // a ❓ row's typed words are what is replaced
     if (!text || same(text, old)) return [];
     if (old && !flagged.has(key)) return [];   // a clean field stays as the person wrote it
     return [{key, old, proposed: text}];
