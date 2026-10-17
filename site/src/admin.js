@@ -8,6 +8,7 @@ import {viewer} from './auth.js';
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
   {path: '/admin', group: 'Overview', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
+  {path: '/admin/growth-overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
   {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
   {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
@@ -18,6 +19,7 @@ export const PAGES = [
   {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
   {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
   {path: '/admin/form-learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', name: 'Learning', icon: '🧬'},
+  {path: '/admin/intelligence-overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
