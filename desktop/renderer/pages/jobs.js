@@ -2,7 +2,7 @@
 import {badgeLabel} from '../badge-label.js';
 import {setCount} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
-import {applicationStats, inboundCount, inProcess, openMatches, statClick, stats, takenDown, toReview} from '../jobs-view.js';
+import {applicationStats, inboundCount, inProcess, jobCounts, statClick, takenDown, toReview} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
@@ -140,17 +140,14 @@ export function showJobsData(data) {
     }
     shared.allJobs = data.jobs;
     document.dispatchEvent(new Event('menu:refresh'));   // pages/nav.js: Interviews appears with the first application
-    const scored = shared.allJobs.filter(job => job.fit != null).length;
-    // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
-    const matched = openMatches(shared.allJobs);
-    const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
-    count.week += data.week_beyond || 0;   // new jobs among the rows not loaded (a cut list)
+        // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
+    const count = jobCounts(data);   // one definition for every count (jobs-view.js), the Find jobs card's too
     $('jobs-stats').textContent = `${count.total} matches` +
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       // Found but not read and scored yet: the next refreshes take them, a batch at a time, best places first (src/daily.py).
       (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');   // about Notion
-    $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
+    $('jobs-stats').title = `${count.scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     const totalBefore = $('stat-total').textContent, flash = setCount($('stat-total'), count.total);
     // Whether a person could see it (7 Oct 2026: "the flashing is not consistently working"): logs/app.log, area ui
     if (flash !== 'same') window.pilot.uiLog?.('Total matches changed', {from: totalBefore, to: count.total, flash,

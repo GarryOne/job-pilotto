@@ -2,6 +2,7 @@
 // lines, counts) with the list growing below it, then a one-line result; a failure says what to do. Built from the shared header, number strip, pills and
 // rows (no new look). Data: renderer/find-card-model.js. Guarded by: test/find-card.test.js.
 import {cardHead, el, numberStrip, pill} from '../components.js';
+import {jobCounts} from '../jobs-view.js';
 import {findCard} from '../find-card-model.js';
 import {jobsState} from './jobs-state.js';
 import {$, show} from './core.js';
@@ -23,10 +24,10 @@ function draw(model) {
     chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
     const lines = el('ul', 'run-card-rows');
     lines.append(...model.lines.map(text => el('li', 'run-card-row', text)));
-    card.replaceChildren(cardHead('Searching', model.listed ? `${model.listed} job${model.listed === 1 ? '' : 's'} so far` : 'Looking for your first jobs…', {subtitles: ['You can keep using Job Pilotto; matches appear below as they are scored.']}),
-      numberStrip([{label: 'Listed', value: String(model.listed)}, {label: 'Scored', value: String(model.scored)}], {valueFirst: true}), chips, lines);
+    card.replaceChildren(cardHead('Searching', model.listed ? `${model.listed} match${model.listed === 1 ? '' : 'es'} so far` : 'Looking for your first jobs…', {subtitles: ['You can keep using Job Pilotto; matches appear below as they are scored.']}),
+      numberStrip([{label: 'Matches', value: String(model.listed)}, {label: 'Scored', value: String(model.scored)}], {valueFirst: true}), chips, lines);
   } else if (model.state === 'done') {
-    card.replaceChildren(cardHead('Search done', `${model.listed} job${model.listed === 1 ? '' : 's'} on your list`, {subtitles: ['The best matches are first. Find jobs again any time.']}));
+    card.replaceChildren(cardHead('Search done', `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: ['The best matches are first. Find jobs again any time.']}));
   } else if (model.state === 'failed') {
     card.replaceChildren(cardHead('Search stopped', 'The search did not finish', {subtitles: [model.problem || 'Nothing is lost. Try again; if it keeps stopping, check your AI settings.']}),
       button('Try again', () => start()));
@@ -42,9 +43,9 @@ export function renderFindCard(runsNow) {
   if (wasSearching && !searching) finishedHere = true;
   if (searching) finishedHere = false;
   wasSearching = searching;
-  const jobs = jobsState.lastJobsData?.jobs || [];
+  const counts = jobCounts(jobsState.lastJobsData);   // the same numbers as the counters below (jobs-view.js)
   const model = findCard({running: runsNow.running, last: (runsNow.runs || []).find(run => (run.kind || 'search') === 'search') || null,
-    lastSearchAt: runsNow.lastSearchAt, listed: runsNow.listed ?? jobs.length, scored: jobs.filter(job => job.fit != null).length, finishedHere});   // runsNow.listed: only the screenshots set it
+    lastSearchAt: runsNow.lastSearchAt, listed: runsNow.listed ?? counts.total, scored: counts.scored, finishedHere});   // runsNow.listed: only the screenshots set it
   const key = JSON.stringify(model);
   if (key === signature) return;
   signature = key;

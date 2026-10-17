@@ -133,6 +133,9 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     week = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
     return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked), 'waiting': waiting,
             'review_beyond': sum(1 for r in rows[limit:] if r['status'] == 'unreviewed'),   # the Jobs badge counts them too
+            # Scored / high fit among the rows not loaded: the app's counts (renderer/jobs-view.js jobCounts) stay whole on a cut list.
+            'scored_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and r['fit'] is not None),
+            'high_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and (r['fit'] or 0) >= 70),
             'week_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and (r.get('first_seen_at') or '')[:10] >= week)}
 
 
