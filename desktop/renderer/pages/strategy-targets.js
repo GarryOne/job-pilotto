@@ -5,9 +5,10 @@ import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, show} from './core.js';
 import {openView} from './nav.js';
+import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {goalTiles} from '../goal-tiles.js';
+import {GOAL_TILES, goalTiles} from '../goal-tiles.js';
 import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {dirtyLists, exclusionGroups, roleFamilies, withTyped} from '../strategy-parts.js';
 import {strategyState} from './strategy-state.js';
@@ -288,7 +289,12 @@ function renderGoals() {
   // A Profile written before the goals rows: its Compensation line and the search's level stand in until a goal is corrected.
   const goals = strategyState.lastStrategy?.goals && {...strategyState.lastStrategy.goals, minimum_salary: strategyState.lastStrategy.goals.minimum_salary || strategyState.lastStrategy.compensation || '',
     seniority: strategyState.lastStrategy.goals.seniority || (strategyState.lastStrategy.level ? titleCase(strategyState.lastStrategy.level) : '')};
-  $('strategy-goals').replaceChildren(...goalTiles(goals || {}, goals ? saveGoal : null));
+  // Work eligibility and Languages are Your details' facts (owner, 17 Oct 2026): read here, edited there (one home per value).
+  const details = strategyState.lastStrategy?.details || {};
+  const facts = lines => (lines || []).map(line => (lines.length === 1 ? line.value : `${line.label}: ${line.value}`)).join(' · ');
+  const shown = {...(goals || {}), eligibility: facts(details.eligibility), languages: facts(details.languages) || goals?.languages || ''};
+  $('strategy-goals').replaceChildren(...goalTiles(shown, goals ? saveGoal : null,
+    {tiles: [...GOAL_TILES, ['eligibility', 'shield', 'Work eligibility']], fixed: {eligibility: () => openSetting('eligibility'), languages: () => openSetting('languages')}}));
 }
 export function renderTargets() {
   const editing = !!strategyState.targetEdits;

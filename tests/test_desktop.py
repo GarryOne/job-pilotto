@@ -171,6 +171,38 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(data['goals'], {'work_mode': 'Hybrid', 'minimum_salary': 'CHF 48,000 a year (estimate)'})
         self.assertEqual(connected['goals'], {}, 'a connected install with no local file: nothing invented')
 
+    def test_strategy_reads_your_details_apart_and_never_takes_a_search_value_from_them(self):
+        # 3b moved the salary expectation under "💶 Availability & compensation": a heading naming "compensation" must not become the minimum
+        # salary (owner, 17 Oct 2026: the two salaries stay apart); the sections come back read-only for the Strategy page.
+        import os
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import desktop, store
+        profile = ('## Targets\n- **Work mode:** Hybrid\n## 💶 Availability & compensation\n- Salary expectation: CHF 140,000\n- Notice period: 2 months\n'
+                   '## 🛂 Work eligibility\n- Work permit: Swiss B permit\n- **Need visa sponsorship?:** No\n## 🗣️ Languages\n- Languages I can work in: English, German (B1)\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store.connect(Path(tmp) / 'j.sqlite')
+            tracker = SimpleNamespace(url_stages=lambda: {}, page_text=lambda: profile, _request=lambda *a, **k: {'results': []})
+            os.environ.pop('JOB_PILOTTO_PROFILE_FILE', None)
+            with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), mock.patch('src.paths.load_search_config', lambda matching=True: {}), \
+                    mock.patch('src.paths.local_profile', lambda: ''):
+                data = desktop.strategy(db, tracker)
+            db.close()
+        self.assertEqual(data['compensation'], '', 'the expectation is not the minimum')
+        self.assertEqual(data['details']['eligibility'], [{'label': 'Work permit', 'value': 'Swiss B permit'}, {'label': 'Need visa sponsorship?', 'value': 'No'}])
+        self.assertEqual(data['details']['languages'], [{'label': 'Languages I can work in', 'value': 'English, German (B1)'}])
+        self.assertEqual(data['goals']['languages'], 'English, German (B1)')
+
+    def test_your_details_titles_match_the_apps(self):
+        import re
+        from pathlib import Path
+        from src.desktop_strategy import DETAILS_SECTIONS
+        js = (Path(__file__).resolve().parent.parent / 'desktop' / 'lib' / 'profile-sections.js').read_text()
+        app = dict(re.findall(r"^\s*(\w+): '[^\w']*([^']+)',", js.split('SECTIONS = {')[1].split('};')[0], re.M))
+        self.assertEqual(app, dict(DETAILS_SECTIONS))
+
     def test_strategy_shows_the_users_own_targets_scores_and_counts(self):
         import tempfile
         from pathlib import Path
