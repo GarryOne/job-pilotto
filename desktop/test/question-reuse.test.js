@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import * as questions from '../lib/questions.js';
-import {looksLikeFieldId, reusable} from '../lib/question-reuse.js';
+import {classify, looksLikeFieldId, reusable} from '../lib/question-reuse.js';
 import {createStorage} from '../lib/storage.js';
 
 function storage() {
@@ -35,10 +35,16 @@ test('collect: no field id, and only what the AI judges reusable', async () => {
   assert.doesNotMatch(JSON.stringify(added), /text-3219|tel-3519|Colonist Profile|motivation/);
 });
 
-test('reusable: the fixed answer is validated; unknown labels, one_job and a missing engine keep nothing', async () => {
-  const labels = ['Notice period', 'Why Colonist?'];
-  const kept = await reusable({labels, client: fake([{label: 'Notice period', verdict: 'reusable'}, {label: 'Why Colonist?', verdict: 'one_job'}, {label: 'Invented', verdict: 'reusable'}])});
-  assert.deepEqual([...kept], ['Notice period']);
-  assert.equal((await reusable({labels, client: fake([])})).size, 0, 'no verdict = not kept');
-  assert.equal((await reusable({labels})).size, 0, 'no AI engine = not kept');
+test('classify: the fixed answer is validated; unknown labels, a covered_by that is not a saved answer and a missing engine keep nothing', async () => {
+  const labels = ['Notice period', 'Why Colonist?', 'Earliest start?'];
+  const answered = [{question: 'Notice period / earliest start', answer: '3 months'}];
+  const got = await classify({labels, answered, client: fake([{label: 'Notice period', verdict: 'reusable', covered_by: ''}, {label: 'Why Colonist?', verdict: 'one_job', covered_by: ''},
+    {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start'}, {label: 'Invented', verdict: 'reusable', covered_by: ''}, {label: 'Notice period', verdict: 'maybe', covered_by: ''}])});
+  assert.deepEqual([...got.keys()], ['Notice period', 'Why Colonist?', 'Earliest start?']);
+  assert.equal(got.get('Earliest start?').proposal, '3 months');
+  const bad = await classify({labels, answered, client: fake([{label: 'Earliest start?', verdict: 'reusable', covered_by: 'A question that is not saved'}])});
+  assert.equal(bad.get('Earliest start?').covered_by, '', 'an invented covered_by is dropped');
+  assert.equal((await classify({labels, client: fake([])})).size, 0, 'no verdict = nothing');
+  assert.equal((await classify({labels})).size, 0, 'no AI engine = nothing');
+  assert.deepEqual([...await reusable({labels, answered, client: fake([{label: 'Notice period', verdict: 'reusable', covered_by: ''}, {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start'}])})], ['Notice period']);
 });
