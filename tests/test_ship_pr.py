@@ -151,10 +151,11 @@ class ShipPrTest(ShipFixture):
         run = lambda code: subprocess.run(['bash', '-c', f'source "{self.tree}/tools/ship-pr.sh"; {code}'], cwd=self.tree, capture_output=True, text=True, env=env).stdout.strip()
         return run('ship_mode'), run('ship_review && echo review || echo auto')
 
-    def test_a_github_origin_always_lands_through_a_pr_and_the_repository_setting_says_who_merges(self):
+    def test_a_github_origin_always_lands_through_a_pr_and_the_owner_merges_whatever_the_setting(self):
         # Owner, 12 Oct 2026: "I'd like to review them all, by hand". main takes PRs only, so auto-merge off no longer means a push to main.
         self.assertEqual(self.mode(False), ('pr', 'review'), 'auto-merge not allowed: the owner merges by hand')
-        self.assertEqual(self.mode(True), ('pr', 'auto'))
+        # 17 Oct 2026: the owner allowed auto-merge for his own button and ship armed it on #1139/#1140; the setting never says who merges
+        self.assertEqual(self.mode(True), ('pr', 'review'), 'auto-merge allowed in the repository: still the owner merges')
 
     def test_review_mode_stops_with_the_pr_open_once_its_required_checks_are_green(self):
         self.change(self.tree, 'mine.txt', 'x\n', 'My change')

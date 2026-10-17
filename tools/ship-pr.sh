@@ -2,7 +2,7 @@
 # Guarded by tests/test_ship_pr.py (a fake gh: tests/fake_gh.py). The checks that must pass run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, page-cases.yml);
 # the local push hook runs only its fast pure checks (SHIP_PR=1 in tools/pre-push-check.sh).
 #   ship_mode                 prints pr (origin is on GitHub and gh answers: main takes pull requests only) or direct (any other origin: the old push to main); SHIP_MODE=pr|direct forces one
-#   ship_review               true while the owner reviews every PR by hand (owner, 12 Oct 2026): the repository does not allow auto-merge (tools/pr-settings.sh), or SHIP_REVIEW=1; SHIP_REVIEW=0 = auto-merge
+#   ship_review               true while the owner reviews every PR by hand (owner, 12 Oct 2026): always, whatever the repository setting (that is the owner's own Enable auto-merge button); SHIP_REVIEW=0 = auto-merge
 #   ship_pr_land              push the branch, open (or reuse) the PR; with auto-merge: turn it on and wait until merged (sets `sha`, `files`); in review: wait until the required
 #                             checks are green, then stop with the PR open for the owner (sets `review_n`, `review_url`: ship.sh prints `ship: REVIEW #n <url>`)
 # A required check that failed: `fail_reason` names it with its log link and the run exits 1, the PR stays open (fix, commit, run ship again: it finds the PR).
@@ -16,8 +16,7 @@ ship_mode() {
 }
 ship_repo() { git remote get-url origin | sed -E 's#^.*github.com[:/]##; s#\.git$##'; }
 ship_review() {
-  case "${SHIP_REVIEW:-auto}" in 1) return 0 ;; 0) return 1 ;; esac
-  [ "$(gh api "repos/$(ship_repo)" --jq .allow_auto_merge 2>/dev/null)" != true ]   # the repository setting is the switch: auto-merge not allowed = the owner merges by hand
+  [ "${SHIP_REVIEW:-1}" != 0 ]   # the owner merges every PR by hand; only SHIP_REVIEW=0 arms auto-merge. Never the repository setting: the owner allowed auto-merge for his own button (17 Oct 2026) and ship armed #1139/#1140 by itself
 }
 # 15 Oct 2026: one required job, so the failing STEP names the cause: true when the failed job's red steps include the flow-files one (tools/flow-fresh.mjs; keep its name in pr-gate.yml).
 ship_flow_step_red() {
