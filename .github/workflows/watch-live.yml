@@ -1,0 +1,213 @@
+# DAILY WATCH LIST (owner, 17 Oct 2026, "Live check, ~10 platforms"; sketch https://claude.ai/artifact/7kf3B1QjWXNYXMDwbyHAfY): one pool row per multi-step platform (the rows of desktop/e2e/smoke-sites.json
+# with "stage": "watch", the Daily watch stage of the pool life cycle; the discovery batch adds a row when it finds a new platform) recorded LIVE every day at 05:00 UTC by the same recorder
+# (record-sites.mjs: the thin test applicant, HELD, never Submit, no captcha, test accounts only from the POOL_TEST_ACCOUNTS secret: a row without one stays 'held', never a failure).
+# - Cost: its own cap, $25 a calendar month counted from its own spend lines (watch-state artifacts), apart from the discovery batch's $3 a week; both are reported on /admin/ai-cost
+#   (job pool-watch here, pool-live for the batch). At the cap: no run, one Telegram note a month.
+# - Site limit: the same ledger as record-sites.yml (at most 2 visits a host a day across both workflows; each reads the other's state), one pool run at a time (pool-ci-wait.mjs).
+# - Judge: each fresh recording is judged by the discovery judge AND gets the journey check (journey-run.mjs --watch: the card and the panel at every step), then compared with the row's
+#   last live run (desktop/e2e/lib/watch-list.mjs). ONE Telegram message, only when a flow got WORSE than its previous live run (the first run sends nothing).
+# - The fresh recording is the row's debugging copy (net-records-<run>): no pin, no refill, and the daily offline replay skips watch rows (replay-records.mjs).
+# Never a PR trigger (no AI cost on a PR), never merges anything. Guard: e2e/test/pool-ci-triggers.test.mjs, e2e/test/watch-cli.test.mjs.
+name: CI · Daily watch list
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read   # the earlier runs' state artifacts
+
+jobs:
+  # No AI, no browser: which watch rows, and what the month's cap leaves.
+  pick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      count: ${{ steps.pick.outputs.count }}
+      only: ${{ steps.pick.outputs.only }}
+      max_usd: ${{ steps.pick.outputs.max_usd }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The earlier watch runs' states (their spend, each row's last live result, the month the cap was told)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p watch-states
+          since=$(date -u -d '40 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --workflow watch-live.yml --limit 80 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null | grep -vx "$GITHUB_RUN_ID" | while read -r id; do
+            gh run download "$id" --name "watch-state-$id" --dir "watch-states/$id" >/dev/null 2>&1 || true
+            gh run download "$id" --name "watch-alert-$id" --dir "watch-states/$id-alert" >/dev/null 2>&1 || true
+          done
+          echo "earlier watch states: $(find watch-states -name watch.json | wc -l)"
+      - name: Pick the watch rows
+        id: pick
+        env:
+          BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # only the once-a-month "cap reached" note
+          BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
+        run: node desktop/e2e/watch-pick.mjs watch-out watch-states 2>&1 | tee watch-out.log
+      - name: The picked rows
+        uses: actions/upload-artifact@v6
+        with:
+          name: watch-picked-${{ github.run_id }}
+          path: watch-out/picked.json
+          retention-days: 14
+      - name: The cap note's state (told once a month)
+        if: steps.pick.outputs.cap_alert == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: watch-alert-${{ github.run_id }}
+          path: watch-out/alert-state/watch.json
+          retention-days: 40
+
+  smoke:
+    needs: pick
+    if: ${{ needs.pick.result == 'success' && needs.pick.outputs.count != '0' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120   # up to 60 to wait its turn (pool-ci-wait.mjs), then the rows
+    env:
+      MAX_ROWS: '12'
+      MAX_USD: ${{ needs.pick.outputs.max_usd }}   # twice the expected spend, never above what the month's $25 has left
+      ONLY: ${{ needs.pick.outputs.only }}
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}               # the Tests key: the fallback while the live-pool key is not set
+      LIVE_POOL_ANTHROPIC_KEY: ${{ secrets.LIVE_POOL_ANTHROPIC_KEY }}   # the existing live-pool key pays (owner, 17 Oct 2026)
+      JP_TEST_ACCOUNTS: ${{ secrets.POOL_TEST_ACCOUNTS }}               # {"<host>": {"email", "password"}}: test accounts only (lib/test-accounts.mjs); a row without one is held
+      JP_NO_REPORT: '1'
+      JP_APPLICANT: thin
+      JOB_PILOTTO_HEAVY: '0'
+      JOB_PILOTTO_SESSION: watch-live CI run ${{ github.run_id }}
+      JOB_PILOTTO_SITE_LIMIT: '2'
+      JOB_PILOTTO_VISIT_KIND: hand
+      JP_NET_RECORD_DIR: ${{ github.workspace }}/net-records
+      JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/record-sites-out/site-ledger
+      RECORD_PAIRED: '0'
+      RECORD_REPORTS: ${{ github.workspace }}/record-sites-out/smoke-reports
+      RECORD_CANDIDATES: ${{ github.workspace }}/record-sites-out/replay-candidates
+      RECORD_CAPTURES: ${{ github.workspace }}/record-sites-out/captures
+      RECORD_SITES: ${{ github.workspace }}/record-sites-out/no-mac-list.json   # never present: the Mac's rows stay on the Mac
+      POOL_WAIT_WORKFLOWS: record-sites.yml,watch-live.yml   # one pool run at a time across both workflows
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: watch-picked-${{ github.run_id }}
+          path: record-sites-out/watch
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Python packages the engine needs (the app's store)
+        run: pip install --quiet -r requirements.txt
+      - name: Chromium for the real extension, and a virtual display
+        working-directory: desktop/e2e
+        run: |
+          npx playwright-core install --with-deps chromium
+          sudo apt-get install -y -qq xvfb >/dev/null
+      - name: Wait for the earlier pool runs (one at a time, oldest first, none dropped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node desktop/e2e/pool-ci-wait.mjs
+      - name: Earlier CI runs (both workflows) -> today's site ledger, each row's last CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p record-sites-out/states record-sites-out/site-ledger
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          for workflow in record-sites.yml watch-live.yml; do
+            gh run list --workflow "$workflow" --limit 40 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null || true
+          done | sort -rn | uniq | grep -vx "$GITHUB_RUN_ID" | head -40 | while read -r id; do
+            gh run download "$id" --name "record-sites-state-$id" --dir "record-sites-out/states/$id" >/dev/null 2>&1 || true
+          done
+          node desktop/e2e/pool-ci-state.mjs prepare record-sites-out/states record-sites-out/baseline.json
+      - name: Record the watch rows live (held, test applicant, never Submit)
+        working-directory: desktop/e2e
+        run: |
+          set -o pipefail
+          mkdir -p "$RECORD_REPORTS"
+          echo "watch: rows matching \"$ONLY\", at most $MAX_ROWS, AI cap \$$MAX_USD; CI's site limit $JOB_PILOTTO_SITE_LIMIT a host a day"
+          RECORD_MAX_ROWS=$MAX_ROWS RECORD_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node record-sites.mjs --only "$ONLY" 2>&1 | tee "$GITHUB_WORKSPACE/record-sites-out/smoke.log"
+      - name: The journey check on each fresh recording (the card and the panel at every step; the report says what failed)
+        if: always()
+        working-directory: desktop/e2e
+        run: |
+          set -o pipefail
+          [ -d "$JP_NET_RECORD_DIR" ] || { echo "journey-run: no recording"; exit 0; }
+          xvfb-run -a --server-args='-screen 0 1440x900x24' node journey-run.mjs "$JP_NET_RECORD_DIR" "$GITHUB_WORKSPACE/journey-out" --watch 2>&1 | tee "$GITHUB_WORKSPACE/journey.log" || true
+      - name: Encrypt the network records (the public key is in the repo; the private key only in the owner's Keychain)
+        if: always()
+        run: |
+          [ -d net-records ] && [ -n "$(ls -A net-records)" ] || { echo "no network record"; exit 0; }
+          mkdir -p net-out && tar czf "$RUNNER_TEMP/net.tgz" net-records && rm -rf net-records
+          openssl rand -hex -out "$RUNNER_TEMP/k" 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/net.tgz" -out net-out/net.tgz.enc -pass "file:$RUNNER_TEMP/k"
+          openssl pkeyutl -encrypt -pubin -inkey desktop/e2e/net-record.pub.pem -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/k" -out net-out/k.enc
+          rm -f "$RUNNER_TEMP/k" "$RUNNER_TEMP/net.tgz"
+      - name: The encrypted network records (14 days), each row's debugging copy
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: net-records-${{ github.run_id }}
+          path: net-out/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Hand this run's state to the next runs (its ledger and rows)
+        if: always()
+        run: node desktop/e2e/pool-ci-state.mjs save "$RECORD_REPORTS" record-sites-out/state/state.json
+      - name: This run's state (the site ledger, shared with record-sites.yml)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: record-sites-state-${{ github.run_id }}
+          path: record-sites-out/state/state.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Report the run's AI spend to /admin/ai-cost (never fails the job)
+        if: always()
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+          AI_COST_JOB: pool-watch
+        run: node desktop/e2e/pool-ai-cost.mjs "$RECORD_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
+      - name: Verdicts against the last live run, the one Telegram message (only when worse), this run's state
+        if: always()
+        env:
+          BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}
+          BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p watch-states watch-out
+          since=$(date -u -d '40 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --workflow watch-live.yml --limit 80 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null | grep -vx "$GITHUB_RUN_ID" | while read -r id; do
+            gh run download "$id" --name "watch-state-$id" --dir "watch-states/$id" >/dev/null 2>&1 || true
+          done
+          node desktop/e2e/watch-report.mjs "$RECORD_REPORTS" record-sites-out/watch/picked.json watch-out watch-states "$GITHUB_WORKSPACE/journey.log"
+      - name: The watch state (spend, each row's last live result) for the next runs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: watch-state-${{ github.run_id }}
+          path: watch-out/watch.json
+          retention-days: 40
+          if-no-files-found: warn
+      - name: The day report, the log and each row's evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: watch-live-${{ github.run_id }}
+          path: |
+            record-sites-out/smoke.log
+            record-sites-out/smoke-reports/
+            journey.log
+          retention-days: 14
+          if-no-files-found: warn

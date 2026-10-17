@@ -159,3 +159,6 @@ A row capture (the pool's candidate, on this Mac: `~/Library/Application Support
 
 ## Pool life cycle
 Rows have a stage (New, Needs a fix, Working, Fixed, Daily watch, Archived). Archived rows are never re-run (only `--only` names one); `desktop/e2e/archive-pool-rows.mjs` lists candidates (dry run; `--write` archives). Details: docs/rules/apply-flow-workflow.md "Pool life cycle".
+
+## Daily watch list
+Rows with `"stage": "watch"` in `smoke-sites.json` are recorded live every day by `watch-live.yml` ($25 a month, one Telegram message only when a flow got worse than its last live run). To add a platform: add its row with `"stage": "watch"` in a PR (a test account goes in the `POOL_TEST_ACCOUNTS` secret, never in the repo). Details: docs/rules/apply-flow-workflow.md "Daily watch list".

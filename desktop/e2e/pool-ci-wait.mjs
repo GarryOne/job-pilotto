@@ -4,7 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import {runsAhead} from './lib/pool-ci-queue.mjs';
 
-const OTHER = process.env.POOL_WAIT_WORKFLOWS, WORKFLOWS = OTHER ? OTHER.split(',') : ['record-sites.yml'], LEGACY = OTHER ? [] : ['pool-smoke.yml'], WHAT = process.env.POOL_WAIT_WHAT || 'pool';   // POOL_WAIT_WORKFLOWS: another queue (the replay refills take turns the same way)   // LEGACY: the name until 15 Oct 2026; best effort (a deleted workflow file may not list), a run already queued under it still counts.
+const OTHER = process.env.POOL_WAIT_WORKFLOWS, WORKFLOWS = OTHER ? OTHER.split(',') : ['record-sites.yml', 'watch-live.yml'], LEGACY = OTHER ? [] : ['pool-smoke.yml'], WHAT = process.env.POOL_WAIT_WHAT || 'pool';   // POOL_WAIT_WORKFLOWS: another queue (the replay refills take turns the same way)   // LEGACY: the name until 15 Oct 2026; best effort (a deleted workflow file may not list), a run already queued under it still counts.
 const me = process.env.GITHUB_RUN_ID, poll = Number(process.env.POOL_WAIT_POLL || 20), max = Number(process.env.POOL_WAIT_MAX || 3600);
 const sleep = seconds => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 const legacy = () => LEGACY.flatMap(workflow => { try { return JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', workflow, '--limit', '60', '--json', 'databaseId,status'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})); } catch { return []; } });

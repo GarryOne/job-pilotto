@@ -169,7 +169,7 @@ jobs:
         run: |
           mkdir -p record-sites-out/states record-sites-out/site-ledger
           since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          for workflow in record-sites.yml pool-smoke.yml; do   # pool-smoke.yml: the name until 15 Oct 2026; its runs' state counts for 14 days
+          for workflow in record-sites.yml pool-smoke.yml watch-live.yml; do   # pool-smoke.yml: the name until 15 Oct 2026; watch-live.yml: the daily watch shares the site ledger
             gh run list --workflow "$workflow" --limit 40 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" 2>/dev/null || true
           done | sort -rn | uniq | grep -vx "$GITHUB_RUN_ID" | head -40 | while read -r id; do
             gh run download "$id" --name "record-sites-state-$id" --dir "record-sites-out/states/$id" >/dev/null 2>&1 \
