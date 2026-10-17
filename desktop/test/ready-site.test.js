@@ -80,7 +80,7 @@ test('an install on its own engine (no JPF1 key) mints its token from the instal
   assert.equal(await owner({...bare, settings: () => ({telemetryId: 'offline-install'})}, {fetcher: async () => { throw new Error('offline'); }}), false);
 });
 
-test('Send tonight carries his own Claude key only when he has one, else the batch has none (Free AI)', () => {
+test('Fill tonight carries his own Claude key only when he has one, else the batch has none (Free AI)', () => {
   const batch = {night: '2026-10-18', jobs: []};
   assert.deepEqual(withOwnAi(batch, 'sk-ant-api03-mine'), {...batch, ai: {key: 'sk-ant-api03-mine'}});
   for (const other of ['JPF1.i.t', '', undefined, 'sk-openai-x']) assert.deepEqual(withOwnAi(batch, other), batch);
@@ -94,4 +94,11 @@ test('every call carries the owner secret from the app\'s store or the Keychain 
   try { assert.equal(ownerSecret(storage()), 'from-keychain'); assert.deepEqual(asked, ['job-pilotto.ready.owner_secret']); assert.equal(ownerSecret(has), 'from-store'); }
   finally { useKeychainReader(() => null); }
   assert.equal(ownerSecret(storage()), '');
+});
+
+test('the card never says "send" for what is only a fill on the server, and says nothing is submitted (owner, 17 Oct 2026)', async () => {
+  const {readFileSync} = await import('node:fs');
+  const card = readFileSync(new URL('../renderer/pages/ready-card.js', import.meta.url), 'utf8');
+  assert.ok(!/'Send tonight'|'Run now'|Sending tonight/.test(card));
+  for (const label of ['Fill tonight on the server', 'Fill now', 'nothing is submitted', 'not submitted']) assert.ok(card.includes(label), label);
 });

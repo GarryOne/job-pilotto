@@ -27,10 +27,10 @@ export function paint(card, state, names, act) {
 export function build() {
   const card = el('div', 'task-card is-medium ready-card'), words = el('div', 'task-words');
   card.append(el('span', 'task-category', 'APPLICATIONS'));
-  const main = el('div', 'task-body'), send = el('button', 'secondary action', 'Send tonight'), run = el('button', 'secondary action', 'Run now');
+  const main = el('div', 'task-body'), send = el('button', 'secondary action', 'Fill tonight on the server'), run = el('button', 'secondary action', 'Fill now');
   send.id = 'ready-send'; send.dataset.palette = 'ready'; run.id = 'ready-run';
-  const hidden = el('b', '', 'Ready to send: fill tonight\'s forms overnight'); hidden.hidden = true; send.prepend(hidden);
-  words.append(el('b', '', 'Ready to send'), el('span', 'muted', 'Your finished jobs are filled on Cloudflare overnight. In the morning you press Submit.'));
+  const hidden = el('b', '', 'Ready to send: fill tonight\'s forms on the server (nothing is submitted)'); hidden.hidden = true; send.prepend(hidden);
+  words.append(el('b', '', 'Ready to send'), el('span', 'muted', 'Your finished jobs are filled on our server overnight. Nothing is submitted: in the morning you open a filled form and press Submit yourself.'));
   main.append(tile('moon'), words, send, run);
   card.append(main, el('div', 'ready-body'), el('div', 'muted ready-note'));
   return {card, send, run};
@@ -47,15 +47,15 @@ export async function initReadyCard() {
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };
   send.addEventListener('click', async () => {
-    send.disabled = true; say('Sending tonight\'s jobs…');
+    send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
     const result = await window.pilot.readySend().catch(error => ({ok: false, error: error.message}));
-    say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} queued for the night of ${result.night}${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'));
+    say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} will be filled on the server for the night of ${result.night}, not submitted${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'));
     send.disabled = false; refresh();
   });
   run.addEventListener('click', async () => {
     run.disabled = true;
     const result = await window.pilot.readyRun().catch(error => ({ok: false, error: error.message}));
-    say(result.ok ? 'The night started. Results appear here as each form is filled.' : (result.error || 'Could not start.'));
+    say(result.ok ? 'Filling started on the server. Results appear here as each form is filled; nothing is submitted.' : (result.error || 'Could not start.'));
     run.disabled = false; setTimeout(refresh, 30000);
   });
   anchor.after(card);
