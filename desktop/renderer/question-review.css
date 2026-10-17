@@ -54,3 +54,4 @@
 .fact-line .qa-values select, .fact-line .qa-values .segmented { flex: 1 1 100px; }
 .fact-line .qa-values input[type="checkbox"] { min-height: 0; width: 18px; height: 18px; }
 .fact-line .qa-values .qa-saved-as { flex: 1 1 100%; }
+.fact-line .fact-note { font-size: var(--fs-sm); color: var(--muted); }

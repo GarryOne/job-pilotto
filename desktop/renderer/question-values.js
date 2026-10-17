@@ -9,6 +9,7 @@ export const BASES = ['gross', 'net'];
 export const UNITS = ['day', 'week', 'month', 'year'];
 export const STATUSES = ['allowed', 'needs visa'];
 export const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'native'];
+export const hasNumber = text => /\d/.test(String(text ?? ''));
 
 const NUMBER = String.raw`(\d[\d'’,.\s]*?)`;
 const SALARY = new RegExp(String.raw`^${NUMBER}\s*([A-Z]{3})(?:\s*/\s*(${PERIODS.join('|')}))?(?:\s+(${BASES.join('|')}))?$`);
@@ -60,11 +61,16 @@ export function canonical(kind, value) {
   return kind === 'link' && isLink(text) ? text : '';
 }
 
-// An AI-written canonical text keeps the original's meaning: the same numbers (no more, no fewer), and a language level the original names.
-const numbersOf = text => (String(text).match(/\d[\d'’,.]*\d|\d/g) || []).map(each => each.replace(/\D/g, '')).sort().join('|');
-export function faithful(kind, original, text) {
+// An AI-written canonical text keeps the original's meaning: every number appears once, in the value or in the note (no more, no fewer), the note's pieces are
+// copied from the original word for word (pieces are joined with " · "), and a language level is one the original names.
+const numbersOf = text => (String(text).match(/\d[\d'’,.]*\d|\d/g) || []).map(each => each.replace(/\D/g, ''));
+const squash = text => String(text).replace(/\s+/g, ' ').trim().toLowerCase();
+export const NOTE_JOIN = ' · ';
+export function faithful(kind, original, text, note = '') {
   if (!canonical(kind, text)) return false;
-  if (kind === 'salary' || kind === 'duration' || kind === 'range') return numbersOf(original) === numbersOf(text);
-  if (kind === 'language') return String(original).toLowerCase().includes(String(text).toLowerCase());
-  return String(original).trim() === String(text).trim();
+  const pieces = String(note).split(NOTE_JOIN).map(squash).filter(Boolean);
+  if (pieces.some(piece => !squash(original).includes(piece))) return false;
+  if (kind === 'salary' || kind === 'duration' || kind === 'range') return [...numbersOf(original)].sort().join('|') === [...numbersOf(text), ...numbersOf(note)].sort().join('|');
+  if (kind === 'language') return !note && squash(original).includes(squash(text));
+  return !note && String(original).trim() === String(text).trim();
 }

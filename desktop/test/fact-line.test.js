@@ -36,7 +36,7 @@ test('a line the kind cannot read stays as written, with a Check chip; a plain l
 });
 
 test('a new line is named by the person and starts as text', () => {
-  const row = factRow('languages', {}, {}, () => {});
+  const row = factRow('availability', {}, {}, () => {});
   const name = row.all().find(node => node.dataset.factLabel);
   name.value = 'Spanish';
   const value = row.all().find(node => node.tagName === 'INPUT' && node.type === 'text' && !node.dataset.factLabel);

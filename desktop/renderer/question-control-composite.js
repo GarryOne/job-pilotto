@@ -75,12 +75,15 @@ function range(raw, onChange, label) {
   return node;
 }
 
-// A level from the common scale; a saved word outside it ("fluent") stays a choice, nothing is lost.
+// A level as chips (the common scale); a saved word outside it ("fluent") stays visible as written and counts as the answer until a level is picked.
 function language(raw, onChange, label) {
-  const value = String(raw ?? '').trim();
-  const options = value && !LEVELS.some(level => level.toLowerCase() === value.toLowerCase()) ? [...LEVELS, value] : LEVELS;
-  const node = menu(options, options.find(level => level.toLowerCase() === value.toLowerCase()) || '', label, 'Level…');
-  node.addEventListener('change', () => onChange(node.value));
+  const level = LEVELS.find(each => each.toLowerCase() === raw.toLowerCase()) || '';
+  let current = level;
+  const answer = () => current || (raw && !level ? raw : '');
+  const node = composite(answer, () => Boolean(answer()));
+  const isOn = option => option === current;
+  node.append(segmented(LEVELS, isOn, (option, group) => { current = isOn(option) ? '' : option; refresh(group, isOn); onChange(answer()); }, label));
+  if (raw && !level) node.append(savedAs(raw));
   return node;
 }
 
