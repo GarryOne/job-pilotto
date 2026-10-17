@@ -88,7 +88,7 @@ function noteFold(notes) {
   return fold;
 }
 const answerRow = (view, item) => row(view, {key: item.id, button: false, title: item.kind === 'note' ? 'Note' : shown(item.question),
-  under: [item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), cutShort(item.question) ? 'Cut short by an older version' : ''].filter(Boolean).join(' · '), value: valueOf(item), needs: missing(item), optional: item.optional,
+  under: [item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), item.guess && !drafts.has(item.id) ? 'Unconfirmed: saved as a guess' : '', cutShort(item.question) ? 'Cut short by an older version' : ''].filter(Boolean).join(' · '), value: valueOf(item), needs: missing(item), optional: item.optional,
   field: () => (item.kind === 'note' ? input(valueOf(item), text => setAnswer(view, item, text), {placeholder: 'Your answer', ariaLabel: 'Note'}) : answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer')),
   kind: item.kind === 'note' ? null : () => kindField(view, item)});
 

@@ -43,14 +43,14 @@ export const answeredLine = (text, answer) => text.replace(MARK, answer);
 // a sentence that merely mentions ❓ ("Fields marked ❓ to confirm are guesses") is not.
 export const isQuestionLine = text => /(^|[:—–-]\s*)❓(\s*\(asked by [^)]*\))?\s*$/.test(splitMark(text.trim()).text.trim());
 
-// Table rows [Question | Answer] whose answer cell starts with ❓, at the page's top level and one level down (in a toggle).
+// Table rows [Question | Answer] whose answer cell starts with ❓ or is empty, at the page's top level and one level down (in a toggle).
 function openRows(items, depth = 0) {
   const found = [];
   for (const item of items) {
     if (item.type === 'table') {
       for (const row of item.rows.slice(item.header ? 1 : 0)) {
         const cells = row.cells;
-        if (cells.length >= 2 && cells[0].trim() && cells[1].trim().startsWith('❓')) found.push({row, cells});
+        if (cells.length >= 2 && cells[0].trim() && (cells[1].trim().startsWith('❓') || !cells[1].trim())) found.push({row, cells});   // empty: not answered either
       }
     } else if (item.children && depth < 1) {
       found.push(...openRows(item.children, depth + 1));
@@ -246,7 +246,8 @@ export async function remember(storage, question, value, fetcher, {ai = {}} = {}
     if (line) await page.remove(line);
     return {ok: true, home, homeName: HOME_NAMES[home]};
   }
-  if (line) await page.setText(line, `${text}: ${answerText}`);
-  else await page.append([`${text}: ${answerText}`]);
+  const written = `${text.replace(/[\s:]+$/, '')}: ${answerText}`;   // a question that ends in its own colon gets one, not two
+  if (line) await page.setText(line, written);
+  else await page.append([written]);
   return {ok: true};
 }
