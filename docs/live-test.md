@@ -8,7 +8,7 @@
 |---|---|---|
 | Folder | `~/Library/Application Support/Job Pilotto` | `…/Job Pilotto (live test)/home`: a fresh clone at each start |
 | Notion | "Job Pilotto - mac - Photographer" | "🧪 Job Pilotto – Live Test" (one-way mirror, synced at each start) |
-| Token | Keychain `job-pilotto.notion.token-desktop-real` | Keychain `job-pilotto.notion.token-live-test` (404 on every real database: checked at start) |
+| Token | the app's own current token: `desktop/e2e/lib/real-notion-token-main.mjs` decrypts it from the real `secrets.json` (safeStorage, read-only, env of the copy tool only, never printed; no fallback; macOS may ask once to allow the app's key) | Keychain `job-pilotto.notion.token-live-test` (404 on every real database: checked at start) |
 | Browser | the owner's Chrome | its own visible Chromium window, one tab, fresh profile with the sign-ins carried over, extension copy on the twin's port |
 | Port | 47111 | a free one (`twin.json`) |
 | Telegram, schedules, Always on, telemetry | on | off (`desktop/lib/twin.js`) |

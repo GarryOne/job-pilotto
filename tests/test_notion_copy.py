@@ -225,3 +225,17 @@ class IncrementalTests(unittest.TestCase):
             self.assertEqual(len(dst.pages('apps2')), 2)              # C left the mirror (trashed there)
             self.assertNotIn(rows[2]['id'], mapping)
             self.assertTrue(all(path.startswith(('pages/', 'blocks/')) for _, path in writes))
+
+
+class TokenFromEnvironment(unittest.TestCase):
+    def test_an_env_source_reads_the_variable_and_never_the_keychain(self):
+        with mock.patch.dict('os.environ', {'NOTION_COPY_TEST_TOKEN': ' secret-x '}), mock.patch.object(c.subprocess, 'run') as run:
+            self.assertEqual(c.keychain('env:NOTION_COPY_TEST_TOKEN'), 'secret-x')
+        run.assert_not_called()
+
+    def test_an_empty_variable_stops_with_its_name_not_a_fallback(self):
+        with mock.patch.dict('os.environ', {}, clear=True), mock.patch.object(c.subprocess, 'run') as run:
+            with self.assertRaises(SystemExit) as stop:
+                c.keychain('env:NOTION_COPY_TEST_TOKEN')
+        self.assertIn('NOTION_COPY_TEST_TOKEN', str(stop.exception))
+        run.assert_not_called()
