@@ -2,6 +2,7 @@
 // from one, and what the code does with a guess (typed and marked, unless it is a contact detail or a link). Used by worker/src/extension.js answerForm.
 // Guarded by worker/test/answer-facts.test.js; measured on real captures by desktop/e2e/answer-reask.mjs (12 Oct 2026: 70% of the required
 // fields the pool left were answers, many with the fact saved, e.g. the languages spoken, the work permit for a role in its own region).
+import { sameCountry } from './country-names.js';
 
 // What the applicant saved that an answer can follow from. A fixed list: the AI names one, the code checks it; "none" = nothing saved settles it.
 export const FACT_KEYS = ['work_permit', 'sponsorship', 'home_location', 'relocation', 'work_mode', 'languages', 'salary', 'notice_period',
@@ -38,14 +39,17 @@ export const floorBoxGuess = (answer, type) => (type === 'checkbox' && answer.us
 // is proposed too: the applicant confirms it once. Guarded by worker/test/identity-floor.test.js.
 const plain = (text) => String(text || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const wordsOf = (text) => plain(text).split(/[^\p{L}\p{N}@.+_-]+/u).map((word) => word.replace(/^[.+_-]+|[.+_-]+$/g, '')).filter(Boolean);
-export function floorUngrounded(answer, given, { test = false } = {}) {
+// options: the field's listed choices. A country chosen from them passes when it names the saved country in another language ("Suisse" for a saved
+// "Switzerland", country-names.js): the form offers no wording of the applicant's own (owner, 17 Oct 2026, a choice a base fact answers is filled).
+export function floorUngrounded(answer, given, { test = false, options = [] } = {}) {
   if (test || answer.use !== 'fill' || answer.value === '' || !(answer.category === 'contact' || ['contact', 'home_location'].includes(answer.fact))) return answer;
   const value = plain(answer.value), digits = value.replace(/\D/g, '');
   const phones = (plain(given).match(/\+?\d[\d\s()./-]{6,}\d/g) || []).map((phone) => phone.replace(/\D/g, '').slice(-9));
   const asPhone = digits.length >= 9 && digits.length >= value.replace(/[\s()+./-]/g, '').length;
   const words = new Set(wordsOf(given));
   const grounded = asPhone ? phones.includes(digits.slice(-9)) : wordsOf(value).every((word) => words.has(word));
-  return grounded ? answer : { ...answer, use: 'propose' };
+  const chosen = !asPhone && Array.isArray(options) && options.includes(answer.value) && sameCountry(answer.value, given);
+  return grounded || chosen ? answer : { ...answer, use: 'propose' };
 }
 
 // The link floor (13 Oct 2026, a careers form: a LinkedIn address typed into "Useful links (e.g. GitHub)"): a link the AI types must be backed by a saved link of the
