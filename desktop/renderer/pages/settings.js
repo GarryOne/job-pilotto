@@ -51,15 +51,15 @@ function arrived(card) {
   card.classList.add('is-arrived');
   setTimeout(() => card.classList.remove('is-arrived'), 2400);
 }
-// Settings → Profile: CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
+// Settings → Profile: CV, Your details and Application answers. What goes into applications; nothing here re-scores jobs.
 async function openProfile() {
-  const stillDefault = startDefault();   // "CV & details" is only the default: a tab picked while the state loads stays (tab-choice.js)
+  const stillDefault = startDefault();   // "CV" is only the default: a tab picked while the state loads stays (tab-choice.js)
   shared.state = await window.pilot.state();
   contactDirty(false);
   showClaudeAuto();
   showMode(shared.state.settings);
   showContact();
-  if (stillDefault()) profileTab('details', {byDefault: true});
+  if (stillDefault()) profileTab('cv', {byDefault: true});
 }
 
 // Connections status, shared by Overview (cards + alert), Connections (Connected / Available + alert) and the

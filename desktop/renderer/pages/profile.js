@@ -24,7 +24,8 @@ import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
 import {showNotify} from './notify-settings.js';
 
-// ---------- Settings → Application profile: tabs (CV & details, Experience, Preferences, Application answers, Cover letter) ----------
+// ---------- Settings → Application profile: tabs (CV, Your details, Experience, Preferences, Application answers, Cover letter) ----------
+// Your details is drawn once with the settings (showContact): switching to it never redraws the form, so unsaved edits stay.
 export function profileTab(name, {byDefault = false} = {}) {
   if (!byDefault) pick();   // a person's pick (or a deep link) wins over a default that arrives late (tab-choice.js)
   if (name === 'knowledge') name = 'answers';   // Form knowledge is a section of Application answers since 16 Oct 2026 (owner)
@@ -38,7 +39,7 @@ export function profileTab(name, {byDefault = false} = {}) {
   else if (name === 'experience') loadExperience();
   else if (name === 'profiletext') loadPreferences();
   else if (name === 'letter') loadLetter();
-  else { loadCvSetting(); showCvChanged(); }
+  else if (name === 'cv') { loadCvSetting(); showCvChanged(); }
 }
 // ---------- Settings → Profile → Cover letter: AI draft -> the user reviews, edits, approves -> PDF ----------
 let letterSaved = '';  // the text as stored: the buttons follow what differs from it
