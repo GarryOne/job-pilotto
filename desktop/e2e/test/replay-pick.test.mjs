@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {GROUPS, MAX, kindOf, pickPinned, pickRows, pickedCount, split} from '../replay-pick.mjs';
+import {GROUPS, MAX, PR_KINDS, kindOf, pickForPr, pickPinned, pickRows, pickedCount, split, staleIn} from '../replay-pick.mjs';
 import {formHostOf, kindFor, load, pinned} from '../lib/replay-ratchet.mjs';
 
 const row = (seconds, site, same = true) => ({same, seconds, site});
@@ -15,10 +15,10 @@ test('only rows 100% same as live in the baseline, quickest first, one per site 
   assert.deepEqual(pickRows({}), [], 'no baseline: nothing (never an uncounted row that cannot be judged)');
 });
 
-test('the rows spread over at most 4 runners, 3 rows each when 12 are picked', () => {
-  assert.equal(GROUPS, 4);
-  assert.equal(split(Array.from({length: MAX}, (_, i) => `r${i}`)).length, 4);
-  assert.deepEqual(split(Array.from({length: MAX}, (_, i) => `r${i}`)).map(group => group.length), [3, 3, 3, 3]);
+test('the rows spread over 2 runners, 4 and 3 rows when 7 are picked', () => {
+  assert.equal(GROUPS, 2);
+  assert.equal(MAX, 7);
+  assert.deepEqual(split(Array.from({length: MAX}, (_, i) => `r${i}`)).map(group => group.length), [4, 3]);
   assert.deepEqual(split(['a', 'b']), [['a'], ['b']]);
   assert.deepEqual(split([]), []);
 });
@@ -36,6 +36,27 @@ test('a PR picks ONE row per kind of form: the platform, or its own name for a s
   assert.equal(pickPinned(many, {hosts: new Map(), kinds: {}}).length, MAX);
   assert.equal(pickedCount(names, hosts, MAX, {}), 4);
   assert.equal(pickedCount(many, new Map(), MAX, {}), MAX);
+});
+
+test('the PR list: 7 kinds, a stale row is skipped with its name, its kind falls back to a healthy row of the same kind', () => {
+  assert.equal(PR_KINDS.length, 7);
+  const names = ['G1', 'G2', 'R1', 'RF', 'C1'];
+  const kinds = {G1: {kind: 'Greenhouse'}, G2: {kind: 'Greenhouse'}, R1: {kind: 'Recruitee'}, RF: {kind: 'Recruitee form'}, C1: {kind: 'Join'}};
+  const wanted = [['Greenhouse'], ['Recruitee', 'Recruitee form'], ['Join'], ['Teamtailor']];
+  const seconds = {G1: 10, G2: 20, R1: 5, RF: 6, C1: 7};
+  const all = pickForPr(names, {seconds, kinds, hosts: new Map(), wanted});
+  assert.deepEqual(all, {picked: ['G1', 'R1', 'C1'], skipped: []}, 'a kind with no pinned row (Teamtailor) picks nothing');
+  const base = {rows: {G1: {same: false}, G2: {same: true}, R1: {same: false}, RF: {same: true}, C1: {same: false}}};
+  const fell = pickForPr(names, {seconds, kinds, hosts: new Map(), wanted, stale: staleIn(base)});
+  assert.deepEqual(fell.picked, ['G2', 'RF'], 'Greenhouse falls back to G2; Recruitee to the other Recruitee kind; Join has none healthy');
+  assert.deepEqual(fell.skipped.sort(), ['C1', 'G1', 'R1']);
+  assert.equal(staleIn({})('x'), false, 'no baseline: nothing is known stale');
+});
+
+test('on the real pins every PR kind has a pinned row', () => {
+  const data = load(), pins = pinned(data);
+  const {picked} = pickForPr(pins, {hosts: new Map(), kinds: data.rows});
+  assert.equal(picked.length, PR_KINDS.length, 'a PR kind has no pinned row: fix PR_KINDS or the pin');
 });
 
 test('the kind of a row is the platform of the host its FORM was on, not of its start address', () => {
@@ -59,7 +80,7 @@ test('on the real pinned rows: every row has a kind, the 3 Greenhouse forms are 
   assert.ok(unpicked.size === 0 || picked.length === MAX, 'a kind goes unpicked while the cap is not reached');
   for (const name of ['Join: form on join.com', 'Swatch Group careers']) if (pins.includes(name)) assert.ok(picked.includes(name) || picked.length === MAX, `${name} is a kind no other row covers`);
   const flow = fs.readFileSync(new URL('../../../.github/workflows/site-replays-pr.yml', import.meta.url), 'utf8');
-  assert.match(flow, new RegExp(`^name: CI · Site replays · PR \\(${pickedCount(pins, pool, MAX, kinds)} of ${pins.length} pinned rows\\)$`, 'm'), 'the name says k of n: update it in the same PR as a pin');
+  assert.match(flow, new RegExp(`^name: CI · Site replays · PR \\(${pickForPr(pins, {hosts: pool, kinds}).picked.length} of ${pins.length} pinned rows\\)$`, 'm'), 'the name says k of n: update it in the same PR as a pin');
 });
 
 test('the PR workflow: starts for the apply flow\'s code and the replay machinery (GitHub paths), red when worse or unfinished, no AI key', () => {
@@ -72,8 +93,8 @@ test('the PR workflow: starts for the apply flow\'s code and the replay machiner
   assert.match(flow, /install --with-deps chromium/, 'Linux needs the browser\'s system libraries');
   assert.match(flow, /a replay runner did not finish/);
   assert.match(flow, /a counted row got worse/);
-  assert.match(flow, /part: \[0, 1, 2, 3\]/, 'one part per runner group: the pick is folded into each part (15 Oct 2026, fewer runner slots)');
-  assert.equal(GROUPS, 4, 'the workflow matrix has GROUPS parts');
+  assert.match(flow, /part: \[0, 1\]/, 'one part per runner group: the pick is folded into each part (15 Oct 2026, fewer runner slots)');
+  assert.equal(GROUPS, 2, 'the workflow matrix has GROUPS parts');
   assert.doesNotMatch(flow, /^  pick:/m, 'no separate pick job');
   assert.match(flow, /node replay-unsame\.mjs/, 'a pinned row not same is replayed once more on its runner');
   assert.match(flow, /--retry "\$RUNNER_TEMP\/retry4"/, 'and the gate counts a pass on the retry as noise');

@@ -5,8 +5,8 @@
 # owner 14 Oct 2026: "only if we touched the apply flow logic code"; "rely fully on gh workflow paths"; later the same day: replay-machinery PRs too): red when a counted row got worse or a runner did not finish.
 # An intended drop is accepted on the PR itself (owner, 14 Oct 2026): label `replay-accepted` + a comment `Replay-accept: <row> — <reason>` (the summary prints the line); site-replays-accept.yml then re-runs
 # only the failed verdict job (and "All checks passed"), which reads the label and comments live, so the gate re-judges the same replays in seconds at $0. Not a required check any more: a workflow `paths:` skips never reports. A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: site-replays.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
-# The name says "<k> of <n> pinned rows": n pinned (desktop/e2e/replay-faithful.json), k replayed = one per kind of form, at most 12 (replay-pick.mjs); tests/test_pinned_rows_name.py and e2e/test/replay-pick.test.mjs fail when a pin changes a count and not the name.
-name: CI · Site replays · PR (12 of 16 pinned rows)
+# The name says "<k> of <n> pinned rows": n pinned (desktop/e2e/replay-faithful.json), k replayed = one per kind of form, the PR_KINDS list, at most 7 (replay-pick.mjs, owner 17 Oct 2026: 7 rows, 2 runners); tests/test_pinned_rows_name.py and e2e/test/replay-pick.test.mjs fail when a pin changes a count and not the name.
+name: CI · Site replays · PR (7 of 16 pinned rows)
 
 on:
   pull_request:
@@ -125,7 +125,7 @@ concurrency:
   cancel-in-progress: true   # a newer push replaces the run
 
 jobs:
-  # Four parts, each picks the rows itself (a separate pick job took a runner slot for ~20 s, 15 Oct 2026: a flow PR started ~25 jobs and PRs waited for runners) and replays
+  # Two parts, each picks the rows itself (a separate pick job took a runner slot for ~20 s, 15 Oct 2026: a flow PR started ~25 jobs and PRs waited for runners) and replays
   # its own group of the pick; a part with no group does nothing. The gate reads which rows ran from the parts' picked.txt, so a baseline that moved between two parts shows, never hides.
   bundles:
     # The release's recordings downloaded ONCE for every job of this run and kept ENCRYPTED (this repo is public: an artifact is readable by anyone; each job decrypts with NET_RECORD_KEY as before).
@@ -169,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [0, 1, 2, 3]   # replay-pick.mjs GROUPS = 4
+        part: [0, 1]   # replay-pick.mjs GROUPS = 2
     env:
       JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
     steps:

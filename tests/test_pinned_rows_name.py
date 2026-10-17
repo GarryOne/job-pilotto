@@ -17,7 +17,7 @@ class PinnedRowsName(unittest.TestCase):
         self.assertIsNotNone(named, 'site-replays-pr.yml: name it "CI · Site replays · PR (<k> of <n> pinned rows)"')
         self.assertEqual(int(named.group(2)), pinned, f'site-replays-pr.yml: the name says {named.group(2)} pinned rows, replay-faithful.json pins {pinned}: update the name in the same PR')
         self.assertLessEqual(int(named.group(1)), int(named.group(2)), 'the PR replays at most the pinned rows (k of n)')
-        # k is one row per kind of form, at most 12: desktop/e2e/test/replay-pick.test.mjs computes it and fails when the name's k is stale.
+        # k is one row per kind of form, the PR_KINDS list (7): desktop/e2e/test/replay-pick.test.mjs computes it and fails when the name's k is stale.
 
 
 if __name__ == '__main__':
