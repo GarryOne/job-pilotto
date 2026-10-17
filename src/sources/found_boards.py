@@ -10,6 +10,7 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 
+from .. import run_counts
 from ..progress import Ticker
 from . import board_routes, careers
 
@@ -100,6 +101,8 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
                       'source_kind': board.get('source_kind') or 'general'})
         board_yield.record(entry, len(found), len(relevant), state)
         print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
+        run_counts.looked(found)
+        run_counts.matched(relevant)
         jobs.extend(found)
         ticker.tick(done, f" · {board['name']}")
     board_ideas.save(data)

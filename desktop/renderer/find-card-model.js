@@ -24,16 +24,26 @@ export function stepChips(log = []) {
   return steps.map(([label], i) => ({label, state: i < active ? 'done' : i === active ? 'active' : 'pending'}));
 }
 
-// running: window.pilot.runs().running; last: the newest finished search run; listed/scored: the Jobs list's counts; finishedHere: a search ended while this window was open.
+// This search's own numbers: the engine's last "Run counts: looked=N matches=M scored=K" line (src/run_counts.py, each job once by its URL).
+const COUNTS = /^Run counts: looked=(\d+) matches=(\d+) scored=(\d+)\s*$/;
+export function runCounts(log = []) {
+  for (let i = log.length - 1; i >= 0; i--) {
+    const found = COUNTS.exec(String(log[i]));
+    if (found) return {looked: Number(found[1]), matches: Number(found[2]), scored: Number(found[3])};
+  }
+  return {looked: 0, matches: 0, scored: 0};
+}
+
+// running: window.pilot.runs().running; last: the newest finished search run; listed/scored: the Jobs list's counts (kept for the none state); finishedHere: a search ended while this window was open.
 export function findCard({running = null, last = null, lastSearchAt = '', listed = 0, scored = 0, finishedHere = false} = {}) {
   const searching = running && (running.kind || 'search') === 'search';
   if (searching) {
     const log = running.log || [];
     const lines = readableLog(log.slice(-60)).filter(line => !/^⏳ Still running/.test(line)).slice(-3);
-    return {state: 'searching', chips: stepChips(log), lines, listed, scored, first: log.some(line => FIRST.test(String(line)))};
+    return {state: 'searching', chips: stepChips(log), lines, ...runCounts(log), first: log.some(line => FIRST.test(String(line)))};
   }
   if (last && last.ok === false && (finishedHere || !listed)) return {state: 'failed', problem: last.problem || last.result || '', listed};
-  if (finishedHere && last) return {state: 'done', listed, found: last.new ?? null};
+  if (finishedHere && last) return {state: 'done', listed, found: last.new ?? null, ...runCounts(last.log)};
   if (!lastSearchAt && !listed) return {state: 'empty'};
   return {state: 'none'};
 }

@@ -1,7 +1,7 @@
 // The Find jobs card on top of Jobs: its five states, the running step, the counts. The page code (pages/jobs-find.js) only draws this.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findCard, stepChips} from '../renderer/find-card-model.js';
+import {runCounts, findCard, stepChips} from '../renderer/find-card-model.js';
 
 const run = log => ({kind: 'search', log});
 
@@ -12,12 +12,12 @@ test('an empty first run offers the big button; a later visit shows nothing', ()
 
 test('a running search shows its steps, last lines in words and the counts; the list grows below', () => {
   const log = ['Finding your first jobs…', 'First jobs: reading 15 of 212 employer sites first', 'First jobs: 9 found', 'Scored 1 of 3 job(s)'];
-  const card = findCard({running: run(log), listed: 9, scored: 1});
+  const card = findCard({running: run([...log, 'Run counts: looked=612 matches=9 scored=1']), listed: 300});
   assert.equal(card.state, 'searching');
   assert.deepEqual(card.chips.map(c => c.state), ['active', 'pending', 'pending', 'pending']);
   assert.equal(card.chips[0].label, 'First jobs');
   assert.ok(card.lines.some(line => /9 jobs found in the first sites/.test(line)), card.lines.join('|'));
-  assert.equal(card.listed, 9);
+  assert.deepEqual([card.looked, card.matches, card.scored], [612, 9, 1], 'this search only, never the list');
 });
 
 test('the steps move on: first jobs, then every employer, then the job boards, then more employers', () => {
@@ -60,4 +60,16 @@ test('no label the app shows still says Refresh jobs or Find new employers', asy
     code.forEach((line, i) => { if (/Find new employers|Refresh jobs|Refreshing jobs/.test(line)) hits.push(`${path.relative(root, file)}:${i + 1}`); });
   }
   assert.deepEqual(hits, []);
+});
+
+test('the last Run counts line wins; a log without one counts 0; the done card keeps the run\'s numbers', () => {
+  assert.deepEqual(runCounts(['Run counts: looked=5 matches=1 scored=0', 'Scored 1 of 1 job(s)', 'Run counts: looked=9 matches=2 scored=1']), {looked: 9, matches: 2, scored: 1});
+  assert.deepEqual(runCounts(['Scored 1 of 3 job(s)']), {looked: 0, matches: 0, scored: 0});
+  const done = findCard({last: {ok: true, new: 4, log: ['Run counts: looked=612 matches=14 scored=9']}, lastSearchAt: 'x', listed: 351, finishedHere: true});
+  assert.deepEqual([done.state, done.looked, done.matches, done.scored], ['done', 612, 14, 9]);
+});
+
+test('the Run counts line is not shown as a log line', async () => {
+  const {readableLog} = await import('../renderer/human-log.js');
+  assert.deepEqual(readableLog(['Run counts: looked=1 matches=0 scored=0']), []);
 });

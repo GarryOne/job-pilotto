@@ -16,6 +16,7 @@ const RULES = [
     if (took >= SLOW_S) return `🐢 ${aiName()} was slow: ${took} s for one answer`;
     return null;
   }],
+  [/^Run counts: /, () => null],   // the Find jobs card's numbers (find-card-model.js runCounts), not a line to read
   [/^(Pool labels|Shared \d+ employer feeds|Pool catch-up|Cronjob run logged|AI: )/, () => null],
   [/^Job Matches: .*\(so far\)$/, () => null],
   [/^Job Matches: (\d+) created, (\d+) updated/, m => (Number(m[1]) + Number(m[2]) ? `📒 Notion Job Matches: ${m[1]} added, ${m[2]} updated` : null)],   // about Notion

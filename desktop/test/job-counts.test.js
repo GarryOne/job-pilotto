@@ -27,8 +27,8 @@ test('the counters count job matches, loaded or not, once', () => {
 test('every count is within the total and the card repeats the counters', () => {
   const count = jobCounts(data, NOW);
   assert.ok(count.scored <= count.total && count.high <= count.scored && count.week <= count.total);
-  const card = findCard({running: {kind: 'search', log: []}, listed: count.total, scored: count.scored});
-  assert.deepEqual([card.listed, card.scored], [count.total, count.scored]);
+  const card = findCard({finishedHere: true, last: {ok: true}, lastSearchAt: 'x', listed: count.total});
+  assert.equal(card.listed, count.total, 'a run without a counts line falls back to the list count, the same one');
 });
 
 test('a list that is not cut has nothing beyond: total is the matches', () => {
