@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
-from . import cost, engine, hints
+from . import cost, engine, hints, locations
 from .models import MAIN_MODEL
 
 # Bump when the prompt or schema changes so every job is re-scored once.
@@ -292,7 +292,7 @@ def _ask(client, model, job, profile, effort, note, schema):
         model=model,
         max_tokens=4000,
         # The profile is identical for every job, so it is cached across requests.
-        system=[{'type': 'text', 'text': SYSTEM + profile + _places_block() + hints.text(hints.load()), 'cache_control': {'type': 'ephemeral'}}],
+        system=[{'type': 'text', 'text': SYSTEM + profile + locations.block_now() + hints.text(hints.load()), 'cache_control': {'type': 'ephemeral'}}],
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}{note}")}],
@@ -309,23 +309,6 @@ def _ask(client, model, job, profile, effort, note, schema):
     return data, response.usage
 
 
-def _places_block():
-    """The person's places as sentences (src/ai/locations.py), never part of the input hash: a change of places re-scores nothing."""
-    from . import locations
-    try:
-        return locations.block(locations.current())
-    except (OSError, ValueError):
-        return ''
-
-
-def _places_fingerprint():
-    from . import locations
-    try:
-        return locations.fingerprint(locations.current())
-    except (OSError, ValueError):
-        return ''
-
-
 def save(db, job, model, data, profile):
     db.executescript(SCORES_TABLE)
     db.execute("""INSERT INTO scores (job_id, scorer_version, input_hash, model, created_at, data_json)
@@ -336,7 +319,7 @@ def save(db, job, model, data, profile):
                 datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 json.dumps({**data, 'method': CURRENT_METHOD, 'scorer_version': SCORER_VERSION,
                             'inputs': input_hash(job, job.get('ai'), profile)[:12], 'job_hash': job_hash(job, job.get('ai')),
-                            'locations': _places_fingerprint()}, ensure_ascii=False)))
+                            'locations': locations.fingerprint_now()}, ensure_ascii=False)))
     db.commit()
 
 

@@ -59,6 +59,21 @@ def fingerprint(search):
     return hashlib.sha256(json.dumps(meaning, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
 
 
+def block_now():
+    """block() of the settings as they are now; '' when they cannot be read. Never part of a score's input hash: a change of places re-scores nothing."""
+    try:
+        return block(current())
+    except (OSError, ValueError):
+        return ''
+
+
+def fingerprint_now():
+    try:
+        return fingerprint(current())
+    except (OSError, ValueError):
+        return ''
+
+
 def previous(scores, search):
     """Job ids whose score used other places than these ("based on previous preferences"). Scores that recorded none are not marked."""
     now = fingerprint(search)
