@@ -16,6 +16,7 @@ Why each rule exists: [why.md](why.md#desktop-ui).
   `npm run shot -- <page> --js "<force the state>" --select '#id'` (~5 s); `--eval "…" --no-picture` reads `window.__jp` as JSON; `--reload` tests after ⌘R.
 - **The full reference set** (`npm run ui-shots`): only for big changes, about daily, or when the owner asks.
 - **PR images: at most 5 before/after pairs, usually 1-2** (owner, 17 Oct 2026; `tools/pr-body.sh` refuses more than 10 images).
+- **PR images are published with `node tools/pr-assets.mjs pr-assets-<branch> <png>...` (a git tag + raw URL), never `gh release create`**: a normal release becomes "Latest" and the Download link points at it (17 Oct 2026; `tests/test_release_guard.py`, hourly `release-guard.yml`).
 - A screenshot tool that fails for tooling reasons: drop it once, say so; don't sink time into it.
 
 ## Reuse, never one-off

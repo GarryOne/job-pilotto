@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases), plus each platform's newest beta.
 # Older pre-releases lose their release page and files; their git tags stay (friends' Always on runs point at tags).
+# Only desktop-v* releases are ever pruned (a pre-release of anything else is not a test build).
 # Runs after each desktop build (desktop.yml); by hand: tools/prune-releases.sh [how many test builds to keep, default 3]
 # Also kept: the canary, the oldest test build newer than stable, so it can age 48 h and be auto-promoted
 # (tools/canary_promote.py; the owner's app stays on it for that trial). After 7 days it's dropped too (it had
@@ -14,7 +15,7 @@ releases=$(gh release list -R "$repo" -L 1000 --json tagName,isPrerelease,isDraf
 canary=$(python3 "$(dirname "$0")/canary_promote.py" --canary <<<"$releases")
 # Each platform's newest beta stays (7 Oct 2026: four failed builds deleted desktop-v0.5.16, the only Windows beta). Needs the release notes: the API, not `gh release list`.
 betas=$(gh api "repos/$repo/releases?per_page=100" | python3 "$(dirname "$0")/canary_promote.py" --beta-kept)
-jq -r '[.[] | select(.isPrerelease and (.isDraft | not))] | sort_by(.createdAt) | reverse | .['"$keep"':][] | .tagName' <<<"$releases" |
+jq -r '[.[] | select(.isPrerelease and (.isDraft | not) and (.tagName | test("^desktop-v")))] | sort_by(.createdAt) | reverse | .['"$keep"':][] | .tagName' <<<"$releases" |
 while read -r tag; do
   [ "$tag" = "$canary" ] && { echo "Kept canary $tag (auto-promote candidate)"; continue; }
   grep -qxF "$tag" <<<"$betas" && { echo "Kept $tag: a platform's newest beta"; continue; }

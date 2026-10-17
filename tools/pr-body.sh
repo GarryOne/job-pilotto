@@ -24,7 +24,7 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
   # "No screenshots: <why>" when nothing visible changed (an API route in site/src). Screens: the app's window, the site's pages, the extension's pages and styles.
   screens="$(git diff --name-only "$base"..HEAD | grep -E '^(desktop/renderer/|site/src/|site/public/)|^(desktop|extension)/.*\.(html|css)$' | head -3 | paste -sd ' ' - || true)"
   if [ -n "$screens" ] && ! grep -qiE '!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp)\)|<img |^No screenshots: .{8,}' "$summary"; then
-    echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: tag pr-assets-<branch>), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
+    echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: `node tools/pr-assets.mjs pr-assets-<branch> <png>...` publishes a git tag, NEVER a release), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi
   # At most 5 before/after pairs, usually 1-2 (owner, 17 Oct 2026): more than 10 images is refused.
   images="$(grep -oiE '!\[[^]]*\]\([^)]+\)|<img ' "$summary" | wc -l | tr -d ' ' || true)"
