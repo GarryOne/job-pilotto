@@ -13,7 +13,7 @@ import * as verdicts from '../lib/question-verdicts.js';
 import * as knowledge from '../lib/knowledge.js';
 import {onlyThisJob} from '../lib/question-lists.js';
 
-const fresh = () => { const s = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-twice-')), {encrypt: v => v, decrypt: v => v}); s.saveSettings({store: 'sqlite'}); return s; };
+const fresh = () => { const s = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-twice-')), {encrypt: v => v, decrypt: v => v}); s.saveSettings({store: 'sqlite', telemetry: false}); return s; };
 const NO = questions.NO_ANSWER;
 const run = (url, ...labels) => ({url, trace: labels.map(label => ({required: true, reason: NO, label}))});
 // The AI's fixed answer: every question reusable, its topic by meaning (a fake: notice period in German or English is one topic).

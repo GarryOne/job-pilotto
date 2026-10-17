@@ -253,7 +253,7 @@ export function registerApplyHandlers(ctx) {
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve({list: storage.settings().openQuestions || [], hidden: storage.settings().hiddenQuestions || []}) : questionLists.openShown(storage))
     .then(({list, hidden, consent = 0}) => ({ok: true, list, hidden, consent}), error => ({ok: false, error: error.message, list: [], hidden: []})));
   ipcMain.handle('jobQuestions', (_, url) => questionLists.jobQuestions(storage, url));
-  ipcMain.handle('jobQuestionOnly', (_, question) => (DEMO ? {ok: true} : needsNotion('answers') || questionLists.onlyThisJob(storage, String(question || '')).catch(error => ({ok: false, error: error.message}))));
+  ipcMain.handle('jobQuestionOnly', (_, question) => (DEMO ? {ok: true} : needsNotion('profile') || questionLists.onlyThisJob(storage, String(question || '')).catch(error => ({ok: false, error: error.message}))));
   // Profile → Needs review: the AI's verdict per open question (kept per question), filtered in the window by the same rule.
   // unmarked: the labels whose line carries no kind mark (the AI judges those once, lib/question-formats.js).
   ipcMain.handle('questionVerdicts', (_, labels, unmarked) => (DEMO ? Promise.resolve({verdicts: storage.settings().questionVerdicts || {}, formats: storage.settings().questionFormats || {}})
