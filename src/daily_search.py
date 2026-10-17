@@ -2,14 +2,14 @@
 ledger, build the digest, send it to Telegram, save and log the run. `search(args, stores)` returns the exit code. The data is the
 active store's (src/stores: open once, passed down), on every store; this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
-tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
+tests/test_contribute.py, tests/test_watch.py, tests/test_score.py, tests/test_source_yield.py.
 """
 import json
 import random
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, ledger_store, notify, scout, store, telegram
+from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, ledger_store, notify, scout, source_yield, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
@@ -27,6 +27,7 @@ def ai_ready():
 def search(args, stores=None):
     stores = stores or open_run()
     run = new_cron_run(args.mode)
+    started = datetime.now(timezone.utc).isoformat(timespec='seconds')   # a job first seen from now on is new (src/source_yield.py)
     spend = None
     if args.mode in ('scheduled', 'run', 'today'):
         # AI budget: at 90% of the month's limit the optional AI steps pause; alerts are sent at the end.
@@ -247,6 +248,10 @@ def search(args, stores=None):
             except Exception as error:
                 print(f'Warning: Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
+            try:   # which sources gave this search its relevant jobs, kept per run (src/source_yield.py); never stops a search
+                source_yield.run(db, started)
+            except Exception as error:  # noqa: BLE001
+                print(f'Warning: source yield not measured: {type(error).__name__}: {error}')
         if args.mode == 'scheduled':
             # Application ledger (src/ledger_store.py, any store): log Stage edits, and mark silent applications No response.
             try:
