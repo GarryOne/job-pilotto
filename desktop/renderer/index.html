@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="job-drawer.css">
+<link rel="stylesheet" href="question-review.css">
 <link rel="stylesheet" href="plan.css">
 <link rel="stylesheet" href="menu.css">
 <link rel="stylesheet" href="actions-layout.css">
@@ -327,15 +328,20 @@
         <button class="stat sky" data-stat="inbound" aria-pressed="false" title="Opportunities that found you (a recruiter, a LinkedIn message, a call), every stage"><span class="stat-icon"><i data-icon="chat"></i></span><div><b id="stat-inbound">–</b><span>Inbound</span></div></button>
         <button class="stat violet" data-stat="companies" aria-pressed="false"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></button>
       </div>
-      <details class="questions" id="questions" hidden>
-        <summary><b>✍️ Answer once</b><span class="ui-pill tone-signal" id="questions-count"></span><span class="muted small">used in every application</span></summary>
-        <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Each answer goes to its place: a fact
-          about you (work permit, notice, salary, a language) to Profile → Your details, anything else to your standard answers<span data-notion-only> in Notion</span>;
-          redraft a job's kit (↻) to use it there.</p>
-        <p class="message error" id="questions-error" hidden></p>
-        <button class="secondary" id="questions-retry" hidden>Retry</button>
-        <div id="questions-list"></div>
-      </details>
+      <!-- Application questions (pages/jobs-questions.js): one compact card; the questions are reviewed one at a time in a drawer (pages/question-review.js). -->
+      <section class="card qr-card" id="questions" hidden aria-labelledby="questions-title">
+        <span class="qr-card-icon"><i data-icon="chat"></i></span>
+        <div class="qr-card-text">
+          <p class="qr-card-title"><b id="questions-title">Application questions</b><span class="ui-pill tone-warn" id="questions-count"></span></p>
+          <p class="muted">Review missing answers and suggested matches.</p>
+          <p class="message error" id="questions-error" hidden></p>
+        </div>
+        <div class="qr-card-actions">
+          <button class="primary" id="questions-review" type="button">Review questions <i data-icon="chevron"></i></button>
+          <button class="secondary" id="questions-retry" type="button" hidden>Retry</button>
+          <a href="#" class="link small" id="questions-manage">Manage saved answers →</a>
+        </div>
+      </section>
       <details class="card jobs-talking" id="jobs-talking" open hidden>
         <summary><h2>In conversation</h2><span class="muted small" id="jobs-talking-count"></span></summary>
         <ol class="focus-list" id="jobs-talking-list"></ol>
@@ -1618,6 +1624,11 @@
   <div class="job-drawer-layer" id="job-drawer-layer" hidden>
     <div class="job-drawer-backdrop" id="job-drawer-backdrop"></div>
     <aside class="job-drawer" id="job-panel" role="dialog" aria-label="Job details"></aside>
+  </div>
+  <!-- Application questions, one at a time (pages/question-review.js): the job drawer's frame and overlay slot, never stacked over it or Recent activity. -->
+  <div class="job-drawer-layer" id="review-drawer-layer" hidden>
+    <div class="job-drawer-backdrop" id="review-drawer-backdrop"></div>
+    <aside class="job-drawer review-drawer" id="review-panel" role="dialog" aria-label="Application questions"></aside>
   </div>
 
   <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->

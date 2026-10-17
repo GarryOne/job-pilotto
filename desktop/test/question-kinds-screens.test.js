@@ -18,17 +18,21 @@ const kindsIn = node => node.querySelectorAll('[data-answer-kind]').map(control 
 const isChoice = control => control.tagName === 'SELECT' || control.className.includes('segmented');
 
 const SCREENS = {
-  'Jobs → Answer once': async () => {
-    for (const id of ['questions', 'questions-count', 'questions-list', 'questions-error', 'questions-retry']) {
-      const node = globalThis.document.createElement(id === 'questions' ? 'details' : 'div');
+  // Jobs' card opens the review drawer (pages/question-review.js): one question at a time; walking the queue draws each one's control.
+  'Jobs → Application questions → review drawer': async () => {
+    for (const id of ['questions', 'questions-count', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-panel']) {
+      const node = globalThis.document.createElement('div');
       node.id = id;
       body.append(node);
     }
     const calls = {state: async () => ({settings: {}}), openQuestions: async () => ({list: EXAMPLES.map((each, i) => ({key: `b${i}`, question: each.question, company: 'Adnovum', format: formatFor({marked: each.mark})})), hidden: []})};
     globalThis.window.pilot = new Proxy(calls, {get: (all, key) => all[key] || (() => null)});
-    const {loadQuestions} = await import('../renderer/pages/jobs-questions.js');
-    await loadQuestions({force: true});
-    return globalThis.document.getElementById('questions-list');
+    const {openQuestionReview} = await import('../renderer/pages/question-review.js');
+    await openQuestionReview({force: true});
+    const seen = globalThis.document.createElement('div');
+    const panel = globalThis.document.getElementById('review-panel');
+    for (const _ of EXAMPLES) { seen.append(panel.querySelector('[data-answer-kind]')); panel.querySelector('#qr-skip').click(); }
+    return seen;
   },
   'Profile → Application answers → Needs review': async () => {
     const node = globalThis.document.createElement('div');
@@ -42,7 +46,7 @@ const SCREENS = {
     await loadApplicationAnswers();
     await new Promise(resolve => setTimeout(resolve, 10));   // the verdicts arrive and the tab redraws
     // Open every Needs review row: its answer control is drawn open.
-    node.querySelector('#answers-review-go')?.listeners.click[0]();   // the banner opens Needs review
+    node.querySelectorAll('.segmented button').find(button => button.dataset.view === 'review').listeners.click[0]();   // the Needs review list
     for (const button of node.querySelectorAll('.is-review .qa-add')) button.listeners.click?.forEach(fn => fn({}));
     return node.querySelector('.is-review');
   },

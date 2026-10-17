@@ -1,14 +1,11 @@
-// A standard-answer question's Save waits for an answer: enabled on an empty field it did nothing, which read as broken (UI loop #64).
+// A question's Confirm waits for an answer: an enabled Save on an empty field did nothing, which read as broken (UI loop #64). Since 17 Oct 2026
+// questions are answered in the review drawer (pages/question-review.js): Confirm & next starts disabled and follows the answer control.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-test('question Save starts disabled and follows the answer field', () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/jobs-questions.js', import.meta.url), 'utf8');
-  const body = source.slice(source.indexOf("textContent: 'Save'"), source.indexOf("skip.addEventListener('click'"));
-  assert.match(body, /save\.disabled = true;/);
-  // The answer control (renderer/question-control.js, any kind) tells Save when it holds an answer.
-  const all = source.slice(source.indexOf('answerControl(q.format'), source.indexOf("skip.addEventListener('click'"));
-  assert.match(all, /answerControl\(q\.format, [^\n]*value => \{ save\.disabled = !String\(value\)\.trim\(\); \}/);
-  assert.match(body, /save\.disabled = !String\(input\.value\)\.trim\(\); \}/);
+test('Confirm & next starts disabled on an empty answer and follows the answer control', () => {
+  const source = fs.readFileSync(new URL('../renderer/pages/question-review.js', import.meta.url), 'utf8');
+  assert.match(source, /confirm\.disabled = state\.busy \|\| !String\(value\)\.trim\(\);/, 'the control tells Confirm when it holds an answer');
+  assert.match(source, /confirm\.disabled = state\.busy \|\| !String\(control\.value\)\.trim\(\);/, 'drawn disabled when the answer is empty');
 });
