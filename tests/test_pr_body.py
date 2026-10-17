@@ -96,6 +96,18 @@ class PrBodyTest(unittest.TestCase):
         git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a test')
         self.assertEqual(run(ok + 'No visual: a test only\n').returncode, 0, 'a change to no screen needs no image')
 
+    def test_more_than_five_before_after_pairs_are_refused(self):
+        # Owner, 17 Oct 2026: "max 5 pairs". Ten images pass, eleven are refused, and the message names the rule.
+        head = '### ✅ X\n\n- **Why:** the owner saw it\n- **Impact:** the page reads right\n\n**Unblocks:** the next PR\n\n| Area | Impact | How |\n|---|---|---|\n| Real users | ⚪ Low | x |\n| Form filling | — None | x |\n| Admin data accuracy | — None | x |\n| Offline replays | — None | x |\n| Tests & harness | 🟢 High | x |\n| Development speed | ⚪ Low | x |\n| Cost | — None | x |\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\n'
+        summary = self.tmp / 'many.md'
+        def run(count):
+            summary.write_text(head + ''.join(f'![i{n}](https://x/{n}.png)\n' for n in range(count)))
+            return subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run(10).returncode, 0)
+        result = run(11)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('at most 5 before/after pairs', result.stderr)
+
     def test_the_summary_needs_an_emoji_verdict_an_unblocks_line_and_a_rated_row_per_area(self):
         # Owner, 15 Oct 2026: "drop the chart; more visual presence (colours, emoticons); the impact, how it helps, what it unblocks, on what category".
         areas = {'Real users': '🟢 High', 'Form filling': '🟡 Medium', 'Admin data accuracy': '⚪ Low', 'Offline replays': '— None',

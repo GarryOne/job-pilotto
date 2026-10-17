@@ -15,6 +15,7 @@ Why each rule exists: [why.md](why.md#desktop-ui).
 - **Tier 1** (a feature, a screen or state): one targeted shot of the whole surrounding view at real size, compared with its siblings:
   `npm run shot -- <page> --js "<force the state>" --select '#id'` (~5 s); `--eval "…" --no-picture` reads `window.__jp` as JSON; `--reload` tests after ⌘R.
 - **The full reference set** (`npm run ui-shots`): only for big changes, about daily, or when the owner asks.
+- **PR images: at most 5 before/after pairs, usually 1-2** (owner, 17 Oct 2026; `tools/pr-body.sh` refuses more than 10 images).
 - A screenshot tool that fails for tooling reasons: drop it once, say so; don't sink time into it.
 
 ## Reuse, never one-off

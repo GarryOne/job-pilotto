@@ -26,6 +26,9 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
   if [ -n "$screens" ] && ! grep -qiE '!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp)\)|<img |^No screenshots: .{8,}' "$summary"; then
     echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: tag pr-assets-<branch>), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi
+  # At most 5 before/after pairs, usually 1-2 (owner, 17 Oct 2026): more than 10 images is refused.
+  images="$(grep -oiE '!\[[^]]*\]\([^)]+\)|<img ' "$summary" | wc -l | tr -d ' ' || true)"
+  [ "$images" -le 10 ] || { echo "pr-body: $images images; the rule is at most 5 before/after pairs (10 images), usually 1-2: keep the pairs that show the change (docs/rules/desktop-ui.md)" >&2; exit 2; }
 fi
 # Laid out for GitHub (owner, 15 Oct 2026: headings, sizes, spacing; a run id is a link): tools/pr-body-format.py, the repo from the origin remote.
 repo="$(git remote get-url origin 2>/dev/null | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##' | grep -E '^[^/ ]+/[^/ ]+$' || true)"
