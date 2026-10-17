@@ -27,8 +27,10 @@ export function proposedTexts(parse, current = {}) {
   out.relocation = relocation.answer === 'unknown' || !relocation.answer ? ''
     : `${{yes: 'Yes', no: 'No', maybe: 'Maybe'}[relocation.answer]}${relocation.where ? ` (${relocation.where})` : ''}`;
   out.roles = [...(parse.roles || [])].sort((a, b) => (a.certainty === 'sure' ? 0 : 1) - (b.certainty === 'sure' ? 0 : 1)).map(role => role.title).join(', ');
-  const {min, max} = parse.seniority || {}, low = SENIORITY_TEXT[min] || SENIORITY_TEXT[max] || '', high = SENIORITY_TEXT[max] || low;
-  out.seniority = low && high !== low ? `${low} to ${high}` : low;
+  // A range reads "Senior to Staff"; "or higher" only when the AI says the top is open (the text said "or higher", not "is fine too").
+  const {min, max, open_ended: open} = parse.seniority || {};
+  const one = SENIORITY_TEXT[min] && SENIORITY_TEXT[max] && min !== max ? '' : SENIORITY_TEXT[max] || SENIORITY_TEXT[min] || '';
+  out.seniority = one || (SENIORITY_TEXT[min] && SENIORITY_TEXT[max] ? `${SENIORITY_TEXT[min]} to ${max === 'staff' && !open ? 'Staff' : SENIORITY_TEXT[max]}` : '');
   const kinds = [...new Set(parse.employment || [])];
   out.employment = !kinds.length ? '' : kinds.length === 1 && kinds[0] === 'permanent' ? 'Permanent only' : kinds.length === 1 && kinds[0] === 'contract' ? 'Contract only'
     : kinds.length === 2 && kinds.includes('permanent') && kinds.includes('contract') ? 'Permanent or contract' : kinds.map(kind => EMPLOYMENT_TEXT[kind]).join(', ');

@@ -178,7 +178,7 @@ function draw(view, into) {
   }
   const others = el('div', 'form-grid cols-2 pref-body');
   if (other.length) for (const item of other) others.append(itemField(view, item));
-  else others.append(el('p', 'muted span-all', 'Nothing else yet: rows you add to your Profile\'s Preferences show here.'));
+  else if (!note) others.append(el('p', 'muted span-all', 'Nothing else yet: rows you add to your Profile\'s Preferences show here.'));
   if (note) others.append(noteBox(view, note));
   into.append(card('other', others));
   if (rest.length) {
