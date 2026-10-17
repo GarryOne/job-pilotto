@@ -17,6 +17,10 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_guard import desktop_only, is_desktop  # noqa: E402  (only desktop-v* releases are ever stable, 17 Oct 2026)
 
 REPO = 'GarryOne/job-pilotto'
 STABLE, BETA, BUILD, PREVIOUS = '✅ STABLE', '🧪 BETA (release candidate)', '🔨 Build', '📦 Previous stable'
@@ -31,7 +35,7 @@ def base_name(name):
 
 def state_of(release, approved):
     """'stable' | 'previous' | 'beta' | 'build' for one release (draft releases are left alone by the caller)."""
-    if release.get('isLatest'):
+    if release.get('isLatest') and is_desktop(release.get('tagName')):
         return 'stable'
     if not release.get('isPrerelease'):
         return 'previous'
@@ -73,6 +77,7 @@ def _gh(*args):
 def main(argv):
     dry = '--dry-run' in argv
     releases = [r for r in json.loads(_gh('release', 'list', '-R', REPO, '-L', '40', '--json', 'name,tagName,isPrerelease,isLatest,isDraft')) if not r.get('isDraft')]
+    releases = desktop_only(releases)   # a screenshot or other release is never relabelled, whatever GitHub calls it
     approved = set()
     for r in releases:
         if r.get('isPrerelease'):

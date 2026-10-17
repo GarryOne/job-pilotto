@@ -42,6 +42,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_guard import is_desktop  # noqa: E402  (only desktop-v* tags are ever stable or candidates)
+
 REPO = 'GarryOne/job-pilotto'
 MIN_AGE = timedelta(hours=48)
 CANARY_WINDOW = timedelta(days=7)   # a canary not promoted within 7 days is dropped; the next build takes over
@@ -106,9 +109,9 @@ def issue_text(issue):
 
 
 def _newer_than_stable(releases):
-    stable = next((r for r in releases if r.get('isLatest')), None)
+    stable = next((r for r in releases if r.get('isLatest') and is_desktop(r.get('tagName'))), None)   # only a desktop-v* tag is ever stable
     stable_key = version_key(version_of(stable['tagName'])) if stable else None
-    return stable, [r for r in releases if r.get('isPrerelease') and not r.get('isDraft')
+    return stable, [r for r in releases if is_desktop(r.get('tagName')) and r.get('isPrerelease') and not r.get('isDraft')
                     and (stable is None or version_key(version_of(r['tagName'])) > stable_key)]
 
 

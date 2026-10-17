@@ -1,0 +1,26 @@
+name: Release · Guard Latest
+# Only a desktop-v* release may be Latest (the website's Download link and the updater follow it). Hourly: when something else holds Latest, tools/release_guard.py
+# re-points it to the newest stable desktop release and tells Telegram (17 Oct 2026: a PR-screenshot release became Latest for ~1h20m).
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # gh release edit
+
+concurrency:
+  group: release-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 tools/release_guard.py
