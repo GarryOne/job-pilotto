@@ -15,6 +15,7 @@ import time
 from ..paths import DATA
 from .models import SMALL_MODEL
 from . import providers
+from .providers.contract import named
 
 MODEL = SMALL_MODEL
 BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
@@ -143,7 +144,7 @@ def decide(locations, search, client=None):
                 if country.lower() in needs:
                     decided[location] += ':visa'
         except Exception as error:  # noqa: BLE001 — placed without the visa answer; asked with the next new places
-            print(f'Warning: visa needs not answered ({type(error).__name__})', flush=True)
+            print(f'Warning: visa needs not answered ({named(error)})', flush=True)
     budget.record('place_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
     with LOCK:
         data = _load()

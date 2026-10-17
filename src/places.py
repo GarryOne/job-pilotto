@@ -12,6 +12,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from .ai.models import SMALL_MODEL
+from .ai.providers.contract import named
 
 MODEL = SMALL_MODEL
 MAX_WORDS = 12          # place words asked about in one call
@@ -174,4 +175,4 @@ def refresh_quietly():
         from .paths import CONFIG
         refresh(json.loads((CONFIG / 'search.json').read_text()))
     except Exception as error:  # noqa: BLE001 — the places stay as the user wrote them
-        print(f'Warning: place words not worked out ({type(error).__name__}); matching them as written.')
+        print(f'Warning: place words not worked out ({named(error)}); matching them as written.')

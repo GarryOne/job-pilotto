@@ -17,6 +17,7 @@ from ..paths import DATA, load_search_config
 from . import ats, careers
 from ..ai.models import SMALL_MODEL
 from .visits_portals import PORTALS, INDEED, _plain_words, portals, unread_picks   # noqa: F401
+from ..ai.providers.contract import named
 
 STORE = DATA / 'visits.json'
 STALE_DAYS = 7          # a page read longer ago is offered for a visit again (its jobs come and go)
@@ -147,7 +148,7 @@ def relevant(items, search, client=None):
             numbers = {int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('keep') or [] if str(n).isdigit()}
             kept = [items[n - 1]['url'] for n in sorted(numbers) if 1 <= n <= len(items)]
         except Exception as error:  # noqa: BLE001 — every site this time
-            print(f'Visit list: not sorted by AI ({type(error).__name__}); every site is offered', file=sys.stderr)
+            print(f'Visit list: not sorted by AI ({named(error)}); every site is offered', file=sys.stderr)
             return items
         with LOCK:
             data = _load()

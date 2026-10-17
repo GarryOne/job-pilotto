@@ -36,6 +36,24 @@ class AiLimit(AiError):
         self.final = final
 
 
+def error_facts(error):
+    """What the log needs to tell a limit from a bad key or a wrong model, from any provider's error: "HTTP 429 insufficient_quota, model gpt-x, engine openai".
+    Only the status, the code, the model asked for and the engine (stamped by Adapter.create): never the message text, which can echo a key or a prompt."""
+    body = getattr(error, 'body', None)
+    body = body.get('error', body) if isinstance(body, dict) else {}
+    code = getattr(error, 'code', None) or (body.get('code') or body.get('type') if isinstance(body, dict) else '')
+    status = getattr(error, 'status_code', None) or getattr(error, 'ai_status', None)
+    parts = [f'HTTP {status}' + (f' {code}' if code else '') if status else (str(code) if code else ''),
+             f'model {error.ai_model}' if getattr(error, 'ai_model', '') else '', f'engine {error.ai_engine}' if getattr(error, 'ai_engine', '') else '']
+    return ', '.join(part for part in parts if part)
+
+
+def named(error):
+    """The error for a log line: its class name, then its facts: "AiLimit (HTTP 401 invalid_api_key, model gpt-x, engine openai)"."""
+    facts = error_facts(error)
+    return f'{type(error).__name__} ({facts})' if facts else type(error).__name__
+
+
 # ---------- the request ----------
 
 @dataclass(frozen=True)
@@ -181,7 +199,14 @@ class Adapter:
         if self._fallen is not None:
             return self._fallen.messages.create(**params)
         try:
-            return self.complete(request)
+            try:
+                return self.complete(request)
+            except Exception as error:   # every provider's error leaves with the model and engine it was asked on (named() in the log lines)
+                try:
+                    error.ai_model, error.ai_engine = request.model, self.name
+                except Exception:   # noqa: BLE001 — an error that takes no attributes is logged without them
+                    pass
+                raise
         except AiLimit as error:
             if not self.fallback or error.final:
                 raise

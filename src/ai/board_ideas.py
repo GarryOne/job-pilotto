@@ -10,6 +10,7 @@ import re
 import urllib.parse
 
 from .models import SMALL_MODEL
+from .providers.contract import named
 
 MODEL = SMALL_MODEL
 MAX_BOARDS = 12
@@ -106,7 +107,7 @@ def ideas(search, client=None):
             raise RuntimeError(f'stopped with {response.stop_reason}')
         answer = json.loads(next(block.text for block in response.content if block.type == 'text')).get('boards') or []
     except Exception as error:  # noqa: BLE001 — the fixed boards and the shared ones still run
-        print(f'Job boards: none proposed this time ({type(error).__name__}); the known boards still run', flush=True)
+        print(f'Job boards: none proposed this time ({named(error)}); the known boards still run', flush=True)
         return shared
     found = list({b['host']: b for b in (valid(item) for item in answer) if b}.values())[:MAX_BOARDS]
     data.setdefault('ideas', {})[key] = found
