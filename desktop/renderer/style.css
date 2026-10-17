@@ -1583,6 +1583,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .ap-head .ap-filter.is-active { color: var(--signal-ink); background: var(--signal-soft); border-color: var(--signal-line); }
 /* The warnings card: a circled alert, a headline that says what it means for you, its actions, and a fold. */
 .activity-warnings { align-items: flex-start; }
+.activity-partial { display: flex; gap: var(--sp-2); align-items: center; margin: 0; }   /* the one line under a result card when a few sources did not answer */
 /* Folded to its headline the card is one line tall: icon, words and chevron share its centre (with the icon pinned to
    the top of an unfolded card, which is where the headline is). */
 .activity-warnings.is-folded { align-items: center; }
