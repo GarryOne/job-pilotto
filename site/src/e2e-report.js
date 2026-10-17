@@ -125,11 +125,11 @@ export async function runReport(request, env, fetcher = fetch) {
 
 // GET /admin/e2e (the page), ?json=1 (the runs), ?steps=<artifact> (a suite's steps.json), /admin/e2e/trace/<artifact>/<trace-file>.zip (for the viewer).
 
-// /admin/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to /admin/self-healing.
+// /admin/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to the E2E tab, /admin/operations/e2e.
 export async function view(request, env, fetcher = fetch) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const {pathname} = new URL(request.url);
-  if (!/^\/admin\/e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/self-healing', 'Cache-Control': 'no-store'}});
+  if (!/^\/admin\/e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/operations/e2e', 'Cache-Control': 'no-store'}});
   if (!env.GITHUB_TOKEN) return Response.json({error: 'GITHUB_TOKEN is not set on the site'}, {status: 503, headers: {'Cache-Control': 'no-store'}});
   try { return await runReport(request, env, fetcher); } catch (error) {
     console.log('e2e report', error.message);
