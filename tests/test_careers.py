@@ -198,6 +198,18 @@ class CatalogTests(unittest.TestCase):
             list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Portugal']))
             self.assertEqual(len(asked), 2, 'kept a week, per country')
 
+    def test_a_big_country_also_gets_its_companies_without_a_head_count(self):
+        """18 Oct 2026 (owner): small companies and startups in every country, behind the bigger ones."""
+        import urllib.parse
+        big = [{'label': {'value': f'Co {i}'}, 'site': {'value': f'https://c{i}.de'}, 'employees': {'value': '50'}} for i in range(250)]
+        def get(url, **_):
+            staffed = 'FILTER(?staff >= 30)' in urllib.parse.unquote(url)
+            return {'results': {'bindings': big if staffed else big[:1] + [{'label': {'value': 'Zauber'}, 'site': {'value': 'https://zauber.tech'}}]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            found = list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Germany']))
+        self.assertEqual(len(found), 251)
+        self.assertEqual((found[-1]['name'], found[-1]['priority']), ('Zauber', 45))
+
     def test_one_country_down_leaves_the_others_and_no_country_means_switzerland(self):
         rows = {'results': {'bindings': [{'label': {'value': f'Co {i}'}, 'site': {'value': f'https://c{i}.ch'}, 'employees': {'value': '50'}} for i in range(250)]}}
         def get(url, **_):

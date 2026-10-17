@@ -40,7 +40,7 @@ from .scout_core import (  # noqa: F401 -- re-exported: other modules and tests 
     DEFAULT_BATCH, EMPLOYERS_DB, HN_THREADS, MAX_BATCH, RECHECK_DAYS, SEEDS, SEED_ORIGINS, SMALL_GUESS, TABLES, TECH_LIST_ORIGINS,
     TIER1_MIN_RELEVANT, _SEARCH, _get_json, _get_text, batch_for, clean_name, key_for, now, pending_count)
 from .scout_candidates import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
-    LOCATION_WORDS, ROLE_WORDS, WIKIDATA_MAX_AGE, WIKIDATA_MIN_ROWS, WIKIDATA_QUERY, WIKIDATA_TIMEOUT_S, _seed_candidates,
+    LOCATION_WORDS, ROLE_WORDS, WIKIDATA_MAX_AGE, WIKIDATA_QUERY, WIKIDATA_TIMEOUT_S, _seed_candidates,
     hacker_news_candidates, harvest, local_company_candidates, search_countries, seed_candidates, skipped_origins, starter_list,
     swissdevjobs_candidates, whiteboards_candidates, wikidata_candidates, wikidata_query, wikidata_rows)
 from .scout_probe import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
