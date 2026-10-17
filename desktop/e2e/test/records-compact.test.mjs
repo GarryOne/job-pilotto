@@ -27,7 +27,6 @@ function fakeGh(store, {noDigest = false, corruptBackup = false, onUpload = () =
   const dirOf = tag => { if (!store.has(tag)) throw new Error('release not found'); return store.get(tag); };
   const flag = (a, name) => a[a.indexOf(name) + 1];
   const gh = a => {
-    const [, verb, tag] = a[0] === 'release' ? a : [];
     if (a[0] !== 'release') throw new Error('unexpected ' + a.join(' '));
     if (a[1] === 'view') { const d = dirOf(a[2]); return JSON.stringify({assets: fs.readdirSync(d).map(name => ({name, size: fs.statSync(path.join(d, name)).size, ...(noDigest ? {} : {digest: 'sha256:' + sha256(path.join(d, name))})}))}); }
     if (a[1] === 'create') { store.set(a[2], tmp()); return ''; }
@@ -48,7 +47,6 @@ function setup() {
   put('net-records-20261017T000000Z-g1', rowDir(rows, 'gamma', 3000, 'g'));
   return {priv, pub, work, live, store};
 }
-const noteOf = (dir, enc, name, priv) => { const into = tmp(); execFileSync('openssl', ['pkeyutl', '-decrypt', '-inkey', priv, '-pkeyopt', 'rsa_padding_mode:oaep', '-in', path.join(dir, name + '.k.enc'), '-out', path.join(into, 'k')], {stdio: 'ignore'}); return into; };
 
 test('compaction backs up every asset, keeps the newest record per row, then removes the old assets', () => {
   const {priv, pub, work, live, store} = setup();
