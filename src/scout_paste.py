@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from .scout_candidates import harvest
-from .scout_core import key_for
+from .scout_core import ensure_tables, key_for
 
 PRIORITY = 96            # before the AI's ideas (92) and the role search (91): the user asked for these names now
 MAX_TEXT = 30000
@@ -51,6 +51,7 @@ def add(db, text, client=None, get=None, search=None):
         client = engine.client(action='scout')
     intro = f'Page: {address}\n\n' if address else 'Text the user pasted from a page:\n\n'
     answer, _ = scout_ideas._ask(client, scout_ideas.READ_MODEL, scout_ideas.read_system(search), intro + body, scout_ideas.READ_SCHEMA)
+    ensure_tables(db)   # a fresh install pastes before its first scout run has made them (18 Oct 2026: "no such table", the names lost)
     status = {row['key']: (row['name'], row['status']) for row in db.execute('SELECT key, name, status FROM scout_candidates')}
     found = scout_ideas.clean_candidates(answer.get('companies'), f'Pasted page {date.today().isoformat()}', PRIORITY, set(), scout_ideas.MAX_FROM_PAGE)
     fresh = []
