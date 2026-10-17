@@ -6,6 +6,7 @@ import {shared} from './shared.js';
 import {$, message, show} from './core.js';
 import {openView} from './nav.js';
 import {openSetting} from './settings.js';
+import {searchLevel} from '../goal-kinds.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {GOAL_TILES, goalTiles} from '../goal-tiles.js';
@@ -130,24 +131,19 @@ function remoteChoice() {
   }
   return group;
 }
-// Your level (Search settings "Your level"): postings whose title plainly names another level are skipped; Any keeps them all.
+// Your level (Search settings "Your level"): postings whose title plainly names another level are skipped; Any keeps them all. Its one home is Goals → Target
+// level (owner, 18 Oct 2026: "Goals only"; lib/goal-level.js writes it): shown here read-only, in both modes, with "Change in Goals".
 const LEVELS = [['', 'Any'], ['junior', 'Junior'], ['mid', 'Mid'], ['senior', 'Senior'], ['lead', 'Lead']];
 function levelChoice() {
-  const now = strategyState.lastStrategy?.level || '', chosen = strategyState.targetEdits?.level ? strategyState.targetEdits.level.set : now;
-  if (!strategyState.targetEdits) return el('span', '', LEVELS.find(([value]) => value === now)?.[1] || 'Any');
-  const group = el('div', 'segmented');
-  group.setAttribute('role', 'group');
-  group.setAttribute('aria-label', 'Your level');
-  for (const [value, label] of LEVELS) {
-    const button = Object.assign(el('button', value === chosen ? 'is-active' : '', label), {type: 'button'});
-    button.setAttribute('aria-pressed', String(value === chosen));
-    button.addEventListener('click', () => {
-      if (value === now) delete strategyState.targetEdits.level; else strategyState.targetEdits.level = {set: value};
-      renderTargets();
-    });
-    group.append(button);
-  }
-  return group;
+  const goal = strategyState.lastStrategy?.goals?.seniority, now = goal ? searchLevel(goal) : strategyState.lastStrategy?.level || '', line = el('span', '');
+  const change = Object.assign(el('button', 'link', 'Change in Goals'), {type: 'button', title: 'Your level follows your Target level'});
+  change.addEventListener('click', () => {
+    const tile = document.querySelector('#strategy-goals [data-goal="seniority"]');
+    tile?.scrollIntoView({block: 'center'});
+    tile?.querySelector('.goal-edit')?.click();
+  });
+  line.append(el('span', '', LEVELS.find(([value]) => value === now)?.[1] || 'Any'), el('span', 'muted small', ' · from your Target level · '), change);
+  return line;
 }
 // The digest's minimum fit score (Search settings "Minimum fit score for the digest"; the engine's default is 50).
 function minScoreInput() {

@@ -61,11 +61,13 @@ export function goalTiles(goals, onSave, {tiles = GOAL_TILES, fixed = {}} = {}) 
       const format = formatFor({marked: {kind: kinded.kind, options: kinded.options || []}});
       let draft = current;
       const editor = el('div', 'goal-editor');
-      const control = answerControl(format, current, next => { draft = next; }, {ariaLabel: label, chips: kinded.chips});
+      const shownValue = kinded.read ? kinded.read(current) : current;   // the saved words as the control's picks (the level's names)
+      const control = answerControl(format, shownValue, next => { draft = next; }, {ariaLabel: label, chips: kinded.chips});
       const save = Object.assign(el('button', 'primary', 'Save'), {type: 'button'}), cancel = Object.assign(el('button', 'secondary', 'Cancel'), {type: 'button'});
       const actions = el('div', 'inline');
       actions.append(save, cancel);
-      editor.append(control, ...(kinded.kind === 'multi' && current && !current.split(/\s*,\s*/).every(part => picksOf(part, format.options).length) ? [savedAs(current)] : []), actions);
+      const unread = kinded.read ? shownValue !== current : !current.split(/\s*,\s*/).every(part => picksOf(part, format.options).length);
+      editor.append(control, ...(kinded.kind === 'multi' && current && unread && !control.querySelector('.qa-saved-as') ? [savedAs(current)] : []), actions);
       const finish = keep => {
         editor.remove();
         value.hidden = edit.hidden = false;
