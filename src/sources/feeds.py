@@ -15,7 +15,7 @@ import unicodedata
 import urllib.request
 
 from . import ats, posting_text
-from .. import coverage
+from .. import coverage, run_counts
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
 from ..ai import providers
 from ..ai.providers.contract import named
@@ -375,6 +375,7 @@ def scan(sources, db, fetcher=fetch, details=None):
             read[0] += 1
             read[1] += len(got[0] or [])
             ticker.tick(read[0], f' · {read[1]:,} jobs listed')
+        run_counts.looked(got[0] or [])   # this search's own number, each job once (src/run_counts.py)
         return got
     with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
         downloads = list(pool.map(fetch, sources))
@@ -415,6 +416,7 @@ def scan(sources, db, fetcher=fetch, details=None):
                         print(f'Warning: {source["company"]} {item["id"]}: description not fetched: {type(error).__name__}')
             with db:
                 _after_check(db, board, bool(matched), now)
+            run_counts.matched(matched)
             report["jobs"].extend(matched)
             report["sources"].append({"company": source["company"], "ok": True,
                                       "total": len(jobs), "matches": len(matched)})

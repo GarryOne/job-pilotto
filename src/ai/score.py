@@ -19,7 +19,7 @@ import threading
 from types import SimpleNamespace
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
-from .. import store
+from .. import run_counts, store
 from . import cost, engine, hints, locations
 from .models import MAIN_MODEL
 from .providers.contract import named
@@ -453,6 +453,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                     data['first_pass'] = True   # a quick score by the cheap model, below the bar for a second look
                 save(db, job, said[used_model], data, profile)
                 scored += 1
+                run_counts.scored(job)
                 print(f'Scored {scored} of {len(jobs)} job(s)')   # a heartbeat for the live log: one Claude Code call takes tens of seconds
                 if on_scored and scored % every == 0:
                     on_scored()   # every `every` scores: the jobs so far go to Notion (a stopped search leaves them there)
