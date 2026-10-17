@@ -88,7 +88,8 @@ def strategy(db, tracker=None, stores=None):
     scored = [fits[job['id']] for job in candidates if job['id'] in fits]
     components = []
     for key, label in COMPONENTS:
-        values = [fit['components'][key] for fit in scored if isinstance(fit.get('components'), dict) and key in fit['components']]
+        # A part can be None (pay fit "N/A" when the posting states no salary, 6a3f5bb): averaged over the known ones, as insights.py does.
+        values = [fit['components'][key] for fit in scored if isinstance(fit.get('components'), dict) and isinstance(fit['components'].get(key), (int, float))]
         if values:
             average = round(sum(values) / len(values))
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
