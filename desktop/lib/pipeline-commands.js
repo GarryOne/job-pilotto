@@ -2,6 +2,7 @@
 // reassign, feedback, unapply/not-submitted, outcomes, delete, set status. None is queued; each is a run() plus parsing the last line.
 // Guarded by: test/lead-confirm.test.js, test/app.test.js, test/app-scenarios.test.js, test/notion-trying.test.js.
 // Split out of pipeline.js (a pure move); pipeline.js re-exports everything.
+import {markFinished} from './job-flags.js';
 import {jobFrom, jobFromResult} from './job-line.js';
 import {log as appLog} from './log.js';
 
@@ -18,7 +19,7 @@ export const jobs = sharedRead('engine jobs', async (storage, limit = 200, run =
   const firstRun = !storage.settings().lastSearchAt;
   const {code, stdout} = await run(storage, ['src.desktop', 'jobs', '--limit', String(limit), ...(firstRun ? ['--first-run'] : [])]);
   if (code !== 0) throw new Error('Could not read the job list');
-  return JSON.parse(stdout.trim().split('\n').pop());
+  return markFinished(storage, JSON.parse(stdout.trim().split('\n').pop()));
 }, {keyOf: (storage, limit) => limit ?? 200});
 
 // The Calendar's jobs: Applications rows only (src/desktop.py calendar), a fraction of the full list's read.
