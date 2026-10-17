@@ -11,12 +11,13 @@ const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..
 const workflows = Object.fromEntries(fs.readdirSync(DIR).filter(name => /\.ya?ml$/.test(name)).map(name => [name, fs.readFileSync(path.join(DIR, name), 'utf8')]));
 export const triggersOf = text => [...(text.match(/^on:\n((?:[ \t]+.*\n|\n)*)/m)?.[1] || '').matchAll(/^ {2}([a-z_]+):/gm)].map(match => match[1]);
 
-test('a workflow that records the pool sites starts by hand only: never a schedule, a push, a call or a PR', () => {
+test('a workflow that records the pool sites starts by hand, plus the ONE daily discovery batch: never another schedule, a push, a call or a PR', () => {
   // A `paths:` entry naming a file (site-replays-pr.yml lists desktop/e2e/lib/record-sites.mjs, a library its replay imports) is not a run.
   const runs = text => text.split('\n').filter(line => !/^\s+- '[^']+'\s*$/.test(line)).join('\n');
   const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])(smoke|record-sites)\.mjs\b|npm run (smoke|record-sites)\b/m.test(runs(workflows[name])));
   assert.deepEqual(runners, ['record-sites.yml']);
-  assert.deepEqual(triggersOf(workflows['record-sites.yml']), ['workflow_dispatch']);
+  assert.deepEqual(triggersOf(workflows['record-sites.yml']), ['schedule', 'workflow_dispatch']);   // the schedule is the daily batch (owner, 17 Oct 2026)
+  assert.deepEqual([...workflows['record-sites.yml'].matchAll(/^ +- cron: '([^']+)'/gm)].map(match => match[1]), ['0 6 * * *'], 'one cron: the daily batch at 06:00 UTC');
   const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/record-sites\.yml/.test(workflows[name]));
   assert.deepEqual(callers, [], 'no workflow calls the pool run');
 });
@@ -32,7 +33,7 @@ test('no pull request workflow can reach an AI key or the live pool', () => {
 
 test('the trigger reader sees a trigger added to either file (positive control)', () => {
   const smoke = workflows['record-sites.yml'];
-  assert.deepEqual(triggersOf(smoke.replace('on:\n', 'on:\n  schedule:\n    - cron: "0 3 * * *"\n')), ['schedule', 'workflow_dispatch']);
+  assert.deepEqual(triggersOf(smoke.replace('on:\n', 'on:\n  push:\n    branches: [main]\n')), ['push', 'schedule', 'workflow_dispatch']);
 });
 
 // 12 Oct 2026: two dispatches in the same second, and GitHub's shared concurrency group cancelled the older pending one (Ocado). The queue never drops a run.
@@ -41,7 +42,7 @@ test('no pool run is dropped: no concurrency group (GitHub cancels a pending run
   assert.doesNotMatch(smoke, /^\s*concurrency:/m, 'record-sites.yml: a concurrency group cancels a waiting run');
   const wait = smoke.indexOf('pool-ci-wait.mjs'), states = smoke.indexOf('pool-ci-state.mjs prepare');
   assert.ok(wait > 0 && wait < states, 'the queue step runs before the earlier runs\' states are read');
-  assert.ok(Number(smoke.match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
+  assert.ok(Number(smoke.slice(smoke.indexOf('\n  smoke:')).match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
 });
 
 test('the pool run sets JP_APPLICANT (thin when started by hand)', () => {
@@ -65,7 +66,8 @@ test('the recording run sends its ladder moves, endings and (main only) its rows
   assert.doesNotMatch(smoke, /pool-proven|proven live/i, 'a recording run proves nothing live: the fix verdict is offline');
   assert.match(step, /node desktop\/e2e\/pool-moves\.mjs/);   // the ladder moves, marked source ci (lib/ladder-moves.mjs)
   assert.match(step, /node desktop\/e2e\/pool-endings\.mjs/);   // each row's ending (lib/pool-endings.mjs)
-  assert.equal((smoke.match(/REPLAYS_PUBLISH_KEY: \$\{\{/g) || []).length, 1, 'the key sits on that one step');
+  const keyed = [...smoke.matchAll(/- name: ([^\n]*)\n(?: {8}.*\n)*? {10}REPLAYS_PUBLISH_KEY: \$\{\{/g)].map(match => match[1].slice(0, 30));
+  assert.deepEqual(keyed, ['Pick the day\'s sites (red when', 'The ladder moves, the rows\' en'], 'the narrow key sits on the batch\'s picker (reads the site\'s input) and on that one publish step');
   assert.doesNotMatch(smoke, /STATS_API_KEY|STATS_KEY|site\.api_key/);
 });
 
@@ -79,4 +81,25 @@ test('the pool run passes its live keys to the engine rule (which picks one, els
   assert.match(step, /AI_COST_PUBLISH_KEY: \$\{\{ secrets\.AI_COST_PUBLISH_KEY \}\}/);
   assert.match(step, /AI_COST_JOB: pool-live/);
   assert.match(step, /node desktop\/e2e\/pool-ai-cost\.mjs[^\n]*&& node desktop\/e2e\/ai-cost-report\.mjs --job "\$AI_COST_JOB" --file[^\n]*\|\| true/);
+});
+
+// Owner, 17 Oct 2026 ("Everything daily"): the daily discovery batch. A picker job without AI, a recording job only when it found a candidate, $3 a calendar week, a PR for the new shapes that is never merged here.
+test('the daily discovery batch: picker without AI, recording only after a pick, capped rows and dollars, a pool PR that never merges', () => {
+  const smoke = workflows['record-sites.yml'], section = name => { const start = smoke.indexOf(`\n  ${name}:`), rest = smoke.slice(start + 1), end = rest.slice(rest.indexOf('\n')).search(/\n  [a-z-]+:\n/); return end < 0 ? rest : rest.slice(0, rest.indexOf('\n') + end); };
+  const pick = section('pick'), record = section('smoke'), pr = section('pool-pr');
+  assert.match(pick, /if: github\.event_name == 'schedule'/);
+  assert.doesNotMatch(pick, /ANTHROPIC|OPENAI|claude -p|xvfb|playwright/i, 'the picker spends nothing and opens no browser');
+  assert.match(record, /needs: pick/);
+  assert.match(record, /needs\.pick\.result == 'success' && needs\.pick\.outputs\.count != '0'/, 'no new candidate, no recording run');
+  assert.match(record, /MAX_ROWS: \$\{\{ github\.event_name == 'schedule' && '5' \|\| '3' \}\}/, 'five rows a day at most');
+  assert.match(record, /MAX_USD: \$\{\{ github\.event_name == 'schedule' && needs\.pick\.outputs\.max_usd \|\| '0\.50' \}\}/, 'the day\'s dollars come from the week\'s remainder');
+  assert.match(record, /JOB_PILOTTO_SITE_LIMIT: '2'/, 'the site limit is the same');
+  assert.match(record, /JP_APPLICANT: thin/, 'the test applicant, never the owner\'s');
+  assert.doesNotMatch(pr, /ANTHROPIC|OPENAI|REPLAYS_PUBLISH_KEY/);
+  assert.doesNotMatch(smoke, /gh pr merge|--auto|auto-merge/i, 'the owner merges every PR by hand');
+  assert.match(pr, /needs: smoke/);
+  assert.match(pr, /gh pr create/);
+  const weekCap = fs.readFileSync(path.join(DIR, '..', '..', 'desktop', 'e2e', 'lib', 'discovery-pick.mjs'), 'utf8');
+  assert.match(weekCap, /WEEK_CAP_USD = 3\b/);
+  assert.match(weekCap, /MAX_ROWS = 5\b/);
 });
