@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {copyForNight} from './extension-copy.mjs';
 import {fillJob} from './fill-job.mjs';
+import {answererFor} from './night-ai.mjs';
 import {net} from './no-submit.mjs';
 import {createStandIn} from './stand-in.mjs';
 
@@ -23,7 +24,7 @@ export async function runNight({chromium, site, token, fetchImpl = fetch, log = 
   const batch = await post(fetchImpl, site, token, 'batch');
   const held = new Map();
   if (!batch.ok || batch.stop || !batch.jobs?.length) { log('nothing to do', {stop: !!batch.stop}); return {held, close: async () => {}}; }
-  const standIn = await createStandIn(batch);
+  const standIn = await createStandIn(batch, {answer: await answererFor({batch, site, token, fetchImpl})});
   const copy = copyForNight(standIn.port, EXTENSION_DIR);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-night-'));
   const context = await chromium.launchPersistentContext(profile, {headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'], timeout: 90000, ...launchOptions,

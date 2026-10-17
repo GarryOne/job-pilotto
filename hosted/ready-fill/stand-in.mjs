@@ -8,13 +8,13 @@ const file = (name, base64) => (base64 ? {data: base64, name, type: 'application
 const key = address => String(address || '').split('#')[0];
 
 // batch: {contact, jobs: [{id, url, title, company, kit, cv, letterPdf}]}. -> {port, close, outcome(url), asked}
-export async function createStandIn(batch) {
+export async function createStandIn(batch, {answer = null} = {}) {
   const jobs = new Map(batch.jobs.map(job => [key(job.url), job]));
   const passes = new Map(), roles = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
   const answers = {
     '/extension/pair': port => ({url: `http://127.0.0.1:${port}`, token: 'night'}),
     '/extension/run': () => ({ok: true, id: 'night-run'}),
-    '/extension/answer': () => ({answers: [], usd: 0}),   // no AI in phase 1: the questions the kit and the rules do not cover stay open, and say so
+    '/extension/answer': (port, url, body) => (answer ? answer(body) : {answers: [], usd: 0}),   // the night's AI (night-ai.mjs) when the batch has facts; otherwise the questions the kit and the rules do not cover stay open
     '/extension/me': (port, url) => {
       const job = jobs.get(key(url));
       return {contact: batch.contact || {}, contactSource: 'night', ...(file('CV.pdf', job?.cv) ? {resume: file('CV.pdf', job.cv)} : {}), ...(file('Cover letter.pdf', job?.letterPdf) ? {coverLetterFile: file('Cover letter.pdf', job.letterPdf)} : {})};
@@ -25,7 +25,7 @@ export async function createStandIn(batch) {
     if (request.method === 'OPTIONS') { response.writeHead(204, HEADERS); response.end(); return; }
     let body = '';
     request.on('data', chunk => { body += chunk; });
-    request.on('end', () => {
+    request.on('end', async () => {
       const [route, query = ''] = request.url.split('?');
       const url = new URLSearchParams(query).get('url') || '';
       asked.push(route); if (process.env.JP_NIGHT_DEBUG && route === '/extension/event') console.log('event', body.slice(0, 300));
@@ -38,7 +38,7 @@ export async function createStandIn(batch) {
       }
       if (route === '/extension/event' && parsed?.type === 'fill-started' && parsed.url) started.set(key(parsed.url), (started.get(key(parsed.url)) || 0) + 1);
       if (route === '/extension/review' && parsed?.url) roles.set(key(parsed.url), String(parsed.role || ''));
-      const found = answers[route] ? answers[route](server.address().port, url) : {};
+      const found = answers[route] ? await answers[route](server.address().port, url, parsed) : {};
       response.writeHead(200, HEADERS); response.end(JSON.stringify(found));
     });
   });
