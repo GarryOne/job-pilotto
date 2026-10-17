@@ -1,16 +1,17 @@
 // The sidebar's progressive pages: Interviews, Reports and Employers appear when they have something, a "More" row lists the others with when they unlock, and a one-time tour points at the menu. Rules in renderer/menu-reveal.js and menu-tour.js; guarded by test/menu-reveal.test.js.
 import {icon} from '../icons.js';
-import {$, show} from './core.js';
+import {$} from './core.js';
 import {shared} from './shared.js';
 import {lastActivity} from './activity.js';
 import {openView} from './nav.js';
 import * as reveal from '../menu-reveal.js';
 import {STEP_MS, markSeen, seen, stopsFor} from '../menu-tour.js';
+import {moreGroup} from '../more-group.js';
 
 let menu = reveal.load(window.localStorage);
 let employerCount = null, employersCheckedAt = 0;
-const MORE_KEY = 'jp.menu.more';
-const moreOpen = () => { try { return window.localStorage.getItem(MORE_KEY) === 'open'; } catch { return false; } };
+let more = null;   // the sidebar's More (renderer/more-group.js; its state is kept under jp.menu.more)
+export const isRevealed = name => menu.revealed.includes(name);   // Actions hints "after your first week" until Reports is
 
 // Signals from what the app already holds: an application exists (or an interview is booked), a weekly report was made, an employer is listed.
 const signals = () => ({
@@ -28,12 +29,9 @@ async function checkEmployers() {
 }
 
 function drawMore() {
+  if (!more) return;   // before initMenu
   const locked = reveal.stillLocked(menu);
-  show($('nav-more'), locked.length > 0);
-  $('nav-more-title').textContent = `More · ${locked.length}`;
-  const open = moreOpen();
-  $('nav-more-head').setAttribute('aria-expanded', String(open));
-  show($('nav-more-list'), open);
+  more.draw(locked.length);
   $('nav-more-list').replaceChildren(...locked.map(page => {
     const row = Object.assign(document.createElement('button'), {className: 'nav-locked', type: 'button', title: `${page.label}: opens ${page.when}`});
     const words = Object.assign(document.createElement('span'), {className: 'nav-locked-words'});
@@ -95,10 +93,7 @@ function tour() {
 export function initMenu() {
   document.addEventListener('menu:refresh', () => { refreshMenu(); checkEmployers(); });
   window.addEventListener('activity-updated', () => { refreshMenu(); checkEmployers(); });   // a weekly report was made; a search may have added employers
-  $('nav-more-head').addEventListener('click', () => {
-    try { window.localStorage.setItem(MORE_KEY, moreOpen() ? 'closed' : 'open'); } catch { /* not remembered */ }
-    drawMore();
-  });
+  more = moreGroup({root: $('nav-more'), head: $('nav-more-head'), list: $('nav-more-list'), title: $('nav-more-title'), key: 'jp.menu.more'});
   refreshMenu();
   checkEmployers();
   setTimeout(tour, 2500);   // after the first screen has settled

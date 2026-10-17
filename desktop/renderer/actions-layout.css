@@ -1,0 +1,25 @@
+/* The Actions page by importance (owner, 17 Oct 2026): one large card, two medium, the rest under "More". Built on .task-card; only the sizes and the More group are new. */
+.task-grid { display: flex; flex-direction: column; gap: var(--sp-3); }
+.task-main, .task-pair { display: grid; gap: var(--sp-3); }
+.task-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.task-card.is-large { padding: var(--sp-5); border-color: var(--signal); }
+.task-card.is-large .task-tile { width: 56px; height: 56px; }
+.task-card.is-large .task-tile .icon { width: 28px; height: 28px; }
+.task-card.is-large .task-words b { font-size: var(--fs-lg); }
+.task-card.is-large button.action { padding: 10px 28px; }
+.task-schedule { display: block; margin-top: var(--sp-1); }
+.task-card.is-row { padding: var(--sp-2) var(--sp-3); }
+.task-card.is-row .task-category { display: none; }
+.task-card.is-row .task-tile { width: 32px; height: 32px; }
+.task-card.is-row .task-tile .icon { width: 16px; height: 16px; }
+.task-card.is-row .task-body { align-items: center; }
+.task-card.is-row .task-words b { font-size: var(--fs-md); }
+.task-hint { color: var(--muted); }
+.more-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.more-group[hidden], .more-list[hidden] { display: none; }
+.actions-more .more-head { display: flex; align-items: center; gap: var(--sp-2); align-self: flex-start; padding: var(--sp-1) var(--sp-2); background: transparent; border: 0; color: var(--muted); font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+.actions-more .more-head:hover { color: var(--ink); }
+.actions-more .more-head .icon { width: 12px; height: 12px; transition: transform .15s; }
+.actions-more .more-head[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.task-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+@media (max-width: 1180px) { .task-pair { grid-template-columns: minmax(0, 1fr); } }
