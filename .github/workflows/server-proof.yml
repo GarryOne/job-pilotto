@@ -33,6 +33,12 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npx playwright install --with-deps chromium
+      - name: Remove a leftover proof container (a deleted Worker leaves its container application behind)
+        working-directory: tools/server-proof
+        run: |
+          npx wrangler@4.151.1 delete --name jp-server-proof --force || true
+          id=$(npx wrangler@4.151.1 containers list 2>/dev/null | grep ' jp-server-proof-proof ' | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
+          if [ -n "$id" ]; then npx wrangler@4.151.1 containers delete "$id" || true; fi
       - name: Deploy the proof Worker and container
         working-directory: tools/server-proof
         run: |
@@ -76,4 +82,6 @@ jobs:
         working-directory: tools/server-proof
         run: |
           npx wrangler@4.151.1 delete --name jp-server-proof --force || true
+          id=$(npx wrangler@4.151.1 containers list 2>/dev/null | grep ' jp-server-proof-proof ' | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
+          if [ -n "$id" ]; then npx wrangler@4.151.1 containers delete "$id" || true; fi
           npx wrangler@4.151.1 containers list 2>&1 | head -20 || true
