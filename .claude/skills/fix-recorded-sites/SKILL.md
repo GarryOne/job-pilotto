@@ -48,7 +48,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
 
 ## 4. Land and confirm (all offline)
 - Commit trailer `Pool-row: <the row's exact pool name>` (it fills the Fixed tab; the commit hook suggests the closest). A push changing how the extension acts on pages needs the recorded page (or `Recorded-unneeded: <why>` only when no real site's failure is fixed).
-- `tools/ship.sh --background --body=<file>` (never from the twin's worktree); open PR with the replay gate (`site-replays-pr.yml`), then watch the PR's "N of M rows same as live": **your row reaches further and no "same as live" row drops.**
+- `tools/ship.sh --background --body=<file>` (never from the twin's worktree); the PR guards your fix with the **page case** you froze from the replay (it must fail on the old build; **every bug a replay finds ends as a page case**). No replay runs on the PR (owner, 17 Oct 2026); the daily `site-replays.yml` then shows "Confirmed offline": **your row reaches further and no "same as live" row drops.**
 - **A before/after over many rows is CI's** (owner, 15 Oct 2026): `gh workflow run site-replays.yml --ref <branch>` and `--ref main`, both at once (~14 min on 5 runners, $0); compare the two runs' rows. On the Mac replay only the 1-3 rows the fix is about (`JP_REPLAY_ONLY`); `replay-records.mjs` refuses more outside CI (`lib/wide-local.mjs`).
 - **"Confirmed offline"** on the Fixed tab (after merge, from the row's recording, 2 agreeing replays) closes a fix; a "regression" row is read through its "Our build" / "Site changed" verdict first. Until then say "landed, unconfirmed", never "done".
 - Report one line per shape: shape, mechanism part, reached before → after, commit **on origin/main**, siblings helped.
@@ -59,7 +59,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
 - A route the recording lacks: ask `record-applying-sites` for the full journey; never visit the site. The owner says stop.
 
 ## Never
-- Accept your own drop. Never accept your own drop: a row that fell because of your fix is the owner's call. Show the owner the replay gate's field-by-field diff (the job summary of "CI · Site replays · PR") and wait; the owner labels the PR `replay-accepted` and comments the `Replay-accept:` line. A hook blocks posting it; `REPLAY_ACCEPT_OK=1` only when the owner asked for exactly that accept in this chat.
+- Accept your own drop. Never accept your own drop: a row that fell because of your fix is the owner's call. Show the owner the daily replay's field-by-field diff (the job summary of "CI · Site replays · all (offline)") and wait; the owner labels the PR `replay-accepted` and comments the `Replay-accept:` line. A hook blocks posting it; `REPLAY_ACCEPT_OK=1` only when the owner asked for exactly that accept in this chat.
 - Submit, a consent, an account button, a captcha or SMS code; the owner's live app, profile, CV, Keychain or paid AI; a fix named after one website.
 - A recorded case whose expected result or AI answer was written to fit the fix. A long foreground wait (background + `Monitor`). A fix built on a guess (lessons.md).
 - Silently fixing a gap in the debugging process (a missing log, a report that hides evidence): list it and send it to the coordinator.

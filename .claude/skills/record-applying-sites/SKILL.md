@@ -25,8 +25,10 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 - **A recording proves nothing live** (owner, 14-15 Oct 2026): a fix is confirmed OFFLINE on the row's recording (the Fixed tab's "Confirmed offline"); a CI recording run sends no proven record any more (the proven-record upload, its site route and its list tool are retired).
 - **No live run on a PR** (owner, 13 Oct 2026: "I don't want PR to generate an AI cost"): there is none;
   a live CI run is `record-sites.yml` started by hand only (`only` = row words), on any branch: `gh workflow run record-sites.yml --ref <branch> -f only="<row>"`.
-- **Testing is offline; the pool only RE-RECORDS** (owner, 13 Oct 2026, #657): every PR touching `desktop/`, `extension/` or `worker/` replays each row's newest network record
-  with its own build (`.github/workflows/site-replays.yml`, `replay-records.mjs`: no site, no model call, $0) and shows "N of M rows same as live" (job summary, /admin/lab-form-filling "Replay vs live").
+- **Recordings are a debugging tool** (owner, 17 Oct 2026, `docs/rules/apply-flow-workflow.md` "The rule for recordings and replays"): a failure (Report this form, the daily replay, a bake-off row)
+  → record THAT one site once → reproduce and bisect offline → fix → freeze it as a page case. Testing is offline (#657): the daily `.github/workflows/site-replays.yml` (~7 rows, one per kind of form users meet;
+  never on a PR) replays each row's newest network record with main's build (`replay-records.mjs`: no site, no model call, $0), alerts only on a worse outcome, and starts the refill / lists a re-record only for the rows it flags.
+  Do not re-record a row nobody uses, and drop one whose re-record will not reproduce.
   A live pool visit is for a NEW record only: a row whose record is old, missing, or not "same as live".
   - **Record on the Mac first** (`cd desktop/e2e && JP_NET_RECORD_DIR=<dir> npm run record-sites -- --only "<row>"`: plan `claude -p`, no API cost, the replay runner's fonts);
     **CI only when the Mac is blocked** (a bot check, the Mac's site limit; say which): `record-sites.yml` keeps its records encrypted as `net-records-<run>` for 14 days, but replays never read them (owner, 15 Oct 2026): a CI recording reaches a replay only after `records-publish.mjs` publishes it through the guard.

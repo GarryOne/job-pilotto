@@ -6,10 +6,19 @@
 | # | Step | Who / what | Live? | Cost |
 |---|---|---|---|---|
 | 1 | **Record** a new site once, all the way to the form; re-record only on a signal | skill `record-applying-sites`; `record-sites.yml`, whose single job is recording | ✅ the only live step | cents per row |
-| 2 | **Detect**: replay every recording on the build | CI: `site-replays-pr.yml` on every PR, `site-replays.yml` nightly → `/admin/lab-form-filling` | no | $0 |
+| 2 | **Detect**: a small daily replay (~7 rows, one per kind of form users meet) | CI: `site-replays.yml` once a day, never on a PR → `/admin/lab-form-filling`; Telegram only on a worse outcome | no | $0 |
 | 3 | **Fix** the top 🔴 row | skill `/fix-recorded-sites` | no | $0 + the fix session |
 | 4 | **Verify** the fix | CI after merge: "Confirmed offline" on the Fixed tab (2 agreeing replays) | no | $0 |
 | 5 | **Benchmark** (occasional) | bake-off: the extension vs other agents on the same forms (repo job-pilotto-bakeoff) | yes | dollars: owner's OK |
+
+## The rule for recordings and replays (owner, 17 Oct 2026: "Yes, adopt it")
+- **Recordings are a debugging tool, not a gate.** A failure (a person's "Report this form", the daily replay, a bake-off row) → record THAT one site once →
+  reproduce and bisect offline (`npm run row`, seconds, $0) → fix → **freeze it as a page case** (the PR guard: it never goes stale). **Every bug a replay finds ends as a page case.**
+- **Keep small:** the daily replay ~7 rows (one per kind of form users meet), alert only on a worse outcome; refill and re-record only the rows the daily run flags
+  (a row whose re-record will not reproduce is dropped); the bake-off is a monthly trend; journeys run daily and are **retired on 1 Nov 2026 if they caught nothing real**.
+- **Stop:** replays or journeys on PRs; a refill after every merge that changes a prompt (there is none: the daily run starts it for the rows it flags); many pins kept current;
+  red runs over AI wording; re-recording forms nobody uses.
+- Why: [why.md](why.md) "Recordings are a debugging tool" (0 real PR catches in ~300 runs, 10 of 37 recordings stale in a week, 1 real catch offline).
 
 ## The signals that start each step
 - **Record (1):** a new site on the pool list; installs' outcomes on a job board dropping against its own last 14 days (counts only, k ≥ 3); a person's report;
@@ -26,9 +35,9 @@
 - No live run to test or to prove a fix; no AI spend without the owner's OK and a measured cost.
 - No many-row replay on the Mac: a before/after over more than 3 rows runs in CI (`gh workflow run site-replays.yml --ref <branch>`, ~14 min in parallel, $0; owner, 15 Oct 2026); `replay-records.mjs` refuses it locally (`desktop/e2e/lib/wide-local.mjs`).
 
-## An intended replay drop: accepted on the PR (owner, 14 Oct 2026)
-- A fix can make a counted row "worse" on purpose (an upload counted once, not twice). The PR gate's summary shows that row's **field-by-field diff** (label, baseline outcome, PR outcome; never a value) and a copy-ready line.
-- The owner labels the PR `replay-accepted` and comments `Replay-accept: <row name> — <reason>` (or a bare `Replay-accept: <reason>` for every worse row). The gate **re-judges by itself** (`site-replays-accept.yml` re-runs the failed verdict and "All checks passed"; no replay re-run, $0) and passes only the named rows; any other worse or unfinished row stays red. After the merge the nightly moves the baseline (`replay-accepts.mjs`).
+## An intended replay drop: accepted on the PR that causes it (owner, 14 Oct 2026; since 17 Oct 2026 the daily run judges it, no PR gate)
+- A fix can make a counted row "worse" on purpose (an upload counted once, not twice). The daily run's summary shows that row's **field-by-field diff** (label, baseline outcome, new outcome; never a value) and a copy-ready line.
+- The owner labels the PR `replay-accepted` and comments `Replay-accept: <row name> — <reason>` (or a bare `Replay-accept: <reason>` for every worse row). The daily run (`site-replays.yml`) reads the label and comments of the PRs merged since its baseline (`replay-accepts.mjs`) and passes only the named rows; any other worse row stays red and alerts.
 - **Never accept your own drop.** Every session posts as the owner, so its comment would count as the owner's. Show the owner the gate's diff and wait; the hook `tools/replay-accept-guard.py` blocks the post unless the command has `REPLAY_ACCEPT_OK=1`, which you set only when the owner asked for that accept in your own chat.
 
 ## App bugs (not form bugs)
@@ -52,7 +61,7 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 | ~~the live twin loop skill~~ | removed 14 Oct 2026 | — |
 
 ## Refilling answers a prompt change made stale (15 Oct 2026)
-- A PR that changes what the app asks the AI turns pinned rows "ask changed" / "out of date" in the site replays gate. Refill them in CI, not on the Mac: run the workflow `CI · Replay refill (by hand)` by hand only (`gh workflow run replay-refill.yml -f pr=<n>`; no label: a PR-started workflow may not reach an AI key).
+- A merge that changes what the app asks the AI turns pinned rows "ask changed" / "out of date" in the daily site replays. There is no refill after each merge: the daily run starts `CI · Replay refill` itself for just the rows it flags (`only`), or run it by hand (`gh workflow run replay-refill.yml -f only=<row names>`); never from a PR (no PR-started workflow may reach an AI key). A row whose re-record will not reproduce is dropped, not chased.
 - Its own key `REPLAY_REFILL_ANTHROPIC_KEY` (no fallback), a cap (40 asks, $3), the estimate first, the spend in the job summary and on /admin/ai-cost (`replay-refill`). Old answers are never changed. `npm run fill-memo` stays for one row on the Mac.
 
 <details><summary>Gaps being closed (14 Oct 2026) and where</summary>
