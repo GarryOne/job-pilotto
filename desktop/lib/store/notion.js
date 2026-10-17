@@ -41,7 +41,8 @@ export async function ensureKnowledgePage(storage, {fetcher} = {}) {
   return page;
 }
 
-export function open(storage, {fetcher} = {}) {
+export function open(storage, {fetcher, cache} = {}) {
+  const kept = cache === undefined ? undefined : {cache};   // tests turn the kept page trees on for a fake fetcher; the app leaves it to the real fetch
   const token = () => storage.secret('NOTION_TOKEN');
   const ids = () => storage.settings().notionIds || {};
   const target = name => {
@@ -66,16 +67,17 @@ export function open(storage, {fetcher} = {}) {
   const page = name => ({
     async blocks() {
       const t = readable(name);
-      return t ? notion.textBlocks(t.token, t.page, fetcher) : [];
+      return t ? notion.textBlocks(t.token, t.page, fetcher, kept) : [];
     },
-    // Top-level items in order (tables with their rows, toggles with their children), read fresh: the ❓ lists must see an answer at once.
+    // Top-level items in order (tables with their rows, toggles with their children). Through the kept page tree, like blocks() and text(): a write drops the
+    // page it touched, so the ❓ lists still see an answer at once, while every screen asking at start shares one read (it was a full read each, 17 Oct 2026).
     async outline() {
       const t = readable(name);
-      return t ? (await notion.pageTree(t.token, t.page, fetcher, {cache: false})).map(item) : [];
+      return t ? (await notion.pageTree(t.token, t.page, fetcher, kept)).map(item) : [];
     },
     async text() {
       const t = readable(name);
-      return t ? notion.pageText(t.token, t.page, fetcher) : '';
+      return t ? notion.pageText(t.token, t.page, fetcher, kept) : '';
     },
     async write(markdown, onProgress) {
       const t = await writable(name);

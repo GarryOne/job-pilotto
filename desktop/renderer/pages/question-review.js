@@ -197,11 +197,14 @@ export async function openQuestionReview({force = false, start = ''} = {}) {
   state.open = true;
   $('review-drawer-layer').hidden = false;
   let now = questionsNow();
-  if (force || !now.read) {
+  // The questions saved last time (Jobs' card shows them from this computer) open the drawer at once; the store's answer replaces them when it arrives.
+  // Nothing saved: a loading card until the store answers.
+  const background = !force && !now.read && now.list.length > 0;
+  if (!background && (force || !now.read)) {
     state.loading = true;
     state.failed = '';
     draw();
-    await loadQuestions({force: true});
+    await loadQuestions({force});   // not forced: a read Jobs already started is joined
     now = questionsNow();
     state.loading = false;
   }
@@ -215,6 +218,22 @@ export async function openQuestionReview({force = false, start = ''} = {}) {
   state.at = at < 0 ? 0 : at;
   draw();
   $('qr-control')?.focus?.();
+  if (background) {
+    await loadQuestions();
+    if (state.open) syncQueue();
+  }
+}
+
+// The store answered after the drawer opened on the saved list: take its list, staying on the question being read when it is still open.
+function syncQueue() {
+  const now = questionsNow(), keep = current()?.key;
+  state.failed = '';
+  state.queue = [...now.list];
+  state.setAside = [...now.hidden];
+  state.consent = now.consent || 0;
+  if (state.aside) state.aside = state.setAside.find(q => q.key === keep) || null;
+  if (!state.aside) { const at = state.queue.findIndex(q => q.key === keep); state.at = at < 0 ? Math.min(state.at, Math.max(state.queue.length - 1, 0)) : at; }
+  draw();
 }
 
 export function closeQuestionReview() {

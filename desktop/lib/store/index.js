@@ -24,9 +24,9 @@ export const chosen = storage => storage.settings().store || notionStore.NAME;
 // (lib/notion-gate.js) and the text pages say "Connect Notion first". Choosing this Mac (settings.store = 'sqlite') ends it.
 export const trying = storage => !storage.settings().store && !notionGate.connected(storage);
 
-export function openStore(storage, {fetcher} = {}) {
+export function openStore(storage, {fetcher, cache} = {}) {
   const name = chosen(storage);
   const adapter = ADAPTERS[name];
   if (!adapter) throw new Error(`No store called "${name}" (known: ${NAMES.join(', ')})`);
-  return adapter.open(storage, {fetcher});
+  return adapter.open(storage, {fetcher, cache});
 }
