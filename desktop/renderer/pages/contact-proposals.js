@@ -20,7 +20,7 @@ export function clearProposals() {
 }
 
 // A box the form hides on purpose (the Swiss-only Place of origin); a closed Profile tab is not that: its boxes are filled for when it opens.
-const hiddenByForm = input => { const hidden = input.closest('[hidden]'); return Boolean(hidden && !hidden.matches('[data-profile-panel]')); };
+const hiddenByForm = input => { const hidden = input.parentElement?.closest('[hidden]'); return Boolean(hidden && !hidden.matches('[data-profile-panel]')); };
 
 // Fill each empty box the form shows with its proposal. → how many were shown.
 export function showProposals(proposals = []) {
@@ -33,7 +33,7 @@ export function showProposals(proposals = []) {
     input.dataset.proposed = 'cv';
     const mark = pill(sure ? 'From your CV' : 'From your CV · check it', sure ? 'info' : 'warn');
     mark.classList.add(MARK);
-    input.after(mark);
+    (input.nextElementSibling?.dataset?.contactControl ? input.nextElementSibling : input).after(mark);   // under the typed control when there is one
     input.addEventListener('input', () => { delete input.dataset.proposed; mark.remove(); }, {once: true});
     shown++;
   }

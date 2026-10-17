@@ -1,4 +1,5 @@
 // Settings → Application profile.
+import {mountContactControls} from '../contact-controls.js';
 import {showMode} from '../assistant-mode.js';
 import {showClaudeAuto} from '../claude-auto.js';
 import {contactHints} from '../audience.js';
@@ -248,6 +249,7 @@ function fitDetailsToCandidate(contact) {
   }).catch(() => {});
 }
 export function showContact() {
+  mountContactControls();   // the salutation, date of birth and links as their typed controls (contact-kinds.js)
   window.pilot.contact().then(contact => {
     document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
     fitDetailsToCandidate(contact);
