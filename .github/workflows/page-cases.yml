@@ -94,6 +94,12 @@ on:
       - 'desktop/package-lock.json'
       - '.github/workflows/page-cases.yml'
   workflow_dispatch:
+    inputs:
+      window:
+        description: 'quick = what a pull request runs (measures PR seconds per case); full = the whole window'
+        default: 'full'
+        type: choice
+        options: [full, quick]
   schedule:
     - cron: '0 3 * * *'   # daily, the FULL window (owner, 17 Oct 2026): a pull request ends a must-not-happen window early (JP_REPLAY_WINDOW=quick); main (build.yml) and this daily run wait the whole window, so a late forbidden action is caught once a day
 
@@ -146,7 +152,7 @@ jobs:
         env:
           JP_REPLAY: 1
           JP_REPLAY_TABS: 4
-          JP_REPLAY_WINDOW: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}   # lib/page-replay.mjs watchWindow: quick = end a must-not-happen window once the fill is over and the page quiet 12 s; full = the whole window
+          JP_REPLAY_WINDOW: ${{ github.event_name == 'pull_request' && 'quick' || github.event_name == 'workflow_dispatch' && inputs.window || 'full' }}   # lib/page-replay.mjs watchWindow: quick = end a must-not-happen window once the fill is over and the page quiet 12 s; full = the whole window
           JP_REPLAY_SHARD: ${{ matrix.shard }}/${{ env.JP_REPLAY_SHARD_COUNT }}
           JP_REPLAY_PR_SPLIT: ${{ github.event_name == 'pull_request' && '1' || '' }}   # a PR leaves the slow cases (desktop/e2e/slow-cases.json) to main and the daily run unless it touches their folder; main and the daily run replay all
           JP_REPLAY_CHANGED: ${{ steps.changed.outputs.files }}
