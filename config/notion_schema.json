@@ -748,6 +748,9 @@
         "First seen": {
           "type": "date"
         },
+        "Scored with places": {
+          "type": "rich_text"
+        },
         "Scoring method": {
           "type": "select",
           "options": [

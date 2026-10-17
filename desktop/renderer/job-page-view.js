@@ -132,8 +132,10 @@ export function matchView(job = {}, page = null) {
   const stored = page?.match || {};
   const fit = job.fit ?? stored.fit;
   if (fit == null || fit === '') return null;
+  // "Scored with older places" (Locations, 17 Oct 2026): the score recorded the places it used and today's are others. None recorded is never older.
+  const older = !!(stored.places && page?.placesNow && stored.places !== page.placesNow);
   return {...stored, ...Object.fromEntries(Object.entries(job).filter(([, value]) => value != null && value !== '')), fit,
-    fit_detail: job.fit_detail || stored.fit_detail || null};
+    fit_detail: job.fit_detail || stored.fit_detail || null, older_places: older};
 }
 
 // The Overview's "At a glance" tiles (the owner's mock, 10 Oct 2026): six facts a person weighs first, each with a note, "Not stated" when the posting

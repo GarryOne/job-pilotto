@@ -56,9 +56,9 @@ export function registerJobActionsHandlers(ctx) {
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
   // Strategy → "scored with other places" → Refresh: queues the ACTIVE jobs scored with other places (src/ai/locations.py); a change of places never does it alone.
-  ipcMain.handle('refreshLocations', async () => {
+  ipcMain.handle('refreshLocations', async (_, url) => {   // url: one job's drawer; none: every active one (Strategy)
     if (DEMO) return {ok: true, queued: 0};
-    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'refresh-locations']);
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'refresh-locations', ...(url ? ['--url', String(url)] : [])]);
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
   // "Your search may be too narrow" (src/coverage.py): how much of the market the role keywords catch, and what adding a term would add.

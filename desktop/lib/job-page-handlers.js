@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as engine from './store/engine.js';
+import {placesNow as askPlacesNow} from './places-now.js';
 import {posting as crawledPosting} from './pipeline-commands.js';
 import * as store from './store/index.js';
 import {KIT_SECTION, kitOf} from './store/extension-store.js';
@@ -14,17 +15,19 @@ import {jobFiles} from './store/files.js';
 // {app, match, sections, kit, events, files, links} or {error}; app null when the job has no application yet (a match nobody acted on). match:
 // the search's 🎯 Job Matches record (its facts: the Match tab), null for a job added by hand. files: the job's files as data: URLs
 // (lib/store/files.js: screenshots of logged messages, a tailored CV), shown under Messages.
-export async function jobPage(storage, url, {call = engine.call, links = false} = {}) {
+export async function jobPage(storage, url, {call = engine.call, links = false, placesNow = askPlacesNow} = {}) {
   const [app, match] = await Promise.all([call(storage, 'applications', 'get', {url: String(url || '')}),
     call(storage, 'matches', 'get', {url: String(url || '')}).catch(() => null)]);   // no match is no Match tab, never a failed page
-  if (!app?.id) return {app: null, match: match || null, sections: {}, kit: null, events: [], files: [], interviews: [], links};
+  // With a match: today's places, so the drawer can say a score used older ones (lib/places-now.js); failing to ask is not failing the page.
+  const places = match ? {placesNow: await placesNow(storage).catch(() => '')} : {};
+  if (!app?.id) return {app: null, match: match || null, sections: {}, kit: null, events: [], files: [], interviews: [], links, ...places};
   const [sections, events, files, interviews] = await Promise.all([
     call(storage, 'applications', 'sections', {app_id: app.id}),
     call(storage, 'events', 'list', {app_id: app.id}),
     jobFiles(storage, app.id, {call}),
     call(storage, 'interviews', 'list', {app_id: app.id}).catch(() => []),   // the job's recorded and practised interviews; none is not a failed page
   ]);
-  return {app, match: match || null, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, interviews: interviews || [], links};
+  return {app, match: match || null, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, interviews: interviews || [], links, ...places};
 }
 
 // A file of the job's page saved where the person picks (its data: URL from lib/store/files.js): only data: URLs, only after the dialog.

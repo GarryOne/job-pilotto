@@ -102,12 +102,22 @@ class ActiveJobsTests(unittest.TestCase):
             self.assertEqual(locations.active_ids(None), {1})
 
 
+class OneJobTests(unittest.TestCase):
+    def test_a_refresh_can_be_limited_to_one_job_by_its_url(self):
+        eligible = ([{'id': 1, 'url': 'https://a'}, {'id': 2, 'url': 'https://b/'}], [])
+        with mock.patch('src.digest.eligible_jobs', lambda db, hidden_urls=frozenset(): eligible):
+            self.assertEqual(locations.id_for_url(None, 'https://b'), {2})   # the trailing slash is not a different job
+            self.assertEqual(locations.id_for_url(None, 'https://nowhere'), set())
+
+
 class CommandTests(unittest.TestCase):
     def test_the_desktop_has_the_explicit_refresh_command(self):
         from pathlib import Path
         source = (Path(__file__).resolve().parents[1] / 'src' / 'desktop.py').read_text()
         self.assertIn("sub.add_parser('refresh-locations')", source)
         self.assertIn("args.command == 'refresh-locations'", source)
+        self.assertIn("sub.add_parser('places-now')", source)   # the drawer asks which places are current (lib/places-now.js)
+        self.assertIn("args.command == 'places-now'", source)
 
 
 if __name__ == '__main__':

@@ -94,3 +94,10 @@ def active_ids(db, stages=None):
     from .. import digest
     hidden = frozenset(url for url, stage in (stages or {}).items() if stage)
     return {job['id'] for job in digest.eligible_jobs(db, hidden_urls=hidden)[0]}
+
+
+def id_for_url(db, url):
+    """The id of the shown job at this URL (a trailing slash is not another job), as a set: {} when it is not shown."""
+    from .. import digest
+    want = str(url or '').strip().rstrip('/')
+    return {job['id'] for job in digest.eligible_jobs(db)[0] if (job.get('url') or '').strip().rstrip('/') == want}
