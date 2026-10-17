@@ -15,6 +15,7 @@ from ..notion import titles
 from ..notion.client import Tracker, _rich
 from . import base
 from . import notion_rows as rows
+from .notion_columns import KnownColumns
 from .notion_insights import NotionInsights
 from .notion_interviews import NotionInterviews
 from .notion_agent_runs import NotionAgentRuns
@@ -63,17 +64,10 @@ class _Database:
 
     def __init__(self, tracker, database_id):
         self.tracker, self.database_id = tracker, database_id
-        self._have = None
-
-    def _existing(self):
-        if self._have is None:
-            schema = self.tracker._request('GET', f'databases/{self.database_id}')
-            self._have = set(schema.get('properties') or {})
-        return self._have
+        self._known = KnownColumns(tracker, database_id)
 
     def _writable(self, props):
-        have = self._existing()
-        return {name: value for name, value in props.items() if name in have}
+        return self._known.writable(props)
 
     def _record(self, page):
         return rows.to_record(page, self.columns, self.fields)
