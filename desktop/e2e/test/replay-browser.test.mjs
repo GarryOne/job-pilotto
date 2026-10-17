@@ -1,7 +1,7 @@
 // Guards lib/replay-browser.mjs without a browser: which case a request belongs to, and that two cases on one host never run at once.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {caseForRequest, contactForUrl, nextRunnable} from '../lib/replay-browser.mjs';
+import {caseForRequest, contactForUrl, nextRunnable, openerRoot} from '../lib/replay-browser.mjs';
 
 const item = (name, ...hosts) => ({name, pages: hosts.map(host => ({url: `https://${host}/p`}))});
 
@@ -50,4 +50,14 @@ test('each tab gets the applicant details of its own case: a phone split in piec
   assert.equal(contactForUrl(live, 'https://b.example/apply'), null);
   assert.equal(contactForUrl(live, 'https://elsewhere.example/'), null);
   assert.equal(contactForUrl(live, 'not a url'), null);
+});
+
+test('a new tab belongs to the case tab at the end of its opener chain; one with no known opener is unplaced', () => {
+  const tabA = {}, tabB = {}, popup = {opener: tabA, page: {}}, second = {opener: popup.page, page: {}}, other = {opener: tabB, page: {}}, orphan = {opener: null, page: {}}, notYet = {opener: undefined, page: {}};
+  const entries = [popup, second, other, orphan, notYet];
+  assert.equal(openerRoot(entries, popup), tabA);
+  assert.equal(openerRoot(entries, second), tabA, 'a popup of a popup');
+  assert.equal(openerRoot(entries, other), tabB);
+  assert.equal(openerRoot(entries, orphan), undefined);
+  assert.equal(openerRoot(entries, notYet), undefined);
 });
