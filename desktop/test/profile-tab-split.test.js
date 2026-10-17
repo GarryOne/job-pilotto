@@ -37,7 +37,7 @@ test('CV is the default tab and draws the CV; Your details keeps unsaved edits',
 // 17 Oct 2026: with CV the default tab, the closed Your details panel was "hidden" and the CV's proposals filled none of its boxes (main filled 4).
 test('Fill from my CV fills Your details while its tab is closed; a box the form hides stays skipped', () => {
   const page = read('renderer/pages/contact-proposals.js');
-  assert.match(page, /hiddenByForm = input => \{ const hidden = input\.closest\('\[hidden\]'\); return Boolean\(hidden && !hidden\.matches\('\[data-profile-panel\]'\)\); \}/);
+  assert.match(page, /hiddenByForm = input => \{ const hidden = input\.parentElement\?\.closest\('\[hidden\]'\); return Boolean\(hidden && !hidden\.matches\('\[data-profile-panel\]'\)\); \}/);
   assert.match(page, /input\.value\.trim\(\) \|\| hiddenByForm\(input\)\) continue;/);
   assert.match(html, /<label data-swiss-only hidden>Place of origin/, 'the box the form hides is still marked hidden');
 });
