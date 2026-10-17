@@ -6,6 +6,7 @@ import path from 'node:path';
 import {applicantDraft} from './applicant-seed.mjs';
 import {appKey, DUMMY_KEY} from './engine.mjs';
 import {runWizard} from './wizard.mjs';
+import {RECONNECT} from './notion-reuse.mjs';
 
 export async function fastSeed(ctx) {
   const {page} = ctx;
@@ -17,10 +18,11 @@ export async function fastSeed(ctx) {
   const applicant = () => applicantDraft();   // demo/draft.json, or the grown applicant with JP_APPLICANT=grown (lib/applicant-seed.mjs)
   const strategy = ctx.store === 'sqlite' ? applicant() : ctx.standIn && ctx.store === 'standin' && !ctx.standIn.strategySaved ? applicant() : null;
   if (strategy && ctx.standIn) ctx.standIn.strategySaved = true;
-  await page.evaluate(async ({anthropic, openai, token, engine, strategy}) => {
+  await page.evaluate(async ({anthropic, openai, token, engine, strategy, reconnect}) => {
     const keyed = await window.pilot.saveSecret('ANTHROPIC_API_KEY', anthropic);
     if (keyed?.ok === false) throw new Error(`the key was refused: ${keyed.error}`);
     if (openai) await window.pilot.saveSecret('OPENAI_API_KEY', openai);
+    if (token) await window.pilot.saveSettings(reconnect);   // the suite's workspace exists: connect as a profile that already has one (a fresh profile starts a new workspace, notion-reuse.mjs)
     const connected = token ? await window.pilot.notionConnect(token) : {ok: true};   // no token: this Mac's store, nothing to connect
     if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || `missing ${JSON.stringify(connected?.missing || [])}, problems ${JSON.stringify((connected?.problems || []).map(p => p.title || p))}, found ${JSON.stringify(Object.keys(connected?.ids || {}))}`}`);   // no error text: say what the connect found
     if (strategy) {   // a fresh stand-in: the applicant's strategy, saved the way the wizard's Save does (the real test page holds one from its first run)
@@ -33,7 +35,7 @@ export async function fastSeed(ctx) {
     }
     await window.pilot.setAiEngine(engine);
     await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', cvName: 'cv.pdf'});
-  }, {anthropic: ctx.engine === 'api' ? appKey(ctx.key) : DUMMY_KEY, openai: ctx.engine === 'openai' ? ctx.key : '', token: ctx.token, engine: ctx.engine, strategy});
+  }, {anthropic: ctx.engine === 'api' ? appKey(ctx.key) : DUMMY_KEY, openai: ctx.engine === 'openai' ? ctx.key : '', token: ctx.token, engine: ctx.engine, strategy, reconnect: RECONNECT});
   fs.copyFileSync(ctx.cv, path.join(ctx.profile, 'cv.pdf'));   // forms and tailoring read the CV from the data folder
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});

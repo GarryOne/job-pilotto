@@ -10,6 +10,7 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
+import {connectExisting} from '../lib/notion-reuse.mjs';
 import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore, standInRows,
   afterFirstSearch, logLines, searches, settingsOf, pressMove, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
 
@@ -30,7 +31,7 @@ async function setUp(page) {
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
 }
 async function connect(page, token) {
-  const result = await page.evaluate(token => window.pilot.notionConnect(token), token);
+  const result = await connectExisting(page, token);
   if (!result?.ok) throw new Error(`Notion did not connect: ${result?.error || JSON.stringify(result)}`);
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});

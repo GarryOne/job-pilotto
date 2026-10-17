@@ -10,6 +10,7 @@ import path from 'node:path';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {call, clearRoot, pageBlocks} from '../lib/notion.mjs';
 import {COMPANIES, sameScreens, screens, seedStore, settingsOf, pressMove} from '../lib/storemove-steps.mjs';
+import {connectExisting} from '../lib/notion-reuse.mjs';
 
 export const name = 'notion-real';
 export const store = 'notion';
@@ -83,7 +84,7 @@ export async function run(ctx) {
     }, {critical: true});
 
     await ctx.run('the real workspace connects and this Mac keeps its data until the move', async () => {
-      const result = await ctx.page.evaluate(token => window.pilot.notionConnect(token), ctx.token);
+      const result = await connectExisting(ctx.page, ctx.token);
       if (!result?.ok) throw new Error(`Notion did not connect: ${result?.error || JSON.stringify(result)}`);
       await ctx.page.reload();
       await ctx.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
