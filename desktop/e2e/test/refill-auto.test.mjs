@@ -34,11 +34,9 @@ test('the automatic pick takes only rows whose outcome fell: a refill can change
   assert.deepEqual(pickRefill({pins: ['kept', 'better', 'fell'], records}).rows.map(row => row.name), ['better', 'fell', 'kept'], 'by hand: every stale row, as before');
 });
 
-test('the daily replay dispatches the refill from main for the flagged rows only, with no AI key; the refill checks the caps in its own job', () => {
-  const daily = workflow('site-replays.yml'), refill = workflow('replay-refill.yml');
-  assert.match(daily, /gh workflow run replay-refill\.yml --ref main -f only="\$\(cat "\$RUNNER_TEMP\/flagged\.txt"\)" -f max_asks=40/);
-  assert.match(daily, /github\.event_name == 'schedule' \|\| inputs\.scheduled/, 'only the scheduled run, never a PR or a by-hand test');
-  assert.doesNotMatch(daily, /AI_COST_PUBLISH_KEY|REPLAY_REFILL_ANTHROPIC_KEY/, 'the replay job holds no key');
+test('the refill workflow checks its caps in its own job and alerts when one stops it; no replay starts it', () => {
+  const refill = workflow('replay-refill.yml');
+  assert.doesNotMatch(workflow('site-replays.yml'), /gh workflow run replay-refill/, 'owner, 17 Oct 2026: no refill trigger from a replay');
   assert.match(refill, /run-name: .*Replay refill/);
   assert.match(refill, /node refill-auto\.mjs cap/);
   assert.match(refill, /--worse-only --max-usd/);

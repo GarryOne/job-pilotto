@@ -1,13 +1,11 @@
-# Since 17 Oct 2026 (owner: "Daily with site replays": 63 PR runs, 4 red, 0 real; 3 reds were recording downloads) this runs once a day, never on a PR, and tells Telegram when a journey fails.
+# Since 17 Oct 2026 (owner: "Daily with site replays": 63 PR runs, 4 red, 0 real; 3 reds were recording downloads) this runs by hand only (debugging), never on a PR and on no schedule; a journey that fails tells Telegram.
 # Journey tests (owner, 16 Oct 2026): replays whole recorded journeys offline (desktop/e2e/journeys.json: signed-in Richemont, SuccessFactors, a
 # Lever form) with the real extension and the app, and judges what the person SEES at every step: the card's line and the panel's headline, count and Report button, against the live
 # run's own steps, plus never Submitted / never Ready early (desktop/e2e/journey.mjs, lib/journey-check.mjs). One runner per journey, $0 (memo-only AI), minutes. Fixes passed unit tests on
 # pieces and failed on the owner's real journey ("Logging in…" for ever, "Apply button detected" on an error page); this is the test of the whole. Not a required check.
-name: CI · Journeys (card and panel per step, daily)
+name: CI · Journeys (card and panel per step)
 
 on:
-  schedule:
-    - cron: '20 1 * * *'   # once a day, after the 02:00 Zurich replays' hour starts (owner, 17 Oct 2026)
   workflow_dispatch:
 
 permissions:
