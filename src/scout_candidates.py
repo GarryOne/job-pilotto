@@ -114,7 +114,6 @@ WIKIDATA_QUERY = """SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {
 
 # Any other country (8 Oct 2026: a search in Lisbon had only Swiss companies): the same query, the country found by its English name and
 # an ISO code (so "Georgia" is the country). `staffed=False` also takes companies with no head count, which Wikidata lacks for many countries.
-WIKIDATA_MIN_ROWS = 200
 
 
 def wikidata_query(country='Switzerland', staffed=True):
@@ -167,8 +166,9 @@ def search_countries():
 
 
 def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
-    """Companies with a website and at least 30 employees in each country of your places, from Wikidata's open SPARQL service (bigger first);
-    where Wikidata has fewer than WIKIDATA_MIN_ROWS of them, companies with no head count too. Any trade: the probe then keeps only those whose
+    """Companies with a website in each country of your places, from Wikidata's open SPARQL service: those with 30+ employees (bigger first), then
+    the ones with no head count, small companies and startups among them (owner, 18 Oct 2026: also in big countries, now that the queue ranks
+    each source by its yield, src/scout_queue.py; before, only where Wikidata had fewer than 200 with a head count). Any trade: the probe then keeps only those whose
     careers page lists jobs for your roles in your places. Each country's list is kept a week (Switzerland's in the file it always had)."""
     from .paths import DATA
     base = Path(cache) if cache else DATA / 'cache' / 'wikidata-companies.json'
@@ -177,8 +177,7 @@ def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
         file = base if country == 'Switzerland' else base.with_name(f'{base.stem}-{slug}{base.suffix}')
         try:
             rows = wikidata_rows(get, file, clock, wikidata_query(country))
-            if len(rows) < WIKIDATA_MIN_ROWS:
-                rows = rows + wikidata_rows(get, file.with_name(f'{file.stem}-all{file.suffix}'), clock, wikidata_query(country, staffed=False))
+            rows = rows + wikidata_rows(get, file.with_name(f'{file.stem}-all{file.suffix}'), clock, wikidata_query(country, staffed=False))
         except Exception as error:  # noqa: BLE001 — one country down leaves the others
             print(f'Warning: Wikidata companies in {country} skipped ({type(error).__name__}: {error})')
             continue
@@ -190,7 +189,7 @@ def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
                 continue
             seen.add(site)
             staff = int(float(row.get('employees', {}).get('value', 0) or 0))
-            yield dict(name=name, origin=origin, priority=60 if staff >= 200 else 50, website=site)
+            yield dict(name=name, origin=origin, priority=60 if staff >= 200 else 50 if staff else 45, website=site)
 
 
 def skipped_origins(seeds, technical):
