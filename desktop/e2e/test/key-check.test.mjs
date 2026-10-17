@@ -58,3 +58,19 @@ test('the key of the other family is checked on every run, whichever family runs
   await checkOtherKeys({engine: 'openai', env: {}, log: line => lines.push(line), fetchImpl: refusing});
   assert.deepEqual(lines, ['  preflight: no E2E_ANTHROPIC_KEY here']);
 });
+
+test('the app\'s own request shape is sent once to Claude, and a 400 on it stops the suite with the API\'s words; a limit does not', async () => {
+  const bodies = [];
+  const sending = status => async (url, options) => {
+    if (!url.endsWith('/v1/messages')) return {status: 200};
+    bodies.push(JSON.parse(options.body));
+    return {status, json: async () => ({error: {message: 'output_config.effort is not supported'}})};
+  };
+  await assert.rejects(checkKeyAccepted({engine: 'api', key: 'k', fetchImpl: sending(400)}), /own request shape on claude-haiku-5-5 \(400\).*effort is not supported/);
+  await checkKeyAccepted({engine: 'api', key: 'k', fetchImpl: sending(429)});
+  await checkKeyAccepted({engine: 'openai', key: 'k', fetchImpl: sending(400)});
+  assert.equal(bodies.length, 2);   // never on OpenAI
+  assert.equal(bodies[0].output_config.format.type, 'json_schema');
+  assert.equal(bodies[0].output_config.effort, 'low');
+  assert.ok(bodies[0].max_tokens <= 256);
+});

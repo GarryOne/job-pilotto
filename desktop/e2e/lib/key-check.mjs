@@ -8,6 +8,11 @@ const CHECKS = {
 // The Claude models the app and the suites call (src/ai/models.py SMALL/MAIN/BIG; test/key-check.test.mjs keeps this list equal to that file).
 export const CLAUDE_MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'];
 const COUNT_TOKENS = 'https://api.anthropic.com/v1/messages/count_tokens';
+const MESSAGES = 'https://api.anthropic.com/v1/messages';
+// The shape the app sends (src/ai/engine.py structured(): a json_schema format plus effort 'low' on Haiku 5.5, which always runs at low): one tiny paid call, about a tenth of a cent, so a
+// 400 that count_tokens cannot see (the request's shape, not the model) shows its message in the first suite's log (owner's yes, 18 Oct 2026, ~$0.05 per beta run in all).
+const EXACT_SHAPE = {model: CLAUDE_MODELS[0], max_tokens: 256, messages: [{role: 'user', content: 'Answer ok.'}],
+  output_config: {format: {type: 'json_schema', schema: {type: 'object', properties: {answer: {type: 'string'}}, required: ['answer'], additionalProperties: false}}, effort: 'low'}};
 
 const say = async response => { try { return String((await response.json())?.error?.message || '').replace(/\s+/g, ' ').replace(/sk-[\w-]{6,}|Bearer\s+\S+|\b[A-Za-z0-9_-]{32,}\b/g, '…').slice(0, 160); } catch { return ''; } };
 
@@ -24,6 +29,8 @@ export async function checkKeyAccepted({engine, key, fetchImpl = fetch}) {
     const counted = await ask(COUNT_TOKENS, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({model, messages: [{role: 'user', content: 'ok'}]})});
     if (counted && (counted.status === 400 || counted.status === 404)) throw new Error(`${check.secret}: the API refused model ${model} (${counted.status}) before any suite ran: "${await say(counted)}"`);
   }
+  const sent = await ask(MESSAGES, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(EXACT_SHAPE)});
+  if (sent && sent.status >= 400 && sent.status < 500 && ![401, 403, 429].includes(sent.status)) throw new Error(`${check.secret}: the API refused the app's own request shape on ${EXACT_SHAPE.model} (${sent.status}): "${await say(sent)}"`);
 }
 export const CHECKED_ENGINES = Object.keys(CHECKS);
 
