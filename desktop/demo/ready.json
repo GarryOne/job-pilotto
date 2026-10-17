@@ -1,0 +1,6 @@
+{"owner": true, "settings": {"on": false, "minFit": 60, "perNight": 10},
+ "tonight": [{"code": "demo-1", "title": "Site Reliability Engineer", "company": "Alpenglow Logistics", "fit": 82}, {"code": "demo-2", "title": "Platform Engineer", "company": "Nordlicht Systems", "fit": 74}, {"code": "demo-3", "title": "DevOps Engineer", "company": "Brightline Cloud", "fit": 68}],
+ "site": {"ok": true, "batch": {"night": "2026-10-18", "state": "finished", "costUsd": 0.31, "expiresAt": "2026-10-18T05:00:00Z"},
+  "jobs": [{"job": "demo-1", "host": "boards.example.com", "state": "prepared", "filled": 9, "left_empty": 0, "wall": ""},
+           {"job": "demo-2", "host": "jobs.example.org", "state": "partial", "filled": 6, "left_empty": 2, "wall": ""},
+           {"job": "demo-3", "host": "careers.example.net", "state": "wall", "filled": 0, "left_empty": 0, "wall": "account"}]}}

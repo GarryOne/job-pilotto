@@ -1,0 +1,37 @@
+// Ready to send, tonight's batch (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): which finished jobs go to the night, and the batch the site takes (the contact, your facts for the AI, and per job: the kit,
+// the tailored CV and the cover letter PDF as the extension would upload them). Everything it reads comes in as a function, so a test needs no store, no Electron and no Notion. Guard: test/ready-batch.test.js.
+import {DEFAULT_MIN_FIT, DEFAULT_PER_NIGHT, complete} from './ready.js';
+
+const open = job => ['unreviewed', 'saved'].includes(job.status) && !!job.url && !!job.code;
+const best = (a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit ?? -1) - (a.fit ?? -1);
+
+// The jobs whose kit, tailored CV and letter are all done, best first: saved, then by fit.
+export const pickToSend = (jobs, {minFit = DEFAULT_MIN_FIT, perNight = DEFAULT_PER_NIGHT} = {}) =>
+  jobs.filter(job => open(job) && (job.fit ?? -1) >= minFit && !job.ineligible && complete(job)).sort(best).slice(0, perNight);
+
+const pad = n => String(n).padStart(2, '0');
+const day = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+// The morning a batch is for: tonight's batch is for tomorrow, one made after midnight is for today. fillAt: 02:00 that morning, this Mac's time (ISO).
+export function nightOf(now = new Date()) {
+  const morning = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (now.getHours() >= 12 ? 1 : 0));
+  return {night: day(morning), fillAt: new Date(morning.getFullYear(), morning.getMonth(), morning.getDate(), 2, 0).toISOString()};
+}
+
+// deps: {store: {findJob(url), kit(id)}, me(url) -> the extension's "your details" ({contact, resume, coverLetterFile}), facts() -> {profile, standard, search, cvFacts, knowledge}}.
+// -> {batch, skipped: [{code, why}]}. A job with no tailored CV file or no kit is left out and said so, never sent half-made.
+export async function buildBatch(jobs, deps, {now = new Date(), readyBy = '07:30'} = {}) {
+  const sent = [], skipped = [];
+  let contact = {};
+  for (const job of jobs) {
+    const found = await deps.store.findJob(job.url).catch(() => null);
+    const kit = found ? await deps.store.kit(found.id).catch(() => null) : null;
+    const mine = await deps.me(job.url).catch(() => null);
+    if (!kit) { skipped.push({code: job.code, why: 'no kit found'}); continue; }
+    if (!mine?.resume?.data) { skipped.push({code: job.code, why: 'no CV file'}); continue; }
+    if (!Object.keys(contact).length) contact = mine.contact || {};
+    sent.push({id: job.code, url: job.url, title: job.title || '', company: job.company || '', fit: job.fit ?? null, kit: {answers: kit.answers || []}, letter: kit.cover_letter || '',
+      cv: mine.resume.data, letterPdf: mine.coverLetterFile?.data || ''});
+  }
+  const {night, fillAt} = nightOf(now);
+  return {batch: {night, fillAt, readyBy, contact, facts: sent.length ? await deps.facts() : {}, jobs: sent}, skipped};
+}

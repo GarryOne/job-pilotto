@@ -49,7 +49,7 @@ export function restartArgs(argv, folder = null) {
 export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startFreeAi', 'checkAnthropic', 'cloudOff',
   'telegramCloudOn', 'telegramCloudOff', 'telegramConnect', 'googleConnect', 'licenseRemove', 'applyWithClaude', 'apply',
   'applyOne', 'sessionRestart', 'sessionReopen', 'sessionsStopExtension', 'sessionResume', 'updateInstall', 'updateCheck', 'betaSet', 'testSet', 'betaRollback', 'resetProfile', 'importProfile', 'importCv',
-  'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'tailorTop', 'ivRecordStart',
+  'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'tailorTop', 'readySend', 'readyRun', 'readyDone', 'readyDeleteAll', 'readySettings', 'ivRecordStart',
   'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'matchCheck', 'saveStrategy', 'setStatus', 'setStage',
   'setAutomation', 'lookAround'];
 export function blocked(name) {

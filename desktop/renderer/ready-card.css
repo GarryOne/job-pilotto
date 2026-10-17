@@ -1,0 +1,6 @@
+/* The Ready to send card (pages/ready-card.js): rows under the task-card body, built from the Actions page's own parts; only the list is new. */
+.ready-card { display: grid; gap: var(--sp-2); }
+.ready-body, .ready-note { padding: 0 var(--sp-3); display: grid; gap: var(--sp-2); }
+.ready-rows { display: grid; gap: var(--sp-1); }
+.ready-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.ready-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

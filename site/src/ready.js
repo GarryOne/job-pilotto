@@ -89,7 +89,7 @@ async function batch(request, env, now) {
   const old = await env.STATS.prepare('SELECT id FROM ready_batches WHERE install = ? AND night = ?').bind(install, given.night).first();
   if (old) { await clear(env, install, old.id, null, now); await env.STATS.batch([env.STATS.prepare('DELETE FROM ready_jobs WHERE batch = ?').bind(old.id), env.STATS.prepare('DELETE FROM ready_batches WHERE id = ?').bind(old.id)]); }
   const id = crypto.randomUUID();
-  const kept = jobs.map(job => ({id: job.id, url: job.url, title: String(job.title || '').slice(0, 200), company: String(job.company || '').slice(0, 200), fit: num(job.fit), kit: job.kit || {}, letter: String(job.letter || ''), cv: String(job.cv || '')}));
+  const kept = jobs.map(job => ({id: job.id, url: job.url, title: String(job.title || '').slice(0, 200), company: String(job.company || '').slice(0, 200), fit: num(job.fit), kit: job.kit || {}, letter: String(job.letter || ''), cv: String(job.cv || ''), letterPdf: String(job.letterPdf || '')}));
   const facts = Object.fromEntries(FACTS.map(name => [name, String(given.facts?.[name] || '').slice(0, 40000)]));   // what the AI may answer from (profile, standard answers, ...): sealed with the batch, deleted with it
   await writeBlob(env, install, id, {contact: given.contact || {}, readyBy: String(given.readyBy || '').slice(0, 5), facts, jobs: kept});
   const fillAt = Number.isFinite(Date.parse(given.fillAt)) ? new Date(given.fillAt).toISOString() : null;   // when the night should start filling (the cron starts it then); none: at the next tick

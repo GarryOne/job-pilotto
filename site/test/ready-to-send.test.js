@@ -24,7 +24,7 @@ const now = new Date('2026-10-18T02:00:00Z');
 const call = async (e, method, path, body, headers = {}) => ready(new Request(`https://x/api/ready/${path}`, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, now);
 const owner = async (headers = {}) => ({'x-api-key': await keyOf('owner-install-1'), ...headers});
 const batchBody = () => ({night: '2026-10-18', readyBy: '07:30', contact: {name: 'Alex Example', email: 'alex@example.invalid'},
-  jobs: [{id: 'j1', url: 'https://boards.example.com/acme/jobs/1', title: 'SRE', company: 'Acme', fit: 80, kit: {answers: {notice: 'two months secretword'}}, letter: 'Dear Acme secretletter', cv: 'JVBERi0='},
+  jobs: [{id: 'j1', url: 'https://boards.example.com/acme/jobs/1', title: 'SRE', company: 'Acme', fit: 80, kit: {answers: {notice: 'two months secretword'}}, letter: 'Dear Acme secretletter', cv: 'JVBERi0=', letterPdf: 'JVBERi1x'},
     {id: 'j2', url: 'https://jobs.example.org/p/2', title: 'DevOps', company: 'Nordlicht', fit: 70, kit: {}, letter: '', cv: ''}]});
 async function night(e = env()) {
   const made = await (await call(e, 'POST', 'batch', batchBody(), await owner())).json();
@@ -59,6 +59,7 @@ test('a container reads the night with its token and nothing else does', async (
   const {e, bearer, made} = await night();
   const read = await (await call(e, 'GET', 'batch', undefined, bearer)).json();
   assert.equal(read.jobs.length, 2); assert.equal(read.contact.name, 'Alex Example'); assert.equal(read.stop, false);
+  assert.equal(read.jobs[0].letterPdf, 'JVBERi1x');   // the cover letter PDF reaches the container with the CV
   assert.equal((await call(e, 'GET', 'batch', undefined, {authorization: `Bearer RR1.${made.batch}.forged`})).status, 401);
   assert.equal((await call(e, 'GET', 'batch', undefined, await owner())).status, 401);   // the owner's key is not a night token
   assert.equal((await ready(new Request('https://x/api/ready/batch', {headers: bearer}), e, new Date(now.getTime() + 4 * 3600 * 1000))).status, 401);   // expired
