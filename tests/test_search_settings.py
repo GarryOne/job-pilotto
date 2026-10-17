@@ -45,6 +45,17 @@ class SearchSettingsTests(unittest.TestCase):
             files = s.apply(values)
         self.assertEqual(files, FILES)  # the page never changes what a search matches
 
+    def test_the_locations_kinds_and_the_search_only_override_survive_the_page(self):
+        # Locations, one source (17 Oct 2026): relocation yes / no / unspecified and a search-only list are settings too, on every store.
+        files = json.loads(json.dumps(FILES))
+        files['search']['locations'].update({'relocation': ['no'], 'search_override': ['netherlands', r'\bgermany\b']})
+        text = s.render(files)
+        self.assertIn('## Relocation\n- no', text)
+        self.assertIn('## Places to search instead\n- netherlands\n- "germany"', text)
+        values = s.parse(text)
+        self.assertEqual(values[('search', ('locations', 'relocation'))], ['no'])
+        self.assertEqual(values[('search', ('locations', 'search_override'))], ['netherlands', r'\bgermany\b'])
+
     def test_the_sync_writes_no_note_of_the_example_files(self):
         # A "_" key is a note of the repo's example settings, never a setting (desktop/lib/config-text.js): a cache that kept one must not keep it (11 Oct 2026).
         values = s.parse(s.render(json.loads(json.dumps(FILES))))

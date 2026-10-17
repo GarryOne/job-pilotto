@@ -73,7 +73,7 @@ test('applyLocations writes the resolved values and keeps every other search set
   assert.deepEqual(next.locations.top_tier, ['Zurich']);
   assert.deepEqual(next.locations.country_wide, ['Switzerland']);
   assert.deepEqual(next.locations.abroad, ['Berlin']);
-  assert.equal(next.locations.relocation, 'yes');
+  assert.deepEqual(next.locations.relocation, ['yes']);
   assert.deepEqual(next.locations.search_override, ['germany']);
   assert.deepEqual(next.role_keywords, ['sre']);
   assert.deepEqual(next.remote_excluded_regions, ['canada']);
