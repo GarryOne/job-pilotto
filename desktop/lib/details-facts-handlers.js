@@ -5,6 +5,7 @@ import * as sections from './profile-sections.js';
 import {move, openConflicts, resolve} from './profile-move.js';
 import {claudeAi} from './question-ai.js';
 import * as kinds from './details-kinds.js';
+import * as notes from './details-notes.js';
 import * as surveys from './survey-move.js';
 import {list} from './set-aside.js';
 
@@ -36,6 +37,8 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
     }
     try {
       const tidy = await kinds.tidy(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the kinds tidy stopped', {error: failed.message}); return {changed: 0}; });
+      const split = await notes.split(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the notes split stopped', {error: failed.message}); return {changed: 0}; });
+      if (split.changed) log('profile', 'long Your details lines got a note for the AI', {changed: split.changed});   // a count, never a value
       const moved = await surveys.migrate(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the survey move stopped', {error: failed.message}); return {changed: 0}; });
       if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
