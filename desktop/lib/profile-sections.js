@@ -35,7 +35,7 @@ function grouped(blocks) {
 const NOTE = /^(.*?)\s*\(note: (.*)\)\s*$/s;
 const itemOf = line => {
   const marked = splitMark(String(line || '')), text = marked.text, at = text.indexOf(':');
-  const item = at < 0 ? {label: text.trim(), value: ''} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).trim()};
+  const item = at < 0 ? {label: text.trim(), value: ''} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).replace(/^[\s:]+/, '').trim()};   // "Q: : A": the label's own colon
   const noted = item.value.match(NOTE);
   if (noted) { item.value = noted[1].trim(); item.note = noted[2].trim(); }
   return marked.marked ? {...item, kind: marked.kind} : item;
@@ -53,7 +53,7 @@ export async function save(storage, key, items, fetcher) {
   const page = profile(storage, fetcher);
   const found = grouped(await page.blocks())[key];
   for (const line of [...(found?.lines || [])].reverse()) await page.remove(line);   // last first: this Mac's ids are line numbers
-  const lines = (items || []).filter(item => item?.label && String(item.value ?? '').trim()).map(item => withMark(`${String(item.label).trim()}: ${String(item.value).trim()}${String(item.note || '').trim() ? ` (note: ${String(item.note).trim()})` : ''}`, {kind: item.kind || 'text'}));
+  const lines = (items || []).filter(item => item?.label && String(item.value ?? '').trim()).map(item => withMark(`${String(item.label).replace(/[\s:]+$/, '').trim()}: ${String(item.value).trim()}${String(item.note || '').trim() ? ` (note: ${String(item.note).trim()})` : ''}`, {kind: item.kind || 'text'}));
   if (!lines.length) return [];
   const heading = found?.heading.id || await page.appendHeading(SECTIONS[key]);
   await page.insertAfter(heading, lines);

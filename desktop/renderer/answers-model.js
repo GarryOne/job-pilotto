@@ -13,8 +13,13 @@ const LONG = /^(.{91,}):\s+([^:]{1,80})$/;
 const plain = text => String(text).replace(/\*\*/g, '').replace(/[\s:*]+$/, '').replace(/^[\s*]+/, '').trim();
 
 // "❓ to confirm — leave blank" → {open: true, hint: 'leave blank'}; "❓ (asked by Acme)" → {open, asked: 'Acme'}; "Leave blank" → {open: false}.
+// An empty answer is not set either (owner, 18 Oct 2026: his "How to pronounce your name" was left empty); "… (guess)" is an answer not yet confirmed: the
+// value without the mark, .guess (an older kit wrote it; the row says "Unconfirmed" until it is saved again).
+const GUESS = /\s*\(guess\)\.?\s*$/i;
 export function valueOf(raw) {
   const text = String(raw ?? '').trim();
+  if (!text) return {open: true, optional: false, value: '', hint: '', asked: ''};
+  if (GUESS.test(text)) return {open: false, optional: false, guess: true, value: text.replace(GUESS, '').trim(), hint: '', asked: ''};
   if (!UNSET.test(text)) return {open: false, optional: false, value: text, hint: '', asked: ''};
   const asked = text.match(ASKED)?.[1] || '';
   const hint = text.replace(UNSET, '').replace(ASKED, '').replace(/^\(|\)$/g, '').replace(/^(to confirm|optional)\s*[—:-]?\s*/i, '').trim();
@@ -25,7 +30,7 @@ export function valueOf(raw) {
 // "**Notice:** 3 months" → {head: '**Notice:**', question: 'Notice', raw: '3 months'}; a line with no label → null.
 export function labelledLine(text) {
   const match = String(text).match(LABELLED);
-  if (match && plain(match[2] || match[3])) return {head: match[1], question: plain(match[2] || match[3]), raw: match[4]};
+  if (match && plain(match[2] || match[3])) return {head: match[1], question: plain(match[2] || match[3]), raw: match[4].replace(/^:\s*/, '')};   // "Q: : A": the label's own colon
   // A form's own question can be long (owner's screenshot, 17 Oct 2026: 120-character questions showed as prose): "<question>: <short answer>", the
   // answer after the last ": " with no colon in it, is still a question; a long sentence with no such ending stays a note.
   const long = String(text).match(LONG);
