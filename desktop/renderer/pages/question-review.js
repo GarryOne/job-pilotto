@@ -10,6 +10,7 @@ import {icon} from '../icons.js';
 import {answerControl} from '../question-control.js';
 import {markFor} from '../question-kind.js';
 import {needsCheck} from '../question-values.js';
+import {KEEP_AS_IS} from '../question-filter.js';
 import {claimOverlay, registerOverlay, releaseOverlay} from '../overlay-slot.js';
 import {button, skeleton, stateCard} from '../job-drawer/parts.js';
 import {loadQuestions, questionsNow} from './jobs-questions.js';
@@ -78,7 +79,7 @@ function picker() {
 }
 
 // What a Your details item asks for (lib/details-review.js), over its answer box.
-const ASKS = {which: 'Pick the right one', where: 'Pick its home', check: 'Pick the parts', open: 'Missing answer'};
+const ASKS = {which: 'Pick the right one', where: 'Pick its home', check: 'Pick the parts', open: 'Missing answer', unclear: 'Make it sure'};
 
 function question(q) {
   const body = el('div', 'jd-body qr-body');
@@ -100,8 +101,9 @@ function question(q) {
     confirm.disabled = state.busy || !ready();
   }, {placeholder: 'Type your answer', ariaLabel: q.question, chips: Boolean(mine)});
   control.id = 'qr-control';
-  // A value to make exact is ready only once its parts read (the same rule as the line's Check chip).
-  const ready = () => control.complete && !(mine?.kind === 'check' && needsCheck(q.format?.kind, control.value));
+  // A value to make exact is ready only once its parts read (the same rule as the line's Check chip); an unclear answer once it changed ("Keep as is" keeps it).
+  const ready = () => control.complete && !(mine?.kind === 'check' && needsCheck(q.format?.kind, control.value))
+    && !(mine?.kind === 'unclear' && String(control.value).trim() === String(q.value ?? '').trim());
   box.append(label, control);
   body.append(box);
   if (mine?.kind === 'which') body.append(el('p', 'muted small', `${q.hint}. The other is set aside, never deleted: Undo in Your details.`));
@@ -118,6 +120,11 @@ function question(q) {
     title: q.hint !== undefined ? 'Forms leave this field empty (the line stays, answered "— (leave blank)")' : 'Not a question to keep an answer for'});
   drop.addEventListener('click', () => answer(q, ''));
   if (!mine || mine.kind === 'open') body.append(drop);   // a choice or an exact value always has an answer
+  if (mine?.kind === 'unclear') {   // the AI found it unclear; the person may know better: never asked again for this value
+    const keepIt = Object.assign(el('button', 'link small qr-drop', 'Keep as is'), {type: 'button', id: 'qr-keep', title: 'It is right as it is: not asked again unless it changes'});
+    keepIt.addEventListener('click', () => answer(q, KEEP_AS_IS));
+    body.append(keepIt);
+  }
   if (state.saved) body.append(el('p', 'muted small qr-saved', state.saved));
   if (state.error) body.append(el('p', 'message error', state.error));
   if (state.consent) body.append(el('p', 'muted small qr-consent', 'Terms and consent boxes are ticked for you on each form (Settings → Consent boxes turns that off).'));

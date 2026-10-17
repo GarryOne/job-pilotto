@@ -33,7 +33,7 @@ function grouped(blocks) {
 // "Notice period: 1 month [duration]" -> {label, value, kind}: a line's kind is the mark at its end (renderer/question-kind.js), the same text on every store.
 // A note rides before the mark: "Target: 10000 CHF/month net (note: a target, not a posted field) [salary]". The words the value does not hold stay in the note.
 const NOTE = /^(.*?)\s*\(note: (.*)\)\s*$/s;
-const itemOf = line => {
+export const parseLine = line => {
   const marked = splitMark(String(line || '')), text = marked.text, at = text.indexOf(':');
   const item = at < 0 ? {label: text.trim(), value: ''} : {label: text.slice(0, at).trim(), value: text.slice(at + 1).replace(/^[\s:]+/, '').trim()};   // "Q: : A": the label's own colon
   const noted = item.value.match(NOTE);
@@ -44,7 +44,7 @@ const itemOf = line => {
 // -> {eligibility: [{label, value}], availability: [...], languages: [...]} (an empty section or a missing one: []).
 export async function read(storage, fetcher) {
   const found = grouped(await profile(storage, fetcher).blocks());
-  return Object.fromEntries(Object.keys(SECTIONS).map(key => [key, (found[key]?.lines || []).map(line => itemOf(line.text)).filter(item => item.label)]));
+  return Object.fromEntries(Object.keys(SECTIONS).map(key => [key, (found[key]?.lines || []).map(line => parseLine(line.text)).filter(item => item.label)]));
 }
 
 // The section's lines replaced by these items ({label, value, kind?}); its heading is added at the end of the page the first time.

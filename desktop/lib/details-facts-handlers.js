@@ -3,7 +3,7 @@
 // lib/contact-handlers.js. Guarded by test/details-facts.test.js and test/ipc.test.js.
 import * as sections from './profile-sections.js';
 import {move, openConflicts, resolve} from './profile-move.js';
-import {recheck} from './details-review.js';
+import {judgeNew} from './details-review.js';
 import {claudeAi} from './question-ai.js';
 import * as kinds from './details-kinds.js';
 import * as notes from './details-notes.js';
@@ -39,9 +39,6 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
         log('profile', 'facts moved into Your details', {moved, conflicts: conflicts.length});   // counts, never a value
       } catch (failed) { error = failed.message; log('profile', 'the facts move stopped', {error: failed.message}); }
     }
-    // A Profile moved before "unsure" existed: its lines that stayed are judged once more; the unsure ones join the review queue (lib/details-review.js).
-    const rechecked = await recheck(storage, {ai: ai()}).catch(failed => { log('profile', 'the unsure re-check stopped', {error: failed.message}); return {queued: 0}; });
-    if (rechecked.queued) log('profile', 'unsure lines queued for review', {queued: rechecked.queued});   // a count, never a value
     try {
       const tidy = await kinds.tidy(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the kinds tidy stopped', {error: failed.message}); return {changed: 0}; });
       const split = await notes.split(storage, {ai: ai(), ...(copy ? {copy} : {})}).catch(failed => { error = error || failed.message; log('profile', 'the notes split stopped', {error: failed.message}); return {changed: 0}; });
@@ -50,6 +47,9 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
       if (!moved.changed && moved.reason && moved.reason !== 'no-ai') log('profile', 'survey answers not moved', {reason: moved.reason});   // a reason word, never a value
       if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
+      // The AI's word on each answer not judged yet, after the tidy and split changed what they change (lib/details-review.js judgeNew): unclear ones are queued.
+      const judged = await judgeNew(storage, {ai: ai()}).catch(failed => { log('profile', 'the answers check stopped', {error: failed.message}); return {judged: 0}; });
+      if (judged.judged) log('profile', 'answers checked', {judged: judged.judged, unclear: judged.unclear, unsure: judged.queued});   // counts, never a value
       const found = await sections.read(storage);
       return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: await openConflicts(storage).catch(() => storage.settings().profileConflicts || []), setAside: list(storage).filter(each => each.source === 'profile')};
     } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }

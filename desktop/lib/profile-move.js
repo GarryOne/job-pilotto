@@ -12,11 +12,12 @@ import {openStore} from './store/index.js';
 import * as sections from './profile-sections.js';
 import * as backup from './backup.js';
 import {keep} from './set-aside.js';
+import * as clarity from './answer-clarity.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const HOMES = [...Object.keys(sections.SECTIONS), 'stay', 'unsure'];   // unsure: the person is asked (lib/details-review.js "Where does this go?")
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['items'], properties: {items: {type: 'array', items: {type: 'object', additionalProperties: false,
-  required: ['id', 'home', 'topic'], properties: {id: {type: 'string'}, home: {type: 'string', enum: HOMES}, topic: {type: 'string'}}}}}};
+  required: ['id', 'home', 'topic', 'clarity'], properties: {id: {type: 'string'}, home: {type: 'string', enum: HOMES}, topic: {type: 'string'}, clarity: {type: 'string', enum: clarity.CLARITY}}}}}};
 const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved form answers, in any language. Say where it belongs:
 - "eligibility": their right to work: citizenship, permits, visas, needing sponsorship (per country).
 - "availability": notice period, earliest start date, the salary expectation they state to employers.
@@ -24,7 +25,10 @@ const INSTRUCTIONS = `Each item is one line of a job seeker's Profile or saved f
 - "stay": anything else: roles, places, work mode, seniority, the MINIMUM salary they accept for a search, strengths, deal-breakers, contact details, other questions.
 And topic: 2-4 lowercase English words naming the fact, the same words for the same fact however it is worded ("work permit switzerland", "notice period", "language german").
 Two lines whose amount, period (month, year) or basis (net, gross) or kind (target, minimum) differ are different facts: give them different topics.
-Answer every id exactly as given. When you cannot tell where a line belongs, answer "unsure": the person is asked.`;
+Answer every id exactly as given. When you cannot tell where a line belongs, answer "unsure": the person is asked.
+And clarity: is the value a sure, usable answer to its label? "clear"; "guess" (hedged: "maybe 3?", "around 80k I think"); "vague" (no usable fact: "depends",
+"flexible", "TBD"); "off_topic" (it does not answer the label: "Yes" to "Why do you want to join us?"). A short or plain answer is clear; when in doubt, clear.
+A line "(not answered yet)" is clear.`;
 
 const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase();
 const OURS = new Set([...Object.values(sections.SECTIONS), '📇 Contact details', 'contact', 'links'].map(bare));
@@ -76,16 +80,25 @@ export function staleOpen(open, items, judged) {
   return open.filter(item => { const verdict = judged.get(item.id); return placed(verdict) && answered.has(`${verdict.home}\n${verdict.topic}`); });
 }
 
-// items -> Map(id -> {home, topic}); one small call. A mangled id, an unknown home or no topic keeps the item where it is.
+// items -> Map(id -> {home, topic, clarity?}); one small call per 150 lines (the output stays under max_tokens). A mangled id, an unknown home or no
+// topic keeps the item where it is; an unknown clarity is left out (lib/answer-clarity.js asks again later).
+export const BATCH = 150;
 export async function judge(items, {client = null, apiKey = ''} = {}) {
   const ai = client || (apiKey ? anthropicApi(apiKey) : null);
-  if (!ai || !items.length) return new Map();
+  const out = new Map();
+  if (!ai) return out;
+  for (let at = 0; at < items.length; at += BATCH) for (const [id, verdict] of await judgeBatch(items.slice(at, at + BATCH), ai)) out.set(id, verdict);
+  return out;
+}
+async function judgeBatch(items, ai) {
   const response = await ai.messages.create({model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: JSON.stringify(items.map(({id, label, value, open}) => ({id, line: open ? `${label}: (not answered yet)` : label ? `${label}: ${value}` : value})))}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'}});
   const text = response.content?.find(block => block.type === 'text')?.text || '{"items":[]}';
   const ids = new Set(items.map(item => item.id)), out = new Map();
-  for (const {id, home, topic} of JSON.parse(text).items || []) if (ids.has(id) && HOMES.includes(home) && same(topic)) out.set(id, {home, topic: same(topic)});
+  for (const {id, home, topic, clarity: said} of JSON.parse(text).items || []) {
+    if (ids.has(id) && HOMES.includes(home) && same(topic)) out.set(id, {home, topic: same(topic), ...(clarity.CLARITY.includes(said) ? {clarity: said} : {})});
+  }
   return out;
 }
 
@@ -153,6 +166,7 @@ export async function move(storage, {fetcher, ai = {}, copy = saveCopy, save = s
   storage.saveSettings({profileConflicts: conflicts});
   const judgedNow = Boolean(ai.client || ai.apiKey);   // judged once: a Profile with nothing to move is not asked again
   if (judgedNow) keepUnsure(storage, items.filter(item => !item.home && judged.get(item.id)?.home === 'unsure'), now);
+  if (judgedNow) clarity.record(storage, items, judged, {now});   // the same call judged each answer: lib/details-review.js judgeNew skips them
   if (!moves.length && !stale.length) { if (judgedNow) storage.saveSettings({profileMovedAt: now.toISOString()}); return {moved: 0, conflicts, cleared: 0}; }
   const kept = await copy(storage, {fetcher, now});
   const before = items.map(item => same(item.value));

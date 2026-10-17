@@ -18,14 +18,16 @@ import {fakeNotion} from './fake-notion.js';
 const PROFILE = ['## Preferences', 'Relocation: open to moving within the EU', 'Industries to prefer / avoid: ❓', 'Need visa sponsorship?: ❓', 'Notice period: 2 months', 'Role types: SRE; ❓ DevOps?',
   '## 💶 Availability & compensation', 'Target: 10k CHF or so [salary]', '## 🛂 Work eligibility', 'Work permit / visa: ❓ your citizenship and status',
   '## ❓ Possible CV gaps', 'Prometheus: ❓ Have you used it?'];
-const ANSWERS = ['## Availability and pay', {table: [['Question', 'Answer'], ['Notice period / earliest start', '3 months']]},
+const ANSWERS = ['## Availability and pay', {table: [['Question', 'Answer'], ['Notice period / earliest start', '3 months'], ['Years of experience with Kubernetes', 'maybe 3?']]},
   '## ❓ Questions to answer', 'Do you have a driving licence?: ❓ (asked by Acme)'];
 const markdown = lines => lines.map(line => (typeof line === 'object' ? line.table.map((cells, i) => `| ${cells.join(' | ')} |${i === 0 ? '\n|---|---|' : ''}`).join('\n')
   : line.startsWith('## ') ? line : `- ${line}`)).join('\n') + '\n';
 
 const CONFLICT = {home: 'availability', topic: 'notice period', choices: [{label: 'Notice period', value: '2 months', page: 'profile'}, {label: 'Notice period / earliest start', value: '3 months', page: 'answers'}]};
 const UNSURE = {page: 'profile', label: 'Relocation', value: 'open to moving within the EU'};
-const SETTINGS = {profileMovedAt: '2026-10-18T00:00:00.000Z', profileUnsureAt: '2026-10-18T00:00:00.000Z', profileConflicts: [CONFLICT], profileUnsure: [UNSURE]};
+// The AI's word on one answer, as judgeNew keeps it (lib/answer-clarity.js): a guess.
+const SETTINGS = {profileMovedAt: '2026-10-18T00:00:00.000Z', profileUnsureAt: '2026-10-18T00:00:00.000Z', profileConflicts: [CONFLICT], profileUnsure: [UNSURE],
+  answerClarity: {'years of experience with kubernetes\nmaybe 3?': 'guess'}};
 
 // The home picker's fixed answer, by what the line says (the real one reads meaning in any language).
 const ai = {client: {messages: {create: async request => {
@@ -71,6 +73,11 @@ const FIXTURES = {
   open: {match: /Industries to prefer/, answer: () => 'Fintech; no gambling', after: async env => {
     assert.match(await profileText(env), /Industries to prefer \/ avoid: Fintech; no gambling/, 'a Profile fact is answered on its own line');
     assert.doesNotMatch(await profileText(env), /Industries to prefer \/ avoid: ❓/);
+  }},
+  unclear: {match: /Years of experience with Kubernetes/, answer: () => '3 years', after: async env => {
+    const answers = await store.openStore(env.storage, {fetcher: env.fetcher}).page('answers').text();
+    assert.match(answers, /Years of experience with Kubernetes \| 3 years/, 'the new value replaces the guess on its own line');
+    assert.doesNotMatch(answers, /maybe 3\?/);
   }},
 };
 
@@ -149,31 +156,4 @@ test('a where item whose line is gone from its page drops out (nothing stale is 
   const env = await ADAPTERS.sqlite();
   env.storage.saveSettings({profileUnsure: [{page: 'profile', label: 'Gone', value: 'not on the page'}]});
   assert.ok(!(await review.pending(env.storage)).some(each => each.details.kind === 'where'));
-});
-
-test('the re-check runs once on a Profile moved before "unsure": an unsure line is queued, never moved', async () => {
-  const env = await ADAPTERS.sqlite();
-  env.storage.saveSettings({profileUnsureAt: undefined, profileUnsure: []});
-  const calls = [];
-  const judge = {client: {messages: {create: async request => {
-    const items = JSON.parse(request.messages[0].content);
-    calls.push(items);
-    return {content: [{type: 'text', text: JSON.stringify({items: items.map(({id, line}) => (/Relocation/.test(line) ? {id, home: 'unsure', topic: 'relocation'}
-      : /sponsorship/.test(line) ? {id, home: 'eligibility', topic: 'sponsorship'} : {id, home: 'stay', topic: 'other'}))})}]};
-  }}}};
-  const before = await profileText(env);
-  assert.equal((await review.recheck(env.storage, {ai: judge})).queued, 1);
-  assert.equal(await profileText(env), before, 'nothing moves');
-  assert.deepEqual(env.storage.settings().profileUnsure.map(each => each.label), ['Relocation']);
-  assert.ok(calls[0].every(each => !/❓/.test(each.line)), 'only answered lines are judged');
-  assert.ok(calls[0].every(each => !/10k CHF|Work permit/.test(each.line)), 'Your details\' own lines are not judged again');
-  await review.recheck(env.storage, {ai: judge});
-  assert.equal(calls.length, 1, 'once');
-});
-
-test('the re-check spends nothing without an AI and is tried again later', async () => {
-  const env = await ADAPTERS.sqlite();
-  env.storage.saveSettings({profileUnsureAt: undefined});
-  assert.equal((await review.recheck(env.storage, {ai: {}})).queued, 0);
-  assert.equal(env.storage.settings().profileUnsureAt, undefined);
 });
