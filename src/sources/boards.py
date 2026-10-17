@@ -394,8 +394,10 @@ def main():
     swiss_word=swiss_place_word(_SEARCH);swiss=swiss_word is not None   # jobs.ch and SwissDevJobs list Swiss employers only; TechTree lists Europe, so it runs for any place
     client=Client(args.refresh);jobs=[];sources=[]
     used=boards(_SEARCH)
-    if not used:
-        print('Job boards: none (for these roles and places: SwissDevJobs and TechTree list developer jobs, jobs.ch Swiss ones)',flush=True);return 0
+    if not used:   # nothing fixed for these roles and places: the boards found for them (any country)
+        from . import board_yield
+        for item in board_yield.step(_SEARCH):print(f"Job board: {item['source']} · {item['status']}")
+        return 0
     print('Job boards: '+', '.join(used)+(f' (Swiss place word: {swiss_word})' if swiss else '')+('' if 'TechTree' in used else '; developer boards left out: your roles are outside IT'),flush=True)   # the app's activity list shows these names as they are
     seen_urls=set();pages_found=[];asked=0
     pairs=[[query,place] for query in (jobsch_terms(_SEARCH) if 'jobs.ch' in used else []) for place in jobsch_places(_SEARCH)]

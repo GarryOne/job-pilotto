@@ -3,7 +3,8 @@ No code per board: each board's public search page, filled with the user's own b
 (schema.org JobPosting first, then the job links and the AI page reader within its caps, then learned recipes: src/sources/careers.py).
 A board whose page only scripts fill first tries what it declares itself (feed alternates, robots.txt sitemaps: board_routes.py; the route
 that worked is kept per host). A board that refuses (401/403/429, a bot check) or gives no route is marked 'browser' (the visit list offers
-it) and looked at again after 30 days; one that found no job three reads running is 'dead'. The outcome of each read is kept in data/found_boards.json
+it) and looked at again after 30 days; one that gave no relevant job (title and place the search wants) three reads running is 'dead'
+(src/sources/board_yield.py). The outcome of each read is kept in data/found_boards.json
 ('boards'), a cache. Wired as one aggregator, "Job boards found" (src/sources/aggregators.py). Tests: tests/test_found_boards.py."""
 import urllib.error
 import urllib.parse
@@ -13,7 +14,6 @@ from . import board_routes, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board per run
 MAX_PLACES = 2        # and places
-DEAD_AFTER = 3        # reads in a row that found no job
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
 
 
@@ -77,25 +77,26 @@ def _retry_due(entry, now):
     return ((now or datetime.now(timezone.utc)) - last).days >= BROWSER_RETRY_DAYS
 
 
-def read(search, boards=None, fetch=careers.get_text, now=None):
-    """Every job of the found boards for this search; each board's outcome kept, and boards marked browser or dead skipped."""
+def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None):
+    """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dead
+    skipped, untried boards limited (board_yield.pick)."""
     from ..ai import board_ideas
+    from . import board_yield
     data = board_ideas.load()
     kept = data.setdefault('boards', {})
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
-    for board in boards if boards is not None else board_ideas.ideas(search):
+    for board in board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now)):
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url'], 'misses': 0})
-        if entry.get('state') == 'dead' or (entry.get('state') == 'browser' and not _retry_due(entry, now)):
-            continue
         found, state, route = read_board(board, search, fetch, entry.get('route'))
         entry.pop('route', None)
         if route:
             entry['route'] = route
-        entry.update({'last_read': stamp, 'jobs': len(found), 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or []})
-        entry['misses'] = 0 if found else entry.get('misses', 0) + 1
-        entry['state'] = 'browser' if state == 'browser' else 'dead' if entry['misses'] >= DEAD_AFTER else 'ok' if found else 'empty'
-        print(f"Job boards found: {board['name']} {len(found)} job(s){'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
+        relevant = (is_relevant or board_yield.is_relevant)(found) if found else []
+        entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
+                      'source_kind': board.get('source_kind') or 'general'})
+        board_yield.record(entry, len(found), len(relevant), state)
+        print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
         jobs.extend(found)
     board_ideas.save(data)
     return jobs
