@@ -1,0 +1,9 @@
+/* The sidebar's slimmer menu (owner, 17 Oct 2026): feedback, theme and collapse as one row of icons, the new-page dot, a hidden page's nav. Built on .nav / .theme-toggle. */
+.nav[hidden] { display: none; }
+.sidebar .nav .nav-dot { background: var(--amber); }
+.nav-tools { display: flex; gap: var(--sp-2); margin: var(--sp-1) 0; }
+.sidebar .nav-tools > button { flex: 1; display: grid; place-items: center; width: auto; padding: 9px 0; border: 1px solid var(--rail-line); border-left-width: 1px; font-size: 0; border-radius: var(--r-md); background: transparent; color: var(--on-rail); }
+.sidebar .nav-tools > button:hover { background: var(--rail-hover); }
+.nav-tools .icon { width: 17px; height: 17px; color: var(--on-rail); }
+.app.rail .nav-tools { flex-direction: column; align-items: center; }
+.app.rail .sidebar .nav-tools > button { width: 48px; flex: none; padding: 10px 0; }

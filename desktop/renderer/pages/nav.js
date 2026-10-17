@@ -21,7 +21,24 @@ import {ENGINE_CHOICES} from '../ai-engine-view.js';
 import {loadStrategy} from './strategy.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
+import * as reveal from '../menu-reveal.js';
 
+// ---------- the menu: Interviews and Reports appear when they have something (renderer/menu-reveal.js) ----------
+let menu = reveal.load(window.localStorage);
+// Signals from what the app already holds: an application exists (or an interview is booked), a weekly report was made.
+const menuSignals = () => ({
+  applied: (shared.allJobs || []).some(job => job.status === 'applied' || job.next_interview),
+  weeklyReport: (Array.isArray(lastActivity) ? lastActivity : lastActivity?.runs || []).some(run => run?.kind === 'weekly' && !/fail/i.test(run.status || '')),
+});
+export function refreshMenu(opened = null) {
+  menu = reveal.nextState(menu, menuSignals(), opened);
+  reveal.save(window.localStorage, menu);
+  for (const name of Object.keys(reveal.PROGRESSIVE)) {
+    const {shown, dot} = reveal.looks(menu, name);
+    $(`nav-${name}`).hidden = !shown;
+    $(`nav-${name}`).querySelector('.nav-dot').hidden = !dot;
+  }
+}
 // ---------- app ----------
 // The page (and Settings section) open now, kept for a reload (⌘R): the app comes back where it was.
 // sessionStorage: survives a reload of this window, not a restart of the app (that opens Focus as before).
@@ -50,7 +67,8 @@ export function openView(name, {fromHistory = false} = {}) {
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   if (name === 'actions') prepareActions();   // its banner and result card are in the first frame, not a moment later above the tasks (#286)
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
-  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
+  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === reveal.navOf(name)));   // Calendar lights Interviews
+  refreshMenu(name);   // a page opened any way (⌘K too) is in the menu from then on
   // Notion later: a page that needs Notion shows only its gate card until it is connected (pages/notion-connect.js); connecting reopens it.
   // Focus without Notion shows its Get started list instead (pages/focus.js showFocusStarted): a fresh setup can search first.
   const started = name === 'focus' && showFocusStarted();
@@ -95,6 +113,8 @@ function paletteCommands() {
     if (node && !twins.has(node) && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
   };
   document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
+  // Calendar is a tab inside Interviews, with no menu button of its own: its own entry.
+  add('Go to', 'Open Calendar', 'Your screenings and interviews on a month grid', 'page view meetings schedule', () => openView('calendar'));
   // The bottom bar's panel is not a page, so the loop above misses it (owner, 7 Oct 2026: "recent" found nothing).
   add('Go to', 'Open Recent activity', 'Every task run: its result, its log, and Stop for the one running', 'recent activity history runs tasks log results running',
     () => openActivity(true));
@@ -203,7 +223,7 @@ export async function init() {
     if (event.button === 3 || event.button === 4) { event.preventDefault(); go(event.button === 3 ? 'back' : 'forward'); }
   });
   document.querySelectorAll('.nav').forEach(nav => {
-    nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
+    nav.title ||= nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
     nav.addEventListener('click', () => {
       // A button of the menu that is not a page ("Send feedback" opens its own dialog; the wizard's "Stuck? Tell us"): it has no view to open.
       // Opening "no view" hid every page and left the window blank behind the dialog (a friend's first feedback, 2 Oct 2026).
@@ -214,6 +234,19 @@ export async function init() {
       if (nav.dataset.settings) settingsPage(nav.dataset.settings);
     });
   });
+  // Interviews | Calendar: two screens, one tab strip at the top of each (the menu has one button, Interviews).
+  document.querySelectorAll('[data-iv-tabs]').forEach(strip => {
+    for (const [view, label] of [['interviews', 'Library'], ['calendar', 'Calendar']]) {
+      const tab = Object.assign(document.createElement('button'), {type: 'button', textContent: label});
+      tab.setAttribute('role', 'tab'); tab.dataset.ivTab = view;
+      tab.classList.toggle('is-active', view === strip.closest('.view').dataset.view);
+      tab.addEventListener('click', () => openView(view));
+      strip.append(tab);
+    }
+  });
+  document.addEventListener('menu:refresh', () => refreshMenu());
+  window.addEventListener('activity-updated', () => refreshMenu());   // a weekly report was made
+  refreshMenu();
   // The sessions line at the foot does the same as Applying.
   $('nav-sessions').addEventListener('click', () => document.querySelector('.nav[data-view="sessions"]').click());
   $('palette-hint').addEventListener('click', () => openPalette(paletteCommands()));

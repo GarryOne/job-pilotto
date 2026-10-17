@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {goView} from '../lib/go-view.mjs';
 import {familyOf, testKey} from '../lib/engine.mjs';
 import {python, pythonEnv} from '../lib/python.mjs';
 import {DESKTOP} from '../lib/app.mjs';
@@ -173,7 +174,7 @@ export async function run(ctx) {
       const views = ['focus', 'jobs', 'actions', 'interviews', 'settings'];
       const texts = [];
       for (const view of views) {
-        await page.click(`.nav[data-view="${view}"]`).catch(() => {});
+        await goView(page, view).catch(() => {});
         await page.waitForTimeout(800);
         texts.push(await page.evaluate(READ_UI));
       }
