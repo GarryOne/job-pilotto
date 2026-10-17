@@ -14,7 +14,7 @@ $('anySite').addEventListener('change', async () => {
   const ok = await (on ? chrome.permissions.request(EVERY_SITE) : chrome.permissions.remove(EVERY_SITE)).catch(() => false);
   if (on && !ok) $('anySite').checked = false;
 });
-$('acceptConsents').checked = stored.acceptConsents === true;
+$('acceptConsents').checked = stored.acceptConsents !== false;   // on unless turned off (owner, 17 Oct 2026)
 $('acceptConsents').addEventListener('change', () => chrome.storage.local.set({acceptConsents: $('acceptConsents').checked}));
 // Chrome grants debugger only at install (it can't be optional); this switch decides whether it's used.
 $('clickDropdowns').checked = stored.clickDropdowns !== false;  // on by default

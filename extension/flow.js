@@ -360,7 +360,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (me?.contactError) debug.errors.push(`your details: ${me.contactError}`);
   const letter = coverLetter || ai?.cover_letter || '';
   const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
-    [answers, me?.contact || config.profile || {}, withLetterFile(me?.resume || config.resume || null, me?.coverLetterFile), letter, config.acceptConsents === true]);
+    [answers, me?.contact || config.profile || {}, withLetterFile(me?.resume || config.resume || null, me?.coverLetterFile), letter, (me?.acceptConsents ?? config.acceptConsents) !== false]);
   // The page fill threw or returned nothing (a control it did not expect, or the page went away): said as it is, never read as a result (page/fill.js reports the error and where).
   if (!summary || summary.error) {
     const why = summary?.error || 'the fill failed on this page: the page returned nothing';
@@ -424,7 +424,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       if (extra.length) {
         // Only Claude's answers this time: no contact details or CV again (they're in already).
         const more = await inPage(tab.id, (list, letter, consents) => window.__jobPilottoExtensionFill(list, {}, null, letter, consents),
-          [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', config.acceptConsents === true]);
+          [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', (me?.acceptConsents ?? config.acceptConsents) !== false]);
         if (more?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // the same, in the later pass
         const reach = more?.reach; if (reach) decide('fill', 'answers reached rows', reach).catch(() => {});   // counts only: asked, matched an id, matched by question, none (a page that re-created its controls)
         let clickError = '';

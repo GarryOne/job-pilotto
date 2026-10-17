@@ -32,5 +32,5 @@ test('a stop after the first pass logs the fields that pass filled', () => {
 });
 
 test('the second pass carries Claude\'s cover letter when there is no kit (the first pass had none yet)', () => {
-  assert.match(flow, /\[extra, withKit \? '' : coverLetter \|\| ai\?\.cover_letter \|\| '', config\.acceptConsents === true\]/);
+  assert.match(flow, /\[extra, withKit \? '' : coverLetter \|\| ai\?\.cover_letter \|\| '', \(me\?\.acceptConsents \?\? config\.acceptConsents\) !== false\]/);
 });
