@@ -56,3 +56,9 @@ test('the tab\'s meta line: how many, how many wait for you, the latest day; "N 
   assert.equal(listLine(runs, runs.slice(0, 1)), `1 of 3 form fills · 1 needs input · latest ${shortDay('2026-10-09T11:12:00Z')}`);
   assert.equal(listLine([]), '0 form fills');
 });
+
+test('withTimeout: a quick answer passes, a read that never answers becomes an error', async () => {
+  const {withTimeout} = await import('../renderer/form-fills-view.js');
+  assert.deepEqual(await withTimeout(Promise.resolve({runs: []}), 50), {runs: []});
+  assert.deepEqual(await withTimeout(new Promise(() => {}), 20), {error: 'no answer after 0.02 s'});
+});

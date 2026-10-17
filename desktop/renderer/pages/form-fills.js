@@ -7,9 +7,10 @@ import {cardHead, el, numberStrip, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {byStore, storeName} from '../store-words.js';
 import {runWhen} from './core.js';
-import {attachments, fieldRows, filterRuns, isSession, learnings, leftForYou, listLine, sessionNumbers, steps, summary, timeline} from '../form-fills-view.js';
+import {attachments, fieldRows, filterRuns, isSession, learnings, leftForYou, listLine, sessionNumbers, steps, summary, timeline, withTimeout} from '../form-fills-view.js';
 
 const state = {runs: null, open: null, text: '', outcome: ''};
+const READ_TIMEOUT_MS = 20000;
 let host = null;
 
 const table = (heads, rows) => {
@@ -114,11 +115,13 @@ function draw() {
 export async function renderFormFills(container) {
   host = container;
   draw();
-  const answer = await window.pilot.formFills();
+  const answer = await withTimeout(window.pilot.formFills(), READ_TIMEOUT_MS);
   if (host !== container) return;
   if (answer?.error) {
+    const retry = Object.assign(el('button', 'link', 'Retry'), {type: 'button'});
+    retry.addEventListener('click', () => renderFormFills(container));
     host.replaceChildren(el('p', 'message error', `Could not read your form fills from ${storeName()}: ${answer.error}`),
-      el('p', 'muted small', byStore('Form fills are kept in Notion 🤖 Agent Runs.', 'Form fills are kept by Job Pilotto on this Mac.')));
+      el('p', 'muted small', byStore('Form fills are kept in Notion 🤖 Agent Runs.', 'Form fills are kept by Job Pilotto on this Mac.')), retry);
     return;
   }
   state.runs = answer?.runs || [];

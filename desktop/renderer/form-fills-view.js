@@ -83,3 +83,10 @@ export function filterRuns(runs, {text = '', outcome = ''} = {}) {
     return (!outcome || s.outcome === outcome) && (!needle || `${s.title} ${s.company} ${hostOf(run.url)} ${s.agent} ${s.outcome}`.toLowerCase().includes(needle));
   });
 }
+
+// A read that has not answered after `ms` becomes {error}, so a screen shows an error with Retry instead of loading forever.
+export const withTimeout = (promise, ms) => {
+  let timer;
+  const late = new Promise(resolve => { timer = setTimeout(() => resolve({error: `no answer after ${ms / 1000} s`}), ms); });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+};

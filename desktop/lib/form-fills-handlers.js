@@ -1,6 +1,7 @@
 // Form-fill history (Reports → Form fills, renderer/pages/form-fills.js): past extension fills and Apply with Claude sessions from the
 // active store's agent_runs (src/stores/base.py AGENT_RUN_FIELDS + AGENT_RUN_EXTRAS; fields.data and fields.timeline as the spec's
-// "Agent run shapes"). The conversation (`transcript`) stays out: it is large and the session page shows it. Demo mode: demo/form-fills.json
+// "Agent run shapes"). The conversation (`transcript`) stays out: it is large and the session page shows it; the list asks the store
+// for no conversation at all (Notion keeps it in each page's body: one request per run, minutes for 200 runs); `formFill` reads one run whole. Demo mode: demo/form-fills.json
 // (fictional). Guarded by test/form-fills-handlers.test.js.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +11,7 @@ const LIMIT = 200;
 const slim = run => { if (!run) return null; const {transcript, ...rest} = run; return {...rest, has_transcript: !!transcript}; };
 
 export async function formFills(storage, {call = engine.call, limit = LIMIT} = {}) {
-  return ((await call(storage, 'agent_runs', 'list', {limit})) || []).map(slim);
+  return ((await call(storage, 'agent_runs', 'list', {limit, transcript: false})) || []).map(slim);
 }
 
 export async function formFill(storage, id, {call = engine.call} = {}) {

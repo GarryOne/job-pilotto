@@ -156,9 +156,11 @@ class NotionAgentRuns:
             return None
         return self._record(page)
 
-    def list(self, ats=None, limit=None):
+    def list(self, ats=None, limit=None, transcript=True):
+        """Newest first. transcript=False reads properties only: the conversation is a page-body toggle, one request (or more)
+        per run, which made a 200-run list take minutes; `get` brings it back for one run."""
         filter_ = {'property': 'ATS', 'select': {'equals': ats}} if ats is not None else None
         pages = [page for page in self.tracker.query_database(self.database_id, filter_) if not page.get('archived')]
         pages.sort(key=lambda page: ((rows.read(page['properties'].get('Created'), 'created') or page.get('created_time', ''))[:19],
                                      page.get('created_time', '')), reverse=True)  # same second: Notion's own time in ms
-        return [self._record(page) for page in pages[:limit] if page]
+        return [self._record(page, None if transcript else '') for page in pages[:limit] if page]
