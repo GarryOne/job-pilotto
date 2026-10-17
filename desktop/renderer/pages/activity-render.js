@@ -34,6 +34,7 @@ import {kindFilter, barLabel, PANEL_KEY, panelMemory} from './activity-panel.js'
 import {byStore} from '../store-words.js';
 import {startSearch} from './jobs.js';
 import {showPartial, splitPartial} from './activity-partial.js';
+import {newJobsCard} from '../new-jobs-card.js';
 export let lastActivity = null;
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
@@ -252,6 +253,10 @@ export function renderActivity(fresh) {
   const lines = githubLive ? (run?.log || []) : (shown ? run?.log || [] : (liveLines?.length ? liveLines : run?.log) || []);
   const kind = run ? KIND[kindOf(run)] : null;
   const detailWarnings = runWarningLines(run);
+  // A result with only a few sources that did not answer keeps its card first: one small line under it, no box (pages/activity-partial.js); the step list does not say it again.
+  const split = splitPartial(detailWarnings);
+  const partial = run?.ok && !run.live && split.partial ? split : null;
+  const stepWarnings = partial ? split.rest : detailWarnings;
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
   // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
   const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
@@ -316,7 +321,7 @@ export function renderActivity(fresh) {
       // The running step's live counter, outside the log (owner, 7 Oct 2026: "live updates on the job counter itself").
       const counter = run?.live && i === at ? lines.map(liveCount).filter(Boolean).pop() : '';
       if (counter) li.append(el('span', 'phase-note', counter));
-      if (li.className === 'warn' && detailWarnings.length) li.append(el('span', 'phase-note', stepNote(detailWarnings)));   // why this step has the !
+      if (li.className === 'warn' && stepWarnings.length) li.append(el('span', 'phase-note', stepNote(stepWarnings)));   // why this step has the !
       if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
       return li;
     })));
@@ -334,7 +339,7 @@ export function renderActivity(fresh) {
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
-  const card = shownText ? parseRunMessage(shownText) : null;
+  const card = (shownText ? parseRunMessage(shownText) : null) || (kindOf(run) === 'search' ? newJobsCard(run, lines) : null);   // no digest: the new jobs as a card
   // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
   // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
   const mail = !run?.live && !card ? mailReportOf(run) : null;
@@ -383,9 +388,6 @@ export function renderActivity(fresh) {
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
-  // A result with only a few sources that did not answer keeps its card first: one small line under it, no box (pages/activity-partial.js).
-  const split = splitPartial(detailWarnings);
-  const partial = run?.ok && !run.live && split.partial ? split : null;
   const warnings = partial ? split.rest : detailWarnings;
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).

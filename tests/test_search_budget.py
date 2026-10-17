@@ -60,6 +60,15 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(none_scored(0, {'done': 0}), [])
         self.assertEqual(none_scored(None, {}), [])
 
+    def test_new_jobs_are_named_in_the_log_for_the_result_card(self):
+        from src.daily_helpers import NEW_LISTED, new_job_lines
+        jobs = [{'title': f'SRE {i}', 'company': 'Acme', 'url': f'https://x.test/{i}'} for i in range(14)]
+        lines = new_job_lines(jobs, ['new', 'seen', 'changed'] + ['new'] * 11)
+        self.assertEqual(lines[0], 'New job: SRE 0 | Acme | https://x.test/0')
+        self.assertEqual(lines[1], 'New job: SRE 3 | Acme | https://x.test/3', 'only new jobs, not seen or changed')
+        self.assertEqual(len(lines), NEW_LISTED)
+        self.assertEqual(new_job_lines(jobs, ['seen'] * 14), [])
+
     def test_no_budget_never_stops(self):
         budget.start(0)
         self.assertFalse(budget.over('score', now=10 ** 9))

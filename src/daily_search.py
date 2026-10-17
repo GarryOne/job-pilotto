@@ -17,13 +17,12 @@ from .ai import engine as _engine
 from .store_access import open_run
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
-                            none_scored, profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
+                            new_job_lines, none_scored, profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
 
 
 def ai_ready():
     """An AI is ready: unscored jobs wait for a score and the digest leaves them out, as the app's Jobs list does."""
     return _engine.ready()
-
 
 def search(args, stores=None):
     stores = stores or open_run()
@@ -112,6 +111,8 @@ def search(args, stores=None):
             new_here = Counter(store.place_name(job.get('location')) for job, status in zip(report.get('jobs', []), imported) if status == 'new')
             if new_here:
                 print(f'Added {sum(new_here.values())} new job(s): {store.grouped(new_here)}', flush=True)
+                for line in new_job_lines(report.get('jobs', []), imported):
+                    print(line, flush=True)   # the result card lists them when no digest is sent (desktop/renderer/new-jobs-card.js)
             if args.mode in ('scheduled', 'run', 'today'):
                 try:  # opt-in (src/contribute.py); the pool never affects a run
                     contribute.maybe_send(feed_list, report, stores, db=db, stages=stages)
