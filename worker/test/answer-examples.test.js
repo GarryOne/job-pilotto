@@ -40,3 +40,12 @@ test('scoring follows what reaches the page: a proposal on a legal question is f
   assert.equal(answerProblems(reply({ field: 'f1', value: '', category: 'demographic', use: 'fill' }), { f1: { value: ['Decline'], category: 'demographic' } }).length, 1);
   assert.deepEqual(answerProblems(reply({ field: 'f1', value: 'English && Spanish', category: 'normal', use: 'fill' }), { f1: { value: ['English', 'Spanish'], within: ['English', 'Spanish', 'French'] } }), []);
 });
+
+test('the ask says an experience or skill claim the facts do not state is proposed, never typed (17 Oct 2026: "4 years of AWS", "built CI/CD for polyglot pipelines")', async () => {
+  let seen;
+  const client = { messages: { create: async (request) => { seen = request; return { stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] }; } } };
+  await answerForm({ PROFILE_TEXT: 'x', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' }, { url: 'https://example.com/j', fields: [{ field: 'a', label: 'Name', type: 'text', required: true }], page_text: '' }, client);
+  const system = JSON.stringify(seen.system);
+  assert.ok(system.includes('experience or skill claim that'));
+  assert.ok(system.includes('multi-language build pipelines'));
+});
