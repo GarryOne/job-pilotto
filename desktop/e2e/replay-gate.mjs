@@ -102,8 +102,8 @@ export function judge(records, baseline = {}, retry = [], accepts = {}, pins = n
 const MARK = {worse: '❌', 'newly same': '🆙', 'ask changed': '🖥', 'out of date': '🔁', accepted: '🆗', noise: '🟡', different: '🔵', 'not counted': '⏸', same: '✅'}, ORDER = Object.keys(MARK);
 const shortOutcome = item => (item ? `${item.reached || '?'}${item.filled != null ? ` ${item.filled}/${item.left ?? '?'}` : ''}` : '–');
 const asked = row => (row.asks ? `${row.asks.hit}/${row.asks.of ?? '?'}${row.asks.extra ? ` +${row.asks.extra}` : ''}` : '–');
-// The next step for a pinned row whose stored answers are stale (owner via cc, 15 Oct 2026): the CI refill, by hand, on the owner's go (replay-refill.yml; never started by a PR).
-export const refillLine = pr => `gh workflow run replay-refill.yml -f pr=${pr || '<n>'}  (by hand, on the owner's go)`;
+// The next step for a pinned row whose stored answers are stale and whose outcome fell (owner via cc, 15 Oct 2026; 17 Oct 2026: the PR gate starts it by itself, from main, under a cap): the CI refill (replay-refill.yml).
+export const refillLine = pr => `gh workflow run replay-refill.yml -f pr=${pr || '<n>'}  (the PR gate starts it by itself, at most $0.50 a run and $5 a month; by hand if a cap stopped it)`;
 export function summary(result, {pr = process.env.PR} = {}) {
   const head = result.pinned != null ? `${result.sameCount} of ${result.total} same as live (pinned ${result.pinned})` : `${result.counted} of ${result.total} rows counted`;
   const lines = [`## Replay gate: ${head} · ${result.worse} worse${result.accepted ? ` · ${result.accepted} accepted` : ''}${result.newlySame ? ` · ${result.newlySame} newly same: ratchet up` : ''}`, ''];

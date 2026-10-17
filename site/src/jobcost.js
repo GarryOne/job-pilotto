@@ -164,11 +164,12 @@ export async function spent(request, env) {
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!(env.AI_COST_PUBLISH_KEY && equal(given, env.AI_COST_PUBLISH_KEY))) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
+  const month = url.searchParams.get('month') || '';   // ?month=YYYY-MM: the whole calendar month (the refill's $5 a month cap, desktop/e2e/refill-auto.mjs)
   const asked = url.searchParams.get('day') || new Date().toISOString().slice(0, 10), prefix = url.searchParams.get('prefix') || '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(asked) || !/^[a-z0-9._-]{0,32}$/.test(prefix)) return new Response('Bad request', {status: 400});
-  const row = env.STATS ? await env.STATS.prepare('SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS runs FROM ai_cost_runs WHERE day = ? AND job LIKE ?')
-    .bind(asked, `${prefix}%`).first().catch(() => null) : null;
-  return new Response(JSON.stringify({day: asked, prefix, usd: Math.round((Number(row?.usd) || 0) * 10000) / 10000, runs: Number(row?.runs) || 0}),
+  if (!(month ? /^\d{4}-\d{2}$/.test(month) : /^\d{4}-\d{2}-\d{2}$/.test(asked)) || !/^[a-z0-9._-]{0,32}$/.test(prefix)) return new Response('Bad request', {status: 400});
+  const row = env.STATS ? await env.STATS.prepare(`SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS runs FROM ai_cost_runs WHERE day ${month ? 'LIKE' : '='} ? AND job LIKE ?`)
+    .bind(month ? `${month}-%` : asked, `${prefix}%`).first().catch(() => null) : null;
+  return new Response(JSON.stringify({...(month ? {month} : {day: asked}), prefix, usd: Math.round((Number(row?.usd) || 0) * 10000) / 10000, runs: Number(row?.runs) || 0}),
     {headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}});
 }
 
