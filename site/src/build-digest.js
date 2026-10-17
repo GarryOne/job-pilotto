@@ -146,4 +146,10 @@ export function plan({now, numbers, stored, late = false, zurichHour, maxDrafts 
 // A day may be closed (a final stored) only from 23:00 Zurich on that day or after it: a rewrite or a final run earlier in the day stays a draft, so the day keeps taking PRs.
 export const canClose = (day, date) => day < zurichDay(date) || zurichHour(date) >= 23;
 export const isClosed = (day, finalAt) => Boolean(finalAt) && canClose(day, new Date(finalAt));
+// The days one run looks at: today, and the day before whenever it is not closed yet (the plan skips a closed one), so a night with no successful run never leaves a day open.
+export const daysToRun = (now, only = '') => {
+  if (only) return [{day: only}];
+  const today = zurichDay(now), before = new Date(Date.parse(`${today}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  return [{day: before, late: true}, {day: today}];
+};
 export const zurichHour = date => Number(new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', hour: '2-digit', hour12: false}).format(date)) % 24;
