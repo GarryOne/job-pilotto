@@ -2,7 +2,7 @@
 // a capped or failing night answers nothing instead of stopping the fill, and the stand-in serves it on /extension/answer.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {answerForm} from '../../worker/src/extension.js';
+import {answerForm} from '../src/extension.js';
 import {answererFor, answerEnv, createAnswerer, siteClient} from '../../hosted/ready-fill/night-ai.mjs';
 import {createStandIn} from '../../hosted/ready-fill/stand-in.mjs';
 
