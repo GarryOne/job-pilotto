@@ -254,9 +254,12 @@ export function registerApplyHandlers(ctx) {
     .then(({list, hidden, consent = 0}) => ({ok: true, list, hidden, consent}), error => ({ok: false, error: error.message, list: [], hidden: []})));
   ipcMain.handle('jobQuestions', (_, url) => questionLists.jobQuestions(storage, url));
   // Profile → Needs review: the AI's verdict per open question (kept per question), filtered in the window by the same rule.
-  ipcMain.handle('questionVerdicts', (_, labels) => (DEMO ? Promise.resolve({verdicts: storage.settings().questionVerdicts || {}}) : questionLists.reviewVerdicts(storage, (labels || []).map(String).slice(0, 200)))
-    .then(({verdicts}) => ({ok: true, verdicts}), error => ({ok: false, error: error.message, verdicts: {}})));
-  ipcMain.handle('answerQuestion', (_, questionKey, answer) => needsNotion('profile') || questions.answer(storage, questionKey, answer)
+  // unmarked: the labels whose line carries no kind mark (the AI judges those once, lib/question-formats.js).
+  ipcMain.handle('questionVerdicts', (_, labels, unmarked) => (DEMO ? Promise.resolve({verdicts: storage.settings().questionVerdicts || {}, formats: storage.settings().questionFormats || {}})
+    : questionLists.reviewVerdicts(storage, (labels || []).map(String).slice(0, 200), Array.isArray(unmarked) ? {unmarked: unmarked.map(String).slice(0, 200)} : {}))
+    .then(({verdicts, formats = {}}) => ({ok: true, verdicts, formats}), error => ({ok: false, error: error.message, verdicts: {}, formats: {}})));
+  // mark: the kind the window drew it with ({kind, options, list}), written with the first answer of a question that had none (lib/questions.js answer).
+  ipcMain.handle('answerQuestion', (_, questionKey, answer, mark) => needsNotion('profile') || questions.answer(storage, questionKey, answer, undefined, mark && typeof mark === 'object' ? mark : null)
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // A session's ❓ fact, answered with one tick on the session page: saved to the standard answers page.
   ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer))

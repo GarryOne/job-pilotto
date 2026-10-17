@@ -9,6 +9,8 @@ import {aliasKey, fileKind} from '../shared/alias-schema.js';
 import * as sharedMeanings from './aliases.js';
 import {asksQuestion} from './label-shape.js';
 import {looksLikeFieldId} from '../renderer/question-filter.js';
+import {noteFields} from './question-formats.js';
+import {formatOfField, splitMark, withMark} from '../renderer/question-kind.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -18,20 +20,24 @@ const MARK = /❓(\s*\(asked by [^)]*\))?/;
 const answersPage = (storage, fetcher) => openStore(storage, {fetcher}).page('answers');
 // A form's "required" marker is not part of the question ("* Nationality", "Postal Code *").
 const unmarked = text => String(text || '').replace(/^[\s*]+|[\s*]+$/g, '');
-// A ❓ line -> {key: block id, question, company}.
+// A line's kind mark ("[pick one: Mr | Mrs]", renderer/question-kind.js), when it has one: {kind, options, list}.
+const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {})} : null);
+// A ❓ line -> {key: block id, question, company, mark}.
 export function parseLine(block) {
-  const company = block.text.match(ASKED)?.[1] || '';
-  const question = unmarked(block.text.replace(ASKED, '').replace(/❓/g, '').replace(/[\s:—-]+$/, ''));
-  return {key: block.id, question, company};
+  const split = splitMark(block.text), text = split.text;
+  const company = text.match(ASKED)?.[1] || '';
+  const question = unmarked(text.replace(ASKED, '').replace(/❓/g, '').replace(/[\s:—-]+$/, ''));
+  return {key: block.id, question, company, mark: markOf(split)};
 }
 // The question part of a line: before its ":" or " — " ("Salary expectation: CHF 130,000" -> "Salary expectation").
-const label = text => text.replace(ASKED, '').split(/:\s| — /)[0].replace(/❓/g, '');
-export const questionLine = (question, company) => `${question}: ❓${company ? ` (asked by ${company})` : ''}`;
+const label = text => splitMark(text).text.replace(ASKED, '').split(/:\s| — /)[0].replace(/❓/g, '');
+// format: the field's {kind, options} (a text question carries no mark).
+export const questionLine = (question, company, format = null) => withMark(`${question}: ❓${company ? ` (asked by ${company})` : ''}`, format);
 export const answeredLine = (text, answer) => text.replace(MARK, answer);
 
 // A line is a question only when ❓ stands where its answer goes ("Notice period: ❓", "Visa: ❓ (asked by Acme)");
 // a sentence that merely mentions ❓ ("Fields marked ❓ to confirm are guesses") is not.
-export const isQuestionLine = text => /(^|[:—–-]\s*)❓(\s*\(asked by [^)]*\))?\s*$/.test(text.trim());
+export const isQuestionLine = text => /(^|[:—–-]\s*)❓(\s*\(asked by [^)]*\))?\s*$/.test(splitMark(text.trim()).text.trim());
 
 // Table rows [Question | Answer] whose answer cell starts with ❓, at the page's top level and one level down (in a toggle).
 function openRows(items, depth = 0) {
@@ -54,8 +60,10 @@ export async function list(storage, fetcher) {
   const page = answersPage(storage, fetcher);
   const blocks = await page.blocks();
   const lines = blocks.filter(block => block.text.includes('❓') && isQuestionLine(block.text)).map(parseLine).filter(q => q.question && !unanswerable(q.question));
-  const rows = openRows(await page.outline()).map(({row, cells}) =>
-    ({key: row.id, question: unmarked(cells[0].replace(/❓/g, '')), company: '', hint: hintOf(cells[1])})).filter(q => !unanswerable(q.question));
+  const rows = openRows(await page.outline()).map(({row, cells}) => {
+    const split = splitMark(cells[0]);
+    return {key: row.id, question: unmarked(split.text.replace(/❓/g, '')), company: '', hint: hintOf(cells[1]), mark: markOf(split)};
+  }).filter(q => !unanswerable(q.question));
   return [...lines, ...rows];
 }
 
@@ -80,6 +88,7 @@ const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
 // reusable: async labels -> the Set worth keeping (the AI's judgment, lib/question-reuse.js); left out, every candidate is kept (unit tests).
 // seen: (labels) after the fill, for every required question it could not answer, new or not (ranking: how many forms asked, blocked a fill).
 export async function collect(storage, run, company = '', fetcher, reusable = null, seen = null) {
+  noteFields(storage, run.trace || []);   // every labelled field's kind and options, kept on this Mac (lib/question-formats.js)
   const found = {labels: []};
   const added = await collectNew(storage, run, company, fetcher, reusable, found);
   if (seen && found.labels.length) await seen(found.labels);
@@ -96,32 +105,37 @@ async function collectNew(storage, run, company, fetcher, reusable, found) {
   const page = answersPage(storage, fetcher);
   const fresh = [];
   const known = new Set((await page.blocks()).map(block => key(label(block.text))));
+  const formatOf = new Map();
   for (const field of wanted) {
     const k = key(field.label);
     if (known.has(k)) continue;
     known.add(k);
     fresh.push(unmarked(field.label));
+    formatOf.set(unmarked(field.label), formatOfField(field));
   }
   const keep = reusable && fresh.length ? await reusable(fresh) : null;
   const kept = keep ? fresh.filter(question => keep.has(question)) : fresh;
   if (!kept.length) return 0;
-  await page.append(kept.map(question => questionLine(question, company)));
+  await page.append(kept.map(question => questionLine(question, company, formatOf.get(question))));
   return kept.length;
 }
 
 // answer '' = skip: the line is removed (not a question to keep an answer for); in a table the row stays and its
 // answer becomes "— (leave blank)", so the table keeps the question and forms leave that field empty.
 export const SKIPPED = '— (leave blank)';
-export async function answer(storage, questionKey, value, fetcher) {
+// mark: the kind the answer was given with ({kind, options, list}); a question with no mark yet keeps it, so every later screen draws the same control.
+export async function answer(storage, questionKey, value, fetcher, mark = null) {
   const page = answersPage(storage, fetcher);
   const open = openRows(await page.outline()).find(({row}) => row.id === questionKey);
   if (open) {
     await page.setCell(open.row, 1, (value || SKIPPED).slice(0, 1900));
+    if (value && mark?.kind && !splitMark(open.cells[0]).marked) await page.setCell(open.row, 0, withMark(open.cells[0], mark));
     return {ok: true};
   }
   const block = (await page.blocks()).find(b => b.id === questionKey);
   if (!block || !block.text.includes('❓')) return {ok: false, error: 'Already answered'};
-  if (value) await page.setText(block, answeredLine(block.text, value));
+  const answered = answeredLine(block.text, value);
+  if (value) await page.setText(block, mark?.kind && !splitMark(answered).marked ? withMark(answered, mark) : answered);
   else await page.remove(block);
   return {ok: true};
 }
@@ -142,7 +156,7 @@ export async function standardAnswers(storage, fetcher) {
     } else if (block.type === 'table') {
       current().table = true;
       for (const row of block.rows.slice(block.header ? 1 : 0)) {
-        const [question = '', answer = ''] = row.cells;
+        const [cell = '', answer = ''] = row.cells, question = splitMark(cell).text;
         const open = answer.trim().startsWith('❓');
         if (question.trim() && !(open && unanswerable(question))) current().items.push({question: question.trim(), answer: answer.trim(), open});
       }
@@ -150,7 +164,7 @@ export async function standardAnswers(storage, fetcher) {
       const {question, company} = parseLine({id: block.id, text});
       if (!unanswerable(question)) current().items.push({question, answer: company ? `Asked by ${company}` : '', open: true});
     } else if (text && group && /list_item|paragraph|quote|callout/.test(block.type)) {
-      group.notes.push(text);
+      group.notes.push(splitMark(text).text.trim());
     }
   }
   // A section's guidance lines (no table there) become one item, first; a table section's lines are just its intro.

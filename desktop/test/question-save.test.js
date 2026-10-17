@@ -7,6 +7,8 @@ test('question Save starts disabled and follows the answer field', () => {
   const source = fs.readFileSync(new URL('../renderer/pages/jobs-questions.js', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf("textContent: 'Save'"), source.indexOf("skip.addEventListener('click'"));
   assert.match(body, /save\.disabled = true;/);
-  assert.match(body, /addEventListener\('input', \(\) => \{ save\.disabled = !input\.value\.trim\(\); \}\)/);
-  assert.match(body, /save\.disabled = !input\.value\.trim\(\); \}/);
+  // The answer control (renderer/question-control.js, any kind) tells Save when it holds an answer.
+  const all = source.slice(source.indexOf('answerControl(q.format'), source.indexOf("skip.addEventListener('click'"));
+  assert.match(all, /answerControl\(q\.format, [^\n]*value => \{ save\.disabled = !String\(value\)\.trim\(\); \}/);
+  assert.match(body, /save\.disabled = !String\(input\.value\)\.trim\(\); \}/);
 });

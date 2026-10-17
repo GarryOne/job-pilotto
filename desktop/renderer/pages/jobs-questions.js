@@ -2,6 +2,8 @@
 import {el} from '../components.js';
 import {$, show} from './core.js';
 import {questionsProblem} from '../questions-view.js';
+import {answerControl} from '../question-control.js';
+import {markFor} from '../question-kind.js';
 
 // Answer once: the questions saved last time show at once (cached on this computer), then Notion's answer replaces
 // them (only if they changed, so nothing you're typing is lost). No cache yet: a shimmer where the count goes.
@@ -50,7 +52,8 @@ function renderQuestions(list, error = '', hidden = [], consent = 0) {
     const row = Object.assign(document.createElement('div'), {className: 'question'});
     const label = Object.assign(document.createElement('label'), {textContent: q.question});
     if (q.company) label.append(Object.assign(document.createElement('small'), {textContent: ` · asked by ${q.company}`}));
-    const input = Object.assign(document.createElement('input'), {type: 'text', placeholder: 'Your standard answer', value: q.proposal || ''});
+    // The control matches the question's kind (owner, 17 Oct 2026): Yes / No, the form's options, a menu, or text (renderer/question-control.js).
+    const input = answerControl(q.format, q.proposal || '', value => { save.disabled = !String(value).trim(); }, {placeholder: 'Your standard answer', ariaLabel: q.question});
     if (q.coveredBy) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · already answered by “${q.coveredBy}”`}));
     if (q.hint) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · ${q.hint}`}));
     const save = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Save'});
@@ -59,15 +62,14 @@ function renderQuestions(list, error = '', hidden = [], consent = 0) {
     const note = Object.assign(document.createElement('span'), {className: 'message'});
     const answer = async value => {
       save.disabled = skip.disabled = true;
-      const result = await window.pilot.answerQuestion(q.key, value);
-      if (result.ok) loadQuestions({force: true}); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !input.value.trim(); }
+      const result = await window.pilot.answerQuestion(q.key, value, markFor(q.format));
+      if (result.ok) loadQuestions({force: true}); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !String(input.value).trim(); }
     };
     // Save waits for an answer: an enabled Save that silently did nothing on an empty field read as broken (UI loop #64).
     save.disabled = true;
     if (q.proposal) { save.textContent = 'Accept'; save.disabled = false; }   // a covered question comes with its answer: one click accepts it
-    input.addEventListener('input', () => { save.disabled = !input.value.trim(); });
-    save.addEventListener('click', () => input.value.trim() && answer(input.value.trim()));
-    input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.value.trim()) answer(input.value.trim()); });
+    save.addEventListener('click', () => String(input.value).trim() && answer(String(input.value).trim()));
+    if (input.tagName === 'INPUT') input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.value.trim()) answer(input.value.trim()); });
     skip.addEventListener('click', () => answer(''));
     row.append(label, input, save, skip, note);
     return row;

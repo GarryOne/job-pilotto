@@ -5,16 +5,19 @@
 // Guarded by test/profile-tabs-render.test.js.
 import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';
-import {changeFor, lineFor, matches, sections, shown} from '../answers-model.js';
+import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answers-model.js';
 import {outlineTab} from './outline-tab.js';
-import {visibleQuestions} from '../question-filter.js';
+import {keyOf, visibleQuestions} from '../question-filter.js';
+import {formatFor, markFor, markOf} from '../question-kind.js';
+import {answerControl, kindPicker} from '../question-control.js';
 import {drawRules, input, labelled, newRule, resetRules, reviewRows, select} from './website-rules.js';
 
 const TEXT = 'answers';
 const filters = {query: '', review: false, section: ''};
 const opened = new Set();   // rows shown open (answer ids, review keys)
 const drafts = new Map();   // answer id → the value typed; new questions under `new-<n>`: {section, question, value}
-let added = 0, tab = null, rulesOpen = false, verdicts = {}, askedFor = '', showHidden = false;
+let added = 0, tab = null, rulesOpen = false, verdicts = {}, keptFormats = {}, askedFor = '', showHidden = false;
+const kinds = new Map();   // answer id → the kind the person picked ("Answer as"), written with the question
 
 const valueOf = item => drafts.get(item.id) ?? item.value;
 const missing = item => item.open && !item.optional && !valueOf(item);
@@ -24,12 +27,29 @@ const remembered = () => { try { return new Set(JSON.parse(localStorage.getItem(
 const remember = set => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...set])); } catch {} };
 const openSections = remembered();
 
+// The kind a row is answered with: the person's pick, else its mark in the store, else what this Mac kept (a fill's reading, else the AI's one judgment).
+const formatOf = item => kinds.get(item.id) || formatFor({marked: item.mark, kept: keptFormats[keyOf(item.question)]});
+const sameMark = (a, b) => markOf(a || {}) === markOf(b || {});
 function setAnswer(view, item, text) {
-  if (text === item.value) { drafts.delete(item.id); view.undo(TEXT, changeFor(item, text)); } else { drafts.set(item.id, text); view.change(TEXT, changeFor(item, text)); }
+  const mark = item.kind === 'note' ? item.mark : markFor(formatOf(item)), markChanged = !sameMark(mark, item.mark);
+  if (text === item.value && !markChanged) { drafts.delete(item.id); view.undo(TEXT, changeFor(item, text)); } else { drafts.set(item.id, text); view.change(TEXT, changeFor(item, text, mark)); }
+  if (item.kind === 'cell') { if (markChanged) view.change(TEXT, kindChange(item, mark)); else view.undo(TEXT, kindChange(item, mark)); }
+}
+// One row's answer control and its "Answer as" choice.
+function answerField(view, item, placeholder) {
+  return answerControl(formatOf(item), valueOf(item), text => setAnswer(view, item, text), {placeholder, ariaLabel: item.question || 'Note'});
+}
+function kindField(view, item) {
+  return kindPicker(formatOf(item).kind, kind => {
+    const before = formatOf(item);
+    kinds.set(item.id, formatFor({marked: {kind, options: kind === before.kind ? before.options : [], list: kind === before.kind ? before.list : ''}, kept: keptFormats[keyOf(item.question)]}));
+    setAnswer(view, item, valueOf(item));
+    view.redraw();
+  });
 }
 
 // One row: chevron · question (and its hint) · its answer or "Not set" · Add answer / Edit; open, the answer field under it.
-function row(view, {key, title, under, value, needs, field, optional = false}) {
+function row(view, {key, title, under, value, needs, field, kind = null, optional = false}) {
   const isOpen = opened.has(key);
   const head = el('div', `qa-row${isOpen ? ' is-open' : ''}`);
   const toggle = () => { if (isOpen) opened.delete(key); else opened.add(key); view.redraw(); };
@@ -45,13 +65,16 @@ function row(view, {key, title, under, value, needs, field, optional = false}) {
   head.append(chevron, words, el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'), action);
   if (!isOpen) return [head];
   const edit = el('div', 'qa-edit');
-  edit.append(labelled('Answer', field()), el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
+  edit.append(labelled('Answer', field()));
+  if (kind) edit.append(labelled('Answer as', kind()));
+  edit.append(el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
   return [head, edit];
 }
 
 const answerRow = (view, item) => row(view, {key: item.id, title: item.kind === 'note' ? 'Note' : shown(item.question),
   under: item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), value: valueOf(item), needs: missing(item), optional: item.optional,
-  field: () => input(valueOf(item), text => setAnswer(view, item, text), {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', ariaLabel: item.question || 'Note'})});
+  field: () => (item.kind === 'note' ? input(valueOf(item), text => setAnswer(view, item, text), {placeholder: 'Your answer', ariaLabel: 'Note'}) : answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer')),
+  kind: item.kind === 'note' ? null : () => kindField(view, item)});
 
 function newQuestion(view, key, list) {
   const draft = drafts.get(key);
@@ -91,7 +114,8 @@ function draw(view, into) {
   const labels = candidates.map(each => each.item.question), signature = labels.join('\n');
   if (labels.length && signature !== askedFor) {
     askedFor = signature;
-    Promise.resolve(window.pilot.questionVerdicts(labels)).then(result => { if (result?.ok) { verdicts = {...verdicts, ...result.verdicts}; view.redraw(); } }).catch(() => {});
+    const unmarked = candidates.filter(each => !each.item.mark?.kind).map(each => each.item.question);
+    Promise.resolve(window.pilot.questionVerdicts(labels, unmarked)).then(result => { if (result?.ok) { verdicts = {...verdicts, ...result.verdicts}; keptFormats = {...keptFormats, ...(result.formats || {})}; view.redraw(); } }).catch(() => {});
   }
   const {shown: shownRows, hidden: hiddenRows} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
   const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
@@ -100,7 +124,7 @@ function draw(view, into) {
     const review = card('Needs review', 'alert', [pill(`${shownRows.length + ruleRows.length} not set`, 'warn', {dot: true})]);
     review.classList.add('is-review');
     for (const {item, section} of open) review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
-      field: () => input(valueOf(item), text => setAnswer(view, item, text), {placeholder: item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', ariaLabel: item.question})}));
+      field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer'), kind: () => kindField(view, item)}));
     for (const each of ruleRows) review.append(...row(view, {...each, needs: true}));
     if (hiddenRows.length) {
       const more = Object.assign(el('button', 'link', showHidden ? 'Hide the others' : `${hiddenRows.length} hidden · show`), {type: 'button', id: 'review-hidden'});
@@ -158,7 +182,7 @@ export async function loadApplicationAnswers() {
   const node = document.getElementById('answers-body');
   if (!node) return;
   if (!tab || tab.node !== node) {
-    tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); opened.clear(); resetRules(); }}), node};
+    tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); kinds.clear(); opened.clear(); resetRules(); }}), node};
   }
   await tab.load();
 }

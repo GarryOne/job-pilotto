@@ -2,7 +2,8 @@
 // heading; a question per table row [Question | Answer] or per "Question: answer" line ("**Question:** answer" on this Mac); any other line of a
 // section is a note. A value that starts with ❓ is NOT SET: the ❓ is data (lib/questions.js lists those as "Answer once"), never shown; the
 // words after it are the hint. Each item knows the change that writes it back (one cell, or one line with its own label kept). No DOM:
-// guarded by test/answers-model.test.js.
+// guarded by test/answers-model.test.js. A question's kind mark ("[pick one: Mr | Mrs]", question-kind.js) is read into .mark and kept on every write.
+import {splitMark, withMark} from './question-kind.js';
 
 const UNSET = /^\s*❓\s*/;
 const ASKED = /\s*\(asked by ([^)]*)\)\s*$/;
@@ -25,10 +26,11 @@ export function labelledLine(text) {
   const match = String(text).match(LABELLED);
   return match && plain(match[2] || match[3]) ? {head: match[1], question: plain(match[2] || match[3]), raw: match[4]} : null;
 }
+const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {})} : null);
 function lineItem(item) {
-  const line = labelledLine(item.text);
-  if (!line) return {id: item.id, kind: 'note', question: '', ...valueOf(item.text), text: item.text};
-  return {id: item.id, kind: 'line', head: line.head, question: line.question, ...valueOf(line.raw), text: item.text};
+  const split = splitMark(item.text), line = labelledLine(split.text);
+  if (!line) return {id: item.id, kind: 'note', question: '', ...valueOf(item.text), text: item.text, mark: null};
+  return {id: item.id, kind: 'line', head: line.head, question: line.question, ...valueOf(line.raw), text: item.text, mark: markOf(split)};
 }
 
 // → [{title, after: the id a new question of this section is inserted after, items: [{id, kind: 'cell' | 'line' | 'note', question, value, open, hint, asked}]}]
@@ -44,7 +46,8 @@ export function sections(items) {
       if (item.type === 'table') {
         for (const row of (item.rows || []).slice(item.header ? 1 : 0)) {
           const [question = '', answer = ''] = row.cells;
-          if (question.trim()) into.items.push({id: row.id, kind: 'cell', question: plain(question.replace(/❓/g, '')), was: answer, ...valueOf(answer)});
+          const split = splitMark(question);
+          if (split.text.trim()) into.items.push({id: row.id, kind: 'cell', question: plain(split.text.replace(/❓/g, '')), was: answer, cell: question, mark: markOf(split), ...valueOf(answer)});
         }
       } else if (item.text?.trim()) into.items.push(lineItem(item));
       if (item.children) walk(item.children, false);
@@ -54,13 +57,16 @@ export function sections(items) {
   return out.filter(each => each.items.length);
 }
 
-// The change that writes `value` for an item (an empty value makes it not set again: ❓ back where the answer goes).
-export function changeFor(item, value) {
+// The change that writes `value` for an item (an empty value makes it not set again: ❓ back where the answer goes). format: the kind to keep on a line
+// (default its own mark); a table row keeps its mark in its question cell (kindChange).
+export function changeFor(item, value, format = item.mark) {
   const text = String(value ?? '').replace(/\s*\n\s*/g, ' ').trim();
   if (item.kind === 'cell') return {op: 'cell', id: item.id, index: 1, value: text || '❓', was: item.was};
-  if (item.kind === 'line') return {op: 'text', id: item.id, value: `${item.head} ${text || '❓'}`, was: item.text};
+  if (item.kind === 'line') return {op: 'text', id: item.id, value: withMark(`${item.head} ${text || '❓'}`, format), was: item.text};
   return {op: 'text', id: item.id, value: text, was: item.text};
 }
+// A table row's new kind, written in its question cell (a line's kind goes with its answer: changeFor(item, value, format)).
+export const kindChange = (item, format) => ({op: 'cell', id: item.id, index: 0, value: withMark(item.cell ?? item.question, format), was: item.cell ?? item.question});
 // A question added by the person: a "Question: answer" line at the end of its section (after its last block), or of the page.
 export const lineFor = (question, value) => `${String(question).replace(/[\s:]+$/, '').trim()}: ${String(value || '').trim() || '❓'}`;
 

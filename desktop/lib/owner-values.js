@@ -5,11 +5,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {EMAIL, PHONE} from './live-capture.js';
+import {splitMark} from '../renderer/question-kind.js';
 
 export const plain = text => String(text || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 // The person's own values from the app's files, as {value: kind}; never printed. Emails, phone digits, the words of any "name:" line.
 export function personalValues(texts) {
-  const own = texts.join('\n'), values = new Map();
+  const own = texts.join('\n').split('\n').map(line => splitMark(line).text).join('\n'), values = new Map();   // a question's kind mark ("[pick one: …]") is the form's words, never the person's
   for (const email of own.match(EMAIL) || []) values.set(email.toLowerCase(), 'email');
   for (const phone of own.match(PHONE) || []) { const digits = phone.replace(/\D/g, ''); if (digits.length >= 9) values.set(digits, 'phone'); }
   for (const [, value] of own.matchAll(/^\W*(?:full\s*)?(?:first\s*|last\s*|family\s*)?name\W*:\s*(.+)$/gim)) for (const word of value.split(/\s+/)) if (word.replace(/\W/g, '').length >= 3) values.set(word.replace(/[^\p{L}\p{N}'-]/gu, '').toLowerCase(), 'name');
