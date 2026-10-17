@@ -43,12 +43,18 @@ One choice (Settings → Profile → Application assistant, `renderer/assistant-
   typed into the box the account AI named, when Gmail is connected (the code is never logged; `lib/account-confirm.js`, `extension/account-fill.js`);
   the closer look (`lib/escalate.js`) runs on an unclear account page (a screenshot, typed values hidden, at most 10 a day).
 - **assist = "Let me check each step"**: it fills; the person does the consent, the button and the codes; no closer look.
-- Never in either: an application's Submit, a captcha or bot check, an SMS code, a choice on the application form.
+- Never in either: an application's Submit, a captcha or bot check, an SMS code, a choice on the application form that no saved base fact answers (below).
 - **One exception: consent and data-notice boxes** (owner, 17 Oct 2026: "the app should tick them by default because it's a formality. The setting should be enabled by default.
   It should be auto. Only on explicit disablement from the settings the user will need to tick them manually."). Settings → Consent boxes ("Tick consent and data-notice boxes for me"),
   ON unless the person turned it off; the extension asks the app on every fill (`/extension/me` → `acceptConsents`). The AI's reading decides which box is one (category `legal`,
   any language); the English words are only a fallback when the AI gave no reading, and a statement of fact about the person (certify, affirm, attest) is never ticked.
-  Off: the page panel's "Tick these for me". Everything else on this line stays: never Submit, never a choice. Guard: `desktop/test/consent-tick.test.js`.
+  Off: the page panel's "Tick these for me". Everything else on this line stays: never Submit, never a choice no base fact answers. Guard: `desktop/test/consent-tick.test.js`.
+- **A choice a base fact answers is filled from the Profile** (owner, 17 Oct 2026: "Why 'A choice (visa, relocation, demographic, any knockout)' is left for me?
+  We should have this information in the Profile, as a standard/base."). Visa, permit, relocation, residence, salutation and other knockout choices: the AI maps the
+  saved fact to one of the form's own options, in its language (`use: fill` with the fact it rests on); the code validates it (the value is a listed option; a
+  country passes in any language by the standard country names, `worker/src/country-names.js`). An unsure match stays proposed and goes to Answer once;
+  demographics are filled from the answer given once; a choice no fact covers is left; a certification or attestation stays the person's; never Submit.
+  Guard: `worker/test/choice-from-fact.test.js`.
 - Changing what a mode does or its default is the owner's call, with a Decision Log entry.
 
 ## A form bug is fixed in the self-improving mechanism, for every install (owner, 8 Oct 2026)

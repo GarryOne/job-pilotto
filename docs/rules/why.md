@@ -43,6 +43,11 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
 - **"Do it for me" is the default** (owner, 10 Oct 2026: "users get most of the automation by default"), replacing the 9 Oct assist default.
 - **Close a fix only on Confirmed** (11 Oct 2026): fixes closed on "it clears by itself" came back.
 
+- **A choice a base fact answers is filled** (17 Oct 2026): the rule said "never a choice on the application form", so visa, relocation and residence
+  menus were left for the owner although his Profile states them ("Why 'A choice (visa, relocation, demographic, any knockout)' is left for me? We should
+  have this information in the Profile, as a standard/base."). A plan-path proof (5 runs, $0) filled Herr, M. and Ja from English answers, but a French
+  "Suisse" was only proposed: the identity floor compared words. The floor now compares the country, for a listed option only.
+
 ## Desktop UI
 - **A new feature looks like the old ones** (5 Oct 2026): "Prepare top matches" shipped as raw Telegram text while every other task had a card;
   four cards had drifted from the engine's message format, hence the message contract test.

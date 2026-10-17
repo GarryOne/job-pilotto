@@ -102,6 +102,7 @@ on:
       - 'worker/src/ai.js'
       - 'worker/src/answer-examples.js'
       - 'worker/src/answer-facts.js'
+      - 'worker/src/country-names.js'
       - 'worker/src/pay-convert.js'
       - 'worker/src/written-answer.js'
       - 'worker/src/writing-rules.js'

@@ -257,7 +257,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const labelOf = Object.fromEntries(fields.map((f) => [f.field, f.label || '']));
   const paid = await applyPay(Array.isArray(result.answers) ? result.answers : [], result.pay_asks, fields, { fetchFn: env.fetchFn || globalThis.fetch });   // a salary in another currency or period, converted by the code
   const typeOf = Object.fromEntries(fields.map((f) => [f.field, f.type]));
-  const floorsApplied = paid.map((a) => floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]));
+  const optionsOf = Object.fromEntries(fields.map((f) => [f.field, Array.isArray(f.options) ? f.options : []]));
+  const floorsApplied = paid.map((a) => floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test, options: optionsOf[a.field] }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]));
   // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
