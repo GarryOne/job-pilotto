@@ -5,7 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
 import {PAGES} from '../src/admin.js';
-import {LINE, cleanGroups, cut, page} from '../src/build-log.js';
+import {LINE, cleanGroups, cut, ingest, page} from '../src/build-log.js';
 import {SYSTEM} from '../src/build-digest.js';
 
 function d1() {
@@ -92,4 +92,21 @@ test('a closed day is replaced only by an explicit rewrite, and stays closed', a
   const html = await (await call(e, '/admin/operations/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
   assert.match(html, /Radio groups read right/);
   assert.match(html, /Final/);
+});
+
+test('a day closes only from 23:00 Zurich: a rewrite or final of today stays a draft (no Telegram: final false), and an early final counts as a draft', async () => {
+  const e = env(), day = '2026-10-17';
+  const send = (body, now) => ingest(new Request('https://x/digest/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify(body)}), e, new Date(now)).then(r => r.json());
+  const get = now => ingest(new Request(`https://x/digest/data?day=${day}`, {headers: {Authorization: 'Bearer pub'}}), e, new Date(now)).then(r => r.json());
+  const today = {...digest({day}), final: true, rewrite: true};
+  const early = await send(today, '2026-10-17T18:53:00Z');   // 20:53 in Zurich
+  assert.deepEqual([early.final, early.rewritten], [false, false]);   // the Telegram step posts only when final is true
+  assert.equal((await get('2026-10-17T19:00:00Z')).finalAt, null);
+  e.STATS.db.prepare('UPDATE digest_days SET final_at = ? WHERE day = ?').run('2026-10-17T18:53:00Z', day);   // what the old code stored
+  assert.equal((await get('2026-10-17T19:00:00Z')).finalAt, null);
+  assert.match(page([e.STATS.db.prepare('SELECT * FROM digest_days WHERE day = ?').get(day)]), /Draft/);
+  const night = await send({...digest({day}), final: true}, '2026-10-17T21:30:00Z');   // 23:30 in Zurich
+  assert.equal(night.final, true);
+  assert.ok((await get('2026-10-17T22:00:00Z')).finalAt);
+  assert.equal((await send({...digest({day}), final: true}, '2026-10-17T22:30:00Z')).ignored, 'day is closed');
 });
