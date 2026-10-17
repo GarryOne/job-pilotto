@@ -1,0 +1,44 @@
+name: CI · Harness tests · daily
+# Every harness test (desktop/e2e/test/*.test.mjs) once a day, since a pull request runs only the safety-critical set (harness.yml, desktop/e2e/test-sets.json).
+# One message to the CI alerts chat, only when something fails (owner, 17 Oct 2026: "Slim: safety on PRs, rest daily").
+on:
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness-all:
+    name: all harness tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      - name: Stage the app's shared files
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
+      - name: A headless browser for the tests' own tests
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium --only-shell
+      - name: Every harness test
+        working-directory: desktop/e2e
+        run: node --test --test-reporter=spec test/*.test.mjs
+      - name: One message to the CI alerts chat when a test failed
+        if: failure()
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+        run: node ci-alert.mjs failure "A harness test no longer passes" "The failing test is in the run, step Every harness test"

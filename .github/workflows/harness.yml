@@ -1,5 +1,5 @@
 name: CI · Harness tests
-# The e2e harness's own unit tests, on a pull request that changes the harness's code. GitHub's `on: paths:` below decides (owner, 14 Oct 2026: "rely fully on gh workflow
+# The e2e harness's safety-critical unit tests (desktop/e2e/test-sets.json "pr", about a minute; the rest run daily in harness-daily.yml, owner 17 Oct 2026: 0 catches in 30 days), on a pull request that changes the harness's code. GitHub's `on: paths:` below decides (owner, 14 Oct 2026: "rely fully on gh workflow
 # paths"; the shared pick ran them on a PR that changed only a recorded case). Not a required check: a required check whose workflow `paths:` skips never reports and
 # blocks the PR (tests/test_affected_jobs.py checks no required check lives in a workflow with `paths:`). The backstop for a break from outside these paths is e2e.yml's plan job.
 # History: they ran only in that scheduled plan job, which broke silently for ~11 h (12 Oct 2026, ERR_MODULE_NOT_FOUND after 3394c2e); here they gate the change that would
@@ -46,9 +46,9 @@ jobs:
       - name: Stage the app's shared files
         working-directory: desktop
         run: node scripts/stage.mjs --files-only
-      - name: A headless browser for the tests' own tests
+      - name: The safety-critical tests (privacy scrub, records publish and fetch, discovery pick and judge, journey check, gates, ledgers, owner guards)
         working-directory: desktop/e2e
-        run: npx playwright install --with-deps chromium --only-shell
-      - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
-        working-directory: desktop/e2e
-        run: node --test --test-reporter=spec test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
+        # the flags go before the files; the full set runs daily (harness-daily.yml)
+        run: |
+          # shellcheck disable=SC2046
+          node --test --test-reporter=spec $(node test-sets.mjs pr)
