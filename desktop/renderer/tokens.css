@@ -50,6 +50,7 @@
   --good: #1f7a4d;  --good-bright: #2e9e6a;  --good-soft: #e3f4ea;
   --warn: #9a6200;  --warn-bright: #f0a92b;  --warn-soft: #fdf3dc;  --warn-line: #f4e2c2;
   --bad: #b3261e;   --bad-bright: #d0685a;   --bad-soft: #fbe6e4;   --bad-line: #f3c2c2;
+  --danger-surface: #fbe6e4;   --danger-surface-raised: #fff7f6;   /* the reset wrapper, and the cards on it: ink 14.4/16.4, muted 5.6/6.4, danger 5.5/6.2 */
   --info: #2563b0;  --info-soft: #e8f0fb;    --info-line: #b9c8f5;
   --violet: #6a4bbd; --violet-soft: #f1edfb;
 
@@ -135,6 +136,7 @@
     --good: #5fd39a;  --good-soft: #0f2a1d;
     --warn: #f0b44b;  --warn-soft: #2a2211;  --warn-line: #4d3d17;
     --bad: #f07a70;   --bad-soft: #2e1514;   --bad-line: #5c2622;
+    --danger-surface: #2a1312;   --danger-surface-raised: #3b1d1b;   /* ink 14.7/12.8, muted 6.6/5.8, danger 6.4/5.6 */
     --info: #7aa7ec;  --info-soft: #122238;  --info-line: #2a4a7a;
     --violet: #a996ec; --violet-soft: #1d1733;
 
