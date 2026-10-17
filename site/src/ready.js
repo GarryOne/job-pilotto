@@ -6,6 +6,7 @@ import {equal, tokenFor} from './guard.js';   // tokenFor: the night token is ch
 import {installOf} from './hosted.js';
 import {open, seal} from './hosted-state.js';
 import {relay} from './ready-ai.js';
+import {runNow} from './ready-tick.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 export {readyToken};
 
@@ -188,5 +189,12 @@ export async function ready(request, env, now = new Date()) {
   if (sub === 'result') return result(request, env, now);
   if (sub === 'ai') return aiCall(request, env, now);
   if (['live', 'handoff', 'held'].includes(sub)) { const install = await ownerOf(request, env); return install ? morning(request, env, install, sub) : deny(); }   // the morning: the container's tabs (src/ready-morning.js)
+  if (sub === 'run') {   // the owner starts his queued night now (a manual test; the cron would start it at its fill time)
+    const install = await ownerOf(request, env);
+    if (!install) return deny();
+    if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+    const done = await runNow(env, install, now);
+    return json(done.body, done.status);
+  }
   return mine(request, env, now, sub);
 }

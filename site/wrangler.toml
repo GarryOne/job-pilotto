@@ -109,6 +109,16 @@ bucket_name = "hosted-state"
 binding = "HOSTED_QUEUE"
 queue = "hosted-runs"
 
+# Ready to send (src/ready-tick.js, ready-morning.js; spec docs/superpowers/specs/2026-10-17-ready-to-send.md): the Queue the cron tick fills, and the service binding to the runner Worker (ready-runner/) that consumes it and holds
+# the night's container. Merge this only after the Queue `ready-runs` and the Worker `www-ready-runner` exist on the account (the owner's yes, 17 Oct 2026); everything stays off until READY_TO_SEND = "on" and READY_OWNER is set.
+[[queues.producers]]
+binding = "READY_QUEUE"
+queue = "ready-runs"
+
+[[services]]
+binding = "READY_RUNNER"
+service = "www-ready-runner"
+
 [[d1_databases]]
 binding = "STATS"
 database_name = "www-stats"
