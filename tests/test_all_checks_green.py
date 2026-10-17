@@ -59,6 +59,24 @@ class AllChecksGreen(unittest.TestCase):
             code, out = self.run_with([body])
             self.assertEqual(code, 1, (name, out))
 
+    def test_an_older_run_of_the_gates_own_workflow_cancelled_by_this_run_is_ignored(self):
+        gate = 'CI · Pull request'
+        code, out = self.run_with([f'completed\tcancelled\t{gate}\t2026-10-17T10:00:00Z\nown\t-\t{gate}\t2026-10-17T10:05:00Z\ncompleted\tsuccess\tCI · Tests · python\t2026-10-17T10:01:00Z\n'])
+        self.assertEqual(code, 0, out)
+        self.assertIn('2 workflow(s)', out, 'this run itself is not counted')
+
+    def test_a_cancelled_run_stays_red_when_this_run_is_older_or_of_another_workflow(self):
+        gate, other = 'CI · Pull request', 'CI · Harness tests'
+        cases = {
+            'this run is older': f'completed\tcancelled\t{gate}\t2026-10-17T10:05:00Z\nown\t-\t{gate}\t2026-10-17T10:00:00Z\n',
+            'this run is another workflow': f'completed\tcancelled\t{other}\t2026-10-17T10:00:00Z\nown\t-\t{gate}\t2026-10-17T10:05:00Z\n',
+            'no own row': f'completed\tcancelled\t{gate}\t2026-10-17T10:00:00Z\n',
+            'a failure of the gate workflow': f'completed\tfailure\t{gate}\t2026-10-17T10:00:00Z\nown\t-\t{gate}\t2026-10-17T10:05:00Z\n',
+        }
+        for name, body in cases.items():
+            code, out = self.run_with([body])
+            self.assertEqual(code, 1, (name, out))
+
     def test_the_query_asks_for_the_creation_time(self):
         self.assertIn('event,createdAt', SCRIPT.read_text())
 
@@ -70,7 +88,7 @@ class AllChecksGreen(unittest.TestCase):
         gate = (ROOT / '.github/workflows/pr-gate.yml').read_text()
         self.assertNotRegex(gate.split('\njobs:')[0], r'(?m)^\s+paths(-ignore)?:')
         self.assertIn('bash tools/all-checks-green.sh "$GITHUB_REPOSITORY" "$HEAD_SHA" "$GITHUB_RUN_ID"', gate)
-        self.assertIn('select(.event == \\"pull_request\\" and (.databaseId | tostring) != \\"$own\\")', SCRIPT.read_text())
+        self.assertIn('(.databaseId | tostring) == \\"$own\\" then \\"own\\"', SCRIPT.read_text())
         self.assertIn("All\\ checks\\ passed", (ROOT / 'tools/pr-settings.sh').read_text())
 
 
