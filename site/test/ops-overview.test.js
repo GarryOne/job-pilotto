@@ -12,10 +12,10 @@ import {RANGES, bars, bucketsOf, buildSnapshot, page, rangeOf, windowOf} from '.
 function d1() {
   const db = new DatabaseSync(':memory:');
   for (const file of readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
-  const reads = {rows: 0, queries: 0};
+  const reads = {rows: 0, queries: 0, sqls: []};
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
-    all: async () => { reads.queries++; const results = db.prepare(sql).all(...args); reads.rows += results.length; return {results}; },
-    first: async () => { reads.queries++; return db.prepare(sql).get(...args); }, _sql: sql, _args: args});
+    all: async () => { reads.queries++; reads.sqls.push(sql); const results = db.prepare(sql).all(...args); reads.rows += results.length; return {results}; },
+    first: async () => { reads.queries++; reads.sqls.push(sql); return db.prepare(sql).get(...args); }, _sql: sql, _args: args});
   return {db, reads, prepare: sql => statement(sql), batch: async list => list.map(item => db.prepare(item._sql).run(...item._args))};
 }
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 's', SELFHEAL_PUBLISH_KEY: 'pub', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}});
@@ -75,13 +75,15 @@ test('the ingest needs the key, stores each PR once, rebuilds one snapshot row, 
   assert.equal(e.STATS.db.prepare('SELECT category FROM ops_prs WHERE number = 1').get().category, 'forms');
   const have = await (await call(e, '/ops/data', {headers: {Authorization: 'Bearer pub'}})).json();
   assert.deepEqual(have.have.sort(), [1, 2, 3]);
-  e.STATS.reads.rows = 0; e.STATS.reads.queries = 0;
+  e.STATS.reads.rows = 0; e.STATS.reads.queries = 0; e.STATS.reads.sqls = [];
   const response = await call(e, '/admin/operations/overview', owner);
   assert.equal(response.status, 200);
-  assert.deepEqual([e.STATS.reads.rows, e.STATS.reads.queries], [0, 1]);   // one .first() on the snapshot row, no table scan
+  const sql = e.STATS.reads.sqls.join('\n');
+  assert.match(sql, /FROM ops_snapshot/);
+  assert.doesNotMatch(sql, /FROM ops_prs/);   // the time page reads its one snapshot row, no table scan (the section tiles read the other pages' rows)
   const html = await response.text();
   assert.match(html, /Where our time goes/);
-  assert.match(html, /Where does our engineering time go/);   // the question under the menu
+  assert.match(html, /How is engineering doing/);   // the question under the menu
   assert.match(html, /#1<\/a> PR 1/);
 });
 

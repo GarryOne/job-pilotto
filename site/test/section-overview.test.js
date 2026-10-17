@@ -1,0 +1,76 @@
+// The Overview tab of each admin section: every page of a section with an Overview declares headline numbers (a new page without them fails here),
+// each loader answers on an empty database and on seeded rows, and the Overview draws one tile per number.
+import assert from 'node:assert/strict';
+import {readFileSync, readdirSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {test} from 'node:test';
+import worker from '../src/index.js';
+import {PAGES} from '../src/admin.js';
+import {HEADLINES} from '../src/headlines.js';
+import {headlinePages, sectionTiles} from '../src/section-overview.js';
+
+function d1() {
+  const db = new DatabaseSync(':memory:');
+  for (const file of readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  const reads = {rows: 0, queries: 0};
+  const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
+    all: async () => { reads.queries++; const results = db.prepare(sql).all(...args); reads.rows += results.length; return {results}; },
+    first: async () => { reads.queries++; return db.prepare(sql).get(...args); }, _sql: sql, _args: args});
+  return {db, reads, prepare: sql => statement(sql), batch: async list => list.map(item => db.prepare(item._sql).run(...item._args))};
+}
+const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 's', SELFHEAL_PUBLISH_KEY: 'pub', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}});
+const owner = {headers: {Cookie: 'jp_stats=k3y'}};
+const call = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
+const now = new Date('2026-10-15T12:00:00Z');
+const overviews = PAGES.filter(page => page.overview);
+
+test('every page of a section that has an Overview declares headline numbers', () => {
+  assert.ok(overviews.length >= 1);
+  for (const overview of overviews) {
+    const pages = headlinePages(overview.group);
+    assert.ok(pages.length >= 1, `${overview.group} has no pages`);
+    for (const page of pages) assert.equal(typeof HEADLINES[page.path], 'function', `${page.path} (${overview.group}) has no entry in src/headlines.js`);
+  }
+});
+
+test('every loader returns well-formed tiles on an empty database, and a missing database', async () => {
+  for (const overview of overviews) for (const page of headlinePages(overview.group)) for (const e of [env(), {}]) {
+    const tiles = await HEADLINES[page.path](e, now);
+    assert.ok(tiles.length >= 1 && tiles.length <= 4, `${page.path}: 1-4 tiles`);
+    for (const tile of tiles) {
+      assert.ok(tile.label && String(tile.value).length, `${page.path}: label and value`);
+      assert.ok(['good', 'warn', 'bad', 'none'].includes(tile.status), `${page.path}: status`);
+    }
+  }
+});
+
+test('Operations loaders read the rows their pages keep', async () => {
+  const e = env(), {db} = e.STATS;
+  db.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?)').run('2026-10-15', '2026-10-15T09:00:00Z', JSON.stringify({totals: {real: 73, judged: 181, precision: 40}, fixer: {landed: 21, opened: 24, open: 0}, recall: {caught: 21, planted: 22, missed: ['dead-button']}}));
+  db.prepare('INSERT INTO digest_days (day, groups, open_line, numbers, drafts, usd, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?)').run('2026-10-15', '[{"t":1},{"t":2}]', '', '[1,2,3]', '2026-10-15T10:00:00Z');
+  db.prepare('INSERT INTO ai_cost_runs (job, run_id, day, at, usd, calls) VALUES (?, ?, ?, ?, ?, 1)').run('self-heal', 'r1', '2026-10-15', '2026-10-15T08:00:00Z', 8.15);
+  const [heal, fixer] = await HEADLINES['/admin/self-healing'](e, now);
+  assert.deepEqual([heal.value, heal.status, heal.sub.includes('dead-button'), fixer.value], ['40%', 'warn', true, '21']);
+  assert.deepEqual((await HEADLINES['/admin/operations/build-log'](e, now))[0].sub, '2 goals');
+  assert.equal((await HEADLINES['/admin/ai-cost'](e, now))[0].value, '$8.15');
+});
+
+test('the E2E tile counts reds and runs of the last 7 days and names the top cause', async () => {
+  const e = env();
+  e.STATS.db.exec('CREATE TABLE e2e_snapshot (id INTEGER PRIMARY KEY, body TEXT)');
+  e.STATS.db.prepare('INSERT INTO e2e_snapshot (id, body) VALUES (1, ?)').run(JSON.stringify({days: [{day: '2026-10-14', runs: 10, reds: 2}, {day: '2026-09-01', runs: 99, reds: 99}], fails: [{day: '2026-10-14', cause: 'timeout', n: 2}]}));
+  const [tile] = await HEADLINES['/admin/operations/e2e'](e, now);
+  assert.deepEqual([tile.value, tile.status, tile.sub], ['2 of 10', 'warn', 'top cause: timeout (2)']);
+});
+
+test('a failing loader becomes a grey tile, not an error', async () => {
+  const group = overviews[0].group, tiles = await sectionTiles({STATS: {prepare: () => { throw new Error('down'); }}}, group, now);
+  assert.ok(tiles.length >= 1 && tiles.every(tile => tile.href && tile.page));
+});
+
+test('the Operations Overview draws the section tiles above the time page', async () => {
+  const response = await call(env(), '/admin/operations/overview', owner), html = await response.text();
+  assert.equal(response.status, 200);
+  for (const page of headlinePages(PAGES.find(item => item.path === '/admin/operations/overview').group)) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
+  assert.match(html, /class="tile/);
+});
