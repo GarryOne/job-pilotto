@@ -1,5 +1,5 @@
 // The horizontal stacked bar rows of the admin pages (owner, 16 Oct 2026): one row per day, coloured segments with the count inside, a summary on the right, a legend of pills on top.
-// The pool results chart (src/applying-nights.js, drawn in the browser) and the Time overview (src/ops-overview.js, drawn here) share these class names and this CSS; change the look here only. Guard: test/ops-overview.test.js
+// The pool results chart (src/applying-nights.js, drawn in the browser) and the Overview (src/ops-overview.js, drawn here) share these class names and this CSS; change the look here only. Guard: test/ops-overview.test.js
 import {esc} from './stats.js';
 
 export const BARS_CSS = `.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
