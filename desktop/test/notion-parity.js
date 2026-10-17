@@ -15,7 +15,7 @@ export const NOTION_PARITY = {
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
   'index.html#open-answers': ANSWERS,
   'index.html#answers-review': ANSWERS,
-  'index.html#preferences-open-notion': {view: 'pages/preferences-tab.js loadPreferences'},   // the Profile's preferences, edited here on every store
+  'index.html#preferences-open-notion': {view: 'pages/job-preferences.js loadPreferences'},   // the Profile's job preferences, edited on Strategy on every store
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
   'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview

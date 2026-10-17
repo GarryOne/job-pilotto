@@ -2515,8 +2515,8 @@ details.qa-section { margin-top: var(--sp-3); }
 .kn-body .data-table { margin-top: 0; }
 .qa-section.is-review { border-color: var(--warn-line); }
 
-/* Settings → Profile → Preferences (pages/preferences-tab.js): section cards as Application answers (.qa-section), fields the shared .form-grid,
-   chips .chip.removable, work modes .segmented; only the card's padding, its head's two lines and a language row are new. */
+/* Strategy → Job preferences (pages/job-preferences.js) and Profile → More from your Profile (pages/profile-rest.js): section cards as Application
+   answers (.qa-section), fields the shared .form-grid, chips .chip.removable; only the card's padding, its head's two lines and the folded rules' line are new. */
 .pref-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
 .pref-body label > span { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
 .pref-body input, .pref-body select { width: 100%; }
@@ -2529,9 +2529,8 @@ details.qa-section { margin-top: var(--sp-3); }
 .pref-review-actions { padding: 0 var(--sp-4) var(--sp-4); }
 .pref-chips .chip-list { margin-bottom: var(--sp-2); }
 .pref-chips .chip-list:empty { display: none; }
-.pref-languages { display: grid; gap: var(--sp-2); justify-items: start; }
-.pref-language { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; width: 100%; }
-.pref-language .link svg { width: 16px; height: 16px; }
+.pref-more > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); cursor: pointer; padding: var(--sp-2) 0; }
+.pref-more > .pref-body { padding: var(--sp-2) 0 0; }
 .pref-sub { margin: var(--sp-2) 0 0; }
 
 /* Jobs → the Find jobs card on top (pages/jobs-find.js): the shared card, header, number strip, pills and rows; only its spacing and the big first button are new. */

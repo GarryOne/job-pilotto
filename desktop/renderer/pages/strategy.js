@@ -10,6 +10,7 @@ import {toastMessage} from './startup.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {CARD_TONE, TARGET_CARDS, dirty, inColumns, discardTargets, saveTargets, renderStrategy} from './strategy-targets.js';
 import {pendingImprove, drawImprove, loadCoverage} from './strategy-suggestions.js';
+import {loadPreferences, reviewPreferences} from './job-preferences.js';
 export {TARGET_CARDS, TARGET_LISTS, editedList} from './strategy-targets.js';
 export {reviewSuggestion, loadCoverage} from './strategy-suggestions.js';
 
@@ -18,6 +19,7 @@ export async function loadStrategy() {
   message('strategy-message', '');
   pendingImprove.add('previous');   // the older scores come with the fresh read only (the saved copy leaves them out)
   loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows
+  loadPreferences();   // Job preferences: the Profile's must-haves and ranking preferences
   // The last good read at once (lib/view-cache.js), then the fresh one.
   const saved = await window.pilot.cached('strategy');
   if (saved?.result?.ok && !strategyState.strategyShown) {
@@ -98,5 +100,7 @@ export async function init() {
   $('targets-save').addEventListener('click', saveTargets);
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
+  $('preferences-review').addEventListener('click', reviewPreferences);
+  $('preferences-open-notion').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
 }
 

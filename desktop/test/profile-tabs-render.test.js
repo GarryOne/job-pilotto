@@ -29,7 +29,8 @@ NOTION.profile = [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 
 const LOCAL = {answers: outline(demo('answers.md')), knowledge: outline(demo('knowledge.md')), profile: outline(demo('profile.md'))};
 // Every tab of Settings → Profile drawn from an outline: a new one is added here (the class, not the case).
 const TABS = {answers: {load: 'loadApplicationAnswers', file: 'application-answers', body: 'answers-body'},
-  preferences: {load: 'loadPreferences', file: 'preferences-tab', body: 'preferences-body'}};
+  preferences: {load: 'loadPreferences', file: 'job-preferences', body: 'preferences-body'},   // Strategy's Job preferences (was this page's tab)
+  rest: {load: 'loadProfileRest', file: 'profile-rest', body: 'profile-rest-body'}};
 
 for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
   test(`${store}: Application answers shows Needs review, the answers and the website rules, with no textarea and no ❓`, async () => {
@@ -83,16 +84,15 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
   }
 }
 
-test('Preferences: a work mode pressed writes only its own cell, on the Notion shape', async () => {
+test('Job preferences: a country removed writes only its own cell, on the Notion shape', async () => {
   const sent = [];
   globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items: NOTION.profile, store: 'Notion'}),
     textEdit: async (name, changes) => { sent.push([name, changes]); return {ok: true, items: NOTION.profile}; }}, {get: (all, key) => all[key] || (() => null)});
   const node = globalThis.document.createElement('div');
   node.id = 'preferences-body';
   body.replaceChildren(node);
-  await (await import('../renderer/pages/preferences-tab.js')).loadPreferences();
-  const onSite = node.querySelectorAll('.pref-modes button').find(button => button.textContent === 'On-site');
-  onSite.click();
+  await (await import('../renderer/pages/job-preferences.js')).loadPreferences();
+  node.querySelectorAll('.chip .x').find(button => button.ariaLabel === 'Remove Germany').click();
   await node.querySelector('#outline-save-preferences').listeners.click[0]();
-  assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q2', index: 1, value: 'On-site, Hybrid, Remote', was: 'Hybrid or remote'}]]]);
+  assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q1', index: 1, value: 'Switzerland', was: 'Switzerland, Germany'}]]]);
 });
