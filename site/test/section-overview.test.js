@@ -57,8 +57,7 @@ test('Operations loaders read the rows their pages keep', async () => {
 
 test('the E2E tile counts reds and runs of the last 7 days and names the top cause', async () => {
   const e = env();
-  e.STATS.db.exec('CREATE TABLE e2e_snapshot (id INTEGER PRIMARY KEY, body TEXT)');
-  e.STATS.db.prepare('INSERT INTO e2e_snapshot (id, body) VALUES (1, ?)').run(JSON.stringify({days: [{day: '2026-10-14', runs: 10, reds: 2}, {day: '2026-09-01', runs: 99, reds: 99}], fails: [{day: '2026-10-14', cause: 'timeout', n: 2}]}));
+  e.STATS.db.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?)').run('2026-10-14T12:00:00Z', JSON.stringify({days: [{day: '2026-10-14', runs: 10, reds: 2}, {day: '2026-09-01', runs: 99, reds: 99}], fails: [{day: '2026-10-14', cause: 'timeout', n: 2}]}));
   const [tile] = await HEADLINES['/admin/operations/e2e'](e, now);
   assert.deepEqual([tile.value, tile.status, tile.sub], ['2 of 10', 'warn', 'top cause: timeout (2)']);
 });
