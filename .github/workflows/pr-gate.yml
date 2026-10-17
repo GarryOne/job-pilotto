@@ -1,7 +1,7 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests, tools/ship.sh). The suites are CI · Tests (build.yml) and the
 # recorded-page replays (page-cases.yml), which start by `on: paths:`.
-# ONE required check on main, "All checks passed" (owner, 15 Oct 2026: four required jobs took four runner slots per PR and GitHub's queue was the wait): one job, four named
+# ONE required check on main, "All checks passed" (owner, 15 Oct 2026: four required jobs took four runner slots per PR and GitHub's queue was the wait): one job, five named
 # steps. Same list in tools/pr-settings.sh. The job always starts (a required workflow that never starts blocks the PR forever); a step that does not apply ends in seconds.
 # A red step does not hide the next ones (`!cancelled()`), so one run names every red; the last step waits for the other workflows and runs only when the steps before it passed.
 # `edited` (owner, 17 Oct 2026): a PR retargeted to main (its base edited from another branch) runs the gate, so no rebase is needed to get the required check. It runs the same
@@ -41,6 +41,13 @@ jobs:
         run: |
           git fetch -q origin main
           jq -n --arg cwd "$PWD" '{tool_input: {command: "CI_GATES=1 git push origin pr"}, cwd: $cwd}' | bash tools/pre-push-check.sh
+      # The description keeps the layout tools/pr-body-format.py gives it (owner, 16 Oct 2026: "didn't add separators, didn't use headings"): a "## " verdict, "---"
+      # separators, "### " headings. A step here, not its own workflow (owner, 17 Oct 2026: its two check lines per PR were noise); an edit re-runs this job (`edited`).
+      - name: PR description laid out
+        if: ${{ !cancelled() }}
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$BODY" | python3 tools/pr-body-check.py
       # The open PR is the claim on the applying flow's files (tools/flow-fresh.mjs): red when main changed, since this PR's base, a flow file it also changes.
       # tools/ship.sh rebases and pushes again by itself on this failure (it finds this step's name: keep it in tools/ship-pr.sh).
       - name: Core flow files up to date with main
