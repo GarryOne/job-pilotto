@@ -236,11 +236,11 @@ export async function runApply(ctx, parts) {
     fail([...fillProblems({expected: expectedOf(form), left: form.legal, actual}), ...submitProblems(forms.fired, form.path)]);
     const left = await readPanel(tab);
     fail(leftProblems(left.left, ['personal data', 'sponsorship']));
-    // The question a hiring system can be set to reject on comes first, with its warning, and the panel carries a tip with one of the labels that say how strong it is.
+    // The question a hiring system can be set to reject on comes first, with its warning, and any tip the panel shows carries one of the labels that say how strong it is.
     if (!/sponsorship/i.test(left.left[0] || '')) throw new Error(`the knockout question is not first in "Left for you" (the list: ${left.left.join(' | ')})`);
     if (!/reject an application automatically|knockout rule/i.test(left.knock)) throw new Error(`no knockout warning above the list (it says: "${left.knock}")`);
-    for (let i = 0; i < 10 && !left.tip; i++) { await pause(1000); left.tip = (await readPanel(tab)).tip; }
-    if (!left.tip || !['Fact', 'Recruiters say', 'Worth trying', 'Tip'].includes(left.tip.chip) || left.tip.text.length < 20) throw new Error(`the panel shows no tip with a valid label (${JSON.stringify(left.tip)})`);
+    // The tip line is off for now (SHOW_TIPS=false in extension/review.js, owner 15 Oct 2026): a tip is not required, but one that shows still carries a label that says how strong it is.
+    if (left.tip && (!['Fact', 'Recruiters say', 'Worth trying', 'Tip'].includes(left.tip.chip) || left.tip.text.length < 20)) throw new Error(`the panel shows a tip without a valid label (${JSON.stringify(left.tip)})`);
   }, {needs: ctx.needs});
 
   await ctx.run('the session page says it too: "Before you submit" counts the knockout question that is still the person\'s, and says which CV goes in', async () => {
