@@ -60,6 +60,7 @@ import * as hosted from './hosted.js';
 import * as hostedState from './hosted-state.js';
 import {tick as hostedTick} from './hosted-tick.js';
 import {ready, sweep as readySweep} from './ready.js';
+import {tick as readyTick} from './ready-tick.js';
 import {checkout as proCheckout, webhook as proWebhook} from './pro-pay.js';
 import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
@@ -242,6 +243,7 @@ export default {
   async scheduled(event, env, ctx) {
     if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (src/sentry-alert.js); the daily jobs below run once a day
       ctx.waitUntil(hostedTick(env).then(done => { if (done.enqueued || Object.keys(done.paused).length) console.log(`hosted tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`hosted tick: ${error.message}`)));   // hosted Always on: due schedules to the Queue (src/hosted-tick.js; nothing while HOSTED_ALWAYS_ON is off)
+      ctx.waitUntil(readyTick(env).then(done => { if (done.started || done.finished) console.log(`ready tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`ready tick: ${error.message}`)));   // Ready to send: due nights to the Queue, over-time nights finished (src/ready-tick.js; nothing while READY_TO_SEND is off)
       ctx.waitUntil(readySweep(env).catch(error => console.error(`ready sweep: ${error.message}`)));   // Ready to send: a batch older than a day loses its data (src/ready.js)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
       return;
