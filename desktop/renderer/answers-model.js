@@ -9,6 +9,7 @@ const UNSET = /^\s*❓\s*/;
 const ASKED = /\s*\(asked by ([^)]*)\)\s*$/;
 // "**Question:** answer", "**Question?** answer", "Question: answer", "Question — answer": the label part kept as written.
 const LABELLED = /^(\*\*(.+?)\*\*:?|([^:|]{1,90}?)(?::| —))(?:\s+|$)(.*)$/;
+const LONG = /^(.{91,}):\s+([^:]{1,80})$/;
 const plain = text => String(text).replace(/\*\*/g, '').replace(/[\s:*]+$/, '').replace(/^[\s*]+/, '').trim();
 
 // "❓ to confirm — leave blank" → {open: true, hint: 'leave blank'}; "❓ (asked by Acme)" → {open, asked: 'Acme'}; "Leave blank" → {open: false}.
@@ -24,7 +25,11 @@ export function valueOf(raw) {
 // "**Notice:** 3 months" → {head: '**Notice:**', question: 'Notice', raw: '3 months'}; a line with no label → null.
 export function labelledLine(text) {
   const match = String(text).match(LABELLED);
-  return match && plain(match[2] || match[3]) ? {head: match[1], question: plain(match[2] || match[3]), raw: match[4]} : null;
+  if (match && plain(match[2] || match[3])) return {head: match[1], question: plain(match[2] || match[3]), raw: match[4]};
+  // A form's own question can be long (owner's screenshot, 17 Oct 2026: 120-character questions showed as prose): "<question>: <short answer>", the
+  // answer after the last ": " with no colon in it, is still a question; a long sentence with no such ending stays a note.
+  const long = String(text).match(LONG);
+  return long ? {head: `${long[1]}:`, question: plain(long[1]), raw: long[2]} : null;
 }
 const markOf = split => (split.marked ? {kind: split.kind, options: split.options, ...(split.list ? {list: split.list} : {}), ...(split.constraints ? {constraints: true} : {})} : null);
 function lineItem(item) {

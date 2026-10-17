@@ -78,8 +78,17 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
   return [head, edit];
 }
 
+// A question saved by a build before 17 Oct 2026 was cut at 120 characters (#1281): said under it, never guessed back.
+const cutShort = question => String(question || '').length >= 118 && String(question).length <= 120 && /[\p{L}\p{N}]$/u.test(question);
+// A section's notes (an instruction for the AI, not an answer: owner, 17 Oct 2026) folded in one row; still on the page and still sent to the AI.
+function noteFold(notes) {
+  const fold = el('details', 'plain qa-note-fold');
+  fold.append(el('summary', 'muted small', `Note for the AI · ${notes.length === 1 ? '1 paragraph' : `${notes.length} paragraphs`}`),
+    ...notes.map(note => el('p', 'muted small qa-note', shown(note.value || note.text))));
+  return fold;
+}
 const answerRow = (view, item) => row(view, {key: item.id, button: false, title: item.kind === 'note' ? 'Note' : shown(item.question),
-  under: item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), value: valueOf(item), needs: missing(item), optional: item.optional,
+  under: [item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), cutShort(item.question) ? 'Cut short by an older version' : ''].filter(Boolean).join(' · '), value: valueOf(item), needs: missing(item), optional: item.optional,
   field: () => (item.kind === 'note' ? input(valueOf(item), text => setAnswer(view, item, text), {placeholder: 'Your answer', ariaLabel: 'Note'}) : answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer')),
   kind: item.kind === 'note' ? null : () => kindField(view, item)});
 
@@ -187,10 +196,11 @@ function draw(view, into) {
   for (const section of list) {
     const items = section.items.filter(item => item.kind !== 'note' && !(missing(item) && inDetails.has(item.id)) && (filters.view !== 'saved' || !missing(item))
       && matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query}));
-    if (!items.length) continue;
+    const notes = filters.query || filters.view === 'review' ? [] : section.items.filter(item => item.kind === 'note');
+    if (!items.length && !notes.length) continue;
     any = true;
     saved.append(el('h5', 'qa-group', shown(section.title) || 'Answers'));
-    for (const note of section.items.filter(item => item.kind === 'note' && !filters.query)) saved.append(el('p', 'muted small qa-note', shown(note.value || note.text)));
+    if (notes.length) saved.append(noteFold(notes));
     for (const item of items) saved.append(...answerRow(view, item));
   }
   if (!any) saved.append(el('p', 'muted qa-empty', list.length ? 'No answer matches this search.' : 'No standard answers yet: they are added as forms ask questions, or with Add answer.'));
