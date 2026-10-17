@@ -6,8 +6,8 @@ import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
 import {pick} from '../tab-choice.js';
-import {loadProfileRest} from './profile-rest.js';
 import {initExperience, loadExperience} from './experience.js';
+import {loadExperienceProfile} from './experience-profile.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -25,11 +25,15 @@ import {clearProposals, contactDirty, loadProposals} from './contact-proposals.j
 import {factsNow, showFacts} from './details-facts.js';
 import {showNotify} from './notify-settings.js';
 
-// ---------- Settings → Application profile: tabs (CV, Your details, Experience, Preferences, Application answers, Cover letter) ----------
+// ---------- Settings → Application profile: tabs (CV, Your details, Experience, Application answers, Cover letter) ----------
 // Your details is drawn once with the settings (showContact): switching to it never redraws the form, so unsaved edits stay.
+// Strategy → Job preferences, through the sidebar's own Strategy button (nav.js imports this file).
+const openJobPreferences = () => { document.querySelector('.nav[data-view=strategy]')?.click(); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); };
 export function profileTab(name, {byDefault = false} = {}) {
   if (!byDefault) pick();   // a person's pick (or a deep link) wins over a default that arrives late (tab-choice.js)
   if (name === 'knowledge') name = 'answers';   // Form knowledge is a section of Application answers since 16 Oct 2026 (owner)
+  // The Preferences tab is gone (owner, 17 Oct 2026: "General Preferences links can open Strategy"): its old name opens Strategy → Job preferences.
+  if (name === 'profiletext') { openJobPreferences(); return; }
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.profileTab === name));
   document.querySelectorAll('[data-profile-panel]').forEach(panel => {
     show(panel, panel.dataset.profilePanel === name && panel.dataset.wanted !== '0');   // a conditional part keeps its wish (pages/tab-part.js)
@@ -37,7 +41,6 @@ export function profileTab(name, {byDefault = false} = {}) {
   showStoreParts();
   if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
-  else if (name === 'profiletext') loadProfileRest();
   else if (name === 'letter') loadLetter();
   else if (name === 'cv') { loadCvSetting(); showCvChanged(); }
 }
@@ -250,6 +253,7 @@ export function showContact() {
     showLinks();
     loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
     showFacts();   // Work eligibility, Availability & compensation, Languages (details-facts.js)
+    loadExperienceProfile('details');   // the voluntary survey answers (pages/experience-profile.js)
   }).catch(error => message('contact-panel-message', `${byStore('Couldn\'t read them from Notion', 'Couldn\'t read them from your Profile')}: ${error.message}`, 'error'));   // the panel's line: the save bar's is hidden until you change something (#409)
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
 }
@@ -260,8 +264,6 @@ export async function init() {
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   initExperience();
   $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
-  // The job preferences moved to Strategy (owner, 17 Oct 2026): the sidebar's own Strategy button (nav.js imports this file), then the card.
-  $('profile-rest-strategy').addEventListener('click', () => { document.querySelector('.nav[data-view=strategy]')?.click(); setTimeout(() => $('strategy-job-prefs')?.scrollIntoView({block: 'start'}), 300); });
   $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
   $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('links-edit').addEventListener('click', () => {

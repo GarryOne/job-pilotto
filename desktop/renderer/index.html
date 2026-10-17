@@ -941,7 +941,6 @@
             <button role="tab" data-profile-tab="cv" class="is-active">CV</button>
             <button role="tab" data-profile-tab="details">Your details</button>
             <button role="tab" data-profile-tab="experience">Experience</button>
-            <button role="tab" data-profile-tab="profiletext">Preferences</button>
             <button role="tab" data-profile-tab="answers">Application answers</button>
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
@@ -978,8 +977,8 @@
           <div class="stale-draft" id="cv-changed" data-profile-panel="cv" data-wanted="0" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-experience-profile" data-profile-panel="experience" hidden>
-            <div class="summary-head"><i data-icon="user"></i><h3>Summary and strengths</h3></div>
-            <p class="muted panel-lead">From your Profile: tailored CVs, cover letters and fit scores read them.</p>
+            <div class="summary-head"><i data-icon="user"></i><h3>Your background</h3></div>
+            <p class="muted panel-lead">Summary, strengths, education and roles from your Profile: tailored CVs, cover letters and fit scores read them.</p>
             <div class="exp-profile" id="exp-profile"></div>
             <p class="message" id="exp-profile-message"></p>
           </div>
@@ -1053,6 +1052,12 @@
             <div class="form-grid cols-2" data-facts="languages"></div>
             <p class="message" id="facts-message"></p>
           </div>
+          <div class="setting panel" id="setting-details-profile" data-profile-panel="details">
+            <div class="summary-head"><i data-icon="file-text"></i><h3>Voluntary surveys</h3></div>
+            <p class="muted panel-lead">Optional standing answers for equal-opportunity questions (age, gender, disability…), so forms don't ask each time.</p>
+            <div class="exp-profile" id="details-profile"></div>
+            <p class="message" id="details-profile-message"></p>
+          </div>
           <div class="save-bar" id="contact-savebar" data-profile-panel="details" data-wanted="0" role="region" aria-label="Unsaved changes to your details" hidden>
             <div class="save-bar-words"><b>Unsaved changes to your details</b><span class="muted small">The extension fills forms with them once saved.</span></div>
             <span class="message" id="contact-message"></span>
@@ -1106,12 +1111,6 @@
                 <button class="primary with-icon" id="answers-add"><i data-icon="plus"></i>Add question</button></div></div>
             <p class="muted panel-lead">What you want forms to say, and the rules Job Pilotto learned for each website. Used in future applications and kits.</p>
             <div class="outline-body" id="answers-body"></div>
-          </div>
-          <div class="setting panel" id="setting-profile-rest" data-profile-panel="profiletext" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="file-text"></i><h3>More from your Profile</h3></div>
-              <div class="panel-actions"><button class="link" id="profile-rest-strategy">Job preferences are on Strategy →</button></div></div>
-            <p class="muted panel-lead">Education, role history, links and notes: scores, kits and tailored CVs read them.</p>
-            <div class="outline-body" id="profile-rest-body"></div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>

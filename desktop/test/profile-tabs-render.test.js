@@ -29,8 +29,7 @@ NOTION.profile = [{id: 'p1', type: 'heading_1', text: 'Hard constraints'}, {id: 
 const LOCAL = {answers: outline(demo('answers.md')), knowledge: outline(demo('knowledge.md')), profile: outline(demo('profile.md'))};
 // Every tab of Settings → Profile drawn from an outline: a new one is added here (the class, not the case).
 const TABS = {answers: {load: 'loadApplicationAnswers', file: 'application-answers', body: 'answers-body'},
-  preferences: {load: 'loadPreferences', file: 'job-preferences', body: 'preferences-body'},   // Strategy's Job preferences (was this page's tab)
-  rest: {load: 'loadProfileRest', file: 'profile-rest', body: 'profile-rest-body'}};
+  preferences: {load: 'loadPreferences', file: 'job-preferences', body: 'preferences-body'}};   // Strategy's Job preferences (was this page's tab)
 
 for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
   test(`${store}: Application answers shows Needs review, the answers and the website rules, with no textarea and no ❓`, async () => {

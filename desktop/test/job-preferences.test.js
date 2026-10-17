@@ -103,19 +103,8 @@ test('no section for a side: no Add field (nothing written where it would not re
   assert.equal(node.querySelectorAll('input').filter(input => input.ariaLabel === SIDES.must.add || input.ariaLabel === SIDES.rank.add).length, 0);
 });
 
-test('More from your Profile leaves out Your details\' sections (one editor per value); the window\'s list is the main process\'s', async () => {
+test('the window\'s list of Your details\' headings is the main process\'s', () => {
   assert.deepEqual(DETAILS_HEADINGS, [HEADING, ...Object.values(SECTIONS)]);
-  const items = [{id: 'h1', type: 'heading_1', text: 'Education'}, {id: 'e1', type: 'paragraph', text: 'MSc Computer Science'},
-    {id: 'h2', type: 'heading_2', text: '💶 Availability & compensation'}, {id: 'a1', type: 'bulleted_list_item', text: 'Notice period: 2 months'},
-    {id: 'h3', type: 'heading_1', text: 'Links'}, {id: 'k1', type: 'bulleted_list_item', text: 'GitHub: x'}];
-  globalThis.window.pilot = new Proxy({textOutline: async () => ({ok: true, items, store: 'Notion'})}, {get: (all, key) => all[key] || (() => null)});
-  const node = globalThis.document.createElement('div');
-  node.id = 'profile-rest-body';
-  body.replaceChildren(node);
-  await (await import('../renderer/pages/profile-rest.js')).loadProfileRest();
-  const values = node.querySelectorAll('input').map(input => input.value);
-  assert.ok(values.includes('MSc Computer Science') && values.includes('x'), values.join());
-  assert.ok(!values.includes('2 months') && !node.textContent.includes('Availability'), node.textContent);
 });
 
 test('⌘K reaches the card and its Review button on Strategy (the Settings scan no longer sees them)', async () => {

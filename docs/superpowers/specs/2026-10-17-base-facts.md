@@ -75,8 +75,9 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 - [x] The one-time move: copy + backup first, word for word, nothing removed before its line reads back, every value checked after; "Which is right?" picks, never auto (proof: desktop/test/profile-move.test.js @134bc4c)
 - [x] Strategy shows permit and languages read-only ("Edit in Your details"); relocation, work modes, minimum salary, level; two salaries apart (proof: tests/test_desktop.py)
 - [x] Experience → Professional summary and Strengths: a short preview with Edit, saved line by line on every store (proof: desktop/test/experience-profile.test.js)
-- [ ] Strategy → Criteria: Must-haves / deal-breakers apart from Preferences (ranking), edited from the Profile's lines
-- [ ] Preferences tab removed; ⌘K and links to it land on the new homes; cover-letter style moves to Cover letter (letter prompts keep the style rules); Notion template + Profile title (old title kept as a former title)
+- [x] Preferences tab removed; its old name opens Strategy → Job preferences; education, role history and unknown sections on Experience, voluntary surveys on Your details, every template heading with a home (proof: desktop/test/experience-profile.test.js)
+- [ ] Cover-letter style moves to the Cover letter tab (the letter prompts keep the style rules)
+- [ ] Notion template + Profile title (old title kept as a former title)
 - [ ] Locations, one source: Strategy's preferred / acceptable / relocation / remote feed discovery and scoring; a conflict asked once in the move; old scores marked, explicit refresh, no automatic re-score
 - [ ] One test over every questionnaire screen
 - [x] Strategy → Job preferences: Must-haves & deal-breakers apart from Preferences (ranking), rules folded under a summary, Add a deal-breaker / preference; the Profile tab keeps only lines with no other home (proof: desktop/test/job-preferences.test.js)

@@ -1,41 +1,79 @@
-// Profile → Experience: the Professional summary and Strengths (owner, 17 Oct 2026: "Experience already holds the career evidence used for tailoring.
-// A compact summary and strengths section fits naturally above the roles. Show a short preview with Edit"). They are sections of the Profile page
-// (docs/notion-profile-template.md "Summary (from CV)" and "Core skills"; a setup draft or a person may say "Strengths"), read from its outline
-// on any store and written back block by block (lib/text-outline-handlers.js). No DOM: guarded by test/experience-profile.test.js.
+// The Profile page's own sections, each on the tab its meaning belongs to (owner, 17 Oct 2026: "I'd split these fields by meaning"; "Experience
+// already holds the career evidence used for tailoring. A compact summary and strengths section fits naturally above the roles. Show a short preview
+// with Edit"): Experience = summary, strengths, education, role history and any section the app does not know (under its own title); Your details =
+// the voluntary survey answers. Lines Strategy's Job preferences or Your details already edit are left out (one editor per value). Read from the
+// page's outline on any store and written back block by block (lib/text-outline-handlers.js). No DOM: guarded by test/experience-profile.test.js.
 
-// The two parts, and the headings the template and the setup draft give them (the app's own words; a page without one gets the heading on save).
+import {readProfile} from './preferences-model.js';
+import {isDetailsHeading} from './details-headings.js';
+
+// The parts and the headings the template and the setup draft give them (docs/notion-profile-template.md; the app's own words).
 export const PARTS = {
-  summary: {title: 'Professional summary', heading: 'Summary (from CV)', match: /^(professional\s+)?summary\b|^about me\b/i, icon: 'user'},
-  strengths: {title: 'Strengths', heading: 'Strengths', match: /^strengths?\b|^core skills\b|^key skills\b|^expertise\b/i, icon: 'zap'},
+  summary: {title: 'Professional summary', heading: 'Summary (from CV)', match: /^(professional\s+)?summary\b|^about me\b/i, tab: 'experience'},
+  strengths: {title: 'Strengths', heading: 'Strengths', match: /^strengths?\b|^core skills\b|^key skills\b|^expertise\b/i, tab: 'experience'},
+  education: {title: 'Education', heading: 'Education', match: /^education\b/i, tab: 'experience'},
+  roles: {title: 'Role history', heading: 'Experience', match: /^((work|professional)\s+)?experience$|^employment history\b|^role history\b/i, tab: 'experience'},
+  surveys: {title: 'Voluntary surveys', heading: 'Application form answers — voluntary demographic surveys', match: /demographic|voluntary survey/i, tab: 'details'},
 };
+// The template's explanations under its headings: instructions, not the person's words (shown nowhere).
+const TEMPLATE_NOTES = [/^the ai scorer \(stage 2\) reads this page/i, /^jobs that break these are filtered out/i, /^optional\. only fill this in if you want/i];
 const bare = text => String(text || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+const isHint = text => /^\s*❓/.test(String(text || ''));
+export const unset = cell => !String(cell || '').trim() || isHint(cell);
 
-// outline → {summary: {headingId, lines: [{id, text}]} | null, strengths: ...}: the first section each heading names, its own lines (a table or a
-// nested block stays where it is: shown as text, never written).
-export function readParts(items) {
-  const out = Object.fromEntries(Object.keys(PARTS).map(key => [key, null]));
+// outline → {summary, strengths, education, roles, surveys: part | null, others: [part + {key, title}]}; part = {headingId, lines: [{id, text}],
+// rows: [{id, cells}] (a table's), hints: [{id, text}] (the template's ❓ lines)}. elsewhere(heading) = a section another screen edits (left out);
+// taken(id) = a line or row edited elsewhere (Strategy's fields and rules).
+export function readParts(items, {elsewhere = () => false, taken = () => false} = {}) {
+  const out = {...Object.fromEntries(Object.keys(PARTS).map(key => [key, null])), others: []};
   let current = null;
   for (const item of items || []) {
     if (/^heading_/.test(item.type)) {
       const key = Object.keys(PARTS).find(each => PARTS[each].match.test(bare(item.text)));
-      current = key && !out[key] ? (out[key] = {headingId: item.id, lines: []}) : null;
+      if (key) current = out[key] ? null : (out[key] = {headingId: item.id, lines: [], rows: [], hints: []});
+      else if (elsewhere(item.text)) current = null;
+      else out.others.push(current = {key: `section:${item.id}`, title: bare(item.text), headingId: item.id, lines: [], rows: [], hints: []});
       continue;
     }
-    if (current && item.type !== 'table' && String(item.text || '').trim()) current.lines.push({id: item.id, text: item.text.trim()});
+    if (!current || taken(item.id)) continue;
+    if (item.type === 'table') {
+      for (const row of (item.rows || []).slice(item.header ? 1 : 0)) if (!taken(row.id) && row.cells.some(cell => !unset(cell))) current.rows.push({id: row.id, cells: row.cells});
+      continue;
+    }
+    const text = String(item.text || '').trim();
+    if (!text || TEMPLATE_NOTES.some(note => note.test(text))) continue;
+    (isHint(text) ? current.hints : current.lines).push({id: item.id, text});
   }
+  out.others = out.others.filter(part => part.lines.length || part.rows.length);
   return out;
 }
 
+const LEGACY = /^(📇\s*)?(contact|links)$/i;   // older Profiles' Contact / Links sections: Your details reads them (lib/contact.js)
+// The Profile's sections, without what other screens edit: Your details' sections and Strategy's fields and rules (preferences-model.js).
+export function profileParts(items) {
+  const read = readProfile(items);
+  const taken = new Set([...Object.values(read.fields).filter(Boolean), ...read.other, ...(read.note ? [read.note] : [])].map(item => item.id));
+  return readParts(items, {elsewhere: heading => isDetailsHeading(heading) || LEGACY.test(String(heading).trim()), taken: id => taken.has(id)});
+}
+
+export const partsOn = (parts, tab) => [...Object.keys(PARTS).filter(key => PARTS[key].tab === tab).map(key => ({key, title: PARTS[key].title, part: parts[key]})),
+  ...(tab === 'experience' ? parts.others.map(part => ({key: part.key, title: part.title, part})) : [])];
+
 // The changes that turn a part's lines into `texts` (the person's edited lines, in order): changed lines rewritten, emptied lines removed, new
-// lines inserted after the part's last line (or its heading); a part the page lacks: one 'section' change (heading + lines at the end).
-export function changesFor(key, part, texts) {
+// lines after the last kept line (never after a removed one: on this Mac an id is a line number), or in place of the template's ❓ line, or after
+// the heading; a part the page lacks: one 'section' change (heading + lines at the end). Rows: `cells` = the edited cells per row, in order.
+export function changesFor(key, part, texts, cells = []) {
   const wanted = (texts || []).map(text => String(text || '').replace(/\s*\n\s*/g, ' ').trim());
   if (!part) {
     const lines = wanted.filter(Boolean);
-    return lines.length ? [{op: 'section', heading: PARTS[key].heading, lines}] : [];
+    return lines.length && PARTS[key] ? [{op: 'section', heading: PARTS[key].heading, lines}] : [];
   }
   const changes = [];
-  let anchor = part.headingId;   // new lines go after the last line this save keeps, never after one it removes (a removed id is gone, or on this Mac is the next line)
+  (part.rows || []).forEach((row, i) => row.cells.forEach((was, index) => {
+    const value = String(cells[i]?.[index] ?? was).trim();
+    if (value !== was && !(unset(was) && !value)) changes.push({op: 'cell', id: row.id, index, value, was});
+  }));
+  let anchor = part.hints?.[0]?.id ?? part.headingId;
   part.lines.forEach((line, i) => {
     const text = wanted[i] ?? '';
     if (!text) { changes.push({op: 'remove', id: line.id, was: line.text}); return; }
@@ -43,9 +81,14 @@ export function changesFor(key, part, texts) {
     if (text !== line.text) changes.push({op: 'text', id: line.id, value: text, was: line.text});
   });
   const added = wanted.slice(part.lines.length).filter(Boolean);
+  if (added.length && !part.lines.length && part.hints?.length) {   // the template's ❓ line becomes the first line
+    changes.push({op: 'text', id: part.hints[0].id, value: added.shift(), was: part.hints[0].text});
+  }
   if (added.length) changes.push({op: 'insert', after: anchor, lines: added});
   return changes;
 }
 
-// What the preview shows: the lines without list marks or bold, joined.
-export const previewOf = part => (part?.lines || []).map(line => line.text.replace(/\*\*/g, '').replace(/^[-*•]\s*/, '')).join(' · ');
+// What the preview shows: the lines without list marks or bold, then the table's rows, joined.
+export const previewOf = part => [...(part?.lines || []).map(line => line.text.replace(/\*\*/g, '').replace(/^[-*•]\s*/, '')),
+  ...(part?.rows || []).map(row => row.cells.filter(cell => !unset(cell)).join(', '))].join(' · ');
+export const isEmpty = part => !part || (!part.lines.length && !part.rows.length);

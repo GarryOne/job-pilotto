@@ -10,12 +10,12 @@ test('a default that waited is dropped when a tab was picked meanwhile, kept oth
   const open = async (clickDuring) => {
     const stillDefault = startDefault();
     const loading = slowState();
-    if (clickDuring) { pick(); shown = 'profiletext'; }
+    if (clickDuring) { pick(); shown = 'answers'; }
     await loading;
     if (stillDefault()) shown = 'details';
     return shown;
   };
-  assert.equal(await open(true), 'profiletext', 'the click made while the state was loading stays');
+  assert.equal(await open(true), 'answers', 'the click made while the state was loading stays');
   assert.equal(await open(false), 'details', 'nothing picked: the default applies');
 });
 
