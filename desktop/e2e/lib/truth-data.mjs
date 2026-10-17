@@ -18,3 +18,15 @@ export function compareJobs(appJobs, matches) {
   for (const [url, match] of stored) if (url && !listed.has(url) && match.status !== 'Dismissed' && !(Number(match.fit) < 50)) problems.push(`"${match.title || url}" is a Job Matches record in the store but is missing from the Jobs list`);
   return problems;
 }
+
+// The list is drawn a moment after the store is written (a reload from the store can still be in flight when the run has ended; Windows CI, 17 Oct 2026: a listed job read as
+// "missing"). Reads both sides again until they agree, up to timeoutMs: a job or score that stays wrong is still reported, only a list that is catching up is waited for.
+// read: async () => [appJobs, matches]. -> [problem sentences] of the last read, empty when they agree.
+export async function agreeWithin(read, {wait = ms => new Promise(resolve => setTimeout(resolve, ms)), timeoutMs = 60000, everyMs = 3000} = {}) {
+  for (let waited = 0; ; waited += everyMs) {
+    const [appJobs, matches] = await read();
+    const problems = compareJobs(appJobs, matches);
+    if (!problems.length || waited >= timeoutMs) return problems;
+    await wait(everyMs);
+  }
+}

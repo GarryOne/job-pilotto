@@ -5,7 +5,7 @@ import path from 'node:path';
 import {longestSilence, watch} from '../lib/activity.mjs';
 import {runsData} from '../lib/activity-steps.mjs';
 import {clearData} from '../lib/start-state.mjs';
-import {compareJobs} from '../lib/truth-data.mjs';
+import {agreeWithin} from '../lib/truth-data.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {varyFeeds} from '../lib/feeds.mjs';
@@ -83,9 +83,10 @@ export async function run(ctx) {
     // step compared at "scored 5 of 6", before any row was written, and failed on Mac and Windows).
     for (let waited = 0; (await runsData(page)).running && waited < 240000; waited += 3000) await page.waitForTimeout(3000);
     if ((await runsData(page)).running) throw new Error('the refresh was still running 4 minutes after its first scored job');
-    const app = await page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.fit != null && job.fit !== '').map(job => ({url: job.url, title: job.title, fit: job.fit})));
-    const stored = await ctx.data('matches', 'list', {});   // only this run's fixture jobs: emptied at the start (Notion) or a fresh profile (this Mac's store)
-    const problems = compareJobs(app, stored);
+    // The list redraws a moment after the run ends (a reload from the store may still be in flight, slow on Windows: 17 Oct 2026 read a listed job as missing): both sides are read again until they agree.
+    const problems = await agreeWithin(async () => [
+      await page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.fit != null && job.fit !== '').map(job => ({url: job.url, title: job.title, fit: job.fit}))),
+      await ctx.data('matches', 'list', {})]);   // the store: only this run's fixture jobs, emptied at the start (Notion) or a fresh profile (this Mac's store)
     if (problems.length) throw new Error(problems.slice(0, 5).join('; '));
   }, {needs: ctx.needs});
   // One Apply button (5 Oct 2026): a scored job with no kit is applied to like any other (the kit is drafted when Apply is pressed), and Prepare is only in the ⋯ menu.
