@@ -1,4 +1,4 @@
-// Headline numbers of the Form filling pages: Real users, Lab, Benchmark, Learning (src/headlines.js; drawn on /admin/form-filling/overview by src/section-overview.js).
+// Headline numbers of the Form filling pages: Real users, Lab, Benchmark, Learning (src/headlines.js; drawn on /admin/form-overview by src/section-overview.js).
 // Reuses what each page reads: the left-empty model (fill cards + the thin-data rule), the Lab's own tiles (applying.data), the benchmark snapshot row, the learning answer/recipe tables.
 // Real use under 3 installs is "Too few": a tile with the raw counts, never a percentage (src/thin-data.js).
 import {byWeek, ratio, since} from './admin.js';
