@@ -46,10 +46,10 @@ export function registerSystemHandlers(ctx) {
   // Told once per app start: a window reload (⌘R) asks again, and must not re-show "Data imported ✓" for an import done long ago.
   ipcMain.handle('lastReset', () => { const done = resetTold ? null : getResetDone(); resetTold = true; return done; });
   // What lives only on this Mac: the weekly automatic backup (lib/backup.js), or now.
-  ipcMain.handle('backupNow', () => backupNow());
+  ipcMain.handle('backupNow', () => backupNow('button'));
   ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
   ipcMain.handle('backupStatus', () => ({at: storage.settings().lastBackupAt || null, file: storage.settings().lastBackupFile || null,
-    folder: backup.folder()}));
+    folder: backup.folder(), place: backup.place(backup.folder())}));
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
   handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, accounts = false} = {}) => {

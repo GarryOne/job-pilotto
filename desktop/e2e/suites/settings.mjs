@@ -8,6 +8,7 @@ import {ensureSetUp} from '../lib/seed.mjs';
 import {step as wizardStep} from '../lib/app.mjs';
 import crypto from 'node:crypto';
 import os from 'node:os';
+import {backupNowStep, backupTimerStep, makeBackupFile} from '../lib/backup-steps.mjs';
 
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords).
 export const stepNeeds = {'AI engine panel': ['every Settings section renders']};
@@ -116,15 +117,18 @@ export async function run(ctx) {
     if (await page.locator('#palette[open]').count()) throw new Error('the palette stayed open after running a command');
   }, {needs: ctx.needs});
   await ctx.run('Settings render without layout problems', async () => { finish(ctx); }, {needs: ctx.needs});
+  await ctx.run('Automatic backup: Back up now writes a backup with no keys in its folder, and View backups opens it', () => backupNowStep(ctx), {needs: ctx.needs});
+  await ctx.run('Automatic backup: a due backup runs once at start and once on the weekly tick', () => backupTimerStep(ctx), {needs: ctx.needs});
   // Last: it restarts the app twice (the steps above hold the first window).
   await ctx.run('Your data: export with keys, reset, then import from the setup brings this computer back as it was', () => roundTrip(ctx), {needs: ctx.needs});
+  await ctx.run('Automatic backup: the backup file, imported after a reset, brings this computer back as it was', async () => roundTrip(ctx, await makeBackupFile(ctx)), {needs: ctx.needs});
 }
 
 // Export -> reset (kept as a backup) -> the app opens at the setup -> "Import an export…" on its Welcome -> restart: the user's files come back
 // byte for byte, the keys and the set-up state too (6 Oct 2026: the export left out profile.md and answers.md, and Import was only in Settings,
 // out of reach at the setup). Native dialogs are stood in for, and so is the app's own relaunch: the suite starts it again on the same folder.
-async function roundTrip(ctx) {
-  const file = path.join(os.tmpdir(), `jp-e2e-export-${process.pid}-${Date.now()}.tar.gz`);
+async function roundTrip(ctx, backupFile = '') {   // backupFile: the file the automatic backup made, imported instead of an export
+  const file = backupFile || path.join(os.tmpdir(), `jp-e2e-export-${process.pid}-${Date.now()}.tar.gz`);
   const at = name => path.join(ctx.profile, name);
   const digest = name => fs.existsSync(at(name)) ? crypto.createHash('sha256').update(fs.readFileSync(at(name))).digest('hex') : null;
   // What a person who has not connected Notion yet keeps only here (the wizard's "Notion later"): written if this install has none.
@@ -148,9 +152,11 @@ async function roundTrip(ctx) {
   await page.click('[data-settings-go="data"]');
   await page.click('#setting-data details.troubleshoot summary');   // "Export options", folded
   await page.locator('#export-keys').check();
-  await page.click('#export-data');
-  await page.waitForFunction(() => /Exported ✓/.test(document.getElementById('data-message')?.textContent || ''), null, {timeout: 60000})
-    .catch(async () => { throw new Error(`the export did not finish: "${await page.locator('#data-message').textContent().catch(() => '')}"`); });
+  if (!backupFile) {
+    await page.click('#export-data');
+    await page.waitForFunction(() => /Exported ✓/.test(document.getElementById('data-message')?.textContent || ''), null, {timeout: 60000})
+      .catch(async () => { throw new Error(`the export did not finish: "${await page.locator('#data-message').textContent().catch(() => '')}"`); });
+  }
   if (!fs.existsSync(file)) throw new Error('Export said done but wrote no file');
 
   await page.click('[data-settings-go="advanced"]');   // the danger zone is on Advanced
@@ -194,5 +200,5 @@ async function roundTrip(ctx) {
     if (JSON.stringify(before[key]?.[name]) !== JSON.stringify(after[key]?.[name])) differ.push(`${key}.${name} ${JSON.stringify(before[key]?.[name])} -> ${JSON.stringify(after[key]?.[name])}`);
   if (before.jobs !== after.jobs) differ.push(`jobs ${before.jobs} -> ${after.jobs}`);
   if (differ.length) throw new Error(`not as before the export: ${differ.join('; ')}`);
-  fs.rmSync(file, {force: true});
+  if (!backupFile) fs.rmSync(file, {force: true});
 }
