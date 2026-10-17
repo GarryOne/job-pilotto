@@ -1,5 +1,5 @@
 // The refill workflow's first job: which pinned rows to refill, the estimate, the caps (lib/refill.mjs; .github/workflows/replay-refill.yml). Prints the estimate first.
-//   node refill-pick.mjs --main <records dir> [--max-asks N]   (the automatic run on main: every recorded row, pinned or not, minus the deferred ones)
+//   node refill-pick.mjs --main <records dir> [--max-asks N] [--only <file with one row name per line>]   (a run on main: every recorded row, pinned or not, minus the deferred ones; with --only a non-empty file: just those rows)
 //   node refill-pick.mjs <replay-faithful.json> <PR gate step4 dir | -> [--all] [--worse-only] [--max-asks N] [--max-usd N]   -> {"rows": [names], "asks", "usd", "line", "refused"} on stdout (one JSON line)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +10,8 @@ import {deferredRows, newestPerRow, poolByUrl} from './replay-records.mjs';
 const [first, second] = process.argv.slice(2), flag = name => { const at = process.argv.indexOf(name); return at > 0 ? process.argv[at + 1] : ''; };
 if (first === '--main') {
   if (!second) { console.error('usage: node refill-pick.mjs --main <records dir> [--max-asks N]'); process.exit(2); }
-  const picked = pickMain({names: newestPerRow(second).map(row => row.name), deferred: deferredRows(), known: new Set(poolByUrl().values())});
+  const only = flag('--only') && fs.existsSync(flag('--only')) ? fs.readFileSync(flag('--only'), 'utf8').split('\n').map(line => line.trim()).filter(Boolean) : [];
+  const picked = pickMain({only, names: newestPerRow(second).map(row => row.name), deferred: deferredRows(), known: new Set(poolByUrl().values())});
   const refused = capRefusal(picked, {maxAsks: Number(flag('--max-asks')) || MAIN_MAX_ASKS});
   console.log(JSON.stringify({rows: matrixOf(picked.rows), groups: groupsOf(picked.rows).map((_, at) => at), asks: picked.asks, usd: picked.usd, refused, line: `refill (main): ${picked.rows.length} recorded row(s), about ${picked.asks} ask(s), estimate $${picked.usd.toFixed(3)}${refused ? `\n${refused}` : ''}`}));
   process.exit(0);

@@ -8,6 +8,8 @@ run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Re
 
 # When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (at night, 23:47, 01:47, 03:47 Zurich in summer; owner, 15 Oct 2026), started on time by the Worker (worker/src/scheduler.js);
 # GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min each).
+# Since 17 Oct 2026 (owner: "PRs no longer run or wait for site replays; one scheduled run a day replays the healthy rows and alerts on a real drop; the refill and re-records only run when that daily run flags a row"):
+# this is the ONLY replay run: once a day (the Worker's 02:00 start; no run beside each e2e run), Telegram only on a real drop, a separate line for the rows that need a re-record, and the refill (replay-refill.yml) started only for the rows it flags.
 on:
   workflow_dispatch:
     inputs:
@@ -22,8 +24,7 @@ on:
         description: 'Test only: a fake list of merged PRs as JSON [{number,title,labels:[{name}],comments:[{body,authorAssociation}]}]'
         default: ''
   schedule:
-    - cron: '50 0 * * *'
-    - cron: '17 22,0,2 * * *'
+    - cron: '50 0 * * *'   # the one daily run (owner, 17 Oct 2026: "Off PRs now, scheduled only"); the Worker's 02:00 Zurich start is the same run, GitHub's the backup
 
 permissions:
   contents: read
@@ -309,6 +310,10 @@ jobs:
     if: always() && needs.check.outputs.go == '1'
     runs-on: ubuntu-24.04   # the judge is pure Node (a macOS runner queued for 30 min); the retry replay is its own job
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: write        # starts replay-refill.yml (main's code, its own key and caps) for the rows this run flags
+      pull-requests: read
     env:
       JOB_PILOTTO_HEAVY: '0'
     steps:
@@ -398,6 +403,29 @@ jobs:
           if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Pinned rows no longer same as live: ${WHAT:-see the run}" "If intended: label the PR replay-accepted + comment Replay-accept: <reason>"
           elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict" "Open the run; the next scheduled replay re-checks"
           else node ci-alert.mjs success; fi
+      - name: Re-record list (Telegram) and the refill for the rows this run flags
+        # Owner, 17 Oct 2026: the refill and re-records run only when the daily run flags a row. A pinned row whose stored answers are stale and whose outcome fell (results.json refill:true) starts
+        # replay-refill.yml with ONLY those rows (it has its own key and caps); a row "out of date" (the prompt changed under it) is listed on its own Telegram line for a re-record. Never on a PR, by hand or off main.
+        if: always() && steps.gate.outcome != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.scheduled)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+        run: |
+          out="$GITHUB_WORKSPACE/replay-out"
+          [ -f "$out/results.json" ] || { echo "flagged rows: no verdict to read"; exit 0; }
+          node -e 'const rows=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rows||{};console.log(Object.entries(rows).filter(([,row])=>row.refill===true).map(([name])=>name).join("\n"))' "$out/results.json" > "$RUNNER_TEMP/flagged.txt"
+          grep -E '\| out of date \|' "$out/gate.md" | sed -E 's/^\| ([^|]+) \| out of date \|.*$/\1/' | sed -E 's/ +$//' > "$RUNNER_TEMP/rerecord.txt" || true
+          if [ -s "$RUNNER_TEMP/flagged.txt" ]; then
+            if gh workflow run replay-refill.yml --ref main -f only="$(cat "$RUNNER_TEMP/flagged.txt")" -f max_asks=40; then echo "refill: started for $(wc -l < "$RUNNER_TEMP/flagged.txt" | tr -d ' ') flagged row(s)" | tee -a "$GITHUB_STEP_SUMMARY"
+            else echo "::warning::could not start the refill; by hand: gh workflow run replay-refill.yml -f only=<rows>"; fi
+          else echo "refill: no row flagged: nothing started" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          if [ -s "$RUNNER_TEMP/rerecord.txt" ]; then
+            list="$(paste -sd ';' "$RUNNER_TEMP/rerecord.txt" | sed 's/;/; /g')"
+            echo "re-record: $list" | tee -a "$GITHUB_STEP_SUMMARY"
+            LIST="$list" node -e 'import("./ci-alert.mjs").then(m=>m.send("🔁 Replay: rows that need a re-record (not a drop): "+process.env.LIST+"\n"+(process.env.GITHUB_SERVER_URL||"https://github.com")+"/"+process.env.GITHUB_REPOSITORY+"/actions/runs/"+process.env.GITHUB_RUN_ID)).then(console.log)'
+          fi
       - name: Red when a counted row got worse
         if: steps.gate.outputs.red == '1'
         run: echo "::error::a counted row got worse than the last green run (see the summary)" && exit 1

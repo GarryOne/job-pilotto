@@ -132,15 +132,13 @@ class TheShapes(unittest.TestCase):
         self.assertEqual(self.started(['docs/HOW-IT-RUNS.md', 'tools/ship.sh', 'CLAUDE.md']), {'tests-python.yml'})
 
     def test_the_apply_flow_starts_its_replays_and_desktop(self):
-        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'page-cases.yml', 'control-tests.yml', 'site-replays-pr.yml', 'journeys-pr.yml'})   # worker tests read extension/ (14 Oct 2026)
-        self.assertIn('site-replays-pr.yml', self.started(['desktop/lib/server.js']))
+        self.assertEqual(self.started(['extension/fill-flow.js']), {'tests-desktop.yml', 'tests-worker.yml', 'page-cases.yml', 'control-tests.yml'})   # worker tests read extension/ (14 Oct 2026)
+        self.assertNotIn('site-replays-pr.yml', self.started(['desktop/lib/server.js']), 'owner, 17 Oct 2026: site replays are off PRs, scheduled only')
+        self.assertFalse((WORKFLOWS / 'site-replays-pr.yml').exists())
 
     def test_the_harness_code_starts_the_harness(self):
         started = self.started(['desktop/e2e/lib/forms.mjs'])
         self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'page-cases.yml', 'control-tests.yml'}, started)
-        self.assertIn('site-replays-pr.yml', started, 'owner, 14 Oct 2026: the replay machinery starts the PR site replays too')
-        self.assertIn('site-replays-pr.yml', self.started(['desktop/e2e/replay-gate.mjs']))
-        self.assertNotIn('site-replays-pr.yml', self.started(['desktop/e2e/record-sites.mjs']), 'the recorder is not a replay')
 
     def test_a_worker_or_site_change_starts_only_its_suite(self):
         self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})
@@ -150,7 +148,7 @@ class TheShapes(unittest.TestCase):
     def test_a_workflow_change_starts_that_workflow(self):
         for name in pr_workflows():
             if pr_paths(name) is not None:
-                self.assertTrue(starts(name, [f'.github/workflows/{name}']) or name == 'site-replays-pr.yml', name)
+                self.assertTrue(starts(name, [f'.github/workflows/{name}']), name)
 
 
 if __name__ == '__main__':

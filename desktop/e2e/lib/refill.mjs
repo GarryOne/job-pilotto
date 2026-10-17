@@ -66,8 +66,8 @@ export const fingerprintChanged = (before, after) => {
 };
 
 // (every recorded row's name, the deferred rows by name, the pool rows' names) -> {rows: [{name, asks}], asks, usd}: each once, sorted, only real pool rows (an old record named by its address is no row), none put aside on purpose.
-export function pickMain({names = [], deferred = {}, known = null} = {}) {
-  const rows = [...new Set(names)].filter(name => !(name in deferred) && (!known || known.has(name))).sort().map(name => ({name, asks: ASKS_PER_ROW_MAIN}));
+export function pickMain({names = [], deferred = {}, known = null, only = []} = {}) {   // only: just these rows (the daily replay's flagged ones); empty = all
+  const rows = [...new Set(names)].filter(name => (!only.length || only.includes(name)) && !(name in deferred) && (!known || known.has(name))).sort().map(name => ({name, asks: ASKS_PER_ROW_MAIN}));
   const asks = rows.reduce((sum, row) => sum + row.asks, 0);
   return {rows, asks, usd: Math.round(asks * PER_ASK_USD * 1000) / 1000};
 }

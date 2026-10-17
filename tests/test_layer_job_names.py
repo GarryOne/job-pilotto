@@ -5,8 +5,7 @@ import unittest
 from pathlib import Path
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / '.github' / 'workflows'
-LAYERS = {'control-tests.yml': 'control tests', 'page-cases.yml': 'page cases', 'site-replays-pr.yml': 'site replays',
-          'site-replays-accept.yml': 'site replays'}
+LAYERS = {'control-tests.yml': 'control tests', 'page-cases.yml': 'page cases'}
 OLD = re.compile(r'zoo|^replay shard|^replay gate|^replays to', re.I)
 
 

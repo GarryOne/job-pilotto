@@ -25,8 +25,8 @@ test('a Mac-only journey is skipped, said, on another platform and runs on a Mac
   assert.equal(plan(rows, found, '', 'darwin').run.length, 1);
 });
 
-test('the PR workflow has one runner per journey that is not pending', () => {
-  const text = fs.readFileSync(new URL('../../../.github/workflows/journeys-pr.yml', import.meta.url), 'utf8');
+test('the daily workflow has one runner per journey that is not pending', () => {
+  const text = fs.readFileSync(new URL('../../../.github/workflows/journeys.yml', import.meta.url), 'utf8');
   const listed = JSON.parse(/row: (\[.*?\])\s/.exec(text.replace(/'/g, '"'))[1]);
   assert.deepEqual(listed, journeyRows().filter(one => !one.pending && !one.macOnly).map(one => one.row));
 });

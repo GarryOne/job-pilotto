@@ -16,7 +16,7 @@ test('the due starts are the latest of each workflow, by the Worker\'s own crons
     ['desktop.yml', '2026-10-06T02:00:00.000Z'],   // 04:00 Zurich in summer; the 03:00 UTC firing starts nothing
     ['e2e.yml', '2026-10-06T01:47:00.000Z'],
     ['self-heal-stats.yml', '2026-10-06T09:40:00.000Z'],
-    ['site-replays.yml', '2026-10-06T01:47:00.000Z'],   // beside the e2e run (02:30 Zurich is the older slot)
+    ['site-replays.yml', '2026-10-06T00:00:00.000Z'],   // the one daily run at 02:00 Zurich (no longer beside the e2e run: owner, 17 Oct 2026)
   ]);
   assert.equal(dueStarts(at('2026-10-06T12:50:00Z')).find(item => item.workflow === 'self-heal-stats.yml').at, '2026-10-06T09:40:00.000Z', 'the 12:40 slot is younger than the grace: not judged yet');
   assert.equal(dueStarts(at('2026-12-06T12:05:00Z')).find(item => item.workflow === 'desktop.yml').at, '2026-12-06T03:00:00.000Z', 'in winter 03:00 UTC is 04:00 Zurich');
@@ -29,7 +29,7 @@ test('a start is its run when titled so, or dispatched in the minutes after the 
   assert.ok(startedAt(due, [{createdAt: '2026-10-06T09:41:00Z', event: 'workflow_dispatch', displayTitle: 'CI · Self-heal stats'}]), 'a dispatch before the titles existed still counts');
   assert.equal(startedAt(due, [{createdAt: '2026-10-06T10:05:00Z', event: 'workflow_dispatch', displayTitle: 'CI · Self-heal stats'}]), null, 'too late to be the slot\'s');
   const runsOf = {'desktop.yml': [], 'e2e.yml': [{createdAt: '2026-10-06T10:17:10Z', event: 'workflow_run', displayTitle: 'Beta E2E tests x'}], 'self-heal-stats.yml': [],
-    'site-replays.yml': [{createdAt: '2026-10-06T01:47:05Z', event: 'workflow_dispatch', displayTitle: 'Replay check · on time (Worker cron)'}]};
+    'site-replays.yml': [{createdAt: '2026-10-06T00:00:05Z', event: 'workflow_dispatch', displayTitle: 'Replay check · on time (Worker cron)'}]};
   const missing = missingStarts(dueStarts(at('2026-10-06T12:05:00Z')), runsOf);
   assert.deepEqual(missing.map(item => item.workflow), ['desktop.yml', 'e2e.yml', 'self-heal-stats.yml']);
   const body = issueBody(missing, {checked: '2026-10-06T12:05:00Z', runUrl: 'https://x/runs/1'});

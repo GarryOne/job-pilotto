@@ -12,9 +12,7 @@ from pathlib import Path
 WORKFLOWS = Path(__file__).resolve().parent.parent / '.github' / 'workflows'
 PR_ONLY = "${{ github.event_name == 'pull_request' }}"
 NEWEST_WINS = "${{ github.event_name != 'workflow_dispatch' }}"   # a PR and main cancel their older run, a by-hand run never (tests/test_main_runs_finish.py)
-NOT_CANCELLED = {   # workflow -> why a newer push must not cancel it
-    'site-replays-accept.yml': 'it re-runs the failed jobs of the PR on a label or comment; cancelling it would drop the owner\'s accept',
-}
+NOT_CANCELLED = {}   # workflow -> why a newer push must not cancel it
 
 
 def on_block(text):

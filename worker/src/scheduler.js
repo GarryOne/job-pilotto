@@ -5,7 +5,7 @@
 //   desktop.yml  -nightly: true    the nightly build, at 04:00 Zurich (the build runs only when the app changed since the last release)
 //   e2e.yml      -scheduled: true  the three-a-day journey runs, planned exactly as the schedule event plans them
 //   self-heal-stats.yml            the numbers on the owner's /self-heal page, every 3 hours (GitHub's schedule left them 5-6 hours old on 5 Oct 2026)
-//   site-replays.yml -scheduled  the pool rows replayed offline (owner, 14 Oct 2026): 02:00 Zurich as the nightly beta's gate, and beside each e2e run
+//   site-replays.yml -scheduled  the pool rows replayed offline (owner, 14 Oct 2026): 02:00 Zurich as the nightly beta's gate, once a day (no longer beside each e2e run: owner, 17 Oct 2026)
 // One trigger for the night's four UTC hours (00-03): Cloudflare's free plan allows 5 cron triggers per ACCOUNT (other Workers hold 2), a sixth could not be registered
 // (5 Oct 2026), and a 4th trigger for this Worker was refused (14 Oct 2026): the hour that is 02:00 in Zurich starts the replay gate, the one that is 04:00 the nightly.
 export const CRONS = ['0 0,1,2,3 * * *', '47 21,23,1 * * *', '40 */3 * * *'];
@@ -18,7 +18,7 @@ export function jobsFor(cron, now = new Date()) {
     const hour = zurichHour(now);
     return hour === 4 ? [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}] : hour === 2 ? [{workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}] : [];
   }
-  if (cron === '47 21,23,1 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'site-replays.yml', inputs: {scheduled: 'true'}}];
+  if (cron === '47 21,23,1 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}];   // the site replays run once a day (the 02:00 Zurich hour above), no longer beside each e2e run (owner, 17 Oct 2026)
   if (cron === '40 */3 * * *') return [{workflow: 'self-heal-stats.yml', inputs: {scheduled: 'true'}}];
   return [];
 }

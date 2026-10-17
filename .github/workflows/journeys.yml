@@ -1,36 +1,21 @@
-# Journey tests (owner, 16 Oct 2026): a PR that changes the apply flow replays whole recorded journeys offline (desktop/e2e/journeys.json: signed-in Richemont, SuccessFactors, a
+# Since 17 Oct 2026 (owner: "Daily with site replays": 63 PR runs, 4 red, 0 real; 3 reds were recording downloads) this runs once a day, never on a PR, and tells Telegram when a journey fails.
+# Journey tests (owner, 16 Oct 2026): replays whole recorded journeys offline (desktop/e2e/journeys.json: signed-in Richemont, SuccessFactors, a
 # Lever form) with the real extension and the app, and judges what the person SEES at every step: the card's line and the panel's headline, count and Report button, against the live
 # run's own steps, plus never Submitted / never Ready early (desktop/e2e/journey.mjs, lib/journey-check.mjs). One runner per journey, $0 (memo-only AI), minutes. Fixes passed unit tests on
-# pieces and failed on the owner's real journey ("Logging in…" for ever, "Apply button detected" on an error page); this is the test of the whole. Not a required check (paths can skip it).
-name: CI · Journeys · PR (card and panel per step)
+# pieces and failed on the owner's real journey ("Logging in…" for ever, "Apply button detected" on an error page); this is the test of the whole. Not a required check.
+name: CI · Journeys (card and panel per step, daily)
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/journeys-pr.yml'
-      - 'extension/**'
-      - 'desktop/lib/**'
-      - 'desktop/renderer/session-state.js'
-      - 'desktop/renderer/session-message.js'
-      - 'desktop/e2e/journey.mjs'
-      - 'desktop/e2e/journey-run.mjs'
-      - 'desktop/e2e/journeys.json'
-      - 'desktop/e2e/replay-net.mjs'
-      - 'desktop/e2e/replay-records.mjs'
-      - 'desktop/e2e/net-records-fetch.sh'
-      - 'desktop/e2e/lib/journey-*.mjs'
-      - 'desktop/e2e/lib/live-row.mjs'
-      - 'desktop/e2e/lib/stall-note.mjs'
-      - 'desktop/e2e/lib/offline-app*.mjs'
-      - 'desktop/e2e/lib/net-record.mjs'
-      - 'desktop/e2e/lib/real-extension.mjs'
+  schedule:
+    - cron: '20 1 * * *'   # once a day, after the 02:00 Zurich replays' hour starts (owner, 17 Oct 2026)
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: journeys-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: journeys-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   bundles:
@@ -130,3 +115,24 @@ jobs:
             journey-out/*/app.log
           retention-days: 7
           if-no-files-found: ignore
+  alert:
+    # A journey that fails tells the owner on Telegram, and the first good run after says "back to green" (ci-alert.mjs, as the daily site replays).
+    needs: journey
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Tell the owner on Telegram (a failure, or back to green)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+          CI_ALERT_ASSUME_FAILED: ''
+        run: |
+          if [ "${{ needs.journey.result }}" = success ]; then node ci-alert.mjs success
+          else node ci-alert.mjs failure "A journey no longer passes (card or panel per step)" "Open the run: the journey-N artifact has its steps and end picture"; fi

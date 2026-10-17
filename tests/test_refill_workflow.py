@@ -24,10 +24,11 @@ class TheRefillWorkflow(unittest.TestCase):
         pick = CODE.split('\n  pick:')[1].split('\n  bundles:')[0]   # the trigger job before it checks out main's own code only
         self.assertLess(pick.index('isCrossRepository'), pick.index('actions/checkout'), 'the fork check runs before any PR code is checked out')
 
-    def test_it_starts_by_hand_or_on_a_push_to_main_never_from_a_pull_request(self):
+    def test_it_starts_by_hand_or_from_the_daily_replay_never_on_a_push_or_a_pull_request(self):
         on = CODE.split('\npermissions:')[0]
         self.assertIn('workflow_dispatch:', on)
-        self.assertRegex(on, r"(?ms)^  push:\n    branches: \[main\]\n    paths: \['desktop/e2e/ladder-baseline.json'", 'a push to main, only when the ladder baseline or a file that builds an ask changed (owner, 15 Oct 2026; the list is guarded by refill.test.mjs)')
+        self.assertIn('      only:', on, 'the daily site replays start it with just the rows they flag (owner, 17 Oct 2026)')
+        self.assertNotRegex(on, r'(?m)^  push:', 'no refill after each merge (owner, 17 Oct 2026)')
         self.assertNotRegex(on, r'(?m)^  (schedule|pull_request|pull_request_target):', 'no PR-started workflow may reach an AI key (pool-ci-triggers.test.mjs)')
         self.assertNotIn('github.event.pull_request', CODE)
 
@@ -71,7 +72,7 @@ class TheRefillWorkflow(unittest.TestCase):
 
     def test_it_never_posts_a_replay_accept_and_lists_no_pull_request_paths(self):
         self.assertNotIn('Replay-accept:', CODE)
-        self.assertEqual(len(re.findall(r'(?m)^    paths:', CODE)), 1, 'the one paths filter is the push to main on the ask-building files, never a pull request')
+        self.assertEqual(len(re.findall(r'(?m)^    paths:', CODE)), 0, 'no push trigger, so no paths filter')
 
     def test_a_replay_check_waits_for_a_refill_in_progress(self):
         replays = (ROOT / '.github' / 'workflows' / 'site-replays.yml').read_text()

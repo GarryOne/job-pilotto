@@ -106,7 +106,7 @@ test('a fetch that gets no record fails loudly with gh\'s error, never an empty 
 test('no caller swallows a failed fetch: a workflow step runs it plainly, the retry script exits on it', () => {
   const retry = fs.readFileSync(path.join(ROOT, '.github/replay-records-fetch.sh'), 'utf8');
   assert.match(retry, /net-records-fetch\.sh records \|\| exit 1/, 'the retry script has no set -e: the exit code must be checked by hand');
-  for (const file of ['fix-verdicts', 'site-replays', 'site-replays-pr', 'replay-refill']) {
+  for (const file of ['fix-verdicts', 'site-replays', 'replay-refill']) {
     const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8');
     assert.doesNotMatch(text, /net-records-fetch\.sh[^\n]*(\|\||\| *true|;)/, `${file}.yml: the fetch's exit code is not swallowed`);
   }
@@ -160,7 +160,7 @@ test('with NET_RECORDS_BUNDLES a replay job makes no gh call and still gets the 
 
 test('each replay workflow downloads the release ONCE; every other fetch takes the run\'s shared bundles (no release call per job)', () => {
   // The workflow files are regular (jobs at 2 spaces, steps at "      - "), so the text is split without a YAML library (the harness job installs none).
-  for (const file of ['site-replays-pr', 'site-replays', 'fix-verdicts', 'replay-refill']) {
+  for (const file of ['site-replays', 'fix-verdicts', 'replay-refill']) {
     const text = fs.readFileSync(path.join(ROOT, '.github/workflows', `${file}.yml`), 'utf8');
     const jobsText = text.slice(text.indexOf('\njobs:\n') + 7), parts = jobsText.split(/^  ([A-Za-z0-9_-]+):\s*$/m);   // [before, name, body, name, body...]
     let producers = 0;
