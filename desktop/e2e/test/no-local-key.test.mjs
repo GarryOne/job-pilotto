@@ -13,6 +13,7 @@ const CI_ONLY = new Set([
   'lib/model.mjs',          // the one door: the API in CI, Claude Code on a Mac
   'lib/engine.mjs',         // reads E2E_ANTHROPIC_KEY, and only in CI
   'lib/context.mjs',        // hands the CI key to a suite, empty on a Mac
+  'lib/key-check.mjs',      // CI only (context.mjs calls it only in CI): one free GET of the model list with the key; the secret's name is in its error
 ]);
 const files = dir => fs.readdirSync(path.join(E2E, dir), {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? [] : /\.mjs$/.test(entry.name) ? [path.join(dir, entry.name)] : []);
 // Code only: a comment may name the key.
