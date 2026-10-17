@@ -4,7 +4,7 @@
 export const STEPS = [
   {key: 'search', label: 'Find jobs', hint: 'Your first matches in under a minute; then every job site and more employers', button: 'Run'},
   {key: 'notion', label: 'Connect Notion', hint: 'Where your applications are tracked', button: 'Connect'},
-  {key: 'tailor', label: 'Tailor CVs for top matches', hint: 'A CV rewritten for each of your best matches', button: 'Open'},
+  {key: 'tailor', label: 'Tailor CV + cover letter for top matches', hint: 'A CV and a cover letter written for each of your best matches', button: 'Open'},
   {key: 'apply', label: 'Apply to your first job', hint: 'The extension fills the form; you press Submit', button: 'Apply'},
 ];
 

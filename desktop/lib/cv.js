@@ -28,7 +28,7 @@ const object = properties => ({type: 'object', additionalProperties: false, requ
 export const dir = storage => storage.path('cv');
 const tailoredDir = storage => path.join(dir(storage), 'tailored');
 export const baseCv = storage => { try { return JSON.parse(fs.readFileSync(path.join(dir(storage), 'cv.json'), 'utf8')); } catch { return null; } };
-const style = storage => { try { return fs.readFileSync(path.join(dir(storage), 'style.css'), 'utf8'); } catch { return ''; } };
+export const style = storage => { try { return fs.readFileSync(path.join(dir(storage), 'style.css'), 'utf8'); } catch { return ''; } };
 
 // ---------- import: CV PDF -> cv.json ----------
 export const IMPORT_SCHEMA = object({

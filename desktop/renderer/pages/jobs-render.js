@@ -325,8 +325,8 @@ export function renderJobs() {
         const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
         if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
       });
-      menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV' : 'Tailor CV',
-        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min)',
+      menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV + cover letter' : 'Tailor CV + cover letter',
+        title: 'Make a version of your CV and a cover letter for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min)',
         run: tailorNow});
       // Which terms the posting asks for the CV states, and which requirements could be a yes/no question on the form (a dialog: nothing added to the list).
       menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s)',

@@ -18,7 +18,7 @@ const titles = part => [...part.matchAll(/<div class="task-words"><b>([^<]+)<\/b
 test('importance: Find jobs large, Tailor CVs and Check Gmail medium, four smaller ones under More', () => {
   assert.deepEqual(titles(main), ['Find jobs']);
   assert.match(main, /task-card is-large/);
-  assert.deepEqual(titles(pair), ['Tailor CVs for top matches', 'Check Gmail & Calendar']);
+  assert.deepEqual(titles(pair), ['Tailor CV + cover letter for top matches', 'Check Gmail & Calendar']);
   assert.equal((pair.match(/task-card is-medium/g) || []).length, 2);
   assert.match(pair, /id="tailor-top-n"/);   // Tailor keeps its number field
   assert.deepEqual(titles(rows), ['Find jobs using your browser', 'Tune my strategy', 'Analyze my job search']);   // + Read this board, added by actions-board.js: four

@@ -22,7 +22,7 @@ export const TASKS = {
   weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
   kits: {name: 'Prepare top matches', result: /^Kits ready: /},
   visits: {name: 'Find jobs using your browser', result: /^Read \d+ of \d+ sites?/},
-  tailor: {name: 'Tailor CVs', result: /^Tailored \d+ of \d+ CV/},
+  tailor: {name: 'Tailor CV + cover letter', result: /^Tailored \d+ of \d+ CV/},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   // The older wording, and the card's second line: "7 checked · 7 new to the search · 2 new sources" (counts between the two may come and go; 3c45aa3 added one).
   scout: {name: 'More employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · (?:.* · )?\d+ new sources?\b/},
