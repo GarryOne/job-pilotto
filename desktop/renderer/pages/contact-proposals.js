@@ -2,14 +2,15 @@
 // Settings → Profile → Your details, each marked "From your CV", and the panel's Save is the confirmation. Nothing is saved before it.
 // Also the nudge after Apply when the details forms usually ask for are missing. Guarded by test/contact-from-cv.test.js.
 import {pill} from '../components.js';
-import {$, message, show} from './core.js';
+import {$, message} from './core.js';
+import {showOnTab} from './tab-part.js';
 import {toastMessage} from './startup.js';
 
 const MARK = 'proposal-pill';
 const box = field => document.querySelector(`#setting-contact [data-contact="${field}"]`);
 
 // Your details has unsaved changes (or none): the sticky save bar shows only while there are, so Save is never below the fold.
-export function contactDirty(on) { $('contact-save').disabled = !on; show($('contact-savebar'), on); }
+export function contactDirty(on) { $('contact-save').disabled = !on; showOnTab($('contact-savebar'), on); }
 // Take the marks off (after Save, or before showing new proposals); an edited box keeps your value, unmarked.
 export function clearProposals() {
   for (const input of document.querySelectorAll('#setting-contact [data-proposed]')) {

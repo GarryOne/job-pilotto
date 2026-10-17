@@ -17,7 +17,7 @@ test('every section has its own panel on Your details, and the screen draws exac
   const keys = JSON.parse(read('renderer/pages/details-facts.js').match(/KEYS = (\[[^\]]+\])/)[1].replace(/'/g, '"'));
   assert.deepEqual(keys, Object.keys(sections.SECTIONS));
   for (const key of keys) assert.match(html, new RegExp(`id="setting-${key}" data-profile-panel="details"[\\s\\S]*?data-facts="${key}"`), key);
-  assert.match(html, /id="setting-which" data-profile-panel="details" hidden/);
+  assert.match(html, /id="setting-which" data-profile-panel="details" data-wanted="0" hidden/);
 });
 
 test('one Save bar: Contact, then the fact sections; Discard redraws them', () => {

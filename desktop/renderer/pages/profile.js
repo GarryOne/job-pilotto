@@ -32,8 +32,7 @@ export function profileTab(name, {byDefault = false} = {}) {
   if (name === 'knowledge') name = 'answers';   // Form knowledge is a section of Application answers since 16 Oct 2026 (owner)
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.profileTab === name));
   document.querySelectorAll('[data-profile-panel]').forEach(panel => {
-    if (panel.id === 'cv-changed') return;  // shown only when the CV changed (showCvChanged)
-    show(panel, panel.dataset.profilePanel === name);
+    show(panel, panel.dataset.profilePanel === name && panel.dataset.wanted !== '0');   // a conditional part keeps its wish (pages/tab-part.js)
   });
   showStoreParts();
   if (name === 'answers') loadApplicationAnswers();
