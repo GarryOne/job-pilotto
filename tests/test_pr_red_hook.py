@@ -105,8 +105,14 @@ class PrRedHookTest(unittest.TestCase):
         self.assertFalse((self.state / 'calls').exists())
 
     def test_gh_missing_is_silent(self):
-        path = os.pathsep.join(p for p in self.env['PATH'].split(os.pathsep) if not (Path(p) / 'gh').exists())
-        done = self.run_hook('Stop', env={'PATH': path})
+        nogh = self.tmp / 'nogh'; nogh.mkdir()   # every tool on PATH except gh (bash itself may live next to gh)
+        for folder in self.env['PATH'].split(os.pathsep):
+            if folder == str(self.tmp / 'bin') or not os.path.isdir(folder): continue
+            for entry in os.scandir(folder):
+                if entry.name != 'gh' and not (nogh / entry.name).exists() and os.access(entry.path, os.X_OK):
+                    try: (nogh / entry.name).symlink_to(entry.path)
+                    except OSError: pass
+        done = self.run_hook('Stop', env={'PATH': str(nogh)})
         self.assertEqual((done.returncode, done.stdout, done.stderr), (0, '', ''))
 
     def test_a_slow_gh_is_skipped_within_about_two_seconds(self):
