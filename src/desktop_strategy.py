@@ -15,6 +15,15 @@ COMPONENTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensa
               ('growth', 'Growth'), ('risk', 'Low risk'))
 
 
+def _previous_locations(db, stage_map):
+    """How many ACTIVE jobs were scored with other places than the ones set now (src/ai/locations.py); 0 when it cannot be told."""
+    try:
+        from .ai import locations
+        return len(set(locations.previous(score.load(db), locations.current())) & locations.active_ids(db, stage_map))
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _readable(fragment):
     """A search regex fragment as words ("z[uü]rich" -> "zürich", "\\bsre\\b" -> "sre")."""
     import re
@@ -118,7 +127,7 @@ def strategy(db, tracker=None, stores=None):
         if values:
             average = round(sum(values) / len(values))
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
-    stages = {}
+    stages, stage_map = {}, {}   # stage -> how many; job url -> stage (read once, also for the refresh of older places)
     insight, compensation, goals, profile, details = None, '', {}, None, _details('')
     def latest_insight():
         """The newest insight in the active store, not the Interviews page's own row (Interview patterns)."""
@@ -129,7 +138,8 @@ def strategy(db, tracker=None, stores=None):
         from .notion.client import together
         quiet = lambda call: lambda: _quietly(call)  # a failed read leaves its part empty; the rest still shows
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
-        for stage in (url_stages or {}).values():
+        stage_map = url_stages or {}
+        for stage in stage_map.values():
             stages[stage] = stages.get(stage, 0) + 1
         goals, details = _goals(profile), _details(profile)
         compensation = goals.get('minimum_salary') or _section(profile or '', 'compensation') or _section(profile or '', 'salary')
@@ -137,7 +147,8 @@ def strategy(db, tracker=None, stores=None):
         rows = _quietly(latest_insight)
         if stores.name != 'notion':   # this Mac's store: its applications and its Profile
             from .store_access import url_stages as stages_of
-            for stage in (_quietly(lambda: stages_of(stores)) or {}).values():
+            stage_map = _quietly(lambda: stages_of(stores)) or {}
+            for stage in stage_map.values():
                 stages[stage] = stages.get(stage, 0) + 1
             profile = _quietly(lambda: stores.texts.get('profile')) or None
     if rows:
@@ -193,7 +204,7 @@ def strategy(db, tracker=None, stores=None):
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
                  + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
                  + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
-        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)), 'profile_empty': profile_empty,
+        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)), 'previous_locations': _previous_locations(db, stage_map), 'profile_empty': profile_empty,
         'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
         'insight': insight,
     }

@@ -15,6 +15,7 @@ import {strategyState, showTab} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
 import {dirty, entriesOf, renderTargets} from './strategy-targets.js';
 import {byStore} from '../store-words.js';
+import {refreshRow} from './locations-refresh.js';
 // Where else the change shows: Notion's ⚙️ Search settings page, only while Notion holds the data (on this Mac they are the app's own).
 const alsoInSettings = () => byStore(' (also in your Search settings in Notion)', '');
 
@@ -106,6 +107,8 @@ export function drawImprove() {
     items.push(improveRow('refresh', 'info', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
       'Below 50 before your Profile changed · Updating is optional', go));
   }
+  const otherPlaces = strategyState.lastStrategy?.previous_locations || 0;
+  if (otherPlaces) items.push(refreshRow(otherPlaces, improveRow, drawImprove));   // scored with other places (pages/locations-refresh.js)
   for (const id of ORDER) {
     const brief = rows[id] && briefs[id];
     const waiting = id === 'ideas' ? pendingImprove.has('ideas') : checking;
@@ -119,7 +122,7 @@ export function drawImprove() {
   $('improve-rows').replaceChildren(...items);
   show($('strategy-improve'), items.length > 0);
   if (!pendingImprove.size && !checking) {
-    const drawn = [...(previous ? ['previous'] : []), ...ORDER.filter(id => rows[id] && briefs[id])];
+    const drawn = [...(previous ? ['previous'] : []), ...(otherPlaces ? ['places-previous'] : []), ...ORDER.filter(id => rows[id] && briefs[id])];
     try { localStorage.setItem(SEEN, JSON.stringify(drawn)); } catch { /* placeholders for every row next time */ }
   }
 }

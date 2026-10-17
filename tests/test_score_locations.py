@@ -85,5 +85,30 @@ class FutureOnlyTests(unittest.TestCase):
             self.assertEqual(score.stale_count(db, [JOB, other], self.PROFILE), 1)
 
 
+class ActiveJobsTests(unittest.TestCase):
+    def test_active_jobs_are_the_shown_ones_without_an_application_stage(self):
+        seen = {}
+
+        def eligible(db, hidden_urls=frozenset()):
+            seen['hidden'] = hidden_urls
+            return [{'id': 1, 'url': 'a'}, {'id': 3, 'url': 'c'}], []
+
+        with mock.patch('src.digest.eligible_jobs', eligible):
+            self.assertEqual(locations.active_ids(None, {'b': 'Applied', 'c': None, 'd': 'Rejected'}), {1, 3})
+        self.assertEqual(seen['hidden'], {'b', 'd'})   # an application, whatever its stage, is never refreshed
+
+    def test_no_stages_known_leaves_every_shown_job_active(self):
+        with mock.patch('src.digest.eligible_jobs', lambda db, hidden_urls=frozenset(): ([{'id': 1, 'url': 'a'}], [])):
+            self.assertEqual(locations.active_ids(None), {1})
+
+
+class CommandTests(unittest.TestCase):
+    def test_the_desktop_has_the_explicit_refresh_command(self):
+        from pathlib import Path
+        source = (Path(__file__).resolve().parents[1] / 'src' / 'desktop.py').read_text()
+        self.assertIn("sub.add_parser('refresh-locations')", source)
+        self.assertIn("args.command == 'refresh-locations'", source)
+
+
 if __name__ == '__main__':
     unittest.main()
