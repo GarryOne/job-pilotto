@@ -7,6 +7,7 @@ import {badSummary, leaks, sample} from './activity.mjs';
 import {clearData} from './start-state.mjs';
 import {snap} from './layout.mjs';
 import {ensureSetUp} from './seed.mjs';
+import {pressTask} from './task-card.mjs';
 
 export const RUNS_DB = 'Cronjob Runs';
 
@@ -47,7 +48,7 @@ export async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
   await page.click('.nav[data-view="actions"]');
   const before = new Set((await runsData(page)).runs.map(run => run.id));
   const started = Date.now();
-  await page.click(`[data-command="${command}"]`);
+  await pressTask(page, `[data-command="${command}"]`);
   let data, seen = false;
   const samples = [];   // what a person could see while it ran (the live log above all): liveLogProblems()
   while (Date.now() - started < maxMs) {
