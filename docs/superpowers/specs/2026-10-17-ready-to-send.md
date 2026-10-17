@@ -42,26 +42,37 @@ Morning: Worker page /ready  (owner token)  ->  per job:  [Live view]  (WebSocke
   refused with cookies alone). The extension restores the snapshot deterministically (no AI).
 - **The filler is the real extension**, not a new engine (rule: fix a shape, not a site; the extension's brain is the app's local server). The container therefore
   runs the app's extension server headless with only fill handlers (no Notion, Keychain, mail, no account handlers), AI through our `/api/ai` with a run token.
-  **First risk, measured in PR 2 before anything else is built on it:** that this runs on a standard-1 container (memory, start time) and fills a one-page fixture form
-  completely. If it does not fit, stop and tell the owner before changing the plan.
+  **First risk, measured:** locally the real extension fills the fixture forms in ~6 s each with ≈ 1.3 GB for 3 tabs (table below); the container's own fit (memory, start) is measured by the one-off Cloudflare proof when the owner agrees to deploy it (PR 3).
 - **Morning measure (the owner's metric):** one line per morning on `/admin/ready` and in Telegram: **prepared / reached a form / filled completely / he submitted**
   (the last from the existing "Applied" status the app already records). A form counts as *complete* when no required field is left empty (the extension's own count).
 
 ## PR plan (not stacked: each from main, each behind its flag, each lands alone)
-1. **PR 1 (site):** D1 tables, `READY_*` vars (off), owner-only routes (`/ready/batch`, `/ready/state`, `/ready/done`, `/ready/delete`), encrypted R2 batch, 24 h sweep in the existing
-   tick, cost row on `/admin/ai-cost` and the nightly cap, `/admin/ready` morning counts. Tests with in-memory D1 and a fake R2.
-2. **PR 2 (container + engine):** image `ready_fill` (Chromium + extension + headless app server with fill handlers), the live-view and hand-off modules from the proof,
-   no-Submit guard test, a CI proof on a fictional one-page fixture form (complete fill, time, memory), results into the PR.
-3. **PR 3 (app):** the owner-only setting on the Actions card, push of tonight's batch (`desktop/lib/ready.js`: fit ≥ 60, 10 a night, reuse kit + Tailor CV), the extension's
-   **restore from snapshot** step for "Open in my browser", ⌘K entries, Focus line and the Telegram morning line, before/after shots.
+1. **PR 1 (site, merged #1224):** D1 tables, `READY_*` vars (off), owner-only routes, encrypted batch, deletion (24 h, Done, Delete everything), cost cap + `ready-fill` on /admin/ai-cost.
+2. **PR 2 (container, `hosted/ready-fill/`):** the night's filler = the REAL extension in headless Chromium + a small stand-in app (the shape `desktop/e2e/lib/real-extension.mjs` already uses), fed only from the batch
+   (`/extension/me`, `/extension/kit` by the job's address; every other call empty). Floors in code: the extension copy **holds the account button** (`extension-copy.mjs`, a test fails if the line moves),
+   `no-submit.mjs` refuses a form submission, the live view lets only mouse and keys through. Live view + hand-off modules from the proof. Image + a fixture proof (`desktop/e2e/ready-fill-proof.mjs`).
+   **No AI in phase 1:** the stand-in answers `/extension/answer` with no answers, so what the kit and the rules do not cover stays open and is counted as left; the first night's numbers say whether AI answers are worth adding.
+3. **PR 3 (site wiring, needs the owner's yes before it deploys):** migration `fill_at`, the cron starts due batches and enqueues them (as the hosted tick does), the runner Worker (Container class + queue consumer) and the morning proxy routes
+   (live view, hand-off, state). New Cloudflare things it needs: a Queue `ready-runs` and a Worker `www-ready-runner` (container, standard-1). Nothing is created until the owner says so.
+4. **PR 4 (app):** the owner-only setting on the Actions card, push of tonight's batch (`desktop/lib/ready.js`: fit ≥ 60, 10 a night, reuse kit + Tailor CV), the extension's **restore from snapshot** step for "Open in my browser", ⌘K entries, Focus line, Telegram morning line, before/after shots.
+   (Four PRs, not three: wiring needs the owner's account decision, so it cannot ride with the container; each is small and lands alone.)
+
+## Measured on the fixtures (17 Oct 2026, Mac, `ready-fill-proof.mjs`, fictional data)
+| Form | Result | Filled / required left | Seconds |
+|---|---|---|---|
+| Greenhouse-style | prepared | 9 / 0 | 6 |
+| Lever-style | partial | 6 / 1 | 6 |
+| One-page (Workday host) | partial | 7 / 2 | 6 |
+Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touched, 0 form posts. Partial = questions the kit does not cover (needs AI; phase 1 has none).
 
 ## Progress
 - [x] Sketch B and the proof approved; phase 1 chosen by the owner (17 Oct 2026, via job-pilotto-cc) (proof: none: decisions relayed by cc, see top)
 - [x] Proof on Cloudflare: open 155 ms, human check + Submit through the stream, hand-off measured (proof: none: one-off CI run 39047884877, numbers in the sketch; tools/server-proof/)
-- [ ] Repeat the stream Submit test that recorded no click in run 6 (proof: none: one-off CI run, result in the PR)
-- [ ] PR 1 (site): tables, owner-only routes, encrypted batch, deletion (24 h, Done, Delete everything), cost row + cap, `/admin/ready` (proof: site/test/ready-to-send.test.js)
-- [ ] PR 2 (container): ready_fill image, headless fill server, live view, hand-off, no-Submit guard, fixture proof (proof: tests/test_ready_fill.py)
-- [ ] PR 3 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
+- [x] Repeat the stream Submit test that recorded no click in run 6: accepted again in run 8, 2 of 3 runs (proof: none: one-off CI runs 39047884877 and 39048751160, tools/server-proof/)
+- [x] PR 1 (site): tables, owner-only routes, encrypted batch, deletion (24 h, Done, Delete everything), cost row + cap (#1224) (proof: site/test/ready-to-send.test.js)
+- [ ] PR 2 (container): extension copy that holds the account button, stand-in app, no-Submit net, live view, hand-off, image, fixture proof (proof: desktop/test/ready-fill.test.js)
+- [ ] PR 3 (site wiring): fill_at, cron start + queue, runner Worker, morning proxy; deploy only after the owner's yes to a Queue and a Worker (proof: site/test/ready-wiring.test.js)
+- [ ] PR 4 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
 - [ ] First night measured: prepared / reached / complete / submitted, reported to the owner (proof: none: the morning line on /admin/ready)
 - [ ] Delete `tools/server-proof/` and `.github/workflows/server-proof.yml` once the numbers are in this spec (proof: none: removal)
 - [ ] Listing: Notion ✨ Feature catalog (3e962be8fd868133aa3ed99f1b0debcd), `site/public/intelligence.html` + teaser, README "AI at every step", landing page: only when it opens beyond the owner
