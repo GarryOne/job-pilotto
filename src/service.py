@@ -7,6 +7,8 @@ import json
 import os
 import re
 import secrets
+import datetime
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -16,6 +18,7 @@ from .sources import ats
 SITE = 'https://www.jobpilotto.top'
 TIMEOUT = 10
 ID_FILE = DATA / 'install_id'
+TOKENS_FILE = DATA / 'site_tokens.json'   # this install's site tokens, kept once given (site_token)
 _ID = re.compile(r'[A-Za-z0-9_-]{8,64}')
 
 
@@ -38,6 +41,37 @@ def install_id(path=None, env=None):
     except OSError:
         pass   # an id that is not kept is still valid for this run
     return fresh
+
+
+def site_token(install, purpose, ask, path=None, today=None):
+    """This install's site token for a purpose ('recipes', 'index'): kept once given (an install's token never changes), and not asked again
+    the same UTC day after the site refused it (429, its per-address daily limit; 17-18 Oct 2026 the day's tokens ran out). The app keeps
+    its own the same way (desktop/lib/install-token.js). `ask()` returns the token or raises. -> the token, or ''."""
+    path = path or TOKENS_FILE
+    today = today or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    try:
+        kept = json.loads(path.read_text())
+    except (OSError, ValueError):
+        kept = {}
+    entry = kept.get(purpose) if isinstance(kept.get(purpose), dict) else {}
+    if entry.get('install') == install and entry.get('value'):
+        return str(entry['value'])
+    if entry.get('refused') == today:
+        return ''
+    try:
+        token = str(ask() or '')
+        entry = {'install': install, 'value': token} if token else {}
+    except urllib.error.HTTPError as error:
+        token, entry = '', ({'refused': today} if error.code == 429 else {})
+    except Exception:  # noqa: BLE001 - offline: asked again next time
+        return ''
+    if entry:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({**kept, purpose: entry}) + '\n')
+        except OSError:
+            pass
+    return token
 
 
 def _post(url, body):
@@ -72,7 +106,8 @@ def playbook(board, base=None, install=None, post=_post, get=_get, env=None):
     base = (explicit or SITE).rstrip('/')
     try:
         install = install or install_id()
-        token = str(post(f'{base}/api/install-token', {'install': install}).get('token') or '')
+        mint = lambda: str(post(f'{base}/api/install-token', {'install': install}).get('token') or '')   # noqa: E731
+        token = site_token(install, 'recipes', mint) if post is _post and not explicit else mint()   # kept on the live path; a test's site is asked each time
         if not token:
             return ''
         answer = get(f'{base}/api/playbook?board={urllib.parse.quote(str(board).lower())}',

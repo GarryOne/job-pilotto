@@ -3,6 +3,7 @@
 // the install's own token for purpose "ai"; no account, no founder key, nothing on this Mac from Cloudflare. An own key saved later → back to Anthropic directly.
 import {installId} from './pool-share.js';
 import {siteIsOff} from './recipes.js';
+import {installToken} from './install-token.js';
 
 export const FREE_BASE = 'https://www.jobpilotto.top/api/ai';
 
@@ -27,10 +28,9 @@ export async function start(storage, env = process.env, fetcher = globalThis.fet
   if (siteIsOff()) return {ok: false, error: 'This is not a regular install, so Free AI is not asked.'};
   const install = installId(storage);
   try {
-    const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'ai'})});
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body.token) return {ok: false, error: 'Free AI could not start just now. Check your connection and try again.'};
-    storage.setSecret('ANTHROPIC_API_KEY', `JPF1.${install}.${body.token}`);
+    const token = await installToken(storage, install, 'ai', {base: FREE_BASE.replace(/\/api\/ai$/, ''), fetcher});
+    if (!token) return {ok: false, error: 'Free AI could not start just now. Check your connection and try again.'};
+    storage.setSecret('ANTHROPIC_API_KEY', `JPF1.${install}.${token}`);
   } catch { return {ok: false, error: 'Free AI could not start just now. Check your connection and try again.'}; }
   storage.saveSettings({aiFree: true, aiTrial: false, aiEngine: 'api'});   // Free IS the Anthropic API engine: an earlier Codex/OpenAI/CLI pick must not stay in charge
   apply(storage.settings(), env);
@@ -59,8 +59,7 @@ export async function ensureTrialKey(storage, fetcher = globalThis.fetch) {
   if (storage.secret(TRIAL_KEY) || /^JPF1\./.test(storage.secret('ANTHROPIC_API_KEY') || '') || siteIsOff()) return;
   const install = installId(storage);
   try {
-    const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'ai'})});
-    const body = await response.json().catch(() => ({}));
-    if (response.ok && body.token) storage.setSecret(TRIAL_KEY, `JPF1.${install}.${body.token}`);
+    const token = await installToken(storage, install, 'ai', {base: FREE_BASE.replace(/\/api\/ai$/, ''), fetcher});
+    if (token) storage.setSecret(TRIAL_KEY, `JPF1.${install}.${token}`);
   } catch { /* offline: the next sync tries again */ }
 }

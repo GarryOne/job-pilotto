@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {installId} from './pool-share.js';
 import {SITE, siteIsOff} from './recipes.js';
+import {installToken} from './install-token.js';
 
 export const MAX_BYTES = 8 * 1024 * 1024;
 const KEY_FILE = new URL('./report-key.pem', import.meta.url);
@@ -28,13 +29,9 @@ export function encryptBundle(bundle, pem = fs.readFileSync(KEY_FILE, 'utf8')) {
 
 export function createUploader({storage, fetcher = globalThis.fetch, base = SITE, pem, now = Date.now}) {
   const mint = async install => {
-    const kept = storage.settings().reportToken;
-    if (kept?.install === install && kept.value) return kept.value;
-    const response = await fetcher(`${base}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'report'})});
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body.token) throw new Error(`The site gave no token (${response.status}).`);
-    storage.saveSettings({reportToken: {install, value: body.token}});
-    return body.token;
+    const token = await installToken(storage, install, 'report', {base, fetcher});
+    if (!token) throw new Error('The site gave no token just now.');
+    return token;
   };
   const headers = async install => ({'X-Install': install, Authorization: `Bearer ${await mint(install)}`});
 

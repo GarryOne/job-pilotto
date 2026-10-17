@@ -5,6 +5,7 @@
 import {installId} from './pool-share.js';
 import {FREE_BASE} from './ai-free.js';
 import {siteIsOff} from './recipes.js';
+import {forgetToken, installToken} from './install-token.js';
 
 const SITE = FREE_BASE.replace(/\/api\/ai$/, '');
 export const GRACE_DAYS = 14, REFRESH_MS = 10 * 60 * 1000;
@@ -13,18 +14,13 @@ export const OFF = {mode: 'off', plan: 'free'};
 
 // `stored`: demo mode (screenshots) shows the answer written in its settings and never asks the site.
 export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Date.now(), stored = false} = {}) {
-  let minted = null;
   const off = () => siteIsOff() && !stored;
   // This install's own token for the site (the one Free AI uses), whatever engine is chosen: an own-key user has no JPF1 key saved, so it is asked for here.
   async function siteKey() {
     const install = installId(storage);
-    if (!minted) {
-      const response = await fetcher(`${SITE}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install, purpose: 'ai'})});
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body.token) throw new Error('no token');
-      minted = body.token;
-    }
-    return `JPF1.${install}.${minted}`;
+    const token = await installToken(storage, install, 'ai', {base: SITE, fetcher});
+    if (!token) throw new Error('no token');
+    return `JPF1.${install}.${token}`;
   }
   const kept = () => storage.settings().plan || null;
   // The last answer, sync: Off without one; after 14 days without a fresh answer the person is Free again (never silently locked mid-work: only the credit lane stops).
@@ -40,7 +36,7 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
     if (siteIsOff()) return stored ? state() : OFF;
     try {
       let response = await fetcher(`${SITE}/api/pro/status`, {headers: {'x-api-key': await siteKey()}});
-      if (response.status === 401) { minted = null; response = await fetcher(`${SITE}/api/pro/status`, {headers: {'x-api-key': await siteKey()}}); }
+      if (response.status === 401) { forgetToken(storage, 'ai'); response = await fetcher(`${SITE}/api/pro/status`, {headers: {'x-api-key': await siteKey()}}); }
       if (response.status === 404) storage.saveSettings({plan: {at: now(), status: OFF}});
       else if (response.ok) { const body = await response.json(); if (body.ok) storage.saveSettings({plan: {at: now(), status: {...body, ok: undefined}}}); }
     } catch { /* offline: the last answer stands */ }

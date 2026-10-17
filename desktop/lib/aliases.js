@@ -6,6 +6,7 @@ import {installId} from './app-feedback.js';
 import * as benchmarks from './benchmarks.js';
 import {log} from './log.js';
 import {SITE, betaHeader, enabled, siteIsOff, token} from './recipes.js';
+import {forgetToken} from './install-token.js';
 
 const CACHE = 'aliases-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
@@ -57,7 +58,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     const id = installId(storage);
     const ask = async bearer => fetcher(`${base}/api/packs/aliases`, {headers: {Authorization: `Bearer ${bearer}`, 'X-Install-Id': id, ...betaHeader(storage)}});
     let response = await ask(await token(storage, fetcher, base));
-    if (response.status === 401) { storage.saveSettings({recipesToken: null}); response = await ask(await token(storage, fetcher, base)); }
+    if (response.status === 401) { forgetToken(storage, 'recipes'); response = await ask(await token(storage, fetcher, base)); }
     if (!response.ok) throw new Error(`aliases ${response.status}`);
     onSent?.('label meanings request → /api/packs/aliases', {install: id});
     const body = await response.json();

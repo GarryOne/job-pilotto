@@ -22,6 +22,7 @@ import {cleanUse} from './proposal-use.js';
 import {counts as ladderCounts, ladderStore} from './ladder/learning.js';
 import {counts as otherCounts, otherStore} from './ladder/other.js';
 import {REPAIRS_SENT, repairDelta} from './ladder/repair-feed.js';
+import {forgetToken, installToken} from './install-token.js';
 
 export const SITE = 'https://www.jobpilotto.top';
 const CACHE = 'recipes-cache.json';
@@ -52,13 +53,9 @@ const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) |
 export async function token(storage, fetcher, base) {
   if (siteOff) throw new Error(`the site is not asked: ${siteOff}`);
   const id = installId(storage);
-  const kept = storage.settings().recipesToken;
-  if (kept?.install === id && kept.value) return kept.value;
-  const response = await fetcher(`${base}/api/install-token`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({install: id})});
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body.token) throw new Error(`token ${response.status}`);
-  storage.saveSettings({recipesToken: {install: id, value: body.token}});
-  return body.token;
+  const value = await installToken(storage, id, 'recipes', {base, fetcher});
+  if (!value) throw new Error('no token just now');
+  return value;
 }
 
 // -> {fingerprint: recipe} for the fingerprints that have a running recipe for this install. Never throws: no recipes is a
@@ -75,7 +72,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
       let response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`, ...betaHeader(storage)},
         body: JSON.stringify({install: id, fingerprints: ask})});
       if (response.status === 401) {   // a token from before a key change: take a new one once
-        storage.saveSettings({recipesToken: null});
+        forgetToken(storage, 'recipes');
         bearer = await token(storage, fetcher, base);
         response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`, ...betaHeader(storage)},
           body: JSON.stringify({install: id, fingerprints: ask})});
