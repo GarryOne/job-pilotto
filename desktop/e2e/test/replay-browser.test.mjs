@@ -1,7 +1,7 @@
 // Guards lib/replay-browser.mjs without a browser: which case a request belongs to, and that two cases on one host never run at once.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {caseForRequest, nextRunnable} from '../lib/replay-browser.mjs';
+import {caseForRequest, contactForUrl, nextRunnable} from '../lib/replay-browser.mjs';
 
 const item = (name, ...hosts) => ({name, pages: hosts.map(host => ({url: `https://${host}/p`}))});
 
@@ -41,4 +41,13 @@ test('an appPort app gets the extension\'s calls and no stub is started', {skip:
     while (!seen.some(url => url.startsWith('/extension/')) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 250));
     assert.ok(seen.some(url => url.startsWith('/extension/')), `the extension never called the app on port ${port} (saw: ${seen.join(', ')})`);
   } finally { await browser.close(); app.close(); }
+});
+
+test('each tab gets the applicant details of its own case: a phone split in pieces, the default for a case with none', () => {
+  const live = [{hosts: ['a.example'], item: {contact: {phoneParts: ['+41', '79', '000 00 00']}}}, {hosts: ['b.example'], item: {}}];
+  assert.equal(contactForUrl(live, 'https://a.example/apply').phone, '+41 79 000 00 00');
+  assert.equal(contactForUrl(live, 'https://a.example/apply').first_name, 'Test');
+  assert.equal(contactForUrl(live, 'https://b.example/apply'), null);
+  assert.equal(contactForUrl(live, 'https://elsewhere.example/'), null);
+  assert.equal(contactForUrl(live, 'not a url'), null);
 });

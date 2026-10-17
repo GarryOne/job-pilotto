@@ -5,8 +5,9 @@
 // Isolation between tabs: told/asked/judged count only requests whose body names the case's host, notTold counts the case's own lines and the ones no case's host names (a line of another case's host is not its tab's; a failure in parallel is run again alone by the caller), and two cases that share a host never run at the same time (their pages, and the extension's per-host state, would meet).
 import {startRealExtension} from './real-extension.mjs';
 import {fillSeconds} from './replay-time.mjs';
-import {answerFor, answerPage, caseDelays, caseFiles, caseHosts, caseStatuses, fillSettled, isExtensionPage, judgeCase} from './page-replay.mjs';
+import {answerFor, answerPage, caseDelays, contactOf, caseFiles, caseHosts, caseStatuses, fillSettled, isExtensionPage, judgeCase} from './page-replay.mjs';
 
+const hostOfUrl = url => { try { return new URL(url).host; } catch { return ''; } };
 const hostOf = text => { try { return new URL(JSON.parse(text).url).host; } catch { return ''; } };
 
 // Which of the live cases a request is for: the host of the url it names, else the first live case that answers that route (a request with no url: the case is unknown).
@@ -14,6 +15,9 @@ export function caseForRequest(live, route, sent) {
   const host = hostOf(sent);
   return live.find(state => state.hosts.includes(host)) || live.find(state => state.answer[route]);
 }
+
+// The applicant details of the live case whose host the page's address names; null: the harness default (a case with no `contact`, or an address no live case owns).
+export const contactForUrl = (live, url) => contactOf(live.find(state => state.hosts.includes(hostOfUrl(url)))?.item || {});
 
 // The cases that may start now, given the hosts of the ones running: in order, skipping a case whose host is taken (it waits for that tab to finish).
 export function nextRunnable(queue, runningHosts) {
@@ -27,7 +31,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
   const allHosts = [...new Set(items.flatMap(caseHosts))];   // a request that names none of them could belong to any tab
   const routes = [...new Set(items.flatMap(item => Object.keys(item.ai || {})))];
   const answer = Object.fromEntries(routes.map(route => [route, sent => { const state = caseForRequest(live, route, sent); return state?.answer[route] ? state.answer[route](sent) : {}; }]));
-  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort, cdp});
+  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort, cdp, contactFor: query => contactForUrl(live, query.get('url'))});   // each tab's own applicant details (a case's `contact`: its phone), asked by the page's address
   const files = new Map(), statuses = new Map(), delays = new Map();   // pathKey -> html of every live case, and its status per load (page-replay.mjs answerPage)
   await run.context.route('**/*', route => {   // ONE route for the browser, before any tab navigates: a route added while another tab loads let a request out (example.ch, 11 Oct 2026)
     const url = route.request().url(), host = new URL(url).hostname;
