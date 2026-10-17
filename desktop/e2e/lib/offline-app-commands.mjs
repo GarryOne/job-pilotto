@@ -17,6 +17,13 @@ export function serveCommands(storage, {out = line => process.stdout.write(`${li
       run: async () => ({ok: true}),
     }),
     sessions: async () => (await import('../../lib/terminals.js')).list(),
+    // The person's "Use" on every proposed answer a harness run may take (lib/proposals-to-use.mjs): queued for the form's panel, which fills it through the extension. Never a press of Submit.
+    useProposals: async done => {
+      const {proposalsToUse} = await import('./proposals-to-use.mjs'), review = await import('../../lib/review.js');
+      const {use, skipped} = proposalsToUse(review.allStates(), new Set(done || []));
+      for (const item of use) review.queueFill(item.id, item.label, item.value);
+      return {used: use.map(item => item.key), skipped: skipped.map(item => `${item.label}: ${item.why}`)};
+    },
     reviewStates: async () => (await import('../../lib/review.js')).allStates(),   // the panel's counts and the page step per session: what the card reads (lib/journey-watch.mjs)
   };
   readline.createInterface({input: process.stdin}).on('line', async line => {

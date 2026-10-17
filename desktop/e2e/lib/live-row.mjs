@@ -60,7 +60,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     return {calls: now.calls - before.calls, usd: now.usd - before.usd, input: now.input - before.input, output: now.output - before.output,
       refused: refused.reduce((sum, [, count]) => sum + count, 0), why: refused[0]?.[0] || ''};
   };
-  const app = await startOfflineApp({ask, fill, loose, journey: !!watch, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: refill ? refillKey() : appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
+  const app = await startOfflineApp({ask, fill, loose, journey: !!watch, review: process.env.LIVE_USE_PROPOSALS === '1', captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: refill ? refillKey() : appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
   const accounts = testAccounts(), seeded = seedTestAccounts(app.dir, accounts);   // a listed test account's saved password (docs/rules/applying.md "Signing in"); hosts only, never a value
   if (seeded.length) say(`live: test account for ${seeded.join(', ')} (the product's saved-password sign-in; never Submit)`);
   const front = await frontOf(app);
@@ -110,6 +110,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     // ask takes ~28 s and a press climbs 3-5 asks, so a 90 s end cut a recording while the extension still worked). LIVE_HARD_SECONDS sets it; 0 = no extra time.
     const hardMs = hardCapMs(seconds);
     let endedByCap = '';
+    const acceptProposals = process.env.LIVE_USE_PROPOSALS === '1', usedProposals = new Set();   // opt-in (docs/live-test.md): a held run past My Information
     for (let turn = 0; ; turn++) {
       const age = Date.now() - started;
       if (age >= hardMs || (age >= seconds * 1000 && !deciding)) { endedByCap = deciding ? `ended by cap while the extension was still deciding (${Math.round(hardMs / 1000)} s)${stallNote(app.logText(), Date.now()) ? `; ${stallNote(app.logText(), Date.now())}` : ''}` : ''; break; }
@@ -124,6 +125,11 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       await journey.tick();
       await steps.tick();
       if (turn % 4 === 0 && (tripped = await trip())) break;
+      if (acceptProposals && !deciding && turn % 4 === 2) {   // as the person's "Use" on each proposed answer; the extension fills it and goes on by its own rules (never Submit)
+        const taken = await app.call('useProposals', [...usedProposals]).catch(() => null);
+        for (const key of taken?.used || []) usedProposals.add(key);
+        if (taken?.used?.length) say(`live: used ${taken.used.length} proposed answer(s) like the person's Use press${taken.skipped?.length ? `; left: ${taken.skipped.join(', ')}` : ''}`);
+      }
       await wait(1500);
     }
     clearInterval(asks);
