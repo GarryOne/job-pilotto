@@ -7,7 +7,8 @@ read "x" as whole-word x.
 import unittest
 
 from src.paths import keyword_regex, place_regex
-from src.notion.search_settings import fragment_v1, fragment_of
+from src.notion.search_settings import fragment_v1, fragment_of, readable, terms
+from src.places import words_of
 from src import tune
 
 
@@ -29,6 +30,14 @@ class QuotedPatternsTest(unittest.TestCase):
     def test_the_old_page_format_reads_a_quoted_entry_as_whole_word_too(self):
         self.assertEqual(fragment_v1('"zug"'), fragment_of('"zug"'))
         self.assertEqual(fragment_v1('"zug"'), '\\bzug\\b')
+
+    def test_the_page_and_the_plain_words_read_a_quoted_entry_as_the_word(self):
+        # The owner's page showed /"tax"/, /"zug"/, /"sre"/ (9 entries) and the text-search sites never got those words.
+        for stored in ['"tax"', '"zug"', '"sre"', '"dübendorf"']:
+            self.assertEqual(readable(stored), stored, 'shown in the page\'s whole-word form, not as /"x"/')
+            self.assertEqual(fragment_of(readable(stored)), fragment_of(stored), 'read back: the same whole-word match as the page entry')
+        self.assertEqual(terms(['"zug"', 'basel', '"sre"']), ['zug', 'basel', 'sre'])
+        self.assertEqual(words_of({'locations': {'top_tier': ['"zug"'], 'country_wide': ['"winterthur"']}}), ['zug', 'winterthur'])
 
 
 if __name__ == '__main__':
