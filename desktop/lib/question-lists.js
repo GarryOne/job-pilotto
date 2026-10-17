@@ -7,7 +7,7 @@ import {claudeAi} from './question-ai.js';
 import {tidy} from './answers-tidy.js';
 import * as formats from './question-formats.js';
 import {keyOf, visibleQuestions} from '../renderer/question-filter.js';
-import {formatFor} from '../renderer/question-kind.js';
+import {formatFor, proposalIn} from '../renderer/question-kind.js';
 
 const answeredNow = async (storage, groups, fetcher) => verdicts.answeredOf(storage, groups ?? await questions.standardAnswers(storage, fetcher));
 
@@ -16,8 +16,13 @@ async function keptFormats(storage, rows, ai) {
   const {formats: kept} = await formats.ensure(storage, rows.filter(row => !row.mark?.kind).map(row => row.question), {ai}).catch(() => ({formats: formats.kept(storage)}));
   return kept;
 }
-// Each row with the control it is answered with (renderer/question-kind.js formatFor: the store's mark first).
-const withFormat = (rows, kept) => rows.map(row => ({...row, format: formatFor({marked: row.mark, kept: kept[keyOf(row.question)]})}));
+// Each row with the control it is answered with (renderer/question-kind.js formatFor: the store's mark first); a proposal only as one of its options.
+const withFormat = (rows, kept) => rows.map(row => {
+  const format = formatFor({marked: row.mark, kept: kept[keyOf(row.question)]});
+  if (!row.proposal) return {...row, format};
+  const proposal = proposalIn(row.proposal, format);
+  return proposal ? {...row, format, proposal} : {...row, format, proposal: undefined, coveredBy: undefined};
+});
 
 // Jobs → Answer once: {list: shown (a covered question carries .proposal; each row its .format), hidden: [...], usage}.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {

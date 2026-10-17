@@ -48,3 +48,20 @@ test('classify: the fixed answer is validated; unknown labels, a covered_by that
   assert.equal((await classify({labels})).size, 0, 'no AI engine = nothing');
   assert.deepEqual([...await reusable({labels, answered, client: fake([{label: 'Notice period', verdict: 'reusable', covered_by: ''}, {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start'}])})], ['Notice period']);
 });
+
+// PR 2b step 1 (owner, 17 Oct 2026: "We should have this information in the Profile, as a standard/base"): a question a saved answer settles, in other
+// words or by what it implies, shows with the deduced answer to accept; the AI sees the saved answers' values for that.
+test('classify: a deduced answer comes from a saved answer; the answer itself when it means the same; none without a covered_by', async () => {
+  const labels = ['Do you require visa sponsorship?', 'Earliest start?', 'Are you a robot?'];
+  const answered = [{question: 'Work permit', answer: 'Swiss C permit'}, {question: 'Notice period / earliest start', answer: '3 months'}];
+  const sent = [];
+  const client = {messages: {create: async request => { sent.push(request.messages[0].content); return {content: [{type: 'text', text: JSON.stringify({verdicts: [
+    {label: 'Do you require visa sponsorship?', verdict: 'reusable', covered_by: 'Work permit', value: 'No'},
+    {label: 'Earliest start?', verdict: 'reusable', covered_by: 'Notice period / earliest start', value: ''},
+    {label: 'Are you a robot?', verdict: 'reusable', covered_by: '', value: 'No'}]})}]}; }}};
+  const got = await classify({labels, answered, client});
+  assert.deepEqual(got.get('Do you require visa sponsorship?'), {reuse: 'reusable', covered_by: 'Work permit', proposal: 'No', from: 'Swiss C permit'});
+  assert.equal(got.get('Earliest start?').proposal, '3 months', 'the same meaning: the saved answer');
+  assert.deepEqual(got.get('Are you a robot?'), {reuse: 'reusable', covered_by: '', proposal: '', from: ''}, 'a value with no saved answer behind it is dropped');
+  assert.match(sent[0], /Swiss C permit/, 'the AI reads the saved values to deduce from');
+});

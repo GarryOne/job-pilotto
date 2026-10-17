@@ -39,7 +39,11 @@ consent 4%; job-specific 6%; junk / passwords 10%; extras 1%. His answers page: 
 
 ## Progress
 - [x] Sketch measured and approved (Artifact above) (proof: none: an owner decision relayed by job-pilotto-cc on 17 Oct 2026, quoted under "Owner's decisions")
-- [ ] PR 1: controls per kind (store mark, fill options in the trace, shared control in Answer once + Needs review, AI kind for old rows, cross-site proof)
+- [x] PR 1: controls per kind (store mark, fill options in the trace, shared control in Answer once + Needs review, AI kind for old rows, cross-site proof) (proof: desktop/test/question-kind.test.js @646619e)
 - Cross-site proof (PR 1, plan path, $0, 5 runs): saved English answers (Mr, Switzerland, Yes) filled a German/French form's own options: Herr, M., Ja typed 5/5; "Suisse" chosen 4/5 but only **proposed**: the grounding floor (worker/src/answer-facts.js floorUngrounded) compares words, and "Suisse" is not a word of the profile ("Switzerland"). PR 2 makes it compare meanings.
 - [ ] PR 2: topics + deduce from base facts (extends `covered_by` with a fact + deduced value validated against the form's options), "seen twice" lifecycle, Answer once as inbox with homes
+  - [x] 2a: a choice a base fact answers is filled from the Profile, in any language (rule f) (proof: worker/test/choice-from-fact.test.js @ab33172)
+  - [x] 2b.1: deduce: a saved answer settles a question in other words or by what it implies; the proposal is one of the row's options or none; a changed saved answer is judged again (proof: desktop/test/question-lists.test.js)
+  - [ ] 2b.2: "seen twice": 1st employer = kept on that job + quiet candidate; 2nd employer, same topic = promoted, "✓ Remembered for future forms · Undo"
+  - [ ] 2b.3: Answer once as inbox: each answer written to its home (Your details / Application answers / the job's drawer)
 - [ ] PR 3: one home per value (Your details in 3 sections; Search strategy rename + relocation, work modes, minimum salary, level; Preferences tab removed; two salaries apart), migration with "Which is right?", one test over every questionnaire screen

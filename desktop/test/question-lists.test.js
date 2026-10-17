@@ -93,3 +93,33 @@ test('consent boxes are counted for the one-line note, never listed', async () =
   assert.equal(result.consent, 1);
   assert.ok(!result.list.some(row => /GDPR/.test(row.question)));
 });
+
+// PR 2b step 1: a deduced answer that is not one of the row's options is not proposed; a changed saved answer is judged again.
+test('Answer once: a proposal outside the row options is dropped; a changed saved answer asks again', async () => {
+  const s = storage(), calls = [];
+  const groups2 = [{category: 'Work', items: [{question: 'Work permit', answer: 'Swiss C permit', open: false},
+    {question: 'Need sponsorship? [yes/no]', answer: '', open: true}, {question: 'Title [pick one: Mr | Mrs]', answer: '', open: true}]}];
+  const reply = verdicts => ({client: {messages: {create: async () => { calls.push(1); return {content: [{type: 'text', text: JSON.stringify({verdicts})}]}; }}}});
+  const marked = [{question: 'Need sponsorship?', mark: {kind: 'yes_no', options: []}}, {question: 'Title', mark: {kind: 'single', options: ['Mr', 'Mrs']}}];
+  const first = await lists.openShown(s, {rows: marked, groups: groups2, ai: reply([
+    {label: 'Need sponsorship?', verdict: 'reusable', covered_by: 'Work permit', value: 'no'}, {label: 'Title', verdict: 'reusable', covered_by: 'Work permit', value: 'Herr'}])});
+  const by = Object.fromEntries(first.list.map(row => [row.question, row.proposal || '']));
+  assert.deepEqual(by, {'Need sponsorship?': 'No', 'Title': ''});
+  const changed = [{...groups2[0], items: [{question: 'Work permit', answer: 'B permit, needs renewal', open: false}, ...groups2[0].items.slice(1)]}];
+  await lists.openShown(s, {rows: marked, groups: changed, ai: reply([{label: 'Need sponsorship?', verdict: 'reusable', covered_by: '', value: ''}])});
+  assert.equal(calls.length, 2, 'the saved answer behind a proposal changed: asked again');
+});
+
+test('a verdict from before deduction is judged once more, keeping its counts; then never again', async () => {
+  const s = storage(), calls = [];
+  s.saveSettings({questionVerdicts: {[keyOf('Need sponsorship?')]: {reuse: 'reusable', covered_by: '', proposal: '', question: 'Need sponsorship?', asked: 4, blocked: true}}});
+  const groups3 = [{category: 'Work', items: [{question: 'Work permit', answer: 'Swiss C permit', open: false}, {question: 'Need sponsorship?', answer: '', open: true}]}];
+  const ai3 = {client: {messages: {create: async () => { calls.push(1); return {content: [{type: 'text', text: JSON.stringify({verdicts: [{label: 'Need sponsorship?', verdict: 'reusable', covered_by: 'Work permit', value: 'No'}]})}]}; }}}};
+  const rows3 = [{question: 'Need sponsorship?', mark: {kind: 'yes_no', options: []}}];
+  const first = await lists.openShown(s, {rows: rows3, groups: groups3, ai: ai3});
+  assert.equal(first.list[0].proposal, 'No');
+  const kept = s.settings().questionVerdicts[keyOf('Need sponsorship?')];
+  assert.deepEqual([kept.asked, kept.blocked], [4, true]);
+  await lists.openShown(s, {rows: rows3, groups: groups3, ai: ai3});
+  assert.equal(calls.length, 1);
+});

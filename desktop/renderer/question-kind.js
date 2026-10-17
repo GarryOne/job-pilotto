@@ -78,5 +78,13 @@ export const markFor = format => (!format || !WORDS[format.kind] ? null : {kind:
 export const joinPicks = picks => picks.filter(Boolean).join(', ');
 export const picksOf = (value, options) => options.filter(option => String(value || '').split(/\s*,\s*/).some(part => part.toLowerCase() === option.toLowerCase()));
 
+// A proposed answer as the row's control can take it: the option that names it (a pick: each part), else '' (the person answers); a text box takes any value.
+export function proposalIn(value, {control = 'text', options = []} = {}) {
+  const text = String(value || '').trim();
+  if (control === 'text' || control === 'textarea') return text;
+  if (control === 'multi') return joinPicks(picksOf(text, options));
+  return options.find(option => option.toLowerCase() === text.toLowerCase()) || '';
+}
+
 // The words a person reads for a kind (the "Answer as" choice).
 export const KIND_NAMES = {text: 'Text', long_text: 'Long text', single: 'Pick one', multi: 'Pick several', yes_no: 'Yes / No'};

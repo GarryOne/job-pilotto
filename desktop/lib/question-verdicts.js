@@ -5,16 +5,19 @@ import {classify} from './question-reuse.js';
 import {keyOf, looksLikeFieldId, visibleQuestions} from '../renderer/question-filter.js';
 
 const MAX = 600;
+const VERSION = 2;   // 2: covered_by also by deduction (a saved permit settles "need sponsorship?"), with the saved answer it came from
 export const cached = storage => storage.settings().questionVerdicts || {};
 
 // Classifies the labels with no verdict yet (one small call), keeps the verdicts, returns the whole map. ai: {client, apiKey} (none: nothing new).
 export async function ensure(storage, labels, {answered = [], company = '', host = '', ai = {}} = {}) {
-  const known = cached(storage);
-  const fresh = [...new Set(labels.filter(label => label && !looksLikeFieldId(label) && !known[keyOf(label)]))];
+  const known = cached(storage), now = new Map(answered.map(a => [a.question, a.answer]));
+  // judged again: never judged, judged before answers could be deduced (no v: once), or the saved answer its proposal came from changed (or is gone)
+  const stale = entry => entry && (entry.v !== VERSION || (entry.covered_by && now.get(entry.covered_by) !== entry.from));
+  const fresh = [...new Set(labels.filter(label => label && !looksLikeFieldId(label) && (!known[keyOf(label)] || stale(known[keyOf(label)]))))];
   if (!fresh.length || !(ai.client || ai.apiKey)) return {verdicts: known, usage: null};
   const found = await classify({labels: fresh, answered, company, host, apiKey: ai.apiKey, client: ai.client});
   const next = {...known};
-  for (const [label, verdict] of found) next[keyOf(label)] = {...verdict, question: label, asked: 0, at: new Date().toISOString().slice(0, 10)};
+  for (const [label, verdict] of found) next[keyOf(label)] = {...known[keyOf(label)], ...verdict, v: VERSION, question: label, asked: known[keyOf(label)]?.asked || 0, at: new Date().toISOString().slice(0, 10)};
   const keys = Object.keys(next);
   for (const key of keys.slice(0, Math.max(0, keys.length - MAX))) delete next[key];
   storage.saveSettings({questionVerdicts: next});
