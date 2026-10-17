@@ -355,6 +355,7 @@ def main():
     parser.add_argument('--sync-store', '--sync-notion', dest='sync_store', action='store_true',
                         help='write the employers already checked on this computer that the active store lacks (its employer list; '
                              'on Notion, Employers & Sources: the app runs it when Notion is connected), then stop')
+    parser.add_argument('--paste-file', type=Path, help='a page the user pasted (text or one address): its companies are checked first (src/scout_paste.py)')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + the active store\'s active employers with a feed)')
@@ -389,6 +390,12 @@ def main():
         run_log.auto_begin(stores)  # the scout's run row opens when it starts
     log = run_log.new_run('scout')
     with store.connect(args.db) as db:
+        if args.paste_file:
+            from . import scout_paste
+            try:
+                print(scout_paste.summary(scout_paste.add(db, scout_paste.read_file(args.paste_file), search=load_search_config())))
+            except Exception as error:  # noqa: BLE001 — the usual run still goes on
+                print(f'Warning: pasted page not read: {type(error).__name__}: {error}')
         summary, results = run(db, args.batch, stores, budget=args.budget)
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
             written, failed = sync_employers(db, stores)

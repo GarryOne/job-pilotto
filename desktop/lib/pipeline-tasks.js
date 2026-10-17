@@ -54,10 +54,12 @@ export function mailResult(log) {
   return {updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
 }
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
-export function scout(storage, onLine, trigger = 'you', batch = null) {   // null: the engine's own size for the queue (src/scout.py batch_for)
+// paste: a file holding a page the person pasted (Employers → Add from a page): its companies are checked first (src/scout_paste.py).
+export function scout(storage, onLine, trigger = 'you', batch = null, {paste = ''} = {}) {   // null: the engine's own size for the queue (src/scout.py batch_for)
   const send = deliveryReady(storage) ? ['--send'] : [];  // no Telegram: the app shows it
   storage.saveSettings({lastScoutAt: new Date().toISOString()});
-  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : []), '--budget', String(SCOUT_BUDGET_S)], onLine, trigger);
+  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : []), ...(paste ? ['--paste-file', paste] : []),
+    '--budget', String(SCOUT_BUDGET_S)], onLine, trigger, paste ? {note: 'Companies from a page you pasted'} : {});
 }
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
 // Stop (owner, 7 Oct 2026: "I miss a Stop button"): doWork gets an AbortSignal and ends at its next step; the engine commands it runs are ended as for any task.

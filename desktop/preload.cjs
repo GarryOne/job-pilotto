@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('pilot', {
   jobPage: call('jobPage'), jobPosting: call('jobPosting'), jobFileSave: call('jobFileSave'), textOutline: call('textOutline'), textEdit: call('textEdit'), reportsInsights: call('reportsInsights'), insightFeedback: call('insightFeedback'),
   employers: call('employers'),
   employerActive: call('employerActive'),
+  employersFromPage: call('employersFromPage'),
   formFills: call('formFills'),
   formFill: call('formFill'),
   storeState: call('storeState'), keepOnThisMac: call('keepOnThisMac'), moveToNotion: call('moveToNotion'),

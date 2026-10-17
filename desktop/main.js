@@ -261,7 +261,7 @@ function handlers() {
   registerJobPageHandlers({ipcMain, storage, DEMO, here, dialog, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
   registerTextHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/text-handlers.js: Settings → Profile's texts
   registerReportsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/reports-handlers.js: Reports → insights
-  registerEmployersHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/employers-handlers.js: the Employers page
+  registerEmployersHandlers({ipcMain, storage, DEMO, here, log: appLog, scoutFromPage: file => pipeline.scout(storage, log, 'you', null, {paste: file})});   // lib/employers-handlers.js: the Employers page
   registerFormFillsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/form-fills-handlers.js: Reports → Form fills
   registerJobsHandlers({DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track});   // lib/jobs-handlers.js
   registerCloudHandlers({DEMO, cloud, dialog, handleImportant, ipcMain, needsNotion, restartTelegram, shell, storage, toWindow, getWindow: () => window});   // lib/cloud-handlers.js

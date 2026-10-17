@@ -17,7 +17,19 @@ export async function setActive(storage, name, active, {call = engine.call} = {}
   return call(storage, 'employers', 'upsert', {employer: {name: String(name), active: !!active}});
 }
 
-export function registerEmployersHandlers({ipcMain, storage, DEMO, here, log, call = engine.call}) {
+// Add from a page (Employers page, ⌘K): the pasted text (or one address) is kept in the data folder and the scout checks its companies first.
+// Never a login page fetched by us: the person pastes what they see. Answers at once; the run shows in Recent activity.
+export const PASTE_FILE = 'data/pasted-page.txt';
+export const PASTE_MAX = 200000;
+export function fromPage(storage, text, scoutFromPage) {
+  const body = String(text || '').trim();
+  if (!body) return {ok: false, error: 'Paste the page’s text or its address first.'};
+  storage.writeText(PASTE_FILE, body.slice(0, PASTE_MAX));
+  scoutFromPage(storage.path(PASTE_FILE)).catch(() => {});   // its own run record says how it ended
+  return {ok: true, chars: Math.min(body.length, PASTE_MAX)};
+}
+
+export function registerEmployersHandlers({ipcMain, storage, DEMO, here, log, call = engine.call, scoutFromPage = async () => {}}) {
   const demo = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'employers.json'), 'utf8'));
   ipcMain.handle('employers', async () => {
     if (DEMO) return {employers: demo()};
@@ -30,6 +42,12 @@ export function registerEmployersHandlers({ipcMain, storage, DEMO, here, log, ca
       log('employers', 'list not read', {error: error.message, ms: Date.now() - started});
       return {error: error.message};
     }
+  });
+  ipcMain.handle('employersFromPage', async (_, text) => {
+    if (DEMO) return {ok: true, demo: true};
+    const answer = fromPage(storage, text, scoutFromPage);
+    log('employers', answer.ok ? 'page pasted' : 'page not pasted', answer.ok ? {chars: answer.chars} : {error: answer.error});
+    return answer;
   });
   // Turned on or off by the person on the Employers page: the next job search reads (or skips) its feed.
   ipcMain.handle('employerActive', async (_, name, active) => {
