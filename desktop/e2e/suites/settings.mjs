@@ -194,8 +194,9 @@ async function roundTrip(ctx, backupFile = '') {   // backupFile: the file the a
   })};
   // Field by field, so a failure names what changed (a whole object is cut off in the report).
   const differ = [];
-  // Keys: none lost. One the app makes at start when missing (the extension's token) may appear.
-  for (const name of Object.keys(before.secrets)) if (before.secrets[name] && !after.secrets?.[name]) differ.push(`key ${name} lost`);
+  // Keys: none lost. One the app makes at start when missing (the extension's token) may appear. A backup never holds keys (lib/backup.js),
+  // so after a reset they come back only where the platform kept them (the Mac's Keychain; not Windows, 17 Oct 2026): not checked for a backup.
+  if (!backupFile) for (const name of Object.keys(before.secrets)) if (before.secrets[name] && !after.secrets?.[name]) differ.push(`key ${name} lost`);
   for (const key of ['files', 'notionIds']) for (const name of new Set([...Object.keys(before[key] || {}), ...Object.keys(after[key] || {})]))
     if (JSON.stringify(before[key]?.[name]) !== JSON.stringify(after[key]?.[name])) differ.push(`${key}.${name} ${JSON.stringify(before[key]?.[name])} -> ${JSON.stringify(after[key]?.[name])}`);
   if (before.jobs !== after.jobs) differ.push(`jobs ${before.jobs} -> ${after.jobs}`);
