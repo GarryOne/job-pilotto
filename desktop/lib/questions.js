@@ -8,7 +8,7 @@ import {openStore} from './store/index.js';
 import {aliasKey, fileKind} from '../shared/alias-schema.js';
 import * as sharedMeanings from './aliases.js';
 import {asksQuestion} from './label-shape.js';
-import {looksLikeFieldId} from './question-reuse.js';
+import {looksLikeFieldId} from '../renderer/question-filter.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

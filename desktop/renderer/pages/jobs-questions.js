@@ -24,15 +24,16 @@ export async function loadQuestions({force = false} = {}) {
     }
   }
   if (!force && questionsReadAt && Date.now() - questionsReadAt < QUESTIONS_FRESH_MS && Array.isArray(cached)) return;   // fresh enough: what is shown stands
-  const {list, error} = await window.pilot.openQuestions();
+  const {list, hidden = [], error} = await window.pilot.openQuestions();
   $('questions').classList.remove('is-loading');
   if (!error) questionsReadAt = Date.now();
   if (error && Array.isArray(cached)) return;  // Notion unreachable: keep the saved questions
   if (!error) try { localStorage.setItem(QUESTIONS_CACHE, JSON.stringify(list)); } catch {}
-  renderQuestions(list, error);
+  renderQuestions(list, error, hidden);
 }
-function renderQuestions(list, error = '') {
-  const shown = JSON.stringify([list, error]);
+let showHidden = false;
+function renderQuestions(list, error = '', hidden = []) {
+  const shown = JSON.stringify([list, error, hidden, showHidden]);
   if (shown === questionsShown) return;
   questionsShown = shown;
   // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.
@@ -44,11 +45,13 @@ function renderQuestions(list, error = '') {
   show($('questions-error'), !!error);
   show($('questions-retry'), !!error);
   if (error) $('questions').open = true;  // the reason and Retry sit inside: don't leave them collapsed
-  $('questions-list').replaceChildren(...list.map(q => {
+  const rows = showHidden ? [...list, ...hidden] : list;
+  $('questions-list').replaceChildren(...rows.map(q => {
     const row = Object.assign(document.createElement('div'), {className: 'question'});
     const label = Object.assign(document.createElement('label'), {textContent: q.question});
     if (q.company) label.append(Object.assign(document.createElement('small'), {textContent: ` · asked by ${q.company}`}));
-    const input = Object.assign(document.createElement('input'), {type: 'text', placeholder: 'Your standard answer'});
+    const input = Object.assign(document.createElement('input'), {type: 'text', placeholder: 'Your standard answer', value: q.proposal || ''});
+    if (q.coveredBy) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · already answered by “${q.coveredBy}”`}));
     if (q.hint) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · ${q.hint}`}));
     const save = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Save'});
     const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip',
@@ -61,6 +64,7 @@ function renderQuestions(list, error = '') {
     };
     // Save waits for an answer: an enabled Save that silently did nothing on an empty field read as broken (UI loop #64).
     save.disabled = true;
+    if (q.proposal) { save.textContent = 'Accept'; save.disabled = false; }   // a covered question comes with its answer: one click accepts it
     input.addEventListener('input', () => { save.disabled = !input.value.trim(); });
     save.addEventListener('click', () => input.value.trim() && answer(input.value.trim()));
     input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.value.trim()) answer(input.value.trim()); });
@@ -68,4 +72,15 @@ function renderQuestions(list, error = '') {
     row.append(label, input, save, skip, note);
     return row;
   }));
+  hiddenLink(list, hidden, error);
+}
+
+// "N hidden · show": what the shared filter (renderer/question-filter.js) set aside stays reachable, never deleted.
+function hiddenLink(list, hidden, error) {
+  const old = $('questions-hidden');
+  old?.remove();
+  if (error || !hidden.length) return;
+  const link = Object.assign(document.createElement('button'), {id: 'questions-hidden', className: 'link', type: 'button', textContent: showHidden ? 'Hide the others' : `${hidden.length} hidden · show`});
+  link.addEventListener('click', () => { showHidden = !showHidden; questionsShown = ''; renderQuestions(list, error, hidden); });
+  $('questions-list').after(link);
 }
