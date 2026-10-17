@@ -3,7 +3,7 @@
 export const CONTACT = {first_name: 'Ada', last_name: 'Tester', full_name: 'Ada Tester', email: 'ada.tester@example.test', phone: '+41 79 555 01 23', location: 'Zurich, Switzerland', location_forms: ['Zürich', 'Zurigo', 'Schweiz', 'Suisse', 'Svizzera', 'CH'], street: 'Musterstrasse 12', postal_code: '8001', linkedin: 'https://www.linkedin.com/in/ada-tester'};
 export const OPEN_ANSWER = 'Because the platform work here is about reliability at scale, which is what I have done for eight years.';
 
-export const expectedOf = form => Object.fromEntries(form.kit.filter(item => !form.legal.includes(item.field)).map(item => [item.field, item.answer]));
+export const expectedOf = form => Object.fromEntries(form.kit.filter(item => !form.legal.includes(item.field)).map(item => [item.field, (form.consent || []).includes(item.field) ? true : item.answer]));   // a consent box is ticked by default
 export const POSTING = 'Lead the reliability of a Kubernetes platform on AWS: own the SLOs, the on-call rota and incident reviews, and mentor four engineers. '.repeat(3);
 // What the stand-in AI hands back for the CV import and the tailoring (the schemas of lib/cv.js): a one-job CV, then the same CV reworded.
 export const BASE_CV = {name: 'Ada Tester', location: 'Zurich', summary: 'Site Reliability Engineer with eight years of platform work.', links: [],
