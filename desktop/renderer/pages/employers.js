@@ -9,6 +9,7 @@ import {day, detailLines, feedName, feedStatuses, feedTone, filterEmployers, met
 import {$, message as say, show} from './core.js';
 import {skeletonRows} from './interview-practice.js';
 import {gatedOut} from './notion-connect.js';
+import {addPasteButton} from './employers-paste.js';
 
 // A line above the table only while there is something to say (an empty .message keeps its height).
 const message = (id, text, tone) => { say(id, text, tone); show($(id), !!text); };
@@ -129,4 +130,5 @@ export async function loadEmployers() {
 export function init() {
   for (const id of ['emp-filter', 'emp-kind', 'emp-feed', 'emp-active']) $(id).addEventListener('input', render);
   $('emp-refresh').addEventListener('click', loadEmployers);
+  addPasteButton();
 }

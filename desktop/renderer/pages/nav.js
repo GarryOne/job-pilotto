@@ -143,6 +143,7 @@ function paletteCommands() {
   if (showsProWaitlist(shared.licenseState || {}) && !shared.state?.settings?.proWaitlist?.email) add('Settings', 'Join the Pro waitlist', 'Get one e-mail when Pro opens', 'pro waitlist early access upgrade plan price join email', () => { openSetting('license'); setTimeout(openWaitlist, 150); });
   button('sessions', 'ss-stop', 'stop freeze halt panic extension chrome everything cancel emergency', 'Stops everything the extension does, on every tab');
   button('jobs', 'refresh', 'find jobs scan');
+  button('employers', 'emp-paste', 'add employers companies paste page text address list newsletter portfolio talent agent matches startups');
   // Application questions, one at a time (pages/question-review.js): the same drawer as Jobs' card and Profile → Application answers.
   add('Jobs', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing suggested forms application',
     () => openQuestionReview());

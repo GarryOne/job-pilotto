@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {employers, registerEmployersHandlers, setActive} from '../lib/employers-handlers.js';
+import {employers, fromPage, PASTE_FILE, PASTE_MAX, registerEmployersHandlers, setActive} from '../lib/employers-handlers.js';
 
 const here = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const register = options => {
@@ -41,4 +41,20 @@ test('demo mode reads the fictional fixture, every field the page shows', async 
   const {employers: rows} = await handlers.employers();
   assert.ok(rows.length >= 5);
   assert.ok(rows.some(row => row.kind === 'Job board') && rows.some(row => !row.active));
+});
+
+// Add from a page: the text is kept in the data folder and the scout gets its path; empty text asks for it; demo starts nothing.
+test('a pasted page is written to the data folder and the scout checks it', async () => {
+  const written = {}, started = [];
+  const storage = {writeText: (name, text) => { written[name] = text; }, path: name => `/app/${name}`};
+  const {handlers, lines} = register({storage, scoutFromPage: async file => { started.push(file); }});
+  assert.deepEqual(await handlers.employersFromPage({}, '  Zauber · Berlin\nZenML  '), {ok: true, chars: 'Zauber · Berlin\nZenML'.length});
+  assert.equal(written[PASTE_FILE], 'Zauber · Berlin\nZenML');
+  assert.deepEqual(started, ['/app/data/pasted-page.txt']);
+  assert.ok(lines.some(line => line[1] === 'page pasted' && !JSON.stringify(line).includes('Zauber')), 'the log never holds the pasted text');
+  assert.equal((await handlers.employersFromPage({}, '   ')).ok, false);
+  assert.equal(started.length, 1);
+  assert.equal(fromPage(storage, 'x'.repeat(PASTE_MAX + 5), async () => {}).chars, PASTE_MAX);
+  const demo = register({DEMO: true, scoutFromPage: async () => { throw new Error('demo must not start a scout'); }});
+  assert.equal((await demo.handlers.employersFromPage({}, 'Zauber')).demo, true);
 });
