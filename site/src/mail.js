@@ -2,15 +2,14 @@
 // a bounce/complaint, an unsubscribe from the template's list, marketing without an opt-in, or more than 6 mails a day to one address; it adds the footer, the one-click
 // unsubscribe link and headers, and logs the mail (hash of the address, never the body) in mail_log. Switch: env.MAIL = "on" (anything else sends nothing). Guard: test/mail.test.js.
 import {digestOf, tokenFor} from './guard.js';
+import {frameHtml, frameText, SITE} from './mail-frame.js';
 import {TEMPLATES} from './mail-templates.js';
 
 export const DAILY_MAX = 6;                 // per address, per rolling 24 h (spec §4c "Abuse")
 const GLOBAL_DAY_MAX = 3000;                // a safety net over every address; env.MAIL_DAY_MAX overrides
 const DAY = 24 * 60 * 60 * 1000;
 const ADDRESS = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
-const SITE = 'https://www.jobpilotto.top';
 const FROM = {service: 'Job Pilotto <notifications@jobpilotto.top>', marketing: 'Job Pilotto <news@jobpilotto.top>'};
-const esc = text => String(text).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
 export const clean = to => String(to || '').trim().toLowerCase();
 export const validAddress = to => ADDRESS.test(clean(to)) && clean(to).length <= 254;
@@ -26,6 +25,12 @@ export async function confirmLink(env, to) {
 export async function stopLink(env, to, list) {
   const addr = await addrOf(to);
   return `${SITE}/unsubscribe?a=${addr}&l=${list}&t=${await tokenFor(addr, env, `unsub-${list}`)}`;
+}
+
+// The signed link to the e-mail settings page (src/mail-settings.js): the same token as the service stop link, no sign-in.
+export async function settingsLink(env, to) {
+  const addr = await addrOf(to);
+  return `${SITE}/email-settings?a=${addr}&t=${await tokenFor(addr, env, 'unsub-service')}`;
 }
 
 // -> {ok: true} or {ok: false, reason}. For a caller that builds an expensive mail (the digest) and wants to know first.
@@ -58,9 +63,11 @@ export async function send(env, template, to, data = {}, {now = new Date()} = {}
     const all = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE status = 'sent' AND at >= ?").bind(since).first();
     if (mine.n >= DAILY_MAX || all.n >= Number(env.MAIL_DAY_MAX || GLOBAL_DAY_MAX)) { await record(env, now, addr, spec.list, template, 'rate'); return {ok: false, reason: 'rate'}; }
     const stop = spec.essential ? null : await stopLink(env, to, spec.list);
-    const note = spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Job Pilotto with this address.';
-    const text = `${spec.text(data)}${stop ? `\n\n--\n${note}\nStop these mails: ${stop}` : ''}`;
-    const html = `${spec.html(data)}${stop ? `<hr><p style="color:#666;font-size:12px">${esc(note)} <a href="${esc(stop)}">Stop these mails</a></p>` : ''}`;
+    const why = spec.essential ? 'A security email: sent even if you stopped other emails.'
+      : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Job Pilotto with this address.';
+    const frame = {title: spec.title(data), why, button: spec.button?.(data) || null, links: stop && {stop, settings: await settingsLink(env, to)}};
+    const text = frameText({...frame, body: spec.text(data)});
+    const html = frameHtml({...frame, body: spec.html(data)});
     const headers = stop ? {'List-Unsubscribe': `<${stop}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'} : undefined;
     const result = await env.EMAIL.send({from: FROM[spec.list], to: clean(to), subject: spec.subject(data), text, html, ...(headers && {headers})});
     await record(env, now, addr, spec.list, template, 'sent', result?.messageId || null);

@@ -72,7 +72,7 @@ test('a sign-in code is not stopped by the service unsubscribe, and carries no u
 });
 
 test('marketing mail needs the opt-in on the account, and its unsubscribe clears it; the service list is untouched', async () => {
-  TEMPLATES.news = {list: 'marketing', subject: () => 'News', text: () => 'Pro is here', html: () => '<p>Pro is here</p>'};
+  TEMPLATES.news = {list: 'marketing', subject: () => 'News', title: () => 'News', text: () => 'Pro is here', html: () => '<p>Pro is here</p>'};
   try {
     const {e, sent} = setup({MARKETING_MAIL: 'on'}), id = await createAccount(e, 'me@example.com', now, {plan: 'trial'});
     assert.equal((await send({...e, MARKETING_MAIL: 'off'}, 'news', 'me@example.com', {}, {now})).reason, 'marketing_off', 'the owner\'s flag is off: nothing promotional goes out');
