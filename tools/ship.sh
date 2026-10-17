@@ -14,8 +14,10 @@
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 #   tools/ship.sh --draft    open the PR as a draft (nobody can merge it) and mark it ready only when every check it started is green (owner, 14 Oct 2026)
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
-# the start, and ends with exactly one marker line: `ship: DONE <sha>` (merged), `ship: REVIEW #n <url>` (owner reviews by hand: open, checks green) or `ship: FAILED (exit N) ...`. A caller that cut the run short
+# the start, and ends with one marker line (then MERGED / CLOSED / RED, below): `ship: DONE <sha>` (merged), `ship: REVIEW #n <url>` (owner reviews by hand: open, checks green) or `ship: FAILED (exit N) ...`. A caller that cut the run short
 # (a timeout, a piped `| tail`) reads that last line of the log to know how it ended; running it again is safe.
+# After REVIEW a detached watcher (tools/ship-watch.sh, no AI, ~60 s looks, 48 h cap) adds to the same log: `ship: MERGED #n <sha>`, `ship: CLOSED #n (unmerged)`,
+# `ship: RED #n <check>` (a check turned red after REVIEW) or `ship: WATCH ENDED #n (still open)`. SHIP_WATCH=0 starts none.
 set -euo pipefail
 flags=""; keep=1; background=0; args=()
 for arg in "$@"; do
@@ -51,7 +53,7 @@ if [ "$background" = 1 ]; then
     SHIP_LOG="$log" python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$0" ${args[@]+"${args[@]}"} > /dev/null 2>&1 < /dev/null &
   fi
   echo "ship: started in the background (pid $!). Log: $log"
-  echo "ship: its last line says how it ended: 'ship: DONE <sha>' (merged), 'ship: REVIEW #n <url>' (green, the owner merges) or 'ship: FAILED ...'; Monitor ^ship: (DONE|FAILED|REVIEW) (e.g. tail -3 $log)"
+  echo "ship: its last line says how it ended: 'ship: DONE <sha>' (merged), 'ship: REVIEW #n <url>' (green, the owner merges) or 'ship: FAILED ...'; after REVIEW the log also gets 'ship: MERGED #n <sha>', 'ship: CLOSED #n (unmerged)' or 'ship: RED #n <check>'; Monitor ^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED) (e.g. tail -3 $log)"
   exit 0
 fi
 # From here every line also goes to the log; the exit trap writes the closing marker once. SHIP_LOG is not passed on to the commands below
@@ -75,7 +77,13 @@ on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && kill
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (every check green; the owner reviews and merges)"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+ship_watch_start() {  # detached like the background run itself: the caller's end must not reach it; replaces this branch's older watcher by pid file
+  [ "${SHIP_WATCH:-1}" != 0 ] || return 0
+  local pidfile; pidfile="$(git rev-parse --path-format=absolute --git-common-dir)/ship-watch-${branch//\//-}.pid"
+  if command -v setsid >/dev/null; then setsid bash "$here/tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null &
+  else python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash "$here/tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null & fi
+}
+trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (every check green; the owner reviews and merges)"; ship_watch_start "$review_n"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT   # after REVIEW, tools/ship-watch.sh adds MERGED / CLOSED / RED to the log
 
 # Several sessions fetch into one shared repo: a fetch can lose the race for a ref lock ("cannot lock ref 'refs/remotes/origin/main'", 12 Oct 2026, a merged PR reported FAILED). Try again.
 ship_fetch() { local try; for try in 1 2 3 4 5; do git fetch -q origin 2>/dev/null && return 0; sleep 1; done; git fetch -q origin; }
