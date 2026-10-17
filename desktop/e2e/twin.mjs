@@ -13,11 +13,12 @@ import path from 'node:path';
 import {copyExtension, freePort, launchBrowser, makeOpenShim} from './lib/extension.mjs';
 import {grantAllSites, killGroup, portsFree, refresh, reloadExtension} from './lib/twin-refresh.mjs';
 import {realFolder} from '../lib/twin.js';
+import {TOKEN_VAR} from './lib/real-notion-token.mjs';
 import {withoutWrappers} from './lib/real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 const DESKTOP = path.resolve(import.meta.dirname, '..'), REPO = path.resolve(DESKTOP, '..');
 const REAL = realFolder(), LIVE = path.join(path.dirname(REAL), 'Job Pilotto (live test)'), HOME = path.join(LIVE, 'home');
-const SOURCE_TOKEN = 'job-pilotto.notion.token-desktop-real', MIRROR_TOKEN = 'job-pilotto.notion.token-live-test';
+const MIRROR_TOKEN = 'job-pilotto.notion.token-live-test';
 const keychain = service => execFileSync('security', ['find-generic-password', '-s', service, '-w'], {encoding: 'utf8'}).trim();
 const say = text => console.log(`twin: ${text}`);
 const idsOf = file => Object.fromEntries(fs.readFileSync(file, 'utf8').split('\n').map(line => line.trim().split('=')).filter(([key, value]) => key?.startsWith('NOTION_') && value));
@@ -40,8 +41,11 @@ async function main() {
   // 1. One-way sync, real -> mirror.
   if (!process.argv.includes('--no-sync')) {
     say('syncing real Notion -> Live Test (read-only on the real side)…');
-    execFileSync('python3', [path.join(REPO, 'tools', 'notion_copy.py'), 'copy', '--from', SOURCE_TOKEN, '--from-ids', path.join(REAL, 'settings.json'),
-      '--to', MIRROR_TOKEN, '--to-ids', path.join(LIVE, 'ids.env'), '--state', path.join(LIVE, 'notion-copy')], {stdio: ['ignore', 'ignore', 'inherit'], cwd: REPO});
+    // The app's own current Notion token (its safeStorage-sealed secrets.json), read by a helper under Electron and given to the copy tool's environment only.
+    // No fallback: if it cannot be read the helper says so and the sync stops (the old Keychain copy went stale on 10 Oct 2026).
+    const copy = ['python3', path.join(REPO, 'tools', 'notion_copy.py'), 'copy', '--from', `env:${TOKEN_VAR}`, '--from-ids', path.join(REAL, 'settings.json'),
+      '--to', MIRROR_TOKEN, '--to-ids', path.join(LIVE, 'ids.env'), '--state', path.join(LIVE, 'notion-copy')];
+    execFileSync(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [path.join(DESKTOP, 'e2e', 'lib', 'real-notion-token-main.mjs'), REAL, '--', ...copy], {stdio: ['ignore', 'ignore', 'inherit'], cwd: REPO});
   }
   // 3. A fresh copy of the real folder, then what must not come along.
   fs.rmSync(HOME, {recursive: true, force: true});

@@ -25,6 +25,7 @@ The full procedure is in .claude/skills/notion-copy/SKILL.md.
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -46,6 +47,12 @@ TEXT_BLOCKS = {'paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_lis
 
 
 def keychain(service):
+    # "env:NAME": the token is in that environment variable (the twin's helper hands the app's own token this way: never argv, never a file)
+    if service.startswith('env:'):
+        token = os.environ.get(service[4:], '').strip()
+        if not token:
+            raise SystemExit(f'No token in the environment variable {service[4:]}')
+        return token
     token = subprocess.run(['security', 'find-generic-password', '-s', service, '-w'], capture_output=True, text=True).stdout.strip()
     if not token:
         raise SystemExit(f'No Keychain item {service}')
