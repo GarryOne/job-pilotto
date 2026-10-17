@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {execFileSync} from 'node:child_process';
+import {execFileSync, spawn} from 'node:child_process';
 import * as reset from '../lib/reset.js';
 import {createStorage} from '../lib/storage.js';
 import {tar} from '../lib/tar.js';
@@ -244,4 +244,61 @@ test('whenUnlocked: only a lock is retried, and only for so long', () => {
   const waited = {ms: 0};
   assert.throws(() => reset.whenUnlocked(() => { calls += 1; failing('EBUSY')(); }, {tries: 3, every: 1, waited}), /EBUSY/);
   assert.deepEqual([calls, waited.ms], [3, 2]);   // a lock that lasts is thrown after the last try
+});
+
+// 17 Oct 2026, Windows CI (run 39072072784, settings): the relaunched app could not remove its data folder for 14 s ("EPERM ... jp-e2e-xxxx") and the reset was not
+// applied. The folder itself stays locked while a process has it open or as its working directory; what is in it is free. Its contents go, the empty folder stays.
+const locked = (patch, work) => {
+  const rm = fs.rmSync, rename = fs.renameSync;
+  fs.rmSync = (target, options) => { if (patch.rm?.(target)) throw Object.assign(new Error(`EPERM: operation not permitted, rmdir '${target}'`), {code: 'EPERM'}); return rm(target, options); };
+  fs.renameSync = (from, to) => { if (patch.rename?.(from)) throw Object.assign(new Error(`EPERM: operation not permitted, rename '${from}'`), {code: 'EPERM'}); return rename(from, to); };
+  try { return work(); } finally { fs.rmSync = rm; fs.renameSync = rename; }
+};
+
+test('reset: a data folder that stays locked is emptied, and the reset is applied', () => {
+  const a = profile();
+  reset.request(a.dir);
+  const done = locked({rm: target => target === a.dir}, () => reset.applyPending(a.dir, new Date(), {tries: 2}));
+  assert.equal(done.deleted, true);
+  assert.equal(done.emptied, true);
+  assert.deepEqual(fs.readdirSync(a.dir), [], 'the folder is there, empty: nothing of the profile, not even the reset marker, is left');
+  assert.equal(reset.applyPending(a.dir), null, 'the reset is not asked again at the next start');
+});
+
+test('import: a data folder that cannot be renamed is emptied into the backup, and the import goes in', () => {
+  const a = profile();
+  const file = path.join(a.base, 'export.tar.gz');
+  reset.exportTo(a.dir, file);
+  const b = profile();
+  fs.writeFileSync(path.join(b.dir, 'profile.md'), 'the one before');
+  reset.stageImport(b.dir, file);
+  const done = locked({rename: from => from === b.dir}, () => reset.applyPending(b.dir, new Date(), {tries: 2}));
+  assert.equal(done.imported, true);
+  assert.equal(fs.readFileSync(path.join(done.backup, 'profile.md'), 'utf8'), 'the one before');
+  assert.equal(fs.readFileSync(path.join(b.dir, 'cv.pdf'), 'utf8'), 'PDF');
+  assert.ok(!fs.existsSync(path.join(b.dir, 'reset-pending.json')));
+});
+
+test('a Chromium file that stays locked is left; one of the app\'s own that stays locked is an error', () => {
+  const a = profile();
+  reset.request(a.dir);
+  const done = locked({rm: target => target === a.dir || path.basename(target) === 'Cache'}, () => reset.applyPending(a.dir, new Date(), {tries: 2}));
+  assert.deepEqual(done.stayed, ['Cache']);
+  assert.ok(!fs.existsSync(path.join(a.dir, 'cv.pdf')) && !fs.existsSync(path.join(a.dir, 'settings.json')));
+  const b = profile();
+  reset.request(b.dir);
+  assert.throws(() => locked({rm: target => target === b.dir || path.basename(target) === 'cv.pdf'}, () => reset.applyPending(b.dir, new Date(), {tries: 2})), /EPERM/);
+});
+
+// The real thing on Windows CI: a process whose working directory is the folder (Windows then refuses to remove the folder, not its files). Elsewhere the folder is simply removed.
+test('reset: a process working inside the data folder does not stop the reset', async () => {
+  const a = profile();
+  const holder = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], {cwd: a.dir, stdio: 'ignore'});
+  await new Promise(resolve => setTimeout(resolve, 500));
+  try {
+    reset.request(a.dir);
+    const done = reset.applyPending(a.dir, new Date(), {tries: 4});
+    assert.equal(done.deleted, true);
+    assert.ok(!fs.existsSync(a.dir) || fs.readdirSync(a.dir).length === 0, 'nothing of the profile is left');
+  } finally { holder.kill(); }
 });

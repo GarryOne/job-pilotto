@@ -26,6 +26,7 @@ import {tally} from './faults.mjs';
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
 import {readdirSync} from 'node:fs';
 import {checkKeyAccepted, checkOtherKeys} from './key-check.mjs';
+import {waitForFolderFree} from './folder-free.mjs';
 export const SUITES = readdirSync(path.join(E2E, 'suites')).filter(file => file.endsWith('.mjs')).map(file => file.slice(0, -4)).sort();
 const KEY = () => testKey();   // empty on a Mac, whatever the environment holds: the key is for CI (lib/engine.mjs)
 // Each suite has its own Notion page and connection, so suites can run at the same time. E2E_NOTION_TOKEN is the wizard's; a suite without its own token falls
@@ -146,7 +147,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     if (child.exitCode !== null || child.signalCode) return resolve();
     const timer = setTimeout(() => reject(new Error(`the app did not exit by itself within ${timeout / 1000} s`)), timeout);
     child.once('exit', () => { clearTimeout(timer); resolve(); });
-  });
+  }).then(() => process.platform === 'win32' && session?.profile ? waitForFolderFree(session.profile) : null);   // Windows: the app's own children may still hold the folder
   ctx.expectStep = async (name, timeout = 20000) => {
     await ctx.page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });

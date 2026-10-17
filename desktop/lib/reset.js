@@ -100,23 +100,45 @@ export function whenUnlocked(work, {tries = 40, every = 250, waited = {ms: 0}} =
   }
 }
 
+// The folder itself cannot be removed or renamed for good (17 Oct 2026, Windows CI: "EPERM ... jp-e2e-xxxx" for 14 s, the reset not applied): a process still has the
+// folder open or as its working directory, which Windows allows for the folder but not for its files. What is in it goes one by one, to `backup` (a folder made here) or
+// out of the world, and the empty folder stays, which the app fills again like a new one. A Chromium file that stays locked (LEFT_OUT: caches, its storage) is left; one of
+// the app's own that stays locked is an error as before, and the person is told (data.js "Import or reset did not finish").
+function emptyFolder(dir, backup, waited, done, tries) {
+  const unlocked = work => whenUnlocked(work, {tries: Math.min(tries, 8), waited});
+  if (backup) fs.mkdirSync(backup, {recursive: true});
+  const stayed = [];
+  for (const name of fs.readdirSync(dir)) {
+    try { unlocked(() => (backup ? fs.renameSync(path.join(dir, name), path.join(backup, name)) : fs.rmSync(path.join(dir, name), {recursive: true, force: true}))); }
+    catch (error) { if (!LOCKED.has(error.code) || !LEFT_OUT.some(rule => rule.test(name))) throw error; stayed.push(name); }
+  }
+  if (stayed.length) done.stayed = stayed;
+  done.emptied = true;
+}
+// An import into a folder that already exists: each of its entries moves in (the export holds only the app's own files, never Chromium's).
+function moveInto(from, dir, unlocked) {
+  for (const name of fs.readdirSync(from)) unlocked(() => fs.renameSync(path.join(from, name), path.join(dir, name)));
+  fs.rmSync(from, {recursive: true, force: true});
+}
+
 // At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {waited: ms on a locked folder}.
-export function applyPending(dir, now = new Date()) {
+export function applyPending(dir, now = new Date(), {tries = 40} = {}) {
   const marker = path.join(dir, MARKER);
   if (!fs.existsSync(marker)) return null;
   let wanted = {backup: true};
   try { wanted = JSON.parse(fs.readFileSync(marker, 'utf8')); } catch {}
-  const done = {}, waited = {ms: 0}, unlocked = work => whenUnlocked(work, {waited});
+  const done = {}, waited = {ms: 0}, unlocked = work => whenUnlocked(work, {waited, tries});
   if (wanted.backup !== false) {
     done.backup = backupName(dir, now);
-    unlocked(() => fs.renameSync(dir, done.backup));
+    try { unlocked(() => fs.renameSync(dir, done.backup)); } catch (error) { if (!LOCKED.has(error.code)) throw error; emptyFolder(dir, done.backup, waited, done, tries); }
     fs.rmSync(path.join(done.backup, MARKER), {force: true});
   } else {
-    unlocked(() => fs.rmSync(dir, {recursive: true, force: true}));
+    try { unlocked(() => fs.rmSync(dir, {recursive: true, force: true})); } catch (error) { if (!LOCKED.has(error.code)) throw error; emptyFolder(dir, '', waited, done, tries); }
     done.deleted = true;
   }
   if (wanted.import && fs.existsSync(wanted.import)) {
-    unlocked(() => fs.renameSync(wanted.import, dir));
+    if (fs.existsSync(dir)) moveInto(wanted.import, dir, unlocked);   // the folder itself stayed (a lock on it, see emptyFolder): the import goes in beside what stayed
+    else unlocked(() => fs.renameSync(wanted.import, dir));
     fs.rmSync(path.join(dir, 'manifest.json'), {force: true});
     fs.rmSync(path.join(dir, NOTION_FILE), {force: true});  // a copy for the user to keep; Notion stays the truth
     done.imported = true;
