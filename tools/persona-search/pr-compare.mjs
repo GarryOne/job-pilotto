@@ -30,6 +30,8 @@ const ICON = {worse: '🔴 Worse', stale: '🟡 Tape stale', new: '⚪ Nothing t
 const cell = (now, base, field, unit = '') => `${base?.[field] ?? '–'}${unit} → ${now?.[field] ?? '–'}${unit}`;
 
 export function line(candidate, now, base, verdict) {
+  if (now?.state !== 'ok') now = null;    // a stale or crashed replay's numbers are thin: never printed beside its verdict
+  if (base?.state !== 'ok') base = null;
   return `| ${candidate} | ${ICON[verdict.state]} | ${cell(now, base, 'in_places')} | ${cell(now, base, 'fit70')} | ${cell(now, base, 'first_s', ' s')} | ${cell(now, base, 'fit_s', ' s')} | ${verdict.why.join('; ') || ''} |`;
 }
 

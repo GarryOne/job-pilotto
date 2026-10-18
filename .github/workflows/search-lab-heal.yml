@@ -166,3 +166,9 @@ jobs:
       - name: Replay it now, so the Lab page shows the healed row
         if: github.event_name != 'workflow_dispatch' || inputs.publish
         run: gh workflow run search-lab.yml --ref main
+      - name: Keep a failed heal's tape for debugging (encrypted, on the private repo, the newest 5)
+        if: failure()
+        continue-on-error: true   # a tape that was never recorded has nothing to keep
+        env:
+          GH_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_WRITE_TOKEN }}
+        run: node tools/persona-search/tape-store.mjs publish-debug "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"

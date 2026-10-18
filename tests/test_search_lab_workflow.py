@@ -69,7 +69,9 @@ class HealWorkflow(unittest.TestCase):
     def test_a_new_tape_is_published_only_after_two_replays_agree(self):
         verify, publish = self.heal.index('heal.mjs verify'), self.heal.index('tape-store.mjs publish')
         self.assertLess(verify, publish, 'a tape is verified before it replaces the old one (the step order stops the job on a failed verify)')
-        self.assertEqual(self.heal.count('NET_RECORDS_WRITE_TOKEN'), 1, 'the write token is read by the publish step only')
+        self.assertEqual(self.heal.count('NET_RECORDS_WRITE_TOKEN'), 2, 'the write token is read by the publish step and by the failed heal\'s keep-for-debugging step, both after the verify')
+        self.assertGreater(self.heal.rindex('NET_RECORDS_WRITE_TOKEN'), self.heal.index('heal.mjs verify'))
+        self.assertGreater(self.heal.index('NET_RECORDS_WRITE_TOKEN'), self.heal.index('heal.mjs verify'))
         self.assertNotIn('lab-upload', self.heal, 'the numbers are posted by the replay workflow, never by the heal')
 
     def test_a_failed_verify_stops_the_job_before_the_publish(self):
@@ -182,6 +184,36 @@ class PullRequestReplay(unittest.TestCase):
                          'a stale tape or no comparison is never red; a lower count, a time over 25% (0% for the control), a crash main does not have, or a time no longer reached is')
         self.assertIn('re-record after the merge', node("import {compare} from './tools/persona-search/pr-compare.mjs';"
                                                        "console.log(JSON.stringify(compare({state: 'stale', failed_step: 'Tape stale (1 AI)'}, null).why.join(' ')))"))
+
+
+class FailedHealKeepsItsTape(unittest.TestCase):
+    """A failed heal's new tape is kept, encrypted, on the private repo for an offline replay (19 Oct 2026: proof 4's tape was discarded and its replay could not be debugged)."""
+    def test_only_the_newest_pairs_stay(self):
+        out = node("import {oldDebugAssets} from './tools/persona-search/tape-store.mjs';"
+                   "const pair = (c, day) => [`search-tape-${c}-202610${day}T100000Z.tgz.enc`, `search-tape-${c}-202610${day}T100000Z.k.enc`];"
+                   "const all = ['11', '12', '13', '14', '15', '16', '17'].flatMap(day => pair('driver', day)).concat(['unrelated.txt']);"
+                   "console.log(JSON.stringify([oldDebugAssets(all), oldDebugAssets(all, 7), oldDebugAssets(pair('sre', '11'))]))")
+        self.assertEqual(out[0], ['search-tape-driver-20261011T100000Z.tgz.enc', 'search-tape-driver-20261011T100000Z.k.enc',
+                                  'search-tape-driver-20261012T100000Z.tgz.enc', 'search-tape-driver-20261012T100000Z.k.enc'], 'seven kept pairs of tapes: the oldest two go, the newest five stay')
+        self.assertEqual(out[1:], [[], []], 'nothing goes while there are not more than the limit')
+
+    def test_the_failed_heal_uploads_it_encrypted_and_never_as_a_public_artifact(self):
+        heal = (ROOT / '.github' / 'workflows' / 'search-lab-heal.yml').read_text(encoding='utf-8')
+        step = heal[heal.index("- name: Keep a failed heal's tape"):]
+        self.assertIn('if: failure()', step.split('run:')[0])
+        self.assertIn('tape-store.mjs publish-debug "$CANDIDATE" "$RUNNER_TEMP/new"', step)
+        self.assertNotIn('upload-artifact', heal, 'this repository is public: a tape holds third parties\' pages and is only ever kept encrypted on the private one')
+        store = (ROOT / 'tools' / 'persona-search' / 'tape-store.mjs').read_text(encoding='utf-8')
+        self.assertIn("DEBUG_TAG = 'search-tapes-debug'", store)
+        self.assertIn("'fetch-debug'", store)
+
+    def test_a_stale_row_prints_no_numbers_beside_its_verdict(self):
+        out = node("import {line} from './tools/persona-search/pr-compare.mjs';"
+                   "const stale = {state: 'stale', in_places: 698, fit70: 0, first_s: 5, fit_s: null}, ok = {state: 'ok', in_places: 36, fit70: 28, first_s: 100, fit_s: 400};"
+                   "console.log(JSON.stringify([line('cluj', stale, ok, {state: 'stale', why: ['x']}), line('cluj', ok, stale, {state: 'new', why: ['y']})]))")
+        self.assertNotIn('698', out[0])
+        self.assertIn('36 → –', out[0], 'main\'s own numbers still print, the PR\'s thin ones do not')
+        self.assertIn('– → 36', out[1], 'a stale base prints no numbers, the PR\'s own still do')
 
 
 if __name__ == '__main__':
