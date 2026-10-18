@@ -89,6 +89,7 @@ export async function runApply(ctx, parts) {
       }
       // What kind of page (lib/page-kind.js): the stand-in answers with each fixture's true kind, so every flow row runs on the AI's word, as in use.
       if (/^Address path:/m.test(text) && /^Controls/m.test(text)) {
+        ctx.kindAsks = (ctx.kindAsks || 0) + 1;   // counted: the night's page is never asked (the Open in Chrome step)
         const where = /^Address path: (.*)$/m.exec(text)?.[1] || '';
         const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form', [LATE.path]: 'posting',
           [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
@@ -102,6 +103,7 @@ export async function runApply(ctx, parts) {
       }
       const asked = /<form_fields>\n([\s\S]*?)\n<\/form_fields>/.exec(typeof content === 'string' ? content : (content || []).map(part => part.text || '').join(''));
       if (!asked) return null;
+      ctx.answerAsks = [...(ctx.answerAsks || []), ...JSON.parse(asked[1]).map(item => item.field)];   // counted: a question the night answered is never asked
       const answers = JSON.parse(asked[1]).filter(item => item.field === 'why').map(item => ({field: item.field, value: OPEN_ANSWER, confidence: 'medium', note: 'inferred from the profile'}));
       return JSON.stringify({eligible: true, eligibility_note: '', answers});
     });
@@ -219,6 +221,34 @@ export async function runApply(ctx, parts) {
     fail([...fillProblems({expected: {...expectedOf(form), name: CONTACT.full_name, email: CONTACT.email, why: OPEN_ANSWER}, actual}), ...cvProblems(actual, cv),
       ...highlightProblems({actual, ai: ['why'], plain: ['org', 'heard', 'email']}), ...submitProblems(forms.fired, form.path)]);
     if (proxy.stats.canned - callsBefore < 1) throw new Error('the AI was never asked about the open question');
+  }, {needs: ctx.needs});
+
+  // Ready to send's Open in Chrome (owner, 18 Oct 2026: "It should be all cached... instant"): the night's hand-off carries its page kind and AI answers; the app
+  // answers from them (lib/ready-handoff.js), so the extension fills with no page-kind ask and no question asked, and the panel says the fill is last night's.
+  await ctx.run('Open in Chrome on a form the night filled: the night\'s answer is typed, no page kind or question goes to the AI, and the panel says "Last night\'s fill is back"', async () => {
+    const form = FORMS.lever, night = 'From last night: your platform team runs what I have built for six years.';
+    const formUrl = `https://${form.host}${form.formPath}`;
+    await ctx.app.evaluate((_, given) => globalThis.__jpReadyHandoffs.keep(given, [given.posting]), {url: formUrl, posting: form.url, storage: {cookies: [], origins: []}, sessionStorage: {},
+      snapshot: {fields: [], files: []}, night: {role: 'form', answers: [{field: form.open.field, label: form.open.question, answer: {field: form.open.field, value: night, confidence: 'medium', note: ''}}]}});
+    const kinds = ctx.kindAsks || 0, answered = (ctx.answerAsks || []).length;
+    try {
+      const {tab, state} = await apply(form, {viaApi: true});
+      if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
+      const actual = await readForm(tab);
+      const problems = [];
+      if (actual[form.open.field]?.value !== night) problems.push(`the open question holds "${String(actual[form.open.field]?.value || '').slice(0, 60)}", not the night's answer`);
+      if ((ctx.kindAsks || 0) !== kinds) problems.push(`the page kind went to the AI ${(ctx.kindAsks || 0) - kinds} time(s): the night's kind was not used`);
+      const asked = (ctx.answerAsks || []).slice(answered);
+      if (asked.includes(form.open.field)) problems.push('the question the night answered went to the AI');
+      let said = '';
+      for (let waited = 0; waited < 10000 && !/Last night.s fill is back/.test(said); waited += 500) {   // the panel redraws on its own beat after the fill
+        said = await tab.evaluate(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.pill small')?.textContent || '');
+        if (!/Last night.s fill is back/.test(said)) await pause(500);
+      }
+      if (!/Last night.s fill is back/.test(said)) problems.push(`the panel says "${said}", not "Last night's fill is back"`);
+      fail([...problems, ...submitProblems(forms.fired, form.path)]);
+      console.log(`  night's answer typed; page-kind asks ${(ctx.kindAsks || 0) - kinds}; questions asked: ${asked.join(', ') || 'none'}; panel: "${said}"`);
+    } finally { await ctx.app.evaluate(() => globalThis.__jpReadyHandoffs.clear()); }   // the later steps fill this form as any other
   }, {needs: ctx.needs});
 
   await ctx.run('a multi-step form: step 1 is filled, step 2 only once you reach it, the consent is left to you, Submit untouched', async () => {
