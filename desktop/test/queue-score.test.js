@@ -86,7 +86,7 @@ const ADAPTERS = {
 for (const [name, setup] of Object.entries(ADAPTERS)) {
   test(`${name}: the queue is one scored list; the visa question is asked once, as its Your details fact, first`, async () => {
     const {storage, fetcher} = await setup();
-    storage.saveSettings({questionVerdicts: VERDICTS});
+    storage.saveSettings({questionVerdicts: VERDICTS, missingFacts: {since: '2020-01-01'}});   // past the fresh install's 14 days: no missing-fact items beside these
     assert.ok((await factsOf(storage, fetcher)).some(fact => fact.label === 'Work permit / visa' && fact.value === ''), 'a fact with no value is listed (for the AI to map questions to)');
     const {list, fromDetails} = await openShown(storage, {fetcher, ai: {}});
     assert.deepEqual(list.map(row => row.question), ['Work permit / visa', 'Salary expectation', 'Rare question']);

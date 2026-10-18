@@ -11,14 +11,15 @@ import {HOME_NAMES, homeOf, writeHome} from './answer-home.js';
 import {formatFor} from '../renderer/question-kind.js';
 import {KEEP_AS_IS, keyOf} from '../renderer/question-filter.js';
 import {needsCheck} from '../renderer/question-values.js';
+import * as missingFacts from './missing-facts.js';
 import {PARTS, splitNote} from '../renderer/experience-profile-model.js';
 import * as clarity from './answer-clarity.js';
 
 export const PREFIX = 'details:';
-export const KINDS = ['which', 'where', 'check', 'open', 'unclear'];
+export const KINDS = ['which', 'where', 'check', 'open', 'unclear', 'missing'];
 export const KEEP = 'Keep on the Profile';
 export {KEEP_AS_IS};   // an unclear answer the person keeps: never asked again for that value
-const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: 'Not answered yet', unclear: 'Unclear'};
+const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: 'Not answered yet', unclear: 'Unclear', missing: 'Not filled in yet'};
 const PAGES = {profile: 'Profile', answers: 'Application answers'};
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const same = text => plain(text).toLowerCase();
@@ -50,7 +51,7 @@ function parse(key) {
 const item = (kind, ref, fields) => ({key: keyFor(kind, ref), company: '', hint: '', ...fields, details: {kind, source: SOURCES[kind], ...fields.details}});
 
 // The queue items, as the pages are now (a line gone from its page is not asked). Reads the Profile, and the answers page only when a choice is there.
-export async function pending(storage, {fetcher} = {}) {
+export async function pending(storage, {fetcher, now = new Date(), ai = {}} = {}) {
   const opened = openStore(storage, {fetcher}), kept = formats.kept(storage);
   const found = await sections.read(storage, fetcher);
   const outlines = {profile: await opened.page('profile').outline()};
@@ -92,6 +93,12 @@ export async function pending(storage, {fetcher} = {}) {
     .filter(each => each.open && /\p{L}/u.test(each.label) && !each.label.includes('❓') && !owned.has(each.id.slice('profile:'.length)) && isAsk(each.label, each.key));
   for (const each of asks) {
     out.push(item('open', {page: 'profile', label: each.label}, {question: each.label, format: formatFor({kept: kept[keyOf(each.label)]}), hint: hintOf(each.key), details: {where: PAGES.profile, fact: each.label}}));
+  }
+  // The facts forms ask that nothing holds yet (lib/missing-facts.js): a few a day, the queue's most important first.
+  const have = [...Object.values(found).flat().map(line => line.label), ...itemsOf(outlines.profile, 'profile', {withOpen: true}).map(each => each.label)];
+  const covered = await missingFacts.covered(storage, have, {ai});
+  for (const fact of missingFacts.pick(storage, have, {now, covered})) {
+    out.push(item('missing', {id: fact.id}, {question: fact.question, format: fact.format, hint: fact.hint, details: {where: HOME_NAMES[fact.home], fact: fact.label}}));
   }
   return out;
 }
@@ -150,6 +157,12 @@ export async function answer(storage, key, value, {fetcher, ai = {}, save = sect
     if (line.table) await line.page.setCell(line.block, 1, text.slice(0, 1900));
     else await line.page.setText(line.block, `${ref.label}: ${text}`);
     return {ok: true, homeName: 'your Profile'};
+  }
+  if (kind === 'missing') {
+    const fact = missingFacts.byId(ref.id);
+    if (!fact) return {ok: false, error: 'That question is no longer open'};
+    if (!text) { missingFacts.never(storage, fact.id); return {ok: true}; }   // "Don't keep": never asked again
+    return await writeHome(storage, fact.home, fact.label, text, fetcher, save) ? {ok: true, homeName: HOME_NAMES[fact.home]} : {ok: false, error: 'It did not save; nothing else changed'};
   }
   return {ok: false, error: 'That question is no longer open'};
 }

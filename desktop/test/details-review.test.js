@@ -79,6 +79,9 @@ const FIXTURES = {
     assert.match(answers, /Years of experience with Kubernetes \| 3 years/, 'the new value replaces the guess on its own line');
     assert.doesNotMatch(answers, /maybe 3\?/);
   }},
+  missing: {match: /^Earliest start date/, answer: () => '1 December 2026', after: async env => {
+    assert.ok((await sections.read(env.storage, env.fetcher)).availability.some(line => line.label === 'Earliest start date' && line.value === '1 December 2026'), 'a fact nobody had given goes to its section');
+  }},
 };
 
 test('every kind of unclear field has a fixture here (a new kind must join the queue and this test)', () => {

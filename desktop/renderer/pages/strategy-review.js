@@ -353,6 +353,7 @@ async function finishSetup() {
   // The first search starts now, on screen, so the list fills in while the user watches.
   window.pilot.firstSearch();
   showSearchStatus();
+  import('./missing-facts-open.js').then(page => page.openOnceAfterSetup()).catch(() => {});   // the most important missing fact, asked once (lib/missing-facts.js)
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

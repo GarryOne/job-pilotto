@@ -5,10 +5,12 @@
 // Guarded by test/question-base-facts.test.js and test/queue-score.test.js.
 import * as contact from './contact.js';
 import * as sections from './profile-sections.js';
+import * as missing from './missing-facts.js';
 
 export async function factsOf(storage, fetcher) {
   const [details, extra] = await Promise.all([contact.read(storage, fetcher).catch(() => ({})), sections.read(storage, fetcher).catch(() => ({}))]);
   const own = Object.entries(contact.LABELS).filter(([key]) => details[key]).map(([key, label]) => ({label, value: details[key]}));
   const lines = Object.values(extra).flat().map(item => (/^❓/.test(String(item.value || '').trim()) ? {label: item.label, value: ''} : item)).filter(item => item.value || item.label);
-  return [...own, ...lines.filter(item => item.value), ...lines.filter(item => !item.value)].filter((item, at, all) => all.findIndex(each => each.label === item.label) === at);
+  const gone = missing.listed(storage, [...own, ...lines].map(item => item.label));   // the facts of the catalogue nothing holds: asked once, as their own item (lib/missing-facts.js)
+  return [...own, ...lines.filter(item => item.value), ...lines.filter(item => !item.value), ...gone].filter((item, at, all) => all.findIndex(each => each.label === item.label) === at);
 }
