@@ -10,6 +10,7 @@
 //   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder/other.js), the same delta rule, at most 40
 //   "repairs": [{"fp": "k3x9a1", "verb": "retype", "ok": 2, "failed": 0}, ...]   // what the fill ladder's control repairs did per control fingerprint (lib/ladder/repair-feed.js), the same delta rule, at most 40
 // The site stores them per source (site/src/ladder-moves.js: 'user' here; the CI pool and the replays send theirs marked 'ci' / 'replay'); serving them (k>=3 installs) is not built.
+import * as factAsks from './fact-asks.js';
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe, whyWord} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
@@ -297,10 +298,10 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     async flush() { return flush(); },
   };
   function emptyIntel() { return {terms: [], coverage: null, dismissals: new Map(), snapshot: null, replies: new Map(), sources: null, fixes: new Map()}; }
-  function hasIntel() { return !!(intel.terms.length || intel.coverage || intel.dismissals.size || intel.snapshot || intel.replies.size || intel.sources || intel.fixes.size); }   // a function declaration: used above the return
+  function hasIntel() { return !!(factAsks.pending(storage).length || intel.terms.length || intel.coverage || intel.dismissals.size || intel.snapshot || intel.replies.size || intel.sources || intel.fixes.size); }   // a function declaration: used above the return
   function takeIntel() {
     const out = {terms: intel.terms, coverage: intel.coverage, dismissals: [...intel.dismissals.values()], snapshot: intel.snapshot || [], replies: [...intel.replies.values()], sources: intel.sources || [],
-      fixes: [...intel.fixes.values()].slice(0, 40)};
+      fixes: [...intel.fixes.values()].slice(0, 40), facts: factAsks.due(storage)};
     intel = emptyIntel();
     return out;
   }

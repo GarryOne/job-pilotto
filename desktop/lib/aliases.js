@@ -1,6 +1,7 @@
 // The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 // extension asks the app, the app asks the site (with the same install token as the recipes), remembers the answer for a few hours and
 // passes on only what the shared schema accepts. Off with the Technical reports switch: nothing is asked, the built-in patterns work alone.
+import * as factAsks from './fact-asks.js';
 import {cleanLabel, validateBundle} from '../shared/alias-schema.js';
 import {installId} from './app-feedback.js';
 import * as benchmarks from './benchmarks.js';
@@ -66,6 +67,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     storage.writeText(CACHE, JSON.stringify({at: now, aliases}));
     benchmarks.save(storage, body.benchmarks, now);
     storage.writeText('data/hints.json', JSON.stringify({at: now, hints: cleanHints(body.hints)}));   // read by the scoring step (src/ai/hints.py)
+    storage.writeText(factAsks.FILE, JSON.stringify({at: now, facts: factAsks.clean(body.facts)}));   // read by lib/missing-facts.js (the order of the facts to ask)
     storage.writeText('data/meanings.json', JSON.stringify({at: now, ...cleanMeanings(body.meanings)}));   // read by src/ai/meanings_pack.py
     await sendMeanings(storage, id, fetcher, base).catch(error => log('aliases', `meanings not sent: ${error.message}`));
     return aliases;

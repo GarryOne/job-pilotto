@@ -106,6 +106,7 @@ test('changed-answer wordings become review targets only when enough people and 
   e.STATS.db.prepare("INSERT INTO intel_dismiss (day, reason, bucket, n) VALUES ('2026-10-01', 'seniority', '60-79', 60)").run();
   const served = await (await serve(e, 'install-aaaa-1111')).json();
   assert.deepEqual(served.hints, [{reason: 'seniority', share: 1}]);
+  assert.deepEqual(served.facts, [], 'the pack carries the facts forms ask (none reported here; site/src/fact-asks.js)');
   await owner(e, 'PUT', {status: 'verified', items: [{key: 'email', phrase: 'Courriel'}]});
   e.STATS.db.prepare("INSERT INTO alias_outcomes (day, phrase, ok, failed) VALUES ('2026-10-01', 'courriel', 10, 30)").run();
   assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);

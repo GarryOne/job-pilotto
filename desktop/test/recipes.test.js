@@ -358,3 +358,19 @@ test('a failed outcome carries a fixed reason word, never the operator\'s own me
   await reporter.flush();
   assert.deepEqual(sent.at(-1).outcomes.map(o => [o.fp, o.why]), [['aaaaaa1', 'no_answer'], ['aaaaaa2', 'no_option'], ['aaaaaa3', 'not_opened'], ['aaaaaa4', 'other'], ['aaaaaa5', undefined]]);
 });
+
+test('the facts forms asked go as fixed ids once a day, alone if nothing else is waiting, and never with reports off', async () => {
+  const storage = tempStorage(), calls = [];
+  storage.saveSettings({questionVerdicts: {a: {reuse: 'details', fact: 'Notice period', asked: 1, question: 'Kündigungsfrist?'}}});
+  const fetcher = async (url, init = {}) => {
+    if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: true, status: 200, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  await reporter.flush();
+  assert.deepEqual(calls[0].intel.facts, ['notice'], 'the fixed id, never the wording');
+  assert.ok(!JSON.stringify(calls[0]).includes('Kündigungsfrist'));
+  await reporter.flush();
+  assert.equal(calls.length, 1, 'once a day');
+});
