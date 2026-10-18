@@ -6,7 +6,7 @@ JOB_PILOTTO_SEARCH_TAPE=<folder> and JOB_PILOTTO_SEARCH_TAPE_MODE=record|replay 
 imports urllib). Off by default: a normal run never loads it.
 - The web: urllib.request.urlopen, the one way the engine reaches a site. Record keeps the body, status and time; replay serves it after the
   recorded time (x JOB_PILOTTO_TAPE_SPEED, default 1) and a URL the tape lacks fails like an unreachable site: nothing leaves the computer.
-- The AI: engine.client()'s messages.create. Record keeps each answer and its time, keyed by the whole request; replay serves it after its
+- The AI: the engine's AI client (messages.create). Record keeps each answer and its time, keyed by the whole request; replay serves it after its
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
 Tests: tests/test_search_tape.py."""
 import hashlib
@@ -183,7 +183,7 @@ class _Messages:
 
 
 class _Client:
-    """engine.client()'s stand-in: answers from the tape, builds the live client only for a request the tape lacks."""
+    """The engine's AI client stand-in: answers from the tape, builds the live client only for a request the tape lacks."""
     def __init__(self, build):
         self._build, self._live = build, None
         self.messages = _Messages(self.live)
