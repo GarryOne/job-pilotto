@@ -8,7 +8,7 @@ import {claudeAi} from './question-ai.js';
 import {tidy} from './answers-tidy.js';
 import * as formats from './question-formats.js';
 import {factsOf} from './base-facts.js';
-import {keyOf, visibleQuestions} from '../renderer/question-filter.js';
+import {keyOf, ranked, visibleQuestions} from '../renderer/question-filter.js';
 import {formatFor, proposalIn} from '../renderer/question-kind.js';
 import * as detailsReview from './details-review.js';
 
@@ -27,15 +27,16 @@ const withFormat = (rows, kept) => rows.map(row => {
   return proposal ? {...row, format, proposal} : {...row, format, proposal: undefined, coveredBy: undefined};
 });
 
-// Jobs → Answer once: {list: shown (a covered question carries .proposal; each row its .format), then Your details' unclear fields (lib/details-review.js:
-// one queue, owner 18 Oct 2026), hidden: [...], usage}. A failed read of those leaves the form questions as they are.
+// Jobs → Answer once: {list: shown (a covered question carries .proposal; each row its .format) and Your details' unclear fields (lib/details-review.js:
+// one queue, owner 18 Oct 2026), in one scored order, hidden: [...], usage}. A failed read of those leaves the form questions as they are.
 export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows = null, groups = null} = {}) {
   if (!rows) await tidy(storage, {fetcher}).catch(() => {});   // the junk an older fill saved goes first (lib/answers-tidy.js)
   const {shown, hidden, fromDetails, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), facts: await factsOf(storage, fetcher), ai});
   const kept = await keptFormats(storage, shown, ai);
   if (!rows) await detailsReview.judgeNew(storage, {fetcher, ai}).catch(() => {});   // each save: answers saved since the last load get the AI's word (no new line: no call)
   const details = rows ? [] : await detailsReview.pending(storage, {fetcher}).catch(() => []);
-  return {list: [...withFormat(shown, kept), ...details], hidden: withFormat(hidden, kept), fromDetails: fromDetails.length, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
+  // One score for the whole list (owner, 18 Oct 2026): form questions and Your details items in one order (renderer/question-filter.js ranked).
+  return {list: ranked([...withFormat(shown, kept), ...details], verdicts.cached(storage)), hidden: withFormat(hidden, kept), fromDetails: fromDetails.length, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
 
 // Profile → Needs review: the verdict map for these labels (classifying new ones), the window filters with visibleQuestions; and the kinds this Mac kept for
