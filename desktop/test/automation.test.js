@@ -70,6 +70,16 @@ test('a Gmail check looks back far enough to cover the time since the last good 
   assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '2', '--send', '--log-run']);
 });
 
+test('every mode that runs AI steps has the 3-minute budget (the first run follow-up, mode today, had none)', () => {
+  const storage = tempStorage();
+  storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
+  for (const mode of ['scheduled', 'run', 'today']) {
+    const args = pipeline.dailyArgs(storage, {mode});
+    assert.ok(args.includes('--score-max'), `${mode} scores`);
+    assert.equal(args[args.indexOf('--budget') + 1], '180', `${mode} stops its AI steps at 3 minutes`);
+  }
+});
+
 test('Telegram actions run the same pipeline command as the GitHub workflow', () => {
   const storage = tempStorage();
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'today'}), ['src', 'daily', '--mode', 'today', '--log-run']);
