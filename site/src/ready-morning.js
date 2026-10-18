@@ -1,7 +1,8 @@
 // Ready to send, the morning's way to the held tabs (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): the owner's calls for the live view, the hand-off and "what is held" go to the night's container through the runner Worker
 // (service binding env.READY_RUNNER), carrying the night token the container was started with. Without the binding (not deployed yet) they answer 503 "not wired". Also the close: when a night has nothing left, its tabs are closed.
-// The night token is derived from the batch id (a Worker secret), never stored. Guard: site/test/ready-wiring.test.js.
+// The night token is derived from the batch id (a Worker secret), never stored. Guard: site/test/ready-wiring.test.js, ready-to-send.test.js (the kept hand-off).
 import {tokenFor} from './guard.js';
+import {keptGet} from './ready-kept.js';
 
 export const readyToken = async (env, id) => `RR1.${id}.${await tokenFor(id, env, 'ready-run')}`;
 const PATHS = {live: 'live', handoff: 'handoff', held: 'held'};   // what the owner asks -> what the runner Worker exposes
@@ -14,11 +15,16 @@ async function holder(env, install, job) {
 }
 
 // sub: live | handoff | held (the owner's key was checked by the caller). The WebSocket upgrade of "live" passes through as it came.
+// The hand-off is served from what the night kept first (src/ready-kept.js): it works after the container is gone (a deploy, its sleep) and wakes no container.
 export async function morning(request, env, install, sub) {
-  if (!env.READY_RUNNER) return unwired();
   const job = new URL(request.url).searchParams.get('job') || '';
+  if (sub === 'handoff') {
+    const kept = await keptGet(env, install, 'handoff', job).catch(() => null);
+    if (kept) return Response.json({ok: true, ...JSON.parse(new TextDecoder().decode(kept))}, {headers: {'cache-control': 'no-store'}});
+  }
   const found = sub === 'held' ? await env.STATS.prepare("SELECT id FROM ready_batches WHERE install = ? AND state IN ('running', 'finished', 'capped') ORDER BY created_at DESC LIMIT 1").bind(install).first() : await holder(env, install, job);
   if (!found) return Response.json({ok: false, error: 'nothing held for this job'}, {status: 404});
+  if (!env.READY_RUNNER) return unwired();
   const address = `https://runner/${PATHS[sub]}?batch=${found.id}&t=${encodeURIComponent(await readyToken(env, found.id))}&job=${encodeURIComponent(job)}`;
   const reply = await env.READY_RUNNER.fetch(new Request(address, request));
   if (reply.status === 101) return reply;   // the live view's WebSocket

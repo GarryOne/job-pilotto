@@ -1,11 +1,11 @@
 // The Ready to send container (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), the process the Worker starts: POST /run {site, token} fills the night in the background; the morning's calls then reach the held tabs:
-//  GET /state?t=  per job: held or not;  WS /ws?t=&job=  the live view;  GET /handoff?t=&job=  the hand-off;  POST /close?t=  closes every tab and the browser (the data goes with it: nothing was written to disk but the browser's temp profile).
+//  GET /state?t=  per job: held or not (410 "gone" when this container holds no night: a fresh one woken after a deploy, or closed);  WS /ws?t=&job=  the live view;  GET /handoff?t=&job=  the hand-off;  POST /close?t=  closes every tab and the browser (the data goes with it: nothing was written to disk but the browser's temp profile).
 // Every call needs the night token (the Worker checks the owner first; this is a second lock). No secret is baked in; the token arrives in /run. Guard: desktop/test/ready-fill.test.js, hosted/ready-fill/proof.mjs.
 import http from 'node:http';
 import {chromium} from 'playwright';
 import {WebSocketServer} from 'ws';
 import {attach, handoff} from './live.mjs';
-import {runNight, why} from './night.mjs';
+import {gone, runNight, why} from './night.mjs';
 
 let night = null, token = '', status = {state: 'idle', jobs: 0, filled: 0};
 const log = (what, data = {}) => console.log(JSON.stringify({what, ...data}));   // counts and words only
@@ -25,6 +25,7 @@ const server = http.createServer(async (request, response) => {
       return json(response, 202, {ok: true});
     }
     if (url.pathname === '/health') return json(response, 200, {ok: true, ...status});
+    if (['/state', '/handoff'].includes(url.pathname) && gone(night, status)) return json(response, 410, {ok: false, error: 'gone: this container holds no night'});   // a fresh one woken after a deploy: the runner stops it
     if (!allowed(url)) return json(response, 401, {ok: false, error: 'unauthorized'});
     if (url.pathname === '/state') return json(response, 200, {ok: true, ...status, held: [...(night?.held.keys() || [])]});
     if (url.pathname === '/handoff') { const page = night?.held.get(url.searchParams.get('job')); return page ? json(response, 200, await handoff(page)) : json(response, 404, {ok: false, error: 'not held'}); }

@@ -28,7 +28,7 @@ button.go{background:var(--acc);border-color:var(--acc);color:#fff}button:disabl
   const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ready/live?job=${encodeURIComponent(job)}&k=${encodeURIComponent(k)}`);
   const send = message => socket.readyState === 1 && socket.send(JSON.stringify(message));
   socket.onopen = () => { say('Live'); done.disabled = false; screen.focus(); };
-  socket.onclose = () => { say('Closed: open it again from the app (Actions → Ready to send → Open live recording).'); done.disabled = true; if (screen.hidden) wait.textContent = 'The live view closed before the form showed. Open it again from the app.'; };
+  socket.onclose = () => { say('Closed: open it again from the app (Actions → Ready to send → Open live recording).'); done.disabled = true; if (screen.hidden) wait.textContent = 'The server no longer holds this filled form (it restarted or the night ended). In the app, Open in my browser still opens it until Done or 24 h; or press Fill now to fill it again.'; };
   socket.onmessage = event => { let m; try { m = JSON.parse(event.data); } catch { return; } if (m.kind === 'first' || m.kind === 'frame') { screen.src = `data:image/jpeg;base64,${m.data}`; screen.hidden = false; wait.hidden = true; } };
   const at = event => { const box = screen.getBoundingClientRect(); return {x: (event.clientX - box.left) * (screen.naturalWidth / box.width), y: (event.clientY - box.top) * (screen.naturalHeight / box.height)}; };
   const buttons = event => ({button: ['left', 'middle', 'right'][event.button] || 'left', buttons: event.buttons});

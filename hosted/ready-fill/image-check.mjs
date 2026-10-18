@@ -28,6 +28,10 @@ try {
   let up = false;
   for (const end = Date.now() + 60000; !up && Date.now() < end; await pause(500)) up = await fetch(`http://127.0.0.1:${BOX_PORT}/health`).then(r => r.ok, () => false);
   if (!up) throw new Error('the container did not answer /health within 60 s');
+  for (const route of ['state', 'handoff']) {   // a fresh container holds no night: "gone", so the runner stops it and the app says to press Fill now (not "not on for this install")
+    const answer = await fetch(`http://127.0.0.1:${BOX_PORT}/${route}?t=&job=j1`);
+    if (answer.status !== 410) throw new Error(`a fresh container answered /${route} with ${answer.status}, not 410 gone`);
+  }
   const run = await fetch(`http://127.0.0.1:${BOX_PORT}/run`, {method: 'POST', body: JSON.stringify({site: `http://host.docker.internal:${SITE_PORT}`, token: 'check'})});
   if (run.status !== 202) throw new Error(`/run answered ${run.status}`);
   let state = {state: 'running'};
@@ -46,4 +50,4 @@ finally {
   site.close();
 }
 if (failed) { console.error(`image check FAILED: ${failed}`); process.exit(1); }
-console.log('image check OK: the night read its batch, tried the job, posted its result and its video');
+console.log('image check OK: a fresh container says gone; the night read its batch, tried the job, posted its result and its video');
