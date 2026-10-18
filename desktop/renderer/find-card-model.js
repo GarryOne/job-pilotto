@@ -34,6 +34,14 @@ export function runCounts(log = []) {
   return {looked: 0, matches: 0, scored: 0, good: 0};
 }
 
+// One definition of a search run's numbers, read by the Find jobs card and the Recent activity run card (owner, 19 Oct 2026): found = the possible jobs
+// for you, scored, good fits (70+), and waiting = found but not scored yet. Null when the run has no counts line (an older run): nothing is invented.
+export function searchNumbers(log = []) {
+  if (!(log || []).some(line => COUNTS.test(String(line)))) return null;
+  const {matches, scored, good} = runCounts(log);
+  return {found: matches, scored, good, waiting: Math.max(0, matches - scored)};
+}
+
 // The employer read as progress: the latest "Reading employer job sites: 1953 of 2251" ticker line (src/progress.py), or null before it starts.
 export function employersRead(log = []) {
   for (let i = log.length - 1; i >= 0; i--) {
@@ -52,7 +60,7 @@ export function findCard({running = null, last = null, lastSearchAt = '', listed
     return {state: 'searching', chips: stepChips(log), lines, ...runCounts(log), employers: employersRead(log), first: log.some(line => FIRST.test(String(line)))};
   }
   if (last && last.ok === false && (finishedHere || !listed)) return {state: 'failed', problem: last.problem || last.result || '', listed};
-  if (finishedHere && last) return {state: 'done', listed, found: last.new ?? null, ...runCounts(last.log)};
+  if (finishedHere && last) return {state: 'done', listed, found: last.new ?? null, ...runCounts(last.log), waiting: Math.max(0, runCounts(last.log).matches - runCounts(last.log).scored)};
   if (!lastSearchAt && !listed) return {state: 'empty'};
   return {state: 'none'};
 }

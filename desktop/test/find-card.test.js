@@ -1,7 +1,7 @@
 // The Find jobs card on top of Jobs: its five states, the running step, the counts. The page code (pages/jobs-find.js) only draws this.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runCounts, findCard, stepChips, employersRead} from '../renderer/find-card-model.js';
+import {runCounts, findCard, stepChips, employersRead, searchNumbers} from '../renderer/find-card-model.js';
 
 const run = log => ({kind: 'search', log});
 
@@ -91,4 +91,14 @@ test('matches rise during the employer read, good fits are 70+, employers read a
 test('the done card shows the same three numbers as the searching card', () => {
   const done = findCard({last: {ok: true, new: 4, log: ['Run counts: looked=612 matches=14 scored=9 good=3']}, lastSearchAt: 'x', listed: 351, finishedHere: true});
   assert.deepEqual([done.state, done.matches, done.scored, done.good, done.looked], ['done', 14, 9, 3, 612]);
+});
+
+test('one definition of a search run: found, scored, good fits, waiting; the Find card and the run card read the same function', async () => {
+  const log = ['Run counts: looked=168107 matches=2566 scored=30 good=4'];
+  assert.deepEqual(searchNumbers(log), {found: 2566, scored: 30, good: 4, waiting: 2536});
+  assert.equal(searchNumbers(['Scored 1 of 3 job(s)']), null, 'a run without the counts line has no numbers: nothing is invented');
+  const done = findCard({last: {ok: true, log}, lastSearchAt: 'x', listed: 1, finishedHere: true});
+  assert.deepEqual([done.matches, done.scored, done.good, done.waiting], [2566, 30, 4, 2536]);
+  const fs = await import('node:fs'), card = fs.readFileSync(new URL('../renderer/pages/activity-run-card.js', import.meta.url), 'utf8');
+  assert.match(card, /searchNumbers\(run\?\.log\)/, 'the Recent activity run card shows the shared numbers');
 });
