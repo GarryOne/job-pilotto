@@ -153,7 +153,7 @@ function paletteCommands() {
   button('jobs', 'refresh', 'find jobs scan');
   button('employers', 'emp-paste', 'add employers companies paste page text address list newsletter portfolio talent agent matches startups');
   // Application questions, one at a time (pages/question-review.js): the same drawer as Jobs' card and Profile → Application answers.
-  add('Jobs', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing suggested forms application',
+  add('Jobs', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing facts details notice period salary permit suggested forms application',
     () => openQuestionReview());
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.

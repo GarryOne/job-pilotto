@@ -34,7 +34,7 @@ export async function openShown(storage, {fetcher, ai = claudeAi(storage), rows 
   const {shown, hidden, fromDetails, usage} = await verdicts.split(storage, rows || await questions.list(storage, fetcher), {answered: await answeredNow(storage, groups, fetcher), facts: await factsOf(storage, fetcher), ai});
   const kept = await keptFormats(storage, shown, ai);
   if (!rows) await detailsReview.judgeNew(storage, {fetcher, ai}).catch(() => {});   // each save: answers saved since the last load get the AI's word (no new line: no call)
-  const details = rows ? [] : await detailsReview.pending(storage, {fetcher}).catch(() => []);
+  const details = rows ? [] : await detailsReview.pending(storage, {fetcher, ai}).catch(() => []);
   // One score for the whole list (owner, 18 Oct 2026): form questions and Your details items in one order (renderer/question-filter.js ranked).
   return {list: ranked([...withFormat(shown, kept), ...details], verdicts.cached(storage)), hidden: withFormat(hidden, kept), fromDetails: fromDetails.length, usage, consent: hidden.filter(row => verdicts.cached(storage)[keyOf(row.question)]?.reuse === 'consent').length};
 }
