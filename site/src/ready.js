@@ -7,6 +7,7 @@ import {installOf} from './hosted.js';
 import {open, seal} from './hosted-state.js';
 import {relay} from './ready-ai.js';
 import {makeLink, viaLink} from './ready-link.js';
+import {fillAgain} from './ready-again.js';
 import {runNow} from './ready-tick.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 import {dropKept, jobsWithKept, keptPut, videoGet} from './ready-kept.js';
@@ -82,7 +83,9 @@ async function batch(request, env, now) {
     const row = await batchOf(env, request.headers.get('authorization'), now);
     if (!row) return deny();
     const data = await readBlob(env, row.install, row.id);
-    return json({ok: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', facts: data?.facts || {}, jobs: data?.jobs || []});
+    // Only the rows still queued: the whole night at first, one form after a Fill again (src/ready-again.js), so the others keep their results.
+    const queued = new Set((await env.STATS.prepare("SELECT job FROM ready_jobs WHERE batch = ? AND state = 'queued' AND cleared_at IS NULL").bind(row.id).all()).results.map(each => each.job));
+    return json({ok: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', facts: data?.facts || {}, jobs: (data?.jobs || []).filter(job => queued.has(job.id))});
   }
   if (request.method !== 'POST') return json({ok: false, error: 'Use GET or POST'}, 405);
   const install = await ownerOf(request, env);
@@ -196,7 +199,7 @@ export async function sweep(env, now = new Date()) {
   return out;
 }
 
-// /api/ready/<batch|result|ai|video|live|handoff|held|link|run|done|submitted|state|report|data>
+// /api/ready/<batch|result|ai|video|live|handoff|held|link|again|run|done|submitted|state|report|data>
 export async function ready(request, env, now = new Date()) {
   if (!readyOn(env)) return notFound();
   const sub = new URL(request.url).pathname.replace(/^\/api\/ready\/?/, '');
@@ -215,6 +218,15 @@ export async function ready(request, env, now = new Date()) {
     if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
     const job = String((await request.json().catch(() => null))?.job || '');
     return /^[\w.:-]{1,64}$/.test(job) ? json({ok: true, ...(await makeLink(env, job, new URL(request.url).origin, now))}) : bad('bad job');
+  }
+  if (sub === 'again') {   // a row's Fill again: that form, from the night's own copy (src/ready-again.js)
+    const install = await ownerOf(request, env);
+    if (!install) return deny();
+    if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+    const job = String((await request.json().catch(() => null))?.job || '');
+    if (!/^[\w.:-]{1,64}$/.test(job)) return bad('bad job');
+    const done = await fillAgain(env, install, job, now);
+    return json(done.body, done.status);
   }
   if (sub === 'run') {   // the owner starts his queued night now (a manual test; the cron would start it at its fill time)
     const install = await ownerOf(request, env);

@@ -3,7 +3,7 @@
 import {el} from '../components.js';
 import {icon} from '../icons.js';
 
-// ask: {again, jobs: [{code, name}], replaces}. -> Promise<boolean>
+// ask: {again, jobs: [{code, name}], replaces, note?}. -> Promise<boolean>
 export function confirmFill(ask) {
   return new Promise(resolve => {
     const dialog = el('dialog', 'save-dialog panel-dialog cv-dialog ready-confirm');
@@ -20,6 +20,7 @@ export function confirmFill(ask) {
     const list = el('ul', 'ready-confirm-list');
     for (const job of ask.jobs) list.append(el('li', '', job.name || job.code));
     const parts = [head, list];
+    if (ask.note) parts.push(el('p', 'muted', ask.note));
     if (ask.replaces) parts.push(el('p', 'message', `This replaces ${forms(ask.replaces)} from this night still waiting for you: open or finish ${ask.replaces === 1 ? 'it' : 'them'} first if you need ${ask.replaces === 1 ? 'it' : 'them'}.`));
     const foot = el('div', 'dialog-foot'), buttons = el('span', 'inline');
     const no = el('button', 'ghost', 'Cancel'), yes = el('button', 'primary', ask.again ? 'Fill again' : 'Fill now');

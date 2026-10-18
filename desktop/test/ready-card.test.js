@@ -301,21 +301,31 @@ test('every row button is an icon with its name and a tooltip', async () => {
 });
 
 // Fill again on a row (owner, 18 Oct 2026: "a button per row with fill again"): asks first, then fills that job only, sent and started like Fill now.
-test('Fill again on a row asks first, then fills that job alone', async t => {
+test('Fill again on a row: with no kit left on this Mac (the owner\'s night), it asks, then the server fills that form from the night; a refusal leaves the rows as they were', async t => {
   t.mock.timers.enable({apis: ['setInterval']});
-  const body = page(), runs = [];
-  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {j1: 'SRE · Acme'},
-    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: [{job: 'j0', state: 'prepared'}, {job: 'j1', state: 'partial'}]}}),
-    readyTonight: async () => ({ok: false}),
-    readyRun: async options => { runs.push(options); return options.confirmed ? {ok: true, queued: 1, night: '2026-10-19'} : {ok: false, ask: {again: true, jobs: [{code: 'j1', name: 'SRE · Acme'}], replaces: 1}}; }};
-  await initReadyCard();
-  const rows = body.querySelector('.ready-card').querySelectorAll('.ready-row');
-  rows[1].querySelector('.ready-again').click(); await new Promise(resolve => setImmediate(resolve));
-  const popup = body.querySelector('#ready-confirm');
-  assert.ok(popup, 'asks first');
-  assert.match(textOf(popup), /Fill this job again\?/);
-  assert.match(textOf(popup), /replaces 1 form/, 'says what it replaces');
-  popup.querySelector('#ready-confirm-yes').click(); await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(runs, [{codes: ['j1']}, {codes: ['j1'], again: true, confirmed: true}], 'that job only, after the yes');
-  assert.match(textOf(body.querySelector('.ready-card')), /1 job sent/);
+  for (const answer of [{ok: true, batch: 'b1'}, {ok: false, error: 'This night reached its spending limit, so it is not filled again.'}]) {
+    const body = page(), asked = [], ran = [];
+    globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {j0: 'SRE · Doctolib', j1: 'SRE Observability · Doctolib'},
+      site: {batch: {night: '2026-10-18', state: 'finished'}, jobs: [{job: 'j0', state: 'prepared'}, {job: 'j1', state: 'prepared'}]}}),
+      readyTonight: async () => ({ok: true, tonight: [], names: {}}),   // tonight: 0 ready, as on the owner's Mac
+      readyRun: async options => { ran.push(options); return {ok: false}; }, readyAgain: async code => { asked.push(code); return answer; }};
+    await initReadyCard();
+    const card = body.querySelector('.ready-card'), rowsOf = () => card.querySelectorAll('.ready-row');
+    const intact = when => rowsOf().forEach((row, i) => {
+      assert.match(textOf(row.querySelector('.ui-pill')), /complete/, `${when}: row ${i} keeps its badge`);
+      assert.ok(row.querySelector('.ready-browser') && row.querySelector('.ready-again'), `${when}: row ${i} keeps its buttons`);
+    });
+    rowsOf()[1].querySelector('.ready-again').click(); await new Promise(resolve => setImmediate(resolve));
+    const popup = body.querySelector('#ready-confirm');
+    assert.match(textOf(popup), /Fill this job again\?/);
+    assert.match(textOf(popup), /SRE Observability · Doctolib/);
+    assert.match(textOf(popup), /other forms keep what was filled/);
+    popup.querySelector('#ready-confirm-yes').click(); await new Promise(resolve => setImmediate(resolve));
+    intact('while it starts');
+    await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(asked, ['j1'], 'the server fills that form, from the night');
+    assert.deepEqual(ran, [], 'never looked up in this Mac\'s list');
+    if (answer.ok) assert.match(textOf(card), /filling it again now/);
+    else { assert.match(textOf(card.querySelector('.ready-note')), /spending limit/); assert.doesNotMatch(textOf(card), /not in your list/); intact('after a refusal'); }
+  }
 });

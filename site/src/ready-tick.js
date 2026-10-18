@@ -35,8 +35,13 @@ export async function runNow(env, install, now = new Date()) {
   if (!env.READY_QUEUE) return {status: 503, body: {ok: false, error: 'not wired: the Queue is not set up'}};
   const row = await env.STATS.prepare("SELECT id FROM ready_batches WHERE install = ? AND state = 'queued' ORDER BY created_at DESC LIMIT 1").bind(install).first();
   if (!row) return {status: 404, body: {ok: false, error: 'no queued night to run'}};
-  const token = await start(env, row.id, now);
+  return startBatch(env, row.id, now);
+}
+
+// One queued night starts at once: its token and one message on the Queue (the caller checked READY_QUEUE). -> {status, body}
+export async function startBatch(env, id, now = new Date()) {
+  const token = await start(env, id, now);
   if (!token) return {status: 409, body: {ok: false, error: 'already started'}};
-  await env.READY_QUEUE.send({batch: row.id, token, site: env.READY_SITE || SITE});
-  return {status: 202, body: {ok: true, batch: row.id}};
+  await env.READY_QUEUE.send({batch: id, token, site: env.READY_SITE || SITE});
+  return {status: 202, body: {ok: true, batch: id}};
 }

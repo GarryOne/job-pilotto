@@ -146,7 +146,7 @@ export async function initReadyCard() {
     watch: code => { const button = iconButton('eye', 'Watch the fill', 'the video of the server filling this form tonight (3 minutes at most)', 'watch');
       button.addEventListener('click', () => watchFill(button, code)); return button; },
     tailor: () => { const button = el('button', 'secondary', 'Tailor CVs for top matches'); button.addEventListener('click', () => $('tailor-top')?.click()); return button; },
-    again: code => { const button = iconButton('refresh', 'Fill again', 'the server fills this form again from the start, after your yes', 'again'); button.addEventListener('click', () => fillNow({codes: [code]})); return button; },
+    again: code => { const button = iconButton('refresh', 'Fill again', 'the server fills this form again from the start, after your yes', 'again'); button.addEventListener('click', () => fillAgain(code)); return button; },
     done: code => { const button = iconButton('check', 'Done', 'delete this form\'s data from the server', 'done'); button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   // What just happened, as a badge and its line (owner, 18 Oct 2026: the status lines "should be shown as badges").
   const LABEL = {info: 'Working', good: 'Done', warn: 'Note', bad: 'Problem'};
@@ -190,5 +190,16 @@ export async function initReadyCard() {
     refresh();
   };
   run.addEventListener('click', () => fillNow());
+  // A row's Fill again: after a yes, the server fills that form again from the night's own copy (lib/ready-handlers.js readyAgain); the bar follows it like Fill now.
+  const fillAgain = async code => {
+    const name = names[code] || 'This form';
+    if (!await confirmFill({again: true, jobs: [{code, name}], replaces: 0, note: 'The night\'s other forms keep what was filled; their live view closes while this one fills (Open in my browser still works).'})) return say('Not started: nothing changed on the server.');
+    phase = 'sending'; phaseError = ''; say(''); repaint();
+    const result = await window.pilot.readyAgain(code).catch(error => ({ok: false, error: errorLine(error)}));
+    if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', 'bad'); }
+    phase = 'started'; started = true;
+    say(`${name}: the server is filling it again now. Nothing is submitted.`, 'good');
+    refresh();
+  };
   await refresh();
 }

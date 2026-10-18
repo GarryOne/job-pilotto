@@ -32,7 +32,8 @@ const reasonOf = result => (result.error === UNAVAILABLE ? '' : String(result.er
 const isGone = result => result.status === 410 || (result.status === 404 && /\bheld\b/.test(reasonOf(result)));
 // Only a refused owner reads "not on": a 401, or a 404 without a reason of Ready to send's own (the route is off). The site's reasons are said in plain words.
 export const NOT_ON = 'Ready to send is not on for this install.';
-const REASONS = {'no queued night to run': 'Nothing was sent for tonight yet: press Fill now to send and start it.', 'already started': 'Filling has already started on the server.'};
+const REASONS = {'no queued night to run': 'Nothing was sent for tonight yet: press Fill now to send and start it.', 'already started': 'Filling has already started on the server.',
+  'capped: this night reached its spending limit': 'This night reached its spending limit, so it is not filled again.'};
 const refusedOwner = result => result.status === 401 || (result.status === 404 && !reasonOf(result));
 const words = result => (result.ok ? result : {ok: false, status: result.status, error: isGone(result) ? GONE_LINE : refusedOwner(result) ? NOT_ON : REASONS[reasonOf(result)] || result.error});
 
@@ -54,6 +55,7 @@ export async function status(storage, {now = Date.now, ...options} = {}) {
 }
 export const rows = async (storage, options) => words(await call(storage, '/api/ready/state', options));   // -> {ok, batch: {night, state, costUsd, expiresAt}, jobs: [...]}
 export const send = async (storage, batch, options) => words(await call(storage, '/api/ready/batch', {method: 'POST', body: batch, ...options}));
+export const again = async (storage, job, options) => words(await call(storage, '/api/ready/again', {method: 'POST', body: {job}, ...options}));   // a row's Fill again, from the night's own copy
 export const runNow = async (storage, options) => words(await call(storage, '/api/ready/run', {method: 'POST', body: {}, ...options}));
 export const done = async (storage, job, options) => words(await call(storage, '/api/ready/done', {method: 'POST', body: {job}, ...options}));
 export const deleteAll = async (storage, options) => words(await call(storage, '/api/ready/data', {method: 'DELETE', ...options}));
