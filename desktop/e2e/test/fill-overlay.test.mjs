@@ -46,6 +46,8 @@ test('a fill step dims the page, holds the person\'s click, key and wheel, and c
     assert.equal(await t.app.page.evaluate(() => window.scrollY), 0, 'the page does not scroll');
     const spot = await t.host();
     assert.equal(spot.centred, true, 'the panel is centred while filling');
+    const under = await t.app.page.evaluate(() => { const h = document.getElementById('jobpilotto-review-host'); const c = h.shadowRoot.querySelector('.card').getBoundingClientRect(); return document.elementFromPoint(c.x + c.width / 2, c.y + c.height / 2)?.id; });
+    assert.notEqual(under, 'jobpilotto-review-host', 'the centred panel takes no hit-test: the driver\'s clicks aimed at a field under it reach the field (recorded cases text-state-from-keys-1, menu-choices-worded-differently-2)');
     const wide = await t.app.page.evaluate(() => document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.card').getBoundingClientRect().width);
     assert.ok(wide >= 460, `the panel is larger in the prime spot (${Math.round(wide)}px wide, the docked card is 372)`);
     // The driver's gap: the worker marks its own input, and it lands.
@@ -110,5 +112,27 @@ test('a navigation leaves no overlay', async () => {
     await t.app.page.waitForFunction(() => !!document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 5000});
     await t.app.page.goto('https://jobs.example.test/next');
     assert.equal(await t.overlay(), false);
+  } finally { await t.app.close(); }
+});
+
+test('reading or routing a page covers it too, says it once in the step row, and lifts when the page is a form', async () => {
+  const t = await open();
+  try {
+    await t.step('');
+    await t.app.page.waitForFunction(() => !document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 5000});
+    await t.app.page.evaluate(() => document.documentElement.setAttribute('data-jobpilotto-page', 'reading'));
+    await t.app.page.waitForFunction(() => !!document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 8000}).catch(() => assert.fail('no overlay while the page is being read'));
+    const seen = await t.app.page.evaluate(() => {
+      const root = document.getElementById('jobpilotto-review-host').shadowRoot, shown = el => !!el && el.getClientRects().length > 0;   // drawn (an ancestor with display:none draws nothing)
+      const count = [...root.querySelectorAll('.progress-line b, .step-line, .fill .label, .pill b')].filter(el => shown(el) && /Reading this page/.test(el.textContent)).length;
+      return {count, which: [...root.querySelectorAll('.progress-line b, .step-line, .fill .label, .pill b')].filter(el => shown(el) && /Reading this page/.test(el.textContent)).map(el => el.className + '/' + el.tagName), hint: root.querySelector('.step-hint')?.textContent, pill: shown(root.querySelector('.pill'))};
+    });
+    assert.equal(seen.count, 1, 'Reading this page shows once while the layer is on: ' + seen.which);
+    assert.equal(seen.pill, false, 'the pill is hidden while the panel is centred');
+    assert.doesNotMatch(seen.hint, /Counts update/, 'reading has its own sub-line');
+    assert.equal((await t.host()).centred, true);
+    await t.app.page.evaluate(() => document.documentElement.setAttribute('data-jobpilotto-page', 'form'));
+    await t.app.page.waitForFunction(() => !document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 8000}).catch(() => assert.fail('the overlay stayed after the page became a form'));
+    assert.equal((await t.host()).centred, false, 'the panel is back in its corner');
   } finally { await t.app.close(); }
 });

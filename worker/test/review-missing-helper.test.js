@@ -18,7 +18,7 @@ async function run(missing) {
   window.addEventListener('error', (event) => errors.push(event.message));
   const caught = (reason) => errors.push(String(reason));
   process.on('unhandledRejection', caught);
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.__jobPilottoReviewPayload ||= () => ({});
   delete window[`__jobPilotto${missing}`];

@@ -19,7 +19,7 @@ const FORM = (draftKind = 'draft') => `<form>
 async function panel(html, onSend = async () => ({})) {
   const { window } = openPage(JSDOM, html);
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : onSend(message); }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : onSend(message); }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');   // judged a form by the fill flow (extension/page-mark.js): only then may the panel count or say Ready
   evalPanel(window);
