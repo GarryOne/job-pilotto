@@ -19,6 +19,7 @@ export const PAGES = [
   {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
   {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
   {path: '/admin/form-learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', name: 'Learning', icon: '🧬'},
+  {path: '/admin/lab-job-search', group: 'Job search', question: 'Does a new user get relevant jobs fast, in any role and place, and did our last change make it better or worse?', title: 'Lab Job Search', name: 'Lab', icon: '🔬'},
   {path: '/admin/intelligence-overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
@@ -80,7 +81,7 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 // The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
 // Form filling and Engineering, which was renamed Operations again on 18 Oct 2026: Lab and Benchmark are engineering too): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
 // it is a lock link beside "super admin" and only for the super admin.
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
 export function nav(active, who = {role: 'superadmin'}) {
   const isSuper = who.role === 'superadmin';
   const shown = PAGES.filter(page => !page.superadmin);

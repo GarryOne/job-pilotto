@@ -9,6 +9,8 @@ import {fidelityIngest} from './applying-fidelity.js';
 import {verifyIngest} from './applying-verify.js';
 import {endingsIngest} from './applying-resolution.js';
 import {ciRowsIngest} from './applying-ci-rows.js';
+import {view as searchLabView} from './search-lab-page.js';
+import {ingestRoute as searchLabIngest} from './search-lab-store.js';
 import {discoveryInput} from './discovery-candidates.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
@@ -161,7 +163,7 @@ async function route(request, env, ctx) {
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
     '/admin/operations/overview': opsView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
-    '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
+    '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (src/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e-report.js)
   if (pathname === '/admin/join') return join(request, env);   // an invite link
@@ -177,6 +179,7 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/verify' && request.method === 'PUT') return verifyIngest(request, env);   // "Confirmed offline" verdicts (Bearer REPLAYS_PUBLISH_KEY, src/applying-verify.js)
   if (pathname === '/applying/fidelity' && request.method === 'PUT') return fidelityIngest(request, env);   // a prototype's replay-vs-live records (Bearer REPLAYS_PUBLISH_KEY, src/applying-fidelity.js)
   if (pathname === '/applying/ci-rows' && request.method === 'PUT') return ciRowsIngest(request, env);   // a CI recording run's rows, main only (Bearer REPLAYS_PUBLISH_KEY, src/applying-ci-rows.js)
+  if (pathname === '/search-lab/rows' && request.method === 'PUT') return searchLabIngest(request, env);   // a replayed search per candidate, main only (Bearer REPLAYS_PUBLISH_KEY, src/search-lab-store.js)
   if (pathname === '/applying/discovery-input' && request.method === 'GET') return discoveryInput(request, env);   // the daily discovery batch's input (Bearer REPLAYS_PUBLISH_KEY, src/discovery-candidates.js)
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);
   if (pathname === '/applying/video' && request.method === 'PUT') return videoIngest(request, env);   // CI's pool run: one fill video per row (Bearer REPLAYS_PUBLISH_KEY, src/lab-video.js)
