@@ -1,5 +1,5 @@
 // Jobs → a job's drawer (owner's boards, 10 Oct 2026): a right-side overlay over the unchanged list or board, between the title bar and the
-// bottom bars, with a fixed header (ring, title, previous / next, expand, close), the eight tabs (Overview, Match, Description, Application,
+// bottom bars, with a fixed header (ring, title, previous / next, expand, close), the nine tabs (Overview, Match, Description, Application, Documents,
 // Interviews, Review, Messages, Timeline) and the tab's content scrolling on its own. The page is read from the store (IPC jobPage,
 // lib/job-page-handlers.js), so it is the same on every store. It shares one overlay slot with Recent activity (renderer/overlay-slot.js):
 // opening one closes the other, and a job opened from a run says "Back to Recent activity". Opening it never resizes the list.

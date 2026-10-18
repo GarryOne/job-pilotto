@@ -7,8 +7,8 @@ import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
-test('every job has the same eight tabs in the same order; `has` says which have content', () => {
-  const order = ['overview', 'match', 'description', 'application', 'interviews', 'review', 'messages', 'timeline'];
+test('every job has the same nine tabs in the same order; `has` says which have content', () => {
+  const order = ['overview', 'match', 'description', 'application', 'documents', 'interviews', 'review', 'messages', 'timeline'];
   assert.deepEqual(TABS.map(([key]) => key), order);
   assert.deepEqual(pageParts({}).tabs, TABS, 'a job with nothing saved still has them all (each says "nothing yet")');
   assert.ok(Object.values(pageParts({}).has).every(value => value === false));
@@ -69,13 +69,14 @@ test('Markdown to words: links, marks, escapes, toggles and to-dos', () => {
 test('screenshots belong with the messages: an image alone shows the Messages tab; other files stay out', () => {
   const parts = pageParts({files: [{name: 'chat.png', type: 'image/png', url: 'data:image/png;base64,AA'}, {name: 'cv.pdf', type: 'application/pdf', url: 'data:x'}]});
   assert.equal(parts.has.messages, true);
-  assert.equal(parts.has.application, true, 'the PDF goes with the application');
+  assert.equal(parts.has.documents, true, 'the PDF goes with the documents');
   assert.deepEqual(parts.shots.map(shot => shot.name), ['chat.png']);
 });
 
-test('the job\'s other files (a tailored CV) are listed with the kit, even with no kit section', () => {
+test('the job\'s other files (a tailored CV) are listed under Documents, even with no kit section', () => {
   const parts = pageParts({files: [{name: 'CV · Acme.pdf', type: 'application/pdf', url: 'data:application/pdf;base64,AA'}]});
-  assert.equal(parts.has.application, true);
+  assert.equal(parts.has.documents, true);
+  assert.equal(parts.has.application, false);
   assert.deepEqual(parts.documents.map(file => file.name), ['CV · Acme.pdf']);
 });
 
@@ -88,7 +89,7 @@ test('the demo job has content for its tabs, and its kit reads from the JSON', (
   const page = demo['https://example.com/jobs/1'];
   const kit = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(page.sections[SECTIONS.kit])[1]);
   const parts = pageParts({...page, kit});
-  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'interviews', 'match', 'messages', 'overview', 'review', 'timeline']);
+  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'documents', 'interviews', 'match', 'messages', 'overview', 'review', 'timeline']);
   assert.equal(parts.kit.answers.length, 2);
 });
 

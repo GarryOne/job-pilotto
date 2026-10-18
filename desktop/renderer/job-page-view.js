@@ -1,5 +1,5 @@
 // A job's page in the app (Jobs → a row → the right-side drawer): what the job's Notion page shows, read from the store, so it shows for
-// every store (the data on this Mac too). Pure: the drawer's eight tabs, and each tab's parts as text (never HTML). Drawn by
+// every store (the data on this Mac too). Pure: the drawer's nine tabs, and each tab's parts as text (never HTML). Drawn by
 // pages/job-panel.js and job-drawer/; guarded by test/job-page-view.test.js. The sections are the engine's own headings (src/ai/kit.py KIT_HEADING,
 // prep.py HEADING, rejection.py HEADING, notion/ledger_record.py RECORD_HEADING, inbox_notion.py DESCRIPTION_HEADING, opportunity.py HEADING).
 import {shortDay} from './date.js';
@@ -12,10 +12,10 @@ const isMessages = name => name === SECTIONS.recruiter || /^📥/.test(name);
 
 // [key, label] in the owner's order (10 Oct 2026): fixed for every job, so a tab is where it was last time; a tab with nothing yet says so
 // (job-drawer/tab-*.js). Kit and Prep became Application, Record its Submitted part, History the Timeline.
-export const TABS = [['overview', 'Overview'], ['match', 'Match'], ['description', 'Description'], ['application', 'Application'],
+export const TABS = [['overview', 'Overview'], ['match', 'Match'], ['description', 'Description'], ['application', 'Application'], ['documents', 'Documents'],
   ['interviews', 'Interviews'], ['review', 'Review'], ['messages', 'Messages'], ['timeline', 'Timeline']];
 // The tabs' old names (a kit chip, a rejection chip, the prep card) → where that content lives now.
-export const TAB_ALIASES = {kit: 'application', prep: 'application', record: 'application', history: 'timeline'};
+export const TAB_ALIASES = {kit: 'application', prep: 'application', record: 'application', history: 'timeline', cv: 'documents', letter: 'documents', 'cover-letter': 'documents', files: 'documents'};
 export const tabKey = tab => (TABS.some(([key]) => key === tab) ? tab : TAB_ALIASES[tab] || 'overview');
 
 // A line of the store's Markdown as plain words: links keep their label, marks and escapes go (notion_blocks.py writes them).
@@ -321,7 +321,7 @@ export function waitingEmails(items = [], url = '') {
     .map(item => ({key: String(item.event_id), eventId: String(item.event_id), subject: plain(item.title || 'An email'), note: plain(item.note || item.detail || ''), item}));
 }
 
-// The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
+// The page's content: {tabs: TABS (every job has all nine), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null, interviews = []} = {}) {
   const named = Object.entries(sections || {});
@@ -342,8 +342,9 @@ export function pageParts({sections = {}, kit = null, events = [], files = [], m
   const documents = (files || []).filter(file => file && !/^image\//.test(file.type || ''));
   const has = {
     overview: groups.match.length > 0, match: groups.match.length > 0, description: groups.description.length > 0,
-    application: (!!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length)) || documents.length > 0
+    application: (!!kitView && !!(kitView.groups?.length || kitView.answers?.length || kitView.check?.length || kitView.lead?.length))
       || groups.prep.length > 0 || submittedOf(sections, app) !== null,
+    documents: !!kitView?.letter || documents.length > 0,
     interviews: !!app?.next_interview || interviews.length > 0, review: groups.review.length > 0 || interviews.some(record => String(record?.review || '').trim()), messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
   // The posting as text (the section, or the record's frozen copy): the Description tab draws it as blocks, else asks for the search's saved copy.
   const descriptionText = readablePart(String(sections[SECTIONS.description] || jsonOf(sections[SECTIONS.record])?.job?.description || '')).trim();

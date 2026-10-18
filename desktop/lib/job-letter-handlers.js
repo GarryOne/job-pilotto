@@ -3,6 +3,7 @@
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
 import * as cvlib from './cv.js';
+import * as demo from './demo.js';
 import * as jobLetter from './job-letter.js';
 import * as jobPages from './job-page-handlers.js';
 import * as pipeline from './pipeline.js';
@@ -14,7 +15,7 @@ import {configForPrompt} from './config-text.js';
 import {log as appLog} from './log.js';
 import {writePrivate} from './private-file.js';
 
-export function registerJobLetterHandlers({ipcMain, printPdf, shell, storage}) {
+export function registerJobLetterHandlers({DEMO, ipcMain, printPdf, shell, storage}) {
   const codeOf = which => (/^https?:/.test(String(which)) ? cvlib.forUrl(storage, String(which))?.job?.code : which);
   // The PDF from the text, the CV's design; kept with the record. `job` {code, title, company, url}.
   async function keep(job, record) {
@@ -47,7 +48,7 @@ export function registerJobLetterHandlers({ipcMain, printPdf, shell, storage}) {
       return {ok: false, error: error.message, usd: 0};
     }
   }
-  ipcMain.handle('jobLetter', (_, which) => jobLetter.status(storage, codeOf(which)));
+  ipcMain.handle('jobLetter', (_, which) => (DEMO ? demo.jobLetter : jobLetter.status(storage, codeOf(which))));
   ipcMain.handle('jobLetterOpen', (_, which) => { const code = codeOf(which); return jobLetter.hasPdf(storage, code) ? shell.openPath(jobLetter.pdfPath(storage, code)) : ''; });
   // The person's own edit: the text and its PDF are remade together, no AI call.
   ipcMain.handle('jobLetterSave', async (_, which, text) => {

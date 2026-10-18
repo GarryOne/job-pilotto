@@ -116,6 +116,9 @@ export const cvCheck = {hash: 'demo', at: '2026-10-02T09:00:00.000Z',
 // The uploaded CV's facts for the CV tab's document row (fictional).
 export const cvFile = {size: 335872, addedAt: '2026-10-12T08:30:00.000Z'};
 
+// The Documents tab's cover letter (fictional job; the drawer shows it for a tailored job).
+export const jobLetter = {text: 'Dear Helvetic Cloud team,\n\nI run reliability for a platform of 400 services and cut its incident hours by a third.\n\nI would like to talk about the role.', source: 'ai', pdf: true, warnings: []};
+
 // The CV match dialog with a real answer (fictional job and CV).
 export const matchSaved = {at: '2026-10-02T09:00:00.000Z', stale: false, job: {title: 'Platform Engineer', company: 'Northwind Robotics'}, result: {grade: 'B', usd: 0.06,
   summary: 'Most of the platform work is stated; observability and the on-site days need a look.',
