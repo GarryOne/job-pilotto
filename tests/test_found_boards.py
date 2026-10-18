@@ -1,6 +1,7 @@
 """Reading the boards found for the user's countries (src/sources/found_boards.py): a public search page read like a careers page, its
 employer taken from the page's own job data, a refusing board marked for a visit and never fetched again, an empty one dropped after 3."""
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -16,10 +17,14 @@ _READER = careers.READER
 
 
 def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
     careers.READER = None
 
 
 def tearDownModule():
+    _WEB_OFF.stop()
     careers.READER = _READER
 
 

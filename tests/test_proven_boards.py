@@ -3,6 +3,7 @@
 3 runs with no job in your places drop it. What a board gave goes to the pool with the board fact; the index serves it per role family ×
 country and installs read the best boards first. No AI call and no live site here."""
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -18,10 +19,14 @@ _READER = careers.READER
 
 
 def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
     careers.READER = None
 
 
 def tearDownModule():
+    _WEB_OFF.stop()
     careers.READER = _READER
 
 

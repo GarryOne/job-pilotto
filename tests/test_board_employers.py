@@ -1,6 +1,7 @@
 """The employer of every board job (src/sources/board_employers.py): the posting's hiringOrganization becomes the job's company, also from the
 job pages a board's list links to, and the names go to the scout as candidates with their own origin "Board employer"."""
 import json
+import os
 import sqlite3
 import sys
 import tempfile
@@ -17,10 +18,14 @@ _READER = careers.READER
 
 
 def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
     careers.READER = None
 
 
 def tearDownModule():
+    _WEB_OFF.stop()
     careers.READER = _READER
 
 

@@ -1,5 +1,6 @@
 """JOB_PILOTTO_FIXTURE_DIR: feeds come from a folder, never the network (the end-to-end journey's deterministic jobs)."""
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,19 @@ from unittest import mock
 from src import employer_index
 from src.sources import ats
 
+
+
+_WEB_OFF = None
+
+
+def setUpModule():
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
+
+
+def tearDownModule():
+    _WEB_OFF.stop()
 
 class FixtureFeedsTest(unittest.TestCase):
     def setUp(self):

@@ -1,6 +1,7 @@
 """Routes a board declares itself when its search page gives nothing (src/sources/board_routes.py): an RSS/Atom alternate, the sitemap in robots.txt
 leading to JobPosting pages, a JSON feed alternate; the working route kept per host; 'browser' boards retried after 30 days; a refusal still stops."""
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -18,10 +19,14 @@ _READER = careers.READER
 
 
 def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
     careers.READER = None
 
 
 def tearDownModule():
+    _WEB_OFF.stop()
     careers.READER = _READER
 
 

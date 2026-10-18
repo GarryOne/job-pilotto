@@ -1,6 +1,7 @@
 """Boards by yield (src/sources/board_yield.py, found_boards.read): a board keeps the jobs that are relevant (title and place), not the jobs it
 lists; it is dropped after 3 reads with none; untried boards come up to 6 a run while fewer than 10 relevant jobs are found; the 'Searching job
 boards' step reads the found boards in any country and says nothing misleading when there are none. Spec: 2026-10-18-search-learns-sources.md PR 2."""
+import os
 import sys
 import tempfile
 import unittest
@@ -16,10 +17,14 @@ _READER = careers.READER
 
 
 def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
     careers.READER = None
 
 
 def tearDownModule():
+    _WEB_OFF.stop()
     careers.READER = _READER
 
 

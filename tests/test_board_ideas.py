@@ -1,6 +1,7 @@
 """Job boards proposed by Claude (src/ai/board_ideas.py): only a checked shape is ever read, one call per countries/roles/kinds, nothing
 without AI. Spec: docs/superpowers/specs/2026-10-08-job-board-discovery.md."""
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -21,6 +22,19 @@ ANSWER = {'boards': [
     {'name': 'Odd field', 'search_url': 'https://jobs.example/?q={role}&k={token}', 'countries': [], 'kinds': []},
     {'name': 'jobs.ch again', 'search_url': 'https://www.jobs.ch/en/vacancies/?term={role}', 'countries': ['Switzerland'], 'kinds': ['any']}]}
 
+
+
+_WEB_OFF = None
+
+
+def setUpModule():
+    global _WEB_OFF
+    _WEB_OFF = mock.patch.dict(os.environ, {'JOB_PILOTTO_DISABLE': 'web_search'})   # no test here reaches a real web search (tests/test_search_boards.py guard)
+    _WEB_OFF.start()
+
+
+def tearDownModule():
+    _WEB_OFF.stop()
 
 class FakeClient:
     def __init__(self):

@@ -93,7 +93,7 @@ def ideas(search, client=None):
     data = load()
     shared = ranked(served(countries), search)
     if key in (data.get('ideas') or {}):
-        return _merge(data['ideas'][key], shared)
+        return _merge(data['ideas'][key] + _searched(data, key, search, data['ideas'][key], shared), shared)
     try:
         from . import cost, engine
         if client is None:
@@ -116,7 +116,27 @@ def ideas(search, client=None):
     data.setdefault('ideas', {})[key] = found
     save(data)
     print(f"Job boards proposed for {', '.join(countries)}: {', '.join(b['name'] for b in found) or 'none'}", flush=True)
-    return _merge(found, shared)
+    return _merge(found + _searched(data, key, search, found, shared), shared)
+
+
+def _searched(data, key, search, proposed, shared):
+    """The boards a web search for this strategy's own queries shows (src/sources/search_boards.py), kept per strategy like the proposal: asked
+    once, not every search. Nothing without a search provider (and not kept then, so a later start with one asks)."""
+    searched = (data.get('searched') or {}).get(key)
+    if searched is not None:
+        return searched
+    from ..sources import search_boards, web_search
+    if not web_search.provider():
+        return []
+    try:
+        searched = search_boards.find(search, {board['host'] for board in proposed + shared})
+    except Exception as error:  # noqa: BLE001 — the proposed and shared boards still run
+        print(f'Job boards: none found by web search this time ({named(error)})', flush=True)
+        return []
+    data.setdefault('searched', {})[key] = searched
+    save(data)
+    print(f"Job boards found by web search: {', '.join(b['name'] for b in searched) or 'none'}", flush=True)
+    return searched
 
 
 def served(countries):
