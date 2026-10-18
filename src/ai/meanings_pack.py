@@ -35,8 +35,9 @@ def _site_file():
 def valid(row):
     """A row the code may use: a known topic and answer, and a pattern that compiles or a short exact wording."""
     spec = schema().get(row.get('topic'))
-    if not spec or row.get('answer') not in spec['answers']:
-        return False
+    if not spec or not (row.get('answer') in spec['answers'] or (spec.get('answer_pattern') and isinstance(row.get('answer'), str)
+                                                                   and re.fullmatch(spec['answer_pattern'], row['answer']))):
+        return False   # a fixed answer, or a fixed format (job-location-geo: src/geo.py encode)
     kind, wording = row.get('kind', 'pattern'), row.get('wording', row.get('pattern'))
     if not isinstance(wording, str) or not wording.strip():
         return False

@@ -51,3 +51,17 @@ test('a public wording 3 installs agree on grows from a 5% canary to verified; a
   await evaluateMeanings(db, day(12));
   assert.equal(learned(db)[0].status, 'disabled');   // the installs stopped agreeing: off for everyone
 });
+
+test('a job location placed on the map is learned only in its fixed format, and only when 3 installs agree', async () => {
+  assert.equal(validRow({topic: 'job-location-geo', kind: 'exact', wording: 'baden, ag', answer: 'city:CH:47.5:8.3:10'}), true);
+  for (const bad of ['Baden is in Switzerland', 'city:CH:47.5:8.3', 'europe', 'country:ch'])
+    assert.equal(validRow({topic: 'job-location-geo', kind: 'exact', wording: 'baden, ag', answer: bad}), false, bad);
+  assert.equal(installsNeeded('geo'), 3);
+  const db = d1();
+  const row = {topic: 'job-location-geo', wording: 'Baden, AG', answer: 'city:CH:47.5:8.3:10'};
+  for (const install of ['a', 'b']) await vote(db, install, [row], day(1));
+  assert.deepEqual(await evaluateMeanings(db, day(1)), []);   // 2 installs: not yet
+  await vote(db, 'c', [row], day(1));
+  assert.deepEqual((await evaluateMeanings(db, day(1))).map(a => a.action), ['canary']);
+  assert.deepEqual(learned(db), [{wording: 'baden, ag', answer: 'city:CH:47.5:8.3:10', status: 'canary', rollout: 5}]);
+});

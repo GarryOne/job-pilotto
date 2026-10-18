@@ -281,5 +281,12 @@
    "not_a_list"
   ],
   "share": false
+ },
+ "job-location-geo": {
+  "_doc": "A posting's location placed on the map (src/geo.py encode): kind, ISO country, lat/lon to 0.1 degree, radius to 5 km; never a user's own place word.",
+  "answers": [],
+  "answer_pattern": "^(?:(?:city|area):[A-Z]{2}:-?\\d{1,2}\\.\\d:-?\\d{1,3}\\.\\d:\\d{1,3}|country:[A-Z]{2}|remote|unknown)$",
+  "share": true,
+  "floor": "geo"
  }
 }

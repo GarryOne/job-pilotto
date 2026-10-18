@@ -70,20 +70,69 @@ def valid(item):
     return {'kind': kind, 'cc': cc, 'lat': round(lat, 3), 'lon': round(lon, 3), 'r': radius}
 
 
-def resolve(strings, client=None, ask=True):
-    """{normalized string: entry} for the strings the cache or the model knows. A string is asked once, ever (an 'unknown' answer is kept too)."""
+TOPIC = 'job-location-geo'   # config/meanings_schema.json: the shared form of a posting location's answer
+CODED = re.compile(r'(city|area):([A-Z]{2}):(-?\d{1,2}\.\d):(-?\d{1,3}\.\d):(\d{1,3})')
+
+
+def encode(entry):
+    """The fixed-format answer the site may learn: lat/lon to 0.1 degree and the radius to 5 km, so installs that placed a string alike agree."""
+    if entry['kind'] in ('remote', 'unknown'):
+        return entry['kind']
+    if entry['kind'] == 'country':
+        return f"country:{entry['cc']}"
+    return f"{entry['kind']}:{entry['cc']}:{entry['lat']:.1f}:{entry['lon']:.1f}:{max(5, 5 * round(entry['r'] / 5))}"
+
+
+def decode(answer):
+    """The entry for a fixed-format answer from the pack, validated like the model's own answer; None for anything else."""
+    text = str(answer or '')
+    if text in ('remote', 'unknown'):
+        return {'kind': text}
+    if re.fullmatch(r'country:[A-Z]{2}', text):
+        return valid({'kind': 'country', 'cc': text[8:]})
+    found = CODED.fullmatch(text)
+    if not found:
+        return None
+    kind, cc, lat, lon, radius = found.groups()
+    return valid({'kind': kind, 'cc': cc, 'lat': lat, 'lon': lon, 'r_km': radius})
+
+
+def _from_pack(keys):
+    """What the shared pack (src/ai/meanings_pack.py: rows the site learned from 3+ installs) says about these strings."""
+    from .ai import meanings_pack
+    out = {}
+    for key in keys:
+        entry = decode(meanings_pack.first(TOPIC, key))
+        if entry:
+            out[key] = entry
+    return out
+
+
+def resolve(strings, client=None, ask=True, share=False):
+    """{normalized string: entry} for the strings the cache, the shared pack or the model knows. A string is asked once, ever (an 'unknown'
+    answer is kept too). share=True only for job locations (a posting's public words): the model's answers are queued for the site; a user's
+    own place words are never shared."""
     keys = list(dict.fromkeys(k for k in (norm(s) for s in strings) if k))
     data = load()
     todo = [k for k in keys if k not in data]
+    found = _from_pack(todo) if todo else {}
+    todo = [k for k in todo if k not in found]
     if todo and ask:
         if client is None:
             from .ai import engine
             client = engine.client(action='place_triage') if engine.ready() else None
         if client is not None:
-            data.update(_ask(client, todo))
-            with LOCK:
-                STORE.parent.mkdir(parents=True, exist_ok=True)
-                STORE.write_text(json.dumps({**load(), **data}, ensure_ascii=False, sort_keys=True))
+            asked = _ask(client, todo)
+            found.update(asked)
+            if share:
+                from .ai import meanings_pack
+                for key, entry in asked.items():
+                    meanings_pack.queue(TOPIC, key, encode(entry))
+    if found:
+        data.update(found)
+        with LOCK:
+            STORE.parent.mkdir(parents=True, exist_ok=True)
+            STORE.write_text(json.dumps({**load(), **found}, ensure_ascii=False, sort_keys=True))
     return {k: data[k] for k in keys if k in data}
 
 
@@ -142,7 +191,7 @@ def verdicts(locations, words, client=None, ask=True):
     a location it cannot place, or that is remote or only a country for a smaller place, is left out for the model. With work rights given, only
     'out' is decided here: a visa need comes with the model's country answer."""
     groups = (('best', words.get('best_places') or []), ('in', words.get('anywhere_in') or []), ('in', words.get('cities_abroad') or []))
-    found = resolve([*locations, *(w for _, ws in groups for w in ws)], client, ask)
+    found = {**resolve([w for _, ws in groups for w in ws], client, ask), **resolve(locations, client, ask, share=True)}
     places = [(answer, found.get(norm(w))) for answer, ws in groups for w in ws]
     if not places or any(entry is None for _, entry in places):
         return {}   # a place the map cannot place: the model decides, as before

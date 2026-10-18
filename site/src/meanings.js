@@ -7,7 +7,9 @@ import {reaches} from './canary-reach.js';
 import SCHEMA from '../../config/meanings_schema.json' with {type: 'json'};
 
 const TOPICS = Object.fromEntries(Object.entries(SCHEMA).filter(([topic]) => !topic.startsWith('_')));
-export const validRow = row => Boolean(TOPICS[row?.topic]?.answers.includes(row.answer)) && ['pattern', 'exact'].includes(row.kind)
+const fits = (spec, answer) => Boolean(spec) && (spec.answers.includes(answer)
+  || (Boolean(spec.answer_pattern) && typeof answer === 'string' && new RegExp(spec.answer_pattern).test(answer)));   // a fixed format: job-location-geo (src/geo.py encode)
+export const validRow = row => fits(TOPICS[row?.topic], row?.answer) && ['pattern', 'exact'].includes(row.kind)
   && typeof row.wording === 'string' && row.wording.trim() && row.wording.length <= (row.kind === 'exact' ? 200 : 2000);
 
 export async function packMeanings(db, install, reach = {}) {
@@ -44,7 +46,7 @@ export async function evaluateMeanings(db, now = new Date()) {
   const tallies = (await db.prepare('SELECT topic, wording, answer, COUNT(*) AS n FROM meaning_votes GROUP BY topic, wording, answer').all()).results || [];
   const totals = {};
   for (const t of tallies) totals[`${t.topic}\u0000${t.wording}`] = (totals[`${t.topic}\u0000${t.wording}`] || 0) + t.n;
-  const agreed = t => t.n >= installsNeeded('meaning') && t.n / totals[`${t.topic}\u0000${t.wording}`] >= MIN_SHARE;
+  const agreed = t => t.n >= installsNeeded(TOPICS[t.topic]?.floor || 'meaning') && t.n / totals[`${t.topic}\u0000${t.wording}`] >= MIN_SHARE;
   const rows = (await db.prepare("SELECT topic, wording, answer, status, rollout, updated_at FROM meanings WHERE kind = 'exact' AND source = 'learned'").all()).results || [];
   const known = Object.fromEntries(rows.map(r => [`${r.topic}\u0000${r.wording}`, r]));
   for (const t of tallies.filter(agreed)) {
