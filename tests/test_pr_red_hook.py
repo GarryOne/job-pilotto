@@ -21,8 +21,8 @@ export FAKE_GH_VERB="$2"; exec "$FAKE_GH_REAL" "$@"
 """
 
 
-def pr(*checks):  # (name, conclusion) -> a `gh pr list` answer for PR #5
-    return [{'number': 5, 'statusCheckRollup': [{'name': n, 'conclusion': c, 'status': 'COMPLETED', 'detailsUrl': f'https://ci.test/{n}'} for n, c in checks]}]
+def pr(*checks, mergeable='MERGEABLE'):  # (name, conclusion) -> a `gh pr list` answer for PR #5
+    return [{'number': 5, 'mergeable': mergeable, 'statusCheckRollup': [{'name': n, 'conclusion': c, 'status': 'COMPLETED', 'detailsUrl': f'https://ci.test/{n}'} for n, c in checks]}]
 
 
 @unittest.skipUnless(shutil.which('jq') and shutil.which('git') and shutil.which('bash'), 'needs jq, git and bash')
@@ -73,6 +73,39 @@ class PrRedHookTest(unittest.TestCase):
                         self.assertEqual(done.returncode, 0 if event == 'UserPromptSubmit' else 2, done.stderr)
                         self.assertIn(expect, text)
                         self.assertIn('tools/pr-red-ack.sh 5', text)
+
+    def test_conflict_cases(self):
+        cases = [
+            ('conflicting, checks green', pr(('python', 'SUCCESS'), mergeable='CONFLICTING'), ['PR #5 conflicts with main: rebase now'], ['is red']),
+            ('conflicting, no checks yet', pr(mergeable='CONFLICTING'), ['PR #5 conflicts with main: rebase now'], ['is red']),
+            ('conflicting and red', pr(('python', 'FAILURE'), mergeable='CONFLICTING'), ['PR #5 is red: python', 'PR #5 conflicts with main'], []),
+            ('unknown is silent', pr(('python', 'SUCCESS'), mergeable='UNKNOWN'), None, None),
+            ('mergeable is silent', pr(('python', 'SUCCESS'), mergeable='MERGEABLE'), None, None),
+        ]
+        for event in ('UserPromptSubmit', 'Stop'):
+            for name, prs, expect, absent in cases:
+                with self.subTest(event=event, case=name):
+                    shutil.rmtree(self.tmp / 'cache', True)
+                    self.answer(prs)
+                    done = self.run_hook(event)
+                    text = done.stdout if event == 'UserPromptSubmit' else done.stderr
+                    if expect is None:
+                        self.assertEqual((done.returncode, done.stdout, done.stderr), (0, '', ''))
+                        continue
+                    self.assertEqual(done.returncode, 0 if event == 'UserPromptSubmit' else 2, done.stderr)
+                    for want in expect: self.assertIn(want, text)
+                    for no in absent: self.assertNotIn(no, text)
+                    self.assertIn('tools/pr-red-ack.sh 5', text)
+
+    def test_a_conflict_blocks_one_stop_and_an_ack_holds_until_it_changes(self):
+        self.answer(pr(('python', 'SUCCESS'), mergeable='CONFLICTING'))
+        self.assertEqual(self.run_hook('Stop').returncode, 2)
+        self.assertEqual(self.run_hook('Stop', again=True).returncode, 0, 'a second stop in the same chain goes through')
+        ack = subprocess.run(['bash', str(ACK), '5', 'parent not merged yet'], cwd=self.repo, capture_output=True, text=True, env=self.env)
+        self.assertIn('acknowledged', ack.stdout, ack.stderr)
+        self.assertEqual((self.run_hook('Stop').returncode, self.run_hook().stdout), (0, ''))
+        self.answer(pr(('python', 'FAILURE'), mergeable='CONFLICTING'))
+        self.assertEqual(self.run_hook('Stop').returncode, 2, 'a red check on top of the acknowledged conflict is a new problem')
 
     def test_stop_blocks_once_per_chain(self):
         self.answer(pr(('python', 'FAILURE')))

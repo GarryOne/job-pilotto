@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Watches a PR from the moment tools/ship.sh opens it (so also when ship itself ends FAILED or is killed) and appends to ship's log: `ship: RED #n <check>` (a check
 # failed; once per red check, it keeps watching), `ship: GREEN #n` (every check passed; once per green), `ship: MERGED #n <sha>`, `ship: CLOSED #n (unmerged)`
-# or `ship: WATCH ENDED #n (still open)` after the cap. No AI, only gh.
-#   tools/ship-watch.sh <n> <log> <pidfile>      SHIP_WATCH_POLL=<s> between looks (default 60)   SHIP_WATCH_CAP=<s> give up after (default 172800 = 48 h)
+# or `ship: WATCH ENDED #n (still open)` after the cap. `ship: CONFLICT #n` (GitHub says the PR cannot merge into main; once per conflict, UNKNOWN is never reported) is followed at once by
+# tools/pr-conflict-fix.sh, which rebases the stacked-parent case and logs `ship: CONFLICT FIXED #n (stacked parent #m)`; a cleared conflict re-arms GREEN. No AI, only gh.
+#   tools/ship-watch.sh <n> <log> <pidfile>      SHIP_WATCH_FIX=<script> the fixer (default: next to this file)   SHIP_WATCH_POLL=<s> between looks (default 60)   SHIP_WATCH_CAP=<s> give up after (default 172800 = 48 h)
 # Started detached by tools/ship.sh when the PR opens (18 Oct 2026: #1321 sat red for hours because the watcher began only after REVIEW); a second ship of the same branch replaces the old watcher through the pid file (18 Oct 2026: the owner merges by hand and
-# sessions only learned of it when told). Guard: tests/test_ship_watch.py.
+# sessions only learned of it when told). Guard: tests/test_ship_watch.py, tests/test_pr_conflict_fix.py.
 set -u
 n="${1:?usage: ship-watch.sh <n> <log> <pidfile>}"; log="${2:?}"; pidfile="${3:?}"
 poll="${SHIP_WATCH_POLL:-60}"; cap="${SHIP_WATCH_CAP:-172800}"
@@ -13,15 +14,20 @@ echo $$ > "$pidfile"   # before the kill: the old watcher's exit trap then sees 
 [ -z "$old" ] || [ "$old" = "$$" ] || kill "$old" 2>/dev/null || true   # one watcher per branch
 trap '[ "$(cat "$pidfile" 2>/dev/null)" != "$$" ] || rm -f "$pidfile"' EXIT
 say() { echo "ship: $*" >> "$log"; }
-waited=0; red=""; green=""
+fixer="${SHIP_WATCH_FIX:-$(cd "$(dirname "$0")" && pwd)/pr-conflict-fix.sh}"
+waited=0; red=""; green=""; conflict=""
 while :; do
-  view="$(gh pr view "$n" --json state,mergeCommit 2>/dev/null)" || view=""
+  view="$(gh pr view "$n" --json state,mergeCommit,mergeable 2>/dev/null)" || view=""
   state="$(jq -r '.state // empty' <<<"$view" 2>/dev/null)"
   case "$state" in
     MERGED) say "MERGED #$n $(jq -r '.mergeCommit.oid // empty' <<<"$view" | cut -c1-7)"; exit 0 ;;
     CLOSED) say "CLOSED #$n (unmerged)"; exit 0 ;;
   esac
   if [ -n "$state" ]; then
+    case "$(jq -r '.mergeable // empty' <<<"$view" 2>/dev/null)" in   # UNKNOWN (GitHub is still working it out) keeps the last known state
+      CONFLICTING) if [ -z "$conflict" ]; then conflict=1; say "CONFLICT #$n"; bash "$fixer" "$n" "$log" >/dev/null 2>&1 || true; fi ;;
+      MERGEABLE) [ -z "$conflict" ] || { conflict=""; green=""; } ;;
+    esac
     checks="$(gh pr checks "$n" --json name,bucket 2>/dev/null)" || checks=""
     now="$(jq -r '[.[]? | select(.bucket == "fail") | .name] | first // empty' <<<"${checks:-[]}" 2>/dev/null)" || now=""
     [ "$now" = "$red" ] || { [ -z "$now" ] || say "RED #$n $now"; red="$now"; }   # once per red check; green again re-arms it
