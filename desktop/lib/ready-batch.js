@@ -1,6 +1,7 @@
 // Ready to send, tonight's batch (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): which finished jobs go to the night, and the batch the site takes (the contact, your facts for the AI, and per job: the kit,
 // the tailored CV and the cover letter PDF as the extension would upload them). Everything it reads comes in as a function, so a test needs no store, no Electron and no Notion. Guard: test/ready-batch.test.js.
 import {DEFAULT_MIN_FIT, DEFAULT_PER_NIGHT, complete} from './ready.js';
+import {chosen} from './ai/index.js';
 
 const open = job => ['unreviewed', 'saved'].includes(job.status) && !!job.url && !!job.code;
 const best = (a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit ?? -1) - (a.fit ?? -1);
@@ -37,4 +38,7 @@ export async function buildBatch(jobs, deps, {now = new Date(), readyBy = '07:30
 }
 
 // The night's AI is the user's own: his Claude key goes sealed with the batch (the site deletes it with the batch); without one the site answers with his Free AI.
+// The key the night may use: only when the API key IS the engine the app runs on. A key left stored from before (an engine now on Claude Code,
+// OpenAI or Codex) stays home: 18 Oct 2026, the first night carried such an old key, Anthropic refused every call and no question was answered.
+export const ownKeyFor = (settings, keys) => (chosen(settings, keys) === 'api' ? String(keys.ANTHROPIC_API_KEY || '') : '');
 export const withOwnAi = (batch, secret) => (/^sk-ant-/.test(String(secret || '')) ? {...batch, ai: {key: String(secret)}} : batch);

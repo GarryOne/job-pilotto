@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {done, link, owner, ownerSecret, runNow, send, status, useKeychainReader} from '../lib/ready-site.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
-import {withOwnAi} from '../lib/ready-batch.js';
+import {ownKeyFor, withOwnAi} from '../lib/ready-batch.js';
+import {NAMES} from '../lib/ai/index.js';
 import {rowOf, waitingOf} from '../renderer/pages/ready-rows.js';
 
 useKeychainReader(() => null);   // no test reads this Mac's Keychain
@@ -131,4 +132,12 @@ test('every reason the card cannot work is said in plain words, never hidden (ow
     assert.ok(!/undefined|null|\[object/.test(result.why), `${name}: ${result.why}`);
   }
   assert.deepEqual(await status(owned(), {fetcher: site(200, {ok: true, jobs: []}).fetcher, now}), {ok: true, jobs: []});
+});
+
+test('the night carries the stored Claude key only when the API key is the engine in use; every other engine leaves it home (18 Oct 2026)', () => {
+  const keys = {ANTHROPIC_API_KEY: 'sk-ant-api03-old', OPENAI_API_KEY: 'sk-openai-x'};
+  for (const engine of NAMES) assert.equal(ownKeyFor({aiEngine: engine}, keys), engine === 'api' ? 'sk-ant-api03-old' : '', engine);
+  assert.equal(ownKeyFor({}, keys), 'sk-ant-api03-old');   // an install from before the engine choice, with a key: it runs on the key
+  assert.equal(ownKeyFor({}, {}), '');
+  assert.deepEqual(withOwnAi({jobs: []}, ownKeyFor({aiEngine: 'cli'}, keys)), {jobs: []});   // the first night's case: Claude Code + an old key -> Free AI
 });
