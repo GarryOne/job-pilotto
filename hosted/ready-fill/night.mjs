@@ -112,6 +112,7 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
   async function moreFor(queue) {
     const again = await post(fetchImpl, site, token, 'batch').catch(() => ({}));
     if (again.ok === false || again.error || again.stop) return false;
+    if (again.line !== true) return false;   // a site from before the line returns every form, not only those waiting: the night is its first list
     for (const next of again.jobs || []) if (!queue.some(each => each.id === next.id)) { standIn.add(next); queue.push(next); }
     return true;
   }

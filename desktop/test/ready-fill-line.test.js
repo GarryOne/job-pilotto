@@ -30,7 +30,7 @@ test('a form joins the running night, its steps reach the site, a stopped form s
     const answer = data => ({status: 200, json: async () => data});
     if (route === 'batch') {   // 1st read: j1; after j1: j2 joined; after j2: the night is over
       reads++;
-      return reads === 1 ? answer({ok: true, night: '2026-10-18', contact: {}, facts: {}, jobs: [job('j1')]}) : reads === 2 ? answer({ok: true, jobs: [job('j2')]}) : {status: 401, json: async () => ({ok: false, error: 'unauthorized'})};
+      return reads === 1 ? answer({ok: true, night: '2026-10-18', contact: {}, facts: {}, jobs: [job('j1')]}) : reads === 2 ? answer({ok: true, line: true, jobs: [job('j2')]}) : {status: 401, json: async () => ({ok: false, error: 'unauthorized'})};
     }
     if (route === 'progress') return answer({ok: true, stop: body.job === 'j2' && body.step === 'form'});   // the owner stops j2 once its page is open
     if (route === 'result') return answer({ok: true, stop: false});
@@ -43,6 +43,19 @@ test('a form joins the running night, its steps reach the site, a stopped form s
   assert.deepEqual(of('j2').map(([route, , step]) => `${route}:${step}`), ['progress:opening', 'progress:form'], 'j2 joined the line, was stopped at its page, and sent no result');
   assert.equal(reads, 3, 'the night was read again after each form, and ended when its token was refused');
   assert.deepEqual([...night.held.keys()], ['j1'], 'only the filled form is held for the morning');
+  await night.close();
+});
+
+test('a site from before the line (it returns every form, not only those waiting) ends the night after its first list, never refilling the same form', {timeout: 20000}, async () => {
+  const {runNight} = await import('../../hosted/ready-fill/night.mjs');
+  const results = [];
+  const fetchImpl = async (url, init = {}) => {
+    const route = new URL(url).pathname.replace('/api/ready/', ''), body = init.body ? JSON.parse(init.body) : null;
+    if (route === 'result') results.push(body.job);
+    return {status: 200, json: async () => (route === 'batch' ? {ok: true, night: '2026-10-18', contact: {}, facts: {}, jobs: [job('j1')]} : {ok: true, stop: false})};
+  };
+  const night = await runNight({chromium: fakeChromium(), site: 'https://site.example', token: 't', fetchImpl, fillSeconds: 2, record: () => null});
+  assert.deepEqual(results, ['j1'], 'the form is filled once');
   await night.close();
 });
 

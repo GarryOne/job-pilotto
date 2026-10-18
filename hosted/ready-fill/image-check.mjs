@@ -14,8 +14,10 @@ const site = http.createServer((request, response) => {
     seen.push({route: request.url.split('?')[0], body: video ? {bytes: raw.length, head: raw.subarray(0, 4).toString('hex')} : raw.length ? JSON.parse(raw.toString()) : null});
     if (request.url.startsWith('/job')) { response.writeHead(200, {'content-type': 'text/html'}); return response.end('<h1>SRE at Acme</h1><p>A posting with no form.</p>'); }
     response.writeHead(200, {'content-type': 'application/json'});
-    if (request.url.startsWith('/api/ready/batch')) return response.end(JSON.stringify({ok: true, night: '2026-10-18', contact: {name: 'Alex Example', email: 'alex@example.invalid'},
-      jobs: [{id: 'j1', url: `http://host.docker.internal:${SITE_PORT}/job`, title: 'SRE', company: 'Acme', fit: 80, kit: {answers: {}}, letter: 'Dear Acme', cv: '', letterPdf: ''}], facts: {}}));
+    // Like the site (src/ready.js): only the forms still waiting, so a form with its result is not read again (the night's line, src/ready-line.js).
+    const told = seen.some(each => each.route === '/api/ready/result' && each.body?.job === 'j1');
+    if (request.url.startsWith('/api/ready/batch')) return response.end(JSON.stringify({ok: true, line: true, night: '2026-10-18', contact: {name: 'Alex Example', email: 'alex@example.invalid'},
+      jobs: told ? [] : [{id: 'j1', url: `http://host.docker.internal:${SITE_PORT}/job`, title: 'SRE', company: 'Acme', fit: 80, kit: {answers: {}}, letter: 'Dear Acme', cv: '', letterPdf: ''}], facts: {}}));
     response.end(JSON.stringify({ok: true}));
   });
 });
