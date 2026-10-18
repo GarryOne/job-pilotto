@@ -315,3 +315,23 @@ test('a machine is "in use" after 2+ days or anything past setup/health; one set
   assert.match(html, /tried once/);
   assert.match(html, /in use/);
 });
+
+test('a search report keeps only its listed fields, is never a problem, and its family list equals the app\'s', async () => {
+  const e = env();
+  const base = {kind: 'search', install: 'install-aaaa', version: '0.5.0', platform: 'darwin', at: '2026-10-18T10:00:00Z'};
+  const good = {family: 'hospitality', country: 'CH', city: 'zurich', in_places: 40, scored: 12, fit70: 3, first_s: 9, tenth_s: 41, first_fit70_s: 77, nth: 2, runs_to_fit70: 2, engine: 'api', trigger: 'you'};
+  assert.equal((await send(e, [{...base, ...good, title: 'Barista at Acme', link: 'https://x.y/1', cv: 'my CV', name: 'Ann', family_other: 'x'}])).status, 200);
+  const row = e.STATS.db.prepare("SELECT data, summary FROM telemetry WHERE kind = 'search'").get();
+  const stored = JSON.parse(row.data);
+  assert.deepEqual(Object.keys(stored).filter(k => !['kind', 'at', 'install', 'version', 'platform'].includes(k)).sort(), Object.keys(good).sort());   // a new field needs listing in src/search-report.js
+  assert.ok(!/Acme|x\.y|my CV|Ann/.test(row.data));
+  await send(e, [{...base, family: 'barista!', country: 'switzerland', in_places: -1}]);
+  const bad = JSON.parse(e.STATS.db.prepare("SELECT data FROM telemetry WHERE kind = 'search' ORDER BY rowid DESC LIMIT 1").get().data);
+  assert.deepEqual(Object.keys(bad).filter(k => ['family', 'country', 'in_places'].includes(k)), []);
+  const {problems} = await import('../src/telemetry.js');
+  assert.equal(e.STATS.db.prepare("SELECT kind FROM telemetry WHERE kind = 'search'").all().length, 2);
+  assert.equal(JSON.stringify(await problems(e.STATS, 7, new Date('2026-10-19T00:00:00Z'))).includes('Search ('), false);
+  const {FAMILIES} = await import('../src/search-report.js');
+  const py = readFileSync(new URL('../../src/role_kinds.py', import.meta.url), 'utf8').match(/^KINDS = \(([^)]*)\)/m)[1].match(/'(\w+)'/g).map(s => s.slice(1, -1));
+  assert.deepEqual(FAMILIES, py);
+});

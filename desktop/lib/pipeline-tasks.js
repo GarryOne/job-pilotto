@@ -10,6 +10,7 @@ import {appMessage, failedLine, taskSummary} from './pipeline-lines.js';
 import {tracked} from './pipeline-queue.js';
 import {run} from './pipeline-run.js';
 import {searchSteps} from './search-steps.js';
+import {searchDone} from './search-report.js';
 
 // note: what this search is for beyond a refresh ("Re-scoring 75 older scores"), shown on its row from queued to finished.
 export function refresh(storage, onLine, mode = 'run', trigger = 'you', {note = '', employers = false} = {}) {
@@ -80,6 +81,7 @@ function searchOnce(storage, onLine, mode, trigger = 'you', employers = false) {
     const startedAt = new Date().toISOString();   // "Your search changed" compares with when a refresh began, not ended (renderer/search-changed.js)
     const {code, result} = await searchSteps(storage, onLine, mode, trigger, undefined, {employers});
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchStartedAt: startedAt, lastSearchOk: code === 0});
+    searchDone({startedAt, ok: code === 0, trigger});   // the search report (lib/search-report.js), when Technical reports are on
     return {ok: code === 0, result};
   })();
 }

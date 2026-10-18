@@ -14,8 +14,9 @@ import {tabHandoff, tabCard} from './tab-handoff.js';
 import {flags} from './guard.js';
 import {report as knowledgeReport} from './knowledge.js';
 import {isOwner, esc, remember} from './stats.js';
+import {clean as cleanSearch} from './search-report.js';
 
-export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice', 'tab'];
+export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice', 'tab', 'search'];
 export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
 // What becomes a GitHub issue: [installs, times] by kind (either is enough). Crashes, stuck runs and failed runs are rare and always
 // worth reading, from the first install; a run that ended with warnings (AI not answering, Notion refusing) must repeat (3 times) or come from 3 installs;
@@ -50,6 +51,7 @@ export function describe(item) {
     case 'advice': return {key: `advice|${item.where}|${item.advice}|${item.act}`, summary: `Advice ${text(item.advice, 20)} on ${text(item.where, 20)}: ${text(item.act, 10)}${item.source ? ` (${text(item.source, 30)})` : ''}`};
     case 'tab': return {key: `tab|${item.outcome}`, summary: `Form tab: ${text(item.outcome, 30)}${item.outcome === 'taken' ? '' : ' (the extension did not take the tab the app opened)'}`};
     case 'stuck': return {key: `stuck|${item.action}|${item.page}`, summary: `Stuck: ${item.action} (${item.page || 'app'})`};
+    case 'search': return {key: `search|${item.family}`, summary: `Search (${text(item.family, 20)}): ${item.in_places ?? '?'} in places, first in ${item.first_s ?? '–'} s`};
     default: return {key: 'health', summary: 'health'};
   }
 }
@@ -75,7 +77,7 @@ export async function collect(request, env, now = new Date()) {
   if (count >= PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
   if (kv) await kv.put(countKey, String(count + events.length), {expirationTtl: 2 * 86400});
   for (const item of events) {
-    const data = scrub(JSON.stringify(item)).slice(0, MAX_BYTES);
+    const data = scrub(JSON.stringify(item.kind === 'search' ? cleanSearch(item) : item)).slice(0, MAX_BYTES);
     const {key, summary} = describe(item);
     const row = [today, text(item.at, 30), item.kind, text(item.install, 64), text(item.version, 30), text(item.platform, 20), await hash(key), scrub(summary).slice(0, 300), data];
     await env.STATS.prepare('INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(...row, country).run()
@@ -89,7 +91,7 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare(`SELECT fingerprint, kind, MAX(summary) AS summary, COUNT(*) AS n, COUNT(DISTINCT install) AS users,
       GROUP_CONCAT(DISTINCT version) AS versions, MIN(day) AS first, MAX(at) AS last, MAX(data) AS sample
-    FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup') AND NOT (kind = 'tab' AND json_extract(data, '$.outcome') = 'taken') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
+    FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup', 'search') AND NOT (kind = 'tab' AND json_extract(data, '$.outcome') = 'taken') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
   const installs = (await db.prepare(`SELECT version, platform, COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?
     GROUP BY version, platform ORDER BY n DESC`).bind(from).all()).results || [];
   // Machines, not (version, platform) rows: one install that updated twice reports under three versions but is one machine.
