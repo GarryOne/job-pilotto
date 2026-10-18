@@ -1,6 +1,6 @@
 // One sticky save bar per page (Profile, Strategy) for every edited field on it (owner, 18 Oct 2026, UI redesign D2): it counts the drafts of every card on
 // every tab, says where they are ("3 unsaved changes in Your details and Experience"), marks those tabs with a dot, and its two buttons act on all of them:
-// "Discard all" (asks first when drafts sit on more than one tab) and "Save all changes". A field that fails its check names its tab and field and nothing is
+// "Discard all" (asks first when drafts sit on more than one tab) and "Save all changes" (saveLabel: a page's own scope, e.g. Strategy's "Save strategy changes"). A field that fails its check names its tab and field and nothing is
 // saved; a save that fails part-way keeps the failed drafts and names them, never a blanket "Saved". Leaving the page or closing the window with drafts asks
 // first (leave() for nav.js guardLeave; beforeunload + lib/unsaved-guard.js for the window). Actions with their own button (read the CV again, an AI review)
 // are not drafts and never go through here. Cards register a source; the card shell is card-shell.js. Guarded by test/save-bar.test.js.
@@ -24,7 +24,7 @@ function hookUnload() {   // the window's close or reload: held while a bar has 
 
 // host: where the bar sits (the end of the page; it sticks to the bottom, above Application sessions). tabs: {key: label} of the page's tabs; tabButton(key):
 // the tab's button (gets .has-drafts); openTab(key): shows a tab (a failed field's tab opens). words: the muted line ("The extension uses them from the next form").
-export function pageSaveBar({host, tabs = {}, tabButton = () => null, openTab = () => {}, words = '', savedWords = 'Saved ✓', area = 'this page'}) {
+export function pageSaveBar({host, tabs = {}, tabButton = () => null, openTab = () => {}, words = '', savedWords = 'Saved ✓', area = 'this page', saveLabel = 'Save all changes'}) {
   const sources = [];
   let busy = false, holding = null;
   const node = el('div', 'save-bar page-save-bar');
@@ -37,7 +37,7 @@ export function pageSaveBar({host, tabs = {}, tabButton = () => null, openTab = 
   const note = el('span', 'message');
   note.setAttribute('role', 'status');
   const discard = Object.assign(el('button', 'secondary', 'Discard all'), {type: 'button'});
-  const save = Object.assign(el('button', 'primary', 'Save all changes'), {type: 'button'});
+  const save = Object.assign(el('button', 'primary', saveLabel), {type: 'button'});
   node.append(lead, note, discard, save);
   host?.append(node);
 
@@ -107,7 +107,7 @@ export function pageSaveBar({host, tabs = {}, tabButton = () => null, openTab = 
       const form = el('form');
       form.method = 'dialog';
       const foot = el('div', 'dialog-foot');
-      for (const [cls, value, label] of [['ghost', 'keep', 'Keep editing'], ['secondary', 'discard', 'Discard all'], ['primary', 'save', 'Save all changes']]) {
+      for (const [cls, value, label] of [['ghost', 'keep', 'Keep editing'], ['secondary', 'discard', 'Discard all'], ['primary', 'save', saveLabel]]) {
         foot.append(Object.assign(el('button', cls, label), {value}));
       }
       form.append(el('h2', '', 'Save your changes?'), el('p', 'dialog-lead', ''), foot);
