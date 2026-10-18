@@ -187,7 +187,7 @@ class FirstSliceTests(Fixture):
         data = {'boards': {'b1.example': {'state': 'browser'}}}   # refused us before: a visit, not a slice read
         with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(board_ideas, 'ideas', return_value=proposed), \
                 mock.patch.object(board_ideas, 'load', return_value=data), \
-                mock.patch.object(found_boards, 'read', lambda search, boards, early=False: read.append((boards, early)) or []), \
+                mock.patch.object(found_boards, 'read', lambda search, boards, early=False, **_: read.append((boards, early)) or []), \
                 mock.patch.object(first_jobs, 'aggregators_kept', lambda feed_db, name, jobs: jobs):
             first_jobs.proven_boards(None, said.append, SEARCH)
         self.assertEqual([([b['host'] for b in boards], early) for boards, early in read], [(['b2.example', 'b3.example'], True)])

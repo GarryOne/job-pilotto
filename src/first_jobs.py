@@ -2,9 +2,10 @@
 score 3 jobs at once and save (and sync) each as it is scored, so a new user's list has its first job while the rest of the search runs;
 while none of them fits 70+, 3 more, up to MAX_FIRST (owner, 18 Oct 2026: Cluj's slice found 70 jobs at 93 s, scored 3, and its first 70+
 waited for the full crawl until 431 s). The 2 job boards that gave installs like this one the most jobs in their places are read in the
-slice too (spec 2026-10-18-search-learns-sources.md PR 6); with none shared yet, the 4 first boards proposed for the user's country (one
+slice too (spec 2026-10-18-search-learns-sources.md PR 6); with none shared yet, the 6 first boards proposed for the user's country (one
 cached AI call, the same the full read makes; owner, 18 Oct 2026: a driver's jobs all came from a board read after 140 employer sites),
-read at once and while the employer sites are (18 Oct 2026: Chisinau's first 2 boards gave nothing; SRE's 70+ waited for 2 boards).
+read at once and while the employer sites are (18 Oct 2026: Chisinau's first 2 boards gave nothing; SRE's 70+ waited for 2 boards), each
+one that refuses automated reading replaced by the next proposed board (19 Oct 2026: 4 of music's first boards refused, XING was 7th).
 The search after it is unchanged; scored jobs are skipped by their hash, so the total AI calls are the same.
 Tests: tests/test_first_jobs.py, tests/test_proven_boards.py."""
 import os
@@ -19,7 +20,8 @@ SLICE = 15     # feeds read first
 FIRST_JOBS = 3  # jobs scored first, at once
 MAX_FIRST = 10  # scored at most in the slice while none fits FIT+ yet: the full search would score these same best-ranked jobs anyway
 FIT = 70        # a strong match ends the slice's scoring (src/source_yield.py FIT)
-SLICE_BOARDS = 4   # read at once (src/sources/found_boards.py BOARD_WORKERS)
+SLICE_BOARDS = 6   # read at once (owner, 19 Oct 2026: music's only paying board, XING, was 7th of the proposal and read at 351 s; up to
+                   # board_yield.MAX_UNTRIED, the untried boards one read takes); a board that refuses is replaced by the next proposed one, once
 FAST = ('greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join')   # a JSON list in one request
 
 
@@ -57,12 +59,30 @@ def board_jobs(say=print, search=None):
         say(f"First jobs: reading {', '.join(board['name'] for board in top)}, the job board{'s' if len(top) > 1 else ''} that gave people "
             'like you the most jobs')
     else:
-        refused = {host for host, entry in (board_ideas.load().get('boards') or {}).items() if entry.get('state') == 'browser'}
-        top = [board for board in board_ideas.ideas(search) if board.get('host') not in refused][:SLICE_BOARDS]
+        top = _proposed(board_ideas, search)[:SLICE_BOARDS]
         if not top:
             return []
         say(f"First jobs: reading {', '.join(board['name'] for board in top)}, job board{'s' if len(top) > 1 else ''} for your country")
-    return found_boards.read(search, top, early=True)
+    jobs = found_boards.read(search, top, early=True, workers=SLICE_BOARDS)
+    read, refusing = {board['host'] for board in top}, _refused(board_ideas)
+    refused = [board for board in top if board['host'] in refusing]
+    more = [board for board in _proposed(board_ideas, search) if board['host'] not in read][:len(refused)] if refused else []
+    if more:   # 19 Oct 2026: 4 of music's 6 first boards refused automated reading in 2 s each; their places go to the next ones
+        say(f"First jobs: {len(refused)} job board{'s' if len(refused) > 1 else ''} refused automated reading; reading "
+            f"{', '.join(board['name'] for board in more)} instead")
+        jobs += found_boards.read(search, more, early=True, workers=SLICE_BOARDS, remember=False)
+    return jobs
+
+
+def _refused(board_ideas):
+    """The hosts of the boards that refused automated reading (a 'browser' read)."""
+    return {host for host, entry in (board_ideas.load().get('boards') or {}).items() if entry.get('state') == 'browser'}
+
+
+def _proposed(board_ideas, search):
+    """The boards proposed for this search's countries that never refused us, in the proposal's order."""
+    refused = _refused(board_ideas)
+    return [board for board in board_ideas.ideas(search) if board.get('host') not in refused]
 
 
 def aggregators_kept(feed_db, name, jobs):

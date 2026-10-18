@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from . import ats, board_employers, feeds
+from . import ats, board_employers, boards_ahead, feeds
 
 SPACING_HOURS = 6
 PAGES = 2
@@ -214,9 +214,10 @@ def kept(db, name, found, now=None):
     return matched
 
 
-def scan(db, search, now=None, readers=None, on_jobs=None):
+def scan(db, search, now=None, readers=None, on_jobs=None, ahead=None):
     """A feeds.scan-style report ({'jobs', 'sources'}) from the aggregators that are due; your roles and places only, source named on each job.
-    on_jobs(jobs): each reader's jobs as soon as it is read (owner, 18 Oct 2026: jobs shown as quickly as possible)."""
+    on_jobs(jobs): each reader's jobs as soon as it is read (owner, 18 Oct 2026: jobs shown as quickly as possible). ahead: the found boards
+    already read beside the employer sites (src/sources/boards_ahead.py), taken instead of read again."""
     report = {'jobs': [], 'sources': []}
     # The end-to-end fixture mode reads feeds from files and never reaches a live site (careers.py does the same): real postings from a public API would land in a test's data
     # (3 Oct 2026: jobicy rows in the quality suite). `readers` given = a test of this function itself.
@@ -229,11 +230,14 @@ def scan(db, search, now=None, readers=None, on_jobs=None):
         if last and datetime.fromisoformat(last[0]) > now - timedelta(hours=SPACING_HOURS):
             continue
         try:
-            found = read(search)
-            matched = kept(db, name, found, now)
+            if ahead is not None and name == boards_ahead.NAME:
+                found, matched = ahead.take(db, now)
+            else:
+                found = read(search)
+                matched = kept(db, name, found, now)
             with db:
                 db.execute('INSERT OR REPLACE INTO aggregator_runs (source, at) VALUES (?, ?)', (name, now.isoformat(timespec='seconds')))
-            if on_jobs and matched:
+            if on_jobs and matched and not (ahead is not None and name == boards_ahead.NAME and ahead.shown):   # shown already
                 on_jobs(matched)
             report['jobs'].extend(matched)
             report['sources'].append({'company': name, 'ok': True, 'total': len(found), 'matches': len(matched)})

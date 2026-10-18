@@ -61,12 +61,13 @@ def remembered(boards, kept):
             and served & set(entry.get('countries') or [])]
 
 
-def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset()):
+def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remember=True):
     """The boards to read now: every one read before (not dropped: `dropped` = dead(db); a 'browser' one once its retry is due), then up to
     MAX_UNTRIED not read yet, only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
-    by what the board gave other installs like this one: board_ideas.ideas)."""
+    by what the board gave other installs like this one: board_ideas.ideas). remember=False: these boards only (the first-jobs slice's
+    second wave, src/first_jobs.py: the boards that paid are in its first)."""
     tried, untried = [], []
-    for board in list(boards) + remembered(boards, kept):
+    for board in list(boards) + (remembered(boards, kept) if remember else []):
         entry = kept.get(board['host'])
         if registrable(board['host']) in dropped or (entry and entry.get('state') == 'browser' and not retry_due(entry)):
             continue

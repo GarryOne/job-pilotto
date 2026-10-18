@@ -68,3 +68,18 @@ def reader(name):
             merge = _WATCHED.get(topic, (None, None))[1]
             if merge:
                 merge(value)
+
+
+@contextlib.contextmanager
+def seen_by(name):
+    """Calls in this thread see what reader `name` saw and decided, without becoming it: a reader's jobs judged as it judged them by the
+    thread that owns the job cache, while another reader still runs (src/sources/boards_ahead.py)."""
+    if _frozen is None:
+        yield
+        return
+    before = getattr(_local, 'views', None)
+    _local.views = _by_reader.setdefault(name, {})
+    try:
+        yield
+    finally:
+        _local.views = before

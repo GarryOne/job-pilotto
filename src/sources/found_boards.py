@@ -162,10 +162,11 @@ def _another_way(board, entry, proposed, search, fetch, judge, before):
     return before
 
 
-def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False):
+def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, remember=True):
     """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
     by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
-    full read, which asks the board in full and serves the pages the slice fetched from them instead of fetching them again."""
+    full read, which asks the board in full and serves the pages the slice fetched from them instead of fetching them again. workers: boards
+    read at once; remember=False: the given boards only (board_yield.pick)."""
     from ..ai import board_ideas
     fetch = fetch or careers.get_text   # looked up when called: a test's or a run's own fetcher applies
     from . import board_yield
@@ -174,7 +175,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
     todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now),
-                            dead if dead is not None else _dead())
+                            dead if dead is not None else _dead(), remember)
     ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
     reads = []
     for board in todo:
@@ -196,7 +197,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
                 fetched[url] = page
             return page
         return read_board(board, search, through, entry.get('route'), early=early)
-    with ThreadPoolExecutor(max_workers=BOARD_WORKERS) as pool:   # 18 Oct 2026: Chisinau's 2 slice boards gave nothing, its 4th and 8th 14 jobs
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:   # 18 Oct 2026: Chisinau's 2 slice boards gave nothing, its 4th and 8th 14 jobs
         for done, ((board, entry, _, fetched, proposed), (found, state, route)) in enumerate(zip(reads, pool.map(one, reads)), 1):
             if early:   # the full read asks every query and the next pages, reusing these
                 _early[board['host']] = (time.monotonic(), fetched)
