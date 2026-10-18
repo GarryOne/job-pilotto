@@ -1,0 +1,42 @@
+/* Profile → CV: the document row and the CV check card (renderer/cv-check-view.js, mockup 08, 18 Oct 2026). Tokens only (test/design.test.js).
+   The match dialog shares .cvc-score / .cvc-check / .cvc-fix from style.css; this file styles only the CV tab's own parts. */
+.cv-card-actions.inline { flex-direction: row; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+#cv-more:empty { display: none; }
+#cvc-state.is-off::before { display: none; }
+
+.cvc-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
+.cvc-tile { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+.cvc-tile > div { display: flex; flex-direction: column; min-width: 0; }
+.cvc-tile-title { font-weight: 600; font-size: var(--fs-md); }
+.cvc-tile-score b { font-size: var(--fs-lg); }
+.cvc-ring { --p: 0; --ring: var(--line-strong); position: relative; display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%;
+  background: conic-gradient(var(--ring) calc(var(--p) * 1%), var(--line) 0); }
+.cvc-ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+.cvc-ring b { position: relative; font-size: var(--fs-lg); font-weight: 800; }
+.cvc-ring.tone-good { --ring: var(--good); }
+.cvc-ring.tone-ok { --ring: var(--warn-bright); }
+.cvc-ring.tone-low { --ring: var(--bad); }
+.cvc-tile.is-empty .cvc-ring { background: var(--line); }
+
+.cvc-fixes { display: grid; gap: var(--sp-2); margin-top: var(--sp-4); }
+.cvc-fixes h4 { margin: 0; font-size: var(--fs-base); }
+.cvc-fixline, .cvc-fold { border: 1px solid var(--line); border-radius: var(--r-md); padding: 0; margin: 0; background: none; }   /* not style.css's padded details */
+.cvc-fixline > summary, .cvc-fold > summary { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); cursor: pointer; list-style: none; }
+.cvc-fixline > summary::-webkit-details-marker, .cvc-fold > summary::-webkit-details-marker { display: none; }
+.cvc-fixline .ui-pill { flex: none; min-width: 72px; justify-content: center; }
+.cvc-fix-words { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cvc-more { color: var(--muted); white-space: nowrap; }
+.cvc-chevron { flex: none; color: var(--muted); transition: transform .15s; }
+details[open] > summary .cvc-chevron { transform: rotate(90deg); }
+.cvc-fixline[open] .cvc-more { visibility: hidden; }
+.cvc-fix-body { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--sp-3) var(--sp-3) calc(72px + var(--sp-3) * 2); }
+
+.cvc-folds { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
+.cvc-fold > summary b { flex: 0 1 auto; }
+.cvc-fold > summary .cvc-chevron { margin-left: auto; }
+.cvc-fold > :not(summary) { margin: 0 var(--sp-3) var(--sp-3); }
+.cvc-fold .cvc-comp:first-of-type { margin-top: 0; }
+.cvc-pre { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-sm); background: var(--surface-2); padding: var(--sp-3); border-radius: var(--r-sm); }
+
+.cvc-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-top: var(--sp-4); }
+.cvc-action { display: flex; flex-direction: column; gap: var(--sp-1); }

@@ -21,7 +21,7 @@ export function replace(storage, file, name, now = new Date()) {
   if (setUp && fs.existsSync(current)) fs.copyFileSync(current, storage.path(PREVIOUS));
   fs.copyFileSync(file, current);
   const previous = storage.settings().cvName || '';
-  storage.saveSettings({cvName: name, ...(setUp ? {cvChange: {previous, at: now.toISOString()}} : {})});
+  storage.saveSettings({cvName: name, cvAddedAt: now.toISOString(), ...(setUp ? {cvChange: {previous, at: now.toISOString()}} : {})});
   return {name, review: setUp && fs.existsSync(storage.path(PREVIOUS))};
 }
 

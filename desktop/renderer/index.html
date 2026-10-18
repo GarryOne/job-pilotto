@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="question-review.css">
 <link rel="stylesheet" href="experience-tab.css">
+<link rel="stylesheet" href="cv-tab.css">
 <link rel="stylesheet" href="plan.css">
 <link rel="stylesheet" href="ready-card.css">
 <link rel="stylesheet" href="menu.css">
@@ -965,33 +966,25 @@
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
           <div class="setting cv-card" id="setting-cv" data-profile-panel="cv">
-            <span class="file-tile"><i data-icon="file"></i></span>
-            <div class="cv-card-text"><b>Current CV</b><span id="contact-cv">None yet</span>
+            <span class="file-tile"><i data-icon="file-text"></i></span>
+            <div class="cv-card-text"><b id="contact-cv">None yet</b>
+              <span class="small muted"><span id="cv-facts">Current CV</span></span>
               <span class="small muted">Used for tailoring and form filling <span id="cv-state"></span></span>
               <p class="message" id="cv-message"></p><a href="#" class="link" id="cv-limit-link" hidden>Add credit, then read again ↗</a><p class="message" id="strategy-message"></p></div>
-            <div class="cv-card-actions">
-              <div class="inline"><button class="secondary with-icon" id="cv-view"><i data-icon="eye"></i><span>Preview CV</span></button>
-                <button class="primary" id="replace-cv">Replace CV</button></div>
-              
-              <span class="small cv-card-links"><button class="link with-icon" id="cv-import"><i data-icon="refresh"></i><span>Read my CV PDF</span></button><button class="link with-icon" id="cv-folder"><i data-icon="folder"></i><span>CV folder</span></button></span>
-            </div>
+            <div class="cv-card-actions inline"><button class="secondary with-icon" id="cv-view"><i data-icon="eye"></i><span>Preview CV</span></button>
+              <button class="secondary" id="replace-cv">Replace CV</button><span id="cv-more"></span></div>
           </div>
           <div class="setting panel cvc" id="setting-cvcheck" data-profile-panel="cv">
             <div class="panel-top"><div class="summary-head"><i data-icon="scale"></i><h3>CV check</h3></div>
               <div class="panel-actions"><span class="synced" id="cvc-state">Not checked yet</span></div></div>
-            <p class="muted panel-lead">How a hiring system reads this CV, before any tailoring. Most of them turn a CV into fields that recruiters search, so a CV they cannot read cleanly never turns up.
-              It is a readiness check, not a score from a real hiring system (they do not publish one).</p>
-            <div class="cvc-result" id="cvc-result" hidden>
-              <div class="cvc-head"><span class="cvc-score" id="cvc-score"></span><div><b id="cvc-verdict"></b><span class="muted small" id="cvc-sub"></span></div></div>
-              <ul class="cvc-checks" id="cvc-checks"></ul>
-              <details class="cvc-text"><summary>What a parser reads, in order</summary><pre id="cvc-text"></pre></details>
+            <p class="muted panel-lead">How easily hiring systems can read your CV, and how well it presents your experience. An app assessment, not an employer's score (they do not publish one).</p>
+            <div class="cvc-scores" id="cvc-scores" hidden></div>
+            <div class="cvc-fixes" id="cvc-fixes" hidden></div>
+            <div class="cvc-folds" id="cvc-folds" hidden></div>
+            <div class="cvc-actions">
+              <div class="cvc-action"><button class="secondary with-icon" id="cvc-run"><i data-icon="file"></i><span>Check PDF readability</span></button><span class="muted small" id="cvc-run-cost">No AI usage</span></div>
+              <div class="cvc-action"><button class="secondary with-icon" id="cvc-ai-run"><i data-icon="sliders"></i><span>Review CV content</span></button><span class="muted small" id="cvc-ai-cost"></span></div>
             </div>
-            <div class="cvc-result" id="cvc-ai" hidden>
-              <div class="cvc-head"><span class="cvc-score" id="cvc-ai-score"></span><div><b>Content review</b><span class="muted small" id="cvc-ai-sub"></span></div></div>
-              <div id="cvc-ai-parts"></div>
-            </div>
-            <div class="inline spaced"><button class="secondary" id="cvc-run">Check my CV (free)</button>
-              <button class="secondary" id="cvc-ai-run" hidden>Add the content review</button></div>
             <p class="message" id="cvc-message"></p>
           </div>
           <div class="stale-draft" id="cv-changed" data-profile-panel="cv" data-wanted="0" hidden><span id="cv-changed-text"></span>
