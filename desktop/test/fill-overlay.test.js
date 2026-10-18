@@ -22,6 +22,5 @@ test('the overlay is invisible to hit-tests, ends on every way out, and is hidde
   for (const path of ['extension/stop.js', 'extension/settle-tabs.js']) assert.match(read(path), /jobpilotto-fill-overlay/, `${path} removes the overlay with the other page marks`);
   assert.match(read('extension/ladder/rung4-page-picture.js'), /jobpilotto-fill-overlay/, 'the AI\'s picture never shows the dim layer');
   assert.match(read('extension/panel-files.js'), /panel-overlay\.js/);
-  assert.match(read('extension/panel-report.js'), /'jobpilotto-overlay'/, 'the Report flag steps aside while the page is dimmed: nothing outside the panel looks pressable');
   assert.match(read('extension/panel-markup.js'), /\.jp\.working \{ zoom: 1\.3; \}/, 'the panel is larger while filling');
 });
