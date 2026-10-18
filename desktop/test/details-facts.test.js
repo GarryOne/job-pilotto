@@ -85,3 +85,35 @@ test('every one-time move of Your details runs inside the one shared open, so a 
   for (const each of moves) assert.ok(each.index > start && each.index < end, `${each[1]} runs outside the shared open`);
   assert.match(source, /ipcMain\.handle\('detailsFacts', \(\) => opening \|\|= open\(\)/);
 });
+
+test('the first read never waits on an AI call: detailsFactsNow answers with the saved lines while the moves are still running; detailsFacts settles them and says how many changed', async () => {
+  const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-facts-')), {encrypt: v => v, decrypt: v => v});
+  storage.saveSettings({store: 'sqlite', profileMovedAt: '2026-10-17T10:00:00Z'});
+  const page = store.openStore(storage).page('profile');
+  await page.insertAfter(await page.appendHeading('Application form answers — voluntary demographic surveys'), ['Identifies as transgender: No.']);
+  let release, asked = 0;
+  const gate = new Promise(done => { release = done; });
+  const slow = {client: {messages: {create: async () => { asked++; await gate; return {content: [{type: 'text', text: JSON.stringify({items: [{id: '0', kind: 'answer', question: 'transgender', option: 'No', note: ''}]})}]}; }}}};
+  const handlers = {};
+  registerDetailsFactsHandlers({ipcMain: {handle: (name, fn) => { handlers[name] = (...args) => fn(null, ...args); }}, storage, DEMO: false,
+    connected: () => true, needsNotion: () => null, log: () => {}, ai: () => slow, copy: async () => ({dir: 'd'})});
+  const settling = handlers.detailsFacts();
+  const now = await Promise.race([handlers.detailsFactsNow(), new Promise(done => setTimeout(() => done('waited'), 2000))]);
+  assert.notEqual(now, 'waited', 'the quick read waited on the AI');
+  assert.equal(now.ok, true);
+  assert.equal(now.settling, true);
+  release();
+  const settled = await settling;
+  assert.equal(settled.ok, true, settled.error);
+  assert.ok(settled.changed >= 1, 'the settled answer counts what the moves changed');
+  assert.ok(asked >= 1);
+});
+
+test('the screen paints the quick read first, waits for the settled one after it, and the survey card redraws when it is done', () => {
+  const facts = read('renderer/pages/details-facts.js'), card = read('renderer/pages/experience-profile.js');
+  const show = facts.slice(facts.indexOf('export async function showFacts'));
+  assert.ok(show.indexOf('detailsFactsNow') < show.indexOf('window.pilot.detailsFacts()'), 'quick read first');
+  assert.match(show, /details-sorting/);
+  assert.match(card, /'details-sorting'[\s\S]*reread\('details'\)/);
+  assert.match(read('preload.cjs'), /detailsFactsNow: call\('detailsFactsNow'\)/);
+});

@@ -4,7 +4,7 @@
 // "One queue for all"; lib/details-review.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
 // test/details-facts.test.js and test/details-review.test.js.
 import {el, loadingCard} from '../components.js';
-import {swr} from '../swr.js';
+import {keep, swr} from '../swr.js';
 import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
 import {contactDirty} from './contact-proposals.js';
@@ -59,18 +59,30 @@ function drawWhich(aside = [], tidied = null) {
   $('which-list').replaceChildren(banner);
 }
 
-// Reads and draws the sections (the first time, the app moves the facts in: copy and backup first, lib/profile-move.js).
+// Reads and draws the sections: the saved lines at once (lib/details-facts-handlers.js 'detailsFactsNow'), then the one-time moves settle in the background (the first time the app
+// moves the facts in: copy and backup first, lib/profile-move.js) and the screen draws again with what they did. 'details-sorting' tells the cards (the Voluntary surveys card
+// shows "Sorting your answers…", then reads its lines again); the first paint never waits on an AI call. Guarded by test/details-facts.test.js.
+let settledFor = 0;
+const paintFacts = (result, kept) => {
+  if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
+  $('facts-message').textContent = '';
+  draw(result.sections || {}, result.formats || {});
+  drawWhich(result.setAside || [], result.tidied || null);
+};
 export async function showFacts() {
-  await swr('details-facts', () => window.pilot.detailsFacts(), {
+  const turn = ++settledFor;
+  const quick = await swr('details-facts', () => window.pilot.detailsFactsNow(), {
     loading: () => KEYS.forEach(key => box(key)?.replaceChildren(loadingCard('Reading your details…', [60, 80]))),
-    paint: (result, kept) => {
-      if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
-      $('facts-message').textContent = '';
-      draw(result.sections || {}, result.formats || {});
-      drawWhich(result.setAside || [], result.tidied || null);
-    },
+    paint: paintFacts,
     fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
   });
+  document.dispatchEvent(new CustomEvent('details-sorting', {detail: {on: true}}));
+  const settled = await window.pilot.detailsFacts().catch(error => ({ok: false, error: error.message}));
+  if (turn === settledFor && settled?.ok !== undefined) {
+    if (settled.ok) { keep('details-facts', settled); paintFacts(settled, false); } else if (settled.error) $('facts-message').textContent = settled.error;
+  }
+  document.dispatchEvent(new CustomEvent('details-sorting', {detail: {on: false, changed: settled?.changed || 0}}));
+  return quick;
 }
 
 // What the boxes hold now: {eligibility: [{label, value, kind}], ...} (a line with no value is dropped on save).

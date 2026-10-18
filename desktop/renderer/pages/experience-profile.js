@@ -40,6 +40,13 @@ async function splitGaps(tab) {
   gapsTidied = result?.tidied || null;
   if (result?.ok && (result.changed || gapsTidied)) await reread(tab);
 }
+// Your details' moves are settling (pages/details-facts.js): the survey card says so, and reads its lines again when they are done (the move rewrites them in the store).
+let sorting = false;
+document.addEventListener?.('details-sorting', async event => {
+  sorting = Boolean(event.detail?.on);
+  if (parts.details && !editing.size) draw('details');
+  if (!sorting && event.detail?.changed && !editing.size && parts.details) await reread('details');
+});
 async function reread(tab) {
   const fresh = await window.pilot.textOutline('profile').catch(() => null);
   if (fresh?.items) { parts[tab] = profileParts(fresh.items); keep('profile-parts', {...fresh, ok: true}); draw(tab); }
@@ -95,7 +102,7 @@ function solo(tab, each) {
 
 // What a card shows: Strengths as rows of tags; any other part its lines (a list when several), its table rows, its notes small.
 function body(key, part) {
-  if (key === 'surveys') return surveyBody(part);
+  if (key === 'surveys') return surveyBody(part, {sorting});
   const box = el('div', 'exp-part-body');
   if (isEmpty(part)) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
   if (key === 'strengths') {

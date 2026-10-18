@@ -15,9 +15,16 @@ const longText = (value, label, placeholder, onInput = () => {}) => {
   return box;
 };
 
+// An answer to a question that is not on a list ("Label: value") shows as a row like the others; display only, the saved line stays as written. A line with no short label stays a paragraph.
+export function otherRow(text) {
+  const at = String(text).lastIndexOf(': ');
+  return at > 0 && at <= 160 ? {label: text.slice(0, at).replace(/^["“]|["”]$/g, '').trim(), value: text.slice(at + 2).trim()} : null;
+}
+
 // What the card shows: each answered question with its choice, its note muted under it, then the notes and the other lines.
-export function surveyBody(part) {
+export function surveyBody(part, {sorting = false} = {}) {
   const box = el('div', 'exp-part-body'), read = readLines(part?.lines || []);
+  if (sorting) box.append(el('p', 'muted small survey-sorting', 'Sorting your answers…'));
   const rows = SURVEYS.filter(each => read.answers.has(each.key));
   if (!rows.length && !read.notes.length && !read.other.length) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
   if (rows.length) {
@@ -30,7 +37,13 @@ export function surveyBody(part) {
     box.append(list);
   }
   for (const note of read.notes) box.append(el('p', 'muted small', `${NOTES_LABEL}: ${note.text}`));
-  for (const other of read.other) box.append(el('p', '', other.text));
+  const rowsOf = read.other.map(other => ({other, row: otherRow(other.text)}));
+  if (rowsOf.some(each => each.row)) {
+    const list = el('dl', 'summary-rows');
+    for (const {row} of rowsOf) if (row) list.append(el('dt', '', row.label), el('dd', '', row.value));
+    box.append(list);
+  }
+  for (const {other, row} of rowsOf) if (!row) box.append(el('p', 'muted small', other.text));
   return box;
 }
 
@@ -56,7 +69,7 @@ export function surveyForm(part) {
   fold.append(el('summary', '', NOTES_LABEL), ...notes);
   const others = read.other.map(each => ({index: each.index, field: longText(each.text, 'Line', '')}));
   node.append(fold);
-  if (others.length) node.append(el('div', 'muted small', 'Other lines (kept as written)'), ...others.map(each => each.field));
+  if (others.length) node.append(el('div', 'muted small', 'Other answers (not on a list, kept as written)'), ...others.map(each => each.field));
   return {node, texts() {
     const texts = textsFor(lines, choices, notes.map(field => field.value));
     for (const each of others) texts[each.index] = each.field.value;

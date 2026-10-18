@@ -12,6 +12,7 @@ import {profileParts} from '../renderer/experience-profile-model.js';
 import {NOTE_JOIN} from '../renderer/question-values.js';
 
 export const MODEL = 'claude-haiku-5-5';
+const TRIES = 3;
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['items'], properties: {items: {type: 'array', items: {type: 'object', additionalProperties: false,
   required: ['id', 'kind', 'question', 'option', 'note'], properties: {id: {type: 'string'}, kind: {type: 'string', enum: ['answer', 'notes', 'keep']}, question: {type: 'string', enum: ['', ...SURVEYS.map(each => each.key)]},
     option: {type: 'string'}, note: {type: 'string'}}}}}};
@@ -65,7 +66,12 @@ export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now =
   const taken = new Set(read.filter(each => each.read.type === 'answer').map(each => each.read.key));
   const planned = await plan(todo, taken, ai);
   const changes = todo.filter(each => planned.has(each.id)).map(each => ({op: 'text', id: each.line.id, value: planned.get(each.id), was: each.line.text}));
-  if (!changes.length) { storage.saveSettings({surveyMovedAt: now.toISOString()}); return {changed: 0, ...(todo.length ? {reason: 'no-answer-trusted'} : {})}; }
+  if (!changes.length) {
+    // Nothing trusted is not "done": one unreadable or refused AI answer must not end the move for good (owner's survey lines stayed prose). Asked again on the next open, up to TRIES times.
+    const tries = (storage.settings().surveyTries || 0) + 1;
+    if (!todo.length || tries >= TRIES) storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTries: 0}); else storage.saveSettings({surveyTries: tries});
+    return {changed: 0, ...(todo.length ? {reason: 'no-answer-trusted'} : {})};
+  }
   const backup = await copy(storage, {fetcher, now});
   try {
     const {missing} = await applyEdits(it.page('profile'), await it.page('profile').outline(), changes);
