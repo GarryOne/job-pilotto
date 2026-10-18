@@ -16,7 +16,9 @@ d="$FAKE_GH_DIR"; n=$(cat "$d/looks" 2>/dev/null || echo 0)
 case "$1 $2" in
   "pr view") n=$((n + 1)); echo $n > "$d/looks"; s=$(sed -n "${n}p" "$d/states"); [ -n "$s" ] || s=$(tail -n 1 "$d/states")
              m=$(sed -n "${n}p" "$d/mergeables" 2>/dev/null); [ -n "$m" ] || m=MERGEABLE
-             set -- $s; if [ "$1" = MERGED ]; then echo "{\\"state\\":\\"MERGED\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":{\\"oid\\":\\"$2\\"}}"; else echo "{\\"state\\":\\"$1\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":null}"; fi ;;
+             set -- $s; if [ "$1" = MERGED ]; then echo "{\\"headRefOid\\":\\"new1\\",\\"url\\":\\"https://github.com/o/r/pull/7\\",\\"state\\":\\"MERGED\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":{\\"oid\\":\\"$2\\"}}"; else echo "{\\"headRefOid\\":\\"new1\\",\\"url\\":\\"https://github.com/o/r/pull/7\\",\\"state\\":\\"$1\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":null}"; fi ;;
+  "api repos/o/r/commits/new1/check-runs?per_page=100") r=$(sed -n "${n}p" "$d/runs" 2>/dev/null); [ -n "$r" ] || r=ok
+             case "$r" in none) echo false;; running) echo false;; *) echo true;; esac ;;
   "pr checks") c=$(sed -n "${n}p" "$d/checks" 2>/dev/null); if [ "$c" = pending ]; then echo '[{"name":"x","bucket":"pending"}]'; elif [ -n "$c" ]; then echo "[{\\"name\\":\\"$c\\",\\"bucket\\":\\"fail\\"}]"; else echo '[{"name":"x","bucket":"pass"}]'; fi ;;
 esac
 """
@@ -35,11 +37,12 @@ class ShipWatchTest(unittest.TestCase):
         self.log, self.pidfile = self.tmp / 'ship.log', self.tmp / 'watch.pid'
         self.log.write_text('ship: [3s] opened the pull request: https://example.test/pull/7\n')
 
-    def watch(self, states, checks='', cap=60, poll=0, mergeables=''):
+    def watch(self, states, checks='', cap=60, poll=0, mergeables='', runs=''):
         (self.tmp / 'states').write_text(states)
         (self.tmp / 'mergeables').write_text(mergeables)
         (self.tmp / 'fixes').write_text('')
         (self.tmp / 'checks').write_text(checks)
+        (self.tmp / 'runs').write_text(runs)
         (self.tmp / 'looks').write_text('0')
         env = {**os.environ, 'PATH': f'{self.tmp / "bin"}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_DIR': str(self.tmp), 'SHIP_WATCH_POLL': str(poll), 'SHIP_WATCH_CAP': str(cap), 'SHIP_WATCH_FIX': str(self.tmp / 'fix.sh')}
         subprocess.run(['bash', str(ROOT / 'tools' / 'ship-watch.sh'), '7', str(self.log), str(self.pidfile)], env=env, timeout=30, check=True)
@@ -64,6 +67,15 @@ class ShipWatchTest(unittest.TestCase):
     def test_a_second_red_after_a_rerun_speaks_again(self):
         lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nCLOSED\n', checks='python\npending\npython\n\n')
         self.assertEqual(lines, ['ship: RED #7 python', 'ship: RED #7 python', 'ship: GREEN #7', 'ship: CLOSED #7 (unmerged)'])
+
+    def test_green_waits_for_the_current_heads_checks_and_speaks_once(self):
+        """#1476: the rollup still held the old head's passing checks right after a push. gh pr checks says pass throughout; the head's own check-runs decide."""
+        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nMERGED fff0000\n', runs='none\nrunning\nok\nok\n')
+        self.assertEqual(lines, ['ship: GREEN #7', 'ship: MERGED #7 fff0000'])
+        self.assertEqual((self.tmp / 'looks').read_text().strip(), '5')
+
+    def test_no_green_while_the_new_heads_checks_are_missing_or_running(self):
+        self.assertEqual(self.watch('OPEN\nOPEN\nCLOSED\n', runs='none\nrunning\n'), ['ship: CLOSED #7 (unmerged)'])
 
     def test_a_pr_still_open_at_the_cap_ends_the_watch(self):
         self.assertEqual(self.watch('OPEN\n', checks='pending\n' * 4, cap=2, poll=1), ['ship: WATCH ENDED #7 (still open)'])
