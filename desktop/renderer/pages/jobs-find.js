@@ -13,10 +13,10 @@ export const wireFindCard = startSearch => { start = startSearch; };
 
 const button = (text, handler, className = 'primary') => Object.assign(el('button', className, text), {type: 'button', onclick: handler});
 
-// This search's three numbers (find-card-model.js runCounts). While searching they flash when they go up, like the counters below
+// This search's three numbers (find-card-model.js runCounts): possible matches (rising as each employer is read), scored, good fits 70+. While searching they flash when they go up, like the counters below
 // (components.js setCount): the card is drawn again at every change, so each new number starts from the one shown before.
 function runNumbers(model, live = true) {
-  const cells = [['Looked at', 'looked'], ['Matches', 'matches'], ['Scored', 'scored']];
+  const cells = [[live ? 'Possible matches' : 'Matches', 'matches'], ['Scored', 'scored'], ['Good fits (70+)', 'good']];
   const strip = numberStrip(cells.map(([label, key]) => ({label, value: String(model[key])})), {valueFirst: true});
   strip.querySelectorAll('.insight-number-value').forEach((node, i) => {
     const key = cells[i][1], before = shown[key];
@@ -24,6 +24,20 @@ function runNumbers(model, live = true) {
     if (live) shown[key] = model[key];
   });
   return strip;
+}
+
+// Employers read as progress (bar + "1,953 of 2,251") and the raw listings as one small line; both are this search only.
+function readProgress(model) {
+  const box = el('div', 'find-progress'), n = value => value.toLocaleString('en-US');
+  if (model.employers) {
+    const {done, total} = model.employers, head = el('div', 'progress-head'), bar = el('div', 'bar'), fill = el('span');
+    fill.style.width = `${total ? Math.max(2, Math.min(100, Math.round(100 * done / total))) : 2}%`;
+    bar.append(fill);
+    head.append(el('span', '', 'Employers read'), el('span', 'muted', `${n(done)} / ${n(total)}`));
+    box.append(head, bar);
+  }
+  if (model.looked) box.append(el('p', 'muted', `${n(model.looked)} listings checked`));
+  return box;
 }
 
 function draw(model) {
@@ -37,8 +51,8 @@ function draw(model) {
     chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
     const lines = el('ul', 'run-card-rows');
     lines.append(...model.lines.map(text => el('li', 'run-card-row', text)));
-    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches} match${model.matches === 1 ? '' : 'es'} so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Job Pilotto; matches appear below as they are scored.']}),
-      runNumbers(model), chips, lines);
+    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches} possible match${model.matches === 1 ? '' : 'es'} so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Job Pilotto; matches appear below as they are scored.']}),
+      runNumbers(model), readProgress(model), chips, lines);
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before
     card.replaceChildren(cardHead('Search done', ran ? `${model.matches} match${model.matches === 1 ? '' : 'es'} found` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: ['The best matches are first. Find jobs again any time.']}),

@@ -1,9 +1,9 @@
-"""This search's own numbers (jobs looked at, matches, scored), each job counted once by its URL, printed as one structured line the Find jobs card reads."""
+"""This search's own numbers (jobs looked at, matches, scored, good fits), each job counted once by its URL, printed as one structured line the Find jobs card reads."""
 import threading
 
 PREFIX = 'Run counts: '
 _lock = threading.Lock()
-_sets = {'looked': set(), 'matches': set(), 'scored': set()}
+_sets = {'looked': set(), 'matches': set(), 'scored': set(), 'good': set()}
 
 
 def reset():
@@ -13,7 +13,7 @@ def reset():
 
 
 def line():
-    return f"{PREFIX}looked={len(_sets['looked'])} matches={len(_sets['matches'])} scored={len(_sets['scored'])}"
+    return f"{PREFIX}looked={len(_sets['looked'])} matches={len(_sets['matches'])} scored={len(_sets['scored'])} good={len(_sets['good'])}"
 
 
 def _add(kind, keys):
@@ -36,5 +36,15 @@ def matched(jobs):
     _add('matches', [job.get('url') or job.get('id') for job in jobs])
 
 
-def scored(job):
-    _add('scored', [job.get('url') or job.get('id')])
+GOOD_FIT = 70   # the Jobs page's "high fit" bar (desktop/renderer/jobs-view.js)
+
+
+def scored(job, score=None):
+    key = job.get('url') or job.get('id')
+    _add('scored', [key])
+    if key:   # a job scored again below the bar is no longer a good fit
+        with _lock:
+            before = len(_sets['good'])
+            (_sets['good'].add if (score or 0) >= GOOD_FIT else _sets['good'].discard)(str(key).strip())
+            if len(_sets['good']) != before:
+                print(line(), flush=True)

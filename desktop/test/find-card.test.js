@@ -1,7 +1,7 @@
 // The Find jobs card on top of Jobs: its five states, the running step, the counts. The page code (pages/jobs-find.js) only draws this.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runCounts, findCard, stepChips} from '../renderer/find-card-model.js';
+import {runCounts, findCard, stepChips, employersRead} from '../renderer/find-card-model.js';
 
 const run = log => ({kind: 'search', log});
 
@@ -63,8 +63,8 @@ test('no label the app shows still says Refresh jobs or Find new employers', asy
 });
 
 test('the last Run counts line wins; a log without one counts 0; the done card keeps the run\'s numbers', () => {
-  assert.deepEqual(runCounts(['Run counts: looked=5 matches=1 scored=0', 'Scored 1 of 1 job(s)', 'Run counts: looked=9 matches=2 scored=1']), {looked: 9, matches: 2, scored: 1});
-  assert.deepEqual(runCounts(['Scored 1 of 3 job(s)']), {looked: 0, matches: 0, scored: 0});
+  assert.deepEqual(runCounts(['Run counts: looked=5 matches=1 scored=0', 'Scored 1 of 1 job(s)', 'Run counts: looked=9 matches=2 scored=1']), {looked: 9, matches: 2, scored: 1, good: 0});
+  assert.deepEqual(runCounts(['Scored 1 of 3 job(s)']), {looked: 0, matches: 0, scored: 0, good: 0});
   const done = findCard({last: {ok: true, new: 4, log: ['Run counts: looked=612 matches=14 scored=9']}, lastSearchAt: 'x', listed: 351, finishedHere: true});
   assert.deepEqual([done.state, done.looked, done.matches, done.scored], ['done', 612, 14, 9]);
 });
@@ -72,4 +72,23 @@ test('the last Run counts line wins; a log without one counts 0; the done card k
 test('the Run counts line is not shown as a log line', async () => {
   const {readableLog} = await import('../renderer/human-log.js');
   assert.deepEqual(readableLog(['Run counts: looked=1 matches=0 scored=0']), []);
+});
+
+test('matches rise during the employer read, good fits are 70+, employers read are progress, listings are one small number', () => {
+  const read = n => `⏳ Reading employer job sites: ${n} of 2251 · 131,825 jobs listed · under a minute left`;
+  const at = (n, counts) => findCard({running: run(['Searching job boards…', read(n), counts]), listed: 0});
+  const early = at(900, 'Run counts: looked=60000 matches=12 scored=0 good=0');
+  const later = at(1953, 'Run counts: looked=135769 matches=31 scored=4 good=2');
+  assert.deepEqual([early.matches, later.matches, later.scored, later.good], [12, 31, 4, 2]);
+  assert.ok(later.matches >= early.matches, 'never goes down during the read');
+  assert.deepEqual(later.employers, {done: 1953, total: 2251});
+  assert.equal(later.looked, 135769);
+  assert.deepEqual(employersRead(['Reading employer job sites: 5 of 9', read(7)]), {done: 7, total: 2251});
+  assert.equal(employersRead(['Scored 1 of 3 job(s)']), null);
+  assert.equal(runCounts(['Run counts: looked=5 matches=1 scored=0']).good, 0, 'an older line has no good fits');
+});
+
+test('the done card shows the same three numbers as the searching card', () => {
+  const done = findCard({last: {ok: true, new: 4, log: ['Run counts: looked=612 matches=14 scored=9 good=3']}, lastSearchAt: 'x', listed: 351, finishedHere: true});
+  assert.deepEqual([done.state, done.matches, done.scored, done.good, done.looked], ['done', 14, 9, 3, 612]);
 });

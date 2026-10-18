@@ -17,11 +17,11 @@ class RunCountsTests(unittest.TestCase):
             run_counts.matched([{'url': 'https://a/1'}])
             run_counts.matched([{'url': 'https://a/1'}])
             run_counts.scored({'url': 'https://a/1'})
-        self.assertEqual(run_counts.line(), 'Run counts: looked=3 matches=1 scored=1')
-        self.assertEqual(out.getvalue().strip().splitlines()[-1], 'Run counts: looked=3 matches=1 scored=1')
+        self.assertEqual(run_counts.line(), 'Run counts: looked=3 matches=1 scored=1 good=0')
+        self.assertEqual(out.getvalue().strip().splitlines()[-1], 'Run counts: looked=3 matches=1 scored=1 good=0')
         self.assertEqual(out.getvalue().count('Run counts:'), 4, 'a repeat prints nothing')
 
     def test_a_match_was_looked_at(self):
         with redirect_stdout(io.StringIO()):
             run_counts.matched([{'url': 'https://x/9'}])
-        self.assertEqual(run_counts.line(), 'Run counts: looked=1 matches=1 scored=0')
+        self.assertEqual(run_counts.line(), 'Run counts: looked=1 matches=1 scored=0 good=0')
