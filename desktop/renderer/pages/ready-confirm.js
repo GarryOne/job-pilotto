@@ -12,7 +12,7 @@ export function confirmFill(ask) {
     tile.append(icon('moon'));
     const n = ask.jobs.length, forms = count => `${count} form${count === 1 ? '' : 's'}`;
     lead.append(el('h2', '', ask.again ? `Fill ${n === 1 ? 'this job' : `these ${n} jobs`} again?` : `Fill ${forms(n)} now?`),
-      el('p', 'muted', ask.again ? 'You opened them in your browser and have not submitted them. The server fills them again from the start.' : 'The server fills them now; nothing is submitted.'));
+      el('p', 'muted', ask.again ? `The server fills ${n === 1 ? 'it' : 'them'} again from the start; nothing is submitted.` : 'The server fills them now; nothing is submitted.'));
     const close = el('button', 'ghost icon-btn', '');
     close.id = 'ready-confirm-close'; close.type = 'button'; close.setAttribute('aria-label', 'Close');
     close.append(icon('close'));
