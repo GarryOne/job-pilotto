@@ -21,10 +21,8 @@ function d1() {
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
-// ASSETS: /admin/design is a built page (src/design.js), so its fake has a head and a body.
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})},
-  ASSETS: {fetch: request => new Response(new URL(request.url).pathname.startsWith('/admin/design') ? '<html><head></head><body><header></header></body></html>' : 'asset')},
-  fetcher: async () => new Response('', {status: 503})});
+  ASSETS: {fetch: () => new Response('asset')}, fetcher: async () => new Response('', {status: 503})});
 const owner = {headers: {Cookie: 'jp_stats=k3y'}};
 const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
 const now = new Date('2026-10-12T12:00:00Z');

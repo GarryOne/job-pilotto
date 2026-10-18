@@ -22,6 +22,7 @@
     "build:win": "node scripts/stage.mjs --app && electron-builder --win --publish never",
     "ui-shots": "node scripts/stage.mjs && node scripts/ui-shots.mjs",
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
+    "design-system": "node ../tools/design-system/serve.mjs",
     "drawer-shots": "node scripts/drawer-shots.mjs",
     "find-card-shots": "node scripts/find-card-shots.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",

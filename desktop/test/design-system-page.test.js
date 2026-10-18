@@ -107,11 +107,16 @@ test('the snapshot holds the rules, tokens, components, shots and the source com
   fs.rmSync(out, {recursive: true, force: true});
 });
 
-test('the site deploy rebuilds the page when any source changes, and serves it only through the Worker', () => {
-  const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/site.yml'), 'utf8');
-  for (const source of SOURCES) assert.ok(workflow.includes(`'${source}'`), `site.yml does not start on ${source}`);
-  assert.match(workflow, /node tools\/design-system\/build\.mjs/);
-  assert.ok(workflow.indexOf('tools/design-system/build.mjs') < workflow.indexOf('wrangler@4 deploy'), 'the build runs before the deploy');
-  assert.match(fs.readFileSync(path.join(ROOT, 'site/wrangler.toml'), 'utf8'), /run_worker_first = \[[^\]]*"\/admin\/design\/\*"/);
-  assert.match(fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8'), /^site\/public\/admin\/design\/$/m);
+test('the desktop tests start on every file the page is built from, and the built folder is never committed', () => {
+  const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/tests-desktop.yml'), 'utf8');
+  for (const source of SOURCES.filter(item => !item.startsWith('desktop/'))) assert.ok(workflow.includes(`'${source}'`), `tests-desktop.yml does not start on ${source}`);
+  assert.match(fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8'), /^desktop\/\.design-system\/$/m);
+  assert.match(JSON.parse(fs.readFileSync(path.join(ROOT, 'desktop/package.json'), 'utf8')).scripts['design-system'], /tools\/design-system\/serve\.mjs/);
+});
+
+test('rule titles are shortened for the contents, the date kept apart', async () => {
+  const {shortTitle} = await import('../../tools/design-system/build.mjs');
+  assert.deepEqual(shortTitle('Design system (owner, 17 Oct 2026): read first'), {short: 'Design system: read first', when: 'owner, 17 Oct 2026'});
+  assert.deepEqual(shortTitle('Cards: read → Edit → editor; one save bar (owner, 18 Oct 2026, UI redesign)'), {short: 'Cards: read → Edit → editor', when: 'owner, 18 Oct 2026, UI redesign'});
+  assert.deepEqual(shortTitle('Structure'), {short: 'Structure', when: ''});
 });
