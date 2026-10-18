@@ -110,6 +110,17 @@ class HealWorkflow(unittest.TestCase):
         self.assertNotIn('--wait-scale', WORKFLOW, 'the replay workflow lets each tape say its own pace')
         self.assertNotIn('--engine', (ROOT / 'tools' / 'persona-search' / 'heal.mjs').read_text(encoding='utf-8').split('export async function replay')[1].split('const file')[0], 'heal replays take the engine from the tape')
 
+    def test_two_replays_never_share_a_working_folder(self):
+        # 19 Oct 2026: the heal's two parallel replays both used tmp/jp-persona-<name>-heal-check: one waited for the other's run lock, saw its employer
+        # index, scout candidates and cache, and `--fresh` could wipe it mid-run, so "two replays of one tape" differed (7 vs 40 places) whatever the search did
+        out = node("import {replayTag} from './tools/persona-search/heal.mjs';"
+                   "console.log(JSON.stringify([replayTag('/w/out-a'), replayTag('/w/out-b'), replayTag('/w/out-a'), replayTag('/x/out-a')]))")
+        self.assertEqual(len(set(out[:2])), 2, 'replay a and b get their own folders')
+        self.assertEqual(out[0], out[2], 'one output folder keeps its tag')
+        self.assertNotEqual(out[0], out[3], 'the same file name in another work folder is another replay')
+        for tag in out:
+            self.assertRegex(tag, r'^heal-check-[0-9a-f]{8}$')
+
     def test_the_weekly_cap_and_the_pick(self):
         out = node("import {pickCandidate, agree, WEEKLY_CAP} from './tools/persona-search/heal.mjs';"
                    "const press = (more = {}) => ({in_places: 36, scored_in_places: 36, fit70_in_places: 28, stale: '', crashes: [], ...more});"

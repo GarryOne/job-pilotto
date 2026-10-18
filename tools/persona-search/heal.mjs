@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fetch, replayMisses, staleNote} from './tape-store.mjs';
@@ -32,13 +33,17 @@ const sh = (cmd, args, options = {}) => execFileSync(cmd, args, {encoding: 'utf8
 
 const run = promisify(execFile);
 
+// The working folder tag of one replay (run.mjs --tag): its own per output folder. Two replays on one tag shared tmp/jp-persona-<name>-<tag>: the run lock, the employer
+// index, the scout's candidates and the caches, and `--fresh` wiped it under the other (19 Oct 2026: the same tape gave 7 and 40 places, 58 vs 116 AI requests missing).
+export const replayTag = out => `heal-check-${crypto.createHash('sha1').update(path.resolve(out)).digest('hex').slice(0, 8)}`;
+
 // An offline replay of a tape folder, the way its tape says (tape/replay.json: engine and wait scale, read by run.mjs; the heal writes it for a tape it recorded on the API engine, at the recorded pace).
 // Its report.jsonl is cleared first: every replay appends to it. Returns the press with `stale` set.
 export async function replay(candidate, tape, out) {
   fs.rmSync(path.join(tape, 'report.jsonl'), {force: true});
   fs.rmSync(out, {recursive: true, force: true});
   sh('python3', ['tools/persona-search/personas.py', out]);
-  const args = [candidate, out, '--presses', '1', '--tag', 'heal-check', '--fresh', '--draft', path.join(tape, 'draft.json'), '--tape', tape, '--replay', '--no-live'];
+  const args = [candidate, out, '--presses', '1', '--tag', replayTag(out), '--fresh', '--draft', path.join(tape, 'draft.json'), '--tape', tape, '--replay', '--no-live'];
   try { await run('node', ['tools/persona-search/run.mjs', ...args], {maxBuffer: 1 << 28}); } catch { /* a crashed replay still leaves its press */ }
   const file = path.join(out, candidate, 'presses.jsonl');
   if (!fs.existsSync(file)) return null;
