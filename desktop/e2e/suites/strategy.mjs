@@ -10,8 +10,8 @@ import {closeRunningRows, ensureSection, findPagesBeside, pageSections, restoreS
 import {clearData} from '../lib/start-state.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
-import {assertNoRealAi} from '../lib/no-real-ai.mjs';
 
+export const realAi = false;   // every AI call is answered by the stand-in below; the harness fails the run if one reaches a real model
 export const engine = 'api';   // the suite relies on the AI proxy answering scoring calls locally, which needs the API engine (nothing reaches a real model on either turn)
 export const minutes = 30;
 export const name = 'strategy';
@@ -99,7 +99,6 @@ export async function run(ctx) {
     }
     throw new Error(`the Search settings page (${id}) still lacks ${HEADINGS.filter(heading => !found[heading]).join(', ')} after 30 s; it reads: ${Object.keys(found).join(' | ') || 'no headings'}`);
   };
-  const noRealAi = () => ctx.run('no AI call of this suite reached a real model: the stand-in answered or refused every one', () => assertNoRealAi(ctx));   // the last step, on either store
   const has = (list, word) => (list || []).some(entry => new RegExp(word, 'i').test(entry));
 
   // One Jobs check on the feeds in this suite; resolves with the titles its digest listed.
@@ -231,7 +230,6 @@ export async function run(ctx) {
       if (listed(jobs, 'senior giraffe keeper, nord')) throw new Error('the level "junior" still kept a Senior title');
       if (listed(jobs, 'giraffe keeper, sued')) throw new Error('a posting in Zurich was kept for the region "Ticino"');
     }, {needs: ctx.needs});
-    await noRealAi();
     return;
   }
 
@@ -294,5 +292,4 @@ export async function run(ctx) {
       if (synced?.ok === false) throw new Error(`addRoles: ${synced.error}`);
     } finally { await again.close(); }
   }, {needs: ctx.needs});
-  await noRealAi();
 }

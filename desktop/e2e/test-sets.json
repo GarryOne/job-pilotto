@@ -37,6 +37,8 @@
   "ai-meter.test.mjs",
   "ai-proxy.test.mjs",
   "ai-refused.test.mjs",
+  "no-real-ai.test.mjs",
+  "suite-ai-mode.test.mjs",
   "ai-spend.test.mjs",
   "answer-reask.test.mjs",
   "app-log.test.mjs",

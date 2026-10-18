@@ -14,6 +14,7 @@ import {createVariation} from '../lib/variation.mjs';
 import {describe, planWalk} from '../lib/wander.mjs';
 import {goView} from '../lib/go-view.mjs';
 
+export const realAi = true;   // stubs some AI calls but passes the others to the real model (metered); a suite with all calls stubbed declares false (test/suite-ai-mode.test.mjs)
 export const name = 'wander';
 export const keepGoing = true;
 export const notionProxy = true;

@@ -8,6 +8,7 @@ import {rows as notionRows} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {LABEL, appReady, idsNow, noRowStaysRunning, openRun, own, prepare, quiet, runTask, runsData, setFeed, sleep} from '../lib/activity-steps.mjs';
 
+export const realAi = true;   // stubs some AI calls but passes the others to the real model (metered); a suite with all calls stubbed declares false (test/suite-ai-mode.test.mjs)
 export const minutes = 40;   // + Notion, Telegram and Gmail failures (5 Oct 2026)
 export const name = 'activityfailures';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.

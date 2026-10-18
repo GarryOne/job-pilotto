@@ -29,6 +29,8 @@ export async function runSuite(name, report = null) {
       const changes = keychainChanges(keychainBefore, snapshot() || new Map());
       if (changes.length) throw new Error(`the real Keychain changed during the run: ${changes.join('; ')}. A test reached it (desktop/lib/keychain.js isolation), or something else on this Mac saved a secret meanwhile: check, then re-run`);
     }, {critical: true});   // critical: an E2E_STEPS filter never skips it
+    // A suite that declares `export const realAi = false` answers every AI call with a stand-in: one that reached a real model fails the run (lib/no-real-ai.mjs; test/suite-ai-mode.test.mjs).
+    if (suite.realAi === false) await runAlways('no AI call of this suite reached a real model: the stand-in answered or refused every one', async () => { (await import('./no-real-ai.mjs')).assertNoRealAi(ctx); }, {critical: true});
     if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
     // P7: a request the in-memory Notion does not know is a gap in the stand-in, and the app swallows many such errors (9 Oct 2026: a missing url filter
     // left a form without its kit, three layers away). Each one fails here by name, so the stand-in grows instead of hiding it (lib/notion-fake.mjs).
