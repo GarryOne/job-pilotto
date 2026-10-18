@@ -141,6 +141,13 @@ test('the end-to-end journey\'s fixture feeds and its fictional candidate reach 
   assert.equal(env.JOB_PILOTTO_EXCLUDED_COMPANIES, undefined);
 });
 
+test('the persona search check\'s tape reaches the engine (src/search_tape.py)', () => {
+  const tape = {JOB_PILOTTO_SEARCH_TAPE: '/tape', JOB_PILOTTO_SEARCH_TAPE_MODE: 'replay', JOB_PILOTTO_TAPE_SPEED: '0'};
+  const env = pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin', ...tape});
+  for (const [name, value] of Object.entries(tape)) assert.equal(env[name], value);
+  assert.equal(pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin'}).JOB_PILOTTO_SEARCH_TAPE, undefined);
+});
+
 test('with Notion connected, the Profile comes from Notion, not the local file', () => {
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');

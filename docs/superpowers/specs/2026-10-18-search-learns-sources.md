@@ -61,5 +61,10 @@ the personas session's scratchpad).
 - [x] PR 7 small fixes: title rounds (proof: tests/test_title_triage.py)
 - [x] Rerun after the fixes (Artifact https://claude.ai/artifact/5ezTMMBhp5SV17qMVarmz2): a region's added towns keep its country, #1367 (proof: tests/test_swiss_place.py @d68840e)
 - [x] PR 8 jobs shown per source, as each is read (proof: tests/test_jobs_per_source.py)
-- [ ] PR 9 the first 3 relevant jobs always scored in press 1 (cost per press measured and sent first)
+- [ ] ~~PR 9 the first 3 relevant jobs always scored in press 1~~: replaced by A (owner, 18 Oct 2026, "0 + A + B": the floor folds into A)
+- [ ] 0 · a fixed replay test: each persona's search recorded once (src/search_tape.py, tools/persona-search --tape), replayed offline; time to the 1st and 10th relevant job and to the first 70+ per press 1
+- [ ] 0 · six personas recorded (finance Amsterdam, music Berlin, driver Nuremberg, SRE Zurich, software Cluj, software Chisinau) and replayed twice with the same numbers
+- [ ] 0 · the same three numbers counted on real installs (no personal data)
+- [ ] A · score the best jobs first: a free ranking (closeness to the target roles, level, language and place), the AI scores from its top; measured on test 0
+- [ ] B · one source queue by relevant jobs per second per role family × country, shared across installs, about 1 in 5 tries something new; measured on test 0
 - [ ] AFTER: persona harness meets the target, SRE control no worse (proof: the Artifact, before/after)
