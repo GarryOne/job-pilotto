@@ -74,7 +74,8 @@ def search(args, stores=None):
                     except Exception as error:  # noqa: BLE001 — the full search does everything the slice did
                         print(f'Warning: first jobs skipped: {type(error).__name__}: {error}', flush=True)
                 so_far = jobs_so_far.SoFar(db)   # each source's jobs in the list as soon as it is read, not all at the end (owner, 18 Oct 2026)
-                report = feeds.scan(feed_list, feed_db, on_jobs=so_far.listener('employer sites'))
+                from .sources import boards_ahead   # the found boards read beside the employer sites, not after them (owner, 19 Oct 2026)
+                report, ahead = boards_ahead.scan_beside(feed_list, feed_db, load_search_config(), so_far, due=args.mode in ('scheduled', 'run'))
                 crawl_funnel = report.get('funnel')   # not `funnel`: that name is the Notion funnel module used further down
                 if crawl_funnel:   # the same fixed-list tags the pool uses (src/contribute.py): all that ever describes this search to the product
                     crawl_funnel['roles'], crawl_funnel['regions'] = contribute.tags()
@@ -88,7 +89,7 @@ def search(args, stores=None):
                 # Aggregators with public APIs (src/sources/aggregators.py): free ones always, keyed ones with their keys; each at most every 6 hours.
                 if args.mode in ('scheduled', 'run'):
                     from .sources import aggregators
-                    found = aggregators.scan(feed_db, load_search_config(), on_jobs=so_far.listener('job boards'))
+                    found = aggregators.scan(feed_db, load_search_config(), on_jobs=so_far.listener('job boards'), ahead=ahead)
                     report['jobs'] += found['jobs']
                     report['sources'] += found['sources']
                     # Job-alert emails in the user's own Gmail (src/sources/job_alerts.py): LinkedIn & co. without ever fetching their pages.

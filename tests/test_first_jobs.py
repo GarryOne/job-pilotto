@@ -129,7 +129,7 @@ class WiringTests(unittest.TestCase):
     def test_the_search_runs_the_slice_before_the_full_crawl(self):
         source = open('src/daily_search.py').read()
         self.assertIn('first_jobs.run(', source)
-        self.assertLess(source.index('first_jobs.run('), source.index('report = feeds.scan(feed_list, feed_db'))
+        self.assertLess(source.index('first_jobs.run('), source.index('boards_ahead.scan_beside(feed_list, feed_db'))
 
     def test_a_first_run_lists_the_jobs_still_waiting_for_a_score(self):
         import sqlite3
