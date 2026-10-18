@@ -1,30 +1,84 @@
-name: CI · Lab Job Search · heal one tape (by hand)
-# Measures what re-recording ONE stale Lab Job Search tape costs (owner, 18 Oct 2026: "measure the cost of one heal on driver first"; sketch https://claude.ai/artifact/RUbTJRzDbwKoKPrUZNu3vC).
-# By hand only: one live search through the first Find jobs on the API engine (its OWN key LAB_HEAL_ANTHROPIC_KEY in the Tests org (own workspace and cap, owner 18 Oct 2026, so its spend stays apart from the random draws)), recorded into a NEW tape folder.
-# Nothing is published or posted: the run prints the AI calls and tokens it used (read the billed dollars back from the Console / ai-cost afterwards). No schedule, never on a PR.
+name: CI · Lab Job Search · heal stale tapes
+# The Lab's automatic heal (owner, 18 Oct 2026, sketch https://claude.ai/artifact/RUbTJRzDbwKoKPrUZNu3vC): once a day, an offline replay of every tape ($0) finds the first one that no longer covers the build (a search
+# change asks for requests nobody recorded); that one candidate is recorded again live on the API engine (its OWN key LAB_HEAL_ANTHROPIC_KEY in the Tests org, own workspace and cap), and the new tape replaces the old one
+# ONLY when two offline replays of it agree and are not stale ("keep the old green until 2 replays agree"). Capped at 6 heals a week (about $0.92 each, measured: under the owner's $6 a week).
+# Starts OFF: the scheduled run does nothing until the repository variable LAB_HEAL_ON is "true". By hand with a candidate: heals that one regardless of the cap. Never on a PR.
 on:
+  schedule:
+    - cron: '17 6 * * *'   # after the replay at 04:41 UTC; one heal a day at most
   workflow_dispatch:
     inputs:
       candidate:
-        description: 'Candidate to record again (driver, music, finance, sre, cluj, chisinau)'
+        description: 'Candidate to record again (driver, music, finance, sre, cluj, chisinau); empty = the first stale one, within the weekly cap'
         type: string
-        default: driver
+        default: ''
 
 permissions:
   contents: read
+  actions: write   # reads the week's earlier heals, starts the replay that posts the healed numbers
 
-concurrency:   # by hand: its own group, never cancelled (tests/test_main_runs_finish.py)
-  group: search-lab-heal-${{ github.event_name == 'push' && 'main' || github.run_id }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+concurrency:   # scheduled or by hand: its own group per run, never cancelled (tests/test_main_runs_finish.py)
+  group: search-lab-heal-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
+  pick:
+    if: github.event_name == 'workflow_dispatch' || vars.LAB_HEAL_ON == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      candidate: ${{ steps.choose.outputs.candidate }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - run: npm ci && node scripts/stage.mjs
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Is the records App's key set
+        id: records_app_key
+        env:
+          CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CI_APP_PRIVATE_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::records App key not set, the old read token is used (it shares the owner's GitHub API limit)"; fi
+      - name: The records token from the GitHub App (its own API limit, not the owner's account's)
+        id: records_app
+        if: steps.records_app_key.outputs.set == 'true'
+        continue-on-error: true   # a failed mint falls back to the old secret, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: job-pilotto-internal
+      - name: Which tape no longer covers this build (offline replays, no AI)
+        id: choose
+        env:
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
+          ASKED: ${{ inputs.candidate }}
+        run: |
+          if [ -n "$ASKED" ]; then echo "candidate=$ASKED" >> "$GITHUB_OUTPUT"; echo "heal-pick: asked by hand for $ASKED"
+          else node tools/persona-search/heal.mjs pick 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"; fi
+
   heal:
+    needs: pick
+    if: needs.pick.outputs.candidate != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 40   # a search stops by itself at its own time budget; this only ends a hang
     env:
       GH_TOKEN: ${{ github.token }}
       NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-      CANDIDATE: ${{ inputs.candidate }}
+      CANDIDATE: ${{ needs.pick.outputs.candidate }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -81,3 +135,16 @@ jobs:
           web = sum(1 for _ in open(os.path.join(folder, 'web.jsonl'))) if os.path.exists(os.path.join(folder, 'web.jsonl')) else 0
           print(f"heal {os.environ['CANDIDATE']}: {len(rows)} AI calls, tokens {total}, {web} web pages")
           PY
+      - name: Keep the old tape unless two replays of the new one agree
+        env:
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
+        run: |
+          cp "$RUNNER_TEMP/old/draft.json" "$RUNNER_TEMP/new/draft.json"
+          mkdir -p "$RUNNER_TEMP/verify"
+          node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publish the new tape (it is then the newest of that candidate)
+        env:
+          GH_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_WRITE_TOKEN }}
+        run: node tools/persona-search/tape-store.mjs publish "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Replay it now, so the Lab page shows the healed row
+        run: gh workflow run search-lab.yml --ref main

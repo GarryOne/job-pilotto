@@ -58,14 +58,31 @@ class TapeStore(unittest.TestCase):
 
 
 class HealWorkflow(unittest.TestCase):
-    def test_the_heal_is_by_hand_on_its_own_key_and_publishes_nothing(self):
-        heal = (ROOT / '.github' / 'workflows' / 'search-lab-heal.yml').read_text(encoding='utf-8')
-        self.assertNotIn('pull_request', heal)
-        self.assertNotIn('\n  schedule:', heal)
-        self.assertIn('LAB_HEAL_ANTHROPIC_KEY: ${{ secrets.LAB_HEAL_ANTHROPIC_KEY }}', heal)   # owner 18 Oct 2026: apart from the random draws' key and cap
-        self.assertNotIn('RANDOM_DRAWS_ANTHROPIC_KEY', heal)
-        self.assertNotIn('tape-store.mjs publish', heal)
-        self.assertNotIn('lab-upload', heal)
+    heal = (ROOT / '.github' / 'workflows' / 'search-lab-heal.yml').read_text(encoding='utf-8')
+
+    def test_the_heal_is_off_until_switched_on_never_on_a_pr_and_on_its_own_key(self):
+        self.assertNotIn('pull_request', self.heal)
+        self.assertIn("vars.LAB_HEAL_ON == 'true'", self.heal)   # starts OFF (owner 18 Oct 2026): the scheduled run does nothing until the variable is set
+        self.assertIn('LAB_HEAL_ANTHROPIC_KEY: ${{ secrets.LAB_HEAL_ANTHROPIC_KEY }}', self.heal)   # apart from the random draws' key and cap
+        self.assertNotIn('RANDOM_DRAWS_ANTHROPIC_KEY', self.heal)
+
+    def test_a_new_tape_is_published_only_after_two_replays_agree(self):
+        verify, publish = self.heal.index('heal.mjs verify'), self.heal.index('tape-store.mjs publish')
+        self.assertLess(verify, publish, 'a tape is verified before it replaces the old one (the step order stops the job on a failed verify)')
+        self.assertEqual(self.heal.count('NET_RECORDS_WRITE_TOKEN'), 1, 'the write token is read by the publish step only')
+        self.assertNotIn('lab-upload', self.heal, 'the numbers are posted by the replay workflow, never by the heal')
+
+    def test_the_weekly_cap_and_the_pick(self):
+        out = node("import {pickCandidate, agree, WEEKLY_CAP} from './tools/persona-search/heal.mjs';"
+                   "const press = (more = {}) => ({in_places: 36, scored_in_places: 36, fit70_in_places: 28, stale: '', crashes: [], ...more});"
+                   "console.log(JSON.stringify([pickCandidate({sre: 'x', cluj: 'y'}, 0), pickCandidate({sre: 'x'}, WEEKLY_CAP), pickCandidate({driver: ''}, 0),"
+                   "agree(press(), press()), agree(press(), press({fit70_in_places: 27})), agree(press(), press({stale: 'Tape stale (1 AI and 0 web requests not recorded)'})), agree(press(), null)]))")
+        self.assertEqual(out[:3], ['sre', None, None])
+        self.assertEqual(out[3], '')
+        self.assertIn('differs', out[4])
+        self.assertIn('stale', out[5])
+        self.assertTrue(out[6])
+        self.assertLessEqual(6 * 0.92, 6.0, 'six heals at the measured $0.92 stay inside $6 a week')
 
 
 if __name__ == '__main__':
