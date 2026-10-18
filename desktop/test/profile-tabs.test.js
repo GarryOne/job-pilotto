@@ -29,7 +29,8 @@ test('no textarea anywhere on the Profile page\'s texts (owner, 16 Oct 2026)', (
 
 test('every Notion button on the Profile page is Notion-only (hidden on this Mac)', () => {
   const buttons = [...page.matchAll(/<button[^>]*>[^<]*Notion[^<]*<\/button>/g)].map(match => match[0]);
-  assert.ok(buttons.length >= 3);
+  assert.ok(buttons.length >= 1);
   for (const button of buttons) assert.match(button, /data-notion-only/, button);
+  assert.match(page.match(/<button[^>]*id="answers-review"[^>]*>/)[0], /data-notion-only/, 'Application answers\' ⋯ (View source in Notion) is Notion-only');
   assert.doesNotMatch(page, /<(span|b)(?![^>]*data-store-saved)[^>]*>Saved in Notion</, 'where it is saved is said by the store');
 });

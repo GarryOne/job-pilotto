@@ -34,7 +34,7 @@ test('All: the banner, one Saved answers card with a header per section, the int
   assert.deepEqual(node.querySelectorAll('.segmented button').map(button => button.textContent), ['All', 'Needs review 1', 'Saved']);
   assert.match(node.querySelector('.qa-banner').textContent, /1 question needs review/);
   assert.deepEqual(node.querySelectorAll('.qa-saved .qa-group').map(head => head.textContent), ['Eligibility', 'Availability and pay']);
-  assert.deepEqual(rowTitles(node), ['Authorised to work in Switzerland?', 'Will you need sponsorship?', 'Notice period']);
+  assert.deepEqual(rowTitles(node), ['Authorised to work in Switzerland?', 'Notice period'], 'an unanswered row is in the queue, never "Not set" under Saved (18 Oct 2026)');
   assert.equal(node.querySelectorAll('.qa-saved .qa-intro').length, 2, 'the page intro: small text');
   assert.match(node.querySelector('.qa-saved .qa-note').textContent, /Use the expectation from Your details/);
   assert.equal(node.querySelectorAll('.qa-saved button.qa-add').length, 0, 'no per-row button');

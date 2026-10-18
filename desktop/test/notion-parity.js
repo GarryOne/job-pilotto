@@ -13,8 +13,7 @@ export const NOTION_PARITY = {
   'index.html#focus-funnel-notion': FUNNEL,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
   'pages/strategy.js init': {view: 'pages/strategy-targets.js renderTargets'},   // ⋯ → View source in Notion: ⚙️ Search settings (or the Profile); its lists and Job preferences are edited on Strategy on every store
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
-  'index.html#open-answers': ANSWERS,
-  'index.html#answers-review': ANSWERS,
+  'pages/profile.js answersMenu': ANSWERS,                       // Application answers' ⋯ → View source in Notion
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
   'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview
