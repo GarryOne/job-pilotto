@@ -11,7 +11,7 @@ import {ready} from '../src/ready.js';
 const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql', '0097_ready_line.sql']) db.exec(sql(file));
+  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql', '0097_ready_line.sql', '0098_ready_turn.sql']) db.exec(sql(file));
   db.exec('CREATE TABLE anomalies (day TEXT, kind TEXT, who TEXT, n INTEGER, detail TEXT, PRIMARY KEY (day, kind, who))');
   db.exec('CREATE TABLE IF NOT EXISTS revoked (who TEXT PRIMARY KEY, reason TEXT, at TEXT)');
   const statement = (text, args = []) => ({bind: (...v) => statement(text, v), run: async () => { const r = db.prepare(text).run(...args); return {meta: {changes: Number(r.changes)}}; },
@@ -51,6 +51,8 @@ test('two forms in a line: the 2nd joins the running night, each row shows its o
   assert.equal((await joined.json()).joined, true, 'the running night takes it at the end of its line');
   assert.equal(e.READY_QUEUE.sent.length, 2, 'no second server for it');
   assert.equal((await call(e, 'POST', 'again', {job: 'j2'}, await owner())).status, 409, 'a form already in the line');
+  assert.deepEqual((await (await call(e, 'GET', 'batch', undefined, night)).json()).jobs.map(each => `${each.id}:${each.turn}`), ['j1:1', 'j2:1'],
+    'each Fill again counts its form\'s turn up: the container fills each (form, turn) once, so a stale list fills nothing');
 
   assert.deepEqual((await (await call(e, 'POST', 'progress', {job: 'j1', step: 'answering', n: 3}, night)).json()), {ok: true, stop: false});
   assert.deepEqual(await rows(e), {j1: 'filling:answering:3', j2: 'queued', j3: 'partial'});
