@@ -25,6 +25,7 @@ const sources = ['', 'pages/', 'job-drawer/'].flatMap(d => listing(d || './'));
 // Each file that draws a chevron fold, and how its whole bar toggles. A new file with a chevron fails here until it is listed.
 const CHEVRON_FILES = {
   'components.js': 'collapsiblePanel + toggleOnBar',
+  'page-parts.js': 'reviewList: the whole detail row and the Reviewed line toggle (a <details> summary)',
   'pages/application-answers.js': 'toggleOnBar',
   'pages/activity-mail.js': 'the fold is one full-width button',
   'interview-insight.js': 'the bar folds, the arrow bubbles',
