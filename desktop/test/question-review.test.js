@@ -37,7 +37,7 @@ test('Jobs: one compact card, its count is the review queue (3), not the queue p
   assert.match(card, /Application questions/);
   assert.match(card, /Review missing answers and suggested matches\./);
   assert.match(card, /Review questions/);
-  assert.match(card, /Manage saved answers/);
+  assert.doesNotMatch(card, /Manage saved answers/, 'one action on the card; Saved answers lives in the drawer header');
   assert.doesNotMatch(card, /Notion|every application|Answer once/);
 });
 
@@ -45,6 +45,7 @@ test('the drawer: Question 1 of 3, a suggested answer told apart from a missing 
   await review.openQuestionReview();
   assert.equal($('review-drawer-layer').hidden, false);
   assert.match(panel().textContent, /Question 1 of 3/);
+  assert.ok(panel().querySelector('#review-saved-answers'), 'Saved answers is in the header while a question is open too');
   assert.ok(panel().querySelector('.qr-answer.is-suggested'), 'a proposal is a suggestion');
   assert.match(panel().textContent, /Suggested from saved answer/);
   assert.match(panel().querySelector('.qr-source').textContent, /Notice period \/ earliest start/);

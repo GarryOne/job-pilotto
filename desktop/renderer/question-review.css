@@ -8,7 +8,7 @@
 .qr-card-text { flex: 1; min-width: 220px; display: grid; gap: 2px; }
 .qr-card-text p { margin: 0; }
 .qr-card-title { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--fs-lg); }
-.qr-card-actions { display: grid; justify-items: end; gap: var(--sp-1); }
+.qr-card-actions { display: flex; align-items: center; gap: var(--sp-2); }
 .qr-card-actions .primary { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .qr-card.is-loading #questions-count { background: transparent; padding: 0; }
 .questions-skeleton { width: 90px; height: 18px; }

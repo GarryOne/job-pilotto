@@ -38,7 +38,11 @@ function header() {
   close.addEventListener('click', closeQuestionReview);
   const title = el('div', 'jd-title');
   title.append(el('h2', '', 'Application questions'), el('p', 'muted', 'Review answers before they are reused for matching questions.'));
-  top.append(el('span', 'qr-head-icon', icon('chat')), title, close);
+  // Saved answers stays in the header on every state (owner, 19 Oct 2026): it lands on Application answers → Saved.
+  const saved = Object.assign(el('button', 'secondary with-icon qr-saved-btn'), {type: 'button', id: 'review-saved-answers'});
+  saved.append(icon('bookmark'), el('span', '', 'Saved answers'));
+  saved.addEventListener('click', () => manageAnswers());
+  top.append(el('span', 'qr-head-icon', icon('chat')), title, saved, close);
   head.append(top);
   if (state.fromDetails > 0) head.append(el('p', 'muted small qr-details', fromDetailsLine(state.fromDetails)));
   if (!state.queue.length && !state.aside) return head;
@@ -175,7 +179,7 @@ export function draw() {
   const q = current();
   if (!q) {
     const done = stateCard({icon: 'check', tone: 'good', title: 'All questions reviewed',
-      text: 'New questions show here when a form asks something your saved answers do not cover.', actions: [button('Manage saved answers', () => manageAnswers())]});
+      text: 'New questions show here when a form asks something your saved answers do not cover.'});
     const body = el('div', 'jd-body qr-body', done);
     if (state.saved) body.append(el('p', 'muted small qr-saved', state.saved));
     const foot = el('footer', 'jd-foot qr-foot', button('Close', closeQuestionReview, 'secondary'));
@@ -240,11 +244,11 @@ export function closeQuestionReview() {
   $('review-drawer-layer').hidden = true;
 }
 
-// Profile → Application answers (Manage saved answers, View source), searched for a saved answer's name when one is given.
-export async function manageAnswers(query = '') {
+// Profile → Application answers on its Saved tab (the drawer's Saved answers, a question's "covered by"), searched for a saved answer's name when one is given.
+export async function manageAnswers(query = '', view = 'saved') {
   closeQuestionReview();
   const [{openView}, {settingsPage}, {profileTab}, answers] = await Promise.all([import('./nav.js'), import('./settings.js'), import('./profile.js'), import('./application-answers.js')]);
-  answers.searchAnswers(query);
+  answers.searchAnswers(query, view);
   openView('settings');
   settingsPage('profile');
   profileTab('answers');

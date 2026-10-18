@@ -277,6 +277,16 @@ export function toggleOnBar(bar, toggle) {
     if (!isInteractiveTarget(event.target, bar, event)) toggle();
   });
 }
+// A compact card with ONE main action (owner, 19 Oct 2026: "anywhere I click on this card should open the drawer"): a click on the card's empty area presses `main`.
+// A click on another button, link or field, or the end of a text selection, does not; `main` stays the one tab stop. Marked `.is-card-opens` (cursor + hover, components.css).
+export function cardOpens(card, main) {
+  card.classList.add('is-card-opens');
+  card.addEventListener('click', event => {
+    if (event.target === main || main.contains(event.target) || isInteractiveTarget(event.target, card, event)) return;
+    if (globalThis.getSelection?.()?.toString()) return;
+    main.click();
+  });
+}
 export function collapsiblePanel(panel, key = panel.id, {collapsed = false} = {}) {
   const bar = panel.querySelector(':scope > .panel-top');
   if (!bar || bar.dataset.collapsible) return null;
