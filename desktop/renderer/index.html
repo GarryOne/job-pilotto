@@ -1022,7 +1022,7 @@
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
               <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details" data-notion-only>Open profile in Notion</button></div></div>
             <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
-            <div class="form-grid cols-2">
+            <div class="form-grid cols-2" data-reads-contact>
               <label>First name<input data-contact="first_name" type="text"></label>
               <label>Last name<input data-contact="last_name" type="text"></label>
               <label>Salutation<input data-contact="salutation" type="text" placeholder="e.g. Mr, Ms, Madame"></label>
@@ -1041,7 +1041,7 @@
             <div class="panel-top"><div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
               <button class="secondary" id="links-edit">Edit</button></div>
             <p class="muted panel-lead">Links to your online profiles, automatically included where relevant.</p>
-            <div class="link-tiles" id="links-view"></div>
+            <div class="link-tiles" id="links-view" data-reads-contact></div>
             <div class="form-grid cols-3" id="links-form" hidden>
               <label>LinkedIn<input data-contact="linkedin" type="url" placeholder="https://www.linkedin.com/in/…"></label>
               <label>GitHub<input data-contact="github" type="url" placeholder="https://github.com/…"></label>
