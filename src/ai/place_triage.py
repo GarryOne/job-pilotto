@@ -87,6 +87,16 @@ def known(search):
     return _load().get(_key(search)) or {}
 
 
+def _keep(key, decided):
+    with LOCK:
+        data = _load()
+        data[key] = {**(data.get(key) or {}), **decided}
+        for old in list(data)[:-3]:   # the last few versions of the places only
+            data.pop(old)
+        STORE.parent.mkdir(parents=True, exist_ok=True)
+        STORE.write_text(json.dumps(data, ensure_ascii=False))
+
+
 def decide(locations, search, client=None):
     """Ask about the locations not decided yet for these places (a batch this refresh can finish), keep the answers; returns all known."""
     from . import cost, engine
@@ -96,8 +106,19 @@ def decide(locations, search, client=None):
     ask = ask[:budget.in_calls('place_rounds', len(ask), BATCH, engine.PARALLEL)]
     if not ask:
         return decided
-    client = client or engine.client(action='place_triage')
     words = places_words(search, _preferences())
+    from .. import geo
+    try:   # by country + distance first; a test's client is not asked for the map
+        mapped = geo.verdicts(ask, words, client, ask=client is None)
+    except Exception as error:  # noqa: BLE001 — the model decides these locations, as before
+        print(f'Warning: map of places not used ({named(error)})', flush=True)
+        mapped = {}
+    decided.update(mapped)
+    ask = [n for n in ask if n not in mapped]
+    if not ask:
+        _keep(key, decided)
+        return decided
+    client = client or engine.client(action='place_triage')
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
     print(f'Places: asking {providers.who()} where {len(ask)} job location(s) are, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
     from concurrent.futures import ThreadPoolExecutor
@@ -146,13 +167,7 @@ def decide(locations, search, client=None):
         except Exception as error:  # noqa: BLE001 — placed without the visa answer; asked with the next new places
             print(f'Warning: visa needs not answered ({named(error)})', flush=True)
     budget.record('place_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
-    with LOCK:
-        data = _load()
-        data[key] = {**(data.get(key) or {}), **decided}
-        for old in list(data)[:-3]:   # the last few versions of the places only
-            data.pop(old)
-        STORE.parent.mkdir(parents=True, exist_ok=True)
-        STORE.write_text(json.dumps(data, ensure_ascii=False))
+    _keep(key, decided)
     asked = [loc for loc in ask if loc in decided]
     print(f'Places: {providers.who()} placed {len(asked)} location(s); {sum(1 for loc in asked if decided[loc] != "out")} are in your places', flush=True)
     return decided
@@ -211,13 +226,7 @@ def vague(locations, search, client=None):
 
 
 def _save(key, decided):
-    with LOCK:
-        data = _load()
-        data[key] = {**(data.get(key) or {}), **decided}
-        for old in list(data)[:-3]:   # the last few versions of the places only
-            data.pop(old)
-        STORE.parent.mkdir(parents=True, exist_ok=True)
-        STORE.write_text(json.dumps(data, ensure_ascii=False))
+    _keep(key, decided)
 
 
 READ_BATCH = 10   # postings: title, location and their first words
