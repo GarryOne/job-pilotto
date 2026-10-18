@@ -17,7 +17,6 @@
   function off() {
     clearInterval(watch); watch = null;
     for (const name of HELD) window.removeEventListener(name, hold, true);
-    if (layer) window.dispatchEvent(new CustomEvent('jobpilotto-overlay', {detail: false}));
     layer?.remove(); layer = null;
   }
   // The fill is on a step: the layer (re)appears, and the backstop's clock restarts.
@@ -28,7 +27,6 @@
     layer.style.cssText = 'position:fixed;inset:0;z-index:2147483645;pointer-events:none;background:rgba(19,36,57,.55);';
     document.documentElement.append(layer);
     for (const name of HELD) window.addEventListener(name, hold, {capture: true, passive: false});
-    window.dispatchEvent(new CustomEvent('jobpilotto-overlay', {detail: true}));   // the Report flag steps aside (panel-report.js): nothing outside the panel looks pressable
     watch = setInterval(() => { if (!chrome.runtime?.id || Date.now() - refreshed > MAX_MS) off(); }, 1000);
   }
   chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') off(); });
