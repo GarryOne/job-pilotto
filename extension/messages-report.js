@@ -40,8 +40,11 @@ export function createReportMessages() {
 
   return function messages_report(message, sender, reply) {
     const tabId = sender?.tab?.id;
-    if (!['report-state', 'report-send'].includes(message?.type) || tabId === undefined) return undefined;
+    if (!['report-state', 'report-send', 'report-open'].includes(message?.type) || tabId === undefined) return undefined;
     (async () => {
+      if (message.type === 'report-open') {   // the panel inside a frame of the page: its Report opens the card the top frame draws
+        return chrome.tabs.sendMessage(tabId, {type: 'report-open'}, {frameId: 0}).then(() => ({ok: true}), () => ({ok: false}));
+      }
       if (message.type === 'report-state') {
         if (isStopped()) return {enabled: false};
         switchState.at = 0;   // the panel asking is a page load: look at the switch again
