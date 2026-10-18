@@ -57,7 +57,7 @@ test('the cover letter shows a skeleton in place of its empty box until the read
   assert.equal(root.children.filter(child => /contact-reading/.test(child.className)).length, 1);
   reading(false, root, 'letter');
   assert.equal(box.hidden, false);
-  assert.match(fs.readFileSync(new URL('../renderer/pages/profile.js', import.meta.url), 'utf8'), /swr\('cover-letter'[\s\S]*loading: \(\) => \{ reading\(true, document, 'letter'\)/);
+  assert.match(fs.readFileSync(new URL('../renderer/pages/base-letter.js', import.meta.url), 'utf8'), /swr\('cover-letter'[\s\S]*loading: \(\) => \{ reading\(true, document, 'letter'\)/);
 });
 
 test('the contact read keeps its answer, so a second open fills the boxes before the read returns', () => {

@@ -10,7 +10,7 @@ import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
-import {init as letterFallback} from './letter-fallback.js';
+import {initLetter, loadLetter} from './base-letter.js';
 import {el, moreButton, openMenu, tile} from '../components.js';
 import {cvCheckAction, lastCheck, showCvCheck} from '../cv-check-view.js';
 import {documentFacts} from '../cv-check-model.js';
@@ -23,7 +23,6 @@ import {showCvChanged} from './cv-change.js';
 import {openSetting, renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
-import {hintAfter} from '../own-key-hint.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {loadProposals} from './contact-proposals.js';
@@ -54,74 +53,8 @@ export function profileTab(name, {byDefault = false} = {}) {
   showFoldBar();
   if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
-  else if (name === 'letter') loadLetter();
+  else if (name === 'letter') { loadLetterStyle(); loadLetter(); }
   else if (name === 'cv') { loadCvSetting(); showCvChanged(); }
-}
-// ---------- Settings → Profile → Cover letter: AI draft -> the user reviews, edits, approves -> PDF ----------
-let letterSaved = '';  // the text as stored: the buttons follow what differs from it
-function showLetter(status) {
-  letterSaved = status.text || '';
-  $('letter-text').value = letterSaved;
-  const approved = status.state === 'approved';
-  const label = {none: 'Not written yet', draft: 'Draft: read it, then approve', approved: `Approved ✓ ${status.approvedAt ? runWhen(status.approvedAt) : ''}`}[status.state] || '';
-  const state = $('letter-state');
-  state.textContent = label;
-  state.classList.toggle('is-on', approved);
-  $('letter-draft').querySelector('span').textContent = status.text ? 'Write a new one' : 'Write it with AI';
-  show($('letter-pdf'), status.pdf);
-  letterButtons();
-}
-function letterButtons() {
-  const text = $('letter-text').value.trim();
-  $('letter-save').disabled = !text || text === letterSaved.trim();
-  $('letter-approve').disabled = !text || ($('letter-state').classList.contains('is-on') && text === letterSaved.trim());
-}
-// The kept letter shows at once; with none kept the skeleton stands in for the empty box (contact-reading.js), so "Not written yet" is never just an unread letter.
-async function loadLetter() {
-  loadLetterStyle();
-  let painted = false;
-  await swr('cover-letter', async () => ({ok: true, letter: await window.pilot.coverLetter()}), {
-    loading: () => { reading(true, document, 'letter'); $('letter-state').textContent = 'Reading…'; },
-    paint: ({letter}, kept) => {
-      if (!kept && painted && $('letter-text').value !== letterSaved) return;   // a refresh never redraws a letter under edit
-      reading(false, document, 'letter');
-      painted = true;
-      showLetter(letter);
-    },
-    fail: result => { reading(false, document, 'letter'); message('letter-message', result.error || 'Couldn\'t read your letter', 'error'); },
-  });
-}
-async function letterAction(button, working, run) {
-  const buttons = ['letter-draft', 'letter-save', 'letter-approve'].map($);
-  buttons.forEach(b => { b.disabled = true; });
-  button.classList.add('busy');
-  message('letter-message', working);
-  const result = await run();
-  button.classList.remove('busy');
-  if (result.ok) showLetter(result); else { letterButtons(); }
-  $('letter-draft').disabled = false;
-  return result;
-}
-function initLetter() {
-  letterFallback();
-  $('letter-text').addEventListener('input', letterButtons);
-  $('letter-draft').addEventListener('click', async () => {
-    if ($('letter-text').value.trim() && $('letter-text').value.trim() !== letterSaved.trim() && !confirm('Replace the text you changed with a new draft?')) return;
-    const feedback = $('letter-feedback').value.trim();
-    const result = await letterAction($('letter-draft'), 'Writing your letter… (about 20 s)', () => window.pilot.coverLetterDraft(feedback));
-    if (result.ok) $('letter-feedback').value = '';
-    message('letter-message', result.ok ? 'Here is a draft. Read it, change what you like, then approve.' : result.error, result.ok ? 'ok' : 'error');
-    if (result.ok) hintAfter($('letter-message'), shared.state, () => openSetting('ai'));   // Free AI wrote it: stronger writing with an own key
-  });
-  $('letter-save').addEventListener('click', async () => {
-    const result = await letterAction($('letter-save'), 'Saving…', () => window.pilot.coverLetterSave($('letter-text').value));
-    message('letter-message', result.ok ? 'Saved as a draft. Approve it to make the PDF.' : result.error, result.ok ? 'ok' : 'error');
-  });
-  $('letter-approve').addEventListener('click', async () => {
-    const result = await letterAction($('letter-approve'), 'Making the PDF…', () => window.pilot.coverLetterApprove($('letter-text').value));
-    message('letter-message', result.ok ? ($('letter-fallback').checked ? 'Approved ✓ Forms whose job has no letter of its own get this PDF.' : 'Approved ✓ Turn on the switch below to use it when a job has no letter of its own.') : result.error, result.ok ? 'ok' : 'error');
-  });
-  $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
 }
 // Application answers' ⋯ (one "View source" link per page, in a menu: owner, 18 Oct 2026, fix 10); the button shows only where the store has pages.
 function answersMenu() {
@@ -257,7 +190,7 @@ export function showContact() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  initLetter();
+  initLetter({openAiSettings: () => openSetting('ai')});
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   initExperience();
   mountProfileMenu($('profile-more'), profileTab);   // Fill from my CV and View source in Notion, quiet in the header (profile-menu.js)

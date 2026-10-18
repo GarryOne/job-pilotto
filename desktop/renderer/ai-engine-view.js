@@ -55,6 +55,17 @@ export const FAMILY_CARDS = {claude: ['cli', 'api'], openai: ['codex', 'openai']
 export const API_OF = {claude: 'api', openai: 'openai'};
 export const CLI_OF = {claude: 'cli', openai: 'codex'};
 
+// Who pays for an AI action, one quiet line before it runs and after it ran (owner, 18 Oct 2026, the cover letter's Draft with AI): never a guessed amount
+// or time; after, the real cost only when one is known, an unknown one never "$0". The same three words as lib/cover-letter.js paidByOf.
+export const PAID_BY = {free: 'credits', api: 'api', openai: 'api', cli: 'plan', codex: 'plan'};
+export const USAGE = {credits: {before: 'Uses your AI credits.', after: 'Used your AI credits'}, api: {before: 'Billed to your API account.', after: 'Billed to your API account'},
+  plan: {before: 'Uses your plan allowance.', after: 'Used your plan allowance'}};
+const dollars = usd => `$${usd < 0.01 ? usd.toFixed(3) : usd.toFixed(2)}`;
+export const usageBefore = (settings, hasKey = false) => USAGE[PAID_BY[chosen(settings, hasKey)]]?.before || '';
+export const usageAfter = ({paidBy = '', usd = 0} = {}) => (paidBy === 'api' && usd > 0 ? `Cost ${dollars(usd)}` : USAGE[paidBy]?.after || '');
+// The last run's real cost, labelled as the past (never an estimate for the next one): only a measured amount on an API account.
+export const lastCost = ({paidBy = '', usd = 0} = {}, what = 'draft') => (paidBy === 'api' && usd > 0 ? `Last ${what}: ${dollars(usd)}` : '');
+
 // The chosen engine: 'api', 'cli', 'openai', 'codex' or null. In Settings an install that had a key before the choice existed shows 'api'
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {

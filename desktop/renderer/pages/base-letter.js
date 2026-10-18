@@ -1,0 +1,108 @@
+// Settings → Profile → Cover letter → Base letter (owner's mockup 07, 18 Oct 2026; moved from pages/profile.js): a neutral "Not created" with Draft with AI
+// and Write my own, the editor only after a choice or once a letter exists; then draft → Approve & make PDF → approved (its date, Open PDF, and the switch
+// that lets forms use it, pages/letter-fallback.js). Who pays is said before Draft with AI and after it ran (ai-engine-view.js usage words), never a guess.
+// A job's own letter lives in its preparation kit (job-drawer/job-letter.js). Guarded by test/base-letter.test.js and test/contact-reading.test.js.
+import {pill} from '../components.js';
+import {$, message, runWhen, show} from './core.js';
+import {shared} from './shared.js';
+import {reading} from '../contact-reading.js';
+import {swr} from '../swr.js';
+import {hintAfter} from '../own-key-hint.js';
+import {lastCost, usageAfter, usageBefore} from '../ai-engine-view.js';
+import {init as letterFallback} from './letter-fallback.js';
+
+let saved = {state: 'none', text: ''};   // the letter as stored: the buttons and the view follow what differs from it
+let writing = false;                     // "Write my own" pressed: the editor stays open on an empty letter
+let isReading = false;
+let openAi = () => {};                   // Settings → AI engine, passed in by pages/profile.js (no import of the settings page here)
+
+// The state as a pill: neutral while none exists (owner, 18 Oct 2026: never a green dot for "not written").
+export function statePill(status) {
+  if (status.state === 'approved') return pill(`Approved${status.approvedAt ? ` · ${runWhen(status.approvedAt)}` : ''}`, 'good');
+  if (status.state === 'draft') return pill('Draft · approve to use it', 'warn');
+  return pill('Not created');
+}
+// Which part shows: the empty state (two choices) or the editor. Reading shows the editor, its box a skeleton (contact-reading.js).
+export const showsEditor = (status, {writing: own = false, reading: busy = false, typed = ''} = {}) => busy || own || status.state !== 'none' || !!String(typed).trim();
+
+const usageLine = () => [usageBefore(shared.state?.settings, !!shared.state?.secrets?.ANTHROPIC_API_KEY), lastCost(saved)].filter(Boolean).join(' ');
+
+function paint() {
+  const editor = showsEditor(saved, {writing, reading: isReading, typed: $('letter-text').value});
+  show($('letter-editor'), editor);
+  show($('letter-empty'), !editor);
+  $('letter-state').replaceChildren(isReading ? pill('Reading…') : statePill(saved));
+  $('letter-draft').querySelector('span').textContent = saved.text ? 'Redraft with AI' : 'Draft with AI';
+  show($('letter-pdf'), !!saved.pdf);
+  show($('letter-fallback-row'), saved.state === 'approved');
+  document.querySelectorAll('[data-letter-usage]').forEach(node => { node.textContent = usageLine(); });
+  buttons();
+}
+function buttons() {
+  const text = $('letter-text').value.trim();
+  $('letter-save').disabled = !text || text === (saved.text || '').trim();
+  $('letter-approve').disabled = !text || (saved.state === 'approved' && text === (saved.text || '').trim());
+}
+function showLetter(status) {
+  saved = {...status};
+  $('letter-text').value = saved.text || '';
+  if (saved.text) writing = false;
+  paint();
+}
+
+// The kept letter shows at once; with none kept the skeleton stands in for the empty box, so "Not created" is never just an unread letter.
+export async function loadLetter() {
+  let painted = false;
+  await swr('cover-letter', async () => ({ok: true, letter: await window.pilot.coverLetter()}), {
+    loading: () => { reading(true, document, 'letter'); isReading = true; paint(); },
+    paint: ({letter}, kept) => {
+      if (!kept && painted && $('letter-text').value !== (saved.text || '')) return;   // a refresh never redraws a letter under edit
+      reading(false, document, 'letter');
+      isReading = false;
+      painted = true;
+      showLetter(letter);
+    },
+    fail: result => { reading(false, document, 'letter'); isReading = false; paint(); message('letter-message', result.error || 'Couldn\'t read your letter', 'error'); },
+  });
+}
+
+async function act(button, working, run) {
+  const all = ['letter-draft', 'letter-start-ai', 'letter-save', 'letter-approve'].map($);
+  all.forEach(each => { each.disabled = true; });
+  button.classList.add('busy');
+  message('letter-message', working);
+  const result = await run();
+  button.classList.remove('busy');
+  if (result.ok) showLetter(result); else buttons();
+  $('letter-draft').disabled = $('letter-start-ai').disabled = false;
+  return result;
+}
+
+async function draft(button) {
+  const text = $('letter-text').value.trim();
+  if (text && text !== (saved.text || '').trim() && !confirm('Replace the text you changed with a new draft?')) return;
+  const result = await act(button, 'Writing your letter…', () => window.pilot.coverLetterDraft($('letter-feedback').value.trim()));
+  if (result.ok) $('letter-feedback').value = '';
+  const used = result.ok ? usageAfter(result) : '';
+  message('letter-message', result.ok ? `Here is a draft. Read it, change what you like, then approve.${used ? ` · ${used}` : ''}` : result.error, result.ok ? 'ok' : 'error');
+  if (result.ok) hintAfter($('letter-message'), shared.state, openAi);   // Free AI wrote it: stronger writing with an own key
+}
+
+export function initLetter({openAiSettings} = {}) {
+  if (openAiSettings) openAi = openAiSettings;
+  letterFallback();
+  $('letter-text').addEventListener('input', buttons);
+  $('letter-start-ai').addEventListener('click', () => draft($('letter-start-ai')));
+  $('letter-draft').addEventListener('click', () => draft($('letter-draft')));
+  $('letter-own').addEventListener('click', () => { writing = true; paint(); $('letter-text').focus(); });
+  $('letter-save').addEventListener('click', async () => {
+    const result = await act($('letter-save'), 'Saving…', () => window.pilot.coverLetterSave($('letter-text').value));
+    message('letter-message', result.ok ? 'Saved as a draft. Approve it to make the PDF.' : result.error, result.ok ? 'ok' : 'error');
+  });
+  $('letter-approve').addEventListener('click', async () => {
+    const result = await act($('letter-approve'), 'Making the PDF…', () => window.pilot.coverLetterApprove($('letter-text').value));
+    const words = $('letter-fallback').checked ? 'Approved ✓ Forms whose job has no letter of its own get this PDF.' : 'Approved ✓ Turn on the switch below to use it when a job has no letter of its own.';
+    message('letter-message', result.ok ? words : result.error, result.ok ? 'ok' : 'error');
+  });
+  $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
+}

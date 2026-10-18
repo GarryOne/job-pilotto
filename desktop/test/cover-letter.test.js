@@ -69,3 +69,20 @@ test('a base letter with a gap left to fill cannot be approved', async () => {
   assert.throws(() => letters.approve(storage, Buffer.from('%PDF-letter')), /\[Company\]/);
   assert.equal(letters.status(storage).state, 'draft');
 });
+
+// Who pays for a draft, said before and after it runs (owner, 18 Oct 2026): app credits, the person's API account, or their plan; never an invented $0.
+test('a draft records who paid and its real cost; status returns both', async () => {
+  assert.equal(letters.paidByOf({key: 'JPF1.install.token'}), 'credits');
+  assert.equal(letters.paidByOf({key: 'JP1.founder'}), 'credits');
+  assert.equal(letters.paidByOf({key: 'sk-ant-own'}), 'api');
+  assert.equal(letters.paidByOf({key: 'sk-ant-own', client: {billing: 'subscription'}}), 'plan');
+  assert.equal(letters.paidByOf({client: {billing: 'api'}}), 'api');
+  assert.equal(letters.paidByOf({}), '');
+  const storage = withCv(tempStorage());
+  await letters.generate(storage, {client: client('Dear Hiring Team,\n\nHello.'), paidBy: 'api'});
+  const status = letters.status(storage);
+  assert.equal(status.paidBy, 'api');
+  assert.ok(status.usd > 0, 'tokens priced on an API account');
+  letters.edit(storage, 'Dear Hiring Team,\n\nMine.');
+  assert.equal(letters.status(storage).paidBy, 'api', 'the last draft is still the last draft after an edit');
+});
