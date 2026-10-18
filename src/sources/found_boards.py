@@ -39,10 +39,15 @@ def _places(search):
 
 
 def read_board(board, search, fetch=careers.get_text, route=None, early=False):
-    """(jobs, state, route) for one board: jobs in the aggregators' shape; state 'ok', 'empty' or 'browser'; route = the declared feed or
+    """(jobs, state, route) for one board: jobs in the aggregators' shape, each once; state 'ok', 'empty' or 'browser'; route = the declared feed or
     sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A page no free step reads tries its
     declared routes (src/sources/board_routes.py); a script-only one with none is 'browser'; a readable one goes to the AI page reader once
     per board per run, within its caps, and the recipe it leaves replays with no model next time."""
+    jobs, state, route = _read(board, search, fetch, route, early)
+    return list({job['url']: job for job in jobs}.values()), state, route   # every way out: a board refusing mid-read kept its repeats (18 Oct 2026)
+
+
+def _read(board, search, fetch, route, early):
     from .aggregators import _job
     jobs, state, asked_routes, asked_ai = [], 'empty', False, False
     try:
@@ -93,7 +98,7 @@ def read_board(board, search, fetch=careers.get_text, route=None, early=False):
         new = {job['url'] for job in jobs} - seen
         seen |= new
         idle = 0 if new else idle + 1
-    return list({job['url']: job for job in jobs}.values()), state, None
+    return jobs, state, None
 
 
 def _retry_due(entry, now):
