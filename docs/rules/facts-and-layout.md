@@ -40,5 +40,7 @@ Reference, read when the task touches these areas. Linked from CLAUDE.md. For an
 - Form-filling improvement: each fill logs to Agent Runs; `tools/fill-failures.py` groups what was left; skill `record-applying-sites`. Fill failures
   are fixed by recipes (the proposer and the canary); triage lives in `job-pilotto-internal`.
 - Notion IDs have no defaults in code: `.env`, repository variables, or the Desktop App.
-- **The terminal follows the Desktop App** (`src/paths.py` `follow_app`): terminal runs use the app's Notion IDs and `data/` + `config/`; `.env`
-  NOTION_* of another workspace switch that off for the run; `JOB_PILOTTO_FOLLOW_APP=0` turns it off. App and terminal take turns (`run_lock`).
+- **The terminal follows the Desktop App only on request** (`src/paths.py` `follow_app`; owner, 18 Oct 2026): with the app set up and no `JOB_PILOTTO_DATA_DIR` +
+  `JOB_PILOTTO_CONFIG_DIR`, any engine start that is not the app (terminal, test, agent) is REFUSED at import, before a file is opened. The owner's own run sets
+  `JOB_PILOTTO_FOLLOW_APP=1` (the app's Notion IDs and `data/` + `config/`); tests and agents set their own temp folders, or `=0` for the repo's example data.
+  `.env` NOTION_* of another workspace switch it off. App and terminal take turns (`run_lock`). Guard: `tests/test_data_dir_guard.py` (loops over every entry point).

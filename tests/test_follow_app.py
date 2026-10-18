@@ -30,7 +30,7 @@ class FollowAppTests(unittest.TestCase):
 
     def test_ids_and_folders_come_from_the_app(self):
         folder = app({'setupDone': True, 'notionIds': {'NOTION_APPLICATIONS_DB': 'new-apps', 'NOTION_MATCHES_DB': 'new-matches'}})
-        env = {'NOTION_MATCHES_DB': 'new-matches'}  # the same ID in .env is fine
+        env = {'NOTION_MATCHES_DB': 'new-matches', 'JOB_PILOTTO_FOLLOW_APP': '1'}  # the same ID in .env is fine; FOLLOW_APP=1: the owner's own run
         self.follow(env, folder)
         self.assertEqual(env['NOTION_APPLICATIONS_DB'], 'new-apps')
         self.assertEqual(env['JOB_PILOTTO_DATA_DIR'], str(folder / 'data'))
@@ -48,6 +48,36 @@ class FollowAppTests(unittest.TestCase):
             self.assertEqual(self.follow(dict(env), folder), {})
         self.assertEqual(self.follow({}, app({'setupDone': False, 'notionIds': {'NOTION_APPLICATIONS_DB': 'x'}})), {})
         self.assertEqual(self.follow({}, Path(tempfile.mkdtemp())), {})  # no app on this computer
+
+    def test_case_table_marker_override_refusal(self):
+        settings = {'setupDone': True, 'notionIds': {'NOTION_APPLICATIONS_DB': 'x'}}
+        folder = app(settings)
+        own = tempfile.mkdtemp()
+        cases = [  # (env, outcome)
+            ({'JOB_PILOTTO_FOLLOW_APP': '1'}, 'app'),                                   # the owner's own run, said on purpose
+            ({'JOB_PILOTTO_DATA_DIR': own, 'JOB_PILOTTO_CONFIG_DIR': own, 'NOTION_APPLICATIONS_DB': 'x'}, 'nothing'),  # own folders: nothing taken
+            ({'JOB_PILOTTO_DATA_DIR': own, 'NOTION_APPLICATIONS_DB': 'x'}, 'refused'),  # the config folder would be the app's
+            ({}, 'refused'),                                                            # a terminal, an agent: nothing set
+            ({'JOB_PILOTTO_FOLLOW_APP': '0'}, 'nothing'),                               # the repo's example data, on purpose
+            ({'JOB_PILOTTO_NO_DOTENV': '1'}, 'nothing'),                                # the app itself passes everything
+        ]
+        for env, outcome in cases:
+            with self.subTest(env=env):
+                env = dict(env)
+                if outcome == 'refused':
+                    with self.assertRaises(SystemExit) as caught:
+                        self.follow(env, folder)
+                    self.assertIn('JOB_PILOTTO_DATA_DIR', str(caught.exception))
+                    self.assertNotIn('JOB_PILOTTO_DATA_DIR', env if 'JOB_PILOTTO_DATA_DIR' not in env else {})
+                else:
+                    taken = self.follow(env, folder)
+                    self.assertEqual(bool(taken), outcome == 'app')
+
+    def test_refused_before_any_file_is_opened(self):
+        folder = app({'setupDone': True, 'notionIds': {'NOTION_APPLICATIONS_DB': 'x'}})
+        with self.assertRaises(SystemExit):
+            self.follow({}, folder)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ['config', 'data', 'settings.json'])  # nothing created or written
 
     def test_tests_never_follow_the_app(self):
         folder = app({'setupDone': True, 'notionIds': {'NOTION_APPLICATIONS_DB': 'x'}})

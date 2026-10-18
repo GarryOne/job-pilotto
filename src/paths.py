@@ -75,7 +75,11 @@ def follow_app(env=os.environ, folder=None):
     When the app is set up on this computer, every NOTION_* ID the environment (or .env) doesn't set comes from
     the app's settings, and the data and config folders are the app's. If .env sets a NOTION_* ID of another
     workspace (a test one, on purpose), nothing is taken: that run keeps its own workspace and job cache. Off when the app itself runs the pipeline
-    (it passes everything), in tests, or with JOB_PILOTTO_FOLLOW_APP=0. -> what was taken ({} = nothing)."""
+    (it passes everything), in tests, or with JOB_PILOTTO_FOLLOW_APP=0. -> what was taken ({} = nothing).
+
+    Taking the app's folders is opt-in (18 Oct 2026: an agent's terminal call to read_board() with no folder set used the owner's
+    live data folder). With the app set up and nothing set, the run is REFUSED here, before any file is opened, unless
+    JOB_PILOTTO_FOLLOW_APP=1 says "yes, this is the owner's own run". Every entry point imports this module, so all are guarded."""
     if env.get('JOB_PILOTTO_NO_DOTENV') or env.get('JOB_PILOTTO_FOLLOW_APP') == '0' or 'unittest' in sys.modules:
         return {}
     folder = Path(folder) if folder else app_folder()
@@ -90,13 +94,21 @@ def follow_app(env=os.environ, folder=None):
     if other:  # .env points at another workspace on purpose: that run keeps its own job cache too (never mixed)
         print(f'Not using the Desktop App\'s workspace: .env sets {", ".join(other)}', file=sys.stderr)
         return {}
-    taken = {}
-    for name, value in ids.items():
-        if not env.get(name):
-            env[name] = taken[name] = value
+    if env.get('JOB_PILOTTO_DATA_DIR') and env.get('JOB_PILOTTO_CONFIG_DIR') and env.get('JOB_PILOTTO_FOLLOW_APP') != '1':
+        return {}  # the run has folders of its own: nothing of the app's is mixed in
+    wanted = {name: value for name, value in ids.items() if not env.get(name)}
     for name, sub in (('JOB_PILOTTO_DATA_DIR', 'data'), ('JOB_PILOTTO_CONFIG_DIR', 'config')):
         if not env.get(name) and (folder / sub).is_dir():
-            env[name] = taken[name] = str(folder / sub)
+            wanted[name] = str(folder / sub)
+    if wanted and env.get('JOB_PILOTTO_FOLLOW_APP') != '1':
+        raise SystemExit(
+            f'Refusing to use the Desktop App\'s data folder ({folder}): this run was not started by the app, and no folder is set.\n'
+            'Set JOB_PILOTTO_DATA_DIR and JOB_PILOTTO_CONFIG_DIR to your own (a temp folder for a test or an agent), '
+            'or JOB_PILOTTO_FOLLOW_APP=0 to use the repo\'s example data/, '
+            'or JOB_PILOTTO_FOLLOW_APP=1 if this is your own run and it should use the app\'s data on purpose.')
+    taken = {}
+    for name, value in wanted.items():
+        env[name] = taken[name] = value
     if taken:
         print(f'Using the Desktop App\'s Notion workspace and job data ({folder})', file=sys.stderr)
     return taken
