@@ -15,35 +15,41 @@ const longText = (value, label, placeholder, onInput = () => {}) => {
   return box;
 };
 
-// An answer to a question that is not on a list ("Label: value") shows as a row like the others; display only, the saved line stays as written. A line with no short label stays a paragraph.
+// An answer to a question that is not on a list ("Label: value") shows as a row like the others; display only, the saved line stays as written. The label is up to the FIRST colon
+// (a note may hold more); a long question stacks above its answer. A line with no short label stays a paragraph.
 export function otherRow(text) {
-  const at = String(text).lastIndexOf(': ');
-  return at > 0 && at <= 160 ? {label: text.slice(0, at).replace(/^["“]|["”]$/g, '').trim(), value: text.slice(at + 2).trim()} : null;
+  const at = String(text).indexOf(': ');
+  return at > 0 && at <= 160 ? {label: text.slice(0, at).replace(/^["“]|["”]$/g, '').trim(), value: text.slice(at + 2).trim(), stacked: at > 40} : null;
 }
 
-// What the card shows: each answered question with its choice, its note muted under it, then the notes and the other lines.
+// What the card shows: all the questions, each with its choice and its note small and muted under it ("Not set" when unanswered), then the other answers, then the notes for the AI folded last.
 export function surveyBody(part, {sorting = false} = {}) {
   const box = el('div', 'exp-part-body'), read = readLines(part?.lines || []);
   if (sorting) box.append(el('p', 'muted small survey-sorting', 'Sorting your answers…'));
-  const rows = SURVEYS.filter(each => read.answers.has(each.key));
-  if (!rows.length && !read.notes.length && !read.other.length) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
-  if (rows.length) {
-    const list = el('dl', 'summary-rows');
-    for (const each of rows) {
-      const answer = read.answers.get(each.key), value = el('dd', '');
-      value.append(el('div', '', answer.option), ...(answer.note ? [el('div', 'muted small', answer.note)] : []));
-      list.append(el('dt', '', each.label), value);
+  const list = el('dl', 'summary-rows survey-answers');
+  for (const each of SURVEYS) {
+    const answer = read.answers.get(each.key), value = el('dd', '');
+    if (answer) value.append(el('div', '', answer.option), ...(answer.note ? [el('div', 'muted small survey-note', answer.note)] : []));
+    else value.append(el('div', 'muted small survey-unset', 'Not set'));
+    list.append(el('dt', '', each.label), value);
+  }
+  box.append(list);
+  const others = read.other.map(other => ({other, row: otherRow(other.text)}));
+  if (others.some(each => each.row)) {
+    const extra = el('dl', 'summary-rows survey-answers survey-other');
+    for (const {row} of others) {
+      if (!row) continue;
+      const dt = el('dt', row.stacked ? 'survey-stacked' : '', row.label), dd = el('dd', row.stacked ? 'survey-stacked' : '', row.value);
+      extra.append(dt, dd);
     }
-    box.append(list);
+    box.append(extra);
   }
-  for (const note of read.notes) box.append(el('p', 'muted small', `${NOTES_LABEL}: ${note.text}`));
-  const rowsOf = read.other.map(other => ({other, row: otherRow(other.text)}));
-  if (rowsOf.some(each => each.row)) {
-    const list = el('dl', 'summary-rows');
-    for (const {row} of rowsOf) if (row) list.append(el('dt', '', row.label), el('dd', '', row.value));
-    box.append(list);
+  for (const {other, row} of others) if (!row) box.append(el('p', 'muted small', other.text));
+  if (read.notes.length) {
+    const fold = el('details', 'survey-notes-read');
+    fold.append(el('summary', 'muted small', `${NOTES_LABEL} · ${read.notes.length} note${read.notes.length === 1 ? '' : 's'}`), ...read.notes.map(note => el('p', 'muted small', note.text)));
+    box.append(fold);
   }
-  for (const {other, row} of rowsOf) if (!row) box.append(el('p', 'muted small', other.text));
   return box;
 }
 

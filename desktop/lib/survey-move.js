@@ -20,13 +20,16 @@ const INSTRUCTIONS = `Each item is one line of a job seeker's profile, in any la
 kind "answer": the line states the person's answer to one of these questions; question is its key, option is exactly one choice from that question's list (use the Decline choice when they decline), note is whatever else the line says about it
 (an instruction, a date it was confirmed, which label to use), each part copied exactly as written and joined with " · "; "" when nothing is left over.
 kind "notes": an instruction or remark for the AI that fills forms, about the survey in general (not one answer). kind "keep": anything else, or when you are not sure.
+A line that answers two questions (e.g. race and "Hispanic or Latino?") gets one item per answer, each with the same id; split its note between them, every part copied exactly.
 Never guess an answer the line does not state.
 ${SURVEYS.map(each => `- ${each.key}: ${each.label}; choices: ${each.options.join(' | ')}`).join('\n')}
-Answer every id exactly as given.`;
+Answer every id exactly as given (a repeated id is allowed only for a line with several answers).`;
 const squash = text => String(text).replace(/\s+/g, ' ').trim().toLowerCase();
 const digits = text => (String(text).match(/\d/g) || []).sort().join('');
 
-// items [{id, text}] -> Map(id -> new line text). Only what the AI said and the code found faithful.
+// items [{id, text}] -> Map(id -> [new line texts]): the first replaces the bullet, any more are added after it (a bullet that holds two answers, e.g. race and "Hispanic or Latino?",
+// becomes one line each). Only what the AI said and the code found faithful: every choice is on its question's list, every note is copied from the bullet, all the digits of the bullet
+// are kept across the lines, and one question answered twice is trusted for neither.
 export async function plan(items, taken, {client = null, apiKey = ''} = {}) {
   const ai = client || (apiKey ? anthropicApi(apiKey) : null), out = new Map();
   if (!ai || !items.length) return out;
@@ -35,16 +38,21 @@ export async function plan(items, taken, {client = null, apiKey = ''} = {}) {
     output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'}});
   let parsed = {};
   try { parsed = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '{}'); } catch { return out; }
-  const byId = new Map(items.map(item => [item.id, item.text])), answers = new Map();
-  for (const said of Array.isArray(parsed.items) ? parsed.items : []) {
-    const original = byId.get(said?.id);
-    if (original === undefined) continue;
-    if (said.kind === 'notes') { out.set(said.id, noteLine(original)); continue; }
-    const found = said.kind === 'answer' ? survey(said.question) : null, option = found?.options.find(each => each.toLowerCase() === String(said.option || '').toLowerCase());
-    const note = typeof said.note === 'string' ? said.note.trim() : '';
-    if (!option || !note.split(NOTE_JOIN).map(squash).filter(Boolean).every(piece => squash(original).includes(piece)) || digits(original) !== digits(option + note)) continue;
-    answers.set(said.question, [...(answers.get(said.question) || []), said.id]);
-    out.set(said.id, lineOf(said.question, option, note));
+  const byId = new Map(items.map(item => [item.id, item.text])), said = new Map();
+  for (const each of Array.isArray(parsed.items) ? parsed.items : []) if (byId.has(each?.id)) said.set(each.id, [...(said.get(each.id) || []), each]);
+  const answers = new Map();
+  for (const [id, entries] of said) {
+    const original = byId.get(id);
+    if (entries[0].kind === 'notes') { out.set(id, [noteLine(original)]); continue; }
+    const picked = entries.map(entry => {
+      const found = entry.kind === 'answer' ? survey(entry.question) : null, option = found?.options.find(each => each.toLowerCase() === String(entry.option || '').toLowerCase());
+      return {question: entry.question, option, note: typeof entry.note === 'string' ? entry.note.trim() : ''};
+    });
+    if (!picked.every(each => each.option) || new Set(picked.map(each => each.question)).size !== picked.length) continue;
+    const notesOk = picked.every(each => each.note.split(NOTE_JOIN).map(squash).filter(Boolean).every(piece => squash(original).includes(piece)));
+    if (!notesOk || digits(original) !== digits(picked.map(each => each.option + each.note).join(''))) continue;
+    for (const each of picked) answers.set(each.question, [...(answers.get(each.question) || []), id]);
+    out.set(id, picked.map(each => lineOf(each.question, each.option, each.note)));
   }
   for (const [key, ids] of answers) if (ids.length > 1 || taken.has(key)) ids.forEach(id => out.delete(id));
   return out;
@@ -65,7 +73,10 @@ export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now =
   const todo = read.filter(each => each.read.type === 'other').map(each => ({id: String(lines.indexOf(each.line)), text: each.read.text, line: each.line}));
   const taken = new Set(read.filter(each => each.read.type === 'answer').map(each => each.read.key));
   const planned = await plan(todo, taken, ai);
-  const changes = todo.filter(each => planned.has(each.id)).map(each => ({op: 'text', id: each.line.id, value: planned.get(each.id), was: each.line.text}));
+  const moved = todo.filter(each => planned.has(each.id));
+  const changes = moved.flatMap(each => [{op: 'text', id: each.line.id, value: planned.get(each.id)[0], was: each.line.text},
+    ...(planned.get(each.id).length > 1 ? [{op: 'insert', after: each.line.id, lines: planned.get(each.id).slice(1)}] : [])]);
+  const texts = changes.flatMap(change => change.op === 'insert' ? change.lines : [change.value]);   // every line this run writes
   if (!changes.length) {
     // Nothing trusted is not "done": one unreadable or refused AI answer must not end the move for good (owner's survey lines stayed prose). Asked again on the next open, up to TRIES times.
     const tries = (storage.settings().surveyTries || 0) + 1;
@@ -76,16 +87,17 @@ export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now =
   try {
     const {missing} = await applyEdits(it.page('profile'), await it.page('profile').outline(), changes);
     const written = (await linesOf(it)).map(line => line.text);
-    if (missing.length || !changes.every(change => written.includes(change.value))) throw new Error(`The survey answers: some lines did not save; nothing was removed (the pages before it are in ${backup.dir})`);
+    if (missing.length || !texts.every(text => written.includes(text))) throw new Error(`The survey answers: some lines did not save; nothing was removed (the pages before it are in ${backup.dir})`);
   } catch (error) {
     // Put back only the lines still holding what this run wrote (another run's lines are not ours to roll back).
     const current = await linesOf(it).catch(() => []);
-    const back = changes.map(change => ({op: 'text', id: current.find(line => line.text === change.value)?.id, value: change.was})).filter(change => change.id !== undefined);
+    const back = changes.flatMap(change => change.op === 'insert' ? change.lines.map(text => ({op: 'remove', id: current.find(line => line.text === text)?.id, was: text}))
+      : [{op: 'text', id: current.find(line => line.text === change.value)?.id, value: change.was}]).filter(change => change.id !== undefined);
     await applyEdits(it.page('profile'), await it.page('profile').outline(), back).catch(() => {});
     throw error;
   }
-  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTidy: {at: now.toISOString(), dir: backup.dir, changed: changes.length, before: [...kept, ...changes.map(change => ({value: change.value, was: change.was}))]}});
-  return {changed: changes.length, copy: backup};
+  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTidy: {at: now.toISOString(), dir: backup.dir, changed: moved.length, before: [...kept, ...changes.flatMap(change => change.op === 'insert' ? change.lines.map(text => ({value: text, was: null})) : [{value: change.value, was: change.was}])]}});
+  return {changed: moved.length, copy: backup};
 }
 
 // Undo: the bullets as they were. Not moved again.
@@ -93,7 +105,8 @@ export async function undo(storage, {fetcher} = {}) {
   const done = storage.settings().surveyTidy;
   if (!done?.before || done.undone) return {ok: false, error: 'There is nothing to undo'};
   const it = store.openStore(storage, {fetcher}), lines = await linesOf(it);
-  const changes = done.before.map(each => ({op: 'text', id: lines.find(line => line.text === each.value)?.id, value: each.was})).filter(change => change.id !== undefined);
+  // A line the move added (was: null) is removed; every other goes back to its bullet.
+  const changes = done.before.map(each => ({op: each.was === null ? 'remove' : 'text', id: lines.find(line => line.text === each.value)?.id, value: each.was, was: each.value})).filter(change => change.id !== undefined);
   await applyEdits(it.page('profile'), await it.page('profile').outline(), changes);
   storage.saveSettings({surveyTidy: {...done, before: undefined, undone: true}});
   return {ok: true};

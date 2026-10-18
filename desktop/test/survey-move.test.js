@@ -104,3 +104,31 @@ test('an answer the code cannot read is asked again on the next open, three time
   for (let open = 0; open < 3; open++) await survey.migrate(again.storage, {ai: bad, copy: async () => ({dir: 'd'})});
   assert.ok(again.storage.settings().surveyMovedAt, 'after three tries it stops asking');
 });
+
+test('a bullet that answers two questions becomes one line each (race + "Hispanic or Latino?", owner 18 Oct 2026); Undo removes the added line', async () => {
+  const bullet = 'Race / ethnicity: White (use "White / European" where that is the option label). For a "Hispanic or Latino?" yes/no question: No. (confirmed 25-26 September 2026)';
+  const {storage, page} = await fresh();
+  const line = (await page.outline()).find(block => block.text === BULLETS[1]);
+  await page.setText(line, bullet);
+  const result = await survey.migrate(storage, {copy: async () => ({dir: 'd'}), ai: fakeAi([{id: '0', kind: 'keep', question: '', option: '', note: ''},
+    {id: '1', kind: 'answer', question: 'ethnicity', option: 'White', note: 'use "White / European" where that is the option label'},
+    {id: '1', kind: 'answer', question: 'hispanic', option: 'No', note: 'confirmed 25-26 September 2026'},
+    {id: '2', kind: 'keep', question: '', option: '', note: ''}, {id: '3', kind: 'keep', question: '', option: '', note: ''}, {id: '4', kind: 'keep', question: '', option: '', note: ''}])});
+  assert.equal(result.changed, 1);
+  const lines = await surveyLines(page);
+  assert.equal(lines.filter(text => /^Race \/ ethnicity: White \(note: use/.test(text)).length, 1);
+  assert.equal(lines.filter(text => /^Hispanic or Latino: No \(note: confirmed 25-26 September 2026\)/.test(text)).length, 1);
+  assert.equal(lines.indexOf(lines.find(text => /^Hispanic/.test(text))), lines.indexOf(lines.find(text => /^Race/.test(text))) + 1, 'the second answer sits right after the first');
+  await survey.undo(storage);
+  assert.deepEqual((await surveyLines(page)).filter(text => /^Hispanic/.test(text)), [], 'Undo removes the added line');
+  assert.ok((await surveyLines(page)).includes(bullet), 'and brings the bullet back');
+});
+
+test('a double answer whose digits do not add up is refused whole', async () => {
+  const {storage, page} = await fresh();
+  const line = (await page.outline()).find(block => block.text === BULLETS[3]);
+  const result = await survey.migrate(storage, {copy: async () => ({dir: 'd'}), ai: fakeAi([
+    {id: '3', kind: 'answer', question: 'veteran', option: 'No', note: ''}, {id: '3', kind: 'answer', question: 'hispanic', option: 'No', note: ''}])});
+  assert.equal(result.changed, 0);
+  assert.ok((await surveyLines(page)).includes(line.text));
+});

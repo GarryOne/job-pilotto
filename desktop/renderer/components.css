@@ -656,3 +656,7 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
   100% { box-shadow: 0 0 0 8px transparent; background-color: var(--surface); }
 }
 @media (prefers-reduced-motion: reduce) { .palette-flash { animation: none; outline: 2px solid var(--signal); outline-offset: 2px; } }
+/* The fold bar at the bottom of the Profile page (profile-fold.js): Expand all / Collapse all for the open tab's cards; a folded card keeps its title and a one-line summary. */
+.foldbar { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin-top: var(--sp-4); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
+.panel-summary { display: none; margin-left: var(--sp-3); align-self: center; }
+.panel.is-collapsed .panel-summary { display: inline; }

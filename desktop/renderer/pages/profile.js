@@ -10,7 +10,7 @@ import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
-import {collapsiblePanel, el, pill, tile} from '../components.js';
+import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {byStore} from '../store-words.js';
@@ -27,6 +27,7 @@ import {clearProposals, contactDirty, loadProposals} from './contact-proposals.j
 import {factsNow, showFacts} from './details-facts.js';
 import {reading} from '../contact-reading.js';
 import {swr} from '../swr.js';
+import {foldProfilePanels, initFoldBar, showFoldBar} from '../profile-fold.js';
 import {showNotify} from './notify-settings.js';
 
 // ---------- Settings → Application profile: tabs (CV, Your details, Experience, Application answers, Cover letter) ----------
@@ -43,6 +44,7 @@ export function profileTab(name, {byDefault = false} = {}) {
     show(panel, panel.dataset.profilePanel === name && panel.dataset.wanted !== '0');   // a conditional part keeps its wish (pages/tab-part.js)
   });
   showStoreParts();
+  showFoldBar();
   if (name === 'answers') loadApplicationAnswers();
   else if (name === 'experience') loadExperience();
   else if (name === 'letter') loadLetter();
@@ -335,7 +337,8 @@ export async function init() {
     show($('cv-limit-link'), false);
   });
   // Long detail cards start closed; the bar shows their summary (owner, 17 Oct 2026). Forms you fill in stay open.
-  for (const id of ['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles']) collapsiblePanel($(id), id, {collapsed: true});
+  foldProfilePanels({closed: new Set(['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'])});   // every Profile card folds (profile-fold.js); these start closed
+  initFoldBar();
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
   $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());

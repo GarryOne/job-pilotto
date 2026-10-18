@@ -5,7 +5,7 @@ import {DECLINE, SURVEYS, lineOf, noteLine, readLine, readLines, textsFor} from 
 import {splitMark} from '../renderer/question-kind.js';
 
 test('every survey question has its fixed choices and ends with Decline', () => {
-  assert.equal(SURVEYS.length, 7);
+  assert.equal(SURVEYS.length, 8, 'seven questions and "Hispanic or Latino", asked apart from race');
   for (const each of SURVEYS) {
     assert.equal(each.options.at(-1), DECLINE, each.key);
     assert.equal(new Set(each.options).size, each.options.length, each.key);

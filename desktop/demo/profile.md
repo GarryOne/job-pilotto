@@ -46,8 +46,10 @@ Site Reliability Engineer with 8 years running Kubernetes on AWS; led the monito
 - Sexual orientation: Heterosexual / straight [pick one: Heterosexual / straight | Gay or lesbian | Bisexual | Another orientation | Decline to self-identify]
 - Disability status: No (note: I have not had one in the past · confirmed 25 September 2026) [pick one: Yes | No | Decline to self-identify]
 - Race / ethnicity: White (note: use "White / European" where that is the option label · confirmed 25–26 September 2026) [pick one: White | Black or African American | Asian | Hispanic or Latino | Middle Eastern or North African | Native or Indigenous | Mixed or multiple | Another group | Decline to self-identify]
+- Hispanic or Latino: No (note: confirmed 25–26 September 2026) [pick one: Yes | No | Decline to self-identify]
 - Veteran status: No [pick one: Yes | No | Decline to self-identify]
 - Notes for the AI: Use these answers for equivalent questions on any form; ask if a question or its choices have a materially different meaning.
+- For a "Which of the following communities do you belong to?" list covering disability, neurodiversity, veteran status, parenthood and refugee status: None of the above.
 - "In the past ten years, how many companies have you worked for?": 4 (Acme, Northwind, Globex, Initech; the earlier ones were contracts, not counted as separate employers). (confirmed 25 September 2026)
 
 ## ❓ Possible CV gaps
