@@ -51,6 +51,7 @@ export function foldProfilePanels({closed = new Set()} = {}) {
     if (!handle) continue;
     const summary = document.createElement('span');
     summary.className = 'panel-summary muted small';
+    bar.classList.add('has-summary');   // components.css: title | summary | actions as three columns, the summary in one column down the tab
     (bar.querySelector('.summary-head') || bar).after(summary);   // right after the title
     const refresh = () => { summary.textContent = panel.classList.contains('is-collapsed') ? summaryOf(panel) : ''; };
     new MutationObserver(refresh).observe(panel, {attributes: true, attributeFilter: ['class']});

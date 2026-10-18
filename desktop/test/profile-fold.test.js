@@ -45,3 +45,12 @@ test('the bar sits at the bottom of the Profile page with both buttons, and the 
   assert.match(read('pages/experience-profile.js'), /registerCard\(box, tab\)/, 'the Experience cards fold with the rest');
   assert.match(read('components.css'), /\.foldbar \{ position: sticky; bottom: 0;/);
 });
+
+// Owner, 18 Oct 2026: "x of x filled" must start at one x on every folded card: the title block has one width and the summary is the grid's second column.
+test('class: every folded Profile card puts its summary in one column, whatever the title or actions', () => {
+  const css = read('components.css'), fold = read('profile-fold.js');
+  assert.match(fold, /bar\.classList\.add\('has-summary'\)/);   // every card of every tab goes through foldProfilePanels
+  assert.match(css, /\.panel-top\.has-summary \{[^}]*grid-template-columns: minmax\(0, var\(--fold-title-w\)\) minmax\(0, 1fr\) auto/);
+  assert.match(css, /\.panel-top\.has-summary > \.panel-actions \{ grid-column: 3/);
+  assert.doesNotMatch(css, /\.panel-summary \{[^}]*margin-left/);
+});

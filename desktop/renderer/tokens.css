@@ -85,6 +85,7 @@
   --fs-display: 34px; /* the setup wizard's big marks */
 
   /* Space: 4px steps */
+  --fold-title-w: 20rem;   /* the title block of a folded Profile card, so every card's summary starts at one x */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
   --control-h: 33px;   /* a toolbar control's height (search box, select) and anything beside it (Jobs' saved-view chips) */
 

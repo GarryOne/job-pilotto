@@ -221,7 +221,12 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 /* A card's Edit button (components.js cardEdit): solid small, last in the title line, pushed to the right. */
 .card-edit { margin-left: auto; flex: none; white-space: nowrap; }
 .panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
-.panel-actions { display: flex; align-items: center; gap: var(--sp-4); }
+.panel-actions { display: flex; align-items: center; gap: var(--sp-4); margin-left: auto; }
+/* A folding card with a summary (profile-fold.js): title | summary | actions. The title block has one width, so the summaries line up in one column. */
+.panel-top.has-summary { display: grid; grid-template-columns: minmax(0, var(--fold-title-w)) minmax(0, 1fr) auto; }
+.panel-top.has-summary > .summary-head { min-width: 0; }
+.panel-top.has-summary > .summary-head h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-top.has-summary > .panel-actions { grid-column: 3; }
 /* A bar or row that folds on a click anywhere on it (components.js toggleOnBar). */
 .is-bar-toggle { cursor: pointer; }
 /* Collapsible panel (components.js collapsiblePanel): the whole head bar toggles; collapsed keeps only the bar. */
@@ -658,5 +663,5 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 @media (prefers-reduced-motion: reduce) { .palette-flash { animation: none; outline: 2px solid var(--signal); outline-offset: 2px; } }
 /* The fold bar at the bottom of the Profile page (profile-fold.js): Expand all / Collapse all for the open tab's cards; a folded card keeps its title and a one-line summary. */
 .foldbar { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin-top: var(--sp-4); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
-.panel-summary { display: none; margin-left: var(--sp-3); align-self: center; }
+.panel-summary { display: none; align-self: center; min-width: 0; }
 .panel.is-collapsed .panel-summary { display: inline; }

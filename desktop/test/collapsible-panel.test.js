@@ -49,3 +49,17 @@ test('rows with their own chevron button toggle on the whole bar, with the point
 test('long detail cards start closed, forms stay open', () => {
   assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'\]\)\}\)/);
 });
+
+// Owner, 18 Oct 2026: Edit on a card redraws it and removes its own button, so the click reached the bar with a detached target and folded the card.
+test('a control that left the page during its own click still does not toggle the bar', async () => {
+  (await import('./tiny-dom.js')).install();
+  const {isInteractiveTarget} = await import('../renderer/components.js');
+  const bar = {}, button = {matches: sel => sel.includes('button'), closest: () => null}, text = {matches: () => false, closest: () => null};
+  assert.equal(isInteractiveTarget(button, bar, {composedPath: () => [button, {matches: () => false}, bar]}), true);
+  assert.equal(isInteractiveTarget(text, bar, {composedPath: () => [text, bar]}), false);
+});
+test('every collapsible bar ends in one right-side group: loose buttons and the chevron after the title', () => {
+  const body = read('components.js'), css = read('components.css');
+  assert.match(body, /actions\.prepend\(\.\.\.loose\)[\s\S]*actions\.append\(icon\('chevron'/);
+  assert.match(css, /\.panel-actions \{[^}]*margin-left: auto/);
+});
