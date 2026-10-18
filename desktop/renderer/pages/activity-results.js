@@ -3,6 +3,7 @@
 import {unseenRun, withShown, settledBy} from '../result-seen.js';
 import {el, pill} from '../components.js';
 import {plainMessage} from '../run-cards.js';
+import {runPill} from '../run-status.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {clockTime, KIND, kindOf, runResults, capital, outcome, cardFor} from './activity-basics.js';
@@ -11,7 +12,7 @@ import {renderCardSkeleton, renderNoResult} from './activity-run-card.js';
 import {openActivity} from './activity-panel.js';
 function showActionsResult(run, kind, draw) {
   show($('command-answer'), false);
-  const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
+  const [label, tone] = run.ok && !run.off ? runPill(run) : ['Needs a look', 'bad'];
   $('actions-result-head').replaceChildren(el('b', '', `${kind.icon} ${kind.name}`), pill(label, tone), el('span', 'muted', `Finished ${clockTime(run.endedAt || run.startedAt)}`));
   draw($('actions-card'));
   show($('actions-result'));

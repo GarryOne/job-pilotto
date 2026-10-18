@@ -2,7 +2,7 @@
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {billingLabel} from '../ai-engine-view.js';
 import {groupWarnings, limitedJobs, newDetails, runWarningLines, stepNote} from '../run-warnings.js';
-import {aiLimitHead, barState, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, partialResult, stepCount} from '../run-status.js';
+import {aiLimitHead, barState, failureHead, phaseStatus, runPill, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, stepCount} from '../run-status.js';
 import {el, moreButton, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage} from '../run-cards.js';
@@ -168,7 +168,7 @@ export function renderActivity(fresh) {
     }
     // A queued task can be taken out of the queue before it starts (owner, 7 Oct 2026): the same inline link as "GitHub ↗", not a button in a button.
     if (run.waiting && run.id) when.replaceChildren(removeLink(run));
-    button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
+    button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runPill(run)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity);
       $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // a click on a row (focused by the browser, then redrawn) keeps it too
     return button;
@@ -259,8 +259,7 @@ export function renderActivity(fresh) {
   const stepWarnings = partial ? split.rest : detailWarnings;
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
   // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
-  const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
-    : run.off ? ['Not checked', 'warn'] : run.interrupted ? ['Interrupted', 'warn'] : !run.ok ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned || partialResult(run)) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
+  const status = !run ? null : runPill({...run, kind: kindOf(run)}, {long: true});
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
