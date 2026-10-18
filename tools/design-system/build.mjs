@@ -114,7 +114,7 @@ ${links}
   <div class="dp-main">
     <section class="dp-group" data-group="Components"><div class="dp-group-head"><h2>Components</h2><p>Drawn live by the app's own code (components.js, card-shell.js, save-bar.js) and CSS, with fictional data.</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="States"><div class="dp-group-head"><h2>States</h2><p>The shared parts in the states a screen meets: unsaved, saving, save failed, empty, loading, error, long content, narrow window.</p></div><div class="dp-group-body"></div></section>
-    <section class="dp-group" data-group="Don't / Do"><div class="dp-group-head"><h2>Don't / Do</h2><p>The owner's UI feedback of 18 Oct 2026, redrawn with fictional data. Each Don't fails a check in desktop/e2e/lib/design-rules.mjs; each Do passes.</p></div><div class="dp-group-body"></div></section>
+    <section class="dp-group" data-group="Don't / Do"><div class="dp-group-head"><h2>Don't / Do</h2><p>The owner's UI feedback of 18 Oct 2026, redrawn with fictional data. Build from the Do; the Don't is what the owner rejected.</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="Tokens"><div class="dp-group-head"><h2>Tokens</h2><p>tokens.css: the only place with raw colours, sizes and fonts. Use var(--name).</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="Rules"><div class="dp-group-head"><h2>Rules</h2><p>docs/rules/desktop-ui.md, as written. What code alone can't show: action hierarchy, save scope, drafts.</p></div><div class="dp-group-body">${rulesSection(statusFile)}</div></section>
     <div id="gallery" hidden></div>

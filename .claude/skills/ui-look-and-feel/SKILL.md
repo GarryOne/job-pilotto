@@ -9,9 +9,12 @@ The owner designs by mockup and judges by screenshot. A screen is done when it l
 *and* like the mockup, not when the code works. Before you say a UI change is finished, render it (below) and
 look at it.
 
+## First, before writing any UI: the design system (owner, 18 Oct 2026)
+`cd desktop && npm run design-system`, find the component for each value you will show, and build only from those (its "Don't / Do" pairs show what the
+owner rejected). No new look outside it; a missing part goes into the shared components first. The owner checks the result on the before/after shots.
+
 ## 0. The design system: pick the control from the value (owner, 17 Oct 2026)
-Design system page, built from the repo: `cd desktop && npm run design-system` · living copy `npm run gallery` · rules and the
-checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawing any value, name its kind and use this row:
+Design system page, built from the repo: `cd desktop && npm run design-system` · living copy `npm run gallery` · rules: `docs/rules/desktop-ui.md` "Design system". Before drawing any value, name its kind and use this row:
 
 | Kind of value | Read view | Edit view |
 |---|---|---|
@@ -27,7 +30,7 @@ checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawin
 | Note for the AI | muted line with the bot icon, under its value | folded "Note for the AI" |
 | Missing | `pill('Not set', 'warn')` + its action | the kind's control, empty |
 
-- **Before drawing a read view, a list, a button row or a choice:** read `docs/rules/desktop-ui.md` "Read views, lists, buttons and choices" (the owner's feedback of 18 Oct 2026: values not notes, lists fold, one-line buttons, one primary, colour for Now vs Proposed, one row per field); `desktop/e2e/lib/design-rules.mjs` fails a journey that breaks them.
+- **Before drawing a read view, a list, a button row or a choice:** read `docs/rules/desktop-ui.md` "Read views, lists, buttons and choices" (the owner's feedback of 18 Oct 2026: values not notes, lists fold, one-line buttons, one primary, colour for Now vs Proposed, one row per field); the design page's "Don't / Do" pairs show each (the automatic checks are parked, owner 18 Oct 2026).
 - Prose that holds several values (a salary per country, "No French or Italian") is split: values into their controls, the rest into a note.
 - Many values of one kind (salaries per country) read as a small `.data-table`, not a box each.
 - Chips show what a person would write: the screen turns syntax into meaning first ("Tax" in quotes → the group "Whole word only"; "Zurich,Zurich,Switzerland · de" → "Zurich, Switzerland · German").

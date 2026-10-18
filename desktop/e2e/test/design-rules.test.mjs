@@ -7,7 +7,9 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
-import {KNOWN_LEFT, RULE_LIMITS, designRules, judge} from '../lib/design-rules.mjs';
+import {DESIGN_RULES_ON, KNOWN_LEFT, RULE_LIMITS, designRules, judge} from '../lib/design-rules.mjs';
+
+const PARKED = !DESIGN_RULES_ON && 'design checks parked by the owner on 18 Oct 2026 (lib/design-rules.mjs DESIGN_RULES_ON)';
 import {build} from '../../../tools/design-system/build.mjs';
 import {serve} from '../../../tools/design-system/serve.mjs';
 
@@ -20,7 +22,7 @@ function sectionsShown() {
   }));
 }
 
-test('each Don\'t trips its check; each Do and every approved section trips none', async () => {
+test('each Don\'t trips its check; each Do and every approved section trips none', {skip: PARKED}, async () => {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'design-rules-'));
   build({out, commit: 'test', date: '2026-10-18'});
   const server = await serve(out);
@@ -51,7 +53,7 @@ test('each Don\'t trips its check; each Do and every approved section trips none
   }
 });
 
-test('a screen listed in KNOWN_LEFT is a warning naming who fixes it; anything else stays severe; the list only shrinks', () => {
+test('a screen listed in KNOWN_LEFT is a warning naming who fixes it; anything else stays severe; the list only shrinks', {skip: PARKED}, () => {
   const finding = {view: 'strategy', kind: 'fat-button', card: 'Review your preferences', severity: 'severe', detail: 'x'};
   assert.equal(judge([finding], {})[0].severity, 'severe');
   const known = judge([finding], {'strategy|fat-button|Review your preferences': 'session 46 (Strategy)'})[0];

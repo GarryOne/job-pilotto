@@ -83,12 +83,11 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
 - **Modern controls over plain fields** ("I like more card picker than the selectbox/dropdown/textfield… any other more modern component"): a few choices →
   a card picker or segmented buttons; a set → chips; a number on a scale or range → a slider; a menu (`select`) only for a long list (country, currency), searchable
   (`.select-search`) or marked `data-long-list`; a text field only for real prose. This refines "the value's kind picks the control" above.
-- **What fails a change:** `desktop/e2e/lib/design-rules.mjs` runs on every view a journey visits (`lib/layout.mjs` snap): `raw-note-in-value`, `long-list-unfolded`,
-  `caption-sandwich` (lone words above or below a chip row, under a list or a button), `sticky-bar-covers`, `label-grid` (labels off one left edge, a single value under its label, or a read value more than 240px from its label, in a wide window),
-  `no-dividers` (3+ settings in a wide list with no line or tint), `list-as-prose` (4+ short items written as words: "Yes · Lisbon, Porto, Madrid"), `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. The checks find shapes, never class names or pages (a chip row is any element with chips as children; a setting is a short bold label + value repeated in a
-  list); the design page's "Strategy cards as the owner rejected them" fixture proves them on the shape he saw. A screen that broke a rule before it was written is listed in its
-  `KNOWN_LEFT` with the session fixing it (shrink-only, `desktop/e2e/test/design-rules.test.mjs`, which also proves each Don't trips its check and each Do and every
-  approved gallery section trips none). Separators between settings, "only the difference" and a text field holding a value from a closed list have no check yet: the AI review and the owner's eye judge them.
+- **What checks a change: the owner's before/after shots** (owner, 18 Oct 2026: "I can check by myself, on the before/after screenshots... Every session
+  should be able to read the UI Design system and make the UI accordingly, from the development phase"). The automatic design-rule checks
+  (`desktop/e2e/lib/design-rules.mjs`) are **parked**: no journey, test or PR runs them (`DESIGN_RULES_ON = false`), and their `KNOWN_LEFT` list is moot.
+  Before writing UI, open the design system (`cd desktop && npm run design-system`), find the component for each value and build only from those;
+  the "Don't / Do" pairs show what the owner rejected and what to build instead.
 
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
