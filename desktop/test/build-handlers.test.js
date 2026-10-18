@@ -5,7 +5,7 @@ import {registerBuildHandlers} from '../lib/build-handlers.js';
 
 const make = (options = {}) => {
   const handlers = {}, calls = [];
-  registerBuildHandlers({app: {relaunch: () => calls.push('relaunch'), quit: () => calls.push('quit')}, ipcMain: {handle: (name, fn) => { handlers[name] = fn; }}, FROM_SOURCE: true, repo: '/r', packaged: null,
+  registerBuildHandlers({restartApp: reason => calls.push(`restart: ${reason}`), app: {}, ipcMain: {handle: (name, fn) => { handlers[name] = fn; }}, FROM_SOURCE: true, repo: '/r', packaged: null,
     head: () => ({commit: 'abc1234', time: '2026-10-16T14:02:00+02:00'}), count: ({running}) => ({label: `label ${running.commit}`, commit: running.commit, ahead: 2}), ...options});
   return {handlers, calls};
 };
@@ -26,8 +26,8 @@ test('a source run keeps the commit and time and has no changelog link, even wit
   assert.deepEqual({label: state.label, whatsNew: state.whatsNew}, {label: 'label abc1234', whatsNew: undefined});
 });
 
-test('restart relaunches and quits (the quit guard still asks when a job runs)', async () => {
+test('restart goes through the one shared restart (lib/restart.js): quit guards ask first, one new copy', async () => {
   const {handlers, calls} = make();
   assert.deepEqual(await handlers.restartApp(), {ok: true});
-  assert.deepEqual(calls, ['relaunch', 'quit']);
+  assert.deepEqual(calls, ['restart: restart to get fixes']);
 });
