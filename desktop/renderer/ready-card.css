@@ -9,9 +9,9 @@
 /* The name keeps 10rem; on a narrow window the buttons wrap onto a second line rather than squeeze their words or the name (four buttons since Watch the fill). */
 .ready-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); justify-self: end; }
 .ready-buttons > button { white-space: nowrap; }
-/* Watch the fill: the night's video of one form, under its row, across the whole row. */
-.ready-player { grid-column: 1 / -1; }
-.ready-player video { display: block; width: 100%; max-width: 960px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+/* Watch the fill: the night's video of one form in a popup, wide enough for its 1280×720 frames. */
+.ready-video-dialog { width: min(1000px, 94vw); }
+.ready-video-dialog video { display: block; width: 100%; max-height: 62vh; object-fit: contain; margin-top: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
 /* Not available: the reason, and Try again; the card's two buttons are off meanwhile. */
 .ready-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .ready-status > .muted { flex: 1 1 16rem; min-width: 0; }
