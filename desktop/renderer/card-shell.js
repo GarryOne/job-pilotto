@@ -51,3 +51,13 @@ export function setEditing(card, on) {
   if (on) unfold(card);
 }
 export const isEditing = card => Boolean(card?.classList.contains('is-editing'));
+
+// The editor's way out while it holds no change: a quiet "Done" (shown only at 0 changes; with changes the page bar's Save all / Discard all decide,
+// and the card's save/discard close it). count: the card's own draft count; call done.sync() after each edit. Every card uses this one, not its own Close.
+export function doneButton(card, count) {
+  const done = Object.assign(el('button', 'link small card-done', 'Done'), {type: 'button'});
+  const sync = () => { done.hidden = count() > 0; };
+  done.addEventListener('click', () => setEditing(card, false));
+  sync();
+  return Object.assign(done, {sync});
+}

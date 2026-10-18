@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="ui-menu.css">
 <link rel="stylesheet" href="chips.css">
 <link rel="stylesheet" href="card-shell.css">
+<link rel="stylesheet" href="profile-page.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="question-review.css">
@@ -955,7 +956,8 @@
         </div>
         
         <div class="settings-page" data-settings-page="profile" hidden>
-          <div class="settings-page-head"><h2>Profile</h2><p class="muted">Your CV, details and reusable application answers: what goes into your applications (nothing here re-scores jobs).</p></div>
+          <div class="settings-page-head has-action profile-head"><div><h1>Profile</h1><p class="muted">Your CV, details and reusable application answers: what goes into your applications (nothing here re-scores jobs).</p></div>
+            <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><span id="profile-more"></span></div></div>
 
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="cv" class="is-active">CV</button>
@@ -1023,7 +1025,7 @@
           </div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
-              <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details" data-notion-only>Open profile in Notion</button></div></div>
+              </div>
             <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
             <div class="form-grid cols-2" data-reads-contact>
               <label>First name<input data-contact="first_name" type="text"></label>
@@ -1080,36 +1082,8 @@
             <div class="exp-profile" id="details-profile"></div>
             <p class="message" id="details-profile-message"></p>
           </div>
-          <div class="save-bar" id="contact-savebar" data-profile-panel="details" data-wanted="0" role="region" aria-label="Unsaved changes to your details" hidden>
-            <div class="save-bar-words"><b>Unsaved changes to your details</b><span class="muted small">The extension fills forms with them once saved.</span></div>
-            <span class="message" id="contact-message"></span>
-            <button class="secondary" id="contact-discard">Discard changes</button><button class="primary" id="contact-save" disabled>Save changes</button>
-          </div>
           <div class="setting info-bar" id="setting-profile-note" data-profile-panel="cv"><i data-icon="info"></i>
             <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
-          <div class="setting panel" id="setting-claude" data-profile-panel="details">
-            <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
-            <p class="muted panel-lead">Job Pilotto takes each application up to its Submit button. You check it and press Submit.</p>
-            <div class="assistant-mode">
-              <div class="segmented" role="group" aria-label="How much Job Pilotto does">
-                <button data-assistant-mode="full">Do it for me</button><button data-assistant-mode="assist">Let me check each step</button>
-              </div>
-              <p class="muted small" id="assistant-mode-text"></p>
-            </div>
-            <div class="switch-line" id="claude-auto-line" hidden>
-              <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-auto"><span></span></span>
-                <span><span>Always let Claude finish when I'm stuck</span><span class="muted small">Off: the stuck page asks first. On: Claude takes over after a 5-second countdown you can cancel. It works in that tab and never clicks Submit.</span></span></label>
-              <button class="arrow-link" id="claude-how">How this works</button>
-            </div>
-            <ul class="prereqs" id="claude-prereqs-settings" hidden></ul>
-            <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
-              They never click Submit; any other command runs without asking, so watch the window while it works.</p>
-            <div class="switch-line" id="site-password-line">
-              <span class="cv-card-text"><span>Old job-site password: <b id="site-password">••••••••</b></span><span class="muted small">Only for accounts made before 10 Oct 2026. Every new account gets its own password, kept in this computer's Keychain: see Credentials.</span></span>
-              <span class="inline"><button class="secondary small-button" id="site-password-show">Show</button><button class="secondary small-button" id="site-password-copy">Copy</button></span>
-            </div>
-            <p class="message" id="site-password-message"></p>
-          </div>
           <div class="setting panel" id="setting-letter-style" data-profile-panel="letter" hidden>
             <div class="summary-head"><i data-icon="sliders"></i><h3>Letter style</h3></div>
             <p class="muted panel-lead">How every cover letter is written: length, tone, what to mention and what never to. Kept with your standard answers.</p>
@@ -1266,6 +1240,24 @@
                 <p class="message" id="tg-cloud-message"></p>
               </div>
             </div>
+          </div>
+          <div class="setting panel" id="setting-claude">
+            <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
+            <p class="muted panel-lead">Job Pilotto takes each application up to its Submit button. You check it and press Submit.</p>
+            <div class="assistant-mode">
+              <div class="segmented" role="group" aria-label="How much Job Pilotto does">
+                <button data-assistant-mode="full">Do it for me</button><button data-assistant-mode="assist">Let me check each step</button>
+              </div>
+              <p class="muted small" id="assistant-mode-text"></p>
+            </div>
+            <div class="switch-line" id="claude-auto-line" hidden>
+              <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-auto"><span></span></span>
+                <span><span>Always let Claude finish when I'm stuck</span><span class="muted small">Off: the stuck page asks first. On: Claude takes over after a 5-second countdown you can cancel. It works in that tab and never clicks Submit.</span></span></label>
+              <button class="arrow-link" id="claude-how">How this works</button>
+            </div>
+            <ul class="prereqs" id="claude-prereqs-settings" hidden></ul>
+            <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
+              They never click Submit; any other command runs without asking, so watch the window while it works.</p>
           </div>
         </div>
         <div class="settings-page" data-settings-page="connections" hidden>

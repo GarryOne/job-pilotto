@@ -21,7 +21,7 @@ const step = (name, then = '') => `(() => {
   const say = (id, text, tone) => { $(id).textContent = text; $(id).className = 'message ' + tone; };
   ${then}
 })()`;
-const view = (name, then = '') => `document.querySelector('.nav[data-view=${name}]').click(); ${then}`;
+const view = (name, then = '') => `document.querySelector('.nav[data-view=${name}]:not([data-settings])').click(); ${then}`;   // settings: the menu's Settings, not its Profile
 
 const FRAMES = [
   {name: 'welcome', fresh: true, js: step('welcome')},
@@ -44,7 +44,7 @@ const FRAMES = [
   {name: 'strategy', js: view('strategy')},
   {name: 'settings', js: view('settings')},
   {name: 'schedule', js: view('settings', `document.getElementById('setting-schedule').scrollIntoView()`)},
-  {name: 'claude', js: view('settings', `document.getElementById('setting-claude').scrollIntoView()`)},
+  {name: 'claude', js: view('settings', `document.querySelector('[data-settings-go=automation]').click(); document.getElementById('setting-claude').scrollIntoView()`)},   // Settings → Automation since 18 Oct 2026
   {name: 'cloud', js: view('settings', `document.getElementById('setting-cloud').scrollIntoView()`)},
 ];
 // On the page: the stills; in the video: the setup, then the app in use.

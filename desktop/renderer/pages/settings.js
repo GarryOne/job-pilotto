@@ -6,22 +6,29 @@ import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {betaText, testText, updateText} from '../update-text.js';
 import {shared} from './shared.js';
-import {$, aiReady, message, show} from './core.js';
+import {$, aiReady, show} from './core.js';
 import {extensionState} from '../service-status.js';
 import {openView, remembered} from './nav.js';
-import {contactDirty} from './contact-proposals.js';
+import {profileBar} from './profile-save-bar.js';
+import {detailsChanged} from './details-drafts.js';
 import {profileTab, showContact} from './profile.js';
 import {startDefault} from '../tab-choice.js';
 import {byStore} from '../store-words.js';
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
+let pageNow = '';
 export function settingsPage(name) {
+  if (pageNow === 'profile' && name !== 'profile' && !profileBar().leave(() => { pageNow = ''; settingsPage(name); })) return;   // unsaved Profile edits: ask first
+  pageNow = name;
   remembered('settingsPage', name);
   if (name === 'connections' && lastStatus) setTimeout(() => autoConnect(lastStatus), 0);  // after the page is shown
   if (name === 'profile') openProfile();
   if (name === 'credentials') openCredentials();
   if (name === 'logs') setTimeout(() => openLogs().catch(error => console.error('Settings · logs:', error)), 0);  // after the page is shown
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
+  // Profile is its own page (owner, 18 Oct 2026, UI redesign fix 9): its heading and 5 tabs, without "Settings", its list of sections or a second heading.
+  // Every way in (the sidebar's Profile, Settings → Profile, Overview's Edit profile, ⌘K) passes here. Guarded by test/profile-page.test.js.
+  document.querySelector('.view[data-view="settings"]')?.classList.toggle('is-profile', name === 'profile');
   // The menu: Profile is a Settings page of its own there.
   document.querySelectorAll('.nav[data-view="settings"]').forEach(nav => nav.classList.toggle('active', (nav.dataset.settings === 'profile') === (name === 'profile')));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
@@ -56,7 +63,6 @@ function arrived(card) {
 async function openProfile() {
   const stillDefault = startDefault();   // "CV" is only the default: a tab picked while the state loads stays (tab-choice.js)
   shared.state = await window.pilot.state();
-  contactDirty(false);
   showClaudeAuto();
   showMode(shared.state.settings);
   showContact();
@@ -357,7 +363,7 @@ export async function init() {
   $('ov-profile').addEventListener('click', () => settingsPage('profile'));
 
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
-  document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { contactDirty(true); message('contact-message', ''); }));
+  document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => detailsChanged()));
   $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
   // The job-site password is on Credentials too (and on Profile → Application assistant): the same two buttons.
   for (const [where, said] of [['credentials-shared', 'credentials-message']]) {
@@ -371,15 +377,6 @@ export async function init() {
       $(said).textContent = result?.ok ? 'Copied.' : result?.error || '';
     });
   }
-  $('site-password-show').addEventListener('click', async () => {
-    const result = await window.pilot.sitePassword('show');
-    if (result?.password) $('site-password').textContent = result.password;
-    $('site-password-message').textContent = result?.ok ? (result.password ? '' : 'Copied: paste it to read it.') : result?.error || '';
-  });
-  $('site-password-copy').addEventListener('click', async () => {
-    const result = await window.pilot.sitePassword('copy');
-    $('site-password-message').textContent = result?.ok ? 'Copied.' : result?.error || '';
-  });
   // Data & backup and Advanced: explainers and the reset options open on demand; Diagnostics shows live status.
   $('reset-review').addEventListener('click', () => { $('reset-options').hidden = !$('reset-options').hidden; });
   $('diag-troubleshoot').addEventListener('click', () => {

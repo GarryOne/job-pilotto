@@ -1,13 +1,13 @@
 // Settings → Profile → Your details: the Work eligibility, Availability & compensation and Languages sections (owner, 17 Oct 2026: "Your details =
 // facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "To check": one line counting the
 // unclear details (a fact said two ways, a line with no clear home, a value to make exact, an unanswered mark) that opens the one review queue (owner, 18 Oct 2026:
-// "One queue for all"; lib/details-review.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
+// "One queue for all"; lib/details-review.js). Saved through the Profile page's one save bar (pages/details-drafts.js). Guarded by
 // test/details-facts.test.js and test/details-review.test.js.
 import {el, loadingCard} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
-import {contactDirty} from './contact-proposals.js';
+import {detailsChanged, factsDirty, factsRead} from './details-drafts.js';
 import {setAsideRows} from './set-aside.js';
 import {factOf, factRow} from '../fact-line.js';
 import {detailsIn} from '../question-filter.js';
@@ -22,8 +22,8 @@ function draw(sections, formats = {}) {
     if (!into) continue;
     const add = el('button', 'link span-all', '+ Add a line');
     add.type = 'button';
-    add.addEventListener('click', () => { into.insertBefore(factRow(key, {}, formats, () => contactDirty(true)), add); contactDirty(true); });
-    into.replaceChildren(...(sections[key] || []).map(line => factRow(key, line, formats, () => contactDirty(true))), add);
+    add.addEventListener('click', () => { into.insertBefore(factRow(key, {}, formats, () => detailsChanged()), add); detailsChanged(); });
+    into.replaceChildren(...(sections[key] || []).map(line => factRow(key, line, formats, () => detailsChanged())), add);
   }
 }
 
@@ -62,15 +62,17 @@ function drawWhich(aside = [], tidied = null) {
 // Reads and draws the sections: the saved lines at once (lib/details-facts-handlers.js 'detailsFactsNow'), then the one-time moves settle in the background (the first time the app
 // moves the facts in: copy and backup first, lib/profile-move.js) and the screen draws again with what they did. 'details-sorting' tells the cards (the Voluntary surveys card
 // shows "Sorting your answers…", then reads its lines again); the first paint never waits on an AI call. Guarded by test/details-facts.test.js.
-let settledFor = 0;
+let settledFor = 0, redrawing = false;
 const paintFacts = (result, kept) => {
-  if (!kept && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
+  if (!kept && !redrawing && factsDirty()) return;   // a refresh never redraws under unsaved edits (Discard all redraws on purpose)
   $('facts-message').textContent = '';
   draw(result.sections || {}, result.formats || {});
+  factsRead();   // the drafts count from what is drawn now (details-drafts.js)
   drawWhich(result.setAside || [], result.tidied || null);
 };
-export async function showFacts() {
+export async function showFacts({redraw = false} = {}) {
   const turn = ++settledFor;
+  redrawing = redraw;
   const quick = await swr('details-facts', () => window.pilot.detailsFactsNow(), {
     loading: () => KEYS.forEach(key => box(key)?.replaceChildren(loadingCard('Reading your details…', [60, 80]))),
     paint: paintFacts,
@@ -81,6 +83,7 @@ export async function showFacts() {
   if (turn === settledFor && settled?.ok !== undefined) {
     if (settled.ok) { keep('details-facts', settled); paintFacts(settled, false); } else if (settled.error) $('facts-message').textContent = settled.error;
   }
+  redrawing = false;
   document.dispatchEvent(new CustomEvent('details-sorting', {detail: {on: false, changed: settled?.changed || 0}}));
   return quick;
 }

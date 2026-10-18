@@ -59,7 +59,7 @@ test('the window shows proposals in the Your details boxes and Save is the only 
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   assert.ok(!/saveContact/.test(page), 'proposals never save by themselves');
   assert.match(profile, /loadProposals\(\);/);
-  assert.match(html, /id="contact-from-cv"/);
+  assert.match(fs.readFileSync(new URL('../renderer/pages/profile-menu.js', import.meta.url), 'utf8'), /label: 'Fill empty details from my CV', run: \(\) => fillFromCv/, 'Fill from my CV lives in the Profile ⋯ menu');
   assert.match(html, /data-contact="salutation"/);
 });
 

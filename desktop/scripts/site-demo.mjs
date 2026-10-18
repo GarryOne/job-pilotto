@@ -11,7 +11,7 @@ const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(desktop, '..', 'site', 'public', 'images', 'app');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
 const wait = ms => `new Promise(r => setTimeout(r, ${ms}))`;
-const open = view => `document.querySelector('.nav[data-view=${view}]').click();`;
+const open = view => `document.querySelector('.nav[data-view=${view}]:not([data-settings])').click();`;   // settings: the menu's Settings, not its Profile
 
 // The story, in order: what to do next, the jobs, applying, Claude asking, what ran, the rest.
 const FRAMES = [
@@ -28,7 +28,7 @@ const FRAMES = [
 const HOLD = 2.6, FADE = 0.4;
 // Close-ups for the carousel under the video: one element each (JOB_PILOTTO_SMOKE_SELECTOR), not whole windows.
 const steps = (...parts) => `(async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); ${parts.join('; ')}; })()`;
-const go = view => `document.querySelector('.nav[data-view=${view}]').click()`;
+const go = view => `document.querySelector('.nav[data-view=${view}]:not([data-settings])').click()`;
 const noDock = `document.getElementById('sessions-dock').style.display = 'none'`;  // it sits over the page's bottom
 // [name, selector, steps, margin around it in px]
 const SNIPS = [

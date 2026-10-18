@@ -34,7 +34,7 @@ checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawin
 
 ### 0b. Cards: read → Edit → editor, one save bar (owner, 18 Oct 2026)
 Profile and Strategy cards: a read summary (`readRows`, `chipLine` from `card-shell.js`), a quiet **✎ Edit** at the header's right (`cardEdit`), the editor in place
-(`setEditing`, `editRows`: aligned label column, full-width controls, Edit hidden, card kept open, drafts kept), and **no Save on a card**: register a source with the page's
+(`setEditing`, `editRows`: aligned label column, full-width controls, Edit hidden, card kept open, drafts kept; `doneButton` leaves an unchanged editor), and **no Save on a card**: register a source with the page's
 `pageSaveBar` (`save-bar.js`: "N unsaved changes in <tabs> · Discard all · Save all changes", tab dots, leave/close guard). Filled orange only for the one current primary
 action. Rules and the tests that fail: `docs/rules/desktop-ui.md` "Cards: read → Edit → editor"; living copy `npm run gallery` → "Card shell".
 

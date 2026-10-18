@@ -22,7 +22,7 @@ test('every Profile tab part the code shows by itself goes through showOnTab and
       assert.match(tag, /data-wanted="0"/, `#${id} starts unwanted`);
     }
   }
-  assert.deepEqual(conditional.sort(), ['contact-savebar', 'cv-changed', 'setting-which']);
+  assert.deepEqual(conditional.sort(), ['cv-changed', 'setting-which']);
 });
 
 test('switching tabs keeps a part\'s wish', () => {

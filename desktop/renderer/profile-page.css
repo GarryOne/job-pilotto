@@ -1,0 +1,7 @@
+/* Profile as its own page (owner, 18 Oct 2026, UI redesign fix 9): settingsPage('profile') puts the Settings view in profile mode (.is-profile), which drops
+   "Settings", its list of sections and the second heading, so Profile shows its own heading and 5 tabs like any page. Guarded by test/profile-page.test.js. */
+.view[data-view="settings"].is-profile > .view-head,
+.view[data-view="settings"].is-profile .settings-nav { display: none; }
+.view[data-view="settings"].is-profile .settings-layout { grid-template-columns: minmax(0, 1fr); }
+.profile-head { align-items: flex-start; margin-top: 0; }
+.profile-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }

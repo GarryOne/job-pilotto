@@ -14,7 +14,8 @@ import {loadEmployers} from './employers.js';
 import {closeJobPanel, openJobPanel} from './job-panel.js';
 import {usage} from '../usage-signals.js';
 import {REPORT_TABS, loadReports} from './reports.js';
-import {applyViewGate} from './notion-connect.js';
+import {applyViewGate, openInNotion} from './notion-connect.js';
+import {fillFromCv} from './profile-menu.js';
 import {loadSettings, profileTab} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
@@ -65,7 +66,9 @@ export function openView(name, {fromHistory = false} = {}) {
   if (name === 'sessions' && !locked) renderSessionPage();  // the view's HTML starts on the spinner; opening it must paint the list we already have
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
-    settingsPage('overview');
+    // Arriving from another page starts on Overview; a move within Settings (sidebar Profile while on Profile, ⌘K "Open Profile: …") never passes
+    // through it, or Profile's unsaved-changes question popped up on the way back to Profile itself (test/profile-page.test.js).
+    if (leaving !== 'settings') settingsPage('overview');
     showServicesNow();
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = $('set-target').dataset.saved = setting.target; $('set-remind').checked = setting.reminders; });
@@ -199,6 +202,10 @@ export function paletteCommands() {
   const reachable = (node, section) => shown(node) || ((onClosedTab(section) || onClosedPanel(section)) && hiddenAt(node) === section);
   document.querySelectorAll('[data-profile-tab]').forEach(tab => add('Settings', `Open Profile: ${labelOf(tab)}`, '', 'settings profile tab',
     () => { openView('settings'); settingsPage('profile'); profileTab(tab.dataset.profileTab); }));
+  // The Profile ⋯ menu's two actions (pages/profile-menu.js; UI redesign fix 10, 18 Oct 2026).
+  add('Settings', 'Fill my details from my CV', 'Empty boxes in Profile → Your details, filled in for you to check', 'profile details contact cv fill empty phone address',
+    () => { openView('settings'); settingsPage('profile'); fillFromCv(profileTab); });
+  if (shared.state?.notion?.NOTION_PROFILE_PAGE_ID) add('Notion', 'Profile: View source in Notion', '', 'notion profile page open source', () => openInNotion('NOTION_PROFILE_PAGE_ID'));   // about Notion
   const seen = new Set();
   document.querySelectorAll('[data-settings-page] .setting[id]').forEach(section => {
     // A summary's own heading, not its whole line; a card with none is named by its bold line (Current CV) or its page (Credentials, Logs).
@@ -289,7 +296,7 @@ export async function init() {
       // Applying opens the session that needs you most (else the latest), not just the page.
       if (nav.dataset.view === 'sessions' && bestSession()) return openSession(bestSession().id);
       openView(nav.dataset.view);
-      if (nav.dataset.settings) settingsPage(nav.dataset.settings);
+      if (nav.dataset.view === 'settings') settingsPage(nav.dataset.settings || 'overview');   // the sidebar's Settings is its Overview, also from Profile
     });
   });
   // Interviews | Calendar: two screens, one tab strip at the top of each (the menu has one button, Interviews).

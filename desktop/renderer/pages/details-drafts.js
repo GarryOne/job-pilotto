@@ -1,0 +1,41 @@
+// Your details' drafts on the Profile page's one save bar (pages/profile-save-bar.js; owner, 18 Oct 2026, UI redesign D2): Contact with its links (one saved
+// record, lib/contact.js) and the fact sections (Work eligibility, Availability & compensation, Languages: one save, lib/profile-sections.js). Each counts the
+// fields that differ from what was last read or saved, so the bar says how many and a refresh never draws over them. Guarded by test/details-drafts.test.js.
+import {profileBar} from './profile-save-bar.js';
+import {factsNow, showFacts} from './details-facts.js';
+import {clearProposals} from './contact-proposals.js';
+import {contactNow, countContact, countFacts} from '../details-count.js';
+
+export {contactNow, countContact, countFacts};
+
+let savedContact = {}, savedFacts = {};
+let contact = null, facts = null;
+// What is on screen right after a read or a save: the drafts count from here.
+export function contactRead() { savedContact = contactNow(); contact?.changed(); }
+export function factsRead() { savedFacts = factsNow(); facts?.changed(); }
+export const contactDirty = () => countContact(savedContact, contactNow()) > 0;
+export const factsDirty = () => countFacts(savedFacts, factsNow()) > 0;
+// Something was typed, picked, added or filled in from the CV.
+export function detailsChanged() { contact?.changed(); facts?.changed(); }
+
+export function registerDetails({repaintContact}) {
+  const bar = profileBar();
+  contact = bar.register({id: 'details-contact', tab: 'details', label: 'Contact',
+    count: () => countContact(savedContact, contactNow()),
+    async save() {
+      const now = contactNow();
+      if (now.first_name && now.last_name) now.full_name = `${now.first_name} ${now.last_name}`;   // forms that ask for the full name get first + last
+      const result = await window.pilot.saveContact(Object.fromEntries(Object.entries(now).filter(([, value]) => value)));
+      if (result.ok) { clearProposals(); contactRead(); }
+      return result;
+    },
+    discard() { clearProposals(); savedContact = {}; repaintContact(); },
+    reveal: () => document.getElementById('setting-contact')?.scrollIntoView({block: 'start'}),
+  });
+  facts = bar.register({id: 'details-facts', tab: 'details', label: 'Eligibility, availability and languages',
+    count: () => countFacts(savedFacts, factsNow()),
+    async save() { const result = await window.pilot.saveDetailsFacts(factsNow()); if (result.ok) factsRead(); return result; },
+    discard() { savedFacts = {}; showFacts({redraw: true}); },
+    reveal: () => document.getElementById('setting-eligibility')?.scrollIntoView({block: 'start'}),
+  });
+}

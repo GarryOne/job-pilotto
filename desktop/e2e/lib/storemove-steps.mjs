@@ -65,7 +65,7 @@ export function sameScreens(before, after) {
 }
 
 export async function yourData(page) {
-  await page.click('.nav[data-view="settings"]');
+  await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');   // the menu's Settings: its Profile hides the list of sections
   await page.click('[data-settings-go="data"]');
   await page.waitForSelector('#export-data', {state: 'visible', timeout: 10000});
 }

@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import {install} from './tiny-dom.js';
 
 install();
-const {readRows, chipLine, editRows, setEditing, isEditing} = await import('../renderer/card-shell.js');
+const {readRows, chipLine, editRows, setEditing, isEditing, doneButton} = await import('../renderer/card-shell.js');
 const {el} = await import('../renderer/components.js');
 
 test('read rows: label → value, a missing value is a "Not set" pill, a note sits under its value, missing:"" skips the row', () => {
@@ -43,4 +43,18 @@ test('editing: the card is marked, a folded <details> card opens, and the CSS hi
   const css = fs.readFileSync(new URL('../renderer/card-shell.css', import.meta.url), 'utf8');
   for (const rule of ['.is-editing .card-edit { display: none; }', '.is-editing .card-editor { display: block; }', '.is-editing .card-read { display: none; }']) assert.ok(css.includes(rule), rule);
   for (const page of ['index.html', 'gallery.html']) assert.match(fs.readFileSync(new URL(`../renderer/${page}`, import.meta.url), 'utf8'), /href="card-shell\.css"/, page);
+});
+
+test('Done: leaves an unchanged editor; hidden while the card holds changes (then the page bar decides)', () => {
+  const card = el('div');
+  let drafts = 0;
+  setEditing(card, true);
+  const done = doneButton(card, () => drafts);
+  assert.equal(done.hidden, false);
+  assert.equal(done.textContent, 'Done');
+  drafts = 2; done.sync();
+  assert.equal(done.hidden, true);
+  drafts = 0; done.sync();
+  done.click();
+  assert.equal(isEditing(card), false);
 });
