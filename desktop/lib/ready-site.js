@@ -26,6 +26,20 @@ const call = async (storage, route, options = {}) => callWith(storage, route, {.
 const words = result => (result.ok ? result : {ok: false, status: result.status, error: result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
 
 export const owner = async (storage, options) => (await call(storage, '/api/ready/state', options)).ok === true;
+const clock = at => new Date(at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+// The morning's rows, or why the card cannot work right now, in plain words (the card is always shown and says this; owner, 18 Oct 2026: "show the card always... an error message/status and disabled buttons").
+// -> {ok: true, batch, jobs} or {ok: false, why}.
+export async function status(storage, {now = Date.now, ...options} = {}) {
+  if (!ownerSecret(storage)) return {ok: false, why: 'Only on the owner\'s install while it is tested.'};
+  const key = await keyFor(storage, options);
+  if (!key) {
+    const wait = storage.settings().siteTokenWait?.ai || 0;
+    return {ok: false, why: wait > now() ? `Our site gave this install no token today (its daily limit); asked again at ${clock(wait)}.` : 'Could not get this install\'s token from our site. Check the connection.'};
+  }
+  const result = await callWith(storage, '/api/ready/state', {...options, key, headers: {'x-ready-owner': ownerSecret(storage)}});
+  if (result.ok) return result;
+  return {ok: false, why: result.status === 401 || result.status === 404 ? 'Our site does not know this install as the owner\'s.' : `Our server did not answer${result.status ? ` (${result.status})` : ''}: ${result.error}`};
+}
 export const rows = async (storage, options) => words(await call(storage, '/api/ready/state', options));   // -> {ok, batch: {night, state, costUsd, expiresAt}, jobs: [...]}
 export const send = async (storage, batch, options) => words(await call(storage, '/api/ready/batch', {method: 'POST', body: batch, ...options}));
 export const runNow = async (storage, options) => words(await call(storage, '/api/ready/run', {method: 'POST', body: {}, ...options}));

@@ -1,7 +1,12 @@
 /* The Ready to send card (pages/ready-card.js): rows under the task-card body, built from the Actions page's own parts; only the list is new. */
 .ready-card { display: grid; gap: var(--sp-2); }
 .ready-body, .ready-note { padding: 0 var(--sp-3); display: grid; gap: var(--sp-2); }
-.ready-rows { display: grid; gap: var(--sp-1); }
-.ready-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.ready-rows { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-3); }
+/* One grid for every row (a subgrid), so the pills and buttons line up whatever the job's name length. */
+.ready-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.ready-row > .ui-pill { justify-self: start; }
 .ready-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ready-buttons { display: flex; gap: var(--sp-2); }
+.ready-buttons { display: flex; gap: var(--sp-2); justify-self: end; }
+/* Not available: the reason, and Try again; the card's two buttons are off meanwhile. */
+.ready-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ready-status > .muted { flex: 1 1 16rem; min-width: 0; }
