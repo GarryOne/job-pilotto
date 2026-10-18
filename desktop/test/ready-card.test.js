@@ -72,3 +72,14 @@ test('Try again answers visibly: Checking… while it asks, then the reason with
   answer({owner: false, why: 'Still not.'}); await new Promise(resolve => setTimeout(resolve, 0));
   assert.match(textOf(body.querySelector('.ready-card')), /Still not\. · checked/);
 });
+
+test('what went to the server for tonight (by hand or by itself) is said on the card; nothing sent, no line', async () => {
+  for (const [sent, says] of [[{count: 3, at: new Date(2026, 9, 18, 18, 40).toISOString()}, /Sent for tonight: 3 jobs · 18:40/], [null, null]]) {
+    const body = page();
+    globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {}, site: {batch: null, jobs: []}, sent}),
+      readyTonight: async () => ({ok: false})};
+    await initReadyCard();
+    const text = textOf(body.querySelector('.ready-card'));
+    if (says) assert.match(text, says); else assert.ok(!text.includes('Sent for tonight'));
+  }
+});

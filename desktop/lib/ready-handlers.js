@@ -5,7 +5,10 @@ import * as pipeline from './pipeline.js';
 import {extensionStore} from './store/extension-store.js';
 import {me} from './server-contact.js';
 import * as viewCache from './view-cache.js';
-import {buildBatch, ownKeyFor, pickToSend, withOwnAi} from './ready-batch.js';
+import {buildBatch, nightOf, ownKeyFor, pickToSend, withOwnAi} from './ready-batch.js';
+import {createAutoSend, startAutoSend} from './ready-auto.js';
+import {isTwin} from './twin.js';
+import {log as appLog} from './log.js';
 import {keysOf} from './ai/index.js';
 import {settingsOf} from './ready.js';
 import * as site from './ready-site.js';
@@ -18,7 +21,7 @@ async function facts(storage) {
   return {profile, standard: answers, search: await configForPrompt(storage, 'search.json'), cvFacts: cvFactsOf(storage), knowledge: ''};
 }
 
-export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}}) {
+export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}, app, powerMonitor}) {
   const settings = () => settingsOf(storage.settings().ready);
   const jobs = async () => (await pipeline.jobs(storage)).jobs;
   const cached = () => viewCache.recall(storage, 'jobs')?.result?.jobs || [];   // the last good list: the card never waits for a job read to say "owner" and show the night's rows
@@ -47,15 +50,27 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     const mine = settings();
     if ((rows.jobs || []).some(each => each.submitted_at && !each.cleared_at)) await settleSubmitted(rows, await jobs());   // only then the list is read
     tellMorning(rows);
-    return {owner: true, settings: mine, ...tonightOf(cached(), mine), site: rows};
+    const sent = storage.settings().ready?.sent;   // what went to the server for the coming night (by hand or by itself): the card says it
+    return {owner: true, settings: mine, ...tonightOf(cached(), mine), site: rows, sent: sent?.night === nightOf().night ? sent : null};
   });
   // What tonight would send, from a fresh job read (joins one already running): the card asks after it has painted.
   ipcMain.handle('readyTonight', async () => { try { return {ok: true, ...tonightOf(await jobs(), settings())}; } catch { return {ok: false}; } });
-  ipcMain.handle('readySend', async () => {
+  const sendTonight = async () => {
     const mine = settings(), {batch, skipped} = await build(pickToSend(await jobs(), mine));
     if (!batch.jobs.length) return {ok: false, error: 'No job has its kit, CV and cover letter ready yet.', skipped};
     const sent = await site.send(storage, withOwnAi(batch, ownKeyFor(storage.settings(), keysOf(storage))));
     return sent.ok ? {ok: true, queued: sent.queued, night: batch.night, skipped} : sent;
+  };
+  // Sent by itself when tonight's list changes and before the laptop goes off (lib/ready-auto.js); only on the owner's install (its owner key).
+  // The twin shares the owner's install: it never sends by itself (it would replace his night); nor do demo, test, CI and smoke runs.
+  const ownApp = () => !isTwin() && !['JOB_PILOTTO_DEMO', 'JOB_PILOTTO_E2E', 'JOB_PILOTTO_SMOKE', 'CI'].some(name => process.env[name]) && !!site.ownerSecret(storage);
+  const autoSend = createAutoSend({storage, eligible: ownApp, tonightCodes: () => pickToSend(cached(), settings()).map(job => job.code),
+    sendNow: sendTonight, log: (message, extra) => appLog('ready', message, extra)});
+  startAutoSend(autoSend.check, {app, powerMonitor});
+  ipcMain.handle('readySend', async () => {
+    const codes = pickToSend(await jobs(), settings()).map(job => job.code), sent = await sendTonight();
+    autoSend.record(codes, sent);
+    return sent;
   });
   // The live view: the site gives a link for this form (10 minutes, only for you); your browser opens it, where you press Submit yourself.
   ipcMain.handle('readyLive', async (_, code) => {
@@ -64,7 +79,11 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     await shell.openExternal(made.url);
     return {ok: true};
   });
-  ipcMain.handle('readyRun', () => site.runNow(storage));
+  ipcMain.handle('readyRun', async () => {   // Fill now: tonight's night has started, so nothing sent by itself replaces it
+    const started = await site.runNow(storage);
+    if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});
+    return started;
+  });
   ipcMain.handle('readyDone', (_, code) => site.done(storage, String(code || '')));
   ipcMain.handle('readyDeleteAll', () => site.deleteAll(storage));
   ipcMain.handle('readySettings', (_, patch) => { storage.saveSettings({ready: {...settings(), ...patch}}); return {ok: true, settings: settings()}; });

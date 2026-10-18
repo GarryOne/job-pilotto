@@ -75,6 +75,7 @@ Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touc
 - [ ] PR 4 (app): owner-only setting, batch push, restore step, ⌘K, Focus + Telegram line, shots (proof: desktop/test/ready.test.js)
 - [x] PR 4a (app): Actions card shown only to the owner's install (site says), Send tonight, Run now, morning rows with Done, ⌘K entry, batch with CV + letter PDF + facts (proof: desktop/test/ready-batch.test.js)
 - [x] PR 5a+5c: live view page (`site/public/ready-live.html`, opened by a 10-minute link), "I submitted it" marks Applied and deletes, Focus line, morning notification (proof: site/test/ready-link.test.js)
+- [x] Sent by itself (owner 18 Oct 2026: "before I turn off the laptop", chose on change + at shutdown): tonight's list goes to the server when it changes (checked every 5 min, screen lock) and once more at quit, sleep and shutdown (waits ≤ 15 s), never after 02:00 or after Fill now, never from the twin/tests; the card says "Sent for tonight: N jobs · HH:MM" (proof: desktop/test/ready-auto.test.js)
 - [ ] PR 5b: "Open in my browser" (extension restore step), after the first night (proof: none: not built)
 - [ ] First night measured: prepared / reached / complete / submitted, reported to the owner (proof: none: the morning line on /admin/ready)
 - [x] Site wiring (written, NOT deployed): fill time on a batch, cron tick starts due nights via Queue `ready-runs`, finishes over-time nights, morning routes `live`/`handoff`/`held` through a service binding, runner Worker `site/ready-runner` (proof: site/test/ready-wiring.test.js)

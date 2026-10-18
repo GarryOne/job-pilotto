@@ -75,9 +75,15 @@
   ]
  },
  "names": {
-  "demo-1": "Site Reliability Engineer \u00b7 Alpenglow Logistics",
-  "demo-2": "Platform Engineer \u00b7 Nordlicht Systems",
-  "demo-3": "DevOps Engineer \u00b7 Brightline Cloud",
-  "demo-4": "Cloud Engineer \u00b7 Harbor Freight Data"
+  "demo-1": "Site Reliability Engineer · Alpenglow Logistics",
+  "demo-2": "Platform Engineer · Nordlicht Systems",
+  "demo-3": "DevOps Engineer · Brightline Cloud",
+  "demo-4": "Cloud Engineer · Harbor Freight Data"
+ },
+ "sent": {
+  "sig": "demo",
+  "night": "demo",
+  "count": 4,
+  "at": "2026-10-18T16:40:00.000Z"
  }
 }
