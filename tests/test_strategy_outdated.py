@@ -53,5 +53,13 @@ class OutdatedTests(unittest.TestCase):
         self.assertEqual(queued, {1, 2, 3})
 
 
+class CommandTests(unittest.TestCase):
+    def test_the_window_s_re_score_reaches_this_command(self):
+        from pathlib import Path
+        source = (Path(__file__).resolve().parents[1] / 'src' / 'desktop.py').read_text()
+        self.assertIn("sub.add_parser('rescore-outdated')", source)
+        self.assertIn("rescore_outdated(db, stages)", source)
+
+
 if __name__ == '__main__':
     unittest.main()
