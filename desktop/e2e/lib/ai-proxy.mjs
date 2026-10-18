@@ -44,6 +44,11 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     if (answerWith) {
       const asked = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
       const text = await answerWith(openai ? asAnthropic(asked) : asked);   // may be async (the live run asks a real model)
+      if (text?.refuse) {   // a stand-in may also refuse a call the way the API does (a FAILURES mode), for the calls it must not answer and must not pass on
+        const refusal = openai ? openaiFailureFor(text.refuse) : failureFor(text.refuse);
+        stats.failed++; STUBBED.add(text.refuse);
+        res.writeHead(refusal.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(refusal.body), 'retry-after-ms': '10'}); res.end(refusal.body); return;
+      }
       if (text != null) {
         stats.canned++;
         if (follow) follow.stats.canned++;
@@ -117,7 +122,8 @@ export function asAnthropic(body) {
     const parts = Array.isArray(entry.content) ? entry.content.map(part) : [{type: 'text', text: String(entry.content || '')}];
     return {role: entry.role, content: parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts};
   });
-  return {model: body.model, ...(body.instructions ? {system: body.instructions} : {}), messages};
+  const schema = body.text?.format?.schema;   // the answer's fixed shape, where the Messages API carries it (output_config.format.schema): a stand-in tells a scoring call by it
+  return {model: body.model, ...(body.instructions ? {system: body.instructions} : {}), ...(schema ? {output_config: {format: {type: 'json_schema', schema}}} : {}), messages};
 }
 // What the Responses API returns for a reply that is `text`.
 export const responseOf = text => ({id: 'resp_e2e', object: 'response', status: 'completed', model: 'e2e-canned', output_text: text,
