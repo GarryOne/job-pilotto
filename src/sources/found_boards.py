@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_employers, board_routes, careers
+from . import board_employers, board_pages, board_routes, board_yield, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -83,6 +83,9 @@ def read_board(board, search, fetch=careers.get_text, route=None, early=False):
             if not found and not asked_ai:   # an open, readable page no free step reads: the AI reads it once (its caps), and the recipe it
                 asked_ai = True              # leaves reads it free from then on (owner, 18 Oct 2026; src/sources/page_recipes.py)
                 found = careers._asked(url, page, [], fetch)
+            if found and not early:   # the next pages of these results, while they still give relevant jobs (board_pages.py)
+                found = found + board_pages.more(url, page, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(markup, link, fetch),
+                                                 lambda some: board_yield.is_relevant(some))
             for job in found:
                 jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
                                  job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
