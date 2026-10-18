@@ -19,6 +19,7 @@ import {digestOf} from './guard.js';
 import {load as loadScouting} from './scouting.js';
 import {LEFT_REASONS} from './knowledge.js';
 import {isOwner} from './stats.js';
+import * as factAsks from './fact-asks.js';
 
 export const REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
 export const BUCKETS = ['0-39', '40-59', '60-79', '80-100', 'unscored'];
@@ -37,7 +38,7 @@ const pick = (value, list, fallback) => (list.includes(value) ? value : fallback
 
 // -> counts stored, for the response and the tests.
 export async function store(env, intel, now = new Date(), install = '') {
-  const out = {terms: 0, coverage: 0, dismissals: 0, snapshot: 0, replies: 0, sources: 0, fixes: 0};
+  const out = {terms: 0, coverage: 0, dismissals: 0, snapshot: 0, replies: 0, sources: 0, fixes: 0, facts: 0};
   if (!env.STATS || !intel || typeof intel !== 'object') return out;
   const d = day(now);
   const tags = item => [pick(item?.role, ROLES, 'other'), pick(item?.region, REGIONS, 'none')];
@@ -108,6 +109,7 @@ export async function store(env, intel, now = new Date(), install = '') {
       ON CONFLICT (day) DO UPDATE SET filled = filled + excluded.filled, corrected = corrected + excluded.corrected`).bind(d, filled, corrected).run();
     out.fixes++;
   }
+  out.facts = await factAsks.store(env.STATS, intel.facts, install, now);   // which facts forms asked: fixed ids (site/src/fact-asks.js)
   return out;
 }
 
@@ -120,6 +122,7 @@ export async function tidy(db, now = new Date()) {
     try { count = JSON.parse(row.installs).length; } catch { /* unreadable: drop */ }
     if (count < MIN_PEOPLE) { await db.prepare('DELETE FROM intel_fixes WHERE label = ?').bind(row.label).run(); dropped++; }
   }
+  await factAsks.tidy(db, now).catch(() => {});   // old fact reports (site/src/fact-asks.js)
   return {dropped};
 }
 

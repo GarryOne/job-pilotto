@@ -1,6 +1,6 @@
 // The facts of Your details that forms ask most and the person has not given, as items of the one review queue (owner, 18 Oct 2026: "on a fresh install, a queue
 // of the most important things not filled; step by step, don't overwhelm; be proactive"). The kind "missing" of lib/details-review.js. Most important first =
-// the queue's own score (renderer/question-filter.js factScore: form questions that mean this fact, blocked a fill first, then how many forms asked), else the catalogue's
+// the queue's own score (renderer/question-filter.js factScore: form questions that mean this fact, blocked a fill first, then how many forms asked), then the share of installs whose forms asked it (the alias pack, lib/fact-asks.js), else the catalogue's
 // order. Paced: at most PER_DAY new facts a day (a fact that blocked a fill is asked at once, beyond the cap), never again after "Don't keep", and only for
 // FRESH_DAYS after the first ask, then only the facts a fill is blocked on. Guarded by test/missing-facts.test.js.
 import {formatFor} from '../renderer/question-kind.js';
@@ -55,12 +55,12 @@ export function listed(storage, known = []) {
 
 // have: the labels Your details and the Profile already hold (answered or asked); covered: the ids the AI says they answer (covered() above). -> the items to show now: [{key id, question, format, hint, score, home, fact}].
 // Writes the day's pick once (settings.missingFacts), so the same facts stay in the queue all day.
-export function pick(storage, have, {now = new Date(), covered: known = []} = {}) {
+export function pick(storage, have, {now = new Date(), covered: known = [], shares = {}} = {}) {
   const held = new Set([...have].map(plain)), mine = state(storage), today = day(now), verdicts = storage.settings().questionVerdicts || {};
   const since = mine.since || today, fresh = (now - new Date(`${since}T00:00:00Z`)) / 864e5 < FRESH_DAYS;
   const open = CATALOG.filter(fact => !held.has(plain(fact.label)) && !known.includes(fact.id) && !mine.never.includes(fact.id)).map((fact, order) => ({fact, order, score: factScore(fact.label, verdicts)}));
   const blocked = open.filter(each => each.score >= BLOCKED);
-  const rank = (a, b) => b.score - a.score || (mine.seen[a.fact.id] || '').localeCompare(mine.seen[b.fact.id] || '') || a.order - b.order;
+  const rank = (a, b) => b.score - a.score || (shares[b.fact.id] || 0) - (shares[a.fact.id] || 0) || (mine.seen[a.fact.id] || '').localeCompare(mine.seen[b.fact.id] || '') || a.order - b.order;
   let chosen;
   if (mine.day === today) chosen = open.filter(each => mine.today.includes(each.fact.id) || each.score >= BLOCKED);
   else {
