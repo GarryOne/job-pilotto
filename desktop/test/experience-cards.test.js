@@ -48,26 +48,27 @@ async function open() {
   return node;
 }
 
-test('cards: summary and strengths open, the rest folded; strengths as label rows of tags; notes small, never a ❓; no role', async () => {
+test('cards: summary and strengths open, the rest folded; strengths as label rows of chips; notes small, never a ❓; no role', async () => {
   const node = await open();
   const cards = node.querySelectorAll('details.qa-fold');
   assert.deepEqual(cards.map(card => [card.dataset.part, card.open]), [['summary', true], ['strengths', true], ['education', false], ['section:h2', false]]);
   const strengths = cards[1];
   assert.deepEqual(strengths.querySelectorAll('.exp-part-group').map(group => group.querySelector('b').textContent), ['Cloud', 'IaC']);
-  assert.deepEqual(strengths.querySelectorAll('.ui-tag').map(each => each.textContent), ['GCP in depth (GKE, Pub/Sub)', 'some AWS', 'Pulumi', 'Terraform']);
+  assert.deepEqual(strengths.querySelectorAll('.chip-value').map(each => each.textContent), ['GCP in depth (GKE, Pub/Sub)', 'some AWS', 'Pulumi', 'Terraform']);
   assert.match(cards[2].textContent, /Example University, BSc, Physics/);
   assert.match(cards[2].querySelector('.small').textContent, /^confirmed 2 Sep 2026 — graduation year still to confirm/);
   assert.match(cards[3].textContent, /in her own words, 1 Sep 2026/);
   assert.ok(!node.textContent.includes('❓') && !node.textContent.includes('**') && !node.textContent.includes('Northwind'), node.textContent);
 });
 
-test('Edit opens that card\'s lines as one input each, never a textarea', async () => {
+test('Edit opens Strengths as its groups: a name field and the values as chips (renderer/experience-editors.js)', async () => {
   const node = await open();
   const edit = node.querySelectorAll('button').find(button => button.getAttribute('aria-label') === 'Edit strengths');
   edit.listeners.click[0]({preventDefault() {}});
   const card = node.querySelectorAll('details.qa-fold').find(each => each.dataset.part === 'strengths');
-  assert.deepEqual(card.querySelectorAll('input').map(input => input.value), ['Cloud: GCP in depth (GKE, Pub/Sub); some AWS.', 'IaC: Pulumi, Terraform.']);
-  assert.equal(node.querySelectorAll('textarea').length, 0);
+  assert.deepEqual(card.querySelectorAll('input').filter(input => input.getAttribute('aria-label') === 'Group name').map(input => input.value), ['Cloud', 'IaC']);
+  assert.deepEqual(card.querySelectorAll('.chip-value').map(each => each.textContent), ['GCP in depth (GKE, Pub/Sub)', 'some AWS', 'Pulumi', 'Terraform']);
+  assert.equal(card.querySelectorAll('textarea').length, 0);
 });
 
 test('the tab opens with where the experience comes from, then Your background, then the job cards', () => {

@@ -4,7 +4,8 @@
 // cards, never here. Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC
 // textOutline / textEdit); the model is renderer/experience-profile-model.js. Cards are the Application answers' folds (.answer-item.qa-fold).
 // Guarded by test/experience-profile.test.js and test/experience-cards.test.js.
-import {cardEdit, el, loadingCard, pill, tag} from '../components.js';
+import {cardEdit, el, loadingCard, pill} from '../components.js';
+import {chipLine, doneButton, setEditing} from '../card-shell.js';
 import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
@@ -12,14 +13,21 @@ import {surveyBody, surveyForm} from '../survey-rows.js';
 import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
 import {gapsBody, pendingCount} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
-import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
+import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText} from '../experience-profile-model.js';
+import {fieldsOf} from '../education-model.js';
+import {educationEditor, linesEditor, strengthsEditor, summaryEditor} from '../experience-editors.js';
+import {profileBar} from './profile-save-bar.js';
+import {rebaseChanges} from '../outline-rebase.js';
 
 // Where each tab draws its parts: the box and its message line in index.html.
 const BOXES = {experience: ['exp-profile', 'exp-profile-message'], details: ['details-profile', 'details-profile-message']};
 const OPEN_FIRST = new Set(['summary', 'strengths']);   // shown open until the person folds them (owner, 17 Oct 2026)
-const parts = {};
+const parts = {}, outlines = {};   // per tab: its parts, and the outline they were read from (an editor's changes are moved onto a fresh read before writing)
+const setParts = (tab, items) => { parts[tab] = profileParts(items); outlines[tab] = items; };
 const folded = new Map();   // part key → open (true) or folded (false), as the person left it
 const editing = new Set();
+const editors = new Map();   // part key → its open editor {node, changes(), tab, items, sync}
+const sources = new Map();   // part key → its source on the Profile's save bar (registered once)
 let gapsTidied = null, gapsAsked = false;   // the one-time CV gaps split: what it did (for Undo), and whether this window asked yet
 
 export async function loadExperienceProfile(tab = 'experience') {
@@ -28,7 +36,7 @@ export async function loadExperienceProfile(tab = 'experience') {
   const box = $(boxId);
   await swr('profile-parts', () => window.pilot.textOutline('profile'), {
     loading: () => box.replaceChildren(loadingCard('Reading your Profile…')),
-    paint: (result, kept) => { if (kept || !editing.size) { parts[tab] = profileParts(result.items); draw(tab); if (tab === 'experience') splitGaps(tab); } },   // a refresh never redraws a card under edit
+    paint: (result, kept) => { if (kept || !editing.size) { setParts(tab, result.items); draw(tab); if (tab === 'experience') splitGaps(tab); } },   // a refresh never redraws a card under edit
     fail: result => message(messageId, `Couldn't read your Profile: ${result?.error || 'try again'}`, 'error'),
   });
 }
@@ -50,14 +58,14 @@ document.addEventListener?.('details-sorting', async event => {
 });
 async function reread(tab) {
   const fresh = await window.pilot.textOutline('profile').catch(() => null);
-  if (fresh?.items) { parts[tab] = profileParts(fresh.items); keep('profile-parts', {...fresh, ok: true}); draw(tab); }
+  if (fresh?.items) { setParts(tab, fresh.items); keep('profile-parts', {...fresh, ok: true}); draw(tab); }
 }
 // A chip pressed: ✓ a confirmed skill, ✕ not a gap, Undo back to "to check": that one line is rewritten in the store.
 async function pressGap(tab, part, item, state) {
   const was = part.lines.find(line => line.id === item.id)?.text;
   if (was === undefined) return;
   const result = await window.pilot.textEdit('profile', [{op: 'text', id: item.id, value: setState(was, state), was}]).catch(error => ({ok: false, error: error.message}));
-  if (result.items) { parts[tab] = profileParts(result.items); keep('profile-parts', {...result, ok: true}); draw(tab); }
+  if (result.items) { setParts(tab, result.items); keep('profile-parts', {...result, ok: true}); draw(tab); }
   if (!result.ok) message(BOXES[tab][1], result.error, 'error');
 }
 async function undoGaps(tab) {
@@ -76,7 +84,7 @@ function draw(tab) {
 // The card's Edit/Add: the shared header button (components.js cardEdit), at the right of the title line.
 const editButton = (tab, each) => {
   const empty = isEmpty(each.part);
-  return cardEdit(empty ? 'Add' : 'Edit', each.title.toLowerCase(), event => { event.preventDefault(); editing.add(each.key); folded.set(each.key, true); draw(tab); });
+  return cardEdit(empty ? 'Add' : 'Edit', each.title.toLowerCase(), event => { event.preventDefault(); startEdit(tab, each); });
 };
 
 function card(tab, each) {
@@ -91,7 +99,8 @@ function card(tab, each) {
   // The CV gaps are decided row by row (Confirm skill / Dismiss), never edited as lines: no Edit on that card (owner review fix 6, 18 Oct 2026).
   head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
     ...(toReview ? [pill(`${toReview} to review`, 'warn')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? [] : [editButton(tab, each)]));
-  box.append(head, editing.has(key) ? editor(tab, each) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
+  setEditing(box, editing.has(key));
+  box.append(head, editing.has(key) ? editorOf(key, box) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
   return box;
 }
 
@@ -100,7 +109,8 @@ function solo(tab, each) {
   const box = el('div', 'exp-part'), slot = $(`${BOXES[tab][0]}-edit`);
   box.dataset.part = each.key;
   slot?.replaceChildren(...(editing.has(each.key) ? [] : [editButton(tab, each)]));
-  if (editing.has(each.key)) box.append(editor(tab, {...each, solo: true}));
+  setEditing(box, editing.has(each.key));
+  if (editing.has(each.key)) box.append(editorOf(each.key, box));
   else box.append(body(each.key, each.part));
   return box;
 }
@@ -113,14 +123,21 @@ function body(key, part) {
   if (key === 'strengths') {
     for (const group of groupsOf(part)) {
       if (!group.label) { box.append(el('p', '', group.items[0])); continue; }
-      const row = el('div', 'exp-part-group'), tags = el('div', 'tags');
-      tags.append(...group.items.map(item => tag(item)));
-      row.append(el('b', '', group.label), tags);
+      const row = el('div', 'exp-part-group');
+      row.append(el('b', '', group.label), chipLine(group.items));   // values as chips (design system: several from a list)
       box.append(row);
     }
     return box;
   }
   const notes = part.lines.filter(line => isNote(line.text)), lines = part.lines.filter(line => !isNote(line.text));
+  if (key === 'education' && lines.some(line => fieldsOf(line.text))) {   // entries in Degree · School · Years: the degree bold, the rest under it
+    for (const line of lines) {
+      const fields = fieldsOf(line.text), entry = el('div', 'edu-read');
+      entry.append(...(fields ? [el('b', '', fields.degree || fields.school), ...[fields.degree && fields.school, fields.years].filter(Boolean).map(text => el('span', 'muted', text))] : [el('span', '', shownText(line.text))]));
+      box.append(entry);
+    }
+    lines.length = 0;
+  }
   if (lines.length === 1) box.append(el('p', '', shownText(lines[0].text)));
   else if (lines.length) { const list = el('ul', 'exp-part-list'); list.append(...lines.map(line => el('li', '', shownText(line.text)))); box.append(list); }
   if (part.rows.length) box.append(el('p', '', previewOf({lines: [], rows: part.rows})));
@@ -128,47 +145,64 @@ function body(key, part) {
   return box;
 }
 
-// One input per line (a paragraph or a bullet) and one per table cell; "+ Add a line"; Save writes only what changed.
-function editor(tab, each) {
-  const {key, title, part} = each;
-  const box = el('div', 'exp-part-body is-editing');
-  const form = key === 'surveys' ? surveyForm(part) : null;   // the survey questions, each with its fixed list (renderer/survey-rows.js)
-  const lines = form ? form.node : el('div', 'exp-part-lines');
-  const line = text => {
-    const input = Object.assign(el('input', ''), {type: 'text', value: text.replace(/\*\*/g, '')});   // one line each, never a textarea (owner, 16 Oct 2026)
-    input.dataset.partLine = key;
-    input.setAttribute('aria-label', title);
-    return input;
-  };
-  const rows = (part?.rows || []).map(row => {
-    const cells = el('div', 'exp-part-row');
-    cells.append(...row.cells.map((cell, index) => Object.assign(el('input', ''), {type: 'text', value: unset(cell) ? '' : cell, ariaLabel: `${title} ${index + 1}`})));
-    return cells;
-  });
-  if (!form) lines.append(...rows, ...(part?.lines.length ? part.lines.map(each => line(each.text)) : rows.length ? [] : [line('')]));
-  const add = Object.assign(el('button', 'link', '+ Add a line'), {type: 'button'});
-  add.addEventListener('click', () => lines.append(line('')));
-  const save = Object.assign(el('button', 'primary', 'Save'), {type: 'button'});
-  const cancel = Object.assign(el('button', 'secondary', 'Cancel'), {type: 'button'});
-  const actions = el('div', 'inline');
-  actions.append(save, cancel, ...(form ? [] : [add]));
-  cancel.addEventListener('click', () => { editing.delete(key); draw(tab); });
-  save.addEventListener('click', async () => {
-    // A line whose words did not change keeps its own text (its bold, its list mark): only an edited line is rewritten.
-    const texts = form ? form.texts() : [...lines.querySelectorAll('input[data-part-line]')].map((input, i) => {
-      const was = part?.lines[i]?.text;
-      return was !== undefined && input.value.trim() === was.replace(/\*\*/g, '').trim() ? was : input.value;
-    });
-    const cells = rows.map((row, i) => [...row.querySelectorAll('input')].map((input, index) => (input.value.trim() === '' && unset(part.rows[i].cells[index]) ? part.rows[i].cells[index] : input.value)));
-    const changes = changesFor(key, part, texts, cells);
-    if (!changes.length) { editing.delete(key); draw(tab); return; }
-    save.disabled = true;
-    const result = await window.pilot.textEdit('profile', changes).catch(error => ({ok: false, error: error.message}));
-    if (result.items) { parts[tab] = profileParts(result.items); keep('profile-parts', {...result, ok: true}); }
-    message(BOXES[tab][1], result.ok ? 'Saved ✓ The next tailored CVs, letters and scores use it.' : result.error, result.ok ? 'ok' : 'error');
-    if (result.ok) editing.delete(key);
-    if (result.ok || result.items) draw(tab); else save.disabled = false;
-  });
-  box.append(lines, actions);
+// The card's editor (renderer/experience-editors.js), made once when Edit is pressed and kept until the bar saves or discards it, so a redraw never
+// drops a draft. Nothing is saved here: the card is a source of the Profile's one save bar (pages/profile-save-bar.js); the shell's Done leaves
+// an editor that holds no change (a card has no Save or Cancel of its own).
+function startEdit(tab, each) {
+  const {key, title, part} = each, onChange = () => { sources.get(key)?.changed(); editors.get(key)?.sync?.(); };
+  const editor = key === 'surveys' ? surveyEditor(part, onChange) : EDITORS[key] ? EDITORS[key](part, {onChange}) : linesEditor(key, title, part, {onChange});
+  editors.set(key, {...editor, tab, items: outlines[tab]});
+  editing.add(key);
+  folded.set(key, true);
+  if (!sources.has(key)) {
+    sources.set(key, profileBar().register({id: `profile-${key}`, tab: tab === 'details' ? 'details' : 'experience', label: title,
+      count: () => (editors.has(key) ? editors.get(key).changes().length : 0), save: () => saveProfile(key), discard: () => stop(key)}));
+  }
+  draw(tab);
+}
+const EDITORS = {summary: summaryEditor, strengths: strengthsEditor, education: educationEditor};
+function surveyEditor(part, onChange) {
+  const form = surveyForm(part, {onChange});
+  return {node: form.node, changes: () => changesFor('surveys', part, form.texts())};
+}
+function stop(key) {
+  const tab = editors.get(key)?.tab;
+  editors.delete(key);
+  editing.delete(key);
+  if (tab) draw(tab);
+}
+
+// Every changed card's changes in ONE write of the Profile (on this Mac a line's id is its place: a second write would miss lines the first one moved).
+// The bar asks each changed card in turn: the first starts the write, each of the others takes the same answer once.
+let round = null;   // {keys: the cards in the write, answer}
+function saveProfile(key) {
+  if (round?.keys.delete(key)) return round.answer;
+  const open = [...editors.entries()].filter(([, editor]) => editor.changes().length);
+  round = {keys: new Set(open.map(([each]) => each).filter(each => each !== key)), answer: write(open)};
+  return round.answer;
+}
+async function write(open) {
+  if (!open.length) return {ok: true};
+  // Another card's save in the same press (Your details) may have moved this Mac's line ids: each editor's changes are found again on a fresh read.
+  const fresh = await window.pilot.textOutline('profile').catch(() => null);
+  const changes = open.flatMap(([, editor]) => (fresh?.items && editor.items ? rebaseChanges(editor.changes(), editor.items, fresh.items) : editor.changes()));
+  const result = await window.pilot.textEdit('profile', changes).catch(error => ({ok: false, error: error.message}));
+  const tabs = new Set([...editors.values()].map(editor => editor.tab));
+  if (result.ok) for (const key of [...editors.keys()]) { editors.delete(key); editing.delete(key); }   // saved: every editor closes, an unchanged one too
+  for (const tab of tabs) {
+    if (result.items) setParts(tab, result.items);
+    draw(tab);
+  }
+  if (result.items) keep('profile-parts', {...result, ok: true});
+  return result.ok ? {ok: true} : {ok: false, error: result.error || 'couldn\'t save it'};
+}
+
+function editorOf(key, card) {
+  const editor = editors.get(key);
+  const box = el('div', 'exp-part-body is-editing card-editor');
+  const done = doneButton(card, () => editor.changes().length);   // the shell's quiet Done, shown only while the card holds no change
+  done.addEventListener('click', () => stop(key));
+  editor.sync = done.sync;
+  box.append(editor.node, done);
   return box;
 }

@@ -6,14 +6,7 @@ import {el} from './components.js';
 import {answerControl} from './question-control.js';
 import {formatFor} from './question-kind.js';
 import {SURVEYS, NOTES_LABEL, readLines, textsFor} from './survey-model.js';
-
-const LONG = {kind: 'long_text', control: 'textarea', options: []};
-// A box that holds all of its text: as many rows as it wraps to (about 80 characters a row).
-const longText = (value, label, placeholder, onInput = () => {}) => {
-  const box = answerControl(LONG, value, next => { box.rows = Math.max(2, Math.ceil(String(next).length / 80)); onInput(next); }, {ariaLabel: label, placeholder});
-  box.rows = Math.max(2, Math.ceil(String(value).length / 80));
-  return box;
-};
+import {longText} from './edit-controls.js';
 
 // An answer to a question that is not on a list ("Label: value") shows as a row like the others; display only, the saved line stays as written. The label is up to the FIRST colon
 // (a note may hold more); a long question stacks above its answer. A line with no short label stays a paragraph.
@@ -54,14 +47,15 @@ export function surveyBody(part, {sorting = false} = {}) {
 }
 
 // The editor: -> {node, texts()}; texts() = the part's lines as they should now be (textsFor), to turn into changes.
-export function surveyForm(part) {
+// onChange(): any answer, note or line edited (the page save bar counts the card's drafts).
+export function surveyForm(part, {onChange = () => {}} = {}) {
   const lines = part?.lines || [], read = readLines(lines), node = el('div', 'exp-part-lines survey-rows');
   const choices = {};
   for (const each of SURVEYS) {
     const answer = read.answers.get(each.key), row = el('div', 'survey-row');
     choices[each.key] = {option: answer?.option || '', note: answer?.note || ''};
-    const control = answerControl(formatFor({marked: {kind: 'single', options: each.options}}), choices[each.key].option, next => { choices[each.key].option = next; }, {ariaLabel: each.label});
-    const note = longText(choices[each.key].note, `${each.label}: note`, 'A note for the AI (optional)', next => { choices[each.key].note = next; });
+    const control = answerControl(formatFor({marked: {kind: 'single', options: each.options}}), choices[each.key].option, next => { choices[each.key].option = next; onChange(); }, {ariaLabel: each.label});
+    const note = longText(choices[each.key].note, `${each.label}: note`, 'A note for the AI (optional)', next => { choices[each.key].note = next; onChange(); });
     note.className = 'fact-note';
     note.hidden = !choices[each.key].note;
     const more = Object.assign(el('button', 'link small', '+ note'), {type: 'button'});
@@ -70,10 +64,10 @@ export function surveyForm(part) {
     row.append(el('b', '', each.label), control, more, note);
     node.append(row);
   }
-  const fold = el('details', 'survey-notes'), notes = [...read.notes.map(each => each.text), ''].map(text => longText(text, NOTES_LABEL, `${NOTES_LABEL} (optional)`));
+  const fold = el('details', 'survey-notes'), notes = [...read.notes.map(each => each.text), ''].map(text => longText(text, NOTES_LABEL, `${NOTES_LABEL} (optional)`, onChange));
   fold.open = read.notes.length > 0;
   fold.append(el('summary', '', NOTES_LABEL), ...notes);
-  const others = read.other.map(each => ({index: each.index, field: longText(each.text, 'Line', '')}));
+  const others = read.other.map(each => ({index: each.index, field: longText(each.text, 'Line', '', onChange)}));
   node.append(fold);
   if (others.length) node.append(el('div', 'muted small', 'Other answers (not on a list, kept as written)'), ...others.map(each => each.field));
   return {node, texts() {
