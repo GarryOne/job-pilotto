@@ -17,7 +17,7 @@ test('five tabs, CV first, then Your details; no Preferences tab (owner, 17 Oct 
 });
 
 test('the CV parts sit on CV, your details on Your details', () => {
-  for (const id of ['setting-cv', 'setting-cvcheck', 'cv-changed', 'setting-profile-note']) assert.equal(panelOf(id), 'cv', id);
+  for (const id of ['setting-cv', 'setting-cvcheck', 'cv-changed']) assert.equal(panelOf(id), 'cv', id);
   for (const id of ['setting-contact', 'setting-links']) assert.equal(panelOf(id), 'details', id);
 });
 

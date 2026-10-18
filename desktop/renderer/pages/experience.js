@@ -38,7 +38,7 @@ export function roleBlock(role) {
     if (bullet.from !== 'Main CV') item.append(' ', pill(bullet.from, 'good'));
     list.append(item);
   }
-  box.append(head, ...(extras ? [el('p', 'muted small', `${plural(extras, 'detail')} from other CV versions: tailoring may use them for this job.`)] : []), list);
+  box.append(head, list);   // the "+N details" pill says where they come from (its title); each extra bullet names its version
   return box;
 }
 

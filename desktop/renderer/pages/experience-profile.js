@@ -11,7 +11,7 @@ import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {surveyForm, surveyRead} from '../survey-rows.js';
 import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
-import {gapsBody, pendingCount} from '../gaps-rows.js';
+import {GAPS_LEAD, gapsBody, pendingCount} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText} from '../experience-profile-model.js';
 import {fieldsOf} from '../education-model.js';
@@ -21,7 +21,7 @@ import {rebaseChanges} from '../outline-rebase.js';
 
 // Where each tab draws its parts: the box and its message line in index.html.
 const BOXES = {experience: ['exp-profile', 'exp-profile-message'], details: ['details-profile', 'details-profile-message']};
-const OPEN_FIRST = new Set(['summary', 'strengths']);   // shown open until the person folds them (owner, 17 Oct 2026)
+const OPEN_FIRST = new Set(['summary', 'strengths', 'education']);   // shown open until the person folds them (owner, 17 Oct 2026; Education: mockup 09)
 const parts = {}, outlines = {};   // per tab: its parts, and the outline they were read from (an editor's changes are moved onto a fresh read before writing)
 const setParts = (tab, items) => { parts[tab] = profileParts(items); outlines[tab] = items; };
 const folded = new Map();   // part key → open (true) or folded (false), as the person left it
@@ -98,10 +98,18 @@ function card(tab, each) {
   const count = key === 'strengths' ? part?.lines.length : 0, toReview = key === 'gaps' ? pendingCount(part) : 0;
   // The CV gaps are decided row by row (Confirm skill / Dismiss), never edited as lines: no Edit on that card (owner review fix 6, 18 Oct 2026).
   head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
-    ...(toReview ? [pill(`${toReview} to review`, 'warn')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? [] : [editButton(tab, each)]));
+    ...(toReview ? [pill(`${toReview} to review`, 'warn')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? gapsTeaser(toReview) : [editButton(tab, each)]));
   setEditing(box, editing.has(key));
   box.append(head, editing.has(key) ? editorOf(key, box) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
   return box;
+}
+
+// The CV gaps card's header (mockups 09 + 06): folded beside Education it says what waits and "Review →"; open (the full-width list) only its lead stays.
+function gapsTeaser(toReview) {
+  const words = el('div', 'gaps-teaser');
+  words.append(el('b', '', toReview ? `${toReview} suggestion${toReview === 1 ? '' : 's'} to review` : 'Nothing to review'),
+    el('span', 'muted small gaps-lead', GAPS_LEAD));
+  return [el('span', 'link small gaps-review', 'Review →'), words];
 }
 
 // A panel with one part: its title is the panel's own (index.html), so the button goes in that title line (the slot next to it).

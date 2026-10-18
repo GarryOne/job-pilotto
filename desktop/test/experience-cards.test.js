@@ -48,10 +48,10 @@ async function open() {
   return node;
 }
 
-test('cards: summary and strengths open, the rest folded; strengths as label rows of chips; notes small, never a ❓; no role', async () => {
+test('cards: summary, strengths and education open (mockup 09), the rest folded; strengths as label rows of chips; notes small, never a ❓; no role', async () => {
   const node = await open();
   const cards = node.querySelectorAll('details.qa-fold');
-  assert.deepEqual(cards.map(card => [card.dataset.part, card.open]), [['summary', true], ['strengths', true], ['education', false], ['section:h2', false]]);
+  assert.deepEqual(cards.map(card => [card.dataset.part, card.open]), [['summary', true], ['strengths', true], ['education', true], ['section:h2', false]]);
   const strengths = cards[1];
   assert.deepEqual(strengths.querySelectorAll('.exp-part-group').map(group => group.querySelector('b').textContent), ['Cloud', 'IaC']);
   assert.deepEqual(strengths.querySelectorAll('.chip-value').map(each => each.textContent), ['GCP in depth (GKE, Pub/Sub)', 'some AWS', 'Pulumi', 'Terraform']);

@@ -22,7 +22,8 @@ test('a job row: initial tile, company, role, dates and place; details from othe
   const row = roleBlock(role), text = row.textContent;
   for (const words of ['Northwind Robotics', 'Platform Engineer', 'Mar 2023 – Present', 'Zurich, CH', '+1 detail']) assert.match(text, new RegExp(words.replace('+', '\\+')));
   assert.equal(all(row).find(node => String(node.className).includes('job-initial')).textContent, 'N');
-  assert.match(text, /1 detail from other CV versions/);
+  assert.match(all(row).find(node => /\+1 detail/.test(node.textContent) && node.title)?.title || '', /1 detail from other CV versions/, 'said on the pill, never a lone line over the bullets');
+  assert.match(text, /Ran the on-call rota.*CV 2024/, 'each extra bullet names its version');
   assert.match(text, /Moved 40 services to Kubernetes/);
   assert.doesNotMatch(roleBlock({...role, place: '', bullets: [role.bullets[0]]}).textContent, /\+\d|other CV versions/);
 });
