@@ -94,6 +94,15 @@ test('Fill now: one press sends and starts; it asks before replacing waiting for
     assert.equal((await handlers.readyRun({}, {again: true, confirmed: true})).ok, true);
     assert.deepEqual(sent, [['batch', ['x']], ['run']]);
 
+    sent.length = 0; list = [ready, opened];
+    night = {ok: true, batch: {night: nightOf().night, state: 'finished'}, jobs: [{job: 'a', state: 'prepared'}, {job: 'x', state: 'prepared'}]};
+    const row = await handlers.readyRun({}, {codes: ['x']});
+    assert.deepEqual(row.ask, {again: true, jobs: [{code: 'x', name: 'DevOps · Nordlicht'}], replaces: 1}, 'a row\'s Fill again: that job, the other waiting form counted as replaced');
+    assert.deepEqual(sent, [], 'nothing sent before the yes');
+    assert.equal((await handlers.readyRun({}, {codes: ['x'], again: true, confirmed: true})).ok, true);
+    assert.deepEqual(sent, [['batch', ['x']], ['run']], 'that job alone');
+    assert.match((await handlers.readyRun({}, {codes: ['gone']})).error, /not in your list/);
+
     sent.length = 0; list = [];
     const nothing = await handlers.readyRun({}, {});
     assert.equal(nothing.nothing, true);

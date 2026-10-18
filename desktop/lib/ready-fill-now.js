@@ -11,5 +11,6 @@ export function fillNowPlan({tonight = [], opened = [], waiting = 0, again = fal
 }
 
 // How many filled forms of `night` still wait for you (not submitted, not Done): a new batch for the same night replaces them. rows: the site's /state.
-export const waitingOn = (rows, night) => (rows?.batch?.night === night
-  ? (rows.jobs || []).filter(job => !job.cleared_at && !job.submitted_at && ['prepared', 'partial'].includes(job.state)).length : 0);
+// except: the jobs being filled again (a row's Fill again), not counted as lost.
+export const waitingOn = (rows, night, except = []) => (rows?.batch?.night === night
+  ? (rows.jobs || []).filter(job => !job.cleared_at && !job.submitted_at && ['prepared', 'partial'].includes(job.state) && !except.includes(job.job)).length : 0);

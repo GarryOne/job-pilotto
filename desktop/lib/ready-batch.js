@@ -14,6 +14,8 @@ export const pickToSend = (jobs, {minFit = DEFAULT_MIN_FIT, perNight = DEFAULT_P
 // your yes (owner, 18 Oct 2026: "that should be possible, but with a confirmation popup"); the automatic night never takes them.
 export const pickToRefill = (jobs, {perNight = DEFAULT_PER_NIGHT} = {}) =>
   jobs.filter(job => job.status === 'applying' && !!job.url && !!job.code && !job.ineligible && complete(job)).sort(best).slice(0, perNight);
+// A row's Fill again (owner, 18 Oct 2026: "a button per row with fill again"): those jobs of the night, whatever their status, if they still have their kit, CV and letter.
+export const pickByCodes = (jobs, codes = []) => jobs.filter(job => codes.includes(job.code) && !!job.url && complete(job));
 
 const pad = n => String(n).padStart(2, '0');
 const day = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
