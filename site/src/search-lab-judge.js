@@ -7,7 +7,9 @@
 // "Last green" = the newest earlier run that was neither failed nor worse. Guard: test/search-lab.test.js.
 export const TOLERANCE = 0.25;
 const COUNTS = [['in_places', 'jobs in your places'], ['fit70', 'jobs scoring 70+']];
-const TIMES = [['first_s', '1st relevant job'], ['tenth_s', '10th relevant job'], ['fit_s', '1st 70+ job']];
+// One name for each time, used on every screen of the Lab (owner, 18 Oct 2026: "Time to first job" is the number he watches).
+export const TIME_NAMES = {first_s: 'Time to first job', tenth_s: 'Time to 10th job', fit_s: 'Time to first 70+ job'};
+const TIMES = Object.entries(TIME_NAMES);
 
 export function reasons(now, base, control = false) {
   const out = [];

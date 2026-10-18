@@ -1,6 +1,7 @@
 // The Lab Job Search "History" screen (owner, 18 Oct 2026: "we have only one screen: Lab ... we should have more"): every kept run of every candidate (the last 30), newest first, with a line per number
 // across the builds and the state each run was in. Counts, seconds and build shas only. Guard: test/search-lab.test.js.
 import {esc} from './stats.js';
+import {TIME_NAMES} from './search-lab-judge.js';
 import {TONE_COLOR, spark} from './search-lab-visuals.js';
 
 const fmt = value => (value == null ? '–' : Number(value).toLocaleString('en-US'));
@@ -19,7 +20,7 @@ export function historySection(all) {
 <td class="num">${clock(run.first_s)}</td><td class="num">${clock(run.tenth_s)}</td><td class="num">${clock(run.fit_s)}</td><td class="num">${fmt(run.in_places)}</td><td class="num">${fmt(run.scored)}</td><td class="num">${fmt(run.fit70)}</td></tr>`;
     }).join('');
     return `<section class="card"><h2>${esc(label)}${runs.at(-1).control ? ' <span class="chip">control</span>' : ''} <span class="muted">· ${runs.length} run${runs.length === 1 ? '' : 's'}</span></h2>
-<div class="lv-sparks">${line('in_places', TONE_COLOR.info, 'jobs in places')}${line('fit70', TONE_COLOR.good, 'scoring 70+')}${line('first_s', TONE_COLOR.wait, '1st relevant, s')}${line('tenth_s', TONE_COLOR.mute, '10th relevant, s')}</div>
-<div class="scroll"><table class="lv-hist"><tr><th>Run (UTC)</th><th>Build</th><th>State</th><th class="num">1st relevant</th><th class="num">10th relevant</th><th class="num">1st 70+</th><th class="num">In places</th><th class="num">Scored</th><th class="num">70+</th></tr>${body}</table></div></section>`;
+<div class="lv-sparks">${line('in_places', TONE_COLOR.info, 'jobs in places')}${line('fit70', TONE_COLOR.good, 'scoring 70+')}${line('first_s', TONE_COLOR.wait, `${TIME_NAMES.first_s}, s`)}${line('tenth_s', TONE_COLOR.mute, `${TIME_NAMES.tenth_s}, s`)}</div>
+<div class="scroll"><table class="lv-hist"><tr><th>Run (UTC)</th><th>Build</th><th>State</th><th class="num">${TIME_NAMES.first_s}</th><th class="num">${TIME_NAMES.tenth_s}</th><th class="num">${TIME_NAMES.fit_s}</th><th class="num">In places</th><th class="num">Scored</th><th class="num">70+</th></tr>${body}</table></div></section>`;
   }).join('');
 }

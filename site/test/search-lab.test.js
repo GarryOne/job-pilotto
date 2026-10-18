@@ -26,7 +26,7 @@ test('the judge: new, working, a time inside 25 %, a time past it, a count lower
   assert.equal(stateOf([row('a', 1), row('a', 2, {first_s: 50, in_places: 90})]), 'working', '40 → 50 s is exactly 25 %; more jobs is no problem');
   assert.equal(stateOf([row('a', 1), row('a', 2, {first_s: 51})]), 'worse');
   assert.equal(stateOf([row('a', 1), row('a', 2, {fit70: 1})]), 'worse');
-  assert.deepEqual(judge([row('a', 1), row('a', 2, {fit_s: null})])[0].why, ['1st 70+ job: 557 s → not reached']);
+  assert.deepEqual(judge([row('a', 1), row('a', 2, {fit_s: null})])[0].why, ['Time to first 70+ job: 557 s → not reached']);
   const crashed = judge([row('a', 1), row('a', 2, {state: 'failed', failed_step: 'Reading job boards', in_places: 3})])[0];
   assert.deepEqual([crashed.state, crashed.why], ['failed', ['a step crashed: Reading job boards']]);
 });
@@ -46,7 +46,7 @@ test('"last green" skips a failed or worse run, so a bad run does not become the
 });
 
 test('the control gets no tolerance on times', () => {
-  assert.deepEqual(reasons(row('s', 2, {first_s: 41}), row('s', 1), true), ['1st relevant job: 40 s → 41 s']);
+  assert.deepEqual(reasons(row('s', 2, {first_s: 41}), row('s', 1), true), ['Time to first job: 40 s → 41 s']);
   assert.deepEqual(reasons(row('s', 2, {first_s: 41}), row('s', 1), false), []);
   assert.equal(judge([row('s', 1, {control: 1}), row('s', 2, {control: 1, first_s: 41})])[0].state, 'worse');
 });
@@ -106,8 +106,15 @@ test('the Lab screen draws a card, time bars, funnel meters and a sparkline per 
   assert.equal((html.match(/class="card lv-card"/g) || []).length, 3, 'one card per candidate');
   assert.match(html, /class="lv-health"/);
   assert.match(html, /<svg class="lv-spark"/);
-  assert.match(html, /1st relevant<\/span><div class="lv-track/);
+  assert.match(html, /First job<\/span><div class="lv-track/);
   assert.match(html, /Scored<\/span><div class="lv-track/);
+  const lead = html.indexOf('class="lv-tiles lv-leads"');
+  assert.ok(lead > 0 && lead < html.indexOf('class="lv-health"'), 'the two time tiles come before the state tiles');
+  assert.match(html, /⏱ Time to first job<\/span><b>/);
+  assert.match(html, /⏱ Time to first 70\+ job<\/span><b>/);
+  assert.match(html, /best [^<]* · worst /);
+  for (const name of ['Time to first job', 'Time to 10th job', 'Time to first 70+ job']) assert.ok(html.includes(name), `${name} is the one name on the Lab screen`);
+  assert.doesNotMatch(html, /1st relevant|1st 70\+/, 'no second name for the same time');
   assert.match(html, /Runs kept<\/span><b>4<\/b>/);
   const history = page(all, [], 'history');
   assert.equal((history.match(/<tr><td>2026/g) || []).length, 4, 'every kept run is a row');

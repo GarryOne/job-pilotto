@@ -2,6 +2,7 @@
 // candidate (time-to-result bars on a shared scale, funnel meters, a history sparkline, build and last-green facts). Pure: rows in, HTML out; counts and seconds only, no job text.
 // The exact numbers stay in the table (src/search-lab-page.js). Guard: test/search-lab.test.js.
 import {esc} from './stats.js';
+import {TIME_NAMES} from './search-lab-judge.js';
 
 export const TONE_COLOR = {good: '#4cc38a', bad: '#ff6b6b', wait: '#f0b44c', info: '#5aa9ff', mute: '#6b7480'};
 const STATE_TONE = {working: 'good', failed: 'bad', worse: 'bad', stale: 'wait', new: 'info'};
@@ -40,13 +41,27 @@ ${tile(count('stale') ? 'wait' : 'good', 'Tape stale', count('stale'), 'the tape
 ${tile('info', 'Newest run', newest?.build ? esc(newest.build.slice(0, 7)) : '–', newest ? esc(when(newest.run_at)) : 'nothing replayed yet')}</div>${healthBar(rows)}`;
 }
 
+// The two lead tiles (owner, 18 Oct 2026): the median time to the first job and to the first 70+ job across the candidates, with the move against
+// the last green run (▲ slower, ▼ faster) and the best and worst candidate.
+const median = list => { const sorted = list.filter(value => value != null).sort((a, b) => a - b); return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null; };
+function timeTile(rows, field, icon) {
+  const live = rows.filter(row => row.state !== 'failed' && row.now[field] != null), now = median(live.map(row => row.now[field]));
+  const pairs = rows.filter(row => row.state !== 'failed' && row.base && row.now[field] != null && row.base[field] != null);
+  const was = median(pairs.map(row => row.base[field])), is = median(pairs.map(row => row.now[field]));
+  const move = was == null ? '<span class="muted">no earlier green run</span>' : is === was ? '<span class="muted">same as last green</span>' : `<span style="color:${TONE_COLOR[is > was ? 'bad' : 'good']}">${is > was ? '▲' : '▼'} ${Math.abs(is - was)} s ${is > was ? 'slower' : 'faster'} than last green</span>`;
+  const sorted = [...live].sort((a, b) => a.now[field] - b.now[field]), best = sorted[0], worst = sorted.at(-1);
+  const edge = best ? `best ${esc(best.label)} ${clock(best.now[field])} · worst ${esc(worst.label)} ${clock(worst.now[field])}` : 'no candidate reached it';
+  return `<section class="card lv-tile lv-lead" style="--tone:${TONE_COLOR.info}"><span class="muted">${icon} ${TIME_NAMES[field]}</span><b>${clock(now)}</b><span>${move}</span><span class="muted">${edge}</span></section>`;
+}
+export const timeTiles = rows => (rows.length ? `<div class="lv-tiles lv-leads">${timeTile(rows, 'first_s', '⏱')}${timeTile(rows, 'fit_s', '⏱')}</div>` : '');
+
 // The three times of one search as bars on a scale shared by every candidate, so a slow one stands out.
 function timeBars(row, scale) {
   const bar = (name, value, tone) => {
     const width = value == null ? 100 : Math.max(2, Math.round((100 * value) / scale));
     return `<div class="lv-time"><span>${name}</span><div class="lv-track${value == null ? ' none' : ''}"><i style="width:${width}%;background:${TONE_COLOR[tone]}"></i></div><b>${clock(value)}</b></div>`;
   };
-  return `${bar('1st relevant', row.now.first_s, 'info')}${bar('10th relevant', row.now.tenth_s, 'info')}${bar('1st 70+', row.now.fit_s, 'good')}`;
+  return `${bar('First job', row.now.first_s, 'info')}${bar('10th job', row.now.tenth_s, 'info')}${bar('First 70+ job', row.now.fit_s, 'good')}`;
 }
 
 // A share of the stage before, as a meter: scored of the jobs in places, 70+ of the scored.
@@ -62,8 +77,8 @@ export function cards(rows, all) {
     const tone = STATE_TONE[row.state], base = row.base, ok = row.state !== 'failed';
     return `<section class="card lv-card" style="--tone:${TONE_COLOR[tone]}"><header><b>${esc(row.label)}</b>${row.control ? ' <span class="chip">control</span>' : ''}<span class="state ${tone === 'info' ? 'wait' : tone}">${WORDS[row.state]}</span></header>
 ${ok ? `<div class="lv-big"><div><b>${fmt(row.now.in_places)}</b><span class="muted">jobs in your places</span></div><div><b>${fmt(row.now.scored)}</b><span class="muted">scored</span></div><div><b style="color:${TONE_COLOR.good}">${fmt(row.now.fit70)}</b><span class="muted">scoring 70+</span></div></div>
-<h3>Time to result</h3>${timeBars(row, scale)}<h3>Funnel</h3>${meter('Scored', row.now.scored ?? 0, row.now.in_places ?? 0, 'info')}${meter('70+', row.now.fit70 ?? 0, row.now.scored ?? 0, 'good')}
-<h3>Across ${history.length} run${history.length === 1 ? '' : 's'}</h3><div class="lv-sparks"><div><span class="muted">in places</span>${spark(history.map(item => item.in_places), TONE_COLOR.info)}</div><div><span class="muted">70+</span>${spark(history.map(item => item.fit70), TONE_COLOR.good)}</div><div><span class="muted">1st relevant, s</span>${spark(history.map(item => item.first_s), TONE_COLOR.wait)}</div></div>`
+<h3>Time to results</h3>${timeBars(row, scale)}<h3>Funnel</h3>${meter('Scored', row.now.scored ?? 0, row.now.in_places ?? 0, 'info')}${meter('70+', row.now.fit70 ?? 0, row.now.scored ?? 0, 'good')}
+<h3>Across ${history.length} run${history.length === 1 ? '' : 's'}</h3><div class="lv-sparks"><div><span class="muted">in places</span>${spark(history.map(item => item.in_places), TONE_COLOR.info)}</div><div><span class="muted">70+</span>${spark(history.map(item => item.fit70), TONE_COLOR.good)}</div><div><span class="muted">${TIME_NAMES.first_s}, s</span>${spark(history.map(item => item.first_s), TONE_COLOR.wait)}</div></div>`
   : `<p class="lv-crash">${esc(row.why[0] || 'a step crashed')}</p>`}
 ${row.why.length && ok ? `<div class="why">${row.why.map(esc).join('<br>')}</div>` : ''}
 <footer class="muted"><span>build <code>${esc((row.now.build || '–').slice(0, 7))}</code> · ${esc(when(row.now.run_at))}</span><span>${base ? `last green <code>${esc((base.build || '–').slice(0, 7))}</code> · ${esc(when(base.run_at))}` : 'no green run yet'}</span></footer></section>`;
@@ -71,12 +86,11 @@ ${row.why.length && ok ? `<div class="why">${row.why.map(esc).join('<br>')}</div
 }
 
 // Numbers over the newest search of every candidate and over every kept run: the strip under the tiles.
-const median = list => { const sorted = list.filter(value => value != null).sort((a, b) => a - b); return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null; };
 export function statsStrip(rows, all) {
   const now = rows.map(row => row.now), sum = field => now.reduce((total, item) => total + (item[field] || 0), 0);
   const okRuns = all.filter(run => run.state === 'ok').length, builds = new Set(all.map(run => run.build).filter(Boolean)).size;
   const stat = (name, value, note) => `<div class="lv-stat"><span class="muted">${name}</span><b>${value}</b><span class="muted">${note}</span></div>`;
-  return `<section class="card lv-stats">${stat('Median 1st relevant', clock(median(now.map(item => item.first_s))), 'across candidates')}${stat('Median 1st 70+', clock(median(now.map(item => item.fit_s))), 'across candidates')}
+  return `<section class="card lv-stats">${stat(`Median ${TIME_NAMES.first_s.toLowerCase()}`, clock(median(now.map(item => item.first_s))), 'across candidates')}${stat(`Median ${TIME_NAMES.fit_s.toLowerCase()}`, clock(median(now.map(item => item.fit_s))), 'across candidates')}
 ${stat('Jobs in places', fmt(sum('in_places')), 'all candidates, newest run')}${stat('Scored', fmt(sum('scored')), `${pct(sum('scored'), sum('in_places'))} % of those`)}${stat('Scoring 70+', fmt(sum('fit70')), `${pct(sum('fit70'), sum('scored'))} % of scored`)}
 ${stat('Runs kept', fmt(all.length), `${okRuns} replayed, ${all.length - okRuns} not`)}${stat('Builds seen', fmt(builds), 'distinct commits')}${stat('Oldest kept run', when(all.reduce((top, run) => (!top || run.run_at < top ? run.run_at : top), '')), 'oldest kept run')}</section>`;
 }
@@ -85,6 +99,7 @@ export const VISUALS_CSS = `.lv-tiles{display:grid;grid-template-columns:repeat(
 .lv-tile{border-top:3px solid var(--tone)}.lv-tile b{display:block;font-size:30px;margin:4px 0;color:var(--tone)}
 .lv-health{display:flex;gap:3px;height:30px;border-radius:9px;overflow:hidden;margin:0 0 16px}.lv-health i{display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:700;color:#0b0d10;min-width:0;overflow:hidden;white-space:nowrap}
 .lv-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:16px}
+.lv-lead span{display:block}.lv-lead b{font-size:44px}.lv-leads{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
 .lv-card{border-top:3px solid var(--tone);display:flex;flex-direction:column;gap:6px}.lv-card header{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lv-card header .state{margin-left:auto}
 .lv-card h3{margin:8px 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8d949c}
 .lv-big{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}.lv-big b{display:block;font-size:24px}.lv-big span{font-size:12px}
