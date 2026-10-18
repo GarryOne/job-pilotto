@@ -57,6 +57,29 @@ test('summary tiles: label and big value per tile; an empty value says "Not set"
   assert.deepEqual(box.querySelectorAll('.summary-tile').map(tile => tile.dataset.key), ['salary', 'where']);
 });
 
+test('review list options: the chip first (statusFirst) and each action\'s own aria name', () => {
+  const list = reviewList([{key: 'k', title: 'Spanish', status: {text: 'High', tone: 'bad'}, actions: [{label: 'Confirm skill', aria: 'Spanish: confirm skill'}]}], {statusFirst: true});
+  const item = list.querySelector('.review-item');
+  assert.match(list.className, /is-status-first/);
+  assert.match(item.children[0].className, /ui-pill/, 'the chip comes before the title');
+  const action = item.querySelector('button');
+  assert.equal(action.textContent, 'Confirm skill');
+  assert.equal(action.getAttribute('aria-label'), 'Spanish: confirm skill');
+  const plain = reviewList([{key: 'k', title: 'Spanish', status: {text: 'High'}, actions: [{label: 'Confirm skill'}]}]).querySelector('.review-item');
+  assert.match(plain.children[1].className, /ui-pill/, 'by default the chip sits after the title');
+  assert.equal(plain.querySelector('button').getAttribute('aria-label'), null);
+});
+
+test('summary tiles: a score draws a ring filled to score/max in the tile\'s tone, in place of the icon', () => {
+  const box = summaryTiles([{key: 'fit', tone: 'good', label: 'Fit', score: 82}, {key: 'ats', tone: 'low', label: 'Readable', score: 3, max: 4}, {key: 'none', label: 'Clarity', score: null}]);
+  const rings = box.querySelectorAll('.summary-ring');
+  assert.equal(rings.length, 3);
+  assert.deepEqual(rings.map(node => node.style['--p']), ['82', '75', '0']);
+  assert.match(rings[0].className, /tone-good/);
+  assert.deepEqual(texts(box, '.summary-tile-value'), ['82 / 100', '3 / 4', 'Not set']);
+  assert.equal(box.querySelectorAll('.ui-tile').length, 0, 'no icon tile beside a ring');
+});
+
 test('reference row: where it is kept, its words, one quiet link that opens it', () => {
   let opened = 0;
   const row = referenceRow({text: 'Swiss permit B', open: () => opened++});
