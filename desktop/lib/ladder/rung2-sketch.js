@@ -65,8 +65,8 @@ Answer one kind:
 - account-form: the application itself AND an account is created on the same page (a password is chosen there among the application's own fields).
 - account: only signing in or creating an account (email, password, username, confirmations, a robot check), before the application.
 - posting: a job description or a step that leads on to the application (an Apply button or link, a "continue to apply" page).
-- closed: a job posting that can no longer be applied to (taken down, filled, expired, "not found"), whatever the language or the server's answer; the page shows no application form and no Apply button. A live posting, even one with little text, is posting.
-- other: anything else (an error, a list of jobs, a cookie or consent wall, a page that needs nothing from the candidate).
+- closed: a job posting that is gone: its own page says that this job was taken down, filled, expired, is no longer available or was not found (a heading or notice in any language, whatever the server answered), and offers no application form and no Apply button. This is the answer for such a page even when it links to a list of other jobs. A live posting, even one with little text, is posting.
+- other: anything else (an error, a list of jobs with no notice about one missing job, a cookie or consent wall, a page that needs nothing from the candidate).
 Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
 bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
