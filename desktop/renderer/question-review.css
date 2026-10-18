@@ -103,6 +103,6 @@
 .survey-answers dd > div:first-child { display: inline; }
 .survey-check { margin-left: var(--sp-2); vertical-align: middle; }
 .survey-note { margin-top: 2px; }
-.survey-note-fold > summary, .survey-question > summary, .survey-notes-read > summary { cursor: pointer; }
+.survey-note-fold > summary, .survey-question > summary, .survey-notes-read > summary { cursor: pointer; font-weight: 400; }
 .survey-notes-read { margin-top: var(--sp-3); }
 .survey-notes-read p { margin: var(--sp-1) 0 0; }
