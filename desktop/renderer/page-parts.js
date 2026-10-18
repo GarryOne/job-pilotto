@@ -53,15 +53,18 @@ export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing
   };
   const pending = items.filter(item => !item.done), done = items.filter(item => item.done);
   if (!items.length) { box.append(el('p', 'muted', empty)); return box; }
-  if (pending.length) { const list = el('ul', 'review-items'); list.append(...pending.map(row)); box.append(list); }
+  const frame = joined ? el('div', 'review-box') : box;   // joined: the Reviewed line is the box's last row (mockup 06)
+  if (joined) box.append(frame);
+  if (pending.length) { const list = el('ul', 'review-items'); list.append(...pending.map(row)); frame.append(list); }
   if (done.length) {
-    const fold = el('details', 'plain review-done'), list = el('ul', 'review-items'), head = el('summary', 'review-done-head');
-    head.append(icon('chevron'), el('b', '', `${doneLabel} · ${done.length}`));
+    const fold = el('details', 'plain review-done'), list = el('ul', 'review-items'), head = el('summary', 'review-done-head'), tick = icon('check-circle');
+    tick.classList.add('review-done-tick');
+    head.append(icon('chevron'), tick, el('b', '', `${doneLabel} · ${done.length}`));
     if (doneSummary) head.append(el('span', 'muted small', doneSummary(done)));
     list.append(...done.map(row));
     fold.append(head, list);
     fold.open = Boolean(doneOpen);
-    box.append(fold);
+    frame.append(fold);
   }
   return box;
 }
@@ -97,13 +100,15 @@ export function summaryTiles(tiles = []) {
   const box = el('div', 'summary-tiles');
   for (const {key = '', icon = 'info', tone = 'neutral', label = '', value: given, note = '', title = '', score, max = 100} of tiles) {
     const scored = score !== undefined;
-    const value = given ?? (scored && Number.isFinite(score) ? `${score} / ${max}` : '');
+    const value = given ?? (scored && Number.isFinite(score) ? String(score) : '');
     const cell = el('div', `summary-tile${scored ? ' has-ring' : ''}`);
     cell.dataset.key = key;
     if (title) cell.title = title;
     const set = String(value ?? '').trim();
     const words = el('div', 'summary-tile-words');
-    words.append(el('span', 'summary-tile-label', label), el('b', `summary-tile-value${set ? '' : ' is-empty'}`, set || 'Not set'));
+    const big = el('b', `summary-tile-value${set ? '' : ' is-empty'}`, set || 'Not set');
+    if (set && scored && given === undefined) big.append(el('span', 'summary-tile-of', ` / ${max}`));   // "82 / 100": the scale small and muted (mockup 08)
+    words.append(el('span', 'summary-tile-label', label), big);
     if (note) words.append(el('span', 'muted small', note));
     cell.append(scored ? ring(score, max, tone) : tile(icon, tone), words);
     box.append(cell);
