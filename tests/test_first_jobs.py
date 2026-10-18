@@ -5,6 +5,18 @@ from unittest import mock
 
 from src import first_jobs
 from src.daily_args import build_parser
+from src.sources import careers  # noqa: E402
+
+_READER = careers.READER
+
+
+def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    careers.READER = None
+
+
+def tearDownModule():
+    careers.READER = _READER
+
 
 
 def feed(company, ats='greenhouse', **kw):
