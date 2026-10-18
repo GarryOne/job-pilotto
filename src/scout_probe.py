@@ -101,8 +101,8 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, 
     website = website if careers.own_site(website) else ''   # a job board or network is not the employer's address
     names = ats.slug_guesses(candidate['name'])
     if website:
-        names = names[:2]   # the first word alone ("Data" for Data Purpose AG) is a guess; with an address to go by it is left out
-    exact_slugs = {*ats.slug_guesses(candidate['name'])[:2], *ats.domain_guesses(website)}
+        names = ats.name_slugs(candidate['name'])   # the first word alone ("Data" for Data Purpose AG) is a guess; with an address to go by it is left out
+    exact_slugs = {*ats.name_slugs(candidate['name']), *ats.domain_guesses(website)}
     guessed = None
     for slug in list(dict.fromkeys([*names, *ats.domain_guesses(website)]))[:6]:
         for system in ats.GUESSABLE:
