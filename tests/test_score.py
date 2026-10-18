@@ -68,7 +68,7 @@ class UnreadPartTest(unittest.TestCase):
         # A refresh scores first and reads the facts after (src/daily_search.py): the scorer's own answer says what the posting states
         # (nightly beta 15 Oct 2026: "EUR 95,000-120,000" against a CHF target came back null, no facts yet, no second ask).
         self.assertEqual(set(score.BASIS), set(score.UNKNOWN_OK))
-        self.assertEqual(set(score.BASIS.values()), set(score.SCHEMA['properties']['basis']['required']))
+        self.assertEqual(set(score.BASIS.values()) | {'one_job'}, set(score.SCHEMA['properties']['basis']['required']))   # one_job: src/ai/score_not_a_job.py
         for part in score.UNKNOWN_OK:
             with self.subTest(part=part):
                 client = self.client(part, basis={key: True for key in score.BASIS.values()})

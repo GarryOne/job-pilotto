@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import run_counts, store
-from . import cost, engine, hints, locations
+from . import cost, engine, hints, locations, score_not_a_job
 from .models import MAIN_MODEL
 from .providers.contract import named
 
@@ -75,10 +75,11 @@ SCHEMA = {
         },
         # What the posting itself states, answered with the score: a refresh scores before the facts are read (src/daily_search.py).
         'basis': {
-            'type': 'object', 'additionalProperties': False, 'required': ['salary_stated', 'level_stated'],
+            'type': 'object', 'additionalProperties': False, 'required': ['salary_stated', 'level_stated', 'one_job'],
             'properties': {
                 'salary_stated': {'type': 'boolean', 'description': 'The posting states a salary or pay range, in any currency'},
                 'level_stated': {'type': 'boolean', 'description': "The title or text says what kind of role this is: its seniority (junior, senior, lead, manager ...) or what it owns or leads (a team, a system, a budget). A role that leads people is a stated scope."},
+                'one_job': {'type': 'boolean', 'description': 'The text is one job a person can apply to; false for a list of jobs, a job category, search results or a company page (src/ai/score_not_a_job.py)'},
             },
         },
         'reason': {'type': 'string', 'description': 'One line, at most 90 characters, why it fits or not'},
@@ -267,14 +268,14 @@ def unread_parts(components, facts, basis=None):
 def score_one(client, model, job, profile, effort=None):
     data, usage = _ask(client, model, job, profile, effort, '', SCHEMA)
     missing = unread_parts(data['components'], job.get('ai'), data.get('basis'))
-    if missing:   # never kept as sure: ask again once, naming the parts, and the answer's shape no longer allows null for them
+    if missing and score_not_a_job.is_one_job(data):   # never kept as sure: ask again once, naming the parts, and the answer's shape no longer allows null for them
         data, again = _ask(client, model, job, profile, effort,
                            f"\n\nYour last answer left {', '.join(missing)} unknown, but the posting gives a basis for "
                            f"{'it' if len(missing) == 1 else 'them'} (a stated salary in another currency is still a stated salary: judge it from the "
                            f"posting's own figures, without converting). Give a whole number 0-100 for {'it' if len(missing) == 1 else 'each'}.",
                            _whole(missing))
         usage = _sum_usage(usage, again)
-    return data, usage
+    return score_not_a_job.mark(data), usage
 
 
 def _sum_usage(first, second):
