@@ -25,21 +25,39 @@ test('before the read answers, the marked boxes are hidden behind a skeleton; af
   assert.equal(root.children.filter(child => /contact-reading/.test(child.className)).length, 0);
 });
 
-test('class: every data-contact field is inside a box marked data-reads-contact, or the links form (hidden until Edit)', () => {
-  const lines = html.split('\n');
-  let checked = 0;
-  // Walk the markup: a marked box opens at its tag and closes when its div closes.
-  let depth = 0, markedAt = -1;
-  for (const line of lines) {
-    const hasField = /data-contact="/.test(line);
-    const opens = (line.match(/<div\b/g) || []).length, closes = (line.match(/<\/div>/g) || []).length;
-    if (/data-reads-contact/.test(line) && markedAt < 0) markedAt = depth;
-    if (/id="links-form"/.test(line)) markedAt = markedAt < 0 ? depth : markedAt;
-    if (hasField) { checked++; assert.ok(markedAt >= 0, `an editable contact field outside a skeleton box: ${line.trim().slice(0, 90)}`); }
-    depth += opens - closes;
-    if (markedAt >= 0 && depth <= markedAt) markedAt = -1;
+// Fields that are empty by design (optional, never "the data"), with why.
+const EMPTY_BY_DESIGN = {'letter-feedback': 'an optional "ask for a change" line'};
+const TABS = ['cv', 'details', 'experience', 'answers', 'letter'];
+
+test('class: on every Profile tab, no editable text field is drawn empty before its read: it sits in a skeleton box, a hidden form, or is empty by design', () => {
+  const found = Object.fromEntries(TABS.map(tab => [tab, []]));
+  let tab = null, depth = 0, marked = -1;   // marked: the depth a skeleton box or hidden form opened at
+  for (const line of html.split('\n')) {
+    if (/class="setting panel"/.test(line)) tab = line.match(/data-profile-panel="(\w+)"/)?.[1] || null;
+    if (/<div class="save-bar"/.test(line)) tab = null;
+    if (marked < 0 && /data-reads-(contact|letter)|id="links-form"[^>]*hidden/.test(line)) marked = depth;
+    const field = line.match(/<(input|textarea)\b[^>]*>/);
+    if (tab && field && !/type="(checkbox|radio|hidden|button|file)"/.test(field[0])) {
+      const id = field[0].match(/\bid="([^"]+)"/)?.[1] || field[0].match(/data-contact="([^"]+)"/)?.[1] || '?';
+      if (/data-reads-(contact|letter)/.test(field[0]) || marked >= 0 || id in EMPTY_BY_DESIGN) found[tab]?.push(id);
+      else assert.fail(`${tab}: ${id} is an editable text field that shows empty while the tab is still reading; mark its box data-reads-contact/-letter (renderer/contact-reading.js) or list it as empty by design`);
+    }
+    depth += (line.match(/<div\b/g) || []).length - (line.match(/<\/div>/g) || []).length;
+    if (marked >= 0 && depth <= marked && !/data-reads-(contact|letter)|id="links-form"/.test(line)) marked = -1;
   }
-  assert.ok(checked >= 10, 'the contact fields were found');
+  assert.ok(found.details.length >= 10, 'the Your details fields were found');
+  assert.ok(found.letter.includes('letter-text'), 'the letter box is a skeleton while it reads');
+});
+
+test('the cover letter shows a skeleton in place of its empty box until the read answers, like the contact form', () => {
+  const root = el('div'), box = el('textarea');
+  box.dataset.readsLetter = '1'; root.append(box);
+  reading(true, root, 'letter');
+  assert.equal(box.hidden, true);
+  assert.equal(root.children.filter(child => /contact-reading/.test(child.className)).length, 1);
+  reading(false, root, 'letter');
+  assert.equal(box.hidden, false);
+  assert.match(fs.readFileSync(new URL('../renderer/pages/profile.js', import.meta.url), 'utf8'), /swr\('cover-letter'[\s\S]*loading: \(\) => \{ reading\(true, document, 'letter'\)/);
 });
 
 test('the contact read keeps its answer, so a second open fills the boxes before the read returns', () => {
