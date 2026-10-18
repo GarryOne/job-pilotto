@@ -18,7 +18,7 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['items']
     option: {type: 'string'}, note: {type: 'string'}}}}}};
 const INSTRUCTIONS = `Each item is one line of a job seeker's profile, in any language, from the section of voluntary demographic survey answers they give on application forms.
 kind "answer": the line states the person's answer to one of these questions; question is its key, option is exactly one choice from that question's list (use the Decline choice when they decline), note is whatever else the line says about it
-(an instruction, a date it was confirmed, which label to use), each part copied exactly as written and joined with " · "; "" when nothing is left over.
+(an instruction, a date it was confirmed, which label to use), each part copied exactly as written (without surrounding brackets) and joined with " · "; leave out words that only restate the question, the choice or "Yes/No"; "" when nothing is left over.
 kind "notes": an instruction or remark for the AI that fills forms, about the survey in general (not one answer). kind "keep": anything else, or when you are not sure.
 A line that answers two questions (e.g. race and "Hispanic or Latino?") gets one item per answer, each with the same id; split its note between them, every part copied exactly.
 Never guess an answer the line does not state.
