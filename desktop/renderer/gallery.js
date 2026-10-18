@@ -1,6 +1,7 @@
 // The component gallery: every token and component, built with the same code the screens use.
 import {fillIcons, icon} from './icons.js';
 import {chipRow, kindsTable} from './gallery-kinds.js';
+import {cardSystem} from './gallery-cards.js';
 import {cardHead, choiceCards, el, moreButton, notionBenefits, notionGate, numberStrip, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
@@ -58,6 +59,7 @@ section('Tags', 'tag(text, {title, onClick, busy})', row(
 
 section('Chips', 'chip(text, {detail, tone, onRemove}): a value from a list, written as a person writes it (no quotes, codes or regex). A pill is a status, a tag a label', chipRow());
 section('Value → control', 'The kind of value picks the control (docs/rules/desktop-ui.md). Edit views are answerControl(formatFor(...)) from question-control.js', kindsTable());
+section('Card shell', 'Read summary → quiet Edit (cardEdit) → editor in place (card-shell.js); one page save bar for every tab (save-bar.js). Filled orange only for Save', cardSystem());
 
 section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, amber glow from the top-left, thin amber edge. The one thing on a page that says "start here"', (() => {
   const box = document.createElement('div');

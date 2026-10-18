@@ -1,0 +1,30 @@
+/* The card shell of Profile and Strategy cards (card-shell.js, save-bar.js; owner, 18 Oct 2026, UI redesign): read summary → quiet Edit → editor in place,
+   one sticky save bar per page. Rules: docs/rules/desktop-ui.md "Cards: read → Edit → editor". Tokens only (test/design.test.js). */
+
+/* The quiet Edit (components.js cardEdit): neutral outline with a field's 3:1 edge, pencil + word, always visible; gone while its card is edited. */
+button.card-edit { margin-left: auto; flex: none; white-space: nowrap; border-color: var(--field-line); color: var(--ink); }
+button.card-edit:hover { border-color: var(--ink-2); }
+.is-editing .card-edit { display: none; }
+
+/* Read and edit views of one card: .card-read by default, .card-editor while .is-editing. */
+.card-read { display: grid; gap: var(--sp-3); }
+.card-editor { display: none; }
+.is-editing .card-editor { display: block; }
+.is-editing .card-read { display: none; }
+
+/* Compact read rows (card-shell.js readRows): label column, value, a note for the AI as a muted line under it. */
+.summary-rows.is-compact { gap: var(--sp-2) var(--sp-4); margin: 0; }
+.summary-rows .read-note { display: block; margin-top: 2px; }
+.read-values { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* The editor (card-shell.js editRows): one label column aligned down the card, full-width controls beside it (mockup 01). One column when narrow. */
+.edit-rows { display: grid; gap: var(--sp-3); container-type: inline-size; }
+.edit-row { display: grid; grid-template-columns: minmax(140px, 28%) minmax(0, 1fr); align-items: center; gap: var(--sp-4); margin: 0; }
+.edit-label { color: var(--label); font-weight: 600; font-size: var(--fs-md); }
+.edit-control { display: grid; gap: var(--sp-1); min-width: 0; }
+@container (max-width: 560px) { .edit-row { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); } }
+
+/* The page save bar (save-bar.js): the .save-bar look (style.css), a title that names the tabs; a tab with drafts gets a small dot. */
+.page-save-bar .save-bar-title { font-weight: 600; }
+.tabs button.has-drafts::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: var(--sp-1); border-radius: var(--r-pill);
+  background: var(--signal); vertical-align: middle; }

@@ -303,7 +303,7 @@ export async function init() {
     const editing = $('links-form').hidden;
     show($('links-form'), editing);
     show($('links-view'), !editing);
-    $('links-edit').textContent = editing ? 'Done' : 'Edit';
+    $('links-edit').querySelector('span').textContent = editing ? 'Done' : 'Edit';
     $('links-edit').setAttribute('aria-label', editing ? 'Done editing professional links' : 'Edit professional links');
     if (!editing) showLinks();
   });

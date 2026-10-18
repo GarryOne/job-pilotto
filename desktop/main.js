@@ -144,7 +144,7 @@ function restartTelegram() {
   polling = telegram.startPolling(storage, log, undefined, dispatchNote);
 }
 
-const {openNotion, applyTheme, createWindow} = createMainWindow({BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow: () => window, setWindow: value => { window = value; }, getZoom: () => zoom});   // lib/main-window.js
+const {openNotion, applyTheme, createWindow} = createMainWindow({BrowserWindow, DEMO, HIDDEN, app, dialog, here, nativeTheme, shell, getWindow: () => window, setWindow: value => { window = value; }, getZoom: () => zoom});   // lib/main-window.js
 
 // Every message to the window goes through here: a closed or crashed window is skipped, never a crash.
 function toWindow(...args) {

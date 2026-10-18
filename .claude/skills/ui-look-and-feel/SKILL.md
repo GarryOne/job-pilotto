@@ -32,6 +32,12 @@ checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawin
 - Chips show what a person would write: the screen turns syntax into meaning first ("Tax" in quotes → the group "Whole word only"; "Zurich,Zurich,Switzerland · de" → "Zurich, Switzerland · German").
 - After rendering, `npm run shot` prints any saved value cut by its box: fix each one. Look at the result in light and dark (`JOB_PILOTTO_THEME=light npm run shot -- …`, then `=dark`).
 
+### 0b. Cards: read → Edit → editor, one save bar (owner, 18 Oct 2026)
+Profile and Strategy cards: a read summary (`readRows`, `chipLine` from `card-shell.js`), a quiet **✎ Edit** at the header's right (`cardEdit`), the editor in place
+(`setEditing`, `editRows`: aligned label column, full-width controls, Edit hidden, card kept open, drafts kept), and **no Save on a card**: register a source with the page's
+`pageSaveBar` (`save-bar.js`: "N unsaved changes in <tabs> · Discard all · Save all changes", tab dots, leave/close guard). Filled orange only for the one current primary
+action. Rules and the tests that fail: `docs/rules/desktop-ui.md` "Cards: read → Edit → editor"; living copy `npm run gallery` → "Card shell".
+
 ## 1. Look first
 - Reference screenshots of today's screens: `desktop/docs/ui/*.jpg` (fictional demo data). Open the one closest
   to what you build and match it: spacing, density, card style, where actions sit.
