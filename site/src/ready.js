@@ -86,7 +86,7 @@ async function batch(request, env, now) {
     const data = await readBlob(env, row.install, row.id);
     // Only the rows still queued: the whole night at first, one form after a Fill again (src/ready-again.js), so the others keep their results.
     const queued = new Set((await env.STATS.prepare("SELECT job FROM ready_jobs WHERE batch = ? AND state = 'queued' AND cleared_at IS NULL").bind(row.id).all()).results.map(each => each.job));
-    return json({ok: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', facts: data?.facts || {}, jobs: (data?.jobs || []).filter(job => queued.has(job.id))});
+    return json({ok: true, line: true, stop: row.state === 'capped' || !data, night: row.night, contact: data?.contact || {}, readyBy: data?.readyBy || '', facts: data?.facts || {}, jobs: (data?.jobs || []).filter(job => queued.has(job.id))});
   }
   if (request.method !== 'POST') return json({ok: false, error: 'Use GET or POST'}, 405);
   const install = await ownerOf(request, env);
