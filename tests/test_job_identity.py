@@ -19,8 +19,8 @@ class IdentityTests(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.db = store.connect(Path(self.dir) / 'jobs.sqlite')
 
-    def add(self, item, source):
-        return store.upsert_job(self.db, item, source)
+    def add(self, item, source, kind='job board'):
+        return store.upsert_job(self.db, item, source, source_kind=kind)
 
     def test_identity_ignores_legal_forms_gender_and_workload_marks(self):
         self.assertEqual(store.identity('Acme AG', 'Senior DevOps Engineer (m/w/d) 80-100%'), store.identity('ACME', 'Senior DevOps Engineer (all genders)'))
@@ -49,10 +49,28 @@ class IdentityTests(unittest.TestCase):
         second, status = self.add(job('https://ch.indeed.com/viewjob?jk=0a1b2c3d4e', location=''), 'Indeed alert')
         self.assertEqual((second, status), (first, 'seen'))
 
-    def test_two_postings_with_the_same_title_on_one_site_are_two_openings(self):
-        self.add(job('https://jobs.lever.co/acme/1'), 'Acme')
-        _, status = self.add(job('https://jobs.lever.co/acme/2'), 'Acme')
+    def test_two_postings_with_the_same_title_on_one_employer_site_are_two_openings(self):
+        self.add(job('https://jobs.lever.co/acme/1'), 'Acme', kind='employer feed')
+        _, status = self.add(job('https://jobs.lever.co/acme/2'), 'Acme', kind='employer feed')
         self.assertEqual(status, 'new')
+
+    def test_the_same_ad_listed_twice_on_a_job_board_is_one_job(self):
+        """18 Oct 2026: talent.com listed one Berlin "Technical Producer" under two ids, as "AKKODIS" and "Akkodis"."""
+        first, _ = self.add(job('https://de.talent.com/view?id=641259034168590868', title='Technical Producer (m/w/d) - Berlin', company='AKKODIS',
+                                location='Berlin, Berlin, Germany'), 'Job boards found')
+        second, status = self.add(job('https://de.talent.com/view?id=641372765476815654', title='Technical Producer (m/w/d) - Berlin', company='Akkodis',
+                                      location='Berlin, de'), 'Job boards found')
+        self.assertEqual((second, status), (first, 'seen'))
+
+    def test_an_employer_named_by_its_first_words_is_the_same_employer(self):
+        first, _ = self.add(job('https://www.xing.com/jobs/berlin-technical-producer-158542210', title='Technical Producer (m/w/d) - Berlin',
+                                company='Akkodis Germany Tech Experts GmbH', location='Berlin, Germany'), 'Job boards found')
+        second, status = self.add(job('https://de.talent.com/view?id=1', title='Technical Producer (m/w/d) - Berlin', company='Akkodis',
+                                      location='Berlin'), 'Job boards found')
+        self.assertEqual((second, status), (first, 'seen'))
+        _, other = self.add(job('https://de.talent.com/view?id=2', title='Technical Producer (m/w/d) - Berlin', company='Akkodisa', location='Berlin'),
+                            'Job boards found')
+        self.assertEqual(other, 'new', 'a whole-word prefix only: Akkodisa is another employer')
 
     def test_a_closed_job_is_not_a_twin(self):
         first, _ = self.add(job('https://a.example/1'), 'A')
