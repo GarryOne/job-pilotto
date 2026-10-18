@@ -43,7 +43,7 @@ ${tile('info', 'Newest run', newest?.build ? esc(newest.build.slice(0, 7)) : '�
 
 // The two lead tiles (owner, 18 Oct 2026): the median time to the first job and to the first 70+ job across the candidates, with the move against
 // the last green run (▲ slower, ▼ faster) and the best and worst candidate.
-const median = list => { const sorted = list.filter(value => value != null).sort((a, b) => a - b); return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null; };
+export const median = list => { const sorted = list.filter(value => value != null).sort((a, b) => a - b); return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null; };
 function timeTile(rows, field, icon) {
   const live = rows.filter(row => row.state !== 'failed' && row.now[field] != null), now = median(live.map(row => row.now[field]));
   const pairs = rows.filter(row => row.state !== 'failed' && row.base && row.now[field] != null && row.base[field] != null);
