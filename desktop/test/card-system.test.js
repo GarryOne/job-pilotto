@@ -29,13 +29,10 @@ const NOT_A_CARD = {
 const KNOWN_LEFT = {
   'pages/experience-profile.js': 'A (Voluntary surveys) + C (Experience cards): the card editor\'s Save/Cancel',
   'pages/outline-tab.js': 'D: Application answers\' own bar → the Profile page bar',
-  'goal-tiles.js': 'B: Strategy goal tiles\' Save/Cancel',
-  'pages/strategy-targets.js': 'B: Strategy\'s draft bar → the Strategy page bar',
+  'goal-tiles.js': 'B: the setup review\'s goal tiles (pages/strategy-review.js); Strategy itself moved to Main goals on its page bar',
 };
 // The Profile page and the Strategy view in the markup: a card there with its own Save, by button id.
 const MARKUP_LEFT = {
-  'targets-save': 'B: Strategy\'s bar → the Strategy page bar',
-  'targets-cancel': 'B: the same bar\'s Discard changes',
   'letter-save': 'D: the cover letter\'s Save changes',
 };
 const between = (html, start, end) => { const from = html.indexOf(start); const to = html.indexOf(end, from + start.length); return from < 0 ? '' : html.slice(from, to < 0 ? undefined : to); };

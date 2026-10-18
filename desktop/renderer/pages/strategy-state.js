@@ -4,7 +4,11 @@ import {$, show} from './core.js';
 export const strategyState = {
   strategyShown: false,
   lastStrategy: null,
-  targetEdits: null,   // {list: {add: [words], remove: [stored entries]}, remote: {set}} while editing
+  // The drafts, kept per card until the page bar saves or discards them (pages/strategy-cards.js): lists and values, words still in an add field, goals.
+  targetEdits: null,   // {list: {add: [words], remove: [stored entries]}, remote: {set}}
+  typed: null,   // {list: text}
+  goalEdits: null,   // {goal: text}
+  editing: '',   // the one card whose editor is open
   shownVerdict: null,
 };
 

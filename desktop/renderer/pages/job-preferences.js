@@ -12,6 +12,7 @@ import {NOTE_LABEL, noteText, showWorkload} from '../preferences-review-model.js
 import {lineInput, outlineTab} from './outline-tab.js';
 import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
+import {strategyBarNow} from './strategy-cards.js';
 
 const TEXT = 'profile';
 const typed = new Map();   // field key or item id → the text as edited
@@ -181,7 +182,8 @@ const drawn = fields => Object.fromEntries(Object.entries(fields).filter(([key])
 export async function loadPreferences() {
   const node = document.getElementById('preferences-body');
   if (!node) return;
-  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); handled.clear(); noteDraft = null; }, words: 'Future searches and scores use them once you save.'}), node};
+  if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); handled.clear(); noteDraft = null; }, words: 'Future searches and scores use them once you save.',
+    bar: strategyBarNow(), tab: 'strategy-yours', label: 'Job preferences'}), node};
   review.asked = false;
   await tab.load();
 }

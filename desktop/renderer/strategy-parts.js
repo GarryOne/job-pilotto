@@ -1,6 +1,8 @@
 // The Strategy page's pure parts (owner mockup, 7 Oct 2026): role families, goal notes (estimated salary, language levels not set), the
 // exclusions split by what they do, and the suggestion rows' options in order. Data in, words out; strategy.js draws them.
 
+import {splitSalary} from './question-values.js';
+
 // src/role_kinds.py KINDS, in words. A role the engine did not label (an older read) is "Other roles".
 export const KIND_LABELS = {software: 'Software', sales_b2b: 'Business sales', sales_retail: 'Retail', logistics: 'Logistics', hospitality: 'Hospitality',
   healthcare: 'Healthcare', creative_media: 'Creative & media', finance_admin: 'Office & finance', education: 'Education', trades: 'Trades', other: 'Other roles'};
@@ -90,3 +92,23 @@ export function withTyped(edits, typed, plain, stored = () => []) {
 // top: the first kind's brief {title, text}; its "+ " / "− " lead is dropped.
 export const improveWords = (count, top) => ({title: `${count} suggestion${count === 1 ? '' : 's'} to improve your search`,
   top: top ? `Top: ${top.title.replace(/^[+−] /, '')}${top.text ? ` (${top.text})` : ''}` : ''});
+
+// Main goals' Minimum salary as read (owner, 18 Oct 2026: "Show salary currency and period explicitly"): a salary the control can read is said as
+// "CHF 130,000 / year" (· gross); one it cannot is shown as written, with the way to pick its parts. -> {text, note}.
+export function salaryWords(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return {text: ''};
+  const {number, currency, period, basis} = splitSalary(raw);
+  if (!number) return {text: raw, note: 'As written: Edit to pick its currency and period'};
+  const amount = Number(number) ? Number(number).toLocaleString('en-US') : number;
+  return {text: `${currency} ${amount} / ${period || '?'}${basis ? ` · ${basis}` : ''}`, ...(period ? {} : {note: 'Period not set: Edit to add it'})};
+}
+// Main goals' "From Your details" line: Languages and Work eligibility exactly as Your details recorded them (each country's line as written; nothing
+// inferred from it). details: {languages: [{label, value}], eligibility: [...]}; languages: the older Profile line when Your details has none. -> words or ''.
+export function detailsLine(details = {}, languages = '') {
+  // A section of one line says its value ("Languages I can work in: English" → "English"); eligibility keeps its label even alone ("Switzerland: B permit"),
+  // so a permit never reads as wider than the place it names.
+  const facts = (lines, keep) => (lines || []).map(line => (lines.length === 1 && !keep ? line.value : `${line.label}: ${line.value}`)).join(' · ');
+  const said = facts(details?.languages) || String(languages || '').trim(), eligible = facts(details?.eligibility, true);
+  return [said && `Languages: ${said}`, eligible && `Work eligibility: ${eligible}`].filter(Boolean).join(' · ');
+}

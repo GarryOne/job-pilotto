@@ -13,7 +13,8 @@ import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
-import {dirty, entriesOf, renderTargets} from './strategy-targets.js';
+import {entriesOf, renderTargets} from './strategy-targets.js';
+import {dirty, strategyBarNow} from './strategy-cards.js';
 import {byStore} from '../store-words.js';
 // Where else the change shows: Notion's ⚙️ Search settings page, only while Notion holds the data (on this Mac they are the app's own).
 const alsoInSettings = () => byStore(' (also in your Search settings in Notion)', '');
@@ -185,7 +186,8 @@ const hideItem = (kind, id, key, at) => ({label: 'Hide until the next search', i
 const widen = (kind, act, done, list = '') => async button => {
   if (list && dirty().has(list)) {
     toastMessage('Save or discard your changes first', `This changes your ${LIST_WORDS[list]}, which you are editing now. Save or discard that draft, then add it.`);
-    $('strategy-savebar').classList.remove('is-nudged'); void $('strategy-savebar').offsetWidth; $('strategy-savebar').classList.add('is-nudged');
+    const bar = strategyBarNow()?.node;
+    if (bar) { bar.classList.remove('is-nudged'); void bar.offsetWidth; bar.classList.add('is-nudged'); }
     return;
   }
   const label = button.textContent;
@@ -293,7 +295,7 @@ const paintCoverage = verdict => {
     brief: {title: 'Employers hiring people like you', text: forYou.chips.slice(0, 3).map(chip => chip.company).join(', ') + (forYou.chips.length > 3 ? ` and ${forYou.chips.length - 3} more` : ''), cta: 'See employers'},
     menu: [hideItem('employer', 'foryou', FORYOU_DISMISSED, forYou.at)]});
   drawSuggestions();
-  if (strategyState.strategyShown && !strategyState.targetEdits) renderTargets();   // the exclusions card says what the languages hid
+  if (strategyState.strategyShown && !strategyState.editing) renderTargets();   // the exclusions card says what the languages hid
 };
 // first: called when the page starts to load, beside the strategy read (not after it).
 export async function loadCoverage({first = false} = {}) {
