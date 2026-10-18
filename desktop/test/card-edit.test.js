@@ -51,5 +51,5 @@ test('the card Edit sits last in its title line, pushed right, and the one-part 
   const css = source('card-shell.css');
   assert.match(css, /button\.card-edit \{ margin-left: auto;/);
   assert.match(css, /\.is-editing \.card-edit \{ display: none; \}/, 'Edit hides while its card is edited');
-  assert.match(source('index.html'), /<h3>Voluntary surveys<\/h3><\/div><span id="details-profile-edit"><\/span>/);
+  assert.match(source('index.html'), /<h3>Voluntary surveys<\/h3><span class="ui-pill tone-neutral">Optional<\/span><\/div><span id="details-profile-edit"><\/span>/);
 });

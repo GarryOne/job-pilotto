@@ -331,6 +331,7 @@ export function cardHead(category, title, {badges = [], subtitles = []} = {}) {
 // it was solid that morning only so it sat in sight). Hidden while its card is edited (card-shell.js setEditing): filled orange is for Save. Static markup
 // uses the same classes (`secondary small-btn with-icon card-edit` + <i data-icon="edit">). what = the card's name, for the screen reader ("Edit summary").
 // A row's own action (a rule's Edit, a letter's Edit beside Copy) is not a card's Edit. Guarded by test/card-edit.test.js and test/card-system.test.js.
+export const CARD_EDIT = '.card-edit';   // finds a card's Edit, static or drawn (pages/details-read.js)
 export function cardEdit(label, what, onClick) {
   const button = Object.assign(el('button', 'secondary small-btn with-icon card-edit'), {type: 'button'});
   button.append(icon(label === 'Add' ? 'plus' : 'edit'), el('span', '', label));

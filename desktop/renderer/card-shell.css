@@ -23,6 +23,16 @@ button.card-edit:hover { border-color: var(--ink-2); }
 .edit-label { color: var(--label); font-weight: 600; font-size: var(--fs-md); }
 .edit-control { display: grid; gap: var(--sp-1); min-width: 0; }
 @container (max-width: 560px) { .edit-row { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); } }
+/* The same aligned column for a static form whose fields are <label>Name<input></label> (Your details' contact and links): the words then the control. */
+.form-grid.edit-aligned { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); container-type: inline-size; }
+.form-grid.edit-aligned > label { display: grid; grid-template-columns: minmax(140px, 28%) minmax(0, 1fr); align-items: center; gap: var(--sp-4);
+  margin: 0; color: var(--label); font-weight: 600; font-size: var(--fs-md); }
+.form-grid.edit-aligned > label[hidden] { display: none; }
+.form-grid.edit-aligned > label > :is(input, select, textarea, .segmented, .ui-select) { font-weight: 400; }
+@container (max-width: 560px) { .form-grid.edit-aligned > label { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); } }
+/* An editor's quiet Done, under its fields at the right (card-shell.js doneButton). */
+.card-done-slot { display: flex; justify-content: flex-end; margin-top: var(--sp-2); }
+.card-done-slot:empty { display: none; }
 
 /* The page save bar (save-bar.js): the .save-bar look (style.css), a title that names the tabs; a tab with drafts gets a small dot. */
 .page-save-bar .save-bar-title { font-weight: 600; }

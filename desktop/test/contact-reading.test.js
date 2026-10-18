@@ -29,13 +29,13 @@ test('before the read answers, the marked boxes are hidden behind a skeleton; af
 const EMPTY_BY_DESIGN = {'letter-feedback': 'an optional "ask for a change" line'};
 const TABS = ['cv', 'details', 'experience', 'answers', 'letter'];
 
-test('class: on every Profile tab, no editable text field is drawn empty before its read: it sits in a skeleton box, a hidden form, or is empty by design', () => {
+test('class: on every Profile tab, no editable text field is drawn empty before its read: it sits in a skeleton box or is empty by design', () => {
   const found = Object.fromEntries(TABS.map(tab => [tab, []]));
   let tab = null, depth = 0, marked = -1;   // marked: the depth a skeleton box or hidden form opened at
   for (const line of html.split('\n')) {
     if (/class="setting panel"/.test(line)) tab = line.match(/data-profile-panel="(\w+)"/)?.[1] || null;
     if (/<div class="save-bar"/.test(line)) tab = null;
-    if (marked < 0 && /data-reads-(contact|letter)|id="links-form"[^>]*hidden/.test(line)) marked = depth;
+    if (marked < 0 && /data-reads-(contact|letter)/.test(line)) marked = depth;
     const field = line.match(/<(input|textarea)\b[^>]*>/);
     if (tab && field && !/type="(checkbox|radio|hidden|button|file)"/.test(field[0])) {
       const id = field[0].match(/\bid="([^"]+)"/)?.[1] || field[0].match(/data-contact="([^"]+)"/)?.[1] || '?';
@@ -43,7 +43,7 @@ test('class: on every Profile tab, no editable text field is drawn empty before 
       else assert.fail(`${tab}: ${id} is an editable text field that shows empty while the tab is still reading; mark its box data-reads-contact/-letter (renderer/contact-reading.js) or list it as empty by design`);
     }
     depth += (line.match(/<div\b/g) || []).length - (line.match(/<\/div>/g) || []).length;
-    if (marked >= 0 && depth <= marked && !/data-reads-(contact|letter)|id="links-form"/.test(line)) marked = -1;
+    if (marked >= 0 && depth <= marked && !/data-reads-(contact|letter)/.test(line)) marked = -1;
   }
   assert.ok(found.details.length >= 10, 'the Your details fields were found');
   assert.ok(found.letter.includes('letter-text'), 'the letter box is a skeleton while it reads');

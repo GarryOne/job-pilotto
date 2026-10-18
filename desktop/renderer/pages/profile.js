@@ -27,11 +27,12 @@ import {showEngineSettings} from './ai-engine.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {loadProposals} from './contact-proposals.js';
-import {contactDirty, contactRead, registerDetails} from './details-drafts.js';
+import {contactChangedIn, contactDirty, contactRead, factsChangedIn, registerDetails} from './details-drafts.js';
 import {guardLeave} from './nav.js';
 import {profileBar} from './profile-save-bar.js';
 import {mountProfileMenu} from './profile-menu.js';
 import {showFacts} from './details-facts.js';
+import {initDetailsRead} from './details-read.js';
 import {reading} from '../contact-reading.js';
 import {swr} from '../swr.js';
 import {foldProfilePanels, initFoldBar, showFoldBar} from '../profile-fold.js';
@@ -61,7 +62,7 @@ export function profileTab(name, {byDefault = false} = {}) {
 function answersMenu() {
   openMenu($('answers-review'), [{label: `View source in ${storeName()}`, icon: 'external', run: () => openInNotion('NOTION_ANSWERS_PAGE_ID')}]);
 }
-// Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
+// Professional links: shown as tiles; Edit shows the fields (saved by the Profile page's one save bar).
 let showGithub = true;   // false for a non-technical candidate (fitDetailsToCandidate)
 function showLinks() {
   const value = name => document.querySelector(`[data-contact="${name}"]`).value.trim();
@@ -196,14 +197,8 @@ export async function init() {
   initExperience();
   mountProfileMenu($('profile-more'), profileTab);   // Fill from my CV and View source in Notion, quiet in the header (profile-menu.js)
   $('answers-review').addEventListener('click', answersMenu);
-  $('links-edit').addEventListener('click', () => {
-    const editing = $('links-form').hidden;
-    show($('links-form'), editing);
-    show($('links-view'), !editing);
-    $('links-edit').querySelector('span').textContent = editing ? 'Done' : 'Edit';
-    $('links-edit').setAttribute('aria-label', editing ? 'Done editing professional links' : 'Edit professional links');
-    if (!editing) showLinks();
-  });
+  initDetailsRead({contact: contactChangedIn, facts: factsChangedIn});   // Your details read first: summaries, a quiet Edit per card, Done (pages/details-read.js)
+  document.addEventListener('details-changed', showLinks);   // the links' tiles follow their fields
   $('answers-add').addEventListener('click', addQuestion);
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
@@ -230,7 +225,7 @@ export async function init() {
     show($('cv-limit-link'), false);
   });
   // Long detail cards start closed; the bar shows their summary (owner, 17 Oct 2026). Forms you fill in stay open.
-  foldProfilePanels({closed: new Set(['setting-experience-sources', 'setting-experience-roles'])});   // every Profile card folds (profile-fold.js); these start closed
+  foldProfilePanels({closed: new Set(['setting-experience-sources', 'setting-experience-roles', 'setting-details-profile'])});   // every Profile card folds (profile-fold.js); these start closed (the voluntary surveys: optional, owner's review item 5)
   initFoldBar();
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun(), checkOptions).then(loadCvSetting));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi(), checkOptions));

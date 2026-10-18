@@ -10,13 +10,18 @@ export {contactNow, countContact, countFacts};
 
 let savedContact = {}, savedFacts = {};
 let contact = null, facts = null;
+// The read views and Done buttons (pages/details-read.js) follow these: 'details-changed' after a read or an edit, 'details-settled' after a save or a discard.
+const tell = name => globalThis.document?.dispatchEvent?.(new Event(name));
 // What is on screen right after a read or a save: the drafts count from here.
-export function contactRead() { savedContact = contactNow(); contact?.changed(); }
-export function factsRead() { savedFacts = factsNow(); facts?.changed(); }
+export function contactRead() { savedContact = contactNow(); contact?.changed(); tell('details-changed'); }
+export function factsRead() { savedFacts = factsNow(); facts?.changed(); tell('details-changed'); }
 export const contactDirty = () => countContact(savedContact, contactNow()) > 0;
 export const factsDirty = () => countFacts(savedFacts, factsNow()) > 0;
+// One card's own changes (its Done shows only at 0): Contact's or Links' fields, one fact section.
+export const contactChangedIn = keys => { const now = contactNow(); return countContact(savedContact, Object.fromEntries(keys.filter(key => key in now).map(key => [key, now[key]]))); };
+export const factsChangedIn = key => countFacts({[key]: savedFacts[key] || []}, {[key]: factsNow()[key] || []});
 // Something was typed, picked, added or filled in from the CV.
-export function detailsChanged() { contact?.changed(); facts?.changed(); }
+export function detailsChanged() { contact?.changed(); facts?.changed(); tell('details-changed'); }
 
 export function registerDetails({repaintContact}) {
   const bar = profileBar();
@@ -26,16 +31,16 @@ export function registerDetails({repaintContact}) {
       const now = contactNow();
       if (now.first_name && now.last_name) now.full_name = `${now.first_name} ${now.last_name}`;   // forms that ask for the full name get first + last
       const result = await window.pilot.saveContact(Object.fromEntries(Object.entries(now).filter(([, value]) => value)));
-      if (result.ok) { clearProposals(); contactRead(); }
+      if (result.ok) { clearProposals(); contactRead(); tell('details-settled'); }
       return result;
     },
-    discard() { clearProposals(); savedContact = {}; repaintContact(); },
+    discard() { clearProposals(); savedContact = {}; repaintContact(); tell('details-settled'); },
     reveal: () => document.getElementById('setting-contact')?.scrollIntoView({block: 'start'}),
   });
   facts = bar.register({id: 'details-facts', tab: 'details', label: 'Eligibility, availability and languages',
     count: () => countFacts(savedFacts, factsNow()),
-    async save() { const result = await window.pilot.saveDetailsFacts(factsNow()); if (result.ok) factsRead(); return result; },
-    discard() { savedFacts = {}; showFacts({redraw: true}); },
+    async save() { const result = await window.pilot.saveDetailsFacts(factsNow()); if (result.ok) { factsRead(); tell('details-settled'); } return result; },
+    discard() { savedFacts = {}; showFacts({redraw: true}).then(() => tell('details-settled')); },
     reveal: () => document.getElementById('setting-eligibility')?.scrollIntoView({block: 'start'}),
   });
 }
