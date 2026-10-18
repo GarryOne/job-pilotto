@@ -158,7 +158,7 @@ function targetCard([key, glyph, title, lists]) {
   const open = isOpen(key), card = el('section', `card${open ? ' is-editing' : ''}`);
   card.dataset.list = key;
   card.dataset.card = key;
-  card.append(cardHeader(key, glyph, CARD_TONE[key] || 'neutral', title, LEADS[key] || ''));
+  card.append(cardHeader(key, glyph, CARD_TONE[key] || 'neutral', title, LEADS[key] || '', card));
   if (key === 'places') card.append(...[coverageLine(reloadTargets)].filter(Boolean));   // visible in both modes, Advanced or not
   if (!open) { card.append(...VIEWS[key]()); return card; }
   for (const [name, label, placeholder] of lists) {

@@ -23,7 +23,7 @@ let reloads = 0;
 const redraw = () => page.replaceChildren(...Object.keys(CARDS).map(key => {
   const card = el('section', 'card');
   card.dataset.card = key;
-  card.append(cardHeader(key, 'pin', 'teal'));
+  card.append(cardHeader(key, 'pin', 'teal', CARDS[key].title, '', card));
   return card;
 }));
 strategyState.lastStrategy = {lists: {places: [{fragment: 'zurich', label: 'zurich'}]}, texts: {}};
@@ -47,7 +47,9 @@ test('Edit opens only that card; another card keeps the first one\'s draft, show
   assert.equal(badge('search').hidden, true);
 });
 
-test('Esc and Done close the editor; the draft stays', () => {
+test('Esc and Done close the editor; the draft stays; Done hides while the open card holds a change (card-shell.js doneButton)', () => {
+  openCard('places');
+  assert.equal(card('places').querySelector('.card-done').hidden, true, 'with a change the bar decides');
   for (const fn of globalThis.document.listeners?.keydown || []) fn({key: 'Escape', defaultPrevented: false});
   assert.equal(strategyState.editing, '');
   openCard('goals');

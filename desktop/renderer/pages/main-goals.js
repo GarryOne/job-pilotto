@@ -1,11 +1,11 @@
 // Strategy → Main goals (owner, 18 Oct 2026, UI redesign B, mockup 03 + decisions 1, 2 and 4): four tiles, Target roles · Target level · Work mode ·
-// Minimum salary (four columns when they fit, 2×2 when narrower; the salary with its currency and period said), a quiet "From Your details" line with
-// Languages and Work eligibility as recorded there (read-only, never goals, "Edit in Your details"), and one editor behind Edit: the roles list, then each
+// Minimum salary (page-parts.js summaryTiles: four columns, 2×2 when narrow; the salary with its currency and period said), a "From Your details" row with
+// Languages and Work eligibility as recorded there (page-parts.js referenceRow: read-only, never goals), and one editor behind Edit: the roles list, then each
 // goal with its kind's control (goal-kinds.js). Saved by Strategy's page bar (strategy-cards.js): roles to Search settings, goals to the Profile
 // (lib/goals.js; Target level also sets the search's level, lib/goal-level.js). Guarded by test/main-goals.test.js.
 import {el} from '../components.js';
-import {icon} from '../icons.js';
 import {editRows} from '../card-shell.js';
+import {referenceRow, summaryTiles} from '../page-parts.js';
 import {answerControl} from '../question-control.js';
 import {formatFor} from '../question-kind.js';
 import {GOAL_KINDS} from '../goal-kinds.js';
@@ -18,6 +18,7 @@ import {GOAL_LABELS, cardHeader, changed, drafts, isOpen} from './strategy-cards
 import {draftEntries, listChips} from './strategy-targets.js';
 
 const TILES = [['roles', 'briefcase', 'Target roles'], ['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary']];
+const TONES = {roles: 'violet', seniority: 'teal', work_mode: 'good', minimum_salary: 'info'};
 
 // The saved goals, a Profile written before the goals rows standing in with its Compensation line and the search's level.
 function savedGoals() {
@@ -41,32 +42,18 @@ function tileValue(key) {
   return {text: shown};
 }
 
-function tiles() {
-  const strip = el('dl', 'goal-strip main-goal-tiles');
-  for (const [key, glyph, label] of TILES) {
-    const term = el('dt', '', icon(glyph));
-    term.append(label);
-    const {text, note, title} = tileValue(key), value = el('dd', 'goal');
-    value.dataset.goal = key;
-    value.append(el('span', 'goal-value', text || 'Not set'));
-    if (title) value.title = title;
-    if (note) value.append(el('span', 'goal-note muted small', note));
-    strip.append(term, value);
-  }
-  return strip;
-}
+const tiles = () => summaryTiles(TILES.map(([key, glyph, label]) => {
+  const {text, note, title} = tileValue(key);
+  return {key, icon: glyph, tone: TONES[key], label, value: text, note, title};
+}));
 
 // Languages and Work eligibility as Your details recorded them (owner, 18 Oct 2026: "Show the actual recorded eligibility without inferring broader work
-// rights"): one quiet line that wraps, the one link to where they are edited.
+// rights"): the shared reference row (page-parts.js), the one link to where they are edited.
 function fromDetails() {
   const details = strategyState.lastStrategy?.details, words = detailsLine(details, savedGoals().languages);
   if (!words) return null;
   const section = details?.languages?.length || savedGoals().languages ? 'languages' : 'eligibility';   // the first fact the line names
-  const line = el('p', 'details-facts muted small');
-  const edit = Object.assign(el('button', 'link', 'Edit in Your details'), {type: 'button'});
-  edit.addEventListener('click', () => openSetting(section));
-  line.append(el('b', '', 'From Your details: '), words, ' · ', edit);
-  return line;
+  return referenceRow({text: words, open: () => openSetting(section)});
 }
 
 function editor() {
@@ -93,6 +80,6 @@ export function renderMainGoals() {
   card.dataset.card = 'goals';
   const read = el('div', 'card-read');
   read.append(tiles(), ...[fromDetails()].filter(Boolean));
-  card.append(cardHeader('goals', 'target', 'signal', 'Main goals', 'What every job is scored against.'), read, ...(isOpen('goals') ? [editor()] : []));
+  card.append(cardHeader('goals', 'target', 'signal', 'Main goals', 'What every job is scored against.', card), read, ...(isOpen('goals') ? [editor()] : []));
   host.replaceChildren(card);
 }

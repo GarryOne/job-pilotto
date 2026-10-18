@@ -27,8 +27,7 @@ test('a fixed tile shows its value and "Edit in Your details", never a pencil; t
 
 test('Strategy\'s Main goals reads Work eligibility and Languages from Your details, with the link to their section there', () => {
   const source = fs.readFileSync(new URL('../renderer/pages/main-goals.js', import.meta.url), 'utf8');
-  assert.match(source, /'Edit in Your details'/);
-  assert.match(source, /openSetting\(section\)/);
+  assert.match(source, /referenceRow\(\{text: words, open: \(\) => openSetting\(section\)\}\)/, 'the shared reference row (page-parts.js): "From Your details" + "Edit in Your details"');
   assert.match(source, /'languages' : 'eligibility'/);
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   for (const key of ['eligibility', 'languages']) assert.match(html, new RegExp(`id="setting-${key}"[^>]*data-profile-panel="details"|data-profile-panel="details"[^>]*id="setting-${key}"`), key);

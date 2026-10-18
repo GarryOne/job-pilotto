@@ -16,6 +16,7 @@ import {loadStrategy} from './strategy.js';
 import {entriesOf, renderTargets} from './strategy-targets.js';
 import {dirty, strategyBarNow} from './strategy-cards.js';
 import {byStore} from '../store-words.js';
+import {countOf, defineCount, paintCount} from '../shared-counts.js';
 // Where else the change shows: Notion's ⚙️ Search settings page, only while Notion holds the data (on this Mac they are the app's own).
 const alsoInSettings = () => byStore(' (also in your Search settings in Notion)', '');
 
@@ -36,6 +37,9 @@ const lastVerdict = () => { try { const saved = JSON.parse(localStorage.getItem(
 let checking = false;
 const rows = {};   // kind → the row's element, or null when it has nothing to say
 const ORDER = ['places', 'ideas', 'coverage', 'filters', 'sources', 'visits', 'foryou'];
+// One count of the suggestions, painted wherever it shows (shared-counts.js): the Suggestions tab's badge and the line under the tabs.
+const SUGGESTIONS = 'strategy-suggestions';
+defineCount(SUGGESTIONS, () => ORDER.filter(kind => rows[kind]).length);
 const plain = label => label.replace(/^[+−] /, '');
 const number = value => Number(value || 0).toLocaleString('en-US');
 
@@ -69,9 +73,7 @@ function drawSuggestions() {
     list.push(row);
   }
   box.replaceChildren(...(list.length ? list : [el('p', 'card muted empty-row', 'No suggestions right now: your search already catches what the last check saw.')]));
-  const count = ORDER.filter(kind => rows[kind]).length;
-  $('suggestions-count').textContent = String(count);
-  show($('suggestions-count'), count > 0);
+  paintCount(SUGGESTIONS);   // the tab's badge; the line under the tabs paints the same count (drawImprove)
   drawImprove();
   openPending();
 }
@@ -96,15 +98,18 @@ export function drawImprove() {
     return;
   }
   if (!waiting) { try { localStorage.setItem(SEEN, kinds.length ? '1' : '0'); } catch { /* a placeholder next time */ } }
-  if (!kinds.length) { box.replaceChildren(); show(box, false); return; }
-  const {title, top} = improveWords(kinds.length, briefs[kinds[0]]);
-  const words = el('div', 'notice-words');
-  words.append(el('b', '', title));
+  if (!countOf(SUGGESTIONS)) { box.replaceChildren(); show(box, false); return; }
+  const {top} = improveWords(briefs[kinds[0]]);
+  const words = el('div', 'notice-words'), title = el('b'), count = el('span');
+  Object.assign(count.dataset, {countOf: SUGGESTIONS, countOne: 'suggestion'});
+  title.append(count, ' to improve your search');
+  words.append(title);
   if (top) words.append(el('span', 'muted small improve-top', top));
   const go = el('button', 'secondary item-action', 'Review');
   go.type = 'button';
   go.addEventListener('click', () => showTab('strategy-suggestions'));
   box.replaceChildren(tile('bulb', 'signal'), words, go);
+  paintCount(SUGGESTIONS, box);
   show(box, true);
 }
 // One row: icon, title, a line on what it is, Review (opens the options) and ⋯ (hide). options: [{label, preview, button, run(button)}].

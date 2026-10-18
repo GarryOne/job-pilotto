@@ -19,13 +19,17 @@ test('heading, then the tabs, then the notices, then the content', () => {
 });
 
 test('one line names how many suggestions and the top one; Review opens the list', () => {
-  assert.deepEqual(improveWords(7, {title: 'Expand your locations', text: '5 matching roles in France'}),
-    {title: '7 suggestions to improve your search', top: 'Top: Expand your locations (5 matching roles in France)'});
-  assert.equal(improveWords(1, {title: '+ Add role words', text: ''}).top, 'Top: Add role words');
+  assert.deepEqual(improveWords({title: 'Expand your locations', text: '5 matching roles in France'}), {top: 'Top: Expand your locations (5 matching roles in France)'});
+  assert.equal(improveWords({title: '+ Add role words', text: ''}).top, 'Top: Add role words');
   const suggestions = read('renderer/pages/strategy-suggestions.js');
   const draw = suggestions.slice(suggestions.indexOf('export function drawImprove('), suggestions.indexOf('// One row: icon, title'));
   assert.match(draw, /go\.addEventListener\('click', \(\) => showTab\('strategy-suggestions'\)\)/);
   assert.doesNotMatch(draw, /item-rows|improveRow/, 'one line, not a row per kind');
+  // One count, two places (shared-counts.js): the tab's badge and the line are painted from it, never counted apart.
+  assert.match(page, /id="suggestions-count" data-count-of="strategy-suggestions"/);
+  assert.match(draw, /countOf: SUGGESTIONS, countOne: 'suggestion'/);
+  assert.match(suggestions, /defineCount\(SUGGESTIONS, /);
+  assert.doesNotMatch(suggestions, /\$\('suggestions-count'\)/, 'the badge is painted by paintCount only');
 });
 
 test('the line hides on Suggestions itself', () => {
