@@ -4,6 +4,7 @@ import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {EMPTY_FUNNEL_HINT, funnelIsEmpty, funnelSteps, inboundSteps} from '../funnel-view.js';
 import {shared} from './shared.js';
+import {OUTDATED_LINE, isOutdated, relaunch, restartButton} from '../errors.js';
 import {$, savedAgo, show} from './core.js';
 import {jobsChanged, openLogFor, showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
@@ -115,9 +116,8 @@ export function loadFocus() {
     // Never a blank page: say what went wrong where the list goes.
     focusStatus('Could not load');
     const li = el('li', 'focus-item muted');
-    li.textContent = /No handler registered/.test(String(error?.message))
-      ? 'Job Pilotto was updated while it was open. Restart it to load Focus.'
-      : `Focus could not load: ${error?.message || error}. Try Refresh.`;
+    li.textContent = isOutdated(error) ? OUTDATED_LINE : `Focus could not load: ${error?.message || error}. Try Refresh.`;
+    if (isOutdated(error)) li.append(' ', restartButton());
     $('focus-list').replaceChildren(li);
   }).finally(() => { focusLoading = null; $('focus-refresh').disabled = false; });
   return focusLoading;
@@ -464,7 +464,6 @@ export async function init() {
   window.addEventListener('pilot-outdated', () => {
     if (shared.outdatedShown) return;
     shared.outdatedShown = true;
-    const toast = toastMessage('Job Pilotto was updated', 'Restart it to finish the update: some buttons won\'t work until then. Click here to restart.');
-    if (toast) toast.onclick = () => window.pilot.interviews.relaunch();
+    toastMessage({title: 'Job Pilotto was updated', body: 'Restart it to finish the update: some buttons won\'t work until then.', action: {label: 'Restart', run: relaunch}});
   });
 }

@@ -3,6 +3,7 @@
 import {el, pill, tile} from '../components.js';
 import {$} from './core.js';
 import {rowOf} from './ready-rows.js';
+import {OUTDATED_LINE, errorLine, restartButton} from '../errors.js';
 
 // state: what readyState gave. names: code -> "Title · Company" for the rows.
 export function paint(card, state, names, act) {
@@ -45,7 +46,7 @@ export function blocked(card, why, retry) {
   again.addEventListener('click', () => { again.disabled = true; again.textContent = 'Checking…'; retry(); });
   body.textContent = '';
   const status = el('div', 'ready-status');
-  status.append(pill('Not available', 'warn'), el('span', 'muted', `${why || 'Our server did not answer.'} · checked ${checked}`), again);
+  status.append(pill('Not available', 'warn'), el('span', 'muted', `${why || 'Our server did not answer.'} · checked ${checked}`), ...(why === OUTDATED_LINE ? [restartButton()] : []), again);
   body.append(status);
   for (const button of card.querySelectorAll('.task-body button')) { button.disabled = true; button.title = why || ''; }
 }
@@ -71,7 +72,7 @@ export async function initReadyCard() {
   };
   // The night's rows, then what tonight would send from a fresh job read (the first paint uses the last kept list).
   const read = async () => {
-    const state = await window.pilot.readyState().catch(error => ({owner: false, why: error.message}));
+    const state = await window.pilot.readyState().catch(error => ({owner: false, why: errorLine(error)}));
     show(state);
     return state;
   };
@@ -94,21 +95,21 @@ export async function initReadyCard() {
   // Open in my browser: the real page in your own Chrome, filled as the night left it (lib/ready-handoff.js). Open live recording: the server's tab as a picture stream.
   const open = code => { const button = el('button', 'secondary', 'Open in my browser'); button.title = 'The real page in your own Chrome, filled as the night left it';
     button.addEventListener('click', async () => { button.disabled = true; say('Opening the filled form in your browser…');
-      const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: error.message}));
+      const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: errorLine(error)}));
       button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.')); });
     return button; };
-  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
-  const say = text => { note.textContent = text; };
+  const say = text => { note.textContent = text; if (text === OUTDATED_LINE) note.append(' ', restartButton()); };
   send.addEventListener('click', async () => {
     send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
-    const result = await window.pilot.readySend().catch(error => ({ok: false, error: error.message}));
+    const result = await window.pilot.readySend().catch(error => ({ok: false, error: errorLine(error)}));
     say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} will be filled on the server for the night of ${result.night}, not submitted${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'));
     refresh();
   });
   run.addEventListener('click', async () => {
     run.disabled = true;
-    const result = await window.pilot.readyRun().catch(error => ({ok: false, error: error.message}));
+    const result = await window.pilot.readyRun().catch(error => ({ok: false, error: errorLine(error)}));
     say(result.ok ? 'Filling started on the server. Results appear here as each form is filled; nothing is submitted.' : (result.error || 'Could not start.'));
     started = !!result.ok;
     refresh();
