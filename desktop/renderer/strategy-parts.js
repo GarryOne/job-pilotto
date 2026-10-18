@@ -1,7 +1,7 @@
 // The Strategy page's pure parts (owner mockup, 7 Oct 2026): role families, goal notes (estimated salary, language levels not set), the
 // exclusions split by what they do, and the suggestion rows' options in order. Data in, words out; strategy.js draws them.
 
-import {splitSalary} from './question-values.js';
+import {LEVELS, splitPermit, splitSalary} from './question-values.js';
 
 // src/role_kinds.py KINDS, in words. A role the engine did not label (an older read) is "Other roles".
 export const KIND_LABELS = {software: 'Software', sales_b2b: 'Business sales', sales_retail: 'Retail', logistics: 'Logistics', hospitality: 'Hospitality',
@@ -103,12 +103,35 @@ export function salaryWords(text) {
   const amount = Number(number) ? Number(number).toLocaleString('en-US') : number;
   return {text: `${currency} ${amount} / ${period || '?'}${basis ? ` · ${basis}` : ''}`, ...(period ? {} : {note: 'Period not set: Edit to add it'})};
 }
-// Main goals' "From Your details" line: Languages and Work eligibility exactly as Your details recorded them (each country's line as written; nothing
-// inferred from it). details: {languages: [{label, value}], eligibility: [...]}; languages: the older Profile line when Your details has none. -> words or ''.
+// Main goals' "From Your details" line (owner, 18 Oct 2026: "What is this long text?"): one short line, never the notes, marks or instructions Your details
+// keeps for the AI. Languages with their levels ("English B2"), and where the person may work as recorded per country: a country answered "allowed" or
+// "Yes" is "Works in", "needs visa" or "No" is "Needs sponsorship"; nothing is inferred beyond the places the answers name. A line that names no place,
+// or gives no such answer, is left to Your details. details: {languages: [{label, value}], eligibility: [...]}; languages: the older Profile line when
+// Your details has none. -> words or ''.
+const SHOWN = 4, OLD_LANGUAGES = 60;
+const bare = text => String(text ?? '').replace(/\s*\(note:[\s\S]*$/i, '').replace(/\s*\[[^\]]*\]\s*$/, '').trim();
+const listed = items => (items.length > SHOWN ? `${items.slice(0, SHOWN).join(', ')} +${items.length - SHOWN} more` : items.join(', '));
+// The place a per-country line names: the label itself ("Switzerland"), or the capitalised words that end a question ("Authorised to work in the UK?" → "UK").
+const placeOf = label => (bare(label).replace(/\([^)]*\)/g, '').replace(/[?:\s]+$/, '').match(/(?:\p{Lu}[\p{L}.'-]*)(?:\s*(?:\/|\s)\s*\p{Lu}[\p{L}.'-]*)*$/u) || [''])[0];
+function eligibility(lines) {
+  const works = [], needs = [];
+  for (const line of lines || []) {
+    const value = bare(line.value), place = placeOf(line.label), {status} = splitPermit(value);
+    const answer = status || (value.match(/^(yes|no)\b/i)?.[1] || '').toLowerCase();
+    const to = answer === 'allowed' || answer === 'yes' ? works : answer === 'needs visa' || answer === 'no' ? needs : null;
+    if (to && place && !works.includes(place) && !needs.includes(place)) to.push(place);
+  }
+  return [works.length && `Works in: ${listed(works)}`, needs.length && `Needs sponsorship: ${listed(needs)}`].filter(Boolean).join(' · ');
+}
+function spoken(lines, older) {
+  const levels = new Set(LEVELS.map(level => level.toLowerCase()));
+  const said = (lines || []).map(line => ({name: bare(line.label), level: bare(line.value)}))
+    .filter(({name, level}) => name && levels.has(level.toLowerCase())).map(({name, level}) => `${name} ${level}`);
+  if (said.length) return said.length > SHOWN ? `${said.slice(0, SHOWN).join(' · ')} +${said.length - SHOWN} more` : said.join(' · ');
+  const old = bare(older);
+  return old.length > OLD_LANGUAGES ? `${old.slice(0, OLD_LANGUAGES).replace(/\s+\S*$/, '')}…` : old;
+}
 export function detailsLine(details = {}, languages = '') {
-  // A section of one line says its value ("Languages I can work in: English" → "English"); eligibility keeps its label even alone ("Switzerland: B permit"),
-  // so a permit never reads as wider than the place it names.
-  const facts = (lines, keep) => (lines || []).map(line => (lines.length === 1 && !keep ? line.value : `${line.label}: ${line.value}`)).join(' · ');
-  const said = facts(details?.languages) || String(languages || '').trim(), eligible = facts(details?.eligibility, true);
-  return [said && `Languages: ${said}`, eligible && `Work eligibility: ${eligible}`].filter(Boolean).join(' · ');
+  const said = spoken(details?.languages, languages);
+  return [said && `Languages: ${said}`, eligibility(details?.eligibility)].filter(Boolean).join(' · ');
 }
