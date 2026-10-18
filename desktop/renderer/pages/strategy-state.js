@@ -10,6 +10,7 @@ export const strategyState = {
 
 // Tabs (owner, 7 Oct 2026): each replaces the content under the bar; the draft and its save bar stay whatever the tab.
 export function showTab(id) {
+  document.querySelector('.strategy-page')?.setAttribute('data-tab', id);   // the suggestions line hides on Suggestions itself (style.css)
   for (const tab of document.querySelectorAll('.strategy-tabs [data-tab]')) {
     const on = tab.dataset.tab === id;
     tab.classList.toggle('is-active', on);

@@ -1,6 +1,6 @@
 // Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there. Entry: loadStrategy and init; the cards are strategy-targets.js and strategy-suggestions.js, shared state strategy-state.js. Guarded by: advice-events, save-progress, activity-selection-kept tests.
 import {openInNotion} from './notion-connect.js';
-import {el, tile} from '../components.js';
+import {el, openMenu, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, savedAgo, show} from './core.js';
@@ -9,7 +9,7 @@ import {guardLeave, openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {CARD_TONE, TARGET_CARDS, dirty, inColumns, discardTargets, saveTargets, renderStrategy} from './strategy-targets.js';
-import {pendingImprove, drawImprove, loadCoverage} from './strategy-suggestions.js';
+import {loadCoverage} from './strategy-suggestions.js';
 import {loadPreferences, reviewPreferences} from './job-preferences.js';
 import {loadLocationsWhich} from './locations-which.js';
 export {TARGET_CARDS, TARGET_LISTS, editedList} from './strategy-targets.js';
@@ -18,7 +18,6 @@ export {reviewSuggestion, loadCoverage} from './strategy-suggestions.js';
 export async function loadStrategy() {
   shared.state = await window.pilot.state();
   message('strategy-message', '');
-  pendingImprove.add('previous');   // the older scores come with the fresh read only (the saved copy leaves them out)
   loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows
   loadPreferences();   // Job preferences: the Profile's must-haves and ranking preferences
   loadLocationsWhich();   // Which locations are right?: shown only while the old lists and the Profile disagree
@@ -27,14 +26,13 @@ export async function loadStrategy() {
   if (saved?.result?.ok && !strategyState.strategyShown) {
     // The saved copy draws the page at once, but not its alerts about what changes: "Your Profile is empty" and "N scores kept" came back
     // for a few seconds after every refresh, from a copy older than the rebuild that cleared them (7 Oct 2026). The fresh read shows them.
-    renderStrategy({...saved.result, profile_empty: false, previous: 0});
+    renderStrategy({...saved.result, profile_empty: false, previous: 0, outdated: null});
     $('strategy-synced').textContent = `Saved ${savedAgo(saved.at)} · updating…`;
   } else if (!strategyState.strategyShown) strategySkeleton();
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
-  if (!data.ok) { pendingImprove.delete('previous'); drawImprove(); $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
+  if (!data.ok) { $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
   message('strategy-load', '');
   $('strategy-view-loading')?.remove();
-  pendingImprove.delete('previous');
   renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
 }
@@ -100,9 +98,10 @@ export async function init() {
   $('profile-empty-rebuild').addEventListener('click', () => $('strategy-redo').click());   // the same Rebuild from CV as the Profile page
   $('targets-cancel').addEventListener('click', discardTargets);
   $('targets-save').addEventListener('click', saveTargets);
-  $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
+  // ⋯ → the one Notion link (owner, 18 Oct 2026, review fix 10): the search settings page, else the Profile (Job preferences live there).
+  const sourceKey = () => (shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID');
+  $('strategy-more').addEventListener('click', () => openMenu($('strategy-more'), [{label: 'View source in Notion', icon: 'link', run: event => openInNotion(sourceKey(), event)}]));   // about Notion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
   $('preferences-review').addEventListener('click', reviewPreferences);
-  $('preferences-open-notion').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
 }
 

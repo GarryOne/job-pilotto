@@ -86,3 +86,7 @@ export function withTyped(edits, typed, plain, stored = () => []) {
   }
   return out;
 }
+// The one suggestions line under Strategy's tabs (owner, 18 Oct 2026, review fix 3): "7 suggestions to improve your search", and the top one.
+// top: the first kind's brief {title, text}; its "+ " / "− " lead is dropped.
+export const improveWords = (count, top) => ({title: `${count} suggestion${count === 1 ? '' : 's'} to improve your search`,
+  top: top ? `Top: ${top.title.replace(/^[+−] /, '')}${top.text ? ` (${top.text})` : ''}` : ''});

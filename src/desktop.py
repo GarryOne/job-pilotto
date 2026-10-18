@@ -48,7 +48,7 @@ def main(argv=None):
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('calendar')   # the Calendar's jobs: Applications rows only, no search cache (a fraction of `jobs`)
     sub.add_parser('strategy')
-    sub.add_parser('rescore-previous')
+    sub.add_parser('rescore-outdated')
     sub.add_parser('refresh-locations').add_argument('--url', default='')   # one job's refresh from its drawer; none = every active one
     sub.add_parser('places-now')   # the fingerprint of today's places: a job whose score used another says "older places" (lib/places-now.js)
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
@@ -286,12 +286,19 @@ def main(argv=None):
             from .store_access import run_stores
             print(json.dumps(calendar_jobs(*run_stores(tracker)), ensure_ascii=False))
             return 0
-        if args.command == 'rescore-previous':
-            print(json.dumps({'queued': score.rescore_previous(db)}))
-            return 0
         if args.command == 'places-now':
             from .ai import locations
             print(json.dumps({'places': locations.fingerprint_now()}))
+            return 0
+        if args.command == 'rescore-outdated':   # Strategy's one Re-score: every outdated job once (src/desktop_strategy.py outdated)
+            from .desktop_strategy import rescore_outdated
+            from .store_access import run_stores, url_stages
+            stores, _ = run_stores(tracker)
+            try:
+                stages = url_stages(stores)
+            except Exception:  # noqa: BLE001 (stages that cannot be read: every shown job counts as active)
+                stages = {}
+            print(json.dumps({'queued': rescore_outdated(db, stages)}))
             return 0
         if args.command == 'refresh-locations':   # the explicit refresh after a change of places: active jobs only (src/ai/locations.py)
             from .ai import locations
