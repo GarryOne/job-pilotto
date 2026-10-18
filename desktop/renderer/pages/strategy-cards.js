@@ -4,8 +4,8 @@
 // nothing saves per card: Strategy's one page bar (save-bar.js pageSaveBar, "Save strategy changes") saves or discards every card's draft, and never a
 // Profile draft. Goals follow the same Edit → Save. The cards: Main goals (main-goals.js), Locations and the Advanced ones (strategy-targets.js), Job
 // preferences (job-preferences.js, through outline-tab.js's {bar}). Guarded by test/strategy-cards.test.js.
-import {cardEdit, el, pill, tile} from '../components.js';
-import {doneButton, setEditing} from '../card-shell.js';
+import {cardEdit, pill} from '../components.js';
+import {cardHead, doneButton, setEditing} from '../card-shell.js';
 import {pageSaveBar} from '../save-bar.js';
 import {$} from './core.js';
 import {strategyState, showTab} from './strategy-state.js';
@@ -42,20 +42,15 @@ export const isOpen = key => strategyState.editing === key;
 
 // The card's header: its tile and title, "Unsaved" while it holds a draft, and a quiet Edit (the shared Done while its editor is open). card: its section.
 export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = '', card = null) {
-  const head = el('div', 'card-head'), heading = el('h3'), words = el('div', 'card-words');
-  heading.append(tile(glyph, tone), title);
   const badge = pill('Unsaved', 'warn');
   badge.classList.add('unsaved-badge');
   badge.hidden = !cardCount(key);
-  heading.append(badge);
-  words.append(heading, ...(lead ? [el('p', 'muted small', lead)] : []));
-  head.append(words);
+  let action;
   if (isOpen(key)) {
-    const done = doneButton(card, () => cardCount(key));
-    done.addEventListener('click', closeCard);
-    head.append(done);
-  } else head.append(cardEdit('Edit', title.toLowerCase(), () => openCard(key)));
-  return head;
+    action = doneButton(card, () => cardCount(key));
+    action.addEventListener('click', closeCard);
+  } else action = cardEdit('Edit', title.toLowerCase(), () => openCard(key));
+  return cardHead({glyph, tone, title, lead, badge, action});
 }
 
 let redraw = () => {};   // strategy.js: Main goals + the target cards (strategy-targets.js renderCards)

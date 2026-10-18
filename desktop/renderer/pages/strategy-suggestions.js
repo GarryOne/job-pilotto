@@ -104,8 +104,8 @@ export function drawImprove() {
   Object.assign(count.dataset, {countOf: SUGGESTIONS, countOne: 'suggestion'});
   title.append(count, ' to improve your search');
   words.append(title);
-  if (top) words.append(el('span', 'muted small improve-top', top));
-  const go = el('button', 'secondary item-action', 'Review');
+  if (top) box.title = `Top: ${top}`;   // the line stays one count and one action (mockup 03); the top one on hover, in full on Suggestions
+  const go = el('button', 'secondary item-action', 'Review suggestions');
   go.type = 'button';
   go.addEventListener('click', () => showTab('strategy-suggestions'));
   box.replaceChildren(tile('bulb', 'signal'), words, go);

@@ -1,7 +1,7 @@
 // The component gallery's "Card shell" section: one card read, the same card in its editor, and the page save bar with drafts on two tabs, all drawn by
 // the shared parts (card-shell.js, components.js cardEdit, save-bar.js), so the gallery is the living copy of docs/rules/desktop-ui.md "Cards: read → Edit → editor".
-import {cardEdit, el} from './components.js';
-import {chipLine, editRows, readRows, setEditing} from './card-shell.js';
+import {cardEdit, el, pill} from './components.js';
+import {cardHead, chipLine, editRows, readRows, setEditing, settingBlock} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
 import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
@@ -71,5 +71,28 @@ export function pageBlocks() {
       {key: 'gaps', tone: 'low', label: 'Skills shown', score: 38}, {key: 'none', label: 'Not scored yet', score: null}])),
     panel('referenceRow', referenceRow({text: 'Swiss permit B · notice period 3 months'})),
   );
+  return box;
+}
+
+// Roomy cards (owner, 18 Oct 2026, mockup 03 approved): what every Strategy and Profile card reads like. A container with .roomy-cards, cardHead (icon tile,
+// title, lead, quiet Edit), summaryTiles divided, settingBlock (a list: small heading over chips), readRows with icons (small grey label, bold value).
+export function roomyCards() {
+  const box = el('div', 'roomy-cards');
+  const card = (head, ...parts) => { const node = el('section', 'card'), read = el('div', 'card-read'); read.append(...parts); node.append(head, read); return node; };
+  const edit = what => cardEdit('Edit', what, () => {});
+  const pair = el('div', 'roomy-pair');
+  pair.append(
+    card(cardHead({glyph: 'pin', tone: 'teal', title: 'Locations', lead: 'Where you want to work.', action: edit('locations')}),
+      settingBlock('Preferred locations', chipLine(['Lyon', 'Porto']), {qualifier: 'ranked first'}), settingBlock('Acceptable locations', chipLine(['France', 'Portugal'])),
+      readRows([{icon: 'send', label: 'Relocation', value: 'Not specified'}, {icon: 'shield', label: 'Work rights', value: pill('Not set', 'warn', {title: 'Jobs abroad are flagged'})}], {lined: true})),
+    card(cardHead({glyph: 'sliders', tone: 'violet', title: 'Job preferences', lead: 'What a job must have.', action: edit('job preferences')}),
+      readRows([{icon: 'briefcase', label: 'Employment type', value: 'Full-time'}, {icon: 'clock', label: 'Workload', value: '80 – 100%'},
+        {icon: 'target', label: 'Role priorities', value: chipLine(['Store Manager', 'Area Manager'])}], {lined: true})));
+  box.append(
+    card(cardHead({glyph: 'target', tone: 'signal', title: 'Main goals', lead: 'What every job is scored against.', action: edit('main goals')}),
+      summaryTiles([{key: 'roles', icon: 'briefcase', tone: 'violet', label: 'Target roles', value: 'Store Manager · Area Manager', more: '+1 more'},
+        {key: 'mode', icon: 'building', tone: 'good', label: 'Work mode', value: 'On-site'},
+        {key: 'salary', icon: 'coins', tone: 'warn', label: 'Minimum salary', value: 'EUR 48,000 a year', badge: {text: 'As written', tone: 'neutral', title: 'Edit to pick its currency'}}], {divided: true})),
+    pair);
   return box;
 }

@@ -183,19 +183,26 @@ function draw(view, into) {
 
 // ---------- The card as read: each side's fields as label/value rows, its other rules on one line; drafts shown as they will be saved.
 const LEAD = 'What a job must have, and what ranks it higher. Scoring reads them.';
+const readText = (field, item) => String(typed.get(field.key) ?? item?.value ?? '').replace(/\*\*/g, '').trim();
 function readValue(field, item) {
-  const text = String(typed.get(field.key) ?? item?.value ?? '').replace(/\*\*/g, '').trim();
+  const text = readText(field, item);
   if (!text) return el('span', 'muted', 'Any');
   if (field.widget === 'chips') return chipLine(chipsOf(text));
   if (field.widget === 'workload') return workloadText(workloadOf(text)) || text;
   return text;
 }
+// Each row's icon (mockup 03: icon · small grey label · bold value).
+const ROW_ICONS = {home: 'pin', employment: 'briefcase', workload: 'clock', roles: 'target'};
 function readSide(read, key) {
   const group = SIDES[key], countries = typed.get('countries') ?? read.fields.countries?.value ?? '';
   const rows = FIELDS.filter(field => field.side === key && (field.key !== 'workload' || showWorkload(countries, review.parse?.countries)))
-    .map(field => ({label: field.label, value: readValue(field, read.fields[field.key])}));
+    .map(field => ({icon: ROW_ICONS[field.key] || 'check', label: field.label, value: readValue(field, read.fields[field.key]), any: !readText(field, read.fields[field.key])}));
   const rules = read.other.filter(item => item.side === key).map(item => ({...item, value: typed.get(item.id) ?? item.value}));
-  rows.push({label: key === 'must' ? 'Other deal-breakers' : 'Other preferences', value: summaryOf(rules)});
+  rows.push({icon: key === 'must' ? 'close' : 'sparkle', label: key === 'must' ? 'Other deal-breakers' : 'Other preferences', value: summaryOf(rules)});
+  // Fields with no limit fold into one quiet row ("Any: Home base · Workload"), so the card reads its set values (mockup 03: three rows).
+  const open = rows.filter(row => row.any);
+  if (open.length > 1) rows.splice(rows.indexOf(open[0]), 0, {icon: 'check', label: 'Any', value: el('span', 'muted', open.map(row => row.label).join(' · '))});
+  for (const row of open.length > 1 ? open : []) rows.splice(rows.indexOf(row), 1);
   const box = el('section', 'pref-read'), head = el('h4', 'pref-read-head', icon(group.icon));
   box.dataset.side = key;
   head.append(group.title);

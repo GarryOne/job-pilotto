@@ -21,8 +21,10 @@ export const chipsOf = (labels, cased = true) => {
 export function folded(labels, keep, more) {
   const box = chipsOf(labels.slice(0, keep));
   if (labels.length <= keep) return box;
-  const rest = labels.slice(keep), toggle = el('button', 'link chip-more', `${more} (${rest.length})`);
+  // "+N more", opening in place (owner, 18 Oct 2026: long lists show their first chips and "+N more"); `more` names it for the screen reader.
+  const rest = labels.slice(keep), toggle = el('button', 'link chip-more', `+${rest.length} more`);
   toggle.type = 'button';
+  toggle.title = more;
   toggle.setAttribute('aria-expanded', 'false');
   toggle.addEventListener('click', () => { toggle.replaceWith(...rest.map(label => chip(label, true))); });
   box.append(toggle);

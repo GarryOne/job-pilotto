@@ -41,6 +41,18 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 - **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
   `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
 
+## Roomy cards (owner, 18 Oct 2026, mockup 03 approved: "Look at the cards with chips how roomier they are") [approved]
+Strategy and Profile cards read like the owner's mockups. Parts: `renderer/roomy-cards.css` (a page opts in with `.roomy-cards` on the cards' container), tokens
+`--card-pad --row-min --label-col --tile-lg --fs-card-title --fs-value --chip-pad`; living copy: `npm run gallery` / `npm run design-system` → "Roomy cards".
+- **Header** `cardHead({glyph, tone, title, lead, badge, action})` (card-shell.js): a tinted icon tile, the title (18px bold) over a one-line lead, the action at the right.
+  In a roomy card the quiet Edit has no box: pencil + "Edit" in the link colour.
+- **A single value** is one row: `readRows(rows, {lined: true})` with `icon` per row: icon · small grey label (label column) · bold value; dividers full width.
+- **A list** is `settingBlock(title, chips, {qualifier})`: its small heading over its chips; a qualifier joins the heading ("Preferred locations · ranked first").
+- **Figures** `summaryTiles(tiles, {divided: true})`: no box per tile, a divider between them, 3 across (4 goals: 2 × 2); "+N more" (`more`) and a status
+  (`badge`: "As written", "Estimated", its words on hover) sit inside the value, never as a line under it.
+- **Side by side** `.roomy-pair` where both fit; unset rows of one kind fold into one quiet row ("Any · Home base · Workload"); long lists show 10 chips and "+N more".
+- **What fails a change:** `desktop/test/roomy-cards.test.js` (every Strategy card in `.roomy-cards` with a `cardHead` header; the parts' shapes).
+
 ## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
 - **Review list** `reviewList(items, {doneLabel, empty, statusAt, joined, doneSummary})`: each item = title, why it is here, where it came from, a status chip, its
