@@ -168,6 +168,7 @@
   "read-back-equivalence.test.mjs",
   "real-claude.test.mjs",
   "real-extension.test.mjs",
+  "report-button.test.mjs",
   "recall.test.mjs",
   "record-repair.test.mjs",
   "record-sites-order.test.mjs",
