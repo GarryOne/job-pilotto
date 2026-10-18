@@ -23,20 +23,6 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .ui-tile.tone-neutral { --tone: var(--ink-2); --tone-soft: var(--surface-2); }   /* without it a neutral tile took the signal colour */
 .ui-tile.tone-info { border-radius: 50%; }
 
-/* ⋯ button and its menu */
-.ui-more { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
-.ui-more[aria-expanded="true"], .ui-more:hover { background: var(--bg); }
-.ui-menu { position: fixed; z-index: 60; min-width: 190px; display: grid; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-md); padding: 5px; box-shadow: var(--shadow-lg); }
-.ui-menu button { background: transparent; text-align: left; font-weight: 500; font-size: var(--fs-sm); padding: 7px 9px;
-  border-radius: var(--r-sm); color: var(--ink); }
-.ui-menu button.with-menu-icon { display: flex; align-items: center; gap: var(--sp-2); }
-.ui-menu button.with-menu-icon .icon { width: 15px; height: 15px; color: var(--muted); }
-.ui-menu button.danger .icon { color: inherit; }
-.ui-menu button:hover, .ui-menu button:focus-visible { background: var(--bg); outline: none; }
-.ui-menu button.danger { color: var(--bad); }
-.ui-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px; }
-
 /* Tones: pills and tiles (last, so they override each component's default) */
 .tone-info { --tone: var(--info); --tone-soft: var(--info-soft); }
 .tone-good { --tone: var(--good); --tone-soft: var(--good-soft); }

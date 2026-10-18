@@ -1,0 +1,32 @@
+/* The ⋯ button and its one floating menu (components.js openMenu), moved out of components.css on 18 Oct 2026. Guarded by test/ui-menu-rows.test.js. */
+/* ⋯ button and its menu */
+.ui-more { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
+.ui-more[aria-expanded="true"], .ui-more:hover { background: var(--bg); }
+.ui-menu { position: fixed; z-index: 60; min-width: 190px; display: grid; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 5px; box-shadow: var(--shadow-lg); }
+.ui-menu button { background: transparent; text-align: left; font-weight: 500; font-size: var(--fs-sm); padding: 7px 9px;
+  border-radius: var(--r-sm); color: var(--ink); }
+.ui-menu button.with-menu-icon { display: flex; align-items: center; gap: var(--sp-2); }
+.ui-menu button.with-menu-icon .icon { width: 15px; height: 15px; color: var(--muted); }
+.ui-menu button.danger .icon { color: inherit; }
+.ui-menu button:hover, .ui-menu button:focus-visible { background: var(--bg); outline: none; }
+.ui-menu button.danger { color: var(--bad); }
+.ui-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px; }
+
+/* A list row (the question navigator, renderer/question-nav.js; owner, 18 Oct 2026): an icon tile, a bold label over a muted detail line,
+   a state pill on the right; the current row has the signal edge. A heading names a group; a search box tops a long list. */
+.ui-menu.is-list { max-height: min(420px, 70vh); overflow-y: auto; gap: 2px; }
+.ui-menu button.ui-menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3);
+  padding: 7px var(--sp-2); border-left: 3px solid transparent; }
+.ui-menu button.ui-menu-row:not(:has(.ui-menu-tile)) { grid-template-columns: minmax(0, 1fr) auto; }
+.ui-menu button.ui-menu-row.is-current { background: var(--signal-soft); border-left-color: var(--signal); }
+.ui-menu-tile { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2); }
+.ui-menu-row.is-current .ui-menu-tile { background: var(--surface); color: var(--signal-ink); }
+.ui-menu-tile .icon { width: 15px; height: 15px; }
+.ui-menu-words { display: grid; min-width: 0; }
+.ui-menu-label { font-weight: 600; font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-menu-detail { font-weight: 400; font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-menu-heading { margin: var(--sp-1) 0 0; padding: var(--sp-2) var(--sp-2) var(--sp-1); border-top: 1px solid var(--line); font: 600 var(--fs-xs) var(--font-mono);
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ui-menu-search { margin-bottom: var(--sp-1); }
+.ui-menu-search input { min-height: 32px; }

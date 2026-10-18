@@ -91,7 +91,10 @@ export function choiceCards(choices, {selected = null, onPick = () => {}, label 
 }
 
 // ⋯ menu: one floating list for the whole window, closed by Esc, a click outside, scrolling or picking an item.
-// Items: {label, run(event), title?, danger?, icon?} (icon: a name from icons.js) or '-' for a divider.
+// Items: {label, run(event), title?, danger?, icon?} (icon: a name from icons.js) or '-' for a divider. A list row (the question navigator,
+// renderer/question-nav.js; owner, 18 Oct 2026) adds detail (a muted second line), tile (an icon in a tile), badge ([text, tone]: a pill) and
+// current (marked); {heading} names the group below it. Options: search (a search box from that many rows), width 'anchor' (the anchor's width).
+// Styles in ui-menu.css. Guarded by test/ui-menu-rows.test.js and test/more-button-menu.test.js.
 const menu = el('div', 'ui-menu');
 menu.hidden = true;
 menu.setAttribute('role', 'menu');
@@ -103,35 +106,85 @@ let menuAt = null;   // where that button was when the menu opened: a scroll tha
 export function closeMenu(within = null) {
   if (within && !(menuAnchor && within.contains(menuAnchor))) return;
   menu.hidden = true;
+  menuAnchor?.setAttribute?.('aria-expanded', 'false');   // any anchor (the question navigator's button too), not only a ⋯
   menuAnchor = null;
   menuAt = null;
   for (const open of document.querySelectorAll('.ui-more[aria-expanded="true"]')) open.setAttribute('aria-expanded', 'false');
 }
-export function openMenu(anchor, items) {
+function menuItem(item) {
+  if (item === '-') return document.createElement('hr');
+  if (item.heading) return el('p', 'ui-menu-heading', item.heading);
+  const row = Boolean(item.detail || item.tile || item.badge || item.current);
+  const button = el('button', [item.danger && 'danger', item.icon && 'with-menu-icon', row && 'ui-menu-row', item.current && 'is-current'].filter(Boolean).join(' '), item.icon ? icon(item.icon) : null);
+  if (row) {
+    const words = el('span', 'ui-menu-words', el('span', 'ui-menu-label', item.label));
+    if (item.detail) words.append(el('span', 'ui-menu-detail', item.detail));
+    button.append(...[item.tile && el('span', 'ui-menu-tile', icon(item.tile)), words, item.badge && pill(...item.badge)].filter(Boolean));
+    button.dataset.find = `${item.label} ${item.detail || ''}`.toLocaleLowerCase();
+  } else if (item.icon) button.append(item.label); else button.textContent = item.label;
+  if (item.current) button.setAttribute('aria-current', 'true');
+  button.title = item.title || '';
+  button.disabled = !!item.disabled;
+  button.setAttribute('role', 'menuitem');
+  button.addEventListener('click', event => { closeMenu(); item.run(event); });
+  return button;
+}
+// Typed words filter the rows (every word in the label or detail); a heading hides when its group has none left.
+function filterMenu(query) {
+  const words = String(query).toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  let heading = null, shown = 0;
+  for (const node of menu.children) {
+    if (node.classList.contains('ui-menu-heading')) { if (heading) heading.hidden = !shown; heading = node; shown = 0; continue; }
+    if (node.tagName !== 'BUTTON') continue;
+    node.hidden = !words.every(word => (node.dataset.find || node.textContent.toLocaleLowerCase()).includes(word));
+    if (!node.hidden) shown++;
+  }
+  if (heading) heading.hidden = !shown;
+}
+// ↑ / ↓ (wrapping), Home / End: the next row to focus among count rows; at = -1 from the search box. null: not a move key.
+export function menuStep(at, count, key) {
+  if (!count) return null;
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  if (key === 'ArrowDown') return at < 0 ? 0 : (at + 1) % count;
+  if (key === 'ArrowUp') return at <= 0 ? count - 1 : at - 1;
+  return null;
+}
+menu.addEventListener('keydown', event => {
+  const rows = [...menu.querySelectorAll('button')].filter(button => !button.hidden && !button.disabled);
+  const next = menuStep(rows.indexOf(document.activeElement), rows.length, event.key);
+  if (next === null) return;
+  event.preventDefault();
+  rows[next].focus();
+});
+export function openMenu(anchor, items, {search = 0, width = 'auto'} = {}) {
   const wasOpen = anchor.getAttribute('aria-expanded') === 'true';
   closeMenu();
   if (wasOpen) return;
-  menu.replaceChildren(...items.map(item => {
-    if (item === '-') return document.createElement('hr');
-    const button = el('button', `${item.danger ? 'danger' : ''}${item.icon ? ' with-menu-icon' : ''}`.trim(), item.icon ? icon(item.icon) : null);
-    if (item.icon) button.append(item.label); else button.textContent = item.label;
-    button.title = item.title || '';
-    button.disabled = !!item.disabled;
-    button.setAttribute('role', 'menuitem');
-    button.addEventListener('click', event => { closeMenu(); item.run(event); });
-    return button;
-  }));
+  const nodes = items.map(menuItem);
+  const rows = items.filter(item => item !== '-' && !item.heading).length;
+  if (search && rows >= search) {
+    const box = Object.assign(document.createElement('input'), {type: 'search', placeholder: 'Find…', ariaLabel: 'Find in this list'});
+    box.addEventListener('input', () => filterMenu(box.value));
+    nodes.unshift(el('label', 'search-box ui-menu-search', icon('search')));
+    nodes[0].append(box);
+  }
+  menu.replaceChildren(...nodes);
+  menu.classList.toggle('is-list', nodes.some(node => node.classList?.contains('ui-menu-row')));
   menu.hidden = false;
   anchor.setAttribute('aria-expanded', 'true'); menuAnchor = anchor;
   const box = anchor.getBoundingClientRect();
   menuAt = {top: box.top, left: box.left};
+  menu.style.width = width === 'anchor' ? `${box.width}px` : '';
   const below = box.bottom + 6 + menu.offsetHeight <= window.innerHeight;
   menu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - menu.offsetHeight - 6)}px`;
-  menu.style.left = `${Math.max(8, box.right - menu.offsetWidth)}px`;
-  menu.querySelector('button')?.focus();
+  menu.style.left = `${Math.max(8, width === 'anchor' ? box.left : box.right - menu.offsetWidth)}px`;
+  (menu.querySelector('.ui-menu-search input') || menu.querySelector('button.is-current') || menu.querySelector('button'))?.focus();
 }
-document.addEventListener('click', event => { if (!menu.hidden && !event.target.closest('.ui-menu, .ui-more')) closeMenu(); });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
+// A click on the menu or on the button that opened it (a ⋯, or any anchor such as the question navigator) is not "outside".
+document.addEventListener('click', event => { if (!menu.hidden && !event.target.closest('.ui-menu, .ui-more') && !menuAnchor?.contains(event.target)) closeMenu(); });
+// Esc closes an open menu and only it (the drawer under it, which also closes on Esc, waits for defaultPrevented).
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { closeMenu(); event.preventDefault(); } });
 // A scroll closes the menu only when it moved its ⋯ button (or the button left the page). Scroll events arrive a frame late: the scroll that brings a
 // button into view before a click (Playwright's, a keyboard focus) landed after the menu had opened and shut it at once (7 Oct 2026, the Windows
 // focusdismiss suite: "waiting for getByRole('menuitem', { name: 'Dismiss interview' })" for 30 s).

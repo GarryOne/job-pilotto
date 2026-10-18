@@ -1,9 +1,9 @@
 // Application questions, one at a time (owner's mockup, 17 Oct 2026: "THIS IS TOO CROWDED/OVERWHELMING... Move the questionnaire out of the Jobs
 // page"): a right drawer over the main column, in the job drawer's frame (job-drawer.css) and its overlay slot (renderer/overlay-slot.js), so it
-// never stacks over Recent activity or a job. A fixed header (title, "Question 2 of 9", a bar, a selector to jump around), one question with the
+// never stacks over Recent activity or a job. A fixed header (title, "Question 2 of 9", the navigator: renderer/question-nav.js), one question with the
 // control of its kind (renderer/question-control.js), a suggested answer told apart from a missing one, its source on demand, and a fixed footer:
 // Back · Skip for now · Confirm & next. Drafts are kept when it closes. The queue is Jobs' open questions (pages/jobs-questions.js), so the count is
-// the queue's; set-aside questions are listed apart in the selector. Opened from Jobs' card, Profile → Application answers and ⌘K (nav.js).
+// the queue's; set-aside questions are listed apart in the navigator's list. Opened from Jobs' card, Profile → Application answers and ⌘K (nav.js).
 // Guarded by test/question-review.test.js and test/question-kinds-screens.test.js.
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
@@ -17,6 +17,9 @@ import {loadQuestions, questionsNow} from './jobs-questions.js';
 import {$} from './core.js';
 import {fromDetailsLine} from '../answered-from-details.js';
 import {alsoKeys} from '../question-wordings.js';
+import {ASKS, questionNav, shortTitle, sourceOf} from '../question-nav.js';
+
+export {shortTitle};
 
 const DRAFTS = 'questionDrafts';
 const state = {open: false, queue: [], setAside: [], consent: 0, fromDetails: 0, at: 0, aside: null, saved: '', error: '', busy: false, loading: false, failed: ''};
@@ -24,14 +27,6 @@ const drafts = new Map();
 const jobOnly = new Set();   // the questions whose "Reuse for matching questions" the person turned off (this job only)
 try { for (const [key, value] of Object.entries(JSON.parse(localStorage.getItem(DRAFTS) || '{}'))) drafts.set(key, String(value)); } catch {}
 const keepDrafts = () => { try { localStorage.setItem(DRAFTS, JSON.stringify(Object.fromEntries(drafts))); } catch {} };
-
-// The selector's words for a question: its first words, never a cut word.
-export function shortTitle(text, most = 56) {
-  const clean = String(text || '').replace(/\s+/g, ' ').trim();
-  if (clean.length <= most) return clean;
-  const cut = clean.slice(0, most);
-  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), most - 12)).replace(/[\s,.;:–—-]+$/, '')}…`;
-}
 
 const current = () => state.aside || state.queue[state.at] || null;
 
@@ -47,44 +42,23 @@ function header() {
   head.append(top);
   if (state.fromDetails > 0) head.append(el('p', 'muted small qr-details', fromDetailsLine(state.fromDetails)));
   if (!state.queue.length && !state.aside) return head;
-  const where = el('div', 'qr-where');
-  const at = state.aside ? 'A set-aside question' : `Question ${state.at + 1} of ${state.queue.length}`;
-  const bar = el('div', 'bar qr-bar');
-  const fill = el('span', '');
-  fill.style.width = `${Math.round(((state.aside ? 0 : state.at + 1) / Math.max(state.queue.length, 1)) * 100)}%`;
-  bar.append(fill);
-  where.append(el('b', '', at), bar, picker());
-  head.append(where);
+  head.append(questionNav(state, drafts, go));
   return head;
 }
 
-// Jump to any question; the set-aside ones are listed apart (never counted in the queue).
-function picker() {
-  const select = Object.assign(el('select', 'qr-pick'), {ariaLabel: 'Jump to a question', id: 'qr-pick'});
-  state.queue.forEach((q, index) => select.append(new Option(`${index + 1} · ${shortTitle(q.question)}`, `q:${index}`)));
-  if (state.setAside.length) {
-    const group = Object.assign(document.createElement('optgroup'), {label: `Set aside (${state.setAside.length}): not counted`});
-    state.setAside.forEach((q, index) => group.append(new Option(shortTitle(q.question), `s:${index}`)));
-    select.append(group);
-  }
-  select.value = state.aside ? `s:${state.setAside.indexOf(state.aside)}` : `q:${state.at}`;
-  select.addEventListener('change', () => {
-    const [kind, index] = select.value.split(':');
-    state.aside = kind === 's' ? state.setAside[Number(index)] : null;
-    if (kind === 'q') state.at = Number(index);
-    state.saved = state.error = '';
-    draw();
-  });
-  return select;
+// The navigator's moves: a question of the queue ('q') or a set-aside one ('s') by index, or a step (-1 / +1) like Back and Skip.
+function go(kind, index) {
+  if (kind === 'step') { step(index); return; }
+  state.aside = kind === 's' ? state.setAside[index] : null;
+  if (kind === 'q') state.at = index;
+  state.saved = state.error = '';
+  draw();
 }
-
-// What a Your details item asks for (lib/details-review.js), over its answer box.
-const ASKS = {which: 'Pick the right one', where: 'Pick its home', check: 'Pick the parts', open: 'Missing answer', unclear: 'Make it sure'};
 
 function question(q) {
   const body = el('div', 'jd-body qr-body');
   const mine = q.details;   // a Your details item: no form asked it, it is a fact about you
-  const asked = el('p', 'muted small qr-asked', mine ? mine.where || 'Your details' : [q.company, 'Application form'].filter(Boolean).join(' · '));
+  const asked = el('p', 'muted small qr-asked', sourceOf(q));
   if (mine) asked.append(' ', pill(mine.source, 'warn'));
   if (state.aside) asked.append(' ', pill('Set aside', 'neutral'));
   body.append(asked, el('h3', 'qr-question', q.question));
