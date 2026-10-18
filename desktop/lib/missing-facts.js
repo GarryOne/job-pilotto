@@ -7,20 +7,12 @@ import {formatFor} from '../renderer/question-kind.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import {MODEL} from './question-reuse.js';
 import {BLOCKED, factScore} from '../renderer/question-filter.js';
+import {CATALOG, byId} from './fact-catalog.js';
+
+export {CATALOG, byId};
 
 export const PER_DAY = 3;
 export const FRESH_DAYS = 14;
-
-// What Your details holds, in the order a fresh install is asked.
-export const CATALOG = [
-  {id: 'permit', home: 'eligibility', label: 'Work permit / visa', kind: 'text', hint: 'For example citizen, permanent residence or the visa you hold'},
-  {id: 'sponsorship', home: 'eligibility', label: 'Need visa sponsorship?', kind: 'yes_no', hint: 'Whether an employer must sponsor your right to work'},
-  {id: 'notice', home: 'availability', label: 'Notice period', kind: 'duration', hint: 'How long until you could start a new job'},
-  {id: 'start', home: 'availability', label: 'Earliest start date', kind: 'date', hint: 'The first day you could begin'},
-  {id: 'salary', home: 'availability', label: 'Salary expectation', kind: 'salary', hint: 'What forms ask as your expected pay'},
-  {id: 'languages', home: 'languages', label: 'Languages', kind: 'language', hint: 'The languages you work in and your level'},
-];
-export const byId = id => CATALOG.find(fact => fact.id === id);
 
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const day = date => date.toISOString().slice(0, 10);

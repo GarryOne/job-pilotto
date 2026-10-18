@@ -1,7 +1,7 @@
 // The facts of Your details that this Mac's forms asked, as the FIXED ids of lib/missing-facts.js CATALOG (owner, 18 Oct 2026: "server counts" in the missing-facts order):
 // reported once a day with the other counts (lib/recipes.js intel.facts), never a label, a value or a wording; the site counts installs per fact (site/src/fact-asks.js)
 // and the alias pack brings back {fact, share}, kept in data/facts.json and read by missing-facts' order. Guarded by test/fact-asks.test.js.
-import {CATALOG} from './missing-facts.js';
+import {CATALOG} from './fact-catalog.js';
 import {keyOf} from '../renderer/question-filter.js';
 
 export const FILE = 'data/facts.json';
