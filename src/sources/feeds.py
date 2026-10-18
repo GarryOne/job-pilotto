@@ -48,6 +48,14 @@ def wanted_title(title):
     return bool(_triaged().get(' '.join(str(title or '').lower().split())[:160]))
 
 
+def sure_title(title):
+    """A title your role words name (none of the excluded words): kept whatever the AI says later, so it can be shown before the AI sort
+    (src/sources/feed_scan.py shows each site's sure jobs as it is read)."""
+    if EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)):
+        return False
+    return bool(TITLES.search(title or '') or TITLES.search(plain(title)))
+
+
 def _triaged():
     global TRIAGED
     if TRIAGED is None:
@@ -351,10 +359,10 @@ def _after_check(db, board, matched, now, search=None):
     db.execute('INSERT OR REPLACE INTO feed_rest (board, misses, rest_until, search) VALUES (?, ?, ?, ?)', (board, misses, until, _search_digest(search)))
 
 
-def scan(sources, db, fetcher=None, details=None):
+def scan(sources, db, fetcher=None, details=None, on_jobs=None):
     """Read every employer feed of a search; the code lives in src/sources/feed_scan.py (moved for the 500-line rule)."""
     from .feed_scan import scan as read_all
-    return read_all(sources, db, fetcher=fetcher, details=details)
+    return read_all(sources, db, fetcher=fetcher, details=details, on_jobs=on_jobs)
 
 
 def render(report):
