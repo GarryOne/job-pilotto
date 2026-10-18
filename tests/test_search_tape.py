@@ -1,4 +1,5 @@
 """The search tape (src/search_tape.py): a search's web and AI answers recorded once, replayed offline with nothing leaving the computer."""
+import email.message
 import io
 import os
 import sys
@@ -16,7 +17,7 @@ from src.ai.providers import contract  # noqa: E402
 
 class FakeReply(io.BytesIO):
     status = 200
-    headers = {'Content-Type': 'text/html'}
+    headers = email.message.Message()
 
     def __init__(self, body, url):
         super().__init__(body)
@@ -68,6 +69,20 @@ class WebTest(TapeTest):
                 urlopen('https://jobs.test/never-seen')
         self.assertEqual(len(calls), 2, 'replay never reaches the web')
         self.assertEqual((search_tape.counts['web_tape'], search_tape.counts['web_missing']), (2, 1))
+
+    def test_a_replayed_page_reads_like_a_real_one_for_every_reader(self):
+        """18 Oct 2026: headers were a dict, so careers.get_text raised on get_content_charset and no job board was read in any recorded search."""
+        from src.sources import careers
+        real = lambda request, data=None, *a, **k: FakeReply('Caf\u00e9 Stelle'.encode('latin-1'), 'https://jobs.test/b')
+        reply_type = {'Content-Type': 'text/html; charset=latin-1'}
+        def typed(request, data=None, *a, **k):
+            reply = real(request)
+            reply.headers['Content-Type'] = reply_type['Content-Type']
+            return reply
+        urlopen = search_tape._web(typed)
+        for mode in ('record', 'replay'):
+            with self.mode(mode), mock.patch.object(urllib.request, 'urlopen', urlopen), mock.patch.object(careers, '_public', return_value=True):
+                self.assertEqual(careers.get_text('https://jobs.test/b'), 'Caf\u00e9 Stelle', mode)
 
     def test_the_apps_page_browser_on_another_port_is_the_same_request(self):
         real = lambda request, data=None, *a, **k: FakeReply(b'{"html": "<p>x</p>"}', request.full_url)
