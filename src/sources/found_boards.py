@@ -19,16 +19,18 @@ from .. import run_counts
 from ..progress import Ticker
 from . import board_employers, board_routes, careers
 
-MAX_SEARCHES = 2      # the user's board searches per board per run
+MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
+FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
+IDLE_STOP = 2         # the full read stops a board after this many queries in a row that add no new job
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
 EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
 _early = {}               # {host: (monotonic time, (jobs, state, route))}: read in this search's first-jobs slice
 
 
-def _terms(search):
+def _terms(search, limit=MAX_SEARCHES):
     from ..notion.search_settings import terms
-    return (terms(search.get('jobs_board_search_queries')) or terms(search.get('role_keywords')))[:MAX_SEARCHES]
+    return (terms(search.get('jobs_board_search_queries')) or terms(search.get('role_keywords')))[:limit]
 
 
 def _places(search):
@@ -36,7 +38,7 @@ def _places(search):
     return places.words_of(search)[:MAX_PLACES] or ['']
 
 
-def read_board(board, search, fetch=careers.get_text, route=None):
+def read_board(board, search, fetch=careers.get_text, route=None, early=False):
     """(jobs, state, route) for one board: jobs in the aggregators' shape; state 'ok', 'empty' or 'browser'; route = the declared feed or
     sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A page no free step reads tries its
     declared routes (src/sources/board_routes.py); a script-only one with none is 'browser'; a readable one goes to the AI page reader once
@@ -50,7 +52,10 @@ def read_board(board, search, fetch=careers.get_text, route=None):
                 return jobs, 'ok', route
     except board_routes.Stop:
         return [], 'browser', None
-    for term in _terms(search):
+    seen, idle = set(), 0
+    for number, term in enumerate(_terms(search, MAX_SEARCHES if early else FULL_SEARCHES)):
+        if not early and number >= MAX_SEARCHES and idle >= IDLE_STOP:   # a board that stopped giving new jobs is not asked again
+            break
         for place in (_places(search) if '{place}' in board['search_url'] else ['']):
             url = board['search_url'].replace('{role}', urllib.parse.quote_plus(term)).replace('{place}', urllib.parse.quote_plus(place))
             try:
@@ -82,6 +87,9 @@ def read_board(board, search, fetch=careers.get_text, route=None):
                 jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
                                  job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
             state = 'ok' if jobs else state
+        new = {job['url'] for job in jobs} - seen
+        seen |= new
+        idle = 0 if new else idle + 1
     return list({job['url']: job for job in jobs}.values()), state, None
 
 
@@ -131,7 +139,7 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
         if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early:
             found, state, route = handed[1]   # read moments ago in this search's first-jobs slice
         else:
-            found, state, route = read_board(board, search, fetch, entry.get('route'))
+            found, state, route = read_board(board, search, fetch, entry.get('route'), early=early)
             if early:
                 _early[board['host']] = (time.monotonic(), (found, state, route))
         entry.pop('route', None)

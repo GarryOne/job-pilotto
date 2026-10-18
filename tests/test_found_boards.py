@@ -47,6 +47,27 @@ class FoundBoardsTests(unittest.TestCase):
         self.assertEqual(asked, ['https://empregos.example/procura?q=programador&local=Lisboa'])
         self.assertEqual([(j['title'], j['company'], j['url']) for j in jobs], [('Programador Python', 'Acme Lda', 'https://empregos.example/oferta/1')])
 
+    def _page_for(self, title):
+        job = {**JOB, 'title': title, 'url': 'https://empregos.example/oferta/' + title.replace(' ', '-')}
+        return f'<html><script type="application/ld+json">{json.dumps(job)}</script><body>x</body></html>'
+
+    def test_the_full_read_asks_every_query_but_the_first_jobs_slice_only_two(self):
+        """18 Oct 2026: a driver's board read used 2 of the 5 queries its strategy has and found 3 jobs."""
+        search = {**SEARCH, 'jobs_board_search_queries': ['um', 'dois', 'tres', 'quatro', 'cinco', 'seis']}
+        asked = []
+        pages = lambda url: asked.append(url) or self._page_for(url.split('q=')[1].split('&')[0])
+        found_boards.read_board(BOARD, search, fetch=pages, early=True)
+        self.assertEqual(len(asked), found_boards.MAX_SEARCHES)
+        asked.clear()
+        jobs, _, _ = found_boards.read_board(BOARD, search, fetch=pages)
+        self.assertEqual((len(asked), len(jobs)), (found_boards.FULL_SEARCHES, found_boards.FULL_SEARCHES))
+
+    def test_a_board_that_stops_adding_jobs_is_not_asked_every_query(self):
+        search = {**SEARCH, 'jobs_board_search_queries': ['um', 'dois', 'tres', 'quatro', 'cinco']}
+        asked = []
+        jobs, _, _ = found_boards.read_board(BOARD, search, fetch=lambda url: asked.append(url) or PAGE)   # the same job for every query
+        self.assertEqual((len(asked), len(jobs)), (found_boards.MAX_SEARCHES + found_boards.IDLE_STOP - 1, 1))
+
     def test_a_refusing_board_becomes_a_visit_and_is_never_fetched_again(self):
         def refuse(url):
             raise urllib.error.HTTPError(url, 403, 'Forbidden', None, None)

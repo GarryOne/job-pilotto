@@ -61,7 +61,7 @@ class Fixture(unittest.TestCase):
     def search_run(self, run, jobs_by_host, boards=None):
         """One search: the found boards read, then the run's yield measured (what daily_search does)."""
         now = START + timedelta(hours=run)
-        def fake(b, search, fetch, route=None):
+        def fake(b, search, fetch, route=None, **kwargs):
             self.fetched.append(b['host'])
             found = jobs_by_host.get(b['host'], [])
             return found, 'ok' if found else 'empty', None
@@ -152,7 +152,7 @@ class RankTests(Fixture):
 class FirstSliceTests(Fixture):
     def test_the_top_two_boards_are_read_in_the_first_slice_and_not_fetched_again(self):
         jobs = {'b1.example': [job('Controller', 'Amsterdam', 1)], 'b2.example': [job('Controller', 'Amsterdam', 2, host='b2.example')]}
-        def fake(b, search, fetch, route=None):
+        def fake(b, search, fetch, route=None, **kwargs):
             self.fetched.append(b['host'])
             return jobs.get(b['host'], []), 'ok', None
         imported, said = [], []

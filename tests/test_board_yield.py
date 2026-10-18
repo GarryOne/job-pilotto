@@ -50,7 +50,7 @@ class YieldTests(Fixture):
         return [j for j in jobs if j['title'] == 'Controller' and j['location'] == 'Amsterdam']
 
     def read(self, boards_, jobs_by_host, now=None):
-        def fake(b, search, fetch, route=None):
+        def fake(b, search, fetch, route=None, **kwargs):
             return jobs_by_host.get(b['host'], []), 'ok' if jobs_by_host.get(b['host']) else 'empty', None
         with mock.patch.object(found_boards, 'read_board', fake):
             return found_boards.read(SEARCH, boards_, is_relevant=self.relevant)
@@ -64,7 +64,7 @@ class YieldTests(Fixture):
 
     def test_at_most_three_untried_boards_a_run_and_none_once_ten_relevant_jobs_are_found(self):
         asked = []
-        def fake(b, search, fetch, route=None):
+        def fake(b, search, fetch, route=None, **kwargs):
             asked.append(b['host'])
             return [], 'empty', None
         with mock.patch.object(found_boards, 'read_board', fake):
