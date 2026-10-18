@@ -112,6 +112,18 @@ test('leaving the page: free with no drafts, held (and asked) with drafts', () =
   assert.equal(went, 0);
 });
 
+test('saveLabel names the scope on the bar and in the leave question (Strategy: "Save strategy changes")', () => {
+  const host = el('div');
+  const bar = pageSaveBar({host, tabs: {targets: 'Targets'}, saveLabel: 'Save strategy changes'});
+  const drafts = new Map();
+  const handle = bar.register({id: 'targets', tab: 'targets', label: 'Targets', count: () => drafts.size, save: async () => ({ok: true}), discard: () => drafts.clear()});
+  drafts.set('role', 'x'); handle.changed();
+  assert.deepEqual(bar.node.querySelectorAll('button').map(node => node.textContent), ['Discard all', 'Save strategy changes']);
+  assert.equal(bar.leave(() => {}), false);
+  const dialog = globalThis.document.body.querySelectorAll('dialog').at(-1);
+  assert.ok(dialog?.querySelectorAll('button').map(node => node.textContent).includes('Save strategy changes'), 'the leave question says it too');
+});
+
 test('a source must say how to count, save and discard', () => {
   const {bar} = setup();
   assert.throws(() => bar.register({id: 'x', count: () => 0}), /needs save/);
