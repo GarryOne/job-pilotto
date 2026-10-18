@@ -5,6 +5,10 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 
 # Desktop change: the loop and the traps
 
+## First, before writing any UI: the design system (owner, 18 Oct 2026)
+`cd desktop && npm run design-system`, find the component for each value you will show, and build only from those (its "Don't / Do" pairs show what the
+owner rejected). No new look outside it; a missing part goes into the shared components first. The owner checks the result on the before/after shots.
+
 ## Find, don't search
 - **Code map:** `node desktop/scripts/codemap.mjs <words>` (every file → its purpose, live), open the one file you need, read only the part you change.
 - A page's code: `desktop/renderer/pages/<page>.js`; its markup: `desktop/renderer/index.html` (grep the element id).

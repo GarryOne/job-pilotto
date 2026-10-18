@@ -6,7 +6,7 @@ import path from 'node:path';
 import {facts, settle} from './app.mjs';
 import {writeFindings} from './artifacts.mjs';
 import {LIMITS, inspect, motionFacts} from './uicheck.mjs';
-import {RULE_LIMITS, designRules, judge} from './design-rules.mjs';
+import {DESIGN_RULES_ON, RULE_LIMITS, designRules, judge} from './design-rules.mjs';
 import {checkA11y, tally} from './a11y.mjs';
 import {goView} from './go-view.mjs';
 
@@ -20,8 +20,8 @@ export async function snap(ctx, name, {view, situation = 'default', busy = false
   fs.writeFileSync(path.join(ARTIFACTS, `ui-${name}.json`), JSON.stringify({...await facts(page), ...await page.evaluate(motionFacts).catch(() => ({})), situation}, null, 2));
   tally((ctx.a11y ??= {}), name, await checkA11y(page));   // accessibility (lib/a11y.mjs): tallied per rule, filed once per rule when the suite ends
   ctx.findings.push(...(await page.evaluate(inspect, {view: view || name, limits: LIMITS})).map(item => ({...item, view: item.chrome ? 'app-chrome' : name, shot: name})));   // the sidebar and the bottom bar are on every page: one finding, not one per page
-  // The owner's design rules (lib/design-rules.mjs): severe on a new screen, a warning on one listed in KNOWN_LEFT with the session fixing it.
-  ctx.findings.push(...judge(await page.evaluate(designRules, {view: view || name, limits: RULE_LIMITS})).map(item => ({...item, view: name, shot: name})));   // KNOWN_LEFT is keyed by the page (data-view), not the shot
+  // The owner's design rules (lib/design-rules.mjs), parked by the owner on 18 Oct 2026 (DESIGN_RULES_ON): his before/after shots are the check.
+  if (DESIGN_RULES_ON) ctx.findings.push(...judge(await page.evaluate(designRules, {view: view || name, limits: RULE_LIMITS})).map(item => ({...item, view: name, shot: name})));   // KNOWN_LEFT is keyed by the page (data-view), not the shot
 }
 
 export async function visit(ctx, views) {
