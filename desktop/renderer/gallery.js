@@ -60,7 +60,7 @@ section('Tags', 'tag(text, {title, onClick, busy})', row(
 section('Chips', 'chip(text, {detail, tone, onRemove}): a value from a list, written as a person writes it (no quotes, codes or regex). A pill is a status, a tag a label', chipRow());
 section('Value → control', 'The kind of value picks the control (docs/rules/desktop-ui.md). Edit views are answerControl(formatFor(...)) from question-control.js', kindsTable());
 section('Card shell', 'Read summary → quiet Edit (cardEdit) → editor in place (card-shell.js); one page save bar for every tab (save-bar.js). Filled orange only for Save', cardSystem());
-section('Roomy cards', 'roomy-cards.css + card-shell.js cardHead, settingBlock, readRows icons; page-parts.js summaryTiles divided (mockup 03): icon tile headers, small grey label + bold value, chips with padding, dividers full width. Strategy and Profile cards', roomyCards());
+section('Roomy cards', 'roomy-cards.css + card-shell.js cardHead, readRows icons; page-parts.js summaryTiles divided (mockup 03): icon tile headers, every label on its own line over its value, chip text aligned with plain text, dividers full width. Strategy and Profile cards', roomyCards());
 section('Page blocks', 'page-parts.js: reviewList (pending first, done folded), emptyState (Not created + two actions), summaryTiles (icon, label, big value), referenceRow (From Your details + one link); shared-counts.js: one count for banner, chip and badge', pageBlocks());
 
 section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, amber glow from the top-left, thin amber edge. The one thing on a page that says "start here"', (() => {

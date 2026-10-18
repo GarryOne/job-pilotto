@@ -1,6 +1,6 @@
 /* Roomy cards: the owner's mockups' density for Strategy and Profile (18 Oct 2026: "Look at the cards with chips how roomier they are"; mockup 03).
-   A page opts in with .roomy-cards on the cards' container. Parts: card-shell.js readRows (icon · small grey label · bold value, dividers full width),
-   settingBlock (a list: small heading over its chips), page-parts.js summaryTiles is-divided; the header from strategy-cards.js cardHeader.
+   A page opts in with .roomy-cards on the cards' container. Parts: card-shell.js readRows (icon · label on its own line over the value, dividers full width),
+   page-parts.js summaryTiles is-divided; the header from strategy-cards.js cardHeader.
    Loaded after style.css so its older .review/.card rules give way. Tokens only (test/design.test.js). Rules: docs/rules/desktop-ui.md "Roomy cards". */
 .roomy-cards { display: grid; gap: var(--sp-4); container-type: inline-size; }
 .roomy-cards .card { padding: var(--card-pad); border-radius: var(--r-lg); margin: 0; }
@@ -20,22 +20,24 @@
 /* Read view: rows and blocks stack with no gap; each draws its own top divider, full width. */
 .roomy-cards .card-read { display: grid; gap: 0; }
 
-/* One value: icon · small grey label · bold value on one line (card-shell.js readRows with {lined}). */
-.roomy-cards .summary-rows.is-lined { grid-template-columns: var(--label-col) minmax(0, 1fr); gap: 0; margin: 0; }
-.roomy-cards .summary-rows.is-lined.has-icons { grid-template-columns: calc(var(--label-col) + 32px) minmax(0, 1fr); }
-.roomy-cards .summary-rows.is-lined > :is(dt, dd) { display: flex; align-items: center; flex-wrap: wrap; min-height: var(--row-min); padding: var(--sp-2) 0;
-  border-top: 1px solid var(--line); overflow: visible; }
-.roomy-cards .summary-rows.is-lined > dt { gap: var(--sp-3); padding-right: var(--sp-4); color: var(--muted); font-weight: 500; font-size: var(--fs-md); flex-wrap: nowrap; }
+/* One setting per row, its label on its own line over its value, the same in every card (owner, 18 Oct 2026: "Either we're fully inline, either
+   we're fully on the new line", picked "all on a new line"): icon · label (ink), then the value indented under the label's text (card-shell.js
+   readRows with {lined}). A divider above each row, full width. */
+.roomy-cards .summary-rows.is-lined, .roomy-cards .summary-rows.is-lined.has-icons { grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; }
+.roomy-cards .summary-rows.is-lined > :is(dt, dd) { display: flex; align-items: center; flex-wrap: wrap; line-height: 24px; overflow: visible; }
+.roomy-cards .summary-rows.is-lined > dt { gap: var(--sp-3); padding: var(--sp-4) 0 var(--sp-2); border-top: 1px solid var(--line); color: var(--ink);
+  font-weight: 600; font-size: var(--fs-base); flex-wrap: nowrap; }
 .roomy-cards .summary-rows.is-lined > dt > .icon { width: 20px; height: 20px; flex: none; color: var(--ink-2); }
-.roomy-cards .summary-rows.is-lined > dd { gap: var(--sp-2); color: var(--ink); font-weight: 600; font-size: var(--fs-value); }
+.roomy-cards .summary-rows.is-lined > dd { gap: var(--sp-2); padding: 0 0 var(--sp-4); border-top: 0; color: var(--ink); font-weight: 600; font-size: var(--fs-value); }
+.roomy-cards .summary-rows.is-lined.has-icons > dd { padding-left: 32px; }
 .roomy-cards .summary-rows.is-lined > dd .muted { font-weight: 500; }
 .roomy-cards .summary-rows.is-lined > dd .read-note { flex-basis: 100%; margin: 0; font-weight: 400; }
+/* Chips and a state pill in a value: pulled left by their own side padding (+ border), so their text starts where plain text starts
+   (owner, 18 Oct 2026: "the chips should be aligned with normal text properly"). */
+.roomy-cards .summary-rows.is-lined > dd > :is(.chips, .read-values, .chip-list) { margin: 0 0 0 calc(-1 * (var(--chip-pad-x) + 1px)); }
+.roomy-cards .summary-rows.is-lined > dd > .ui-pill:first-child { margin-left: -9px; }   /* .ui-pill's 9px side padding (components.css) */
 
-/* A list setting: its small heading over its chips (mockup 03 "Preferred locations"); a qualifier joins the heading ("· ranked first"). */
-.roomy-cards .setting-block { display: grid; gap: var(--sp-3); padding: var(--sp-4) 0; border-top: 1px solid var(--line); }
-.roomy-cards .setting-block-head { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
-.roomy-cards .setting-block-head .muted { font-weight: 500; }
-.roomy-cards .card-read > .setting-block:last-child, .roomy-cards .card-read > .summary-rows:last-child > :nth-last-child(-n+2) { padding-bottom: 0; }
+.roomy-cards .card-read > .summary-rows:last-child > dd:last-child { padding-bottom: 0; }
 
 /* Chips with real padding, spaced (read views; the editor's removable chips keep theirs). */
 .roomy-cards :is(.chips, .read-values, .chip-list) { gap: var(--sp-2); margin: 0; }
@@ -58,15 +60,10 @@
 @container (max-width: 640px) { .roomy-cards .summary-tiles.is-divided { grid-template-columns: minmax(0, 1fr); } }
 
 /* A reference row (a fact kept on another page) as one more lined row: label column, the words, the quiet link at the right. */
-.roomy-cards .card-read > .reference-row { display: grid; grid-template-columns: var(--label-col) minmax(0, 1fr) auto; align-items: center; gap: 0 var(--sp-4);
-  min-height: var(--row-min); margin: var(--sp-5) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
-.roomy-cards .card-read > .reference-row .reference-from { font-size: var(--fs-md); }
+.roomy-cards .card-read > .reference-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-5) 0 0; padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.roomy-cards .card-read > .reference-row .reference-from { grid-column: 1 / -1; font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
 
-/* Narrow cards: the label column goes above its value. */
-@container (max-width: 400px) {
-  .roomy-cards .summary-rows.is-lined, .roomy-cards .summary-rows.is-lined.has-icons { grid-template-columns: minmax(0, 1fr); }
-  .roomy-cards .summary-rows.is-lined > dd { border-top: 0; min-height: 0; padding-top: 0; }
-}
 .roomy-cards .card { container-type: inline-size; }
 
 /* Two cards side by side where they fit (Locations | Job preferences); one column in a narrow window. */

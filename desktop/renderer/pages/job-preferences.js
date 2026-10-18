@@ -198,15 +198,16 @@ function readSide(read, key) {
   const rows = FIELDS.filter(field => field.side === key && (field.key !== 'workload' || showWorkload(countries, review.parse?.countries)))
     .map(field => ({icon: ROW_ICONS[field.key] || 'check', label: field.label, value: readValue(field, read.fields[field.key]), any: !readText(field, read.fields[field.key])}));
   const rules = read.other.filter(item => item.side === key).map(item => ({...item, value: typed.get(item.id) ?? item.value}));
-  rows.push({icon: key === 'must' ? 'close' : 'sparkle', label: key === 'must' ? 'Other deal-breakers' : 'Other preferences', value: summaryOf(rules)});
-  // Fields with no limit fold into one quiet row ("Any: Home base · Workload"), so the card reads its set values (mockup 03: three rows).
+  rows.push({icon: key === 'must' ? 'close' : 'sparkle', label: key === 'must' ? 'Deal-breakers' : 'Other preferences', value: summaryOf(rules)});
+  // Fields with no limit fold into one quiet row ("Must-haves: any home base, workload"), so the card reads its set values (mockup 03: three rows).
+  // No heading per side (owner, 18 Oct 2026: "Either we're fully inline, either we're fully on the new line"): the row labels say which side.
   const open = rows.filter(row => row.any);
-  if (open.length > 1) rows.splice(rows.indexOf(open[0]), 0, {icon: 'check', label: 'Any', value: el('span', 'muted', open.map(row => row.label).join(' · '))});
+  if (open.length > 1) rows.splice(rows.indexOf(open[0]), 0, {icon: group.icon, label: key === 'must' ? 'Must-haves' : 'Preferences',
+    value: el('span', 'muted', `Any ${open.map(row => row.label.toLowerCase()).join(', ')}`)});
   for (const row of open.length > 1 ? open : []) rows.splice(rows.indexOf(row), 1);
-  const box = el('section', 'pref-read'), head = el('h4', 'pref-read-head', icon(group.icon));
+  const box = el('section', 'pref-read');
   box.dataset.side = key;
-  head.append(group.title);
-  box.append(head, readRows(rows, {lined: true}));
+  box.append(readRows(rows, {lined: true}));
   return box;
 }
 // "Review your preferences" (also in ⌘K): in the editor, since what it proposes are edits.

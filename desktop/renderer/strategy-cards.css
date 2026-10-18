@@ -27,8 +27,6 @@
 /* Job preferences as read (pages/job-preferences.js): each side's rows under a small heading; the editor keeps its controls and Review. */
 .strategy-page .pref-read { display: grid; gap: var(--sp-2); }
 .strategy-page .pref-read + .pref-read { margin-top: var(--sp-4); }
-.strategy-page .pref-read-head { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); }
-.strategy-page .pref-read-head .icon { width: 16px; height: 16px; color: var(--ink-2); }
 .strategy-page .pref-review-row { display: flex; align-items: center; gap: var(--sp-3); justify-content: space-between; margin-bottom: var(--sp-3); }
 .strategy-page .pref-review-row > button { flex: none; white-space: nowrap; }
 
@@ -40,10 +38,7 @@
 .strategy-page .improve-line .item-action { padding: var(--sp-2) var(--sp-4); font-size: var(--fs-base); border-color: var(--signal); color: var(--signal); }
 .strategy-page .improve-line .item-action:hover { background: var(--signal-soft); }
 /* Job preferences: each side's name as a small heading over its rows; the rows are roomy-cards' icon rows. */
-.strategy-page .roomy-cards .pref-read { gap: 0; }
-.strategy-page .roomy-cards .pref-read + .pref-read { margin-top: var(--sp-5); }
-.strategy-page .roomy-cards .pref-read-head { padding-bottom: var(--sp-3); font-size: var(--fs-sm); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.strategy-page .roomy-cards .pref-read-head .icon { width: 15px; height: 15px; color: var(--muted); }
+.strategy-page .roomy-cards .pref-read { gap: 0; margin-top: 0; }
 /* Advanced search settings: a roomy head, a chevron that turns. */
 .strategy-page .roomy-cards .advanced-settings { padding: 0; }
 .strategy-page .roomy-cards .advanced-settings > summary { padding: var(--card-pad); gap: var(--sp-3); }
@@ -57,8 +52,8 @@
 /* Which locations are right? (pages/locations-which.js): the kind in the label column, the two sides as equal boxes in their colour
    (violet = Strategy, teal = Profile), the quiet ways out under them. Rows split by full-width dividers. */
 #locations-which-message:empty, #locations-set-aside:empty { display: none; }
-.which-row { display: grid; grid-template-columns: var(--label-col) minmax(0, 1fr); gap: var(--sp-4); padding: var(--sp-4) 0; border-top: 1px solid var(--line); }
-.which-label { padding-top: var(--sp-3); font-size: var(--fs-base); }
+.which-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); padding: var(--sp-4) 0; border-top: 1px solid var(--line); }
+.which-label { font-size: var(--fs-base); }   /* on its own line over the two choices, like every Strategy row */
 .which-body { display: grid; gap: var(--sp-3); min-width: 0; }
 .which-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: var(--sp-3); }
 .which-option { display: grid; align-content: start; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-left: 3px solid var(--tone);
@@ -71,4 +66,5 @@
 .which-more { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); }
 .which-more:not(:has(> :not([hidden]))) { display: none; }
 .which-more input.add { flex: 1 1 260px; }
-@container (max-width: 640px) { .which-row, .which-options { grid-template-columns: minmax(0, 1fr); } .which-label { padding-top: 0; } .which-choose { justify-self: start; } }
+@container (max-width: 640px) { .which-options { grid-template-columns: minmax(0, 1fr); } .which-choose { justify-self: start; } }
+.roomy-cards .which-option > .chips:has(> .chip-tag:first-child) { margin-left: calc(-1 * (var(--chip-pad-x) + 1px)); }   /* chip text under the side's name */

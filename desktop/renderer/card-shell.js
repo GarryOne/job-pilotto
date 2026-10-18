@@ -33,15 +33,6 @@ export function cardHead({glyph = 'info', tone = 'neutral', title = '', lead = '
   return head;
 }
 
-// A list setting as read (roomy cards, mockup 03 "Preferred locations"): its small heading, a qualifier joined to it ("· ranked first", never a lone line
-// under the chips), then its chips or whatever node shows it.
-export function settingBlock(title, body, {qualifier = ''} = {}) {
-  const block = el('div', 'setting-block'), head = el('p', 'setting-block-head', title);
-  if (qualifier) head.append(el('span', 'muted', `· ${qualifier}`));
-  block.append(head, body);
-  return block;
-}
-
 // Several values of one kind on one line (languages, countries): chip(text, {detail}) each, e.g. English · B2.
 export function chipLine(items) {
   const line = el('div', 'read-values');
