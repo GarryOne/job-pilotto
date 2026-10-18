@@ -1,12 +1,14 @@
 """The search tape's time-budget decisions: what `time_budget` decided at each point of a recorded search, kept beside the web and AI answers
 and read back in a replay, so a replay takes the same path whatever the replaying computer's speed or thread timing (owner, 18 Oct 2026: two
 replays of one tape disagreed, 35 vs 39 places and 67 vs 522 missing web answers, because a decision read a wall clock).
+A loop with its own deadline (the scout's minutes) asks through until() the same way.
 Off unless JOB_PILOTTO_SEARCH_TAPE is set; a live run never touches it. A decision the tape lacks (a changed search asks a new question) is
 computed from the clock, as in a live run. Each process that starts a budget is the run's next search (new_search), so one tape holds every press. Same-key decisions are matched by their order (over() only ever flips false to true, so threads
-asking at once still see the same number of false answers). Tests: tests/test_budget_tape.py."""
+asking at once still see the same number of false answers). Tests: tests/test_budget_tape.py, tests/test_scout_budget_tape.py."""
 import json
 import os
 import threading
+import time
 from pathlib import Path
 
 _lock = threading.Lock()
@@ -61,6 +63,39 @@ def new_search():
     with _lock:
         _epoch[0] = epoch
         _seen.clear()
+
+
+def until(name, deadline):
+    """`may another step start?` for a loop with its own deadline (the scout's minutes): True while time.monotonic() is before `deadline`
+    (None: always), False from its first False on. In a search tape the answers are kept, and a replay gets the recording's, so it starts
+    the steps the recording started however fast its clock runs (19 Oct 2026: a replay checked 54 more employers than its recording,
+    487 web answers the tape lacked). Each such process of the run is numbered by its own count in the run's data folder."""
+    if deadline is None:
+        return lambda: True
+    number = _count(f'{name}_runs.txt') if active() else 0
+    stopped = [False]
+
+    def may():
+        if not stopped[0]:
+            stopped[0] = not decide(f'{name} may start', [number], lambda: time.monotonic() < deadline)
+        return not stopped[0]
+    return may
+
+
+def _count(name):
+    """This process's number among the run's processes counting in DATA/<name> (1, 2...)."""
+    from .paths import DATA
+    file = DATA / name
+    try:
+        number = int(file.read_text()) + 1
+    except (OSError, ValueError):
+        number = 1
+    try:
+        DATA.mkdir(parents=True, exist_ok=True)
+        file.write_text(str(number))
+    except OSError:
+        pass
+    return number
 
 
 def decide(kind, args, compute):
