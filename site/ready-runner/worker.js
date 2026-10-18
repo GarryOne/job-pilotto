@@ -18,7 +18,7 @@ export default {
     if (!path || !night) return new Response('Not found', {status: 404});
     const container = getContainer(env.READY, night);
     const reply = await container.fetch(new Request(`http://container/${path}?t=${encodeURIComponent(url.searchParams.get('t') || '')}&job=${encodeURIComponent(url.searchParams.get('job') || '')}`, request));
-    if (path === 'close' || reply.status === 410) await container.stop().catch(() => {});   // 410: the call woke a fresh container that holds no night (after a deploy); it is not kept awake for 3 h
+    if (path === 'close' || [401, 410].includes(reply.status)) await container.stop().catch(() => {});   // 410 (or 401 from an older image: the site's token is always right): the call woke a fresh container that holds no night; it is not kept awake for 3 h
     return reply;
   },
 };

@@ -113,3 +113,25 @@ test('the site config binds the Queue and the runner Worker the code expects, an
   assert.match(runner, /"name": "www-ready-runner"/);
   assert.match(runner, /"queue": "ready-runs"/);
 });
+
+// 18 Oct 2026, the owner's app after #1429: "still Ready to send is not on for this install." A deploy dropped the held tabs; the site's call woke a fresh container
+// (still the old image while the runner's release ran), whose night-token check answered 401, passed through as the owner's own refusal. The owner was already checked here:
+// any way the container says it does not hold this night or tab is "gone" (410), whatever image it runs.
+test('the container not holding the night or the tab reads as gone (410), never as a refused owner', async () => {
+  for (const [status, body] of [[401, {ok: false, error: 'unauthorized'}], [404, {ok: false, error: 'not held'}], [410, {ok: false, error: 'gone: this container holds no night'}]]) {
+    const refusing = {seen: [], fetch: async request => { refusing.seen.push(request.url); return new Response(JSON.stringify(body), {status}); }};
+    const e = env({READY_QUEUE: queue(), READY_RUNNER: refusing});
+    await call(e, 'POST', 'batch', batchBody(), await owner());
+    await tick(e, new Date('2026-10-18T01:05:00Z'));
+    for (const sub of ['handoff', 'held']) {
+      const response = await call(e, 'GET', `${sub}?job=j1`, undefined, await owner());
+      assert.equal(response.status, 410, `${sub} after the container's ${status}`);
+      assert.match((await response.json()).error, /no longer holds/);
+    }
+  }
+  const failing = {fetch: async () => new Response('{"ok":false,"error":"boom"}', {status: 500})};
+  const e = env({READY_QUEUE: queue(), READY_RUNNER: failing});
+  await call(e, 'POST', 'batch', batchBody(), await owner());
+  await tick(e, new Date('2026-10-18T01:05:00Z'));
+  assert.equal((await call(e, 'GET', 'handoff?job=j1', undefined, await owner())).status, 500, 'a real failure stays a failure');
+});

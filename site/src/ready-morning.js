@@ -28,6 +28,8 @@ export async function morning(request, env, install, sub) {
   const address = `https://runner/${PATHS[sub]}?batch=${found.id}&t=${encodeURIComponent(await readyToken(env, found.id))}&job=${encodeURIComponent(job)}`;
   const reply = await env.READY_RUNNER.fetch(new Request(address, request));
   if (reply.status === 101) return reply;   // the live view's WebSocket
+  // The owner was checked above: a container that refuses the night token (401: a fresh one, any image), lacks the tab (404) or holds no night (410) no longer holds the form.
+  if ([401, 404, 410].includes(reply.status)) return Response.json({ok: false, error: 'gone: the server no longer holds this form'}, {status: 410, headers: {'cache-control': 'no-store'}});
   const headers = new Headers(reply.headers); headers.set('cache-control', 'no-store');
   return new Response(reply.body, {status: reply.status, headers});
 }
