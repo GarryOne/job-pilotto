@@ -3,11 +3,11 @@
 // Counts, seconds and a build sha: no job, company or CV text. Owner only (a 404 otherwise). Guard: test/search-lab.test.js.
 import {viewer} from './auth.js';
 import {esc, remember} from './stats.js';
-import {judge} from './search-lab-judge.js';
+import {judge, TIME_NAMES} from './search-lab-judge.js';
 import {runs} from './search-lab-store.js';
 import {draws} from './search-lab-draws.js';
 import {DRAWS_CSS, drawsSection} from './search-lab-draws-page.js';
-import {VISUALS_CSS, cards, statsStrip, tiles as visualTiles} from './search-lab-visuals.js';
+import {VISUALS_CSS, cards, statsStrip, timeTiles, tiles as visualTiles} from './search-lab-visuals.js';
 import {historySection} from './search-lab-history.js';
 
 const STATES = {failed: ['FAILED', 'bad'], stale: ['Tape stale', 'wait'], worse: ['Worse', 'bad'], new: ['New', 'wait'], working: ['Working', 'good']};
@@ -30,7 +30,7 @@ export function table(rows) {
 <td class="num">${failed ? '–' : cell(row, 'first_s', clock, true)}</td><td class="num">${failed ? '–' : cell(row, 'tenth_s', clock, true)}</td><td class="num">${failed ? '–' : cell(row, 'fit_s', clock, true)}</td>
 <td class="num">${failed ? '–' : `${cell(row, 'in_places', num)} · ${num(row.now.scored)} · ${cell(row, 'fit70', num)}`}</td></tr>`;
   }).join('') || '<tr><td colspan="6" class="muted">No search replayed yet. Upload the persona harness\'s presses with <code>node tools/persona-search/lab-upload.mjs &lt;out&gt;</code> (REPLAYS_PUBLISH_KEY set).</td></tr>';
-  return `<div class="scroll"><table><tr><th>Candidate</th><th>State</th><th class="num">1st relevant job</th><th class="num">10th relevant job</th><th class="num">1st 70+ job</th><th class="num">In places · scored · 70+</th></tr>${body}</table></div>`;
+  return `<div class="scroll"><table><tr><th>Candidate</th><th>State</th><th class="num">${TIME_NAMES.first_s}</th><th class="num">${TIME_NAMES.tenth_s}</th><th class="num">${TIME_NAMES.fit_s}</th><th class="num">In places · scored · 70+</th></tr>${body}</table></div>`;
 }
 
 const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
@@ -45,7 +45,7 @@ export function page(all, drawRows = [], tab = 'lab') {
 <link rel="icon" href="/favicon-32.png"><style>${CSS}${DRAWS_CSS}${VISUALS_CSS}</style></head><body><main>
 <header><h1>🔬 Lab Job Search</h1><span class="muted">fictional candidates, replayed searches · counts and seconds only</span></header>
 <nav class="tabs"><a href="?tab=lab" class="${tab === 'lab' ? 'on' : ''}">Lab</a><a href="?tab=history" class="${tab === 'history' ? 'on' : ''}">History</a><a href="?tab=draws" class="${tab === 'draws' ? 'on' : ''}">Random draws</a></nav>
-${tab === 'draws' ? drawsSection(drawRows) : tab === 'history' ? historySection(all) : `${visualTiles(rows, newest)}${statsStrip(rows, all)}${cards(rows, all)}
+${tab === 'draws' ? drawsSection(drawRows) : tab === 'history' ? historySection(all) : `${timeTiles(rows)}${visualTiles(rows, newest)}${statsStrip(rows, all)}${cards(rows, all)}
 <section class="card"><h2>Each candidate's newest search</h2>${table(rows)}</section>
 <section class="card"><h2>How a row is judged</h2><p class="muted">Against the candidate's last green run: <b>Worse</b> when jobs in your places or jobs scoring 70+ are fewer, a time is more than 25 % slower, or a time that was reached is not reached (the control gets no tolerance on times). <b>FAILED</b> when a step of the search crashed: its numbers are never shown as a result. <b>Tape stale</b> when the build asks for pages or answers the tape never recorded (a change to what the search requests): the numbers are shown but not compared; record the candidate again from main. ▲ / ▼ show the move since the last green run.</p></section>`}
 </main></body></html>`;

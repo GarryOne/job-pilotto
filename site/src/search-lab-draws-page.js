@@ -1,6 +1,7 @@
 // The "Random draws" tab of /admin/lab-job-search (owner, 18 Oct 2026): one report row per daily CI draw, newest first, and the trend of jobs in places per draw (red = weak).
 // Counts and seconds only (src/search-lab-draws.js); every row says CI, so a Mac run is never compared with it. Guard: test/search-lab-draws.test.js.
 import {esc} from './stats.js';
+import {TIME_NAMES} from './search-lab-judge.js';
 import {judge} from './search-lab-draws.js';
 
 const TONE = {usual: ['Usual', 'good'], weak: ['Weak', 'bad'], failed: ['FAILED', 'bad']};
@@ -22,7 +23,7 @@ export function drawsSection(all) {
 <td class="num">${failed ? '–' : `${num(row.in_places)} · ${num(row.scored)} · ${num(row.fit70)}`}</td></tr>`;
   }).join('') || '<tr><td colspan="7" class="muted">No draw yet. The daily CI job (.github/workflows/random-draw.yml) uploads one each day.</td></tr>';
   return `<section class="card"><h2>${rows.length} draws, ${weak} weak or failed</h2><div class="sparkwrap">${trend(rows)}<span class="muted">jobs in places per draw, last 30 (red = weak or failed)</span></div></section>
-<section class="card"><h2>Each daily draw</h2><div class="scroll"><table><tr><th>Date</th><th>Draw</th><th>State</th><th class="num">1st relevant job</th><th class="num">10th relevant job</th><th class="num">1st 70+ job</th><th class="num">In places · scored · 70+</th></tr>${body}</table></div></section>
+<section class="card"><h2>Each daily draw</h2><div class="scroll"><table><tr><th>Date</th><th>Draw</th><th>State</th><th class="num">${TIME_NAMES.first_s}</th><th class="num">${TIME_NAMES.tenth_s}</th><th class="num">${TIME_NAMES.fit_s}</th><th class="num">In places · scored · 70+</th></tr>${body}</table></div></section>
 <section class="card"><h2>How a draw is judged</h2><p class="muted">A random role family in a random European city, a fictional CV, a fresh throwaway install on CI (data-centre address: a board that refuses is "not reached", never worked around). <b>Weak</b>: no relevant job reached, fewer than 10 jobs in places, or under half the role family's median once it has 5 earlier draws. Never mixed with the six candidates or the Real installs.</p></section>`;
 }
 
