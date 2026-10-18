@@ -101,6 +101,7 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});
     return started;
   });
+  ipcMain.handle('readyVideo', (_, code) => site.video(storage, String(code || '')));   // Watch the fill: the night's video of this form, played under its row
   ipcMain.handle('readyDone', (_, code) => site.done(storage, String(code || '')));
   ipcMain.handle('readyDeleteAll', () => site.deleteAll(storage));
   ipcMain.handle('readySettings', (_, patch) => { storage.saveSettings({ready: {...settings(), ...patch}}); return {ok: true, settings: settings()}; });

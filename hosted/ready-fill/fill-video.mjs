@@ -75,7 +75,7 @@ export async function startFillVideo(page, {tabOf = () => page, dir = os.tmpdir(
     if (!proc.stdin.write(last)) { busy = true; proc.stdin.once('drain', () => { busy = false; }); }   // a slow encoder drops frames, never holds them
   }, 1000 / fps);
   const follow = setInterval(() => { const tab = safe(tabOf); if (tab && !tab.isClosed?.()) queue = queue.then(() => watch(tab)).catch(() => {}); }, 1000);
-  queue = queue.then(() => watch(first)); await queue;
+  queue = queue.then(() => watch(first)).catch(() => {}); await queue;   // a tab that cannot be watched leaves no frame: stop() then answers null and ends the encoder
   function stop() {
     stopping ||= (async () => {
       clearInterval(tick); clearInterval(follow);

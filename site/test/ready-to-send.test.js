@@ -16,8 +16,8 @@ function d1() {
     all: async () => ({results: db.prepare(text).all(...args).map(r => ({...r}))}), first: async () => { const r = db.prepare(text).get(...args); return r ? {...r} : null; }, text, args});
   return {db, prepare: text => statement(text), batch: async list => { for (const item of list) await item.run(); }};
 }
-const r2 = () => { const m = new Map(); return {m, put: async (k, v) => { m.set(k, new Uint8Array(v)); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
-  head: async k => (m.has(k) ? {} : null), delete: async k => { m.delete(k); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key}))})}; };
+const r2 = () => { const m = new Map(), at = new Map(); return {m, at, put: async (k, v) => { m.set(k, new Uint8Array(v)); at.set(k, new Date()); }, get: async k => (m.has(k) ? {arrayBuffer: async () => m.get(k).buffer.slice(m.get(k).byteOffset, m.get(k).byteOffset + m.get(k).byteLength)} : null),
+  head: async k => (m.has(k) ? {} : null), delete: async k => { for (const one of [k].flat()) m.delete(one); }, list: async ({prefix}) => ({objects: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({key, uploaded: at.get(key)}))})}; };
 const env = (extra = {}) => ({STATS: d1(), HOSTED_STATE: r2(), STATS_SALT: 'salt', READY_KEK: 'kek-for-tests', READY_TO_SEND: 'on', READY_OWNER: 'owner-install-1', READY_OWNER_SECRET: 'owner-secret', ...extra});
 const keyOf = async install => `JPF1.${install}.${await tokenFor(install, {STATS_SALT: 'salt'}, 'ai')}`;
 const now = new Date('2026-10-18T02:00:00Z');
@@ -33,7 +33,7 @@ async function night(e = env()) {
 }
 
 test('off, or any install but the owner, reaches nothing: a class check over every route', async () => {
-  const subs = ['batch', 'result', 'ai', 'done', 'submitted', 'state', 'report', 'data'];
+  const subs = ['batch', 'result', 'ai', 'video', 'done', 'submitted', 'state', 'report', 'data'];
   const off = env({READY_TO_SEND: 'off'});
   for (const sub of subs) assert.equal((await call(off, 'GET', sub)).status, 404, `${sub} off`);
   const e = env();
@@ -137,4 +137,56 @@ test('a night token is bound to its batch and a replaced night is deleted', asyn
   assert.equal(await start(e, made.batch, now), null);   // already running: no second token
   await call(e, 'POST', 'batch', batchBody(), await owner());   // the owner pushes the same night again
   assert.equal(e.HOSTED_STATE.m.size, 1); assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM ready_batches').get().n, 1);
+});
+
+// Watch the fill (src/ready-video.js; owner, 18 Oct 2026: a video for every form the night opens, kept on our server).
+const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]);
+const putVideo = (e, headers, job = 'j1', secs = 42, body = WEBM, type = 'video/webm') => ready(new Request(`https://x/api/ready/video?job=${job}&secs=${secs}`, {method: 'PUT', headers: {...headers, 'content-type': type}, body}), e, now);
+
+test('a form\'s video: put by the night, sealed at rest, read back only by the owner, flagged on its row', async () => {
+  const {e, bearer} = await night();
+  assert.equal((await putVideo(e, bearer)).status, 200);
+  const [key] = [...e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/'));
+  assert.ok(key.startsWith('ready/owner-install-1/video/'), 'under the install, so Delete everything removes it');
+  assert.notDeepEqual([...e.HOSTED_STATE.m.get(key).slice(0, 4)], [...WEBM.slice(0, 4)], 'sealed, not the raw video');
+  const got = await call(e, 'GET', 'video?job=j1', undefined, await owner());
+  assert.equal(got.headers.get('content-type'), 'video/webm');
+  assert.deepEqual(new Uint8Array(await got.arrayBuffer()), WEBM);
+  assert.equal((await call(e, 'GET', 'video?job=j1', undefined, bearer)).status, 401, 'the night token never reads it back');
+  assert.equal((await call(e, 'GET', 'video?job=j2', undefined, await owner())).status, 404, 'no video for that form');
+  const rows = (await (await call(e, 'GET', 'state', undefined, await owner())).json()).jobs;
+  assert.deepEqual(rows.map(r => [r.job, r.video]), [['j1', true], ['j2', false]]);
+});
+
+test('a video is refused when it is not a video of this night\'s job, too long or too big, or after the night', async () => {
+  const {e, bearer} = await night();
+  assert.equal((await putVideo(e, {})).status, 401);
+  assert.equal((await putVideo(e, bearer, 'other')).status, 404, 'not a job of this night');
+  assert.equal((await putVideo(e, bearer, 'j1', 181)).status, 400, 'over 3 minutes');
+  assert.equal((await putVideo(e, bearer, 'j1', 0)).status, 400);
+  assert.equal((await putVideo(e, bearer, 'j1', 10, WEBM, 'application/json')).status, 400);
+  assert.equal((await putVideo(e, bearer, 'j1', 10, new Uint8Array(25 * 1024 * 1024 + 1))).status, 413);
+  for (const job of ['j1', 'j2']) await call(e, 'POST', 'result', {job, state: 'partial', filled: 1, left: 1}, bearer);
+  assert.equal((await putVideo(e, bearer)).status, 401, 'the night is over: its token is too');
+});
+
+test('a video is deleted with its job: Done, the 24 h sweep, Delete everything; never kept past 7 days', async () => {
+  const {e, bearer} = await night();
+  await putVideo(e, bearer, 'j1'); await putVideo(e, bearer, 'j2');
+  const videos = () => [...e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/')).length;
+  await call(e, 'POST', 'done', {job: 'j1'}, await owner());
+  assert.equal(videos(), 1, 'Done takes that form\'s video');
+  await sweep(e, new Date(now.getTime() + 25 * 3600 * 1000));
+  assert.equal(videos(), 0, 'the sweep takes the rest with the batch');
+  const second = await night();
+  await putVideo(second.e, second.bearer, 'j1');
+  await call(second.e, 'DELETE', 'data', undefined, await owner());
+  assert.equal([...second.e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/')).length, 0, 'Delete everything');
+  const {dropVideos} = await import('../src/ready-video.js');
+  const third = await night();
+  await putVideo(third.e, third.bearer, 'j1');
+  const [old] = [...third.e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/'));
+  third.e.HOSTED_STATE.at.set(old, new Date(now.getTime() - 8 * 86400000));
+  await dropVideos(third.e, 'owner-install-1', 'another-batch', [], now);
+  assert.equal(third.e.HOSTED_STATE.m.has(old), false, 'older than 7 days goes on any clean-up');
 });

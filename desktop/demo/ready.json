@@ -42,6 +42,7 @@
   "jobs": [
    {
     "job": "demo-1",
+    "video": true,
     "host": "boards.example.com",
     "state": "prepared",
     "filled": 9,
@@ -50,6 +51,7 @@
    },
    {
     "job": "demo-2",
+    "video": true,
     "host": "jobs.example.org",
     "state": "partial",
     "filled": 6,
@@ -58,6 +60,7 @@
    },
    {
     "job": "demo-3",
+    "video": true,
     "host": "careers.example.net",
     "state": "wall",
     "filled": 0,

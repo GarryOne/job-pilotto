@@ -9,7 +9,7 @@ import {ACCOUNT_PRESS, copyForNight, holdAccountPress} from '../../hosted/ready-
 import {CLOSED_NEED, classify, fillJob} from '../../hosted/ready-fill/fill-job.mjs';
 import {formUrl} from '../lib/form-address.js';
 import {inputToCdp} from '../../hosted/ready-fill/live.mjs';
-import {costMicro} from '../../hosted/ready-fill/night.mjs';
+import {costMicro, sendVideo} from '../../hosted/ready-fill/night.mjs';
 import {looksLikeSubmit} from '../../hosted/ready-fill/no-submit.mjs';
 import {createStandIn} from '../../hosted/ready-fill/stand-in.mjs';
 
@@ -90,8 +90,12 @@ test('the night opens the form the app would open, and the form\'s reports count
   const opened = [];
   const page = {goto: async url => { opened.push(url); }, evaluate: async () => false, waitForFunction: async () => {}};
   const standIn = {started: () => 1, outcome: () => ({filled: 7, left: 0}), role: () => 'form'};
-  const result = await fillJob({context: {newPage: async () => page}, standIn, job: {id: 'j1', url: POSTING}, fillSeconds: 1});
+  const recorded = [], video = {path: '/tmp/x.webm', bytes: 10, secs: 4};
+  const record = tab => { recorded.push(opened.length); return {stop: async () => (recorded.push('stopped'), video)}; };   // Watch the fill: from before the page loads to the outcome
+  const result = await fillJob({context: {newPage: async () => page}, standIn, job: {id: 'j1', url: POSTING}, fillSeconds: 1, record});
   assert.deepEqual(opened, [formUrl(POSTING)]);
+  assert.deepEqual(recorded, [0, 'stopped'], 'the video starts before the page is opened and stops once the outcome is read');
+  assert.equal(result.video, video);
   assert.notEqual(formUrl(POSTING), POSTING, 'the case is one where the form lives elsewhere');
   assert.equal(result.state, 'prepared');
 });
@@ -159,4 +163,17 @@ test('a night that cannot start tells the site each job failed and why, at once,
   await assert.rejects(runNight({chromium, site: 'https://site.example', token: 't', fetchImpl}), /browser could not start/);
   const results = posts.filter(p => p.route === 'result').map(p => p.body);
   assert.deepEqual(results.map(r => [r.job, r.state, r.wall]), [['a', 'failed', NIGHT_FAILED], ['b', 'failed', NIGHT_FAILED]]);
+});
+
+test('a fill\'s video goes to the site with the night token, and its file is gone after (Watch the fill)', async () => {
+  const os_ = await import('node:os'), file = path.join(fs.mkdtempSync(path.join(os_.tmpdir(), 'jp-video-')), 'fill.webm'), calls = [];
+  fs.writeFileSync(file, Buffer.from('webm'));
+  const fetchImpl = async (url, init) => { calls.push({url, method: init.method, auth: init.headers.authorization, type: init.headers['content-type'], body: String(init.body)}); return {status: 200}; };
+  assert.equal(await sendVideo(fetchImpl, 'https://site.example', 'RR1.b.t', 'j 1', {path: file, bytes: 4, secs: 7}), 200);
+  assert.deepEqual(calls, [{url: 'https://site.example/api/ready/video?job=j%201&secs=7', method: 'PUT', auth: 'Bearer RR1.b.t', type: 'video/webm', body: 'webm'}]);
+  assert.equal(fs.existsSync(file), false, 'nothing kept in the container');
+  assert.equal(await sendVideo(fetchImpl, 'https://site.example', 't', 'j1', null), 0, 'no video, no call');
+  fs.writeFileSync(file, 'x');
+  assert.equal(await sendVideo(async () => { throw new Error('down'); }, 'https://site.example', 't', 'j1', {path: file, secs: 1}), 0, 'a failed upload loses only the video');
+  assert.equal(fs.existsSync(file), false);
 });

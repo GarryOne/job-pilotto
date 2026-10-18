@@ -135,11 +135,11 @@ test('no control on the card reads like a Submit to the twin\'s guard', async ()
   const {looksLikeSubmit} = await import('../e2e/lib/twin-guards.mjs');
   const body = page();
   globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {},
-    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed', 'queued'].map((state, i) => ({job: `j${i}`, state}))}}),
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed', 'queued'].map((state, i) => ({job: `j${i}`, state, video: true}))}}),
     readyTonight: async () => ({ok: false})};
   await initReadyCard();
   const all = body.querySelector('.ready-card').querySelectorAll('button');
-  assert.ok(all.length >= 12, 'Fill tonight, Fill now, Open in my browser ×3, Open live recording ×3, Done ×6');
+  assert.ok(all.length >= 18, 'Fill tonight, Fill now, Open in my browser ×3, Open live recording ×3, Watch the fill ×6, Done ×6');
   for (const button of all) assert.ok(!looksLikeSubmit(`${textOf(button)} ${button.title || ''} ${button.getAttribute('aria-label') || ''}`), `${textOf(button)} / ${button.title}`);
 });
 
@@ -181,4 +181,25 @@ test('an outdated app: the plain restart line and a Restart button on every way 
     restart.click();
     assert.equal(relaunched, 1, `${name}: it restarts through the shared path`);
   }
+});
+
+// Watch the fill (owner, 18 Oct 2026): every row the night opened and kept a video for has it, also one it could not fill; it plays under its row and closes when pressed again.
+test('a row with the night\'s video offers Watch the fill; it plays under the row and closes again', async () => {
+  const body = page(), asked = [];
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: [{job: 'j0', state: 'prepared', video: true}, {job: 'j1', state: 'failed', video: true}, {job: 'j2', state: 'no-form', video: false}]}}),
+    readyTonight: async () => ({ok: false}), readyVideo: async code => { asked.push(code); return {ok: true, bytes: new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])}; }};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
+  assert.deepEqual(rows.map(row => row.querySelectorAll('button').map(textOf)), [['Open in my browser', 'Open live recording', 'Watch the fill', 'Done'], ['Watch the fill', 'Done'], ['Done']]);
+  const watch = rows[1].querySelectorAll('button')[0];
+  watch.click(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(asked, ['j1']);
+  const player = card.querySelector('.ready-player');
+  assert.ok(player, 'a player under the row');
+  assert.match(player.querySelector('video').src, /^blob:/);
+  assert.equal(textOf(watch), 'Hide the fill');
+  watch.click(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(card.querySelector('.ready-player'), null, 'closed again');
+  assert.equal(textOf(watch), 'Watch the fill');
 });

@@ -1,12 +1,17 @@
 /* The Ready to send card (pages/ready-card.js): rows under the task-card body, built from the Actions page's own parts; only the list is new. */
 .ready-card { display: grid; gap: var(--sp-2); }
 .ready-body, .ready-note { padding: 0 var(--sp-3); display: grid; gap: var(--sp-2); }
-.ready-rows { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-3); }
+.ready-rows { display: grid; grid-template-columns: minmax(10rem, 1fr) auto auto; gap: var(--sp-1) var(--sp-3); }
 /* One grid for every row (a subgrid), so the pills and buttons line up whatever the job's name length. */
 .ready-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; border-top: 1px solid var(--line); padding-top: var(--sp-2); }
 .ready-row > .ui-pill { justify-self: start; }
 .ready-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ready-buttons { display: flex; gap: var(--sp-2); justify-self: end; }
+/* The name keeps 10rem; on a narrow window the buttons wrap onto a second line rather than squeeze their words or the name (four buttons since Watch the fill). */
+.ready-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); justify-self: end; }
+.ready-buttons > button { white-space: nowrap; }
+/* Watch the fill: the night's video of one form, under its row, across the whole row. */
+.ready-player { grid-column: 1 / -1; }
+.ready-player video { display: block; width: 100%; max-width: 960px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
 /* Not available: the reason, and Try again; the card's two buttons are off meanwhile. */
 .ready-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .ready-status > .muted { flex: 1 1 16rem; min-width: 0; }

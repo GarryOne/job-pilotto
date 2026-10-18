@@ -2,6 +2,7 @@
 // button), and read what it reported to the stand-in. The tab stays open, filled, for the morning. Nothing here presses Submit or an account button: the extension copy holds the account press and no-submit.mjs refuses a submission.
 // -> {state, filled, left, humanCheck, wall, ms}, never a field value. Guard: desktop/test/ready-fill.test.js (classify) and the fixture proof (hosted/ready-fill/proof.mjs).
 import {formUrl} from '../../desktop/lib/form-address.js';   // in the image: /desktop/lib, reached by the same path from /night
+import {startFillVideo} from './fill-video.mjs';
 
 const FILL_BUTTON = /^(fill anyway|fill this form|fill again)$/i;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -36,13 +37,15 @@ async function pressFill(page, standIn, address, seconds = 25) {
   }, FILL_BUTTON.source).catch(() => false);
 }
 
-// context: the night's Playwright context; standIn: createStandIn(); job: {id, url}. -> the outcome plus the tab.
-export async function fillJob({context, standIn, job, fillSeconds = 120}) {
+// context: the night's Playwright context; standIn: createStandIn(); job: {id, url}. -> the outcome plus the tab and the fill's video ({path, bytes, secs} or null).
+// record(page): starts the fill's video (Watch the fill, owner 18 Oct 2026: every form the night opens, 3 minutes at most); it stops once the outcome is read, before the tab is held.
+export async function fillJob({context, standIn, job, fillSeconds = 120, record = page => startFillVideo(page)}) {
   const started = Date.now(), page = await context.newPage();
-  try { await page.goto(formUrl(job.url), {waitUntil: 'domcontentloaded', timeout: 30000}); } catch { return {page, state: 'failed', wall: 'unreachable', filled: 0, left: 0, humanCheck: false, ms: Date.now() - started}; }
+  const recording = await Promise.resolve().then(() => record(page)).catch(() => null), video = async () => (await recording?.stop().catch(() => null)) || null;
+  try { await page.goto(formUrl(job.url), {waitUntil: 'domcontentloaded', timeout: 30000}); } catch { return {page, state: 'failed', wall: 'unreachable', filled: 0, left: 0, humanCheck: false, ms: Date.now() - started, video: await video()}; }
   const panel = await pressFill(page, standIn, job.url);
   for (let waited = 0; panel && waited < fillSeconds && !standIn.outcome(job.url); waited++) await wait(1000);
   await wait(3000);   // the record is written once, at the fill's end; the page settles and a later pass or update may follow
   const outcome = standIn.outcome(job.url), verdict = classify({outcome, panel, role: standIn.role(job.url), stuck: standIn.stuck?.(job.url) ?? null});
-  return {page, ...verdict, filled: outcome?.filled || 0, left: outcome?.left || 0, humanCheck: await humanCheckIn(page), ms: Date.now() - started};
+  return {page, ...verdict, filled: outcome?.filled || 0, left: outcome?.left || 0, humanCheck: await humanCheckIn(page), ms: Date.now() - started, video: await video()};
 }
