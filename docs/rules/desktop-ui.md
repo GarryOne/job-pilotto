@@ -63,7 +63,8 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
   A date it was confirmed is a muted line under a text value (never under chips: see "Chips and words" below); anything longer folds as the card's one **Note for the AI**.
 - **Long lists fold** (Relocation's ~80 places): more than a dozen items show as the first few chips and "+N more", never a paragraph.
 - **Aligned rhythm** ("nothing randomly placed around the screen"): settings sit on a label column or a row grid, with separators or tinted row backgrounds between them.
-  Each setting is **label column + value**, the value starting on the label's line; the labels of one card share a left edge.
+  Each single value is **label column + value**, the value starting on the label's line; a chip list may sit on its own line under its label, as in
+  mockup 03's Locations ("Preferred locations" over its chips). The labels of one card share a left edge; wide lists of settings have a divider or a tint between rows.
 - **Chips and words: no lone line above or below a chip row** (owner, 18 Oct 2026, #1513 rejected: "I gave you feedback about the chips vs text/labels
   positioning/placement"). A qualifier joins the label or is a badge in the row, and a "Yes" that the chips already say is dropped:
   `Preferred · ranked first | [Amsterdam] [Berlin]`, never `Preferred | [Amsterdam] [Berlin]` with "Ranked first" under them, nor `Relocation | Yes` above the places.
@@ -83,7 +84,9 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
   a card picker or segmented buttons; a set → chips; a number on a scale or range → a slider; a menu (`select`) only for a long list (country, currency), searchable
   (`.select-search`) or marked `data-long-list`; a text field only for real prose. This refines "the value's kind picks the control" above.
 - **What fails a change:** `desktop/e2e/lib/design-rules.mjs` runs on every view a journey visits (`lib/layout.mjs` snap): `raw-note-in-value`, `long-list-unfolded`,
-  `caption-sandwich` (lone words above or below a chip row, under a list or a button), `sticky-bar-covers`, `label-grid` (labels off one left edge, or a value starting under its label, in a wide window), `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. A screen that broke a rule before it was written is listed in its
+  `caption-sandwich` (lone words above or below a chip row, under a list or a button), `sticky-bar-covers`, `label-grid` (labels off one left edge, a single value under its label, or a read value more than 240px from its label, in a wide window),
+  `no-dividers` (3+ settings in a wide list with no line or tint), `list-as-prose` (4+ short items written as words: "Yes · Lisbon, Porto, Madrid"), `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. The checks find shapes, never class names or pages (a chip row is any element with chips as children; a setting is a short bold label + value repeated in a
+  list); the design page's "Strategy cards as the owner rejected them" fixture proves them on the shape he saw. A screen that broke a rule before it was written is listed in its
   `KNOWN_LEFT` with the session fixing it (shrink-only, `desktop/e2e/test/design-rules.test.mjs`, which also proves each Don't trips its check and each Do and every
   approved gallery section trips none). Separators between settings, "only the difference" and a text field holding a value from a closed list have no check yet: the AI review and the owner's eye judge them.
 

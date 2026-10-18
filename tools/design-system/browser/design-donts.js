@@ -4,6 +4,7 @@
 import {chip, el, pill} from '../r/components.js';
 import {chipLine, editRows, readRows} from '../r/card-shell.js';
 import {refresh, segmented} from '../r/question-control-values.js';
+import {reviewList} from '../r/page-parts.js';
 
 const root = document.getElementById('gallery');
 const box = (title, expect, ...children) => {
@@ -12,10 +13,10 @@ const box = (title, expect, ...children) => {
   card.append(el('h4', '', title), ...children);
   return card;
 };
-const pair = (title, note, bad, good) => {
+const pair = (title, note, ...boxes) => {   // a Don't, its Do, and more Don'ts when one rule has several shapes
   const section = el('section', 'g-section');
   const grid = el('div', 'state-grid');
-  grid.append(bad, good);
+  grid.append(...boxes);
   section.append(el('h2', '', title), el('p', 'muted small', note), grid);
   root.append(section);
 };
@@ -31,13 +32,20 @@ pair("Don't: long lists as a paragraph", 'A list of more than a dozen items show
   box("Don't: every place written out", 'long-list-unfolded', readRows([{label: 'Relocation', value: `Yes · ${PLACES.join(', ')}`}])),
   box('Do: chips, then +N more', '', (() => { const line = chipLine(PLACES.slice(0, 5)); line.append(button(`+${PLACES.length - 5} more`, 'link small')); return line; })()));
 
+// #1515's shapes (5c): a joined review list (one .review-box child) with its note after it, and a cost line beside its own button in one parent.
+const listAndCost = () => {
+  const gaps = reviewList([{title: 'Prometheus', why: 'Asked in 3 saved jobs'}, {title: 'Vault', why: 'Asked in 2 saved jobs'}], {joined: true});
+  const gapNotes = el('div', 'gap-notes'); gapNotes.append(el('p', 'muted small', 'Notes in your Profile'), el('p', 'muted small', 'Please confirm or discard each.'));
+  const cvAction = el('div', 'cvc-action'); cvAction.append(button('Check my CV', 'secondary'), el('span', 'muted small', '~$0.02'));
+  return box("Don't: a note after a list, a cost by its button", 'caption-sandwich', gaps, gapNotes, cvAction);
+};
 pair("Don't: lone words over or under chips", 'Rhythm: a setting is label column + value on one line. A qualifier joins the label ("Preferred · ranked first") or is a badge in the row, never a lone line above or below the chips.',
   (() => {
     const yes = el('dd'); yes.append('Yes', chipLine(PLACES.slice(0, 3)));
     const list = readRows([{label: 'Preferred', value: chipLine(PLACES.slice(3, 5)), note: 'Ranked first'}]);
     list.append(el('dt', '', 'Relocation'), yes);
-    const stacked = readRows([{label: 'Work mode', value: chipLine(['Hybrid', 'Remote'])}]);
-    stacked.style.display = 'block';   // the label on its own line above the value
+    const stacked = readRows([{label: 'Work mode', value: 'Hybrid or remote'}]);
+    stacked.style.display = 'block';   // a single value on its own line under its label (a chip list may sit under its label: mockup 03)
     const notes = el('ul', ''); notes.append(el('li', '', 'Seniority: Senior'), el('li', '', 'Team size: 5–10'));
     const actions = el('div', 'g-row'); actions.append(button('Draft the letter', 'secondary'));
     return box("Don't: captions and stacked labels", 'caption-sandwich label-grid', list, stacked, notes, el('p', 'muted small', 'Please confirm or discard each.'), actions, el('p', 'muted small', 'About $0.02'));
@@ -46,7 +54,27 @@ pair("Don't: lone words over or under chips", 'Rhythm: a setting is label column
     const actions = el('div', 'g-row'); actions.append(button('Draft the letter · ~$0.02', 'secondary'));
     return box('Do: label · qualifier | chips', '', readRows([{label: 'Preferred · ranked first', value: chipLine(PLACES.slice(3, 5))}, {label: 'Relocation', value: chipLine(PLACES.slice(0, 3))},
       {label: 'Work mode', value: chipLine(['Hybrid', 'Remote'])}]), actions);
-  })());
+  })(),
+  listAndCost());
+
+// The owner's rejected screen (main's Strategy on 18 Oct 2026: Locations, Job board searches, More search settings), drawn in its own markup with fictional
+// values so the checks are proved on the shape he saw: labels stacked over values, group captions over chips, places as prose, a footnote after the settings.
+const strategyShape = (...cards) => { const page = el('div', 'strategy-page'), review = el('div', 'review'); review.append(...cards); page.append(review); return page; };
+const shapeCard = (title, ...parts) => { const card = el('div', 'shape-card'), head = el('div', 'card-head'), titleWords = el('div', 'card-words'); titleWords.append(el('h3', '', title)); head.append(titleWords); card.append(head, ...parts); return card; };
+const settingShape = (label, ...value) => { const row = el('div', 'setting-row'), body = el('div', 'setting-body'); body.append(el('b', '', label), ...value); row.append(el('span', 'muted', '•'), body); return row; };
+const chipsShape = labels => { const list = el('div', 'chip-list'); list.append(...labels.map(label => chip(label))); return list; };
+pair("Don't: Strategy cards as the owner rejected them", 'Main\'s Locations, Job board searches and More search settings (fictional values): every setting reads as label column + value, qualifiers join the label, places are chips, no footnote.',
+  box("Don't: labels over values, captions, prose", 'caption-sandwich label-grid list-as-prose', strategyShape(
+    shapeCard('Locations', (() => { const priority = el('div', 'priority'), groups = el('div', 'setting-body');
+      groups.append(el('span', 'muted small', 'Also inside longer words'), chipsShape(PLACES.slice(0, 3)), el('span', 'muted small', 'Whole word only'), chipsShape(PLACES.slice(3, 5)));
+      priority.append(el('b', '', 'Preferred locations'), groups); return priority; })(),
+      settingShape('Relocation', el('span', '', `Yes · ${PLACES.slice(5, 9).join(', ')}`)), settingShape('Remote work', el('span', '', 'Jobs that allow working from Portugal')),
+      el('p', 'muted small card-foot', 'Work mode (in Main goals) is the kind of job you accept; Remote work is whether remote jobs count.')),
+    shapeCard('Job board searches', el('p', 'sub', 'What we type into job boards.'), chipsShape(['Store manager', 'Area manager', 'Retail lead'])),
+    shapeCard('More search settings', settingShape('Job titles to skip', chipsShape(['Intern', 'Trainee'])), settingShape('Companies to skip', chipsShape(['Acme Retail']))))),
+  box('Do: label · qualifier | chips', '', readRows([{label: 'Preferred · whole word', value: chipLine(PLACES.slice(3, 5))}, {label: 'Preferred · inside words', value: chipLine(PLACES.slice(0, 3))},
+    {label: 'Relocation', value: chipLine(PLACES.slice(5, 9))}, {label: 'Remote work', value: 'From Portugal'}, {label: 'Board searches', value: chipLine(['Store manager', 'Area manager', 'Retail lead'])},
+    {label: 'Titles to skip', value: chipLine(['Intern', 'Trainee'])}], {lined: true})));
 
 // A sticky bar lifted by an offset (the save bar over the Profile fold bar) needs that much room after it in the flow: a scroll box's own bottom padding
 // does not count for a sticky bar (it shrinks the area the bar sticks in), so the Do puts the room after the bar (a fixed bar takes bottom padding instead).
