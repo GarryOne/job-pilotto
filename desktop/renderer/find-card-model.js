@@ -57,7 +57,7 @@ export function findCard({running = null, last = null, lastSearchAt = '', listed
   if (searching) {
     const log = running.log || [];
     const lines = readableLog(log.slice(-60)).filter(line => !/^⏳ Still running/.test(line)).slice(-3);
-    return {state: 'searching', chips: stepChips(log), lines, ...runCounts(log), employers: employersRead(log), first: log.some(line => FIRST.test(String(line)))};
+    return {state: 'searching', chips: stepChips(log), lines, ...runCounts(log), waiting: searchNumbers(log)?.waiting ?? 0, employers: employersRead(log), first: log.some(line => FIRST.test(String(line)))};
   }
   if (last && last.ok === false && (finishedHere || !listed)) return {state: 'failed', problem: last.problem || last.result || '', listed};
   if (finishedHere && last) return {state: 'done', listed, found: last.new ?? null, ...runCounts(last.log), waiting: Math.max(0, runCounts(last.log).matches - runCounts(last.log).scored)};
