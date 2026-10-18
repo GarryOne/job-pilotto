@@ -62,5 +62,5 @@ test('class: no card Edit is filled orange (code and markup)', () => {
 test('every outlineTab caller names its page bar', () => {
   const callers = files('').filter(file => /outlineTab\('/.test(source(file)) && file !== 'pages/outline-tab.js');
   assert.ok(callers.length >= 3, `found ${callers}`);
-  for (const file of callers) assert.match(source(file), /outlineTab\('[^']+',[\s\S]*?bar: (?:profileBar|strategyBarNow)\(\)/, `${file} passes its page bar`);
+  for (const file of callers) assert.match(source(file), /outlineTab\('[^']+',[\s\S]*?bar: [\w.]+\(\)/, `${file} passes its page bar`);   // profileBar(), strategyBarNow(), Strategy's barFor()
 });
