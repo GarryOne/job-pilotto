@@ -20,9 +20,19 @@ export function restoreInPage(handoff) {
 
 // deps: {chrome, api(path, init), sessionGet(key), move(tabId, url): tabs.js moveTab (so the move counts as the extension's own, never an outside link), decide(what, fields)}.
 export function createReadyHandoff({chrome, api, sessionGet, move, decide = () => {}}) {
+  const asking = new Map();   // tabId -> {url, ask}: the ask still waiting on the app
   // While a marked tab first loads: ask once. -> true when the tab was sent on to the night's page (the caller stops; that load comes back here).
+  // The page can finish loading while the app still answers (e2e, 18 Oct 2026: the fill began on the first page, then again on the night's): that
+  // "complete" waits for the ask, and stops too when the tab moved on.
   async function takeHandoff(tabId, url, status) {
-    if (status !== 'loading') return false;
+    const waiting = asking.get(tabId);
+    if (status !== 'loading') return waiting?.url === url ? waiting.ask : false;   // the night's own page loading is never held
+    if (waiting) return false;
+    const ask = askOnce(tabId, url), entry = {url, ask};
+    asking.set(tabId, entry);
+    try { return await ask; } finally { if (asking.get(tabId) === entry) asking.delete(tabId); }
+  }
+  async function askOnce(tabId, url) {
     const state = (await sessionGet(key(tabId)))[key(tabId)];
     if (state) return false;   // asked already (nothing, or the restore waits for the page)
     await chrome.storage.session.set({[key(tabId)]: {step: 'asked'}});

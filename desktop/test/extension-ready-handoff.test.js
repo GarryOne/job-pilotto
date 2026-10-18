@@ -50,6 +50,21 @@ test('a hand-off: its cookies set, the night\'s page loaded with the same mark, 
   assert.equal(await w.flow.restoreHandoff(7), 0, 'once');
 });
 
+test('the first page finishes loading while the app still answers: that load waits and stops when the tab moved on (no fill of the first page); the night\'s page is never held', async () => {
+  let release;
+  const w = world(null);
+  w.flow = createReadyHandoff({chrome: {storage: {session: {set: async items => Object.assign(w.session, items)}}, cookies: {set: async c => c}},
+    api: () => new Promise(done => { release = () => done({ok: true, handoff: HANDOFF}); }), sessionGet: async name => ({[name]: w.session[name]}),
+    move: async (tabId, url) => { w.updates.push([tabId, url]); }});
+  const loading = w.flow.takeHandoff(7, MARKED, 'loading');
+  const complete = w.flow.takeHandoff(7, MARKED, 'complete');
+  const night = 'https://job-boards.greenhouse.io/acme/jobs/1#jobpilotto-fill=s1';
+  assert.equal(await w.flow.takeHandoff(7, night, 'complete'), false, 'another address is not held');
+  await new Promise(done => setTimeout(done, 5)); release();
+  assert.deepEqual([await loading, await complete], [true, true], 'the first page\'s complete stops too: the fill waits for the night\'s page');
+  assert.equal(await w.flow.takeHandoff(7, night, 'complete'), false, 'the night\'s page then fills');
+});
+
 function page(nodes) {
   const store = () => { const data = {}; return {getItem: k => (k in data ? data[k] : null), setItem: (k, v) => { data[k] = v; }, data}; };
   const events = [];

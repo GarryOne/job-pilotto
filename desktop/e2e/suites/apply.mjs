@@ -13,6 +13,7 @@ import {appLogLines, appLogText} from '../lib/app-log.mjs';
 import {livePosting, realKind, runLive} from '../lib/apply-live.mjs';
 import {runCvSteps} from '../lib/apply-cv-steps.mjs';
 import {runJourneys} from '../lib/apply-journeys.mjs';
+import {INSTRUCTIONS as KIND_RULES} from '../../lib/ladder/rung2-sketch.js';
 import {BASE_CV, CONTACT, OPEN_ANSWER, POSTING, expectedOf, pause, tailoredFrom} from '../lib/apply-fixtures.mjs';
 
 // Walks other data and timing on each seeded run (lib/forms.mjs varyForms): an exploring run on an unchanged commit includes it.
@@ -89,7 +90,8 @@ export async function runApply(ctx, parts) {
       }
       // What kind of page (lib/page-kind.js): the stand-in answers with each fixture's true kind, so every flow row runs on the AI's word, as in use.
       if (/^Address path:/m.test(text) && /^Controls/m.test(text)) {
-        ctx.kindAsks = (ctx.kindAsks || 0) + 1;   // counted: the night's page is never asked (the Open in Chrome step)
+        const system = typeof body?.system === 'string' ? body.system : (body?.system || []).map(part => part.text || '').join('');
+        if (system === KIND_RULES) ctx.kindAsks = (ctx.kindAsks || 0) + 1;   // counted: the night's page kind is never asked (the Open in Chrome step); the "ready to submit?" judge shares this sketch and still runs
         const where = /^Address path: (.*)$/m.exec(text)?.[1] || '';
         const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form', [LATE.path]: 'posting',
           [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
