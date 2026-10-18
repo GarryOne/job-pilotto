@@ -20,7 +20,8 @@ function rebuilt() {
   storage.saveSettings({setupDone: true});
   return storage;
 }
-const reply = draft => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify(draft)}]});
+// Every draft has roles and job board searches (lib/strategy-empty.js).
+const reply = draft => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify({search: {role_keywords: ['sre'], jobs_board_search_queries: ['sre']}, ...draft})}]});
 
 test('a rebuild is told the current places, work rights and languages, and keeps the work rights the draft dropped', async () => {
   const storage = rebuilt(), seen = [];
