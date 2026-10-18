@@ -23,7 +23,7 @@ export async function requeue(env, batch, job) {
   const row = await env.STATS.prepare(`SELECT ${RESULT.join(', ')} FROM ready_jobs WHERE batch = ? AND job = ?`).bind(batch, job).first();
   const before = row && row.state !== 'queued' ? JSON.stringify(row) : null;
   return env.STATS.prepare(`UPDATE ready_jobs SET state = 'queued', filled = NULL, left_empty = NULL, human_check = NULL, wall = NULL, ms = NULL, at = NULL, step = NULL, step_n = NULL, started_at = NULL,
-    again_from = COALESCE(?, again_from) WHERE batch = ? AND job = ?`).bind(before, batch, job);
+    again_from = COALESCE(?, again_from), turn = turn + 1 WHERE batch = ? AND job = ?`).bind(before, batch, job);
 }
 
 // A stopped row: back to the result a Fill again replaced, or "stopped" when it had none.

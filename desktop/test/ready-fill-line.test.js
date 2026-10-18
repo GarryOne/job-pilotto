@@ -59,17 +59,21 @@ test('a site from before the line (it returns every form, not only those waiting
   await night.close();
 });
 
-test('a site that marks the line but keeps listing a form it already has (a stale answer) fills it at most MAX_FILLS times, then the night ends', {timeout: 30000}, async () => {
-  const {runNight, MAX_FILLS} = await import('../../hosted/ready-fill/night.mjs');
+test('the container fills each press of a form once: a stale list fills nothing more, a Fill again (its turn counted up) fills it again', {timeout: 30000}, async () => {
+  const {runNight, pressOf} = await import('../../hosted/ready-fill/night.mjs');
+  assert.equal(pressOf({id: 'j1'}), 'j1:0');
   const results = [];
+  let reads = 0;
   const fetchImpl = async (url, init = {}) => {
     const route = new URL(url).pathname.replace('/api/ready/', ''), body = init.body ? JSON.parse(init.body) : null;
     if (route === 'result') results.push(body.job);
-    return {status: 200, json: async () => (route === 'batch' ? {ok: true, line: true, night: '2026-10-18', contact: {}, facts: {}, jobs: [job('j1')]} : {ok: true, stop: false})};
+    if (route !== 'batch') return {status: 200, json: async () => ({ok: true, stop: false})};
+    reads += 1;   // read 1: the night; 2: j1 stale (same turn) + j2 joins; 3: the owner's Fill again of j1 (turn 1); then stale for ever
+    const jobs = reads === 1 ? [job('j1')] : reads === 2 ? [job('j1'), job('j2')] : reads === 3 ? [{...job('j1'), turn: 1}] : [{...job('j1'), turn: 1}, job('j2')];
+    return {status: 200, json: async () => ({ok: true, line: true, night: '2026-10-18', contact: {}, facts: {}, jobs})};
   };
   const night = await runNight({chromium: fakeChromium(), site: 'https://site.example', token: 't', fetchImpl, fillSeconds: 2, record: () => null});
-  assert.equal(MAX_FILLS, 3);
-  assert.deepEqual(results, Array(MAX_FILLS).fill('j1'), 'the floor stops the loop whatever the site answers');
+  assert.deepEqual(results, ['j1', 'j2', 'j1'], 'one fill per press; the stale answers fill nothing, the night ends');
   await night.close();
 });
 
