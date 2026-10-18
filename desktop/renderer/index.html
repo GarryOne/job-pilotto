@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="question-review.css">
+<link rel="stylesheet" href="experience-tab.css">
 <link rel="stylesheet" href="plan.css">
 <link rel="stylesheet" href="ready-card.css">
 <link rel="stylesheet" href="menu.css">
@@ -996,10 +997,10 @@
           <div class="stale-draft" id="cv-changed" data-profile-panel="cv" data-wanted="0" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Where your experience comes from</h3></div>
-              <div class="panel-actions"><button class="secondary with-icon" id="exp-add-linkedin"><i data-icon="link"></i><span>Add LinkedIn data</span></button>
-                <button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div></div>
+            <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Experience sources</h3></div></div>
             <p class="muted panel-lead">Your main CV is the reference: a tailored CV keeps its jobs, titles and dates. Other versions only add facts to those jobs, so tailoring has more to choose from.</p>
+            <div class="inline exp-add-row"><button class="secondary with-icon" id="exp-add-linkedin"><i data-icon="link"></i><span>Add LinkedIn data</span></button>
+              <button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div>
             <details class="muted small" id="exp-linkedin-help"><summary>How to get your LinkedIn data</summary>
               <p>On LinkedIn: Settings → Data privacy → <b>Get a copy of your data</b> → tick Positions, Profile, Skills and Education (the fast option) → Request archive. LinkedIn emails a link within minutes: download the .zip and choose it here. Quicker: on your LinkedIn profile choose Resources → <b>Save to PDF</b> and choose that PDF here. The file itself is not kept.</p></details>
             <div class="inline" id="exp-linkedin-line"></div>
@@ -1010,14 +1011,14 @@
           </div>
           <div class="setting panel" id="setting-experience-profile" data-profile-panel="experience" hidden>
             <div class="summary-head"><i data-icon="user"></i><h3>Your background</h3></div>
-            <p class="muted panel-lead">Summary, strengths and education from your Profile: tailored CVs, cover letters and fit scores read them. Your roles are the job cards below.</p>
+            <p class="muted panel-lead">Summary, strengths and education from your Profile: tailored CVs, cover letters and fit scores read them. Your jobs are under Work history.</p>
             <div class="exp-profile" id="exp-profile"></div>
             <p class="message" id="exp-profile-message"></p>
           </div>
           <div class="setting panel" id="setting-experience-roles" data-profile-panel="experience" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="briefcase"></i><h3>What tailoring can draw on</h3></div>
-              <div class="panel-actions"><span class="synced" id="exp-count"></span></div></div>
-            <p class="muted panel-lead">Each job from your main CV, with the details other versions add.</p>
+            <div class="panel-top"><div class="summary-head"><i data-icon="briefcase"></i><h3>Work history</h3></div>
+              <div class="panel-actions"><span class="muted small" id="exp-count"></span></div></div>
+            <p class="muted panel-lead">Your jobs from your main CV, as tailored CVs keep them. Open one for its details.</p>
             <div class="exp-roles" id="exp-roles"></div>
           </div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">

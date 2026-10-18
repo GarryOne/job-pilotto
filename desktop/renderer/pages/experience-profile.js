@@ -4,13 +4,13 @@
 // cards, never here. Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC
 // textOutline / textEdit); the model is renderer/experience-profile-model.js. Cards are the Application answers' folds (.answer-item.qa-fold).
 // Guarded by test/experience-profile.test.js and test/experience-cards.test.js.
-import {cardEdit, el, loadingCard, tag} from '../components.js';
+import {cardEdit, el, loadingCard, pill, tag} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {surveyBody, surveyForm} from '../survey-rows.js';
 import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
-import {gapsBody} from '../gaps-rows.js';
+import {gapsBody, pendingCount} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
 
@@ -87,9 +87,10 @@ function card(tab, each) {
   box.addEventListener('toggle', () => { folded.set(key, box.open); foldsChanged(); });
   registerCard(box, tab);   // the tab's fold bar opens and folds it with the rest (profile-fold.js)
   const head = el('summary', 'qa-section-head');
-  const count = key === 'strengths' ? part?.lines.length : 0;
+  const count = key === 'strengths' ? part?.lines.length : 0, toReview = key === 'gaps' ? pendingCount(part) : 0;
+  // The CV gaps are decided row by row (Confirm skill / Dismiss), never edited as lines: no Edit on that card (owner review fix 6, 18 Oct 2026).
   head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
-    el('span', 'exp-part-gap'), editButton(tab, each));
+    ...(toReview ? [pill(`${toReview} to review`, 'warn')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? [] : [editButton(tab, each)]));
   box.append(head, editing.has(key) ? editor(tab, each) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
   return box;
 }

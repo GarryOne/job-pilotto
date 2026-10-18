@@ -1,0 +1,30 @@
+/* Profile → Experience: the CV gaps review list (renderer/gaps-rows.js) and the Work history rows (pages/experience.js), mockups 06 + 09, 18 Oct 2026.
+   Tokens only (test/design.test.js). */
+.exp-add-row { gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; }
+
+.gap-list { display: grid; border: 1px solid var(--line); border-radius: var(--r-md); }
+.gap-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.gap-row + .gap-row { border-top: 1px solid var(--line); }
+.gap-name { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; flex-wrap: wrap; }
+.gap-row .link { padding: 0 var(--sp-2); }
+.gap-fold { margin: 0; padding: 0; border: 0; background: none; }   /* not style.css's padded details */
+.gap-fold > summary { display: flex; align-items: baseline; gap: var(--sp-3); cursor: pointer; padding: var(--sp-1) 0; }
+.gap-fold > summary { list-style: none; align-items: center; }
+.gap-fold > summary::-webkit-details-marker { display: none; }
+.gap-chevron { color: var(--muted); transition: transform .15s; }
+.gap-fold[open] .gap-chevron { transform: rotate(90deg); }
+.gap-fold > .gap-list { margin-top: var(--sp-2); }
+.gap-notes { display: grid; gap: 2px; }
+.gap-notes p { margin: 0; }
+
+.exp-job { padding: 0; }
+.exp-job > summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); list-style: none; }
+.exp-job > summary::-webkit-details-marker { display: none; }
+.exp-job > :not(summary) { margin: 0 var(--sp-3) var(--sp-3) calc(32px + var(--sp-3) * 2); }
+.job-initial { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); font-weight: 700; color: var(--muted); }
+.job-who { display: flex; flex-direction: column; min-width: 0; }
+.job-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-when { white-space: nowrap; }
+.job-chevron { color: var(--muted); transition: transform .15s; }
+.exp-job[open] .job-chevron { transform: rotate(90deg); }
+@container (max-width: 560px) { .exp-job > summary { grid-template-columns: auto minmax(0, 1fr) auto; } .job-when { grid-column: 2; white-space: normal; } }
