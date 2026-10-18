@@ -21,6 +21,7 @@ export function paint(card, state, names, act) {
     rows.append(line);
   }
   if (jobs.length) body.append(rows);
+  if (state.sent) body.append(el('div', 'muted', `Sent for tonight: ${state.sent.count} job${state.sent.count === 1 ? '' : 's'} · ${new Date(state.sent.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})}. It is sent again by itself when this list changes and before your Mac goes off.`));
   body.append(el('div', 'muted', tonight.length ? `Tonight: ${tonight.length} of your finished jobs (fit ≥ ${state.settings.minFit}, up to ${state.settings.perNight})` : 'Tonight: no job has its kit, CV and cover letter ready yet. Tailor CVs first.'));
 }
 
