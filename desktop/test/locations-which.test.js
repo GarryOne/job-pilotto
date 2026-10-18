@@ -12,7 +12,7 @@ test('every choice has a button, no side leads (two equal buttons in their sides
   for (const choice of CHOICES) assert.match(screen, new RegExp(`go\\('${choice}'`), choice);
   assert.doesNotMatch(screen, /autofocus|is-active|primary/);   // no button looks like the recommended one (sketch decision 2: "no winner")
   assert.match(screen, /\{label: "Use Strategy's", tone: 'violet', run: go\('strategy'\)\}, \{label: "Use Profile's", tone: 'teal', run: go\('profile'\)\}/);
-  assert.match(screen, /\{label: 'Use different locations for searching', link: true, run: go\('separate'\)/);
+  assert.match(screen, /label: 'Use different locations for searching', run: \(\) => go\('separate'\)/, 'one quiet Choose… menu holds it');
   assert.match(screen, /choiceRow\(\{/, 'the shared choice row');
   assert.doesNotMatch(screen, /'Advanced'/, 'no empty Advanced box');
 });

@@ -1,7 +1,7 @@
 // Strategy → "Which locations are right?" (owner, 17 Oct 2026: "Resolve genuine conflicts individually, showing both existing values. Don't preselect a winner."):
 // one row per kind where the search settings and the Profile said different places. Each is the shared choice row (page-parts.js choiceRow; owner, 18 Oct
 // 2026: "bad UI... no colors"; sketch decision 2, "no winner"): Strategy (violet) and Profile (teal) side by side, the places only one side has outlined,
-// two equal buttons in their sides' colours, a quiet "Choose…" and "Use different locations for searching" as a link. Nothing is picked for the person.
+// two equal buttons in their sides' colours and one quiet "Choose…" menu (type other places, or use different locations for searching). Nothing is picked for the person.
 // Guarded by test/locations-which.test.js.
 import {el} from '../components.js';
 import {$, message} from './core.js';
@@ -43,8 +43,8 @@ export function whichRow(conflict, reload) {
   const box = choiceRow({key: conflict.kind, title: KIND_NAMES[conflict.kind] || conflict.kind,
     sides: [side('Strategy', 'violet', conflict.strategy, conflict.onlyStrategy), side('Profile', 'teal', conflict.profile, conflict.onlyProfile, conflict.profileMode)],
     actions: [{label: "Use Strategy's", tone: 'violet', run: go('strategy')}, {label: "Use Profile's", tone: 'teal', run: go('profile')},
-      {label: 'Choose…', link: true, run: choose => { typed.hidden = false; save.hidden = false; choose.hidden = true; typed.focus(); }},
-      {label: 'Use different locations for searching', link: true, run: go('separate'), title: 'Searches the Strategy places; scoring and the card use the Profile ones.'}]});
+      {label: 'Choose…', link: true, menu: [{label: 'Type other places…', run: () => { typed.hidden = false; save.hidden = false; typed.focus(); }},
+        {label: 'Use different locations for searching', run: () => go('separate')({}), title: 'Searches the Strategy places; scoring and the card use the Profile ones.'}]}]});
   box.classList.add('which-row');
   box.dataset.kind = conflict.kind;
   const pick = el('div', 'choice-typed');

@@ -2,7 +2,7 @@
 // a review list (pending first, done folded as "Reviewed · N"), an empty state ("Not created" + one line + two actions), summary tiles (icon, label, big
 // value), a read-only reference row ("From Your details" + one link) and a choice row (two values side by side, pick one). Styles: page-parts.css. Rules: docs/rules/desktop-ui.md "Page blocks".
 // Living copy: npm run gallery → "Page blocks". Guarded by test/page-parts.test.js.
-import {chip, el, pill, tile} from './components.js';
+import {chip, el, openMenu, pill, tile} from './components.js';
 import {icon} from './icons.js';
 
 const button = (label, className, run, aria = '') => {
@@ -128,7 +128,7 @@ export function referenceRow({text = '', from = 'From Your details', link = 'Edi
 // approved): the setting's name and its buttons on one line (normal height, one primary at most), then the two sides beside each other, each in its own
 // colour (tone 'now' grey, 'new' violet for a proposal; 'violet' / 'teal' for two sources), values as chips with the difference marked: 'add' (+, green),
 // 'gone' (struck, red), 'only' (outlined: only on this side); after 10, "+N more". A side with text instead of items shows it as written.
-// sides: [{who, tone, items?: [{text, mark?}], text?}]; actions: [{label, run(button), primary?, tone?, link?, aria?, title?}]. Extra content (a typed
+// sides: [{who, tone, items?: [{text, mark?}], text?}]; actions: [{label, run(button) | menu: [{label, run}], primary?, tone?, link?, aria?, title?}]. Extra content (a typed
 // field) is appended by the caller under the row.
 const CHOICE_SHOWN = 10;
 function choiceChips(items, who) {
@@ -149,7 +149,8 @@ export function choiceRow({key = '', title = '', sides = [], actions = []} = {})
   for (const action of actions) {
     const primary = action.primary && !lead && (lead = true);
     const look = action.link ? 'link small' : primary ? 'primary small-btn' : `secondary small-btn${action.tone ? ` choice-tone-${action.tone}` : ''}`;
-    const node = button(action.label, look, () => action.run?.(node), action.aria);
+    const node = button(action.label, look, () => action.menu ? openMenu(node, action.menu) : action.run?.(node), action.aria);
+    if (action.menu) node.setAttribute('aria-haspopup', 'menu');
     if (action.title) node.title = action.title;
     buttons.append(node);
   }
@@ -159,10 +160,11 @@ export function choiceRow({key = '', title = '', sides = [], actions = []} = {})
     const who = el('span', 'choice-who', side.who || '');
     if (side.items) box.append(choiceChips(side.items, who));
     else {
-      // A trailing "Confirmed 2 Sep 2026." is a note, not part of the value: a muted line under it.
-      const full = String(side.text || '').trim(), found = full.match(/\s*\(?\bconfirmed (?:by \w+ )?\d{1,2} [A-Za-z]{3,9} \d{4}\.?\)?\s*$/i);
-      const line = el('div', 'chip-list'); line.append(who, el('span', 'choice-text', (found ? full.slice(0, found.index).trim() : full) || 'Not set')); box.append(line);
-      if (found) box.append(el('span', 'muted small read-note choice-note', found[0].trim().replace(/^\(|\)$/g, '')));
+      // A trailing "Confirmed 2 Sep 2026." is a note, not part of the value: a small badge on the side's name ("NOW · confirmed 2 Sep"), never a line of its own.
+      const full = String(side.text || '').trim(), found = full.match(/\s*\(?\bconfirmed (?:by \w+ )?(\d{1,2} [A-Za-z]{3,9}) \d{4}\.?\)?\s*$/i);
+      const line = el('div', 'chip-list');
+      if (found) who.append(el('span', 'choice-badge read-note', ` · confirmed ${found[1]}`));
+      line.append(who, el('span', 'choice-text', (found ? full.slice(0, found.index).trim() : full) || 'Not set')); box.append(line);
     }
     both.append(box);
   }

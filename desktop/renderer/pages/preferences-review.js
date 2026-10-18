@@ -44,7 +44,7 @@ export function reviewCard({fields, state, handled, apply, note, redraw}) {
     // A list (roles, cities, countries) compared item by item; any other field as its two texts.
     const sides = field.widget === 'chips' ? diffItems(chipsOf(row.old), chipsOf(row.proposed)) : null;
     const line = choiceRow({key: row.key, title: field.label,
-      sides: [{who: 'Now', tone: 'now', ...(sides && row.old ? {items: sides.now} : {text: row.old})}, {who: 'Proposed', tone: 'new', ...(sides ? {items: sides.next} : {text: row.proposed})}],
+      sides: [{who: 'Now', tone: 'now', ...(sides && row.old ? {items: sides.now} : {text: row.old})}, {who: 'Proposed', tone: 'new', ...(sides ? {items: sides.next} : row.key === 'employment' ? {items: row.proposed.replace(/ only$/, '').split(/ or /).map(text => ({text: text.charAt(0).toUpperCase() + text.slice(1)}))} : {text: row.proposed})}],
       actions: [{label: 'Accept', aria: `Accept ${field.label}`, run: () => { accept(row); redraw(); }},
         {label: 'Keep mine', link: true, aria: `Keep my ${field.label}`, run: () => { skipped.add(`${state.key}:${row.key}`); remember(skipped); redraw(); }}]});
     line.classList.add('pref-choice');
