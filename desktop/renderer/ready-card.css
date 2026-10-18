@@ -15,3 +15,17 @@
 /* Not available: the reason, and Try again; the card's two buttons are off meanwhile. */
 .ready-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .ready-status > .muted { flex: 1 1 16rem; min-width: 0; }
+/* The night and tonight as badges (owner, 18 Oct 2026: "statuses as badges"): a muted label, then pills, wrapping. */
+.ready-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* Fill now's progress (pages/ready-progress.js): the steps as pills, then a thin bar in the info tone; the running step's dot pulses. */
+.ready-progress { display: grid; gap: var(--sp-2); padding: var(--sp-2) 0; }
+.ready-steps { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.ready-sep { color: var(--muted); }
+.ready-clock { font-variant-numeric: tabular-nums; }
+.ready-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.ready-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--info); transition: width .6s ease; }
+.ready-progress .is-live.dot::before { animation: ready-pulse 1.2s ease-in-out infinite; }
+@keyframes ready-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .ready-progress .is-live.dot::before { animation: none; } .ready-bar > i { transition: none; } }
+/* Fill now's yes: the jobs it would fill, as a plain list under the popup's head. */
+.ready-confirm-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }

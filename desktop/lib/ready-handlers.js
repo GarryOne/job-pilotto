@@ -5,7 +5,8 @@ import * as pipeline from './pipeline.js';
 import {extensionStore} from './store/extension-store.js';
 import {me} from './server-contact.js';
 import * as viewCache from './view-cache.js';
-import {buildBatch, nightOf, ownKeyFor, pickToSend, withOwnAi} from './ready-batch.js';
+import {buildBatch, nightOf, ownKeyFor, pickToRefill, pickToSend, withOwnAi} from './ready-batch.js';
+import {fillNowPlan, waitingOn} from './ready-fill-now.js';
 import {createAutoSend, startAutoSend} from './ready-auto.js';
 import {isTwin} from './twin.js';
 import {log as appLog} from './log.js';
@@ -25,7 +26,7 @@ async function facts(storage) {
 
 export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}, app, powerMonitor}) {
   const settings = () => settingsOf(storage.settings().ready);
-  const jobs = async () => (await pipeline.jobs(storage)).jobs;
+  const jobs = async () => (deps.jobs ? deps.jobs() : (await pipeline.jobs(storage)).jobs);   // deps.jobs: a test's list
   const cached = () => viewCache.recall(storage, 'jobs')?.result?.jobs || [];   // the last good list: the card never waits for a job read to say "owner" and show the night's rows
   const tonightOf = (all, mine) => ({tonight: pickToSend(all, mine).map(job => ({code: job.code, title: job.title, company: job.company, fit: job.fit})), names: Object.fromEntries(all.map(job => [job.code, `${job.title} · ${job.company}`]))});
   const build = async list => buildBatch(list, {store: extensionStore(storage), me: url => me(storage, url), facts: () => facts(storage), ...deps});
@@ -57,8 +58,8 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   });
   // What tonight would send, from a fresh job read (joins one already running): the card asks after it has painted.
   ipcMain.handle('readyTonight', async () => { try { return {ok: true, ...tonightOf(await jobs(), settings())}; } catch { return {ok: false}; } });
-  const sendTonight = async () => {
-    const mine = settings(), {batch, skipped} = await build(pickToSend(await jobs(), mine));
+  const sendTonight = async (list = null) => {
+    const mine = settings(), {batch, skipped} = await build(list || pickToSend(await jobs(), mine));
     if (!batch.jobs.length) return {ok: false, error: 'No job has its kit, CV and cover letter ready yet.', skipped};
     const sent = await site.send(storage, withOwnAi(batch, ownKeyFor(storage.settings(), keysOf(storage))));
     return sent.ok ? {ok: true, queued: sent.queued, night: batch.night, skipped} : sent;
@@ -69,10 +70,23 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   const autoSend = createAutoSend({storage, eligible: ownApp, tonightCodes: () => pickToSend(cached(), settings()).map(job => job.code),
     sendNow: sendTonight, log: (message, extra) => appLog('ready', message, extra)});
   startAutoSend(autoSend.check, {app, powerMonitor});
-  ipcMain.handle('readySend', async () => {
-    const codes = pickToSend(await jobs(), settings()).map(job => job.code), sent = await sendTonight();
-    autoSend.record(codes, sent);
+  // What a press would do (lib/ready-fill-now.js): send at once, ask first (forms of this night still wait for you; or only opened jobs are left), or nothing to fill.
+  const planFor = async ({again = false, confirmed = false, refill = true} = {}) => {
+    const all = await jobs(), mine = settings(), rows = await site.rows(storage).catch(() => ({}));
+    const plan = fillNowPlan({tonight: pickToSend(all, mine), opened: refill ? pickToRefill(all, mine) : [], waiting: waitingOn(rows, nightOf().night), again, confirmed});
+    return plan.ask ? {ask: {...plan.ask, jobs: plan.ask.jobs.map(job => ({code: job.code, name: `${job.title} · ${job.company}`}))}} : plan;
+  };
+  const NOTHING = 'Nothing to fill: no job has its kit, CV and cover letter yet. Tailor CVs for your top matches first.';
+  const sendPlanned = async plan => {
+    const sent = await sendTonight(plan.send);
+    autoSend.record(plan.send.map(job => job.code), sent);
     return sent;
+  };
+  ipcMain.handle('readySend', async (_, {confirmed = false} = {}) => {   // Fill tonight: never fills opened jobs again; asks before replacing forms still waiting
+    const plan = await planFor({confirmed, refill: false});
+    if (plan.nothing) return {ok: false, nothing: true, error: NOTHING};
+    if (plan.ask) return {ok: false, ask: plan.ask};
+    return sendPlanned(plan);
   });
   // The live view: the site gives a link for this form (10 minutes, only for you); your browser opens it, where you press Submit yourself.
   ipcMain.handle('readyLive', async (_, code) => {
@@ -96,10 +110,17 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     return opened.ok ? {ok: true} : opened;
   });
   setVisitRoute('/extension/ready-handoff', payload => ({ok: true, handoff: handoffs.take(payload?.url)}));
-  ipcMain.handle('readyRun', async () => {   // Fill now: tonight's night has started, so nothing sent by itself replaces it
+  // Fill now (owner, 18 Oct 2026: "make the Fill now work"): one press sends tonight's ready jobs and starts them; after a yes, the jobs you opened and did not submit.
+  // Started, nothing sent by itself replaces that night (ranNight).
+  ipcMain.handle('readyRun', async (_, {again = false, confirmed = false} = {}) => {
+    const plan = await planFor({again, confirmed});
+    if (plan.nothing) return {ok: false, nothing: true, error: NOTHING};
+    if (plan.ask) return {ok: false, ask: plan.ask};
+    const sent = await sendPlanned(plan);
+    if (!sent.ok) return sent;
     const started = await site.runNow(storage);
     if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});
-    return started;
+    return started.ok ? {...started, queued: sent.queued, night: sent.night, skipped: sent.skipped} : started;
   });
   ipcMain.handle('readyVideo', (_, code) => site.video(storage, String(code || '')));   // Watch the fill: the night's video of this form, played under its row
   ipcMain.handle('readyDone', (_, code) => site.done(storage, String(code || '')));

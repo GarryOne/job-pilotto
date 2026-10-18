@@ -4,6 +4,8 @@ import {el, pill, tile} from '../components.js';
 import {$} from './core.js';
 import {rowOf} from './ready-rows.js';
 import {showFillVideo} from './ready-video.js';
+import {confirmFill} from './ready-confirm.js';
+import {progressOf, strip, tick} from './ready-progress.js';
 import {OUTDATED_LINE, errorLine, restartButton} from '../errors.js';
 
 // state: what readyState gave. names: code -> "Title · Company" for the rows.
@@ -11,8 +13,19 @@ export function paint(card, state, names, act) {
   const body = card.querySelector('.ready-body'), jobs = (state.site?.jobs || []).filter(job => !job.cleared_at), night = state.site?.batch;
   body.textContent = '';
   const tonight = state.tonight || [];
-  body.append(el('div', 'muted', night ? `Last night (${night.night}): ${jobs.length} form${jobs.length === 1 ? '' : 's'} · $${(night.costUsd || 0).toFixed(2)} of AI and servers` : 'Nothing sent yet.'));
-  if (night?.aiStopped) body.append(el('div', 'muted', "Your AI stopped during the night (its limit or the night's cost cap): open questions are left for you, the rest is filled."));
+  // The night and tonight as badges (owner, 18 Oct 2026: "these status lines should be shown as badges"); the details stay in each badge's tooltip.
+  const summary = el('div', 'ready-summary');
+  if (night) {
+    const ready = jobs.filter(job => job.state === 'prepared').length, needs = jobs.filter(job => ['partial', 'wall'].includes(job.state)).length;
+    summary.append(el('span', 'muted', `Night of ${night.night}`), pill(`${jobs.length} form${jobs.length === 1 ? '' : 's'}`, 'neutral'));
+    if (ready) summary.append(pill(`${ready} ready`, 'good'));
+    if (needs) summary.append(pill(`${needs} need${needs === 1 ? 's' : ''} you`, 'warn'));
+    summary.append(pill(`$${(night.costUsd || 0).toFixed(2)} of AI and servers`, 'neutral'));
+    if (night.aiStopped) summary.append(Object.assign(pill('AI stopped', 'warn'), {title: "Your AI stopped during the night (its limit or the night's cost cap): open questions are left for you, the rest is filled."}));
+  } else summary.append(pill('Nothing sent yet', 'neutral'));
+  body.append(summary);
+  const progress = progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError});
+  if (progress) body.append(strip(progress, state.since));
   const rows = el('div', 'ready-rows');
   for (const job of jobs) {
     const row = rowOf(job), line = el('div', 'ready-row');
@@ -24,8 +37,15 @@ export function paint(card, state, names, act) {
     rows.append(line);
   }
   if (jobs.length) body.append(rows);
-  if (state.sent) body.append(el('div', 'muted', `Sent for tonight: ${state.sent.count} job${state.sent.count === 1 ? '' : 's'} · ${new Date(state.sent.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})}. It is sent again by itself when this list changes and before your Mac goes off.`));
-  body.append(el('div', 'muted', tonight.length ? `Tonight: ${tonight.length} of your finished jobs (fit ≥ ${state.settings.minFit}, up to ${state.settings.perNight})` : 'Tonight: no job has its kit, CV and cover letter ready yet. Tailor CVs first.'));
+  const next = el('div', 'ready-summary');
+  next.append(el('span', 'muted', 'Tonight'));
+  const count = pill(`${tonight.length} ready`, tonight.length ? 'good' : 'warn');
+  count.title = tonight.length ? `Your finished jobs with fit ≥ ${state.settings.minFit}, up to ${state.settings.perNight} a night` : 'No job has its kit, CV and cover letter ready yet.';
+  next.append(count);
+  if (state.sent) next.append(Object.assign(pill(`Sent ${state.sent.count} · ${new Date(state.sent.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})}`, 'info'),
+    {title: 'Sent again by itself when this list changes and before your Mac goes off.'}));
+  if (!tonight.length) next.append(el('span', 'muted', 'No job has its kit, CV and cover letter yet.'), act.tailor());
+  body.append(next);
 }
 
 export function build() {
@@ -55,7 +75,8 @@ export function blocked(card, why, retry) {
 
 // While the server fills (the night runs, or Fill now was just pressed), the card re-reads the night's rows, so each form's row changes as it is filled
 // (live demo, 18 Oct 2026: one re-read at 30 s, then the rows stayed "waiting" with both forms filled). Only the rows: tonight's job list is a slow read.
-export const FOLLOW_MS = 20000;
+// Every 5 s (owner, 18 Oct 2026: "some progress bar"): one small read of the site's night, so the bar and the rows move while you watch.
+export const FOLLOW_MS = 5000;
 const nightState = state => state?.site?.batch?.state;
 
 export async function initReadyCard() {
@@ -65,13 +86,26 @@ export async function initReadyCard() {
   send.disabled = run.disabled = true;
   card.querySelector('.ready-body').append(el('div', 'muted', 'Checking our server…'));
   anchor.after(card);   // shown at once, always (owner, 18 Oct 2026); what it can do follows
-  let tonightNow = null;
+  let tonightNow = null, last = null;
+  // Fill now's progress (renderer/pages/ready-progress.js): the press shows "Sending" at once, before any answer; then the site's night moves it.
+  let phase = 'idle', phaseError = '', since = 0, nowStep = '', clock = null;
+  const keepClock = () => {
+    if (!card.querySelector('.ready-progress')?.dataset.since) return;
+    clock ||= setInterval(() => { const box = card.querySelector('.ready-progress'); if (!box || !card.isConnected) { clearInterval(clock); clock = null; return; } tick(box); }, 1000);
+  };
   const show = state => {
     if (!state?.owner) return blocked(card, state?.why, refresh);
-    send.disabled = run.disabled = false; send.title = run.title = '';
+    last = state;
+    const busy = phase === 'sending' || nightState(state) === 'running';   // a night being filled is never replaced by a second press
+    send.disabled = run.disabled = busy; send.title = run.title = busy ? 'The server is filling tonight\'s forms' : '';
+    run.textContent = busy ? 'Filling…' : 'Fill now';
     Object.assign(names, state.names || {});
-    paint(card, {...state, tonight: tonightNow ?? state.tonight}, names, act);
+    const now = progressOf({phase, batch: state.site?.batch, jobs: state.site?.jobs || []})?.steps.find(step => step.state === 'now')?.label || '';
+    if (now !== nowStep) { nowStep = now; since = now ? Date.now() : 0; }   // the clock counts the step running now
+    paint(card, {...state, tonight: tonightNow ?? state.tonight, phase, phaseError, since}, names, act);
+    keepClock();
   };
+  const repaint = () => last && show(last);
   // The night's rows, then what tonight would send from a fresh job read (the first paint uses the last kept list).
   const read = async () => {
     const state = await window.pilot.readyState().catch(error => ({owner: false, why: errorLine(error)}));
@@ -98,33 +132,54 @@ export async function initReadyCard() {
   const open = code => { const button = el('button', 'secondary', 'Open in my browser'); button.title = 'The real page in your own Chrome, filled as the night left it';
     button.addEventListener('click', async () => { button.disabled = true; say('Opening the filled form in your browser…');
       const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: errorLine(error)}));
-      button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.')); });
+      button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.'), result.ok ? 'good' : 'bad'); });
     return button; };
-  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.', 'bad'); }); return button; },
     watch: code => { const button = el('button', 'secondary', 'Watch the fill'); button.title = 'The video of the server filling this form tonight (3 minutes at most)';
       button.addEventListener('click', () => watchFill(button, code)); return button; },
+    tailor: () => { const button = el('button', 'secondary', 'Tailor CVs for top matches'); button.addEventListener('click', () => $('tailor-top')?.click()); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
-  const say = text => { note.textContent = text; if (text === OUTDATED_LINE) note.append(' ', restartButton()); };
+  // What just happened, as a badge and its line (owner, 18 Oct 2026: the status lines "should be shown as badges").
+  const LABEL = {info: 'Working', good: 'Done', warn: 'Note', bad: 'Problem'};
+  const say = (text, tone = 'info') => {
+    note.textContent = '';
+    if (!text) return;
+    const line = el('div', 'ready-status');
+    line.append(pill(LABEL[tone] || LABEL.info, tone), el('span', 'muted', text), ...(text === OUTDATED_LINE ? [restartButton()] : []));
+    note.append(line);
+  };
   // The night's video of one form, in a popup (pages/ready-video.js).
   const watchFill = async (button, code) => {
     button.disabled = true; say('Loading the video of this form\'s fill…');
     const result = await window.pilot.readyVideo(code).catch(error => ({ok: false, error: errorLine(error)}));
     button.disabled = false;
-    if (!result.ok) return say(result.error || 'Could not load the video.');
+    if (!result.ok) return say(result.error || 'Could not load the video.', 'bad');
     say(''); showFillVideo(result.bytes, names[code] || code);
   };
-  send.addEventListener('click', async () => {
+  // Fill tonight: sends tonight's list for the night's fill time; asks before replacing forms of this night still waiting for you.
+  const sendTonight = async (options = {}) => {
     send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
-    const result = await window.pilot.readySend().catch(error => ({ok: false, error: errorLine(error)}));
-    say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} will be filled on the server for the night of ${result.night}, not submitted${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'));
+    const result = await window.pilot.readySend(options).catch(error => ({ok: false, error: errorLine(error)}));
+    if (result.ask) { if (await confirmFill(result.ask)) return sendTonight({confirmed: true}); say('Not sent: nothing changed on the server.'); return refresh(); }
+    say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} will be filled on the server for the night of ${result.night}, not submitted${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'),
+      result.ok ? 'good' : result.nothing ? 'warn' : 'bad');
     refresh();
-  });
-  run.addEventListener('click', async () => {
-    run.disabled = true;
-    const result = await window.pilot.readyRun().catch(error => ({ok: false, error: errorLine(error)}));
-    say(result.ok ? 'Filling started on the server. Results appear here as each form is filled; nothing is submitted.' : (result.error || 'Could not start.'));
-    started = !!result.ok;
+  };
+  send.addEventListener('click', () => sendTonight());
+  // Fill now (owner, 18 Oct 2026: "I'd expect it to start instantly"): the bar shows Sending at once; the app sends tonight's jobs and starts them in one press,
+  // asking first (confirmFill) when it would fill opened jobs again or replace forms still waiting for you.
+  const fillNow = async (options = {}) => {
+    phase = 'sending'; phaseError = ''; say(''); repaint();
+    const result = await window.pilot.readyRun(options).catch(error => ({ok: false, error: errorLine(error)}));
+    if (result.ask) {
+      if (await confirmFill(result.ask)) return fillNow({again: result.ask.again, confirmed: true});
+      phase = 'idle'; repaint(); return say('Not started: nothing was sent.');
+    }
+    if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', result.nothing ? 'warn' : 'bad'); }
+    phase = 'started'; started = true;
+    say(result.queued ? `${result.queued} job${result.queued === 1 ? '' : 's'} sent: the server is filling ${result.queued === 1 ? 'it' : 'them'} now. Nothing is submitted.` : 'Filling started on the server. Nothing is submitted.', 'good');
     refresh();
-  });
+  };
+  run.addEventListener('click', () => fillNow());
   await refresh();
 }

@@ -10,6 +10,11 @@ const best = (a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit
 export const pickToSend = (jobs, {minFit = DEFAULT_MIN_FIT, perNight = DEFAULT_PER_NIGHT} = {}) =>
   jobs.filter(job => open(job) && (job.fit ?? -1) >= minFit && !job.ineligible && complete(job)).sort(best).slice(0, perNight);
 
+// Jobs you opened in your browser but did not submit (Applying: Open in my browser marks them), with their kit, CV and letter: Fill now fills them again only after
+// your yes (owner, 18 Oct 2026: "that should be possible, but with a confirmation popup"); the automatic night never takes them.
+export const pickToRefill = (jobs, {perNight = DEFAULT_PER_NIGHT} = {}) =>
+  jobs.filter(job => job.status === 'applying' && !!job.url && !!job.code && !job.ineligible && complete(job)).sort(best).slice(0, perNight);
+
 const pad = n => String(n).padStart(2, '0');
 const day = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 // The morning a batch is for: tonight's batch is for tomorrow, one made after midnight is for today. fillAt: 02:00 that morning, this Mac's time (ISO).
