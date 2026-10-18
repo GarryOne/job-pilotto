@@ -1,6 +1,8 @@
 {
  "claude-offer.js": 1,
  "components.js": 1,
+ "edit-controls.js": 1,
+ "experience-editors.js": 1,
  "fact-line.js": 2,
  "gallery-kinds.js": 2,
  "index.html": 35,
@@ -10,7 +12,6 @@
  "pages/application-answers.js": 1,
  "pages/cv-change.js": 1,
  "pages/employers-paste.js": 1,
- "pages/experience-profile.js": 2,
  "pages/form-fills.js": 1,
  "pages/hosted.js": 1,
  "pages/interview-lists.js": 1,
@@ -26,6 +27,5 @@
  "pages/tune.js": 1,
  "pages/website-rules.js": 1,
  "palette.js": 1,
- "search-select.js": 1,
- "survey-rows.js": 1
+ "search-select.js": 1
 }

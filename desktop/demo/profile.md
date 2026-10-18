@@ -17,7 +17,8 @@ Site Reliability Engineer with 8 years running Kubernetes on AWS; led the monito
 - **Incidents:** on-call leadership, blameless postmortems
 
 ## Education
-- MSc Computer Science, Example Technical University
+- MSc Computer Science · Example Technical University · 2014 – 2016
+- Certified Kubernetes Administrator (CKA), 2021
 - (confirmed 2 Oct 2026; graduation year to confirm if a form asks)
 
 ## Experience (from the CV, 2 Oct 2026)

@@ -27,7 +27,6 @@ const NOT_A_CARD = {
 };
 // Cards still on their own Save, each with the session moving it onto the page bar (UI redesign A-D, 18 Oct 2026).
 const KNOWN_LEFT = {
-  'pages/experience-profile.js': 'A (Voluntary surveys) + C (Experience cards): the card editor\'s Save/Cancel',
   'pages/outline-tab.js': 'D: Application answers\' own bar → the Profile page bar',
   'goal-tiles.js': 'B: the setup review\'s goal tiles (pages/strategy-review.js); Strategy itself moved to Main goals on its page bar',
 };

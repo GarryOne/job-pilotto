@@ -1,0 +1,16 @@
+/* Profile → Experience's card editors (renderer/experience-editors.js), the chips field (edit-controls.js) and Education's read view (pages/experience-profile.js). */
+.values-input { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.values-input .chip-list:empty { display: none; }
+.values-input input.add { flex: 1 1 160px; min-width: 120px; }
+.strengths-edit, .education-edit { display: grid; gap: var(--sp-3); container-type: inline-size; }
+.strength-groups, .edu-entries { display: grid; gap: var(--sp-3); }
+.strength-group { display: grid; grid-template-columns: minmax(120px, 28%) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.strength-group.is-plain { grid-template-columns: minmax(0, 1fr); }
+.edu-entry { display: grid; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); }
+.edu-actions { justify-content: flex-end; gap: var(--sp-3); }
+.strengths-edit > .link, .education-edit > .link, .exp-part-lines > .link { justify-self: start; }
+.exp-part-body.card-editor { display: grid; gap: var(--sp-3); }
+.edu-read { display: grid; gap: var(--sp-1); }
+.edu-read + .edu-read { margin-top: var(--sp-2); }
+@container (max-width: 560px) { .strength-group { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); } }
+.exp-part-body > .card-done { justify-self: end; }

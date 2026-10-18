@@ -105,16 +105,19 @@ export function changesFor(key, part, texts, cells = []) {
 export function groupsOf(part) {
   return (part?.lines || []).map(line => {
     const text = shownText(line.text), found = /^([^:]{1,40}):\s+(.+)$/.exec(text);
-    if (!found) return {label: '', items: [text]};
-    const items = [];
-    let depth = 0, word = '';
-    for (const char of found[2]) {
-      depth += char === '(' ? 1 : char === ')' ? -1 : 0;
-      if (depth === 0 && /[,;]/.test(char)) { items.push(word); word = ''; } else word += char;
-    }
-    items.push(word);
-    return {label: found[1].trim(), items: items.map(each => each.trim().replace(/\.$/, '')).filter(Boolean)};
+    return found ? {label: found[1].trim(), items: splitItems(found[2])} : {label: '', items: [text]};
   });
+}
+// "AWS (ECS, EKS); Azure." → ['AWS (ECS, EKS)', 'Azure']: split at commas and semicolons outside brackets, a closing full stop dropped.
+export function splitItems(text) {
+  const items = [];
+  let depth = 0, word = '';
+  for (const char of String(text || '')) {
+    depth += char === '(' ? 1 : char === ')' ? -1 : 0;
+    if (depth === 0 && /[,;]/.test(char)) { items.push(word); word = ''; } else word += char;
+  }
+  items.push(word);
+  return items.map(each => each.trim().replace(/\.$/, '')).filter(Boolean);
 }
 // A line's words on screen: no bold marks, no list mark, no ❓ (never a ❓ on screen); a line wholly in brackets is a note.
 export const shownText = text => String(text || '').replace(/\*\*/g, '').replace(/^[-*•]\s*/, '').replace(/❓\s*/g, '').trim();
