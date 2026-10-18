@@ -8,7 +8,7 @@ export function hideValues() {
   if (document.getElementById(id)) return true;
   const style = document.createElement('style');
   style.id = id;
-  style.textContent = 'input, textarea, select, option { color: transparent !important; text-shadow: none !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; } input::placeholder, textarea::placeholder { color: transparent !important; }';
+  style.textContent = 'input, textarea, select, option { color: transparent !important; text-shadow: none !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; } input::placeholder, textarea::placeholder { color: transparent !important; } #jobpilotto-fill-overlay { display: none !important; } #jobpilotto-review-host { visibility: hidden !important; }';
   (document.head || document.documentElement).append(style);
   return true;
 }

@@ -112,6 +112,14 @@
     .verify { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; padding: 12px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--line); }
     .verify .shield { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 22' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M10 1.5l7.5 2.8v6.2c0 4.6-3.1 8.3-7.5 10-4.4-1.7-7.5-5.4-7.5-10V4.3z'/%3E%3Cpath d='M7 10.8l2.2 2.2L13.2 9'/%3E%3C/svg%3E"); width: 26px; height: 28px; color: var(--signal); align-self: center; } .verify .v-show, .verify .v-again { grid-column: 1 / -1; text-align: center; } .verify .v-again::after { content: ''; }
     .stopped:not([hidden]) ~ .fill-box, .verify:not([hidden]) ~ .fill-box { display: none; }   /* the state card has its own way on (Check form again / Show on form) */
+    /* Working (owner, 19 Oct 2026): centred over the dimmed page, larger; the step row (spinner, step, Stop) stays, the steps done so far are listed above it. */
+    .jp.working { align-items: center; } .jp.working .card:not([hidden]) ~ .pill, .jp.working .left, .jp.working .tailor, .jp.working .actions, .jp.working .recheck { display: none; }
+    .jp.working { zoom: 1.3; } .jp.working .card { max-width: calc((100vw - 32px) / 1.3); max-height: calc((100vh - 32px) / 1.3); }   /* in the prime spot: a third larger, every size with it */
+    .jp.working .progress-line b { font-size: 26px; } .jp.working .body { gap: 14px; }
+    .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .steps li::before { content: '\\2713'; color: var(--good); font-weight: 700; width: 14px; flex: none; }
+    .live:has(.steps:empty) { display: none; }
     [hidden] { display: none !important; }
   </style>
   <div class="jp">
@@ -123,6 +131,7 @@
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
         <div class="stopped" hidden><span class="pause"><i></i><i></i></span><div><b>Stopped by you</b><span class="s-text"></span></div></div>
         <div class="verify" hidden><span class="shield"></span><div class="v-body"><b class="v-title"></b><span class="v-text">Finish it on the page, then press Check again.</span></div><button class="primary v-show" type="button">Show on form</button><button class="link v-again" type="button">Check again</button></div>
+        <div class="live"><h4>Done so far</h4><ol class="steps"></ol></div>
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button><button class="stop-btn" type="button" title="Stops everything Job Pilotto does, on every tab, until you press Apply in the app again">Stop</button><p class="step-hint">Counts update as new fields appear.</p></div>
         <div class="note trace-note" hidden><span>Chrome shows a debugging bar while Job Pilotto keeps a trace of this fill, so you can report a problem.</span><button class="got-it" type="button">Got it</button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>

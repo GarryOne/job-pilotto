@@ -4,6 +4,7 @@
 // Floors: only the boxes the page lists (plain text boxes, never a password, read-only, disabled or a menu's search box), no Enter, no Tab, no other key; at most 8 boxes;
 // one debugger at a time (the caller passes the turn it shares with the dropdown clicks). Counts only leave this file, never a value. Guard: worker/test/fill-verify.test.js.
 import {attachDebugger, detachDebugger} from './stop-state.js';
+import {driving} from './input-gap.js';
 const SETTLE_MS = 300;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -35,6 +36,6 @@ export async function typeNotTakenOnTab(tabId) {
   if (!((await page(() => window.__jobPilottoNotTakenSpots?.() || []).catch(() => [])) || []).length) return {tried: 0, taken: 0};
   const target = {tabId};
   await attachDebugger(tabId);
-  try { return await typeNotTakenForReal({page, send: (method, params) => chrome.debugger.sendCommand(target, method, params)}); }
+  try { return await driving(tabId, () => typeNotTakenForReal({page, send: (method, params) => chrome.debugger.sendCommand(target, method, params)})); }
   finally { await detachDebugger(tabId); }
 }

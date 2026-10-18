@@ -9,6 +9,7 @@
 // Log lines: counts and verbs only, never a label or a value. Guard: worker/test/fill-climb.test.js.
 import {apiFor} from '../flow.js';
 import {attachDebugger, detachDebugger} from '../stop-state.js';
+import {driving} from '../input-gap.js';
 import {decide} from '../log.js';
 import {sketchOf} from '../judge-sketch.js';
 import {onTop} from '../on-top.js';
@@ -25,7 +26,7 @@ async function withClicks(tabId, work) {
   await attachDebugger(tabId);
   try {
     const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {type, x, y, button: 'left', clickCount: 1});
-    return await work(async (x, y) => { const marked = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), args: [x, y]}).catch(() => [{result: true}]); if (marked?.[0]?.result === false) return; for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, x, y); });   // marked first: the extension's own press (page/submit-press.js markAt)
+    return await work(async (x, y) => { const marked = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), args: [x, y]}).catch(() => [{result: true}]); if (marked?.[0]?.result === false) return; await driving(tabId, async () => { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, x, y); }); });   // marked first: the extension's own press (page/submit-press.js markAt)
   } finally { await detachDebugger(tabId); }
 }
 
