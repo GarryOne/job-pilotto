@@ -304,7 +304,15 @@ export function collapsiblePanel(panel, key = panel.id, {collapsed = false} = {}
     set(!panel.classList.contains('is-collapsed'));
   });
   set(key in savedCollapsed() ? !!savedCollapsed()[key] : collapsed, {remember: false});
+  folds.set(panel, set);
   return {set};
+}
+// Open a folded card without remembering it as the person's choice (a card being edited stays open: card-shell.js). A <details> card opens too.
+const folds = new WeakMap();
+export function unfold(panel) {
+  if (!panel) return;
+  if (panel.tagName === 'DETAILS') { if (!panel.open) { panel.open = true; panel.dispatchEvent?.(new Event('toggle')); } return; }
+  if (panel.classList.contains('is-collapsed')) folds.get(panel)?.(false, {remember: false});
 }
 
 // A result card's head, the insight card's shape (.insight-head): the kicker (its category, then any badges: a pill, a source), the title,
@@ -318,11 +326,14 @@ export function cardHead(category, title, {badges = [], subtitles = []} = {}) {
   return head;
 }
 
-// A card's Edit (or Add) button: solid, small, at the right of the card's title line (owner, 18 Oct 2026: "I don't like the Edit button position, maybe a solid one"). One for every
-// card; static markup uses the same classes (`primary small-btn card-edit`). what = the card's name, for the screen reader ("Edit summary"). A row's own action (a rule's Edit,
-// a letter's Edit beside Copy) is not a card's Edit. Guarded by test/card-edit.test.js.
+// A card's Edit (or Add) button: quiet (a neutral outline, pencil + the word, always visible), last in the card's title line, the same place on every card
+// (owner, 18 Oct 2026, UI redesign D1: "a compact pencil + Edit button at the right of each card header, with a neutral outline and readable contrast";
+// it was solid that morning only so it sat in sight). Hidden while its card is edited (card-shell.js setEditing): filled orange is for Save. Static markup
+// uses the same classes (`secondary small-btn with-icon card-edit` + <i data-icon="edit">). what = the card's name, for the screen reader ("Edit summary").
+// A row's own action (a rule's Edit, a letter's Edit beside Copy) is not a card's Edit. Guarded by test/card-edit.test.js and test/card-system.test.js.
 export function cardEdit(label, what, onClick) {
-  const button = Object.assign(el('button', 'primary small-btn card-edit', label), {type: 'button'});
+  const button = Object.assign(el('button', 'secondary small-btn with-icon card-edit'), {type: 'button'});
+  button.append(icon(label === 'Add' ? 'plus' : 'edit'), el('span', '', label));
   if (what) button.setAttribute('aria-label', `${label} ${what}`);
   button.addEventListener('click', onClick);
   return button;

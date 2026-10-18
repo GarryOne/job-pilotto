@@ -8,11 +8,12 @@ import path from 'node:path';
 import {log as appLog} from './log.js';
 import {watchWindow} from './window-log.js';
 import {captureQuery} from './e2e-hidden.js';
+import {guardUnsaved} from './unsaved-guard.js';
 
 // The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Job Pilotto and Chrome fit side by side (owner, 9 Oct 2026).
 export const MIN_WIDTH = 640;
 export function createMainWindow(ctx) {
-  const {BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow, setWindow, getZoom = () => null} = ctx;
+  const {BrowserWindow, DEMO, HIDDEN, app, dialog, here, nativeTheme, shell, getWindow, setWindow, getZoom = () => null} = ctx;
   const win = {get window() { return getWindow(); }, set window(value) { setWindow(value); }};   // main.js owns the window: read and set through it
   // Notion inside the app: its own window (Notion refuses to be shown in an iframe). The session is kept
   // (partition persist:notion), so the user signs in to Notion once; links to other sites open in the browser.
@@ -53,7 +54,9 @@ export function createMainWindow(ctx) {
       backgroundColor: windowBackground(),
       webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: !HIDDEN},   // hidden e2e window: still animates, so Playwright's clicks don't wait
     });
-    watchWindow(win.window.webContents, {log: appLog});   // load time, load failures, crashes, freezes, page errors, a blank window
+    watchWindow(win.window.webContents, {log: appLog});
+    const shown = win.window;
+    guardUnsaved(shown.webContents, {ask: options => dialog?.showMessageBoxSync(shown, options) ?? 1, hidden: Boolean(HIDDEN || process.env.JOB_PILOTTO_SMOKE), log: appLog});   // unsaved edits: ask before close/reload   // load time, load failures, crashes, freezes, page errors, a blank window
     win.window.on('page-title-updated', event => { event.preventDefault(); win.window.setTitle(windowTitle); });
     // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
     const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';

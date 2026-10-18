@@ -23,6 +23,23 @@ Living copy: `npm run gallery` (sections "Chips" and "Value → control", drawn 
   raise the file's count in `text-fields-allowed.json` with the reason), `chip.test.js` (raw chip text, a new chip class), `design.test.js` (raw values);
   `npm run shot` prints every saved value cut by its box; `tools/pr-body.sh` refuses a desktop-window PR without the 6 **Design checks** ticked.
 
+## Cards: read → Edit → editor; one save bar (owner, 18 Oct 2026, UI redesign)
+Every Profile and Strategy card works one way ("so nice, so clean"). Parts: `renderer/card-shell.js` + `card-shell.css`, `components.js` `cardEdit`, `renderer/save-bar.js`;
+living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-pilotto-ui-mockups-2026-10-18/SHARED-PARTS.md`.
+- **Header:** icon, title, one-line description (`.panel-lead`), then at the right a quiet **✎ Edit** (`cardEdit`: neutral outline, pencil + word, always visible) and the chevron. Same place on every card.
+- **Read view by default** (`.card-read`): `readRows` (label → value; empty = `pill('Not set', 'warn')`; a note for the AI is a muted line under its value) and `chipLine`
+  for several values ("English · B2", "Romanian · Native"). Never the editor's controls just to read.
+- **Edit** (`setEditing(card, true)`): Edit hides, the card stays open (a folded one opens), `.card-editor` shows `editRows` (one aligned label column, full-width controls).
+  Drafts survive switching tabs and folding; leaving the editor never drops them.
+- **No Save, Cancel or Discard on a card.** Each card registers a source with the page's one `pageSaveBar`: "N unsaved changes in <tabs>" · **Discard all** (asks when drafts sit on
+  more than one tab) · **Save all changes**. Tabs with drafts get a dot. A failed check saves nothing and names tab + field; a part-way failure keeps the failed drafts
+  and names them, never a blanket "Saved". Leaving the page (`guardLeave(view, bar.leave)`) or closing the window (`lib/unsaved-guard.js`) asks first. The bar sticks above Application sessions.
+- **Not drafts:** actions with their own button keep their behaviour (read the CV again, an AI review, Generate, Review questions).
+- **Orange = the one current primary action.** Filled orange (`button.primary`) only for Save while there are drafts, or the screen's single next step (Review questions, Generate).
+  Edit, Add, "View source in Notion", "Fill from my CV" are quiet (secondary, ghost or in the ⋯ menu); one "View source in Notion" per page, in a secondary menu.
+- **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
+  `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
+
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
   uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an imported binding is read-only.

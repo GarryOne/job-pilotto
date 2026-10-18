@@ -218,8 +218,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 /* Settings panels (a .setting card, roomier): head row with actions, lead line, footers. */
 .setting.panel { padding: var(--sp-5); gap: var(--sp-3); }
 .panel-lead { margin: 0; }
-/* A card's Edit button (components.js cardEdit): solid small, last in the title line, pushed to the right. */
-.card-edit { margin-left: auto; flex: none; white-space: nowrap; }
+/* A card's Edit button: card-shell.css. */
 .panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .panel-actions { display: flex; align-items: center; gap: var(--sp-4); margin-left: auto; }
 /* A folding card with a summary (profile-fold.js): title | summary | actions. The title block has one width, so the summaries line up in one column. */
