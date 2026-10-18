@@ -22,6 +22,7 @@ export {openLogFor} from './jobs-lead.js';
 import {wireLead} from './jobs-lead.js';
 import {loadQuestions} from './jobs-questions.js';
 import {wireViews} from './jobs-views.js';
+import {markReady, refreshReady} from './jobs-ready.js';
 import {storeName} from '../store-words.js';
 import {jobWrites} from '../job-writes.js';
 
@@ -139,6 +140,8 @@ export function showJobsData(data) {
       toastMessage('Posting taken down', `${job.company ? `${job.company} · ` : ''}${job.title || job.url}: its job board no longer lists it, so it moved to Closed. Your kit is kept.`);
     }
     shared.allJobs = data.jobs;
+    markReady(data.jobs);   // the jobs the night filled, from the codes known so far
+    refreshReady(data.jobs, () => renderJobs());   // then the app's answer; the list is drawn again when it differs
     document.dispatchEvent(new Event('menu:refresh'));   // pages/nav.js: Interviews appears with the first application
         // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
     const count = jobCounts(data);   // one definition for every count (jobs-view.js), the Find jobs card's too

@@ -2,6 +2,11 @@
 const WORDS = {prepared: ['complete', 'good'], partial: ['needs you', 'warn'], wall: ['a wall', 'warn'], 'no-form': ['no form found', 'neutral'], closed: ['job closed', 'neutral'], failed: ['could not fill', 'bad'], queued: ['waiting', 'info'],
   filling: ['filling', 'info'], stopped: ['stopped', 'neutral']};
 
+// The one rule for "ready to submit" (owner, 19 Oct 2026): a form the night filled completely and you have not submitted or deleted. The card's count, the Jobs list's chip,
+// filter and button all read it. Guard: test/ready-to-submit.test.js.
+export const READY_LABEL = 'Ready to submit';
+export const readyToSubmit = row => !!row && row.state === 'prepared' && !row.cleared_at && !row.submitted_at;
+
 export function rowOf(job) {
   const [text, tone] = WORDS[job.state] || ['waiting', 'info'];
   const left = job.state === 'partial' && job.left_empty ? ` · ${job.left_empty} left` : '';

@@ -1,5 +1,6 @@
 // The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 import {isInbound} from './origin.js';
+import {READY_LABEL} from './pages/ready-rows.js';
 
 // Skills and topics shown as tags under a role, found in its title and fit summary (first match wins per tag).
 const TAGS = [
@@ -100,6 +101,7 @@ export const inConversation = jobs => jobs.filter(job => isInbound(job) ? !OVER.
 const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};
 const STAGE_TONE = {Rejected: 'bad', Withdrawn: 'neutral', 'No response': 'neutral', Offer: 'good'};
 export function statusPill(job) {
+  if (job.ready && job.status !== 'applied') return {label: READY_LABEL, tone: 'good'};   // filled on the server, waiting for your Submit (pages/jobs-ready.js)
   if (job.stage === 'Rejected' && ['Asked for feedback', 'Received feedback'].includes(job.feedback_status)) {
     return {label: `Rejected · ${job.feedback_status}`, tone: job.feedback_status === 'Received feedback' ? 'info' : 'warn'};
   }
