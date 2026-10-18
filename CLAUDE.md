@@ -19,7 +19,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **Never Submit an application, never auto-apply.** The kit drafts, the owner submits. No captcha, bot check or SMS code; never past a login wall
   (LinkedIn, Glassdoor, Indeed, levels.fyi, Reddit: only through the user's own visit; 401/403/429 is a no).
 - **Tests and automation never touch the owner's live app, accounts or real data.** List what product code reaches (ports, Keychain, tokens, real
-  profile/CV, paid APIs), cut it off and assert it; always through the harness (`desktop/e2e/lib/extension.mjs`, `real-extension.mjs`); real sites
+  profile/CV, paid APIs), cut it off and assert it (the engine itself refuses the app's folder unless `JOB_PILOTTO_DATA_DIR`+`CONFIG_DIR` are set, or `JOB_PILOTTO_FOLLOW_APP=1` is the owner's own run); always through the harness (`desktop/e2e/lib/extension.mjs`, `real-extension.mjs`); real sites
   only with fake applicant data. The one exception is the twin ([docs/live-test.md](docs/live-test.md)): never the owner's window, never Submit, never a password field.
 - **Secrets only in the macOS Keychain** (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets; never in code, docs or Notion.
 - **The flow core claims itself** (`FLOW_CORE` / `FLOW_FILES`, `desktop/e2e/flows.mjs`): your open PR is the claim, no message to peers; the required check "Core flow files up to date with main"
