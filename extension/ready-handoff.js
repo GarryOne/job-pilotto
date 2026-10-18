@@ -35,8 +35,8 @@ export function restoreInPage(handoff) {
   return restored;
 }
 
-// deps: {chrome, api(path, init), sessionGet(key), decide(what, fields)}.
-export function createReadyHandoff({chrome, api, sessionGet, decide = () => {}}) {
+// deps: {chrome, api(path, init), sessionGet(key), move(tabId, url): tabs.js moveTab (so the move counts as the extension's own, never an outside link), decide(what, fields)}.
+export function createReadyHandoff({chrome, api, sessionGet, move, decide = () => {}}) {
   // While a marked tab first loads: ask once. -> true when the tab was sent on to the night's page (the caller stops; that load comes back here).
   async function takeHandoff(tabId, url, status) {
     if (status !== 'loading') return false;
@@ -51,7 +51,7 @@ export function createReadyHandoff({chrome, api, sessionGet, decide = () => {}})
     await chrome.storage.session.set({[key(tabId)]: {step: 'restore', handoff}});
     const mark = String(url).includes('#') ? `#${String(url).split('#').slice(1).join('#')}` : '';
     decide('ready', 'open in my browser: the night\'s page', {cookies: set, fields: handoff.snapshot?.fields?.length || 0});
-    await chrome.tabs.update(tabId, {url: `${handoff.url.split('#')[0]}${mark}`});
+    await move(tabId, `${handoff.url.split('#')[0]}${mark}`);
     return true;
   }
   // When the page is loaded, before the normal fill: put the night's values back, once.
