@@ -9,6 +9,11 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 `cd desktop && npm run design-system`, find the component for each value you will show, and build only from those (its "Don't / Do" pairs show what the
 owner rejected). No new look outside it; a missing part goes into the shared components first. The owner checks the result on the before/after shots.
 
+Before a PR, make ONE side-by-side image: reference (the owner's mockup, or today's screen as before) | your render, demo data, same scale, labelled
+(`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`). Light and dark are two images. `open` it for the owner and ask
+(AskUserQuestion) ship / change what, with your recommendation; ship only after his yes. The PR's before/after stays the record (owner, 18 Oct 2026:
+"Every session that works on UI, should open a preview image with side by side").
+
 ## Find, don't search
 - **Code map:** `node desktop/scripts/codemap.mjs <words>` (every file → its purpose, live), open the one file you need, read only the part you change.
 - A page's code: `desktop/renderer/pages/<page>.js`; its markup: `desktop/renderer/index.html` (grep the element id).
