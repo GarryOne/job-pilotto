@@ -10,6 +10,7 @@ export {DEFAULT_TARGET, ROLE_TERM, SEARCH_SETTINGS_TITLE, addPlaces, addRoles, a
 export {EDITABLE_LISTS, applyEdits, cleanEdits, editLists, edited} from './strategy-edit.js';
 export {SCORES_PER_SEARCH, SCORE_USD, rebuildGroups, wordsOf} from './strategy-rebuild.js';
 import {REPO} from './pipeline.js';
+import {askAgainNote, emptyParts} from './strategy-empty.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override is for the end-to-end journey (desktop/e2e): every step on Haiku
 const PRICE = {input: 2, output: 10}; // USD per million tokens, claude-sonnet-5-5
@@ -230,19 +231,32 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
     ]}],
     output_config: {format: {type: 'json_schema', schema: DRAFT_SCHEMA}},
   };
-  let response;
   const typical = storage.settings().draftSections || {};
-  if (onProgress && anthropic.messages.stream) {
-    const stream = anthropic.messages.stream(request);
-    stream.on('text', (_, snapshot) => onProgress(progress(snapshot, typical)));
-    response = await stream.finalMessage();
-  } else {
-    response = await anthropic.messages.create(request);
+  const ask = async note => {
+    const asked = note ? {...request, messages: [{...request.messages[0], content: [...request.messages[0].content, {type: 'text', text: note}]}]} : request;
+    let response;
+    if (onProgress && anthropic.messages.stream) {
+      const stream = anthropic.messages.stream(asked);
+      stream.on('text', (_, snapshot) => onProgress(progress(snapshot, typical)));
+      response = await stream.finalMessage();
+    } else {
+      response = await anthropic.messages.create(asked);
+    }
+    if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to read this CV`);
+    if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
+    const text = response.content.find(block => block.type === 'text').text;
+    return {response, text, result: JSON.parse(text)};
+  };
+  let {response, text, result} = await ask('');
+  const empty = emptyParts(result);
+  if (empty.length) {   // never kept as sure: asked again once, naming the parts; still empty, refused
+    const first = response.usage || {};
+    ({response, text, result} = await ask(askAgainNote(empty)));
+    const usage = response.usage || {};   // both calls are paid for
+    response = {...response, usage: {...usage, input_tokens: (usage.input_tokens || 0) + (first.input_tokens || 0), output_tokens: (usage.output_tokens || 0) + (first.output_tokens || 0)}};
+    const still = emptyParts(result);
+    if (still.length) throw new Error(`The draft came back without ${still.join(', ')}; try again`);
   }
-  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to read this CV`);
-  if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
-  const text = response.content.find(block => block.type === 'text').text;
-  const result = JSON.parse(text);
   if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(withoutUnknownGithub(result.profile_markdown, result.contact), answers);
   result.answers_markdown = withoutUnknownGithub(result.answers_markdown, result.contact);
   if (result.preferences) result.preferences = keepKnown(result.preferences, known);

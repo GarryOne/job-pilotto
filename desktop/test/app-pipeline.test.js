@@ -10,6 +10,8 @@ import * as strategy from '../lib/strategy.js';
 import {createStorage} from '../lib/storage.js';
 import {cleanSecret} from '../lib/secrets.js';
 
+const SEARCH_LISTS = {role_keywords: ['sre'], jobs_board_search_queries: ['site reliability engineer']};   // every draft has them (lib/strategy-empty.js)
+
 // Stand-in for safeStorage: reversible, and obviously not plain text on disk.
 const fakeCrypto = {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()};
 const tempStorage = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto);
@@ -170,7 +172,7 @@ test('strategy draft streams: progress names the part being written and grows to
   pipeline.ensureConfig(storage);
   storage.writeText('cv.pdf', '%PDF-1.4 fake');
   const text = JSON.stringify({summary: 'S'.repeat(120), profile_markdown: 'P'.repeat(400), answers_markdown: 'A'.repeat(300), open_questions: [],
-    search: {role_keywords: [], title_exclude_keywords: [], board_discovery_keywords: [], jobs_board_search_queries: [],
+    search: {role_keywords: ['sre'], title_exclude_keywords: [], board_discovery_keywords: [], jobs_board_search_queries: ['sre'],
       quality_stack_keywords: [], locations: {top_tier: [], country_wide: [], abroad: []}, remote_excluded_regions: [],
       google_jobs: {queries: [], country: 'ch', locations: []}}, preferences: {disqualifying_languages: [], excluded_companies: []}});
   const client = {messages: {stream: () => {
@@ -215,7 +217,7 @@ test('setup asks no questionnaire: the AI proposes the goals from the CV, the op
   assert.deepEqual(strategy.DRAFT_SCHEMA.properties.goals.required, ['seniority', 'work_mode', 'minimum_salary', 'languages']);
   assert.ok(strategy.DRAFT_SCHEMA.required.includes('goals'));
   const seen = [];
-  const client = {messages: {create: async request => { seen.push(request); return {stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: '{}'}]}; }}};
+  const client = {messages: {create: async request => { seen.push(request); return {stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify({search: SEARCH_LISTS})}]}; }}};
   await strategy.draft(storage, {anything_else: 'Remote only, please'}, 'sk-ant-x', client);
   await strategy.draft(storage, {}, 'sk-ant-x', client);
   assert.match(seen[0].messages[0].content[1].text, /<note_from_user>\nRemote only, please\n<\/note_from_user>/);
@@ -231,7 +233,7 @@ test('the note to the AI is kept in the drafted Profile (What I told the AI), re
   const storage = tempStorage();
   pipeline.ensureConfig(storage);
   storage.writeText('cv.pdf', '%PDF-1.4 fake');
-  const reply = JSON.stringify({summary: 'x', profile_markdown: '# Hard constraints\n\n| Work mode | Remote |\n'});
+  const reply = JSON.stringify({summary: 'x', profile_markdown: '# Hard constraints\n\n| Work mode | Remote |\n', search: SEARCH_LISTS});
   const client = {messages: {create: async () => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: reply}]})}};
   const drafted = await strategy.draft(storage, {anything_else: 'Staff level, permanent only\nCompanies under 500 people'}, 'sk-ant-x', client);
   assert.equal(drafted.profile_markdown, '# Hard constraints\n\n| Work mode | Remote |\n\n# What I told the AI\n\nStaff level, permanent only\nCompanies under 500 people\n');
