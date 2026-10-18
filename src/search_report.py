@@ -62,7 +62,7 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     since = argv[argv.index('--since') + 1] if '--since' in argv else ''
     if not since:
-        print('usage: python -m src search_report --since <ISO time>', file=sys.stderr)
+        print('Give the time the search started (--since, an ISO time).', file=sys.stderr)
         return 2
     from .paths import JOBS_DB, load_search_config
     from .sources import feeds
