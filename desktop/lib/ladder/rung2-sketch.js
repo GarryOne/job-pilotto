@@ -16,9 +16,9 @@ import {askDigest} from './rung3-digest.js';
 
 export const MODEL = model('small');   // the small tier (lib/ai/models.js); an OpenAI engine maps it to its own small model
 const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, the haiku price confirmation.js and form learning use
-export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
+export const KINDS = ['form', 'account-form', 'account', 'posting', 'closed', 'other'];
 // The role the extension's flows go by (tab-pages.js pageRole's words): an account-form page is the form.
-export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', other: 'no-form'};
+export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', closed: 'no-form', other: 'no-form'};
 // The ways a "how do you want to start?" step can begin an application (Workday's "Start Your Application", 10 Oct 2026). Fixed answers the AI gives for the button
 // it named; only 'manual' is ever pressed. A third-party sign-in (LinkedIn, Google…) is never pressed: never log in automatically.
 export const ROUTES = ['manual', 'reuse_previous', 'third_party_account'];
@@ -65,6 +65,7 @@ Answer one kind:
 - account-form: the application itself AND an account is created on the same page (a password is chosen there among the application's own fields).
 - account: only signing in or creating an account (email, password, username, confirmations, a robot check), before the application.
 - posting: a job description or a step that leads on to the application (an Apply button or link, a "continue to apply" page).
+- closed: a job posting that can no longer be applied to (taken down, filled, expired, "not found"), whatever the language or the server's answer; the page shows no application form and no Apply button. A live posting, even one with little text, is posting.
 - other: anything else (an error, a list of jobs, a cookie or consent wall, a page that needs nothing from the candidate).
 Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
 bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a

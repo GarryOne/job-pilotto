@@ -14,7 +14,7 @@ export async function createStandIn(batch, {answer = null} = {}) {
   // every lookup and every count is kept under that job's address, so a press on Apply or a next step stays on the same job.
   const key = address => { const page = String(address || '').split('#')[0]; return batch.jobs.find(job => isFormOf(page, job.url))?.url.split('#')[0] ?? page; };
   const jobs = new Map(batch.jobs.map(job => [key(job.url), job]));
-  const passes = new Map(), roles = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
+  const passes = new Map(), roles = new Map(), stuck = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
   const answers = {
     '/extension/pair': port => ({url: `http://127.0.0.1:${port}`, token: 'night'}),
     '/extension/run': () => ({ok: true, id: 'night-run'}),
@@ -41,6 +41,7 @@ export async function createStandIn(batch, {answer = null} = {}) {
         passes.set(key(parsed.url), list);
       }
       if (route === '/extension/event' && parsed?.type === 'fill-started' && parsed.url) started.set(key(parsed.url), (started.get(key(parsed.url)) || 0) + 1);
+      if (route === '/extension/event' && parsed?.type === 'stuck' && parsed.url) stuck.set(key(parsed.url), {why: String(parsed.why || ''), needs: String(parsed.needs || '')});   // the fill's own dead end: its reason and the fixed sentence, no page text
       if (route === '/extension/review' && parsed?.url) roles.set(key(parsed.url), String(parsed.role || ''));
       const found = answers[route] ? await answers[route](server.address().port, url, parsed) : {};
       response.writeHead(200, HEADERS); response.end(JSON.stringify(found));
@@ -53,6 +54,7 @@ export async function createStandIn(batch, {answer = null} = {}) {
     outcome: url => { const list = passes.get(key(url)); return list?.length ? {filled: list.reduce((sum, pass) => sum + pass.fields, 0), left: list.at(-1).unfilled, role: roles.get(key(url)) || '', usd: list.reduce((sum, pass) => sum + pass.usd, 0)} : null; },
     started: url => started.get(key(url)) || 0,
     role: url => roles.get(key(url)) || '',
+    stuck: url => stuck.get(key(url)) || null,
     close: () => new Promise(resolve => server.close(resolve)),
   };
 }

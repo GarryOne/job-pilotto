@@ -9,13 +9,15 @@
  },
  "url": "https://studio.example.com/jobs/junior-designer",
  "expect": {
-  "outcome": "expired",
+  "outcome": "closed",
   "accept": [
+   "closed",
    "expired",
    "other"
   ],
   "accept_reasons": {
-   "other": "Rung 2 has no `expired` kind: its INSTRUCTIONS call a page that needs nothing from the candidate `other`; the numbered digest (rung 3) names the outcome expired."
+   "expired": "The numbered digest (rung 3) names the same posting expired.",
+   "other": "The stored answer was taken before rung 2 had a `closed` kind (18 Oct 2026)."
   }
  },
  "sketch": {

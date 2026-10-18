@@ -1,0 +1,55 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-closed-notfound-de",
+ "source": "invented",
+ "lang": "de",
+ "why": "A removed posting answered with HTTP 200 (Ashby shape, 18 Oct 2026): a not-found notice and a link to the open positions",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-closed-notfound-de.html"
+ },
+ "url": "https://karriere.beispiel.example/jobs/designer",
+ "expect": {
+  "outcome": "closed",
+  "accept": [
+   "closed"
+  ]
+ },
+ "sketch": {
+  "url": "https://karriere.beispiel.example/jobs/designer",
+  "title": "Stellen",
+  "headings": [
+   "Stelle nicht gefunden"
+  ],
+  "controls": [],
+  "buttons": [
+   "Alle offenen Stellen ansehen"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "closed",
+  "confidence": 0.95,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false,
+  "still_drawing": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Die gesuchte Stelle ist nicht mehr verfügbar.",
+   "position": "main"
+  }
+ ],
+ "answer_path": "app"
+}

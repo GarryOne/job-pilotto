@@ -6,7 +6,7 @@ import {VERBS as REPAIR_VERBS} from '../../lib/ladder/fill-repair.js';
 
 export const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ladder-fixtures');
 // What a page can turn out to be (docs/superpowers/specs/2026-10-10-ai-ladder.md): the outcomes pageKind can name today plus the ones the ladder adds.
-export const OUTCOMES = ['form', 'account', 'posting', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'form_in_frame', 'other'];
+export const OUTCOMES = ['form', 'account', 'posting', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'form_in_frame', 'closed', 'other'];
 export const SCHEMA_VERSION = 1;
 // The questions of rung 2 a fixture can ask (docs/flows/ladder.md): the page-kind sketch (the default, no `question` field), and the two judges' questions. Additive: a fixture without `question` is page_kind.
 export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step', 'form_ready', 'fill_verify', 'fill_repair'];   // fill_repair: the fill ladder's rung 3 per control (expect.control names the control, expect.option its option or layer button)   // fill_verify: the fill ladder's per-control check (expect.control names the control scored)   // form_ready: the form judge's ready/needs_person (form_step: its step)

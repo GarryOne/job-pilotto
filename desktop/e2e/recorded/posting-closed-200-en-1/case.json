@@ -1,0 +1,58 @@
+{
+ "origin": "hand-cut",
+ "shape": "a posting the site took down but still answers 200: a 'not found' notice and a link to the open positions, no form (en); the run says plainly that the posting is closed, at once",
+ "why": "18 Oct 2026 (session job-pilotto-8d): an Ashby posting taken down shows 'Job not found' with HTTP 200; no status said gone, the page kind was 'other' and the night showed 'no form'. The AI now has the page kind 'closed' (rung2-sketch.js), reported like a gone posting (site_broken).",
+ "control": {
+  "build": "0.9.249",
+  "failed": "stuck: other (the page-kind answer closed was not a kind); the night showed no form"
+ },
+ "rung": 2,
+ "sample": "Hand-cut English page (invented host and text); served with 200",
+ "pages": [
+  {
+   "url": "https://careers.closedtoo.example/jobs/sales-associate-4711",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "",
+     "form_frame": -1,
+     "kind": "closed",
+     "role": "no-form",
+     "confidence": 0.9
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "This posting is closed",
+   "the posting is closed (the AI says so)"
+  ],
+  "notTold": [
+   "a broken page: loading it again"
+  ],
+  "stuck": [
+   "site_broken|This posting is closed"
+  ],
+  "ending": [
+   "site_broken"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 40
+ }
+}

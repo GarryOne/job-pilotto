@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {KINDS, ROLE, kindKey, pageBuild, pageKind, pageKindCache, pageShape, pageSketch} from '../lib/page-kind.js';
+import {INSTRUCTIONS, KINDS, ROLE, kindKey, pageBuild, pageKind, pageKindCache, pageShape, pageSketch} from '../lib/page-kind.js';
 
 const fake = (answer, calls = []) => ({messages: {create: async request => { calls.push(request); return {stop_reason: 'end_turn', usage: {input_tokens: 600, output_tokens: 20},
   content: [{type: 'text', text: typeof answer === 'string' ? answer : JSON.stringify(answer)}]}; }}});
@@ -487,4 +487,14 @@ test('an unsure answer on a page still being drawn is still "drawing", not a fai
   const got = await pageKind(fake({kind: 'other', confidence: 0.4, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false, still_drawing: true}), coop, cacheIn());
   assert.equal(got.stillDrawing, true);
   assert.equal(got.error, undefined);
+});
+
+test('a closed posting is its own kind, in any language: a no-form role, kept when sure, named in the instructions; every kind is named there', async () => {
+  const notFound = {url: 'https://jobs.example/acme/1234', title: 'Jobs', headings: ['Stelle nicht gefunden'], controls: [], buttons: ['Alle offenen Stellen ansehen']};
+  const cache = cacheIn(), calls = [];
+  const first = await pageKind(fake({kind: 'closed', confidence: 0.9}, calls), notFound, cache);
+  assert.deepEqual([first.kind, first.role, first.by], ['closed', 'no-form', 'ai']);
+  const second = await pageKind(fake({kind: 'closed', confidence: 0.9}, calls), notFound, cache);
+  assert.deepEqual([second.kind, second.by, calls.length], ['closed', 'remembered', 1]);   // sure: kept for the shape
+  for (const kind of KINDS) assert.match(INSTRUCTIONS, new RegExp(`^- ${kind}:`, 'm'), kind);
 });

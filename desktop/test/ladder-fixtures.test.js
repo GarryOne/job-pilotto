@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {CONFIRMED_BY, EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, MOVE_VERBS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
 import {SKETCH_FIELDS} from '../lib/page-kind.js';
-import {SCHEMA} from '../lib/ladder/rung2-sketch.js';
+import {KINDS, SCHEMA} from '../lib/ladder/rung2-sketch.js';
 import {schema as accountSchema, READY, RESULT} from '../lib/account-judge.js';
 import {schema as formSchema} from '../lib/form-judge.js';
 
@@ -57,7 +57,7 @@ test('the pool\'s shapes are all in the set, and the four languages, with traps'
   assert.ok(fixtures.filter(f => f.expect.digest).length >= 10, 'need the start dialogs (digest not asked)');
   assert.ok(fixtures.filter(f => f.id.startsWith('pool-')).length >= 30, 'the real pool shapes were grown');
   assert.ok(fixtures.filter(f => f.trap).length >= 2, 'need the confidently-wrong traps');
-  for (const kind of ['email', 'phone', 'expired', 'in_person']) assert.ok(fixtures.some(f => f.expect.outcome === kind), `no ${kind} posting`);
+  for (const kind of ['email', 'phone', 'closed', 'in_person']) assert.ok(fixtures.some(f => f.expect.outcome === kind), `no ${kind} posting`);
 });
 
 test('a stored answer is a fixed-values object the page-kind schema knows, and nothing but the sketch is page text', () => {
@@ -74,7 +74,7 @@ test('a stored answer is a fixed-values object the page-kind schema knows, and n
       for (const row of f.answer.controls) assert.ok(Number.isInteger(row.n) && FILL_VERDICTS.includes(row.verdict) && FILL_REASONS.includes(row.reason), `${f.id}: control ${row.n}`);
       continue;
     }
-    if (questionOf(f) === 'page_kind') assert.ok(['form', 'account-form', 'account', 'posting', 'other'].includes(f.answer.kind), `${f.id}: answer kind`);
+    if (questionOf(f) === 'page_kind') assert.ok(KINDS.includes(f.answer.kind), `${f.id}: answer kind`);
     else assert.ok(f.answer.answer !== undefined, `${f.id}: a judge answer has an answer`);
     assert.equal(typeof f.answer.confidence, 'number', `${f.id}: answer confidence`);
     const allowedAnswer = {page_kind: SCHEMA, account_ready: accountSchema(READY), account_result: accountSchema(RESULT), form_step: formSchema, form_ready: formSchema}[questionOf(f)];

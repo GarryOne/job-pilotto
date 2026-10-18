@@ -7,7 +7,10 @@ const FILL_BUTTON = /^(fill anyway|fill this form|fill again)$/i;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Pure: the outcome word from what the extension reported. `outcome` is the stand-in's {filled, left, role} or null; `panel` says whether the extension's panel appeared and offered Fill.
-export function classify({outcome, panel, role}) {
+// The extension's own fixed sentence for a posting that is closed or gone (extension/ladder/site-broken.js brokenNeed; desktop/test/ready-fill.test.js keeps the two in step).
+export const CLOSED_NEED = /^This posting is (closed|gone)/;
+export function classify({outcome, panel, role, stuck = null}) {
+  if (!outcome?.filled && stuck?.why === 'site_broken' && CLOSED_NEED.test(stuck.needs || '')) return {state: 'closed', wall: ''};   // the AI said the posting is closed: not "no form"
   if (outcome && (outcome.role || role) === 'account') return {state: 'wall', wall: 'account'};   // a sign-in or sign-up page: phase 1 makes no account
   if (!outcome) return panel ? {state: 'failed', wall: 'no-record'} : {state: role === 'account' ? 'wall' : 'no-form', wall: role === 'account' ? 'account' : ''};
   if (!outcome.filled) return {state: 'no-form', wall: ''};
@@ -40,6 +43,6 @@ export async function fillJob({context, standIn, job, fillSeconds = 120}) {
   const panel = await pressFill(page, standIn, job.url);
   for (let waited = 0; panel && waited < fillSeconds && !standIn.outcome(job.url); waited++) await wait(1000);
   await wait(3000);   // the record is written once, at the fill's end; the page settles and a later pass or update may follow
-  const outcome = standIn.outcome(job.url), verdict = classify({outcome, panel, role: standIn.role(job.url)});
+  const outcome = standIn.outcome(job.url), verdict = classify({outcome, panel, role: standIn.role(job.url), stuck: standIn.stuck?.(job.url) ?? null});
   return {page, ...verdict, filled: outcome?.filled || 0, left: outcome?.left || 0, humanCheck: await humanCheckIn(page), ms: Date.now() - started};
 }
