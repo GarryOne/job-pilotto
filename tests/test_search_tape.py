@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 import urllib.error
 import urllib.request
@@ -59,6 +60,35 @@ class WaitScaleTest(TapeTest):
         run = (Path(__file__).resolve().parents[1] / 'tools' / 'persona-search' / 'run.mjs').read_text()
         self.assertIn("includes('--speed')", run)
         self.assertNotIn('TAPE_SPEED', run)
+
+
+class VirtualClockTest(TapeTest):
+    """The replay's clock reads the recorded time at any wait scale (src/search_tape.py virtual_now)."""
+    def advanced(self, scale, waits):
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_TAPE_WAIT_SCALE': scale}), mock.patch.object(search_tape.time, 'sleep'), \
+                mock.patch.object(search_tape, '_skipped', [0.0]):
+            before = search_tape.virtual_now()
+            for wait in waits:
+                search_tape._wait(wait)
+            return search_tape.virtual_now() - before
+
+    def test_scale_0_reads_the_same_time_as_the_recording(self):
+        for scale in ('0', '0.1'):
+            with self.subTest(scale=scale):
+                self.assertAlmostEqual(self.advanced(scale, [2, 3, 10]), 15, delta=0.5)
+
+    def test_waits_that_run_together_are_not_added_up(self):
+        # real (short) sleeps so the threads overlap; at scale 0 nothing waits, so threads cannot overlap and their waits add up (a known limit)
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_TAPE_WAIT_SCALE': '0.1'}), mock.patch.object(search_tape, '_skipped', [0.0]):
+            before = search_tape.virtual_now()
+            threads = [threading.Thread(target=search_tape._wait, args=(w,)) for w in (3, 3, 3)]
+            [t.start() for t in threads]
+            [t.join() for t in threads]
+            self.assertAlmostEqual(search_tape.virtual_now() - before, 3, delta=0.4)
+
+    def test_replay_installs_the_virtual_clock_as_the_process_clock(self):
+        source = (Path(__file__).resolve().parents[1] / 'src' / 'search_tape.py').read_text()
+        self.assertIn('time.monotonic = virtual_now', source)
 
 
 class WebTest(TapeTest):
