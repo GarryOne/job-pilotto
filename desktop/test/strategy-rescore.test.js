@@ -49,9 +49,8 @@ test('the suggestions count stays apart from outdated scores', () => {
   assert.doesNotMatch(suggestions, /outdated|previous_locations|lastStrategy\?\.previous/);
 });
 
-test('the IPC reaches the engine command (tests/test_strategy_outdated.py checks the engine)', () => {
+test('the IPC reaches the engine command (tests/test_strategy_outdated.py checks the engine has it)', () => {
   assert.match(read('lib/job-actions-handlers.js'), /ipcMain\.handle\('rescoreOutdated'[\s\S]*?'src\.desktop', 'rescore-outdated'/);
   assert.match(read('preload.cjs'), /rescoreOutdated: call\('rescoreOutdated'\)/);
   assert.match(read('lib/demo.js'), /'rescoreOutdated'/, 'demo mode never re-scores');
-  assert.match(fs.readFileSync(new URL('../../src/desktop.py', import.meta.url), 'utf8'), /args\.command == 'rescore-outdated'/);
 });
