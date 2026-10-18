@@ -1,0 +1,29 @@
+/* Live cards (live-save.js; owner, 18 Oct 2026, pilot on Languages): one row per setting in the label column (label · control · status), the chosen value
+   calm at rest, its choices only while that row is hovered or focused, and the row's own save status at its end. Rules: docs/rules/desktop-ui.md "Live cards".
+   Tokens only (test/design.test.js). */
+.live-rows > label { grid-template-columns: minmax(140px, 28%) minmax(0, 1fr) auto; border-radius: var(--r-sm); }
+.live-rows > label > .live-status { grid-column: 3; grid-row: 1; }
+.live-rows > label > .qa-note-fold { grid-column: 2; }
+.live-rows .qa-values .qa-saved-as { flex: 0 1 auto; margin: 0; }   /* "Saved as: fluent" sits on the value's line, never alone under it */
+.live-rows > label.live-failed { background: var(--bad-soft); }
+@container (max-width: 560px) {
+  .live-rows > label { grid-template-columns: minmax(0, 1fr) auto; }
+  .live-rows > label > :not(:first-child):not(.live-status) { grid-column: 1 / -1; }
+  .live-rows > label > .live-status { grid-column: 2; }
+}
+
+/* At rest: a one-of-many shows only its chosen value, as plain words; nothing chosen reads "Not set". */
+.live-rows > label:not(:hover):not(:focus-within) .segmented { display: inline-flex; flex: none; width: auto; border-color: transparent; background: none; }
+.live-rows > label:not(:hover):not(:focus-within) .segmented > button:not(.is-active) { display: none; }
+.live-rows > label:not(:hover):not(:focus-within) .segmented > button.is-active { background: none; box-shadow: none; outline: 0; color: var(--ink);
+  padding-inline: 0; font-weight: 600; }
+.live-rows > label:not(:hover):not(:focus-within) .segmented:not(:has(.is-active))::before { content: 'Not set'; color: var(--muted); font-weight: 400; }
+/* Text reads as text until its row is hovered or the box focused. */
+.live-rows > label:not(:hover) :is(input:not([type]), input[type="text"], input[type="number"], textarea):not(:focus) { border-color: transparent; background: none; }
+
+/* The row's status: "Saving…", "✓ Saved · Undo", "Not saved · Retry" (its reason as the title). */
+.live-status { font-size: var(--fs-sm); font-weight: 400; white-space: nowrap; text-align: right; min-width: 0; }
+.live-status:empty { display: none; }
+.live-status .is-wait { color: var(--muted); }
+.live-status .is-saved { color: var(--good); }
+.live-status .is-failed { color: var(--bad); font-weight: 600; }

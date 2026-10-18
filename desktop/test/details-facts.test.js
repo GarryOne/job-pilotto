@@ -23,8 +23,19 @@ test('every section has its own panel on Your details, and the screen draws exac
 test('one Save bar: Contact, then the fact sections; Discard redraws them', () => {
   // Since 18 Oct 2026 the Profile page's one bar (pages/details-drafts.js): Contact and the fact sections are two sources; Discard redraws the facts.
   const drafts = read('renderer/pages/details-drafts.js');
-  assert.match(drafts, /window\.pilot\.saveDetailsFacts\(factsNow\(\)\)/);
+  assert.match(drafts, /window\.pilot\.saveDetailsFacts\(drafted\(factsNow\(\)\)\)/, 'the bar saves the sections that are drafts');
   assert.match(drafts, /showFacts\(\{redraw: true\}\)/);
+  // A live section (Languages, the live-cards pilot) saves itself alone, on the spot (live-save.js).
+  assert.match(drafts, /LIVE_KEYS\.map\(key => \[key, now\[key\] \|\| \[\]\]\)[\s\S]*saveDetailsFacts\(part\)/);
+});
+
+test('handlers: saving one section (a live card) leaves the other sections as they are', async () => {
+  const {handlers} = harness();
+  await handlers.saveDetailsFacts({availability: [{label: 'Notice period', value: '2 months'}], languages: [{label: 'English', value: 'B2'}]});
+  await handlers.saveDetailsFacts({languages: [{label: 'English', value: 'C1'}]});
+  const got = await handlers.detailsFacts();
+  assert.deepEqual(got.sections.languages, [{label: 'English', value: 'C1'}]);
+  assert.deepEqual(got.sections.availability.map(line => [line.label, line.value]), [['Notice period', '2 months']], 'untouched');
 });
 
 function harness(settings = {store: 'sqlite'}) {

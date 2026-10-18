@@ -1,9 +1,10 @@
 // Your details read first (owner's review, 18 Oct 2026, item 5: "a readable profile, not an expanded questionnaire"; UI redesign A): Contact, Professional links,
-// Work eligibility, Availability & compensation and Languages each show a compact summary drawn from their editor's own boxes (so drafts, CV proposals and
+// Work eligibility and Availability & compensation each show a compact summary drawn from their editor's own boxes (so drafts, CV proposals and
 // saving stay exactly as they were), a quiet Edit opens the editor in place, and Done leaves an editor with no change; with changes the Profile page's one
-// bar decides, and Save all / Discard all close the editors. Languages read "English · B2  Romanian · Native". Guarded by test/details-read.test.js.
+// bar decides, and Save all / Discard all close the editors. Languages is a live card instead (pilot, owner 18 Oct 2026: live-save.js), with no read view or
+// Edit. Guarded by test/details-read.test.js.
 import {CARD_EDIT, el, pill} from '../components.js';
-import {chipLine, doneButton, isEditing, readRows, setEditing} from '../card-shell.js';
+import {doneButton, isEditing, readRows, setEditing} from '../card-shell.js';
 import {factOf} from '../fact-line.js';
 
 const $ = id => document.getElementById(id);
@@ -37,9 +38,7 @@ function drawFacts(key) {
   if (!into || into.dataset.loading) return;
   const lines = linesOf(key).filter(line => line.label);
   if (!lines.length) { into.replaceChildren(el('p', 'muted', 'Nothing yet. Edit to add a line.')); return; }
-  if (key !== 'languages') { into.replaceChildren(readRows(factRows(lines))); return; }
-  const notes = lines.filter(line => line.note).map(line => el('span', 'muted small read-note', `${line.label}: ${line.note}`));
-  into.replaceChildren(chipLine(lines.map(line => line.value ? {text: line.label, detail: line.value} : line.label)), ...notes);
+  into.replaceChildren(readRows(factRows(lines)));
 }
 
 // The cards, their read boxes and how many of their own fields differ (for Done). The counts come from pages/details-drafts.js through initDetailsRead
@@ -50,7 +49,6 @@ const CARDS = [
   {id: 'setting-links', draw: () => {}, count: () => changed.contact(LINK_KEYS)},   // its tiles are drawn by pages/profile.js showLinks
   {id: 'setting-eligibility', draw: () => drawFacts('eligibility'), count: () => changed.facts('eligibility')},
   {id: 'setting-availability', draw: () => drawFacts('availability'), count: () => changed.facts('availability')},
-  {id: 'setting-languages', draw: () => drawFacts('languages'), count: () => changed.facts('languages')},
 ];
 const dones = new Map();
 

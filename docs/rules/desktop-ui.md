@@ -41,6 +41,18 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 - **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
   `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
 
+## Live cards: change one thing, saved on the spot (owner, 18 Oct 2026, pilot on Languages) [proposed]
+Replaces read → Edit → editor + save bar card by card once the pilot is approved ("if you want to change a single piece, it doesn't bring you 10 fields at once").
+Sketch with every state: https://claude.ai/artifact/DzfXFnZfsAb8QdDXToypG4. Parts: `renderer/live-save.js` (`liveSaver`, `liveCard`, ⌘Z) + `live-card.css`; Your details: `pages/details-drafts.js` `LIVE_KEYS`.
+- **The controls are the read view.** One row per setting in the label column (`form-grid edit-aligned live-rows`: label · control · status). At rest the chosen value reads as
+  plain words ("Not set" when empty); its choices (scale, chips) show only while that row is hovered or focused. No Edit, no Done, no editor, no card save bar.
+- **Saves by itself:** a pick on change, typing after a 1.5 s pause, leaving the field or Enter at once. Quick changes on a card go out as one write, one write at a time.
+  A live card saves only its own section, never another card's drafts.
+- **Undo beside the field:** "✓ Saved · Undo" at the row's end for 8 s; ⌘Z outside a text box undoes the last saved change. Undo is saved too.
+- **A failed write** keeps the value on the row (tinted) with "Not saved · Retry"; only then does the page's save bar count it, so leaving the page asks first.
+- **Nothing re-scores by itself:** a Strategy change updates the existing "N jobs were scored using previous search settings" notice; only its button re-scores, after saying the cost.
+- **What fails a change:** `desktop/test/live-save.test.js` (one write, Undo, typing pause, Retry, bar count, ⌘Z), `details-read.test.js` (every `LIVE_KEYS` card is live: no read view, Edit, editor or Done).
+
 ## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
 - **Review list** `reviewList(items, {doneLabel, empty, statusAt, joined, doneSummary})`: each item = title, why it is here, where it came from, a status chip, its

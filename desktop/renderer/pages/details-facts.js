@@ -1,13 +1,15 @@
 // Settings → Profile → Your details: the Work eligibility, Availability & compensation and Languages sections (owner, 17 Oct 2026: "Your details =
 // facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "To check": one line counting the
 // unclear details (a fact said two ways, a line with no clear home, a value to make exact, an unanswered mark) that opens the one review queue (owner, 18 Oct 2026:
-// "One queue for all"; lib/details-review.js). Saved through the Profile page's one save bar (pages/details-drafts.js). Guarded by
-// test/details-facts.test.js and test/details-review.test.js.
+// "One queue for all"; lib/details-review.js). Saved through the Profile page's one save bar (pages/details-drafts.js), except a live section (LIVE_KEYS:
+// Languages, the live-cards pilot) whose every change saves on the spot with Undo (live-save.js). Guarded by test/details-facts.test.js,
+// test/details-review.test.js and test/details-read.test.js.
 import {el, loadingCard} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {$} from './core.js';
 import {showOnTab} from './tab-part.js';
-import {detailsChanged, factsDirty, factsRead} from './details-drafts.js';
+import {LIVE_KEYS, detailsChanged, factsDirty, factsRead, liveFacts} from './details-drafts.js';
+import {liveCard} from '../live-save.js';
 import {setAsideRows} from './set-aside.js';
 import {factOf, factRow} from '../fact-line.js';
 import {detailsIn} from '../question-filter.js';
@@ -26,14 +28,32 @@ function skeletons(on) {
   }
 }
 
+// A line of a live section (LIVE_KEYS, live-save.js): each change saves the section; Undo redraws the row as it was last saved, and that is saved too.
+function liveRow(key, line, formats) {
+  let row = null;
+  row = factRow(key, line, formats, () => {
+    const before = row.savedLine;
+    liveFacts().changed(row, () => { const back = liveRow(key, before, formats); row.replaceWith(back); return back; });
+  });
+  row.savedLine = line;
+  row.addEventListener('live-saved', () => { row.savedLine = factOf(row); });
+  const check = [...row.children].find(node => node.classList?.contains('ui-pill'));
+  if (check) row.querySelector('.qa-values')?.append(check);   // the "Check" chip on the value's line, never alone under it
+  return row;
+}
+
+let liveHooked = false;
 function draw(sections, formats = {}) {
   for (const key of KEYS) {
     const into = box(key);
     if (!into) continue;
-    const add = el('button', 'link span-all', '+ Add a line');
+    const live = LIVE_KEYS.includes(key);
+    if (live && !liveHooked) { liveHooked = true; liveCard(into, liveFacts()); }
+    const row = line => (live ? liveRow(key, line, formats) : factRow(key, line, formats, () => detailsChanged()));
+    const add = el('button', 'link span-all', live ? '+ Add a language' : '+ Add a line');
     add.type = 'button';
-    add.addEventListener('click', () => { into.insertBefore(factRow(key, {}, formats, () => detailsChanged()), add); detailsChanged(); });
-    into.replaceChildren(...(sections[key] || []).map(line => factRow(key, line, formats, () => detailsChanged())), add);
+    add.addEventListener('click', () => { into.insertBefore(row({}), add); if (!live) detailsChanged(); });
+    into.replaceChildren(...(sections[key] || []).map(row), add);
   }
 }
 

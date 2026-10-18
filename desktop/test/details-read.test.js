@@ -15,9 +15,9 @@ const {el} = await import('../renderer/components.js');
 // Each Your details card's markup, from its opening line to the next card.
 const cards = () => html.split(/(?=<div class="setting[ "])/).filter(part => /data-profile-panel="details"/.test(part.split('\n')[0]));
 
-test('class: every Your details card with fields has a read view, a quiet Edit, an editor and a Done slot', () => {
-  const withFields = cards().filter(part => /data-contact="|data-facts="/.test(part));
-  assert.ok(withFields.length >= 5, 'contact, links, eligibility, availability, languages');
+test('class: every Your details card with fields has a read view, a quiet Edit, an editor and a Done slot, unless it is a live card', () => {
+  const withFields = cards().filter(part => /data-contact="|data-facts="/.test(part) && !/data-live/.test(part.split('\n')[0]));
+  assert.ok(withFields.length >= 4, 'contact, links, eligibility, availability');
   for (const part of withFields) {
     const id = part.match(/id="([^"]+)"/)[1];
     assert.match(part, /class="card-read"/, `${id}: a read view`);
@@ -29,6 +29,19 @@ test('class: every Your details card with fields has a read view, a quiet Edit, 
   }
   const listed = [...read('pages/details-read.js').matchAll(/\{id: '(setting-[\w-]+)'/g)].map(match => match[1]);
   assert.deepEqual(withFields.map(part => part.match(/id="([^"]+)"/)[1]), listed, 'pages/details-read.js CARDS lists every one, in page order');
+});
+
+test('class: every live section is a live card: its rows are the controls (label column, status at the end), no read view, Edit, editor or Done', () => {
+  const live = JSON.parse(read('pages/details-drafts.js').match(/export const LIVE_KEYS = (\[[^\]]*\])/)[1].replace(/'/g, '"'));
+  assert.ok(live.includes('languages'), 'the pilot: Languages (owner, 18 Oct 2026)');
+  for (const key of live) {
+    const part = cards().find(each => each.includes(`data-facts="${key}"`));
+    assert.ok(part, `${key}: a card`);
+    assert.match(part.split('\n')[0], /data-live/, `${key}: marked live`);
+    assert.match(part, new RegExp(`class="form-grid edit-aligned live-rows" data-facts="${key}"`), `${key}: one row per setting in the label column`);
+    for (const shell of ['card-read', 'card-editor', 'card-edit', 'data-done-slot']) assert.ok(!part.includes(shell), `${key}: no ${shell}`);
+  }
+  for (const page of ['index.html', 'gallery.html']) assert.match(read(page), /href="live-card\.css"/, page);
 });
 
 test('the voluntary surveys start closed and say Optional', () => {

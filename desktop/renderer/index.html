@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="ui-menu.css">
 <link rel="stylesheet" href="chips.css">
 <link rel="stylesheet" href="card-shell.css">
+<link rel="stylesheet" href="live-card.css">
 <link rel="stylesheet" href="page-parts.css">
 <link rel="stylesheet" href="profile-page.css">
 <link rel="stylesheet" href="style.css">
@@ -1082,15 +1083,11 @@
             <span class="card-done-slot" data-done-slot></span>
             </div>
           </div>
-          <div class="setting panel" id="setting-languages" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="globe"></i><h3>Languages</h3></div>
-              <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit languages"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">The languages you speak, with your level.</p>
-            <div class="card-read" data-facts-read="languages"></div>
-            <div class="card-editor">
-            <div class="form-grid cols-2" data-facts="languages"></div>
-            <span class="card-done-slot" data-done-slot></span>
-            </div>
+          <!-- A live card (owner, 18 Oct 2026, pilot): its rows are the read view and the controls; each change saves on the spot (live-save.js, live-card.css). -->
+          <div class="setting panel" id="setting-languages" data-profile-panel="details" data-live>
+            <div class="panel-top"><div class="summary-head"><i data-icon="globe"></i><h3>Languages</h3></div></div>
+            <p class="muted panel-lead">The languages you speak, with your level. A change saves at once.</p>
+            <div class="form-grid edit-aligned live-rows" data-facts="languages"></div>
             <p class="message" id="facts-message"></p>
           </div>
           <div class="setting panel" id="setting-details-profile" data-profile-panel="details">
