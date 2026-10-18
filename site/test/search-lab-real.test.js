@@ -47,7 +47,7 @@ test('a city is shown only when 3+ installs share it', () => {
 test('the tab is in the page, empty it says nothing arrived yet, and it holds no free text', () => {
   const html = page([], [], 'real', []);
   assert.match(html, /href="\?tab=real"[^>]*>Real installs/);
-  assert.deepEqual([...html.matchAll(/<nav class="tabs">([\s\S]*?)<\/nav>/g)][0][1].match(/>[^<]+<\/a>/g), ['>Lab</a>', '>Real installs</a>', '>History</a>', '>Experiments</a>', '>Random draws</a>']);
+  assert.deepEqual([...html.matchAll(/<nav class="tabs">([\s\S]*?)<\/nav>/g)][0][1].match(/>[^<]+<\/a>/g), ['>Lab</a>', '>Needs a fix</a>', '>Fixed</a>', '>Real installs</a>', '>History</a>', '>Experiments</a>', '>Random draws</a>']);
   assert.match(html, /No real search reported yet/);
   const full = page([lab('a')], [], 'real', [report('install-aaaa')]);
   assert.match(full, /Hospitality/);
