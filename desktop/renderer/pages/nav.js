@@ -98,7 +98,8 @@ export function paletteCommands() {
   // Every button entry goes through addNode.
   const addNode = (node, group, label, hint, keywords, open) => {
     const entry = buttonEntry(node, {group, label, hint, keywords, run: () => { open(); reveal(node); }});
-    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run, {enter: entry.enter, running: entry.running, node});
+    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run, {enter: entry.enter, running: entry.running});
+    if (entry?.label) commands[commands.length - 1].node = node;   // the probe in palette-every-action.test.js finds a button's entry by its node
   };
   // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Refresh jobs" and
   // "Check for new jobs" were listed side by side and ran the same jobs check).
