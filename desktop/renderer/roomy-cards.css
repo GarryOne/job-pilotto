@@ -14,8 +14,9 @@
 .roomy-cards .card .card-head p { margin: 0; font-size: var(--fs-md); color: var(--muted); }
 
 /* The quiet Edit: no box, pencil + word in the link colour; a soft background on hover (mockup 03). */
-.roomy-cards button.card-edit { border-color: transparent; background: none; color: var(--info); font-weight: 600; }
-.roomy-cards button.card-edit:hover { border-color: transparent; background: var(--surface-2); }
+/* Profile cards (.setting.panel.roomy, mockup 05) share the quiet Edit. */
+:is(.roomy-cards, .panel.roomy) button.card-edit { border-color: transparent; background: none; color: var(--info); font-weight: 600; }
+:is(.roomy-cards, .panel.roomy) button.card-edit:hover { border-color: transparent; background: var(--surface-2); }
 
 /* Read view: rows and blocks stack with no gap; each draws its own top divider, full width. */
 .roomy-cards .card-read { display: grid; gap: 0; }
@@ -70,3 +71,38 @@
 .roomy-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
 .roomy-pair > * { min-width: 0; }
 @container (max-width: 900px) { .roomy-pair { grid-template-columns: minmax(0, 1fr); } }
+
+/* Profile cards (mockup 05, .setting.panel.roomy): the same header (tile · title over its lead · quiet Edit), read views as columns. The fold (profile-fold.js)
+   keeps its title | summary | actions columns while folded; open, the title takes the width and the lead shows. */
+.panel.roomy { container-type: inline-size; gap: var(--sp-4); border-radius: var(--r-lg); }
+.panel.roomy .summary-head.card-head { gap: var(--sp-3); min-width: 0; }
+.panel.roomy .card-head > .ui-tile { width: var(--tile-lg); height: var(--tile-lg); }
+.panel.roomy .card-head > .ui-tile .icon { width: 20px; height: 20px; color: var(--tone); }
+.panel.roomy .card-words { display: grid; gap: 2px; min-width: 0; }
+.panel.roomy .card-words h3 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-card-title); font-weight: 700; white-space: nowrap; }
+.panel.roomy .card-words p { margin: 0; font-size: var(--fs-md); }
+.panel.roomy:not(.is-collapsed) > .panel-top.has-summary { grid-template-columns: minmax(0, 1fr) auto auto; }
+.panel.roomy.is-collapsed .card-words p, .panel.roomy > .message:empty { display: none; }
+
+/* Facts side by side (card-shell.js factColumns): a divider between columns, none at a row's start (each column's left line is pulled 1px outside
+   and clipped); the first column lines up with the title. */
+.fact-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-4) 0; overflow: hidden;
+  margin-left: calc(var(--tile-lg) + var(--sp-3) - var(--sp-5)); }
+.fact-col { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; margin-left: -1px; padding: var(--sp-1) var(--sp-5); border-left: 1px solid var(--line); }
+.fact-col > .icon { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--ink-2); }
+.fact-col-words { display: grid; gap: 2px; min-width: 0; }
+.fact-col-label { font-size: var(--fs-md); font-weight: 500; color: var(--muted); }
+.fact-col-value { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-value); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.fact-col-value .fact-col-note { width: 14px; height: 14px; color: var(--muted); }
+.fact-col .link-text { color: var(--info); }
+.contact-who { display: grid; gap: var(--sp-1); }
+.contact-who .contact-name { font-size: var(--fs-card-title); }
+.contact-lines { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.contact-lines li { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-base); font-weight: 500; overflow-wrap: anywhere; }
+.contact-lines .icon { width: 18px; height: 18px; flex: none; color: var(--ink-2); }
+@container (max-width: 520px) { .fact-cols { margin-left: calc(-1 * var(--sp-5)); } }
+/* Voluntary surveys as read (survey-rows.js surveyRead, mockup 05): one "Saved preferences" line, every answer folded under it; lined up with the title. */
+.panel.roomy .survey-read { display: grid; gap: var(--sp-2); margin-left: calc(var(--tile-lg) + var(--sp-3)); }
+.survey-saved { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-base); }
+.survey-saved > .icon { width: 20px; height: 20px; flex: none; color: var(--good); }
+.survey-all > summary { cursor: pointer; width: fit-content; }

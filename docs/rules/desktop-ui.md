@@ -54,7 +54,12 @@ Strategy and Profile cards read like the owner's mockups. Parts: `renderer/roomy
 - **Figures** `summaryTiles(tiles, {divided: true})`: no box per tile, a divider between them, 3 across (4 goals: 2 × 2); "+N more" (`more`) and a status
   (`badge`: "As written", "Estimated", its words on hover) sit inside the value, never as a line under it.
 - **Side by side** `.roomy-pair` where both fit; unset rows of one kind fold into one quiet row ("Must-haves: Any home base, employment type, workload"); long lists show 10 chips and "+N more".
-- **What fails a change:** `desktop/test/roomy-cards.test.js` (every Strategy card in `.roomy-cards` with a `cardHead` header; rows stacked, no settingBlock or inline label column; the parts' shapes).
+- **Profile cards** (mockup 05, owner approved 18 Oct 2026): `.setting.panel.roomy` with the header in its `.panel-top` (`summary-head card-head`: teal tile,
+  `card-words` = title over its lead; the fold keeps working). Facts read as columns, `factColumns(cols)` (card-shell.js): icon · small label over the
+  value, a divider between columns, the note for the AI on hover with an info mark (never a line under the value), "Check" as a pill after it. Contact:
+  the name (salutation before it) over the location | icon lines; an empty detail says "<label> not set". Voluntary surveys: one "Saved preferences"
+  line (`survey-rows.js surveyRead`), every answer folded under it.
+- **What fails a change:** `desktop/test/roomy-cards.test.js` (every Strategy card in `.roomy-cards` with a `cardHead` header, every Your details card `.panel.roomy` with its header; rows stacked, no settingBlock or inline label column; the parts' shapes).
 
 ## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").

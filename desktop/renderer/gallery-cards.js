@@ -1,7 +1,7 @@
 // The component gallery's "Card shell" section: one card read, the same card in its editor, and the page save bar with drafts on two tabs, all drawn by
 // the shared parts (card-shell.js, components.js cardEdit, save-bar.js), so the gallery is the living copy of docs/rules/desktop-ui.md "Cards: read → Edit → editor".
-import {cardEdit, el, pill} from './components.js';
-import {cardHead, chipLine, editRows, readRows, setEditing} from './card-shell.js';
+import {cardEdit, el, pill, tile} from './components.js';
+import {cardHead, chipLine, editRows, factColumns, readRows, setEditing} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
 import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
@@ -94,5 +94,13 @@ export function roomyCards() {
         {key: 'mode', icon: 'building', tone: 'good', label: 'Work mode', value: 'On-site'},
         {key: 'salary', icon: 'coins', tone: 'warn', label: 'Minimum salary', value: 'EUR 48,000 a year', badge: {text: 'As written', tone: 'neutral', title: 'Edit to pick its currency'}}], {divided: true})),
     pair);
+  // A Profile card (mockup 05): .setting.panel.roomy, the same header (teal tile), facts as columns: icon · label over value, the note on hover.
+  const profile = el('div', 'setting panel roomy'), top = el('div', 'panel-top'), head = el('div', 'summary-head card-head'), words = el('div', 'card-words');
+  words.append(el('h3', '', 'Availability & compensation'), el('p', 'muted small', 'Notice period and the salary you tell employers.'));
+  head.append(tile('coins', 'teal'), words);
+  top.append(head, edit('availability'));
+  profile.append(top, factColumns([{icon: 'calendar', label: 'Notice period', value: '2 months', note: 'For a start-date field, give a concrete date.'},
+    {icon: 'coins', label: 'Salary expectation', value: 'EUR 52,000 a year'}, {label: 'Nationality', value: 'Portuguese'}]));
+  box.append(profile);
   return box;
 }

@@ -9,7 +9,7 @@ import {install} from './tiny-dom.js';
 const body = install();
 const read = file => fs.readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8');
 const html = read('index.html');
-const {CONTACT_ROWS, contactRows, factRows, initDetailsRead, closeDetailsEditors} = await import('../renderer/pages/details-read.js');
+const {CONTACT_LINES, contactView, linksView, factRows, initDetailsRead, closeDetailsEditors} = await import('../renderer/pages/details-read.js');
 const {el} = await import('../renderer/components.js');
 
 // Each Your details card's markup, from its opening line to the next card.
@@ -33,23 +33,41 @@ test('class: every Your details card with fields has a read view, a quiet Edit, 
 
 test('the voluntary surveys start closed and say Optional', () => {
   const surveys = cards().find(part => /id="setting-details-profile"/.test(part));
-  assert.match(surveys, /<h3>Voluntary surveys<\/h3><span class="ui-pill tone-neutral">Optional<\/span>/);
+  assert.match(surveys, /<h3>Voluntary surveys <span class="ui-pill tone-neutral">Optional<\/span><\/h3>/);
   assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\[[^\]]*'setting-details-profile'/);
 });
 
-test('contact read rows: one per detail, the name joined, a hidden field (Place of origin outside Switzerland) left out', () => {
-  const values = {first_name: 'Alex', last_name: 'Morgan', email: 'alex@example.com'};
-  const rows = contactRows(key => values[key] || '', key => key !== 'place_of_origin');
-  assert.deepEqual(rows.map(row => row.label), CONTACT_ROWS.map(([label]) => label).filter(label => label !== 'Place of origin'));
-  assert.equal(rows[0].value, 'Alex Morgan');
-  assert.equal(rows.find(row => row.label === 'Phone').value, '', 'empty → readRows says "Not set"');
+// Mockup 05 (owner approved, 18 Oct 2026): Contact as columns, the name over the location | email, phone | address, date of birth; every detail shows,
+// an empty one as "<label> not set"; a hidden field (Place of origin outside Switzerland) left out.
+test('contact columns: the name (salutation before it) over the location, every other detail an icon line, an empty one said', () => {
+  const values = {first_name: 'Alex', last_name: 'Morgan', salutation: 'Mr', email: 'alex@example.com', location: 'London'};
+  const view = contactView(key => values[key] || '', key => key !== 'place_of_origin');
+  const cols = view.children;
+  assert.equal(view.className, 'fact-cols');
+  assert.equal(cols.length, 1 + CONTACT_LINES.length);
+  assert.match(cols[0].textContent, /^Mr Alex MorganLondon$/);
+  assert.match(cols[1].textContent, /alex@example\.com.*Phone not set/);
+  assert.match(cols[2].textContent, /Address not set.*Date of birth not set/);
+  assert.doesNotMatch(view.textContent, /Place of origin/, 'hidden outside Switzerland');
+  const half = contactView(key => ({postal_code: 'SW1A 1AA'})[key] || '', () => true).textContent;
+  assert.match(half, /SW1A 1AA· Street not set/, 'a line of two details says the missing one');
+  const none = contactView(() => '', () => true).textContent;
+  for (const words of ['Name not set', 'Location not set', 'Salutation not set', 'Email not set', 'Place of origin not set']) assert.ok(none.includes(words), words);
 });
 
-test('fact read rows: the note under its value, a line to check keeps its Check mark', () => {
-  const rows = factRows([{label: 'Notice period', value: '3 months', note: 'ends at month-end'}, {label: 'Salary', value: 'CHF 120k', check: true}, {label: '', value: 'x'}]);
-  assert.equal(rows.length, 2, 'a line with no label is not shown');
-  assert.equal(rows[0].note, 'ends at month-end');
-  assert.match(rows[1].value.textContent, /CHF 120k.*Check/);
+test('links columns: the site, its address in the link colour, "Not added" when empty, GitHub only while its box shows', () => {
+  const view = linksView(key => ({linkedin: 'https://www.linkedin.com/in/alex/'})[key] || '', key => key !== 'github');
+  assert.deepEqual(view.children.map(col => col.textContent), ['LinkedInlinkedin.com/in/alex', 'WebsiteNot added']);
+  assert.equal(view.querySelectorAll('.link-text').length, 1);
+});
+
+test('fact columns: label over value, the note for the AI on hover (never a line under the value), Check as a pill after it, an icon by kind', () => {
+  const cols = factRows([{label: 'Notice period', value: '3 months', note: 'ends at month-end', kind: 'duration'}, {label: 'Salary', value: 'CHF 120k', kind: 'salary', check: true}, {label: '', value: 'x'}]);
+  assert.equal(cols.length, 2, 'a line with no label is not shown');
+  assert.equal(cols[0].note, 'ends at month-end');
+  assert.deepEqual(cols.map(col => col.icon), ['calendar', 'coins']);
+  assert.equal(cols[1].badge.textContent, 'Check');
+  assert.equal(cols[0].badge, null);
 });
 
 test('Edit opens the editor in place; Done closes it only while nothing changed; Save all / Discard all close the unchanged ones', () => {

@@ -3,6 +3,7 @@
 // the lines are the model's (survey-model.js). Reads as label/value rows with the note muted under the value; edits as label | compact list | "+ note" (folded, open when
 // it has text), one "Notes for the AI" fold, other lines as wrapped boxes that never cut a saved value. Guarded by test/survey-rows.test.js and test/survey-design.test.js.
 import {el, pill} from './components.js';
+import {icon} from './icons.js';
 import {answerControl} from './question-control.js';
 import {formatFor} from './question-kind.js';
 import {SURVEYS, NOTES_LABEL, readLines, textsFor} from './survey-model.js';
@@ -85,6 +86,27 @@ export function surveyBody(part, {sorting = false} = {}) {
     fold.append(el('summary', 'muted small', `${NOTES_LABEL} · ${read.notes.length} note${read.notes.length === 1 ? '' : 's'}`), ...read.notes.map(note => el('p', 'muted small', note.text)));
     box.append(fold);
   }
+  return box;
+}
+
+// The card as read (mockup 05): one line naming what is saved ("Saved preferences · Age bracket, gender identity and 4 more saved"), a "Check" pill when
+// a question is answered in words only, and every answer folded under it (surveyBody; open while the answers are being sorted).
+export function surveyRead(part, {sorting = false} = {}) {
+  const read = readLines(part?.lines || []), byLabel = new Set(SURVEYS.map(each => each.label.toLowerCase()));
+  const answered = SURVEYS.filter(each => read.answers.has(each.key)).map(each => each.label);
+  const inWords = read.other.map(other => otherRow(other.text)).filter(row => row && byLabel.has(row.label.toLowerCase())).length;
+  const named = [...answered, ...read.other.map(other => otherRow(other.text)?.label).filter(Boolean)];
+  const words = named.length > 3 ? `${named.slice(0, 3).join(', ')} and ${named.length - 3} more saved` : `${named.join(', ')} saved`;
+  const line = el('div', 'survey-saved'), box = el('div', 'survey-read');
+  line.append(icon(named.length ? 'tick' : 'info'), el('b', '', named.length ? 'Saved preferences' : 'No answers yet'),
+    el('span', 'muted', named.length ? words : 'Edit to add the answers equal-opportunity questions ask for'),
+    ...(inWords ? [pill(`${inWords} to check`, 'warn', {title: 'Written as words, not yet one of the choices: Edit to pick one.'})] : []));
+  box.append(line);
+  if (!named.length && !sorting) return box;
+  const fold = el('details', 'plain survey-all');
+  fold.open = sorting;
+  fold.append(el('summary', 'link small', `Show answers · ${named.length}`), surveyBody(part, {sorting}));
+  box.append(fold);
   return box;
 }
 

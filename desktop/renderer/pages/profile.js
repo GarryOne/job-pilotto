@@ -12,7 +12,7 @@ import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
 import {initLetter, loadLetter} from './base-letter.js';
-import {el, moreButton, openMenu, tile} from '../components.js';
+import {moreButton, openMenu} from '../components.js';
 import {cvCheckAction, lastCheck, showCvCheck} from '../cv-check-view.js';
 import {documentFacts} from '../cv-check-model.js';
 import {icon} from '../icons.js';
@@ -32,7 +32,7 @@ import {guardLeave} from './nav.js';
 import {profileBar} from './profile-save-bar.js';
 import {mountProfileMenu} from './profile-menu.js';
 import {showFacts} from './details-facts.js';
-import {initDetailsRead} from './details-read.js';
+import {initDetailsRead, linksView} from './details-read.js';
 import {reading} from '../contact-reading.js';
 import {swr} from '../swr.js';
 import {foldProfilePanels, initFoldBar, showFoldBar} from '../profile-fold.js';
@@ -63,17 +63,8 @@ function answersMenu() {
   openMenu($('answers-review'), [{label: `View source in ${storeName()}`, icon: 'external', run: () => openInNotion('NOTION_ANSWERS_PAGE_ID')}]);
 }
 // Professional links: shown as tiles; Edit shows the fields (saved by the Profile page's one save bar).
-let showGithub = true;   // false for a non-technical candidate (fitDetailsToCandidate)
-function showLinks() {
-  const value = name => document.querySelector(`[data-contact="${name}"]`).value.trim();
-  $('links-view').replaceChildren(...[['linkedin', 'LinkedIn', 'user'], ['github', 'GitHub', 'bot'], ['website', 'Website', 'link']].filter(([key]) => key !== 'github' || showGithub).map(([key, name, glyph]) => {
-    const box = el('div', 'link-tile');
-    const text = el('span');
-    text.append(el('b', '', name), el('span', 'muted small', value(key).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') || 'Not added'));
-    box.append(tile(glyph, 'neutral'), text);
-    return box;
-  }));
-}
+// The links card's read view (pages/details-read.js linksView; GitHub only while its box shows).
+const showLinks = () => $('links-view')?.replaceChildren(linksView());
 // Sidebar: the Notion pages, most used first. Click opens them in the app's Notion window; ⌘-click in the browser.
 const NOTION_LINKS = [['NOTION_MATCHES_DB', 'Job matches', 'target'], ['NOTION_APPLICATIONS_DB', 'Applications', 'layers'],
   ['NOTION_EVENTS_DB', 'Replies & events', 'mail'], ['NOTION_INTERVIEWS_DB', 'Interviews', 'mic'], ['NOTION_INSIGHTS_DB', 'Insights', 'chart'],
@@ -161,8 +152,7 @@ function fitDetailsToCandidate(contact) {
     document.querySelector('[data-contact="birth_date"]').placeholder = hints.dateExample;
     const origin = document.querySelector('[data-swiss-only]');
     if (origin) origin.hidden = !hints.showOrigin;
-    showGithub = hints.showGithub;
-    document.querySelector('[data-contact="github"]').closest('label').hidden = !showGithub;
+    document.querySelector('[data-contact="github"]').closest('label').hidden = !hints.showGithub;
     showLinks();
   }).catch(() => {});
 }
