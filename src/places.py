@@ -119,6 +119,11 @@ def in_switzerland(word, cache=None):
     from .regions import SWITZERLAND, region_of
     if region_of(word):
         return True
+    from . import geo
+    mapped = geo.resolve([readable(str(word)).strip('"'), str(word)], ask=False).values()   # the map's country code, once the word is placed (as read or as given)
+    for entry in mapped:
+        if entry.get('cc'):
+            return entry['cc'] == 'CH'
     cache = load() if cache is None else cache
     known = (cache.get(_key(readable(str(word)).strip('"'))) or {}).get('countries') or _expanded_from(word, cache)
     if known:
