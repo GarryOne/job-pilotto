@@ -22,7 +22,7 @@
 .ready-steps { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
 .ready-sep { color: var(--muted); }
 .ready-clock { font-variant-numeric: tabular-nums; }
-.ready-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.ready-bar { height: 6px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .ready-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--info); transition: width .6s ease; }
 .ready-progress .is-live.dot::before { animation: ready-pulse 1.2s ease-in-out infinite; }
 @keyframes ready-pulse { 50% { opacity: .25; } }
