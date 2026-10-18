@@ -25,7 +25,7 @@ jobs:
   pick:
     if: github.event_name == 'workflow_dispatch' || vars.LAB_HEAL_ON == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45   # the six replays run together, a tape on the API engine at its recorded pace
     outputs:
       candidate: ${{ steps.choose.outputs.candidate }}
     env:
@@ -75,7 +75,7 @@ jobs:
     needs: pick
     if: needs.pick.outputs.candidate != ''
     runs-on: ubuntu-24.04
-    timeout-minutes: 40   # a search stops by itself at its own time budget; this only ends a hang
+    timeout-minutes: 75   # the recording (a search stops by itself at its own time budget) and then two replays at the recorded pace, together
     env:
       GH_TOKEN: ${{ github.token }}
       NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
@@ -143,6 +143,7 @@ jobs:
         run: |
           set -o pipefail   # a failed verify must stop the job: the next step publishes
           cp "$RUNNER_TEMP/old/draft.json" "$RUNNER_TEMP/new/draft.json"
+          echo '{"engine": "api", "wait_scale": 1}' > "$RUNNER_TEMP/new/replay.json"   # how every replay of this tape runs (tools/persona-search/run.mjs): its own engine, the recorded pace
           mkdir -p "$RUNNER_TEMP/verify"
           node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish the new tape (it is then the newest of that candidate)

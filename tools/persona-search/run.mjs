@@ -27,11 +27,16 @@ if (process.argv.includes('--fresh')) fs.rmSync(dir, {recursive: true, force: tr
 fs.mkdirSync(dir, {recursive: true});
 fs.copyFileSync(path.join(out, 'cv.pdf'), path.join(dir, 'cv.pdf'));
 const tape = option('--tape', '');
+// How a tape is replayed (tape/replay.json, written by the heal: {engine, wait_scale}): a tape recorded on the API engine asks other questions than the plan engine would, and its search only repeats at the recorded pace
+// (18 Oct 2026: the same tape missed 59 AI requests on the plan engine at wait scale 0, 30 on its own engine). An explicit flag wins; no file = the plan engine, no wait for an offline replay (--no-live), as recorded otherwise.
+const how = (() => { try { return tape && process.argv.includes('--replay') ? JSON.parse(fs.readFileSync(path.join(tape, 'replay.json'), 'utf8')) : {}; } catch { return {}; } })();
+const waitScale = option('--wait-scale', String(how.wait_scale ?? (process.argv.includes('--no-live') ? 0 : 1)));
+const engineName = option('--engine', how.engine || 'cli');
 if (process.argv.includes('--speed')) { console.error('--speed is gone (it multiplied the waits, so 20 meant 20x slower): use --wait-scale, 0 = no wait'); process.exit(2); }
 if (tape) {   // read by the engine (desktop/lib/pipeline-env.js passes these three on)
   if (process.argv.includes('--record') === process.argv.includes('--replay')) { console.error('--tape needs --record or --replay'); process.exit(2); }
   Object.assign(process.env, {JOB_PILOTTO_SEARCH_TAPE: path.resolve(tape), JOB_PILOTTO_SEARCH_TAPE_MODE: process.argv.includes('--record') ? 'record' : 'replay',
-    JOB_PILOTTO_TAPE_WAIT_SCALE: option('--wait-scale', '1')});
+    JOB_PILOTTO_TAPE_WAIT_SCALE: waitScale});
   if (process.argv.includes('--no-live')) process.env.JOB_PILOTTO_TAPE_LIVE = '0';   // CI has no AI account: a question the tape lacks is counted and raises (src/search_tape.py)
 }
 
@@ -45,7 +50,8 @@ const {realClaude} = await import(path.join(ROOT, 'desktop', 'e2e', 'lib', 'real
 const storage = createStorage(dir, {encrypt: value => value, decrypt: value => value});   // its own folder: nothing reaches the Keychain
 ensureConfig(storage);
 // --engine api (the daily CI draw, tools/persona-search/draw.py): the Anthropic API on the key in LAB_HEAL_ANTHROPIC_KEY (a tape re-record, own workspace and cap) or else RANDOM_DRAWS_ANTHROPIC_KEY, there being no plan-path Claude on a runner.
-const api = option('--engine', 'cli') === 'api', apiKey = process.env.LAB_HEAL_ANTHROPIC_KEY || process.env.RANDOM_DRAWS_ANTHROPIC_KEY || '';
+const api = engineName === 'api', replayOnly = api && process.argv.includes('--replay') && process.argv.includes('--no-live');   // an offline replay builds the API client but never calls it
+const apiKey = process.env.LAB_HEAL_ANTHROPIC_KEY || process.env.RANDOM_DRAWS_ANTHROPIC_KEY || (replayOnly ? 'replay-only' : '');
 if (api && !apiKey) { console.error('--engine api needs LAB_HEAL_ANTHROPIC_KEY or RANDOM_DRAWS_ANTHROPIC_KEY'); process.exit(2); }
 if (api) storage.setSecret('ANTHROPIC_API_KEY', apiKey);
 storage.saveSettings({aiEngine: api ? 'api' : 'cli', ...(api ? {} : {claudeCode: {path: realClaude() || (process.env.JOB_PILOTTO_TAPE_LIVE === '0' ? process.execPath : '')}}), store: 'sqlite', telemetry: false, shareEmployers: false});

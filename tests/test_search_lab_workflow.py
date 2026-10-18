@@ -81,6 +81,15 @@ class HealWorkflow(unittest.TestCase):
             if '| tee' in step and 'run: |' in step:
                 self.assertIn('set -o pipefail', step, 'every multi-line step that pipes into tee stops on the first failure')
 
+    def test_a_tape_says_how_it_is_replayed(self):
+        # 18 Oct 2026: a tape recorded on the API engine missed 59 AI requests on the plan engine at wait scale 0, 30 on its own engine, and only repeats its search at the recorded pace
+        run = (ROOT / 'tools' / 'persona-search' / 'run.mjs').read_text(encoding='utf-8')
+        self.assertIn("replay.json", run)
+        self.assertIn('"engine": "api", "wait_scale": 1', self.heal)
+        self.assertLess(self.heal.index('replay.json'), self.heal.index('tape-store.mjs publish'), 'the file is in the tape that is published')
+        self.assertNotIn('--wait-scale', WORKFLOW, 'the replay workflow lets each tape say its own pace')
+        self.assertNotIn('--engine', (ROOT / 'tools' / 'persona-search' / 'heal.mjs').read_text(encoding='utf-8').split('export async function replay')[1].split('const file')[0], 'heal replays take the engine from the tape')
+
     def test_the_weekly_cap_and_the_pick(self):
         out = node("import {pickCandidate, agree, WEEKLY_CAP} from './tools/persona-search/heal.mjs';"
                    "const press = (more = {}) => ({in_places: 36, scored_in_places: 36, fit70_in_places: 28, stale: '', crashes: [], ...more});"
