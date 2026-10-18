@@ -47,6 +47,13 @@ jobs:
         run: |
           npx --yes wrangler@4 d1 migrations apply www-stats --remote \
             || { echo "::warning::D1 migrations not applied (the token needs D1 Edit). Apply: cd site && npx wrangler@4 d1 migrations apply www-stats --remote"; exit 1; }
+      - name: "R2 bucket of the Lab's fill videos (site/wrangler.toml LAB_FILLS)"
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        continue-on-error: true   # already there = fine; a token without R2 rights must not block the deploy, the warning says what to run
+        working-directory: site
+        run: |
+          npx --yes wrangler@4 r2 bucket info lab-fills >/dev/null 2>&1 || npx --yes wrangler@4 r2 bucket create lab-fills \
+            || { echo "::warning::R2 bucket lab-fills not created (the token needs R2 Edit). Create: cd site && npx wrangler@4 r2 bucket create lab-fills"; exit 1; }
       - name: Deploy to Cloudflare
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: site

@@ -2,6 +2,7 @@
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import {videoIngest, videoView} from './lab-video.js';
 import * as sentryAlert from './sentry-alert.js';
 import {replaysIngest} from './applying-replays.js';
 import {fidelityIngest} from './applying-fidelity.js';
@@ -178,6 +179,8 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/ci-rows' && request.method === 'PUT') return ciRowsIngest(request, env);   // a CI recording run's rows, main only (Bearer REPLAYS_PUBLISH_KEY, src/applying-ci-rows.js)
   if (pathname === '/applying/discovery-input' && request.method === 'GET') return discoveryInput(request, env);   // the daily discovery batch's input (Bearer REPLAYS_PUBLISH_KEY, src/discovery-candidates.js)
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);
+  if (pathname === '/applying/video' && request.method === 'PUT') return videoIngest(request, env);   // CI's pool run: one fill video per row (Bearer REPLAYS_PUBLISH_KEY, src/lab-video.js)
+  if (pathname === '/admin/lab-form-filling/video' && request.method === 'GET') return videoView(request, env);   // the owner streams it (src/lab-video.js)
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)
   if (pathname === '/e2e/data' && (request.method === 'PUT' || request.method === 'GET')) return e2eIntelIngest(request, env);   // CI publishes finished e2e runs and their red suites (Bearer SELFHEAL_PUBLISH_KEY, src/e2e-intel.js)
   if (pathname === '/changelog/data' && (request.method === 'PUT' || request.method === 'GET')) return changelogIngest(request, env);   // CI publishes each new version's What's new entry (Bearer SELFHEAL_PUBLISH_KEY, src/changelog-store.js)
