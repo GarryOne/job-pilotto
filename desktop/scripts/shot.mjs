@@ -1,5 +1,5 @@
 // One screen, fast (~5 s), to check a change: npm run shot -- <page> [options]. Fictional demo data only (demo/).
-//   pages: focus, jobs, session, actions, strategy, interviews, settings
+//   pages: focus, jobs, session, actions, strategy, interviews, settings (its Overview), profile
 //   --select <css>     only that element (and a small margin), e.g. '#ss-decision'
 //   --session <text>   on the session page, open the session whose card contains this text (e.g. Acme)
 //   --mark <css>       draw a red frame around every element it matches ("where to look"); repeat the option for several. Use the SAME --mark on the before and the after shot.
@@ -40,7 +40,8 @@ if (page === 'session') {
   steps.push(`document.getElementById('sd-all').click(); ${wait(1500)}`);
   if (option('session')) steps.push(`[...document.querySelectorAll('#ss-list > *')].find(n => n.textContent.includes(${JSON.stringify(option('session'))}))?.click(); ${wait(1000)}`);
   if (flag('log')) steps.push(expandLog);
-} else steps.push(`document.querySelector('.nav[data-view=${page}]')?.click(); ${wait(1500)}`);
+} else if (page === 'profile') steps.push(`document.querySelector('.nav[data-settings=profile]')?.click(); ${wait(1500)}`);
+else steps.push(`document.querySelector('.nav[data-view=${page}]:not([data-settings])')?.click(); ${wait(1500)}`);   // settings: the menu's Settings, not its Profile
 if (option('js')) steps.push(option('js'));
 // --select: bring the element to the middle at once (the app scrolls smoothly: a rectangle measured mid-scroll crops the wrong part).
 if (option('select')) steps.push(`document.querySelector(${JSON.stringify(option('select'))})?.scrollIntoView({block: 'center', behavior: 'instant'}); ${wait(400)}`);

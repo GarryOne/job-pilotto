@@ -1,16 +1,14 @@
 // "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
-// Settings → Profile → Your details, each marked "From your CV", and the panel's Save is the confirmation. Nothing is saved before it.
+// Settings → Profile → Your details, each marked "From your CV", and the page bar's Save all changes is the confirmation. Nothing is saved before it.
 // Also the nudge after Apply when the details forms usually ask for are missing. Guarded by test/contact-from-cv.test.js.
 import {pill} from '../components.js';
-import {$, message} from './core.js';
-import {showOnTab} from './tab-part.js';
+import {message} from './core.js';
+import {detailsChanged} from './details-drafts.js';
 import {toastMessage} from './startup.js';
 
 const MARK = 'proposal-pill';
 const box = field => document.querySelector(`#setting-contact [data-contact="${field}"]`);
 
-// Your details has unsaved changes (or none): the sticky save bar shows only while there are, so Save is never below the fold.
-export function contactDirty(on) { $('contact-save').disabled = !on; showOnTab($('contact-savebar'), on); }
 // Take the marks off (after Save, or before showing new proposals); an edited box keeps your value, unmarked.
 export function clearProposals() {
   for (const input of document.querySelectorAll('#setting-contact [data-proposed]')) {
@@ -38,24 +36,22 @@ export function showProposals(proposals = []) {
     shown++;
   }
   if (shown) {
-    contactDirty(true);
-    message('contact-message', `${shown} detail${shown === 1 ? '' : 's'} filled in from your CV: check ${shown === 1 ? 'it' : 'them'}, then Save.`);
+    detailsChanged();   // they are drafts on the Profile page's one save bar until saved
+    message('contact-panel-message', `${shown} detail${shown === 1 ? '' : 's'} filled in from your CV: check ${shown === 1 ? 'it' : 'them'}, then Save all changes.`);
   }
   return shown;
 }
 
 // On opening the panel: what was proposed for this CV (Claude reads a CV once, so this is free after the first time).
-// again: the "Fill from my CV" button, which reads the CV anew and says what it found. It answers in the panel's own line: the save
-// bar's line is shown only with unsaved changes, so a press that found nothing (or failed) said nothing at all (#409).
+// again: "Fill from my CV" (the Profile page's ⋯ menu), which reads the CV anew and says what it found in the Contact card's own line, also when it
+// found nothing or failed (#409: a press that said nothing at all).
 export async function loadProposals({again = false} = {}) {
-  const button = $('contact-from-cv');
-  if (again) { button.disabled = true; message('contact-panel-message', 'Reading your CV for missing details… (about 15 s)'); }
+  if (again) message('contact-panel-message', 'Reading your CV for missing details… (about 15 s)');
   const result = await window.pilot.contactProposals({again}).catch(error => ({proposals: [], error: error.message}));
-  if (again) button.disabled = false;
   const shown = showProposals(result?.proposals || []);
-  if (again) {
-    message('contact-panel-message', shown ? '' : result?.error && result.error !== 'notion' ? `Couldn't read your CV: ${result.error === 'no AI' ? 'choose your AI in Settings → Connections first' : result.error}.`
-      : 'Your CV has nothing for the empty boxes: type them once here.', !shown && result?.error ? 'error' : '');
+  if (again && !shown) {
+    message('contact-panel-message', result?.error && result.error !== 'notion' ? `Couldn't read your CV: ${result.error === 'no AI' ? 'choose your AI in Settings → Connections first' : result.error}.`
+      : 'Your CV has nothing for the empty boxes: type them once here.', result?.error ? 'error' : '');
   }
   return shown;
 }

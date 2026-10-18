@@ -30,7 +30,8 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 - **Read view by default** (`.card-read`): `readRows` (label → value; empty = `pill('Not set', 'warn')`; a note for the AI is a muted line under its value) and `chipLine`
   for several values ("English · B2", "Romanian · Native"). Never the editor's controls just to read.
 - **Edit** (`setEditing(card, true)`): Edit hides, the card stays open (a folded one opens), `.card-editor` shows `editRows` (one aligned label column, full-width controls).
-  Drafts survive switching tabs and folding; leaving the editor never drops them.
+  Drafts survive switching tabs and folding; leaving the editor never drops them. An editor with no change closes with the shared quiet **Done** (`doneButton(card, count)`,
+  shown only at 0 changes); with changes, Save all / Discard all close it. Never a card's own Close or Cancel. A Profile page bar is `pages/profile-save-bar.js` `profileBar()`.
 - **No Save, Cancel or Discard on a card.** Each card registers a source with the page's one `pageSaveBar`: "N unsaved changes in <tabs>" · **Discard all** (asks when drafts sit on
   more than one tab) · **Save all changes**. Tabs with drafts get a dot. A failed check saves nothing and names tab + field; a part-way failure keeps the failed drafts
   and names them, never a blanket "Saved". Leaving the page (`guardLeave(view, bar.leave)`) or closing the window (`lib/unsaved-guard.js`) asks first. The bar sticks above Application sessions.

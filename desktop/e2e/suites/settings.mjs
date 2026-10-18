@@ -24,6 +24,8 @@ export async function run(ctx) {
   await ctx.run('every Settings section renders', async () => {
     await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');
     for (const section of SECTIONS) {
+      // Profile is its own page (UI redesign fix 9, 18 Oct 2026): it hides Settings' list of sections, so the next one is reached through the menu's Settings.
+      if (await page.isHidden('.settings-nav')) await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');
       await page.click(`[data-settings-go="${section}"]`);
       await snap(ctx, `settings-${section}`, {view: 'settings'});
     }

@@ -11,7 +11,7 @@ const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(desktop, 'docs', 'ui');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
 const wait = ms => `new Promise(r => setTimeout(r, ${ms}))`;
-const open = view => `document.querySelector('.nav[data-view=${view}]').click();`;
+const open = view => `document.querySelector('.nav[data-view=${view}]:not([data-settings])').click();`;   // settings: the menu's Settings, not its Profile
 // Ready, not a guess: until an element says the screen has its data (at most 20 s). The last expression is a promise, which
 // executeJavaScript waits for (a bare await is not allowed there). 6 Oct 2026: Strategy outgrew a fixed 2.5 s and was shot loading.
 const ready = (id, pattern) => `(async () => { for (let i = 0; i < 80 && !${pattern}.test(document.getElementById('${id}')?.textContent || ''); i++) await ${wait(250)}; await ${wait(300)}; })()`;

@@ -26,8 +26,12 @@ import {showEngineSettings} from './ai-engine.js';
 import {hintAfter} from '../own-key-hint.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
-import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
-import {factsNow, showFacts} from './details-facts.js';
+import {loadProposals} from './contact-proposals.js';
+import {contactDirty, contactRead, registerDetails} from './details-drafts.js';
+import {guardLeave} from './nav.js';
+import {profileBar} from './profile-save-bar.js';
+import {mountProfileMenu} from './profile-menu.js';
+import {showFacts} from './details-facts.js';
 import {reading} from '../contact-reading.js';
 import {swr} from '../swr.js';
 import {foldProfilePanels, initFoldBar, showFoldBar} from '../profile-fold.js';
@@ -234,11 +238,12 @@ export function showContact() {
   swr('contact', async () => ({ok: true, contact: (await window.pilot.contact()) || {}}), {
     loading: () => reading(true),
     paint: ({contact}, kept) => {
-      if (!kept && painted && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
+      if (!kept && painted && contactDirty()) return;   // a refresh never redraws under unsaved edits (details-drafts.js)
       reading(false);
       document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
       fitDetailsToCandidate(contact);
       showLinks();
+      contactRead();   // the drafts count from what is shown now
       if (kept || painted) return;
       painted = true;
       loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
@@ -255,8 +260,7 @@ export async function init() {
   initLetter();
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   initExperience();
-  $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
-  $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
+  mountProfileMenu($('profile-more'), profileTab);   // Fill from my CV and View source in Notion, quiet in the header (profile-menu.js)
   $('answers-review').addEventListener('click', answersMenu);
   $('links-edit').addEventListener('click', () => {
     const editing = $('links-form').hidden;
@@ -308,21 +312,7 @@ export async function init() {
     message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
     loadSettings();
   });
-  $('contact-discard').addEventListener('click', () => { showContact(); clearProposals(); message('contact-message', ''); contactDirty(false); });
-  $('contact-save').addEventListener('click', async () => {
-    const field = name => document.querySelector(`[data-contact="${name}"]`);
-    // Full name isn't shown: forms that ask for it get first + last.
-    const first = field('first_name').value.trim(), last = field('last_name').value.trim();
-    if (first && last) field('full_name').value = `${first} ${last}`;
-    const contact = Object.fromEntries([...document.querySelectorAll('[data-contact]')]
-      .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
-    $('contact-save').disabled = true;
-    const saved = await window.pilot.saveContact(contact);
-    const result = saved.ok ? await window.pilot.saveDetailsFacts(factsNow()) : saved;   // the fact sections save with Contact: one bar
-    if (!result.ok) $('contact-save').disabled = false; else clearProposals();   // saved: what was proposed is yours now
-    if (result.ok) setTimeout(() => { if ($('contact-save').disabled) contactDirty(false); }, 2500);   // the bar says "Saved" a moment, then leaves
-    message('contact-message', result.ok ? `${byStore('Saved in your Notion Profile ✓', 'Saved ✓')} The extension uses these from the next form it fills.`
-      : result.error, result.ok ? 'ok' : 'error');
-  });
+  registerDetails({repaintContact: showContact});   // Contact and the fact sections save through the Profile page's one bar (details-drafts.js)
+  guardLeave('settings', proceed => !document.querySelector('.view[data-view="settings"]')?.classList.contains('is-profile') || profileBar().leave(proceed));   // leaving Profile with drafts asks
   showStoreParts();   // every [data-notion-only] in the window (index.html's Notion-only words too), from the start, not only once a Profile tab opens
 }

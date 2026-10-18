@@ -21,9 +21,10 @@ test('every section has its own panel on Your details, and the screen draws exac
 });
 
 test('one Save bar: Contact, then the fact sections; Discard redraws them', () => {
-  const profile = read('renderer/pages/profile.js');
-  assert.match(profile, /saved\.ok \? await window\.pilot\.saveDetailsFacts\(factsNow\(\)\) : saved/);
-  assert.match(profile, /showFacts\(\);/);
+  // Since 18 Oct 2026 the Profile page's one bar (pages/details-drafts.js): Contact and the fact sections are two sources; Discard redraws the facts.
+  const drafts = read('renderer/pages/details-drafts.js');
+  assert.match(drafts, /window\.pilot\.saveDetailsFacts\(factsNow\(\)\)/);
+  assert.match(drafts, /showFacts\(\{redraw: true\}\)/);
 });
 
 function harness(settings = {store: 'sqlite'}) {

@@ -56,7 +56,7 @@ export function createMainWindow(ctx) {
     });
     watchWindow(win.window.webContents, {log: appLog});
     const shown = win.window;
-    guardUnsaved(shown.webContents, {ask: options => dialog?.showMessageBoxSync(shown, options) ?? 1, hidden: Boolean(HIDDEN || process.env.JOB_PILOTTO_SMOKE), log: appLog});   // unsaved edits: ask before close/reload   // load time, load failures, crashes, freezes, page errors, a blank window
+    guardUnsaved(shown.webContents, {ask: options => dialog?.showMessageBoxSync(shown, options) ?? 1, hidden: Boolean(HIDDEN || process.env.JOB_PILOTTO_SMOKE), log: appLog, app});   // unsaved edits: ask before close/reload   // load time, load failures, crashes, freezes, page errors, a blank window
     win.window.on('page-title-updated', event => { event.preventDefault(); win.window.setTitle(windowTitle); });
     // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
     const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';

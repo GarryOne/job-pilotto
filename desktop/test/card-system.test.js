@@ -34,8 +34,6 @@ const KNOWN_LEFT = {
 };
 // The Profile page and the Strategy view in the markup: a card there with its own Save, by button id.
 const MARKUP_LEFT = {
-  'contact-save': 'A: Your details\' bar → the Profile page bar',
-  'contact-discard': 'A: the same bar\'s Discard changes',
   'targets-save': 'B: Strategy\'s bar → the Strategy page bar',
   'targets-cancel': 'B: the same bar\'s Discard changes',
   'letter-save': 'D: the cover letter\'s Save changes',
