@@ -1,6 +1,7 @@
 name: CI · Changelog publish
 # The What's new page publishes itself (owner, 18 Oct 2026): every stable release and every build the beta gate approved gets an entry, drafted by Haiku in plain words (new features / improvements / bug fixes),
 # checked by site/src/changelog.js and published to https://www.jobpilotto.top/changelog (PUT /changelog/data, SELFHEAL_PUBLISH_KEY). No commit, no PR. A failed draft is not published and is retried at the next run.
+# This run drafts only versions NEWER than the newest on the page; the one-time backfill of older versions (+ the 0.0.1 start entry) was run once from the owner's Mac, `node tools/changelog-publish.mjs --plan|--backfill`, never from here.
 # Runs when a release run ends, hourly at :23 as the backup (a promotion to stable has its own run), or by hand: `gh workflow run changelog-publish.yml`.
 on:
   workflow_run:
@@ -9,11 +10,6 @@ on:
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
-    inputs:
-      backfill:
-        description: 'Also draft versions older than the newest one on the page, and the 0.0.1 start entry (one-time; the owner approves the cost first: node tools/changelog-publish.mjs --plan --backfill)'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -31,7 +27,6 @@ jobs:
       REPO: ${{ github.repository }}
       DIGEST_ANTHROPIC_KEY: ${{ secrets.DIGEST_ANTHROPIC_KEY }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
-      BACKFILL: ${{ inputs.backfill }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,7 +35,7 @@ jobs:
         with:
           node-version: '22'
       - name: Draft and publish the new versions
-        run: node tools/changelog-publish.mjs ${BACKFILL:+$([ "$BACKFILL" = true ] && echo --backfill)} --cost "$RUNNER_TEMP/cost.json" 2>&1 | tee "$RUNNER_TEMP/changelog.log"
+        run: node tools/changelog-publish.mjs --cost "$RUNNER_TEMP/cost.json" 2>&1 | tee "$RUNNER_TEMP/changelog.log"
       - name: Report the AI cost
         if: always()
         env:
