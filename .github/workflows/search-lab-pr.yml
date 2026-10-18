@@ -49,8 +49,16 @@ jobs:
           for dir in . main-code; do (cd "$dir/desktop" && npm ci && node scripts/stage.mjs); done
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Is the records App's key set
+        id: records_app_key
+        env:
+          CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CI_APP_PRIVATE_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::records App key not set, the old read token is used (it shares the owner's GitHub API limit)"; fi
       - name: The records token from the GitHub App (its own API limit, not the owner's account's)
         id: records_app
+        if: steps.records_app_key.outputs.set == 'true'
         continue-on-error: true   # a failed mint falls back to the old secret, never a red job
         uses: actions/create-github-app-token@v2
         with:
