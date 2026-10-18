@@ -280,8 +280,9 @@
     <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs<span class="nav-badge nav-count" id="nav-jobs-badge" hidden></span></button>
     <button class="nav" data-view="sessions"><i data-icon="send"></i>Applying<span class="nav-badge" id="nav-applying-badge" hidden></span></button>
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
-    <!-- Interviews and Reports appear when they have something (renderer/menu-reveal.js); Calendar is a tab inside Interviews. All stay in ⌘K. -->
+    <!-- Interviews and Reports appear when they have something (renderer/menu-reveal.js); Calendar comes with Interviews. All stay in ⌘K. -->
     <button class="nav" data-view="interviews" id="nav-interviews" hidden><i data-icon="mic"></i>Interviews<span class="nav-dot" hidden></span></button>
+    <button class="nav" data-view="calendar" id="nav-calendar" hidden><i data-icon="calendar"></i>Calendar<span class="nav-dot" hidden></span></button>
     <button class="nav" data-view="reports" id="nav-reports" hidden><i data-icon="chart"></i>Reports<span class="nav-dot" hidden></span></button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
@@ -675,7 +676,6 @@
       <header class="view-head jobs-head">
         <div><h1>Calendar</h1><p class="muted subtitle">Your screenings and interviews.</p></div>
       </header>
-      <div class="tabs" role="tablist" aria-label="Interviews" data-iv-tabs></div>
       <div class="cal-layout">
         <section class="card cal-card">
           <div class="cal-bar">
@@ -709,7 +709,6 @@
           <button class="primary with-icon" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded"><i data-icon="mic"></i><span>Record interview</span></button>
         </div>
       </header>
-      <div class="tabs" role="tablist" aria-label="Interviews" data-iv-tabs></div>
       <div class="ss-tips" id="tips-interviews" aria-label="Tips"></div>
       <section class="card iv-recorder" id="iv-recorder" hidden>
         <span class="rec-dot" aria-hidden="true"></span><b>Recording</b><span class="iv-timer" id="iv-timer">00:00</span>
@@ -918,7 +917,6 @@
       <div class="settings-layout">
         <nav class="settings-nav" aria-label="Settings sections">
           <button data-settings-go="overview" class="is-active"><i data-icon="columns"></i>Overview</button>
-          <button data-settings-go="profile"><i data-icon="user"></i>Profile</button>
           <button data-settings-go="automation"><i data-icon="clock"></i>Automation</button>
           <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
           <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>

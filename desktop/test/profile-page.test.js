@@ -29,7 +29,7 @@ test('class: every way into Profile goes through settingsPage, and only settings
   const showers = files('').filter(file => /show\([^)]*settingsPage ===/.test(read(file)));
   assert.deepEqual(showers, ['pages/settings.js'], 'a Settings page is shown only by settingsPage');
   assert.match(html, /<button class="nav" data-view="settings" data-settings="profile">/);
-  assert.match(html, /<button data-settings-go="profile">/);
+  assert.doesNotMatch(html, /data-settings-go="profile"/, 'Settings\' side menu does not list Profile (the main menu does)');
 });
 
 test('the Profile bar names the 5 tabs as the tab strip does', () => {
@@ -66,4 +66,14 @@ test('a move within Settings never passes through Overview, so going back to Pro
   const branch = nav.slice(nav.indexOf("if (name === 'settings') {"), nav.indexOf('showServicesNow();'));
   assert.match(branch, /if \(leaving !== 'settings'\) settingsPage\('overview'\);/);
   assert.doesNotMatch(branch.replace(/if \(leaving !== 'settings'\) settingsPage\('overview'\);/, ''), /settingsPage\(/);
+});
+
+// The class (owner, 18 Oct 2026: "remove Profile from the Settings side menu"): a Settings link needs a section behind it, and no link may lead to the old Settings → Profile.
+test('class: every data-settings-go value has a Settings section, and none is Profile', () => {
+  const sections = new Set([...html.matchAll(/data-settings-page="([a-z-]+)"/g)].map(match => match[1]));
+  const gos = [...html.matchAll(/data-settings-go="([a-z-]+)"/g)].map(match => match[1]);
+  assert.ok(gos.length >= 8, 'the links are found');
+  for (const go of gos) assert.ok(sections.has(go), `data-settings-go="${go}" has a section`);
+  assert.ok(!gos.includes('profile'), 'no Settings link to Profile');
+  assert.ok(sections.has('profile'), 'the Profile page itself stays');
 });

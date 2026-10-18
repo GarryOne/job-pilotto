@@ -27,7 +27,6 @@ import {loadStrategy} from './strategy.js';
 import {openCard} from './strategy-cards.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
-import {navOf} from '../menu-reveal.js';
 import {initMenu, refreshMenu} from './menu.js';
 
 // ---------- app ----------
@@ -58,7 +57,7 @@ export function openView(name, {fromHistory = false} = {}) {
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   if (name === 'actions') prepareActions();   // its banner and result card are in the first frame, not a moment later above the tasks (#286)
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
-  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === navOf(name)));   // Calendar lights Interviews
+  document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   refreshMenu(name);   // a page opened any way (⌘K too) is in the menu from then on
   // Notion later: a page that needs Notion shows only its gate card until it is connected (pages/notion-connect.js); connecting reopens it.
   // Focus without Notion shows its Get started list instead (pages/focus.js showFocusStarted): a fresh setup can search first.
@@ -114,8 +113,6 @@ export function paletteCommands() {
     if (node && !twins.has(node) && !node.closest('[hidden]:not(.view)')) addNode(node, view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => openView(view));
   };
   document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
-  // Calendar is a tab inside Interviews, with no menu button of its own: its own entry.
-  add('Go to', 'Open Calendar', 'Your screenings and interviews on a month grid', 'page view meetings schedule', () => openView('calendar'));
   // The bottom bar's panel is not a page, so the loop above misses it (owner, 7 Oct 2026: "recent" found nothing).
   add('Go to', 'Open Recent activity', 'Every task run: its result, its log, and Stop for the one running', 'recent activity history runs tasks log results running',
     () => openActivity(true));
@@ -213,10 +210,11 @@ export function paletteCommands() {
     () => { openView('settings'); settingsPage('profile'); fillFromCv(profileTab); });
   if (shared.state?.notion?.NOTION_PROFILE_PAGE_ID) add('Notion', 'Profile: View source in Notion', '', 'notion profile page open source', () => openInNotion('NOTION_PROFILE_PAGE_ID'));   // about Notion
   const seen = new Set();
+  // A Settings page's name: its side-menu button; Profile has none there (it is a page of the main menu), so it is named here.
+  const pageName = page => page === 'profile' ? 'Profile' : labelOf(document.querySelector(`[data-settings-go="${page}"]`));
   document.querySelectorAll('[data-settings-page] .setting[id]').forEach(section => {
     // A summary's own heading, not its whole line; a card with none is named by its bold line (Current CV) or its page (Credentials, Logs).
-    const pageGo = document.querySelector(`[data-settings-go="${section.closest('[data-settings-page]')?.dataset.settingsPage}"]`);
-    const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary') || section.querySelector('.cv-card-text b')) || labelOf(pageGo);
+    const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary') || section.querySelector('.cv-card-text b')) || pageName(section.closest('[data-settings-page]')?.dataset.settingsPage);
     if (!reachable(section, section) || !title || seen.has(title)) return;
     seen.add(title);
     const page = section.closest('[data-settings-page]').dataset.settingsPage;
@@ -247,7 +245,7 @@ export function paletteCommands() {
     const name = labelOf(heading), page = heading.closest('[data-settings-page]').dataset.settingsPage;
     if (!/\p{L}{2}/u.test(name) || seen.has(name) || heading.closest('.setting[id]') || hiddenAt(heading) || heading.closest('dialog, [role="dialog"]')) return;
     seen.add(name);
-    add('Settings', name, `Section · ${labelOf(document.querySelector(`[data-settings-go="${page}"]`))}`, `settings ${page}`, () => { openView('settings'); settingsPage(page); reveal(heading); }, {node: heading});
+    add('Settings', name, `Section · ${pageName(page)}`, `settings ${page}`, () => { openView('settings'); settingsPage(page); reveal(heading); }, {node: heading});
   });
   document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
   // Every other button a page shows (a Refresh, "Edit in Notion", "Fill now"): found by sweeping each page, so a new button is listed without being added here
@@ -304,16 +302,6 @@ export async function init() {
       openView(nav.dataset.view);
       if (nav.dataset.view === 'settings') settingsPage(nav.dataset.settings || 'overview');   // the sidebar's Settings is its Overview, also from Profile
     });
-  });
-  // Interviews | Calendar: two screens, one tab strip at the top of each (the menu has one button, Interviews).
-  document.querySelectorAll('[data-iv-tabs]').forEach(strip => {
-    for (const [view, label] of [['interviews', 'Library'], ['calendar', 'Calendar']]) {
-      const tab = Object.assign(document.createElement('button'), {type: 'button', textContent: label});
-      tab.setAttribute('role', 'tab'); tab.dataset.ivTab = view;
-      tab.classList.toggle('is-active', view === strip.closest('.view').dataset.view);
-      tab.addEventListener('click', () => openView(view));
-      strip.append(tab);
-    }
   });
   initMenu();   // pages/menu.js: the pages that appear when used, the More row, the first-launch tour
   // The sessions line at the foot does the same as Applying.
