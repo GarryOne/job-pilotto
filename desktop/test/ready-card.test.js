@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import {install} from './tiny-dom.js';
 
 install();   // components.js builds elements as it loads; shared.js reads the app state once
-window.pilot = {state: async () => ({})};
+globalThis.window.pilot = {state: async () => ({})};
 const {initReadyCard} = await import('../renderer/pages/ready-card.js');
 
 const page = () => {
-  const body = install(), pair = document.createElement('div'), tailor = document.createElement('button');
+  const body = install(), pair = globalThis.document.createElement('div'), tailor = globalThis.document.createElement('button');
   pair.className = 'task-pair'; tailor.id = 'tailor-top'; pair.append(tailor); body.append(pair);
   return body;
 };
@@ -25,7 +25,7 @@ test('every way the card cannot work: it is shown, says why, and its buttons are
   ];
   for (const [name, readyState, says] of cases) {
     const body = page();
-    window.pilot = {readyState, readyTonight: async () => ({ok: false})};
+    globalThis.window.pilot = {readyState, readyTonight: async () => ({ok: false})};
     await initReadyCard();
     const card = body.querySelector('.ready-card');
     assert.ok(card, `${name}: the card is shown`);
@@ -39,7 +39,7 @@ test('every way the card cannot work: it is shown, says why, and its buttons are
 test('the card shows at once, before the server answers, with its buttons off', async () => {
   const body = page();
   let answer;
-  window.pilot = {readyState: () => new Promise(resolve => { answer = resolve; }), readyTonight: async () => ({ok: false})};
+  globalThis.window.pilot = {readyState: () => new Promise(resolve => { answer = resolve; }), readyTonight: async () => ({ok: false})};
   const done = initReadyCard();
   const card = body.querySelector('.ready-card');
   assert.ok(card && /Checking our server/.test(textOf(card)));
@@ -49,7 +49,7 @@ test('the card shows at once, before the server answers, with its buttons off', 
 
 test('on the owner\'s install the buttons work, and tonight\'s count comes from a fresh job read', async () => {
   const body = page();
-  window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {}, site: {batch: null, jobs: []}}),
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {}, site: {batch: null, jobs: []}}),
     readyTonight: async () => ({ok: true, tonight: [{code: 'a'}, {code: 'b'}], names: {}})};
   await initReadyCard();
   const card = body.querySelector('.ready-card');
