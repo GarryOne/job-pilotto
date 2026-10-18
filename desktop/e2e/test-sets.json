@@ -62,6 +62,7 @@
   "code-review.test.mjs",
   "combo-click.test.mjs",
   "cv-facts-cases.test.mjs",
+  "design-rules.test.mjs",
   "digest.test.mjs",
   "eligibility-cases.test.mjs",
   "employers.test.mjs",
