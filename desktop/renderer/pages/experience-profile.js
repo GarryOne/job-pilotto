@@ -4,7 +4,7 @@
 // cards, never here. Your details: the voluntary survey answers. Read from the Profile's outline and saved block by block on every store (IPC
 // textOutline / textEdit); the model is renderer/experience-profile-model.js. Cards are the Application answers' folds (.answer-item.qa-fold).
 // Guarded by test/experience-profile.test.js and test/experience-cards.test.js.
-import {el, loadingCard, tag} from '../components.js';
+import {cardEdit, el, loadingCard, tag} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
@@ -70,12 +70,10 @@ function draw(tab) {
   $(BOXES[tab][0]).replaceChildren(...list.map(each => (list.length === 1 ? solo(tab, each) : card(tab, each))));
 }
 
+// The card's Edit/Add: the shared header button (components.js cardEdit), at the right of the title line.
 const editButton = (tab, each) => {
   const empty = isEmpty(each.part);
-  const button = Object.assign(el('button', 'link', empty ? 'Add' : 'Edit'), {type: 'button'});
-  button.setAttribute('aria-label', `${empty ? 'Add' : 'Edit'} ${each.title.toLowerCase()}`);
-  button.addEventListener('click', event => { event.preventDefault(); editing.add(each.key); folded.set(each.key, true); draw(tab); });
-  return button;
+  return cardEdit(empty ? 'Add' : 'Edit', each.title.toLowerCase(), event => { event.preventDefault(); editing.add(each.key); folded.set(each.key, true); draw(tab); });
 };
 
 function card(tab, each) {
@@ -92,11 +90,13 @@ function card(tab, each) {
   return box;
 }
 
+// A panel with one part: its title is the panel's own (index.html), so the button goes in that title line (the slot next to it).
 function solo(tab, each) {
-  const box = el('div', 'exp-part');
+  const box = el('div', 'exp-part'), slot = $(`${BOXES[tab][0]}-edit`);
   box.dataset.part = each.key;
+  slot?.replaceChildren(...(editing.has(each.key) ? [] : [editButton(tab, each)]));
   if (editing.has(each.key)) box.append(editor(tab, {...each, solo: true}));
-  else { const head = el('div', 'exp-part-head'); head.append(editButton(tab, each)); box.append(body(each.key, each.part), head); }
+  else box.append(body(each.key, each.part));
   return box;
 }
 
