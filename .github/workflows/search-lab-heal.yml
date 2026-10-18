@@ -1,0 +1,83 @@
+name: CI · Lab Job Search · heal one tape (by hand)
+# Measures what re-recording ONE stale Lab Job Search tape costs (owner, 18 Oct 2026: "measure the cost of one heal on driver first"; sketch https://claude.ai/artifact/RUbTJRzDbwKoKPrUZNu3vC).
+# By hand only: one live search through the first Find jobs on the API engine (its OWN key LAB_HEAL_ANTHROPIC_KEY in the Tests org (own workspace and cap, owner 18 Oct 2026, so its spend stays apart from the random draws)), recorded into a NEW tape folder.
+# Nothing is published or posted: the run prints the AI calls and tokens it used (read the billed dollars back from the Console / ai-cost afterwards). No schedule, never on a PR.
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: 'Candidate to record again (driver, music, finance, sre, cluj, chisinau)'
+        type: string
+        default: driver
+
+permissions:
+  contents: read
+
+concurrency:   # by hand: its own group, never cancelled (tests/test_main_runs_finish.py)
+  group: search-lab-heal-${{ github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  heal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40   # a search stops by itself at its own time budget; this only ends a hang
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+      CANDIDATE: ${{ inputs.candidate }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - run: npm ci && node scripts/stage.mjs
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Is the records App's key set
+        id: records_app_key
+        env:
+          CI_APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CI_APP_PRIVATE_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::records App key not set, the old read token is used (it shares the owner's GitHub API limit)"; fi
+      - name: The records token from the GitHub App (its own API limit, not the owner's account's)
+        id: records_app
+        if: steps.records_app_key.outputs.set == 'true'
+        continue-on-error: true   # a failed mint falls back to the old secret, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: job-pilotto-internal
+      - name: The candidate's CV and its current tape (for the draft only)
+        env:
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
+        run: |
+          python3 tools/persona-search/personas.py "$RUNNER_TEMP/out"
+          node tools/persona-search/tape-store.mjs fetch "$CANDIDATE" "$RUNNER_TEMP/old"
+      - name: Search live, record the new tape (API engine, one press)
+        env:
+          LAB_HEAL_ANTHROPIC_KEY: ${{ secrets.LAB_HEAL_ANTHROPIC_KEY }}
+        run: |
+          set -o pipefail
+          node tools/persona-search/run.mjs "$CANDIDATE" "$RUNNER_TEMP/out" --presses 1 --tag heal --fresh --engine api --draft "$RUNNER_TEMP/old/draft.json" --tape "$RUNNER_TEMP/new" --record 2>&1 | tee "$RUNNER_TEMP/heal.log"
+      - name: What it used (AI calls and tokens, web pages)
+        if: always()
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, os
+          folder = os.path.join(os.environ['RUNNER_TEMP'], 'new')
+          rows = [json.loads(line) for line in open(os.path.join(folder, 'ai.jsonl'))] if os.path.exists(os.path.join(folder, 'ai.jsonl')) else []
+          total = {}
+          for row in rows:
+              for key, value in (row.get('usage') or {}).items():
+                  if isinstance(value, int): total[key] = total.get(key, 0) + value
+          web = sum(1 for _ in open(os.path.join(folder, 'web.jsonl'))) if os.path.exists(os.path.join(folder, 'web.jsonl')) else 0
+          print(f"heal {os.environ['CANDIDATE']}: {len(rows)} AI calls, tokens {total}, {web} web pages")
+          PY
