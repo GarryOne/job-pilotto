@@ -7,6 +7,7 @@
 import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';
 import {changeFor, kindChange, lineFor, matches, sections, shown} from '../answers-model.js';
+import {profileBar} from './profile-save-bar.js';
 import {outlineTab} from './outline-tab.js';
 import {isStyle} from './letter-style.js';
 import {detailsIn, keyOf, visibleQuestions} from '../question-filter.js';
@@ -272,7 +273,8 @@ export async function loadApplicationAnswers() {
   const node = document.getElementById('answers-body');
   if (!node) return;
   if (!tab || tab.node !== node) {
-    tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); kinds.clear(); opened.clear(); resetRules(); }}), node};
+    tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); kinds.clear(); opened.clear(); resetRules(); },
+      bar: profileBar(), tab: 'answers', label: 'Application answers'}), node};
   }
   filters.view = 'all';   // the tab opens on All
   await tab.load();

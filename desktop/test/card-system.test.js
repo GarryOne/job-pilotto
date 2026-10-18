@@ -27,13 +27,10 @@ const NOT_A_CARD = {
 };
 // Cards still on their own Save, each with the session moving it onto the page bar (UI redesign A-D, 18 Oct 2026).
 const KNOWN_LEFT = {
-  'pages/outline-tab.js': 'D: Application answers\' own bar → the Profile page bar',
   'goal-tiles.js': 'B: the setup review\'s goal tiles (pages/strategy-review.js); Strategy itself moved to Main goals on its page bar',
 };
 // The Profile page and the Strategy view in the markup: a card there with its own Save, by button id.
-const MARKUP_LEFT = {
-  'letter-save': 'D: the cover letter\'s Save changes',
-};
+const MARKUP_LEFT = {};
 const between = (html, start, end) => { const from = html.indexOf(start); const to = html.indexOf(end, from + start.length); return from < 0 ? '' : html.slice(from, to < 0 ? undefined : to); };
 
 test('class: no card draws its own Save, Cancel or Discard beside the page bar (code)', () => {
@@ -59,4 +56,11 @@ test('class: no card Edit is filled orange (code and markup)', () => {
   const filledEdit = /el\('button',\s*'[^']*\bprimary\b[^']*',\s*'(?:Edit|Add)'\)|class="primary[^"]*card-edit/;
   const found = [...files(''), 'index.html'].filter(file => filledEdit.test(source(file)));
   assert.deepEqual(found, [], `a filled Edit: use components.js cardEdit (quiet): ${found}`);
+});
+
+// Every outline tab saves through its page's one bar (D's swap, 18 Oct 2026): a new caller without `bar:` would fall back to a bar in its own card.
+test('every outlineTab caller names its page bar', () => {
+  const callers = files('').filter(file => /outlineTab\('/.test(source(file)) && file !== 'pages/outline-tab.js');
+  assert.ok(callers.length >= 3, `found ${callers}`);
+  for (const file of callers) assert.match(source(file), /outlineTab\('[^']+',[\s\S]*?bar: (?:profileBar|strategyBarNow)\(\)/, `${file} passes its page bar`);
 });

@@ -3,6 +3,7 @@
 // back. The class: every Preferences field is drawn on one side or names the screen that edits it, so none is lost when the Profile tab goes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {pressSave} from './page-bar.js';
 import {install} from './tiny-dom.js';
 import {FIELDS, SIDES, readProfile, summaryOf} from '../renderer/preferences-model.js';
 import {GOAL_ROWS} from '../renderer/markdown-edit.js';
@@ -61,7 +62,7 @@ async function add(items, key, text) {
   const field = sideOf(node, key).querySelectorAll('input').find(input => input.ariaLabel === SIDES[key].add);
   field.value = text;
   field.dispatch('input');
-  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  await pressSave(node);
   return sent[0][1];
 }
 

@@ -3,6 +3,7 @@
 // answer; the page's intro never as answers; a row opens in place ("Editing", "Answer as" under Advanced options); the save bar counts changes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {pageBar, pressSave} from './page-bar.js';
 import {install} from './tiny-dom.js';
 
 const body = install();
@@ -65,8 +66,8 @@ test('a row opens in place: "Editing", Your answer, Answer as under Advanced opt
   const field = edit.querySelector('input');
   field.value = '2 months';
   field.dispatch('input');
-  assert.equal(node.querySelector('.save-bar b').textContent, '1 unsaved change');
-  assert.equal(node.querySelector('#outline-discard-answers').textContent, 'Discard');
-  await node.querySelector('#outline-save-answers').listeners.click[0]();
+  assert.match((await pageBar(node)).querySelector('.save-bar-title').textContent, /^1 unsaved change in Application answers/);
+  assert.equal((await pageBar(node)).querySelector('button.secondary').textContent, 'Discard all');
+  await pressSave(node);
   assert.deepEqual(sent.map(([name, changes]) => [name, changes[0].id]), [['answers', 'a1']]);
 });

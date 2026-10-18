@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
+import {pressSave} from './page-bar.js';
 import {install} from './tiny-dom.js';
 
 const body = install();
@@ -38,14 +39,14 @@ test('a rule edited writes its own line; a new rule goes after the section, or a
   const add = node.querySelectorAll('input').find(input => input.ariaLabel === 'Add a style rule');
   add.value = 'Tone: direct';
   add.dispatch('input');
-  await node.querySelector('#outline-save-letterstyle').listeners.click[0]();
+  await pressSave(node);
   assert.deepEqual(sent, [['answers', [{op: 'text', id: 's2', value: 'Never mention: salary, notice period', was: 'Never mention: salary'},
     {op: 'insert', after: 's2', key: 'add-style', lines: ['Tone: direct']}]]]);
   const none = [], bare = await open(loadStyle, 'letter-style-body', ANSWERS.slice(0, 2), none);
   const first = bare.querySelectorAll('input').find(input => input.ariaLabel === 'Add a style rule');
   first.value = 'Length: short';
   first.dispatch('input');
-  await bare.querySelector('#outline-save-letterstyle').listeners.click[0]();
+  await pressSave(bare);
   assert.deepEqual(none, [['answers', [{op: 'section', heading: 'Cover letter style', lines: ['Length: short']}]]]);
 });
 
@@ -67,9 +68,9 @@ test('the card reads first: each rule as label and value, a quiet Edit opens the
 });
 
 test('Done closes an unchanged editor; once a rule changes, only the save bar closes it', async () => {
-  const node = await open(loadStyle, 'letter-style-body', ANSWERS);
   const card = globalThis.document.createElement('div');
-  card.id = 'setting-letter-style'; card.append(node); body.replaceChildren(card);
+  card.id = 'setting-letter-style';
+  const node = await open(async () => { const inner = body.children[0]; card.append(inner); body.replaceChildren(card); await loadStyle(); }, 'letter-style-body', ANSWERS);
   card.classList.add('is-editing');
   const done = node.querySelector('.card-done');
   assert.equal(done.hidden, false);

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {outline} from '../lib/store/markdown-page.js';
+import {pageBar, pressSave} from './page-bar.js';
 import {install} from './tiny-dom.js';
 
 const body = install();
@@ -60,8 +61,8 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     const field = node.querySelector('.qa-edit input');
     field.value = 'Yes, EU citizen';
     field.dispatch('input');
-    assert.equal(node.querySelector('.save-bar').hidden, false, 'the save bar shows a draft');
-    await node.querySelector('#outline-save-answers').listeners.click[0]();
+    assert.equal((await pageBar(node)).hidden, false, 'the save bar shows a draft');
+    await pressSave(node);
     assert.equal(sent.length, 1);
     const [[name, [change]]] = sent;
     assert.equal(name, 'answers');
@@ -97,6 +98,6 @@ test('Job preferences: a workload typed writes only its own cell, on the Notion 
   const minimum = node.querySelectorAll('input').find(input => input.ariaLabel === 'Workload (minimum %)');
   minimum.value = '60';
   minimum.listeners.input[0]();
-  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  await pressSave(node);
   assert.deepEqual(sent, [['profile', [{op: 'cell', id: 'q4', index: 1, value: '60%', was: '❓ full-time or a percentage'}]]]);
 });
