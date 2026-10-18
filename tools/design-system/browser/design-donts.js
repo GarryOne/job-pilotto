@@ -31,6 +31,40 @@ pair("Don't: long lists as a paragraph", 'A list of more than a dozen items show
   box("Don't: every place written out", 'long-list-unfolded', readRows([{label: 'Relocation', value: `Yes · ${PLACES.join(', ')}`}])),
   box('Do: chips, then +N more', '', (() => { const line = chipLine(PLACES.slice(0, 5)); line.append(button(`+${PLACES.length - 5} more`, 'link small')); return line; })()));
 
+pair("Don't: lone words over or under chips", 'Rhythm: a setting is label column + value on one line. A qualifier joins the label ("Preferred · ranked first") or is a badge in the row, never a lone line above or below the chips.',
+  (() => {
+    const yes = el('dd'); yes.append('Yes', chipLine(PLACES.slice(0, 3)));
+    const list = readRows([{label: 'Preferred', value: chipLine(PLACES.slice(3, 5)), note: 'Ranked first'}]);
+    list.append(el('dt', '', 'Relocation'), yes);
+    const stacked = readRows([{label: 'Work mode', value: chipLine(['Hybrid', 'Remote'])}]);
+    stacked.style.display = 'block';   // the label on its own line above the value
+    const notes = el('ul', ''); notes.append(el('li', '', 'Seniority: Senior'), el('li', '', 'Team size: 5–10'));
+    const actions = el('div', 'g-row'); actions.append(button('Draft the letter', 'secondary'));
+    return box("Don't: captions and stacked labels", 'caption-sandwich label-grid', list, stacked, notes, el('p', 'muted small', 'Please confirm or discard each.'), actions, el('p', 'muted small', 'About $0.02'));
+  })(),
+  (() => {
+    const actions = el('div', 'g-row'); actions.append(button('Draft the letter · ~$0.02', 'secondary'));
+    return box('Do: label · qualifier | chips', '', readRows([{label: 'Preferred · ranked first', value: chipLine(PLACES.slice(3, 5))}, {label: 'Relocation', value: chipLine(PLACES.slice(0, 3))},
+      {label: 'Work mode', value: chipLine(['Hybrid', 'Remote'])}]), actions);
+  })());
+
+// A sticky bar lifted by an offset (the save bar over the Profile fold bar) needs that much room after it in the flow: a scroll box's own bottom padding
+// does not count for a sticky bar (it shrinks the area the bar sticks in), so the Do puts the room after the bar (a fixed bar takes bottom padding instead).
+const scrollBox = room => {
+  const page = el('div', '');
+  Object.assign(page.style, {height: '150px', overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 'var(--r-md)'});
+  for (const place of PLACES.slice(0, 6)) page.append(el('p', '', `${place}: hybrid, 3 days`));
+  const bar = el('div', 'g-row');
+  Object.assign(bar.style, {position: 'sticky', bottom: '56px', background: 'var(--surface)', padding: 'var(--sp-2)', borderTop: '1px solid var(--line)'});
+  bar.append(button('Save', 'primary'));
+  page.append(bar);
+  if (room) { const below = el('div', ''); below.style.height = room; page.append(below); }   // where the fold bar sits in the app
+  return page;
+};
+pair("Don't: a bar over the last rows", 'Scrolled to the end, nothing stays under a sticky bar: the page leaves room of at least the bar\'s offset after it (a fixed bar: bottom padding of its height).',
+  box("Don't: no room under the bar", 'sticky-bar-covers', scrollBox('')),
+  box('Do: room under the bar', '', scrollBox('56px')));
+
 pair("Don't: fat buttons, many primaries", 'Buttons keep a normal height and one line of words; a card has one filled orange button, the rest are secondary.',
   (() => {
     const row = el('div', 'g-row');

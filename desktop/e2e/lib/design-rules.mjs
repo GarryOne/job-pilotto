@@ -4,7 +4,6 @@
 // design-system page's examples (test/design-rules.test.mjs). Each finding names its card: {view, severity, kind, card, detail}. A finding on a screen
 // that broke the rule before it was written is listed in KNOWN_LEFT (shrink-only, test/design-rules.test.mjs) with the session fixing it; anything else is severe.
 export const RULE_LIMITS = {buttonHeight: 40, listItems: 12, chips: 12, selectOptions: 7};
-
 // scope (optional): a selector to check instead of the view (the design-system page checks one section at a time).
 export function designRules({view, limits, scope = ''}) {
   const found = [];
@@ -44,9 +43,15 @@ export function designRules({view, limits, scope = ''}) {
   const primaries = new Map();
   for (const button of root.querySelectorAll(BUTTONS)) {
     if (!visible(button) || button.closest(NOT_A_BUTTON_ROW)) continue;
-    const range = document.createRange();
-    range.selectNodeContents(button);
-    const lines = new Set([...range.getClientRects()].filter(rect => rect.width > 1).map(rect => Math.round(rect.top))).size;
+    // Lines of words only: an icon beside the word (the quiet Edit's pencil) has its own box at another height and is not a second line.
+    const texts = document.createTreeWalker(button, 4), tops = [];
+    for (let node = texts.nextNode(); node; node = texts.nextNode()) {
+      if (!node.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      tops.push(...[...range.getClientRects()].filter(rect => rect.width > 1).map(rect => rect.top));
+    }
+    const lines = tops.sort((a, b) => a - b).filter((top, i) => i === 0 || top - tops[i - 1] > 4).length;
     const height = Math.round(button.getBoundingClientRect().height);
     if (height > limits.buttonHeight || lines > 1) add('fat-button', button, `"${words(button)}" is ${height}px tall on ${lines} line(s) (at most ${limits.buttonHeight}px, one line): give it room, never wrap its words`);
     if (button.matches('button.primary') && !button.disabled) { const card = cardOf(button); primaries.set(card, [...(primaries.get(card) || []), button]); }
@@ -67,6 +72,52 @@ export function designRules({view, limits, scope = ''}) {
     seen.add(key);
     labels.set(card, seen);
   }
+  // 3a. Rhythm, chips and words (owner, 18 Oct 2026, #1513 rejected: "I gave you feedback about the chips vs text/labels positioning/placement"): no lone line of
+  //     words straight above or below a chip row in one setting ("Ranked first" under the places, "Yes" over them), nor straight under a list or a row of
+  //     buttons (#1515: "Please confirm or discard each." under a list, a cost under its button). A qualifier joins the label ("Preferred · ranked first")
+  //     or is a badge inside the row; a heading or a "+N more" control is not a caption. Editors keep their hints (a hint under its control is the editor's).
+  const CHIPS = '.chip-tag, .chip-button, .ui-tag';
+  const NOT_A_CAPTION = 'h1, h2, h3, h4, h5, h6, dt, summary, legend, .edit-label, button, a, input, select, textarea, details';
+  const lineOf = node => { if (node.nodeType === 1) return node.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(node); return range.getBoundingClientRect(); };
+  const caption = node => {
+    if (node.nodeType === 3) return node.textContent.trim() ? node : null;
+    return node.nodeType === 1 && visible(node) && !node.matches(NOT_A_CAPTION) && !node.querySelector(`${CHIPS}, ${NOT_A_CAPTION}, ul, ol`) ? node : null;
+  };
+  const lone = (subject, node, where, what) => {
+    const rect = lineOf(node), box = subject.getBoundingClientRect(), text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    const above = rect.bottom <= box.top + 2, below = rect.top >= box.bottom - 2;
+    if (text && text.length <= 80 && ((where !== 'below' && above) || below)) add('caption-sandwich', subject, `"${text}" sits alone ${above ? 'above' : 'below'} ${what}: join it to the label ("Preferred · ranked first"), make it a badge in the row, or drop it`);
+  };
+  const editing = el => Boolean(el.closest('.edit-control, .edit-row, form, .card-editor'));
+  for (const row of root.querySelectorAll('.read-values, .chip-row, .chips')) {
+    if (!visible(row) || !row.closest(`dd, ${CARD}`) || editing(row) || ![...row.querySelectorAll(CHIPS)].some(visible)) continue;
+    for (const node of row.parentElement.childNodes) if (node !== row && caption(node)) lone(row, node, 'both', 'a chip row');
+  }
+  const buttonRow = el => { const kids = [...el.children].filter(visible); return kids.length > 0 && kids.every(kid => kid.matches('button')) && kids.some(kid => kid.matches(BUTTONS)); };
+  for (const subject of root.querySelectorAll('ul, ol, .review-list, div, p')) {
+    if (!visible(subject) || !cardOf(subject) || editing(subject) || subject.closest(NOT_A_BUTTON_ROW)) continue;
+    const isList = subject.matches('ul, ol, .review-list') && subject.children.length > 1;
+    if (!isList && !buttonRow(subject)) continue;
+    const next = subject.nextElementSibling;
+    if (next && caption(next)) lone(subject, next, 'below', isList ? 'a list' : 'its buttons');
+  }
+  // 3b. Label column: a read or edit row is label column + value; the labels of one list share a left edge and each value starts on its label's line
+  //     (wide window only: the editor stacks to one column when narrow).
+  if (document.documentElement.clientWidth >= 1000) {
+    const pairs = [];
+    for (const list of root.querySelectorAll('dl')) for (const dt of list.querySelectorAll(':scope > dt')) { const dd = dt.nextElementSibling; if (dd && dd.tagName === 'DD') pairs.push([list, dt, dd]); }
+    // An editor row narrower than its container rule (card-shell.css, 560px) stacks on purpose: only a two-column one is checked.
+    for (const row of root.querySelectorAll('.edit-row')) { if (getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length < 2) continue; const label = row.querySelector(':scope > .edit-label'), control = row.querySelector(':scope > .edit-control'); if (label && control) pairs.push([row.parentElement, label, control]); }
+    const lefts = new Map();
+    for (const [list, label, value] of pairs) {
+      if (!visible(label) || !visible(value)) continue;
+      const a = label.getBoundingClientRect(), b = value.getBoundingClientRect();
+      const left = lefts.get(list);
+      if (left == null) lefts.set(list, a.left);
+      else if (Math.abs(a.left - left) > 2) add('label-grid', label, `"${words(label)}" starts ${Math.round(a.left - left)}px off the other labels: one label column`);
+      if (b.top - a.top > Math.max(8, a.height * 0.75) || b.left < a.right - 1) add('label-grid', label, `"${words(label)}"'s value starts under it, not beside it: label column + value on the label's line`);
+    }
+  }
   // 7b. Modern controls (owner, 18 Oct 2026: "I like more card picker than the selectbox/dropdown"): a menu of a few choices is a card picker, segmented or chips;
   //     a <select> is only for a long list (country, currency).
   for (const select of root.querySelectorAll('select:not([data-long-list])')) {   // a searchable menu (.select-search) is the long-list form the rule allows
@@ -82,20 +133,50 @@ export function designRules({view, limits, scope = ''}) {
     const proposed = [...now.parentElement.children].find(other => other !== now && /^proposed:/i.test(words(other)));
     if (proposed && !colourful(now) && !colourful(proposed)) add('flat-compare', proposed, 'Now and Proposed differ only by grey vs bold: give the proposal its colour (a tinted row or an accent edge)');
   }
+  // 9. A sticky or fixed bar never covers content (#1515): scrolled to the end, nothing is left under the bar; the page's bottom padding is at least the
+  //    bar's height plus its offset (the save bar sits above the Profile fold bar).
+  const CONTENT = 'button, input, select, textarea, a, p, li, dd, dt, h2, h3, h4, label, td';
+  for (const bar of root.querySelectorAll('*')) {
+    const style = getComputedStyle(bar);
+    if (!['sticky', 'fixed'].includes(style.position) || style.bottom === 'auto' || !visible(bar)) continue;
+    let scroller = bar.parentElement;
+    while (scroller && !(/(auto|scroll)/.test(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight)) scroller = scroller.parentElement;
+    scroller = scroller || document.scrollingElement;
+    const saved = scroller.scrollTop;
+    scroller.scrollTop = scroller.scrollHeight;
+    const edge = bar.getBoundingClientRect();
+    const pinned = el => { for (let node = el; node && node !== scroller; node = node.parentElement) if (['sticky', 'fixed'].includes(getComputedStyle(node).position)) return true; return false; };   // another bar's own parts
+    const covered = [...scroller.querySelectorAll(CONTENT)].find(el => {
+      if (bar.contains(el) || el.contains(bar) || !visible(el) || pinned(el)) return false;
+      const box = el.getBoundingClientRect();
+      return box.bottom > edge.top + 2 && box.top < edge.bottom - 2 && box.right > edge.left && box.left < edge.right;
+    });
+    scroller.scrollTop = saved;
+    if (covered) add('sticky-bar-covers', bar, `scrolled to the end, "${words(covered).slice(0, 40)}" is still under the ${words(bar).slice(0, 30) || 'sticky'} bar: give the page bottom padding ≥ the bar's height and offset`);
+  }
   return found;
 }
 
-// Screens that broke a rule before it was written (18 Oct 2026), with the session fixing each: `${view}|${kind}|${card}` -> who. Shrink-only: a fixed screen
-// comes off (the test counts them), and a new screen is never added.
+// Screens that broke a rule before it was written (18 Oct 2026), with the session fixing each: `${view}|${kind}|${card}` -> who; view = the page's data-view,
+// card '*' = any card of that page (a session card is named after its job). Shrink-only: a fixed screen comes off (the test counts them), a new one is never added.
+// Measured on the demo pages (npm run shot --eval) on 18 Oct 2026; Strategy and Profile had none.
 export const KNOWN_LEFT = {
   // The design-system page's "Value → control" section draws answerControl (question-control*.js): its period, net/gross, unit and few-option menus are selects.
   'value-control|small-select|page': 'the editors session (Availability, Work eligibility, answer kinds) proposed by job-pilotto-75',
+  // Up next: each item's own orange button (Open LinkedIn, Open email, Build new prep kit…).
+  'focus|many-primaries|Up next': 'unassigned: job-pilotto-75 names the session',
+  // Jobs' list filter (7 views) and sort (3) menus; Interviews' outcome filter (4).
+  'jobs|small-select|page': 'unassigned: job-pilotto-75 names the session',
+  'interviews|small-select|page': 'unassigned: job-pilotto-75 names the session',
+  // A session card: "Fill it in" / "Review in form" per question, and one-choice decision menus (Keep it, Apply anyway).
+  'sessions|many-primaries|*': 'unassigned: job-pilotto-75 names the session',
+  'sessions|small-select|*': 'unassigned: job-pilotto-75 names the session',
 };
 
 // The journey's verdict: a known screen is a warning that names who fixes it; anything new is severe.
 export function judge(findings, known = KNOWN_LEFT) {
   return findings.map(item => {
-    const who = known[`${item.view}|${item.kind}|${item.card}`];
+    const who = known[`${item.view}|${item.kind}|${item.card}`] || known[`${item.view}|${item.kind}|*`];
     return who ? {...item, severity: 'warning', detail: `${item.detail} (known, being fixed: ${who})`} : item;
   });
 }
