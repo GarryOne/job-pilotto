@@ -974,15 +974,14 @@
             <span class="file-tile"><i data-icon="file-text"></i></span>
             <div class="cv-card-text"><b id="contact-cv">None yet</b>
               <span class="small muted"><span id="cv-facts">Current CV</span></span>
-              <span class="small muted">Used for tailoring and form filling <span id="cv-state"></span></span>
+              <span class="small muted">Tailoring reads it with your Profile; form filling uses it too <span id="cv-state"></span></span>
               <p class="message" id="cv-message"></p><a href="#" class="link" id="cv-limit-link" hidden>Add credit, then read again ↗</a><p class="message" id="strategy-message"></p></div>
             <div class="cv-card-actions inline"><button class="secondary with-icon" id="cv-view"><i data-icon="eye"></i><span>Preview CV</span></button>
               <button class="secondary" id="replace-cv">Replace CV</button><span id="cv-more"></span></div>
           </div>
-          <div class="setting panel cvc" id="setting-cvcheck" data-profile-panel="cv">
-            <div class="panel-top"><div class="summary-head"><i data-icon="scale"></i><h3>CV check</h3></div>
+          <div class="setting panel roomy cvc" id="setting-cvcheck" data-profile-panel="cv">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="scale"></i></span><div class="card-words"><h3>CV check</h3><p class="muted small">How easily hiring systems can read your CV, and how well it presents your experience.</p></div></div>
               <div class="panel-actions"><span class="synced" id="cvc-state">Not checked yet</span></div></div>
-            <p class="muted panel-lead">How easily hiring systems can read your CV, and how well it presents your experience. An app assessment, not an employer's score (they do not publish one).</p>
             <div class="cvc-scores" id="cvc-scores" hidden></div>
             <div class="cvc-fixes" id="cvc-fixes" hidden></div>
             <div class="cvc-folds" id="cvc-folds" hidden></div>
@@ -994,9 +993,8 @@
           </div>
           <div class="stale-draft" id="cv-changed" data-profile-panel="cv" data-wanted="0" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
-          <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Experience sources</h3></div></div>
-            <p class="muted panel-lead">Your main CV is the reference: a tailored CV keeps its jobs, titles and dates. Other versions only add facts to those jobs, so tailoring has more to choose from.</p>
+          <div class="setting panel roomy" id="setting-experience-sources" data-profile-panel="experience" hidden>
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="layers"></i></span><div class="card-words"><h3>Experience sources</h3><p class="muted small">Your main CV keeps its jobs, titles and dates; other versions only add facts to those jobs.</p></div></div></div>
             <div class="inline exp-add-row"><button class="secondary with-icon" id="exp-add-linkedin"><i data-icon="link"></i><span>Add LinkedIn data</span></button>
               <button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div>
             <details class="muted small" id="exp-linkedin-help"><summary>How to get your LinkedIn data</summary>
@@ -1007,16 +1005,14 @@
             <p class="message" id="exp-message"></p>
             <div class="exp-roles" id="exp-changes"></div>
           </div>
-          <div class="setting panel" id="setting-experience-profile" data-profile-panel="experience" hidden>
-            <div class="summary-head"><i data-icon="user"></i><h3>Your background</h3></div>
-            <p class="muted panel-lead">Summary, strengths and education from your Profile: tailored CVs, cover letters and fit scores read them. Your jobs are under Work history.</p>
+          <div class="setting panel roomy" id="setting-experience-profile" data-profile-panel="experience" hidden>
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="user"></i></span><div class="card-words"><h3>Your background</h3><p class="muted small">Summary, strengths and education: tailored CVs, cover letters and fit scores read them.</p></div></div></div>
             <div class="exp-profile" id="exp-profile"></div>
             <p class="message" id="exp-profile-message"></p>
           </div>
-          <div class="setting panel" id="setting-experience-roles" data-profile-panel="experience" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="briefcase"></i><h3>Work history</h3></div>
+          <div class="setting panel roomy" id="setting-experience-roles" data-profile-panel="experience" hidden>
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="briefcase"></i></span><div class="card-words"><h3>Work history</h3><p class="muted small">Your jobs from your main CV, as tailored CVs keep them. Open one for its details.</p></div></div>
               <div class="panel-actions"><span class="muted small" id="exp-count"></span></div></div>
-            <p class="muted panel-lead">Your jobs from your main CV, as tailored CVs keep them. Open one for its details.</p>
             <div class="exp-roles" id="exp-roles"></div>
           </div>
           <div class="setting panel roomy" id="setting-contact" data-profile-panel="details">
@@ -1093,8 +1089,6 @@
             <div class="exp-profile" id="details-profile"></div>
             <p class="message" id="details-profile-message"></p>
           </div>
-          <div class="setting info-bar" id="setting-profile-note" data-profile-panel="cv"><i data-icon="info"></i>
-            <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
           <div class="setting panel" id="setting-letter-style" data-profile-panel="letter" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="sliders"></i><h3>Writing preferences</h3></div>
               <div class="panel-actions"><button type="button" class="secondary small-btn with-icon card-edit" id="letter-style-edit" aria-label="Edit writing preferences"><i data-icon="edit"></i><span>Edit</span></button></div></div>

@@ -58,6 +58,9 @@ function fold(glyph, title, count, children) {
 const part = (title, text) => { const row = el('div', 'cvc-comp'); row.append(el('b', '', title), el('span', 'muted small', text)); return row; };
 
 // data: lib/cv-check.js's saved result (or null) plus `billing`; cvName: the CV's file name, said in the header.
+// Beside the scores (mockup 08), never a line of its own: what kind of score this is.
+const assessmentNote = () => { const note = el('p', 'cvc-note muted small'); note.append(icon('info'), "App assessment, not an employer's score (they do not publish one)."); return note; };
+
 export function showCvCheck(data, {cvName = '', when = at => at} = {}) {
   last = data;
   const ats = data?.ats, ai = data?.ai, card = $('setting-cvcheck');
@@ -66,7 +69,8 @@ export function showCvCheck(data, {cvName = '', when = at => at} = {}) {
   $('cvc-state').classList.toggle('is-off', !ats);   // no green dot before a check
   $('cvc-scores').hidden = !ats;
   $('cvc-scores').replaceChildren(...(ats ? [scoreTile('readability', ats.score, 'Readability', 'How easily your CV can be read and parsed.'),
-    ai ? scoreTile('content', ai.score, 'Content', 'How well it presents your experience and skills.') : emptyTile('Content', 'Not reviewed yet: Review CV content below.')] : []));
+    ai ? scoreTile('content', ai.score, 'Content', 'How well it presents your experience and skills.') : emptyTile('Content', 'Not reviewed yet: Review CV content below.'),
+    assessmentNote()] : []));
   const fixes = fixesOf(data);
   $('cvc-fixes').hidden = !ats;
   $('cvc-fixes').replaceChildren(...(ats ? [el('h4', '', 'Recommended fixes'),

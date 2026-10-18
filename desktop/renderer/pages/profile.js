@@ -215,7 +215,7 @@ export async function init() {
     show($('cv-limit-link'), false);
   });
   // Long detail cards start closed; the bar shows their summary (owner, 17 Oct 2026). Forms you fill in stay open.
-  foldProfilePanels({closed: new Set(['setting-experience-sources', 'setting-experience-roles', 'setting-details-profile'])});   // every Profile card folds (profile-fold.js); these start closed (the voluntary surveys: optional, owner's review item 5)
+  foldProfilePanels({closed: new Set(['setting-experience-sources', 'setting-details-profile'])});   // every Profile card folds (profile-fold.js); these start closed (the voluntary surveys: optional, owner's review item 5); Work history starts open (owner, 18 Oct 2026, mockup 09)
   initFoldBar();
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun(), checkOptions).then(loadCvSetting));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi(), checkOptions));

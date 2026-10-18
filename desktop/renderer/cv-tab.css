@@ -5,6 +5,8 @@
 #cvc-state.is-off::before { display: none; }
 
 .cvc-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
+.cvc-note { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: 0 var(--sp-2); }
+.cvc-note > .icon { width: 16px; height: 16px; flex: none; }
 .cvc-tile { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
 .cvc-tile > div { display: flex; flex-direction: column; min-width: 0; }
 .cvc-tile-title { font-weight: 600; font-size: var(--fs-md); }
@@ -39,4 +41,4 @@ details[open] > summary .cvc-chevron { transform: rotate(90deg); }
 .cvc-pre { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-sm); background: var(--surface-2); padding: var(--sp-3); border-radius: var(--r-sm); }
 
 .cvc-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-top: var(--sp-4); }
-.cvc-action { display: flex; flex-direction: column; gap: var(--sp-1); }
+.cvc-action { display: flex; align-items: center; gap: var(--sp-3); }   /* the cost beside its button, never a line under it */

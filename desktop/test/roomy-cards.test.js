@@ -84,16 +84,20 @@ test('divided tiles: "+N more" and a status badge sit inside the value, never as
   assert.match(text(box.children[1].children[1].children[1]), /^CHF 1As written$/);
 });
 
-// Your details (mockup 05, owner approved 18 Oct 2026): the class is every Your details card; a new one fails until it has the roomy header.
-test('class: every Your details card is .panel.roomy with the cardHead shape (teal tile, title over its lead), no lead line outside the header', () => {
+// Profile tabs restyled from the mockups (owner approved 18 Oct 2026: Your details 05, Experience 09/06, CV 08): the class is every panel of those tabs;
+// a new one fails until it has the roomy header. The next restyled tab joins ROOMY_TABS (answers, letter).
+const ROOMY_TABS = {details: 7, experience: 3, cv: 1};
+test('class: every panel of a restyled Profile tab is .panel.roomy with the cardHead shape (teal tile, title over its lead), no lead line outside the header', () => {
   const html = read('index.html');
-  const cards = html.split(/(?=<div class="setting[ "])/).filter(part => /data-profile-panel="details"/.test(part.split('\n')[0]));
-  assert.ok(cards.length >= 7, 'contact, links, to check, eligibility, availability, languages, surveys');
-  for (const part of cards) {
-    const id = part.match(/id="([^"]+)"/)[1];
-    assert.match(part.split('\n')[0], /class="setting panel roomy"/, id);
-    assert.match(part, /<div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="[\w-]+"><\/i><\/span><div class="card-words"><h3>[^<]+(<span[^>]*>[^<]*<\/span>)?<\/h3><p class="muted small">[^<]+<\/p><\/div><\/div>/, id);
-    assert.doesNotMatch(part, /panel-lead/, `${id}: the lead is in the header`);
+  for (const [tab, least] of Object.entries(ROOMY_TABS)) {
+    const cards = html.split(/(?=<div class="setting[ "])/).filter(part => new RegExp(`class="setting panel[ "].*data-profile-panel="${tab}"`).test(part.split('\n')[0]));
+    assert.ok(cards.length >= least, `${tab}: ${cards.length} panels`);
+    for (const part of cards) {
+      const id = part.match(/id="([^"]+)"/)[1];
+      assert.match(part.split('\n')[0], /class="setting panel roomy[ "]/, id);
+      assert.match(part, /<div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="[\w-]+"><\/i><\/span><div class="card-words"><h3>[^<]+(<span[^>]*>[^<]*<\/span>)?<\/h3><p class="muted small">[^<]+<\/p><\/div><\/div>/, id);
+      assert.doesNotMatch(part.split(/(?=<div class="setting[ "])/)[0], /panel-lead/, `${id}: the lead is in the header`);
+    }
   }
 });
 

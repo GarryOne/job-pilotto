@@ -51,8 +51,8 @@ test('rows with their own chevron button toggle on the whole bar, with the point
   assert.match(read('pages/application-answers.js'), /toggleOnBar\(head, toggle\)/);
   assert.match(read('pages/activity.js'), /toggleOnBar\(document\.querySelector\('#activity-warnings \.ap-warn-head'\)/);
 });
-test('long detail cards start closed, forms stay open', () => {
-  assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-experience-sources', 'setting-experience-roles', 'setting-details-profile'\]\)\}\)/);
+test('long detail cards start closed, forms stay open; Work history starts open (owner, 18 Oct 2026, mockup 09)', () => {
+  assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-experience-sources', 'setting-details-profile'\]\)\}\)/);
 });
 
 // Owner, 18 Oct 2026: Edit on a card redraws it and removes its own button, so the click reached the bar with a detached target and folded the card.
