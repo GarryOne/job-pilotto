@@ -46,6 +46,7 @@ export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-fo
 let siteOff = '';
 export const setSiteOff = reason => { siteOff = reason || ''; };
 export const siteIsOff = () => !!siteOff;
+export const siteOffReason = () => siteOff;
 // An install that opted into beta (Settings → Beta) also tests canary learning (site/src/canary-reach.js, owner 9 Oct 2026).
 export const betaHeader = storage => (storage.settings().betaChannel === true ? {'X-Beta': '1'} : {});
 export const enabled = storage => !siteOff && storage.settings().telemetry !== false;

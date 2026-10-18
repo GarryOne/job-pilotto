@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {FREE_BASE, TRIAL_KEY, isFreeKey} from './ai-free.js';
-import {siteIsOff} from './recipes.js';
+import {siteIsOff, siteOffReason} from './recipes.js';
+import {DEV_BUILD} from './telemetry.js';
 
 const BASE = FREE_BASE.replace(/\/api\/ai$/, '');
 const EVERY = 10 * 60 * 1000;
@@ -15,9 +16,10 @@ export const keyOf = storage => storage.secret(TRIAL_KEY) || (/^JPF1\./.test(sto
 export const state = storage => ({on: false, skipped: false, email: '', marketing: false, ...storage.settings().hostedSearch});
 const save = (storage, patch) => storage.saveSettings({hostedSearch: {...state(storage), ...patch}});
 
-export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch, key: given, headers = {}} = {}) {
+// devBuild: the call may go from an app run from source (Ready to send: the owner runs his app from source); never from a test, CI or a smoke run.
+export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch, key: given, headers = {}, devBuild = false} = {}) {
   const key = given || keyOf(storage);   // `key`: one minted for an install that runs on its own engine (lib/ready-site.js)
-  if (!key || !isFreeKey(key) || siteIsOff()) return {ok: false, error: 'Always on needs a regular install with its key.'};
+  if (!key || !isFreeKey(key) || (siteIsOff() && !(devBuild && siteOffReason() === DEV_BUILD))) return {ok: false, error: 'Always on needs a regular install with its key.'};
   try {
     const response = await fetcher(`${BASE}${route}`, {method, headers: {'x-api-key': key, 'Content-Type': 'application/json', ...headers}, ...(body ? {body: JSON.stringify(body)} : {})});
     const text = await response.text(), json = (() => { try { return JSON.parse(text); } catch { return {}; } })();

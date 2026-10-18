@@ -10,12 +10,13 @@ import os from 'node:os';
 // Why this run must not report anything to the product, or '' when it may (the user's own switch is checked separately). Test runs of every kind
 // are off by construction: CI, the packaged-app smoke tests and the end-to-end journey (JOB_PILOTTO_E2E). 2 Oct 2026: the journey passed
 // JOB_PILOTTO_TELEMETRY=0 to mean "off", the app read any non-empty value as "on", and eight test profiles showed up as installs.
+export const DEV_BUILD = 'a development build';   // the owner's app run from source is one: Ready to send still reaches the site from it (lib/hosted-search.js call)
 export function reportingOff(env = process.env, {packaged = false} = {}) {
   if (env.JOB_PILOTTO_E2E) return 'the end-to-end journey';
   if (env.JOB_PILOTTO_TWIN) return 'a live-test twin';
   if (env.JOB_PILOTTO_SMOKE || env.JOB_PILOTTO_PTY_SMOKE) return 'a smoke test';
   if (env.CI || env.GITHUB_ACTIONS) return 'CI';
-  if (!packaged && !sourceRunReports(env)) return 'a development build';
+  if (!packaged && !sourceRunReports(env)) return DEV_BUILD;
   return '';
 }
 
