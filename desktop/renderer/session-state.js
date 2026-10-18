@@ -85,6 +85,11 @@ export function sessionDuration(item, now = Date.now()) {
   if (seconds >= 3600) return `${Math.floor(seconds / 3600)}h ${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}m`;
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
+// The Sessions page's clock: every node made by ticking() (session-log, next step) shows prefix + how long since. Only those nodes: the Ready card's bars
+// carry their own data-ready-since (owner, 19 Oct 2026: this clock once rewrote them as "undefinedNaNs"). Guard: test/ready-card-no-garbage.test.js.
+export function tickSessionClocks(root, now = Date.now()) {
+  for (const node of root.querySelectorAll('[data-since][data-prefix]')) node.textContent = node.dataset.prefix + sessionDuration({startedAt: node.dataset.since}, now);
+}
 // The part of a text shown on its row: all of it when short, else whole sentences up to the limit (at least one).
 export function firstLine(text, limit = 110) {
   if (text.length <= limit) return text;

@@ -2,7 +2,7 @@
 import {badgeLabel} from '../badge-label.js';
 import {el, pill} from '../components.js';
 import {avatar} from '../jobs-view.js';
-import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, sessionReview, sessionState} from '../session-state.js';
+import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, tickSessionClocks, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {resumeOffered} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
@@ -151,6 +151,6 @@ export function openLog(open, remember = true) {
 export async function init() {
   setInterval(() => {
     if (document.querySelector('.view[data-view="sessions"]')?.hidden) return;
-    for (const node of document.querySelectorAll('[data-since]')) node.textContent = node.dataset.prefix + sessionDuration({startedAt: node.dataset.since});
+    tickSessionClocks(document);
   }, 1000);
 }

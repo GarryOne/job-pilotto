@@ -19,7 +19,8 @@ export function paint(card, state, names, act) {
   const summary = el('div', 'ready-summary');
   if (night) {
     const ready = jobs.filter(job => job.state === 'prepared').length, needs = jobs.filter(job => ['partial', 'wall'].includes(job.state)).length;
-    summary.append(el('span', 'muted', `Night of ${night.night}`), pill(`${jobs.length} form${jobs.length === 1 ? '' : 's'}`, 'neutral'));
+    if (night.night) summary.append(el('span', 'muted', `Night of ${night.night}`));
+    summary.append(pill(`${jobs.length} form${jobs.length === 1 ? '' : 's'}`, 'neutral'));
     if (ready) summary.append(pill(`${ready} ready`, 'good'));
     if (needs) summary.append(pill(`${needs} need${needs === 1 ? 's' : ''} you`, 'warn'));
     summary.append(pill(`$${(night.costUsd || 0).toFixed(2)} of AI and servers`, 'neutral'));
@@ -109,14 +110,15 @@ export async function initReadyCard() {
   let wholeNight = false;   // Fill now started the whole night: the card's own bar follows it
   const pending = new Set();   // rows whose Fill again is on its way to the server
   const keepClock = () => {
-    if (!card.querySelector('[data-since]:not([data-since=""])')) return;
-    clock ||= setInterval(() => { if (!card.isConnected || !card.querySelector('[data-since]:not([data-since=""])')) { clearInterval(clock); clock = null; return; } tickAll(card); }, 1000);
+    if (!card.querySelector('[data-ready-since]:not([data-ready-since=""])')) return;
+    clock ||= setInterval(() => { if (!card.isConnected || !card.querySelector('[data-ready-since]:not([data-ready-since=""])')) { clearInterval(clock); clock = null; return; } tickAll(card); }, 1000);
   };
   const sends = () => [send, run];   // a row's Fill again joins a running night (site src/ready-again.js), so it stays on
   const show = state => {
     if (!state?.owner) return blocked(card, state?.why, refresh);
     last = state;
-    const busy = phase === 'sending' || nightState(state) === 'running';   // a night being filled is never replaced by a second press
+    const unfinished = (state.site?.jobs || []).some(job => ['queued', 'filling'].includes(job.state)), running = nightState(state) === 'running' && (unfinished || !state.site?.jobs?.length);
+    const busy = phase === 'sending' || running;   // a night being filled is never replaced by a second press
     run.textContent = busy ? 'Filling…' : 'Fill now';
     Object.assign(names, state.names || {});
     const now = progressOf({phase, batch: state.site?.batch, jobs: state.site?.jobs || []})?.steps.find(step => step.state === 'now')?.label || '';

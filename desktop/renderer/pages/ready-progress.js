@@ -34,17 +34,17 @@ export function strip(progress, since = 0) {
   fill.style.width = `${progress.percent}%`;
   bar.append(fill); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuenow', String(progress.percent));
   box.append(steps, bar);
-  box.dataset.since = String(since || '');
+  box.dataset.readySince = String(since || '');
   tick(box);
   return box;
 }
 
 // Every clock on the card: the card's strip and each filling row (ready-live.js).
-export const tickAll = (root, now = Date.now()) => root.querySelectorAll('[data-since]').forEach(box => tick(box, now));
+export const tickAll = (root, now = Date.now()) => root.querySelectorAll('[data-ready-since]').forEach(box => tick(box, now));
 
 // Updates the clock on the running step (every second while a strip is shown); no network.
 export function tick(box, now = Date.now()) {
-  const clock = box?.querySelector('.ready-clock'), since = Number(box?.dataset.since);
+  const clock = box?.querySelector('.ready-clock'), since = Number(box?.dataset.readySince);
   if (!clock || !since) return;
   const secs = Math.max(0, Math.floor((now - since) / 1000));
   clock.textContent = ` ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
