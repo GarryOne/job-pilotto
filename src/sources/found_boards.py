@@ -130,12 +130,15 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
-def _through_form(board, entry, proposed, search, fetch, judge, before):
-    """(jobs, state, relevant) through the search form on the board's home page (src/sources/board_forms.py) when that brings relevant
-    jobs, kept as the board's link (the pool share sends it, src/contribute.py); else `before`, and the form is not looked for again
-    while the proposed link stays the same."""
+def _another_way(board, entry, proposed, search, fetch, judge, before):
+    """(jobs, state, relevant) for a board whose proposed link gave no relevant job: through the search form on its home page
+    (src/sources/board_forms.py), kept as the board's link (the pool share sends it, src/contribute.py); else the job list it declares
+    itself (a feed, its home page's own data or the sitemap in robots.txt: board_routes, job pages naming the search words first), kept
+    as its route (owner, 18 Oct 2026: Randstad listed warehouse jobs for "financial analyst" and has a job sitemap). Else `before`; the
+    board is not looked at again while the proposed link stays the same."""
     entry['form_for'] = proposed
-    for template in board_forms.home_templates(board, fetch):
+    page = board_forms.home(board, fetch)
+    for template in board_forms.home_templates(board, fetch, page):
         try:
             again, state, _ = read_board({**board, 'search_url': template}, search, fetch, None)
         except Exception:  # noqa: BLE001 — a form link that fails: the next one, or the proposed link's result
@@ -145,6 +148,17 @@ def _through_form(board, entry, proposed, search, fetch, judge, before):
             entry['form_url'] = entry['search_url'] = template
             print(f"Job boards found: {board['name']} read through its own search form", flush=True)
             return again, state, relevant
+    try:
+        listed, route = board_routes.discover(page[1], page[0], fetch, board, _terms(search, FULL_SEARCHES))
+    except board_routes.Stop:   # its own list refused us: the search page's answer stands, the board is not marked for a visit
+        return before
+    except Exception:  # noqa: BLE001 — a fallback never breaks the read: the search page's answer stands
+        return before
+    relevant = judge(listed) if listed else []
+    if relevant:
+        entry['route'], entry['route_kind'] = route, route['kind']   # read_board follows it first from then on
+        print(f"Job boards found: {board['name']} read from its own job list ({route['kind']})", flush=True)
+        return listed, 'ok', relevant
     return before
 
 
@@ -194,7 +208,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             judge = is_relevant or board_yield.is_relevant
             relevant = judge(found) if found else []
             if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
-                found, state, relevant = _through_form(board, entry, proposed, search, fetch, judge, (found, state, relevant))
+                found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant))
             entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
                           'source_kind': board.get('source_kind') or 'general'})
             board_yield.record(entry, len(found), len(relevant), state)

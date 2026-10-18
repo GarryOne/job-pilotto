@@ -2,7 +2,7 @@
 board's own site, no password box), for a board whose proposed link gave no relevant job (owner, 18 Oct 2026: 14 of 32 boards proposed
 for six candidates gave nothing or ignored the search words, e.g. warehouse jobs for "financial analyst" in Amsterdam). The first text
 box takes the role, a second the place; hidden fields keep their values. found_boards.read tries it once per proposed link and keeps it
-when it brings relevant jobs. Tests: tests/test_board_forms.py."""
+when it brings relevant jobs; with none, the job list the board declares itself (found_boards._another_way). Tests: tests/test_board_forms.py."""
 import urllib.parse
 from html.parser import HTMLParser
 
@@ -61,13 +61,19 @@ def templates(markup, page_url):
     return out[:MAX_TEMPLATES]
 
 
-def home_templates(board, fetch):
-    """The search links the board's home page forms make, the ones its robots.txt lets us read; [] when none or the page fails."""
-    from . import board_pages
+def home(board, fetch):
+    """(address, markup) of the board's home page; markup '' when it does not answer."""
     parts = urllib.parse.urlsplit(board['search_url'])
-    home = f'{parts.scheme}://{parts.netloc}/'
+    address = f'{parts.scheme}://{parts.netloc}/'
     try:
-        found = templates(fetch(home), home)
+        return address, str(fetch(address) or '')
     except Exception:  # noqa: BLE001 — a home page that does not answer: the proposed link stays
-        return []
+        return address, ''
+
+
+def home_templates(board, fetch, page=None):
+    """The search links the board's home page forms make (page: home()'s answer, fetched once), the ones its robots.txt lets us read."""
+    from . import board_pages
+    address, markup = page or home(board, fetch)
+    found = templates(markup, address) if markup else []
     return [url for url in found if url != board['search_url'] and board_pages.allowed(url.replace('{role}', 'x').replace('{place}', 'x'), fetch)]
