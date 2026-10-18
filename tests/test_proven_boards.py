@@ -174,13 +174,13 @@ class FirstSliceTests(Fixture):
             self.assertEqual(sorted(j['url'] for j in imported), ['https://b1.example/job/ControllerAmsterdam1', 'https://b2.example/job/ControllerAmsterdam2'])
             self.assertTrue(any('Board 1, Board 2' in line for line in said), said)
             full = found_boards.read(SEARCH, [board(1), board(2), board(3)])
-        self.assertEqual(self.fetched, [('b1.example', True), ('b2.example', True), ('b1.example', False), ('b2.example', False), ('b3.example', False)],
+        self.assertEqual(sorted(self.fetched), [('b1.example', False), ('b1.example', True), ('b2.example', False), ('b2.example', True), ('b3.example', False)],
                          'the full read reads every board in full')
-        self.assertEqual(asked, ['https://b1.example/search', 'https://b2.example/search', 'https://b3.example/search'],
+        self.assertEqual(sorted(asked), ['https://b1.example/search', 'https://b2.example/search', 'https://b3.example/search'],
                          'the pages the slice fetched are not asked again')
         self.assertEqual(len(full), 2, 'and still returns the slice\'s jobs')
 
-    def test_with_no_proven_board_the_slice_reads_the_two_boards_proposed_for_your_country(self):
+    def test_with_no_proven_board_the_slice_reads_the_boards_proposed_for_your_country(self):
         """18 Oct 2026: a driver's jobs all came from a board, read only after 140 employer sites (176 s); no install had shared one yet."""
         said, read = [], []
         proposed = [board(1), board(2), board(3)]
@@ -192,6 +192,26 @@ class FirstSliceTests(Fixture):
             first_jobs.proven_boards(None, said.append, SEARCH)
         self.assertEqual([([b['host'] for b in boards], early) for boards, early in read], [(['b2.example', 'b3.example'], True)])
         self.assertTrue(any('Board 2, Board 3' in line for line in said), said)
+
+    def test_the_slice_reads_its_boards_while_the_employer_sites_are_read(self):
+        """18 Oct 2026: SRE's slice had a 70+ among its employer-site jobs and still waited for 2 boards read after them."""
+        import threading
+        sites_reading, boards_reading = threading.Event(), threading.Event()
+
+        def boards(say):   # ends only once the employer sites' read has started, and lets that read end: one after the other hangs
+            boards_reading.set()
+            self.assertTrue(sites_reading.wait(5), 'the employer sites were not read meanwhile')
+            return []
+
+        def scan(sources, db):
+            sites_reading.set()
+            self.assertTrue(boards_reading.wait(5), 'the boards were not read meanwhile')
+            return {'jobs': [], 'sources': []}
+        with mock.patch.object(first_jobs.store, 'import_watch_report', return_value=[]), \
+                mock.patch.object(first_jobs.score, 'queue', return_value=[]), mock.patch.object(first_jobs, 'to_score', return_value=[]):
+            first_jobs.run(self.db, None, [], profile='p', hidden=frozenset(), sync=lambda: None, say=lambda _: None, scan=scan,
+                           scorer=mock.Mock(), boards=boards)
+        self.assertTrue(sites_reading.is_set() and boards_reading.is_set())
 
     def test_no_proven_and_no_proposed_board_reads_nothing_and_says_nothing(self):
         said = []

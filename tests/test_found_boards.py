@@ -106,6 +106,27 @@ class FoundBoardsTests(unittest.TestCase):
             jobs, state, _ = found_boards.read_board(BOARD, search, fetch=pages)
             self.assertEqual((state, len(jobs)), ('browser', 1), code)
 
+    def test_boards_are_read_at_once_and_reported_in_their_order(self):
+        """18 Oct 2026: Chisinau's 2 slice boards gave nothing and its useful ones came 4th and 8th, each read after the one before."""
+        import threading
+        boards = [{**BOARD, 'name': f'Board {n}', 'host': f'b{n}.example', 'search_url': f'https://b{n}.example/q?q={{role}}&l={{place}}'}
+                  for n in range(1, found_boards.BOARD_WORKERS + 1)]
+        all_reading = threading.Barrier(found_boards.BOARD_WORKERS, timeout=5)   # one after the other: the first never gets past it
+        first = set()
+        def pages(url):
+            host = url.split('//')[1].split('/')[0]
+            if host not in first:   # each board's first page waits until every board has asked for its own
+                first.add(host)
+                all_reading.wait()
+            if url.startswith('https://b1.'):   # the first board ends last
+                threading.Event().wait(0.2)
+            return self._page_for(url.split('//')[1].split('.')[0])
+        with mock.patch('builtins.print') as said:
+            jobs = found_boards.read(SEARCH, boards, fetch=pages, is_relevant=lambda found: found)
+        self.assertEqual(len(jobs), found_boards.BOARD_WORKERS)
+        lines = [call.args[0] for call in said.call_args_list if str(call.args[0]).startswith('Job boards found:')]
+        self.assertEqual([line.split()[4] for line in lines], [str(n) for n in range(1, found_boards.BOARD_WORKERS + 1)], 'in the list\'s order')
+
     def test_a_board_that_only_a_browser_reads_is_offered_as_a_visit(self):
         from src.sources import visits_portals
         def refuse(url):

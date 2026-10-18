@@ -12,6 +12,7 @@ import sqlite3
 import time
 import urllib.error
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timezone
 
@@ -24,6 +25,7 @@ FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up t
 IDLE_STOP = 2         # the full read stops a board after this many queries in a row that add no new job
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
+BOARD_WORKERS = 4         # boards read at once (each its own site, its own pages one after another): the slice ends with its slowest board, not their sum
 EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
 _early = {}               # {host: (monotonic time, {url: page})}: the pages this search's first-jobs slice fetched
 
@@ -142,36 +144,41 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now),
                             dead if dead is not None else _dead())
     ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
-    for done, board in enumerate(todo, 1):
+    reads = []
+    for board in todo:
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url']})
         handed = _early.pop(board['host'], None)
-        pages = handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}
-        fetched = {}
+        reads.append((board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}))
 
-        def through(url, pages=pages, fetched=fetched):   # a page this search's first-jobs slice fetched is served from it, not asked again
+    def one(item):   # one board's pages; what is kept of it is decided below, in the list's order, in this thread
+        board, entry, pages, fetched = item
+
+        def through(url):   # a page this search's first-jobs slice fetched is served from it, not asked again
             if url in pages:
                 return pages[url]
             page = fetch(url)
             if early:
                 fetched[url] = page
             return page
-        found, state, route = read_board(board, search, through, entry.get('route'), early=early)
-        if early:   # the full read asks every query and the next pages, reusing these
-            _early[board['host']] = (time.monotonic(), fetched)
-        entry.pop('route', None)
-        entry.pop('route_kind', None)
-        if route:
-            entry['route'] = route
-            entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
-        relevant = (is_relevant or board_yield.is_relevant)(found) if found else []
-        entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
-                      'source_kind': board.get('source_kind') or 'general'})
-        board_yield.record(entry, len(found), len(relevant), state)
-        print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
-        run_counts.looked(found)
-        run_counts.matched(relevant)
-        jobs.extend(found)
-        ticker.tick(done, f" · {board['name']}")
+        return read_board(board, search, through, entry.get('route'), early=early)
+    with ThreadPoolExecutor(max_workers=BOARD_WORKERS) as pool:   # 18 Oct 2026: Chisinau's 2 slice boards gave nothing, its 4th and 8th 14 jobs
+        for done, ((board, entry, _, fetched), (found, state, route)) in enumerate(zip(reads, pool.map(one, reads)), 1):
+            if early:   # the full read asks every query and the next pages, reusing these
+                _early[board['host']] = (time.monotonic(), fetched)
+            entry.pop('route', None)
+            entry.pop('route_kind', None)
+            if route:
+                entry['route'] = route
+                entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
+            relevant = (is_relevant or board_yield.is_relevant)(found) if found else []
+            entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
+                          'source_kind': board.get('source_kind') or 'general'})
+            board_yield.record(entry, len(found), len(relevant), state)
+            print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
+            run_counts.looked(found)
+            run_counts.matched(relevant)
+            jobs.extend(found)
+            ticker.tick(done, f" · {board['name']}")
     board_ideas.save(data)
     board_employers.note(jobs, 'Job boards found')
     return jobs
