@@ -16,7 +16,7 @@ test('collapsed keeps only the bar', () => {
   assert.match(read('components.css'), /\.panel\.is-collapsed > :not\(\.panel-top\) \{ display: none/);
 });
 test('every panel that opts in is wired through the shared function', () => {
-  assert.match(read('pages/profile.js'), /collapsiblePanel\(\$\(id\)/);
+  assert.match(read('profile-fold.js'), /collapsiblePanel\(panel, panel\.id/);   // every Profile card, through renderer/profile-fold.js
 });
 
 // The class (owner, 17 Oct 2026): every chevron fold is a whole bar, never only its small arrow.
@@ -47,5 +47,5 @@ test('rows with their own chevron button toggle on the whole bar, with the point
   assert.match(read('pages/activity.js'), /toggleOnBar\(document\.querySelector\('#activity-warnings \.ap-warn-head'\)/);
 });
 test('long detail cards start closed, forms stay open', () => {
-  assert.match(read('pages/profile.js'), /'setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'\]\) collapsiblePanel\(\$\(id\), id, \{collapsed: true\}\)/);
+  assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'\]\)\}\)/);
 });

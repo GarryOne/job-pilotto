@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {install} from './tiny-dom.js';
 
 install();
-const {surveyBody, surveyForm} = await import('../renderer/survey-rows.js');
+const {surveyBody, surveyForm, otherRow} = await import('../renderer/survey-rows.js');
 const {SURVEYS, DECLINE, lineOf, readLine} = await import('../renderer/survey-model.js');
 const part = {lines: [{id: 'a', text: lineOf('gender', 'Man', 'or Male')}, {id: 'b', text: 'How many companies?: 4'}]};
 const all = node => [node, ...(node.children || []).flatMap(all)];
@@ -29,7 +29,8 @@ test('texts(): an unchanged form gives the lines back; a changed choice rewrites
 test('the card body shows answers with their notes, and "Not set yet." when empty', () => {
   const text = node => all(node).map(each => each.textContent || '').join(' ');
   assert.match(text(surveyBody(part)), /Gender identity.*Man.*or Male.*How many companies\?.*4/s);
-  assert.match(text(surveyBody({lines: []})), /Not set yet/);
+  const empty = all(surveyBody({lines: []})).filter(each => /survey-unset/.test(each.className));
+  assert.equal(empty.length, SURVEYS.length, 'every question always shows a row; an unanswered one says "Not set", muted');
   assert.equal(readLine(lineOf('age', DECLINE)).option, DECLINE);
 });
 
@@ -39,9 +40,27 @@ test('class: no line of the card is drawn as a raw paragraph wall; a "Label: val
   const text = node => all(node).map(each => each.textContent || '').join(' | ');
   const shown = surveyBody({lines});
   assert.match(text(shown), /None of the above/);
-  assert.equal(all(shown).filter(each => each.tagName === 'DT').length, 2, 'the two labelled lines are rows');
+  const other = all(shown).filter(each => /survey-other/.test(each.className))[0];
+  assert.equal(all(other).filter(each => each.tagName === 'DT').length, 2, 'the two labelled lines are rows');
+  assert.equal(all(other).filter(each => /survey-stacked/.test(each.className) && each.tagName === 'DT').length, 1, 'only the long question stacks above its answer');
   assert.equal(all(shown).filter(each => each.tagName === 'P' && each.textContent.length > 120 && !/muted/.test(each.className)).length, 0, 'a paragraph is muted small, never body text');
   assert.doesNotMatch(text(surveyBody({lines: []}, {sorting: false})), /Sorting/);
   assert.match(text(surveyBody({lines}, {sorting: true})), /Sorting your answers…/);
   assert.doesNotMatch(text(surveyForm({lines}).node), /Other lines/);
+});
+
+test('the question is cut at the FIRST colon, so a colon inside the note stays in the value (owner 18 Oct 2026)', () => {
+  const row = otherRow('Race / ethnicity: White (use "White / European" where that is the label). For a "Hispanic or Latino?" yes/no question: No. (confirmed 25 September 2026)');
+  assert.equal(row.label, 'Race / ethnicity');
+  assert.match(row.value, /^White .*question: No\./);
+  assert.equal(otherRow('A paragraph with no colon at all'), null);
+});
+
+test('notes for the AI are one folded line at the end, never a paragraph between the answers; the notes under an answer are small and muted', () => {
+  const text = node => all(node).map(each => each.textContent || '').join(' | ');
+  const shown = surveyBody({lines: [{id: 'a', text: lineOf('gender', 'Man', 'or Male')}, {id: 'b', text: 'Notes for the AI: Use these on any form.'}, {id: 'c', text: 'Notes for the AI: Ask if unsure.'}]});
+  const kids = shown.children.map(child => child.tagName + '.' + child.className);
+  assert.match(kids.at(-1), /^DETAILS\.survey-notes-read/, 'the notes fold comes last');
+  assert.match(text(all(shown).find(each => each.tagName === 'SUMMARY')), /Notes for the AI · 2 notes/);
+  assert.ok(all(shown).some(each => /survey-note/.test(each.className) && /muted small/.test(each.className)), 'an answer\'s note is muted and small');
 });

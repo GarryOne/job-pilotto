@@ -13,6 +13,7 @@ export const SURVEYS = [
   {key: 'orientation', label: 'Sexual orientation', options: ['Heterosexual / straight', 'Gay or lesbian', 'Bisexual', 'Another orientation']},
   {key: 'disability', label: 'Disability status', options: ['Yes', 'No']},
   {key: 'ethnicity', label: 'Race / ethnicity', options: ['White', 'Black or African American', 'Asian', 'Hispanic or Latino', 'Middle Eastern or North African', 'Native or Indigenous', 'Mixed or multiple', 'Another group']},
+  {key: 'hispanic', label: 'Hispanic or Latino', options: ['Yes', 'No']},   // US forms ask it apart from race (owner, 18 Oct 2026)
   {key: 'veteran', label: 'Veteran status', options: ['Yes', 'No']},
 ].map(each => ({...each, options: [...each.options, DECLINE]}));
 export const NOTES_LABEL = 'Notes for the AI';
