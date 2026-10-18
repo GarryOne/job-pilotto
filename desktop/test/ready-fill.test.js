@@ -185,7 +185,10 @@ test('a held form\'s hand-off goes to the site with the night token; the job log
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push({url, method: init.method, auth: init.headers.authorization, type: init.headers['content-type'], body: JSON.parse(init.body)}); return {status: 200}; };
   assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 'RR1.b.t', 'j 1', {}, async () => given), 200);
-  assert.deepEqual(calls, [{url: 'https://site.example/api/ready/handoff?job=j%201', method: 'PUT', auth: 'Bearer RR1.b.t', type: 'application/json', body: given}]);
+  assert.deepEqual(calls, [{url: 'https://site.example/api/ready/handoff?job=j%201', method: 'PUT', auth: 'Bearer RR1.b.t', type: 'application/json', body: {...given, night: {}}}]);
+  const night = {role: 'form', answers: [{field: 'q1', label: 'Why us?', answer: {field: 'q1', value: 'Because', use: 'fill'}}]};
+  await sendHandoff(fetchImpl, 'https://site.example', 't', 'j1', {}, async () => given, night);
+  assert.deepEqual(calls.at(-1).body.night, night, 'the night\'s role and answers go with it, for the morning\'s Open in Chrome');
   assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 't', 'j1', null, async () => given), 0, 'no held page, no call');
   assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 't', 'j1', {}, async () => { throw new Error('page closed'); }), 0, 'a failed read loses only the stored copy');
   const line = JSON.stringify(jobLine({id: 'j1', done: {state: 'prepared', filled: 3, left: 0, ms: 9, video: null, page: {}}, blocked: 0, video: 0, handoff: 200}));

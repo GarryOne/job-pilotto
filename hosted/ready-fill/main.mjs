@@ -28,7 +28,7 @@ const server = http.createServer(async (request, response) => {
     if (['/state', '/handoff'].includes(url.pathname) && gone(night, status)) return json(response, 410, {ok: false, error: 'gone: this container holds no night'});   // a fresh one woken after a deploy: the runner stops it
     if (!allowed(url)) return json(response, 401, {ok: false, error: 'unauthorized'});
     if (url.pathname === '/state') return json(response, 200, {ok: true, ...status, held: [...(night?.held.keys() || [])]});
-    if (url.pathname === '/handoff') { const page = night?.held.get(url.searchParams.get('job')); return page ? json(response, 200, await handoff(page)) : json(response, 404, {ok: false, error: 'not held'}); }
+    if (url.pathname === '/handoff') { const page = night?.held.get(url.searchParams.get('job')); return page ? json(response, 200, {...await handoff(page), night: night.nights?.get(url.searchParams.get('job')) || {}}) : json(response, 404, {ok: false, error: 'not held'}); }
     if (request.method === 'POST' && url.pathname === '/close') { await night?.close(); night = null; token = ''; status = {state: 'idle', jobs: 0, filled: 0}; return json(response, 200, {ok: true}); }
     json(response, 404, {ok: false});
   } catch (error) { json(response, 500, {ok: false, error: String(error).slice(0, 200)}); }
