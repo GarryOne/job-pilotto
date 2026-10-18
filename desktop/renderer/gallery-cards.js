@@ -49,11 +49,19 @@ export function pageBlocks() {
       {key: 'spanish', title: 'Spanish', why: 'Asked in 2 of your 5 best matches', status: {text: 'Needs review', tone: 'warn'}, actions: [{label: 'Review', primary: true}]},
       {key: 'lead', title: 'Team leadership', why: 'Added to Experience', status: {text: 'Confirmed', tone: 'good'}, done: true},
     ])),
+    panel('reviewList statusFirst', reviewList([
+      {key: 'p1', title: 'Show the budget you owned', why: 'Your last role says "budget" without a figure', status: {text: 'High', tone: 'bad'},
+        actions: [{label: 'Apply fix', primary: true, aria: 'Show the budget you owned: apply fix'}, {label: 'Dismiss', aria: 'Show the budget you owned: dismiss'}]},
+      {key: 'p2', title: 'Name the team size', why: 'Leadership is claimed, not shown', status: {text: 'Medium', tone: 'warn'},
+        actions: [{label: 'Apply fix', aria: 'Name the team size: apply fix'}, {label: 'Dismiss', aria: 'Name the team size: dismiss'}]},
+    ], {statusFirst: true})),
     panel('emptyState', emptyState({icon: 'file', title: 'No base letter yet', text: 'One general letter, written from your CV and Profile; each job still gets its own.',
       actions: [{label: 'Draft with AI'}, {label: 'Write my own'}], note: 'Drafting uses your AI once.'})),
     panel('summaryTiles', summaryTiles([{key: 'role', icon: 'target', tone: 'signal', label: 'Role', value: 'Operations Manager'},
       {key: 'where', icon: 'pin', tone: 'info', label: 'Where', value: 'Zurich · Remote'}, {key: 'salary', icon: 'coins', tone: 'good', label: 'Minimum salary', value: 'CHF 140k'},
       {key: 'start', icon: 'calendar', tone: 'neutral', label: 'Start', value: ''}])),
+    panel('summaryTiles score', summaryTiles([{key: 'fit', tone: 'good', label: 'Fit for your roles', score: 82}, {key: 'read', tone: 'ok', label: 'Easy to read', score: 64},
+      {key: 'gaps', tone: 'low', label: 'Skills shown', score: 38}, {key: 'none', label: 'Not scored yet', score: null}])),
     panel('referenceRow', referenceRow({text: 'Swiss permit B · notice period 3 months'})),
   );
   return box;

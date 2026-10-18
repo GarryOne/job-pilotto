@@ -4,17 +4,19 @@
 // Living copy: npm run gallery → "Page blocks". Guarded by test/page-parts.test.js.
 import {el, pill, tile} from './components.js';
 
-const button = (label, className, run) => {
+const button = (label, className, run, aria = '') => {
   const node = Object.assign(el('button', className, label), {type: 'button'});
+  if (aria) node.setAttribute('aria-label', aria);   // rows with the same action words ("Confirm skill") say which row they act on
   node.addEventListener('click', run);
   return node;
 };
 
 // A list of things to review (CV gaps, Needs review, CV check fixes): each item is its title, why it is here and where it came from, a status chip and its
 // actions. Pending items come first in the order given; done ones fold under "Reviewed · N". items: [{key, title, why?, source?, status: {text, tone}, done?,
-// actions: [{label, run, primary?}], detail?: a node folded under "View details" (the fix text, its source)}]; a done item keeps its actions (Undo), quiet. Filled orange is the list's ONE next step: the first pending item's primary action; every other action is quiet.
-export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.'} = {}) {
-  const box = el('div', 'review-list');
+// actions: [{label, run, primary?, aria?}], detail?: a node folded under "View details" (the fix text, its source)}]; a done item keeps its actions (Undo), quiet. Filled orange is the list's ONE next step: the first pending item's primary action; every other action is quiet.
+// statusFirst: the chip goes left of the title in a fixed width so titles align (a priority: High / Medium / Low, CV check fixes).
+export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.', statusFirst = false} = {}) {
+  const box = el('div', `review-list${statusFirst ? ' is-status-first' : ''}`);
   let lead = false;   // the list's one orange button is drawn
   const row = item => {
     const node = el('li', `review-item${item.done ? ' is-done' : ''}`);
@@ -27,9 +29,10 @@ export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing
     const actions = el('div', 'review-actions');
     for (const action of item.actions || []) {
       const primary = action.primary && !item.done && !lead && (lead = true);
-      actions.append(button(action.label, `${primary ? 'primary' : 'secondary'} small-btn`, () => action.run?.(item)));
+      actions.append(button(action.label, `${primary ? 'primary' : 'secondary'} small-btn`, () => action.run?.(item), action.aria));
     }
-    node.append(main, item.status ? pill(item.status.text, item.status.tone || 'neutral') : el('span'), actions);
+    const status = item.status ? pill(item.status.text, item.status.tone || 'neutral') : el('span');
+    if (statusFirst) node.append(status, main, actions); else node.append(main, status, actions);
     return node;
   };
   const pending = items.filter(item => !item.done), done = items.filter(item => item.done);
@@ -62,18 +65,28 @@ export function emptyState({icon = 'file', chip = 'Not created', title = '', tex
 }
 
 // A row of figures with an icon each (Main goals, CV scores): icon on its tone, label, the value big; an empty value reads "Not set". Four columns, two by two
-// when the card is narrow. tiles: [{key, icon, tone, label, value, note?, title?}].
+// when the card is narrow. tiles: [{key, icon, tone, label, value, note?, title?, score?, max?}]. A score (CV scores: 82 of 100) draws a ring filled to
+// score/max in place of the icon, in the tile's tone (good / ok / low); its value defaults to the score. A missing score (null) is an empty ring and "Not set".
+const ring = (score, max, tone) => {
+  const node = el('span', `summary-ring tone-${tone}`);
+  const share = Number.isFinite(score) && max > 0 ? Math.max(0, Math.min(1, score / max)) : 0;
+  node.style.setProperty('--p', String(Math.round(share * 100)));
+  node.append(el('b', '', Number.isFinite(score) ? String(score) : '–'));
+  return node;
+};
 export function summaryTiles(tiles = []) {
   const box = el('div', 'summary-tiles');
-  for (const {key = '', icon = 'info', tone = 'neutral', label = '', value = '', note = '', title = ''} of tiles) {
-    const cell = el('div', 'summary-tile');
+  for (const {key = '', icon = 'info', tone = 'neutral', label = '', value: given, note = '', title = '', score, max = 100} of tiles) {
+    const scored = score !== undefined;
+    const value = given ?? (scored && Number.isFinite(score) ? `${score} / ${max}` : '');
+    const cell = el('div', `summary-tile${scored ? ' has-ring' : ''}`);
     cell.dataset.key = key;
     if (title) cell.title = title;
     const set = String(value ?? '').trim();
     const words = el('div', 'summary-tile-words');
     words.append(el('span', 'summary-tile-label', label), el('b', `summary-tile-value${set ? '' : ' is-empty'}`, set || 'Not set'));
     if (note) words.append(el('span', 'muted small', note));
-    cell.append(tile(icon, tone), words);
+    cell.append(scored ? ring(score, max, tone) : tile(icon, tone), words);
     box.append(cell);
   }
   return box;

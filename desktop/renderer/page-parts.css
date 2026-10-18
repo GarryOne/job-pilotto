@@ -7,6 +7,9 @@
 .review-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3);
   padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .review-main { display: grid; gap: 2px; min-width: 0; }
+/* statusFirst: the chip first, in a fixed width so the titles line up (High / Medium / Low). */
+.is-status-first .review-item { grid-template-columns: auto minmax(0, 1fr) auto; }
+.is-status-first .review-item > .ui-pill { min-width: 72px; justify-content: center; }
 .review-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
 .review-done > summary, .review-detail > summary { cursor: pointer; padding: var(--sp-1) 0; }
 .review-detail { margin-top: var(--sp-1); }
@@ -27,6 +30,14 @@
 .summary-tile-value { font-size: var(--fs-lg); overflow-wrap: anywhere; }
 .summary-tile-value.is-empty { color: var(--muted); font-weight: 500; }
 @container (max-width: 560px) { .summary-tile { grid-column: span 2; } }
+/* A score tile's ring (CV scores, moved from cv-tab.css .cvc-ring): filled to --p % in the tile's tone, the number in the middle. */
+.summary-ring { --p: 0; --ring: var(--line-strong); position: relative; display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%;
+  background: conic-gradient(var(--ring) calc(var(--p) * 1%), var(--line) 0); }
+.summary-ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+.summary-ring b { position: relative; font-size: var(--fs-lg); font-weight: 800; }
+.summary-ring.tone-good { --ring: var(--good); }
+.summary-ring.tone-ok { --ring: var(--warn-bright); }
+.summary-ring.tone-low { --ring: var(--bad); }
 
 /* Reference row: where the fact is kept, its words, one quiet link there. */
 .reference-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); }
