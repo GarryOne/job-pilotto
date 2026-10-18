@@ -68,7 +68,7 @@ jobs:
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
         run: node tools/persona-search/draw-upload.mjs "$RUNNER_TEMP/draw-out" --build "$GITHUB_SHA" --branch main
-      - name: Keep the numbers (counts only: no job titles, companies or log)
+      - name: Keep the numbers (counts only, no job titles, companies or log)
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/keep"
