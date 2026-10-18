@@ -44,7 +44,7 @@ export function summarize(reports) {
 // labRows = judge(all): the lab's newest searches, for the median to read a real one against.
 export function realSection(reports, labRows = []) {
   const s = summarize(reports);
-  if (!reports.length) return '<section class="card"><h2>Real installs</h2><p class="muted">No real search reported yet. Installs on the build that carries #1471, with Technical reports on, send one report per Find jobs run; it fills here as they arrive.</p></section>';
+  if (!reports.length) return '<section class="card"><h2>Real installs</h2><p class="muted">No real search reported yet. Installs on the build that sends search reports, with Technical reports on, send one report per Find jobs run; it fills here as they arrive.</p></section>';
   const lab = field => median(labRows.filter(r => r.state !== 'failed').map(r => r.now[field]));
   const tile = (field, labField) => `<section class="card lv-tile lv-lead" style="--tone:${TONE_COLOR.info}"><span class="muted">⏱ ${TIME_NAMES[labField]}</span><b>${clock(s.all[field])}</b><span class="muted">lab median ${clock(lab(labField))}</span><span class="muted">${s.all.searches} searches, ${s.all.installs} installs</span></section>`;
   const body = s.families.map(f => `<tr><td><b>${esc(f.name)}</b></td><td class="num">${f.installs}</td><td class="num">${f.searches}</td><td class="num">${clock(f.first_s)}</td><td class="num">${clock(f.tenth_s)}</td><td class="num">${clock(f.fit_s)}</td>
