@@ -9,7 +9,7 @@ from .careers_parse import registrable
 
 DEAD_AFTER = 3         # reads with no relevant job (a StepStone banner counted as 2 jobs before)
 ENOUGH = 10            # relevant jobs in the user's places: from here no untried board is read
-MAX_UNTRIED = 3        # untried boards read in one run while relevant jobs are fewer than ENOUGH
+MAX_UNTRIED = 6        # untried boards read in one run while relevant jobs are fewer than ENOUGH (was 3: music's best board, Talent.com, was 8th of 9 and waited a whole search)
 
 
 def is_relevant(jobs):
