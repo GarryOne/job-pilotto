@@ -171,6 +171,23 @@ def jsonld_jobs(markup, url):
 
 
 
+NUMBERED = 5   # links sharing one path shape that differ only in a long number: a list of single pages
+
+def numbered_links(found, host, own):
+    """The links of a page that are one path shape with a different long number each (/word123456.html): a listing's cards, whatever the
+    site calls them. 18 Oct 2026: a job site listed 17 truck-driver jobs as /<word><id>.html; no word of ours matched, so the board read 0.
+    The biggest such group counts, when it has NUMBERED or more different ids; menus and categories carry no number."""
+    groups = {}
+    for url, _ in found:
+        parts = urllib.parse.urlsplit(url)
+        shape = re.sub(r'\d{5,}', '#', parts.path)
+        if (parts.hostname or '').removeprefix('www.') != host or shape == parts.path or parts.path.rstrip('/') == own:
+            continue
+        groups.setdefault(shape, []).append(url.split('#')[0])
+    best = max(groups.values(), key=lambda urls: len(set(urls)), default=[])
+    return list(dict.fromkeys(best)) if len(set(best)) >= NUMBERED else []
+
+
 def job_links(markup, base):
     """Links on a listing page that look like single job pages of the same site."""
     host = (urllib.parse.urlsplit(base).hostname or '').removeprefix('www.')
@@ -184,7 +201,10 @@ def job_links(markup, base):
     # Single job pages end in an id (a UUID, a long number): when the page has some, those are the jobs and the rest is its menu
     # ("/karriere/trainee"). 6 Oct 2026: Migros's menu links filled the quota before its 31 job links on the page.
     with_id = [url for url in out if JOB_ID.search(urllib.parse.urlsplit(url).path.rstrip('/'))]
-    return (with_id if len(with_id) >= 3 else out)[:MAX_JOB_PAGES]
+    chosen = with_id if len(with_id) >= 3 else out
+    if len(chosen) < 3:   # no job word matched: a list of cards that differ only in their number
+        chosen = numbered_links(links(markup, base), host, own) or chosen
+    return chosen[:MAX_JOB_PAGES]
 
 
 
