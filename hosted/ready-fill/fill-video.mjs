@@ -1,6 +1,6 @@
 // A short video of one page while it is filled (Ready to send's "Watch the fill", reused by the Form Lab): a CDP screencast of the page, encoded by Playwright's own ffmpeg
 // to a small .webm (VP8, or VP9 where only that is built in). The page stays open (Ready holds its tabs for the morning), so this is not Playwright's recordVideo, which writes only when a page closes.
-// Owner, 18 Oct 2026: a few minutes at most, low/medium quality, size first: a hard 3-minute stop, ~960 px, 10 fps. No network, no storage, no page content in a log.
+// Owner, 18 Oct 2026: a few minutes at most, a hard 3-minute stop, 10 fps; 720p (owner, same day: "Let's make it 720p"), the night browser's own 1280x720, so nothing is scaled. No network, no storage, no page content in a log.
 // Guard: desktop/test/fill-video.test.js.
 import {spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -36,7 +36,7 @@ export function encoderOf(ffmpeg, run = spawnSync) {
 
 // Pure: JPEG frames on stdin at a fixed rate -> a small .webm. Any frame size is scaled into width x height and padded, so a tab of another size fits the same video.
 export function ffmpegArgs({width, height, fps, out, encoder = 'libvpx'}) {
-  const codec = encoder === 'libvpx-vp9' ? ['-c:v', 'libvpx-vp9', '-row-mt', '1', '-crf', '38', '-b:v', '300k'] : ['-c:v', 'libvpx', '-crf', '32', '-b:v', '300k', '-qmin', '10', '-qmax', '50'];
+  const codec = encoder === 'libvpx-vp9' ? ['-c:v', 'libvpx-vp9', '-row-mt', '1', '-crf', '34', '-b:v', '800k'] : ['-c:v', 'libvpx', '-crf', '28', '-b:v', '800k', '-qmin', '4', '-qmax', '42'];
   return ['-hide_banner', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'mjpeg', '-i', 'pipe:0', '-an',
     '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:white`,
     ...codec, '-deadline', 'realtime', '-cpu-used', '8', '-threads', '1', '-r', String(fps), '-y', out];
@@ -45,7 +45,7 @@ export function ffmpegArgs({width, height, fps, out, encoder = 'libvpx'}) {
 // page: a Playwright page; or null with `tabOf: () => page`, read again every second, when the tab being filled changes (the Form Lab's runs open new tabs at account steps):
 // the video then follows the new tab in the same file. Starts at once; the last frame is written every 1/fps second, so the video's time is real time.
 // It stops by itself at maxSeconds (never over 180). -> {stop(): Promise<{path, bytes, secs (whole, >= 1)} | null>, limit}. null: no frame, no ffmpeg or no encoder; the file is then removed.
-export async function startFillVideo(page, {tabOf = () => page, dir = os.tmpdir(), maxSeconds = MAX_SECONDS, width = 960, fps = 10, ffmpeg = findFfmpeg(), encoder, spawnImpl = spawn} = {}) {
+export async function startFillVideo(page, {tabOf = () => page, dir = os.tmpdir(), maxSeconds = MAX_SECONDS, width = 1280, fps = 10, ffmpeg = findFfmpeg(), encoder, spawnImpl = spawn} = {}) {
   const limit = Math.min(MAX_SECONDS, Math.max(0, Number(maxSeconds) || 0)), first = safe(tabOf);
   const viewport = first?.viewportSize?.() || {width: 1280, height: 720}, codec = ffmpeg ? encoder ?? encoderOf(ffmpeg) : '';
   const size = {width: even(width), height: even(width * viewport.height / viewport.width)};
