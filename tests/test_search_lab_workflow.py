@@ -72,6 +72,15 @@ class HealWorkflow(unittest.TestCase):
         self.assertEqual(self.heal.count('NET_RECORDS_WRITE_TOKEN'), 1, 'the write token is read by the publish step only')
         self.assertNotIn('lab-upload', self.heal, 'the numbers are posted by the replay workflow, never by the heal')
 
+    def test_a_failed_verify_stops_the_job_before_the_publish(self):
+        # 18 Oct 2026: the first heal run printed "NOT accepted" and still published: `cmd | tee` ends with tee's exit unless pipefail is set, and the step's default shell has none.
+        for step in re.split(r'\n      - ', self.heal):
+            if 'heal.mjs verify' in step:
+                self.assertIn('set -o pipefail', step)
+        for step in re.split(r'\n      - ', self.heal):
+            if '| tee' in step and 'run: |' in step:
+                self.assertIn('set -o pipefail', step, 'every multi-line step that pipes into tee stops on the first failure')
+
     def test_the_weekly_cap_and_the_pick(self):
         out = node("import {pickCandidate, agree, WEEKLY_CAP} from './tools/persona-search/heal.mjs';"
                    "const press = (more = {}) => ({in_places: 36, scored_in_places: 36, fit70_in_places: 28, stale: '', crashes: [], ...more});"
