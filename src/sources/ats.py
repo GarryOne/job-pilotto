@@ -251,15 +251,25 @@ def detect(url):
     return None
 
 
-def slug_guesses(company):
-    """Likely board slugs for a company name: 'Digitec Galaxus AG' -> digitecgalaxus, digitec-galaxus, digitec."""
-    name = re.sub(r'\b(ag|sa|gmbh|ltd|limited|inc|llc|plc|se|group|holding|technologies|technology|labs)\b\.?', '',
-                  company.lower())
-    words = re.findall(r'[a-z0-9]+', name.replace('&', ' and '))
-    if not words:
-        return []
-    guesses = [''.join(words), '-'.join(words), words[0]]
+LEGAL_FORM = r'ag|sa|gmbh|ltd|limited|inc|llc|plc|se'
+BRAND_WORD = r'group|holding|technologies|technology|labs'   # often part of the board's name too: Wynd Labs is ashby/wynd-labs
+
+
+def name_slugs(company):
+    """The slugs that spell the whole company name, legal form left out, brand words without then with:
+    'Digitec Galaxus AG' -> digitecgalaxus, digitec-galaxus; 'Wynd Labs' -> wynd, wyndlabs, wynd-labs."""
+    def spelled(drop):
+        words = re.findall(r'[a-z0-9]+', re.sub(rf'\b({drop})\b\.?', '', company.lower()).replace('&', ' and '))
+        return [''.join(words), '-'.join(words)] if words else []
+    guesses = [*spelled(f'{LEGAL_FORM}|{BRAND_WORD}'), *spelled(LEGAL_FORM)]
     return list(dict.fromkeys(g for g in guesses if len(g) >= 3))
+
+
+def slug_guesses(company):
+    """Likely board slugs for a company name: the whole name (name_slugs), then its first word alone:
+    'Digitec Galaxus AG' -> digitecgalaxus, digitec-galaxus, digitec."""
+    first = re.findall(r'[a-z0-9]+', re.sub(rf'\b({LEGAL_FORM}|{BRAND_WORD})\b\.?', '', company.lower()))[:1]
+    return list(dict.fromkeys([*name_slugs(company), *(w for w in first if len(w) >= 3)]))
 
 
 def domain_guesses(website):

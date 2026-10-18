@@ -113,6 +113,16 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(found[:2], ('successfactors', 'www.carrieres-rolex.com'))
         self.assertEqual(guessed, ['www.carrieres-rolex.com'], 'no name guessed: the job site answered')
 
+    def test_a_brand_word_in_the_name_is_tried_with_and_without(self):
+        """18 Oct 2026, Startup Employer Discovery rerun: pasted "Wynd Labs" ended with no feed; its Ashby board is wynd-labs (7 jobs) and the
+        guesses dropped "Labs" (only `wynd`). A legal form stays dropped: no board is called digitecgalaxusag."""
+        jobs = [{'title': 'Research Crawling Engineer', 'location': 'Remote'}]
+        for name, board in [('Wynd Labs', 'wynd-labs'), ('Acme Technologies', 'acmetechnologies'), ('Nova Group', 'nova-group')]:
+            found = scout.find_feed({'name': name}, lambda system, slug: jobs if (system, slug) == ('ashby', board) else None, lambda url: None)
+            self.assertEqual(found[:2], ('ashby', board), f'{name}: the whole name is a slug of its own and counts as exact')
+        self.assertEqual(ats.slug_guesses('Digitec Galaxus AG'), ['digitecgalaxus', 'digitec-galaxus', 'digitec'])
+        self.assertEqual(ats.slug_guesses('Wynd Labs'), ['wynd', 'wyndlabs', 'wynd-labs'])
+
     def test_a_small_name_guess_loses_to_the_companys_own_job_site(self):
         """6 Oct 2026: Coop Suisse Romande took JOIN's "coop" (1 job, another company); its own job site jobs.coop.ch runs SuccessFactors."""
         own = [{'title': f'Vendeur {i}', 'location': 'Genève'} for i in range(40)]
