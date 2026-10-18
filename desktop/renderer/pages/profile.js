@@ -25,6 +25,8 @@ import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
 import {factsNow, showFacts} from './details-facts.js';
+import {reading} from '../contact-reading.js';
+import {swr} from '../swr.js';
 import {showNotify} from './notify-settings.js';
 
 // ---------- Settings → Application profile: tabs (CV, Your details, Experience, Application answers, Cover letter) ----------
@@ -250,14 +252,24 @@ function fitDetailsToCandidate(contact) {
 }
 export function showContact() {
   mountContactControls();   // the salutation, date of birth and links as their typed controls (contact-kinds.js)
-  window.pilot.contact().then(contact => {
-    document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
-    fitDetailsToCandidate(contact);
-    showLinks();
-    loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
-    showFacts();   // Work eligibility, Availability & compensation, Languages (details-facts.js)
-    loadExperienceProfile('details');   // the voluntary survey answers (pages/experience-profile.js)
-  }).catch(error => message('contact-panel-message', `${byStore('Couldn\'t read them from Notion', 'Couldn\'t read them from your Profile')}: ${error.message}`, 'error'));   // the panel's line: the save bar's is hidden until you change something (#409)
+  // The kept contact fills the boxes at once; with none kept the shared skeleton stands in until it is read (contact-reading.js); never empty boxes that look like lost data.
+  let painted = false;
+  swr('contact', async () => ({ok: true, contact: (await window.pilot.contact()) || {}}), {
+    loading: () => reading(true),
+    paint: ({contact}, kept) => {
+      if (!kept && painted && !$('contact-save').disabled) return;   // a refresh never redraws under unsaved edits
+      reading(false);
+      document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+      fitDetailsToCandidate(contact);
+      showLinks();
+      if (kept || painted) return;
+      painted = true;
+      loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
+      showFacts();   // Work eligibility, Availability & compensation, Languages (details-facts.js)
+      loadExperienceProfile('details');   // the voluntary survey answers (pages/experience-profile.js)
+    },
+    fail: result => { reading(false); message('contact-panel-message', `${byStore('Couldn\'t read them from Notion', 'Couldn\'t read them from your Profile')}: ${result.error}`, 'error'); },   // the panel's line: the save bar's is hidden
+  });
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
 }
 
