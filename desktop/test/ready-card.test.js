@@ -183,23 +183,34 @@ test('an outdated app: the plain restart line and a Restart button on every way 
   }
 });
 
-// Watch the fill (owner, 18 Oct 2026): every row the night opened and kept a video for has it, also one it could not fill; it plays under its row and closes when pressed again.
-test('a row with the night\'s video offers Watch the fill; it plays under the row and closes again', async () => {
-  const body = page(), asked = [];
-  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
+// Watch the fill (owner, 18 Oct 2026): every row the night opened and kept a video for has it, also one it could not fill; it plays in a popup (owner, 18 Oct 2026: "not inline, but rather in a popup"),
+// named for its form, and closing the popup lets the video's memory go.
+test('a row with the night\'s video offers Watch the fill; it plays in a popup that closes', async () => {
+  const body = page(), asked = [], revoked = [];
+  const realRevoke = URL.revokeObjectURL; URL.revokeObjectURL = url => { revoked.push(url); };
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {j1: 'SRE · Acme'},
     site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: [{job: 'j0', state: 'prepared', video: true}, {job: 'j1', state: 'failed', video: true}, {job: 'j2', state: 'no-form', video: false}]}}),
     readyTonight: async () => ({ok: false}), readyVideo: async code => { asked.push(code); return {ok: true, bytes: new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])}; }};
-  await initReadyCard();
-  const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
-  assert.deepEqual(rows.map(row => row.querySelectorAll('button').map(textOf)), [['Open in my browser', 'Open live recording', 'Watch the fill', 'Done'], ['Watch the fill', 'Done'], ['Done']]);
-  const watch = rows[1].querySelectorAll('button')[0];
-  watch.click(); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(asked, ['j1']);
-  const player = card.querySelector('.ready-player');
-  assert.ok(player, 'a player under the row');
-  assert.match(player.querySelector('video').src, /^blob:/);
-  assert.equal(textOf(watch), 'Hide the fill');
-  watch.click(); await new Promise(resolve => setImmediate(resolve));
-  assert.equal(card.querySelector('.ready-player'), null, 'closed again');
-  assert.equal(textOf(watch), 'Watch the fill');
+  try {
+    await initReadyCard();
+    const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
+    assert.deepEqual(rows.map(row => row.querySelectorAll('button').map(textOf)), [['Open in my browser', 'Open live recording', 'Watch the fill', 'Done'], ['Watch the fill', 'Done'], ['Done']]);
+    const watch = rows[1].querySelectorAll('button')[0];
+    watch.click(); await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(asked, ['j1']);
+    assert.equal(card.querySelector('video'), null, 'nothing inline under the row');
+    const popup = body.querySelector('#ready-video-dialog');
+    assert.ok(popup, 'a popup');
+    assert.equal(popup.tagName.toLowerCase(), 'dialog');
+    assert.match(popup.className, /panel-dialog/, 'the app\'s dialog parts');
+    assert.match(textOf(popup), /SRE · Acme/, 'named for its form');
+    const src = popup.querySelector('video').src;
+    assert.match(src, /^blob:/);
+    assert.equal(textOf(watch), 'Watch the fill', 'the row\'s button does not change');
+    popup.querySelector('#ready-video-close').click(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(body.querySelector('#ready-video-dialog'), null, 'closed');
+    assert.deepEqual(revoked, [src], 'its memory let go');
+    watch.click(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(body.querySelectorAll('#ready-video-dialog').length, 1, 'opens again, one at a time');
+  } finally { URL.revokeObjectURL = realRevoke; }
 });

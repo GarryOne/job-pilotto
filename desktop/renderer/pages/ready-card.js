@@ -1,8 +1,9 @@
 // The Ready to send card on Actions (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
-// start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done and the night's video of its fill. You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
+// start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done and the night's video of its fill (a popup). You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
 import {el, pill, tile} from '../components.js';
 import {$} from './core.js';
 import {rowOf} from './ready-rows.js';
+import {showFillVideo} from './ready-video.js';
 import {OUTDATED_LINE, errorLine, restartButton} from '../errors.js';
 
 // state: what readyState gave. names: code -> "Title · Company" for the rows.
@@ -104,18 +105,13 @@ export async function initReadyCard() {
       button.addEventListener('click', () => watchFill(button, code)); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; if (text === OUTDATED_LINE) note.append(' ', restartButton()); };
-  // The night's video of one form, in a player under its row; pressed again it closes (and its memory is let go).
-  const players = new Map();   // code -> the open player
+  // The night's video of one form, in a popup (pages/ready-video.js).
   const watchFill = async (button, code) => {
-    const line = button.closest('.ready-row'), shown = players.get(code);
-    if (shown?.isConnected) { players.delete(code); shown.remove(); URL.revokeObjectURL(shown.querySelector('video').src); button.textContent = 'Watch the fill'; return; }
     button.disabled = true; say('Loading the video of this form\'s fill…');
     const result = await window.pilot.readyVideo(code).catch(error => ({ok: false, error: errorLine(error)}));
     button.disabled = false;
     if (!result.ok) return say(result.error || 'Could not load the video.');
-    const player = el('div', 'ready-player'), video = document.createElement('video');
-    video.controls = true; video.autoplay = true; video.muted = true; video.src = URL.createObjectURL(new Blob([result.bytes], {type: 'video/webm'}));
-    player.append(video); line.after(player); players.set(code, player); button.textContent = 'Hide the fill'; say('');
+    say(''); showFillVideo(result.bytes, names[code] || code);
   };
   send.addEventListener('click', async () => {
     send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
