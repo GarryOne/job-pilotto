@@ -145,5 +145,44 @@ class HealWorkflow(unittest.TestCase):
         self.assertLessEqual(6 * 0.92, 6.0, 'six heals at the measured $0.92 stay inside $6 a week')
 
 
+PR_WORKFLOW = (ROOT / '.github' / 'workflows' / 'search-lab-pr.yml').read_text(encoding='utf-8')
+
+
+class PullRequestReplay(unittest.TestCase):
+    """The replay a pull request gets (19 Oct 2026, owner: "Keep, replay on each PR"): $0, read-only, red only for a real Worse."""
+    def test_it_is_read_only_free_and_for_this_repository_only(self):
+        self.assertIn('pull_request:', PR_WORKFLOW)
+        self.assertNotIn('pull_request_target', PR_WORKFLOW)
+        self.assertNotRegex(PR_WORKFLOW, r'secrets\.[A-Z_]*(ANTHROPIC|OPENAI|PUBLISH)[A-Z_]*', 'no AI key and no key that writes the Lab page')
+        self.assertNotIn('lab-upload', PR_WORKFLOW, 'a PR never writes the Lab page')
+        self.assertIn('--no-live', PR_WORKFLOW)
+        self.assertRegex(PR_WORKFLOW, r'(?m)^permissions:\n  contents: read\n')
+        self.assertIn('github.event.pull_request.head.repo.full_name == github.repository', PR_WORKFLOW, 'a fork gets no tape key: its PR is not run')
+        for path in ('src/**', 'desktop/lib/**', 'tools/persona-search/**'):
+            self.assertIn(f"- '{path}'", PR_WORKFLOW)
+
+    def test_the_pr_and_main_are_replayed_on_their_own_copies_of_the_tape_and_a_red_compare_stays_red(self):
+        # a replay writes its report into the tape's folder, and two replays on one folder disagree (#1538)
+        self.assertIn('tape-pr', PR_WORKFLOW)
+        self.assertIn('cp -R "$RUNNER_TEMP/tape-pr" "$RUNNER_TEMP/tape-main"', PR_WORKFLOW)
+        self.assertIn('--tag "pr-$2"', PR_WORKFLOW, 'a tag for each replay: its own working folder')
+        step = PR_WORKFLOW[PR_WORKFLOW.index('- name: Compare'):]
+        self.assertIn('set -o pipefail', step, 'the tee at the end must not hide a Worse')
+        self.assertIn('base.sha', PR_WORKFLOW, "main's code is the PR's base")
+
+    def test_the_verdicts(self):
+        out = node("import {compare} from './tools/persona-search/pr-compare.mjs';"
+                   "const row = (more = {}) => ({state: 'ok', in_places: 36, fit70: 28, first_s: 100, tenth_s: 200, fit_s: 400, ...more});"
+                   "console.log(JSON.stringify([compare(row(), row()).state, compare(row({in_places: 30}), row()).state, compare(row({fit_s: 520}), row()).state,"
+                   "compare(row({fit_s: 520}), row(), true).state, compare(row({first_s: 80, in_places: 40}), row()).state,"
+                   "compare({state: 'stale', failed_step: 'Tape stale (3 AI and 0 web requests not recorded)'}, row()).state,"
+                   "compare({state: 'failed', failed_step: 'ai'}, row()).state, compare({state: 'failed', failed_step: 'ai'}, {state: 'failed'}).state,"
+                   "compare(row(), {state: 'stale'}).state, compare(row(), null).state, compare(row({fit_s: null}), row()).state]))")
+        self.assertEqual(out, ['same', 'worse', 'worse', 'worse', 'same', 'stale', 'worse', 'new', 'new', 'new', 'worse'],
+                         'a stale tape or no comparison is never red; a lower count, a time over 25% (0% for the control), a crash main does not have, or a time no longer reached is')
+        self.assertIn('re-record after the merge', node("import {compare} from './tools/persona-search/pr-compare.mjs';"
+                                                       "console.log(JSON.stringify(compare({state: 'stale', failed_step: 'Tape stale (1 AI)'}, null).why.join(' ')))"))
+
+
 if __name__ == '__main__':
     unittest.main()
