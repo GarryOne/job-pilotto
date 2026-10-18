@@ -15,7 +15,7 @@ async function panel({ night, mark }) {
   <label for="b">Email *</label><input id="b" type="email" required value="ada@example.com">
   <label for="c">Why us? *</label><textarea id="c" required></textarea>
 </form>`);
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   if (night) window.document.documentElement.setAttribute('data-jobpilotto-night', '1');
   window.document.documentElement.setAttribute('data-jobpilotto-page', mark);

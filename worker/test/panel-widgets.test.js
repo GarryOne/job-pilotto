@@ -18,7 +18,7 @@ const SLIDER = '<div id="lbl">How would you rate your Terraform skill? *</div><d
 
 async function panel(html, after) {
   const { window } = openPage(JSDOM, html);
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');   // the fill flow judged this page a form (extension/page-mark.js): only then may the panel count or say Ready
   window.eval(read('extension/page/skeleton.js'));
   evalPanel(window);
@@ -36,7 +36,7 @@ async function panel(html, after) {
 
 test('a page nothing has judged yet says only "Reading this page…", never Ready or a count (owner, 15 Oct 2026)', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, FORM(''));
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   evalPanel(window);
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -95,7 +95,7 @@ const UNREAD = `<div class="entry"><div class="question-title is-required">How m
 test('a required question nothing read is listed; answering it yourself is reported at Submit as never read', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, FORM(`${UNREAD}<button type="button" id="go">Submit application</button>`));
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.document.documentElement.setAttribute('data-jobpilotto-page', 'form');   // judged a form by the fill flow (extension/page-mark.js)
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/coverage.js'));
@@ -149,7 +149,7 @@ test('the panel shows its ⚑ "Report this form" icon in every state: reading, p
   for (const [name, mark, html] of states) {
     const { window } = openPage(JSDOM, html);
     if (mark) window.document.documentElement.setAttribute('data-jobpilotto-page', mark);
-    window.chrome = { runtime: { id: 'test', sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
+    window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => (message.type === 'panelAllowed' ? { ok: true } : {}), onMessage: { addListener() {} } } };
     window.eval(read('extension/page/skeleton.js'));
     evalPanel(window);
     await new Promise((resolve) => setTimeout(resolve, 50));

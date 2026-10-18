@@ -35,6 +35,7 @@
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
   // While a fill step shows, the page is dimmed (panel-overlay.js) and the panel is centred, bigger, with what it is doing (owner, 19 Oct 2026); at the end the panel goes back to its corner.
   const overlay = window.__jobPilottoOverlay, HOME = host.style.cssText, steps = [];
+  const WORKING_MARKS = ['reading', 'posting', 'opening', 'signing-in', 'signing-up'], MARK_STEP_MS = 60000; let markStepWords = '';
   const place = working => { host.style.cssText = working ? 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483646;pointer-events:none;' : HOME; jp.classList.toggle('working', working); };
   const drawSteps = () => $('.steps').replaceChildren(...steps.slice(-6, -1).map(text => Object.assign(document.createElement('li'), {textContent: text})));
   const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
@@ -73,6 +74,11 @@
     if (!host.isConnected) document.documentElement.append(host);
     // The person is needed (a captcha, a question the page asks) or the page is stuck: the layer is lifted so they can act, whatever step is showing.
     if (needsNow || (session?.stuck && !(session.live && ['running', 'input'].includes(session.status)))) { overlay.off(); place(false); }
+    // The extension reading or routing a page (page-mark.js: reading, posting, opening, signing-in/up) is working like a fill: the same layer and one step row, ending when the mark moves on.
+    const markNow = document.documentElement.getAttribute('data-jobpilotto-page') || '';
+    const markWorks = WORKING_MARKS.includes(markNow) && !needsNow && !moved && !(session?.stuck && !(session.live && ['running', 'input'].includes(session.status)));
+    if (markWorks && !filling) { const words = MARK_WORDS[markNow] || 'Apply button detected. Redirecting…'; if (markStepWords !== words) { const first = !markStepWords; markStepWords = words; const was = stepped; showStep(words, MARK_STEP_MS); stepped = was; if (first && !userMoved && !open) setOpen(true); } }
+    else if (markStepWords) { markStepWords = ''; endStep(); return null; }   // the mark moved on (or the person is needed): the layer lifts and the panel is drawn again
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     written.update(list);
     const needed = list.filter(f => f.required || f.ai || f.changed || f.draft);
@@ -110,7 +116,7 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = moved ? 'Continues in another tab' : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : markStepWords ? (title || company || 'Job Pilotto') : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
     $('.progress-line span').textContent = moved || pageMark ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
     $('.bar i').style.width = `${moved || pageMark ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
@@ -176,7 +182,7 @@
   let stepTimer = null, filledOnce = false, stepped = false; const STEP_SAFETY_MS = 45000;
   function showStep(text, wait = STEP_SAFETY_MS) {
     stepped = true;
-    $('.step-hint').textContent = /^check/i.test(text) ? 'Checking whether any fields need your input.' : 'Counts update as new fields appear.';   // our own step words, each with its sub-line (mockups 01/02)
+    $('.step-hint').textContent = /^check/i.test(text) ? 'Checking whether any fields need your input.' : /^(reading this page|putting back)/i.test(text) ? 'Looking for the application on this page.' : /^(apply button|logging in|creating your)/i.test(text) ? 'Taking you to the application form.' : 'Counts update as new fields appear.';   // our own step words, each with its sub-line (mockups 01/02)
     if (steps.at(-1) !== text) { steps.push(text); drawSteps(); }
     overlay.on(); place(true);
     const button = $('.fill');

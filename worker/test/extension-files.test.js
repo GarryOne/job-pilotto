@@ -99,7 +99,9 @@ test('the Submit guard can be loaded twice on a page (a second fill) without thr
 
 test('the panel (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
   const written = fs.readFileSync(new URL('../../extension/panel-written.js', import.meta.url), 'utf8');
-  const ring = readPanel().replace(written, '');   // panel-written.js is the one exception, pinned below: the person's own "Use this version" press
+  const overlayFile = fs.readFileSync(new URL('../../extension/panel-overlay.js', import.meta.url), 'utf8');
+  const ring = readPanel().replace(written, '').replace(overlayFile, '');   // panel-written.js is the one exception, pinned below: the person's own "Use this version" press; panel-overlay.js only holds the person's input and tells the panel, it never touches a field
+  assert.doesNotMatch(overlayFile, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|\.submit\(|requestSubmit/);
   // Only its own ring and panel get click handlers; the form's fields are scrolled to, outlined and focused.
   assert.doesNotMatch(ring, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|dispatchEvent|\.submit\(|requestSubmit/);
   assert.match(ring, /attachShadow/);

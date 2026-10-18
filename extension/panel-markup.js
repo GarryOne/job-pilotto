@@ -114,7 +114,9 @@
     .stopped:not([hidden]) ~ .fill-box, .verify:not([hidden]) ~ .fill-box { display: none; }   /* the state card has its own way on (Check form again / Show on form) */
     /* Working (owner, 19 Oct 2026): centred over the dimmed page, larger; the step row (spinner, step, Stop) stays, the steps done so far are listed above it. */
     .jp.working { align-items: center; } .jp.working .card:not([hidden]) ~ .pill, .jp.working .left, .jp.working .tailor, .jp.working .actions, .jp.working .recheck { display: none; }
-    .jp.working { zoom: 1.3; } .jp.working .card { max-width: calc((100vw - 32px) / 1.3); max-height: calc((100vh - 32px) / 1.3); }   /* in the prime spot: a third larger, every size with it */
+    .jp.working { zoom: 1.3; }
+    /* Centred over the form, the panel must not catch the driver's own clicks aimed at a field under it: it takes no hit-test while working, except Stop (the person's one way out) and the small minimise button. */
+    .jp.working > *, .jp.working .card * { pointer-events: none; } .jp.working .stop-btn, .jp.working .pill-stop, .jp.working .min { pointer-events: auto; } .jp.working .card { max-width: calc((100vw - 32px) / 1.3); max-height: calc((100vh - 32px) / 1.3); }   /* in the prime spot: a third larger, every size with it */
     .jp.working .progress-line b { font-size: 26px; } .jp.working .body { gap: 14px; }
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }

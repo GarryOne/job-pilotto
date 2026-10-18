@@ -33,7 +33,7 @@ const SEND = '<button id="x">Send</button>';
 async function sentAfterClick(markup) {
   const { window } = openPage(JSDOM, `<form><label for="n">Name *</label><input id="n" required value="Ada">${markup}</form>`);
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -62,7 +62,7 @@ test('a typeless button whose click really submits the form is noticed once, not
 test('a form submitted by a script (no click) is still noticed', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, '<form id="f"><input id="n" value="Ada"><button type="button">Yes</button></form>');
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -76,7 +76,7 @@ test('a form submitted by a script (no click) is still noticed', { skip: !JSDOM 
 test('a typeless button whose click handler calls form.requestSubmit() is noticed (the submit event fires)', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, '<form id="f"><input id="n" value="Ada"><button id="x">Continue</button></form>');
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -96,7 +96,7 @@ test('a typeless button whose click handler calls form.requestSubmit() is notice
 async function sentAfterOwnPress(markup) {
   const { window } = openPage(JSDOM, `<form><label for="n">Name *</label><input id="n" required value="Ada">${markup}</form>`);
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -115,7 +115,7 @@ test('a press the extension makes never counts as "submit pressed", whatever con
 test('the person pressing right after the extension still counts (the own press does not mute the next one)', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="closer" type="submit">Reject all</button><button id="x" type="submit">Go</button></form>');
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -137,7 +137,7 @@ test('a click the site\'s own script makes after the person pressed still counts
   const { window } = openPage(JSDOM, '<form id="f"><input id="n" value="Ada"><div id="styled" role="button">Send</div><button id="hidden" type="submit" style="display:none">Go</button></form>');
   const siteClick = window.HTMLElement.prototype.click;   // what a page script calls: the page's own click, never the extension's press helper
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
   evalPanel(window);
@@ -167,7 +167,7 @@ test('no extension file clicks a control without the marked press', () => {
 test('a debugger press the extension marked first never counts, the person\'s next click does', { skip: !JSDOM }, async () => {
   const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="x">Reject all</button></form>');
   const sent = [];
-  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.chrome = { runtime: { id: 'test', getManifest: () => ({ version: 'test' }), sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
   window.document.elementFromPoint = () => window.document.getElementById('x');   // jsdom has no layout
   window.eval(read('extension/page/skeleton.js'));
   window.eval(read('extension/page/submit-press.js'));
