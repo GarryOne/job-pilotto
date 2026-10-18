@@ -12,30 +12,32 @@ import {usageCost} from '../desktop/e2e/lib/vision.mjs';
 const repo = process.env.GITHUB_REPOSITORY || process.env.REPO || 'GarryOne/job-pilotto';
 const base = process.env.CHANGELOG_URL || 'https://www.jobpilotto.top/changelog/data';
 const PATHS = ['desktop', 'src', 'config', 'tools', 'extension', 'worker/src', 'requirements.txt'];   // keep in sync with desktop/scripts/release-notes.sh
-const FIRST = '0.7.16';   // the first version on the page; earlier ones were never published
 const arg = name => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] ?? '' : ''; };
 const out = (cmd, ...args) => execFileSync(cmd, args, {encoding: 'utf8', maxBuffer: 1 << 26}).trim();
-const order = version => versionOf(version).split('.').map(Number);
+const order = version => versionOf(version).replace(/-alpha\.\d+$/, '').split('.').map(Number);   // 0.4.0-alpha.254 sorts as 0.4.0
 const byVersion = (a, b) => { const x = order(a.tagName), y = order(b.tagName); return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]); };
 
 // GitHub releases [{tagName, isPrerelease, isDraft, publishedAt, body}] + what the site has ({version: channel}) -> the work, oldest first:
-//   {tag, prev, version, date, channel} to draft, {version, channel: 'stable'} to promote a stored beta. A version needs an earlier published version to have a "since".
-export function plan(releases, have = {}) {
-  const published = releases.filter(item => /^desktop-v\d+\.\d+\.\d+$/.test(item.tagName) && !item.isDraft && (!item.isPrerelease || /^Beta-approved/m.test(item.body || ''))).sort(byVersion);
+//   {tag, prev, version, date, channel} to draft, {version, channel: 'stable'} to promote a stored beta. The oldest release is "since" the first commit (`root`, a sha), so the page starts at the project's start (backfill 18 Oct 2026).
+export function plan(releases, have = {}, root = '') {
+  const published = releases.filter(item => /^desktop-v\d+\.\d+\.\d+(-alpha\.\d+)?$/.test(item.tagName) && !item.isDraft && (!item.isPrerelease || /^Beta-approved/m.test(item.body || ''))).sort(byVersion);
   const draft = [], promote = [];
   published.forEach((item, at) => {
-    const version = versionOf(item.tagName), channel = item.isPrerelease ? 'beta' : 'stable';
-    if (at === 0 || byVersion({tagName: version}, {tagName: FIRST}) < 0) return;
-    if (!(version in have)) draft.push({tag: item.tagName, prev: published[at - 1].tagName, version, date: item.publishedAt.slice(0, 10), channel});
+    const version = order(item.tagName).join('.'), channel = item.isPrerelease ? 'beta' : 'stable';
+    if (at === 0 && !root) return;
+    if (!(version in have)) draft.push({tag: item.tagName, prev: at ? published[at - 1].tagName : root, first: at === 0, version, date: item.publishedAt.slice(0, 10), channel});
     else if (have[version] === 'beta' && channel === 'stable') promote.push({version, channel});
   });
   return {draft, promote};
 }
 
 // One version -> {entry} or {hidden: true} (nothing a user would notice) and its cost; throws when the AI's answer is unusable (nothing is published for it).
-export async function draftEntry({tag, prev, version, date, channel}, {subjects, key, fetch: doFetch}) {
+// The 0.0.1 entry: the project start, dated at the first commit. Fixed words (checked by problems() like any entry), no AI call.
+export const startEntry = date => ({version: '0.0.1', date, channel: 'start', groups: [{kind: 'features', items: [{emoji: '🌱', lead: 'Job Pilotto begins', text: 'The very first version finds job openings in Switzerland and sends you a daily list.'}]}]});
+
+export async function draftEntry({tag, prev, first, version, date, channel}, {subjects, key, fetch: doFetch}) {
   if (!subjects.length) return {hidden: true, cost: 0, dropped: []};
-  const user = `Version ${version} (changes since ${versionOf(prev)}):\n${subjects.map(line => `- ${line}`).join('\n')}`;
+  const user = `Version ${version} (changes since ${first ? 'the start of the project' : versionOf(prev)}):\n${subjects.map(line => `- ${line}`).join('\n')}`;
   const usage = {input_tokens: 0, output_tokens: 0};
   let failure = '';
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -52,6 +54,7 @@ export async function draftEntry({tag, prev, version, date, channel}, {subjects,
   throw new Error(`${version}: the model's answer was unusable twice (${failure})`);
 }
 
+const rootOf = () => { const sha = out('git', 'rev-list', '--max-parents=0', 'HEAD').split('\n').pop(); return {sha, date: out('git', 'log', '-1', '--format=%as', sha)}; };
 const subjectsOf = ({tag, prev}) => out('git', 'log', '--no-merges', '--format=%s', `${prev}..${tag}`, '--', ...PATHS).split('\n').filter(Boolean).slice(0, 150);
 const siteCall = async (method, body, key) => {
   const response = await fetch(base, {method, headers: {Authorization: `Bearer ${key}`, 'Content-Type': 'application/json'}, ...(body ? {body: JSON.stringify(body)} : {})});
@@ -66,9 +69,11 @@ async function main() {
   const releases = JSON.parse(out('gh', 'release', 'list', '-R', repo, '-L', '200', '--json', 'tagName,isPrerelease,isDraft,publishedAt'));
   for (const item of releases.filter(release => release.isPrerelease)) item.body = JSON.parse(out('gh', 'release', 'view', item.tagName, '-R', repo, '--json', 'body')).body;
   const have = dry ? {} : (await siteCall('GET', null, siteKey)).have;
-  let {draft, promote} = plan(releases, have);
-  if (arg('tag')) draft = plan(releases, {}).draft.filter(item => item.tag === arg('tag'));
+  const root = rootOf();
+  let {draft, promote} = plan(releases, have, root.sha);
+  if (arg('tag')) draft = plan(releases, {}, root.sha).draft.filter(item => item.tag === arg('tag'));
   const entries = [], hidden = [], failures = [];
+  if (!arg('tag') && !('0.0.1' in have)) entries.push(startEntry(root.date));
   let spent = 0, calls = 0;
   for (const work of draft) {
     try {

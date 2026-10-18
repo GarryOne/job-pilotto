@@ -33,12 +33,14 @@ test('only a well-formed, clean entry passes: version, date, channel, kinds, ite
   assert.deepEqual(problems(good), []);
   assert.ok(problems({...good, version: 'v1'}).includes('version'));
   assert.ok(problems({...good, channel: 'alpha'}).includes('channel'));
+  assert.deepEqual(problems({...good, version: '0.0.1', channel: 'start'}), []);
   assert.ok(problems({...good, groups: []}).includes('groups'));
   assert.ok(problems({...good, groups: [{kind: 'secrets', items: good.groups[0].items}]}).some(item => item.startsWith('kind')));
   assert.ok(problems({...good, groups: [{kind: 'fixes', items: []}]}).some(item => item.startsWith('items')));
   assert.ok(problems({...good, groups: [{kind: 'fixes', items: [{lead: 'Pro', text: 'Pro launched.'}]}]}).some(item => item.startsWith('item')));
   assert.ok(problems({...good, groups: [{kind: 'fixes', items: [{emoji: 'abc', lead: 'A', text: 'B.'}]}]}).some(item => item.startsWith('item')));
   assert.deepEqual(newestFirst(['0.7.2', '0.7.16', '0.7.12'].map(version => ({version}))).map(entry => entry.version), ['0.7.16', '0.7.12', '0.7.2']);
+  assert.deepEqual(newestFirst(['0.0.1', '0.4.0', '0.7.2'].map(version => ({version}))).map(entry => entry.version), ['0.7.2', '0.4.0', '0.0.1']);
 });
 
 test('every entry in the fallback file passes the same rules', () => {
@@ -57,6 +59,14 @@ test('the page reads changelog.json, shows the three group titles and the channe
   assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobpilotto\.top\/changelog<\/loc>/);
   assert.match(pub('index.html'), /<a href="changelog\.html">What's new<\/a>/);
   assert.doesNotMatch(html, /\$\d|\bPro\b/);
+});
+
+test('the page puts a row of dots above the project-start entry (the gap before the first registered release) and labels it as the start', () => {
+  const script = pub('changelog.html').split('<script>')[1];
+  assert.match(script, /entry\.channel === 'start'/);
+  assert.match(script, /className = 'gap'/);
+  assert.match(script, /aria-hidden/);
+  assert.match(script, /Project start/);
 });
 
 test('every page with the top menu links to "What\'s new", on desktop (link row) and phone (beside Download)', () => {
