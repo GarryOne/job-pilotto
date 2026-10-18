@@ -64,7 +64,7 @@ jobs:
         run: node tools/persona-search/draw-upload.mjs "$RUNNER_TEMP/draw-out" --build "$GITHUB_SHA" --branch main
       - name: Keep the numbers (no job text, no log)
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: random-draw-${{ steps.draw.outputs.seed }}
           path: |
