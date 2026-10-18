@@ -25,6 +25,11 @@ class Element {
   dispatch(type, event = {}) { for (const fn of this.listeners[type] || []) fn({preventDefault() {}, stopPropagation() {}, target: this, ...event}); }
   click() { this.dispatch('click'); }
   focus() {} select() {} scrollIntoView() {} setSelectionRange() {}
+  getBoundingClientRect() { return {top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0}; }
+  get offsetHeight() { return 0; }
+  get offsetWidth() { return 0; }
+  get isConnected() { return true; }
+  contains(node) { return node === this || this.all().includes(node); }
   closest(selector) { for (let node = this; node && node.matches; node = node.parentNode) if (node.matches(selector)) return node; return null; }
   get options() { return this.children.filter(c => c.tagName === 'OPTION'); }
   set textContent(text) { this.children = [new Text(String(text))]; }
