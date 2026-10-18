@@ -197,6 +197,14 @@ def sources(env=None):
     return found
 
 
+def read_lately(db, name, now=None):
+    """When reader `name` was last read, if that was within SPACING_HOURS (it is not read again before), else None."""
+    db.execute(TABLE)
+    last = db.execute('SELECT at FROM aggregator_runs WHERE source = ?', (name,)).fetchone()
+    at = datetime.fromisoformat(last[0]) if last else None
+    return at if at and at > (now or datetime.now(timezone.utc)) - timedelta(hours=SPACING_HOURS) else None
+
+
 def kept(db, name, found, now=None):
     """One reader's jobs in your roles and places, in the report's shape, each recorded in the seen history; their employer named
     (board_employers). Also the first-jobs slice's proven boards (src/first_jobs.py)."""
@@ -226,8 +234,7 @@ def scan(db, search, now=None, readers=None, on_jobs=None, ahead=None):
     now = now or datetime.now(timezone.utc)
     db.execute(TABLE)
     for name, read in (readers if readers is not None else sources()):
-        last = db.execute('SELECT at FROM aggregator_runs WHERE source = ?', (name,)).fetchone()
-        if last and datetime.fromisoformat(last[0]) > now - timedelta(hours=SPACING_HOURS):
+        if read_lately(db, name, now):
             continue
         try:
             if ahead is not None and name == boards_ahead.NAME:

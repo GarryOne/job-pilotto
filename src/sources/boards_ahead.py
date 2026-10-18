@@ -5,7 +5,6 @@ boards' reader judged them, and aggregators.scan takes them instead of a second 
 Tests: tests/test_boards_ahead.py."""
 import os
 from concurrent.futures import ThreadPoolExecutor, wait as wait_for
-from datetime import datetime, timedelta, timezone
 
 NAME = 'Job boards found'   # aggregators.sources' name for found_boards.read
 
@@ -56,9 +55,7 @@ def start(db, search, env=None, now=None):
     read = dict(aggregators.sources(env)).get(NAME)
     if read is None:
         return None
-    db.execute(aggregators.TABLE)
-    last = db.execute('SELECT at FROM aggregator_runs WHERE source = ?', (NAME,)).fetchone()
-    if last and datetime.fromisoformat(last[0]) > (now or datetime.now(timezone.utc)) - timedelta(hours=aggregators.SPACING_HOURS):
+    if aggregators.read_lately(db, NAME, now):
         return None
     return Ahead(search, read)
 

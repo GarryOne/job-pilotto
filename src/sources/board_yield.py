@@ -75,9 +75,21 @@ def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remem
     return tried + (untried[:MAX_UNTRIED] if total_relevant(kept) < ENOUGH else [])
 
 
+def _read_by_the_search():
+    """The found boards were read by a search within the board scan's spacing (src/sources/aggregators.py read_lately)."""
+    from contextlib import closing
+    from ..paths import DATA
+    from . import aggregators, boards_ahead, feeds
+    try:
+        with closing(feeds.database(DATA / 'jobs.sqlite')) as db:
+            return aggregators.read_lately(db, boards_ahead.NAME) is not None
+    except Exception:  # noqa: BLE001 — unknown: the step reads them
+        return False
+
+
 def step(search, is_relevant=is_relevant):
-    """The 'Searching job boards' step for the found boards: reads them for any country and says in one line per board what it gave. Returns
-    the sources lines (src/sources/boards.py main)."""
+    """The 'Searching job boards' step for the found boards: reads them for any country and says in one line per board what it gave; boards a
+    search read within the board scan's spacing are not read again, their last read is said. Returns the sources lines (src/sources/boards.py main)."""
     from ..ai import board_ideas
     from . import found_boards
     found = board_ideas.ideas(search)
@@ -87,7 +99,11 @@ def step(search, is_relevant=is_relevant):
     found = found + remembered(found, board_ideas.load().get('boards') or {})   # boards that paid before stay, whatever this proposal says
     print('Job boards: ' + ', '.join(board['name'] for board in found), flush=True)
     before = {host: entry.get('last_read') for host, entry in (board_ideas.load().get('boards') or {}).items()}
-    found_boards.read(search, found, is_relevant=is_relevant)
+    if _read_by_the_search():   # 19 Oct 2026: a first search read the same boards again right after its digest, ~60-90 s, jobs unused
+        print('Job boards: already read by this search; read again in a few hours', flush=True)
+        before = {}   # what that read gave
+    else:
+        found_boards.read(search, found, is_relevant=is_relevant)
     kept, out = board_ideas.load().get('boards') or {}, []
     for board in found:
         entry = kept.get(board['host']) or {}

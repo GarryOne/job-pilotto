@@ -9,6 +9,7 @@ cache's source_yield table: src/sources/board_yield.py dead). The outcome of eac
 this one their jobs are read first, the top 2 in the first-jobs slice (src/first_jobs.py; their jobs are handed to the full read, not
 fetched twice: the full read reuses the slice's pages). Tests: tests/test_found_boards.py, tests/test_proven_boards.py."""
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -162,11 +163,12 @@ def _another_way(board, entry, proposed, search, fetch, judge, before):
     return before
 
 
-def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, remember=True):
+def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, spare=()):
     """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
     by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
     full read, which asks the board in full and serves the pages the slice fetched from them instead of fetching them again. workers: boards
-    read at once; remember=False: the given boards only (board_yield.pick)."""
+    read at once. spare: boards read, in their order, each in place of one that refuses automated reading, as soon as it refuses (owner,
+    19 Oct 2026: a second wave after the first made Finance's first-jobs step wait 35 s; 4 of music's first 6 boards refused)."""
     from ..ai import board_ideas
     fetch = fetch or careers.get_text   # looked up when called: a test's or a run's own fetcher applies
     from . import board_yield
@@ -174,20 +176,25 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     kept = data.setdefault('boards', {})
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
-    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now),
-                            dead if dead is not None else _dead(), remember)
+    retry, dropped = (lambda entry: _retry_due(entry, now)), (dead if dead is not None else _dead())
+    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, retry, dropped)
     ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
-    reads = []
-    for board in todo:
+
+    def item(board):
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url']})
         proposed = board['search_url']
         if entry.get('form_url') and entry.get('form_for') == proposed:   # the board's own search form gave relevant jobs for this link
             board = {**board, 'search_url': entry['form_url']}
         handed = _early.pop(board['host'], None)
-        reads.append((board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}, proposed))
+        return (board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}, proposed)
+    reads = [item(board) for board in todo]
+    hosts = {board['host'] for board in todo}
+    spares = list(enumerate(item(board) for board in (board_yield.pick(spare, kept, retry, dropped, remember=False) if spare else [])
+                            if board['host'] not in hosts))
+    taken, lock = [], threading.Lock()   # taken: (spare order, item, result) of the boards read in place of one that refused
 
-    def one(item):   # one board's pages; what is kept of it is decided below, in the list's order, in this thread
-        board, entry, pages, fetched, _ = item
+    def one(read_item):   # one board's pages; what is kept of it is decided below, in the list's order, in this thread
+        board, entry, pages, fetched, _ = read_item
 
         def through(url):   # a page this search's first-jobs slice fetched is served from it, not asked again
             if url in pages:
@@ -197,27 +204,49 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
                 fetched[url] = page
             return page
         return read_board(board, search, through, entry.get('route'), early=early)
+
+    def one_or_spare(read_item):   # the board's own result; while what was read refuses, the next spare board is read in its place
+        first = result = one(read_item)
+        name = read_item[0]['name']
+        while result[1] == 'browser':
+            with lock:
+                if not spares:
+                    break
+                order, spare_item = spares.pop(0)
+            print(f"Job boards: {name} refuses automated reading; reading {spare_item[0]['name']} in its place", flush=True)
+            result = one(spare_item)
+            with lock:
+                taken.append((order, spare_item, result))
+            name = spare_item[0]['name']
+        return first
+
+    def keep(read_item, result):
+        board, entry, _, fetched, proposed = read_item
+        found, state, route = result
+        if early:   # the full read asks every query and the next pages, reusing these
+            _early[board['host']] = (time.monotonic(), fetched)
+        entry.pop('route', None)
+        entry.pop('route_kind', None)
+        if route:
+            entry['route'] = route
+            entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
+        judge = is_relevant or board_yield.is_relevant
+        relevant = judge(found) if found else []
+        if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
+            found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant))
+        entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
+                      'source_kind': board.get('source_kind') or 'general'})
+        board_yield.record(entry, len(found), len(relevant), state)
+        print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
+        run_counts.looked(found)
+        run_counts.matched(relevant)
+        jobs.extend(found)
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:   # 18 Oct 2026: Chisinau's 2 slice boards gave nothing, its 4th and 8th 14 jobs
-        for done, ((board, entry, _, fetched, proposed), (found, state, route)) in enumerate(zip(reads, pool.map(one, reads)), 1):
-            if early:   # the full read asks every query and the next pages, reusing these
-                _early[board['host']] = (time.monotonic(), fetched)
-            entry.pop('route', None)
-            entry.pop('route_kind', None)
-            if route:
-                entry['route'] = route
-                entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
-            judge = is_relevant or board_yield.is_relevant
-            relevant = judge(found) if found else []
-            if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
-                found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant))
-            entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
-                          'source_kind': board.get('source_kind') or 'general'})
-            board_yield.record(entry, len(found), len(relevant), state)
-            print(f"Job boards found: {board['name']} {len(found)} job(s), {len(relevant)} relevant{'' if state != 'browser' else ' (refuses automated reading: offered as a visit)'}", flush=True)
-            run_counts.looked(found)
-            run_counts.matched(relevant)
-            jobs.extend(found)
-            ticker.tick(done, f" · {board['name']}")
+        for done, (read_item, result) in enumerate(zip(reads, pool.map(one_or_spare, reads)), 1):
+            keep(read_item, result)
+            ticker.tick(done, f" · {read_item[0]['name']}")
+    for _, spare_item, result in sorted(taken, key=lambda entry: entry[0]):   # after the others, in the spares' order: a replay sees one order
+        keep(spare_item, result)
     board_ideas.save(data)
     board_employers.note(jobs, 'Job boards found')
     return jobs

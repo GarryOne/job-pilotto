@@ -54,24 +54,19 @@ def board_jobs(say=print, search=None):
     from .paths import load_search_config
     from .sources import found_boards
     search = search or load_search_config()
-    top = board_ideas.proven(search, limit=SLICE_BOARDS)
+    top, spare = board_ideas.proven(search, limit=SLICE_BOARDS), []
     if top:
         say(f"First jobs: reading {', '.join(board['name'] for board in top)}, the job board{'s' if len(top) > 1 else ''} that gave people "
             'like you the most jobs')
     else:
-        top = _proposed(board_ideas, search)[:SLICE_BOARDS]
+        proposed = _proposed(board_ideas, search)
+        top, spare = proposed[:SLICE_BOARDS], proposed[SLICE_BOARDS:2 * SLICE_BOARDS]
         if not top:
             return []
         say(f"First jobs: reading {', '.join(board['name'] for board in top)}, job board{'s' if len(top) > 1 else ''} for your country")
-    jobs = found_boards.read(search, top, early=True, workers=SLICE_BOARDS)
-    read, refusing = {board['host'] for board in top}, _refused(board_ideas)
-    refused = [board for board in top if board['host'] in refusing]
-    more = [board for board in _proposed(board_ideas, search) if board['host'] not in read][:len(refused)] if refused else []
-    if more:   # 19 Oct 2026: 4 of music's 6 first boards refused automated reading in 2 s each; their places go to the next ones
-        say(f"First jobs: {len(refused)} job board{'s' if len(refused) > 1 else ''} refused automated reading; reading "
-            f"{', '.join(board['name'] for board in more)} instead")
-        jobs += found_boards.read(search, more, early=True, workers=SLICE_BOARDS, remember=False)
-    return jobs
+    # a board that refuses gives its place to the next proposed one at once, in the same read (19 Oct 2026: a second wave after the first
+    # made Finance's slice wait 35 s)
+    return found_boards.read(search, top, early=True, workers=SLICE_BOARDS, spare=spare)
 
 
 def _refused(board_ideas):

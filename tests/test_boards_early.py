@@ -1,5 +1,6 @@
 """Job boards read early (owner, 19 Oct 2026: music's only paying board, XING, was 7th of the proposal and its jobs came at 351 s): the
-first-jobs slice reads 6 boards at once and replaces each one that refuses automated reading by the next proposed one (src/first_jobs.py);
+first-jobs slice reads 6 boards at once and replaces each one that refuses automated reading by the next proposed one, at once and in the
+same read (src/first_jobs.py, src/sources/found_boards.py spare); the app's board step after the search does not read them again;
 the full search reads the found boards beside the employer sites, not after them, and shows their jobs as soon as they are read
 (src/sources/boards_ahead.py), and the board scan takes them instead of reading again (src/sources/aggregators.py)."""
 import sqlite3
@@ -31,37 +32,87 @@ def board(n):
 
 
 class SliceTests(unittest.TestCase):
-    def slice(self, refusing):
-        """The slice's board reads, as [(hosts, workers, remember)], with `refusing` hosts marked 'browser' by their read."""
-        data, reads, said = {'boards': {}}, [], []
-
-        def read(search, boards, early=False, workers=found_boards.BOARD_WORKERS, remember=True):
-            reads.append(([b['host'] for b in boards], workers, remember))
-            for b in boards:
-                data['boards'][b['host']] = {'state': 'browser' if b['host'] in refusing else 'ok'}
-            return [{'title': 'Tontechniker', 'host': b['host']} for b in boards if b['host'] not in refusing]
-        with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(board_ideas, 'ideas', return_value=[board(n) for n in range(1, 10)]), \
-                mock.patch.object(board_ideas, 'load', return_value=data), mock.patch.object(found_boards, 'read', read):
-            jobs = first_jobs.board_jobs(said.append, SEARCH)
-        return reads, jobs, said
-
-    def test_six_boards_are_read_at_once(self):
+    def test_six_boards_are_read_at_once_with_the_next_six_as_spares(self):
         self.assertLessEqual(first_jobs.SLICE_BOARDS, board_yield.MAX_UNTRIED, 'one read takes this many untried boards')
-        reads, jobs, _ = self.slice(refusing=set())
-        self.assertEqual(reads, [([f'b{n}.example' for n in range(1, 7)], 6, True)], 'no refusal: one read')
-        self.assertEqual(len(jobs), 6)
+        reads = []
 
-    def test_a_board_that_refuses_is_replaced_by_the_next_proposed_one(self):
-        reads, jobs, said = self.slice(refusing={'b1.example', 'b3.example', 'b5.example', 'b6.example'})
-        self.assertEqual(reads[1], (['b7.example', 'b8.example', 'b9.example'], 6, False), 'the next ones, these only (no board read twice)')
-        self.assertEqual(sorted(job['host'] for job in jobs), ['b2.example', 'b4.example', 'b7.example', 'b8.example', 'b9.example'])
-        self.assertTrue(any('refused automated reading; reading Board 7, Board 8, Board 9 instead' in line for line in said), said)
+        def read(search, boards, early=False, workers=found_boards.BOARD_WORKERS, spare=()):
+            reads.append(([b['host'] for b in boards], workers, [b['host'] for b in spare]))
+            return []
+        with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(board_ideas, 'ideas', return_value=[board(n) for n in range(1, 14)]), \
+                mock.patch.object(board_ideas, 'load', return_value={'boards': {}}), mock.patch.object(found_boards, 'read', read):
+            first_jobs.board_jobs(lambda line: None, SEARCH)
+        self.assertEqual(reads, [([f'b{n}.example' for n in range(1, 7)], 6, [f'b{n}.example' for n in range(7, 13)])], 'one read, no second wave')
 
     def test_a_second_wave_reads_the_given_boards_only(self):
         kept = {'paid.example': {'state': 'ok', 'relevant': 4, 'search_url': 'https://paid.example/?q={role}', 'countries': ['Germany'],
                                  'last_read': '2026-10-18'}}
         self.assertIn('paid.example', [b['host'] for b in board_yield.pick([board(7)], kept)])
         self.assertEqual([b['host'] for b in board_yield.pick([board(7)], kept, remember=False)], ['b7.example'])
+
+
+class SpareTests(unittest.TestCase):
+    """found_boards.read(spare=...): a board that refuses gives its place to the next spare board at once, while the others are still read."""
+    def read(self, refusing, slow=None):
+        data, order, said = {'boards': {}}, [], []
+        spare_started = threading.Event()
+
+        def read_board(board, search, fetch, route=None, early=False):
+            if board['host'] == slow:   # the slowest first board: still being read when the spare one starts
+                self.assertTrue(spare_started.wait(5), 'the spare board is read while the first ones are, not after them')
+            if int(board['host'][1:].split('.')[0]) > 6:
+                spare_started.set()
+            return ([], 'browser', None) if board['host'] in refusing else ([{'title': 'Tontechniker', 'url': f"https://{board['host']}/1"}], 'ok', None)
+
+        def judge(jobs):
+            return list(jobs)
+        with mock.patch.object(board_ideas, 'load', return_value=data), mock.patch.object(board_ideas, 'save'), \
+                mock.patch.object(found_boards, 'read_board', read_board), mock.patch.object(found_boards, '_dead', return_value=set()), \
+                mock.patch.object(found_boards.board_employers, 'note'), mock.patch('builtins.print', lambda *a, **k: said.append(' '.join(map(str, a)))):
+            jobs = found_boards.read(SEARCH, [board(n) for n in range(1, 7)], early=True, workers=6, spare=[board(n) for n in range(7, 10)],
+                                     is_relevant=judge, dead=set())
+        found = [line.split(': ', 1)[1].split(' ')[0:2] for line in said if line.startswith('Job boards found:')]
+        return jobs, [' '.join(name) for name in found], said
+
+    def test_each_refusing_board_is_replaced_at_once_and_kept_after_the_others(self):
+        jobs, kept_order, said = self.read(refusing={'b1.example', 'b3.example', 'b7.example'}, slow='b2.example')
+        self.assertEqual(kept_order, [f'Board {n}' for n in range(1, 10)], 'the first boards in their order, then the spares in theirs')
+        self.assertEqual(sorted(job['url'] for job in jobs), sorted(f'https://b{n}.example/1' for n in (2, 4, 5, 6, 8, 9)))
+        self.assertTrue(any('Board 7 refuses automated reading; reading Board 9 in its place' in line or
+                            'Board 7 refuses automated reading; reading Board 8 in its place' in line for line in said), said)
+
+    def test_no_refusal_reads_no_spare(self):
+        jobs, kept_order, _ = self.read(refusing=set())
+        self.assertEqual(kept_order, [f'Board {n}' for n in range(1, 7)])
+
+
+class OnceTests(unittest.TestCase):
+    """The app's 'Searching job boards' step after a first search (desktop/lib/search-steps.js) does not read the boards that search read."""
+    def step(self, read_lately):
+        reads = []
+        kept = {'b1.example': {'name': 'Board 1', 'last_read': '2026-10-19T00:05:00+00:00', 'jobs': 38, 'relevant': 14, 'state': 'ok'}}
+        with mock.patch.object(board_ideas, 'ideas', return_value=[board(1)]), mock.patch.object(board_ideas, 'load', return_value={'boards': kept}), \
+                mock.patch.object(found_boards, 'read', lambda *a, **k: reads.append(1) or []), \
+                mock.patch.object(board_yield, '_read_by_the_search', return_value=read_lately):
+            lines = board_yield.step(SEARCH)
+        return reads, lines
+
+    def test_boards_the_search_read_are_not_read_again(self):
+        reads, lines = self.step(read_lately=True)
+        self.assertEqual(reads, [])
+        self.assertEqual(lines, [{'source': 'Board 1', 'status': '38 listed, 14 relevant (your roles, your places)'}], 'what that read gave')
+
+    def test_boards_not_read_lately_are_read(self):
+        reads, _ = self.step(read_lately=False)
+        self.assertEqual(reads, [1])
+
+    def test_read_lately_follows_the_board_scans_spacing(self):
+        from datetime import datetime, timedelta, timezone
+        db, now = sqlite3.connect(':memory:'), datetime(2026, 10, 19, 12, 0, tzinfo=timezone.utc)
+        self.assertIsNone(aggregators.read_lately(db, boards_ahead.NAME, now))
+        db.execute('INSERT INTO aggregator_runs VALUES (?, ?)', (boards_ahead.NAME, (now - timedelta(minutes=5)).isoformat()))
+        self.assertIsNotNone(aggregators.read_lately(db, boards_ahead.NAME, now))
+        self.assertIsNone(aggregators.read_lately(db, boards_ahead.NAME, now + timedelta(hours=aggregators.SPACING_HOURS)))
 
 
 class SoFar:
