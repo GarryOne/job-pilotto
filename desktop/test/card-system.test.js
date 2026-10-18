@@ -20,6 +20,7 @@ const NOT_A_CARD = {
   'pages/actions-board.js': 'Cancel a queued task on the Actions board',
   'pages/ai-engine.js': 'the switch-engine confirm dialog',
   'pages/ready-confirm.js': 'the Fill now confirm dialog',
+  'pages/ready-pick.js': 'the Fill now count dialog',
   'pages/employers-paste.js': 'the Add employers dialog',
   'pages/plan-waitlist.js': 'the Pro waitlist dialog',
   'pages/settings.js': 'Delete for good / Cancel confirm on Data & backup',
