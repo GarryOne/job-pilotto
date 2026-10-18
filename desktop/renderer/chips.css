@@ -8,6 +8,8 @@
 .chip-tag { display: inline-flex; align-items: center; gap: var(--sp-1); }   /* chip(): the value, then a muted detail ("C1"), then × when removable */
 .chip-tag .chip-detail { color: var(--muted); }
 .chip-tag .chip-detail::before { content: "· "; }
+.chip-tag.is-part { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }   /* also matches inside longer words */
+.chip-tag.is-part::after { content: "≈"; color: var(--muted); }
 .chip-tag.removable { padding-right: var(--sp-1); }
 .chip-tag .x { background: transparent; border: 0; padding: 0 var(--sp-1); color: var(--muted); font-size: var(--fs-md); line-height: 1; cursor: pointer; }
 .chip-tag .x:hover { color: var(--bad); }

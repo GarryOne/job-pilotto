@@ -21,7 +21,8 @@ import {coverage, relocationNow, relocationWords, remoteWords} from '../location
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
 import {drawOutdated} from './strategy-rescore.js';
-import {chipsOf, folded, loadMeanings, meaningLabels, typoHints} from './strategy-chips.js';
+import {chipsOf, folded, loadMeanings, meaningLabels, partLegend, typoHints} from './strategy-chips.js';
+import {readRows} from '../card-shell.js';
 import {GROUPS, asWholeWord, matchGroups, placeLabel, shownGroups, shownWord} from '../match-groups.js';
 
 // ---------- The setup review's cards, with your live settings (owner, 7 Oct 2026). Lists: Edit → the page bar's Save (lib/strategy.js editLists, to
@@ -154,14 +155,19 @@ function minScoreInput() {
   });
   return input;
 }
-const LEADS = {places: 'Where you want to work.'};
+const LEADS = {places: 'Where you want to work.', queries: 'What we type into job boards such as jobs.ch.', stack: 'Key skills and tools you want in jobs.'};
 function targetCard([key, glyph, title, lists]) {
   const open = isOpen(key), card = el('section', `card${open ? ' is-editing' : ''}`);
   card.dataset.list = key;
   card.dataset.card = key;
   card.append(cardHeader(key, glyph, CARD_TONE[key] || 'neutral', title, LEADS[key] || '', card));
   if (key === 'places') card.append(...[coverageLine(reloadTargets)].filter(Boolean));   // visible in both modes, Advanced or not
-  if (!open) { card.append(...VIEWS[key]()); return card; }
+  if (!open) {
+    legend.on = false;
+    card.append(...VIEWS[key]());
+    if (legend.on) card.append(partLegend());
+    return card;
+  }
   for (const [name, label, placeholder] of lists) {
     // Relocation is a value (Yes / No / Not specified); its places are asked only for Yes, and kept whatever the mode.
     if (name === 'abroad') { card.append(el('p', 'sub', 'Relocation'), relocationChoice(renderTargets)); if (relocationNow(strategyState.lastStrategy, drafts().targetEdits) !== 'yes') continue; }
@@ -174,14 +180,12 @@ function targetCard([key, glyph, title, lists]) {
   if (key === 'search') card.append(el('p', 'sub', 'Your level'), levelChoice(), el('p', 'sub', 'Minimum fit score for the digest'), minScoreInput());
   return card;
 }
-// ---------- The cards as read (not editing): grouped and short; Edit shows every list in full as before ----------
-// One labelled row: an icon, a label, then its value (words or chips).
-function settingRow(glyph, label, value) {
-  const row = el('div', 'setting-row'), words = el('div', 'setting-body');
-  words.append(el('b', '', label), typeof value === 'string' ? el('span', 'muted', value) : value);
-  row.append(icon(glyph), words);
-  return row;
-}
+// ---------- The cards as read (owner, 18 Oct 2026, Strategy sketch: "label left, values right, a line between settings"): each setting one row of the
+// card shell's lined rows (card-shell.js readRows), a list as chips folded after 10 ("+N more"), a chip that also matches inside longer words outlined
+// with "≈" and one legend line under its card (strategy-chips.js). Edit shows every list in full as before. Guarded by test/strategy-read-rows.test.js.
+const none = text => el('span', 'muted', text);
+const rowsOf = rows => readRows(rows, {lined: true});
+const legend = {on: false};   // the card being drawn holds a chip that also matches inside longer words
 const savedLabels = name => entriesOf(strategyState.lastStrategy, name).map(entry => entry.label);
 // A list as read: as saved, or, while its card holds a draft, as Save will write it (words still typed included), so a closed card's summary shows it.
 export function draftEntries(name) {
@@ -191,17 +195,28 @@ export function draftEntries(name) {
   return edit ? editedList(stored, edit) : stored;
 }
 const labelsOf = name => draftEntries(name).map(entry => entry.label);
-// As read: one chip per meaning (strategy-chips.js), whole-word entries apart when a list mixes both kinds, "Did you mean …?" lines under the chips.
-// A list with a draft draws its draft words plainly: meanings and typo hints belong to what is saved.
+// As read: one chip per meaning (strategy-chips.js), in the order saved; when a list mixes both kinds its match-anywhere chips are outlined (parts), and
+// "Did you mean …?" lines sit under the chips. A list with a draft draws its draft words plainly: meanings and typo hints belong to what is saved.
+// draw(labels, parts) -> a node.
 const shownOf = name => meaningLabels(name, savedLabels(name));
 function withHints(name, draw) {
-  if (dirty().has(name)) return draw(labelsOf(name));
-  const parts = shownGroups(entriesOf(strategyState.lastStrategy, name), shownOf(name));
+  if (dirty().has(name)) return draw(labelsOf(name), null);
+  const shown = shownOf(name), groups = shownGroups(entriesOf(strategyState.lastStrategy, name), shown);
+  const parts = groups.length > 1 ? new Set(groups[0].labels.map(label => (typeof label === 'string' ? label : label.main))) : null;   // GROUPS[0]: anywhere
+  if (parts) legend.on = true;
   const hints = typoHints(name, {fix: (entry, suggestion, button) => fixTypo(name, entry, suggestion, button), keep: keepTypo});
-  if (parts.length === 1 && !hints.length) return draw(parts[0].labels);
-  const box = el('div', 'setting-body');   // the row's own grid: groups and lines sit under each other at its gap
-  for (const part of parts) box.append(...(part.title ? [el('span', 'muted small', part.title)] : []), draw(part.labels));
-  box.append(...hints);
+  if (!hints.length) return draw(shown, parts);
+  const box = el('div', 'setting-body');   // the chips, then the hints under them
+  box.append(draw(shown, parts), ...hints);
+  return box;
+}
+const chipRow = name => withHints(name, (labels, parts) => folded(labels, {parts}));
+// Relocation as read: Yes / No / Not specified, and for Yes its places as chips.
+function relocationValue() {
+  const mode = relocationNow(strategyState.lastStrategy, drafts().targetEdits), word = relocationWords(mode, []);
+  if (mode !== 'yes' || !labelsOf('abroad').length) return word;
+  const box = el('div', 'setting-body');
+  box.append(el('span', '', word), chipRow('abroad'));
   return box;
 }
 // Fix: the misspelt entry out, the suggestion in, saved like an edit (lib/strategy.js editLists). Keep: never flagged again.
@@ -224,47 +239,41 @@ const VIEWS = {
   queries() {
     const queries = labelsOf('queries');
     // Families from the engine (src/role_kinds.py): Retail, Logistics…; spellings and translations fold under "View title variants".
-    const families = roleFamilies(draftEntries('roles')).map(family => {
-      const row = el('div', 'family-row');
-      row.append(el('b', '', family.label), folded(family.entries.map(entry => entry.label), 2, 'View title variants'));
-      return row;
-    });
-    return [el('p', 'sub', 'What we type into job boards such as jobs.ch.'),
-      queries.length ? folded(queries, 6, 'Show all') : el('span', 'muted', 'None: your target roles are searched as they are'),
-      ...(families.length ? [el('p', 'sub', 'Your target roles by family (edited in Main goals)'), ...families] : [])];
+    const families = roleFamilies(draftEntries('roles')).map((family, at) => ({label: family.label, note: at ? '' : 'Your target roles, edited in Main goals',
+      value: folded(family.entries.map(entry => entry.label), {keep: 2, more: 'View title variants'})}));
+    return [rowsOf([{label: 'Typed into boards', value: queries.length ? folded(queries) : none('None: your target roles are searched as they are')}, ...families])];
   },
   places() {
-    const priority = el('div', 'priority');
-    const places = labelsOf('places');
-    priority.append(el('b', '', 'Preferred locations'), places.length ? withHints('places', chipsOf) : el('span', 'muted small', 'None'));
-    const regions = labelsOf('country'), rights = labelsOf('rights');
-    return [priority,
-      settingRow('globe', 'Acceptable locations', regions.length ? withHints('country', labels => folded(labels, 4, 'Show all')) : 'None selected'),
-      settingRow('send', 'Relocation', relocationWords(relocationNow(strategyState.lastStrategy, drafts().targetEdits), draftEntries('abroad'))),
-      settingRow('building', 'Remote work', remoteChoice()),
-      settingRow('shield', 'Work rights', rights.length ? withHints('rights', chipsOf) : 'Not set: jobs abroad are flagged "visa sponsorship needed"'),
+    const has = name => labelsOf(name).length > 0;
+    return [rowsOf([
+      {label: 'Preferred', value: has('places') ? chipRow('places') : none('None'), note: 'Ranked first'},
+      {label: 'Acceptable', value: has('country') ? chipRow('country') : none('None selected')},
+      {label: 'Relocation', value: relocationValue()},
+      {label: 'Remote work', value: remoteChoice()},
+      {label: 'Work rights', value: has('rights') ? chipRow('rights') : none('Not set: jobs abroad are flagged "visa sponsorship needed"')}]),
       // The goal "Work mode" (what you accept) and this (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026).
       el('p', 'muted small card-foot', 'Work mode (in Main goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.')];
   },
   stack() {
-    const stack = labelsOf('stack');
-    return [el('p', 'sub', 'Key skills and tools you want in jobs.'), stack.length ? withHints('stack', labels => folded(labels, 10, 'Show all')) : el('span', 'muted small', 'None')];
+    return [rowsOf([{label: 'Skills you want', value: labelsOf('stack').length ? chipRow('stack') : none('None')}])];
   },
   search() {
-    const row = (glyph, label, name, none) => {
-      const draw = labels => (AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all'));
-      if (!labelsOf(name).length) return settingRow(glyph, label, none);
-      return settingRow(glyph, label, name === 'gplaces' ? draw(labelsOf(name).map(placeLabel)) : withHints(name, draw));
+    const row = (label, name, empty) => {
+      const draw = (labels, parts) => (AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, {parts}));
+      if (!labelsOf(name).length) return {label, value: none(empty)};
+      return {label, value: name === 'gplaces' ? draw(labelsOf(name).map(placeLabel)) : withHints(name, draw)};
     };
-    return [settingRow('user', 'Your level', levelChoice()), settingRow('target', 'Minimum fit score for the digest', minScoreInput()),
-      row('close', 'Job titles to skip', 'titleSkip', 'None'), row('building', 'Companies to skip', 'skip', 'None'), row('globe', 'Remote jobs: regions to skip', 'remoteSkip', 'None'),
-      row('sparkle', 'Words that find new employers', 'finders', 'None'), row('search', 'Google Jobs searches', 'gqueries', 'None: Google Jobs is not searched'),
-      row('pin', 'Google Jobs places', 'gplaces', 'None')];
+    // Eight settings in three groups, so the card reads in parts (owner, 18 Oct 2026 sketch).
+    const group = (title, rows) => [el('h4', 'rows-group', title), rowsOf(rows)];
+    return [...group('Scoring', [{label: 'Your level', value: levelChoice()}, {label: 'Minimum fit score', value: minScoreInput()}]),
+      ...group('Skipped', [row('Job titles', 'titleSkip', 'None'), row('Companies', 'skip', 'None'), row('Remote regions', 'remoteSkip', 'None')]),
+      ...group('Finding employers', [row('Words that find employers', 'finders', 'None'), row('Google Jobs searches', 'gqueries', 'None: Google Jobs is not searched'),
+        row('Google Jobs places', 'gplaces', 'None')])];
   },
   languages() {
     const data = strategyState.lastStrategy, {languages, hide, lower} = exclusionGroups({...data, texts: {...data?.texts, languages: labelsOf('languages')}});
     const block = el('div', 'setting-body');
-    block.append(languages.length ? chipsOf(languages) : el('span', 'muted', 'None'),
+    block.append(languages.length ? chipsOf(languages) : none('None'),
       el('span', 'muted small', 'A job that requires one is hidden; one that only prefers it ranks lower.'));
     // Warning colour only for a consequence: the last coverage check counted matching jobs these languages hid (src/coverage.py).
     const listed = new Set(languages.map(language => language.toLowerCase()));
@@ -274,16 +283,13 @@ const VIEWS = {
       warn.append(`Hides ${hidden.toLocaleString('en-US')} job${hidden === 1 ? '' : 's'} that match your roles and places (see Suggestions).`);
       block.append(warn);
     }
-    const rules = el('div', 'setting-row'), title = el('div', 'setting-body');
-    title.append(el('b', '', 'Excluded language requirements'), block);
-    rules.append(icon('globe'), title);
     const more = el('details', 'plain exclusion-more'), summary = el('summary');
     summary.append(icon('sliders'), el('span', '', 'Other exclusions and ranking rules'),
       el('span', 'muted small', `${hide.length} hide jobs · ${lower.length} rank${lower.length === 1 ? 's' : ''} lower`));
     more.append(summary,
       el('p', 'sub', 'Hide matching jobs'), hide.length ? chipsOf(hide.map(item => item.label), false) : el('span', 'muted small', 'None'),
       el('p', 'sub', 'Rank them lower'), lower.length ? chipsOf(lower.map(item => item.label), false) : el('span', 'muted small', 'None'));
-    return [rules, more];
+    return [rowsOf([{label: 'Language requirements', value: block}]), more];
   },
 };
 const reloadTargets = async () => { await loadStrategy(); renderTargets(); };

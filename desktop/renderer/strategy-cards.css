@@ -35,3 +35,11 @@
 .strategy-page .pref-read-head .icon { width: 16px; height: 16px; color: var(--ink-2); }
 .strategy-page .pref-review-row { display: flex; align-items: center; gap: var(--sp-3); justify-content: space-between; margin-bottom: var(--sp-3); }
 .strategy-page .pref-review-row > button { flex: none; white-space: nowrap; }
+/* The cards as read (sketch 18 Oct 2026): the card shell's lined rows, a narrower label column in the two Advanced columns, group headings in More search
+   settings, and the legend for chips that also match inside longer words. */
+.strategy-page .summary-rows.is-lined { grid-template-columns: minmax(96px, 30%) minmax(0, 1fr); }
+.strategy-page .summary-rows.is-lined dd { overflow: visible; }
+.strategy-page .summary-rows.is-lined > dt:first-of-type, .strategy-page .summary-rows.is-lined > dt:first-of-type + dd { border-top: 0; }
+.strategy-page .rows-group { margin: var(--sp-3) 0 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.strategy-page .rows-group:first-child { margin-top: 0; }
+.strategy-page .part-legend { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); }

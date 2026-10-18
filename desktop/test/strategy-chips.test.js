@@ -50,11 +50,12 @@ test('every list the AI reads is drawn one chip per meaning with its "Did you me
   const page = read('renderer/pages/strategy-targets.js');
   const views = page.slice(page.indexOf('const VIEWS = {'), page.indexOf('const reloadTargets'));
   for (const name of MEANING_LISTS) {
-    const drawn = views.includes(`withHints('${name}', `) || new RegExp(`row\\('[^']+', '[^']+', '${name}'`).test(views);
+    const drawn = views.includes(`withHints('${name}', `) || views.includes(`chipRow('${name}')`) || new RegExp(`row\\('[^']+', '${name}'`).test(views);
     assert.ok(drawn, `${name}: drawn without the meanings`);
   }
   assert.match(views, /withHints\(name, draw\)/, 'the search card rows go through withHints');
-  assert.match(page, /shownGroups\(entriesOf\(strategyState\.lastStrategy, name\), shownOf\(name\)\)/, 'withHints draws one chip per meaning, in groups');
+  assert.match(page, /shown = shownOf\(name\), groups = shownGroups\(entriesOf\(strategyState\.lastStrategy, name\), shown\)/, 'withHints draws one chip per meaning, match-anywhere ones marked');
+  assert.match(page, /const chipRow = name => withHints\(name, /, 'chipRow goes through withHints');
   assert.doesNotMatch(views, /chipsOf\((places|regions|rights|stack)\)/, 'a list drawn from its raw labels');
   assert.match(page, /if \(!strategyState\.editing && strategyState\.lastStrategy\) loadMeanings\(savedLabels, renderTargets\)/, 'asked for the saved lists, never while editing');
   assert.match(page, /const shownOf = name => meaningLabels\(name, savedLabels\(name\)\)/, 'meanings are of what is saved, never a draft');

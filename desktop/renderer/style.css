@@ -2319,13 +2319,9 @@ button.is-busy { cursor: progress; opacity: .7; }
   .strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-left: 0; border-top: 1px solid var(--line); padding: var(--sp-2) 0; }
 }
 /* Roles by family, and the icon + label + value rows of the other cards. */
-.strategy-page .family-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
-.strategy-page .sub + .family-row { border-top: 0; }
-.strategy-page .family-row b { font-size: var(--fs-md); }
-.strategy-page .family-row .chips, .strategy-page .setting-body .chips { margin: 0; }
+.strategy-page .setting-body .chips { margin: 0; }
 .strategy-page .chip-more { padding: 2px 4px; font-size: var(--fs-sm); }
 .strategy-page .setting-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--sp-3); padding-top: var(--sp-3); }
-.strategy-page .family-row + .setting-row { margin-top: var(--sp-1); border-top: 1px solid var(--line); }
 .strategy-page .setting-row > .icon { width: 18px; height: 18px; color: var(--ink-2); margin-top: 2px; }
 .strategy-page .setting-body { display: grid; gap: var(--sp-1); min-width: 0; font-size: var(--fs-md); }
 .strategy-page .card-foot { margin: var(--sp-3) 0 0; padding-top: var(--sp-3); border-top: 1px solid var(--line); }

@@ -7,26 +7,37 @@ import {titleCase} from '../fragment-words.js';
 import {strategyState} from './strategy-state.js';
 import {MEANING_LISTS, meaningLabels as groupLabels} from '../chip-meanings.js';
 
-// A chip (components.js chip()): a word, or {main, others} for one meaning with its other spellings as the muted detail.
-function chip(label, cased) {
+// A chip (components.js chip()): a word, or {main, others} for one meaning with its other spellings as the muted detail. part: it also matches inside
+// longer words (outlined, "≈"; owner, 18 Oct 2026, decision 1 of the Strategy sketch).
+const mainOf = label => (typeof label === 'string' ? label : label.main);
+function chip(label, cased, part) {
   const words = text => (cased ? titleCase(text) : text);
-  return typeof label === 'string' ? valueChip(words(label)) : valueChip(words(label.main), {detail: label.others.map(words).join(', ')});
+  return typeof label === 'string' ? valueChip(words(label), {part}) : valueChip(words(label.main), {detail: label.others.map(words).join(', '), part});
 }
-export const chipsOf = (labels, cased = true) => {
+// parts: the labels that also match inside longer words (a Set), or none.
+export const chipsOf = (labels, cased = true, parts = null) => {
   const box = el('div', 'chip-list');
-  box.append(...labels.map(label => chip(label, cased)));
+  box.append(...labels.map(label => chip(label, cased, Boolean(parts?.has(mainOf(label))))));
   return box;
 };
-// A few chips, the rest behind a toggle ("View title variants", "Show all"): nothing is dropped, only folded.
-export function folded(labels, keep, more) {
-  const box = chipsOf(labels.slice(0, keep));
+// A long list (decision 3 of the sketch): its first 10 chips, then "+N more" opens the rest in place; more: the toggle's own words instead
+// ("View title variants (8)"). Nothing is dropped, only folded.
+export const SHOWN = 10;
+export function folded(labels, {keep = SHOWN, more = '', cased = true, parts = null} = {}) {
+  const box = chipsOf(labels.slice(0, keep), cased, parts);
   if (labels.length <= keep) return box;
-  const rest = labels.slice(keep), toggle = el('button', 'link chip-more', `${more} (${rest.length})`);
+  const rest = labels.slice(keep), toggle = el('button', 'link chip-more', more ? `${more} (${rest.length})` : `+${rest.length} more`);
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.addEventListener('click', () => { toggle.replaceWith(...rest.map(label => chip(label, true))); });
+  toggle.addEventListener('click', () => { toggle.replaceWith(...rest.map(label => chip(label, cased, Boolean(parts?.has(mainOf(label)))))); });
   box.append(toggle);
   return box;
+}
+// The one line that says what the outlined chips mean, under a card that has one.
+export function partLegend() {
+  const line = el('p', 'muted small part-legend');
+  line.append(valueChip('word', {part: true}), ' also matches inside longer words (tax finds syntax)');
+  return line;
 }
 
 // One list's labels, one chip per meaning (chip-meanings.js), from the meanings loaded below.
