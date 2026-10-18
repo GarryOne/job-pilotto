@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
 <link rel="stylesheet" href="styles.css">
-<style>.release{margin:0 0 28px}.release h2{font-size:1.25rem;margin:0 0 6px}.release time{color:var(--muted,#8d949c);font-size:.9rem;margin-left:8px;font-weight:400}.release ul{margin:6px 0 0;padding-left:20px}.release li{margin:6px 0}</style>
+<style>.release{margin:0 0 28px}.release h2{font-size:1.25rem;margin:0 0 6px}.release time{color:var(--muted,#8d949c);font-size:.9rem;margin-left:8px;font-weight:400}.release ul{margin:6px 0 0;padding-left:20px}.release li{margin:6px 0}.release h3{font-size:1rem;margin:14px 0 0}.release .channel{font-size:.75rem;font-weight:600;border:1px solid var(--line,#3a4048);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:middle}</style>
 </head>
 <body>
 <div class="wrap">
@@ -48,17 +48,24 @@
   </footer>
 </div>
 <script>
-// One block per stable version, newest first, from changelog.json (only entries the owner approved are ever in it). Text goes in as text, never as HTML.
+// One block per released version (beta or stable), newest first, from changelog.json: the site stores what CI drafted and checked (src/changelog-store.js). Text goes in as text, never as HTML.
+const TITLES = {features: '\u2728 New features', improvements: '\u{1F680} Improvements', fixes: '\u{1F41B} Bug fixes'};
 fetch('changelog.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(list => {
   const root = document.getElementById('releases');
   if (!Array.isArray(list) || !list.length) { document.getElementById('releases-empty').hidden = false; return; }
   document.getElementById('releases-note').hidden = false;
   for (const entry of list) {
-    const box = document.createElement('article'), title = document.createElement('h2'), when = document.createElement('time'), items = document.createElement('ul');
+    const box = document.createElement('article'), title = document.createElement('h2'), when = document.createElement('time'), badge = document.createElement('span');
     box.className = 'release'; box.id = `v${entry.version}`;
-    title.textContent = `Version ${entry.version}`; when.textContent = entry.date; title.append(when);
-    for (const item of entry.items || []) { const li = document.createElement('li'), lead = document.createElement('b'); lead.textContent = `${item.lead}. `; li.append(lead, item.text); items.append(li); }
-    box.append(title, items); root.append(box);
+    title.textContent = `Version ${entry.version}`; when.textContent = entry.date; badge.className = 'channel'; badge.textContent = entry.channel === 'stable' ? 'Stable' : '\u{1F9EA} Beta';
+    title.append(when, badge); box.append(title);
+    for (const group of entry.groups || []) {
+      const head = document.createElement('h3'), items = document.createElement('ul');
+      head.textContent = TITLES[group.kind] || ''; if (!head.textContent) continue;
+      for (const item of group.items || []) { const li = document.createElement('li'), lead = document.createElement('b'); lead.textContent = `${item.emoji ? `${item.emoji} ` : ''}${item.lead}. `; li.append(lead, item.text); items.append(li); }
+      box.append(head, items);
+    }
+    root.append(box);
   }
 });
 </script>

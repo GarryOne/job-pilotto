@@ -1,51 +1,57 @@
-// The public /changelog (src/changelog.js, public/changelog.html + changelog.json): nothing internal or Pro-related can be published, entries are per stable version newest first, the page renders text only.
+// The public /changelog (src/changelog.js, public/changelog.html): nothing internal or Pro-related can be published, an entry is three kinds of items with emoji, the page renders text only.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {test} from 'node:test';
-import {FORBIDDEN, addEntry, cleanItems, problems, versionOf} from '../src/changelog.js';
+import {FORBIDDEN, cleanGroups, newestFirst, problems, versionOf} from '../src/changelog.js';
 
 const pub = name => readFileSync(new URL(`../public/${name}`, import.meta.url), 'utf8');
-const good = {version: '0.7.16', date: '2026-10-14', items: [{lead: 'Faster first job', text: 'Your first matching job now shows up in about 18 seconds.'}]};
+const good = {version: '0.7.16', date: '2026-10-14', channel: 'stable', groups: [{kind: 'improvements', items: [{emoji: '⚡', lead: 'Faster first job', text: 'Your first matching job now shows up in about 18 seconds.'}]}]};
 
 test('what must never be public is caught: costs, prices, Pro, test accounts, outages, CI, sessions, PRs, keys', () => {
-  const leaks = ['Pro is $29 one-time', 'Costs went down by 30%', 'Fixed a test account sign-in', 'After the outage on Tuesday', 'CI is faster now', 'The session fixer was renamed', 'Merged PR #1000', 'Your API key is stored safely', 'Early adopters pay less', 'Billing page added', 'The free AI budget is shown'];
-  for (const text of leaks.filter(item => !/Early adopters/.test(item))) assert.match(text, FORBIDDEN, text);
+  const leaks = ['Pro is $29 one-time', 'Costs went down by 30%', 'Fixed a test account sign-in', 'After the outage on Tuesday', 'CI is faster now', 'The session fixer was renamed', 'Merged PR #1000', 'Your API key is stored safely', 'Billing page added', 'The free AI budget is shown'];
+  for (const text of leaks) assert.match(text, FORBIDDEN, text);
   for (const text of ['Your first matching job now shows up in about 18 seconds.', 'Forms with radio questions are filled correctly.', 'Reopening a broken page starts again from the job posting.']) assert.doesNotMatch(text, FORBIDDEN, text);
 });
 
-test('a draft keeps clean items, reports the dropped ones, and an unusable answer is an error', () => {
-  const answer = JSON.stringify({items: [{lead: 'Faster', text: 'Jobs appear sooner.'}, {lead: 'Pro plan', text: 'Pro is $29.'}, {lead: '', text: 'no lead'}]});
-  const cleaned = cleanItems(`Here:\n${answer}`);
-  assert.deepEqual(cleaned.items, [{lead: 'Faster', text: 'Jobs appear sooner.'}]);
+test('an answer keeps clean items in page order, drops rule-breakers, unknown kinds and bad emoji; an unusable answer is an error', () => {
+  const answer = JSON.stringify({groups: [
+    {kind: 'fixes', items: [{emoji: '🐛', lead: 'Dropdown fixed', text: 'Required dropdowns are filled.'}, {lead: 'Pro plan', text: 'Pro is $29.'}, {lead: '', text: 'no lead'}]},
+    {kind: 'features', items: [{emoji: 'not an emoji', lead: 'New thing', text: 'It can do more.'}]},
+    {kind: 'internal', items: [{lead: 'Secret', text: 'Should not show.'}]}]});
+  const cleaned = cleanGroups(`Here:\n${answer}`);
+  assert.deepEqual(cleaned.groups.map(group => group.kind), ['features', 'fixes'], 'page order, unknown kind gone');
+  assert.deepEqual(cleaned.groups[0].items, [{lead: 'New thing', text: 'It can do more.'}], 'a bad emoji is left out, the item stays');
+  assert.deepEqual(cleaned.groups[1].items, [{emoji: '🐛', lead: 'Dropdown fixed', text: 'Required dropdowns are filled.'}]);
   assert.equal(cleaned.dropped.length, 1);
-  assert.equal(cleanItems('nope').error, 'not JSON');
-  assert.equal(cleanItems({}).error, 'no items');
-  assert.deepEqual(cleanItems({items: []}), {items: [], dropped: []});
+  assert.equal(cleanGroups('nope').error, 'not JSON');
+  assert.equal(cleanGroups({}).error, 'no groups');
+  assert.deepEqual(cleanGroups({groups: []}), {groups: [], dropped: []});
   assert.equal(versionOf('desktop-v0.7.16'), '0.7.16');
 });
 
-test('only a well-formed, clean entry can be added; the list stays newest version first, one entry per version', () => {
+test('only a well-formed, clean entry passes: version, date, channel, kinds, items, no leaks; newest first', () => {
   assert.deepEqual(problems(good), []);
   assert.ok(problems({...good, version: 'v1'}).includes('version'));
-  assert.ok(problems({...good, items: []}).includes('items'));
-  assert.throws(() => addEntry([], {...good, items: [{lead: 'Pro', text: 'Pro launched.'}]}), /not publishable/);
-  let list = addEntry([], good);
-  list = addEntry(list, {...good, version: '0.7.2'});
-  list = addEntry(list, {...good, version: '0.7.12'});
-  list = addEntry(list, {...good, items: [{lead: 'Fixed', text: 'A typo.'}]});
-  assert.deepEqual(list.map(entry => entry.version), ['0.7.16', '0.7.12', '0.7.2']);
-  assert.equal(list[0].items[0].lead, 'Fixed');
+  assert.ok(problems({...good, channel: 'alpha'}).includes('channel'));
+  assert.ok(problems({...good, groups: []}).includes('groups'));
+  assert.ok(problems({...good, groups: [{kind: 'secrets', items: good.groups[0].items}]}).some(item => item.startsWith('kind')));
+  assert.ok(problems({...good, groups: [{kind: 'fixes', items: []}]}).some(item => item.startsWith('items')));
+  assert.ok(problems({...good, groups: [{kind: 'fixes', items: [{lead: 'Pro', text: 'Pro launched.'}]}]}).some(item => item.startsWith('item')));
+  assert.ok(problems({...good, groups: [{kind: 'fixes', items: [{emoji: 'abc', lead: 'A', text: 'B.'}]}]}).some(item => item.startsWith('item')));
+  assert.deepEqual(newestFirst(['0.7.2', '0.7.16', '0.7.12'].map(version => ({version}))).map(entry => entry.version), ['0.7.16', '0.7.12', '0.7.2']);
 });
 
-test('every published entry passes the same rules (add a new version through tools/changelog-draft.mjs --add)', () => {
+test('every entry in the fallback file passes the same rules', () => {
   const published = JSON.parse(pub('changelog.json'));
   assert.ok(Array.isArray(published));
   for (const entry of published) assert.deepEqual(problems(entry), [], `version ${entry.version}`);
   assert.equal(new Set(published.map(entry => entry.version)).size, published.length);
 });
 
-test('the page reads changelog.json, writes text (never HTML), is in the sitemap and linked from the footer', () => {
+test('the page reads changelog.json, shows the three group titles and the channel, writes text (never HTML), is in the sitemap and linked from the footer', () => {
   const html = pub('changelog.html');
+  for (const title of ['New features', 'Improvements', 'Bug fixes']) assert.match(html, new RegExp(title));
+  assert.match(html, /Beta/);
   assert.match(html, /fetch\('changelog\.json'\)/);
   assert.doesNotMatch(html.split('<script>')[1], /innerHTML/);
   assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobpilotto\.top\/changelog<\/loc>/);
