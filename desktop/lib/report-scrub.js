@@ -202,3 +202,13 @@ export function lastGate({entries, bodies}, values = new Map()) {
   }
   return hits;
 }
+
+// The person's optional note to the owner of the report ("what went wrong"): their own words, so their values, e-mails, phones and tokens are replaced like a body's, then searched again. 300 characters.
+// -> {ok: true, text} | {ok: false, blocked: [kind]}
+export function scrubNote(note, values = new Map()) {
+  const counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0, tokens: 0}, original = String(note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (!original) return {ok: true, text: ''};
+  const text = tokensOut(contactsOut(ownOut(plainSeparators(original), values, false, counts, true), counts), false, counts);
+  const hits = lastGate({entries: [{url: 'https://note.invalid/', headers: {'content-type': 'text/plain'}, hash: 'n'}], bodies: new Map([['n', Buffer.from(text)]])}, values);
+  return hits.length ? {ok: false, blocked: hits.map(hit => hit.kind)} : {ok: true, text};
+}

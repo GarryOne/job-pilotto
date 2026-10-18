@@ -16,7 +16,6 @@ const NOT_A_CARD = {
   'save-bar.js': 'the page save bar itself',
   'gallery.js': 'the component gallery shows every button kind',
   'claude-offer.js': 'Cancel a pending Claude offer, a row of the session page',
-  'pages/report-form.js': 'the Report this form dialog',
   'pages/actions-board.js': 'Cancel a queued task on the Actions board',
   'pages/ai-engine.js': 'the switch-engine confirm dialog',
   'pages/ready-confirm.js': 'the Fill now confirm dialog',

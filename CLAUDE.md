@@ -44,8 +44,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **Wrong data is a bug:** fix the root cause with a regression test, then repair the owner's rows by hand via the Notion MCP. No one-off repair code.
 - **Data has one copy, behind the store interface** (`src/stores/`, SQLite default, Notion by choice; new data goes through every adapter). The
   employer index is product data, never in a user's store. Detail: [docs/rules/data-ownership.md](docs/rules/data-ownership.md).
-- **The extension first; Claude's takeover is OFF for now** (owner, 15 Oct 2026: "we should be the interface between the user and Claude"): a stuck page shows a visible
-  "Report this form" button, never "Let Claude finish" or a countdown; the code stays behind one flag. Detail: [docs/rules/applying.md](docs/rules/applying.md).
+- **The extension first; Claude's takeover is OFF for now** (owner, 15 Oct 2026: "we should be the interface between the user and Claude"): the panel's footer "Report" (a popup on the panel: what goes, a note, Send; owner, 19 Oct 2026) is the way out of a stuck page, never "Let Claude finish" or a countdown; the code stays behind one flag. Detail: [docs/rules/applying.md](docs/rules/applying.md).
 - **Files: one concern each, ≤ 500 lines; split near 450** as a pure move. Detail: [docs/rules/files.md](docs/rules/files.md).
 - **Tests also run on Windows CI** (main went red twice on 11 Oct 2026): temp folders via `os.tmpdir()`, never `/tmp`; compare paths after turning `\` into `/`.
   **Linux CI too** (main red again on 11 Oct 2026: `stat -f %m` succeeds on Linux with file-system text): shell uses the GNU form first (`stat -c`, `date -d`), the macOS form as fallback;

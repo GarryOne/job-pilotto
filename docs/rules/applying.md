@@ -16,7 +16,7 @@ account sign-up/sign-in → email confirmation → the form) is built for the ex
 flow first; "Claude can do it" is not a reason to skip it. **Apply with Claude** is the safety net, below.
 
 ## Claude finishes a stuck page (owner, 10 Oct 2026)
-> **Off for now** (owner, 15 Oct 2026): the takeover below is hidden behind one flag (code kept). A stuck page shows a visible "Report this form" button instead; no "Let Claude finish", no "Resume Claude", no countdown, and `claudeAuto` is ignored. The rest of this section describes it for when it is enabled again.
+> **Off for now** (owner, 15 Oct 2026): the takeover below is hidden behind one flag (code kept). A stuck page points to the panel's footer "Report" (a popup on the panel that sends the recording, 19 Oct 2026) instead; no "Let Claude finish", no "Resume Claude", no countdown, and `claudeAuto` is ignored. The rest of this section describes it for when it is enabled again.
 
 Spec: `docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md`. It replaces the 8 Oct "never started by itself" and the 9 Oct "hidden, off by default".
 - Offered only when Claude is READY (`lib/claude-ready.js`, window twin `renderer/claude-help.js`): a Claude engine, Claude Code installed and signed

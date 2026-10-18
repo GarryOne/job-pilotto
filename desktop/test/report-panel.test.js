@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {registerReportHandlers, reportFormOn} from '../lib/report-handlers.js';
+import {PANEL_FILES} from '../../extension/panel-files.js';
 import {visitMore} from '../lib/server-hooks.js';
 
 const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
@@ -29,18 +30,17 @@ test('the panel flag is off until the uploader exists and while the switch is of
   for (const file of ['desktop/renderer/index.html', 'desktop/renderer/pages/nav.js', 'desktop/renderer/pages/report-form.js']) assert.doesNotMatch(read(file), /ss-report/, `${file}: the flag lives only in the extension panel, no app button or ⌘K entry`);
   assert.match(read('extension/panel-markup.js'), /<div class="foot">[^]*<button class="report-btn"[^>]*>[^]*Report<\/button><\/div>/, 'one Report entry, in the footer of every state');
   assert.doesNotMatch(read('extension/panel-markup.js'), /report-flag|report-open/, 'no header flag, no body button');
-  assert.match(read('extension/review.js'), /\$\('\.report-btn'\)\.onclick[^]*window\.__jobPilottoReportOpen\(\)/, 'it opens the same card as the flag');
-  assert.match(read('extension/panel-report.js'), /if \(!state\?\.enabled\) return;\s*flag\.hidden = false/, 'the flag is drawn only when the app says so');
+  assert.match(read('extension/review.js'), /\$\('\.report-btn'\)\.onclick[^]*window\.__jobPilottoReport\.open\(\)/, 'the footer\'s Report opens the popup on the panel');
+  assert.doesNotMatch(code('extension/panel-report.js'), /class="flag"|bottom: 12px|left: 12px/, 'no bottom-left ⚑ chip (owner, 19 Oct 2026: Stop and the flag leave the corner)');
 });
 
-test('the press hands over the trace Job Pilotto already keeps: the panel only asks for its state and sends the trace from a trusted click; nothing reloads', () => {
+test('the press hands over the trace Job Pilotto already keeps: the popup asks for its state, prepares, sends or cancels from a trusted click; nothing reloads', () => {
   const panel = code('extension/panel-report.js');
-  assert.deepEqual([...new Set(panel.match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-send'", "type: 'report-state'"]);
-  assert.ok(/event\.isTrusted/.test(panel) && (panel.match(/event\.isTrusted/g) || []).length >= 2, 'a page\'s script cannot press the buttons');
-  assert.match(panel, /Nothing leaves your Mac until you read it and press Send/);
-  assert.match(panel, /The whole journey \(recommended for fixing\)/);
-  assert.match(panel, /Only this page/);
-  assert.doesNotMatch(panel, /will reload|Start recording/);
+  assert.deepEqual([...new Set(panel.match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-cancel'", "type: 'report-confirm'", "type: 'report-send'", "type: 'report-state'"]);
+  assert.ok(/event\.isTrusted/.test(panel), 'a page\'s script cannot press the buttons');
+  assert.match(panel, /Never sent: what you typed, passwords, cookies, your CV or your profile/);
+  assert.doesNotMatch(panel, /read it and press Send|Review in Job Pilotto|will reload|Start recording/);
+  assert.match(panel, /var\(--ink\)/, 'the popup takes the panel\'s own tokens, so its theme reaches it');
   assert.equal(fs.existsSync(new URL('../../extension/report-recorder.js', import.meta.url)), false, 'the reload-and-record collector is gone');
 });
 
@@ -51,49 +51,49 @@ test('the manifest\'s permissions are what they were: debugger stays a normal pe
   assert.ok(!(manifest.optional_permissions || []).includes('debugger'));
 });
 
-test('a submitted recording is scrubbed and held, shown to the window, and sent only after the gate once more, without the hosts the person dropped', async () => {
-  const uploads = [], h = harness({uploader: {...okUploader, send: async record => { uploads.push(record); return {ok: true}; }}});
+test('Report sends in the panel: a submitted recording is scrubbed and held, answered with counts only, and sent once after the gate runs again, with the person\'s scrubbed note', async () => {
+  const uploads = [], h = harness({uploader: {...okUploader, send: async (record, meta) => { uploads.push({record, meta}); return {ok: true}; }}});
   const answer = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/apply', '<h1>Hi Rosalind</h1>'), entry('https://cdn.example.test/w.html', '<p>x</p>')], truncated: false});
-  assert.deepEqual(answer, {ok: true});
-  const [channel, shown] = h.sent[0];
-  assert.equal(channel, 'reportFormReady'); assert.deepEqual(shown.preview.hosts.map(one => one.host).sort(), ['cdn.example.test', 'jobs.example.test']);
-  assert.ok(!JSON.stringify(shown).match(/Rosalind|Quill|mailbox/), 'the window is shown counts and hosts only');
-  assert.equal((await h.handlers.reportFormGet()).shown.id, shown.id);
-  assert.deepEqual(await h.handlers.reportFormSend(null, ['cdn.example.test']), {ok: true});
-  assert.deepEqual(uploads[0].entries.map(one => new URL(one.url).host), ['jobs.example.test']);
-  assert.ok(![...uploads[0].bodies.values()].some(body => /Rosalind/.test(body.toString())), 'what is uploaded is scrubbed');
-  assert.deepEqual(await h.handlers.reportFormSend(null, []), {ok: false, error: 'Nothing to send.'}, 'nothing is held after a send');
+  assert.equal(answer.ok, true); assert.equal(answer.preview.responses, 2);
+  assert.ok(!JSON.stringify(answer).match(/Rosalind|Quill|mailbox/), 'the popup is shown counts and hosts only');
+  assert.equal(h.sent.length, 0, 'the app window is not opened or told: the report is made and sent from the panel');
+  assert.deepEqual(await h.route({action: 'send', note: 'It stopped at the CV step; I am Rosalind Quill, rosalind.quill@mailbox.test'}), {ok: true});
+  assert.equal(uploads.length, 1, 'the uploader is called once');
+  assert.ok(![...uploads[0].record.bodies.values()].some(body => /Rosalind/.test(body.toString())), 'what is uploaded is scrubbed');
+  assert.match(uploads[0].meta.cause, /^It stopped at the CV step; I am Candidate Candidate, /);
+  assert.doesNotMatch(uploads[0].meta.cause, /Rosalind|Quill|mailbox/, 'the note is scrubbed like the rest');
+  assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'}, 'nothing is held after a send');
 });
 
-test('a recording the last gate stops is not held; Cancel clears what is held', async () => {
-  const h = harness();
+test('a recording the last gate stops is not held and names its kind; Cancel sends nothing; a planted value in the note is refused with its kind', async () => {
+  const uploads = [], h = harness({uploader: {...okUploader, send: async record => { uploads.push(record); return {ok: true}; }}});
   const blocked = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/x.json', JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')}), 'application/json')]});   // the person's name inside a base64 run: the scrub reads text, the last gate decodes
   assert.deepEqual(blocked, {ok: false, blocked: ['name']});
-  assert.equal((await h.handlers.reportFormGet()).shown, null);
+  assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'}, 'nothing was held');
   await h.route({action: 'submit', entries: [entry('https://jobs.example.test/apply', '<p>x</p>')]});
-  await h.handlers.reportFormCancel();
-  assert.equal((await h.handlers.reportFormGet()).shown, null);
-  assert.deepEqual(await h.handlers.reportFormSend(null, []), {ok: false, error: 'Nothing to send.'});
+  assert.deepEqual(await h.route({action: 'cancel'}), {ok: true});
+  assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'});
+  assert.equal(uploads.length, 0, 'Cancel sent nothing');
 });
 
 test('the trace switch is on by default and named in plain words in Settings (so ⌘K lists it by its heading) and in the wizard; the bar is explained once', () => {
   const html = read('desktop/renderer/index.html');
   assert.match(html, /<h3>Keep a trace of each form fill<\/h3>/);
   assert.match(html, /<input type="checkbox" id="welcome-trace" checked>/, 'the wizard has one checkbox, on by default');
-  assert.match(html, /Stays on this Mac, sent only when you press Report and confirm, never sign-in pages, deleted when the application ends/);
+  assert.match(html, /Stays on this Mac, sent only when you press Report in the panel and then Send \(personal details removed automatically first\), never sign-in pages, deleted when the application ends/);
   assert.equal(reportFormOn({settings: () => ({})}), true, 'on for every install that never chose');
   assert.equal(reportFormOn({settings: () => ({reportForm: false})}), false);
   assert.match(read('extension/panel-markup.js'), /Chrome shows a debugging bar while Job Pilotto keeps a trace/);
   assert.match(read('extension/review.js'), /traceBarSeen/);
 });
 
-test('no panel button is a silent no-op: a click handler never calls a window hook with ?.(), and the Report press falls back to the worker and says when it fails', () => {
+test('no panel button is a silent no-op: a click handler never calls a window hook with ?.(), and a Report press that cannot open the popup says so in the panel', () => {
   for (const file of ['extension/review.js', 'extension/panel-claude.js', 'extension/panel-written.js']) {
     const lines = code(file).split('\n').filter(line => /onclick|addEventListener\('click'/.test(line));
     for (const line of lines) assert.doesNotMatch(line, /__jobPilotto\w+\?\.\(/, `${file}: a button that calls a missing hook does nothing, silently: ${line.trim().slice(0, 80)}`);
   }
-  assert.match(code('extension/review.js'), /send\(\{type: 'report-open'\}\)[^]*reportFailed/, 'a panel inside a frame asks the worker to open the top frame\'s card, and says so when it cannot');
-  assert.match(code('extension/panel-report.js'), /window\.__jobPilottoReportOpen = openFromPanel;[^]*'jobpilotto-report-open', openFromPanel/, 'the panel button and the stuck-page button open the card the same way, beside the panel');
+  assert.match(code('extension/review.js'), /__jobPilottoReport\.open\(\);\s*else note\('Report could not open/, 'a missing popup says so in the panel');
+  assert.deepEqual(PANEL_FILES.slice(-2), ['panel-report.js', 'review.js'], 'the popup script is injected before the panel that mounts it');
 });
 
 test('one refusal sentence in the panel and the app\'s Send, and the panel names the kinds that blocked it', () => {
