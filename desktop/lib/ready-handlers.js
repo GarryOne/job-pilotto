@@ -110,6 +110,7 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     return opened.ok ? {ok: true} : opened;
   });
   setVisitRoute('/extension/ready-handoff', payload => ({ok: true, handoff: handoffs.take(payload?.url)}));
+  if (process.env.JOB_PILOTTO_E2E) globalThis.__jpReadyHandoffs = handoffs;   // the apply suite's Open in Chrome step hands the app a night's hand-off (a test has no Ready site)
   // Fill now (owner, 18 Oct 2026: "make the Fill now work"): one press sends tonight's ready jobs and starts them; after a yes, the jobs you opened and did not submit.
   // Started, nothing sent by itself replaces that night (ranNight).
   ipcMain.handle('readyRun', async (_, {again = false, confirmed = false} = {}) => {
