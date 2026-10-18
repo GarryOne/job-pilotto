@@ -1,0 +1,10 @@
+[
+  {"date": "2026-10-18", "what": "Cap on place/title steps (#1440) starved scoring", "metric": "Cluj tape, search 1: jobs scored / at 70+ / first 70+ (s)", "before": "57 / 7 / 2268", "after": "6 / 0 / none", "outcome": "shipped, then fixed", "link": "#1440"},
+  {"date": "2026-10-18", "what": "Scoring gets its own 3 minutes (#1450)", "metric": "same Cluj tape: scored / at 70+ / first 70+ (s)", "before": "6 / 0 / none", "after": "106 / 14 / 365", "outcome": "shipped", "link": "#1450"},
+  {"date": "2026-10-18", "what": "Boards that paid before stay in the list (#1453)", "metric": "driver: boards that ever gave relevant jobs, present in stored proposals", "before": "in all 12 proposals already", "after": "kept by memory", "outcome": "shipped", "link": "#1453"},
+  {"date": "2026-10-18", "what": "Read a list of links that differ only in a number (#1457)", "metric": "jobs read from a numbered-link listing page", "before": "0", "after": "15 listed (1 in the user's city)", "outcome": "shipped", "link": "#1457"},
+  {"date": "2026-10-18", "what": "Researching scout: AI web search for employer feeds", "metric": "readable employer feeds found", "before": "0", "after": "driver 0 of 17 searches; music 1 of 20 (0 matching jobs)", "outcome": "not shipped", "link": "#1461"},
+  {"date": "2026-10-18", "what": "Boards found by a web search (strict address template)", "metric": "boards added on driver, music, software", "before": "0", "after": "0", "outcome": "parked", "link": "#1461 (branch search-found-boards)"},
+  {"date": "2026-10-18", "what": "AI address step for new sites in the search results", "metric": "boards added / relevant jobs added", "before": "0 / 0", "after": "0 / 0 (model answered unknown for every new site)", "outcome": "parked", "link": "#1461 (branch search-found-boards)"},
+  {"date": "2026-10-18", "what": "Six-candidate replay on merged main (old tapes, indicative)", "metric": "search 2 in places / scored / 70+: finance, Cluj", "before": "finance 95/76/3, Cluj 3244/58/10", "after": "finance 77/58/2, Cluj 2510/136/16", "outcome": "shipped", "link": "fresh recordings to follow"}
+]
