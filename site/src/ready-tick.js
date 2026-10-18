@@ -2,6 +2,7 @@
 // (the runner Worker site/ready-runner starts the container from it); a night still running past its end is finished (its unfilled jobs are "failed: timeout"), its cost reported and its tabs closed.
 // Nothing starts without the Queue binding (not created until the owner says so) or while READY_TO_SEND is off. Guard: site/test/ready-wiring.test.js.
 import {closeNight} from './ready-morning.js';
+import {LIVE} from './ready-line.js';
 import {readyOn, reportNight, start} from './ready.js';
 
 export const SITE = 'https://www.jobpilotto.top', MAX_STARTS = 3;
@@ -13,7 +14,7 @@ export async function tick(env, now = new Date()) {
   const stamp = now.toISOString();
   const {results: over} = await env.STATS.prepare("SELECT * FROM ready_batches WHERE state IN ('running', 'capped') AND expires_at < ?").bind(stamp).all();
   for (const row of over) {
-    await env.STATS.prepare("UPDATE ready_jobs SET state = 'failed', wall = 'timeout', at = ? WHERE batch = ? AND state = 'queued'").bind(stamp, row.id).run();
+    await env.STATS.prepare(`UPDATE ready_jobs SET state = 'failed', wall = 'timeout', at = ?, step = NULL, step_n = NULL WHERE batch = ? AND state IN ${LIVE}`).bind(stamp, row.id).run();
     await env.STATS.prepare("UPDATE ready_batches SET state = 'finished', finished_at = ? WHERE id = ?").bind(stamp, row.id).run();
     if (row.state === 'running') await reportNight(env, row, now);   // a capped night was reported when it was capped
     await closeNight(env, row.id);

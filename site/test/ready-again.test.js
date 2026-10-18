@@ -11,7 +11,7 @@ import {ready} from '../src/ready.js';
 const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql']) db.exec(sql(file));
+  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql', '0097_ready_line.sql']) db.exec(sql(file));
   db.exec('CREATE TABLE anomalies (day TEXT, kind TEXT, who TEXT, n INTEGER, detail TEXT, PRIMARY KEY (day, kind, who))');
   db.exec('CREATE TABLE IF NOT EXISTS revoked (who TEXT PRIMARY KEY, reason TEXT, at TEXT)');
   const statement = (text, args = []) => ({bind: (...v) => statement(text, v), run: async () => { const r = db.prepare(text).run(...args); return {meta: {changes: Number(r.changes)}}; },
@@ -54,7 +54,7 @@ test('Fill again fills one form of a finished night again, from the night\'s own
   const read = await (await call(e, 'GET', 'batch', undefined, second)).json();
   assert.deepEqual(read.jobs.map(each => each.id), ['j2'], 'the container fills that form alone');
   assert.equal(read.jobs[0].letter, 'Dear Nordlicht', 'with its kit and letter from the night');
-  assert.equal((await call(e, 'POST', 'again', {job: 'j1'}, await owner())).status, 409, 'not while the night runs');
+  assert.equal((await call(e, 'POST', 'again', {job: 'j2'}, await owner())).status, 409, 'not the form already filling');
 
   await call(e, 'POST', 'result', {job: 'j2', state: 'partial', filled: 7, left: 2}, second);
   assert.deepEqual(await rows(e), {j1: 'prepared', j2: 'partial'});

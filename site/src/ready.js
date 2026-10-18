@@ -8,6 +8,7 @@ import {open, seal} from './hosted-state.js';
 import {relay} from './ready-ai.js';
 import {makeLink, viaLink} from './ready-link.js';
 import {fillAgain} from './ready-again.js';
+import {LIVE, progress, stop} from './ready-line.js';
 import {runNow} from './ready-tick.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 import {dropKept, jobsWithKept, keptPut, videoGet} from './ready-kept.js';
@@ -120,11 +121,14 @@ async function result(request, env, now) {
   if (!given || !OUTCOMES.includes(given.state)) return bad('bad outcome');
   const filled = num(given.filled), left = num(given.left), state = given.state === 'prepared' && !(filled > 0 && left === 0) ? 'partial' : given.state;
   const micro = num(given.costMicro) || 0;
-  const changed = await env.STATS.prepare('UPDATE ready_jobs SET state = ?, filled = ?, left_empty = ?, human_check = ?, wall = ?, ms = ?, cost_micro = ?, at = ? WHERE batch = ? AND job = ? AND cleared_at IS NULL')
-    .bind(state, filled, left, given.humanCheck ? 1 : 0, String(given.wall || '').slice(0, 40), num(given.ms), micro, stamp(now), row.id, String(given.job)).run();
-  if (!changed.meta?.changes) return json({ok: false, error: 'unknown job'}, 404);
+  const changed = await env.STATS.prepare(`UPDATE ready_jobs SET state = ?, filled = ?, left_empty = ?, human_check = ?, wall = ?, ms = ?, cost_micro = cost_micro + ?, at = ?, step = NULL, step_n = NULL, again_from = NULL
+    WHERE batch = ? AND job = ? AND cleared_at IS NULL AND state IN ${LIVE}`).bind(state, filled, left, given.humanCheck ? 1 : 0, String(given.wall || '').slice(0, 40), num(given.ms), micro, stamp(now), row.id, String(given.job)).run();
+  if (!changed.meta?.changes) {   // a form the owner stopped (src/ready-line.js) keeps what it was put back to; an unknown one is refused
+    const known = await env.STATS.prepare('SELECT 1 AS n FROM ready_jobs WHERE batch = ? AND job = ?').bind(row.id, String(given.job)).first();
+    return known ? json({ok: true, dropped: true, stop: false}) : json({ok: false, error: 'unknown job'}, 404);
+  }
   const total = row.cost_micro + micro, capped = total >= cap(env);
-  const waiting = (await env.STATS.prepare("SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ? AND state = 'queued'").bind(row.id).first()).n;
+  const waiting = (await env.STATS.prepare(`SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ? AND state IN ${LIVE}`).bind(row.id).first()).n;
   const next = capped ? 'capped' : waiting ? row.state : 'finished';
   await env.STATS.prepare('UPDATE ready_batches SET cost_micro = ?, state = ?, finished_at = ? WHERE id = ?').bind(total, next, next === row.state ? null : stamp(now), row.id).run();
   if (next !== row.state) await reportNight(env, {...row, cost_micro: total}, now);
@@ -175,7 +179,7 @@ async function mine(request, env, now, sub) {
     const row = night ? await env.STATS.prepare('SELECT * FROM ready_batches WHERE install = ? AND night = ?').bind(install, night).first()
       : await env.STATS.prepare('SELECT * FROM ready_batches WHERE install = ? ORDER BY night DESC LIMIT 1').bind(install).first();
     if (!row) return json({ok: true, batch: null, jobs: []});
-    const {results} = await env.STATS.prepare('SELECT job, host, state, filled, left_empty, human_check, wall, ms, submitted_at, cleared_at FROM ready_jobs WHERE batch = ? ORDER BY job').bind(row.id).all();
+    const {results} = await env.STATS.prepare('SELECT job, host, state, filled, left_empty, human_check, wall, ms, submitted_at, cleared_at, step, step_n, started_at FROM ready_jobs WHERE batch = ? ORDER BY job').bind(row.id).all();
     const videos = await jobsWithKept(env, install, 'video', row.id).catch(() => new Set());   // Watch the fill: which rows have the night's video
     return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at, aiStopped: !!row.ai_stopped}, jobs: results.map(job => ({...job, video: videos.has(job.job)}))});
   }
@@ -199,7 +203,7 @@ export async function sweep(env, now = new Date()) {
   return out;
 }
 
-// /api/ready/<batch|result|ai|video|live|handoff|held|link|again|run|done|submitted|state|report|data>
+// /api/ready/<batch|result|ai|video|live|handoff|held|link|again|progress|stop|run|done|submitted|state|report|data>
 export async function ready(request, env, now = new Date()) {
   if (!readyOn(env)) return notFound();
   const sub = new URL(request.url).pathname.replace(/^\/api\/ready\/?/, '');
@@ -226,6 +230,22 @@ export async function ready(request, env, now = new Date()) {
     const job = String((await request.json().catch(() => null))?.job || '');
     if (!/^[\w.:-]{1,64}$/.test(job)) return bad('bad job');
     const done = await fillAgain(env, install, job, now);
+    return json(done.body, done.status);
+  }
+  if (sub === 'progress') {   // the container: the step a form is on (src/ready-line.js); `stop` when the owner stopped it
+    const night = await batchOf(env, request.headers.get('authorization'), now);
+    if (!night) return deny();
+    if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+    const done = await progress(env, night, await request.json().catch(() => null), now);
+    return json(done.body, done.status);
+  }
+  if (sub === 'stop') {   // the owner stops one form ({job}) or the whole night ({})
+    const install = await ownerOf(request, env);
+    if (!install) return deny();
+    if (request.method !== 'POST') return json({ok: false, error: 'Use POST'}, 405);
+    const job = String((await request.json().catch(() => null))?.job || '');
+    if (job && !/^[\w.:-]{1,64}$/.test(job)) return bad('bad job');
+    const done = await stop(env, install, job, now);
     return json(done.body, done.status);
   }
   if (sub === 'run') {   // the owner starts his queued night now (a manual test; the cron would start it at its fill time)

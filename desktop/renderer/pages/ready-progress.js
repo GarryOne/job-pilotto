@@ -39,6 +39,9 @@ export function strip(progress, since = 0) {
   return box;
 }
 
+// Every clock on the card: the card's strip and each filling row (ready-live.js).
+export const tickAll = (root, now = Date.now()) => root.querySelectorAll('[data-since]').forEach(box => tick(box, now));
+
 // Updates the clock on the running step (every second while a strip is shown); no network.
 export function tick(box, now = Date.now()) {
   const clock = box?.querySelector('.ready-clock'), since = Number(box?.dataset.since);

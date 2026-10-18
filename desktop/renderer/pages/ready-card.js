@@ -3,10 +3,11 @@
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {$} from './core.js';
-import {rowOf} from './ready-rows.js';
+import {liveOf, rowOf} from './ready-rows.js';
+import {liveParts} from './ready-live.js';
 import {showFillVideo} from './ready-video.js';
 import {confirmFill} from './ready-confirm.js';
-import {progressOf, strip, tick} from './ready-progress.js';
+import {progressOf, strip, tickAll} from './ready-progress.js';
 import {OUTDATED_LINE, errorLine, restartButton} from '../errors.js';
 
 // state: what readyState gave. names: code -> "Title · Company" for the rows.
@@ -24,12 +25,26 @@ export function paint(card, state, names, act) {
     summary.append(pill(`$${(night.costUsd || 0).toFixed(2)} of AI and servers`, 'neutral'));
     if (night.aiStopped) summary.append(Object.assign(pill('AI stopped', 'warn'), {title: "Your AI stopped during the night (its limit or the night's cost cap): open questions are left for you, the rest is filled."}));
   } else summary.append(pill('Nothing sent yet', 'neutral'));
+  // The forms the night works on now: how many fill and wait, and one Stop for all of them (owner, 18 Oct 2026: Stop for the whole night).
+  const lives = jobs.map(job => liveOf(job, night?.state, state.pending?.has(job.job)));
+  const filling = lives.filter(live => live && live.badge !== 'waiting').length, waiting = lives.filter(live => live?.badge === 'waiting').length;
+  if (filling) summary.append(pill(`${filling} filling`, 'info', {dot: true}));
+  if (waiting) summary.append(pill(`${waiting} waiting`, 'neutral'));
+  if (filling + waiting) summary.append(act.stopAll());
   body.append(summary);
-  const progress = progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError});
+  // The card's own bar only for a whole night's Fill now (and its first seconds, before the rows show it); each row has its own bar.
+  const progress = state.phase === 'sending' || state.wholeNight ? progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError}) : null;
   if (progress) body.append(strip(progress, state.since));
   const rows = el('div', 'ready-rows');
-  for (const job of jobs) {
-    const row = rowOf(job), line = el('div', 'ready-row');
+  jobs.forEach((job, i) => {
+    const row = rowOf(job), line = el('div', 'ready-row'), live = lives[i];
+    if (live) {   // waiting or filling: its badge, its Stop, and its own bar with the live line under it
+      const parts = liveParts(live), buttons = el('span', 'ready-buttons');
+      if (live.badge !== 'sending') buttons.append(act.stop(job.job));
+      line.append(el('span', 'ready-name', names[job.job] || job.host), parts.badge, buttons, parts.line);
+      rows.append(line);
+      return;
+    }
     const buttons = el('span', 'ready-buttons');   // icons with their names as tooltips (owner, 18 Oct 2026: the buttons were "taking too much"; "maybe we should use icons")
     if (['prepared', 'partial', 'wall'].includes(job.state)) { const pair = el('span', 'ready-open'); pair.append(act.open(job.job), act.live(job.job)); buttons.append(pair); }   // the two ways to open it, one group: your own Chrome first, the picture stream beside it
     if (job.video) buttons.append(act.watch(job.job));   // Watch the fill: every form the night opened, also one it could not fill (owner, 18 Oct 2026)
@@ -37,7 +52,7 @@ export function paint(card, state, names, act) {
     buttons.append(act.done(job.job));
     line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), buttons);
     rows.append(line);
-  }
+  });
   if (jobs.length) body.append(rows);
   const next = el('div', 'ready-summary');
   next.append(el('span', 'muted', 'Tonight'));
@@ -91,11 +106,13 @@ export async function initReadyCard() {
   let tonightNow = null, last = null;
   // Fill now's progress (renderer/pages/ready-progress.js): the press shows "Sending" at once, before any answer; then the site's night moves it.
   let phase = 'idle', phaseError = '', since = 0, nowStep = '', clock = null;
+  let wholeNight = false;   // Fill now started the whole night: the card's own bar follows it
+  const pending = new Set();   // rows whose Fill again is on its way to the server
   const keepClock = () => {
-    if (!card.querySelector('.ready-progress')?.dataset.since) return;
-    clock ||= setInterval(() => { const box = card.querySelector('.ready-progress'); if (!box || !card.isConnected) { clearInterval(clock); clock = null; return; } tick(box); }, 1000);
+    if (!card.querySelector('[data-since]:not([data-since=""])')) return;
+    clock ||= setInterval(() => { if (!card.isConnected || !card.querySelector('[data-since]:not([data-since=""])')) { clearInterval(clock); clock = null; return; } tickAll(card); }, 1000);
   };
-  const sends = () => [send, run, ...card.querySelectorAll('.ready-again')];
+  const sends = () => [send, run];   // a row's Fill again joins a running night (site src/ready-again.js), so it stays on
   const show = state => {
     if (!state?.owner) return blocked(card, state?.why, refresh);
     last = state;
@@ -104,9 +121,9 @@ export async function initReadyCard() {
     Object.assign(names, state.names || {});
     const now = progressOf({phase, batch: state.site?.batch, jobs: state.site?.jobs || []})?.steps.find(step => step.state === 'now')?.label || '';
     if (now !== nowStep) { nowStep = now; since = now ? Date.now() : 0; }   // the clock counts the step running now
-    paint(card, {...state, tonight: tonightNow ?? state.tonight, phase, phaseError, since}, names, act);
-    // Every button that sends a batch is off while one is sent or filled: the server keeps one batch a night, and a second send would replace the one running
-    // (18 Oct 2026: a row's Fill again pressed on two rows wiped the first fill).
+    if (wholeNight && !['queued', 'running'].includes(nightState(state)) && phase !== 'sending') wholeNight = false;
+    paint(card, {...state, tonight: tonightNow ?? state.tonight, phase, phaseError, since, wholeNight, pending}, names, act);
+    // Fill tonight and Fill now are off while a night is sent or filled: a new batch would replace the one running (18 Oct 2026: a 2nd press wiped the first fill).
     for (const each of sends()) { each.disabled = busy; if (busy) each.title = 'The server is filling tonight\'s forms: wait for it to finish'; else if (each === send || each === run) each.title = ''; }
     keepClock();
   };
@@ -152,6 +169,8 @@ export async function initReadyCard() {
       button.addEventListener('click', () => watchFill(button, code)); return button; },
     tailor: () => { const button = el('button', 'secondary', 'Tailor CVs for top matches'); button.addEventListener('click', () => $('tailor-top')?.click()); return button; },
     again: code => { const button = iconButton('refresh', 'Fill again', 'the server fills this form again from the start, after your yes', 'again'); button.addEventListener('click', () => fillAgain(code)); return button; },
+    stop: code => { const button = el('button', 'secondary ready-stop', 'Stop'); button.type = 'button'; button.title = 'Stop filling this form: it goes back to how it was'; button.addEventListener('click', () => { button.disabled = true; stopFill(code); }); return button; },
+    stopAll: () => { const button = el('button', 'secondary ready-stop-all', 'Stop all'); button.type = 'button'; button.title = 'Stop every form the night is filling or about to fill'; button.addEventListener('click', () => { button.disabled = true; stopFill(null); }); return button; },
     done: code => { const button = iconButton('check', 'Done', 'delete this form\'s data from the server', 'done'); button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   // What just happened, as a badge and its line (owner, 18 Oct 2026: the status lines "should be shown as badges").
   const LABEL = {info: 'Working', good: 'Done', warn: 'Note', bad: 'Problem'};
@@ -190,20 +209,28 @@ export async function initReadyCard() {
       phase = 'idle'; repaint(); return say('Not started: nothing was sent.');
     }
     if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', result.nothing ? 'warn' : 'bad'); }
-    phase = 'started'; started = true;
+    phase = 'started'; started = true; wholeNight = true;
     say(result.queued ? `${result.queued} job${result.queued === 1 ? '' : 's'} sent: the server is filling ${result.queued === 1 ? 'it' : 'them'} now. Nothing is submitted.` : 'Filling started on the server. Nothing is submitted.', 'good');
     refresh();
   };
   run.addEventListener('click', () => fillNow());
-  // A row's Fill again: after a yes, the server fills that form again from the night's own copy (lib/ready-handlers.js readyAgain); the bar follows it like Fill now.
+  // A row's Fill again: after a yes, the server fills that form again from the night's own copy (lib/ready-handlers.js readyAgain). Its own row shows it at once
+  // ("sending"), then waiting or filling with its own bar; a night already running takes it at the end of its line.
   const fillAgain = async code => {
     const name = names[code] || 'This form';
-    if (!await confirmFill({again: true, jobs: [{code, name}], replaces: 0, note: 'The night\'s other forms keep what was filled; their live view closes while this one fills (Open in my browser still works).'})) return say('Not started: nothing changed on the server.');
-    phase = 'sending'; phaseError = ''; say(''); repaint();
+    if (!await confirmFill({again: true, jobs: [{code, name}], replaces: 0, note: 'The night\'s other forms keep what was filled; Open in my browser still works for them.'})) return say('Not started: nothing changed on the server.');
+    pending.add(code); say(''); repaint();
     const result = await window.pilot.readyAgain(code).catch(error => ({ok: false, error: errorLine(error)}));
-    if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', 'bad'); }
-    phase = 'started'; started = true;
-    say(`${name}: the server is filling it again now. Nothing is submitted.`, 'good');
+    pending.delete(code);
+    if (!result.ok) { repaint(); return say(result.error || 'Could not start.', 'bad'); }
+    started = true;
+    say(result.joined ? `${name}: added to the night's line; it fills after the form filling now. Nothing is submitted.` : `${name}: the server is filling it again now. Nothing is submitted.`, 'good');
+    refresh();
+  };
+  // Stop (owner, 18 Oct 2026: "a stop button once a row started"): one form, or every form of the night; each goes back to how it was before the press.
+  const stopFill = async (code = null) => {
+    const result = await window.pilot.readyStop(code).catch(error => ({ok: false, error: errorLine(error)}));
+    say(result.ok ? `${code ? names[code] || 'This form' : `${result.stopped} form${result.stopped === 1 ? '' : 's'}`}: stopped; back to how ${code || result.stopped === 1 ? 'it was' : 'they were'} before.` : (result.error || 'Could not stop it.'), result.ok ? 'good' : 'bad');
     refresh();
   };
   await refresh();

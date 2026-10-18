@@ -125,6 +125,7 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   // A row's Fill again (the card asked first): the server fills that form again from the night's own copy (site src/ready-again.js), never from this list
   // (18 Oct 2026: a job opened in the browser no longer counts as finished here, so the list refused it and nothing was filled).
   ipcMain.handle('readyAgain', (_, code) => site.again(storage, String(code || '')));
+  ipcMain.handle('readyStop', (_, code) => site.stop(storage, code ? String(code) : ''));   // Stop: one form, or (no code) every form the night still fills
   ipcMain.handle('readyVideo', (_, code) => site.video(storage, String(code || '')));   // Watch the fill: the night's video of this form, played under its row
   ipcMain.handle('readyDone', (_, code) => site.done(storage, String(code || '')));
   ipcMain.handle('readyDeleteAll', () => site.deleteAll(storage));
