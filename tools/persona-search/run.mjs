@@ -55,15 +55,19 @@ if (!storage.settings().setupDone) {   // the wizard's strategy step: the app's 
   storage.saveSettings({setupDone: true, cvName: 'cv.pdf'});
   console.log(`${name}: strategy ${kept ? `from ${kept}` : 'drafted'} in ${Math.round((Date.now() - started) / 1000)} s`);
 }
+const failed = [];
 const done = fs.existsSync(path.join(out, 'presses.jsonl')) ? fs.readFileSync(path.join(out, 'presses.jsonl'), 'utf8').trim().split('\n').filter(Boolean).length : 0;
 for (let press = done + 1; press <= presses; press++) {
   const started = Date.now(), log = fs.createWriteStream(path.join(out, `run-${press}.log`));
   const {code} = await searchSteps(storage, line => log.write(`[${Math.round((Date.now() - started) / 1000)}s] ${line}\n`), 'run', press === 1 ? 'first' : 'you');
   log.end();
-  const row = {press, code, seconds: Math.round((Date.now() - started) / 1000), ...metrics(),
+  const crashes = metrics('crashes.py', path.join(out, `run-${press}.log`));   // a Traceback in the log: a step died, its numbers are thin
+  const row = {press, code, crashes, seconds: Math.round((Date.now() - started) / 1000), ...metrics(),
     ...(press === 1 ? {ttfr: metrics('ttfr.py', path.join(out, 'run-1.log'))} : {})};
   fs.appendFileSync(path.join(out, 'presses.jsonl'), `${JSON.stringify(row)}\n`);
   const first = row.ttfr ? `; 1st/10th relevant at ${row.ttfr.first_in_places_s ?? '—'}/${row.ttfr.tenth_in_places_s ?? '—'} s, 1st 70+ at ${row.ttfr.first_fit70_s ?? '—'} s` : '';
+  if (crashes.length) { failed.push(...crashes); console.log(`PRESS ${name} ${press} FAILED: ${crashes.map(crash => `${crash.step}: ${crash.error}`).join(' | ')}`); }
   console.log(`PRESS ${name} ${press}: ${row.in_places} in places, ${row.scored_in_places} scored, ${row.fit70_in_places} fit 70+ (${row.seconds} s${first})`);
 }
-console.log(`PERSONA DONE ${name}`);
+if (failed.length) { console.log(`PERSONA FAILED ${name}: ${failed.length} crash(es), the numbers above are not a clean run`); process.exitCode = 1; }
+else console.log(`PERSONA DONE ${name}`);
