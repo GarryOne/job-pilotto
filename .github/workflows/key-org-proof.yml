@@ -66,3 +66,13 @@ jobs:
             -d '{"model":"gpt-6-luna","max_completion_tokens":1,"messages":[{"role":"user","content":"hi"}]}')
           echo "chat 1 token: HTTP $code"
           python3 -c "import json;e=json.load(open('/tmp/oc.b')).get('error',{});print(e.get('type'),'|',e.get('code'),'|',e.get('message'))" 2>/dev/null || true
+      - name: OpenAI key, 60 calls at once in the app's own Responses shape (about $0.0025, owner's yes 18 Oct 2026)
+        run: |
+          if [ -z "$E2E_OPENAI_KEY" ]; then echo "E2E_OPENAI_KEY is not set"; exit 0; fi
+          ask() {   # prints the status, error type and code only
+            code=$(curl -sS -m 60 -o "/tmp/r-$1.b" -w '%{http_code}' https://api.openai.com/v1/responses \
+              -H "Authorization: Bearer $E2E_OPENAI_KEY" -H 'content-type: application/json' \
+              -d '{"model":"gpt-6-luna","input":"Answer ok.","max_output_tokens":64}')
+            echo "burst$1: HTTP $code $(python3 -c "import json;e=(json.load(open('/tmp/r-$1.b')).get('error') or {});print(e.get('type',''),'|',e.get('code',''))" 2>/dev/null)"
+          }
+          for n in $(seq 1 60); do ask "$n" & done; wait
