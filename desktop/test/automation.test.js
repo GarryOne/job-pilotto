@@ -73,7 +73,10 @@ test('a Gmail check looks back far enough to cover the time since the last good 
 test('every mode that runs AI steps has the 3-minute budget (the first run follow-up, mode today, had none)', () => {
   const storage = tempStorage();
   storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
-  for (const mode of ['scheduled', 'run', 'today']) {
+  // The class is the engine's own list of crawl modes (src/notion/cron_report.py CRAWL_MODES): a new one fails here until it has the budget.
+  const crawl = fs.readFileSync(new URL('../../src/notion/cron_report.py', import.meta.url), 'utf8').match(/CRAWL_MODES = \{([^}]*)\}/)[1].match(/'(\w+)'/g).map(m => m.slice(1, -1));
+  assert.deepEqual([...crawl].sort(), ['run', 'scheduled', 'today']);
+  for (const mode of crawl) {
     const args = pipeline.dailyArgs(storage, {mode});
     assert.ok(args.includes('--score-max'), `${mode} scores`);
     assert.equal(args[args.indexOf('--budget') + 1], '180', `${mode} stops its AI steps at 3 minutes`);
