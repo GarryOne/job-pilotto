@@ -5,10 +5,10 @@
 // Keychain, Notion or Telegram; telemetry and pool sharing are off.
 //   python3 tools/persona-search/personas.py <out>            (the CVs: <out>/<name>/cv.pdf)
 //   node tools/persona-search/run.mjs <name> <out> [--presses 5] [--tag before] [--fresh] [--draft <draft.json>]
-//        [--tape <folder> --record | --replay [--speed 1]]
+//        [--tape <folder> --record | --replay [--wait-scale 1]]
 // Writes <out>/<name>/draft.json, run-<press>.log and presses.jsonl (one JSON line per press: tools/persona-search/metrics.py + time).
 // --draft: the strategy from an earlier run (no AI), so two runs search for the same thing. --tape (src/search_tape.py, change 0 of the search
-// plan): --record keeps every web and AI answer of the search; --replay serves them offline after their recorded time (x --speed), so a change
+// plan): --record keeps every web and AI answer of the search; --replay serves them offline after their recorded time times --wait-scale (1 = as recorded, 0 = no wait, 0.1 = ten times faster), so a change
 // is measured on the same sources: nothing leaves the computer, and an AI question the tape lacks goes to the plan and is added.
 // tools/persona-search/ttfr.py <run-1.log> <data dir>: the seconds to the 1st and 10th relevant job and to the first 70+.
 import fs from 'node:fs';
@@ -26,10 +26,11 @@ if (process.argv.includes('--fresh')) fs.rmSync(dir, {recursive: true, force: tr
 fs.mkdirSync(dir, {recursive: true});
 fs.copyFileSync(path.join(out, 'cv.pdf'), path.join(dir, 'cv.pdf'));
 const tape = option('--tape', '');
+if (process.argv.includes('--speed')) { console.error('--speed is gone (it multiplied the waits, so 20 meant 20x slower): use --wait-scale, 0 = no wait'); process.exit(2); }
 if (tape) {   // read by the engine (desktop/lib/pipeline-env.js passes these three on)
   if (process.argv.includes('--record') === process.argv.includes('--replay')) { console.error('--tape needs --record or --replay'); process.exit(2); }
   Object.assign(process.env, {JOB_PILOTTO_SEARCH_TAPE: path.resolve(tape), JOB_PILOTTO_SEARCH_TAPE_MODE: process.argv.includes('--record') ? 'record' : 'replay',
-    JOB_PILOTTO_TAPE_SPEED: option('--speed', '1')});
+    JOB_PILOTTO_TAPE_WAIT_SCALE: option('--wait-scale', '1')});
 }
 
 const lib = file => import(path.join(ROOT, 'desktop', 'lib', file));
