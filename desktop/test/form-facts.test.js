@@ -24,26 +24,27 @@ test('only facts a form asked for and Your details holds, most asked first, with
   assert.deepEqual(usedInForms(null, null), []);
 });
 
-test('the card: one reference row per fact, its link opens Your details; nothing to edit here; an empty line when no form asked yet', async () => {
+test('the card: label | value rows, one header link opens Your details; nothing to edit here; an empty line when no form asked yet', async () => {
   const body = install();
   const tabs = globalThis.document.createElement('button');
   tabs.dataset.profileTab = 'details';
   let opened = 0;
   tabs.addEventListener('click', () => { opened += 1; });
-  const node = globalThis.document.createElement('div');
+  const node = globalThis.document.createElement('div'), link = globalThis.document.createElement('button');
   node.id = 'answers-facts-body';
-  body.append(tabs, node);
+  link.id = 'answers-facts-open';
+  body.append(tabs, link, node);
   globalThis.window.pilot = {formFacts: async () => ({ok: true, facts: usedInForms(VERDICTS, FACTS)})};
   const {loadAnswersFacts} = await import('../renderer/pages/answers-facts.js');
   await loadAnswersFacts();
   assert.deepEqual(node.querySelectorAll('dt').map(term => term.textContent), ['Location', 'Notice period']);
   assert.deepEqual(node.querySelectorAll('dd').map(value => value.textContent), ['London', '1 month']);
-  const refs = node.querySelectorAll('.reference-row');
-  assert.equal(refs.length, 1, 'one link to Your details, not one per row');
-  assert.match(refs[0].textContent, /From Your details/);
+  assert.equal(node.querySelectorAll('.reference-row').length, 0, 'no line under the table (mockup 02): the link is in the header');
   assert.ok(!node.querySelector('input, textarea, select'), 'read-only');
-  refs[0].querySelector('button').listeners.click[0]();
-  assert.equal(opened, 1, 'the link opens the Your details tab');
+  await loadAnswersFacts();
+  assert.equal(link.listeners.click.length, 1, 'wired once, however often the card loads');
+  link.listeners.click[0]();
+  assert.equal(opened, 1, 'the header link opens the Your details tab');
   globalThis.window.pilot = {formFacts: async () => ({ok: true, facts: []})};
   await loadAnswersFacts();
   assert.match(node.textContent, /No form has asked for a fact of Your details yet/);

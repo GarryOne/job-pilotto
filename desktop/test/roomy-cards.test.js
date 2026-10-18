@@ -84,9 +84,9 @@ test('divided tiles: "+N more" and a status badge sit inside the value, never as
   assert.match(text(box.children[1].children[1].children[1]), /^CHF 1As written$/);
 });
 
-// Profile tabs restyled from the mockups (owner approved 18 Oct 2026: Your details 05, Experience 09/06, CV 08): the class is every panel of those tabs;
-// a new one fails until it has the roomy header. The next restyled tab joins ROOMY_TABS (answers, letter).
-const ROOMY_TABS = {details: 7, experience: 3, cv: 1};
+// Profile tabs restyled from the mockups (owner approved 18 Oct 2026: Your details 05, Experience 09/06, CV 08, Application answers 02/04/10): the class is every panel of those tabs;
+// a new one fails until it has the roomy header. The next restyled tab joins ROOMY_TABS (letter).
+const ROOMY_TABS = {details: 7, experience: 3, cv: 1, answers: 2};
 test('class: every panel of a restyled Profile tab is .panel.roomy with the cardHead shape (teal tile, title over its lead), no lead line outside the header', () => {
   const html = read('index.html');
   for (const [tab, least] of Object.entries(ROOMY_TABS)) {

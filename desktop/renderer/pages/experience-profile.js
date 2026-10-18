@@ -149,7 +149,16 @@ function body(key, part) {
   if (lines.length === 1) box.append(el('p', '', shownText(lines[0].text)));
   else if (lines.length) { const list = el('ul', 'exp-part-list'); list.append(...lines.map(line => el('li', '', shownText(line.text)))); box.append(list); }
   if (part.rows.length) box.append(el('p', '', previewOf({lines: [], rows: part.rows})));
-  for (const note of notes) box.append(el('p', 'muted small', shownText(note.text).replace(/^\(|\)$/g, '')));
+  // A note ("confirmed 2 Oct 2026; …") is an ⓘ tip on the last entry, never a grey line inside the values (owner: no notes inside values).
+  if (notes.length) {
+    const tip = el('span', 'part-note'), words = notes.map(note => shownText(note.text).replace(/^\(|\)$/g, '')).join('\n');
+    tip.append(icon('info'));
+    tip.setAttribute('title', words);
+    tip.setAttribute('role', 'img');
+    tip.setAttribute('aria-label', `Note: ${words}`);
+    const last = box.children.at?.(-1) ?? box.children[box.children.length - 1];
+    (last || box).append(tip);
+  }
   return box;
 }
 

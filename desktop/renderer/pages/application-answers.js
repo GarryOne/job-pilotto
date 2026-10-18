@@ -82,8 +82,10 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
 }
 
 // Why a queue row is there (mockup 04, from what the row already holds): an answer to accept, a guess to confirm, or none yet.
-const statusOf = entry => (entry.proposal ? {label: 'Suggested answer', tone: 'signal', action: 'Review'}
-  : entry.item.guess ? {label: 'Confirm answer', tone: 'info', action: 'Review'} : {label: 'Missing answer', tone: 'warn', action: 'Add answer'});
+const statusOf = entry => (entry.proposal ? {label: 'Suggested answer', tone: 'signal', action: 'Review', glyph: 'sparkle'}
+  : entry.item.guess ? {label: 'Confirm answer', tone: 'info', action: 'Review', glyph: 'info'} : {label: 'Missing answer', tone: 'warn', action: 'Add answer', glyph: 'bang-circle'});
+// A status pill leads with its icon (mockup 04), so the kind reads before the words.
+const statusPill = (label, tone, glyph) => { const node = pill(label, tone); node.prepend(icon(glyph)); return node; };
 // An answer marked optional in the store, still empty: never urgent, folded apart ("Optional profile fields · N unanswered").
 const emptyOptional = item => item.optional && !valueOf(item);
 let optionalOpen = false;
@@ -184,7 +186,9 @@ function draw(view, into) {
     const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});
     // The questions are reviewed one at a time in the drawer Jobs opens too (pages/question-review.js): one review flow, two ways in.
     go.addEventListener('click', () => import('./question-review.js').then(review => review.openQuestionReview()));
-    banner.append(el('span', '', `⚠ ${asked} question${asked === 1 ? '' : 's'} need${asked === 1 ? 's' : ''} review`), ...(fromDetails.length ? [el('span', 'muted small', fromDetailsLine(fromDetails.length))] : []), go);
+    const words = el('span', 'qa-banner-words');   // mockup 04: the alert icon, the count bold, a detail beside it (never a line of its own)
+    words.append(icon('alert'), el('b', '', `${asked} question${asked === 1 ? '' : 's'} need${asked === 1 ? 's' : ''} your review`), ...(fromDetails.length ? [el('span', 'muted small', fromDetailsLine(fromDetails.length))] : []));
+    banner.append(words, go);
     into.append(banner);
   }
 
@@ -195,17 +199,17 @@ function draw(view, into) {
     for (const entry of open) {
       const {item, section} = entry, sure = statusOf(entry);
       review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: [item.asked ? `Asked by ${item.asked}` : '', shown(section.title) || 'Answers'].filter(Boolean).join(' · '),
-        value: valueOf(item), needs: true, status: pill(sure.label, sure.tone), action: sure.action,
+        value: valueOf(item), needs: true, status: statusPill(sure.label, sure.tone, sure.glyph), action: sure.action,
         field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', entry), kind: () => kindField(view, item)}));
     }
     // Your details' unclear items: answered in the review drawer, at that item (its one review flow).
     for (const each of detailRows) {
       review.append(...row(view, {key: `details:${each.key}`, title: shown(each.question), under: each.details?.where ? `Your details · ${each.details.where}` : 'Your details', value: '', needs: true,
-        status: pill('Confirm in Your details', 'info'), action: 'Review', run: () => import('./question-review.js').then(drawer => drawer.openQuestionReview({start: each.key})), field: () => el('span')}));
+        status: statusPill('Confirm in Your details', 'info', 'info'), action: 'Review', run: () => import('./question-review.js').then(drawer => drawer.openQuestionReview({start: each.key})), field: () => el('span')}));
     }
     if (ruleRows.length) {
       review.append(el('h5', 'qa-group', `Website rules without an answer · ${ruleRows.length}`));
-      for (const each of ruleRows) review.append(...row(view, {...each, needs: true, status: pill('Missing answer', 'warn')}));
+      for (const each of ruleRows) review.append(...row(view, {...each, needs: true, status: statusPill('Missing answer', 'warn', 'bang-circle')}));
     }
     if (hiddenRows.length) {
       const more = Object.assign(el('button', 'link', showHidden ? 'Hide the others' : `${hiddenRows.length} hidden · show`), {type: 'button', id: 'review-hidden'});

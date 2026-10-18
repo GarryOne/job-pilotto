@@ -33,7 +33,7 @@ const rowTitles = node => node.querySelectorAll('.qa-saved .qa-row').map(row => 
 test('All: the banner, one Saved answers card with a header per section, the intro and notes as small text, never as rows', async () => {
   const node = await open();
   assert.deepEqual(node.querySelectorAll('.segmented button').map(button => button.textContent), ['All', 'Needs review 1', 'Saved']);
-  assert.match(node.querySelector('.qa-banner').textContent, /1 question needs review/);
+  assert.match(node.querySelector('.qa-banner').textContent, /1 question needs your review/);
   assert.deepEqual(node.querySelectorAll('.qa-saved .qa-group').map(head => head.textContent), ['Eligibility', 'Availability and pay']);
   assert.deepEqual(rowTitles(node), ['Authorised to work in Switzerland?', 'Notice period'], 'an unanswered row is in the queue, never "Not set" under Saved (18 Oct 2026)');
   assert.equal(node.querySelectorAll('.qa-saved .qa-intro').length, 2, 'the page intro: small text');
