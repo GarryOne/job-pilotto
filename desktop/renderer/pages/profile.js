@@ -11,7 +11,7 @@ import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
 import {init as letterFallback} from './letter-fallback.js';
-import {el, pill, tile} from '../components.js';
+import {el, openMenu, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {byStore} from '../store-words.js';
@@ -116,6 +116,10 @@ function initLetter() {
     message('letter-message', result.ok ? ($('letter-fallback').checked ? 'Approved ✓ Forms whose job has no letter of its own get this PDF.' : 'Approved ✓ Turn on the switch below to use it when a job has no letter of its own.') : result.error, result.ok ? 'ok' : 'error');
   });
   $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
+}
+// Application answers' ⋯ (one "View source in Notion" per page, in a menu: owner, 18 Oct 2026, fix 10); the button is shown on Notion only.
+function answersMenu() {
+  openMenu($('answers-review'), [{label: 'View source in Notion', icon: 'external', run: () => openInNotion('NOTION_ANSWERS_PAGE_ID')}]);
 }
 // Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
 let showGithub = true;   // false for a non-technical candidate (fitDetailsToCandidate)
@@ -298,7 +302,7 @@ export async function init() {
   initExperience();
   $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
-  $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
+  $('answers-review').addEventListener('click', answersMenu);
   $('links-edit').addEventListener('click', () => {
     const editing = $('links-form').hidden;
     show($('links-form'), editing);
@@ -307,7 +311,6 @@ export async function init() {
     $('links-edit').setAttribute('aria-label', editing ? 'Done editing professional links' : 'Edit professional links');
     if (!editing) showLinks();
   });
-  $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('answers-add').addEventListener('click', addQuestion);
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });

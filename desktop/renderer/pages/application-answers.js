@@ -52,7 +52,7 @@ function kindField(view, item) {
 
 // One row: chevron · question (and its hint) · its answer or "Not set"; a row that needs an answer keeps "Add answer". Open: "Editing", the answer
 // field, and "Answer as" folded under Advanced options (the kind is read from forms or the AI; the picker only corrects it).
-function row(view, {key, title, under, value, needs, field, kind = null, optional = false, button = needs}) {
+function row(view, {key, title, under, value, needs, field, kind = null, optional = false, button = needs, status = null, action = 'Add answer', run = null}) {
   const isOpen = opened.has(key);
   const head = el('div', `qa-row${isOpen ? ' is-open' : ''}${button ? '' : ' no-action'}`);
   const toggle = () => { if (isOpen) opened.delete(key); else opened.add(key); view.redraw(); };
@@ -63,11 +63,11 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
   const words = el('div', 'qa-words');
   words.append(el('b', '', title));
   if (under) words.append(el('span', 'muted small', under));
-  head.append(chevron, words, isOpen ? pill('Editing', 'signal') : el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'));
+  head.append(chevron, words, isOpen ? pill('Editing', 'signal') : status && !value ? status : el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'));
   if (button) {
-    const action = Object.assign(el('button', 'secondary qa-add', 'Add answer'), {type: 'button'});
-    action.addEventListener('click', () => { opened.add(key); view.redraw(); });
-    head.append(action);
+    const press = Object.assign(el('button', 'secondary qa-add', action), {type: 'button'});
+    press.addEventListener('click', () => (run ? run() : (opened.add(key), view.redraw())));
+    head.append(press);
   }
   if (!isOpen) return [head];
   const edit = el('div', 'qa-edit');
@@ -78,6 +78,21 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
   advanced.append(el('p', 'muted small', 'Left empty, it stays not set and forms ask you again.'));
   edit.append(advanced);
   return [head, edit];
+}
+
+// Why a queue row is there (mockup 04, from what the row already holds): an answer to accept, a guess to confirm, or none yet.
+const statusOf = entry => (entry.proposal ? {label: 'Suggested answer', tone: 'signal', action: 'Review'}
+  : entry.item.guess ? {label: 'Confirm answer', tone: 'info', action: 'Review'} : {label: 'Missing answer', tone: 'warn', action: 'Add answer'});
+// An answer marked optional in the store, still empty: never urgent, folded apart ("Optional profile fields · N unanswered").
+const emptyOptional = item => item.optional && !valueOf(item);
+let optionalOpen = false;
+function optionalFold(view, items) {
+  const fold = el('details', 'plain qa-optional');
+  fold.open = optionalOpen || !!filters.query;
+  fold.addEventListener('toggle', () => { optionalOpen = fold.open; });
+  fold.append(el('summary', 'muted small', `Optional fields · ${items.length} unanswered · not in your review queue`));
+  for (const item of items) fold.append(...answerRow(view, item));
+  return fold;
 }
 
 // A question saved by a build before 17 Oct 2026 was cut at 120 characters (#1281): said under it, never guessed back.
@@ -151,16 +166,18 @@ function draw(view, into) {
   }
   const {shown: shownRows, hidden: hiddenRows, fromDetails} = visibleQuestions(candidates.map(each => ({...each, question: each.item.question})), verdicts);
   const ruleRows = reviewRows(view, filters.query).filter(each => !each.value);
-  const reviewCount = shownRows.length + ruleRows.length;
+  // ONE queue for the banner, the Needs review count and its rows (owner, 18 Oct 2026: the filter said 6, the banner 5): the questions forms still ask and
+  // Your details' unclear items, as the review drawer walks them. Website rules with no value are listed apart, under their own count.
+  lastView = view;
+  if (!questionsNow().read && !queueAsked) { queueAsked = true; loadQuestions().catch(() => {}); }
+  const detailRows = detailsIn(questionsNow().list).filter(each => matches({question: each.question, value: ''}, {query: filters.query}));
+  const reviewCount = shownRows.length + detailRows.length;
 
   toolbar(view, into, reviewCount);
   for (const key of [...drafts.keys()].filter(k => String(k).startsWith('new-'))) into.append(newQuestion(view, key, list));
 
-  // The banner counts what the drawer walks through (the questions, owner 17 Oct 2026: "make the count match the review queue"); website rules stay under Needs review.
-  // Your details' unclear fields are in that queue too (owner, 18 Oct 2026: "One queue for all"): the queue's own list, read once if Jobs has not read it yet.
-  lastView = view;
-  if (!questionsNow().read && !queueAsked) { queueAsked = true; loadQuestions().catch(() => {}); }
-  const asked = shownRows.length + detailsIn(questionsNow().list).length;
+  // The banner: the same queue's count (owner, 17 Oct 2026: "make the count match the review queue"; 18 Oct: "One queue for all").
+  const asked = reviewCount;
   if (filters.view === 'all' && asked) {
     const banner = el('div', 'notice qa-banner');
     const go = Object.assign(el('button', 'primary small-btn', 'Review questions'), {type: 'button', id: 'answers-review-go'});
@@ -172,20 +189,29 @@ function draw(view, into) {
 
   if (filters.view === 'review') {
     const open = showHidden ? [...shownRows, ...hiddenRows] : shownRows;
-    const review = card('Needs review', 'alert', [pill(`${reviewCount} not set`, 'warn', {dot: true})]);
+    const review = card('Needs review', 'alert', [pill(`${reviewCount} to review`, 'warn', {dot: true})]);
     review.classList.add('is-review');
     for (const entry of open) {
-      const {item, section} = entry;
-      review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: shown(section.title) || 'Answers', value: valueOf(item), needs: true,
-      field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', entry), kind: () => kindField(view, item)}));
+      const {item, section} = entry, sure = statusOf(entry);
+      review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: [item.asked ? `Asked by ${item.asked}` : '', shown(section.title) || 'Answers'].filter(Boolean).join(' · '),
+        value: valueOf(item), needs: true, status: pill(sure.label, sure.tone), action: sure.action,
+        field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', entry), kind: () => kindField(view, item)}));
     }
-    for (const each of ruleRows) review.append(...row(view, {...each, needs: true}));
+    // Your details' unclear items: answered in the review drawer, at that item (its one review flow).
+    for (const each of detailRows) {
+      review.append(...row(view, {key: `details:${each.key}`, title: shown(each.question), under: each.details?.where ? `Your details · ${each.details.where}` : 'Your details', value: '', needs: true,
+        status: pill('Confirm in Your details', 'info'), action: 'Review', run: () => import('./question-review.js').then(drawer => drawer.openQuestionReview({start: each.key})), field: () => el('span')}));
+    }
+    if (ruleRows.length) {
+      review.append(el('h5', 'qa-group', `Website rules without an answer · ${ruleRows.length}`));
+      for (const each of ruleRows) review.append(...row(view, {...each, needs: true, status: pill('Missing answer', 'warn')}));
+    }
     if (hiddenRows.length) {
       const more = Object.assign(el('button', 'link', showHidden ? 'Hide the others' : `${hiddenRows.length} hidden · show`), {type: 'button', id: 'review-hidden'});
       more.addEventListener('click', () => { showHidden = !showHidden; view.redraw(); });
       review.append(more);
     }
-    if (!open.length && !ruleRows.length && !hiddenRows.length) review.append(el('p', 'muted qa-empty', 'Nothing to review: forms have every answer they asked for.'));
+    if (!open.length && !detailRows.length && !ruleRows.length && !hiddenRows.length) review.append(el('p', 'muted qa-empty', 'Nothing to review: forms have every answer they asked for.'));
     into.append(review);
     return;
   }
@@ -193,14 +219,15 @@ function draw(view, into) {
   // Saved answers: one card, a small header per section, one line per answer.
   const saved = card('Saved answers', 'file-text');
   saved.classList.add('qa-saved');
-  // Base facts live in Your details only (owner, 17 Oct 2026): a row there with no answer here is not repeated as "Not set".
-  const inDetails = new Set(fromDetails.map(each => each.item.id));
   if (fromDetails.length && filters.view !== 'review') saved.append(el('p', 'muted small qa-from-details', `${fromDetailsLine(fromDetails.length)}: edit them in Your details`));
   if (intro) for (const item of intro.items) saved.append(el('p', 'muted small qa-intro', shown(item.question ? `${item.question}: ${item.value}` : item.value || item.text)));
+  // Only answers that are set (owner, 18 Oct 2026: no "Not set" under Saved): an unanswered one is in the queue, behind "N hidden · show", or optional (folded below).
   let any = false;
+  const optional = [];
   for (const section of list) {
-    const items = section.items.filter(item => item.kind !== 'note' && !(missing(item) && inDetails.has(item.id)) && (filters.view !== 'saved' || !missing(item))
-      && matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query}));
+    const set = section.items.filter(item => item.kind !== 'note' && !missing(item) && matches({...item, value: valueOf(item), open: missing(item)}, {query: filters.query}));
+    optional.push(...set.filter(emptyOptional));
+    const items = set.filter(item => !emptyOptional(item));
     const notes = filters.query || filters.view === 'review' ? [] : section.items.filter(item => item.kind === 'note');
     if (!items.length && !notes.length) continue;
     any = true;
@@ -208,7 +235,8 @@ function draw(view, into) {
     if (notes.length) saved.append(noteFold(notes));
     for (const item of items) saved.append(...answerRow(view, item));
   }
-  if (!any) saved.append(el('p', 'muted qa-empty', list.length ? 'No answer matches this search.' : 'No standard answers yet: they are added as forms ask questions, or with Add answer.'));
+  if (optional.length) saved.append(optionalFold(view, optional));
+  if (!any && !optional.length) saved.append(el('p', 'muted qa-empty', list.length ? 'No answer matches this search.' : 'No standard answers yet: they are added as forms ask questions, or with Add answer.'));
   into.append(saved);
 
   // Website-specific questions, folded: exceptions and what Job Pilotto learned from forms.
