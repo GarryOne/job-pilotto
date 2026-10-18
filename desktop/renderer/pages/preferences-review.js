@@ -32,7 +32,7 @@ export function reviewCard({fields, state, handled, apply, note, redraw}) {
   if (!rows.length) return state.busy || state.error ? box : null;
   const accept = row => { const field = FIELDS.find(each => each.key === row.key), item = fields[row.key]; apply(field, item, row.proposed); handled.add(row.key); note(); };
   const bar = el('div', 'pref-review-actions');
-  // The card's one primary: Accept all; each row's Accept is outlined, Keep mine a link.
+  // The card's one primary: Accept all (the AI proposes); each row's Accept is outlined, Keep mine a link.
   const all = Object.assign(el('button', 'primary small-btn', 'Accept all'), {type: 'button', id: 'preferences-review-accept-all'});
   all.addEventListener('click', () => { rows.forEach(accept); redraw(); });
   const none = Object.assign(el('button', 'link small', 'Keep all mine'), {type: 'button', id: 'preferences-review-keep-all'});

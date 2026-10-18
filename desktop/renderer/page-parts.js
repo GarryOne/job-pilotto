@@ -158,7 +158,12 @@ export function choiceRow({key = '', title = '', sides = [], actions = []} = {})
     const box = el('div', `choice-side choice-tone-${side.tone || 'now'}`);
     const who = el('span', 'choice-who', side.who || '');
     if (side.items) box.append(choiceChips(side.items, who));
-    else { const line = el('div', 'chip-list'); line.append(who, el('span', 'choice-text', String(side.text || '').trim() || 'Not set')); box.append(line); }
+    else {
+      // A trailing "Confirmed 2 Sep 2026." is a note, not part of the value: a muted line under it.
+      const full = String(side.text || '').trim(), found = full.match(/\s*\(?\bconfirmed (?:by \w+ )?\d{1,2} [A-Za-z]{3,9} \d{4}\.?\)?\s*$/i);
+      const line = el('div', 'chip-list'); line.append(who, el('span', 'choice-text', (found ? full.slice(0, found.index).trim() : full) || 'Not set')); box.append(line);
+      if (found) box.append(el('span', 'muted small read-note choice-note', found[0].trim().replace(/^\(|\)$/g, '')));
+    }
     both.append(box);
   }
   row.append(head, both);

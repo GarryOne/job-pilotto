@@ -68,13 +68,24 @@
 
 /* Choice row (choiceRow): name + buttons on one line, the two sides beside each other (one column when narrow), each side tinted by its tone; chips mark
    the difference: + added (green), struck removed (red), outlined only on this side. */
-.choice-row { display: grid; gap: var(--sp-2); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+/* Wide: one grid row, label | side | side | actions (head and sides dissolve into the row's cells); narrow: label and buttons on a line, sides stacked. */
+.choice-row { display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: stretch; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
 .choice-row:first-child { border-top: 0; }
-.choice-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
-.choice-title { flex: 1; min-width: 0; font-size: var(--fs-md); }
-.choice-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.choice-head, .choice-sides { display: contents; }
+.choice-title { order: 1; align-self: start; padding-top: var(--sp-2); font-size: var(--fs-md); min-width: 0; }
+.choice-side { order: 2; }
+.choice-actions { order: 3; align-self: start; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); padding-top: var(--sp-1); max-width: 260px; }
 .choice-actions > button { white-space: nowrap; }
-.choice-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
+.choice-row > .choice-typed { grid-column: 2 / -1; order: 4; }
+/* the cards' lists are the containers (the card's width, not the window's, decides) */
+.pref-body, #locations-which-list { container-type: inline-size; }
+@container (max-width: 820px) {
+  .choice-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .choice-side { grid-column: 1 / -1; order: 3; }
+  .choice-actions { order: 2; max-width: none; }
+  .choice-row > .choice-typed { grid-column: 1 / -1; }
+}
+.choice-side .chip-tag { max-width: 100%; border-radius: var(--r-md); }
 .choice-side { display: grid; align-content: start; gap: var(--sp-1); min-width: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); }
 .choice-who { align-self: center; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); min-width: 64px; }
 .choice-text { align-self: center; font-size: var(--fs-sm); overflow-wrap: anywhere; min-width: 0; flex: 1 1 200px; }
