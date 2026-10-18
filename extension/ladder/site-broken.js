@@ -12,14 +12,21 @@ export function brokenOf(shape) {
   const status = Number(shape.status) || 0;
   return GONE.includes(status) ? 'gone' : status >= 500 && status <= 599 ? 'error' : null;
 }
+// A posting the page-kind AI calls closed (taken down, filled, "not found" served with a 200: Ashby, 18 Oct 2026) is reported like a gone one. The AI judges it, in any language; the
+// structure floor ANDs with it: a page that shows a form is never closed. -> 'closed' | null. kind: the page-kind answer; shape: pageShape's counts.
+export function closedOf(kind, shape) {
+  if (kind?.kind !== 'closed' || !shape) return null;
+  return (shape.fields || 0) + (shape.textareas || 0) + (shape.files || 0) >= 2 ? null : 'closed';
+}
 // What the person reads (the app's session card): fixed sentences, at most 80 characters.
 export function brokenNeed(kind, status) {
+  if (kind === 'closed') return 'This posting is closed';
   if (kind === 'gone') return `This posting is gone: the site answered ${status}`;
   if (kind === 'error') return `The site answered with an error (${status}): try again later`;
   return 'The page could not be loaded or read: try again later';
 }
 // How many times each kind is loaded again, and the wait before each load (a server that is restarting answers a few seconds later).
-export const TRIES = {error: [3000, 8000], unreadable: [3000], gone: []};
+export const TRIES = {error: [3000, 8000], unreadable: [3000], gone: [], closed: []};
 
 const tried = new Map();   // `${tabId} ${pageKey}` -> loads done
 const posted = new Map();   // tabId -> whether its current document came from a form submission

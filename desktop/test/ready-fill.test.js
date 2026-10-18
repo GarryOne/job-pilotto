@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACCOUNT_PRESS, copyForNight, holdAccountPress} from '../../hosted/ready-fill/extension-copy.mjs';
-import {classify, fillJob} from '../../hosted/ready-fill/fill-job.mjs';
+import {CLOSED_NEED, classify, fillJob} from '../../hosted/ready-fill/fill-job.mjs';
 import {formUrl} from '../lib/form-address.js';
 import {inputToCdp} from '../../hosted/ready-fill/live.mjs';
 import {costMicro} from '../../hosted/ready-fill/night.mjs';
@@ -104,6 +104,17 @@ test('the outcome words: prepared needs a fill with nothing required left; an ac
   assert.deepEqual(classify({outcome: null, panel: false, role: ''}), {state: 'no-form', wall: ''});
   assert.deepEqual(classify({outcome: null, panel: false, role: 'account'}), {state: 'wall', wall: 'account'});
   assert.deepEqual(classify({outcome: null, panel: true, role: 'form'}), {state: 'failed', wall: 'no-record'});
+});
+
+test('a closed posting is "closed" in the night, not "no form": the extension\'s fixed sentence, only when nothing was filled', async () => {
+  const {brokenNeed} = await import('../../extension/ladder/site-broken.js');
+  for (const need of [brokenNeed('closed', 200), brokenNeed('gone', 404)]) {
+    assert.match(need, CLOSED_NEED);
+    assert.deepEqual(classify({outcome: null, panel: false, role: '', stuck: {why: 'site_broken', needs: need}}), {state: 'closed', wall: ''});
+  }
+  assert.doesNotMatch(brokenNeed('error', 503), CLOSED_NEED);
+  assert.deepEqual(classify({outcome: null, panel: false, role: '', stuck: {why: 'site_broken', needs: brokenNeed('error', 503)}}), {state: 'no-form', wall: ''});
+  assert.deepEqual(classify({outcome: {filled: 5, left: 0, role: 'form'}, panel: true, stuck: {why: 'site_broken', needs: brokenNeed('closed', 200)}}), {state: 'prepared', wall: ''});
 });
 
 test('the live view lets only mouse and keys through to the browser', () => {

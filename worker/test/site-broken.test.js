@@ -2,7 +2,7 @@
 // times, then reported plainly; a page a form led to is never loaded again; a form served with an error code is still filled.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {GONE, TRIES, brokenNeed, brokenOf, forgetBroken, noteCommitted, onBrokenPage} from '../../extension/ladder/site-broken.js';
+import {GONE, TRIES, brokenNeed, brokenOf, closedOf, forgetBroken, noteCommitted, onBrokenPage} from '../../extension/ladder/site-broken.js';
 
 const shape = (status, fields = 0) => ({fields, textareas: 0, files: 0, status});
 
@@ -77,4 +77,13 @@ test('a closed tab is forgotten: a new tab with its id starts with fresh tries',
   noteCommitted({tabId: 4, frameId: 0, transitionType: 'link'});
   assert.equal(await onBrokenPage('unreadable', flow(4).deps), 'retry');
   forgetBroken(4);
+});
+
+test('a posting the page-kind AI calls closed is reported at once, never loaded again, and only when the page shows no form', () => {
+  assert.equal(closedOf({kind: 'closed'}, shape(200)), 'closed');   // a 200 "not found" page: no status says gone
+  assert.equal(closedOf({kind: 'closed'}, shape(200, 2)), null, 'a form is there: the AI is overruled (AND)');
+  assert.equal(closedOf({kind: 'closed'}, null), null);
+  for (const kind of ['posting', 'other', 'form', 'account', undefined]) assert.equal(closedOf({kind}, shape(200)), null, String(kind));
+  assert.deepEqual(TRIES.closed, []);
+  assert.equal(brokenNeed('closed', 200), 'This posting is closed');
 });

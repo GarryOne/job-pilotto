@@ -123,5 +123,5 @@ test('a digest that said the way on is not in its list marks the tab blind; the 
   assert.equal(blindOn(41), false);
   assert.equal(blindOr(41, 'confident'), 'confident');
   const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
-  assert.match(flow, /deadEndHere\(tab, jobUrl, host, \(email \|\| told \|\| other\)\.why, [^\n]*signal: blindOr\(tab\.id, said\?\.signal\)\}\)/);
+  assert.match(flow, /deadEndHere\(tab, jobUrl, host, \(email \|\| told \|\| closed \|\| other\)\.why, [^\n]*signal: blindOr\(tab\.id, said\?\.signal\)\}\)/);
 });
