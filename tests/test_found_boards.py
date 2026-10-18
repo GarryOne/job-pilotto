@@ -68,6 +68,21 @@ class FoundBoardsTests(unittest.TestCase):
         offered = [p for p in visits_portals.portals(SEARCH) if p['key'].startswith('board:')]
         self.assertEqual([(p['name'], p['url']) for p in offered], [('Empregos', 'https://empregos.example/procura?q=developer&local=Lisboa')])   # the first role word, as LinkedIn and Indeed
 
+    def test_a_readable_page_with_no_jobs_still_tries_what_the_board_declares(self):
+        """A page full of text whose job cards come from scripts is not a 'shell': its declared sitemap must still be tried."""
+        text = '<html><body>' + '<p>Vacatures zoeken en solliciteren bij werkgevers in jouw regio, vergelijk salarissen.</p>' * 20 + '</body></html>'
+        listing = '<urlset><url><loc>https://empregos.example/vaga/26051135-programador-python</loc></url></urlset>'
+        pages = {'https://empregos.example/procura?q=programador&local=Lisboa': text,
+                 'https://empregos.example/robots.txt': 'Sitemap: https://empregos.example/sitemap.xml',
+                 'https://empregos.example/sitemap.xml': listing, 'https://empregos.example/vaga/26051135-programador-python': PAGE}
+        jobs, state, route = found_boards.read_board(BOARD, SEARCH, fetch=lambda url: pages.get(url, ''))
+        self.assertEqual((state, route['kind'], [j['title'] for j in jobs]), ('ok', 'sitemap', ['Programador Python']))
+
+    def test_a_readable_page_with_no_jobs_and_no_routes_is_empty_not_a_visit(self):
+        text = '<html><body>' + '<p>Vacatures zoeken en solliciteren bij werkgevers in jouw regio, vergelijk salarissen.</p>' * 20 + '</body></html>'
+        jobs, state, route = found_boards.read_board(BOARD, SEARCH, fetch=lambda url: text if 'procura' in url else '')
+        self.assertEqual((jobs, state, route), ([], 'empty', None))
+
 
 if __name__ == '__main__':
     unittest.main()

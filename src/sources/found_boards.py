@@ -41,7 +41,7 @@ def read_board(board, search, fetch=careers.get_text, route=None):
     sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A script-only page tries its declared
     routes before 'browser' (src/sources/board_routes.py)."""
     from .aggregators import _job
-    jobs, state = [], 'empty'
+    jobs, state, asked_routes = [], 'empty', False
     try:
         if route:
             jobs = board_routes.follow(route, fetch, board, _terms(search))
@@ -61,15 +61,19 @@ def read_board(board, search, fetch=careers.get_text, route=None):
                 continue
             except (urllib.error.URLError, OSError, ValueError) as error:
                 if type(error).__name__ == 'Refused':
-                    return jobs, 'browser', None, None
+                    return jobs, 'browser', None
                 continue
             found = careers.jsonld_jobs(page, url) or careers.read_page_from(page, url, fetch)
-            if not found and careers._shell(page):   # only scripts fill it: what the board declares itself, else a visit reads it
+            if not found and not asked_routes:   # nothing readable on the page (scripts fill the cards, or it is only a frame): what the board declares itself
+                asked_routes = True
                 try:
                     declared, found_route = board_routes.discover(page, url, fetch, board, _terms(search))
                 except board_routes.Stop:
                     return jobs, 'browser', None
-                return (declared, 'ok', found_route) if declared else (jobs, 'browser', None)
+                if declared:
+                    return declared, 'ok', found_route
+                if careers._shell(page):   # a frame with no route: a visit reads it
+                    return jobs, 'browser', None
             for job in found:
                 jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
                                  job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
