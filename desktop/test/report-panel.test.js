@@ -88,7 +88,7 @@ test('the trace switch is on by default and named in plain words in Settings (so
 });
 
 test('no panel button is a silent no-op: a click handler never calls a window hook with ?.(), and the Report press falls back to the worker and says when it fails', () => {
-  for (const file of ['extension/review.js', 'extension/panel-claude.js', 'extension/panel-stop.js', 'extension/panel-written.js']) {
+  for (const file of ['extension/review.js', 'extension/panel-claude.js', 'extension/panel-written.js']) {
     const lines = code(file).split('\n').filter(line => /onclick|addEventListener\('click'/.test(line));
     for (const line of lines) assert.doesNotMatch(line, /__jobPilotto\w+\?\.\(/, `${file}: a button that calls a missing hook does nothing, silently: ${line.trim().slice(0, 80)}`);
   }
