@@ -108,7 +108,7 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
   const watch = run => {
     run.watch = setTimer(async () => {
       if (runs.get(run.tabId) !== run) return;
-      if (stopped()) { end(run.tabId); return; }
+      if (stopped()) { halt(run.tabId); return; }
       const password = await hasPassword(run.tabId).catch(() => false);
       if (runs.get(run.tabId) !== run) return;
       if (password && !run.paused) pause(run);
@@ -117,13 +117,18 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     }, WATCH_MS);
   };
 
-  function end(tabId) {   // the application ended, the tab closed, Stop, the switch went off: the trace is gone
+  // The recording stops and the debugger is released; what was recorded stays in memory (a Stop, Chrome's Cancel, DevTools taking over: Report after it sends the pages recorded before).
+  function halt(tabId) {
     const run = runs.get(tabId);
-    runs.delete(tabId); buffer.drop(tabId);
+    runs.delete(tabId);
     if (!run) return;
     clearTimer(run.watch);
-    if (run.held) { send(tabId, 'Fetch.disable').catch(() => {}); detach(tabId).catch(() => {}); }
+    if (run.held) { run.held = false; send(tabId, 'Fetch.disable').catch(() => {}); detach(tabId).catch(() => {}); }
     onChange(tabId);
+  }
+  function end(tabId) {   // the application ended, the tab closed, the switch went off: the trace is gone
+    buffer.drop(tabId);
+    halt(tabId);
   }
 
   return {
@@ -159,7 +164,8 @@ export function createTrace({chrome, attach = attachDebugger, detach = detachDeb
     },
     end,
     endAll() { for (const tabId of [...runs.keys()]) end(tabId); buffer.dropAll(); },
+    haltAll() { for (const tabId of [...runs.keys()]) halt(tabId); },
     // Chrome let go by itself (a closed tab, DevTools, the person's Cancel): nothing is held any more.
-    detached(tabId) { forgetDebuggerUsers(tabId); const run = runs.get(tabId); if (run) { run.held = false; end(tabId); } },
+    detached(tabId) { forgetDebuggerUsers(tabId); const run = runs.get(tabId); if (run) { run.held = false; halt(tabId); } },
   };
 }

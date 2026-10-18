@@ -87,7 +87,7 @@ test('what is kept: this tab only, allowed headers, no image or media body is re
   assert.ok(!fake.calls.some(call => call[0] === 'Network.getResponseBody' && call[1].requestId === 'I'), 'an image body is never read');
 });
 
-test('dropped when the application ends: tab closed, Stop; a stopped extension keeps nothing and the debugger is released', async () => {
+test('dropped when the application ends: tab closed, Stop; a stopped extension stops recording, keeps what it has, and the debugger is released', async () => {
   const fake = fakeChrome(), {trace, log, timers} = make(fake); let stopped = false;
   const again = make(fake, {stopped: () => stopped});
   await trace.start(7); page(fake, 7, 'A', 'https://jobs.example.test/a'); await tick();
@@ -96,7 +96,7 @@ test('dropped when the application ends: tab closed, Stop; a stopped extension k
   assert.equal(trace.has(7), false); assert.equal(trace.snapshot(7).ok, false); assert.deepEqual(log.at(-1), ['detach', 7]);
   await again.trace.start(8); page(fake, 8, 'B', 'https://jobs.example.test/b'); await tick();
   stopped = true; await again.timers.timers.at(-1).fn(); await tick();
-  assert.equal(again.trace.has(8), false); assert.equal(again.trace.isTracing(8), false);
+  assert.equal(again.trace.has(8), true, 'a Stop keeps what was recorded (19 Oct 2026)'); assert.equal(again.trace.isTracing(8), false);
   assert.equal((await make(fake, {stopped: () => true}).trace.start(9)), false);
   void timers;
 });
@@ -126,9 +126,9 @@ test('the class: every report entry point hands the trace over; nothing reloads 
     assert.ok(!/Page\.reload|chrome\.tabs\.reload|location\.reload|report-start|report-stop|moveTab/.test(code(file).split('\n').filter(line => !/^\s*\/\//.test(line)).join('\n').replace(/\s\/\/ .*$/gm, '')), `${file} reloads or records again`);
   }
   assert.equal((code('extension/messages-report.js').match(/'report-send'/g) || []).length >= 1, true);
-  assert.match(code('extension/review.js'), /__jobPilottoReportOpen/, 'the footer\'s Report opens the one report card');
+  assert.match(code('extension/review.js'), /__jobPilottoReport\.open\(\)/, 'the footer\'s Report opens the one popup');
   assert.doesNotMatch(code('extension/panel-claude.js'), /jobpilotto-report-open/, 'the stuck card has no second Report button (owner, 19 Oct 2026: one Report on the panel)');
-  assert.deepEqual([...new Set(code('extension/panel-report.js').match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-send'", "type: 'report-state'"], 'the panel sends only these two');
+  assert.deepEqual([...new Set(code('extension/panel-report.js').match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-cancel'", "type: 'report-confirm'", "type: 'report-send'", "type: 'report-state'"], 'the panel sends only these four');
   // one debugger owner: no other file attaches or detaches (stop.js only detaches everything when Stop is pressed)
   const {readdirSync} = fs, walk = dir => readdirSync(new URL(`../../${dir}`, import.meta.url), {withFileTypes: true}).flatMap(entry => (entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]));
   for (const file of walk('extension').filter(name => name.endsWith('.js'))) {
@@ -201,4 +201,19 @@ test('a paused reply is always let go as it was: an event stream at once and unr
   await tick(); await tick();
   assert.equal(sentOf(fake, 'Fetch.getResponseBody').length, before + 1, 'LATE (this tab has a run) is read; NORUN (no run on tab 9) is not');
   assert.ok(sentOf(fake, 'Fetch.continueResponse').some(call => call[1].requestId === 'NORUN'), 'a tab with no run still lets its reply go');
+});
+
+// Owner, 19 Oct 2026: "The recording should be on always. So clicking report should already send the recording." A Stop halts the recording and the debugger but keeps what was recorded, so Report after a Stop sends it.
+test('Stop keeps the pages recorded so far: the recording ends, the debugger is released, and the snapshot still holds them', async () => {
+  const fake = fakeChrome(), {trace, log} = make(fake);
+  await trace.start(7); page(fake, 7, 'A', 'https://jobs.example.test/a'); page(fake, 7, 'B', 'https://jobs.example.test/b'); await tick();
+  trace.haltAll();   // what the worker's onStopped does
+  assert.equal(trace.isTracing(7), false, 'no longer recording');
+  assert.deepEqual(log.at(-1), ['detach', 7], 'the debugger is released');
+  assert.equal(trace.has(7), true);
+  assert.deepEqual(trace.snapshot(7).entries.map(entry => entry.url), ['https://jobs.example.test/a', 'https://jobs.example.test/b'], 'both pages recorded before the Stop are still there');
+  page(fake, 7, 'C', 'https://jobs.example.test/c'); await tick();
+  assert.equal(trace.snapshot(7).entries.length, 2, 'nothing is recorded after the Stop');
+  trace.end(7);
+  assert.equal(trace.has(7), false, 'the tab closing still drops it');
 });

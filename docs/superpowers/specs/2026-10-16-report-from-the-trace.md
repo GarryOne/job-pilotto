@@ -1,5 +1,7 @@
 # Report this form: from a trace kept while the form is filled, not a new recording
 
+> 🔄 **Changed 19 Oct 2026 (owner):** Report is a popup ON the panel (what goes, an optional note, Send / Cancel), no trip to the app and no bottom-left ⚑; the app scrubs, holds and uploads. A Stop halts the recording but KEEPS what was recorded, so Report after a Stop sends it. "Nothing leaves before Send" now means before Send in that popup (personal details are removed automatically first).
+
 > ✅ **Verdict:** while Job Pilotto fills an application, the extension keeps a **trace in memory** (every page and answer from the job posting on, sign-in pages never).
 > ⚑ Report this form hands that trace to the app **at once: no reload, no new recording**. The scrub, last gate and preview stay as today; nothing leaves before Send.
 > **Owner decisions, 16 Oct 2026 (via job-pilotto-cc):** always record (a refresh breaks SAP sessions; a visible "Recording" on a sign-in page kills trust); option A below

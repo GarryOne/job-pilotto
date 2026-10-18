@@ -37,7 +37,7 @@ const testRun = () => !!process.env.JOB_PILOTTO_E2E;
 
 export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, ipcMain, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
-  registerReportHandlers({ipcMain, storage, toWindow, getWindow, uploader: createUploader({storage})});   // the panel's "Report this form" flag (lib/report-handlers.js; sends only after the person's Send)
+  registerReportHandlers({ipcMain, storage, uploader: createUploader({storage})});   // the panel's Report popup (lib/report-handlers.js; sends only after the person's Send in the popup)
   // The Gmail check for an account awaiting its confirmation mail (lib/account-check.js): after the account button, and again when its sign-in page is met (10 Oct 2026: the page
   // sat untouched in 'confirm' mode with no check and no word to the person). A link in the mail is opened; a code, or no mail, is told to the session.
   const ids = {get: id => terminals.get(id), list: () => terminals.list(), isFormOf: (address, posting) => applyLib.isFormOf(address, posting)};

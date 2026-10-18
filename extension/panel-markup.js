@@ -70,6 +70,7 @@
     .primary.is-busy .spin { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .note { padding: 9px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
+    .note span { margin-right: .35em; }   /* the note's text and its button read as two words, not "values.Got it" */
     .note button { margin-top: 6px; background: transparent; color: var(--signal); font-weight: 650; padding: 0; }
     h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
     .item { display: flex; gap: 9px; align-items: flex-start; width: 100%; text-align: left; padding: 7px 8px; border-radius: 8px; background: transparent; color: var(--ink); }

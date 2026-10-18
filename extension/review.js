@@ -43,18 +43,16 @@
   $('.min').onclick = () => { userMoved = true; setOpen(false); };   // minimise: back to the pill
   $('.x').onclick = () => { userMoved = true; setOpen(false); host.hidden = true; };   // close: the panel is out of the way until the page loads again (Stop stays: its own chip)
   for (const button of root.querySelectorAll('.stop-btn, .pill-stop')) button.onclick = event => { if (event.isTrusted) { button.disabled = true; button.textContent = 'Stopping…'; send({type: 'stop', reason: 'the Stop button in the panel'}).catch(() => {}); } };   // the one Stop (stop.js): in the live step row and beside the minimised pill
-  // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): opens the report card (panel-report.js). A page script's click is ignored.
-  // The card opens beside the panel and the panel folds (jobpilotto-report-shown); the top frame has the hook, a frame inside the page asks the worker to relay. A press that cannot open it says so in the panel, never silence.
-  const reportFailed = () => note("Report could not open on this page. Reload the page and try again.");
+  // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): a popup on the panel (panel-report.js) that says what goes, takes a note and sends. A page script's click is ignored; a press that cannot open it says why.
   $('.report-btn').onclick = event => {
     if (!event.isTrusted) return;
-    if (window.__jobPilottoReportOpen) window.__jobPilottoReportOpen();
-    else send({type: 'report-open'}).then(answer => { if (!answer?.ok) reportFailed(); else setOpen(false); }, reportFailed);
+    if (window.__jobPilottoReport) window.__jobPilottoReport.open();
+    else note('Report could not open on this page. Reload the page and try again.');
   };
-  window.addEventListener('jobpilotto-report-shown', () => setOpen(false));
 
   // Chrome's debugging bar is explained once, where a fill starts, the first time a trace is kept (the trace: trace.js; owner, 16 Oct 2026).
-  window.addEventListener('jobpilotto-trace-on', async () => { const {traceBarSeen} = await chrome.storage.local.get('traceBarSeen').catch(() => ({})); if (!traceBarSeen) $('.trace-note').hidden = false; });
+  window.__jobPilottoReport?.mount(root, send, state => { if (state?.enabled) window.__jobPilottoReportOn = true; if (state?.tracing) traceOn(); });   // the first state answer: whether the switch is on, and whether a trace is kept (the bar note)
+  const traceOn = async () => { const {traceBarSeen} = await chrome.storage.local.get('traceBarSeen').catch(() => ({})); if (!traceBarSeen) $('.trace-note').hidden = false; };
   $('.trace-note .got-it').onclick = () => { $('.trace-note').hidden = true; chrome.storage.local.set({traceBarSeen: true}).catch(() => {}); };
 
   // ---- drawing ----

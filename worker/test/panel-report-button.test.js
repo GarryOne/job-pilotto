@@ -29,11 +29,11 @@ test('the panel footer has one Report button, always there, opening the same car
   assert.equal(button().hidden, false, 'there before the app says anything');
   assert.equal(window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.head .report-flag'), null, 'no header flag');
   let opened = 0;
-  window.__jobPilottoReportOpen = () => { opened += 1; };
+  window.__jobPilottoReport = { open: () => { opened += 1; } };
   button().onclick({ isTrusted: false });   // a page script's click: ignored
   assert.equal(opened, 0);
   button().onclick({ isTrusted: true });   // the person's press (jsdom cannot make a trusted click)
-  assert.equal(opened, 1, 'a trusted press opens the report card');
+  assert.equal(opened, 1, 'a trusted press opens the report popup');
   } finally { window.close(); }
 });
 

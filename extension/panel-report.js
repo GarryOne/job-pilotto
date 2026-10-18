@@ -1,28 +1,27 @@
-// The "Report this form" flag on an application's own page (spec docs/superpowers/specs/2026-10-15-report-this-form.md §3): a small icon in its own closed shadow root beside the Stop chip, drawn on
-// every tab the app opened (injected with the panel, background.js arm()), and only while the Settings switch is on. Nothing is recorded or reloaded by drawing it: a press opens one card that says
-// what will happen (the page reloads, answers may be cleared, Chrome shows its debugging bar), and only "Start recording" starts it. "Stop and review" hands the record to the app, whose window shows
-// what would be sent. Its worker side is messages-report.js. Guard: desktop/test/report-panel.test.js.
+// panel popup: restyled by the panel redesign. "Report" in the panel's footer (owner, 19 Oct 2026: the recording is always on, so Report sends it): a small popup ON the panel that says what goes, takes an
+// optional note, then Send or Cancel. Nothing is recorded or reloaded by pressing it: the worker (messages-report.js) hands the trace kept so far to the app, which removes the personal details, holds
+// the result and answers with counts; Send sends that, Cancel drops it. Drawn inside the panel's own shadow root with the panel's CSS tokens (so its theme reaches it); review.js mounts it and opens it.
+// It still works after a Stop (the recording kept until then is what is sent). Guard: desktop/test/report-panel.test.js, desktop/e2e/test/report-button.test.mjs.
 (() => {
-  if (window.top !== window || window.__jobPilottoReportChip) return;
-  window.__jobPilottoReportChip = true;
-  const host = document.createElement('div');
-  host.id = 'jobpilotto-report-host';
-  const root = host.attachShadow({mode: 'closed'});
-  root.innerHTML = `<style>
-    * { box-sizing: border-box; font: 500 13px/1.4 system-ui, sans-serif; }
-    .flag { all: initial; position: fixed; left: 92px; bottom: 12px; z-index: 2147483647; width: 30px; height: 30px; border-radius: 999px; cursor: pointer; display: grid; place-items: center;
-      color: #1d2939; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 4px 16px #0004; font: 600 15px/1 system-ui, sans-serif; }
-    .flag:hover { background: #f2f4f7; } .flag:focus-visible, button:focus-visible { outline: 3px solid #175cd3; outline-offset: 2px; }
-    .card.beside { left: auto; right: 18px; bottom: 84px; }   /* opened from the panel's Report: beside the panel's pill, where the press was, not in the far corner */
-    .card { position: fixed; left: 12px; bottom: 52px; z-index: 2147483647; width: 320px; padding: 14px; border-radius: 12px; color: #1d2939; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 8px 28px #0005; }
-    .card b { display: block; margin-bottom: 6px; font-weight: 700; } .card p { margin: 0 0 8px; } .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-    button.act { all: initial; cursor: pointer; padding: 7px 12px; border-radius: 8px; font: 600 12px/1 system-ui, sans-serif; border: 1px solid #d0d5dd; background: #fff; color: #1d2939; }
-    button.act.main { background: #175cd3; border-color: #175cd3; color: #fff; } button[disabled] { opacity: .6; cursor: default; }
-  </style><button type="button" class="flag" title="Report this form" aria-label="Report this form" hidden>⚑</button><div class="card" role="dialog" aria-label="Report this form" hidden></div>`;
-  const flag = root.querySelector('.flag'), card = root.querySelector('.card');
-  let beside = false;   // the card opens next to the panel when the panel's Report asked for it, else beside the Stop chip
-  const say = (title, text, buttons = []) => {
-    card.replaceChildren();
+  if (window.__jobPilottoReport) return;
+  const STYLE = `.report-pop { position: fixed; right: 18px; bottom: 84px; width: 348px; max-width: calc(100vw - 36px); z-index: 2; padding: 14px; border-radius: 14px; color: var(--ink); background: var(--card);
+      border: 1px solid var(--line); box-shadow: 0 10px 32px var(--shadow); pointer-events: auto; }
+    .report-pop b { display: block; margin-bottom: 6px; font-size: 14px; } .report-pop p { margin: 0 0 8px; } .report-pop .muted { color: var(--muted); font-size: 12px; }
+    .report-pop textarea { width: 100%; min-height: 54px; resize: vertical; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; }
+    .report-pop .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+    .report-pop .act { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font-weight: 600; }
+    .report-pop .act.main { background: var(--signal); border-color: var(--signal); color: #fff; } .report-pop .act[disabled] { opacity: .6; cursor: default; }
+    .report-pop .act:focus-visible, .report-pop textarea:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }`;
+  const WORDS = {stopped: 'Job Pilotto was stopped before anything was recorded on this page. Press Apply in the app to start again.',
+    off: 'The recording is turned off in Job Pilotto Settings, so there is nothing to send.', empty: 'Nothing has been recorded on this page yet (a sign-in page is never recorded). Try again after the page has loaded.',
+    worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.', app: 'Job Pilotto could not prepare this report. Is the app open?', expired: 'This report expired. Press Report again.'};
+  const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';   // the same sentence the app logs
+  const KINDS = {email: 'an e-mail address', phone: 'a phone number', name: 'your name', 'name-in-code': 'your name inside a script', location: 'your place', token: 'a sign-in token'};
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  let pop = null, send = null;
+
+  const say = (title, text, buttons = [], extra = []) => {
+    pop.replaceChildren();
     const head = document.createElement('b'), body = document.createElement('p'), row = document.createElement('div');
     head.textContent = title; body.textContent = text; row.className = 'row';
     for (const [label, main, onPress] of buttons) {
@@ -31,48 +30,42 @@
       button.addEventListener('click', event => { if (event.isTrusted) onPress(button); });   // a page's script cannot press it for the person
       row.append(button);
     }
-    card.append(head, body, row);
-    card.classList.toggle('beside', beside);
-    card.hidden = false;
+    pop.append(head, body, ...extra, row);
+    pop.hidden = false;
   };
-  const ask = message => chrome.runtime.sendMessage(message).catch(() => null);
-  const close = () => { card.hidden = true; };
-  const WORDS = {stopped: 'Job Pilotto was stopped, so nothing was kept. Press Apply in the app to start again.', worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.',
-    off: 'The trace is turned off in Job Pilotto Settings, so there is nothing to report.', empty: 'Nothing has been kept on this page yet (a sign-in page is never kept). Try again after the page has loaded.'};
+  const close = () => { pop.hidden = true; };
+  const refusal = answer => (WORDS[answer?.refused] || (answer?.blocked ? `${BLOCKED} Still found: ${[...new Set((answer.blocked || []).map(kind => KINDS[kind] || kind))].join(', ')}.` : answer?.error || WORDS.app));
+  const ask = message => (send ? send(message).catch(() => null) : Promise.resolve(null));
 
-  // The one sentence when the app's last check refuses (the same words as the app's Send, desktop/lib/report-handlers.js), then the kinds it found: never a value.
-  const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';
-  const KINDS = {email: 'an e-mail address', phone: 'a phone number', name: 'your name', 'name-in-code': 'your name inside a script', location: 'your place', token: 'a sign-in token'};
-
-  // The press hands over the trace Job Pilotto already keeps for this tab: no reload, no new recording. A tab that moved past its first page asks once: the whole journey or this page.
-  async function send(scope, button) {
-    button.disabled = true; button.textContent = 'Preparing…';
-    const answer = await ask({type: 'report-send', scope});
-    if (answer?.ok) say('Review it in Job Pilotto', 'The Job Pilotto app shows exactly what would be sent. Nothing is sent until you press Send there.', [['OK', true, close]]);
-    else say('Nothing was sent', WORDS[answer?.refused] || (answer?.blocked ? `${BLOCKED} Still found: ${[...new Set((answer?.blocked || []).map(kind => KINDS[kind] || kind))].join(', ')}.` : 'Job Pilotto could not prepare this report.'), [['OK', true, close]]);
-  }
-  async function confirm() {
-    say('Report this form', 'Checking what Job Pilotto kept…', []);
-    if (beside) window.dispatchEvent(new CustomEvent('jobpilotto-report-shown'));   // the panel folds itself so the card is the one thing at that corner (review.js)
+  async function open() {
+    say('Send this form\'s recording?', 'Preparing what would be sent…', [['Cancel', false, close]]);
     const state = await ask({type: 'report-state'});
-    const lead = 'Job Pilotto keeps a trace of this form fill on your Mac, without sign-in pages. The app shows exactly what would be sent. Nothing leaves your Mac until you read it and press Send.';
-    if (!state) { say('Report could not start', WORDS.worker, [['OK', true, close]]); return; }
-    if (!state.has) { say('Nothing to report yet', WORDS[state.stopped ? 'stopped' : state.enabled === false ? 'off' : 'empty'], [['OK', true, close]]); return; }
-    const buttons = [['Cancel', false, close]];
-    if (state.moved) buttons.push(['Only this page', false, button => send('page', button)], ['The whole journey (recommended for fixing)', true, button => send('journey', button)]);
-    else buttons.push(['Review in Job Pilotto', true, button => send('journey', button)]);
-    say('Report this form', lead, buttons);
+    if (!state) { say('Nothing was sent', WORDS.worker, [['OK', true, close]]); return; }
+    if (state.enabled === false) { say('Nothing to send', WORDS.off, [['OK', true, close]]); return; }
+    if (!state.has) { say('Nothing to send yet', WORDS[state.stopped ? 'stopped' : 'empty'], [['OK', true, close]]); return; }
+    const answer = await ask({type: 'report-send'});
+    if (!answer?.ok) { say('Nothing was sent', answer ? refusal(answer) : WORDS.worker, [['OK', true, close]]); return; }
+    const data = answer.preview || {}, removed = Object.values(data.removed || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
+    const note = Object.assign(document.createElement('textarea'), {placeholder: 'What went wrong? (optional)', maxLength: 300});
+    const lines = document.createElement('div');
+    lines.innerHTML = '<p class="muted"></p><p class="muted">Never sent: what you typed, passwords, cookies, your CV or your profile. Encrypted before it leaves this Mac; deleted after 30 days.</p>';
+    lines.firstChild.textContent = `${plural(data.responses || 0, 'page response')} from ${plural((data.hosts || []).length, 'site')}. Personal details removed: ${removed}.`;
+    say('Send this form\'s recording?', 'It shows how Job Pilotto read this form, so it can be fixed.', [['Cancel', false, async () => { close(); ask({type: 'report-cancel'}); }], ['Send', true, async button => {
+      button.disabled = true; button.textContent = 'Sending…';
+      const done = await ask({type: 'report-confirm', note: note.value});
+      if (done?.ok) say('Sent', 'Thank you. It is encrypted, and you can delete it any time in Job Pilotto Settings.', [['OK', true, close]]);
+      else say('Nothing was sent', done ? refusal(done) : WORDS.worker, [['OK', true, close]]);
+    }]], [lines.firstChild, lines.lastChild, note]);
   }
-  flag.addEventListener('click', event => { if (event.isTrusted) { beside = false; if (card.hidden) confirm(); else close(); } });
-  // The panel's Report always (re)opens the card, even when it is already shown (a press is never a silent no-op). From a frame that is not the top one it arrives as a message (messages-report.js relays it).
-  const openFromPanel = () => { beside = true; confirm(); };
-  // Stop takes the ⚑ away but keeps the card: the panel's Report still answers after a Stop (it says it was stopped), never draws into a detached node.
-  chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') flag.hidden = true; if (message?.type === 'report-open') openFromPanel(); });
 
-  // Drawn only when the switch is on.
-  // The panel's full-width "Report this form" (panel-claude.js, where Claude's offer used to be) opens the same card; only while the switch is on.
-  window.__jobPilottoReportOpen = openFromPanel;   // the panel's ⚑ (review.js), always shown
-  window.addEventListener('jobpilotto-report-open', openFromPanel);   // the panel's ⚑ (always shown) and the stuck page's button: the card asks before anything is recorded
-  ask({type: 'report-state'}).then(state => { if (!state?.enabled) return; flag.hidden = false; window.__jobPilottoReportOn = true; window.dispatchEvent(new CustomEvent('jobpilotto-report-ready')); if (state.tracing) window.dispatchEvent(new CustomEvent('jobpilotto-trace-on')); });
-  document.documentElement.append(host);
+  // review.js hands over the panel's shadow root and its message function, then opens the popup from the footer's Report. The first state answer goes back to review.js (whether the switch is on).
+  function mount(root, sendMessage, onState = () => {}) {
+    send = sendMessage;
+    root.append(Object.assign(document.createElement('style'), {textContent: STYLE}));
+    pop = Object.assign(document.createElement('div'), {className: 'report-pop', hidden: true});
+    pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Send this form\'s recording');
+    (root.querySelector('.jp') || root).append(pop);   // inside the panel's own box: its fonts and colour tokens apply
+    ask({type: 'report-state'}).then(onState);
+  }
+  window.__jobPilottoReport = {mount, open};
 })();
