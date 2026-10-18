@@ -1,5 +1,6 @@
 // What /admin/lab-job-search says about each candidate (owner's decision 3, 18 Oct 2026): the newest run against the last green one. Pure: rows in, states out.
 //   failed   the newest run's step crashed (never thin numbers)
+//   stale    the tape lacks requests this build makes (the page says how many): its numbers are not compared, and it never becomes the last green run
 //   worse    a count (jobs in places, fit 70+) is lower, a time is more than 25 % slower, or a time that was reached is not reached; the control gets no tolerance on times
 //   new      no earlier green run to compare with
 //   working  no worse than the last green run
@@ -27,8 +28,9 @@ export function judge(rows) {
     const now = list.at(-1), control = !!now.control;
     let green = null;
     for (const row of list.slice(0, -1)) if (row.state === 'ok' && !(green && reasons(row, green, !!row.control).length)) green = row;
-    const why = now.state === 'failed' ? [`a step crashed: ${now.failed_step}`] : green ? reasons(now, green, control) : [];
-    const state = now.state === 'failed' ? 'failed' : !green ? 'new' : why.length ? 'worse' : 'working';
+    const note = now.state === 'failed' ? [`a step crashed: ${now.failed_step}`] : now.state === 'stale' ? [`${now.failed_step}: record this candidate again`] : null;
+    const why = note || (green ? reasons(now, green, control) : []);
+    const state = now.state === 'failed' || now.state === 'stale' ? now.state : !green ? 'new' : why.length ? 'worse' : 'working';
     return {candidate, label: now.label || candidate, control, state, why, now, base: green};
   }).sort((a, b) => Number(a.control) - Number(b.control) || a.label.localeCompare(b.label));
 }

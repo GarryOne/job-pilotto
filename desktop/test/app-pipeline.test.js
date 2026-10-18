@@ -142,7 +142,7 @@ test('the end-to-end journey\'s fixture feeds and its fictional candidate reach 
 });
 
 test('the persona search check\'s tape reaches the engine (src/search_tape.py)', () => {
-  const tape = {JOB_PILOTTO_SEARCH_TAPE: '/tape', JOB_PILOTTO_SEARCH_TAPE_MODE: 'replay', JOB_PILOTTO_TAPE_WAIT_SCALE: '0'};
+  const tape = {JOB_PILOTTO_SEARCH_TAPE: '/tape', JOB_PILOTTO_SEARCH_TAPE_MODE: 'replay', JOB_PILOTTO_TAPE_WAIT_SCALE: '0', JOB_PILOTTO_TAPE_LIVE: '0'};
   const env = pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin', ...tape});
   for (const [name, value] of Object.entries(tape)) assert.equal(env[name], value);
   assert.equal(pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin'}).JOB_PILOTTO_SEARCH_TAPE, undefined);

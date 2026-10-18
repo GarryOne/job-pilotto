@@ -31,6 +31,14 @@ test('the judge: new, working, a time inside 25 %, a time past it, a count lower
   assert.deepEqual([crashed.state, crashed.why], ['failed', ['a step crashed: Reading job boards']]);
 });
 
+test('a stale tape row is shown, never judged, and never becomes the last green run', () => {
+  const stale = (minute, more = {}) => row('a', minute, {state: 'stale', failed_step: 'Tape stale (6 AI and 98 web requests not recorded)', in_places: 7, fit70: 0, ...more});
+  const [entry] = judge([row('a', 1), stale(2)]);
+  assert.deepEqual([entry.state, entry.why], ['stale', ['Tape stale (6 AI and 98 web requests not recorded): record this candidate again']]);
+  assert.equal(stateOf([row('a', 1), stale(2), row('a', 3, {in_places: 70})]), 'worse', 'compared with run 1, not with the stale run 2 (7 in places)');
+  assert.equal(stateOf([stale(1), row('a', 2)]), 'new', 'a stale run is no baseline');
+});
+
 test('"last green" skips a failed or worse run, so a bad run does not become the baseline', () => {
   const rows = [row('a', 1), row('a', 2, {fit70: 0}), row('a', 3, {fit70: 1})];
   assert.equal(stateOf(rows), 'worse', 'run 3 still has fewer 70+ than run 1, the last green one');
@@ -73,6 +81,8 @@ test('a harness press becomes a row; a crashed press is FAILED with its step, ne
   const meta = {label: 'Finance', build: 'abc1234', runAt: '2026-10-18T10:00:00Z'};
   assert.deepEqual(rowFromPress('finance', press, meta), {candidate: 'finance', run_at: meta.runAt, build: 'abc1234', label: 'Finance', control: false, state: 'ok', failed_step: undefined,
     first_s: 40, tenth_s: 184, fit_s: null, in_places: 77, scored: 44, fit70: 2});
+  const stale = rowFromPress('finance', {...press, stale: 'Tape stale (3 AI and 0 web requests not recorded)'}, meta);
+  assert.deepEqual([stale.state, stale.failed_step], ['stale', 'Tape stale (3 AI and 0 web requests not recorded)']);
   const crashed = rowFromPress('finance', {...press, crashes: [{step: 'Reading job boards', error: 'KeyError'}]}, meta);
   assert.deepEqual([crashed.state, crashed.failed_step], ['failed', 'Reading job boards']);
 });
@@ -86,6 +96,7 @@ test('the page: each state in words, the move since the last green run, an empty
   assert.match(html, /60 <span class="down"[^>]*>▼/, 'jobs in places 77 → 60 is worse');
   assert.match(html, /a step crashed: Reading job boards/);
   assert.match(html, /<span class="chip">control<\/span>/);
+  assert.match(page([row('t', 1), row('t', 2, {state: 'stale', failed_step: 'Tape stale (1 AI and 0 web requests not recorded)'})]), />Tape stale<\/span>/);
   assert.match(page([]), /No search replayed yet/);
 });
 
