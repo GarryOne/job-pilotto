@@ -20,6 +20,10 @@ export function learnings(run) {
   return Object.entries(groups).map(([reason, labels]) => `${labels.length} left: ${reason} (${labels.slice(0, 4).join(', ')}${labels.length > 4 ? ', …' : ''})`);
 }
 
+// Which documents went in, by slot and which document ("Cover letter: this job's letter"; a file the page held already: its slot only). Both stores show it.
+export const attachedOf = (run) => (run.trace || []).filter((f) => f.type === 'file' && f.outcome === 'filled').slice(0, 10)
+  .map((f) => [f.label, f.source].filter(Boolean).join(': ').slice(0, 120));
+
 // The run's page: summary, the field-by-field log as a table, and what's left for the user.
 export function runBlocks(run, minutes) {
   const t = (s) => [{ type: 'text', text: { content: String(s ?? '').slice(0, 1900) } }];
@@ -41,6 +45,7 @@ export function runBlocks(run, minutes) {
   const lessons = learnings(run);
   if (lessons.length) { blocks.push(h('Learnings')); blocks.push(...lessons.map(li)); }
   if ((run.todo || []).length) { blocks.push(h('Left for you')); blocks.push(...run.todo.map(li)); }
+  if (attachedOf(run).length) { blocks.push(h('Attached')); blocks.push(...attachedOf(run).map(li)); }
   if (run.debug) {
     // The full record (step timings, the form as read, every answer and its source, dropdown clicks, errors).
     const json = JSON.stringify(run.debug, null, 1).slice(0, 190000);
@@ -78,7 +83,7 @@ export function runData(run) {
     fields: (run.trace || []).slice(0, 90).map((f) => ({label: cut(f.label), required: !!f.required, source: cut(f.source, 60),
       outcome: f.outcome === 'filled' ? 'filled' : 'left', confidence: f.low ? 'low' : '', reason: cut([f.reason, f.low && `check: ${f.low}`].filter(Boolean).join(' · '))})),
     left_for_you: (run.todo || []).slice(0, 30).map((item) => cut(item)),
-    attachments: [],
+    attachments: attachedOf(run),
     steps: (run.debug?.steps || []).slice(0, 60).map(({step, ms}) => ({step: cut(step, 60), ms: Math.max(0, Math.round(Number(ms) || 0))})),
   };
 }

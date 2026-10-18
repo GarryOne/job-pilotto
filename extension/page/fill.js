@@ -147,6 +147,8 @@
     for (const item of uploads) if (item.ok && item.meaning && item.label) given[item.meaning] = item.label;
     const resumeAttached = uploads.some(item => item.meaning === 'resume' && item.ok) || (!uploads.some(item => item.meaning === 'resume') && !!given.resume);
     const letterFileAttached = uploads.some(item => item.meaning === 'cover_letter' && item.ok);
+    // Which letter this extension put in (kept for later passes; a file the person chose names none): the fill record shows it (owner, 18 Oct 2026).
+    if (uploads.some(item => item.meaning === 'cover_letter' && item.ok && !item.why) && resume?.coverLetterFile) window.__jobPilottoLetterGiven = resume.coverLetterFile.tailored ? 'this job\'s letter' : 'your base letter';
     window.__jobPilottoOperated = [...(window.__jobPilottoOperated || []), ...uploads.filter(item => item.ok !== undefined)
       .map(({fp, recipe, ok, why}) => ({kind: 'upload', fp, recipe: recipe || 0, ok, why: why || ''}))];
     // Wordings nobody knew (no text of yours: the slot's own title), for the service to give a meaning once.
@@ -208,7 +210,10 @@
     if (open.some(row => row.field === 'resume') && !resumeAttached) todo.unshift('Upload your CV');
     const armedFields = new Set(answers.filter(a => rowOf[a.field]?.type === 'combobox').map(a => a.field));
     for (const row of open.filter(r => r.field !== 'resume' && !r.legal && !armedFields.has(r.field))) {
-      todo.push(`Answer: ${once(rowOf[row.field]?.label || clean(row.label).replace(row.field, '')) || row.field}`);
+      const title = once(rowOf[row.field]?.label || clean(row.label).replace(row.field, '')) || row.field;
+      // A file is attached, never answered; a required letter slot with no letter says where to write one (no base-letter fallback without its switch).
+      todo.push(row.type !== 'file' ? `Answer: ${title}` : row.field === 'cover_letter' && !resume?.coverLetterFile
+        ? 'Attach a cover letter: write this job\'s letter in its preparation kit, then press Fill again' : `Attach: ${title}`);
     }
     const readable = text => clean(String(text || '').replace(/\S*(_|\[\])\S*/g, ' ')) || text;
     let consented = [];
@@ -278,7 +283,8 @@
       // The form's own choices (never a value): the app keeps the question's kind (desktop/lib/question-formats.js). A menu's placeholder (an option with an empty value) is not a choice.
       const menu = (el => (el?.tagName === 'SELECT' ? el : null))(document.getElementById(row.field) || document.querySelector(`select[name="${CSS.escape(row.field)}"]`));
       const choices = (menu ? Array.from(menu.options).filter(o => o.value !== '').map(o => o.text.replace(/\s+/g, ' ').trim()) : rowOf[row.field]?.options || row.options || []).filter(Boolean).slice(0, 60).map(option => String(option).slice(0, 120));
-      return {label: label.slice(0, TRACE_LABEL_MAX), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
+      const shown = row.type === 'file' && row.field === 'cover_letter' && outcome === 'filled' ? window.__jobPilottoLetterGiven || '' : source;   // which letter went in
+      return {label: label.slice(0, TRACE_LABEL_MAX), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source: shown, outcome, reason,
         ...(choices.length ? {options: choices} : {}), ...(rowOf[row.field]?.multiple ? {multiple: true} : {}),
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         fact: (answer || proposedOf[row.field])?.fact || '', category: (answer || proposedOf[row.field])?.category || '', known: knownKey(row),   // fixed words for the fill card's meaning (fill-meaning.js)

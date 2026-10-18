@@ -45,6 +45,14 @@
       "reason": "file attached"
      },
      {
+      "label": "Cover letter",
+      "required": true,
+      "source": "this job's letter",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "file attached"
+     },
+     {
       "label": "Work authorization in Switzerland",
       "required": true,
       "source": "kit",
@@ -73,7 +81,8 @@
      "Portfolio link (optional)"
     ],
     "attachments": [
-     "CV.pdf"
+     "Resume/CV: your CV",
+     "Cover letter: this job's letter"
     ],
     "steps": [
      {
