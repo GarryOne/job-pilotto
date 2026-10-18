@@ -50,4 +50,15 @@ export const runNow = async (storage, options) => words(await call(storage, '/ap
 export const done = async (storage, job, options) => words(await call(storage, '/api/ready/done', {method: 'POST', body: {job}, ...options}));
 export const deleteAll = async (storage, options) => words(await call(storage, '/api/ready/data', {method: 'DELETE', ...options}));
 export const handoff = async (storage, job, options) => words(await call(storage, `/api/ready/handoff?job=${encodeURIComponent(job)}`, options));   // -> {ok, url, storage, sessionStorage, snapshot}: Open in my browser
+// Watch the fill: the night's video of one form, as bytes (the site keeps it sealed, deleted with the form's data). -> {ok, bytes} or {ok: false, error}.
+export async function video(storage, job, {fetcher = globalThis.fetch, ...options} = {}) {
+  if (siteIsOff() && siteOffReason() !== DEV_BUILD) return {ok: false, error: `Not in ${siteOffReason()}: it never reaches our server.`};
+  const key = await keyFor(storage, {fetcher, ...options});
+  if (!key) return {ok: false, error: 'Ready to send is not on for this install.'};
+  try {
+    const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/ready/video?job=${encodeURIComponent(job)}`, {headers: {'x-api-key': key, 'x-ready-owner': ownerSecret(storage)}});
+    if (!response.ok) return {ok: false, error: response.status === 404 ? 'No video was kept for this form.' : `Our server did not answer (${response.status}).`};
+    return {ok: true, bytes: new Uint8Array(await response.arrayBuffer())};
+  } catch { return {ok: false, error: 'Could not reach Job Pilotto just now. Check your connection.'}; }
+}
 export const link = async (storage, job, options) => words(await call(storage, '/api/ready/link', {method: 'POST', body: {job}, ...options}));   // -> {ok, url, expiresAt}: the 10-minute live-view link for one form

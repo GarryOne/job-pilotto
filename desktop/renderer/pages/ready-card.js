@@ -1,5 +1,5 @@
 // The Ready to send card on Actions (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
-// start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done. You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
+// start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done and the night's video of its fill. You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
 import {el, pill, tile} from '../components.js';
 import {$} from './core.js';
 import {rowOf} from './ready-rows.js';
@@ -17,6 +17,7 @@ export function paint(card, state, names, act) {
     const row = rowOf(job), line = el('div', 'ready-row');
     const buttons = el('span', 'ready-buttons');
     if (['prepared', 'partial', 'wall'].includes(job.state)) buttons.append(act.open(job.job), act.live(job.job));   // your own Chrome first, the picture stream beside it (owner, 18 Oct 2026)
+    if (job.video) buttons.append(act.watch(job.job));   // Watch the fill: every form the night opened, also one it could not fill (owner, 18 Oct 2026)
     buttons.append(act.done(job.job));
     line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), buttons);
     rows.append(line);
@@ -99,8 +100,23 @@ export async function initReadyCard() {
       button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.')); });
     return button; };
   const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+    watch: code => { const button = el('button', 'secondary', 'Watch the fill'); button.title = 'The video of the server filling this form tonight (3 minutes at most)';
+      button.addEventListener('click', () => watchFill(button, code)); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; if (text === OUTDATED_LINE) note.append(' ', restartButton()); };
+  // The night's video of one form, in a player under its row; pressed again it closes (and its memory is let go).
+  const players = new Map();   // code -> the open player
+  const watchFill = async (button, code) => {
+    const line = button.closest('.ready-row'), shown = players.get(code);
+    if (shown?.isConnected) { players.delete(code); shown.remove(); URL.revokeObjectURL(shown.querySelector('video').src); button.textContent = 'Watch the fill'; return; }
+    button.disabled = true; say('Loading the video of this form\'s fill…');
+    const result = await window.pilot.readyVideo(code).catch(error => ({ok: false, error: errorLine(error)}));
+    button.disabled = false;
+    if (!result.ok) return say(result.error || 'Could not load the video.');
+    const player = el('div', 'ready-player'), video = document.createElement('video');
+    video.controls = true; video.autoplay = true; video.muted = true; video.src = URL.createObjectURL(new Blob([result.bytes], {type: 'video/webm'}));
+    player.append(video); line.after(player); players.set(code, player); button.textContent = 'Hide the fill'; say('');
+  };
   send.addEventListener('click', async () => {
     send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
     const result = await window.pilot.readySend().catch(error => ({ok: false, error: errorLine(error)}));

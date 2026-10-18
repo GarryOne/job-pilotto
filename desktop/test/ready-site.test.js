@@ -1,7 +1,7 @@
 // Ready to send, the app's calls to the site (lib/ready-site.js) and the window's handlers (lib/ready-handlers.js): the card shows only for the owner, a send reaches /api/ready/batch with the install key, and nothing else is sent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {done, link, owner, ownerSecret, runNow, send, status, useKeychainReader} from '../lib/ready-site.js';
+import {done, link, owner, ownerSecret, runNow, send, status, useKeychainReader, video} from '../lib/ready-site.js';
 import {setSiteOff} from '../lib/recipes.js';
 import {call as hostedCall} from '../lib/hosted-search.js';
 import {DEV_BUILD} from '../lib/telemetry.js';
@@ -163,4 +163,15 @@ test('the owner\'s app run from source reaches the site for Ready to send; a tes
       assert.equal(result.ok, false, run); assert.match(result.why, new RegExp(`Not in ${run}`)); assert.equal(none.seen.length, 0, run);
     }
   } finally { setSiteOff(''); }
+});
+
+test('Watch the fill: the night\'s video of a form comes back as bytes, with the install key and the owner secret; a missing one reads plainly', async () => {
+  const seen = [], bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]);
+  const fetcher = async (url, init) => { seen.push({url, init}); return new Response(bytes, {status: 200, headers: {'content-type': 'video/webm'}}); };
+  const got = await video({...storage(), secret: name => (name === 'READY_OWNER_SECRET' ? 'owner-secret' : 'JPF1.install.token')}, 'j 1', {fetcher});
+  assert.deepEqual([...got.bytes], [...bytes]);
+  assert.equal(new URL(seen[0].url).pathname + new URL(seen[0].url).search, '/api/ready/video?job=j%201');
+  assert.deepEqual([seen[0].init.headers['x-api-key'], seen[0].init.headers['x-ready-owner']], ['JPF1.install.token', 'owner-secret']);
+  assert.match((await video(storage(), 'j1', {fetcher: async () => new Response('{}', {status: 404})})).error, /No video was kept/);
+  assert.match((await video(storage(), 'j1', {fetcher: async () => { throw new Error('offline'); }})).error, /Could not reach/);
 });
