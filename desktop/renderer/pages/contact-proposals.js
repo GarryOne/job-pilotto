@@ -4,6 +4,7 @@
 import {pill} from '../components.js';
 import {message} from './core.js';
 import {detailsChanged} from './details-drafts.js';
+import {editDetailsCard} from './details-read.js';
 import {toastMessage} from './startup.js';
 
 const MARK = 'proposal-pill';
@@ -33,6 +34,7 @@ export function showProposals(proposals = []) {
     mark.classList.add(MARK);
     (input.nextElementSibling?.dataset?.contactControl ? input.nextElementSibling : input).after(mark);   // under the typed control when there is one
     input.addEventListener('input', () => { delete input.dataset.proposed; mark.remove(); }, {once: true});
+    editDetailsCard(input.closest('.setting')?.id);   // a proposal is checked in its card's editor, never hidden behind the read view
     shown++;
   }
   if (shown) {

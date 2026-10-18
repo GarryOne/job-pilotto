@@ -15,6 +15,16 @@ import {loadQuestions, questionsNow} from './jobs-questions.js';
 
 export const KEYS = ['eligibility', 'availability', 'languages'];
 const box = key => document.querySelector(`[data-facts="${key}"]`);
+const readBox = key => document.querySelector(`[data-facts-read="${key}"]`);   // the card's read view (pages/details-read.js)
+// The skeleton stands in the editor and in the read view until the lines are read; a read view marked loading is not redrawn as "Nothing yet".
+function skeletons(on) {
+  for (const key of KEYS) {
+    const read = readBox(key);
+    if (on) box(key)?.replaceChildren(loadingCard('Reading your details…', [60, 80]));
+    if (!read) continue;
+    if (on) { read.dataset.loading = '1'; read.replaceChildren(loadingCard('Reading your details…', [60, 80])); } else delete read.dataset.loading;
+  }
+}
 
 function draw(sections, formats = {}) {
   for (const key of KEYS) {
@@ -64,6 +74,7 @@ function drawWhich(aside = [], tidied = null) {
 // shows "Sorting your answers…", then reads its lines again); the first paint never waits on an AI call. Guarded by test/details-facts.test.js.
 let settledFor = 0, redrawing = false;
 const paintFacts = (result, kept) => {
+  skeletons(false);
   if (!kept && !redrawing && factsDirty()) return;   // a refresh never redraws under unsaved edits (Discard all redraws on purpose)
   $('facts-message').textContent = '';
   draw(result.sections || {}, result.formats || {});
@@ -74,9 +85,9 @@ export async function showFacts({redraw = false} = {}) {
   const turn = ++settledFor;
   redrawing = redraw;
   const quick = await swr('details-facts', () => window.pilot.detailsFactsNow(), {
-    loading: () => KEYS.forEach(key => box(key)?.replaceChildren(loadingCard('Reading your details…', [60, 80]))),
+    loading: () => skeletons(true),
     paint: paintFacts,
-    fail: result => { $('facts-message').textContent = result.error || ''; draw({}); },
+    fail: result => { $('facts-message').textContent = result.error || ''; skeletons(false); draw({}); detailsChanged(); },
   });
   document.dispatchEvent(new CustomEvent('details-sorting', {detail: {on: true}}));
   const settled = await window.pilot.detailsFacts().catch(error => ({ok: false, error: error.message}));
