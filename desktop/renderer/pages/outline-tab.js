@@ -1,6 +1,7 @@
 // Settings → Profile: a tab drawn from one or more texts' outlines (Application answers: the standard answers + Form knowledge; Preferences: the
 // Profile), edited block by block on every store (IPC textOutline / textEdit, lib/text-outline-handlers.js). This module owns the loading, the pending
 // changes per text and ONE sticky save bar (.save-bar, as "Unsaved changes to your details"); a tab only draws and calls change(name, change).
+// {bar, tab, label}: the page's one save bar (save-bar.js pageSaveBar) instead of its own (Strategy → Job preferences on Strategy's bar, owner 18 Oct 2026).
 // A change to the same block replaces the earlier one. Guarded by test/profile-tabs-render.test.js.
 import {el, loadingCard} from '../components.js';
 import {keep, swr} from '../swr.js';
@@ -12,7 +13,7 @@ const keyOf = change => (change.op === 'append' || change.op === 'insert' ? `${c
 
 // names: the texts the tab shows; draw(view, body) with view = {items: {name: outline}, store, link: {name: url}, change, undo, dirty, redraw}.
 // onReset: called when the drafts end (Discard, a save, a load), so the tab drops its own draft state.
-export function outlineTab(id, names, body, draw, {words = 'They are used for future applications once you save.', onReset = () => {}} = {}) {
+export function outlineTab(id, names, body, draw, {words = 'They are used for future applications once you save.', onReset = () => {}, bar: pageBar = null, tab = '', label = ''} = {}) {
   const pending = Object.fromEntries(names.map(name => [name, new Map()]));
   let state = {items: {}, store: '', link: {}};
   const size = () => names.reduce((sum, name) => sum + pending[name].size, 0);
@@ -27,26 +28,34 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
   const count = el('b', '', 'Unsaved changes');   // "1 unsaved change" (owner's Application answers mockup, 17 Oct 2026)
   lead.append(count, el('span', 'muted small', `Your changes are kept as a draft. ${words}`));
   bar.append(lead, note, discard, save);
-  const follow = () => { const n = size(); bar.hidden = !n; if (n) count.textContent = `${n} unsaved change${n === 1 ? '' : 's'}`; };
+  let source = null;
+  const follow = () => { if (source) { source.changed(); return; } const n = size(); bar.hidden = !n; if (n) count.textContent = `${n} unsaved change${n === 1 ? '' : 's'}`; };
 
   const view = () => ({...state, redraw, dirty: size,
     change(name, change) { pending[name].set(keyOf(change), change); follow(); },
     undo(name, change) { pending[name].delete(keyOf(change)); follow(); }});
-  function redraw() { body.replaceChildren(); draw(view(), body); body.append(bar); follow(); }
+  function redraw() { body.replaceChildren(); draw(view(), body); if (!pageBar) body.append(bar); follow(); }
   const clear = () => { for (const name of names) pending[name].clear(); onReset(); };
 
-  discard.addEventListener('click', () => { clear(); message(note.id, ''); redraw(); });
-  save.addEventListener('click', async () => {
-    save.disabled = true;
+  // Every text's changes, one textEdit each; a failed one keeps its changes. -> the errors.
+  async function saveTexts() {
     const errors = [];
     for (const name of names.filter(each => pending[each].size)) {
       const answer = await window.pilot.textEdit(name, [...pending[name].values()]).catch(error => ({ok: false, error: error.message}));
       if (answer.items) { state.items[name] = answer.items; pending[name].clear(); keep(`outline:${names.join('+')}`, {ok: true, results: names.map(each => ({ok: true, items: state.items[each], store: state.store, link: state.link[each]}))}); }
       if (!answer.ok) errors.push(answer.error);
     }
-    save.disabled = false;
     if (!errors.length) onReset();
     redraw();
+    return errors;
+  }
+  if (pageBar) source = pageBar.register({id: `outline-${id}`, tab, label, count: size, discard: () => { clear(); redraw(); },
+    save: async () => { const errors = await saveTexts(); return errors.length ? {ok: false, error: errors.join(' ')} : {ok: true}; }});
+  discard.addEventListener('click', () => { clear(); message(note.id, ''); redraw(); });
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    const errors = await saveTexts();
+    save.disabled = false;
     message(note.id, errors.length ? errors.join(' ') : 'Saved ✓ The next kits and form fills use it.', errors.length ? 'error' : 'ok');
     if (!errors.length) { bar.hidden = false; setTimeout(follow, 2500); }
   });
