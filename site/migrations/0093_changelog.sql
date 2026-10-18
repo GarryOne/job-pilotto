@@ -1,0 +1,2 @@
+-- The public What's new page (src/changelog-store.js): one row per released version, written by CI (tools/changelog-publish.mjs). hidden = a version with nothing a user would notice (never retried, never shown).
+CREATE TABLE IF NOT EXISTS changelog_entries (version TEXT PRIMARY KEY, date TEXT NOT NULL, channel TEXT NOT NULL, hidden INTEGER NOT NULL DEFAULT 0, body TEXT NOT NULL, at TEXT NOT NULL);

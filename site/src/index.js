@@ -21,6 +21,7 @@ import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as opsIngest, view as opsView} from './ops-overview.js';
 import {ingest as e2eIntelIngest} from './e2e-intel.js';
+import {ingest as changelogIngest, list as changelogList} from './changelog-store.js';
 import {view as e2eIntelView} from './e2e-page.js';
 import {ingest as buildLogIngest, view as buildLogView} from './build-log.js';
 import {ingest as prChecksIngest, view as prChecksView} from './pr-checks.js';
@@ -179,6 +180,8 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)
   if (pathname === '/e2e/data' && (request.method === 'PUT' || request.method === 'GET')) return e2eIntelIngest(request, env);   // CI publishes finished e2e runs and their red suites (Bearer SELFHEAL_PUBLISH_KEY, src/e2e-intel.js)
+  if (pathname === '/changelog/data' && (request.method === 'PUT' || request.method === 'GET')) return changelogIngest(request, env);   // CI publishes each new version's What's new entry (Bearer SELFHEAL_PUBLISH_KEY, src/changelog-store.js)
+  if (pathname === '/changelog.json' && request.method === 'GET') return changelogList(request, env);   // the What's new page's versions (falls back to public/changelog.json)
   if (pathname === '/ops/data' && (request.method === 'PUT' || request.method === 'GET')) return opsIngest(request, env);   // CI publishes merged PRs (Bearer SELFHEAL_PUBLISH_KEY, src/ops-overview.js)
   if (pathname === '/digest/data' && (request.method === 'PUT' || request.method === 'GET')) return buildLogIngest(request, env);   // CI publishes the day's build digest (Bearer SELFHEAL_PUBLISH_KEY, src/build-log.js)
   if (pathname === '/pr-checks/data' && request.method === 'PUT') return prChecksIngest(request, env);   // the monthly PR-check scorecard (Bearer SELFHEAL_PUBLISH_KEY, src/pr-checks.js)
