@@ -4,6 +4,8 @@
 import {collapsiblePanel} from './components.js';
 
 export const TABS = ['cv', 'details', 'experience', 'answers', 'letter'];
+// Tell the bar that a card folded, opened or was drawn (a test's tiny DOM has no document events: it is skipped there).
+export const foldsChanged = () => document.dispatchEvent?.(new Event('profile-folds-changed'));
 const registry = new Map();   // node -> {tab, set(folded), isFolded()}
 export const registered = () => registry;
 

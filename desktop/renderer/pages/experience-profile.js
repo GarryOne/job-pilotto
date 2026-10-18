@@ -9,7 +9,7 @@ import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {surveyBody, surveyForm} from '../survey-rows.js';
-import {forgetCards, registerCard} from '../profile-fold.js';
+import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
 import {gapsBody} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText, unset} from '../experience-profile-model.js';
@@ -70,7 +70,7 @@ function draw(tab) {
   const list = partsOn(parts[tab], tab);
   // A panel with one part (Your details' Voluntary surveys) already says its name: no card around it.
   $(BOXES[tab][0]).replaceChildren(...list.map(each => (list.length === 1 ? solo(tab, each) : card(tab, each))));
-  document.dispatchEvent(new Event('profile-folds-changed'));
+  foldsChanged();
 }
 
 // The card's Edit/Add: the shared header button (components.js cardEdit), at the right of the title line.
@@ -84,7 +84,7 @@ function card(tab, each) {
   const box = el('details', 'answer-item qa-section qa-fold exp-part');
   box.dataset.part = key;
   box.open = folded.has(key) ? folded.get(key) : OPEN_FIRST.has(key) || editing.has(key);
-  box.addEventListener('toggle', () => { folded.set(key, box.open); document.dispatchEvent(new Event('profile-folds-changed')); });
+  box.addEventListener('toggle', () => { folded.set(key, box.open); foldsChanged(); });
   registerCard(box, tab);   // the tab's fold bar opens and folds it with the rest (profile-fold.js)
   const head = el('summary', 'qa-section-head');
   const count = key === 'strengths' ? part?.lines.length : 0;
