@@ -65,6 +65,7 @@ test('Fill now: one press sends and starts; it asks before replacing waiting for
     if (route.endsWith('/ready/state')) return answer(night);
     if (route.endsWith('/ready/batch')) { const jobs = JSON.parse(init.body).jobs.map(job => job.id); sent.push(['batch', jobs]); return answer({ok: true, queued: jobs.length}); }
     if (route.endsWith('/ready/run')) { sent.push(['run']); return answer({ok: true, batch: 'b1'}, 202); }
+    if (route.endsWith('/ready/again')) { sent.push(['again', JSON.parse(init.body)]); return answer({ok: true, batch: 'b1'}, 202); }
     return answer({ok: true});
   };
   const handlers = {}, ipcMain = {handle: (name, fn) => { handlers[name] = fn; }};
@@ -94,14 +95,10 @@ test('Fill now: one press sends and starts; it asks before replacing waiting for
     assert.equal((await handlers.readyRun({}, {again: true, confirmed: true})).ok, true);
     assert.deepEqual(sent, [['batch', ['x']], ['run']]);
 
-    sent.length = 0; list = [ready, opened];
-    night = {ok: true, batch: {night: nightOf().night, state: 'finished'}, jobs: [{job: 'a', state: 'prepared'}, {job: 'x', state: 'prepared'}]};
-    const row = await handlers.readyRun({}, {codes: ['x']});
-    assert.deepEqual(row.ask, {again: true, jobs: [{code: 'x', name: 'DevOps · Nordlicht'}], replaces: 1}, 'a row\'s Fill again: that job, the other waiting form counted as replaced');
-    assert.deepEqual(sent, [], 'nothing sent before the yes');
-    assert.equal((await handlers.readyRun({}, {codes: ['x'], again: true, confirmed: true})).ok, true);
-    assert.deepEqual(sent, [['batch', ['x']], ['run']], 'that job alone');
-    assert.match((await handlers.readyRun({}, {codes: ['gone']})).error, /not in your list/);
+    sent.length = 0; list = [];   // a row's Fill again with nothing finished on this Mac (the owner's night, 18 Oct 2026): the night's own copy, never this list
+    const row = await handlers.readyAgain({}, 'x');
+    assert.equal(row.ok, true, JSON.stringify(row));
+    assert.deepEqual(sent, [['again', {job: 'x'}]], 'one call: the server fills that form from the night');
 
     sent.length = 0; list = [];
     const nothing = await handlers.readyRun({}, {});

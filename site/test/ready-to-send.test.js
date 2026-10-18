@@ -34,7 +34,9 @@ async function night(e = env()) {
 }
 
 test('off, or any install but the owner, reaches nothing: a class check over every route', async () => {
-  const subs = ['batch', 'result', 'ai', 'video', 'handoff', 'done', 'submitted', 'state', 'report', 'data'];
+  const subs = ['batch', 'result', 'ai', 'video', 'handoff', 'done', 'submitted', 'state', 'report', 'data', 'again', 'run', 'link', 'live', 'held'];
+  const routed = [...readFileSync(new URL('../src/ready.js', import.meta.url), 'utf8').matchAll(/sub === '(\w+)'/g)].map(match => match[1]);
+  for (const sub of routed) assert.ok(subs.includes(sub), `the route ${sub} is in this class check`);
   const off = env({READY_TO_SEND: 'off'});
   for (const sub of subs) assert.equal((await call(off, 'GET', sub)).status, 404, `${sub} off`);
   const e = env();

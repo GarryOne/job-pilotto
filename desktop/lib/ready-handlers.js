@@ -5,7 +5,7 @@ import * as pipeline from './pipeline.js';
 import {extensionStore} from './store/extension-store.js';
 import {me} from './server-contact.js';
 import * as viewCache from './view-cache.js';
-import {buildBatch, nightOf, ownKeyFor, pickByCodes, pickToRefill, pickToSend, withOwnAi} from './ready-batch.js';
+import {buildBatch, nightOf, ownKeyFor, pickToRefill, pickToSend, withOwnAi} from './ready-batch.js';
 import {fillNowPlan, waitingOn} from './ready-fill-now.js';
 import {createAutoSend, startAutoSend} from './ready-auto.js';
 import {isTwin} from './twin.js';
@@ -71,13 +71,9 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     sendNow: sendTonight, log: (message, extra) => appLog('ready', message, extra)});
   startAutoSend(autoSend.check, {app, powerMonitor});
   // What a press would do (lib/ready-fill-now.js): send at once, ask first (forms of this night still wait for you; or only opened jobs are left), or nothing to fill.
-  // codes: a row's Fill again (those jobs only, always after a yes).
-  const planFor = async ({again = false, confirmed = false, refill = true, codes = null} = {}) => {
+  const planFor = async ({again = false, confirmed = false, refill = true} = {}) => {
     const all = await jobs(), mine = settings(), rows = await site.rows(storage).catch(() => ({}));
-    const picked = Array.isArray(codes) ? codes.map(String) : null;
-    const opened = picked ? pickByCodes(all, picked) : refill ? pickToRefill(all, mine) : [];
-    if (picked && !opened.length) return {nothing: true, error: 'This job is not in your list any more, or lost its kit, CV or letter.'};
-    const plan = fillNowPlan({tonight: pickToSend(all, mine), opened, waiting: waitingOn(rows, nightOf().night, picked || []), again: again || !!picked, confirmed});
+    const plan = fillNowPlan({tonight: pickToSend(all, mine), opened: refill ? pickToRefill(all, mine) : [], waiting: waitingOn(rows, nightOf().night), again, confirmed});
     return plan.ask ? {ask: {...plan.ask, jobs: plan.ask.jobs.map(job => ({code: job.code, name: `${job.title} · ${job.company}`}))}} : plan;
   };
   const NOTHING = 'Nothing to fill: no job has its kit, CV and cover letter yet. Tailor CVs for your top matches first.';
@@ -116,9 +112,9 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   setVisitRoute('/extension/ready-handoff', payload => ({ok: true, handoff: handoffs.take(payload?.url)}));
   // Fill now (owner, 18 Oct 2026: "make the Fill now work"): one press sends tonight's ready jobs and starts them; after a yes, the jobs you opened and did not submit.
   // Started, nothing sent by itself replaces that night (ranNight).
-  ipcMain.handle('readyRun', async (_, {again = false, confirmed = false, codes = null} = {}) => {
-    const plan = await planFor({again, confirmed, codes});
-    if (plan.nothing) return {ok: false, nothing: true, error: plan.error || NOTHING};
+  ipcMain.handle('readyRun', async (_, {again = false, confirmed = false} = {}) => {
+    const plan = await planFor({again, confirmed});
+    if (plan.nothing) return {ok: false, nothing: true, error: NOTHING};
     if (plan.ask) return {ok: false, ask: plan.ask};
     const sent = await sendPlanned(plan);
     if (!sent.ok) return sent;
@@ -126,6 +122,9 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});
     return started.ok ? {...started, queued: sent.queued, night: sent.night, skipped: sent.skipped} : started;
   });
+  // A row's Fill again (the card asked first): the server fills that form again from the night's own copy (site src/ready-again.js), never from this list
+  // (18 Oct 2026: a job opened in the browser no longer counts as finished here, so the list refused it and nothing was filled).
+  ipcMain.handle('readyAgain', (_, code) => site.again(storage, String(code || '')));
   ipcMain.handle('readyVideo', (_, code) => site.video(storage, String(code || '')));   // Watch the fill: the night's video of this form, played under its row
   ipcMain.handle('readyDone', (_, code) => site.done(storage, String(code || '')));
   ipcMain.handle('readyDeleteAll', () => site.deleteAll(storage));
