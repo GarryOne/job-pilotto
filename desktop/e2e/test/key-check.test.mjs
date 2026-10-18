@@ -88,3 +88,16 @@ test('describeRefusal: the first three refusals say the request-id, model, max_t
   assert.ok(!lines.join('\n').includes('secret-value'));
   assert.equal(keyFingerprint(''), 'none');
 });
+
+// 18 Oct 2026: the app's own saved AI keys appear as fingerprints (never values), only the Anthropic and OpenAI items.
+test('appKeyFingerprints: lists the AI items of the app\'s secrets file by fingerprint, never a value', async () => {
+  const {appKeyFingerprints, keyFingerprint} = await import('../lib/key-check.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'keyfp-'));
+  fs.writeFileSync(path.join(dir, 'isolated-secrets.json'), JSON.stringify({
+    'job-pilotto.anthropic.api_key': {value: 'sk-ant-secret-one'}, 'job-pilotto.openai.api_key': {value: 'sk-secret-two'}, 'job-pilotto.notion.token': {value: 'ntn-nope'}, 'job-pilotto.openai.empty': {value: ''}}));
+  const lines = appKeyFingerprints(dir);
+  assert.deepEqual(lines, [`job-pilotto.anthropic.api_key ${keyFingerprint('sk-ant-secret-one')}`, `job-pilotto.openai.api_key ${keyFingerprint('sk-secret-two')}`]);
+  assert.ok(!lines.join(' ').includes('secret-one') && !lines.join(' ').includes('ntn-nope'));
+  assert.deepEqual(appKeyFingerprints(path.join(dir, 'nowhere')), []);
+});
