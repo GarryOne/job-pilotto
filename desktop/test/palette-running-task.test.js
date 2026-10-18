@@ -54,7 +54,7 @@ test('every task button has a ⌘K entry, and no entry loop skips a button that 
   assert.deepEqual(unreached, []);
   assert.doesNotMatch(nav, /!node\.disabled && (add|reachable)/, 'a loop drops disabled buttons itself: a running task would vanish from ⌘K');
   assert.doesNotMatch(nav, /!node\.disabled && !node\.closest/);
-  assert.equal([...nav.matchAll(/\baddNode\(node,/g)].length, 5);   // button(), both Actions card loops, the Settings sweep, the service cards
+  assert.equal([...nav.matchAll(/\baddNode\(node,/g)].length, 6);   // button(), both Actions card loops, the Settings sweep, the service cards, the page sweep
 });
 
 // The row's spinner is the app's own .spinner.small and the footer follows the row under the cursor (owner, 18 Oct 2026: a running row shows a spinner; Enter says "open").

@@ -90,7 +90,7 @@ export const labelOf = node => {
   copy.querySelectorAll('.nav-badge, .nav-dot').forEach(child => child.remove());
   return copy.textContent.replace(/\s+/g, ' ').trim();
 };
-function paletteCommands() {
+export function paletteCommands() {
   const commands = [];
   const add = (group, label, hint, keywords, run, more = {}) => { if (label) commands.push({group, label, hint, keywords, run, ...more}); };
   // A button's ⌘K entry brings you to it and does not press it (owner, 18 Oct 2026: "I don't want necessarily to trigger the action, I just want you to focus
@@ -98,7 +98,7 @@ function paletteCommands() {
   // Every button entry goes through addNode.
   const addNode = (node, group, label, hint, keywords, open) => {
     const entry = buttonEntry(node, {group, label, hint, keywords, run: () => { open(); reveal(node); }});
-    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run, {enter: entry.enter, running: entry.running});
+    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run, {enter: entry.enter, running: entry.running, node});
   };
   // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Refresh jobs" and
   // "Check for new jobs" were listed side by side and ran the same jobs check).
@@ -193,22 +193,34 @@ function paletteCommands() {
   const openTab = () => document.querySelector('[data-profile-tab].is-active')?.dataset.profileTab;
   const onClosedTab = section => !!section.dataset.profilePanel && section.dataset.profilePanel !== openTab() && hiddenAt(section) === section
     && !hiddenAt(section.parentElement);
-  const reachable = (node, section) => shown(node) || (onClosedTab(section) && hiddenAt(node) === section);
+  // A connection's card (Settings → Connections → Manage: Chrome extension, Telegram, ...) is hidden until chosen: listed too, its entry opens it (settings.js openSetting).
+  const onClosedPanel = section => section.classList.contains('conn-panel') && hiddenAt(section) === section && !hiddenAt(section.parentElement);
+  const reachable = (node, section) => shown(node) || ((onClosedTab(section) || onClosedPanel(section)) && hiddenAt(node) === section);
   document.querySelectorAll('[data-profile-tab]').forEach(tab => add('Settings', `Open Profile: ${labelOf(tab)}`, '', 'settings profile tab',
     () => { openView('settings'); settingsPage('profile'); profileTab(tab.dataset.profileTab); }));
   const seen = new Set();
   document.querySelectorAll('[data-settings-page] .setting[id]').forEach(section => {
-    const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary'));   // a summary's own heading, not its whole line
+    // A summary's own heading, not its whole line; a card with none is named by its bold line (Current CV) or its page (Credentials, Logs).
+    const pageGo = document.querySelector(`[data-settings-go="${section.closest('[data-settings-page]')?.dataset.settingsPage}"]`);
+    const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary') || section.querySelector('.cv-card-text b')) || labelOf(pageGo);
     if (!reachable(section, section) || !title || seen.has(title)) return;
     seen.add(title);
     const page = section.closest('[data-settings-page]').dataset.settingsPage;
     const open = () => {
       openView('settings'); settingsPage(page);
       if (section.dataset.profilePanel) profileTab(section.dataset.profilePanel);
+      if (section.classList.contains('conn-panel')) openSetting(section.id.replace(/^setting-/, ''));
       if (section.tagName === 'DETAILS') section.open = true;
       section.scrollIntoView({block: 'start'});
     };
     add('Settings', title, '', `settings ${page}`, open);
+    // The section's own sub-headings ("Chrome extension: manual connection" inside Developer options), each its own entry; never a field's value.
+    section.querySelectorAll('h3, h4').forEach(heading => {
+      const name = labelOf(heading);
+      if (!name || seen.has(name) || !reachable(heading, section)) return;
+      seen.add(name);
+      add('Settings', name, `Section · ${title}`, `settings ${page}`, () => { open(); reveal(heading); }, {node: heading});
+    });
     const buttons = [...section.querySelectorAll('button[id]')].filter(node => reachable(node, section) && !twins.has(node));
     buttons.forEach(node => {
       const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
@@ -216,7 +228,31 @@ function paletteCommands() {
       addNode(node, 'Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, open);
     });
   });
+  // Headings on a Settings page that sit outside a section with an id (Overview's "Your setup", Connections' "Connected"): the page opens, the heading flashes.
+  document.querySelectorAll('[data-settings-page] :is(h2, h3, h4)').forEach(heading => {
+    const name = labelOf(heading), page = heading.closest('[data-settings-page]').dataset.settingsPage;
+    if (!/\p{L}{2}/u.test(name) || seen.has(name) || heading.closest('.setting[id]') || hiddenAt(heading) || heading.closest('dialog, [role="dialog"]')) return;
+    seen.add(name);
+    add('Settings', name, `Section · ${labelOf(document.querySelector(`[data-settings-go="${page}"]`))}`, `settings ${page}`, () => { openView('settings'); settingsPage(page); reveal(heading); }, {node: heading});
+  });
   document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
+  // Every other button a page shows (a Refresh, "Edit in Notion", "Fill now"): found by sweeping each page, so a new button is listed without being added here
+  // (18 Oct 2026: Chrome extension was missing from ⌘K; palette-every-action.test.js fails on any button left out). Buttons in a dialog, hidden by their state
+  // or already listed are skipped; Settings has its own sweep above.
+  const listed = new Set(commands.map(command => command.node).filter(Boolean));
+  document.querySelectorAll('.view:not([data-view="settings"]) button[id]').forEach(node => {
+    const view = node.closest('.view').dataset.view, page = view[0].toUpperCase() + view.slice(1), label = labelOf(node) || node.getAttribute('aria-label') || '';
+    if (listed.has(node) || twins.has(node) || node.closest('dialog, [role="dialog"], [hidden]:not(.view)') || !/\p{L}{2}/u.test(label)) return;
+    addNode(node, page, `${page}: ${label}`, node.title, `${view} page`, () => openView(view));
+  });
+  // Every card and section heading on the other pages (Focus' Insight, Reports, Calendar's Coming up): the card scrolls into view and flashes.
+  const named = new Set(commands.map(command => `${command.group}|${command.label}`));
+  document.querySelectorAll('.view:not([data-view="settings"]) :is(h2, h3, h4)').forEach(heading => {
+    const view = heading.closest('.view').dataset.view, page = view[0].toUpperCase() + view.slice(1), name = labelOf(heading);
+    if (!/\p{L}{2}/u.test(name) || named.has(`${page}|${name}`) || heading.closest('dialog, [role="dialog"], [hidden]:not(.view)')) return;
+    named.add(`${page}|${name}`);
+    add(page, name, `Card · ${page}`, `${view} page card section`, () => { openView(view); reveal(heading); }, {node: heading});
+  });
   for (const command of buildCommands()) add(command.group, command.label, command.hint, command.keywords, command.run);   // Restart to get N fixes (pages/build.js)
   return commands;
 }

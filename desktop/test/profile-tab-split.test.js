@@ -46,7 +46,7 @@ test('⌘K lists every Profile tab, and a section on a closed tab opens that tab
   const nav = read('renderer/pages/nav.js');
   assert.match(nav, /\[data-profile-tab\]/, 'each tab is a ⌘K entry');
   assert.match(nav, /profileTab\(section\.dataset\.profilePanel\)/, 'a section entry switches to its tab');
-  assert.match(nav, /onClosedTab\(section\) && hiddenAt\(node\) === section/, 'a section on a closed tab is still listed, with its buttons');
+  assert.match(nav, /onClosedTab\(section\) \|\| onClosedPanel\(section\)\) && hiddenAt\(node\) === section/, 'a section on a closed tab is still listed, with its buttons');
 });
 
 test('no screen or message still says "CV & details"', () => {
