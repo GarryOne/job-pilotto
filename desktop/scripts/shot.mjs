@@ -4,6 +4,7 @@
 //   --session <text>   on the session page, open the session whose card contains this text (e.g. Acme)
 //   --mark <css>       draw a red frame around every element it matches ("where to look"); repeat the option for several. Use the SAME --mark on the before and the after shot.
 //                      A PR shot is the changed card (--select) with the change marked (--mark); a full window is only for a layout change (docs/rules/desktop-ui.md).
+//   --full             the whole scrolled page (the window grows to the page's height), not only the viewport
 //   --log              expand the session log
 //   --reload           reload the window (⌘R) afterwards, and expand the log again if --log
 //   --js <code>        more steps to run first (a statement; await allowed)
@@ -57,6 +58,7 @@ const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-sh
 fs.rmSync(`${out}.json`, {force: true});
 const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: out, JOB_PILOTTO_SMOKE_JS: script(steps.join('\n'))};
 if (option('width')) env.JOB_PILOTTO_SHOT_WIDTH = option('width');
+if (flag('full')) env.JOB_PILOTTO_SMOKE_FULL = '1';
 if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script((flag('log') ? expandLog : wait(500)) + (options('mark').length ? markSteps(options('mark')) : ''));   // a reload wipes the frames
 if (option('select')) env.JOB_PILOTTO_SMOKE_SELECTOR = option('select');
 env.JOB_PILOTTO_SMOKE_EVAL = option('eval') || cutFields(option('select'));
