@@ -97,15 +97,17 @@ export function surveyRead(part, {sorting = false} = {}) {
   const inWords = read.other.map(other => otherRow(other.text)).filter(row => row && byLabel.has(row.label.toLowerCase())).length;
   const named = [...answered, ...read.other.map(other => otherRow(other.text)?.label).filter(Boolean)];
   const words = named.length > 3 ? `${named.slice(0, 3).join(', ')} and ${named.length - 3} more saved` : `${named.join(', ')} saved`;
-  const line = el('div', 'survey-saved'), box = el('div', 'survey-read');
+  const folds = named.length || sorting, box = el('div', 'survey-read');
+  const line = el(folds ? 'summary' : 'div', 'survey-saved');
   line.append(icon(named.length ? 'tick' : 'info'), el('b', '', named.length ? 'Saved preferences' : 'No answers yet'),
     el('span', 'muted', named.length ? words : 'Edit to add the answers equal-opportunity questions ask for'),
     ...(inWords ? [pill(`${inWords} to check`, 'warn', {title: 'Written as words, not yet one of the choices: Edit to pick one.'})] : []));
-  box.append(line);
-  if (!named.length && !sorting) return box;
+  if (!folds) { box.append(line); return box; }
+  // One boxed row (mockup 05): the saved line is the fold's own header, "Show answers · N" at its right, every answer under it.
+  line.append(el('span', 'link small survey-toggle', `Show answers · ${named.length}`), icon('chevron', 'icon survey-chevron'));
   const fold = el('details', 'plain survey-all');
   fold.open = sorting;
-  fold.append(el('summary', 'link small', `Show answers · ${named.length}`), surveyBody(part, {sorting}));
+  fold.append(line, surveyBody(part, {sorting}));
   box.append(fold);
   return box;
 }

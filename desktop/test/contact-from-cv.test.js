@@ -61,6 +61,11 @@ test('the window shows proposals in the Your details boxes and Save is the only 
   assert.match(profile, /loadProposals\(\);/);
   assert.match(fs.readFileSync(new URL('../renderer/pages/profile-menu.js', import.meta.url), 'utf8'), /label: 'Fill empty details from my CV', run: \(\) => fillFromCv/, 'Fill from my CV lives in the Profile ⋯ menu');
   assert.match(html, /data-contact="salutation"/);
+  assert.match(page, /pill\(`\$\{left\} from CV · check`, 'warn'\)/, 'how many proposals are left shows as a badge in the Contact title (mockup 05)');
+  assert.doesNotMatch(page, /filled in from your CV: check/, 'never a lone line under the card');
+  const show = page.slice(page.indexOf('export function showProposals'));
+  assert.doesNotMatch(show.slice(0, show.indexOf('for (const')), /clearProposals\(\)/, 'a second run (the tab opened again) never wipes the marks while keeping their values (18 Oct 2026)');
+  assert.match(show, /if \(input\?\.dataset\.proposed\) \{ shown\+\+; continue; \}/, 'a still-marked box stays marked and counted');
 });
 
 // 9 Oct 2026, the twin: Coop's "Localité" stayed empty with no proposal; the town was in the Profile, not in the CV or Your details.
