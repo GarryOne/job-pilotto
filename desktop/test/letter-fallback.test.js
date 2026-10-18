@@ -19,7 +19,7 @@ test('the window and the engine read the base-letter switch the same way, off by
 
 test('the switch sits in the Cover letter panel, with words that say what it does', () => {
   const html = fs.readFileSync(path.join(here, '../renderer/index.html'), 'utf8');
-  const panel = html.slice(html.indexOf('id="setting-letter"'), html.indexOf('</div>', html.indexOf('id="letter-pdf"')));
+  const panel = html.slice(html.indexOf('id="setting-letter"'), html.indexOf('id="setting-answers'));
   assert.match(panel, /id="letter-fallback"/);
   assert.match(panel, /Use this approved base letter when a job has no tailored letter/);
 });

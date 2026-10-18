@@ -114,7 +114,7 @@ export function registerCvAndLettersHandlers(ctx) {
       const {profile, answers} = await strategy.profileTexts(storage);
       const contact = await contactDetails.read(storage).catch(() => ({}));
       const result = await letters.generate(storage, {apiKey: key, client: ai, profile, answers, feedback: String(feedback).slice(0, 1000),
-        preferences: configForPrompt(storage, 'search.json'), name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ')});
+        preferences: configForPrompt(storage, 'search.json'), name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' '), paidBy: letters.paidByOf({key, client: ai})});
       appLog('cover-letter', `drafted${feedback ? ' with feedback' : ''}`, {words: result.text.split(/\s+/).length, usd: result.usd});
       return {ok: true, ...letters.status(storage)};
     } catch (error) { return {ok: false, error: error.message}; }

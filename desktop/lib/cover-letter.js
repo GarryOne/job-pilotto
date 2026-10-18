@@ -2,7 +2,7 @@
 // the standard answers, reviewed and approved by the user, then kept as text and as a PDF. A form that asks for the
 // cover letter as a file gets the PDF only while settings.letterFallback is on and the job has no letter of its own (server-contact.js me()).
 //
-//   cover-letter/letter.json  {text, status: 'draft' | 'approved', createdAt, approvedAt, model, usd}
+//   cover-letter/letter.json  {text, status: 'draft' | 'approved', createdAt, approvedAt, model, usd, paidBy: 'credits' | 'api' | 'plan' | ''}
 //   cover-letter/letter.pdf   only while approved: an edit makes it a draft again and removes the PDF
 import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
@@ -30,8 +30,12 @@ function write(storage, record) {
 export const status = storage => {
   const record = load(storage);
   return {text: record?.text || '', state: record ? record.status : 'none', approvedAt: record?.approvedAt || '', createdAt: record?.createdAt || '',
-    pdf: record?.status === 'approved' && fs.existsSync(pdfPath(storage))};
+    pdf: record?.status === 'approved' && fs.existsSync(pdfPath(storage)), usd: record?.usd || 0, paidBy: record?.paidBy || ''};
 };
+
+// Who pays for a draft (owner, 18 Oct 2026: said before and after it runs): a plan (Claude Code, Codex), the app's AI credits (Free AI JPF1.…, the
+// founder credit JP1.…) or the person's own API account. '' when no AI is set up. The client wins over the key, as in generate().
+export const paidByOf = ({key = '', client = null} = {}) => (client ? (client.billing === 'subscription' ? 'plan' : 'api') : /^JPF?1\./.test(key) ? 'credits' : key ? 'api' : '');
 
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['letter'], properties: {letter: {type: 'string'}}};
 
@@ -52,7 +56,7 @@ If feedback is given, revise the previous letter accordingly.`;
 const cvText = cv => JSON.stringify({name: cv.name, location: cv.location, summary: cv.summary, skills: cv.skills, languages: cv.languages,
   jobs: cv.jobs.map(job => ({company: job.company, roles: job.roles.map(r => ({title: r.title, period: r.period, bullets: r.bullets}))}))}, null, 1);
 
-export async function generate(storage, {apiKey, client = null, profile = '', answers = '', preferences = '', feedback = '', name = ''}) {
+export async function generate(storage, {apiKey, client = null, profile = '', answers = '', preferences = '', feedback = '', name = '', paidBy = ''}) {
   const cv = baseCv(storage);
   if (!cv) throw new Error('Read your CV first (Preview CV or Read my CV PDF).');
   const previous = load(storage)?.text || '';
@@ -70,7 +74,7 @@ export async function generate(storage, {apiKey, client = null, profile = '', an
   const text = JSON.parse(response.content.find(block => block.type === 'text').text).letter.trim();
   if (!text) throw new Error('The letter came back empty; try again');
   const cost = usd(response.usage);
-  write(storage, {text, status: 'draft', createdAt: new Date().toISOString(), model: MODEL, usd: cost});
+  write(storage, {text, status: 'draft', createdAt: new Date().toISOString(), model: MODEL, usd: cost, paidBy});
   fs.rmSync(pdfPath(storage), {force: true});
   return {text, usd: cost};
 }
