@@ -8,6 +8,8 @@ imports urllib). Off by default: a normal run never loads it.
   its recorded time times JOB_PILOTTO_TAPE_WAIT_SCALE (1 = as recorded, 0 = no wait, 0.1 = ten times faster) and a URL the tape lacks fails like an unreachable site: nothing leaves the computer.
 - The AI: the engine's AI client (messages.create). Record keeps each answer and its time, keyed by the whole request; replay serves it after its
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
+  JOB_PILOTTO_TAPE_LIVE=0 (the CI replay of the Lab Job Search, no AI account there): a request the tape lacks is not asked, it is counted in
+  'ai_missing' and raises, so the replay says "the tape is stale" instead of making an answer up.
 Tests: tests/test_search_tape.py."""
 import email.message
 import hashlib
@@ -23,7 +25,7 @@ from pathlib import Path
 
 _lock = threading.Lock()
 _index = {}      # (kind, key) -> record, the tape read once per process
-counts = {'web_tape': 0, 'web_missing': 0, 'ai_tape': 0, 'ai_live': 0}
+counts = {'web_tape': 0, 'web_missing': 0, 'ai_tape': 0, 'ai_live': 0, 'ai_missing': 0}
 
 
 def folder():
@@ -56,6 +58,10 @@ def _load():
             except ValueError:
                 continue
             _index.setdefault((kind, record['key']), record)   # the first answer recorded for a request is the one replayed
+            if kind == 'web' and record.get('norm'):
+                _index.setdefault(('norm', record['norm']), record)
+            elif kind == 'web' and record.get('method') == 'POST':
+                _index.setdefault(('post', record.get('url')), record)   # a tape recorded before 'norm' existed: its install POST is answered by method + address
     return _index
 
 
@@ -114,13 +120,30 @@ def _request_key(request, data):
     return url, method, _key(method, same, hashlib.sha256(body or b'').hexdigest())
 
 
+_INSTALL = re.compile(r'"install"\s*:\s*"[0-9a-f]{16,}"')
+
+
+def _install_norm(method, url, body):
+    """A POST that carries the install's own random id (the service's install-token): a fresh replay install has another id, so its key never matches the
+    recorded one (18 Oct 2026: no token, no employer index, a different search). Its second key is method + address + the body without the id, so a changed
+    purpose still misses. None for any other request."""
+    text = (body or b'').decode('utf-8', 'replace')
+    if method != 'POST' or not _INSTALL.search(text):
+        return None
+    return _key('install-post', url, _INSTALL.sub('"install": ""', text))
+
+
 def _web(real):
     def urlopen(request, data=None, timeout=None, *args, **kwargs):
         url, method, key = _request_key(request, data)
         if mode() == 'replay':
             record = _load().get(('web', key))
+            norm = _install_norm(method, url, request.data if isinstance(request, urllib.request.Request) and data is None else data)
+            if record is None and norm:
+                record = _load().get(('norm', norm)) or _load().get(('post', url))   # the second: a tape with no 'norm' on its records
             if record is None:
                 counts['web_missing'] += 1
+                _keep_missing_web(method, url, request, data)
                 raise urllib.error.URLError(f'not on the search tape: {url}')
             counts['web_tape'] += 1
             _wait(record.get('seconds'))
@@ -128,7 +151,7 @@ def _web(real):
                 if record.get('status'):
                     raise urllib.error.HTTPError(url, record['status'], record['error'], {}, None)
                 raise urllib.error.URLError(record['error'])
-            return _Reply((folder() / 'bodies' / key).read_bytes(), record)
+            return _Reply((folder() / 'bodies' / record['key']).read_bytes(), record)
         started = time.monotonic()
         try:
             reply = real(request, data, timeout, *args, **kwargs) if timeout is not None else real(request, data, *args, **kwargs)
@@ -141,7 +164,8 @@ def _web(real):
             _keep('web', {'key': key, 'url': url, 'method': method, 'error': f'{type(error).__name__}: {error}'[:200],
                           'seconds': round(time.monotonic() - started, 3)})
             raise
-        record = {'key': key, 'url': url, 'method': method, 'status': getattr(reply, 'status', 200), 'final': reply.geturl(),
+        norm = _install_norm(method, url, request.data if isinstance(request, urllib.request.Request) and data is None else data)
+        record = {'key': key, 'url': url, 'method': method, **({'norm': norm} if norm else {}), 'status': getattr(reply, 'status', 200), 'final': reply.geturl(),
                   'type': (reply.headers.get('Content-Type') if getattr(reply, 'headers', None) else '') or '',
                   'seconds': round(time.monotonic() - started, 3)}
         _keep('web', record, body)
@@ -159,6 +183,26 @@ def _response(record):
                     stop_reason=record.get('stop_reason') or 'end_turn', engine=record.get('engine') or '')
 
 
+def _keep_missing(key, params):
+    """The question a replay could not answer, in missing.jsonl beside the tape (its start, to see what differs from the recorded ones)."""
+    def text(value):
+        return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
+    last = (params.get('messages') or [{}])[-1].get('content', '')
+    with _lock:
+        with open(folder() / 'missing.jsonl', 'a', encoding='utf-8') as file:
+            file.write(json.dumps({'key': key, 'model': params.get('model'), 'system': text(params.get('system', ''))[:300], 'user': text(last)[:600],
+                                   'user_chars': len(text(last))}, ensure_ascii=False) + '\n')
+
+
+def _keep_missing_web(method, url, request, data):
+    """The page a replay could not find, in missing.jsonl beside the tape: method, address, and the body's start (what differs from the recorded request)."""
+    body = request.data if isinstance(request, urllib.request.Request) and data is None else data
+    body = body.decode('utf-8', 'replace') if isinstance(body, bytes) else str(body or '')
+    with _lock:
+        with open(folder() / 'missing.jsonl', 'a', encoding='utf-8') as file:
+            file.write(json.dumps({'web': True, 'method': method, 'url': url[:400], 'body': body[:300]}, ensure_ascii=False) + '\n')
+
+
 class _Messages:
     def __init__(self, live):
         self.live = live
@@ -171,6 +215,10 @@ class _Messages:
             counts['ai_tape'] += 1
             _wait(record.get('seconds'))
             return _response(record)
+        if mode() == 'replay' and os.getenv('JOB_PILOTTO_TAPE_LIVE') == '0':
+            counts['ai_missing'] += 1
+            _keep_missing(key, params)
+            raise RuntimeError('not on the search tape: an AI request')
         if mode() == 'replay':
             counts['ai_live'] += 1   # not on the tape: asked live (a change that asks other questions), then kept
         started = time.monotonic()

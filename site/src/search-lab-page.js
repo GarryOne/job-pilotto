@@ -8,7 +8,7 @@ import {runs} from './search-lab-store.js';
 import {draws} from './search-lab-draws.js';
 import {DRAWS_CSS, drawsSection} from './search-lab-draws-page.js';
 
-const STATES = {failed: ['FAILED', 'bad'], worse: ['Worse', 'bad'], new: ['New', 'wait'], working: ['Working', 'good']};
+const STATES = {failed: ['FAILED', 'bad'], stale: ['Tape stale', 'wait'], worse: ['Worse', 'bad'], new: ['New', 'wait'], working: ['Working', 'good']};
 const num = value => (value == null ? '–' : Number(value).toLocaleString('en-US'));
 // Under a minute in seconds, then m:ss; a time never reached says so.
 export const clock = value => (value == null ? 'not reached' : value < 60 ? `${value} s` : `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`);
@@ -25,6 +25,7 @@ export function tiles(rows, newest) {
   return `<div class="tiles"><section class="card tile"><span class="muted">Not worse than last green</span><b>${fine} / ${rows.length}</b><span class="muted">candidates replayed</span></section>
 <section class="card tile"><span class="muted">Worse</span><b class="${count('worse') ? 'down' : ''}">${count('worse')}</b><span class="muted">a count lower or a time over 25 % slower</span></section>
 <section class="card tile"><span class="muted">FAILED</span><b class="${count('failed') ? 'down' : ''}">${count('failed')}</b><span class="muted">a step crashed</span></section>
+<section class="card tile"><span class="muted">Tape stale</span><b>${count('stale')}</b><span class="muted">the tape lacks what this build asks</span></section>
 <section class="card tile"><span class="muted">Newest run</span><b>${newest?.build ? esc(newest.build.slice(0, 7)) : '–'}</b><span class="muted">${newest ? esc(newest.run_at.slice(0, 16).replace('T', ' ')) + ' UTC' : 'none yet'}</span></section></div>`;
 }
 
@@ -39,7 +40,7 @@ export function table(rows) {
   return `<div class="scroll"><table><tr><th>Candidate</th><th>State</th><th class="num">1st relevant job</th><th class="num">10th relevant job</th><th class="num">1st 70+ job</th><th class="num">In places · scored · 70+</th></tr>${body}</table></div>`;
 }
 
-const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
+const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
 .scroll{overflow-x:auto}.state{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .state.good{background:#16341f;color:#6fdc8c}.state.bad{background:#40181a;color:#ff8a80}.state.wait{background:#262c33;color:#b9c0c7}
 .why{color:#8d949c;font-size:12px;margin-top:4px}.chip{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:1px 9px;font-size:12px;color:#8d949c}
@@ -53,7 +54,7 @@ export function page(all, drawRows = [], tab = 'lab') {
 <nav class="tabs"><a href="?tab=lab" class="${tab === 'lab' ? 'on' : ''}">Lab</a><a href="?tab=draws" class="${tab === 'draws' ? 'on' : ''}">Random draws</a></nav>
 ${tab === 'draws' ? drawsSection(drawRows) : `${tiles(rows, newest)}
 <section class="card"><h2>Each candidate's newest search</h2>${table(rows)}</section>
-<section class="card"><h2>How a row is judged</h2><p class="muted">Against the candidate's last green run: <b>Worse</b> when jobs in your places or jobs scoring 70+ are fewer, a time is more than 25 % slower, or a time that was reached is not reached (the control gets no tolerance on times). <b>FAILED</b> when a step of the search crashed: its numbers are never shown as a result. ▲ / ▼ show the move since the last green run.</p></section>`}
+<section class="card"><h2>How a row is judged</h2><p class="muted">Against the candidate's last green run: <b>Worse</b> when jobs in your places or jobs scoring 70+ are fewer, a time is more than 25 % slower, or a time that was reached is not reached (the control gets no tolerance on times). <b>FAILED</b> when a step of the search crashed: its numbers are never shown as a result. <b>Tape stale</b> when the build asks for pages or answers the tape never recorded (a change to what the search requests): the numbers are shown but not compared; record the candidate again from main. ▲ / ▼ show the move since the last green run.</p></section>`}
 </main></body></html>`;
 }
 

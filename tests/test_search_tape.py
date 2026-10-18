@@ -1,6 +1,7 @@
 """The search tape (src/search_tape.py): a search's web and AI answers recorded once, replayed offline with nothing leaving the computer."""
 import email.message
 import io
+import json
 import os
 import sys
 import tempfile
@@ -87,6 +88,32 @@ class WebTest(TapeTest):
                 urlopen('https://jobs.test/never-seen')
         self.assertEqual(len(calls), 2, 'replay never reaches the web')
         self.assertEqual((search_tape.counts['web_tape'], search_tape.counts['web_missing']), (2, 1))
+        missing = [json.loads(line) for line in (Path(self.env['JOB_PILOTTO_SEARCH_TAPE']) / 'missing.jsonl').read_text().splitlines()]
+        self.assertEqual([(item['web'], item['method'], item['url']) for item in missing], [(True, 'GET', 'https://jobs.test/never-seen')], 'the page the tape lacked is kept: method and address')
+
+    def test_a_post_with_the_installs_own_id_is_answered_whatever_the_id_but_a_changed_purpose_misses(self):
+        real = lambda request, data=None, *a, **k: FakeReply(b'{"token": "t"}', request.full_url)
+        urlopen = search_tape._web(real)
+        post = lambda install, purpose='index': urllib.request.Request('https://site.test/api/install-token', method='POST',
+                                                                     data=('{"install": "%s", "purpose": "%s"}' % (install, purpose)).encode())
+        with self.mode('record'):
+            urlopen(post('0fd5bf0c475b07a7095d5e44')).read()
+        with self.mode('replay'):
+            for install in ('aaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbb'):
+                self.assertEqual(urlopen(post(install)).read(), b'{"token": "t"}', 'two other installs, the same answer')
+            with self.assertRaises(urllib.error.URLError):
+                urlopen(post('aaaaaaaaaaaaaaaaaaaaaaaa', 'something-else'))
+        self.assertEqual((search_tape.counts['web_tape'], search_tape.counts['web_missing']), (2, 1))
+
+    def test_a_tape_recorded_before_norm_existed_answers_an_install_post_by_its_address(self):
+        urlopen = search_tape._web(lambda *a, **k: None)
+        folder = Path(self.env['JOB_PILOTTO_SEARCH_TAPE'])
+        (folder / 'bodies').mkdir(parents=True)
+        (folder / 'bodies' / 'k1').write_bytes(b'{"token": "old"}')
+        (folder / 'web.jsonl').write_text(json.dumps({'key': 'k1', 'url': 'https://site.test/api/install-token', 'method': 'POST', 'status': 200, 'type': 'application/json', 'seconds': 0}) + '\n')
+        with self.mode('replay'):
+            request = urllib.request.Request('https://site.test/api/install-token', method='POST', data=b'{"install": "cccccccccccccccccccccccc"}')
+            self.assertEqual(urlopen(request).read(), b'{"token": "old"}')
 
     def test_a_replayed_page_reads_like_a_real_one_for_every_reader(self):
         """18 Oct 2026: headers were a dict, so careers.get_text raised on get_content_charset and no job board was read in any recorded search."""
@@ -136,6 +163,22 @@ class AiTest(TapeTest):
         with self.mode('replay'):
             self.assertEqual(self.client(asked).messages.create(**other).content[0].text, 'answer 2')
         self.assertEqual(len(asked), 2, 'the live answer was kept on the tape')
+
+
+    def test_with_live_off_a_question_the_tape_lacks_is_counted_and_raises_never_asked(self):
+        asked = []
+        question = {'model': 'm', 'max_tokens': 5, 'messages': [{'role': 'user', 'content': 'score job 1'}]}
+        with self.mode('record'):
+            self.client(asked).messages.create(**question)
+        other = {**question, 'messages': [{'role': 'user', 'content': 'score job 2'}]}
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_TAPE_LIVE': '0'}), self.mode('replay'):
+            self.assertEqual(self.client(asked).messages.create(**question).content[0].text, 'answer 1', 'what is on the tape still replays')
+            with self.assertRaises(RuntimeError):
+                self.client(asked).messages.create(**other)
+        self.assertEqual(len(asked), 1, 'the live client was never built or asked')
+        kept = [json.loads(line) for line in (Path(self.env['JOB_PILOTTO_SEARCH_TAPE']) / 'missing.jsonl').read_text().splitlines()]
+        self.assertEqual([item['user'] for item in kept], ['score job 2'], 'the question the tape lacked is kept, to see what differs')
+        self.assertEqual((search_tape.counts['ai_tape'], search_tape.counts['ai_missing'], search_tape.counts['ai_live']), (1, 1, 0))
 
 
 class InstallTest(unittest.TestCase):

@@ -27,6 +27,7 @@ CLASSIFIED = {
     'CI · Tests · desktop': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests',
     'CI · Tests · desktop (Windows)': 'ignored: on main it runs inside CI · Tests (build.yml calls it); alone only on pull requests that change a file with a platform branch',
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
+    'CI · Lab Job Search · replay (offline)': 'ignored: on a push to main that touches the search, daily and by hand; a worse or stale candidate shows on /admin/lab-job-search, it is not a red main',
     'CI · Site replays · all (offline)': 'ignored: scheduled once a day, alerts on a real drop by itself, never required',
     'CI · Fix verdicts (offline replays)': 'ignored: informational verdicts for /admin/lab-form-filling after the nightly replay, never required',
     'CI · Journeys (card and panel per step)': 'ignored: by hand only, tells Telegram itself, never required',

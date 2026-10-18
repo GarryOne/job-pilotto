@@ -1,0 +1,66 @@
+name: CI · Lab Job Search · replay (offline)
+# The Lab Job Search's detector (owner, 18 Oct 2026; PR 2 of the sketch https://claude.ai/artifact/FsAAKdxxXF2wXpD1nbHAuC): each fictional candidate's first search is replayed from its tape
+# (src/search_tape.py: every web and AI answer recorded once; tools/persona-search/tape-store.mjs keeps them encrypted on the private repo's release `search-tapes`), and its numbers are posted to
+# /admin/lab-job-search (PUT /search-lab/rows, main only). $0: no site is visited, no model is called (--no-live: an AI request the tape lacks makes the row FAILED "tape stale", never thin numbers).
+# Starts on a push to main that touches the search, once a day, and by hand (a branch's run is refused by the site: only main moves the page). Never on a PR.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'desktop/lib/**'
+      - 'tools/persona-search/**'
+      - 'site/src/search-lab-*.js'
+      - '.github/workflows/search-lab.yml'
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:   # the newest build is the one the page should show: a newer push replaces a running replay; a by-hand or daily run is its own group (tests/test_main_runs_finish.py)
+  group: search-lab-${{ github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate: [finance, music, driver, sre, cluj, chisinau]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+      NET_RECORDS_READ_TOKEN: ${{ secrets.NET_RECORDS_READ_TOKEN }}
+      REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - run: npm ci && node scripts/stage.mjs
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Candidates' CVs and the tape
+        run: |
+          python3 tools/persona-search/personas.py "$RUNNER_TEMP/out"
+          node tools/persona-search/tape-store.mjs fetch "${{ matrix.candidate }}" "$RUNNER_TEMP/tape"
+      - name: Replay the first search from the tape (no AI, no site)
+        id: replay
+        continue-on-error: true   # a crashed search is posted as FAILED below, then this job ends red
+        run: node tools/persona-search/run.mjs "${{ matrix.candidate }}" "$RUNNER_TEMP/out" --presses 1 --tag ci --fresh --draft "$RUNNER_TEMP/tape/draft.json" --tape "$RUNNER_TEMP/tape" --replay --no-live 2>&1 | tee "$RUNNER_TEMP/replay.log"
+      - name: Post the numbers to /admin/lab-job-search
+        run: |
+          if [ -z "$REPLAYS_PUBLISH_KEY" ]; then echo "search-lab: REPLAYS_PUBLISH_KEY not set: nothing posted" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node tools/persona-search/lab-upload.mjs "$RUNNER_TEMP/out" --tape "$RUNNER_TEMP/tape" --build "$GITHUB_SHA" --branch "${{ github.ref_name }}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: End red when the search crashed
+        if: steps.replay.outcome == 'failure'
+        run: exit 1
