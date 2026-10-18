@@ -92,13 +92,13 @@ export const labelOf = node => {
 };
 function paletteCommands() {
   const commands = [];
-  const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };
+  const add = (group, label, hint, keywords, run, more = {}) => { if (label) commands.push({group, label, hint, keywords, run, ...more}); };
   // A button's ⌘K entry brings you to it and does not press it (owner, 18 Oct 2026: "I don't want necessarily to trigger the action, I just want you to focus
   // on it"): `open` shows its page, then the card scrolls into view, takes focus and pulses (palette-busy.js). A button off only because its task runs is listed too.
   // Every button entry goes through addNode.
   const addNode = (node, group, label, hint, keywords, open) => {
     const entry = buttonEntry(node, {group, label, hint, keywords, run: () => { open(); reveal(node); }});
-    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run);
+    if (entry) add(entry.group, entry.label, entry.hint, entry.keywords, entry.run, {enter: entry.enter, running: entry.running});
   };
   // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Refresh jobs" and
   // "Check for new jobs" were listed side by side and ran the same jobs check).

@@ -47,12 +47,15 @@ export function openPalette(commands) {
     active = Math.max(0, Math.min(index, shown.length - 1));
     [...list.children].forEach((item, i) => item.setAttribute('aria-selected', String(i === active)));
     list.children[active]?.scrollIntoView({block: 'nearest'});
+    foot.textContent = `↑↓ to move · Enter to ${shown[active]?.enter || 'run'} · Esc to close`;   // a row that only brings you to a card says "open"
   };
   const render = () => {
     shown = rank(commands, input.value);
     list.replaceChildren(...shown.map((command, i) => {
       const item = Object.assign(document.createElement('li'), {role: 'option'});
       const label = Object.assign(document.createElement('b'), {textContent: command.label});
+      // A task that is running now (palette-busy.js): the app's own small spinner after its name.
+      if (command.running) label.append(Object.assign(document.createElement('i'), {className: 'spinner small', role: 'img', ariaLabel: 'Running now'}));
       item.append(label);
       if (command.hint) item.append(Object.assign(document.createElement('span'), {className: 'muted', textContent: command.hint}));
       if (command.group) item.append(Object.assign(document.createElement('small'), {textContent: command.group}));

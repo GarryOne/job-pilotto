@@ -13,8 +13,11 @@ test('a running task stays in ⌘K, marked as running; a button off for another 
   const busy = buttonEntry({disabled: true, dataset: {runBusy: '1'}}, entry);
   assert.equal(busy.label, 'Find jobs');
   assert.match(busy.hint, /Running now/);
+  assert.equal(busy.running, true, 'a running entry carries the spinner flag');
+  assert.equal(busy.enter, 'open', 'its Enter only opens the card');
+  assert.equal(buttonEntry({disabled: false, dataset: {}}, entry).running, undefined);
   assert.equal(busy.run(), 'run');
-  assert.equal(buttonEntry({disabled: false, dataset: {}}, entry), entry);
+  assert.equal(buttonEntry({disabled: false, dataset: {}}, entry).label, 'Find jobs');
   assert.equal(buttonEntry({disabled: true, dataset: {}}, entry), null);
 });
 
@@ -52,4 +55,12 @@ test('every task button has a ⌘K entry, and no entry loop skips a button that 
   assert.doesNotMatch(nav, /!node\.disabled && (add|reachable)/, 'a loop drops disabled buttons itself: a running task would vanish from ⌘K');
   assert.doesNotMatch(nav, /!node\.disabled && !node\.closest/);
   assert.equal([...nav.matchAll(/\baddNode\(node,/g)].length, 5);   // button(), both Actions card loops, the Settings sweep, the service cards
+});
+
+// The row's spinner is the app's own .spinner.small and the footer follows the row under the cursor (owner, 18 Oct 2026: a running row shows a spinner; Enter says "open").
+test('the palette draws the shared spinner on a running row and an "Enter to open" footer', () => {
+  const palette = read('palette.js');
+  assert.match(palette, /command\.running\) label\.append\(.*className: 'spinner small'/);
+  assert.match(palette, /Enter to \$\{shown\[active\]\?\.enter \|\| 'run'\}/);
+  assert.match(read('pages/nav.js'), /\{enter: entry\.enter, running: entry\.running\}/);
 });

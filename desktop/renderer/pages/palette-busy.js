@@ -4,7 +4,8 @@
 // one that runs-page.js syncRunButtons turned off (data-run-busy) is, with a hint that it runs now.
 export function buttonEntry(node, entry) {
   if (node.disabled && !node.dataset.runBusy) return null;
-  return node.dataset.runBusy ? {...entry, hint: 'Running now: take a look at its card'} : entry;
+  const shown = {...entry, enter: 'open'};   // Enter brings you to the card (reveal below), it never presses
+  return node.dataset.runBusy ? {...shown, hint: 'Running now: take a look at its card', running: true} : shown;
 }
 
 // Bring a button into view: its card scrolls to the middle, the button takes focus, the card pulses once (.palette-flash in components.css).
