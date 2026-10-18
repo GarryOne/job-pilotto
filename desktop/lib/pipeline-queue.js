@@ -5,6 +5,7 @@
 // test/interrupted-task.test.js, test/resume-queue.test.js, test/task-log-keep.test.js, test/live-status-line.test.js.
 // Split out of pipeline.js (a pure move); pipeline.js re-exports the public names.
 import {awakeNow} from './awake.js';
+import {killTree} from './kill-tree.js';
 import {HEARTBEAT_MS, isDataLine, isProgressStep, quietText, STATUS_LINE, taskName} from './pipeline-lines.js';
 
 // Crawls share one SQLite file: run them one at a time, like the workflow's concurrency group. In order, except a task queued `first`
@@ -103,8 +104,8 @@ export function stopTask() {
   ticket.abort?.abort();   // the app's own tasks (work()): their loops end at their next step
   ticket.tee?.('⏹ Stopped by you. What it saved is kept; the next run continues from there.');
   for (const child of ticket.children) {
-    child.kill('SIGTERM');
-    setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 5000).unref?.();
+    killTree(child);
+    setTimeout(() => { if (child.exitCode === null && child.signalCode === null) killTree(child, {signal: 'SIGKILL'}); }, 5000).unref?.();
   }
   return {ok: true, kind: ticket.kind};
 }
