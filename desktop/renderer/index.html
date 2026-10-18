@@ -800,8 +800,15 @@
       <header class="view-head"><div><h1>Search strategy</h1><p class="muted">Choose the jobs you want and how they are ranked.</p></div>
         <div class="head-actions"><span class="synced" id="strategy-synced"></span>
           <button class="secondary" id="strategy-redo">↻ Rebuild from CV…</button>
-          <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button>
+          <!-- Owner, 18 Oct 2026 (review fix 10): Notion is one "View source in Notion" in this menu, on the Notion store only (pages/strategy.js). -->
+          <button type="button" class="secondary ui-more" id="strategy-more" data-notion-only title="More" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><i data-icon="more"></i></button>
           <button class="primary" id="strategy-jobs">View matching jobs</button></div></header>
+      <!-- Owner, 18 Oct 2026 (review fix 3): heading → tabs → a compact notice → content; real tabs since 7 Oct 2026 (each replaces the content under it). -->
+      <div class="tabs strategy-tabs" role="tablist" aria-label="Strategy">
+        <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="strategy-yours" data-tab="strategy-yours">Your strategy</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-suggestions" data-tab="strategy-suggestions">Suggestions<span class="ui-pill tone-warn tab-count" id="suggestions-count" hidden></span></button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-scoring" data-tab="strategy-scoring">Scoring &amp; results</button></div>
+      <div class="strategy-notices">
       <div class="alert tone-bad settings-alert" id="strategy-profile-empty" hidden><i data-icon="alert"></i>
         <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in<span data-notion-only> Notion</span>.</p></div>
         <button class="primary" id="profile-empty-rebuild">Rebuild from CV</button></div>
@@ -811,16 +818,12 @@
       <div class="alert tone-info settings-alert" id="strategy-cv-changed" hidden><i data-icon="info"></i>
         <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
         <button class="primary" id="strategy-cv-review">Review what changes</button></div>
-      <!-- Improve your search (owner, 7 Oct 2026): every suggestion kind and the older scores as one compact row each, above the tabs and on every
-           tab; an action opens its detail in Suggestions (pages/strategy.js drawImprove). -->
-      <section class="card improve-panel" id="strategy-improve" hidden><h3 class="improve-title">Improve your search</h3><ul class="item-rows" id="improve-rows"></ul></section>
-      <!-- Owner, 7 Oct 2026: real tabs (each replaces the content under the bar); the counts and the pointer line say what waits in the others. -->
-      <div class="tabs strategy-tabs" role="tablist" aria-label="Strategy">
-        <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="strategy-yours" data-tab="strategy-yours">Your strategy</button>
-        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-suggestions" data-tab="strategy-suggestions">Suggestions<span class="ui-pill tone-warn tab-count" id="suggestions-count" hidden></span></button>
-        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-scoring" data-tab="strategy-scoring">Scoring &amp; results</button></div>
+      <!-- One notice for scores made with previous settings (pages/strategy-rescore.js), then one line for the suggestions, hidden on Suggestions
+           itself (pages/strategy-suggestions.js drawImprove). -->
+      <div class="card strategy-notice" id="strategy-outdated" role="status" hidden></div>
+      <div class="card strategy-notice improve-line" id="strategy-improve" hidden></div>
+      </div>
       <section class="strategy-section" id="strategy-yours" role="tabpanel">
-        <div class="tab-head"><h2>Your strategy</h2><p class="muted">Changes apply to future searches. Existing scores may need updating.</p></div>
         <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
         <div class="review strategy-live" id="strategy-live">
           <section class="card overview goals-card">
@@ -837,19 +840,17 @@
           <!-- Owner, 17 Oct 2026: must-haves / deal-breakers apart from preferences that rank; from Profile → Preferences (pages/job-preferences.js). -->
           <section class="card job-prefs setting" id="strategy-job-prefs">
             <div class="card-head job-prefs-head"><div><h3>Job preferences</h3><p class="muted small">What a job must have, and what ranks it higher. Scoring reads them.</p></div>
-              <div class="panel-actions"><button class="secondary" id="preferences-review">Review your preferences</button> <button class="link" id="preferences-open-notion" data-notion-only>Open in Notion</button></div></div>
+              <div class="panel-actions"><button class="secondary" id="preferences-review">Review your preferences</button></div></div>
             <div class="outline-body" id="preferences-body"></div>
           </section>
           <div class="review-grid" id="strategy-targets"></div>
         </div>
       </section>
       <section class="strategy-section" id="strategy-suggestions" role="tabpanel" hidden>
-        <div class="tab-head"><h2>Suggestions for your search</h2><p class="muted">Review each opportunity before it changes your strategy. Nothing changes until you add it.</p></div>
         <!-- One row per kind (pages/strategy.js ROW_IDS): Review opens what would change, ⋯ hides it. -->
         <div class="suggestion-list" id="suggestion-rows"></div>
       </section>
       <section class="strategy-section" id="strategy-scoring" role="tabpanel" hidden>
-        <div class="tab-head"><h2>Scoring &amp; results</h2><p class="muted">How your matches score, and what to do next.</p></div>
         <div class="strategy-grid">
           <article class="summary-card">
             <h3>Average match scores</h3>

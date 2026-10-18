@@ -8,14 +8,13 @@ import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent, readSiteInChrome} from '../coverage-actions.js';
-import {byOpenings, hostOf, sitesByName} from '../strategy-parts.js';
+import {byOpenings, hostOf, improveWords, sitesByName} from '../strategy-parts.js';
 import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
 import {dirty, entriesOf, renderTargets} from './strategy-targets.js';
 import {byStore} from '../store-words.js';
-import {refreshRow} from './locations-refresh.js';
 // Where else the change shows: Notion's ⚙️ Search settings page, only while Notion holds the data (on this Mac they are the app's own).
 const alsoInSettings = () => byStore(' (also in your Search settings in Notion)', '');
 
@@ -75,88 +74,37 @@ function drawSuggestions() {
   drawImprove();
   openPending();
 }
-// ---------- Improve your search: one compact row per kind, above the tabs (owner, 7 Oct 2026: the banners' actions were easy to miss in a tab) ----------
-// Neutral rows; the action opens that kind's detail in Suggestions (or the re-score's cost). briefs: what each row says, set as its row is built.
+// ---------- Improve your search: ONE compact line under the tabs, on Your strategy and Scoring (owner, 18 Oct 2026, review fix 3: "7 suggestions to
+// improve your search · Review", optionally the top one; the full list only in Suggestions; it was a row per kind above the tabs since 7 Oct 2026).
+// briefs: what each kind says, set as its row is built; the line names the first kind in ORDER. While the checks are on their way, a placeholder line
+// stands where the line was last time (or on a first visit), so the content under it does not jump when it lands (owner, 7 Oct 2026).
 const briefs = {};
-// Placeholders for the rows still on their way (owner, 7 Oct 2026: "these banners add up after 5-10 seconds"): the older scores come with the fresh
-// strategy read only, and the role ideas when nothing is kept yet. A placeholder stands only where that row was last time (or on a first visit),
-// so the panel keeps its height and a row that turns out empty does not flash in and out.
 export const pendingImprove = new Set();
-const SEEN = 'jp.improve.seen';   // the rows the panel had last time it was complete
-const seenRows = () => { try { return JSON.parse(localStorage.getItem(SEEN) || 'null'); } catch { return null; } };
-const placeholderRow = () => {
-  const line = el('li', 'improve-placeholder');
-  line.setAttribute('aria-busy', 'true');
-  line.append(bone('tile'), bone('w-name tall'), bone('w-60'), bone('button small'));
-  return line;
-};
+const SEEN = 'jp.improve.seen';   // whether the line was there last time it was complete
+const seenLine = () => { try { return localStorage.getItem(SEEN); } catch { return null; } };
 export function drawImprove() {
-  const items = [];
-  const seen = seenRows();
-  let guesses = 3;   // a first visit with nothing kept: a few placeholders, not one per kind
-  const expected = id => (seen ? seen.includes(id) : id === 'previous' || id === 'ideas' || guesses-- > 0);
-  const previous = strategyState.lastStrategy?.previous || 0;
-  if (!previous && pendingImprove.has('previous') && expected('previous')) items.push(placeholderRow());
-  if (previous) {
-    // Off from the click until its refresh has ended (owner, 7 Oct 2026: a second click looked like a second re-score).
-    const go = el('button', 'secondary item-action', rescoring ? 'Re-scoring…' : 'Re-score');
-    go.type = 'button';
-    go.disabled = rescoring;
-    if (rescoring) go.title = 'Running in Find jobs: follow it in Recent activity';
-    go.addEventListener('click', () => confirmRescore(previous));
-    items.push(improveRow('refresh', 'info', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
-      'Below 50 before your Profile changed · Updating is optional', go));
+  const box = $('strategy-improve');
+  const kinds = ORDER.filter(id => rows[id] && briefs[id]);
+  const waiting = pendingImprove.has('ideas') || checking;
+  if (!kinds.length && waiting && seenLine() !== '0') {
+    const line = el('div', 'improve-placeholder');
+    line.setAttribute('aria-busy', 'true');
+    line.append(bone('tile'), bone('w-60'), bone('button small'));
+    box.replaceChildren(line);
+    show(box, true);
+    return;
   }
-  const otherPlaces = strategyState.lastStrategy?.previous_locations || 0;
-  if (otherPlaces) items.push(refreshRow(otherPlaces, improveRow, drawImprove));   // scored with other places (pages/locations-refresh.js)
-  for (const id of ORDER) {
-    const brief = rows[id] && briefs[id];
-    const waiting = id === 'ideas' ? pendingImprove.has('ideas') : checking;
-    if (!brief && waiting && expected(id)) { items.push(placeholderRow()); continue; }
-    if (!brief) continue;
-    const go = el('button', 'secondary item-action', brief.cta);
-    go.type = 'button';
-    go.addEventListener('click', () => reviewSuggestion(id));
-    items.push(improveRow(brief.glyph, TONE[id] || 'neutral', brief.title, brief.text, go));
-  }
-  $('improve-rows').replaceChildren(...items);
-  show($('strategy-improve'), items.length > 0);
-  if (!pendingImprove.size && !checking) {
-    const drawn = [...(previous ? ['previous'] : []), ...(otherPlaces ? ['places-previous'] : []), ...ORDER.filter(id => rows[id] && briefs[id])];
-    try { localStorage.setItem(SEEN, JSON.stringify(drawn)); } catch { /* placeholders for every row next time */ }
-  }
-}
-function improveRow(glyph, tone, title, text, button) {
-  const line = el('li', '');
-  line.append(tile(glyph, tone), el('b', 'improve-name', title), emphasize(text), button);
-  return line;
-}
-// Re-score: its cost said and confirmed first; then the kept scores are queued and a search starts at once (60 per search), shown like any
-// search (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
-let rescoring = false;
-function confirmRescore(count) {
-  const dialog = $('rescore-dialog');
-  $('rescore-title').textContent = `Re-score ${count} older score${count === 1 ? '' : 's'}?`;
-  $('rescore-lead').textContent = `They are scored again against your current Profile with AI, once. ` +
-    `A search starts now and scores up to 60 of them${count > 60 ? '; the rest in the next searches' : ''}. Nothing else changes.`;
-  $('rescore-go').textContent = `Re-score ${count}`;
-  dialog.returnValue = '';
-  dialog.onclose = async () => {
-    if (dialog.returnValue !== 'go' || rescoring) return;
-    rescoring = true;
-    drawImprove();
-    try {
-      const result = await window.pilot.rescorePrevious().catch(error => ({ok: false, error: error.message}));
-      if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
-      toastMessage({title: 'Re-scoring now', body: `${result.queued} jobs get a new score in a refresh${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. ` +
-        'It shows in Recent activity as "Re-scoring".', target: null});
-      await startSearch({reason: 'rescore', count: result.queued});   // its row says "Re-scoring N older scores", queued or running
-    } finally {
-      rescoring = false;
-      loadStrategy();
-    }
-  };
-  dialog.showModal();
+  if (!waiting) { try { localStorage.setItem(SEEN, kinds.length ? '1' : '0'); } catch { /* a placeholder next time */ } }
+  if (!kinds.length) { box.replaceChildren(); show(box, false); return; }
+  const {title, top} = improveWords(kinds.length, briefs[kinds[0]]);
+  const words = el('div', 'notice-words');
+  words.append(el('b', '', title));
+  if (top) words.append(el('span', 'muted small improve-top', top));
+  const go = el('button', 'secondary item-action', 'Review');
+  go.type = 'button';
+  go.addEventListener('click', () => showTab('strategy-suggestions'));
+  box.replaceChildren(tile('bulb', 'signal'), words, go);
+  show(box, true);
 }
 // One row: icon, title, a line on what it is, Review (opens the options) and ⋯ (hide). options: [{label, preview, button, run(button)}].
 // Ids kept from the banners (#strategy-foryou, #foryou-chips…): the e2e suites and the late-shift watch find them by these.

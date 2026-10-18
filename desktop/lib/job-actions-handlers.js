@@ -51,8 +51,9 @@ export function registerJobActionsHandlers(ctx) {
   ipcMain.handle('standardAnswers', async () => {
     try { return {ok: true, groups: questionLists.filterGroups(storage, await questions.standardAnswers(storage))}; } catch (error) { return {ok: false, error: error.message}; }
   });
-  ipcMain.handle('rescorePrevious', async () => {
-    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-previous']);
+  // Strategy's one Re-score (pages/strategy-rescore.js): every job scored with previous settings, each once (src/desktop_strategy.py rescore_outdated).
+  ipcMain.handle('rescoreOutdated', async () => {
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-outdated']);
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
   // Strategy → "scored with other places" → Refresh: queues the ACTIVE jobs scored with other places (src/ai/locations.py); a change of places never does it alone.

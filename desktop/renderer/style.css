@@ -2277,11 +2277,17 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .strategy-tabs button { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .strategy-page .tab-count { padding: 0 var(--sp-2); }
 .strategy-section .section-sub { margin: 0 0 var(--sp-3); }
-/* Improve your search: one white card, a thin line between rows, neutral (owner, 7 Oct 2026: no full-width colour per suggestion). */
-.strategy-page .improve-panel { padding: var(--sp-3) var(--sp-5); margin: 0; }
-.strategy-page .improve-title { margin: 0; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-.strategy-page .improve-panel .item-rows { margin: var(--sp-1) 0 0; border-top: 0; }
-.strategy-page .improve-panel .item-action { padding: 4px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+/* Under the tabs (owner, 18 Oct 2026, review fix 3): one quiet line each for scores made with previous settings and for the suggestions; the
+   suggestions line hides on Suggestions itself (pages/strategy-state.js sets data-tab). */
+.strategy-notices { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.strategy-notices:not(:has(> :not([hidden]))) { display: none; }
+.strategy-page .strategy-notice { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin: 0; }
+.strategy-page .strategy-notice .notice-words { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); }
+.strategy-page .strategy-notice .item-action { padding: 4px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+.strategy-page .strategy-notice .ui-tile { width: 28px; height: 28px; }
+.strategy-page .notice-why summary { cursor: pointer; color: var(--muted); }
+.strategy-page .notice-why[open] { flex-basis: 100%; }
+.strategy-page[data-tab="strategy-suggestions"] .improve-line { display: none; }
 /* The save bar (strategy draft, Your details): sticks to the bottom of the page's scroll, above the status bar, whatever the tab. */
 .save-bar { position: sticky; bottom: calc(var(--sp-5) + 52px);   /* above the Profile fold bar */ z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
   padding: var(--sp-3) var(--sp-5); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
@@ -2371,17 +2377,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 @media (max-width: 1000px) { .option-grid { grid-template-columns: minmax(0, 1fr); } .suggestion-head { grid-template-columns: auto minmax(0, 1fr); } }
 /* The page's life (owner, 7 Oct 2026): white cards with a fine border and a soft shadow on the canvas, bold navy headings, tiles in the kind's colour. */
 .strategy-page .card, .strategy-page .summary-card { box-shadow: var(--shadow-sm); }
-.strategy-page .tab-head { margin: var(--sp-1) 0 var(--sp-3); }
-.strategy-page .tab-head h2 { margin: 0; font-size: var(--fs-2xl); color: var(--ink); }
-.strategy-page .tab-head p { margin: var(--sp-1) 0 0; }
 .strategy-page .ui-tile.tone-info { border-radius: var(--r-md); }
 .strategy-page .review .card-head h3 { gap: var(--sp-3); font-size: var(--fs-lg); }
 .strategy-page .review .card-head h3 .ui-tile { width: 32px; height: 32px; }
-.strategy-page .improve-panel .item-rows > li { display: grid; grid-template-columns: auto minmax(180px, 260px) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
-.strategy-page .improve-panel .improve-name { color: var(--ink); font-size: var(--fs-base); }
-.strategy-page .improve-panel .item-rows > li > .muted { font-size: var(--fs-md); }
-.strategy-page .improve-panel .ui-tile { width: 32px; height: 32px; }
-@media (max-width: 1000px) { .strategy-page .improve-panel .item-rows > li { grid-template-columns: auto minmax(0, 1fr) auto; } .strategy-page .improve-panel .item-rows > li > .muted { grid-column: 2; } }
 /* Scoring & results */
 .strategy-page .score-bar { grid-template-columns: 130px minmax(0, 1fr) 64px; }
 .strategy-page .score-foot { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-sm); }
@@ -2420,9 +2418,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .goal-strip dt:nth-of-type(4) { --tone: var(--info); --tone-soft: var(--info-soft); }
 .strategy-page .goal-strip dt:nth-of-type(5) { --tone: var(--warn); --tone-soft: var(--warn-soft); }
 /* Improve your search, a row still on its way: the row's own shape, greyed (pages/strategy.js placeholderRow). */
-.strategy-page .improve-placeholder .skeleton.tile { width: 32px; height: 32px; border-radius: var(--r-md); }
-.strategy-page .improve-placeholder .skeleton.button.small { width: 110px; height: 30px; justify-self: end; }
-.strategy-page .improve-placeholder { min-height: 57px; }
+.strategy-page .improve-placeholder .skeleton.tile { width: 28px; height: 28px; border-radius: var(--r-md); }
+.strategy-page .improve-placeholder .skeleton.button.small { width: 80px; height: 28px; margin-left: auto; }
+.strategy-page .improve-placeholder { display: flex; align-items: center; gap: var(--sp-3); flex: 1; min-height: 30px; }
 
 /* Settings → Logs: the only rules the shared parts (.tabs, .toolbar, .search-box, pre.log) don't cover: a taller box for reading. */
 .logs-page .log { max-height: 60vh; min-height: 240px; font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }

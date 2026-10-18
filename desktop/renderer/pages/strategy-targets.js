@@ -17,6 +17,7 @@ import {coverageLine, relocationChoice} from './locations-card.js';
 import {coverage, relocationNow, relocationWords, remoteWords} from '../locations-model.js';
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
+import {drawOutdated} from './strategy-rescore.js';
 import {byStore} from '../store-words.js';
 import {chipsOf, folded, loadMeanings, meaningLabels, typoHints} from './strategy-chips.js';
 import {GROUPS, asWholeWord, matchGroups, placeLabel, shownGroups, shownWord} from '../match-groups.js';
@@ -390,6 +391,7 @@ export function renderStrategy(data) {
   show($('strategy-profile-empty'), !!data.profile_empty);
   wireSearchChanged();
   showSearchChanged(shared.state?.settings);   // scores are paused until it is filled (src/ai/score.py unfilled)
+  drawOutdated(data.outdated, loadStrategy);   // "N jobs were scored using previous search settings", from the saved settings, never the draft
   if (strategyState.targetEdits) { renderTargets(); drawImprove(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
   renderGoals();
@@ -402,7 +404,7 @@ export function renderStrategy(data) {
   // unless you ask (src/ai/score.py).
   show($('strategy-stale'), !!data.stale);
   $('strategy-stale-text').textContent = data.stale ? `${data.stale} job${data.stale === 1 ? '' : 's'} queued for a new score after your Profile change · up to 60 per search` : '';
-  drawImprove();   // its "older scores" row
+  drawImprove();
   $('strategy-scores').replaceChildren(...data.components.map(part => {
     const line = el('div', 'score-bar');
     const track = el('span', 'score-track');

@@ -15,12 +15,35 @@ COMPONENTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensa
               ('growth', 'Growth'), ('risk', 'Low risk'))
 
 
-def _previous_locations(db, stage_map):
-    """How many ACTIVE jobs were scored with other places than the ones set now (src/ai/locations.py); 0 when it cannot be told."""
+def _previous_locations_ids(db, stage_map):
+    """The ACTIVE jobs scored with other places than the ones saved now (src/ai/locations.py); none when it cannot be told."""
     try:
-        return len(set(locations.previous(score.load(db), locations.current())) & locations.active_ids(db, stage_map))
+        return set(locations.previous(score.load(db), locations.current())) & locations.active_ids(db, stage_map)
     except Exception:  # noqa: BLE001
-        return 0
+        return set()
+
+
+def _previous_locations(db, stage_map):
+    return len(_previous_locations_ids(db, stage_map))
+
+
+def _outdated_ids(db, stage_map):
+    return set(score.previous_method(db)), _previous_locations_ids(db, stage_map)
+
+
+def outdated(db, stage_map):
+    """Strategy's one "scored using previous search settings" notice (owner, 18 Oct 2026): each job once, whatever its reasons (an older scoring
+    method, other places), read from the SAVED settings. Reading it queues nothing."""
+    method, places = _outdated_ids(db, stage_map)
+    return {'count': len(method | places), 'method': len(method), 'places': len(places)}
+
+
+def rescore_outdated(db, stage_map):
+    """The notice's Re-score: queue every outdated job once for a new score (the next searches do it, 60 per search). -> how many."""
+    ids = set().union(*_outdated_ids(db, stage_map))
+    db.executemany("UPDATE scores SET input_hash='' WHERE job_id=?", [(job_id,) for job_id in sorted(ids)])
+    db.commit()
+    return len(ids)
 
 
 def _readable(fragment):
@@ -203,7 +226,7 @@ def strategy(db, tracker=None, stores=None):
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
                  + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
                  + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
-        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)), 'previous_locations': _previous_locations(db, stage_map), 'profile_empty': profile_empty,
+        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)), 'previous_locations': _previous_locations(db, stage_map), 'outdated': outdated(db, stage_map), 'profile_empty': profile_empty,
         'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
         'insight': insight,
     }
