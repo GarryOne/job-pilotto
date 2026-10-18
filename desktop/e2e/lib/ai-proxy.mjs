@@ -7,6 +7,9 @@ import {HUNG_REPORTS, markPlanted} from './planted.mjs';
 import {keyFingerprint} from './key-check.mjs';
 import {count, countError, countReplay, keep, keepMiss, recall, requestKey, usageOf} from './ai-meter.mjs';
 
+// The stub modes any proxy of this run was armed with: a refusal that matches one came from the suite's own stub, not from the account (lib/ai-refused.mjs).
+export const STUBBED = new Set();
+
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
 export const FAILURES = {
   'rate-limit': {status: 429, type: 'rate_limit_error', message: 'Number of request tokens has exceeded your per-minute rate limit'},
@@ -85,7 +88,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {url: `http://127.0.0.1:${server.address().port}`, stats, setDelay: ms => { stats.delayMs = ms; },
     // 'pass' (default), 'hang', or a key of FAILURES. Every call after this one is answered that way.
-    setMode: mode => { if (mode !== 'pass' && mode !== 'hang' && !FAILURES[mode]) throw new Error(`unknown proxy mode: ${mode}`); if (mode !== 'pass') stats.armed++; stats.mode = mode; },
+    setMode: mode => { if (mode !== 'pass' && mode !== 'hang' && !FAILURES[mode]) throw new Error(`unknown proxy mode: ${mode}`); if (mode !== 'pass') { stats.armed++; STUBBED.add(mode); } stats.mode = mode; },
     // From now on, calls `answer` returns a text for are answered with it (no model, no cost); the rest go through.
     setCanned: answer => { canned = answer; }, canned: () => canned, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }

@@ -11,7 +11,7 @@ import {clearData} from '../lib/start-state.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
-export const engine = 'api';   // the suite relies on the AI proxy answering "no credit", which needs the API engine (dummy key: nothing reaches Anthropic)
+export const engine = 'api';   // the suite relies on the AI proxy answering scoring calls locally, which needs the API engine (dummy key: nothing is paid for)
 export const minutes = 30;
 export const name = 'strategy';
 // Either store (P7, owner 9 Oct 2026): on Notion (the stand-in) a change made on either side, the app or the ⚙️ Search settings page (a Notion rendering of the
@@ -95,8 +95,11 @@ export async function run(ctx) {
   };
   const has = (list, word) => (list || []).some(entry => new RegExp(word, 'i').test(entry));
 
-  // This suite is about which postings the crawl keeps, not about scoring them: the AI answers "no credit" locally, so it costs nothing and does not depend on the test key's limit.
-  ctx.proxy.setMode('no-credit');
+  // This suite is about which postings the crawl keeps, not about scoring them, and it must cost nothing: the proxy answers a scoring call locally. A scoring call gets a fixed good score,
+  // because the digest leaves out a job still waiting for its score once an AI is ready (6ffc22b); any other call goes on to the API with the dummy key, which refuses it for free (401), so the engine falls back to its rules as it always did here.
+  const SCORE = {score: 80, tier: 'B', components: {role_fit: 80, location: 80, compensation: 70, growth: 70, risk: 20}, basis: {salary_stated: false, level_stated: true},
+    reason: 'stand-in score', strengths: ['stand-in'], gaps: [], confidence: 'high'};
+  ctx.proxy.setCanned(body => (body.output_config?.format?.schema?.properties?.score ? JSON.stringify(SCORE) : null));
   // One Jobs check on the feeds in this suite; resolves with the titles its digest listed.
   const check = async () => {
     const engineLog = path.join(ctx.profile, 'logs', 'engine.log');
