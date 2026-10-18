@@ -84,7 +84,8 @@ test('review list as mockup 06: one joined box, the chip beside the name, outlin
   assert.deepEqual(first.querySelectorAll('button').map(node => node.className), ['secondary small-btn', 'link small']);
   assert.equal(list.querySelectorAll('button.primary').length, 0, 'no orange unless an action asks for it');
   const head = list.querySelector('.review-done-head');
-  assert.deepEqual(head.children.slice(1).map(node => node.textContent), ['Reviewed · 1', 'Excel confirmed'], 'after the chevron');
+  assert.deepEqual(head.children.slice(2).map(node => node.textContent), ['Reviewed · 1', 'Excel confirmed'], 'after the chevron and the tick');
+  assert.equal(head.parentNode.parentNode.className, 'review-box', 'the Reviewed line is the joined box\'s last row');
   assert.equal(list.querySelector('.review-done button').className, 'link small', 'Undo keeps its link look');
 });
 
