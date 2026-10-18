@@ -415,16 +415,22 @@ export async function handleExtension(request, env) {
     if (request.method === 'POST' && url.pathname === '/extension/answer') {
       const body = await request.json().catch(() => ({}));
       if (!body.url || !Array.isArray(body.fields) || !body.fields.length) return json({ error: 'url and fields are required' }, 400);
-      // The desktop app can answer with the user's own Claude Code (env.aiClient); the Worker needs its key.
-      const aiClient = env.aiClient || null;
-      if (!aiClient && !anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
-      const fields = body.fields.slice(0, 80).map((f) => ({
+      const all = body.fields.slice(0, 80).map((f) => ({
         field: String(f.field || '').slice(0, 200), label: String(f.label || '').slice(0, 300),
         type: String(f.type || '').slice(0, 30), required: !!f.required, ...(f.multiple ? { multiple: true } : {}),
         ...(Array.isArray(f.options) && f.options.length ? { options: f.options.slice(0, 60).map((o) => String(o).slice(0, 150)) } : {}),
       }));
+      // A form the night filled (the desktop app's Ready to send, Open in Chrome): its answers come back as the night gave them, no AI; only a question it did not see is asked.
+      const night = env.nightAnswers?.(body.url, all) || null;
+      const fields = night ? night.rest : all;
+      if (night) await env.onNightAnswers?.({ fields: all.length, fromNight: night.answers.length, asked: fields.length });
+      if (night && !fields.length) return json({ answers: night.answers, eligible: true, usd: 0, night: true });
+      // The desktop app can answer with the user's own Claude Code (env.aiClient); the Worker needs its key.
+      const aiClient = env.aiClient || null;
+      if (!aiClient && !anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
       try {
-        return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }, aiClient));
+        const done = await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }, aiClient);
+        return json(night ? { ...done, answers: [...night.answers, ...(done.answers || [])], night: true } : done);
       } catch (error) {
         // The app's injected client throws the contract's AiLimit (any engine: a plan's or a key's limit); the Worker's own SDK says it in words.
         const limit = !!error.aiLimit || /credit|spend|limit|billing/i.test(error.message);

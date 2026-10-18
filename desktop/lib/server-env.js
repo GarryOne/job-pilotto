@@ -27,6 +27,7 @@ import {pageKey} from './server-pages.js';
 import {devVersion} from './dev-extension-version.js';
 import {captureAnswer} from './live-capture.js';
 import {keptAnswerClient} from './ai/index.js';
+import {nightAnswers} from './ready-handoff.js';
 import {answerReporter, appliedHook, errorWatcher, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
 import {cvFactsText} from '../shared/worker/cv-facts.js';
@@ -149,7 +150,9 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     },
     // Each AI answer for a form's questions (worker/src/extension.js answerForm): counts and field ids only, in the log; counts only to the site.
     ownerValues: OWNER_VALUES,   // the e2e harness's list of the owner's own values (answers matching it are never typed); null outside the harness
-    onAnswerCall: call => { captureAnswer(call); },   // written only under the e2e harness (lib/live-capture.js): the asked fields and answer kinds, no values
+    onAnswerCall: call => { captureAnswer(call); },
+    nightAnswers: (url, fields) => nightAnswers(url, fields),   // Ready to send's Open in Chrome: the night's answers for the page it filled (lib/ready-handoff.js)
+    onNightAnswers: counts => { appLog('fill', `answered ${counts.fromNight} of ${counts.fields} question(s) from last night's fill`, counts); },   // written only under the e2e harness (lib/live-capture.js): the asked fields and answer kinds, no values
     onAnswer: trace => {
       appLog('fill', `${NAMES[trace.engine] || 'The AI'} answered ${trace.kept} of ${trace.fields} question(s)`, trace);
       if (trace.withheld?.length) appLog('privacy', `owner's own value kept out of ${trace.withheld.length} field(s): ${trace.withheld.map(w => `${w.field} (${w.kind})`).join(', ')}`);   // field ids and kinds, never the value

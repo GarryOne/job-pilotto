@@ -19,6 +19,7 @@ import {otherStore, record as otherRecord} from './ladder/other.js';
 import {digestLine} from './ladder/rung3-digest.js';
 import {ladderLine, signalOf} from '../shared/ladder-core.js';
 import {isFormOf} from './apply.js';
+import {forgetNightKind, nightKind} from './ready-handoff.js';
 import {localEnv} from './server-env.js';
 import {proposalReporter} from './server-hooks.js';
 
@@ -87,6 +88,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   kindCache ||= pageKindCache(storage.path('page-kinds.json'));
   const learnt = ladderOf(storage), shapeOf = kindKey({url: body?.url, controls: body?.controls});
   if (body?.forget || body?.signal === 'contradicted') {   // the page contradicted its kept kind: dropped, asked again next visit (a learned answer is dropped with it: one miss)
+    forgetNightKind(body?.url);   // the page contradicted the night too: asked as any page from now on
     const dropped = forgetPageKind(kindCache, {url: body?.url, controls: body?.controls});
     if (shapeOf && ladderMiss(learnt, shapeOf)) appLog('extension', 'ladder: learned answer dropped (one miss)', {shape: shapeOf});
     appLog('extension', `page kind forgotten: ${String(body.reason || 'contradicted by the page').slice(0, 80)}`, {shape: dropped || '(nothing kept)', was: String(body.kind || '').slice(0, 20)});
@@ -112,6 +114,10 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     const hit = !!(shapeOf && ladderHit(learnt, shapeOf));
     if (hit) appLog('extension', 'ladder: learned answer confirmed', {shape: shapeOf});
     return {ok: true, hit};
+  }
+  if (nightKind(body?.url) === 'form' && body?.fresh !== true && body?.digest !== true) {   // Ready to send's Open in Chrome: the night filled this very page as a form; its kind is not asked again (lib/ready-handoff.js)
+    appLog('extension', 'page kind: form, from last night\'s fill', {shape: shapeOf || ''});
+    return {kind: 'form', role: 'form', confidence: 1, by: 'night', rung: 1, signal: 'confident', shape: shapeOf, applyButton: '', accountStep: ''};
   }
   if (!body?.forget) noteAsk(body?.url);   // the moment of the ask, for the e2e capture only (lib/live-capture.js)
   const answer = await decide(client === undefined ? aiClient(storage, {lane: 'page'}) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js

@@ -54,26 +54,26 @@ function page(nodes) {
   const store = () => { const data = {}; return {getItem: k => (k in data ? data[k] : null), setItem: (k, v) => { data[k] = v; }, data}; };
   const events = [];
   for (const node of nodes) node.dispatchEvent = event => events.push([node.id || node.name, event.type]);
-  globalThis.document = {getElementById: id => nodes.find(n => n.id === id) || null, getElementsByName: name => nodes.filter(n => n.name === name)};
+  const marks = {};
+  globalThis.document = {getElementById: id => nodes.find(n => n.id === id) || null, getElementsByName: name => nodes.filter(n => n.name === name),
+    documentElement: {setAttribute: (k, v) => { marks[k] = v; }, getAttribute: k => marks[k] ?? null}, marks};
   globalThis.localStorage = store(); globalThis.sessionStorage = store();
   globalThis.Event = class { constructor(type) { this.type = type; } };
   return events;
 }
 
-test('the page side puts back each field it can name, and nothing else', () => {
-  const nodes = [{id: 'first_name', type: 'text', value: ''}, {name: 'job_application[phone]', type: 'tel', value: ''}, {name: 'dup', type: 'text', value: ''}, {name: 'dup', type: 'text', value: ''},
-    {id: 'pw', type: 'password', value: ''}, {id: 'consent', type: 'checkbox', checked: false}, {id: 'city', type: 'text', value: 'Already typed'}, {id: 'cv', type: 'file', value: ''}, {id: 'tok', type: 'hidden', value: ''}];
+test('the page side puts back only the storage and marks the night\'s page: no field value is written (the page clears them; the fill types the night\'s answers)', () => {
+  const nodes = [{id: 'first_name', type: 'text', value: ''}, {id: 'consent', type: 'checkbox', checked: false}];
   const events = page(nodes);
   globalThis.localStorage.setItem('kept', 'mine');
-  const restored = restoreInPage({localStorage: {draft: '1', kept: 'night'}, sessionStorage: {step: '2'}, snapshot: {fields: [
-    {id: 'first_name', type: 'text', value: 'Ada'}, {name: 'job_application[phone]', type: 'tel', value: '+41 00 000 00 00'}, {name: 'dup', type: 'text', value: 'x'},
-    {id: 'pw', type: 'password', value: 'never'}, {id: 'consent', type: 'checkbox', value: true}, {id: 'city', type: 'text', value: 'Basel'}, {id: 'cv', type: 'file', value: 'C:\\fakepath\\cv.pdf'},
-    {id: 'tok', type: 'hidden', value: 'csrf'}, {id: 'gone', type: 'text', value: 'moved'}]}});
-  assert.equal(restored, 3, 'first name, phone by its one name, the checkbox');
-  assert.equal(nodes[0].value, 'Ada'); assert.equal(nodes[1].value, '+41 00 000 00 00'); assert.equal(nodes[5].checked, true);
-  assert.equal(nodes[2].value, '', 'a name two fields share is not guessed');
-  assert.equal(nodes[4].value, '', 'never a password'); assert.equal(nodes[6].value, 'Already typed', 'never over a value'); assert.equal(nodes[8].value, '', 'never a hidden field');
-  assert.deepEqual(events.filter(([, type]) => type === 'change').map(([who]) => who), ['first_name', 'job_application[phone]', 'consent']);
+  const restored = restoreInPage({localStorage: {draft: '1', kept: 'night'}, sessionStorage: {step: '2'}, fromNight: true, snapshot: {fields: [
+    {id: 'first_name', type: 'text', value: 'Ada'}, {id: 'consent', type: 'checkbox', value: true}]}});
+  assert.equal(restored, 2, 'two storage items');
+  assert.equal(nodes[0].value, '', 'no field value is written into the page'); assert.equal(nodes[1].checked, false);
+  assert.deepEqual(events, [], 'no input or change event');
   assert.deepEqual(globalThis.localStorage.data, {kept: 'mine', draft: '1'}, 'storage added, never overwritten');
   assert.equal(globalThis.sessionStorage.data.step, '2');
+  assert.equal(globalThis.document.marks['data-jobpilotto-night'], '1', 'the panel says "Last night\'s fill is back" (review.js)');
+  page([]); restoreInPage({localStorage: {}, snapshot: {fields: []}});
+  assert.equal(globalThis.document.marks['data-jobpilotto-night'], undefined, 'a hand-off not from a night leaves the page unmarked');
 });

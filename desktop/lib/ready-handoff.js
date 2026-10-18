@@ -5,6 +5,21 @@
 
 const WAIT_MS = 10 * 60 * 1000;   // a hand-off nobody asked for in 10 minutes is dropped (the tab never opened)
 const pending = new Map();        // key -> {handoff, keys, at}
+// The night's own decisions for the page (owner, 18 Oct 2026: "It should be all cached, every read and filled, from the 1st millisecond"; sketch
+// https://claude.ai/artifact/ABDhNT7fNFCD6PmEiSu2hd, option A): the page's role and the AI's answers, replayed for that page instead of judged again.
+// Kept for the morning's visit (2 h), not taken once: the fill asks for them after the tab moved and loaded.
+const NIGHT_MS = 2 * 60 * 60 * 1000;
+const nights = new Map();          // key -> {role, answers, at}
+const MAX_ANSWERS = 200;
+const words = text => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+// Pure: what the hand-off's `night` may carry: a role word and answers with the question they were for (any other key is dropped).
+export function nightOf(given) {
+  const role = ['form', 'account', 'posting', 'other'].includes(given?.role) ? given.role : '';
+  const answers = (Array.isArray(given?.answers) ? given.answers : []).filter(each => each?.field && each.answer && typeof each.answer === 'object' && each.answer.value !== '' && each.answer.value != null)
+    .slice(0, MAX_ANSWERS).map(each => ({field: String(each.field).slice(0, 200), label: String(each.label || '').slice(0, 300), answer: each.answer}));
+  return {role, answers};
+}
 
 // A page's identity for matching: its origin and path, no #mark, no query, no trailing slash.
 export function pageKey(url) {
@@ -38,7 +53,7 @@ export function forExtension(handoff) {
   try { origin = new URL(url).origin; } catch { return null; }
   const local = (handoff.storage?.origins || []).find(each => each.origin === origin)?.localStorage || [];
   return {url, cookies: cookiesFor(url, handoff.storage?.cookies), localStorage: Object.fromEntries(local.map(item => [item.name, item.value])),
-    sessionStorage: handoff.sessionStorage || {}, snapshot: {fields: handoff.snapshot?.fields || [], files: handoff.snapshot?.files || []}};
+    sessionStorage: handoff.sessionStorage || {}, snapshot: {fields: handoff.snapshot?.fields || [], files: handoff.snapshot?.files || []}, fromNight: true};   // the night's answers stay in the app (nightAnswers): the tab only knows the night filled it
 }
 
 // Kept under every address the tab may first show: the job's link, its form address and the page the night ended on.
@@ -47,7 +62,8 @@ export function keep(handoff, addresses, now = Date.now()) {
   if (!ready) return false;
   const keys = [...new Set([...addresses, ready.url].map(pageKey).filter(Boolean))];
   const entry = {handoff: ready, keys, at: now};
-  for (const key of keys) pending.set(key, entry);
+  const night = nightOf(handoff.night);
+  for (const key of keys) { pending.set(key, entry); nights.set(key, {...night, at: now}); }
   return true;
 }
 
@@ -59,4 +75,25 @@ export function take(url, now = Date.now()) {
   return now - entry.at > WAIT_MS ? null : entry.handoff;
 }
 
-export const clear = () => pending.clear();   // tests
+const nightFor = (url, now) => { const night = nights.get(pageKey(url)); return night && now - night.at <= NIGHT_MS ? night : null; };
+
+// The page kind the night's fill went by, for the app's page-kind route: 'form' only (the night filled it as one), else '' and the normal ask runs.
+export const nightKind = (url, now = Date.now()) => (nightFor(url, now)?.role === 'form' ? 'form' : '');
+export function forgetNightKind(url) { const night = nights.get(pageKey(url)); if (night) night.role = ''; }   // the page said otherwise (fill-flow.js forgetKind): its answers stay
+
+// The extension's questions on that page, answered from the night: a field by its id and question, else by its question alone when one night answer has it.
+// -> null when the night holds nothing for this page; else {answers (under today's field ids), rest (the questions the night did not see: the normal AI asks them)}.
+export function nightAnswers(url, fields, now = Date.now()) {
+  const night = nightFor(url, now);
+  if (!night?.answers.length) return null;
+  const answers = [], rest = [];
+  for (const field of fields || []) {
+    const same = night.answers.find(each => each.field === field.field && words(each.label) === words(field.label));
+    const byQuestion = night.answers.filter(each => words(each.label) && words(each.label) === words(field.label));
+    const found = same || (byQuestion.length === 1 ? byQuestion[0] : null);
+    if (found) answers.push({...found.answer, field: field.field}); else rest.push(field);
+  }
+  return {answers, rest};
+}
+
+export const clear = () => { pending.clear(); nights.clear(); };   // tests

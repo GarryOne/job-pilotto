@@ -32,10 +32,11 @@ export async function sendVideo(fetchImpl, site, token, job, video) {
 
 // A held form's hand-off to the site (Open in my browser after the container is gone; owner, 18 Oct 2026: "Yes, sealed, 24 h max"): the page, its storage and its fields,
 // sealed there and deleted with the form's data. Read now, while the tab is fresh; a failed read or upload loses only the stored copy. -> the HTTP status, or 0.
-export async function sendHandoff(fetchImpl, site, token, job, page, read = handoffOf) {
+// night: what the morning replays instead of judging again (owner, 18 Oct 2026: "It should be all cached... instant"): the page's role and the night's AI answers.
+export async function sendHandoff(fetchImpl, site, token, job, page, read = handoffOf, night = {}) {
   if (!page) return 0;
   try {
-    const body = JSON.stringify(await read(page));
+    const body = JSON.stringify({...await read(page), night});
     const response = await fetchImpl(`${site}/api/ready/handoff?job=${encodeURIComponent(job)}`, {method: 'PUT', headers: {authorization: `Bearer ${token}`, 'content-type': 'application/json'}, body});
     return response.status;
   } catch { return 0; }
@@ -86,6 +87,7 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
   const guard = await net(context);
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
   // The night's forms in a line (owner, 18 Oct 2026): after each form the night is read again, and a form a Fill again added since joins the end of the line.
+  const nights = new Map();   // job id -> what the morning replays (its role and AI answers), also for the container's own /handoff (main.mjs)
   const line = [...batch.jobs], taken = new Set();   // taken: the presses this night already filled (the floor in moreFor)
   while (line.length) {
     const job = line.shift();
@@ -103,14 +105,16 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
     if (done.page && ['prepared', 'partial'].includes(done.state)) held.set(job.id, done.page); else await done.page?.close().catch(() => {});   // only a filled form is worth holding
     const usd = standIn.outcome(job.url)?.usd || 0;
     const video = await sendVideo(fetchImpl, site, token, job.id, done.video);   // before the result: the last result ends the night, and its token with it
-    const handoff = held.has(job.id) ? await sendHandoff(fetchImpl, site, token, job.id, done.page) : 0;   // likewise before the result
+    const night = {role: standIn.role(job.url), answers: standIn.said(job.url)};
+    nights.set(job.id, night);
+    const handoff = held.has(job.id) ? await sendHandoff(fetchImpl, site, token, job.id, done.page, undefined, night) : 0;   // likewise before the result
     const answer = await post(fetchImpl, site, token, 'result', {job: job.id, state: done.state, filled: done.filled, left: done.left, humanCheck: done.humanCheck, wall: done.wall, ms: done.ms, costMicro: costMicro(done.ms, usd)});
     told.add(job.id);
     log('job', jobLine({id: job.id, done, blocked: guard.blocked.length, video, handoff}));
     if (answer.stop) { log('stopped by the Worker (cost cap or finished)'); break; }
     if (!await moreFor(line)) break;
   }
-  return {held, context, guard, standIn, close};
+  return {held, context, guard, standIn, nights, close};
 
   // Reads the night again: forms queued since join the line. -> false when the night is over (its token refused: finished or stopped by the owner).
   async function moreFor(queue) {

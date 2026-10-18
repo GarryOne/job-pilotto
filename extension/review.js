@@ -21,7 +21,9 @@
   document.getElementById('jobpilotto-review-host')?.remove();
 
   const MIN_FIELDS = 3;
-  const MARK_WORDS = {reading: 'Reading this page…', other: 'This page shows no application', 'signing-in': 'Logging in…', 'signing-up': 'Creating your account…'};   // page-mark.js; a posting: the owner's own words
+  // A form the night filled, opened in the morning (ready-handoff.js marks the page): the panel says so instead of a new reading (owner, 18 Oct 2026: "Last night's fill is back").
+  const night = () => document.documentElement.getAttribute('data-jobpilotto-night') === '1';
+  const MARK_WORDS = {get reading() { return night() ? 'Putting back last night\u2019s fill…' : 'Reading this page…'; }, other: 'This page shows no application', 'signing-in': 'Logging in…', 'signing-up': 'Creating your account…'};   // page-mark.js; a posting: the owner's own words
   const {KNOCKOUT, AGREE, fields, find, flash} = window.__jobPilottoPanelForm;
 
   // ---- the panel (its own shadow root: the page's styles can't touch it, it can't touch the page) ----
@@ -69,7 +71,7 @@
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
     $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
-    $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
+    $('.pill small').textContent = night() && !pageMark && !moved ? `Last night\u2019s fill is back${(job?.company || session?.company) ? ` · ${job?.company || session?.company}` : ''}` : (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
     const over = filledOnce || ['done', 'input'].includes(session?.status);
