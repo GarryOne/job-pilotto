@@ -15,7 +15,8 @@ FAKE = """#!/bin/sh
 d="$FAKE_GH_DIR"; n=$(cat "$d/looks" 2>/dev/null || echo 0)
 case "$1 $2" in
   "pr view") n=$((n + 1)); echo $n > "$d/looks"; s=$(sed -n "${n}p" "$d/states"); [ -n "$s" ] || s=$(tail -n 1 "$d/states")
-             set -- $s; if [ "$1" = MERGED ]; then echo "{\\"state\\":\\"MERGED\\",\\"mergeCommit\\":{\\"oid\\":\\"$2\\"}}"; else echo "{\\"state\\":\\"$1\\",\\"mergeCommit\\":null}"; fi ;;
+             m=$(sed -n "${n}p" "$d/mergeables" 2>/dev/null); [ -n "$m" ] || m=MERGEABLE
+             set -- $s; if [ "$1" = MERGED ]; then echo "{\\"state\\":\\"MERGED\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":{\\"oid\\":\\"$2\\"}}"; else echo "{\\"state\\":\\"$1\\",\\"mergeable\\":\\"$m\\",\\"mergeCommit\\":null}"; fi ;;
   "pr checks") c=$(sed -n "${n}p" "$d/checks" 2>/dev/null); if [ "$c" = pending ]; then echo '[{"name":"x","bucket":"pending"}]'; elif [ -n "$c" ]; then echo "[{\\"name\\":\\"$c\\",\\"bucket\\":\\"fail\\"}]"; else echo '[{"name":"x","bucket":"pass"}]'; fi ;;
 esac
 """
@@ -30,14 +31,17 @@ class ShipWatchTest(unittest.TestCase):
         gh = self.tmp / 'bin' / 'gh'
         gh.write_text(FAKE)
         gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
+        (self.tmp / 'fix.sh').write_text('#!/bin/sh\necho "$1" >> "$(dirname "$0")/fixes"\n[ -f "$(dirname "$0")/fixes-ok" ] && echo "ship: CONFLICT FIXED #$1 (stacked parent #1)" >> "$2"\nexit 0\n')
         self.log, self.pidfile = self.tmp / 'ship.log', self.tmp / 'watch.pid'
         self.log.write_text('ship: [3s] opened the pull request: https://example.test/pull/7\n')
 
-    def watch(self, states, checks='', cap=60, poll=0):
+    def watch(self, states, checks='', cap=60, poll=0, mergeables=''):
         (self.tmp / 'states').write_text(states)
+        (self.tmp / 'mergeables').write_text(mergeables)
+        (self.tmp / 'fixes').write_text('')
         (self.tmp / 'checks').write_text(checks)
         (self.tmp / 'looks').write_text('0')
-        env = {**os.environ, 'PATH': f'{self.tmp / "bin"}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_DIR': str(self.tmp), 'SHIP_WATCH_POLL': str(poll), 'SHIP_WATCH_CAP': str(cap)}
+        env = {**os.environ, 'PATH': f'{self.tmp / "bin"}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_DIR': str(self.tmp), 'SHIP_WATCH_POLL': str(poll), 'SHIP_WATCH_CAP': str(cap), 'SHIP_WATCH_FIX': str(self.tmp / 'fix.sh')}
         subprocess.run(['bash', str(ROOT / 'tools' / 'ship-watch.sh'), '7', str(self.log), str(self.pidfile)], env=env, timeout=30, check=True)
         return self.log.read_text().splitlines()[1:]
 
@@ -78,6 +82,20 @@ class ShipWatchTest(unittest.TestCase):
         self.assertIsNotNone(first.returncode)
         self.assertIsNone(second.poll(), 'only the newest watcher keeps running')
         self.assertEqual(self.pidfile.read_text().strip(), str(second.pid))
+
+    def test_a_conflict_is_reported_once_asks_the_fixer_once_and_clearing_re_arms_green(self):
+        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nOPEN\nCLOSED\n', checks='\n\n\n\n\n', mergeables='MERGEABLE\nCONFLICTING\nCONFLICTING\nMERGEABLE\nCONFLICTING\n')
+        self.assertEqual(lines, ['ship: GREEN #7', 'ship: CONFLICT #7', 'ship: GREEN #7', 'ship: CONFLICT #7', 'ship: CLOSED #7 (unmerged)'])
+        self.assertEqual((self.tmp / 'fixes').read_text().split(), ['7', '7'], 'the fixer runs once per new conflict')
+
+    def test_unknown_mergeable_is_never_reported_and_keeps_the_last_known_state(self):
+        lines = self.watch('OPEN\nOPEN\nOPEN\nOPEN\nCLOSED\n', checks='pending\n' * 6, mergeables='CONFLICTING\nUNKNOWN\nUNKNOWN\nCONFLICTING\n')
+        self.assertEqual(lines, ['ship: CONFLICT #7', 'ship: CLOSED #7 (unmerged)'], 'UNKNOWN neither clears nor repeats the conflict')
+
+    def test_a_fixed_conflict_is_logged_by_the_fixer_and_a_later_conflict_speaks_again(self):
+        (self.tmp / 'fixes-ok').write_text('x')
+        lines = self.watch('OPEN\nOPEN\nOPEN\nCLOSED\n', checks='pending\n' * 6, mergeables='CONFLICTING\nMERGEABLE\nCONFLICTING\n')
+        self.assertEqual(lines, ['ship: CONFLICT #7', 'ship: CONFLICT FIXED #7 (stacked parent #1)', 'ship: CONFLICT #7', 'ship: CONFLICT FIXED #7 (stacked parent #1)', 'ship: CLOSED #7 (unmerged)'])
 
 
 if __name__ == '__main__':
