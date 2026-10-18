@@ -257,8 +257,14 @@ export function setCount(node, value) {
 // `collapsed: true` is the start state until the user has chosen (long detail cards start closed).
 const COLLAPSE_KEY = 'collapsed-panels';
 const savedCollapsed = () => { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {}; } catch { return {}; } };
-export function isInteractiveTarget(target, bar) {
-  const hit = target?.closest?.('button, a, input, select, textarea, label');
+const CONTROL = 'button, a, input, select, textarea, label';
+// A control inside `bar` was pressed. Read from the event's path, which is fixed when the click starts: a button that redraws its own card (Edit)
+// is gone from the page by the time the click reaches the bar, and a detached target is not "inside" it any more (owner, 18 Oct 2026: Edit folded its card).
+export function isInteractiveTarget(target, bar, event) {
+  const path = event?.composedPath?.() || [];
+  const at = path.indexOf(bar);
+  if (at > 0) return path.slice(0, at).some(node => node.matches?.(CONTROL));
+  const hit = target?.closest?.(CONTROL);
   return !!hit && bar.contains(hit) && hit !== bar;
 }
 // The same for a bar or row that already has its own chevron button (not a .panel): a click anywhere on `bar` runs `toggle`, except on its other
@@ -266,9 +272,9 @@ export function isInteractiveTarget(target, bar) {
 export function toggleOnBar(bar, toggle) {
   bar.classList.add('is-bar-toggle');
   bar.addEventListener('click', event => {
-    const hit = event.target.closest?.('button, a, input, select, textarea, label');
-    if (hit && bar.contains(hit) && hit !== bar && !hit.classList.contains('is-bar-chevron')) return;
-    if (!hit?.classList.contains('is-bar-chevron')) toggle();
+    const hit = event.target.closest?.(CONTROL);
+    if (hit?.classList.contains('is-bar-chevron')) return;
+    if (!isInteractiveTarget(event.target, bar, event)) toggle();
   });
 }
 export function collapsiblePanel(panel, key = panel.id, {collapsed = false} = {}) {
@@ -278,15 +284,20 @@ export function collapsiblePanel(panel, key = panel.id, {collapsed = false} = {}
   bar.classList.add('is-toggle');
   bar.tabIndex = 0;
   bar.setAttribute('role', 'button');
-  const chevron = icon('chevron', 'icon panel-chevron');
-  (bar.querySelector('.panel-actions') || bar).append(chevron);
+  // One right-side group after the title: the bar's loose buttons (a card's Edit), its .panel-actions and the chevron end at the same right edge.
+  let actions = bar.querySelector(':scope > .panel-actions');
+  if (!actions) { actions = document.createElement('div'); actions.className = 'panel-actions'; }
+  const loose = [...bar.children].slice(1).filter(node => node !== actions);
+  actions.prepend(...loose);
+  actions.append(icon('chevron', 'icon panel-chevron'));
+  bar.append(actions);
   const set = (collapsed, {remember = true} = {}) => {
     panel.classList.toggle('is-collapsed', collapsed);
     bar.setAttribute('aria-expanded', String(!collapsed));
     if (!remember || !key) return;
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify({...savedCollapsed(), [key]: collapsed})); } catch { /* private window: it still works, just not remembered */ }
   };
-  bar.addEventListener('click', event => { if (!isInteractiveTarget(event.target, bar)) set(!panel.classList.contains('is-collapsed')); });
+  bar.addEventListener('click', event => { if (!isInteractiveTarget(event.target, bar, event)) set(!panel.classList.contains('is-collapsed')); });
   bar.addEventListener('keydown', event => {
     if (event.target !== bar || (event.key !== 'Enter' && event.key !== ' ')) return;
     event.preventDefault();
