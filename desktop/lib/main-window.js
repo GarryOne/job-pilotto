@@ -105,7 +105,7 @@ export function createMainWindow(ctx) {
         })()`) : null;
         // JOB_PILOTTO_SMOKE_FULL=1: the whole scrolled page, not just the viewport (the window grows to the tallest scroller's content, up to 20000 px).
         if (process.env.JOB_PILOTTO_SMOKE_FULL && !selector) {
-          const [width, extra] = await win.window.webContents.executeJavaScript(`(() => { let extra = 0;
+          const [, extra] = await win.window.webContents.executeJavaScript(`(() => { let extra = 0;
             for (const el of document.querySelectorAll('*')) if (el.scrollHeight > el.clientHeight + 2 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)) extra = Math.max(extra, el.scrollHeight - el.clientHeight);
             extra = Math.max(extra, document.documentElement.scrollHeight - innerHeight); return [innerWidth, extra]; })()`);
           const zoom = win.window.webContents.getZoomFactor();
