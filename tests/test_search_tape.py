@@ -31,7 +31,7 @@ class TapeTest(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        self.env = {'JOB_PILOTTO_SEARCH_TAPE': folder.name, 'JOB_PILOTTO_TAPE_SPEED': '0'}
+        self.env = {'JOB_PILOTTO_SEARCH_TAPE': folder.name, 'JOB_PILOTTO_TAPE_WAIT_SCALE': '0'}
         search_tape._index.clear()
         self.addCleanup(search_tape._index.clear)
         for key in search_tape.counts:
@@ -40,6 +40,24 @@ class TapeTest(unittest.TestCase):
     def mode(self, mode):
         search_tape._index.clear()   # a new process reads the tape again
         return mock.patch.dict(os.environ, {**self.env, 'JOB_PILOTTO_SEARCH_TAPE_MODE': mode})
+
+
+class WaitScaleTest(TapeTest):
+    def slept(self, scale, seconds=10):
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_TAPE_WAIT_SCALE': scale}), mock.patch.object(search_tape.time, 'sleep') as sleep:
+            search_tape._wait(seconds)
+        return [call.args[0] for call in sleep.call_args_list]
+
+    def test_the_scale_multiplies_the_recorded_wait(self):
+        """1 = as recorded, 0.1 = ten times faster, 0 = no wait (18 Oct 2026: --speed 20 slept 20x the recorded time, hours)."""
+        self.assertEqual(self.slept('1'), [10])
+        self.assertEqual(self.slept('0.1'), [1.0])
+        self.assertEqual(self.slept('0'), [])
+
+    def test_the_old_speed_flag_is_refused(self):
+        run = (Path(__file__).resolve().parents[1] / 'tools' / 'persona-search' / 'run.mjs').read_text()
+        self.assertIn("includes('--speed')", run)
+        self.assertNotIn('TAPE_SPEED', run)
 
 
 class WebTest(TapeTest):

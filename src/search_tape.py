@@ -5,7 +5,7 @@ replay test"; spec docs/superpowers/specs/2026-10-18-search-learns-sources.md). 
 JOB_PILOTTO_SEARCH_TAPE=<folder> and JOB_PILOTTO_SEARCH_TAPE_MODE=record|replay turn it on (src/__init__.py installs it before anything else
 imports urllib). Off by default: a normal run never loads it.
 - The web: urllib.request.urlopen, the one way the engine reaches a site. Record keeps the body, status and time; replay serves it after the
-  recorded time (x JOB_PILOTTO_TAPE_SPEED, default 1) and a URL the tape lacks fails like an unreachable site: nothing leaves the computer.
+  its recorded time times JOB_PILOTTO_TAPE_WAIT_SCALE (1 = as recorded, 0 = no wait, 0.1 = ten times faster) and a URL the tape lacks fails like an unreachable site: nothing leaves the computer.
 - The AI: the engine's AI client (messages.create). Record keeps each answer and its time, keyed by the whole request; replay serves it after its
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
 Tests: tests/test_search_tape.py."""
@@ -34,9 +34,9 @@ def mode():
     return os.getenv('JOB_PILOTTO_SEARCH_TAPE_MODE', 'replay')
 
 
-def speed():
+def wait_scale():
     try:
-        return max(0.0, float(os.getenv('JOB_PILOTTO_TAPE_SPEED', '1')))
+        return max(0.0, float(os.getenv('JOB_PILOTTO_TAPE_WAIT_SCALE', '1')))
     except ValueError:
         return 1.0
 
@@ -71,8 +71,8 @@ def _keep(kind, record, body=None):
 
 
 def _wait(seconds):
-    if seconds and speed():
-        time.sleep(seconds * speed())
+    if seconds and wait_scale():
+        time.sleep(seconds * wait_scale())
 
 
 # ---------- the web ----------
