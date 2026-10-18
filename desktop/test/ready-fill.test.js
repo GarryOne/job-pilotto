@@ -9,6 +9,7 @@ import {ACCOUNT_PRESS, copyForNight, holdAccountPress} from '../../hosted/ready-
 import {classify} from '../../hosted/ready-fill/fill-job.mjs';
 import {inputToCdp} from '../../hosted/ready-fill/live.mjs';
 import {costMicro} from '../../hosted/ready-fill/night.mjs';
+import {HIDE_CSS, showEndState} from '../../hosted/ready-fill/end-state.mjs';
 import {looksLikeSubmit} from '../../hosted/ready-fill/no-submit.mjs';
 import {createStandIn} from '../../hosted/ready-fill/stand-in.mjs';
 
@@ -118,4 +119,24 @@ test('a night that cannot start tells the site each job failed and why, at once,
   await assert.rejects(runNight({chromium, site: 'https://site.example', token: 't', fetchImpl}), /browser could not start/);
   const results = posts.filter(p => p.route === 'result').map(p => p.body);
   assert.deepEqual(results.map(r => [r.job, r.state, r.wall]), [['a', 'failed', NIGHT_FAILED], ['b', 'failed', NIGHT_FAILED]]);
+});
+
+test('a held tab shows only the end state: every box the extension draws is hidden, now and on the pages it loads next (owner, 18 Oct 2026)', async () => {
+  const calls = [];
+  const page = {addInitScript: async (fn, css) => calls.push(['init', fn, css]), addStyleTag: async ({content}) => calls.push(['now', content])};
+  await showEndState(page);
+  assert.deepEqual(calls.map(call => call[0]), ['init', 'now']);
+  assert.equal(calls[0][2], HIDE_CSS); assert.equal(calls[1][1], HIDE_CSS);
+  await showEndState({addInitScript: async () => { throw new Error('closed'); }, addStyleTag: async () => { throw new Error('closed'); }});   // a closed tab: no throw
+  // The class: every element id the extension puts on a page starts with "jobpilotto-", so the one rule hides it; a new box with another id fails here.
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
+  const ids = new Set();
+  for (const file of fs.readdirSync(dir).filter(name => name.endsWith('.js'))) {
+    const text = fs.readFileSync(path.join(dir, file), 'utf8');
+    for (const match of text.matchAll(/\{id: '([^']+)'\}|\.id = '([^']+)'/g)) ids.add(match[1] || match[2]);
+    if (text.includes('attachShadow')) assert.match(text, /'jobpilotto-[a-z-]+-host'/, `${file}: a shadow host needs a jobpilotto- id`);
+  }
+  assert.ok(ids.size >= 5, [...ids].join(', '));
+  for (const id of ids) assert.ok(id.startsWith('jobpilotto-'), `extension draws #${id}: name it jobpilotto-… so a held tab hides it`);
+  assert.match(HIDE_CSS, /^\[id\^="jobpilotto-"\]/);
 });
