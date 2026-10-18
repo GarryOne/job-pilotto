@@ -5,6 +5,8 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
+import {INTELLIGENCE} from '../src/headlines-growth.js';
+import {JOB_SEARCH} from '../src/headlines-search.js';
 import {GROUPS, PAGES, byWeek, nav, spark, weekOf} from '../src/admin.js';
 import {report} from '../src/overview.js';
 import {appTrends, insightTrends} from '../src/trends.js';
@@ -35,6 +37,18 @@ test('the menu: every page has a group, no group row has more than 6 pages, Acce
   assert.ok(sup.includes(`<span class="me">super admin <a href="${access.path}"`));
   assert.ok(!adm.includes(access.path));
   assert.ok(!row(nav('/admin/operations/overview', {role: 'superadmin'})).includes(access.path), 'Access is not in a row');
+});
+
+test('Scouting lives in Job search next to the Lab, not in Intelligence, at the same address; its headline moved with it', () => {
+  const group = path => PAGES.find(page => page.path === path)?.group;
+  assert.equal(group('/admin/scouting'), 'Job search');
+  const names = PAGES.filter(page => page.group === 'Job search').map(page => page.name);
+  assert.deepEqual(names.slice(0, 2), ['Lab', 'Scouting']);
+  const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';
+  assert.ok(row(nav('/admin/scouting', {role: 'admin', name: 'Ann'})).includes('href="/admin/lab-job-search"'), 'Scouting opens the Job search row');
+  assert.ok(!row(nav('/admin/insights', {role: 'admin', name: 'Ann'})).includes('/admin/scouting'), 'the Intelligence row no longer lists it');
+  assert.ok(Object.keys(JOB_SEARCH).every(path => group(path) === 'Job search'), 'every Job search headline belongs to a Job search page');
+  assert.ok(!(path => path in INTELLIGENCE)('/admin/scouting'), 'Intelligence no longer declares it');
 });
 
 test('the old addresses send the owner to /admin (query kept); anyone else still gets a 404', async () => {
