@@ -285,15 +285,18 @@ test('nothing to fill: a Note badge with the reason, never "not on for this inst
 
 // The rows' buttons are icons (owner, 18 Oct 2026: "they're taking too much", "maybe we should use icons"): every one has its name (screen readers, tests) and a
 // tooltip saying what it does, on every kind of row, so a new row button cannot land as a bare icon.
-test('every row button is an icon with its name and a tooltip', async () => {
+test('a row\'s main action shows its words; every other row button is an icon with its name and a tooltip', async () => {
   const body = page();
   globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
     site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed', 'queued'].map((state, i) => ({job: `j${i}`, state, video: true}))}}),
     readyTonight: async () => ({ok: false})};
   await initReadyCard();
   const row = body.querySelector('.ready-card').querySelectorAll('.ready-row');
+  const main = row.flatMap(each => each.querySelectorAll('.ready-browser'));
+  assert.equal(main.length, 3, 'every row with a filled form has its main action');
+  for (const button of main) assert.equal(button.querySelector('span').textContent, 'Open in Chrome', 'the main action has words (owner: "leave icons only for secondary buttons")');
   for (const button of row.flatMap(each => each.querySelectorAll('button'))) {
-    assert.match(button.className, /icon-btn/, nameOf(button));
+    if (!main.includes(button)) assert.match(button.className, /icon-btn/, nameOf(button));
     assert.ok(button.querySelector('svg'), `${nameOf(button)}: an icon`);
     assert.ok(button.getAttribute('aria-label'), 'a name');
     assert.ok(button.title.startsWith(`${button.getAttribute('aria-label')}: `), `${nameOf(button)}: a tooltip with its name`);
@@ -318,4 +321,20 @@ test('Fill again on a row asks first, then fills that job alone', async t => {
   popup.querySelector('#ready-confirm-yes').click(); await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(runs, [{codes: ['j1']}, {codes: ['j1'], again: true, confirmed: true}], 'that job only, after the yes');
   assert.match(textOf(body.querySelector('.ready-card')), /1 job sent/);
+});
+
+// One batch a night on the server: while a fill is sent or running, every button that sends one (Fill tonight, Fill now, each row's Fill again) is off, so a second
+// press never replaces the fill running (18 Oct 2026: Fill again pressed on two rows wiped the first).
+test('while a night is filled, every button that would send a batch is off', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
+    site: {batch: {night: '2026-10-19', state: 'running'}, jobs: [{job: 'j0', state: 'prepared'}, {job: 'j1', state: 'queued'}]}}),
+    readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  const sending = [card.querySelector('#ready-send'), card.querySelector('#ready-run'), ...card.querySelectorAll('.ready-again')];
+  assert.equal(sending.length, 4, 'Fill tonight, Fill now and a Fill again on each row');
+  for (const button of sending) assert.equal(button.disabled, true, nameOf(button));
+  assert.equal(card.querySelector('.ready-browser').disabled, false, 'opening a filled form still works');
 });

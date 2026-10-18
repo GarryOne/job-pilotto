@@ -95,16 +95,19 @@ export async function initReadyCard() {
     if (!card.querySelector('.ready-progress')?.dataset.since) return;
     clock ||= setInterval(() => { const box = card.querySelector('.ready-progress'); if (!box || !card.isConnected) { clearInterval(clock); clock = null; return; } tick(box); }, 1000);
   };
+  const sends = () => [send, run, ...card.querySelectorAll('.ready-again')];
   const show = state => {
     if (!state?.owner) return blocked(card, state?.why, refresh);
     last = state;
     const busy = phase === 'sending' || nightState(state) === 'running';   // a night being filled is never replaced by a second press
-    send.disabled = run.disabled = busy; send.title = run.title = busy ? 'The server is filling tonight\'s forms' : '';
     run.textContent = busy ? 'Filling…' : 'Fill now';
     Object.assign(names, state.names || {});
     const now = progressOf({phase, batch: state.site?.batch, jobs: state.site?.jobs || []})?.steps.find(step => step.state === 'now')?.label || '';
     if (now !== nowStep) { nowStep = now; since = now ? Date.now() : 0; }   // the clock counts the step running now
     paint(card, {...state, tonight: tonightNow ?? state.tonight, phase, phaseError, since}, names, act);
+    // Every button that sends a batch is off while one is sent or filled: the server keeps one batch a night, and a second send would replace the one running
+    // (18 Oct 2026: a row's Fill again pressed on two rows wiped the first fill).
+    for (const each of sends()) { each.disabled = busy; if (busy) each.title = 'The server is filling tonight\'s forms: wait for it to finish'; else if (each === send || each === run) each.title = ''; }
     keepClock();
   };
   const repaint = () => last && show(last);
@@ -131,13 +134,15 @@ export async function initReadyCard() {
     if (fresh?.ok) { tonightNow = fresh.tonight; show({...state, names: {...state.names, ...fresh.names}}); }
   };
   // Open in my browser: the real page in your own Chrome, filled as the night left it (lib/ready-handoff.js). Open live recording: the server's tab as a picture stream.
-  // A row's button: its icon, its name as tooltip and for screen readers.
-  const iconButton = (glyph, name, hint, id) => {
-    const button = Object.assign(el('button', `secondary icon-btn ready-${id}`, icon(glyph)), {type: 'button', title: `${name}: ${hint}`});
+  // A row's button: its icon, its name as tooltip and for screen readers. The row's main action also shows its words (owner, 18 Oct 2026: "let's leave icons only
+  // for secondary buttons"; "icons it's a bit hard to know what is what"): `words` makes it the app's icon + label button (.with-icon).
+  const iconButton = (glyph, name, hint, id, words = '') => {
+    const button = Object.assign(el('button', `secondary ${words ? 'with-icon' : 'icon-btn'} ready-${id}`, icon(glyph)), {type: 'button', title: `${name}: ${hint}`});
+    if (words) button.append(el('span', '', words));
     button.setAttribute('aria-label', name);
     return button;
   };
-  const open = code => { const button = iconButton('external', 'Open in my browser', 'the real page in your own Chrome, filled as the night left it', 'browser');
+  const open = code => { const button = iconButton('external', 'Open in my browser', 'the real page in your own Chrome, filled as the night left it', 'browser', 'Open in Chrome');
     button.addEventListener('click', async () => { button.disabled = true; say('Opening the filled form in your browser…');
       const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: errorLine(error)}));
       button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.'), result.ok ? 'good' : 'bad'); });
