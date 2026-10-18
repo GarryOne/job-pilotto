@@ -1,0 +1,53 @@
+/* global document, location, chrome */
+// The panel's two themes follow the app's setting live (no reload), and Stop is one press away mid-fill with the panel open AND minimised (real extension, fixture form, fake data).
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {startRealExtension} from '../lib/real-extension.mjs';
+
+const FORM = `<!doctype html><title>Senior Site Reliability Engineer</title><form><h1>Apply</h1>
+<label>Full name <input name="n" required></label><label>Email <input name="e" type="email" required></label><label>Phone <input name="p" required></label><label>City <input name="c" required></label></form>`;
+const open = async () => {
+  const state = {theme: 'light'};
+  const app = await startRealExtension({extensionDir: process.env.REAL_EXTENSION_DIR || undefined, allowAllSites: true, answer: {
+    '/extension/review': () => ({matched: 's1', theme: state.theme, session: {id: 's1', title: 'Senior Site Reliability Engineer', company: 'Acme', status: 'running', live: false, kind: 'form', url: 'https://jobs.example.test/apply'}, cv: {tailored: false, working: false}, watch: [], commands: []})}});
+  await app.context.route('https://jobs.example.test/**', route => route.fulfill({status: 200, contentType: 'text/html', body: FORM}));
+  await app.page.goto('https://jobs.example.test/apply');
+  await app.page.evaluate(() => { location.hash = 'jobpilotto-fill'; });
+  await app.page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.report-btn'), null, {timeout: 20000});
+  const worker = app.context.serviceWorkers()[0];
+  const step = text => worker.evaluate(async words => { const [tab] = await chrome.tabs.query({url: 'https://jobs.example.test/*'}); return chrome.tabs.sendMessage(tab.id, {type: 'panelStep', text: words}); }, text);
+  const spot = selector => app.page.evaluate(sel => { const el = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector(sel); const b = el?.getBoundingClientRect(); return b && b.width ? {x: b.x + b.width / 2, y: b.y + b.height / 2} : null; }, selector);
+  const press = async selector => { const at = await spot(selector); assert.ok(at, `${selector} is on screen`); await app.page.mouse.click(at.x, at.y); };   // a real, trusted click
+  const surface = () => app.page.evaluate(() => { const jp = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.jp'); return jp && {theme: jp.dataset.theme || '', card: getComputedStyle(jp.querySelector('.card')).backgroundColor}; });
+  return {app, state, step, press, spot, surface};
+};
+
+test('switching the app\'s theme changes an open panel without a reload', async () => {
+  const t = await open();
+  try {
+    await t.app.page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.jp')?.dataset.theme === 'light', null, {timeout: 20000});
+    await t.step('Reading the form…');
+    const light = await t.surface();
+    t.state.theme = 'dark';
+    await t.app.page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.jp')?.dataset.theme === 'dark', null, {timeout: 20000}).catch(() => assert.fail('the panel did not follow the app to dark'));
+    const dark = await t.surface();
+    assert.notEqual(dark.card, light.card, 'the card is drawn in the dark tokens');
+    t.state.theme = 'system';
+    await t.app.page.waitForFunction(() => !document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.jp')?.dataset.theme, null, {timeout: 20000}).catch(() => assert.fail('"system" leaves the choice to the browser'));
+  } finally { await t.app.close(); }
+});
+
+for (const minimised of [false, true]) {
+  test(`Stop halts a fill with the panel ${minimised ? 'minimised (on the pill)' : 'open (in the live step row)'}`, async () => {
+    const t = await open();
+    try {
+      await t.step('Choosing dropdown answers…');
+      await t.app.page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.fill.is-busy'), null, {timeout: 5000});
+      if (minimised) await t.press('.min');
+      await t.app.page.waitForTimeout(300);
+      await t.press(minimised ? '.pill-stop' : '.stop-btn');
+      await t.app.page.waitForFunction(() => !document.getElementById('jobpilotto-review-host'), null, {timeout: 10000}).catch(() => assert.fail('Stop did not halt the fill'));
+      assert.equal(await t.app.page.evaluate(() => !!document.getElementById('jobpilotto-stop-host')), false, 'the bottom-left chip is gone');
+    } finally { await t.app.close(); }
+  });
+}

@@ -120,7 +120,7 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', \.\.\.PANEL_FILES, 'panel-stop\.js', 'panel-report\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', \.\.\.PANEL_FILES, 'panel-report\.js'\], injectImmediately: true\}\)/);
   assert.match(background, /jobpilotto-review-host/);
   assert.match(readPanel(), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.

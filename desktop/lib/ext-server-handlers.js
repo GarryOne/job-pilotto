@@ -104,13 +104,16 @@ export function registerExtServerHandlers(ctx) {
   });
   // A page of a session's form reported: its tab is open, so a stopped Claude session is not "Ended" (terminals.formInChrome).
   const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };
-  server.setReviewHandler(payload => {
+  // The app's theme (Settings → Appearance, main-window.js applyTheme) travels with every answer, so an open panel follows it live: light, dark, or system (the panel then follows the browser).
+  const themeOf = () => { const saved = storage.settings().theme; return saved == null || saved === '' ? 'dark' : ['light', 'dark'].includes(saved) ? saved : 'system'; };
+  server.setReviewHandler(payload => ({...reviewAnswer(payload), theme: themeOf()}));
+  const reviewAnswer = payload => {
     const report = review.report(terminals.list(), payload);
     if (report.session?.url) { const key = pageKeyOf(report.session.url); noteReport(key, payload); observe(key, payload, {misses: misses.read(storage), report: items => recipeReporter.outcome(items), log: appLog}); }   // Claude teaches the extension (lib/ladder/rung5-takeover-teach.js)
     if (report.matched && report.session) formSeen(report.matched);
     if (report.moved) return {...report, tab: review.tabOf(String(payload?.session || ''), String(payload?.boot || '')) || null};   // "Go there": the tab that continues this application
     return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: takeoverOffered(storage), claudeTakeover: SHOW_RESUME_CLAUDE, claudeAlways: SHOW_RESUME_CLAUDE && !!storage.settings().claudeAuto, claudeAuto: claudeAutoStart(storage), claudeConsent: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
-  });
+  };
   // Each send is logged with its counts (never its content): "is the twin's fill reaching the site?" was unanswerable on 9 Oct 2026.
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => {
     sharedLog.add(storage, what, sent);
