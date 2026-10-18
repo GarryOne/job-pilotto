@@ -134,7 +134,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - **A check of your own CV** *(new)*: How cleanly a hiring system can read it (free rules on the PDF), then an AI review of keywords, evidence and clarity. Not a score from a real hiring system: they publish none.
 - **CV against this posting** *(new)*: Which terms the posting asks for your CV states, only implies or never mentions, and which requirements could be yes/no questions on the form. A grade that is a sort order, not a verdict.
 - **Application kit**: A cover letter and an answer for each form question, drafted per job from your Profile. It also checks visa and language eligibility.
-- **Your general cover letter**: Drafted once from your CV and Profile, approved by you, attached whenever a form asks for a file.
+- **Your general cover letter**: Drafted once from your CV and Profile, approved by you; attached when a form asks for a file and the job has no letter of its own, only if you turn that on.
 - **Profile that follows your CV**: Replace your CV and Claude suggests only the Profile lines to change. You pick which.
 - **Interview prep kit**: Likely questions with what from your CV to answer, your gaps, what to ask them, and the weak topics from past interviews.
 

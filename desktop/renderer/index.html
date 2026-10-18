@@ -1115,10 +1115,11 @@
           <div class="setting panel" id="setting-letter" data-profile-panel="letter" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="file"></i><h3>Cover letter</h3></div>
               <div class="panel-actions"><span class="synced" id="letter-state">Not written yet</span></div></div>
-            <p class="muted panel-lead">One general letter, written by AI from your CV, Profile and standard answers. Read it, change what you like, then approve: you get a PDF that Job Pilotto uploads when a form asks for a cover letter file.</p>
+            <p class="muted panel-lead">One general letter, written by AI from your CV, Profile and standard answers. Read it, change what you like, then approve to get a PDF. Each job's own letter lives in its preparation kit.</p>
             <textarea id="letter-text" data-reads-letter="Reading your letter…" rows="10" placeholder="Press “Write it with AI” to draft your letter, or type your own." spellcheck="true"></textarea>
             <label class="small muted">Ask for a change (optional)<input id="letter-feedback" type="text" placeholder="e.g. shorter, more about incident response"></label>
             <p class="message" id="letter-message"></p>
+            <label class="check-row letter-fallback"><input type="checkbox" id="letter-fallback"><span><span>Use this approved base letter when a job has no tailored letter</span><small class="muted">Off: a form that asks for a letter file gets none unless the job has its own.</small></span></label>
             <div class="inline">
               <button class="secondary with-icon" id="letter-draft"><i data-icon="refresh"></i><span>Write it with AI</span></button>
               <button class="secondary" id="letter-save" disabled>Save changes</button>
