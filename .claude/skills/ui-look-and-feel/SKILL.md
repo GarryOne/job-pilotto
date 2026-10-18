@@ -10,7 +10,7 @@ The owner designs by mockup and judges by screenshot. A screen is done when it l
 look at it.
 
 ## 0. The design system: pick the control from the value (owner, 17 Oct 2026)
-Design system page (built from the repo, owner-only): https://www.jobpilotto.top/admin/design · living copy `npm run gallery` · rules and the
+Design system page, built from the repo: `cd desktop && npm run design-system` · living copy `npm run gallery` · rules and the
 checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawing any value, name its kind and use this row:
 
 | Kind of value | Read view | Edit view |

@@ -4,7 +4,7 @@ Read before building or changing a screen in `desktop/renderer`. Also read the s
 Why each rule exists: [why.md](why.md#desktop-ui).
 
 ## Design system (owner, 17 Oct 2026): read first
-The design system page, built from this repo on every deploy: https://www.jobpilotto.top/admin/design (owner-only; tokens, the real components in their states, these rules marked approved / legacy / proposed, and a snapshot zip for Claude or ChatGPT; `node tools/design-system/build.mjs` builds it, no AI). The old hand-made Artifact is superseded.
+The design system page, built from this repo: `cd desktop && npm run design-system` (local, opens in the browser; tokens, the real components in their states, these rules marked approved / legacy / proposed, and a snapshot zip for Claude or ChatGPT; `tools/design-system/build.mjs`, no AI). The old hand-made Artifact is superseded.
 Living copy: `npm run gallery` (sections "Chips" and "Value → control", drawn by the screens' own code). How to apply it: skill **ui-look-and-feel** §0.
 - **The value's kind picks the control.** Short text → a field sized to it; long text → a box that grows; yes/no → two buttons; one of ≤ 3 short → segmented;
   one of many → a menu; several → chips with × + Add; date, amount, salary, duration, link, per country, language + level, range → `answerControl(formatFor(...))`

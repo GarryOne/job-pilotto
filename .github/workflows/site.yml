@@ -11,11 +11,6 @@ on:
       - 'worker/src/report.js'   # the site serves the app's form reports with it
       - 'extension/recipe-schema.js'   # what the site accepts and serves as a recipe
       - '.github/workflows/site.yml'
-      - 'desktop/renderer/**'   # the design system page (site/src/design.js) is built from these at deploy
-      - 'docs/rules/desktop-ui.md'
-      - '.claude/skills/ui-look-and-feel/SKILL.md'
-      - 'desktop/docs/ui/**'
-      - 'tools/design-system/**'
   workflow_dispatch:
 
 permissions:
@@ -59,9 +54,6 @@ jobs:
         run: |
           npx --yes wrangler@4 r2 bucket info lab-fills >/dev/null 2>&1 || npx --yes wrangler@4 r2 bucket create lab-fills \
             || { echo "::warning::R2 bucket lab-fills not created (the token needs R2 Edit). Create: cd site && npx wrangler@4 r2 bucket create lab-fills"; exit 1; }
-      - name: "Build the design system page and snapshot (tools/design-system, no AI)"
-        if: env.CLOUDFLARE_API_TOKEN != ''
-        run: node tools/design-system/build.mjs
       - name: Deploy to Cloudflare
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: site

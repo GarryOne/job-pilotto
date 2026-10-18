@@ -23,7 +23,6 @@ name = "EMAIL"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/admin/design", "/admin/design/", "/admin/design/*"]   # the design system page is for admins only (src/design.js): the Worker checks the login before any of its files go out
 
 # Pro early-access sign-ups.
 [[kv_namespaces]]

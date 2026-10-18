@@ -23,7 +23,6 @@ on:
       - 'tools/design-system/**'   # desktop/test/design-system-page.test.js builds the page with it
       - 'docs/rules/desktop-ui.md'
       - '.claude/skills/ui-look-and-feel/SKILL.md'
-      - 'site/wrangler.toml'
       - 'hosted/ready-fill/**'   # the night's filler: desktop/test/ready-fill.test.js imports it
       - 'config/notion_schema.json'
       - 'config/notion_template.json'
