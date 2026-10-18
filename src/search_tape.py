@@ -76,9 +76,27 @@ def _keep(kind, record, body=None):
         _index.setdefault((kind, record['key']), record)
 
 
+_real_monotonic = time.monotonic
+_skipped = [0.0]   # recorded seconds a faster replay did not wait: the virtual clock runs ahead of the real one by this much
+_clock_lock = threading.Lock()
+
+
+def virtual_now():
+    """The clock a replay's code sees (installed as time.monotonic): real time plus the waits it skipped, so the 3-minute AI budget and the paces
+    read the recorded time at any --wait-scale (18 Oct 2026: at scale 0 the budget never ran out and the replay did other work than the recording)."""
+    return _real_monotonic() + _skipped[0]
+
+
 def _wait(seconds):
-    if seconds and wait_scale():
+    """One recorded call's wait, times the scale. The virtual clock then reaches where the recorded call ended: calls that wait together (threads)
+    end together, so parallel waits are not added up."""
+    if not seconds:
+        return
+    began = virtual_now()
+    if wait_scale():
         time.sleep(seconds * wait_scale())
+    with _clock_lock:
+        _skipped[0] = max(_skipped[0], began + seconds - _real_monotonic())
 
 
 # ---------- the web ----------
@@ -252,6 +270,8 @@ def install():
     if getattr(urllib.request.urlopen, 'search_tape', False):
         return
     urllib.request.urlopen = _web(urllib.request.urlopen)
+    if mode() == 'replay':
+        time.monotonic = virtual_now   # the budget and the paces read recorded time, whatever the wait scale
     if mode() == 'replay':   # the engine checks a host is public by looking it up (careers._public): offline, every board would read as unreachable
         import socket
         real_lookup = socket.getaddrinfo
