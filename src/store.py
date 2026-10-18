@@ -106,17 +106,29 @@ def _city(text):
     return _words(plain.split(',')[0].split(';')[0].split(' - ')[0])
 
 
-def same_job(db, item, company_name):
-    """The open job this item is another copy of (same identity; same city when both name one; on ANOTHER site), or None.
-    Two postings with the same title on one site are two openings (a feed lists each requisition once); copies come from other sites."""
+def _same_company(one, other):
+    """'akkodis' and 'akkodis germany tech experts' are one employer: equal, or one name is the other's first whole words."""
+    return one == other or other.startswith(one + ' ') or one.startswith(other + ' ')
+
+
+def same_job(db, item, company_name, board=False):
+    """The open job this item is another copy of (same title; the same employer, or one's name the other's first words; same city when
+    both name one; on ANOTHER site), or None. Two postings with the same title on one employer's site are two openings (a feed lists each
+    requisition once); on a job board (board=True) they are the same ad listed again (18 Oct 2026: one Berlin "Technical Producer" was
+    3 of a music candidate's top 10: XING as "Akkodis Germany Tech Experts GmbH", talent.com twice as "AKKODIS" and "Akkodis")."""
     from urllib.parse import urlsplit
     key = identity(company_name, item.get('title'))
     if not key:
         return None, ''
+    company, title = key.split('|', 1)
     city = _city(item.get('city') or item.get('location'))
     host = _site(urlsplit(item.get('url') or '').hostname)
-    for row in db.execute("SELECT id, location, city, url FROM jobs WHERE identity = ? AND state = 'open'", (key,)):
-        if host and host == _site(urlsplit(row['url'] or '').hostname):
+    rows = db.execute("SELECT id, location, city, url, identity FROM jobs WHERE state = 'open' AND substr(identity, instr(identity, '|') + 1) = ?",
+                      (title,)).fetchall()
+    for row in sorted(rows, key=lambda row: row['identity'] != key):   # the exact name first
+        if not _same_company(company, row['identity'].split('|', 1)[0]):
+            continue
+        if host and host == _site(urlsplit(row['url'] or '').hostname) and not board:
             continue
         other = _city(row['city'] or row['location'])
         if not city or not other or city == other or city in other or other in city:
@@ -166,7 +178,7 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
               item.get('classification'), item.get('confidence'),
               json.dumps(item.get('salary')) if item.get('salary') is not None else None,
               item.get('notes'))
-    duplicate, key_identity = (None, identity(company_name, item.get('title'))) if existing else same_job(db, item, company_name)
+    duplicate, key_identity = (None, identity(company_name, item.get('title'))) if existing else same_job(db, item, company_name, board=source_kind == 'job board')
     if duplicate:
         # Another source of a job we already hold: keep the first copy (its address, its Notion row, its score); take this copy's text
         # when the first has none (an alert email's job borrows the employer feed's description, and the other way round), note the source.
