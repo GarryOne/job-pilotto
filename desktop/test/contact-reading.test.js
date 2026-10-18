@@ -33,7 +33,7 @@ test('class: on every Profile tab, no editable text field is drawn empty before 
   const found = Object.fromEntries(TABS.map(tab => [tab, []]));
   let tab = null, depth = 0, marked = -1;   // marked: the depth a skeleton box or hidden form opened at
   for (const line of html.split('\n')) {
-    if (/class="setting panel"/.test(line)) tab = line.match(/data-profile-panel="(\w+)"/)?.[1] || null;
+    if (/class="setting panel[ "]/.test(line)) tab = line.match(/data-profile-panel="(\w+)"/)?.[1] || null;
     if (/<div class="save-bar"/.test(line)) tab = null;
     if (marked < 0 && /data-reads-(contact|letter)/.test(line)) marked = depth;
     const field = line.match(/<(input|textarea)\b[^>]*>/);

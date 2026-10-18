@@ -33,6 +33,26 @@ export function cardHead({glyph = 'info', tone = 'neutral', title = '', lead = '
   return head;
 }
 
+// Facts side by side (mockup 05): one column each with a divider between, icon · small grey label over the value; columns wrap in a narrow card.
+// cols: [{label, value, icon, note, badge, body}]: value text or node, empty → "Not set" (warn); note → the value's hover with an info mark (never a
+// line under it); badge: a pill after the value; body: a node drawn instead of label + value (Contact's name block).
+export function factColumns(cols) {
+  const box = el('div', 'fact-cols');
+  for (const {label = '', value = '', icon = '', note = '', badge = null, body = null} of cols) {
+    const col = el('div', 'fact-col'), words = el('div', 'fact-col-words');
+    if (body) words.append(body);
+    else {
+      const empty = value == null || (!isNode(value) && !String(value).trim()), shown = el('span', 'fact-col-value');
+      shown.append(empty ? pill('Not set', 'warn') : isNode(value) ? value : String(value), ...(badge ? [badge] : []));
+      if (note) { shown.title = note; shown.append(glyph('info', 'icon fact-col-note')); }
+      words.append(el('span', 'fact-col-label', label), shown);
+    }
+    col.append(...(icon ? [glyph(icon)] : []), words);
+    box.append(col);
+  }
+  return box;
+}
+
 // Several values of one kind on one line (languages, countries): chip(text, {detail}) each, e.g. English · B2.
 export function chipLine(items) {
   const line = el('div', 'read-values');

@@ -1,33 +1,63 @@
 // Your details read first (owner's review, 18 Oct 2026, item 5: "a readable profile, not an expanded questionnaire"; UI redesign A): Contact, Professional links,
 // Work eligibility, Availability & compensation and Languages each show a compact summary drawn from their editor's own boxes (so drafts, CV proposals and
 // saving stay exactly as they were), a quiet Edit opens the editor in place, and Done leaves an editor with no change; with changes the Profile page's one
-// bar decides, and Save all / Discard all close the editors. Languages read "English · B2  Romanian · Native". Guarded by test/details-read.test.js.
+// bar decides, and Save all / Discard all close the editors. Each reads as columns (mockup 05): icon · small grey label · value. Guarded by test/details-read.test.js.
 import {CARD_EDIT, el, pill} from '../components.js';
-import {chipLine, doneButton, isEditing, readRows, setEditing} from '../card-shell.js';
+import {doneButton, factColumns, isEditing, setEditing} from '../card-shell.js';
+import {icon} from '../icons.js';
 import {factOf} from '../fact-line.js';
 
 const $ = id => document.getElementById(id);
 const value = key => String(document.querySelector(`[data-contact="${key}"]`)?.value || '').trim();
 const shown = key => !document.querySelector(`[data-contact="${key}"]`)?.closest('label')?.hidden;
 
-// Contact: one row per detail, "Not set" for an empty one so a missing detail is seen; the Swiss-only Place of origin only when the form shows it.
+// Contact as columns (mockup 05): the name (salutation before it) over the location | how to reach you | where you live and the rest. Every detail
+// shows, an empty one as "<label> not set" so a missing detail is seen; the Swiss-only Place of origin only when the form shows it.
 export const CONTACT_ROWS = [['Name', ['first_name', 'last_name']], ['Salutation', ['salutation']], ['Email', ['email']], ['Phone', ['phone']],
   ['Location', ['location']], ['Street', ['street']], ['Postal code', ['postal_code']], ['Place of origin', ['place_of_origin']], ['Date of birth', ['birth_date']]];
 const LINK_KEYS = ['linkedin', 'github', 'website'];
 const CONTACT_KEYS = CONTACT_ROWS.flatMap(([, keys]) => keys);
+// The icon lines of the 2nd and 3rd columns: [icon, label, keys].
+export const CONTACT_LINES = [[['mail', 'Email', ['email']], ['phone', 'Phone', ['phone']]],
+  [['home', 'Address', ['street', 'postal_code']], ['calendar', 'Date of birth', ['birth_date']], ['flag', 'Place of origin', ['place_of_origin']]]];
 
-export function contactRows(read = value, visible = shown) {
-  return CONTACT_ROWS.filter(([, keys]) => keys.every(visible)).map(([label, keys]) => ({label, value: keys.map(read).filter(Boolean).join(' ')}));
+const notSet = label => el('span', 'muted', `${label} not set`);
+export function contactView(read = value, visible = shown) {
+  const joined = keys => keys.map(read).filter(Boolean).join(', ');
+  const who = el('div', 'contact-who'), name = el('b', 'contact-name');
+  const salutation = visible('salutation') && read('salutation');
+  if (salutation) name.append(el('span', 'muted', `${salutation} `));
+  name.append(['first_name', 'last_name'].map(read).filter(Boolean).join(' ') || notSet('Name'));
+  who.append(name, read('location') ? el('span', 'muted', read('location')) : notSet('Location'));
+  if (visible('salutation') && !salutation) who.append(notSet('Salutation'));
+  const lines = group => {
+    const list = el('ul', 'contact-lines');
+    for (const [glyph, label, keys] of group.filter(([, , keys]) => keys.every(visible))) {
+      const line = el('li');
+      line.title = label;
+      // A line of several details (Address: street, postal code) says each missing one, so none goes unseen.
+      const missing = keys.filter(key => !read(key)).map(key => CONTACT_ROWS.find(([, row]) => row.includes(key))[0]);
+      line.append(icon(glyph), ...(joined(keys) ? [el('span', '', joined(keys)), ...missing.map(part => notSet(`· ${part}`))] : [notSet(label)]));
+      list.append(line);
+    }
+    return list;
+  };
+  return factColumns([{body: who}, ...CONTACT_LINES.map(group => ({body: lines(group)}))]);
 }
 
-// A fact section's lines as read rows: label → value, the note for the AI as a muted line under it, "Check" when the editor marks it so.
+// Professional links as columns: the site's icon, its name, the address in the link colour (GitHub only when its box shows: fitDetailsToCandidate).
+export function linksView(read = value, visible = shown) {
+  return factColumns([['linkedin', 'LinkedIn', 'linkedin'], ['github', 'GitHub', 'github'], ['website', 'Website', 'link']].filter(([key]) => visible(key)).map(([key, label, glyph]) => {
+    const address = read(key).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    return {icon: glyph, label, value: address ? el('span', 'link-text', address) : el('span', 'muted', 'Not added')};
+  }));
+}
+
+// A fact section's lines as columns: label over value; the note for the AI is the value's hover (an info mark), "Check" a pill after the value.
+const KIND_ICONS = {salary: 'coins', range: 'coins', duration: 'calendar'};
 export function factRows(lines) {
-  return lines.filter(line => line.label).map(line => {
-    if (!line.check || !line.value) return {label: line.label, value: line.value, note: line.note || ''};
-    const words = el('span');
-    words.append(line.value, ' ', pill('Check', 'warn'));
-    return {label: line.label, value: words, note: line.note || ''};
-  });
+  return lines.filter(line => line.label).map(line => ({label: line.label, value: line.value, note: line.note || '', icon: KIND_ICONS[line.kind] || '',
+    badge: line.check && line.value ? pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}) : null}));
 }
 const linesOf = key => [...(document.querySelector(`[data-facts="${key}"]`)?.querySelectorAll('.fact-line') || [])]
   .map(row => ({...factOf(row), check: Boolean(row.querySelector('.ui-pill'))}));
@@ -36,18 +66,15 @@ function drawFacts(key) {
   const into = document.querySelector(`[data-facts-read="${key}"]`);
   if (!into || into.dataset.loading) return;
   const lines = linesOf(key).filter(line => line.label);
-  if (!lines.length) { into.replaceChildren(el('p', 'muted', 'Nothing yet. Edit to add a line.')); return; }
-  if (key !== 'languages') { into.replaceChildren(readRows(factRows(lines))); return; }
-  const notes = lines.filter(line => line.note).map(line => el('span', 'muted small read-note', `${line.label}: ${line.note}`));
-  into.replaceChildren(chipLine(lines.map(line => line.value ? {text: line.label, detail: line.value} : line.label)), ...notes);
+  into.replaceChildren(lines.length ? factColumns(factRows(lines)) : el('p', 'muted', 'Nothing yet. Edit to add a line.'));
 }
 
 // The cards, their read boxes and how many of their own fields differ (for Done). The counts come from pages/details-drafts.js through initDetailsRead
 // (passed in, so this file stays light: the drafts module reaches the whole page).
 let changed = {contact: () => 0, facts: () => 0};
 const CARDS = [
-  {id: 'setting-contact', draw: () => $('contact-read')?.replaceChildren(readRows(contactRows())), count: () => changed.contact(CONTACT_KEYS)},
-  {id: 'setting-links', draw: () => {}, count: () => changed.contact(LINK_KEYS)},   // its tiles are drawn by pages/profile.js showLinks
+  {id: 'setting-contact', draw: () => $('contact-read')?.replaceChildren(contactView()), count: () => changed.contact(CONTACT_KEYS)},
+  {id: 'setting-links', draw: () => $('links-view')?.replaceChildren(linksView()), count: () => changed.contact(LINK_KEYS)},
   {id: 'setting-eligibility', draw: () => drawFacts('eligibility'), count: () => changed.facts('eligibility')},
   {id: 'setting-availability', draw: () => drawFacts('availability'), count: () => changed.facts('availability')},
   {id: 'setting-languages', draw: () => drawFacts('languages'), count: () => changed.facts('languages')},

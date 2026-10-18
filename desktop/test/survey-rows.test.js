@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {install} from './tiny-dom.js';
 
 install();
-const {surveyBody, surveyForm, otherRow, valueAndNote} = await import('../renderer/survey-rows.js');
+const {surveyBody, surveyForm, surveyRead, otherRow, valueAndNote} = await import('../renderer/survey-rows.js');
 const {SURVEYS, DECLINE, lineOf, readLine} = await import('../renderer/survey-model.js');
 const part = {lines: [{id: 'a', text: lineOf('gender', 'Man', 'or Male')}, {id: 'b', text: 'How many companies?: 4'}]};
 const all = node => [node, ...(node.children || []).flatMap(all)];
@@ -88,4 +88,19 @@ test('a value\'s note: a short answer then its brackets or sentence; nothing dro
   assert.deepEqual(valueAndNote('None of the above.'), {value: 'None of the above.', note: ''});
   assert.deepEqual(valueAndNote('No (I am not (sure'), {value: 'No', note: '(I am not (sure'});
   assert.equal(valueAndNote('A long answer that runs on well past forty characters (with a note)').note, '', 'a long first part is the value as written');
+});
+
+// Mockup 05 (owner approved, 18 Oct 2026): the card reads as one "Saved preferences" line; every answer stays one click away, folded under it.
+test('the card as read: one line naming what is saved, a "to check" pill for an answer in words, every answer folded under it', () => {
+  const read = surveyRead({lines: [{id: 'a', text: lineOf('gender', 'Man')}, {id: 'b', text: 'Race / ethnicity: White (use "White / European")'}, {id: 'c', text: 'How many companies?: 4'}]});
+  const [line, fold] = read.children;
+  assert.match(line.textContent, /^Saved preferencesGender identity, Race \/ ethnicity, How many companies\? saved1 to check$/);
+  assert.equal(fold.tagName, 'DETAILS');
+  assert.equal(fold.open, false);
+  assert.match(fold.children[0].textContent, /^Show answers · 3$/);
+  assert.match(all(fold).map(each => each.textContent || '').join(' '), /Gender identity/);
+  const empty = surveyRead({lines: []});
+  assert.equal(empty.children.length, 1, 'nothing to fold when nothing is saved');
+  assert.match(empty.textContent, /^No answers yet/);
+  assert.equal(surveyRead({lines: []}, {sorting: true}).children[1].open, true, 'open while the answers are being sorted');
 });

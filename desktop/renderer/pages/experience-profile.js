@@ -9,7 +9,7 @@ import {chipLine, doneButton, setEditing} from '../card-shell.js';
 import {keep, swr} from '../swr.js';
 import {icon} from '../icons.js';
 import {$, message} from './core.js';
-import {surveyBody, surveyForm} from '../survey-rows.js';
+import {surveyForm, surveyRead} from '../survey-rows.js';
 import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
 import {gapsBody, pendingCount} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
@@ -117,7 +117,7 @@ function solo(tab, each) {
 
 // What a card shows: Strengths as rows of tags; any other part its lines (a list when several), its table rows, its notes small.
 function body(key, part) {
-  if (key === 'surveys') return surveyBody(part, {sorting});
+  if (key === 'surveys') return surveyRead(part, {sorting});
   const box = el('div', 'exp-part-body');
   if (isEmpty(part)) { box.append(el('p', 'muted', 'Not set yet.')); return box; }
   if (key === 'strengths') {

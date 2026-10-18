@@ -7,7 +7,7 @@ import {install} from './tiny-dom.js';
 
 install();
 const {document} = globalThis;
-const {cardHead, readRows} = await import('../renderer/card-shell.js');
+const {cardHead, factColumns, readRows} = await import('../renderer/card-shell.js');
 const {summaryTiles} = await import('../renderer/page-parts.js');
 const read = file => fs.readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8');
 const classes = node => String(node.className).split(/\s+/);
@@ -82,4 +82,30 @@ test('divided tiles: "+N more" and a status badge sit inside the value, never as
   }
   assert.equal(text(box.children[0].children[1].children[1]), 'A · B +2 more');
   assert.match(text(box.children[1].children[1].children[1]), /^CHF 1As written$/);
+});
+
+// Your details (mockup 05, owner approved 18 Oct 2026): the class is every Your details card; a new one fails until it has the roomy header.
+test('class: every Your details card is .panel.roomy with the cardHead shape (teal tile, title over its lead), no lead line outside the header', () => {
+  const html = read('index.html');
+  const cards = html.split(/(?=<div class="setting[ "])/).filter(part => /data-profile-panel="details"/.test(part.split('\n')[0]));
+  assert.ok(cards.length >= 7, 'contact, links, to check, eligibility, availability, languages, surveys');
+  for (const part of cards) {
+    const id = part.match(/id="([^"]+)"/)[1];
+    assert.match(part.split('\n')[0], /class="setting panel roomy"/, id);
+    assert.match(part, /<div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="[\w-]+"><\/i><\/span><div class="card-words"><h3>[^<]+(<span[^>]*>[^<]*<\/span>)?<\/h3><p class="muted small">[^<]+<\/p><\/div><\/div>/, id);
+    assert.doesNotMatch(part, /panel-lead/, `${id}: the lead is in the header`);
+  }
+});
+
+test('factColumns: one column per fact, icon · label over value, the note on hover with an info mark, a badge after the value, "Not set" when empty', () => {
+  const badge = document.createElement('span');
+  badge.textContent = 'Check';
+  const box = factColumns([{icon: 'coins', label: 'Salary', value: 'CHF 1', note: 'gross', badge}, {label: 'Notice', value: ''}, {body: Object.assign(document.createElement('b'), {textContent: 'Alex'})}]);
+  assert.equal(box.className, 'fact-cols');
+  const [salary, notice, who] = box.children;
+  assert.equal(salary.children[0].tagName, 'SVG');
+  assert.equal(salary.children[1].children[1].title, 'gross');
+  assert.match(text(salary), /^SalaryCHF 1Check$/);
+  assert.match(text(notice), /^NoticeNot set$/);
+  assert.equal(text(who), 'Alex');
 });

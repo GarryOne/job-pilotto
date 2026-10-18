@@ -1019,10 +1019,9 @@
             <p class="muted panel-lead">Your jobs from your main CV, as tailored CVs keep them. Open one for its details.</p>
             <div class="exp-roles" id="exp-roles"></div>
           </div>
-          <div class="setting panel" id="setting-contact" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
-              <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit your details"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
+          <div class="setting panel roomy" id="setting-contact" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="user"></i></span><div class="card-words"><h3>Contact</h3><p class="muted small">Your personal details for application forms; empty ones come from your CV for you to check.</p></div></div>
+              <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit contact"><i data-icon="edit"></i><span>Edit</span></button></div>
             <div class="card-read" id="contact-read" data-reads-contact></div>
             <div class="card-editor">
             <div class="form-grid edit-aligned" data-reads-contact>
@@ -1042,11 +1041,10 @@
             </div>
             <p class="message" id="contact-panel-message"></p>
           </div>
-          <div class="setting panel" id="setting-links" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
+          <div class="setting panel roomy" id="setting-links" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="link"></i></span><div class="card-words"><h3>Professional links</h3><p class="muted small">Links to your online profiles, automatically included where relevant.</p></div></div>
               <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit professional links"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">Links to your online profiles, automatically included where relevant.</p>
-            <div class="card-read"><div class="link-tiles" id="links-view" data-reads-contact></div></div>
+            <div class="card-read"><div id="links-view" data-reads-contact></div></div>
             <div class="card-editor">
             <div class="form-grid edit-aligned" id="links-form" data-reads-contact>
               <label>LinkedIn<input data-contact="linkedin" type="url" placeholder="https://www.linkedin.com/in/…"></label>
@@ -1056,37 +1054,33 @@
             <span class="card-done-slot" data-done-slot></span>
             </div>
           </div>
-          <div class="setting panel" id="setting-which" data-profile-panel="details" data-wanted="0" hidden>
-            <div class="summary-head"><i data-icon="help"></i><h3>To check</h3></div>
-            <p class="muted panel-lead">Details that are unclear: a fact said two ways, a line with no clear home, a value to make exact, a fact not answered yet. Review them one at a time with your application questions; what a pick replaces is set aside, not deleted.</p>
+          <div class="setting panel roomy" id="setting-which" data-profile-panel="details" data-wanted="0" hidden>
+            <div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="help"></i></span><div class="card-words"><h3>To check</h3><p class="muted small">Details said two ways, unclear or not answered yet. Review them one at a time; what a pick replaces is set aside, not deleted.</p></div></div>
             <div id="which-list"></div>
             <div id="facts-tidied"></div>
             <div id="facts-set-aside"></div>
           </div>
-          <div class="setting panel" id="setting-eligibility" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Work eligibility</h3></div>
+          <div class="setting panel roomy" id="setting-eligibility" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="shield"></i></span><div class="card-words"><h3>Work eligibility</h3><p class="muted small">Your right to work: nationality, permits, sponsorship, per country.</p></div></div>
               <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit work eligibility"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">Your right to work: nationality, permits, sponsorship, per country.</p>
             <div class="card-read" data-facts-read="eligibility"></div>
             <div class="card-editor">
             <div class="form-grid cols-2" data-facts="eligibility"></div>
             <span class="card-done-slot" data-done-slot></span>
             </div>
           </div>
-          <div class="setting panel" id="setting-availability" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="coins"></i><h3>Availability &amp; compensation</h3></div>
+          <div class="setting panel roomy" id="setting-availability" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="coins"></i></span><div class="card-words"><h3>Availability &amp; compensation</h3><p class="muted small">Notice period, start date and the salary you tell employers (your search minimum stays in Strategy).</p></div></div>
               <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit availability and compensation"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">Notice period, start date and the salary you tell employers (your search minimum stays in Strategy).</p>
             <div class="card-read" data-facts-read="availability"></div>
             <div class="card-editor">
             <div class="form-grid cols-2" data-facts="availability"></div>
             <span class="card-done-slot" data-done-slot></span>
             </div>
           </div>
-          <div class="setting panel" id="setting-languages" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="globe"></i><h3>Languages</h3></div>
+          <div class="setting panel roomy" id="setting-languages" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="globe"></i></span><div class="card-words"><h3>Languages</h3><p class="muted small">The languages you speak, with your level.</p></div></div>
               <button type="button" class="secondary small-btn with-icon card-edit" aria-label="Edit languages"><i data-icon="edit"></i><span>Edit</span></button></div>
-            <p class="muted panel-lead">The languages you speak, with your level.</p>
             <div class="card-read" data-facts-read="languages"></div>
             <div class="card-editor">
             <div class="form-grid cols-2" data-facts="languages"></div>
@@ -1094,9 +1088,8 @@
             </div>
             <p class="message" id="facts-message"></p>
           </div>
-          <div class="setting panel" id="setting-details-profile" data-profile-panel="details">
-            <div class="panel-top"><div class="summary-head"><i data-icon="file-text"></i><h3>Voluntary surveys</h3><span class="ui-pill tone-neutral">Optional</span></div><span id="details-profile-edit"></span></div>
-            <p class="muted panel-lead">Optional standing answers for equal-opportunity questions (age, gender, disability…), so forms don't ask each time.</p>
+          <div class="setting panel roomy" id="setting-details-profile" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="file-text"></i></span><div class="card-words"><h3>Voluntary surveys <span class="ui-pill tone-neutral">Optional</span></h3><p class="muted small">Standing answers for equal-opportunity questions (age, gender, disability…), so forms don't ask each time.</p></div></div><span id="details-profile-edit"></span></div>
             <div class="exp-profile" id="details-profile"></div>
             <p class="message" id="details-profile-message"></p>
           </div>
