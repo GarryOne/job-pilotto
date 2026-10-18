@@ -65,6 +65,9 @@ export async function runNight({chromium, site, token, fetchImpl = fetch, log = 
   }
 }
 
+// The most times one form is taken in one night: the first fill plus two Fill agains. A floor under the site's answer, so a stale or wrong
+// list of waiting forms can't refill a form until the night's limit (PR #1455's image check: j1 six times).
+export const MAX_FILLS = 3;
 export const NIGHT_FAILED = 'the night could not start';   // the word the card shows beside "could not fill"; the error itself stays in the container's /state and log
 async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fillSeconds, extraArgs, launchOptions, held, record}) {
   const standIn = await createStandIn(batch, {answer: await answererFor({batch, site, token, fetchImpl})});
@@ -83,9 +86,10 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
   const guard = await net(context);
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
   // The night's forms in a line (owner, 18 Oct 2026): after each form the night is read again, and a form a Fill again added since joins the end of the line.
-  const line = [...batch.jobs];
+  const line = [...batch.jobs], fills = new Map();   // fills: how often each form was taken this night (the floor in moreFor)
   while (line.length) {
     const job = line.shift();
+    fills.set(job.id, (fills.get(job.id) || 0) + 1);
     standIn.reset(job.url);
     await held.get(job.id)?.close().catch(() => {}); held.delete(job.id);   // filled again: its earlier tab goes
     const onStep = stepper({fetchImpl, site, token, job: job.id});
@@ -113,7 +117,11 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
     const again = await post(fetchImpl, site, token, 'batch').catch(() => ({}));
     if (again.ok === false || again.error || again.stop) return false;
     if (again.line !== true) return false;   // a site from before the line returns every form, not only those waiting: the night is its first list
-    for (const next of again.jobs || []) if (!queue.some(each => each.id === next.id)) { standIn.add(next); queue.push(next); }
+    for (const next of again.jobs || []) {
+      if (queue.some(each => each.id === next.id)) continue;
+      if ((fills.get(next.id) || 0) >= MAX_FILLS) { log('form filled enough this night', {id: next.id}); continue; }   // a stale answer never loops a form
+      standIn.add(next); queue.push(next);
+    }
     return true;
   }
 }
