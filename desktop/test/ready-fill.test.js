@@ -177,3 +177,27 @@ test('a fill\'s video goes to the site with the night token, and its file is gon
   assert.equal(await sendVideo(async () => { throw new Error('down'); }, 'https://site.example', 't', 'j1', {path: file, secs: 1}), 0, 'a failed upload loses only the video');
   assert.equal(fs.existsSync(file), false);
 });
+
+// Open in my browser after the container is gone (owner, 18 Oct 2026: "Yes, sealed, 24 h max"): each held form's hand-off goes to the site, sealed there; the job's log line keeps only the upload's status.
+test('a held form\'s hand-off goes to the site with the night token; the job log never carries it', async () => {
+  const {sendHandoff, jobLine} = await import('../../hosted/ready-fill/night.mjs');
+  const given = {url: 'https://boards.example.com/apply', storage: {cookies: [{name: 'sid', value: 'cookiesecret'}], origins: []}, sessionStorage: {}, snapshot: {fields: [{id: 'n', value: 'fieldsecret'}], files: []}};
+  const calls = [];
+  const fetchImpl = async (url, init) => { calls.push({url, method: init.method, auth: init.headers.authorization, type: init.headers['content-type'], body: JSON.parse(init.body)}); return {status: 200}; };
+  assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 'RR1.b.t', 'j 1', {}, async () => given), 200);
+  assert.deepEqual(calls, [{url: 'https://site.example/api/ready/handoff?job=j%201', method: 'PUT', auth: 'Bearer RR1.b.t', type: 'application/json', body: given}]);
+  assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 't', 'j1', null, async () => given), 0, 'no held page, no call');
+  assert.equal(await sendHandoff(fetchImpl, 'https://site.example', 't', 'j1', {}, async () => { throw new Error('page closed'); }), 0, 'a failed read loses only the stored copy');
+  const line = JSON.stringify(jobLine({id: 'j1', done: {state: 'prepared', filled: 3, left: 0, ms: 9, video: null, page: {}}, blocked: 0, video: 0, handoff: 200}));
+  assert.deepEqual(JSON.parse(line), {id: 'j1', state: 'prepared', filled: 3, left: 0, ms: 9, blocked: 0, video: null, handoff: 200});
+  for (const word of ['cookiesecret', 'fieldsecret', 'boards.example.com']) assert.ok(!line.includes(word), word);
+});
+
+// A container with no night in it (a fresh one the site woke after a deploy, or one already closed) says "gone", so the runner stops it and the app says to press Fill now.
+test('a container holding no night answers gone; a running or finished night does not', async () => {
+  const {gone} = await import('../../hosted/ready-fill/night.mjs');
+  assert.equal(gone(null, {state: 'idle'}), true);
+  assert.equal(gone(null, {state: 'running'}), false);
+  assert.equal(gone(null, {state: 'failed'}), false, 'a failed night still says why on /state');
+  assert.equal(gone({held: new Map()}, {state: 'held'}), false);
+});

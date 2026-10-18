@@ -9,6 +9,7 @@ import {copyForNight} from './extension-copy.mjs';
 import {setExtensionStorage} from './extension-storage.mjs';
 import {fillJob} from './fill-job.mjs';
 import {discard} from './fill-video.mjs';
+import {handoff as handoffOf} from './live.mjs';
 import {answererFor} from './night-ai.mjs';
 import {net} from './no-submit.mjs';
 import {createStandIn} from './stand-in.mjs';
@@ -28,6 +29,24 @@ export async function sendVideo(fetchImpl, site, token, job, video) {
     return response.status;
   } catch { return 0; } finally { discard(video.path); }
 }
+
+// A held form's hand-off to the site (Open in my browser after the container is gone; owner, 18 Oct 2026: "Yes, sealed, 24 h max"): the page, its storage and its fields,
+// sealed there and deleted with the form's data. Read now, while the tab is fresh; a failed read or upload loses only the stored copy. -> the HTTP status, or 0.
+export async function sendHandoff(fetchImpl, site, token, job, page, read = handoffOf) {
+  if (!page) return 0;
+  try {
+    const body = JSON.stringify(await read(page));
+    const response = await fetchImpl(`${site}/api/ready/handoff?job=${encodeURIComponent(job)}`, {method: 'PUT', headers: {authorization: `Bearer ${token}`, 'content-type': 'application/json'}, body});
+    return response.status;
+  } catch { return 0; }
+}
+
+// Pure: the job's log line: counts, words and upload statuses only, never a field value, an address or a cookie.
+export const jobLine = ({id, done, blocked, video, handoff}) => ({id, state: done.state, filled: done.filled, left: done.left, ms: done.ms, blocked,
+  video: done.video ? {bytes: done.video.bytes, secs: done.video.secs, sent: video} : null, handoff});
+
+// Pure: a container holding no night (a fresh one the site woke after a deploy, or one already closed) answers "gone" (410) on the morning's calls, so the runner stops it again.
+export const gone = (night, status) => !night && status.state === 'idle';
 
 async function post(fetchImpl, site, token, route, body) {
   const response = await fetchImpl(`${site}/api/ready/${route}`, {method: body ? 'POST' : 'GET', headers: {authorization: `Bearer ${token}`, 'content-type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
@@ -68,9 +87,10 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
     if (done.page && ['prepared', 'partial'].includes(done.state)) held.set(job.id, done.page); else await done.page?.close().catch(() => {});   // only a filled form is worth holding
     const usd = standIn.outcome(job.url)?.usd || 0;
     const video = await sendVideo(fetchImpl, site, token, job.id, done.video);   // before the result: the last result ends the night, and its token with it
+    const handoff = held.has(job.id) ? await sendHandoff(fetchImpl, site, token, job.id, done.page) : 0;   // likewise before the result
     const answer = await post(fetchImpl, site, token, 'result', {job: job.id, state: done.state, filled: done.filled, left: done.left, humanCheck: done.humanCheck, wall: done.wall, ms: done.ms, costMicro: costMicro(done.ms, usd)});
     told.add(job.id);
-    log('job', {id: job.id, state: done.state, filled: done.filled, left: done.left, ms: done.ms, blocked: guard.blocked.length, video: done.video ? {bytes: done.video.bytes, secs: done.video.secs, sent: video} : null});
+    log('job', jobLine({id: job.id, done, blocked: guard.blocked.length, video, handoff}));
     if (answer.stop) { log('stopped by the Worker (cost cap or finished)'); break; }
   }
   return {held, context, guard, standIn, close};

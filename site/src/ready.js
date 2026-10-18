@@ -9,7 +9,7 @@ import {relay} from './ready-ai.js';
 import {makeLink, viaLink} from './ready-link.js';
 import {runNow} from './ready-tick.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
-import {dropVideos, jobsWithVideo, videoGet, videoPut} from './ready-video.js';
+import {dropKept, jobsWithKept, keptPut, videoGet} from './ready-kept.js';
 export {readyToken};
 
 export const readyOn = env => env.READY_TO_SEND === 'on' && !!env.HOSTED_STATE && !!env.READY_OWNER;
@@ -61,7 +61,7 @@ async function clear(env, install, id, jobs, now) {
     const left = jobs ? data.jobs.filter(job => !jobs.includes(job.id)) : [];
     if (left.length) await writeBlob(env, install, id, {...data, jobs: left}); else await env.HOSTED_STATE.delete(keyOf(install, id));
   }
-  await dropVideos(env, install, id, jobs, now).catch(() => {});   // Watch the fill: the videos go with the data
+  await dropKept(env, install, id, jobs, now).catch(() => {});   // the kept video and hand-off (src/ready-kept.js) go with the data
   const marks = jobs ? jobs.map(() => '?').join(',') : '';
   const changed = await env.STATS.prepare(`UPDATE ready_jobs SET cleared_at = ? WHERE batch = ? AND cleared_at IS NULL${jobs ? ` AND job IN (${marks})` : ''}`).bind(stamp(now), id, ...(jobs || [])).run();
   const open_ = await env.STATS.prepare('SELECT COUNT(*) AS n FROM ready_jobs WHERE batch = ? AND cleared_at IS NULL').bind(id).first();
@@ -173,7 +173,7 @@ async function mine(request, env, now, sub) {
       : await env.STATS.prepare('SELECT * FROM ready_batches WHERE install = ? ORDER BY night DESC LIMIT 1').bind(install).first();
     if (!row) return json({ok: true, batch: null, jobs: []});
     const {results} = await env.STATS.prepare('SELECT job, host, state, filled, left_empty, human_check, wall, ms, submitted_at, cleared_at FROM ready_jobs WHERE batch = ? ORDER BY job').bind(row.id).all();
-    const videos = await jobsWithVideo(env, install, row.id).catch(() => new Set());   // Watch the fill: which rows have the night's video
+    const videos = await jobsWithKept(env, install, 'video', row.id).catch(() => new Set());   // Watch the fill: which rows have the night's video
     return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at, aiStopped: !!row.ai_stopped}, jobs: results.map(job => ({...job, video: videos.has(job.job)}))});
   }
   if (sub === 'report') {   // the morning line: prepared / reached a form / filled completely / he submitted, per night
@@ -203,8 +203,8 @@ export async function ready(request, env, now = new Date()) {
   if (sub === 'batch') return batch(request, env, now);
   if (sub === 'result') return result(request, env, now);
   if (sub === 'ai') return aiCall(request, env, now);
-  if (sub === 'video') {   // Watch the fill (src/ready-video.js): the night's container puts a form's video; the owner reads it
-    if (request.method === 'PUT') { const row = await batchOf(env, request.headers.get('authorization'), now); return row ? (env.READY_KEK ? videoPut(request, env, row, now) : notSetUp()) : deny(); }
+  if (sub === 'video' || (sub === 'handoff' && request.method === 'PUT')) {   // src/ready-kept.js: the night's container puts a form's video (Watch the fill) or its hand-off (Open in my browser)
+    if (request.method === 'PUT') { const row = await batchOf(env, request.headers.get('authorization'), now); return row ? (env.READY_KEK ? keptPut(request, env, row, sub, now) : notSetUp()) : deny(); }
     const install = await ownerOf(request, env);
     return install ? videoGet(request, env, install) : deny();
   }

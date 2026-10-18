@@ -26,7 +26,10 @@ export const ownerSecret = storage => String(storage.secret('READY_OWNER_SECRET'
 // devBuild: the owner runs his app from source (18 Oct 2026: the card said "Always on needs a regular install" there); tests, CI and smoke runs stay off the site.
 const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': ownerSecret(storage)}, devBuild: true});
 
-const words = result => (result.ok ? result : {ok: false, status: result.status, error: result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
+// The server no longer holds the form (a deploy or the container's sleep dropped the held tabs, or the night ended): its 410 "gone", or a 404 that says "held".
+export const GONE_LINE = 'The server no longer holds this filled form (it restarted or the night ended). Press Fill now to fill it again.';
+const isGone = result => result.status === 410 || (result.status === 404 && /\bheld\b/.test(String(result.error || '')));
+const words = result => (result.ok ? result : {ok: false, status: result.status, error: isGone(result) ? GONE_LINE : result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
 
 export const owner = async (storage, options) => (await call(storage, '/api/ready/state', options)).ok === true;
 const clock = at => new Date(at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});

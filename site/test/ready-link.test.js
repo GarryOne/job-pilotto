@@ -89,7 +89,7 @@ test('the live page shows the picture only once a frame came, and says why when 
     ['connecting', [], {screen: true, wait: false}, /Opening the filled form/],
     ['open, no frame yet', ['open'], {screen: true, wait: false}, /Opening the filled form/],
     ['first frame', ['open', 'first'], {screen: false, wait: true}, null],
-    ['closed before any frame', ['open', 'close'], {screen: true, wait: false}, /closed before the form showed/],
+    ['closed before any frame: the server no longer holds it, and what to do', ['open', 'close'], {screen: true, wait: false}, /no longer holds this filled form.*Open in my browser.*Fill now/],
     ['closed after a frame', ['open', 'frame', 'close'], {screen: false, wait: true}, null],
   ];
   for (const [name, events, hidden, says] of cases) {

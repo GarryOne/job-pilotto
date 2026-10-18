@@ -175,3 +175,17 @@ test('Watch the fill: the night\'s video of a form comes back as bytes, with the
   assert.match((await video(storage(), 'j1', {fetcher: async () => new Response('{}', {status: 404})})).error, /No video was kept/);
   assert.match((await video(storage(), 'j1', {fetcher: async () => { throw new Error('offline'); }})).error, /Could not reach/);
 });
+
+// Open in my browser when the server no longer holds the form (18 Oct 2026: the owner's app said "Ready to send is not on for this install." after a deploy dropped the held tabs):
+// the line says what happened and what to do, for every way the site says it: the container's 410 "gone", the site's 404 "nothing held", the container's 404 "not held".
+test('a form the server no longer holds reads as "press Fill now", never "not on for this install"', async () => {
+  const {handoff, GONE_LINE} = await import('../lib/ready-site.js');
+  assert.match(GONE_LINE, /no longer holds this filled form/);
+  assert.match(GONE_LINE, /Fill now/);
+  for (const [status, body] of [[410, {ok: false, error: 'gone: this container holds no night'}], [404, {ok: false, error: 'nothing held for this job'}], [404, {ok: false, error: 'not held'}]]) {
+    const result = await handoff(storage(), 'j1', {fetcher: site(status, body).fetcher});
+    assert.equal(result.error, GONE_LINE, `${status} ${body.error}`);
+  }
+  assert.match((await handoff(storage(), 'j1', {fetcher: site(401, {ok: false}).fetcher})).error, /not on for this install/, 'a refused owner still reads as before');
+  assert.equal((await handoff(storage(), 'j1', {fetcher: site(200, {ok: true, url: 'https://boards.example.com/apply'}).fetcher})).url, 'https://boards.example.com/apply');
+});

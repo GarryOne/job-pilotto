@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {tokenFor} from '../src/guard.js';
 import {ready, readyToken, start, sweep} from '../src/ready.js';
+import {dropKept} from '../src/ready-kept.js';
 
 const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
@@ -33,7 +34,7 @@ async function night(e = env()) {
 }
 
 test('off, or any install but the owner, reaches nothing: a class check over every route', async () => {
-  const subs = ['batch', 'result', 'ai', 'video', 'done', 'submitted', 'state', 'report', 'data'];
+  const subs = ['batch', 'result', 'ai', 'video', 'handoff', 'done', 'submitted', 'state', 'report', 'data'];
   const off = env({READY_TO_SEND: 'off'});
   for (const sub of subs) assert.equal((await call(off, 'GET', sub)).status, 404, `${sub} off`);
   const e = env();
@@ -139,7 +140,7 @@ test('a night token is bound to its batch and a replaced night is deleted', asyn
   assert.equal(e.HOSTED_STATE.m.size, 1); assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM ready_batches').get().n, 1);
 });
 
-// Watch the fill (src/ready-video.js; owner, 18 Oct 2026: a video for every form the night opens, kept on our server).
+// Watch the fill (src/ready-kept.js; owner, 18 Oct 2026: a video for every form the night opens, kept on our server).
 const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]);
 const putVideo = (e, headers, job = 'j1', secs = 42, body = WEBM, type = 'video/webm') => ready(new Request(`https://x/api/ready/video?job=${job}&secs=${secs}`, {method: 'PUT', headers: {...headers, 'content-type': type}, body}), e, now);
 
@@ -182,11 +183,63 @@ test('a video is deleted with its job: Done, the 24 h sweep, Delete everything; 
   await putVideo(second.e, second.bearer, 'j1');
   await call(second.e, 'DELETE', 'data', undefined, await owner());
   assert.equal([...second.e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/')).length, 0, 'Delete everything');
-  const {dropVideos} = await import('../src/ready-video.js');
   const third = await night();
   await putVideo(third.e, third.bearer, 'j1');
   const [old] = [...third.e.HOSTED_STATE.m.keys()].filter(k => k.includes('/video/'));
   third.e.HOSTED_STATE.at.set(old, new Date(now.getTime() - 8 * 86400000));
-  await dropVideos(third.e, 'owner-install-1', 'another-batch', [], now);
+  await dropKept(third.e, 'owner-install-1', 'another-batch', [], now);
   assert.equal(third.e.HOSTED_STATE.m.has(old), false, 'older than 7 days goes on any clean-up');
+});
+
+// Open in my browser after the night's container is gone (owner, 18 Oct 2026: "Yes, sealed, 24 h max"): the night keeps each held form's hand-off sealed beside the batch;
+// the owner's GET serves it even with no container (a deploy or the container's sleep drops the held tabs); it goes with the form's data and never outlives 24 h.
+const HANDOFF = {url: 'https://boards.example.com/acme/apply', storage: {cookies: [{name: 'sid', value: 'cookiesecret', domain: 'boards.example.com', path: '/'}], origins: []}, sessionStorage: {step: 'two'}, snapshot: {fields: [{id: 'name', value: 'Alex fieldsecret'}], files: []}};
+const putHandoff = (e, headers, job = 'j1', body = JSON.stringify(HANDOFF), type = 'application/json') => ready(new Request(`https://x/api/ready/handoff?job=${job}`, {method: 'PUT', headers: {...headers, 'content-type': type}, body}), e, now);
+const handoffs = e => [...e.HOSTED_STATE.m.keys()].filter(k => k.includes('/handoff/'));
+
+test('a held form\'s hand-off: put by the night, sealed at rest, served to the owner with no container', async () => {
+  const {e, bearer} = await night();   // no READY_RUNNER: the container is gone
+  assert.equal((await putHandoff(e, bearer)).status, 200);
+  const [key] = handoffs(e);
+  assert.ok(key.startsWith('ready/owner-install-1/handoff/'), 'under the install, so Delete everything removes it');
+  const stored = new TextDecoder().decode(e.HOSTED_STATE.m.get(key));
+  for (const word of ['cookiesecret', 'fieldsecret', 'boards.example.com']) assert.ok(!stored.includes(word), `${word} is never stored unsealed`);
+  const got = await call(e, 'GET', 'handoff?job=j1', undefined, await owner());
+  assert.equal(got.status, 200);
+  assert.deepEqual(await got.json(), {ok: true, ...HANDOFF});
+  assert.equal((await call(e, 'GET', 'handoff?job=j1', undefined, bearer)).status, 401, 'the night token never reads it back');
+  assert.equal((await call(e, 'GET', 'handoff?job=j2', undefined, await owner())).status, 503, 'none kept: it asks the container (not wired here)');
+});
+
+test('a hand-off is refused without a page address, as another type, too big, for another job, or after the night', async () => {
+  const {e, bearer} = await night();
+  assert.equal((await putHandoff(e, {})).status, 401);
+  assert.equal((await putHandoff(e, bearer, 'other')).status, 404);
+  assert.equal((await putHandoff(e, bearer, 'j1', JSON.stringify({...HANDOFF, url: 'javascript:alert(1)'}))).status, 400);
+  assert.equal((await putHandoff(e, bearer, 'j1', 'not json')).status, 400);
+  assert.equal((await putHandoff(e, bearer, 'j1', JSON.stringify(HANDOFF), 'text/plain')).status, 400);
+  assert.equal((await putHandoff(e, bearer, 'j1', JSON.stringify({...HANDOFF, pad: 'x'.repeat(2 * 1024 * 1024)}))).status, 413);
+  for (const job of ['j1', 'j2']) await call(e, 'POST', 'result', {job, state: 'partial', filled: 1, left: 1}, bearer);
+  assert.equal((await putHandoff(e, bearer)).status, 401, 'the night is over: its token is too');
+  assert.equal(handoffs(e).length, 0);
+});
+
+test('a hand-off is deleted with its form: Done, the 24 h sweep, Delete everything; never kept past 24 h (seeded clock)', async () => {
+  const {e, bearer} = await night();
+  await putHandoff(e, bearer, 'j1'); await putHandoff(e, bearer, 'j2');
+  await call(e, 'POST', 'done', {job: 'j1'}, await owner());
+  assert.equal(handoffs(e).length, 1, 'Done takes that form\'s hand-off');
+  assert.equal((await call(e, 'GET', 'handoff?job=j1', undefined, await owner())).status, 404, 'and nothing is served for it');
+  await sweep(e, new Date(now.getTime() + 25 * 3600 * 1000));
+  assert.equal(handoffs(e).length, 0, 'the sweep takes the rest with the batch');
+  const second = await night();
+  await putHandoff(second.e, second.bearer, 'j1');
+  await call(second.e, 'DELETE', 'data', undefined, await owner());
+  assert.equal(handoffs(second.e).length, 0, 'Delete everything');
+  const third = await night();
+  await putHandoff(third.e, third.bearer, 'j1');
+  const [old] = handoffs(third.e);
+  third.e.HOSTED_STATE.at.set(old, new Date(now.getTime() - 25 * 3600 * 1000));
+  await dropKept(third.e, 'owner-install-1', 'another-batch', [], now);
+  assert.equal(third.e.HOSTED_STATE.m.has(old), false, 'older than 24 h goes on any clean-up, whatever its batch');
 });
