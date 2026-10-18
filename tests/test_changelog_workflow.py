@@ -27,10 +27,10 @@ class ChangelogWorkflowTests(unittest.TestCase):
         self.assertIn('--job changelog-publish', CODE)
         self.assertIn('fetch-depth: 0', CODE)   # the commits between two release tags
 
-    def test_an_older_version_is_only_drafted_when_a_person_asks_for_the_backfill(self):
-        self.assertRegex(FLOW.split('permissions:')[0], r"inputs:\s+backfill:[\s\S]*default: false")
-        self.assertIn('--backfill', CODE)
-        self.assertIn('BACKFILL: ${{ inputs.backfill }}', CODE)
+    def test_the_automatic_run_has_no_backfill_switch(self):
+        # the one-time backfill of older versions is a local run of the tool (owner, 18 Oct 2026), never a button in CI
+        self.assertNotIn('backfill', CODE.lower())
+        self.assertNotIn('inputs:', CODE)
 
     def test_one_run_at_a_time_and_a_run_that_fails_says_why_in_its_log(self):
         self.assertIn('group: changelog-publish', CODE)
