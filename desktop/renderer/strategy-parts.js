@@ -88,10 +88,9 @@ export function withTyped(edits, typed, plain, stored = () => []) {
   }
   return out;
 }
-// The one suggestions line under Strategy's tabs (owner, 18 Oct 2026, review fix 3): "7 suggestions to improve your search", and the top one.
-// top: the first kind's brief {title, text}; its "+ " / "− " lead is dropped.
-export const improveWords = (count, top) => ({title: `${count} suggestion${count === 1 ? '' : 's'} to improve your search`,
-  top: top ? `Top: ${top.title.replace(/^[+−] /, '')}${top.text ? ` (${top.text})` : ''}` : ''});
+// The one suggestions line under Strategy's tabs (owner, 18 Oct 2026, review fix 3): its count is shared-counts.js "strategy-suggestions"; this is the
+// top one. top: the first kind's brief {title, text}; its "+ " / "− " lead is dropped.
+export const improveWords = top => ({top: top ? `Top: ${top.title.replace(/^[+−] /, '')}${top.text ? ` (${top.text})` : ''}` : ''});
 
 // Main goals' Minimum salary as read (owner, 18 Oct 2026: "Show salary currency and period explicitly"): a salary the control can read is said as
 // "CHF 130,000 / year" (· gross); one it cannot is shown as written, with the way to pick its parts. -> {text, note}.

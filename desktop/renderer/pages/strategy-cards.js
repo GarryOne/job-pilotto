@@ -1,10 +1,11 @@
 // Strategy's cards as one system (owner, 18 Oct 2026, UI redesign B, decision 4): each card reads as a summary with a quiet Edit; Edit opens only that
-// card's editor (opening another keeps the first one's draft, its summary shows the draft with "Unsaved"); Done or Esc closes an editor, drafts kept;
+// card's editor (opening another keeps the first one's draft, its summary shows the draft with "Unsaved"); Esc closes an editor, its draft kept, and
+// card-shell.js doneButton closes one that holds no change;
 // nothing saves per card: Strategy's one page bar (save-bar.js pageSaveBar, "Save strategy changes") saves or discards every card's draft, and never a
 // Profile draft. Goals follow the same Edit → Save. The cards: Main goals (main-goals.js), Locations and the Advanced ones (strategy-targets.js), Job
 // preferences (job-preferences.js, through outline-tab.js's {bar}). Guarded by test/strategy-cards.test.js.
 import {cardEdit, el, pill, tile} from '../components.js';
-import {setEditing} from '../card-shell.js';
+import {doneButton, setEditing} from '../card-shell.js';
 import {pageSaveBar} from '../save-bar.js';
 import {$} from './core.js';
 import {strategyState, showTab} from './strategy-state.js';
@@ -37,8 +38,8 @@ export function cardCount(key) {
 }
 export const isOpen = key => strategyState.editing === key;
 
-// The card's header: its tile and title, "Unsaved" while it holds a draft, and a quiet Edit (Done while its editor is open).
-export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = '') {
+// The card's header: its tile and title, "Unsaved" while it holds a draft, and a quiet Edit (the shared Done while its editor is open). card: its section.
+export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = '', card = null) {
   const head = el('div', 'card-head'), heading = el('h3'), words = el('div', 'card-words');
   heading.append(tile(glyph, tone), title);
   const badge = pill('Unsaved', 'warn');
@@ -48,7 +49,7 @@ export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = ''
   words.append(heading, ...(lead ? [el('p', 'muted small', lead)] : []));
   head.append(words);
   if (isOpen(key)) {
-    const done = Object.assign(el('button', 'link card-done', 'Done'), {type: 'button', title: 'Close the editor; your changes stay until you save or discard them'});
+    const done = doneButton(card, () => cardCount(key));
     done.addEventListener('click', closeCard);
     head.append(done);
   } else head.append(cardEdit('Edit', title.toLowerCase(), () => openCard(key)));
@@ -76,6 +77,7 @@ export function changed() {
   for (const card of document.querySelectorAll('.strategy-page [data-card]')) {
     const badge = card.querySelector('.unsaved-badge');
     if (badge) badge.hidden = !cardCount(card.dataset.card);
+    card.querySelector('.card-done')?.sync?.();
   }
   bar?.changed();
 }
