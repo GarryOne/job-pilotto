@@ -11,7 +11,6 @@ import {fillJob} from './fill-job.mjs';
 import {answererFor} from './night-ai.mjs';
 import {net} from './no-submit.mjs';
 import {createStandIn} from './stand-in.mjs';
-import {showEndState} from './end-state.mjs';
 
 export const EXTENSION_DIR = process.env.EXTENSION_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 // Pure: what a job cost us, micro-USD: the container's seconds (standard-1: 4 GiB memory + 8 GB disk + CPU, measured ≈ $0.000012 a second) plus the AI the extension reported.
@@ -56,7 +55,7 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
   for (const job of batch.jobs) {
     const done = await fillJob({context, standIn, job, fillSeconds}).catch(error => ({state: 'failed', wall: 'error', filled: 0, left: 0, humanCheck: false, ms: 0, page: null, error: String(error).slice(0, 80)}));
-    if (done.page && ['prepared', 'partial'].includes(done.state)) { await showEndState(done.page); held.set(job.id, done.page); } else await done.page?.close().catch(() => {});   // only a filled form is worth holding; it shows its end state only
+    if (done.page && ['prepared', 'partial'].includes(done.state)) held.set(job.id, done.page); else await done.page?.close().catch(() => {});   // only a filled form is worth holding
     const usd = standIn.outcome(job.url)?.usd || 0;
     const answer = await post(fetchImpl, site, token, 'result', {job: job.id, state: done.state, filled: done.filled, left: done.left, humanCheck: done.humanCheck, wall: done.wall, ms: done.ms, costMicro: costMicro(done.ms, usd)});
     told.add(job.id);
