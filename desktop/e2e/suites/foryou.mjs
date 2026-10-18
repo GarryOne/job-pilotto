@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {DESKTOP, launch} from '../lib/app.mjs';
 import {appLogLines} from '../lib/app-log.mjs';
+import {LEAVE_DIALOG} from '../lib/leave-prompt.mjs';
+const BAR = '#strategy-bar-host .page-save-bar';   // Strategy's one save bar (renderer/pages/strategy-cards.js)
 
 export const name = 'foryou';
 export const minutes = 3;
@@ -95,24 +97,26 @@ export async function run(ctx) {
       }
     });
 
-    await ctx.run('a strategy draft: save bar and Edited badge, typed text kept across tabs, leaving asks, Save clears it', async () => {
+    await ctx.run('a strategy draft: one card\'s editor, Unsaved badge, the page bar on every tab, typed text kept, leaving asks, Save clears it', async () => {
       await page.click('.nav[data-view=strategy]');
       await page.click('[data-tab=strategy-yours]');
-      await page.locator('#strategy-targets .card-edit').first().click();
-      await page.fill('#strategy-targets input.add[data-list=roles]', 'cashier');
-      if (!await page.locator('#strategy-savebar:visible').count()) throw new Error('no save bar after typing');
-      if (!await page.locator('#strategy-targets .card[data-list=roles] .edited-badge:visible').count()) throw new Error('no Edited badge on Roles');
+      await page.locator('#strategy-main-goals .card-edit').first().click();
+      if (await page.locator('.strategy-page .card-done').count() !== 1) throw new Error('Edit opened more than one editor');
+      await page.fill('#strategy-main-goals input.add[data-list=roles]', 'cashier');
+      if (!await page.locator(`${BAR}:visible`).count()) throw new Error('no save bar after typing');
+      if (!await page.locator('#strategy-main-goals .unsaved-badge:visible').count()) throw new Error('no Unsaved badge on Main goals');
+      if (!/Save strategy changes/.test(await text(page, BAR))) throw new Error(`the bar does not say what it saves: ${await text(page, BAR)}`);
       await page.click('[data-tab=strategy-scoring]');
-      if (!await page.locator('#strategy-savebar:visible').count()) throw new Error('the save bar left with the tab');
+      if (!await page.locator(`${BAR}:visible`).count()) throw new Error('the save bar left with the tab');
       await page.click('[data-tab=strategy-yours]');
-      const kept = await page.inputValue('#strategy-targets input.add[data-list=roles]');
+      const kept = await page.inputValue('#strategy-main-goals input.add[data-list=roles]');
       if (kept !== 'cashier') throw new Error(`typed text after a tab switch: "${kept}"`);
       await page.click('.nav[data-view=focus]');
-      if (!await waitFor(() => page.locator('#strategy-leave-dialog[open]').count().then(n => n > 0), 3000)) throw new Error('leaving with a draft did not ask');
-      await page.click('#strategy-leave-dialog button[value=keep]');
+      if (!await waitFor(() => page.locator(LEAVE_DIALOG).count().then(n => n > 0), 3000)) throw new Error('leaving with a draft did not ask');
+      await page.click(`${LEAVE_DIALOG} button[value=keep]`);
       if (await page.locator('.view[data-view=strategy]').isHidden()) throw new Error('Keep editing left the page anyway');
-      await page.click('#targets-save');
-      if (!await waitFor(() => page.locator('#strategy-savebar:visible').count().then(n => n === 0), 8000)) throw new Error(`still unsaved: ${await text(page, '#strategy-savebar')}`);
+      await page.click(`${BAR} button.primary`);
+      if (!await waitFor(() => page.locator(`${BAR}:visible`).count().then(n => n === 0), 8000)) throw new Error(`still unsaved: ${await text(page, BAR)}`);
     });
 
     await ctx.run('adding a suggested role says the next step: the pop-up offers Find jobs', async () => {

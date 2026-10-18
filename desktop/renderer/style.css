@@ -2295,7 +2295,6 @@ button.is-busy { cursor: progress; opacity: .7; }
 .save-bar .message { margin: 0; }
 .save-bar.is-nudged { animation: save-bar-nudge .5s var(--ease) 2; }
 @keyframes save-bar-nudge { 50% { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); } }
-.strategy-page .edited-badge { margin-left: var(--sp-1); }
 /* The target cards in two columns that stack on their own: no empty space under the shorter card of a row. */
 .strategy-page .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 @media (max-width: 1000px) { .strategy-page .review-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="card-shell.css">
 <link rel="stylesheet" href="profile-page.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="strategy-cards.css">
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="question-review.css">
 <link rel="stylesheet" href="experience-tab.css">
@@ -828,12 +829,10 @@
       <div class="card strategy-notice improve-line" id="strategy-improve" hidden></div>
       </div>
       <section class="strategy-section" id="strategy-yours" role="tabpanel">
-        <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
+        <!-- Owner, 18 Oct 2026 (mockup 03, decisions 1-4): Main goals, then Locations beside Job preferences, then Advanced search settings folded;
+             each card reads as a summary with a quiet Edit, one editor open at a time, one save bar for every draft (pages/strategy-cards.js). -->
         <div class="review strategy-live" id="strategy-live">
-          <section class="card overview goals-card">
-            <div class="card-head"><h3>Goals</h3><p class="muted small" id="goals-note">What every job is scored against. Click a value to correct it.</p></div>
-            <dl class="target-rows goal-rows goal-strip" id="strategy-goals"></dl>
-          </section>
+          <div id="strategy-main-goals"></div>
           <!-- Owner, 17 Oct 2026: where you want to work has one home; a difference between the old lists is asked once (pages/locations-which.js). -->
           <section class="card setting" id="strategy-locations-which" hidden>
             <div class="card-head"><div><h3>Which locations are right?</h3><p class="muted small">Your search settings and your Profile named different places. Pick for each; nothing changes until you do.</p></div></div>
@@ -842,12 +841,19 @@
             <div id="locations-set-aside"></div>
           </section>
           <!-- Owner, 17 Oct 2026: must-haves / deal-breakers apart from preferences that rank; from Profile → Preferences (pages/job-preferences.js). -->
+          <div class="strategy-pair">
+          <div id="strategy-locations"></div>
           <section class="card job-prefs setting" id="strategy-job-prefs">
             <div class="card-head job-prefs-head"><div><h3>Job preferences</h3><p class="muted small">What a job must have, and what ranks it higher. Scoring reads them.</p></div>
               <div class="panel-actions"><button class="secondary" id="preferences-review">Review your preferences</button></div></div>
             <div class="outline-body" id="preferences-body"></div>
           </section>
-          <div class="review-grid" id="strategy-targets"></div>
+          </div>
+          <details class="card advanced-settings" id="strategy-advanced">
+            <summary><span class="ui-tile tone-neutral"><i data-icon="sliders"></i></span>
+              <span class="card-words"><b>Advanced search settings</b><span class="muted small">Job board searches, skills, exclusions and more.</span></span></summary>
+            <div class="review-grid" id="strategy-targets"></div>
+          </details>
         </div>
       </section>
       <section class="strategy-section" id="strategy-suggestions" role="tabpanel" hidden>
@@ -872,12 +878,8 @@
           </article>
         </div>
       </section>
-      <!-- One draft for every editable card (owner, 7 Oct 2026): shown while editing, on every tab, until saved or discarded. -->
-      <div class="save-bar" id="strategy-savebar" role="region" aria-label="Unsaved strategy changes" hidden>
-        <div class="save-bar-words"><b id="savebar-title">Unsaved strategy changes</b><span class="muted small" id="savebar-sub">Applies to future searches.</span></div>
-        <span class="message" id="targets-message"></span>
-        <button class="secondary" id="targets-cancel">Discard changes</button><button class="primary" id="targets-save">Save changes</button>
-      </div>
+      <!-- Strategy's one save bar (pages/strategy-cards.js): every card's draft, on every tab, until saved or discarded. -->
+      <div id="strategy-bar-host"></div>
       <p class="message" id="strategy-load"></p>
     </div>
 
@@ -1990,18 +1992,6 @@
     <div class="dialog-foot">
       <button class="ghost" value="cancel">Cancel</button>
       <button class="primary" value="go" id="rescore-go">Re-score</button>
-    </div>
-  </form>
-</dialog>
-<!-- Leaving Strategy with unsaved changes (pages/strategy.js leaveStrategy): the only time the draft asks. -->
-<dialog id="strategy-leave-dialog" class="panel-dialog">
-  <form method="dialog">
-    <div class="dialog-head"><span class="dialog-icon"><i data-icon="sliders"></i></span><h2>Save your strategy changes?</h2></div>
-    <p class="dialog-lead">You changed your strategy and have not saved it. Saved changes apply to your future searches.</p>
-    <div class="dialog-foot">
-      <button class="ghost" value="keep">Keep editing</button>
-      <button class="secondary" value="discard">Discard</button>
-      <button class="primary" value="save">Save changes</button>
     </div>
   </form>
 </dialog>

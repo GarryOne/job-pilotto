@@ -1,0 +1,44 @@
+/* Strategy → Your strategy (owner, 18 Oct 2026, UI redesign B, mockup 03): Main goals tiles, Locations beside Job preferences, Advanced search settings
+   folded, the "Unsaved" pill and Done of a card (pages/strategy-cards.js). Built on .card, .goal-strip, .review-grid and card-shell.css; only the
+   layouts they lack are here. Tokens only (test/design.test.js). */
+.strategy-live { display: grid; gap: var(--sp-4); }
+.strategy-page .card-words { display: grid; gap: 2px; min-width: 0; }
+.strategy-page .card-words h3 { display: flex; align-items: center; gap: var(--sp-2); }
+.strategy-page .unsaved-badge { margin-left: var(--sp-1); }
+.strategy-page .card-done { margin-left: auto; flex: none; }
+.strategy-page .card.is-editing { border-color: var(--line-strong); }
+
+/* Main goals: four tiles side by side when they fit, 2×2 when the card is narrower (decision 1). */
+.strategy-page .main-goals { container-type: inline-size; }
+.strategy-page .main-goal-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; margin: var(--sp-3) 0 0; }
+.strategy-page .main-goal-tiles dt { display: flex; align-items: center; gap: var(--sp-2); }
+.strategy-page .main-goal-tiles dd { display: grid; gap: 2px; margin: 0; }
+.strategy-page .main-goal-tiles .goal-note { color: var(--muted); font-weight: 500; }
+@container (max-width: 720px) {
+  .strategy-page .main-goal-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); }
+  .strategy-page .main-goal-tiles > :nth-child(5), .strategy-page .main-goal-tiles > :nth-child(6) { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 1000px) {
+  .strategy-page .main-goal-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); grid-auto-flow: column; }
+  .strategy-page .main-goal-tiles dt, .strategy-page .main-goal-tiles dd { border-top: 0; padding: 0 var(--sp-4); }
+}
+/* Languages and Work eligibility from Your details: one quiet line that wraps (decision 2). */
+.strategy-page .details-facts { margin: var(--sp-3) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+.strategy-page .details-facts .link { padding: 0; font-size: inherit; }
+
+/* Locations beside Job preferences; one column when narrow. */
+.strategy-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
+.strategy-pair > * { min-width: 0; }
+.strategy-pair .card { margin: 0; }
+@media (max-width: 1000px) { .strategy-pair { grid-template-columns: minmax(0, 1fr); } }
+
+/* Advanced search settings: one folded card whose summary reads like a card head; the cards inside sit on the page's own grid. */
+.strategy-page .advanced-settings { padding: 0; }
+.strategy-page .advanced-settings > summary { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); cursor: pointer; list-style: none; }
+.strategy-page .advanced-settings > summary::-webkit-details-marker { display: none; }
+.strategy-page .advanced-settings > summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
+.strategy-page .advanced-settings[open] > summary::after { content: '▴'; }
+.strategy-page .advanced-settings > .review-grid { padding: 0 var(--sp-5) var(--sp-5); }
+.strategy-page .advanced-settings .card { box-shadow: none; }
+/* The page bar's host adds no box, so the bar sticks within the whole page (a sticky box only moves inside its parent). */
+#strategy-bar-host { display: contents; }

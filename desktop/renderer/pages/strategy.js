@@ -1,4 +1,4 @@
-// Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there. Entry: loadStrategy and init; the cards are strategy-targets.js and strategy-suggestions.js, shared state strategy-state.js. Guarded by: advice-events, save-progress, activity-selection-kept tests.
+// Strategy page: the search strategy and its coverage. Entry: loadStrategy and init; the cards are main-goals.js, strategy-targets.js and strategy-suggestions.js, their drafts and one save bar strategy-cards.js, shared state strategy-state.js. Guarded by: advice-events, save-progress, activity-selection-kept, strategy-cards tests.
 import {openInNotion} from './notion-connect.js';
 import {el, openMenu, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -8,7 +8,8 @@ import {bone} from './focus.js';
 import {guardLeave, openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {strategyState, showTab} from './strategy-state.js';
-import {CARD_TONE, TARGET_CARDS, dirty, inColumns, discardTargets, saveTargets, renderStrategy} from './strategy-targets.js';
+import {ADVANCED, CARD_TONE, TARGET_CARDS, entriesOf, inColumns, renderCards, renderStrategy} from './strategy-targets.js';
+import {strategyBar} from './strategy-cards.js';
 import {loadCoverage} from './strategy-suggestions.js';
 import {loadPreferences, reviewPreferences} from './job-preferences.js';
 import {loadLocationsWhich} from './locations-which.js';
@@ -41,7 +42,7 @@ function strategySkeleton() {
   const chipBones = n => { const box = el('div', 'chip-list'); for (let i = 0; i < n; i++) box.append(bone('chip')); return box; };
   // The target cards themselves (TARGET_CARDS: head, then each list's label and chips), greyed. 7 Oct 2026: the old Roles/Locations rows,
   // left from before the cards, fell into the cards' grid as loose lines.
-  $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(([key, glyph, title, lists]) => {
+  const bones = TARGET_CARDS.map(([key, glyph, title, lists]) => {
     const card = el('section', 'card is-loading'), head = el('div', 'card-head'), heading = el('h3');
     card.dataset.list = key;
     heading.append(tile(glyph, CARD_TONE[key] || 'neutral'), title);
@@ -53,7 +54,14 @@ function strategySkeleton() {
       card.append(chipBones(lists.length > 1 ? 2 : 3));
     }
     return card;
-  })));
+  });
+  $('strategy-locations').replaceChildren(...bones.filter(card => card.dataset.list === 'places'));
+  $('strategy-targets').replaceChildren(...inColumns(bones.filter(card => ADVANCED.includes(card.dataset.list))));
+  const goals = el('section', 'card main-goals is-loading'), strip = el('div', 'goal-strip main-goal-tiles');
+  for (let i = 0; i < 4; i++) strip.append(bone('w-label'), bone('w-name tall'));
+  goals.append(el('div', 'card-head'), strip);
+  goals.firstChild.append(Object.assign(el('h3'), {textContent: 'Main goals'}));
+  $('strategy-main-goals').replaceChildren(goals);
   $('strategy-scores').replaceChildren(...['settings', 'layers', 'pin', 'chart'].map(glyph => {
     const line = el('div', 'score-bar is-loading');
     line.append(icon(glyph), bone('w-name tall'), bone('w-track'), bone('w-level'));
@@ -72,18 +80,6 @@ function strategySkeleton() {
   pill.id = 'strategy-view-loading';
   $('strategy-synced').replaceChildren(pill);
 }
-// Leaving Strategy with unsaved changes: the one place the draft asks (Save / Discard / Keep editing). Switching tabs never asks.
-function leaveStrategy(proceed) {
-  if (!strategyState.targetEdits || !dirty().size) return true;
-  const dialog = $('strategy-leave-dialog');
-  dialog.returnValue = '';
-  dialog.onclose = async () => {
-    if (dialog.returnValue === 'discard') { discardTargets(); proceed(); }
-    if (dialog.returnValue === 'save' && await saveTargets()) proceed();
-  };
-  dialog.showModal();
-  return false;
-}
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
@@ -94,10 +90,10 @@ export async function init() {
   window.pilot.onVisitRead?.(answer => toastMessage(answer.fits === undefined ? `Read ${answer.jobs} jobs from ${answer.name}` : `Read ${answer.jobs} jobs from ${answer.name}, ${answer.fits} matching your search`,
     answer.fits ? 'Your next jobs check scores the matching ones: those that fit your profile join your Jobs list.' : 'The reading works; none of these match your role words and places, so your Jobs list stays the same.'));
   for (const tab of document.querySelectorAll('.strategy-tabs [data-tab]')) tab.addEventListener('click', () => showTab(tab.dataset.tab));
-  guardLeave('strategy', leaveStrategy);
+  // One bar for every Strategy draft, "Save strategy changes" (owner, 18 Oct 2026, decision 4); leaving with a draft asks (Keep editing / Discard all / Save).
+  const bar = strategyBar({redraw: renderCards, reload: loadStrategy, entriesOf: name => entriesOf(strategyState.lastStrategy, name)});
+  guardLeave('strategy', bar.leave);
   $('profile-empty-rebuild').addEventListener('click', () => $('strategy-redo').click());   // the same Rebuild from CV as the Profile page
-  $('targets-cancel').addEventListener('click', discardTargets);
-  $('targets-save').addEventListener('click', saveTargets);
   // ⋯ → the one Notion link (owner, 18 Oct 2026, review fix 10): the search settings page, else the Profile (Job preferences live there).
   const sourceKey = () => (shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID');
   $('strategy-more').addEventListener('click', () => openMenu($('strategy-more'), [{label: 'View source in Notion', icon: 'link', run: event => openInNotion(sourceKey(), event)}]));   // about Notion

@@ -40,3 +40,19 @@ test('Notion is one menu item behind ⋯, shown on the Notion store only', () =>
   assert.equal((init.match(/in Notion/g) || []).length, 1);
   assert.match(init, /openMenu\(\$\('strategy-more'\), \[\{label: 'View source in Notion'/);
 });
+
+// Mockup 03 (owner, 18 Oct 2026): Main goals → Locations beside Job preferences → Advanced search settings folded; the bar after the tabs' content.
+test('Your strategy: Main goals, then Locations beside Job preferences, then Advanced folded; one bar for every tab', () => {
+  const at = id => page.indexOf(`id="${id}"`);
+  for (const id of ['strategy-main-goals', 'strategy-locations', 'strategy-job-prefs', 'strategy-advanced', 'strategy-targets']) assert.ok(at(id) > 0, id);
+  assert.ok(at('strategy-main-goals') < at('strategy-locations') && at('strategy-locations') < at('strategy-job-prefs') && at('strategy-job-prefs') < at('strategy-advanced'));
+  assert.match(page, /<details class="card advanced-settings" id="strategy-advanced">/, 'folded until opened');
+  assert.ok(at('strategy-advanced') < at('strategy-targets'), 'the Advanced cards live inside it');
+  assert.ok(at('strategy-bar-host') > at('strategy-scoring'), 'the bar sits after every tab, so it stays on each');
+  assert.doesNotMatch(html, /id="strategy-savebar"|id="strategy-leave-dialog"|id="targets-save"/, 'the old bar and its dialog are gone');
+});
+
+test('class: every Strategy card is reachable from ⌘K', () => {
+  const nav = read('renderer/pages/nav.js');
+  for (const name of ['Main goals', 'Locations', 'Job preferences', 'Advanced search settings']) assert.match(nav, new RegExp(`add\\('Strategy', '${name}'`), name);
+});

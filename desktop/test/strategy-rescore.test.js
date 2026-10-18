@@ -34,14 +34,14 @@ test('the re-score starts only from the dialog, once at a time, until its search
 });
 
 test('no other path re-scores: saving settings never starts one by itself', () => {
-  const renderer = ['renderer/pages/strategy.js', 'renderer/pages/strategy-targets.js', 'renderer/pages/strategy-suggestions.js', 'renderer/pages/job-preferences.js',
+  const renderer = ['renderer/pages/strategy.js', 'renderer/pages/strategy-targets.js', 'renderer/pages/strategy-cards.js', 'renderer/pages/main-goals.js', 'renderer/pages/strategy-suggestions.js', 'renderer/pages/job-preferences.js',
     'renderer/pages/locations-which.js', 'renderer/pages/locations-card.js'];
   for (const file of renderer) assert.doesNotMatch(read(file), /rescoreOutdated|reason: 'rescore'/, `${file} must not start a re-score`);
 });
 
 test('the notice is drawn from the fresh read of the saved settings, never the saved copy or the draft', () => {
   assert.match(read('renderer/pages/strategy.js'), /renderStrategy\(\{\.\.\.saved\.result, profile_empty: false, previous: 0, outdated: null\}\)/);
-  assert.match(read('renderer/pages/strategy-targets.js'), /drawOutdated\(data\.outdated, loadStrategy\);[^\n]*\n\s*if \(strategyState\.targetEdits\)/);
+  assert.match(read('renderer/pages/strategy-targets.js'), /drawOutdated\(data\.outdated, loadStrategy\);[^\n]*\n\s*if \(strategyState\.editing\)/);
 });
 
 test('the suggestions count stays apart from outdated scores', () => {

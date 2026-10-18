@@ -25,9 +25,11 @@ test('a fixed tile shows its value and "Edit in Your details", never a pencil; t
   for (const key of ['seniority', 'work_mode', 'minimum_salary']) assert.ok(boxes[key].querySelector('.goal-edit'), `${key}: still edited here`);
 });
 
-test('the Strategy page passes Work eligibility and Languages as fixed, each to its own Your details section', () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/strategy-targets.js', import.meta.url), 'utf8');
-  assert.match(source, /fixed: \{eligibility: \(\) => openSetting\('eligibility'\), languages: \(\) => openSetting\('languages'\)\}/);
+test('Strategy\'s Main goals reads Work eligibility and Languages from Your details, with the link to their section there', () => {
+  const source = fs.readFileSync(new URL('../renderer/pages/main-goals.js', import.meta.url), 'utf8');
+  assert.match(source, /'Edit in Your details'/);
+  assert.match(source, /openSetting\(section\)/);
+  assert.match(source, /'languages' : 'eligibility'/);
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   for (const key of ['eligibility', 'languages']) assert.match(html, new RegExp(`id="setting-${key}"[^>]*data-profile-panel="details"|data-profile-panel="details"[^>]*id="setting-${key}"`), key);
 });
