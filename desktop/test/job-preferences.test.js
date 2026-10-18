@@ -107,12 +107,15 @@ test('the window\'s list of Your details\' headings is the main process\'s', () 
   assert.deepEqual(DETAILS_HEADINGS, [HEADING, ...Object.values(SECTIONS)]);
 });
 
-test('⌘K reaches the card and its Review button on Strategy (the Settings scan no longer sees them)', async () => {
+test('⌘K reaches the card and its Review (in the card\'s editor) on Strategy', async () => {
   const fs = await import('node:fs');
   const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   assert.match(nav, /add\('Strategy', 'Job preferences'[\s\S]{0,300}\$\('strategy-job-prefs'\)/);
-  assert.match(nav, /button\('strategy', 'preferences-review'/);
+  // Review lives in the card's editor (owner, 18 Oct 2026, mockup 03): ⌘K opens the editor, then reviews.
+  assert.match(nav, /add\('Strategy', 'Review your preferences'[\s\S]{0,300}openCard\('prefs'\); reviewPreferences\(\)/);
   const strategy = html.slice(html.indexOf('id="strategy-yours"'), html.indexOf('id="strategy-suggestions"'));
-  for (const id of ['strategy-job-prefs', 'preferences-review', 'preferences-body']) assert.match(strategy, new RegExp(`id="${id}"`), id);
+  for (const id of ['strategy-job-prefs', 'preferences-body']) assert.match(strategy, new RegExp(`id="${id}"`), id);
+  const page = fs.readFileSync(new URL('../renderer/pages/job-preferences.js', import.meta.url), 'utf8');
+  assert.match(page, /id: 'preferences-review'/, 'the editor draws the Review button');
 });

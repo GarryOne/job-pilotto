@@ -19,6 +19,8 @@ export const CARDS = {
   stack: {title: 'Skills & experience', lists: ['stack'], values: []},
   languages: {title: 'Exclusions & preferences', lists: ['languages'], values: []},
   search: {title: 'More search settings', lists: ['titleSkip', 'skip', 'remoteSkip', 'finders', 'gqueries', 'gplaces'], values: ['level', 'minScore']},
+  // Job preferences keeps its drafts in pages/outline-tab.js and registers with the bar itself (barFor); job-preferences.js sets its count.
+  prefs: {title: 'Job preferences', lists: [], values: [], own: true, count: () => 0},
 };
 export const GOAL_LABELS = {seniority: 'Target level', work_mode: 'Work mode', minimum_salary: 'Minimum salary'};
 export const cardOf = name => Object.keys(CARDS).find(key => CARDS[key].lists.includes(name) || CARDS[key].values.includes(name)) || '';
@@ -34,7 +36,7 @@ export const drafts = () => {
 export const dirty = () => dirtyLists(drafts().targetEdits, drafts().typed);
 export function cardCount(key) {
   const card = CARDS[key], changed = dirty();
-  return [...card.lists, ...card.values].filter(name => changed.has(name)).length + (card.goals || []).filter(goal => goal in drafts().goalEdits).length;
+  return [...card.lists, ...card.values].filter(name => changed.has(name)).length + (card.goals || []).filter(goal => goal in drafts().goalEdits).length + (card.count?.() || 0);
 }
 export const isOpen = key => strategyState.editing === key;
 
@@ -92,6 +94,7 @@ export function strategyBar(deps) {
     openTab: showTab, area: 'Strategy', saveLabel: 'Save strategy changes', words: 'Applies to future searches.', savedWords: 'Saved ✓ Refresh your jobs to search with it.'});
   const reloadSoon = () => { clearTimeout(reloading); reloading = setTimeout(deps.reload, 50); };
   for (const [key, card] of Object.entries(CARDS)) {
+    if (card.own) continue;
     const names = [...card.lists, ...card.values];
     const edits = () => {
       const all = withTyped(drafts().targetEdits, drafts().typed, PLAIN, deps.entriesOf), now = dirty();
@@ -136,3 +139,8 @@ export function strategyBar(deps) {
   return bar;
 }
 export const strategyBarNow = () => bar;
+// The bar for a card that registers its own source (Job preferences through outline-tab.js): its changes also repaint the cards' Unsaved pills.
+export const barFor = () => bar && {register(spec) {
+  const source = bar.register(spec);
+  return {...source, changed: () => { source.changed(); changed(); }};
+}};

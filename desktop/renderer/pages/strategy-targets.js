@@ -15,6 +15,7 @@ import {exclusionGroups, roleFamilies, withTyped} from '../strategy-parts.js';
 import {strategyState} from './strategy-state.js';
 import {PLAIN, cardHeader, changed, dirty, drafts, isOpen, cardOf, openCard, redrawCards} from './strategy-cards.js';
 import {renderMainGoals} from './main-goals.js';
+import {redrawPreferences} from './job-preferences.js';
 import {coverageLine, relocationChoice} from './locations-card.js';
 import {coverage, relocationNow, relocationWords, remoteWords} from '../locations-model.js';
 import {loadStrategy} from './strategy.js';
@@ -295,10 +296,11 @@ export function renderTargets() {
   changed();
   if (!strategyState.editing && strategyState.lastStrategy) loadMeanings(savedLabels, renderTargets);   // once per set of lists; redraws when they come
 }
-// Main goals and the target cards, from the drafts (strategy-cards.js redraws through this).
+// Main goals, the target cards and Job preferences, from the drafts (strategy-cards.js redraws through this).
 export function renderCards() {
   renderMainGoals();
   renderTargets();
+  redrawPreferences();
 }
 
 export function renderStrategy(data) {
