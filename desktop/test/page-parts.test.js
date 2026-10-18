@@ -36,7 +36,10 @@ test('review list: pending first, done folded as "Reviewed · N", one orange but
   assert.equal(undo.className, 'secondary small-btn', 'a done item keeps its action, quiet');
   undo.click();
   assert.equal(undone, 1);
-  assert.equal(kept.querySelector('.review-detail summary').textContent, 'View details');
+  assert.equal(kept.querySelector('.review-more-words').textContent, 'View details');
+  assert.match(kept.querySelector('.review-item').className, /has-detail/);
+  assert.equal(kept.querySelector('summary.review-row').querySelector('button'), undo, 'the whole row is the toggle; its buttons sit in it');
+  assert.equal(kept.querySelector('.review-detail').textContent, 'The fix and where it came from');
 });
 
 test('empty state: neutral "Not created" chip, title, one line, primary then quiet action, a note', () => {
@@ -57,10 +60,10 @@ test('summary tiles: label and big value per tile; an empty value says "Not set"
   assert.deepEqual(box.querySelectorAll('.summary-tile').map(tile => tile.dataset.key), ['salary', 'where']);
 });
 
-test('review list options: the chip first (statusFirst) and each action\'s own aria name', () => {
-  const list = reviewList([{key: 'k', title: 'Spanish', status: {text: 'High', tone: 'bad'}, actions: [{label: 'Confirm skill', aria: 'Spanish: confirm skill'}]}], {statusFirst: true});
+test('review list options: where the chip sits, one joined box, a text-link action, a Reviewed summary, each action\'s own aria name', () => {
+  const list = reviewList([{key: 'k', title: 'Spanish', status: {text: 'High', tone: 'bad'}, actions: [{label: 'Confirm skill', aria: 'Spanish: confirm skill'}]}], {statusAt: 'first'});
   const item = list.querySelector('.review-item');
-  assert.match(list.className, /is-status-first/);
+  assert.match(list.className, /status-first/);
   assert.match(item.children[0].className, /ui-pill/, 'the chip comes before the title');
   const action = item.querySelector('button');
   assert.equal(action.textContent, 'Confirm skill');
@@ -68,6 +71,21 @@ test('review list options: the chip first (statusFirst) and each action\'s own a
   const plain = reviewList([{key: 'k', title: 'Spanish', status: {text: 'High'}, actions: [{label: 'Confirm skill'}]}]).querySelector('.review-item');
   assert.match(plain.children[1].className, /ui-pill/, 'by default the chip sits after the title');
   assert.equal(plain.querySelector('button').getAttribute('aria-label'), null);
+});
+
+test('review list as mockup 06: one joined box, the chip beside the name, outlined + link actions (no orange), "Reviewed · N" with its summary', () => {
+  const list = reviewList([
+    {key: 'a', title: 'Budgeting', status: {text: 'To check', tone: 'warn'}, actions: [{label: 'Confirm skill'}, {label: 'Dismiss', link: true}]},
+    {key: 'b', title: 'Excel', status: {text: 'Confirmed skill', tone: 'good'}, done: true, actions: [{label: 'Undo', link: true}]},
+  ], {statusAt: 'title', joined: true, doneSummary: done => done.map(item => `${item.title} confirmed`).join(' · ')});
+  assert.match(list.className, /is-joined/);
+  const first = list.querySelector('.review-item');
+  assert.equal(first.querySelector('.review-title').children[1].textContent, 'To check', 'the chip sits in the title line');
+  assert.deepEqual(first.querySelectorAll('button').map(node => node.className), ['secondary small-btn', 'link small']);
+  assert.equal(list.querySelectorAll('button.primary').length, 0, 'no orange unless an action asks for it');
+  const head = list.querySelector('.review-done-head');
+  assert.deepEqual(head.children.slice(1).map(node => node.textContent), ['Reviewed · 1', 'Excel confirmed'], 'after the chevron');
+  assert.equal(list.querySelector('.review-done button').className, 'link small', 'Undo keeps its link look');
 });
 
 test('summary tiles: a score draws a ring filled to score/max in the tile\'s tone, in place of the icon', () => {

@@ -3,6 +3,7 @@
 // value), and a read-only reference row ("From Your details" + one link). Styles: page-parts.css. Rules: docs/rules/desktop-ui.md "Page blocks".
 // Living copy: npm run gallery → "Page blocks". Guarded by test/page-parts.test.js.
 import {el, pill, tile} from './components.js';
+import {icon} from './icons.js';
 
 const button = (label, className, run, aria = '') => {
   const node = Object.assign(el('button', className, label), {type: 'button'});
@@ -13,35 +14,53 @@ const button = (label, className, run, aria = '') => {
 
 // A list of things to review (CV gaps, Needs review, CV check fixes): each item is its title, why it is here and where it came from, a status chip and its
 // actions. Pending items come first in the order given; done ones fold under "Reviewed · N". items: [{key, title, why?, source?, status: {text, tone}, done?,
-// actions: [{label, run, primary?, aria?}], detail?: a node folded under "View details" (the fix text, its source)}]; a done item keeps its actions (Undo), quiet. Filled orange is the list's ONE next step: the first pending item's primary action; every other action is quiet.
-// statusFirst: the chip goes left of the title in a fixed width so titles align (a priority: High / Medium / Low, CV check fixes).
-export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.', statusFirst = false} = {}) {
-  const box = el('div', `review-list${statusFirst ? ' is-status-first' : ''}`);
+// actions: [{label, run, primary?, aria?, link?}], detail?, detailLabel?}]. Filled orange is the list's ONE next step: the first pending item's primary
+// action; others are outlined, or a text link with link: true (Dismiss, Undo); aria names the row when rows share action words. A done item keeps its actions.
+// detail: the whole row opens it ("View details ›" at the row's right end, the detail under the row, in line with the title), mockup 08.
+// Options: statusAt 'end' (default) | 'first' (a priority, fixed width, mockup 08) | 'title' (beside the name, mockup 06); joined: one bordered list with
+// row dividers (mockup 06); doneSummary(doneItems): a muted line beside "Reviewed · N" ("OpenTelemetry confirmed · Vault dismissed"); doneOpen.
+export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.', statusAt = 'end', joined = false, doneSummary = null, doneOpen = false} = {}) {
+  const box = el('div', `review-list status-${statusAt}${joined ? ' is-joined' : ''}`);
   let lead = false;   // the list's one orange button is drawn
   const row = item => {
     const node = el('li', `review-item${item.done ? ' is-done' : ''}`);
     node.dataset.key = item.key || '';
-    const main = el('div', 'review-main');
-    main.append(el('b', '', item.title || ''));
+    const main = el('div', 'review-main'), title = el('div', 'review-title');
+    const status = item.status ? pill(item.status.text, item.status.tone || 'neutral') : el('span');
+    title.append(el('b', '', item.title || ''));
+    if (statusAt === 'title' && item.status) title.append(status);
+    main.append(title);
     if (item.why) main.append(el('span', 'muted', item.why));
     if (item.source) main.append(el('span', 'muted small review-source', item.source));
-    if (item.detail) { const fold = el('details', 'plain review-detail'); fold.append(el('summary', 'link small', item.detailLabel || 'View details'), item.detail); main.append(fold); }
     const actions = el('div', 'review-actions');
     for (const action of item.actions || []) {
       const primary = action.primary && !item.done && !lead && (lead = true);
-      actions.append(button(action.label, `${primary ? 'primary' : 'secondary'} small-btn`, () => action.run?.(item), action.aria));
+      const look = action.link ? 'link small' : `${primary ? 'primary' : 'secondary'} small-btn`;
+      // preventDefault: a button inside a row that folds its detail acts, it does not fold the row
+      actions.append(button(action.label, look, event => { event?.preventDefault?.(); action.run?.(item); }, action.aria));
     }
-    const status = item.status ? pill(item.status.text, item.status.tone || 'neutral') : el('span');
-    if (statusFirst) node.append(status, main, actions); else node.append(main, status, actions);
+    const parts = statusAt === 'first' ? [status, main] : statusAt === 'end' ? [main, status] : [main];
+    if (!item.detail) { node.append(...parts, actions); return node; }
+    node.classList.add('has-detail');
+    const fold = el('details', 'plain review-fold'), head = el('summary', 'review-row'), more = el('span', 'review-more muted small');
+    more.append(el('span', 'review-more-words', item.detailLabel || 'View details'), icon('chevron'));
+    head.append(...parts, more, actions);
+    const body = el('div', 'review-detail');
+    body.append(item.detail);
+    fold.append(head, body);
+    node.append(fold);
     return node;
   };
   const pending = items.filter(item => !item.done), done = items.filter(item => item.done);
   if (!items.length) { box.append(el('p', 'muted', empty)); return box; }
   if (pending.length) { const list = el('ul', 'review-items'); list.append(...pending.map(row)); box.append(list); }
   if (done.length) {
-    const fold = el('details', 'plain review-done'), list = el('ul', 'review-items');
+    const fold = el('details', 'plain review-done'), list = el('ul', 'review-items'), head = el('summary', 'review-done-head');
+    head.append(icon('chevron'), el('b', '', `${doneLabel} · ${done.length}`));
+    if (doneSummary) head.append(el('span', 'muted small', doneSummary(done)));
     list.append(...done.map(row));
-    fold.append(el('summary', 'muted small', `${doneLabel} · ${done.length}`), list);
+    fold.append(head, list);
+    fold.open = Boolean(doneOpen);
     box.append(fold);
   }
   return box;
@@ -64,8 +83,8 @@ export function emptyState({icon = 'file', chip = 'Not created', title = '', tex
   return box;
 }
 
-// A row of figures with an icon each (Main goals, CV scores): icon on its tone, label, the value big; an empty value reads "Not set". Four columns, two by two
-// when the card is narrow. tiles: [{key, icon, tone, label, value, note?, title?, score?, max?}]. A score (CV scores: 82 of 100) draws a ring filled to
+// A row of figures with an icon each (Main goals, CV scores): icon on its tone, label, the value big; an empty value reads "Not set". As many across as fit
+// (240px each at least). tiles: [{key, icon, tone, label, value, note?, title?, score?, max?}]. A score (CV scores: 82 of 100) draws a ring filled to
 // score/max in place of the icon, in the tile's tone (good / ok / low); its value defaults to the score. A missing score (null) is an empty ring and "Not set".
 const ring = (score, max, tone) => {
   const node = el('span', `summary-ring tone-${tone}`);
