@@ -116,9 +116,12 @@ jobs:
           echo "$changed" | xargs git add --
           git commit -q -m "$title" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
           git push -q origin "$branch"
+          tools/bot-pr-body.sh HEAD~1 --verdict="🟢 $title" --why="the Sentry fixer picked $SHORT_ID, the most critical real, fresh issue" \
+            --unblocks="Sentry issue $SHORT_ID, once the owner merges and resolves it" --label='Sentry issue' --before="$SHORT_ID is open" --after="fixed by this change" \
+            --rate='Real users=🟡 Medium|an error users hit' --rate='Tests & harness=🟡 Medium|a test with the fix' --detail=.heal/body.md > .heal/laid-out.md
           gh label create auto-sentry-fix --repo "$REPO" --force --color 5319E7 --description 'A fix proposed by the Sentry fixer'
           extra=""
           if [ "$BASE" != main ]; then gh label create dry-run --repo "$REPO" --force --color FBCA04 --description 'A dry run: close it'; extra="--label dry-run"; fi
           # shellcheck disable=SC2086
-          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/body.md --label auto-sentry-fix $extra)
+          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/laid-out.md --label auto-sentry-fix $extra)
           echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"

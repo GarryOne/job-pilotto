@@ -310,5 +310,8 @@ jobs:
           git add desktop/e2e/smoke-sites.json
           git commit -q -m "Add the daily discovery batch's new shapes to the pool" -m "$added"
           git push -q origin "$branch"
-          printf '🟢 The daily discovery batch reached new flow shapes: they join the pool.\n\n%s\n\nOpened by record-sites.yml (daily discovery batch). The owner merges it; nothing here merges.\n' "$added" > pr-body.md
+          printf '%s\n\nOpened by record-sites.yml (daily discovery batch). The owner merges it; nothing here merges.\n' "$added" > pr-detail.md
+          tools/bot-pr-body.sh HEAD~1 --verdict='🟢 The daily discovery batch reached new flow shapes: they join the pool.' --why='the daily discovery batch (record-sites.yml) found sites with shapes the pool lacks' \
+            --unblocks='the pool tests those shapes from tomorrow, once the owner merges' --label='Pool shapes' --before='not in the pool' --after='in desktop/e2e/smoke-sites.json' \
+            --rate='Form filling=🟡 Medium|new shapes get tested' --rate='Offline replays=🟡 Medium|new rows to record' --rate='Tests & harness=🟡 Medium|a wider pool' --detail=pr-detail.md > pr-body.md
           gh pr create --base main --head "$branch" --title "Add the daily discovery batch's new shapes to the pool" --body-file pr-body.md | tee -a "$GITHUB_STEP_SUMMARY"

@@ -100,7 +100,10 @@ jobs:
           echo "$changed" | xargs git add --
           git commit -q -m "$title"
           git push -q origin "$branch"
-          url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/body.md)
+          tools/bot-pr-body.sh HEAD~1 --verdict="🟢 $title" --why="the Finder's weekly self-review (finder-review.yml) read the week's verdict reasons and misses" \
+            --unblocks='a Finder that finds more real bugs and fewer false ones, once the owner merges' --label='Finder' --before='the Finder as it was' --after='the Finder with this change' \
+            --rate='Tests & harness=🟡 Medium|the Finder and its unit tests' --detail=.finder-review/body.md > .finder-review/laid-out.md
+          url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/laid-out.md)
           { echo "## Finder self-review: PR opened"; echo "$url"; } >> "$GITHUB_STEP_SUMMARY"
 
   # The verdict pass's measured accuracy: five random verdicts of the week in one issue to tick right or wrong; last week's audit is closed with its score. No AI.

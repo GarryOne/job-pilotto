@@ -223,11 +223,14 @@ jobs:
           echo "$changed" | xargs git add --
           git commit -q -m "$title" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
           git push -q origin "$branch"
+          tools/bot-pr-body.sh HEAD~1 --verdict="🟢 $title" --why="the UI loop found issue #$number in two runs, or a person confirmed it" \
+            --unblocks="issue #$number, once the owner merges" --label="Issue #$number" --before='the bug is open' --after='fixed by this change' \
+            --rate='Real users=🟡 Medium|a screen bug fixed' --rate='Tests & harness=🟡 Medium|a test with the fix' --detail=.heal/body.md > .heal/laid-out.md
           gh label create auto-ui-fix --repo "$REPO" --force --color 0E8A16 --description 'A fix proposed by the UI loop'
           extra=""
           if [ "$BASE" != main ]; then gh label create dry-run --repo "$REPO" --force --color FBCA04 --description 'A dry run of the UI loop: close it'; extra="--label dry-run"; fi
           # shellcheck disable=SC2086
-          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/body.md --label auto-ui-fix $extra)
+          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/laid-out.md --label auto-ui-fix $extra)
           echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"
           # Autonomy, opt-in (JOB_PILOTTO_FIXER_AUTOMERGE=on): a fix of the window only (desktop/renderer and its tests), at most 80 changed lines, that already
           # passed every suite and the lint, merges itself, and a confirmed small engine fix with its own test may too (JOB_PILOTTO_FIXER_AUTOMERGE_ENGINE=on, below).
