@@ -13,7 +13,7 @@ test('the tabs: Application answers opens its outline tab, the old Preferences n
   assert.match(html, /data-profile-tab="answers">Application answers</);
   assert.doesNotMatch(html, /data-profile-tab="knowledge"/);
   assert.match(profile, /if \(name === 'knowledge'\) name = 'answers';/);
-  assert.match(profile, /if \(name === 'answers'\) loadApplicationAnswers\(\);/);
+  assert.match(profile, /if \(name === 'answers'\) \{ loadAnswersFacts\(\); loadApplicationAnswers\(\); \}/, 'the facts used in forms, then the answers');
   assert.match(profile, /if \(name === 'profiletext'\) \{ openJobPreferences\(\); return; \}/, 'its old name opens Strategy → Job preferences');
   for (const [file, texts] of [['application-answers', "\\[TEXT, 'knowledge'\\]"], ['job-preferences', '\\[TEXT\\]']]) {
     assert.match(read(`../renderer/pages/${file}.js`), new RegExp(`outlineTab\\('\\w+', ${texts}`), file);

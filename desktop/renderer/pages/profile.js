@@ -6,6 +6,7 @@ import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {showStoreParts} from './store-parts.js';
 import {addQuestion, loadApplicationAnswers} from './application-answers.js';
+import {loadAnswersFacts} from './answers-facts.js';
 import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
@@ -51,7 +52,7 @@ export function profileTab(name, {byDefault = false} = {}) {
   });
   showStoreParts();
   showFoldBar();
-  if (name === 'answers') loadApplicationAnswers();
+  if (name === 'answers') { loadAnswersFacts(); loadApplicationAnswers(); }
   else if (name === 'experience') loadExperience();
   else if (name === 'letter') { loadLetterStyle(); loadLetter(); }
   else if (name === 'cv') { loadCvSetting(); showCvChanged(); }
