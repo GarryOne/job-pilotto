@@ -1,6 +1,6 @@
 // Strategy page, goals and targets: the four target cards, their lists (chips, Edit, Save, remote choice), goals, renderStrategy. Guarded by: test/save-progress.test.js (and test/strategy-targets.test.js for lib/strategy.js).
 import {withSaveProgress} from '../save-progress.js';
-import {el, pill, tile} from '../components.js';
+import {cardEdit, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, show} from './core.js';
@@ -171,11 +171,7 @@ function targetCard([key, glyph, title, lists]) {
   heading.append(badge);
   head.append(heading);
   if (!strategyState.targetEdits) {
-    const edit = el('button', 'link with-icon card-edit', icon('edit'));
-    edit.append(el('span', '', 'Edit'));
-    Object.assign(edit, {type: 'button', title: `Edit ${title.toLowerCase()}`});
-    edit.setAttribute('aria-label', edit.title);
-    edit.addEventListener('click', startTargetsEdit);
+    const edit = cardEdit('Edit', title.toLowerCase(), startTargetsEdit);
     head.append(edit);
   }
   card.append(head);

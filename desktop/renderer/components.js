@@ -307,6 +307,16 @@ export function cardHead(category, title, {badges = [], subtitles = []} = {}) {
   return head;
 }
 
+// A card's Edit (or Add) button: solid, small, at the right of the card's title line (owner, 18 Oct 2026: "I don't like the Edit button position, maybe a solid one"). One for every
+// card; static markup uses the same classes (`primary small-btn card-edit`). what = the card's name, for the screen reader ("Edit summary"). A row's own action (a rule's Edit,
+// a letter's Edit beside Copy) is not a card's Edit. Guarded by test/card-edit.test.js.
+export function cardEdit(label, what, onClick) {
+  const button = Object.assign(el('button', 'primary small-btn card-edit', label), {type: 'button'});
+  if (what) button.setAttribute('aria-label', `${label} ${what}`);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
 // A strip of figures (.insight-numbers), one cell per {label, value}: the label over the value in bold, or with valueFirst the value
 // over its label, both plain (the few-jobs coverage card's counts).
 export function numberStrip(cells, {valueFirst = false} = {}) {

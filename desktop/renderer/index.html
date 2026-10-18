@@ -441,7 +441,7 @@
             <div class="focus-tip"><i data-icon="target"></i><span>A target, not a deadline. Consistency wins.</span></div>
           </section>
           <section class="card">
-            <div class="focus-card-head"><h2>Reminders</h2><a href="#" class="link small" id="focus-edit-reminders">Edit</a></div>
+            <div class="focus-card-head"><h2>Reminders</h2><button type="button" class="primary small-btn card-edit" id="focus-edit-reminders" aria-label="Edit reminders">Edit</button></div>
             <div class="focus-reminder">
               <span class="focus-round"><i data-icon="bell"></i></span>
               <div><span class="muted small">Remind me at</span><b>11:00 · 15:00 · 19:00</b></div>
@@ -1039,7 +1039,7 @@
           </div>
           <div class="setting panel" id="setting-links" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
-              <button class="secondary" id="links-edit">Edit</button></div>
+              <button type="button" class="primary small-btn card-edit" id="links-edit" aria-label="Edit professional links">Edit</button></div>
             <p class="muted panel-lead">Links to your online profiles, automatically included where relevant.</p>
             <div class="link-tiles" id="links-view"></div>
             <div class="form-grid cols-3" id="links-form" hidden>
@@ -1072,7 +1072,7 @@
             <p class="message" id="facts-message"></p>
           </div>
           <div class="setting panel" id="setting-details-profile" data-profile-panel="details">
-            <div class="summary-head"><i data-icon="file-text"></i><h3>Voluntary surveys</h3></div>
+            <div class="panel-top"><div class="summary-head"><i data-icon="file-text"></i><h3>Voluntary surveys</h3></div><span id="details-profile-edit"></span></div>
             <p class="muted panel-lead">Optional standing answers for equal-opportunity questions (age, gender, disability…), so forms don't ask each time.</p>
             <div class="exp-profile" id="details-profile"></div>
             <p class="message" id="details-profile-message"></p>

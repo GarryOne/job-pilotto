@@ -2297,8 +2297,6 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .review { margin-top: 0; padding-bottom: 0; }
 .strategy-page .review .card { margin-bottom: 0; padding: var(--sp-4) var(--sp-5); }
 .strategy-page .review .card > .sub { margin: var(--sp-1) 0 var(--sp-2); }
-.strategy-page .card-edit { padding: 0; gap: var(--sp-1); }
-.strategy-page .card-edit .icon { width: 14px; height: 14px; }
 /* Goals: four columns, label over value; label/value rows when narrow. */
 .strategy-page .goals-card .card-head { display: block; }
 .strategy-page .goal-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; margin-top: var(--sp-3); }

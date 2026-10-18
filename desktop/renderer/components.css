@@ -218,6 +218,8 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 /* Settings panels (a .setting card, roomier): head row with actions, lead line, footers. */
 .setting.panel { padding: var(--sp-5); gap: var(--sp-3); }
 .panel-lead { margin: 0; }
+/* A card's Edit button (components.js cardEdit): solid small, last in the title line, pushed to the right. */
+.card-edit { margin-left: auto; flex: none; white-space: nowrap; }
 .panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .panel-actions { display: flex; align-items: center; gap: var(--sp-4); }
 /* A bar or row that folds on a click anywhere on it (components.js toggleOnBar). */

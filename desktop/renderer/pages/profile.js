@@ -274,6 +274,7 @@ export async function init() {
     show($('links-form'), editing);
     show($('links-view'), !editing);
     $('links-edit').textContent = editing ? 'Done' : 'Edit';
+    $('links-edit').setAttribute('aria-label', editing ? 'Done editing professional links' : 'Edit professional links');
     if (!editing) showLinks();
   });
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
