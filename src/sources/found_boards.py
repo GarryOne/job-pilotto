@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_employers, board_forms, board_pages, board_routes, board_yield, careers
+from . import board_check, board_employers, board_forms, board_pages, board_routes, board_yield, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -28,6 +28,8 @@ MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
 BOARD_WORKERS = 4         # boards read at once (each its own site, its own pages one after another): the slice ends with its slowest board, not their sum
 EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
+REPLACED = {'browser': 'refuses automated reading', 'gone': "can't be reached", 'one employer': "is one employer's own site",
+            'other': 'is not a job board'}   # a read that gives a board's place to the next spare one, and what it says
 _early = {}               # {host: (monotonic time, {url: page})}: the pages this search's first-jobs slice fetched
 
 
@@ -203,17 +205,26 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             if early:
                 fetched[url] = page
             return page
-        return read_board(board, search, through, entry.get('route'), early=early)
+        result = read_board(board, search, through, entry.get('route'), early=early)
+        if not result[0] and result[1] != 'browser' and entry.get('site_kind') in (None, 'gone'):   # nothing read: a board at all? (board_check)
+            site, page = board_check.kind(board, fetch)
+            if site:
+                entry['site_kind'], entry['site_page'] = site, board_check.name_of(page, board['host']) if site == 'one employer' else ''
+                day = (now or datetime.now(timezone.utc)).date().isoformat()   # gone on two days: a Mac offline for one search keeps its boards
+                entry['gone_days'] = sorted({*entry.get('gone_days', []), day})[-2:] if site == 'gone' else []
+            if site in board_check.NOT_A_BOARD:
+                return [], site, None
+        return result
 
     def one_or_spare(read_item):   # the board's own result; while what was read refuses, the next spare board is read in its place
         first = result = one(read_item)
         name = read_item[0]['name']
-        while result[1] == 'browser':
+        while result[1] in REPLACED:
             with lock:
                 if not spares:
                     break
                 order, spare_item = spares.pop(0)
-            print(f"Job boards: {name} refuses automated reading; reading {spare_item[0]['name']} in its place", flush=True)
+            print(f"Job boards: {name} {REPLACED[result[1]]}; reading {spare_item[0]['name']} in its place", flush=True)
             result = one(spare_item)
             with lock:
                 taken.append((order, spare_item, result))
@@ -232,6 +243,13 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
         judge = is_relevant or board_yield.is_relevant
         relevant = judge(found) if found else []
+        if state in board_check.NOT_A_BOARD:   # not read as a board; one employer's site goes to the scout with its address
+            if state == 'one employer':
+                board_employers.note_site(entry.get('site_page') or board['name'], board_check.home(board), 'Job boards found')
+            print(f"Job boards found: {board['name']} {REPLACED[state]}{': added to your employers' if state == 'one employer' else ''}", flush=True)
+            entry['last_read'] = stamp
+            board_yield.record(entry, 0, 0, 'empty')
+            return
         if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
             found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant))
         entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],

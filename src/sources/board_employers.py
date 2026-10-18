@@ -53,10 +53,20 @@ def note(jobs, source):
         file.write_text(json.dumps(names, ensure_ascii=False, indent=1))
 
 
+def note_site(name, website, source):
+    """Keep one employer met as its own site (a proposed board that is one company's: src/sources/board_check.py), with its address."""
+    names = _load()
+    entry = names.setdefault(name, {'source': source, 'jobs': 0})
+    entry.update(website=website, last_seen=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+    file = _file()
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(json.dumps(names, ensure_ascii=False, indent=1))
+
+
 def candidates():
     """The scout's candidates: every kept employer name, most jobs first (the scout's own queue does the real ranking)."""
     for name, entry in sorted(_load().items(), key=lambda item: -item[1].get('jobs', 0)):
-        yield dict(name=name, origin='Board employer', priority=65)
+        yield dict(name=name, origin='Board employer', priority=65, **({'website': entry['website']} if entry.get('website') else {}))
 
 
 def fill_missing(jobs, fetch=None):

@@ -61,15 +61,22 @@ def remembered(boards, kept):
             and served & set(entry.get('countries') or [])]
 
 
+def not_a_board(entry):
+    """A proposed board its check found is none (src/sources/board_check.py): one employer's site or something else at once, no address
+    on two days (a Mac that was offline for one search is not a dead board)."""
+    kind = entry.get('site_kind')
+    return kind in ('one employer', 'other') or (kind == 'gone' and len(entry.get('gone_days') or []) >= 2)
+
+
 def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remember=True):
     """The boards to read now: every one read before (not dropped: `dropped` = dead(db); a 'browser' one once its retry is due), then up to
-    MAX_UNTRIED not read yet, only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
+    MAX_UNTRIED not read yet (one found not to be a board skipped, as a 'browser' one, until its retry), only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
     by what the board gave other installs like this one: board_ideas.ideas). remember=False: these boards only (the first-jobs slice's
     second wave, src/first_jobs.py: the boards that paid are in its first)."""
     tried, untried = [], []
     for board in list(boards) + (remembered(boards, kept) if remember else []):
         entry = kept.get(board['host'])
-        if registrable(board['host']) in dropped or (entry and entry.get('state') == 'browser' and not retry_due(entry)):
+        if registrable(board['host']) in dropped or (entry and (entry.get('state') == 'browser' or not_a_board(entry)) and not retry_due(entry)):
             continue
         (tried if entry and entry.get('last_read') else untried).append(board)
     return tried + (untried[:MAX_UNTRIED] if total_relevant(kept) < ENOUGH else [])
@@ -109,6 +116,10 @@ def step(search, is_relevant=is_relevant):
         entry = kept.get(board['host']) or {}
         if not entry.get('last_read') or entry['last_read'] == before.get(board['host']):
             continue   # not read this time (dropped, or an untried board over the cap)
+        if entry.get('site_kind') in ('gone', 'one employer', 'other'):   # its check found it is no board (src/sources/board_check.py)
+            out.append({'source': board['name'], 'status': {'gone': "can't be reached", 'one employer': "one employer's own site: added to your employers",
+                                                              'other': 'not a job board'}[entry['site_kind']]})
+            continue
         out.append({'source': board['name'], 'status': 'refuses automated reading: offered as a visit' if entry.get('state') == 'browser'
                     else f"{entry.get('jobs', 0)} listed, {entry.get('relevant', 0)} relevant (your roles, your places)"})
     return out
