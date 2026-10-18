@@ -136,6 +136,18 @@ class PlaceFallbackTests(unittest.TestCase):
         self.assertEqual(asked[:2], ['genève, switzerland', 'carouge'])
         self.assertEqual(set(asked[2:]), {'warsaw', 'dallas, tx', 'meyrin'})
 
+    def test_outside_your_place_words_the_closest_jobs_location_comes_first(self):
+        """18 Oct 2026: a first search in Cluj placed 1,313 locations for 10 minutes before scoring; the ones with jobs like yours go first."""
+        search = {'role_keywords': ['software engineer'], 'level': ['senior'], 'quality_stack_keywords': ['java']}
+        jobs = [{'location': 'Warsaw', 'title': 'Vendeur'}, {'location': 'Warsaw', 'title': 'Vendeur'},
+                {'location': 'Meyrin', 'title': 'Senior Software Engineer', 'description': 'Java'}]
+        asked = []
+        with mock.patch.object(feeds, 'PLACE', feeds.keyword_regex(self.WORDS)), mock.patch.object(feeds, 'wanted_title', lambda title: True), \
+                mock.patch('src.ai.engine.ready', return_value=True), mock.patch('src.paths.load_search_config', return_value=search), \
+                mock.patch.object(place_triage, 'decide', lambda locations, search: asked.extend(locations) or {}):
+            feeds.triage_places(jobs)
+        self.assertEqual(asked, ['meyrin', 'warsaw'], 'one close job (1 + 3.5) outweighs two unlike it (2)')
+
 
 class VagueClient:
     """Places "Switzerland" out (Carouge best); says "Switzerland" names no town; reads postings: the Geneva one best, the silent one unclear."""

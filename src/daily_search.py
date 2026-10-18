@@ -216,7 +216,7 @@ def search(args, stores=None):
                         if not more.get('done'):
                             break
                     if run.get('waiting'):
-                        print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be scored (best places first)', flush=True)
+                        print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be scored (best places and closest jobs first)', flush=True)
                 run['warnings'] += left_out(run['score'], 'scored')
                 for warning in none_scored(run.get('waiting'), run['score']):
                     print(f'Warning: {warning}', flush=True)
