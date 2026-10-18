@@ -96,11 +96,13 @@
 .goal-editor { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; width: 100%; }
 
 .qr-line { margin: 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); white-space: pre-wrap; }   /* a Your details line the person places (lib/details-review.js) */
-/* Voluntary surveys read view (renderer/survey-rows.js): a long question stacks above its answer; the notes are small and muted; the fold for the AI's notes comes last. */
+/* Voluntary surveys read view (renderer/survey-rows.js): one lined list, label | value with its note muted under it; a long note or a whole question folds; the AI's notes fold last. */
+.survey-answers { margin-bottom: 0; }
 .survey-answers dd { overflow: visible; text-overflow: clip; }
-.survey-answers dt.survey-stacked, .survey-answers dd.survey-stacked { grid-column: 1 / -1; }
-.survey-answers dt.survey-stacked { margin-bottom: calc(var(--sp-3) * -1 + var(--sp-1)); }
+.survey-answers dt.survey-other { overflow-wrap: anywhere; }
+.survey-answers dd > div:first-child { display: inline; }
+.survey-check { margin-left: var(--sp-2); vertical-align: middle; }
 .survey-note { margin-top: 2px; }
-.survey-notes-read { margin-top: var(--sp-2); }
-.survey-notes-read summary { cursor: pointer; }
+.survey-note-fold > summary, .survey-question > summary, .survey-notes-read > summary { cursor: pointer; }
+.survey-notes-read { margin-top: var(--sp-3); }
 .survey-notes-read p { margin: var(--sp-1) 0 0; }

@@ -132,3 +132,29 @@ test('a double answer whose digits do not add up is refused whole', async () => 
   assert.equal(result.changed, 0);
   assert.ok((await surveyLines(page)).includes(line.text));
 });
+
+test('a move that ran before a question was added runs again for the lines still prose (owner 18 Oct 2026: race + "Hispanic or Latino?" stayed prose, its rows "Not set"); never after Undo', async () => {
+  const bullet = 'Race / ethnicity: White (use "White / European" where that is the option label). For a "Hispanic or Latino?" yes/no question: No. (confirmed 25-26 September 2026)';
+  const {storage, page} = await fresh();
+  await page.setText((await page.outline()).find(block => block.text === BULLETS[1]), bullet);
+  await survey.migrate(storage, {ai: fakeAi(said.filter(each => each.id !== '1').concat({id: '1', kind: 'keep', question: '', option: '', note: ''})), copy: async () => ({dir: 'd'})});
+  assert.equal(storage.settings().surveyMovedFor, survey.QUESTIONS, 'a move records the question list it ran against');
+  storage.saveSettings({surveyMovedFor: 'age,gender,transgender,orientation,disability,ethnicity,veteran'});   // the owner's move ran before "hispanic" existed
+  const calls = [];
+  const again = await survey.migrate(storage, {copy: async () => ({dir: 'd2'}), ai: fakeAi(items => items.map(item => item.line === bullet ? [
+    {id: item.id, kind: 'answer', question: 'ethnicity', option: 'White', note: 'use "White / European" where that is the option label'},
+    {id: item.id, kind: 'answer', question: 'hispanic', option: 'No', note: 'confirmed 25-26 September 2026'}] : [{id: item.id, kind: 'keep', question: '', option: '', note: ''}]).flat(), calls)});
+  assert.equal(again.changed, 1);
+  assert.ok(!JSON.parse(calls[0].messages[0].content).some(item => /pick one/.test(item.line)), 'lines already answers are not sent again');
+  const lines = await surveyLines(page);
+  assert.ok(lines.some(text => /^Race \/ ethnicity: White \(note: use/.test(text)) && lines.some(text => /^Hispanic or Latino: No/.test(text)));
+  assert.equal(storage.settings().surveyMovedFor, survey.QUESTIONS);
+  const quiet = [];
+  assert.equal((await survey.migrate(storage, {ai: fakeAi([], quiet), copy: async () => ({dir: 'd3'})})).changed, 0);
+  assert.equal(quiet.length, 0, 'the same list: no AI call');
+  await survey.undo(storage);
+  storage.saveSettings({surveyMovedFor: 'older'});
+  const after = [];
+  await survey.migrate(storage, {ai: fakeAi([], after), copy: async () => ({dir: 'd4'})});
+  assert.equal(after.length, 0, 'never after Undo, even with a longer list');
+});
