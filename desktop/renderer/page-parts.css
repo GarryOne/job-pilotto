@@ -1,18 +1,31 @@
 /* Shared page blocks (page-parts.js; owner, 18 Oct 2026, UI redesign): review list, empty state, summary tiles, reference row.
    Rules: docs/rules/desktop-ui.md "Page blocks". Tokens only (test/design.test.js). */
 
-/* Review list: title / why / source on the left, the status chip, then the actions; done items folded under "Reviewed · N". */
+/* Review list: title / why / source, the status chip, then the actions; done items folded under "Reviewed · N". Rows are flex so a chip, a "View details ›"
+   and the actions take their own width. status-first (mockup 08): the chip first, fixed width; status-title (mockup 06): beside the name; is-joined: one box. */
 .review-list { display: grid; gap: var(--sp-2); }
 .review-items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
-.review-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
-.review-main { display: grid; gap: 2px; min-width: 0; }
-/* statusFirst: the chip first, in a fixed width so the titles line up (High / Medium / Low). */
-.is-status-first .review-item { grid-template-columns: auto minmax(0, 1fr) auto; }
-.is-status-first .review-item > .ui-pill { min-width: 72px; justify-content: center; }
-.review-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
-.review-done > summary, .review-detail > summary { cursor: pointer; padding: var(--sp-1) 0; }
-.review-detail { margin-top: var(--sp-1); }
+.review-item, .review-row { display: flex; align-items: center; gap: var(--sp-3); }
+.review-item { padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.review-main { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.review-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.review-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; flex: none; }
+.status-first .review-item .ui-pill:first-child, .status-first .review-row > .ui-pill:first-child { min-width: 72px; justify-content: center; flex: none; }
+/* A row that opens its detail: the whole row is the toggle, "View details ›" at its end, the detail under it in line with the title. */
+.review-item.has-detail { display: block; padding: 0; }
+.review-row { padding: var(--sp-3); cursor: pointer; list-style: none; font-weight: 400; }
+.review-row::-webkit-details-marker, .review-done-head::-webkit-details-marker { display: none; }
+.review-more { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
+.review-more .icon, .review-done-head .icon { width: 16px; height: 16px; transition: transform .15s; }
+.review-fold[open] .review-more .icon, .review-done[open] > .review-done-head .icon { transform: rotate(90deg); }
+.review-fold[open] .review-more-words { visibility: hidden; }
+.review-detail { padding: 0 var(--sp-3) var(--sp-3); }
+.status-first .review-detail { padding-left: calc(var(--sp-3) + 72px + var(--sp-3)); }
+/* One bordered list with row dividers (mockup 06). */
+.is-joined .review-items { gap: 0; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.is-joined .review-item { border: 0; border-radius: 0; border-top: 1px solid var(--line); padding: var(--sp-2) var(--sp-3); }
+.is-joined .review-item:first-child { border-top: 0; }
+.review-done-head { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; list-style: none; padding: var(--sp-1) 0; }
 .review-done > .review-items { margin-top: var(--sp-2); }
 
 /* Empty state: centred, a dashed edge; a neutral chip, an icon, a title, one line, two actions, a note. */
@@ -22,14 +35,13 @@
 .empty-state-title { font-size: var(--fs-md); }
 .empty-state-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: center; margin-top: var(--sp-1); }
 
-/* Summary tiles: four across, two by two when the card is narrow. */
-.summary-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); container-type: inline-size; }
+/* Summary tiles: as many across as fit (240px each at least), so two tiles fill the row and four wrap when narrow. */
+.summary-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-3); }
 .summary-tile { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); min-width: 0; }
 .summary-tile-words { display: grid; gap: 2px; min-width: 0; }
 .summary-tile-label { color: var(--muted); font-size: var(--fs-sm); }
 .summary-tile-value { font-size: var(--fs-lg); overflow-wrap: anywhere; }
 .summary-tile-value.is-empty { color: var(--muted); font-weight: 500; }
-@container (max-width: 560px) { .summary-tile { grid-column: span 2; } }
 /* A score tile's ring (CV scores, moved from cv-tab.css .cvc-ring): filled to --p % in the tile's tone, the number in the middle. */
 .summary-ring { --p: 0; --ring: var(--line-strong); position: relative; display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%;
   background: conic-gradient(var(--ring) calc(var(--p) * 1%), var(--line) 0); }

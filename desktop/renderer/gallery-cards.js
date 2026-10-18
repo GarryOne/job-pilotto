@@ -49,12 +49,17 @@ export function pageBlocks() {
       {key: 'spanish', title: 'Spanish', why: 'Asked in 2 of your 5 best matches', status: {text: 'Needs review', tone: 'warn'}, actions: [{label: 'Review', primary: true}]},
       {key: 'lead', title: 'Team leadership', why: 'Added to Experience', status: {text: 'Confirmed', tone: 'good'}, done: true},
     ])),
-    panel('reviewList statusFirst', reviewList([
+    panel('reviewList joined, status by the name (mockup 06)', reviewList([
+      ...['Budgeting', 'Spanish'].map(skill => ({key: skill, title: skill, status: {text: 'To check', tone: 'warn'},
+        actions: [{label: 'Confirm skill', aria: `${skill}: confirm skill`}, {label: 'Dismiss', link: true, aria: `${skill}: dismiss`}]})),
+      {key: 'excel', title: 'Excel', status: {text: 'Confirmed skill', tone: 'good'}, done: true, actions: [{label: 'Undo', link: true}]},
+    ], {statusAt: 'title', joined: true, doneSummary: done => done.map(item => `${item.title} confirmed`).join(' · ')})),
+    panel('reviewList status first, row opens its detail (mockup 08)', reviewList([
       {key: 'p1', title: 'Show the budget you owned', why: 'Your last role says "budget" without a figure', status: {text: 'High', tone: 'bad'},
-        actions: [{label: 'Apply fix', primary: true, aria: 'Show the budget you owned: apply fix'}, {label: 'Dismiss', aria: 'Show the budget you owned: dismiss'}]},
+        detail: el('p', 'muted', 'Add the yearly budget and what it covered, in your most recent role.')},
       {key: 'p2', title: 'Name the team size', why: 'Leadership is claimed, not shown', status: {text: 'Medium', tone: 'warn'},
-        actions: [{label: 'Apply fix', aria: 'Name the team size: apply fix'}, {label: 'Dismiss', aria: 'Name the team size: dismiss'}]},
-    ], {statusFirst: true})),
+        detail: el('p', 'muted', 'Say how many people you led and for how long.')},
+    ], {statusAt: 'first'})),
     panel('emptyState', emptyState({icon: 'file', title: 'No base letter yet', text: 'One general letter, written from your CV and Profile; each job still gets its own.',
       actions: [{label: 'Draft with AI'}, {label: 'Write my own'}], note: 'Drafting uses your AI once.'})),
     panel('summaryTiles', summaryTiles([{key: 'role', icon: 'target', tone: 'signal', label: 'Role', value: 'Operations Manager'},

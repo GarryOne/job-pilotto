@@ -43,11 +43,12 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 
 ## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
-- **Review list** `reviewList(items, {doneLabel, empty, statusFirst})`: each item = title, why it is here, where it came from, a status chip, its actions (at most one
-  primary, the next step; Confirm/Dismiss/Review; `aria` names the row when rows share action words). Pending first; done ones folded as "Reviewed · N".
-  `statusFirst`: the chip left of the title in a fixed width (a priority). CV gaps, Needs review, CV check fixes.
+- **Review list** `reviewList(items, {doneLabel, empty, statusAt, joined, doneSummary})`: each item = title, why it is here, where it came from, a status chip, its
+  actions (orange only for the first pending `primary`; others outlined, or `link: true` for Dismiss/Undo; `aria` names the row when rows share action words).
+  Pending first; done ones folded as "Reviewed · N" (+ `doneSummary`). `statusAt`: `end`, `first` (a priority, fixed width, mockup 08) or `title` (beside the
+  name, mockup 06); `joined`: one box with row dividers (mockup 06); `detail`: the whole row opens it, "View details ›" at its end (mockup 08).
 - **Empty state** `emptyState({icon, chip: 'Not created', title, text, actions: [primary, quiet], note})`: a neutral chip, an icon, one line, two actions.
-- **Summary tiles** `summaryTiles([{key, icon, tone, label, value, note, title, score, max}])`: icon, label, big value; empty = "Not set"; 4 across, 2×2 when narrow.
+- **Summary tiles** `summaryTiles([{key, icon, tone, label, value, note, title, score, max}])`: icon, label, big value; empty = "Not set"; as many across as fit (≥ 240px each).
   A `score` (of `max`, default 100) draws a ring in the tone (good / ok / low) in place of the icon (CV scores).
 - **Reference row** `referenceRow({text, from: 'From Your details', link: 'Edit in Your details', open})`: a fact kept on another page, one quiet link there.
 - **One count, every place** `defineCount(name, compute)` + `paintCount(name)`: the banner (`data-count-of` + `data-count-one`/`-many` for words), the filter
