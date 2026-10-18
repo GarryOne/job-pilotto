@@ -1,4 +1,4 @@
-/* global document, location, chrome */
+/* global document, location, chrome, getComputedStyle */
 // The panel's two themes follow the app's setting live (no reload), and Stop is one press away mid-fill with the panel open AND minimised (real extension, fixture form, fake data).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
