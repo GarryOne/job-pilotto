@@ -56,6 +56,23 @@ class PlaceCountryDecidesTest(unittest.TestCase):
         with mock.patch('src.places.load', return_value=known):
             self.assertEqual(self.readers(), dict.fromkeys(('job boards', 'aggregator countries', 'pool tags', 'google jobs'), False))
 
+    def test_the_towns_added_for_a_region_keep_its_country(self):
+        """18 Oct 2026, rerun on main: "Franken" was expanded (places.expand) with its towns and states, among them Baden-Württemberg; the
+        added fragment had no entry of its own, fell back to the Swiss town table, matched "Baden", and jobs.ch was searched for Nuremberg
+        twice a press (355 s before the first board jobs). Google Jobs is not in this list: it reads the user's own Google locations,
+        never the added fragments."""
+        from src import places, pool_tags
+        from src.sources import aggregators
+        known = {'franken': {'kind': 'region', 'names': ['Nürnberg', 'Baden-Württemberg', 'Hof'], 'countries': ['Germany']}}
+        added = places.expand(['Franken'], known)[1]
+        search = {'locations': {'top_tier': [], 'country_wide': places.expand(['Franken'], known), 'abroad': []}}
+        with mock.patch('src.places.load', return_value=known), mock.patch.object(pool_tags.meanings, 'labels', return_value=[]), \
+                mock.patch('src.ai.meanings_pack.every', return_value=[]), mock.patch('src.ai.decide.decide', return_value=None), \
+                mock.patch('builtins.print'):
+            got = {'in_switzerland': places.in_switzerland(added, known), 'job boards': boards.swiss_place_word(search),
+                   'aggregator countries': 'ch' in aggregators._countries(search), 'pool tags': 'ch' in pool_tags.places([added])[0]}
+        self.assertEqual(got, {'in_switzerland': False, 'job boards': None, 'aggregator countries': False, 'pool tags': False})
+
     def test_before_the_ai_placed_it_the_fixed_table_still_answers(self):
         with mock.patch('src.places.load', return_value={}):
             got = self.readers()

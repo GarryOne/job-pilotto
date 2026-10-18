@@ -120,10 +120,22 @@ def in_switzerland(word, cache=None):
     if region_of(word):
         return True
     cache = load() if cache is None else cache
-    known = (cache.get(_key(readable(str(word)).strip('"'))) or {}).get('countries')
+    known = (cache.get(_key(readable(str(word)).strip('"'))) or {}).get('countries') or _expanded_from(word, cache)
     if known:
         return 'Switzerland' in known
     return bool(re.search(SWITZERLAND, str(word), re.I))
+
+
+def _expanded_from(fragment, cache):
+    """The countries of the place whose names `expand` added as this fragment: the added towns keep their place's country (18 Oct 2026:
+    Franken's added "Baden-Württemberg" matched the Swiss town Baden in the fixed table). None for any other fragment."""
+    from .notion.search_settings import readable
+    for entry in cache.values():
+        if isinstance(entry, dict) and entry.get('names') and entry.get('countries'):
+            added = pattern(entry['names'])
+            if fragment in (added, readable(added)):   # as loaded, or as a reader shows it (aggregators._countries)
+                return entry['countries']
+    return None
 
 
 def pattern(names):
