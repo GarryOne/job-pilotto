@@ -13,6 +13,7 @@ import {ensureSetUp} from '../lib/seed.mjs';
 import {answerConfirms, captureExternal, ids, independent} from '../lib/steps.mjs';
 import {goView} from '../lib/go-view.mjs';
 
+export const realAi = true;   // stubs some AI calls but passes the others to the real model (metered); a suite with all calls stubbed declares false (test/suite-ai-mode.test.mjs)
 export const name = 'interviews';
 const REVIEW_MS = 5 * 60 * 1000;
 
