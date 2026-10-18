@@ -88,9 +88,15 @@ def run(db, feed_db, sources, profile, hidden, sync, say=print, scan=None, score
     scan, scorer, model, fits = scan or feeds.scan, scorer or score.run, model or score.DEFAULT_MODEL, fits or scored_fits
     chosen = pick(sources, size)
     say(f'First jobs: reading {len(chosen)} of {len(sources)} employer sites first')
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        reading = pool.submit(boards or board_jobs, say)   # the boards' pages meanwhile; matched below, in the thread that owns the job cache
-        report = scan(chosen, feed_db)
+    from .ai import batch_scope
+
+    def read_boards():   # side by side with the employer sites: each batches its own jobs, so a tape replays in any finishing order
+        with batch_scope.reader('boards'):
+            return (boards or board_jobs)(say)
+    with batch_scope.concurrent(), ThreadPoolExecutor(max_workers=1) as pool:
+        reading = pool.submit(read_boards)   # the boards' pages meanwhile; matched below, in the thread that owns the job cache
+        with batch_scope.reader('employer sites'):
+            report = scan(chosen, feed_db)
         try:
             found = reading.result()
             report['jobs'] = [*(report.get('jobs') or []), *(aggregators_kept(feed_db, 'Job boards found', found) if found else [])]

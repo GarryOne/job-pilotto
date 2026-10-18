@@ -16,7 +16,7 @@ import urllib.request
 from . import ats, posting_text
 from .. import coverage, run_counts
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
-from ..ai import providers
+from ..ai import batch_scope, providers
 from ..ai.providers.contract import named
 
 DESCRIPTION_LIMIT = 12000
@@ -56,7 +56,7 @@ def sure_title(title):
     return bool(TITLES.search(title or '') or TITLES.search(plain(title)))
 
 
-def _triaged():
+def _triaged_shared():
     global TRIAGED
     if TRIAGED is None:
         try:
@@ -65,6 +65,14 @@ def _triaged():
         except Exception:  # noqa: BLE001 — nothing decided yet: the exact words only
             TRIAGED = {}
     return TRIAGED
+
+
+batch_scope.watch('triaged', _triaged_shared, lambda own: _triaged_shared().update(own))
+
+
+def _triaged():
+    """The titles decided; a reader side by side with another sees its own (src/ai/batch_scope.py)."""
+    return batch_scope.view('triaged', _triaged_shared)
 
 
 def triage(jobs):
@@ -144,7 +152,7 @@ REMOTE_WANTED = remote_wanted()
 PLACED = None   # {location: 'best' | 'in' | 'out'} decided by Claude for these places (src/ai/place_triage.py), read once a run
 
 
-def placed():
+def _placed_shared():
     global PLACED
     if PLACED is None:
         try:
@@ -155,10 +163,18 @@ def placed():
     return PLACED
 
 
+batch_scope.watch('placed', _placed_shared, lambda own: _placed_shared().update(own))
+
+
+def placed():
+    """The places decided; a reader side by side with another sees its own (src/ai/batch_scope.py)."""
+    return batch_scope.view('placed', _placed_shared)
+
+
 READ = None   # {job url: answer} from the postings' own words, for vague locations (src/ai/place_triage.py read), read once a run
 
 
-def read_places():
+def _read_shared():
     global READ
     if READ is None:
         try:
@@ -167,6 +183,13 @@ def read_places():
         except Exception:  # noqa: BLE001
             READ = {}
     return READ
+
+
+batch_scope.watch('read', _read_shared, lambda own: _read_shared().update(own))
+
+
+def read_places():
+    return batch_scope.view('read', _read_shared)
 
 
 def _verdict(job):
