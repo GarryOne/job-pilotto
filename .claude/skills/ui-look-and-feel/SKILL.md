@@ -38,6 +38,11 @@ Profile and Strategy cards: a read summary (`readRows`, `chipLine` from `card-sh
 `pageSaveBar` (`save-bar.js`: "N unsaved changes in <tabs> · Discard all · Save all changes", tab dots, leave/close guard). Filled orange only for the one current primary
 action. Rules and the tests that fail: `docs/rules/desktop-ui.md` "Cards: read → Edit → editor"; living copy `npm run gallery` → "Card shell".
 
+### 0c. Page blocks (owner, 18 Oct 2026)
+Before drawing a review list, an empty state, figures with icons, a "From Your details" line, a count shown in two places or a page header: use
+`page-parts.js` (`reviewList`, `emptyState`, `summaryTiles`, `referenceRow`), `shared-counts.js` (`defineCount`/`paintCount`) and the `view-head` pattern
+(title + lead, sync, ⋯, at most one primary, tabs right under). Rules: `docs/rules/desktop-ui.md` "Page blocks"; living copy `npm run gallery` → "Page blocks".
+
 ## 1. Look first
 - Reference screenshots of today's screens: `desktop/docs/ui/*.jpg` (fictional demo data). Open the one closest
   to what you build and match it: spacing, density, card style, where actions sit.
