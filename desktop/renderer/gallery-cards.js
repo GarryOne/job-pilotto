@@ -5,6 +5,7 @@ import {chipLine, editRows, readRows, setEditing} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
 import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
+import {refresh, segmented} from './question-control-values.js';
 
 function card(title, editing) {
   const panel = el('div', 'setting panel');
@@ -15,7 +16,8 @@ function card(title, editing) {
   const read = el('div', 'card-read');
   read.append(chipLine([{text: 'English', detail: 'B2'}, {text: 'Romanian', detail: 'Native'}, {text: 'Russian', detail: 'B1'}]),
     readRows([{label: 'Can work in', value: 'English, Romanian, Russian', note: 'No French, German or Italian.'}, {label: 'Certificates', value: ''}]));
-  const level = value => { const menu = el('select'); for (const option of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native']) menu.append(new Option(option, option)); menu.value = value; return menu; };
+  // A level is one of a few: segmented buttons, never a menu (owner, 18 Oct 2026: "I like more card picker than the selectbox"; design-rules.mjs small-select).
+  const level = value => { let chosen = value; const isOn = option => option === chosen; return segmented(['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native'], isOn, (option, group) => { chosen = option; refresh(group, isOn); }, 'Level'); };
   const editor = el('div', 'card-editor');
   editor.append(editRows([{label: 'English', control: level('B2')}, {label: 'Romanian', control: level('Native')}, {label: 'Russian', control: level('B1')}]));
   panel.append(top, el('p', 'muted panel-lead', 'The languages you speak, with your level.'), read, editor);

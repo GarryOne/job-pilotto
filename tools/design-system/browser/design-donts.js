@@ -1,0 +1,71 @@
+// The design-system page's "Don't / Do" pairs, one per rule from the owner's UI feedback (18 Oct 2026, docs/rules/desktop-ui.md "Read views, lists, buttons and choices"),
+// redrawn with fictional data from the shared parts (never the owner's screenshots: they hold his real data). Each "Don't" box carries data-expect = the check in
+// desktop/e2e/lib/design-rules.mjs it must trip, and each "Do" box must trip none: desktop/e2e/test/design-rules.test.mjs runs the checks on this page.
+import {chip, el, pill} from '../r/components.js';
+import {chipLine, editRows, readRows} from '../r/card-shell.js';
+import {refresh, segmented} from '../r/question-control-values.js';
+
+const root = document.getElementById('gallery');
+const box = (title, expect, ...children) => {
+  const card = el('div', 'g-state setting panel');
+  if (expect) card.dataset.expect = expect;
+  card.append(el('h4', '', title), ...children);
+  return card;
+};
+const pair = (title, note, bad, good) => {
+  const section = el('section', 'g-section');
+  const grid = el('div', 'state-grid');
+  grid.append(bad, good);
+  section.append(el('h2', '', title), el('p', 'muted small', note), grid);
+  root.append(section);
+};
+const button = (label, cls) => Object.assign(el('button', cls, label), {type: 'button'});
+const fold = (summary, text) => { const node = el('details', ''); node.append(el('summary', 'muted small', summary), el('p', 'muted small', text)); return node; };
+const PLACES = ['Lisbon', 'Porto', 'Madrid', 'Valencia', 'Lyon', 'Paris', 'Ghent', 'Antwerp', 'Utrecht', 'Leiden', 'Aarhus', 'Malmö', 'Tampere', 'Tartu', 'Kraków', 'Brno'];
+
+pair("Don't: notes inside values", 'Read views show the value. A note (a source, a date it was confirmed, a rule for the AI) is a muted line under it, or folded.',
+  box("Don't: raw notes in a value", 'raw-note-in-value', readRows([{label: 'Languages', value: 'Spanish: C1 [language] · Dutch: B2 [language] (note: working language, confirmed 3 Mar 2026)'}])),
+  box('Do: values, the note under them', '', chipLine([{text: 'Spanish', detail: 'C1'}, {text: 'Dutch', detail: 'B2'}]), readRows([{label: 'Work mode', value: 'Hybrid or remote', note: 'Confirmed 3 Mar 2026'}])));
+
+pair("Don't: long lists as a paragraph", 'A list of more than a dozen items shows the first few as chips and "+N more".',
+  box("Don't: every place written out", 'long-list-unfolded', readRows([{label: 'Relocation', value: `Yes · ${PLACES.join(', ')}`}])),
+  box('Do: chips, then +N more', '', (() => { const line = chipLine(PLACES.slice(0, 5)); line.append(button(`+${PLACES.length - 5} more`, 'link small')); return line; })()));
+
+pair("Don't: fat buttons, many primaries", 'Buttons keep a normal height and one line of words; a card has one filled orange button, the rest are secondary.',
+  (() => {
+    const row = el('div', 'g-row');
+    const fat = button('Accept this proposal', 'primary');
+    fat.style.width = '90px';
+    fat.style.whiteSpace = 'normal';   // the look before button words were kept on one line (style.css)
+    row.append(fat, button('Accept', 'primary'), button('Keep mine', 'secondary'));
+    return box("Don't: wrapped, many orange", 'fat-button many-primaries', row);
+  })(),
+  (() => { const row = el('div', 'g-row'); row.append(button('Accept all', 'primary'), button('Accept', 'secondary small'), button('Keep mine', 'ghost')); return box('Do: one primary, one line', '', row); })());
+
+pair("Don't: Now vs Proposed in grey and bold", 'A choice shows only what changes, and the proposal has its own colour, not just bold against grey.',
+  (() => {
+    const wrap = el('div', '');
+    const now = el('div', 'muted'); now.append(el('b', '', 'Now: '), 'Permanent and contract accepted, both fine, as I said in March when we talked about it.');
+    const next = el('div', ''); next.append(el('b', '', 'Proposed: '), 'Permanent or contract');
+    wrap.append(now, next);
+    return box("Don't: two paragraphs, no colour", 'flat-compare', wrap);
+  })(),
+  (() => {
+    const wrap = el('div', '');
+    const now = el('div', 'muted'); now.append(el('b', '', 'Now: '), 'Permanent and contract');
+    const next = el('div', 'alert tone-info'); next.append(el('b', '', 'Proposed: '), chip('Permanent'), chip('Contract'));
+    wrap.append(now, next);
+    return box('Do: the difference, in colour', '', wrap);
+  })());
+
+pair("Don't: a note fold per row, a field twice", 'One "Note for the AI" fold per card; one row per field.',
+  box("Don't: three folds, a label twice", 'many-ai-notes duplicate-field', readRows([{label: 'Race / ethnicity', value: 'Prefer not to say'}, {label: 'Gender', value: 'Prefer not to say'}, {label: 'Race / ethnicity', value: 'Prefer not to say'}]),
+    fold('Note for the AI', 'Use the closest option.'), fold('Note for the AI', 'Skip optional surveys.'), fold('Notes for the AI', 'Never guess.')),
+  box('Do: one row each, one fold', '', readRows([{label: 'Race / ethnicity', value: 'Prefer not to say'}, {label: 'Gender', value: pill('Not set', 'warn')}]), fold('Note for the AI', 'Use the closest option; skip optional surveys.')));
+
+pair("Don't: a menu for a few choices", 'A few choices are a card picker, segmented buttons or chips; a menu (select) only for a long list such as countries or currencies.',
+  (() => { const menu = el('select'); for (const option of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native']) menu.append(new Option(option, option)); menu.value = 'B2';
+    return box("Don't: a level in a dropdown", 'small-select', editRows([{label: 'Spanish', control: menu}])); })(),
+  (() => { let chosen = 'B2'; const isOn = option => option === chosen;
+    const control = segmented(['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native'], isOn, (option, group) => { chosen = option; refresh(group, isOn); }, 'Spanish level');
+    return box('Do: the level as segmented buttons', '', editRows([{label: 'Spanish', control}])); })());

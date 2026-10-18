@@ -57,6 +57,28 @@ One shared version of each, never a page's own (`renderer/page-parts.js` + `page
   "View source in Notion" lives there), **at most one** `button.primary`; the page's `.tabs` come right under it. Profile uses the same parts in `.settings-page-head.has-action`.
 - **What fails a change:** `desktop/test/page-parts.test.js` (each block's shape; a page header with a second primary button; Strategy's tabs not right under its header).
 
+## Read views, lists, buttons and choices (owner's UI feedback, 18 Oct 2026) [approved]
+The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs drawn with fictional data: `npm run design-system` → "Don't / Do".
+- **A read view shows values, never raw notes** ("What is this long text?"): no `[language]`-style tags, "(note: …)", "(confirmed …)" or AI instructions inside a value.
+  A date it was confirmed is a muted line under the value; anything longer folds as the card's one **Note for the AI**.
+- **Long lists fold** (Relocation's ~80 places): more than a dozen items show as the first few chips and "+N more", never a paragraph.
+- **Aligned rhythm** ("nothing randomly placed around the screen"): settings sit on a label column or a row grid, with separators or tinted row backgrounds between them.
+- **States differ by colour, not only weight** ("inexistent contrast, no colours"): Now vs Proposed, Strategy vs Profile. The proposal gets its colour
+  (a tinted row or an accent edge); both stay AA readable.
+- **Buttons: normal height, words on one line, one primary per card** ("the Accept button is too fat"). Several rows each with an action use a quiet button per row
+  and one primary for the whole card ("Accept all").
+- **A choice shows only the difference** ("text is too much, hard to read"): what changes, as chips or a short line, not two full paragraphs.
+- **Edit forms: the value's kind picks the control** ("too many fields, it's overwhelming"): chips, segmented, a menu, a slider (see "Design system" above).
+  No repeated group of dropdowns per row; one **Note for the AI** fold per card.
+- **One row per field:** a field is never shown twice in a card (Race / ethnicity appeared twice).
+- **Modern controls over plain fields** ("I like more card picker than the selectbox/dropdown/textfield… any other more modern component"): a few choices →
+  a card picker or segmented buttons; a set → chips; a number on a scale or range → a slider; a menu (`select`) only for a long list (country, currency), searchable
+  (`.select-search`) or marked `data-long-list`; a text field only for real prose. This refines "the value's kind picks the control" above.
+- **What fails a change:** `desktop/e2e/lib/design-rules.mjs` runs on every view a journey visits (`lib/layout.mjs` snap): `raw-note-in-value`, `long-list-unfolded`,
+  `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. A screen that broke a rule before it was written is listed in its
+  `KNOWN_LEFT` with the session fixing it (shrink-only, `desktop/e2e/test/design-rules.test.mjs`, which also proves each Don't trips its check and each Do and every
+  approved gallery section trips none). Rhythm, "only the difference" and a text field holding a value from a closed list have no check yet: the AI review and the owner's eye judge them.
+
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
   uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an imported binding is read-only.

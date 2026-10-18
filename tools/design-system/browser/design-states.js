@@ -4,6 +4,7 @@ import {cardEdit, el, loadingCard} from '../r/components.js';
 import {chipLine, editRows, readRows, setEditing} from '../r/card-shell.js';
 import {pageSaveBar} from '../r/save-bar.js';
 import {fillIcons, icon} from '../r/icons.js';
+import {refresh, segmented} from '../r/question-control-values.js';
 
 const root = document.getElementById('gallery');
 const section = (title, note, ...children) => {
@@ -54,7 +55,7 @@ const failed = () => {
   fillIcons(box);
   return box;
 };
-const many = Array.from({length: 14}, (_, i) => ({text: ['Kubernetes', 'Observability', 'Terraform', 'PostgreSQL', 'Incident response', 'Python', 'Go'][i % 7] + (i > 6 ? ' (lead)' : '')}));
+const many = Array.from({length: 10}, (_, i) => ({text: ['Kubernetes', 'Observability', 'Terraform', 'PostgreSQL', 'Incident response', 'Python', 'Go'][i % 7] + (i > 6 ? ' (lead)' : '')}));
 const longRows = () => { const box = el('div', 'card-read'); box.append(chipLine(many), readRows([{label: 'Summary', value: 'Platform engineer with eleven years running production systems for logistics and fintech teams, most recently leading an on-call rotation of nine across three time zones and cutting incident hours by a third.'}])); return box; };
 
 section('States: empty, loading, error', 'A card with nothing yet shows "Not set" and its action; a card still reading shows the shared shimmer; a failed read says what happened and offers a retry.',
@@ -62,7 +63,7 @@ section('States: empty, loading, error', 'A card with nothing yet shows "Not set
 section('States: long content and narrow windows', 'Nothing is cut: chips wrap, a long value wraps, and the same card holds at a narrow window (360 px).',
   grid(frame('Long content', card('Summary', longRows())), frame('Narrow window · 360 px', card('Languages', reading(LANGS)), '360px')));
 section('States: read and edit', 'The same card read, then in its editor (card-shell.js setEditing). Edit hides while editing; drafts go to the page save bar.', (() => {
-  const level = value => { const menu = el('select'); for (const option of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native']) menu.append(new Option(option, option)); menu.value = value; return menu; };
+  const level = value => { let chosen = value; const isOn = option => option === chosen; return segmented(['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native'], isOn, (option, group) => { chosen = option; refresh(group, isOn); }, 'Level'); };
   const editing = card('Languages', (() => { const box = el('div', 'card-editor'); box.append(editRows(LANGS.map(item => ({label: item.text, control: level(item.detail)})))); return box; })());
   setEditing(editing, true);
   return grid(frame('Read', card('Languages', reading(LANGS))), frame('Edit', editing));

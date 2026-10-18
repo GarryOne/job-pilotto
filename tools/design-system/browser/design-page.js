@@ -11,8 +11,9 @@ for (const box of [...document.querySelectorAll('#gallery > .g-section')]) {
   box.id = slug(title);
   box.dataset.status = status.sections?.[title] || '';
   if (box.dataset.status && box.dataset.status !== 'approved') h2.append($('span', `dp-badge ${box.dataset.status}`, box.dataset.status));
-  const into = TOKENS.includes(title) ? 'Tokens' : title.startsWith('States:') ? 'States' : 'Components';
+  const into = TOKENS.includes(title) ? 'Tokens' : title.startsWith('States:') ? 'States' : title.startsWith("Don't:") ? "Don't / Do" : 'Components';
   if (into === 'States') h2.firstChild.textContent = title.replace(/^States:\s*/, '').replace(/^./, c => c.toUpperCase());
+  if (into === "Don't / Do") h2.firstChild.textContent = title.replace(/^Don't:\s*/, '').replace(/^./, c => c.toUpperCase());
   group(into).append(box);
 }
 document.getElementById('gallery').remove();
