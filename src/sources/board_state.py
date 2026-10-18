@@ -33,18 +33,35 @@ def _blobs(page):
     return out
 
 
-def _lists(value):
-    """Every list of dicts in the value, with a node budget."""
-    budget, stack = [MAX_NODES], [value]
-    while stack and budget[0] > 0:
-        node = stack.pop()
-        budget[0] -= 1
-        if isinstance(node, list):
-            if len(node) >= MIN_RECORDS and all(isinstance(x, dict) for x in node[:MIN_RECORDS]):
-                yield node
-            stack.extend(x for x in node[:MAX_JOBS * 2] if isinstance(x, (dict, list)))
-        elif isinstance(node, dict):
-            stack.extend(x for x in node.values() if isinstance(x, (dict, list)))
+_KEY = re.compile(r'[\w$-]{1,40}$')
+
+
+def lists(blobs):
+    """(path, rows) of every list of dicts in the blobs: path = the blob's number, then the keys and list positions down to the list,
+    joined by dots (the 'state' recipe stores it). Keys that are not plain words are not entered. A node budget bounds the walk."""
+    for number, blob in enumerate(blobs):
+        budget, stack = [MAX_NODES], [(blob, str(number))]
+        while stack and budget[0] > 0:
+            node, path = stack.pop()
+            budget[0] -= 1
+            if isinstance(node, list):
+                if len(node) >= MIN_RECORDS and all(isinstance(x, dict) for x in node[:MIN_RECORDS]):
+                    yield path, node
+                stack.extend((x, f'{path}.{i}') for i, x in enumerate(node[:MAX_JOBS * 2]) if isinstance(x, (dict, list)))
+            elif isinstance(node, dict):
+                stack.extend((x, f'{path}.{k}') for k, x in node.items() if isinstance(x, (dict, list)) and _KEY.match(str(k)))
+
+
+def rows_at(blobs, path):
+    """The list at a recipe's path, or []."""
+    parts = path.split('.')
+    try:
+        node = blobs[int(parts[0])]
+        for part in parts[1:]:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+    except (IndexError, KeyError, ValueError, TypeError):
+        return []
+    return node if isinstance(node, list) else []
 
 
 def _flat(record):
@@ -68,8 +85,8 @@ def _pick(fields, *hints, link=False):
     return ''
 
 
-def _record(fields, base):
-    if len(fields) < MIN_FIELDS:
+def _record(fields, base, min_fields=MIN_FIELDS):
+    if len(fields) < min_fields:
         return None
     address = _pick(fields, 'url', 'link', 'href', link=True) or next((v for v in fields.values() if re.match(r'(https?://|/)[^\s/]+/\S+$', v)), '')
     title = _pick(fields, 'title') or _pick(fields, 'position', 'name')
@@ -80,15 +97,33 @@ def _record(fields, base):
             'posted': _pick(fields, 'posted', 'date'), 'description': _pick(fields, 'descr', 'summary', 'snippet')}
 
 
+def _read_rows(rows, base, min_fields=MIN_FIELDS):
+    return [r for r in (_record(_flat(row), base, min_fields) for row in rows[:MAX_JOBS] if isinstance(row, dict)) if r]
+
+
 def records(page, base):
     """The records of the best result list in the page: the list with the most records that each carry title, link and more fields."""
     best = []
-    for blob in _blobs(page):
-        for rows in _lists(blob):
-            got = [r for r in (_record(_flat(row), base) for row in rows[:MAX_JOBS]) if r]
-            if len(got) >= MIN_RECORDS and len(got) >= 0.8 * len(rows[:MAX_JOBS]) and len(got) > len(best):
-                best = got
+    for _, rows in lists(_blobs(page)):
+        got = _read_rows(rows, base)
+        if len(got) >= MIN_RECORDS and len(got) >= 0.8 * len(rows[:MAX_JOBS]) and len(got) > len(best):
+            best = got
     return list({r['url']: r for r in best}.values())
+
+
+def at_path(page, base, path):
+    """The records of the list a learned recipe points at (a title and a link are enough: the model already said it is the result list)."""
+    return list({r['url']: r for r in _read_rows(rows_at(_blobs(page), path), base, 2)}.values())
+
+
+def candidates(page, base):
+    """[(path, records)] for every list with at least MIN_RECORDS records carrying a title and a link: what a recipe could point at."""
+    out = []
+    for path, rows in lists(_blobs(page)):
+        got = _read_rows(rows, base, 2)
+        if len(got) >= MIN_RECORDS:
+            out.append((path, got))
+    return out
 
 
 def jobs(page, base, board):
