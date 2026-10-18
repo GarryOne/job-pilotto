@@ -61,7 +61,7 @@ function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
     // The default (lib/record-sites.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
     if (engine === 'node') {
       const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir, '--no-library'] : [])],
-        {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds), ...(posting.row ? {JP_ROW_NAME: posting.row} : {})}});   // the pool row's name: its network record carries it (lib/live-row.mjs)
+        {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds), ...(posting.row ? {JP_ROW_NAME: posting.row} : {}), ...(isCi() ? {JP_FILL_VIDEO_DIR: path.join(os.tmpdir(), 'jp-fill-videos')} : {})}});   // the pool row's name: its network record carries it (lib/live-row.mjs)
       let output = '';
       child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
       child.on('close', (code, signal) => resolve({output, code, signal, seconds: Math.round((Date.now() - started) / 1000)}));
