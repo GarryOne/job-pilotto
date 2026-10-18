@@ -7,6 +7,7 @@ import {install} from './tiny-dom.js';
 install();   // components.js builds elements as it loads; shared.js reads the app state once
 globalThis.window.pilot = {state: async () => ({})};
 const {initReadyCard} = await import('../renderer/pages/ready-card.js');
+const {OUTDATED_LINE} = await import('../renderer/errors.js');
 
 const page = () => {
   const body = install(), pair = globalThis.document.createElement('div'), tailor = globalThis.document.createElement('button');
@@ -159,4 +160,25 @@ test('each filled row offers Open in my browser first, then Open live recording'
   rows[1].querySelector('button').click(); await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(asked, ['j1']);
   assert.match(textOf(card.querySelector('.ready-note')), /Opened in your browser/);
+});
+
+// An app older than its window ("No handler registered"): the card says to restart and offers Restart, never the raw IPC text.
+test('an outdated app: the plain restart line and a Restart button on every way the card shows an error', async () => {
+  const raw = new Error("Error invoking remote method 'readyOpen': Error: No handler registered for 'readyOpen'");
+  const plain = new Error(OUTDATED_LINE);   // what the preload rejects with
+  for (const [name, error] of [['preload text', plain], ['raw text', raw]]) {
+    let relaunched = 0;
+    const body = page();
+    globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {}, site: {batch: null, jobs: []}}),
+      readyTonight: async () => ({ok: false}), readySend: async () => { throw error; }, interviews: {relaunch: () => { relaunched++; }}};
+    await initReadyCard();
+    const card = body.querySelector('.ready-card');
+    buttons(card)[0].click(); await new Promise(resolve => setTimeout(resolve, 0));
+    assert.ok(textOf(card).includes(OUTDATED_LINE), `${name}: the plain line`);
+    assert.ok(!/No handler registered|Error invoking/.test(textOf(card)), `${name}: never the raw text`);
+    const restart = [...card.querySelectorAll('button')].find(button => button.textContent === 'Restart');
+    assert.ok(restart, `${name}: a Restart button`);
+    restart.click();
+    assert.equal(relaunched, 1, `${name}: it restarts through the shared path`);
+  }
 });

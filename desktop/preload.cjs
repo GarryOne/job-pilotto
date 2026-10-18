@@ -14,7 +14,11 @@ const call = name => (...args) => ipcRenderer.invoke(name, ...args).then(result 
   if (result && result.needsExtension) window.dispatchEvent(new CustomEvent('pilot-needs-extension', {detail: {state: result.state, text: result.text}}));
   return result;
 }, error => {
-  if (/No handler registered/.test(String(error?.message))) window.dispatchEvent(new Event('pilot-outdated'));
+  if (/No handler registered/.test(String(error?.message))) {
+    window.dispatchEvent(new Event('pilot-outdated'));
+    // Every screen that prints error.message prints this plain line, never "Error invoking remote method 'x': No handler registered" (renderer/errors.js has the same words).
+    throw new Error('Job Pilotto was updated while it was open. Restart it to use this.');
+  }
   throw error;
 });
 contextBridge.exposeInMainWorld('pilot', {
