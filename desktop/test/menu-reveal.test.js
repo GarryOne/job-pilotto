@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {PROGRESSIVE, load, looks, navOf, nextState, save, stillLocked} from '../renderer/menu-reveal.js';
+import {PROGRESSIVE, load, looks, nextState, save, stillLocked} from '../renderer/menu-reveal.js';
 import {STOPS, captureRun, markSeen, seen, stopsFor} from '../renderer/menu-tour.js';
 
 const read = name => fs.readFileSync(new URL(`../renderer/${name}`, import.meta.url), 'utf8');
@@ -18,13 +18,13 @@ test('day 1 shows neither page; the first application shows Interviews, the firs
   assert.deepEqual(looks(nextState(empty, {...none, weeklyReport: true}), 'reports'), {shown: true, dot: true});
 });
 
-test('once shown a page stays, and its dot goes when it is opened (Calendar counts as Interviews)', () => {
+test('once shown a page stays, and its dot goes when it is opened ', () => {
   let state = nextState(empty, {...none, applied: true});
   state = nextState(state, none);   // the signal went away (a deleted row): the page stays
   assert.equal(looks(state, 'interviews').shown, true);
   state = nextState(state, none, 'calendar');
-  assert.deepEqual(looks(state, 'interviews'), {shown: true, dot: false});
-  assert.equal(navOf('calendar'), 'interviews');
+  assert.deepEqual(looks(state, 'calendar'), {shown: true, dot: false});
+  assert.deepEqual(looks(state, 'interviews'), {shown: true, dot: true});   // each page has its own dot
 });
 
 test('a page opened from ⌘K before its signal is in the menu from then on, without a dot', () => {
@@ -42,12 +42,12 @@ test('the state is kept in the browser storage, and a broken one starts again', 
 });
 
 // The class: every screen is reachable from ⌘K whether or not its menu button is shown.
-test('every screen has a menu button the palette lists (hidden or not), or is a tab of one', () => {
+test('every screen has a menu button the palette lists, hidden or not', () => {
   const html = read('index.html');
   const views = [...html.matchAll(/<div class="view[^"]*" data-view="([a-z-]+)"/g)].map(match => match[1]);
   const navs = new Set([...html.matchAll(/<button class="nav[^"]*" data-view="([a-z-]+)"/g)].map(match => match[1]));
   assert.ok(views.length >= 10, 'the views are found');
-  for (const view of views) assert.ok(navs.has(navOf(view)), `${view} has a menu button (itself, or the one it is a tab of)`);
+  for (const view of views) assert.ok(navs.has(view), `${view} has a menu button of its own`);
   for (const name of Object.keys(PROGRESSIVE)) assert.match(html, new RegExp(`<button class="nav" data-view="${name}" id="nav-${name}" hidden>`), `${name} starts hidden`);
   const nav = read('pages/nav.js');
   const line = nav.split('\n').find(text => text.includes("add('Go to', `Open ${labelOf(nav)}`"));
@@ -55,10 +55,10 @@ test('every screen has a menu button the palette lists (hidden or not), or is a 
   assert.ok(!/\[hidden\]|:not\(/.test(line), 'and does not skip hidden ones');
 });
 
-test('Calendar is a tab inside Interviews: both screens carry the tab strip, and the menu has no Calendar button', () => {
+test('Calendar is its own menu button right after Interviews, hidden until it unlocks, with no tab strip on either screen', () => {
   const html = read('index.html');
-  assert.equal((html.match(/data-iv-tabs/g) || []).length, 2);
-  assert.doesNotMatch(html, /<button class="nav[^"]*" data-view="calendar"/);
+  assert.doesNotMatch(html, /data-iv-tabs/);
+  assert.match(html, /id="nav-interviews" hidden>[^\n]*\n\s*<button class="nav" data-view="calendar" id="nav-calendar" hidden><i data-icon="calendar"><\/i>Calendar/);
   assert.match(html, /<i data-icon="check"><\/i>Actions/);
 });
 
@@ -75,7 +75,7 @@ test('More lists the hidden pages with when they unlock, counts them, and is gon
   const applied = nextState(empty, {...none, applied: true});
   assert.deepEqual(names(applied), ['reports', 'employers']);   // Calendar unlocks with Interviews
   assert.equal(stillLocked(nextState(applied, {applied: true, weeklyReport: true, employers: true})).length, 0);
-  assert.deepEqual(names(nextState(empty, none, 'calendar')), ['reports', 'employers']);   // opened from More: it and its tab-mate join the menu
+  assert.deepEqual(names(nextState(empty, none, 'calendar')), ['interviews', 'reports', 'employers']);   // opened from More: it joins the menu by itself
 });
 
 test('every progressive page has a More entry, and More is in the markup closed, with its state remembered', () => {
