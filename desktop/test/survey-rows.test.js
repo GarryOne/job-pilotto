@@ -28,7 +28,20 @@ test('texts(): an unchanged form gives the lines back; a changed choice rewrites
 
 test('the card body shows answers with their notes, and "Not set yet." when empty', () => {
   const text = node => all(node).map(each => each.textContent || '').join(' ');
-  assert.match(text(surveyBody(part)), /Gender identity.*Man.*or Male.*How many companies\?: 4/s);
+  assert.match(text(surveyBody(part)), /Gender identity.*Man.*or Male.*How many companies\?.*4/s);
   assert.match(text(surveyBody({lines: []})), /Not set yet/);
   assert.equal(readLine(lineOf('age', DECLINE)).option, DECLINE);
+});
+
+test('class: no line of the card is drawn as a raw paragraph wall; a "Label: value" line is a row, "Sorting your answers…" shows while the move runs', () => {
+  const lines = ['These answers were confirmed on 25 September 2026. Use them for equivalent questions when the form offers matching choices; ask if a choice has a different meaning.',
+    'For a "Which of the following communities do you belong to?" list covering disability, parenthood and refugee status: None of the above.', 'How many companies?: 4'].map((text, id) => ({id: String(id), text}));
+  const text = node => all(node).map(each => each.textContent || '').join(' | ');
+  const shown = surveyBody({lines});
+  assert.match(text(shown), /None of the above/);
+  assert.equal(all(shown).filter(each => each.tagName === 'DT').length, 2, 'the two labelled lines are rows');
+  assert.equal(all(shown).filter(each => each.tagName === 'P' && each.textContent.length > 120 && !/muted/.test(each.className)).length, 0, 'a paragraph is muted small, never body text');
+  assert.doesNotMatch(text(surveyBody({lines: []}, {sorting: false})), /Sorting/);
+  assert.match(text(surveyBody({lines}, {sorting: true})), /Sorting your answers…/);
+  assert.doesNotMatch(text(surveyForm({lines}).node), /Other lines/);
 });

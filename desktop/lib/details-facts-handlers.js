@@ -32,7 +32,8 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
   const open = async () => {
     if (DEMO) return {ok: true, sections: storage.settings().demoFacts || DEMO_FACTS, conflicts: storage.settings().demoWhich ?? DEMO_WHICH, setAside: storage.settings().demoSetAside || []};
     if (!connected()) return {ok: true, sections: empty(), conflicts: [], setAside: []};
-    let error = '';
+    let error = '', changed = 0;
+    const started = Date.now();
     if (!storage.settings().profileMovedAt) {
       try {
         const {moved, conflicts} = await move(storage, {ai: ai()});
@@ -47,14 +48,22 @@ export function registerDetailsFactsHandlers({ipcMain, storage, DEMO, connected,
       if (!moved.changed && moved.reason && moved.reason !== 'no-ai') log('profile', 'survey answers not moved', {reason: moved.reason});   // a reason word, never a value
       if (moved.changed) log('profile', 'survey answers got their lists', {changed: moved.changed});   // a count, never a value
       if (tidy.changed) log('profile', 'Your details lines got their kinds', {changed: tidy.changed});   // a count, never a value
+      changed = (tidy.changed || 0) + (split.changed || 0) + (moved.changed || 0);
       // The AI's word on each answer not judged yet, after the tidy and split changed what they change (lib/details-review.js judgeNew): unclear ones are queued.
       const judged = await judgeNew(storage, {ai: ai()}).catch(failed => { log('profile', 'the answers check stopped', {error: failed.message}); return {judged: 0}; });
       if (judged.judged) log('profile', 'answers checked', {judged: judged.judged, unclear: judged.unclear, unsure: judged.queued});   // counts, never a value
       const found = await sections.read(storage);
-      return {ok: !error, error, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: await openConflicts(storage).catch(() => storage.settings().profileConflicts || []), setAside: list(storage).filter(each => each.source === 'profile')};
+      if (changed || Date.now() - started > 2000) log('profile', 'Your details settled', {ms: Date.now() - started, changed});   // (only when something moved or it was slow) timing and a count, never a value
+      return {ok: !error, error, changed, sections: found, formats: await kinds.formatsOf(storage, found, ai()), tidied: tidied(), conflicts: await openConflicts(storage).catch(() => storage.settings().profileConflicts || []), setAside: list(storage).filter(each => each.source === 'profile')};
     } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
   };
   ipcMain.handle('detailsFacts', () => opening ||= open().finally(() => { opening = null; }));
+  // The fast read the screen paints first (owner's app.log 18 Oct 2026: one open waited 3 min 10 s on four AI and Notion steps in a row, and the survey card never redrew when they
+  // finished): the saved lines as they are now, no AI, no move. `settling` says the moves are still to come: the screen then asks 'detailsFacts' and redraws with its answer.
+  ipcMain.handle('detailsFactsNow', async () => {
+    if (DEMO || !connected()) return {...await open(), settling: false};
+    try { return {ok: true, sections: await sections.read(storage), formats: {}, tidied: tidied(), conflicts: [], setAside: [], settling: true}; } catch (failed) { return {ok: false, error: failed.message, sections: empty(), conflicts: [], setAside: []}; }
+  });
   ipcMain.handle('undoDetailsTidy', async () => {
     if (DEMO) return {ok: true};
     const gate = needsNotion('profile');

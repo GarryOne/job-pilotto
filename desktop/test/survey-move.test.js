@@ -90,3 +90,17 @@ test('a bullet that came back after a rolled-back run is moved again, Undo cover
   await survey.undo(storage);
   assert.deepEqual(await surveyLines(page), BULLETS);
 });
+
+test('an answer the code cannot read is asked again on the next open, three times at most; then the lines stay as written (owner 18 Oct 2026: one bad answer ended the move for good)', async () => {
+  const {storage, page} = await fresh();
+  const bad = {client: {messages: {create: async () => ({content: [{type: 'text', text: 'not json'}]})}}};
+  for (let open = 0; open < 2; open++) assert.equal((await survey.migrate(storage, {ai: bad, copy: async () => ({dir: 'd'})})).reason, 'no-answer-trusted');
+  assert.equal(storage.settings().surveyMovedAt, undefined, 'not finished after two unreadable answers');
+  const calls = [];
+  const good = await survey.migrate(storage, {ai: fakeAi(said, calls), copy: async () => ({dir: 'd'})});
+  assert.equal(good.changed, 3, 'the next open moves them');
+  assert.match((await surveyLines(page))[0], /pick one/);
+  const again = await fresh();
+  for (let open = 0; open < 3; open++) await survey.migrate(again.storage, {ai: bad, copy: async () => ({dir: 'd'})});
+  assert.ok(again.storage.settings().surveyMovedAt, 'after three tries it stops asking');
+});
