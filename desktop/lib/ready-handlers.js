@@ -12,6 +12,8 @@ import {log as appLog} from './log.js';
 import {keysOf} from './ai/index.js';
 import {settingsOf} from './ready.js';
 import * as site from './ready-site.js';
+import * as handoffs from './ready-handoff.js';
+import {setVisitRoute} from './server-hooks.js';
 import {waitingOf} from '../renderer/pages/ready-rows.js';
 
 // What the AI may answer a form from: the same texts the normal Apply gives it (Profile, standard answers, search settings, the CV's facts).
@@ -79,6 +81,21 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     await shell.openExternal(made.url);
     return {ok: true};
   });
+  // Open in my browser (PR 5b): the night's hand-off for this job, then the normal Apply (a form session and its marked tab in the extension's browser).
+  // The extension asks for the hand-off once when the tab loads (route below): it sets the page's cookies, loads the page the night ended on, puts back
+  // the night's values, and its normal fill takes over for what is left. Nothing is submitted.
+  ipcMain.handle('readyOpen', async (_, code) => {
+    const mine = each => each.code === String(code || ''), job = cached().find(mine) || (await jobs().catch(() => [])).find(mine);   // the kept list first: a job read takes ~13 s
+    if (!job?.url) return {ok: false, error: 'This job is not in your list any more.'};
+    const made = await site.handoff(storage, job.code);
+    if (!made.ok) return made;
+    const {applyOne, formUrl} = deps.apply || await import('./apply.js');
+    if (!handoffs.keep(made, [job.url, formUrl(job.url)])) return {ok: false, error: 'The server gave no page for this form.'};
+    const opened = await applyOne(storage, job.url, {title: job.title, company: job.company, location: job.location});
+    appLog('ready', 'open in my browser', {job: job.code, ok: opened.ok, fields: made.snapshot?.fields?.length || 0});
+    return opened.ok ? {ok: true} : opened;
+  });
+  setVisitRoute('/extension/ready-handoff', payload => ({ok: true, handoff: handoffs.take(payload?.url)}));
   ipcMain.handle('readyRun', async () => {   // Fill now: tonight's night has started, so nothing sent by itself replaces it
     const started = await site.runNow(storage);
     if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});

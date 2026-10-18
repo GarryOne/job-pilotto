@@ -15,7 +15,7 @@ export function paint(card, state, names, act) {
   for (const job of jobs) {
     const row = rowOf(job), line = el('div', 'ready-row');
     const buttons = el('span', 'ready-buttons');
-    if (['prepared', 'partial', 'wall'].includes(job.state)) buttons.append(act.live(job.job));
+    if (['prepared', 'partial', 'wall'].includes(job.state)) buttons.append(act.open(job.job), act.live(job.job));   // your own Chrome first, the picture stream beside it (owner, 18 Oct 2026)
     buttons.append(act.done(job.job));
     line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), buttons);
     rows.append(line);
@@ -91,7 +91,13 @@ export async function initReadyCard() {
     const fresh = await window.pilot.readyTonight().catch(() => null);
     if (fresh?.ok) { tonightNow = fresh.tonight; show({...state, names: {...state.names, ...fresh.names}}); }
   };
-  const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this filled form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+  // Open in my browser: the real page in your own Chrome, filled as the night left it (lib/ready-handoff.js). Open live recording: the server's tab as a picture stream.
+  const open = code => { const button = el('button', 'secondary', 'Open in my browser'); button.title = 'The real page in your own Chrome, filled as the night left it';
+    button.addEventListener('click', async () => { button.disabled = true; say('Opening the filled form in your browser…');
+      const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: error.message}));
+      button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.')); });
+    return button; };
+  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };
   send.addEventListener('click', async () => {

@@ -138,6 +138,25 @@ test('no control on the card reads like a Submit to the twin\'s guard', async ()
     readyTonight: async () => ({ok: false})};
   await initReadyCard();
   const all = body.querySelector('.ready-card').querySelectorAll('button');
-  assert.ok(all.length >= 9, 'Fill tonight, Fill now, Open live ×3, Done ×6');
+  assert.ok(all.length >= 12, 'Fill tonight, Fill now, Open in my browser ×3, Open live recording ×3, Done ×6');
   for (const button of all) assert.ok(!looksLikeSubmit(`${textOf(button)} ${button.title || ''} ${button.getAttribute('aria-label') || ''}`), `${textOf(button)} / ${button.title}`);
+});
+
+// Open in my browser (owner, 18 Oct 2026): every row with a filled form has it first, the picture stream ("Open live recording") beside it; a row
+// with nothing to open has neither. Pressing it asks the app for that job and says what to do next.
+test('each filled row offers Open in my browser first, then Open live recording', async () => {
+  const body = page(), asked = [];
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed'].map((state, i) => ({job: `j${i}`, state}))}}),
+    readyTonight: async () => ({ok: false}), readyOpen: async code => { asked.push(code); return {ok: true}; }};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
+  rows.forEach((row, i) => {
+    const labels = row.querySelectorAll('button').map(textOf);
+    if (i < 3) assert.deepEqual(labels, ['Open in my browser', 'Open live recording', 'Done'], `row ${i}`);
+    else assert.deepEqual(labels, ['Done'], `row ${i}: nothing to open`);
+  });
+  rows[1].querySelector('button').click(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(asked, ['j1']);
+  assert.match(textOf(card.querySelector('.ready-note')), /Opened in your browser/);
 });
