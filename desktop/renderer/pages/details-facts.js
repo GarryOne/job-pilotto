@@ -1,6 +1,6 @@
 // Settings → Profile → Your details: the Work eligibility, Availability & compensation and Languages sections (owner, 17 Oct 2026: "Your details =
 // facts, in 3 sections"), each line as it is on the Profile page (label, then its value to edit), "Add a line", and "To check": one line counting the
-// unclear details (a fact said two ways, a line with no clear home, a value to make exact, a ❓) that opens the one review queue (owner, 18 Oct 2026:
+// unclear details (a fact said two ways, a line with no clear home, a value to make exact, an unanswered mark) that opens the one review queue (owner, 18 Oct 2026:
 // "One queue for all"; lib/details-review.js). Saved with Contact through the one "Unsaved changes" bar (pages/profile.js). Guarded by
 // test/details-facts.test.js and test/details-review.test.js.
 import {el, loadingCard} from '../components.js';

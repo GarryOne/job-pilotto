@@ -1,6 +1,6 @@
 // A question's kind of answer (owner, 17 Oct 2026: "'Accept GDPR consent' cannot be answered in a text field ... if they require dropdown/selectbox,
 // then show it properly"): text, long text, pick one, pick several or yes/no, and the form's own options. Read from the fill's field type (structure,
-// never words), kept in the store as a mark at the end of the question's line ("Title: ❓ (asked by Adnovum) [pick one: Mr | Mrs | Ms]"), the same text
+// never words), kept in the store as a mark at the end of the question's line ("Title: <mark> (asked by Adnovum) [pick one: Mr | Mrs | Ms]"), the same text
 // on every adapter. Spec docs/superpowers/specs/2026-10-17-base-facts.md. Pure (no DOM): guarded by test/question-kind.test.js.
 import {countryNames} from './countries.js';
 

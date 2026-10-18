@@ -1,6 +1,7 @@
 // Application → Preparation: what the app drafted for the application: the kit (check before sending, lead with, cover letter, form answers:
 // each copyable), the files on the job (a tailored CV) and the interview preparation. Not drafted yet: a state card.
 import {el} from '../components.js';
+import {checkPill} from '../no-mark.js';
 import {allAnswers} from '../job-page-view.js';
 import {copyButton, group, stateCard} from './parts.js';
 import {jobLetterView} from './job-letter.js';
@@ -21,7 +22,9 @@ function kitView(kit) {
       // Copy on the question's line, as the cover letter's is on its heading: one place for every Copy in the kit.
       const row = el('div', 'iv-moment');
       const line = el('div', 'job-panel-line');
-      line.append(el('b', '', item.review ? `${item.question} ❓` : item.question), copyButton(item.answer));
+      const title = el('span');   // the question and its pill stay together on the left; Copy sits on the right
+      title.append(el('b', '', item.question), ...(item.review ? [' ', checkPill()] : []));
+      line.append(title, copyButton(item.answer));
       row.append(line, el('div', '', item.answer || '—'));
       return row;
     }), copyButton(allAnswers(kit.answers), 'Copy all')));

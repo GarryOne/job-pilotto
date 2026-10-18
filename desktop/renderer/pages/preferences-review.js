@@ -12,7 +12,7 @@ const kept = () => { try { return new Set([...JSON.parse(localStorage.getItem(KE
 const remember = set => { set.forEach(each => memory.add(each)); try { localStorage.setItem(KEEP, JSON.stringify([...set].slice(-200))); } catch {} };
 const ORDER = ['countries', 'cities', 'mode', 'relocation', 'languages', 'roles', 'employment', 'seniority'];
 
-// The text the AI reads for each field: what the page holds (a ❓ row's hint is still what was typed), and the Home base for context.
+// The text the AI reads for each field: what the page holds (a not-answered row's hint is still what was typed), and the Home base for context.
 export const textsOf = fields => Object.fromEntries([...ORDER, 'home'].map(key => [key, fields[key]?.value || fields[key]?.hint || '']));
 
 // state: {key, parse, error, busy}; handled: keys accepted into the draft; apply(field, item, text); note() re-drafts the one Original wording line from the accepted fields.
