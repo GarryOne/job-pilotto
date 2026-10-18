@@ -17,13 +17,14 @@ export const state = storage => ({on: false, skipped: false, email: '', marketin
 const save = (storage, patch) => storage.saveSettings({hostedSearch: {...state(storage), ...patch}});
 
 // devBuild: the call may go from an app run from source (Ready to send: the owner runs his app from source); never from a test, CI or a smoke run.
+export const UNAVAILABLE = 'Always on is not available just now.';   // the line when the site gave no reason of its own (lib/ready-site.js tells them apart)
 export async function call(storage, route, {method = 'GET', body, fetcher = globalThis.fetch, key: given, headers = {}, devBuild = false} = {}) {
   const key = given || keyOf(storage);   // `key`: one minted for an install that runs on its own engine (lib/ready-site.js)
   if (!key || !isFreeKey(key) || (siteIsOff() && !(devBuild && siteOffReason() === DEV_BUILD))) return {ok: false, error: 'Always on needs a regular install with its key.'};
   try {
     const response = await fetcher(`${BASE}${route}`, {method, headers: {'x-api-key': key, 'Content-Type': 'application/json', ...headers}, ...(body ? {body: JSON.stringify(body)} : {})});
     const text = await response.text(), json = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-    return response.ok ? {ok: true, ...json} : {ok: false, status: response.status, error: json.error || 'Always on is not available just now.'};
+    return response.ok ? {ok: true, ...json} : {ok: false, status: response.status, error: json.error || UNAVAILABLE};
   } catch { return {ok: false, error: 'Could not reach Job Pilotto just now. Check your connection.'}; }
 }
 

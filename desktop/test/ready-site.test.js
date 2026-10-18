@@ -189,3 +189,15 @@ test('a form the server no longer holds reads as "press Fill now", never "not on
   assert.match((await handoff(storage(), 'j1', {fetcher: site(401, {ok: false}).fetcher})).error, /not on for this install/, 'a refused owner still reads as before');
   assert.equal((await handoff(storage(), 'j1', {fetcher: site(200, {ok: true, url: 'https://boards.example.com/apply'}).fetcher})).url, 'https://boards.example.com/apply');
 });
+
+// 18 Oct 2026: Fill now with nothing sent showed "Ready to send is not on for this install." (the site's 404 "no queued night to run"). Only a refused owner reads that line:
+// a 401, or a 404 with no reason of Ready to send's own (the route is off). Every reason the site gives is said as that reason, in plain words.
+test('only a refused owner reads "not on for this install"; the site\'s own reasons are said as themselves', async () => {
+  const {runNow: run, NOT_ON} = await import('../lib/ready-site.js');
+  const said = async (status, body) => (await run(storage(), {fetcher: async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), {status})})).error;
+  assert.equal(await said(401, {ok: false, error: 'unauthorized'}), NOT_ON);
+  assert.equal(await said(404, 'Not found'), NOT_ON, 'the route is off: plain text, no reason');
+  assert.match(await said(404, {ok: false, error: 'no queued night to run'}), /Nothing was sent for tonight/);
+  assert.match(await said(409, {ok: false, error: 'already started'}), /already started/i);
+  assert.doesNotMatch(await said(404, {ok: false, error: 'no queued night to run'}), /not on for this install/);
+});

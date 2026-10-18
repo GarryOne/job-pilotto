@@ -55,7 +55,7 @@ test('on the owner\'s install the buttons work, and tonight\'s count comes from 
   await initReadyCard();
   const card = body.querySelector('.ready-card');
   assert.ok(buttons(card).every(button => !button.disabled));
-  assert.match(textOf(card), /Tonight: 2 of your finished jobs/);
+  assert.match(textOf(card), /Tonight2 ready/, 'tonight as a badge (owner, 18 Oct 2026)');
   assert.ok(!textOf(card).includes('Not available'));
 });
 
@@ -75,13 +75,13 @@ test('Try again answers visibly: Checking… while it asks, then the reason with
 });
 
 test('what went to the server for tonight (by hand or by itself) is said on the card; nothing sent, no line', async () => {
-  for (const [sent, says] of [[{count: 3, at: new Date(2026, 9, 18, 18, 40).toISOString()}, /Sent for tonight: 3 jobs · 18:40/], [null, null]]) {
+  for (const [sent, says] of [[{count: 3, at: new Date(2026, 9, 18, 18, 40).toISOString()}, /Sent 3 · 18:40/], [null, null]]) {
     const body = page();
     globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {}, site: {batch: null, jobs: []}, sent}),
       readyTonight: async () => ({ok: false})};
     await initReadyCard();
     const text = textOf(body.querySelector('.ready-card'));
-    if (says) assert.match(text, says); else assert.ok(!text.includes('Sent for tonight'));
+    if (says) assert.match(text, says); else assert.doesNotMatch(text, /Sent \d+ ·/);
   }
 });
 
@@ -213,4 +213,70 @@ test('a row with the night\'s video offers Watch the fill; it plays in a popup t
     watch.click(); await new Promise(resolve => setImmediate(resolve));
     assert.equal(body.querySelectorAll('#ready-video-dialog').length, 1, 'opens again, one at a time');
   } finally { URL.revokeObjectURL = realRevoke; }
+});
+
+// Fill now (owner, 18 Oct 2026: "I press Fill now and nothing really happens", "I'd expect it to start instantly", a progress bar, statuses as badges).
+const owned = (site = {batch: null, jobs: []}, extra = {}) => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [{code: 'a'}], names: {a: 'SRE · Acme'}, site, ...extra});
+const steps = card => card.querySelector('.ready-progress')?.querySelectorAll('.ui-pill').map(textOf).join(' | ') || '';
+
+test('Fill now shows the bar at once, before any answer, and both buttons are off while it sends', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
+  const body = page();
+  let answer;
+  globalThis.window.pilot = {readyState: async () => owned(), readyTonight: async () => ({ok: false}), readyRun: () => new Promise(resolve => { answer = resolve; })};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  card.querySelector('#ready-run').click();
+  assert.match(steps(card), /^Sending \d:\d\d \| Starting the server \| Filling \| Ready$/, 'instantly, no answer yet');
+  assert.ok(card.querySelector('.ready-bar'), 'the bar');
+  assert.ok(buttons(card).slice(0, 2).every(button => button.disabled));
+  assert.equal(textOf(card.querySelector('#ready-run')), 'Filling…');
+  answer({ok: true, queued: 1}); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(textOf(card.querySelector('.ready-note')), /Done.*1 job sent/);
+  assert.ok(card.querySelector('.ready-note .ui-pill'), 'the line is a badge');
+});
+
+test('a running night: the bar says which form, the rows are badges, and neither button can replace it', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => owned({batch: {night: '2026-10-18', state: 'running'}, jobs: [{job: 'a', state: 'prepared'}, {job: 'b', state: 'queued'}]}), readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  assert.match(steps(card), /✓ Sent 2 jobs \| ✓ Server up \| Filling 2 of 2/);
+  assert.ok(buttons(card).slice(0, 2).every(button => button.disabled), 'Fill tonight and Fill now are off');
+  assert.match(textOf(card), /1 ready/);
+});
+
+test('Fill now asks first in a popup: Fill again fills the opened jobs, Cancel sends nothing', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
+  for (const yes of [true, false]) {
+    const body = page(), calls = [];
+    globalThis.window.pilot = {readyState: async () => owned(), readyTonight: async () => ({ok: false}),
+      readyRun: async options => { calls.push(options); return options.confirmed ? {ok: true, queued: 1} : {ok: false, ask: {again: true, jobs: [{code: 'x', name: 'DevOps · Nordlicht'}], replaces: 1}}; }};
+    await initReadyCard();
+    const card = body.querySelector('.ready-card');
+    card.querySelector('#ready-run').click(); await new Promise(resolve => setTimeout(resolve, 0));
+    const popup = body.querySelector('#ready-confirm');
+    assert.ok(popup, 'the popup');
+    assert.match(textOf(popup), /Fill this job again\?.*DevOps · Nordlicht.*replaces 1 form/);
+    popup.querySelector(yes ? '#ready-confirm-yes' : '#ready-confirm-no').click(); await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(body.querySelector('#ready-confirm'), null, 'closed');
+    if (yes) assert.deepEqual(calls, [{}, {again: true, confirmed: true}]);
+    else { assert.deepEqual(calls, [{}]); assert.match(textOf(card.querySelector('.ready-note')), /Not started/); assert.equal(card.querySelector('.ready-progress'), null, 'no bar left'); }
+  }
+});
+
+test('nothing to fill: a Note badge with the reason, never "not on for this install", and the way to get a job ready', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => owned(undefined, {tonight: []}), readyTonight: async () => ({ok: false}),
+    readyRun: async () => ({ok: false, nothing: true, error: 'Nothing to fill: no job has its kit, CV and cover letter yet. Tailor CVs for your top matches first.'})};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  assert.match(textOf(card), /Tonight0 ready/);
+  assert.ok(card.querySelectorAll('button').some(button => textOf(button) === 'Tailor CVs for top matches'));
+  card.querySelector('#ready-run').click(); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(textOf(card.querySelector('.ready-note')), /^NoteNothing to fill/);
+  assert.doesNotMatch(textOf(card), /not on for this install/);
+  assert.equal(card.querySelector('.ready-progress'), null);
 });

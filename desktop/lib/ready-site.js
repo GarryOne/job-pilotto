@@ -1,7 +1,7 @@
 // Ready to send, the app's calls to the site (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): is this install the owner's, send tonight's batch, start it now, read the morning's rows, mark a job Done.
 // The install's own key (the one Free AI uses) is the only credential; the site answers 404 or 401 to anyone but the owner, so the card is shown only when `owner` says yes. Guard: test/ready-site.test.js.
 import {FREE_BASE} from './ai-free.js';
-import {call as callWith, keyOf} from './hosted-search.js';
+import {UNAVAILABLE, call as callWith, keyOf} from './hosted-search.js';
 import {siteIsOff, siteOffReason} from './recipes.js';
 import {DEV_BUILD} from './telemetry.js';
 import {read as keychainRead} from './keychain.js';
@@ -28,8 +28,13 @@ const call = async (storage, route, options = {}) => callWith(storage, route, {.
 
 // The server no longer holds the form (a deploy or the container's sleep dropped the held tabs, or the night ended): its 410 "gone", or a 404 that says "held".
 export const GONE_LINE = 'The server no longer holds this filled form (it restarted or the night ended). Press Fill now to fill it again.';
-const isGone = result => result.status === 410 || (result.status === 404 && /\bheld\b/.test(String(result.error || '')));
-const words = result => (result.ok ? result : {ok: false, status: result.status, error: isGone(result) ? GONE_LINE : result.status === 401 || result.status === 404 ? 'Ready to send is not on for this install.' : result.error});
+const reasonOf = result => (result.error === UNAVAILABLE ? '' : String(result.error || ''));   // the site's own words, '' when it gave none
+const isGone = result => result.status === 410 || (result.status === 404 && /\bheld\b/.test(reasonOf(result)));
+// Only a refused owner reads "not on": a 401, or a 404 without a reason of Ready to send's own (the route is off). The site's reasons are said in plain words.
+export const NOT_ON = 'Ready to send is not on for this install.';
+const REASONS = {'no queued night to run': 'Nothing was sent for tonight yet: press Fill now to send and start it.', 'already started': 'Filling has already started on the server.'};
+const refusedOwner = result => result.status === 401 || (result.status === 404 && !reasonOf(result));
+const words = result => (result.ok ? result : {ok: false, status: result.status, error: isGone(result) ? GONE_LINE : refusedOwner(result) ? NOT_ON : REASONS[reasonOf(result)] || result.error});
 
 export const owner = async (storage, options) => (await call(storage, '/api/ready/state', options)).ok === true;
 const clock = at => new Date(at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
