@@ -1,7 +1,7 @@
 // The unclear fields of Your details as items of the one review queue (owner, 18 Oct 2026: "One queue for all"): "Which is right?" (two copies of a fact
 // disagree, lib/profile-move.js openConflicts), "Where does this go?" (the move's AI answered "unsure"), a kind to check (a typed line kept as written: the
 // "Check" chip of renderer/fact-line.js, one rule: needsCheck) and a ❓ on the Profile that nothing asked. Each item has the queue's shape ({key, question,
-// format, hint, value}) plus .details {kind, source, where}; lib/question-lists.js openShown adds them to the list the Jobs card, the drawer and the Profile
+// format, hint, value}) plus .details {kind, source, where, fact (the label it is scored by)}; lib/question-lists.js openShown adds them to the list the Jobs card, the drawer and the Profile
 // banner count. answer() saves into the item's home: a Your details section, else the line's own place on the Profile. Guarded by test/details-review.test.js.
 import {openStore} from './store/index.js';
 import * as sections from './profile-sections.js';
@@ -18,7 +18,7 @@ export const PREFIX = 'details:';
 export const KINDS = ['which', 'where', 'check', 'open', 'unclear'];
 export const KEEP = 'Keep on the Profile';
 export {KEEP_AS_IS};   // an unclear answer the person keeps: never asked again for that value
-const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: '❓ on your Profile', unclear: 'Unclear'};
+const SOURCES = {which: 'Two copies disagree', where: 'Not sure where it belongs', check: 'Saved as you wrote it', open: 'Not answered yet', unclear: 'Unclear'};
 const PAGES = {profile: 'Profile', answers: 'Application answers'};
 const plain = text => String(text || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const same = text => plain(text).toLowerCase();
@@ -60,23 +60,23 @@ export async function pending(storage, {fetcher} = {}) {
   for (const conflict of conflicts) {
     const values = [...new Map(conflict.choices.map(each => [same(each.value), each.value])).values()];
     out.push(item('which', {topic: conflict.topic}, {question: `${conflict.topic.replace(/^./, letter => letter.toUpperCase())}: which is right?`, format: choice(values),
-      hint: conflict.choices.map(each => `${each.value} on your ${PAGES[each.page] || each.page}`).join(' · '), details: {where: HOME_NAMES[conflict.home]}}));
+      hint: conflict.choices.map(each => `${each.value} on your ${PAGES[each.page] || each.page}`).join(' · '), details: {where: HOME_NAMES[conflict.home], fact: conflict.choices.find(each => each.label)?.label || conflict.topic}}));
   }
   for (const entry of storage.settings().profileUnsure || []) {
     const lines = itemsOf(await outline(entry.page), entry.page);
     if (!lines.some(line => same(line.label) === same(entry.label) && same(line.value) === same(entry.value))) continue;
     out.push(item('where', {page: entry.page, label: entry.label, value: entry.value}, {question: 'Where does this line go?', format: choice([...Object.values(sections.SECTIONS), KEEP]),
-      details: {where: PAGES[entry.page] || entry.page, line: entry.label ? `${entry.label}: ${entry.value}` : entry.value}}));
+      details: {where: PAGES[entry.page] || entry.page, fact: entry.label || entry.value, line: entry.label ? `${entry.label}: ${entry.value}` : entry.value}}));
   }
   const unclear = (line, ref, where, format) => {   // the AI's word on a saved answer (lib/answer-clarity.js): asked when it is not clear
     const said = clarity.UNCLEAR[clarity.verdictOf(storage, line)];
-    if (said) out.push(item('unclear', ref, {question: line.label || line.value, format, value: line.value, details: {where, source: said, line: `Saved: ${line.value}`}}));
+    if (said) out.push(item('unclear', ref, {question: line.label || line.value, format, value: line.value, details: {where, source: said, fact: line.label || line.value, line: `Saved: ${line.value}`}}));
   };
   for (const [home, lines] of Object.entries(found)) {
     for (const line of lines) {
       const format = formatFor({marked: line.kind ? {kind: line.kind} : null, kept: kept[keyOf(line.label)]});
-      if (asked(line.value)) out.push(item('open', {home, label: line.label}, {question: line.label, format, hint: hintOf(line.value), details: {where: HOME_NAMES[home]}}));
-      else if (needsCheck(format.kind, line.value)) out.push(item('check', {home, label: line.label, kind: format.kind}, {question: `${line.label}: make it exact`, format, value: line.value, details: {where: HOME_NAMES[home]}}));
+      if (asked(line.value)) out.push(item('open', {home, label: line.label}, {question: line.label, format, hint: hintOf(line.value), details: {where: HOME_NAMES[home], fact: line.label}}));
+      else if (needsCheck(format.kind, line.value)) out.push(item('check', {home, label: line.label, kind: format.kind}, {question: `${line.label}: make it exact`, format, value: line.value, details: {where: HOME_NAMES[home], fact: line.label}}));
       else unclear(line, {home, label: line.label, value: line.value}, HOME_NAMES[home], format);
     }
   }
@@ -91,7 +91,7 @@ export async function pending(storage, {fetcher} = {}) {
   const asks = itemsOf(outlines.profile, 'profile', {withOpen: true})
     .filter(each => each.open && /\p{L}/u.test(each.label) && !each.label.includes('❓') && !owned.has(each.id.slice('profile:'.length)) && isAsk(each.label, each.key));
   for (const each of asks) {
-    out.push(item('open', {page: 'profile', label: each.label}, {question: each.label, format: formatFor({kept: kept[keyOf(each.label)]}), hint: hintOf(each.key), details: {where: PAGES.profile}}));
+    out.push(item('open', {page: 'profile', label: each.label}, {question: each.label, format: formatFor({kept: kept[keyOf(each.label)]}), hint: hintOf(each.key), details: {where: PAGES.profile, fact: each.label}}));
   }
   return out;
 }

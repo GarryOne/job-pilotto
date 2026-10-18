@@ -31,7 +31,7 @@ export async function ensure(storage, labels, {answered = [], facts = [], compan
 // The shown / hidden split of rows ({question}) through the shared filter, classifying new ones first when an AI is available.
 export async function split(storage, rows, options = {}) {
   const {verdicts, usage} = await ensure(storage, rows.map(row => row.question), options);
-  return {...visibleQuestions(rows, verdicts), usage};
+  return {...visibleQuestions(rows, verdicts, {open: (options.facts || []).filter(fact => !fact.value).map(fact => fact.label)}), usage};
 }
 
 // The questions the standard answers already answer ([{question, answer}]): what "covered" is judged against.
