@@ -60,9 +60,17 @@ One shared version of each, never a page's own (`renderer/page-parts.js` + `page
 ## Read views, lists, buttons and choices (owner's UI feedback, 18 Oct 2026) [approved]
 The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs drawn with fictional data: `npm run design-system` → "Don't / Do".
 - **A read view shows values, never raw notes** ("What is this long text?"): no `[language]`-style tags, "(note: …)", "(confirmed …)" or AI instructions inside a value.
-  A date it was confirmed is a muted line under the value; anything longer folds as the card's one **Note for the AI**.
+  A date it was confirmed is a muted line under a text value (never under chips: see "Chips and words" below); anything longer folds as the card's one **Note for the AI**.
 - **Long lists fold** (Relocation's ~80 places): more than a dozen items show as the first few chips and "+N more", never a paragraph.
 - **Aligned rhythm** ("nothing randomly placed around the screen"): settings sit on a label column or a row grid, with separators or tinted row backgrounds between them.
+  Each setting is **label column + value**, the value starting on the label's line; the labels of one card share a left edge.
+- **Chips and words: no lone line above or below a chip row** (owner, 18 Oct 2026, #1513 rejected: "I gave you feedback about the chips vs text/labels
+  positioning/placement"). A qualifier joins the label or is a badge in the row, and a "Yes" that the chips already say is dropped:
+  `Preferred · ranked first | [Amsterdam] [Berlin]`, never `Preferred | [Amsterdam] [Berlin]` with "Ranked first" under them, nor `Relocation | Yes` above the places.
+  The same for a lone line under a list ("Please confirm or discard each.") or under a button (a cost goes in the button: "Draft the letter · ~$0.02").
+  An editor's hint under its control is not a caption.
+- **A sticky bar never covers content** (#1515): scrolled to the end, nothing stays under it. A fixed bar needs the page's bottom padding ≥ its height; a sticky
+  bar lifted by an offset (the save bar over the Profile fold bar) needs that much room after it in the flow (a scroll box's padding does not count for it).
 - **States differ by colour, not only weight** ("inexistent contrast, no colours"): Now vs Proposed, Strategy vs Profile. The proposal gets its colour
   (a tinted row or an accent edge); both stay AA readable.
 - **Buttons: normal height, words on one line, one primary per card** ("the Accept button is too fat"). Several rows each with an action use a quiet button per row
@@ -75,9 +83,9 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
   a card picker or segmented buttons; a set → chips; a number on a scale or range → a slider; a menu (`select`) only for a long list (country, currency), searchable
   (`.select-search`) or marked `data-long-list`; a text field only for real prose. This refines "the value's kind picks the control" above.
 - **What fails a change:** `desktop/e2e/lib/design-rules.mjs` runs on every view a journey visits (`lib/layout.mjs` snap): `raw-note-in-value`, `long-list-unfolded`,
-  `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. A screen that broke a rule before it was written is listed in its
+  `caption-sandwich` (lone words above or below a chip row, under a list or a button), `sticky-bar-covers`, `label-grid` (labels off one left edge, or a value starting under its label, in a wide window), `fat-button`, `many-primaries`, `many-ai-notes`, `duplicate-field`, `flat-compare`, `small-select` (a menu of 7 choices or fewer) are severe. A screen that broke a rule before it was written is listed in its
   `KNOWN_LEFT` with the session fixing it (shrink-only, `desktop/e2e/test/design-rules.test.mjs`, which also proves each Don't trips its check and each Do and every
-  approved gallery section trips none). Rhythm, "only the difference" and a text field holding a value from a closed list have no check yet: the AI review and the owner's eye judge them.
+  approved gallery section trips none). Separators between settings, "only the difference" and a text field holding a value from a closed list have no check yet: the AI review and the owner's eye judge them.
 
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
