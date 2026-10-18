@@ -1,4 +1,4 @@
-// Ready to send, the window's calls (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): is this install the owner's (the card shows only then), what tonight would send, send it, start it now, the morning's rows, Done, the two numbers.
+// Ready to send, the window's calls (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): is this install the owner's (else why not: the card says it), what tonight would send, send it, start it now, the morning's rows, Done, the two numbers.
 // Registered once from kit-handlers.js (main.js is at its size limit). Nothing here presses Submit or leaves data on the site beyond what ready-batch.js builds; the site deletes it on Done, after 24 h, or on Delete everything. Guard: test/ready-handlers.test.js.
 import fs from 'node:fs';
 import * as pipeline from './pipeline.js';
@@ -41,8 +41,9 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   };
   ipcMain.handle('readyState', async () => {
     if (process.env.JOB_PILOTTO_DEMO) { try { return JSON.parse(fs.readFileSync(storage.path('ready.json'), 'utf8')); } catch { return {owner: false}; } }   // the demo's fictional night (desktop/demo/ready.json)
-    if (!(await site.owner(storage))) return {owner: false};
-    const mine = settings(), rows = await site.rows(storage);
+    const rows = await site.status(storage);
+    if (!rows.ok) return {owner: false, why: rows.why};   // the card shows this, its buttons off
+    const mine = settings();
     if ((rows.jobs || []).some(each => each.submitted_at && !each.cleared_at)) await settleSubmitted(rows, await jobs());   // only then the list is read
     tellMorning(rows);
     return {owner: true, settings: mine, ...tonightOf(cached(), mine), site: rows};

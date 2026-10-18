@@ -17,6 +17,7 @@ class Element {
   prepend(...items) { const old = this.children; this.children = []; this.append(...items); this.children.push(...old); }
   replaceChildren(...items) { this.children = []; this.append(...items); }
   insertBefore(node, ref) { const at = this.children.indexOf(ref); node.parentNode = this; this.children.splice(at < 0 ? this.children.length : at, 0, node); }
+  after(...nodes) { const parent = this.parentNode; let at = parent.children.indexOf(this); for (const node of nodes) { node.parentNode = parent; parent.children.splice(++at, 0, node); } }
   remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(c => c !== this); }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key] ?? null; }
@@ -24,7 +25,7 @@ class Element {
   dispatch(type, event = {}) { for (const fn of this.listeners[type] || []) fn({preventDefault() {}, stopPropagation() {}, target: this, ...event}); }
   click() { this.dispatch('click'); }
   focus() {} select() {} scrollIntoView() {} setSelectionRange() {}
-  closest() { return null; }
+  closest(selector) { for (let node = this; node && node.matches; node = node.parentNode) if (node.matches(selector)) return node; return null; }
   get options() { return this.children.filter(c => c.tagName === 'OPTION'); }
   set textContent(text) { this.children = [new Text(String(text))]; }
   get textContent() { return this.children.map(c => c.textContent).join(''); }

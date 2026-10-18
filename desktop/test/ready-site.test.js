@@ -1,7 +1,7 @@
 // Ready to send, the app's calls to the site (lib/ready-site.js) and the window's handlers (lib/ready-handlers.js): the card shows only for the owner, a send reaches /api/ready/batch with the install key, and nothing else is sent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {done, link, owner, ownerSecret, runNow, send, useKeychainReader} from '../lib/ready-site.js';
+import {done, link, owner, ownerSecret, runNow, send, status, useKeychainReader} from '../lib/ready-site.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
 import {withOwnAi} from '../lib/ready-batch.js';
 import {rowOf, waitingOf} from '../renderer/pages/ready-rows.js';
@@ -32,7 +32,8 @@ test('the window\'s handlers: not the owner = a closed card; the two numbers are
   const realFetch = globalThis.fetch; globalThis.fetch = async () => new Response('{}', {status: 401});
   try {
     registerReadyHandlers({ipcMain, storage: storage(kept)});
-    assert.deepEqual(await handlers.readyState(), {owner: false});
+    const closed = await handlers.readyState();
+    assert.equal(closed.owner, false); assert.match(closed.why, /owner's install/);   // the card shows this reason, its buttons off
     assert.deepEqual((await handlers.readySettings({}, {minFit: 500, perNight: 99})).settings, {on: false, told: '', minFit: 100, perNight: 15});
   } finally { globalThis.fetch = realFetch; }
   for (const name of ['readyState', 'readySend', 'readyRun', 'readyDone', 'readyDeleteAll', 'readySettings']) assert.ok(handlers[name], name);
@@ -107,4 +108,27 @@ test('a failed row says why when the night gave a reason, and never a bare inter
   assert.deepEqual(rowOf({state: 'failed', wall: 'the night could not start'}), {text: 'could not fill · the night could not start', tone: 'bad', done: false, submitted: false});
   assert.equal(rowOf({state: 'failed', wall: 'error'}).text, 'could not fill');
   assert.equal(rowOf({state: 'wall', wall: 'captcha'}).text, 'a wall · captcha');
+});
+
+test('every reason the card cannot work is said in plain words, never hidden (owner, 18 Oct 2026: "show the card always")', async () => {
+  useKeychainReader(() => null);
+  const now = () => Date.parse('2026-10-18T01:00:00Z');
+  const owned = (settings = {}, key = 'JPF1.install.token') => ({secret: name => (name === 'READY_OWNER_SECRET' ? 'owner-secret' : /TRIAL/.test(name) ? key : ''), settings: () => settings, saveSettings: patch => Object.assign(settings, patch), path: name => `/nowhere/${name}`});
+  const offline = async () => { throw new Error('offline'); };
+  const cases = [
+    ['no owner key on this Mac', storage(), site().fetcher, /owner's install/],
+    ['the site gave no token today', owned({telemetryId: 'i-1', siteTokenWait: {ai: Date.parse('2026-10-19T00:00:00Z')}}, ''), site().fetcher, /no token today.*asked again at/],
+    ['no token: offline', owned({telemetryId: 'i-1'}, ''), offline, /token from our site/],
+    ['the site does not know the owner (401)', owned(), site(401, {ok: false}).fetcher, /does not know this install/],
+    ['the site does not know the owner (404)', owned(), site(404, {}).fetcher, /does not know this install/],
+    ['the site is down (500)', owned(), site(500, {error: 'boom'}).fetcher, /did not answer \(500\): boom/],
+    ['the site cannot be reached', owned(), offline, /did not answer.*connection/],
+  ];
+  for (const [name, store, fetcher, says] of cases) {
+    const result = await status(store, {fetcher, now});
+    assert.equal(result.ok, false, name);
+    assert.match(result.why, says, name);
+    assert.ok(!/undefined|null|\[object/.test(result.why), `${name}: ${result.why}`);
+  }
+  assert.deepEqual(await status(owned(), {fetcher: site(200, {ok: true, jobs: []}).fetcher, now}), {ok: true, jobs: []});
 });

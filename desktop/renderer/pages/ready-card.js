@@ -1,4 +1,4 @@
-// The Ready to send card on Actions (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), shown ONLY when the site says this install is the owner's: send tonight's finished jobs to be filled overnight,
+// The Ready to send card on Actions (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
 // start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done. You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
 import {el, pill, tile} from '../components.js';
 import {$} from './core.js';
@@ -36,13 +36,39 @@ export function build() {
   return {card, send, run};
 }
 
+// Not working right now (no owner key, no token today, the site refused or is down): the card stays, says why, and its two buttons are off.
+export function blocked(card, why, retry) {
+  const body = card.querySelector('.ready-body'), again = el('button', 'secondary', 'Try again');
+  again.addEventListener('click', retry);
+  body.textContent = '';
+  const status = el('div', 'ready-status');
+  status.append(pill('Not available', 'warn'), el('span', 'muted', why || 'Our server did not answer.'), again);
+  body.append(status);
+  for (const button of card.querySelectorAll('.task-body button')) { button.disabled = true; button.title = why || ''; }
+}
+
 export async function initReadyCard() {
-  const state = await window.pilot.readyState().catch(() => null);
   const anchor = $('tailor-top')?.closest('.task-pair');
-  if (!state?.owner || !anchor) return;
+  if (!anchor) return;
   const {card, send, run} = build(), note = card.querySelector('.ready-note'), names = {};
-  let tonightNow = state.tonight || [];
-  const refresh = async () => { const next = await window.pilot.readyState().catch(() => null); if (next?.owner) { Object.assign(names, next.names || {}); paint(card, {...next, tonight: tonightNow}, names, act); } };
+  send.disabled = run.disabled = true;
+  card.querySelector('.ready-body').append(el('div', 'muted', 'Checking our server…'));
+  anchor.after(card);   // shown at once, always (owner, 18 Oct 2026); what it can do follows
+  let tonightNow = null;
+  const show = state => {
+    if (!state?.owner) return blocked(card, state?.why, refresh);
+    send.disabled = run.disabled = false; send.title = run.title = '';
+    Object.assign(names, state.names || {});
+    paint(card, {...state, tonight: tonightNow ?? state.tonight}, names, act);
+  };
+  // The night's rows, then what tonight would send from a fresh job read (the first paint uses the last kept list).
+  const refresh = async () => {
+    const state = await window.pilot.readyState().catch(error => ({owner: false, why: error.message}));
+    show(state);
+    if (!state?.owner) return;
+    const fresh = await window.pilot.readyTonight().catch(() => null);
+    if (fresh?.ok) { tonightNow = fresh.tonight; show({...state, names: {...state.names, ...fresh.names}}); }
+  };
   const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this form in your browser and press Submit yourself'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };
@@ -50,15 +76,13 @@ export async function initReadyCard() {
     send.disabled = true; say('Handing tonight\'s jobs to the server to fill (nothing is submitted)…');
     const result = await window.pilot.readySend().catch(error => ({ok: false, error: error.message}));
     say(result.ok ? `${result.queued} job${result.queued === 1 ? '' : 's'} will be filled on the server for the night of ${result.night}, not submitted${result.skipped?.length ? ` · ${result.skipped.length} left out (${result.skipped[0].why})` : ''}.` : (result.error || 'Could not send.'));
-    send.disabled = false; refresh();
+    refresh();
   });
   run.addEventListener('click', async () => {
     run.disabled = true;
     const result = await window.pilot.readyRun().catch(error => ({ok: false, error: error.message}));
     say(result.ok ? 'Filling started on the server. Results appear here as each form is filled; nothing is submitted.' : (result.error || 'Could not start.'));
-    run.disabled = false; setTimeout(refresh, 30000);
+    refresh(); setTimeout(refresh, 30000);
   });
-  anchor.after(card);
-  Object.assign(names, state.names || {});
-  paint(card, state, names, act);
+  await refresh();
 }
