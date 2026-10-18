@@ -48,9 +48,9 @@ class MailMatchTests(MailCase):
         self.assertEqual([p for p in tracker.created if 'Stage' in p], [], 'no application created by itself')
         asked = [p for p in tracker.created if 'Needs you' in p]
         self.assertEqual(len(asked), 2)
-        self.assertTrue(all(p['Event']['title'][0]['text']['content'].startswith('❓ Which job?') for p in asked))
+        self.assertTrue(all(p['Event']['title'][0]['text']['content'].startswith('Which job?') for p in asked))
         self.assertNotIn({'Stage': {'select': {'name': 'Rejected'}}}, [u for _, u in tracker.updates], 'the tracked Sweden role is not touched')
-        self.assertTrue(any(line.startswith('❓') for line in stats['updates']))
+        self.assertTrue(any(line.endswith('— which job?') for line in stats['updates']))
 
     def test_a_role_on_the_list_but_never_marked_applied_becomes_the_application(self):
         # Saved, Kit ready and Applying are among the jobs the reader matches (mail.applications); a role outside them

@@ -163,7 +163,7 @@ def questions(rows, events):
         label = f"{_field(suggested, 'company') or _field(suggested, 'via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
         title = f'Is this email about {label}?' if suggested else 'Which job is this email about?'
         detail = f"{kind}{f', {at.astimezone(TZ):%a %d %b %H:%M}' if at else ''}: {note[:220]}"
-        asked.append(_item(1, 'which_job', '❓', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
+        asked.append(_item(1, 'which_job', '🔎', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
                            subject=_asked_subject(event),
                            suggested_url=_field(suggested, 'url') if suggested else '', suggested_label=label))
     return asked

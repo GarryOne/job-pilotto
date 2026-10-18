@@ -80,7 +80,7 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         asked = self.s.events.add('', 'Rejected', '2026-10-03', source='Gmail', source_id='m9', needs_you=True,
                                   changes={'fields': {}, 'subject': 'Your application at Acme'})
         page = self.tracker._request('GET', f"pages/{asked['id']}")
-        self.assertEqual(page['properties']['Event']['title'][0]['plain_text'], '❓ Which job? · Your application at Acme')
+        self.assertEqual(page['properties']['Event']['title'][0]['plain_text'], 'Which job? · Your application at Acme')
         self.assertTrue(page['properties']['Needs you']['checkbox'])
 
     def test_put_keeps_a_copied_records_fields_and_dates_under_a_new_id(self):

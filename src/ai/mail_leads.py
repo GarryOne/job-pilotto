@@ -101,7 +101,7 @@ def interview_lead(stores, client, model, email, apps, result, stats):
     if row is not None:
         apps.append(row)
         if stats is not None:
-            stats.setdefault('updates', []).append(f"❓ Interview · {opportunity.label(lead)} — which job? Add details"[:140])
+            stats.setdefault('updates', []).append(f"Interview · {opportunity.label(lead)} — which job? Add details"[:140])
     return row
 
 

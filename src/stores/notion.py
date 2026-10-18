@@ -342,11 +342,11 @@ class Events(_Database):
 
     def _title(self, app_id, kind, values=None):
         """'Kind · Company' and the job's URL, from the job's row (as src/notion/ledger.py has always titled them). A question on
-        no job is '❓ Which job? · <the email's subject>' (as src/ai/mail_lines.py has always titled it)."""
+        no job is 'Which job? · <the email's subject>' (no marker emoji: owner, 18 Oct 2026)."""
         values = values or {}
         if not app_id and values.get('needs_you'):
             subject = str((values.get('changes') or {}).get('subject') or '')[:120]
-            return {'Event': {'title': [{'type': 'text', 'text': {'content': f'❓ Which job? · {subject}'[:200]}}]}}
+            return {'Event': {'title': [{'type': 'text', 'text': {'content': f'Which job? · {subject}'[:200]}}]}}
         try:
             props = self.tracker._request('GET', f'pages/{app_id}')['properties'] if app_id else {}
         except Exception:  # noqa: BLE001 (an event of a job in another store: no title to borrow)

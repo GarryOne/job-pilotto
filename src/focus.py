@@ -4,7 +4,7 @@
 Read from the active store (src/stores: applications, events, interviews, insights; Notion or this Mac), in this order:
 1. 💬 Reply: a person wrote (a reply, a recruiter's pitch, an offer) and nothing was done since.
    📅 Book the call: the reply invites you to pick a slot.
-2. 🎤 Prepare: an interview is coming (within 48 h first); ❓ did it happen? once its time passed and nothing was
+2. 🎤 Prepare: an interview is coming (within 48 h first); "did it happen?" once its time passed and nothing was
    recorded (yes: notes and a review; no: moved or cancelled), or 📝 review one that was recorded.
    📨 Follow up: you wrote last (a "Replied" event: your logged chat, your sent Gmail, Done here) and nothing came
    back for FOLLOW_UP_HOURS; no interview ahead. It replaces "Move it forward" for that job.
@@ -161,7 +161,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         if coming and coming <= now:
             held_day = coming.astimezone(TZ).date().isoformat()
             if seen.get('day', '') < held_day:  # nothing recorded since: ask (one item per interview)
-                items.append(_item(1, 'happened', '❓', f'Did the interview happen? {label}',
+                items.append(_item(1, 'happened', '🔎', f'Did the interview happen? {label}',
                                    f"It was {coming.astimezone(TZ):%a %d %b, %H:%M}. Yes: note how it went (salary, next "
                                    "steps, people, questions) and it moves on. No: say if it moved or was cancelled.",
                                    row, at=coming.isoformat()))

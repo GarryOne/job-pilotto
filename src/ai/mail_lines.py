@@ -32,7 +32,7 @@ def ask(stores, email, result, suggested, index, lines, stats):
                               + escape(result.get('summary') or kind) + (f' Maybe {_label(suggested)}.' if suggested is not None else ''),
                               tgcard.fact('Next step', 'answer in Job Pilotto: Focus')))
     if stats is not None:
-        stats.setdefault('updates', []).append(f"❓ {kind} · {result.get('company') or subject[:60]} — which job?"[:140])
+        stats.setdefault('updates', []).append(f"{kind} · {result.get('company') or subject[:60]} — which job?"[:140])
 
 
 EMOJI = {YOU_REPLIED: '↩️', 'Confirmation received': '📬', REPLY: '💬', OUTREACH: '🤝', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•', employer_feedback.RECEIVED: '💬'}
