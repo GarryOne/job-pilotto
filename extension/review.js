@@ -9,7 +9,7 @@
 // panel-markup.js is the styles and markup, panel-learn.js reports what the person did. They share window.__jobPilottoPanel* (a content script has no imports).
 (() => {
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
-  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn', 'PanelWritten'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
+  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn', 'PanelWritten', 'Overlay'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
   let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
@@ -33,6 +33,10 @@
   root.innerHTML = window.__jobPilottoPanelMarkup;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
+  // While a fill step shows, the page is dimmed (panel-overlay.js) and the panel is centred, bigger, with what it is doing (owner, 19 Oct 2026); at the end the panel goes back to its corner.
+  const overlay = window.__jobPilottoOverlay, HOME = host.style.cssText, steps = [];
+  const place = working => { host.style.cssText = working ? 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483646;pointer-events:none;' : HOME; jp.classList.toggle('working', working); };
+  const drawSteps = () => $('.steps').replaceChildren(...steps.slice(-6, -1).map(text => Object.assign(document.createElement('li'), {textContent: text})));
   const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
@@ -57,6 +61,7 @@
 
   // ---- drawing ----
   function render(list = fields()) {
+    const needsNow = document.documentElement.getAttribute('data-jobpilotto-needs');
     const account = !!document.querySelector('input[type=password]');
     // An empty password box is filled from the Keychain (asked again now and then; the value never comes to this panel). Asked BEFORE the
     // field count below: a sign-in page has two boxes (Coop's SuccessFactors, live run 8 Oct 2026), too few for a panel.
@@ -64,8 +69,10 @@
       askedPassword = Date.now();
       send({type: 'sitePassword'}).catch(() => {});
     }
-    if (list.length < MIN_FIELDS && !document.documentElement.hasAttribute('data-jobpilotto-needs')) { host.remove(); return null; }   // a sign-in page is too small for a panel, unless the AI says it needs the person
+    if (list.length < MIN_FIELDS && !document.documentElement.hasAttribute('data-jobpilotto-needs')) { overlay.off(); host.remove(); return null; }   // a sign-in page is too small for a panel, unless the AI says it needs the person
     if (!host.isConnected) document.documentElement.append(host);
+    // The person is needed (a captcha, a question the page asks) or the page is stuck: the layer is lifted so they can act, whatever step is showing.
+    if (needsNow || (session?.stuck && !(session.live && ['running', 'input'].includes(session.status)))) { overlay.off(); place(false); }
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     written.update(list);
     const needed = list.filter(f => f.required || f.ai || f.changed || f.draft);
@@ -170,6 +177,8 @@
   function showStep(text, wait = STEP_SAFETY_MS) {
     stepped = true;
     $('.step-hint').textContent = /^check/i.test(text) ? 'Checking whether any fields need your input.' : 'Counts update as new fields appear.';   // our own step words, each with its sub-line (mockups 01/02)
+    if (steps.at(-1) !== text) { steps.push(text); drawSteps(); }
+    overlay.on(); place(true);
     const button = $('.fill');
     button.classList.add('is-busy');
     button.setAttribute('aria-busy', 'true');
@@ -180,6 +189,7 @@
   }
   function endStep() {
     clearTimeout(stepTimer);
+    overlay.off(); place(false); steps.length = 0; drawSteps();
     const button = $('.fill');
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');

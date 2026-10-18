@@ -10,6 +10,7 @@ import {clickCombo} from './combo-click.js';
 import {keysFor, typeNotTakenOnTab} from './fill-verify.js';
 import {climbFill} from './ladder/fill-climb.js';
 import {kitStance} from './tab-pages.js';
+import {driving} from './input-gap.js';
 import {fillCard} from './fill-card.js';
 import {readBackCounts, settleTrace} from './trace-settle.js';
 import {armRecordUpdate, runUpdateBody} from './ladder/record-update.js';
@@ -65,15 +66,15 @@ async function clickCombosNow(tabId) {
   await within(STEP_MS.attach, 'attach', () => attachDebugger(tabId));
   const mouse = bound('mouse', (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
     {type, x, y, button: 'left', clickCount: 1}));
-  const click = async (x, y) => { if ((await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [x, y]).catch(() => true)) === false) return; await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };   // the extension's own press: marked first (page/submit-press.js markAt)
+  const click = async (x, y) => { if ((await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [x, y]).catch(() => true)) === false) return; await driving(tabId, async () => { await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); }); };   // the extension's own press: marked first (page/submit-press.js markAt)
   // A type-to-search box (page/fill-menus.js typeToSearch): the text typed over the box's content for real, and the AI's pick by meaning among the options it showed.
-  const type = bound('type', async (text, keys = false) => {
+  const type = bound('type', (text, keys = false) => driving(tabId, async () => {
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
     // A suggest-only box (page/suggest-box.js) is typed the way a person types: each character a real key event (its key press AND its input), whichever of the two its search listens to.
     if (keys) { for (const char of [...String(text)]) for (const key of keysFor(char)) await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', key); return; }
     await chrome.debugger.sendCommand(target, 'Input.insertText', {text});
-  });
+  }));
   const choose = bound('choose', async ({label, asked, choices}) => {
     const config = await settings().catch(() => null);
     return config ? (await apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label, value: asked, options: choices})}).catch(() => null))?.choice || '' : '';
@@ -109,10 +110,12 @@ async function clickCombosNow(tabId) {
     const phone = await page(() => window.__jobPilottoPhoneSpot?.());
     if (phone) {
       await click(phone.x, phone.y);
-      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA',
-        windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
-      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
-      await chrome.debugger.sendCommand(target, 'Input.insertText', {text: phone.text});
+      await driving(tabId, async () => {
+        await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA',
+          windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
+        await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
+        await chrome.debugger.sendCommand(target, 'Input.insertText', {text: phone.text});
+      });
       results.push({label: 'Phone (typed for real)', picked: true, ms: 0});
     }
   } finally {

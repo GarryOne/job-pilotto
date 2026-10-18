@@ -22,7 +22,7 @@ export function createSettleOpenTabs({arm, memoryReady}) {
       }
       const frames = await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, func: () => {
         let removed = 0;
-        for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note']) {
+        for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note', 'jobpilotto-fill-overlay']) {
           const node = document.getElementById(id);
           if (node) { node.remove(); removed++; }
         }

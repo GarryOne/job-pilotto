@@ -79,6 +79,7 @@
   "faults.test.mjs",
   "feeds.test.mjs",
   "panel-theme-stop.test.mjs",
+  "fill-overlay.test.mjs",
   "fidelity-report.test.js",
   "field-names-one-reader.test.mjs",
   "fill-memo.test.mjs",
