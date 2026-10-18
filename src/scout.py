@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import contribute, employer_index, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
+from . import budget_tape, contribute, employer_index, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -224,12 +224,12 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # A time budget (the app: SCOUT_BUDGET_S): no new check starts after it, the ones running finish, the rest wait for the next run (owner,
     # 7 Oct 2026: "runs for too long"; 91 checks at 20-45 s each took over half an hour). Each one is saved as it ends, so nothing is lost.
     outcomes = [None] * len(candidates)
-    deadline = time.monotonic() + budget if budget else None
+    may_start = budget_tape.until('scout', time.monotonic() + budget if budget else None)   # a tape's replay starts what its recording did
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
         todo, futures = iter(enumerate(candidates)), {}
         def more():
-            while len(futures) < workers and (deadline is None or time.monotonic() < deadline):
+            while len(futures) < workers and may_start():
                 nxt = next(todo, None)
                 if nxt is None:
                     return
