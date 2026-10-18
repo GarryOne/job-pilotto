@@ -29,7 +29,7 @@ test('the panel flag is off until the uploader exists and while the switch is of
   for (const file of ['desktop/renderer/index.html', 'desktop/renderer/pages/nav.js', 'desktop/renderer/pages/report-form.js']) assert.doesNotMatch(read(file), /ss-report/, `${file}: the flag lives only in the extension panel, no app button or ⌘K entry`);
   assert.match(read('extension/panel-markup.js'), /<div class="foot">[^]*<button class="report-btn"[^>]*>[^]*Report<\/button><\/div>/, 'one Report entry, in the footer of every state');
   assert.doesNotMatch(read('extension/panel-markup.js'), /report-flag|report-open/, 'no header flag, no body button');
-  assert.match(read('extension/review.js'), /\$\('\.report-btn'\)\.onclick[^\n]*__jobPilottoReportOpen/, 'it opens the same card as the flag');
+  assert.match(read('extension/review.js'), /\$\('\.report-btn'\)\.onclick[^]*window\.__jobPilottoReportOpen\(\)/, 'it opens the same card as the flag');
   assert.match(read('extension/panel-report.js'), /if \(!state\?\.enabled\) return;\s*flag\.hidden = false/, 'the flag is drawn only when the app says so');
 });
 
@@ -85,4 +85,13 @@ test('the trace switch is on by default and named in plain words in Settings (so
   assert.equal(reportFormOn({settings: () => ({reportForm: false})}), false);
   assert.match(read('extension/panel-markup.js'), /Chrome shows a debugging bar while Job Pilotto keeps a trace/);
   assert.match(read('extension/review.js'), /traceBarSeen/);
+});
+
+test('no panel button is a silent no-op: a click handler never calls a window hook with ?.(), and the Report press falls back to the worker and says when it fails', () => {
+  for (const file of ['extension/review.js', 'extension/panel-claude.js', 'extension/panel-stop.js', 'extension/panel-written.js']) {
+    const lines = code(file).split('\n').filter(line => /onclick|addEventListener\('click'/.test(line));
+    for (const line of lines) assert.doesNotMatch(line, /__jobPilotto\w+\?\.\(/, `${file}: a button that calls a missing hook does nothing, silently: ${line.trim().slice(0, 80)}`);
+  }
+  assert.match(code('extension/review.js'), /send\(\{type: 'report-open'\}\)[^]*reportFailed/, 'a panel inside a frame asks the worker to open the top frame\'s card, and says so when it cannot');
+  assert.match(code('extension/panel-report.js'), /window\.__jobPilottoReportOpen = openFromPanel;[^]*'jobpilotto-report-open', openFromPanel/, 'the panel button and the stuck-page button open the card the same way, beside the panel');
 });

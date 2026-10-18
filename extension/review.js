@@ -42,7 +42,14 @@
   pill.onclick = () => { userMoved = true; setOpen(!open); };
   $('.x').onclick = () => { userMoved = true; setOpen(false); };
   // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): opens the report card (panel-report.js). A page script's click is ignored.
-  $('.report-btn').onclick = event => { if (event.isTrusted) window.__jobPilottoReportOpen?.(); };
+  // The card opens beside the panel and the panel folds (jobpilotto-report-shown); the top frame has the hook, a frame inside the page asks the worker to relay. A press that cannot open it says so in the panel, never silence.
+  const reportFailed = () => note("Report could not open on this page. Reload the page and try again.");
+  $('.report-btn').onclick = event => {
+    if (!event.isTrusted) return;
+    if (window.__jobPilottoReportOpen) window.__jobPilottoReportOpen();
+    else send({type: 'report-open'}).then(answer => { if (!answer?.ok) reportFailed(); else setOpen(false); }, reportFailed);
+  };
+  window.addEventListener('jobpilotto-report-shown', () => setOpen(false));
 
   // Chrome's debugging bar is explained once, where a fill starts, the first time a trace is kept (the trace: trace.js; owner, 16 Oct 2026).
   window.addEventListener('jobpilotto-trace-on', async () => { const {traceBarSeen} = await chrome.storage.local.get('traceBarSeen').catch(() => ({})); if (!traceBarSeen) $('.trace-note').hidden = false; });

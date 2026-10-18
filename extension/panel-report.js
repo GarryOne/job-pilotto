@@ -13,12 +13,14 @@
     .flag { all: initial; position: fixed; left: 92px; bottom: 12px; z-index: 2147483647; width: 30px; height: 30px; border-radius: 999px; cursor: pointer; display: grid; place-items: center;
       color: #1d2939; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 4px 16px #0004; font: 600 15px/1 system-ui, sans-serif; }
     .flag:hover { background: #f2f4f7; } .flag:focus-visible, button:focus-visible { outline: 3px solid #175cd3; outline-offset: 2px; }
+    .card.beside { left: auto; right: 18px; bottom: 84px; }   /* opened from the panel's Report: beside the panel's pill, where the press was, not in the far corner */
     .card { position: fixed; left: 12px; bottom: 52px; z-index: 2147483647; width: 320px; padding: 14px; border-radius: 12px; color: #1d2939; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 8px 28px #0005; }
     .card b { display: block; margin-bottom: 6px; font-weight: 700; } .card p { margin: 0 0 8px; } .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
     button.act { all: initial; cursor: pointer; padding: 7px 12px; border-radius: 8px; font: 600 12px/1 system-ui, sans-serif; border: 1px solid #d0d5dd; background: #fff; color: #1d2939; }
     button.act.main { background: #175cd3; border-color: #175cd3; color: #fff; } button[disabled] { opacity: .6; cursor: default; }
   </style><button type="button" class="flag" title="Report this form" aria-label="Report this form" hidden>⚑</button><div class="card" role="dialog" aria-label="Report this form" hidden></div>`;
   const flag = root.querySelector('.flag'), card = root.querySelector('.card');
+  let beside = false;   // the card opens next to the panel when the panel's Report asked for it, else beside the Stop chip
   const say = (title, text, buttons = []) => {
     card.replaceChildren();
     const head = document.createElement('b'), body = document.createElement('p'), row = document.createElement('div');
@@ -30,6 +32,7 @@
       row.append(button);
     }
     card.append(head, body, row);
+    card.classList.toggle('beside', beside);
     card.hidden = false;
   };
   const ask = message => chrome.runtime.sendMessage(message).catch(() => null);
@@ -46,6 +49,7 @@
   }
   async function confirm() {
     say('Report this form', 'Checking what Job Pilotto kept…', []);
+    if (beside) window.dispatchEvent(new CustomEvent('jobpilotto-report-shown'));   // the panel folds itself so the card is the one thing at that corner (review.js)
     const state = await ask({type: 'report-state'});
     const lead = 'Job Pilotto keeps a trace of this form fill on your Mac, without sign-in pages. The app shows exactly what would be sent. Nothing leaves your Mac until you read it and press Send.';
     if (!state?.has) { say('Nothing to report yet', WORDS[state?.enabled === false ? 'off' : 'empty'], [['OK', true, close]]); return; }
@@ -54,13 +58,15 @@
     else buttons.push(['Review in Job Pilotto', true, button => send('journey', button)]);
     say('Report this form', lead, buttons);
   }
-  flag.addEventListener('click', event => { if (event.isTrusted) { if (card.hidden) confirm(); else close(); } });
-  chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') host.remove(); });
+  flag.addEventListener('click', event => { if (event.isTrusted) { beside = false; if (card.hidden) confirm(); else close(); } });
+  // The panel's Report always (re)opens the card, even when it is already shown (a press is never a silent no-op). From a frame that is not the top one it arrives as a message (messages-report.js relays it).
+  const openFromPanel = () => { beside = true; confirm(); };
+  chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') host.remove(); if (message?.type === 'report-open') openFromPanel(); });
 
   // Drawn only when the switch is on.
   // The panel's full-width "Report this form" (panel-claude.js, where Claude's offer used to be) opens the same card; only while the switch is on.
-  window.__jobPilottoReportOpen = () => { if (card.hidden) confirm(); };   // the panel's ⚑ (review.js), always shown
-  window.addEventListener('jobpilotto-report-open', () => window.__jobPilottoReportOpen());   // the panel's ⚑ (always shown) and the stuck page's button: the card asks before anything is recorded
+  window.__jobPilottoReportOpen = openFromPanel;   // the panel's ⚑ (review.js), always shown
+  window.addEventListener('jobpilotto-report-open', openFromPanel);   // the panel's ⚑ (always shown) and the stuck page's button: the card asks before anything is recorded
   ask({type: 'report-state'}).then(state => { if (!state?.enabled) return; flag.hidden = false; window.__jobPilottoReportOn = true; window.dispatchEvent(new CustomEvent('jobpilotto-report-ready')); if (state.tracing) window.dispatchEvent(new CustomEvent('jobpilotto-trace-on')); });
   document.documentElement.append(host);
 })();
