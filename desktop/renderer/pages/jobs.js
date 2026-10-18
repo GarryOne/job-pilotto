@@ -116,7 +116,7 @@ async function showMore() {
 // then, without the loading state, so the counts move as it works (owner, 7 Oct 2026: "I want to see the 2971 decrease live").
 // Each scored job counts too (owner, 7 Oct 2026: the total stayed at 51 while a refresh scored), at most one read every RELOAD_MS, the last one
 // always made, so the number climbs as the refresh works.
-export const LIST_CHANGED = /^First jobs: [1-9]\d* (?:found|scored)|^Closed [1-9]\d* job\(s\)|^Job Matches: \d+ created, \d+ updated \(so far\)|^Scored [1-9]\d* of \d+ job\(s\)$/;
+export const LIST_CHANGED = /^First jobs: [1-9]\d* (?:found|scored)|^Jobs so far: [1-9]\d* new|^Closed [1-9]\d* job\(s\)|^Job Matches: \d+ created, \d+ updated \(so far\)|^Scored [1-9]\d* of \d+ job\(s\)$/;
 export const RELOAD_MS = 10000;
 let quietReload = null, lastReload = 0, reloadLater = null;
 function reloadQuietly() {

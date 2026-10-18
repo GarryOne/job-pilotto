@@ -9,7 +9,7 @@ import random
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, ledger_store, notify, run_counts, scout, source_yield, store, telegram
+from . import contribute, coverage, digest, first_jobs, doctor, employer_index, features, jobs_so_far, ledger_store, notify, run_counts, scout, source_yield, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
@@ -73,7 +73,8 @@ def search(args, stores=None):
                             db, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True))
                     except Exception as error:  # noqa: BLE001 — the full search does everything the slice did
                         print(f'Warning: first jobs skipped: {type(error).__name__}: {error}', flush=True)
-                report = feeds.scan(feed_list, feed_db)
+                so_far = jobs_so_far.SoFar(db)   # each source's jobs in the list as soon as it is read, not all at the end (owner, 18 Oct 2026)
+                report = feeds.scan(feed_list, feed_db, on_jobs=so_far.listener('employer sites'))
                 crawl_funnel = report.get('funnel')   # not `funnel`: that name is the Notion funnel module used further down
                 if crawl_funnel:   # the same fixed-list tags the pool uses (src/contribute.py): all that ever describes this search to the product
                     crawl_funnel['roles'], crawl_funnel['regions'] = contribute.tags()
@@ -87,7 +88,7 @@ def search(args, stores=None):
                 # Aggregators with public APIs (src/sources/aggregators.py): free ones always, keyed ones with their keys; each at most every 6 hours.
                 if args.mode in ('scheduled', 'run'):
                     from .sources import aggregators
-                    found = aggregators.scan(feed_db, load_search_config())
+                    found = aggregators.scan(feed_db, load_search_config(), on_jobs=so_far.listener('job boards'))
                     report['jobs'] += found['jobs']
                     report['sources'] += found['sources']
                     # Job-alert emails in the user's own Gmail (src/sources/job_alerts.py): LinkedIn & co. without ever fetching their pages.
@@ -107,7 +108,7 @@ def search(args, stores=None):
                 if not source.get('ok') and source.get('ats') == 'careers' and source.get('slug'):
                     from .sources import careers as careers_pages, visits
                     visits.refused(source['company'], careers_pages.decode(source['slug']), source.get('error') or '')
-            imported = store.import_watch_report(db, report)
+            imported = so_far.statuses(report, store.import_watch_report(db, report))   # a job shown early stays "new"
             run.update(crawl_counts(report, imported))
             # What this refresh added, by place (owner, 7 Oct 2026: "we should understand what's being added, what's being removed").
             new_here = Counter(store.place_name(job.get('location')) for job, status in zip(report.get('jobs', []), imported) if status == 'new')

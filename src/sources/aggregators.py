@@ -197,8 +197,9 @@ def sources(env=None):
     return found
 
 
-def scan(db, search, now=None, readers=None):
-    """A feeds.scan-style report ({'jobs', 'sources'}) from the aggregators that are due; your roles and places only, source named on each job."""
+def scan(db, search, now=None, readers=None, on_jobs=None):
+    """A feeds.scan-style report ({'jobs', 'sources'}) from the aggregators that are due; your roles and places only, source named on each job.
+    on_jobs(jobs): each reader's jobs as soon as it is read (owner, 18 Oct 2026: jobs shown as quickly as possible)."""
     report = {'jobs': [], 'sources': []}
     # The end-to-end fixture mode reads feeds from files and never reaches a live site (careers.py does the same): real postings from a public API would land in a test's data
     # (3 Oct 2026: jobicy rows in the quality suite). `readers` given = a test of this function itself.
@@ -224,6 +225,8 @@ def scan(db, search, now=None, readers=None):
                 db.execute('INSERT OR REPLACE INTO aggregator_runs (source, at) VALUES (?, ?)', (name, now.isoformat(timespec='seconds')))
             board_employers.fill_missing(matched)   # the page's own hiringOrganization, a few per run
             board_employers.note(matched, name)
+            if on_jobs and matched:
+                on_jobs(matched)
             report['jobs'].extend(matched)
             report['sources'].append({'company': name, 'ok': True, 'total': len(found), 'matches': len(matched)})
         except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:

@@ -3,15 +3,40 @@ roles and places, record their seen history. Moved out of feeds.py (500-line rul
 tests patch feeds.* as before. Tests: tests/test_feed_scan_parallel.py, tests/test_coverage.py, tests/test_non_it_crawl.py."""
 import os
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 from . import feeds
 
 
-def scan(sources, db, fetcher=None, details=None):
+def _item(source, job, status):
+    return {"company": job.get("employer") or source["company"], "id": str(job["id"]),   # a portal's jobs keep their own employer (visits.py)
+            "title": job["title"], "location": job["location"] or "Unspecified", "url": job["url"], "date_posted": job.get("date_posted") or "",
+            "description": job.get("description") or "", "work_mode": "Remote (stated)" if job.get("remote") else "",
+            "salary_text": job.get("salary") or "", "status": status}
+
+
+def _sure(index, source, download, db, now, shown):
+    """The jobs of one site that need no AI to be kept (role words in the title, one of your places): recorded now and kept in `shown`
+    by (site, job id), so the full pass after the AI sort takes them as they are (still "new")."""
+    jobs, failure = download
+    if failure:
+        return []
+    board, found = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}', []
+    with db:
+        for job in jobs or []:
+            if feeds.sure_title(job["title"]) and feeds.wanted_location(job):
+                item = shown[(index, str(job["id"]))] = _item(source, job, feeds.record(db, board, job, now))
+                found.append(item)
+    return found
+
+
+def scan(sources, db, fetcher=None, details=None, on_jobs=None):
     """Fetch every source, keep SRE-type titles in preferred locations, record seen history. report['funnel'] counts what the
-    crawl saw and what the role keywords caught (src/coverage.py), so a search that is too narrow can be said out loud."""
+    crawl saw and what the role keywords caught (src/coverage.py), so a search that is too narrow can be said out loud.
+    on_jobs(jobs): called with each site's sure jobs as soon as that site is read (owner, 18 Oct 2026: jobs shown as quickly as possible;
+    the driver's 133 of 134 sites were read by 61 s and the last held every job until 156 s). A job the AI later places outside your
+    places leaves the list at the search's end (store.close_elsewhere)."""
     fetcher = fetcher or feeds.fetch
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     key = lambda source: f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
@@ -34,15 +59,21 @@ def scan(sources, db, fetcher=None, details=None):
             ticker.tick(read[0], f' · {read[1]:,} jobs listed')
         feeds.run_counts.looked(got[0] or [])   # this search's own number, each job once (src/run_counts.py)
         return got
+    downloads, shown = [None] * len(sources), {}
     with ThreadPoolExecutor(max_workers=feeds.FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
-        downloads = list(pool.map(fetch, sources))
+        pending = {pool.submit(fetch, source): index for index, source in enumerate(sources)}
+        for done in as_completed(pending):   # the database work stays in this thread, one site at a time
+            index = pending[done]
+            downloads[index] = done.result()
+            if on_jobs and (found := _sure(index, sources[index], downloads[index], db, now, shown)):
+                on_jobs(found)
     from .. import time_budget
     time_budget.restart()   # downloading is not AI time: the places, titles and scoring after it get the whole budget (src/time_budget.py)
     report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = feeds.coverage.Tally()
     feeds.triage_places([job for jobs, failure in downloads if not failure for job in jobs or []])   # where the new locations are: Claude, once each
     feeds.triage([job for jobs, failure in downloads if not failure for job in jobs or []])   # titles the words miss: Claude sorts the new ones, once
-    for source, (jobs, failure) in zip(sources, downloads):
+    for index, (source, (jobs, failure)) in enumerate(zip(sources, downloads)):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
         try:
             if failure:
@@ -54,16 +85,8 @@ def scan(sources, db, fetcher=None, details=None):
                     in_place, hit = feeds.wanted_location(job), feeds.wanted_title(job["title"])
                     tally.add(job["title"], in_place, hit, excluded=feeds.excluded_title(job["title"]), location=job["location"],
                               dropped_by=feeds.dropped_by(job["title"]))
-                    if hit and in_place:
-                        matched.append({
-                            "company": job.get("employer") or source["company"], "id": str(job["id"]),   # a portal's jobs keep their own employer (visits.py)
-                            "title": job["title"], "location": job["location"] or "Unspecified",
-                            "url": job["url"], "date_posted": job.get("date_posted") or "",
-                            "description": job.get("description") or "",
-                            "work_mode": "Remote (stated)" if job.get("remote") else "",
-                            "salary_text": job.get("salary") or "",
-                            "status": feeds.record(db, board, job, now)
-                        })
+                    if hit and in_place:   # one shown early is taken as it is: recorded once, still "new"
+                        matched.append(shown.get((index, str(job["id"]))) or _item(source, job, feeds.record(db, board, job, now)))
             # A board whose list has no description: fetch it for the jobs kept (a handful), so they can be scored.
             detail = (details if details is not None else feeds.ats.DETAILS).get(source.get("ats", "greenhouse"))
             for item in matched if detail else []:

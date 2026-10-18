@@ -45,6 +45,7 @@ const RULES = [
   [/^First jobs: (\d+) found$/, m => `⚡ ${plural(m[1], 'job')} found in the first sites`],
   [/^First jobs: (\d+) found, none to score/, () => null],
   [/^First jobs: (\d+) scored in (\d+) s/, m => `🎉 ${plural(m[1], 'first job')} scored in ${m[2]} s; the full search goes on`],
+  [/^Jobs so far: (\d+) new from (.+)$/, m => `➕ ${plural(m[1], 'new job')} from ${m[2]}, in your list now`],
   [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
   [/^New job: (.+?) \| (.*?) \| \S*$/, m => `➕ ${m[1]}${m[2] ? ` · ${m[2]}` : ''}`],
   [/^(Closed|Expired|Unmatched|Removed) 0 job\(s\)/, () => null],
