@@ -33,3 +33,23 @@ test('pressing the panel\'s Report opens the report card', async () => {
     await app.page.screenshot({path: process.env.SHOT || '/private/tmp/claude-502/-Users-mac-job-pilotto/f861c0c0-2ced-486d-82b2-1af7910620f1/scratchpad/report-button/after.png'});
   } finally { await app.close(); }
 });
+
+// The owner's order (19 Oct 2026): Report -> Stop -> Report again. After a Stop the card is not torn out of the page: it opens and says the fill was stopped.
+test('after Stop, the panel\'s Report still opens a card that says it was stopped', async () => {
+  const app = await startRealExtension({extensionDir: process.env.REAL_EXTENSION_DIR || undefined, allowAllSites: true, answer: {'/extension/report-form': () => ({ok: true, enabled: true})}});
+  try {
+    await app.context.route('https://jobs.example.test/**', route => route.fulfill({status: 200, contentType: 'text/html', body: FORM}));
+    await app.page.goto('https://jobs.example.test/apply');
+    await app.page.evaluate(() => { location.hash = 'jobpilotto-fill'; });
+    await app.page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.report-btn'), null, {timeout: 20000});
+    await app.page.waitForTimeout(2500);
+    const viewport = app.page.viewportSize();
+    await app.page.mouse.click(45, viewport.height - 26);   // the red Stop chip, bottom left
+    await app.page.waitForTimeout(1500);
+    await app.page.evaluate(() => { const root = document.getElementById('jobpilotto-review-host')?.shadowRoot; if (root?.querySelector('.card').hidden) root.querySelector('.pill').click(); });
+    const box = await app.page.evaluate(() => { const b = document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.report-btn').getBoundingClientRect(); return {x: b.x + b.width / 2, y: b.y + b.height / 2}; });
+    await app.page.mouse.click(box.x, box.y);
+    await app.page.waitForFunction(() => document.elementFromPoint(window.innerWidth - 178, window.innerHeight - 134)?.id === 'jobpilotto-report-host', null, {timeout: 5000})
+      .catch(() => assert.fail('after Stop, the Report press opened no card'));
+  } finally { await app.close(); }
+});

@@ -46,7 +46,7 @@ export function createReportMessages() {
         return chrome.tabs.sendMessage(tabId, {type: 'report-open'}, {frameId: 0}).then(() => ({ok: true}), () => ({ok: false}));
       }
       if (message.type === 'report-state') {
-        if (isStopped()) return {enabled: false};
+        if (isStopped()) return {enabled: false, stopped: true};
         switchState.at = 0;   // the panel asking is a page load: look at the switch again
         const on = await switchOn(tabId);
         if (!on) trace.end(tabId);

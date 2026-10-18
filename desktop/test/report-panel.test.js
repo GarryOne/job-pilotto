@@ -67,8 +67,8 @@ test('a submitted recording is scrubbed and held, shown to the window, and sent 
 
 test('a recording the last gate stops is not held; Cancel clears what is held', async () => {
   const h = harness();
-  const blocked = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/app.js', 'const quill = 1;', 'application/javascript')]});
-  assert.deepEqual(blocked, {ok: false, blocked: ['name-in-code']});
+  const blocked = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/x.json', JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')}), 'application/json')]});   // the person's name inside a base64 run: the scrub reads text, the last gate decodes
+  assert.deepEqual(blocked, {ok: false, blocked: ['name']});
   assert.equal((await h.handlers.reportFormGet()).shown, null);
   await h.route({action: 'submit', entries: [entry('https://jobs.example.test/apply', '<p>x</p>')]});
   await h.handlers.reportFormCancel();
@@ -94,4 +94,12 @@ test('no panel button is a silent no-op: a click handler never calls a window ho
   }
   assert.match(code('extension/review.js'), /send\(\{type: 'report-open'\}\)[^]*reportFailed/, 'a panel inside a frame asks the worker to open the top frame\'s card, and says so when it cannot');
   assert.match(code('extension/panel-report.js'), /window\.__jobPilottoReportOpen = openFromPanel;[^]*'jobpilotto-report-open', openFromPanel/, 'the panel button and the stuck-page button open the card the same way, beside the panel');
+});
+
+test('one refusal sentence in the panel and the app\'s Send, and the panel names the kinds that blocked it', () => {
+  const sentence = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';
+  for (const file of ['extension/panel-report.js', 'desktop/lib/report-handlers.js']) assert.ok(read(file).includes(sentence), `${file}: the same sentence`);
+  assert.doesNotMatch(read('extension/panel-report.js'), /nothing was kept\.'/, 'one wording: nothing was sent');
+  assert.match(code('extension/panel-report.js'), /Still found: /);
+  for (const kind of ['email', 'phone', 'name', 'name-in-code', 'location', 'token']) assert.match(code('extension/panel-report.js'), new RegExp(`['"]?${kind}['"]?: '`), `the panel words the kind ${kind}`);
 });

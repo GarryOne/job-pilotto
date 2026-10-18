@@ -40,7 +40,7 @@ export function registerReportHandlers({ipcMain, storage, toWindow, getWindow, u
     const held = hold.take(shown.id); shown = null;
     if (!held) return {ok: false, error: 'This report expired: record it again.'};
     const final = finalize(held, Array.isArray(dropHosts) ? dropHosts.map(String) : [], values());
-    if (!final.ok) return {ok: false, error: 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.'};
+    if (!final.ok) return {ok: false, error: `Job Pilotto could not remove everything personal from it safely, so nothing was sent. Still found: ${[...new Set(final.blocked.map(hit => hit.kind))].join(', ')}.`};
     return uploader.send(final.record).catch(error => ({ok: false, error: String(error?.message || error).slice(0, 160)}));
   });
   return {hold};

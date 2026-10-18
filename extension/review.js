@@ -36,7 +36,7 @@
   const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
-  let moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, build = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let counts = {total: 0, left: 0}, moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, build = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -71,6 +71,7 @@
     const needed = list.filter(f => f.required || f.ai || f.changed || f.draft);
     shown = needed.filter(f => !f.filled);
     const total = needed.length, left = shown.length, pageMark = (m => (['form', 'account', 'sign-up'].includes(m) ? '' : m || 'reading'))(document.documentElement.getAttribute('data-jobpilotto-page') || ''), ready = !moved && !pageMark && total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
+    counts = {total, left};   // the stopped note says what the page holds
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
@@ -190,6 +191,7 @@
     filledOnce = true;
     endStep();
     if (result?.ineligible) note(`Not filled: ${result.note}`, true);
+    else if (/^Stopped by you/.test(result?.error || '')) note(`Stopped by you · ${counts.total - counts.left} of ${counts.total} required fields currently contain values.`);   // a Stop keeps what was filled: say what is there, never "nothing was filled"
     else if (!result?.ok) note(`Couldn't fill: ${result?.error || 'try again'}`);
     else if (result.sharedNote) note(result.sharedNote);   // the service changed how a control was filled: say so
     render();
