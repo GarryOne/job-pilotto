@@ -30,7 +30,7 @@ test('class: a cut question ends in "…" and says why, on a saved row and on a 
   assert.match(saved.under, /Cut short by an older version/);
   node.querySelectorAll('.segmented button').find(button => button.dataset.view === 'review').click();
   await new Promise(resolve => setTimeout(resolve, 0));
-  const queued = rows(document.getElementById('answers-body')).find(row => /references and/.test(row.title));
+  const queued = rows(globalThis.document.getElementById('answers-body')).find(row => /references and/.test(row.title));
   assert.ok(queued, 'the Needs review row');
   assert.match(queued.title, / it p…$/);
   assert.match(queued.under, /Cut short by an older version/);
