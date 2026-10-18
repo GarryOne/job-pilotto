@@ -277,11 +277,12 @@ test('nothing to fill: a Note badge with the reason, never "not on for this inst
   t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
   const body = page();
   globalThis.window.pilot = {readyState: async () => owned(undefined, {tonight: []}), readyTonight: async () => ({ok: false}),
-    readyRun: async () => ({ok: false, nothing: true, error: 'Nothing to fill: no job has its kit, CV and cover letter yet. Tailor CVs for your top matches first.'})};
+    readyRun: async () => ({ok: false, nothing: true, error: 'Nothing to fill: no job has its kit, CV and cover letter yet. '})};
   await initReadyCard();
   const card = body.querySelector('.ready-card');
   assert.match(textOf(card), /Tonight0 ready/);
-  assert.ok(card.querySelectorAll('button').some(button => textOf(button) === 'Tailor CVs for top matches'));
+  assert.ok(!card.querySelectorAll('button').some(button => /Tailor CVs/.test(textOf(button))), 'no Tailor button: Fill now prepares the jobs (owner, 19 Oct 2026)');
+  assert.match(textOf(card), /Fill now makes the kit, CV and letter/);
   card.querySelector('#ready-run').click(); await new Promise(resolve => setTimeout(resolve, 0));
   assert.match(textOf(card.querySelector('.ready-note')), /^NoteNothing to fill/);
   assert.doesNotMatch(textOf(card), /not on for this install/);

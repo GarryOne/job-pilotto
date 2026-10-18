@@ -7,11 +7,12 @@ import {me} from './server-contact.js';
 import * as viewCache from './view-cache.js';
 import {buildBatch, nightOf, ownKeyFor, pickToRefill, pickToSend, withOwnAi} from './ready-batch.js';
 import {fillNowPlan, waitingOn} from './ready-fill-now.js';
+import {CHIPS, costLine, pickTop} from './ready-top.js';
 import {createAutoSend, startAutoSend} from './ready-auto.js';
 import {isTwin} from './twin.js';
 import {log as appLog} from './log.js';
 import {keysOf} from './ai/index.js';
-import {settingsOf} from './ready.js';
+import {complete, settingsOf} from './ready.js';
 import * as site from './ready-site.js';
 import * as handoffs from './ready-handoff.js';
 import {setVisitRoute} from './server-hooks.js';
@@ -24,7 +25,7 @@ async function facts(storage) {
   return {profile, standard: answers, search: await configForPrompt(storage, 'search.json'), cvFacts: cvFactsOf(storage), knowledge: ''};
 }
 
-export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}, app, powerMonitor}) {
+export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storage, deps = {}, app, powerMonitor, prepare = deps.prepare}) {
   const settings = () => settingsOf(storage.settings().ready);
   const jobs = async () => (deps.jobs ? deps.jobs() : (await pipeline.jobs(storage)).jobs);   // deps.jobs: a test's list
   const cached = () => viewCache.recall(storage, 'jobs')?.result?.jobs || [];   // the last good list: the card never waits for a job read to say "owner" and show the night's rows
@@ -76,7 +77,7 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     const plan = fillNowPlan({tonight: pickToSend(all, mine), opened: refill ? pickToRefill(all, mine) : [], waiting: waitingOn(rows, nightOf().night), again, confirmed});
     return plan.ask ? {ask: {...plan.ask, jobs: plan.ask.jobs.map(job => ({code: job.code, name: `${job.title} · ${job.company}`}))}} : plan;
   };
-  const NOTHING = 'Nothing to fill: no job has its kit, CV and cover letter yet. Tailor CVs for your top matches first.';
+  const NOTHING = 'Nothing to fill: no good match is left to fill.';
   const sendPlanned = async plan => {
     const sent = await sendTonight(plan.send);
     autoSend.record(plan.send.map(job => job.code), sent);
@@ -113,7 +114,35 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
   if (process.env.JOB_PILOTTO_E2E) globalThis.__jpReadyHandoffs = handoffs;   // the apply suite's Open in Chrome step hands the app a night's hand-off (a test has no Ready site)
   // Fill now (owner, 18 Oct 2026: "make the Fill now work"): one press sends tonight's ready jobs and starts them; after a yes, the jobs you opened and did not submit.
   // Started, nothing sent by itself replaces that night (ranNight).
-  ipcMain.handle('readyRun', async (_, {again = false, confirmed = false} = {}) => {
+  // Fill now's popup (owner, 19 Oct 2026): the top jobs not on the server yet, what each lacks, and the cost line for each chip. From the kept list at once; no AI, nothing sent.
+  ipcMain.handle('readyTop', async () => {
+    if (process.env.JOB_PILOTTO_DEMO) { try { return JSON.parse(fs.readFileSync(storage.path('ready-top.json'), 'utf8')); } catch { return {ok: false}; } }   // the demo's fictional pick (desktop/demo/ready-top.json)
+    const all = cached().length ? cached() : await jobs().catch(() => []), rows = await site.rows(storage).catch(() => ({}));
+    const picked = pickTop(all, Math.max(...CHIPS), {minFit: settings().minFit, skip: new Set((rows.jobs || []).filter(job => !job.cleared_at).map(job => job.job))});
+    return {ok: true, picked: picked.map(({code, title, company, fit, needsKit, needsCv}) => ({code, name: `${title} · ${company}`, fit, needsKit, needsCv})), chips: CHIPS, lines: Object.fromEntries(CHIPS.map(count => [count, costLine(picked, count)]))};
+  });
+  // After the popup's yes: make what the chosen jobs lack (the Tailor task's own pieces: the kit, then the CV with its letter), then send the ones that are complete and start them.
+  // It asks first, before any AI spend, when the send would replace forms of this night still waiting for you.
+  const runTop = async (codes, confirmed) => {
+    const all = await jobs(), chosen = codes.map(code => all.find(job => job.code === code)).filter(Boolean), rows = await site.rows(storage).catch(() => ({}));
+    const waiting = waitingOn(rows, nightOf().night);
+    if (waiting && !confirmed) return {ask: {again: false, jobs: chosen.map(job => ({code: job.code, name: `${job.title} · ${job.company}`})), replaces: waiting}};
+    const failed = [];
+    for (const job of chosen.filter(each => !complete(each))) {
+      const name = `${job.title} · ${job.company}`;
+      if (!job.kit) { const made = await prepare.kit(job.code, name); if (!made.ok) { failed.push(made.error || `${name}: no kit`); continue; } }
+      if (!job.tailored || !job.letter) { const made = await prepare.cv(job.code, name); if (!made.ok) failed.push(made.error || `${name}: no CV`); }
+    }
+    const fresh = await jobs(), mine = new Set(codes), list = fresh.filter(job => mine.has(job.code) && complete(job));
+    if (!list.length) return {ok: false, nothing: true, error: failed.length ? `Nothing could be prepared: ${failed[0]}` : NOTHING};
+    const sent = await sendPlanned({send: list});
+    if (!sent.ok) return sent;
+    const started = await site.runNow(storage);
+    if (started.ok) storage.saveSettings({ready: {...storage.settings().ready, ranNight: nightOf().night}});
+    return started.ok ? {...started, queued: sent.queued, night: sent.night, skipped: sent.skipped, failed} : started;
+  };
+  ipcMain.handle('readyRun', async (_, {again = false, confirmed = false, top = null} = {}) => {
+    if (Array.isArray(top) && top.length && prepare) return runTop(top.map(String), confirmed);
     const plan = await planFor({again, confirmed});
     if (plan.nothing) return {ok: false, nothing: true, error: NOTHING};
     if (plan.ask) return {ok: false, ask: plan.ask};

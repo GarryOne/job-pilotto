@@ -37,3 +37,7 @@
 .ready-row-live { grid-column: 1 / -1; display: grid; gap: var(--sp-1); }
 .ready-live-text { font-size: var(--fs-sm); }
 .ready-live-text .ready-clock { margin-left: var(--sp-1); }
+
+/* Fill now's popup (pages/ready-pick.js): the choice and the cost line get the dialog's usual gap. */
+.ready-pick .segmented { margin-top: var(--sp-3); }
+.ready-pick .ready-pick-cost { margin-top: var(--sp-3); }
