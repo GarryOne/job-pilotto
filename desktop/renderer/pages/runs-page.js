@@ -5,7 +5,7 @@ import {shared} from './shared.js';
 import {COMMAND_KIND, KIND, TASK_BUTTONS, capital, clockTime, hhmm, kindOf, lastActivity, stepWords, openActivity, outcome, renderActivity} from './activity.js';
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
-import {runStatus, runWarned} from '../run-status.js';
+import {runPill} from '../run-status.js';
 import {showStop, stopRunning} from '../stop-task.js';
 import {refreshBusy} from '../search-changed.js';
 
@@ -90,7 +90,7 @@ export function renderActionsPage(data) {
   }
   const rows = runs.slice(0, 5).map(run => {
     const kind = kindOf(run);
-    const [label, tone] = runStatus(run, runWarned(run));
+    const [label, tone] = runPill(run);
     const li = el('li', 'runs-row');
     li.dataset.runId = run.id;   // which run this row is (the end-to-end suite opens a run by it)
     const tile = el('span', 'task-tile small');

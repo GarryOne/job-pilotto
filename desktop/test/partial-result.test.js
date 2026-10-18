@@ -17,7 +17,7 @@ test('3 of 5 is warned; 5 of 5 is not', () => {
 test('the warnings box is not opened for it (the card explains), the header says Completed with warnings', () => {
   const js = activitySource();
   assert.match(js, /const warnedOnly = !warnings\.length && !partial && !run\?\.live && !!run\?\.warned && !head;/);
-  assert.match(js, /run\.warned \|\| partialResult\(run\)\) \? \['Completed with warnings', 'warn'\]/);
+  assert.match(js, /runPill\(\{\.\.\.run, kind: kindOf\(run\)\}, \{long: true\}\)/);   // partial results count as warned inside runPill (run-status.js runWarned)
 });
 
 test('a browser run that read some of its sites is "With warnings", not "Completed"; all read, or none, is not partial (owner, 8 Oct 2026)', () => {

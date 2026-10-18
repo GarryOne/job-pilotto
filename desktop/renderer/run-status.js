@@ -165,6 +165,13 @@ export function runStatus(run, warned) {
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }
 
+// The one pill for a run, wherever it is drawn: the Actions list (short words), the Recent activity header and the Actions result card ({long: true}: "Completed with warnings").
+// Warned is derived here, from the row's flag, its log, its report, a Telegram miss or a partial result, for every engine (18 Oct 2026: the result card said "Completed" for a run the list called "With warnings").
+export function runPill(run, {long = false} = {}) {
+  const pill = runStatus(run, runWarned(run));
+  return long && pill[0] === 'With warnings' ? ['Completed with warnings', ...pill.slice(1)] : pill;
+}
+
 // The dot of the bottom status bar. It must describe the SAME run as the words beside it (the last jobs check, else the last Gmail check): the newest run of any kind
 // made a Gmail check that was not connected turn the dot red beside "Last jobs check · nothing new" (UI loop #59). A run that worked but warned is amber.
 export function barState(running, shown) {
