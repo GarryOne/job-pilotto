@@ -20,7 +20,7 @@ I run platforms.
 
 3 months
 
-**Work permit? ❓**
+**Work permit? · check this answer**
 
 Swiss B permit
 
