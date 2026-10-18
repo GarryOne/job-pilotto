@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:   # newest wins: a newer push replaces the PR's older run; a by-hand run is its own group and never cancelled
+  group: key-org-proof-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
   proof:
     name: Org of each e2e key
