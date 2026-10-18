@@ -130,3 +130,38 @@ class IdeasTests(Fixture):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RememberedTests(Fixture):
+    """A board that gave this install relevant jobs is read again whatever the next AI proposal lists (18 Oct 2026, the board lottery)."""
+    @staticmethod
+    def relevant(jobs):
+        return [j for j in jobs if j['title'] == 'Controller' and j['location'] == 'Amsterdam']
+
+    def read_asked(self, proposal, results=None):
+        asked = []
+        def fake(b, search, fetch, route=None, **kwargs):
+            asked.append(b['host'])
+            return (results or {}).get(b['host'], ([], 'empty', None))
+        with mock.patch.object(found_boards, 'read_board', fake):
+            found_boards.read(SEARCH, proposal, is_relevant=self.relevant)
+        return asked
+
+    def test_a_board_that_gave_relevant_jobs_is_read_in_search_2_though_proposal_2_lacks_it(self):
+        paid = ([job('Controller', 'Amsterdam', 1)], 'ok', None)
+        self.read_asked([board(1), board(2)], {'b1.example': paid})
+        asked = self.read_asked([board(2), board(3)])   # the second proposal drops board 1
+        self.assertIn('b1.example', asked)
+
+    def test_only_a_board_that_paid_stays_not_an_empty_a_browser_or_a_foreign_one(self):
+        results = {'b1.example': ([job('Controller', 'Amsterdam', 1)], 'ok', None),   # paid
+                   'b2.example': ([job('Cook', 'Utrecht', 2)], 'ok', None),            # listed jobs, none relevant
+                   'b3.example': ([], 'browser', None)}                                 # refuses automated reading
+        self.read_asked([board(1), board(2), board(3), {**board(4), 'countries': ['Germany']}], results)
+        data = board_ideas.load()
+        data['boards']['b4.example'] = {'name': 'Board 4', 'search_url': 'https://b4.example/?q={role}', 'state': 'ok', 'relevant': 9, 'countries': ['Germany'],
+                                        'last_read': '2026-10-18T00:00:00+00:00'}
+        board_ideas.save(data)
+        kept = board_ideas.load()['boards']
+        self.assertEqual([b['host'] for b in board_yield.remembered([board(9)], kept)], ['b1.example'],
+                         'only the Dutch board that gave relevant jobs; none for the German one while the proposal serves the Netherlands')
