@@ -16,6 +16,7 @@ const page = () => {
 };
 const buttons = card => card.querySelectorAll('.task-body button');
 const textOf = node => node.textContent;
+const nameOf = node => node.getAttribute('aria-label') || node.textContent;   // a row's icon button is read by its name
 
 test('every way the card cannot work: it is shown, says why, and its buttons are off', async () => {
   const cases = [
@@ -139,7 +140,7 @@ test('no control on the card reads like a Submit to the twin\'s guard', async ()
     readyTonight: async () => ({ok: false})};
   await initReadyCard();
   const all = body.querySelector('.ready-card').querySelectorAll('button');
-  assert.ok(all.length >= 18, 'Fill tonight, Fill now, Open in my browser ×3, Open live recording ×3, Watch the fill ×6, Done ×6');
+  assert.ok(all.length >= 24, 'Fill tonight, Fill now, Open in my browser ×3, Open live recording ×3, Watch the fill ×6, Fill again ×6, Done ×6');
   for (const button of all) assert.ok(!looksLikeSubmit(`${textOf(button)} ${button.title || ''} ${button.getAttribute('aria-label') || ''}`), `${textOf(button)} / ${button.title}`);
 });
 
@@ -153,9 +154,10 @@ test('each filled row offers Open in my browser first, then Open live recording'
   await initReadyCard();
   const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
   rows.forEach((row, i) => {
-    const labels = row.querySelectorAll('button').map(textOf);
-    if (i < 3) assert.deepEqual(labels, ['Open in my browser', 'Open live recording', 'Done'], `row ${i}`);
-    else assert.deepEqual(labels, ['Done'], `row ${i}: nothing to open`);
+    const labels = row.querySelectorAll('button').map(nameOf);
+    if (i < 3) assert.deepEqual(labels, ['Open in my browser', 'Open live recording', 'Fill again', 'Done'], `row ${i}`);
+    else assert.deepEqual(labels, ['Fill again', 'Done'], `row ${i}: nothing to open`);
+    if (i < 3) assert.equal(row.querySelector('.ready-open').querySelectorAll('button').length, 2, `row ${i}: the two ways to open it, one group`);
   });
   rows[1].querySelector('button').click(); await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(asked, ['j1']);
@@ -194,7 +196,7 @@ test('a row with the night\'s video offers Watch the fill; it plays in a popup t
   try {
     await initReadyCard();
     const card = body.querySelector('.ready-card'), rows = card.querySelectorAll('.ready-row');
-    assert.deepEqual(rows.map(row => row.querySelectorAll('button').map(textOf)), [['Open in my browser', 'Open live recording', 'Watch the fill', 'Done'], ['Watch the fill', 'Done'], ['Done']]);
+    assert.deepEqual(rows.map(row => row.querySelectorAll('button').map(nameOf)), [['Open in my browser', 'Open live recording', 'Watch the fill', 'Fill again', 'Done'], ['Watch the fill', 'Fill again', 'Done'], ['Fill again', 'Done']]);
     const watch = rows[1].querySelectorAll('button')[0];
     watch.click(); await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(asked, ['j1']);
@@ -206,7 +208,7 @@ test('a row with the night\'s video offers Watch the fill; it plays in a popup t
     assert.match(textOf(popup), /SRE · Acme/, 'named for its form');
     const src = popup.querySelector('video').src;
     assert.match(src, /^blob:/);
-    assert.equal(textOf(watch), 'Watch the fill', 'the row\'s button does not change');
+    assert.equal(nameOf(watch), 'Watch the fill', 'the row\'s button does not change');
     popup.querySelector('#ready-video-close').click(); await new Promise(resolve => setImmediate(resolve));
     assert.equal(body.querySelector('#ready-video-dialog'), null, 'closed');
     assert.deepEqual(revoked, [src], 'its memory let go');
@@ -279,4 +281,41 @@ test('nothing to fill: a Note badge with the reason, never "not on for this inst
   assert.match(textOf(card.querySelector('.ready-note')), /^NoteNothing to fill/);
   assert.doesNotMatch(textOf(card), /not on for this install/);
   assert.equal(card.querySelector('.ready-progress'), null);
+});
+
+// The rows' buttons are icons (owner, 18 Oct 2026: "they're taking too much", "maybe we should use icons"): every one has its name (screen readers, tests) and a
+// tooltip saying what it does, on every kind of row, so a new row button cannot land as a bare icon.
+test('every row button is an icon with its name and a tooltip', async () => {
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed', 'queued'].map((state, i) => ({job: `j${i}`, state, video: true}))}}),
+    readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const row = body.querySelector('.ready-card').querySelectorAll('.ready-row');
+  for (const button of row.flatMap(each => each.querySelectorAll('button'))) {
+    assert.match(button.className, /icon-btn/, nameOf(button));
+    assert.ok(button.querySelector('svg'), `${nameOf(button)}: an icon`);
+    assert.ok(button.getAttribute('aria-label'), 'a name');
+    assert.ok(button.title.startsWith(`${button.getAttribute('aria-label')}: `), `${nameOf(button)}: a tooltip with its name`);
+  }
+});
+
+// Fill again on a row (owner, 18 Oct 2026: "a button per row with fill again"): asks first, then fills that job only, sent and started like Fill now.
+test('Fill again on a row asks first, then fills that job alone', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const body = page(), runs = [];
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {j1: 'SRE · Acme'},
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: [{job: 'j0', state: 'prepared'}, {job: 'j1', state: 'partial'}]}}),
+    readyTonight: async () => ({ok: false}),
+    readyRun: async options => { runs.push(options); return options.confirmed ? {ok: true, queued: 1, night: '2026-10-19'} : {ok: false, ask: {again: true, jobs: [{code: 'j1', name: 'SRE · Acme'}], replaces: 1}}; }};
+  await initReadyCard();
+  const rows = body.querySelector('.ready-card').querySelectorAll('.ready-row');
+  rows[1].querySelector('.ready-again').click(); await new Promise(resolve => setImmediate(resolve));
+  const popup = body.querySelector('#ready-confirm');
+  assert.ok(popup, 'asks first');
+  assert.match(textOf(popup), /Fill this job again\?/);
+  assert.match(textOf(popup), /replaces 1 form/, 'says what it replaces');
+  popup.querySelector('#ready-confirm-yes').click(); await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(runs, [{codes: ['j1']}, {codes: ['j1'], again: true, confirmed: true}], 'that job only, after the yes');
+  assert.match(textOf(body.querySelector('.ready-card')), /1 job sent/);
 });

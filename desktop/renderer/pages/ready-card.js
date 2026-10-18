@@ -1,6 +1,7 @@
 // The Ready to send card on Actions (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
 // start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done and the night's video of its fill (a popup). You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
 import {el, pill, tile} from '../components.js';
+import {icon} from '../icons.js';
 import {$} from './core.js';
 import {rowOf} from './ready-rows.js';
 import {showFillVideo} from './ready-video.js';
@@ -29,9 +30,10 @@ export function paint(card, state, names, act) {
   const rows = el('div', 'ready-rows');
   for (const job of jobs) {
     const row = rowOf(job), line = el('div', 'ready-row');
-    const buttons = el('span', 'ready-buttons');
-    if (['prepared', 'partial', 'wall'].includes(job.state)) buttons.append(act.open(job.job), act.live(job.job));   // your own Chrome first, the picture stream beside it (owner, 18 Oct 2026)
+    const buttons = el('span', 'ready-buttons');   // icons with their names as tooltips (owner, 18 Oct 2026: the buttons were "taking too much"; "maybe we should use icons")
+    if (['prepared', 'partial', 'wall'].includes(job.state)) { const pair = el('span', 'ready-open'); pair.append(act.open(job.job), act.live(job.job)); buttons.append(pair); }   // the two ways to open it, one group: your own Chrome first, the picture stream beside it
     if (job.video) buttons.append(act.watch(job.job));   // Watch the fill: every form the night opened, also one it could not fill (owner, 18 Oct 2026)
+    if (!job.submitted_at) buttons.append(act.again(job.job));   // Fill again: this form from the start, after a yes (owner, 18 Oct 2026: "a button per row with fill again")
     buttons.append(act.done(job.job));
     line.append(el('span', 'ready-name', names[job.job] || job.host), pill(row.text, row.tone), buttons);
     rows.append(line);
@@ -129,16 +131,23 @@ export async function initReadyCard() {
     if (fresh?.ok) { tonightNow = fresh.tonight; show({...state, names: {...state.names, ...fresh.names}}); }
   };
   // Open in my browser: the real page in your own Chrome, filled as the night left it (lib/ready-handoff.js). Open live recording: the server's tab as a picture stream.
-  const open = code => { const button = el('button', 'secondary', 'Open in my browser'); button.title = 'The real page in your own Chrome, filled as the night left it';
+  // A row's button: its icon, its name as tooltip and for screen readers.
+  const iconButton = (glyph, name, hint, id) => {
+    const button = Object.assign(el('button', `secondary icon-btn ready-${id}`, icon(glyph)), {type: 'button', title: `${name}: ${hint}`});
+    button.setAttribute('aria-label', name);
+    return button;
+  };
+  const open = code => { const button = iconButton('external', 'Open in my browser', 'the real page in your own Chrome, filled as the night left it', 'browser');
     button.addEventListener('click', async () => { button.disabled = true; say('Opening the filled form in your browser…');
       const result = await window.pilot.readyOpen(code).catch(error => ({ok: false, error: errorLine(error)}));
       button.disabled = false; say(result.ok ? 'Opened in your browser: check it, solve a bot check if there is one, and press Submit there yourself.' : (result.error || 'Could not open it.'), result.ok ? 'good' : 'bad'); });
     return button; };
-  const act = {open, live: code => { const button = el('button', 'secondary', 'Open live recording'); button.title = 'See the server\'s copy of this form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.', 'bad'); }); return button; },
-    watch: code => { const button = el('button', 'secondary', 'Watch the fill'); button.title = 'The video of the server filling this form tonight (3 minutes at most)';
+  const act = {open, live: code => { const button = iconButton('pulse', 'Open live recording', 'the server\'s copy of this form, live; you finish it there', 'live'); button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.', 'bad'); }); return button; },
+    watch: code => { const button = iconButton('eye', 'Watch the fill', 'the video of the server filling this form tonight (3 minutes at most)', 'watch');
       button.addEventListener('click', () => watchFill(button, code)); return button; },
     tailor: () => { const button = el('button', 'secondary', 'Tailor CVs for top matches'); button.addEventListener('click', () => $('tailor-top')?.click()); return button; },
-    done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
+    again: code => { const button = iconButton('refresh', 'Fill again', 'the server fills this form again from the start, after your yes', 'again'); button.addEventListener('click', () => fillNow({codes: [code]})); return button; },
+    done: code => { const button = iconButton('check', 'Done', 'delete this form\'s data from the server', 'done'); button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   // What just happened, as a badge and its line (owner, 18 Oct 2026: the status lines "should be shown as badges").
   const LABEL = {info: 'Working', good: 'Done', warn: 'Note', bad: 'Problem'};
   const say = (text, tone = 'info') => {
@@ -172,7 +181,7 @@ export async function initReadyCard() {
     phase = 'sending'; phaseError = ''; say(''); repaint();
     const result = await window.pilot.readyRun(options).catch(error => ({ok: false, error: errorLine(error)}));
     if (result.ask) {
-      if (await confirmFill(result.ask)) return fillNow({again: result.ask.again, confirmed: true});
+      if (await confirmFill(result.ask)) return fillNow({...options, again: result.ask.again, confirmed: true});
       phase = 'idle'; repaint(); return say('Not started: nothing was sent.');
     }
     if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', result.nothing ? 'warn' : 'bad'); }
