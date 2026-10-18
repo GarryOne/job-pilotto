@@ -1,10 +1,10 @@
 // Settings → Profile → Cover letter: "Writing preferences", the "Cover letter style" section of the standard answers (owner, 17 Oct 2026: the Cover letter
 // tab is the one home for letters; 18 Oct 2026, mockup 07: preferences first, read as a summary, a quiet Edit opens the inputs). The rules stay lines of
 // the answers page, so every letter prompt keeps reading them (lib/job-letter.js, src/ai/kit.py); this tab edits them, Application answers no longer lists
-// them. Read: one row per rule with its own label (no icon guessed from words); Edit: one input per rule and "Add a style rule", through
+// them. Read: one column per rule with its own label (no icon guessed from words); Edit: one input per rule and "Add a style rule", through
 // Profile's one save bar (pages/profile-save-bar.js), on every store. Guarded by test/letter-style.test.js.
 import {el} from '../components.js';
-import {doneButton, readRows, setEditing} from '../card-shell.js';
+import {doneButton, factColumns, setEditing} from '../card-shell.js';
 import {profileBar} from './profile-save-bar.js';
 import {shown} from '../answers-model.js';
 import {sections} from '../answers-model.js';
@@ -23,10 +23,10 @@ const DEFAULT = 'No preferences yet: letters use a short, direct default (130–
 
 function draw(view, into) {
   const style = sections(view.items[TEXT] || []).find(section => isStyle(section.title));
-  // Read: each rule as label → value; a line with no "label: value" shape shows whole.
+  // Read: each rule as a column, label over value (card-shell.js factColumns, like Your details; mockup 07); a line with no "label: value" shape shows whole.
   const read = el('div', 'card-read');
   const rules = (style?.items || []).filter(item => item.question || item.value || item.text);
-  read.append(rules.length ? readRows(rules.map(item => (item.question ? {label: shown(item.question), value: shown(item.value)} : {label: 'Rule', value: shown(item.value || item.text)})))
+  read.append(rules.length ? factColumns(rules.map(item => (item.question ? {label: shown(item.question), value: shown(item.value)} : {label: 'Rule', value: shown(item.value || item.text)})))
     : el('p', 'muted', DEFAULT));
   const editor = el('div', 'card-editor');
   const grid = el('div', 'form-grid cols-2 pref-body');
