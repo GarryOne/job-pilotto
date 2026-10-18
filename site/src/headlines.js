@@ -3,5 +3,6 @@
 import {OPERATIONS} from './headlines-ops.js';
 import {FORM_FILLING} from './headlines-form.js';
 import {GROWTH, INTELLIGENCE} from './headlines-growth.js';
+import {JOB_SEARCH} from './headlines-search.js';
 
-export const HEADLINES = {...OPERATIONS, ...FORM_FILLING, ...GROWTH, ...INTELLIGENCE};
+export const HEADLINES = {...OPERATIONS, ...FORM_FILLING, ...GROWTH, ...JOB_SEARCH, ...INTELLIGENCE};

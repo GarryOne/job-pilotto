@@ -19,7 +19,7 @@ function seriesTile(series, {label = series.label[0].toUpperCase() + series.labe
   return {label, value: last == null ? (known.length ? '0' : 'No data') : format(last), sub: before == null ? 'this week' : `this week · last week ${format(before)}`,
     status: status || (!better && worse ? 'warn' : 'none'), series: series.values, format, higherIsBetter: better};
 }
-const fromCards = key => async (env, now) => {
+export const fromCards = key => async (env, now) => {
   if (!env.STATS) return [{label: key, value: '–', sub: 'no database', status: 'none'}];
   return ((await cardsOf(env, now))[key] || []).slice(0, 4).map(series => seriesTile(series));
 };
@@ -42,4 +42,4 @@ async function monetizationTiles(env, now) {
 }
 
 export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/signups': signupsTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
-export const INTELLIGENCE = {'/admin/insights': fromCards('insights'), '/admin/scouting': fromCards('scouting'), '/admin/brain': fromCards('brain')};
+export const INTELLIGENCE = {'/admin/insights': fromCards('insights'), '/admin/brain': fromCards('brain')};
