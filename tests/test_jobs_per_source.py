@@ -92,6 +92,25 @@ class SoFarTest(unittest.TestCase):
         report = {'jobs': [*first, {**job(3), 'company': 'Co'}]}
         self.assertEqual(so_far.statuses(report, store.import_watch_report(db, report)), ['new', 'new', 'new'])
 
+    def test_many_sources_read_close_together_are_said_as_a_running_sum(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        db = store.connect(Path(folder.name) / 'jobs.sqlite')
+        self.addCleanup(db.close)
+        lines, now = [], [0.0]
+        so_far = jobs_so_far.SoFar(db, say=lines.append, every=5, clock=lambda: now[0])
+        for n in range(1, 41):   # 40 employer sites, one new job each, 0.1 s apart
+            now[0] = n * 0.1
+            so_far.add([{**job(n), 'company': f'Co{n}'}], 'employer sites')
+        self.assertEqual(lines, ['Jobs so far: 1 new from employer sites'])
+        now[0] = 6.0
+        so_far.add([{**job(41), 'company': 'Co41'}], 'job boards')
+        self.assertEqual(lines[1:], ['Jobs so far: 39 new from employer sites', 'Jobs so far: 1 new from job boards'])
+        so_far.add([{**job(42), 'company': 'Co42'}], 'job boards')
+        self.assertEqual(len(lines), 3)
+        so_far.statuses({'jobs': []}, [])
+        self.assertEqual(lines[3:], ['Jobs so far: 1 new from job boards'])
+
     def test_the_jobs_list_reads_again_on_that_line(self):
         page = (Path(__file__).resolve().parents[1] / 'desktop' / 'renderer' / 'pages' / 'jobs.js').read_text()
         pattern = re.search(r'export const LIST_CHANGED = /(.+)/;', page).group(1)
