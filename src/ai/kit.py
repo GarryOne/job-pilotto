@@ -386,7 +386,7 @@ def notion_blocks(job, kit, questions, model):
     blocks += [block('paragraph', p) for p in kit['cover_letter'].split('\n\n') if p.strip()]
     blocks.append(block('heading_3', '🧾 Form answers'))
     for item in kit['answers']:
-        blocks.append(block('paragraph', item['question'] + (' ❓' if item['needs_review'] else ''), bold=True))
+        blocks.append(block('paragraph', item['question'] + (' · check this answer' if item['needs_review'] else ''), bold=True))
         blocks.append(block('paragraph', item['answer']))
     payload = json.dumps({'version': KIT_VERSION, 'url': job['url'], 'model': model, **kit},
                          ensure_ascii=False, indent=1)
