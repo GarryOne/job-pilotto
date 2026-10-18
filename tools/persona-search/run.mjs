@@ -5,7 +5,8 @@
 // Keychain, Notion or Telegram; telemetry and pool sharing are off.
 //   python3 tools/persona-search/personas.py <out>            (the CVs: <out>/<name>/cv.pdf)
 //   node tools/persona-search/run.mjs <name> <out> [--presses 5] [--tag before] [--fresh] [--draft <draft.json>]
-//        [--tape <folder> --record | --replay [--wait-scale 1] [--no-live]]
+//        [--tape <folder> --record | --replay [--wait-scale 1] [--no-live]] [--judge]
+// --judge: after each press, how many of the top 10 are right for the persona (judge.py, plan engine only; never on --engine api).
 // Writes <out>/<name>/draft.json, run-<press>.log and presses.jsonl (one JSON line per press: tools/persona-search/metrics.py + time).
 // --draft: the strategy from an earlier run (no AI), so two runs search for the same thing. --tape (src/search_tape.py, change 0 of the search
 // plan): --record keeps every web and AI answer of the search; --replay serves them offline after their recorded time times --wait-scale (1 = as recorded, 0 = no wait, 0.1 = ten times faster), so a change
@@ -53,6 +54,15 @@ const metrics = (script = 'metrics.py', ...args) => JSON.parse(execFileSync(pyth
   ...process.env, PYTHONPATH: ROOT, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_FOLLOW_APP: '0',
   JOB_PILOTTO_CONFIG_DIR: storage.path('config'), JOB_PILOTTO_DATA_DIR: storage.path('data')}}).toString().trim().split('\n').pop());
 
+function judged() {
+  const env = {...process.env, PYTHONPATH: ROOT, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_FOLLOW_APP: '0', JOB_PILOTTO_AI_ENGINE: 'cli',
+    JOB_PILOTTO_CONFIG_DIR: storage.path('config'), JOB_PILOTTO_DATA_DIR: storage.path('data')};
+  for (const key of Object.keys(env)) if (key.startsWith('JOB_PILOTTO_SEARCH_TAPE') || key === 'JOB_PILOTTO_TAPE_WAIT_SCALE' || key === 'JOB_PILOTTO_TAPE_LIVE') delete env[key];
+  try {
+    return JSON.parse(execFileSync(python(), [path.join(ROOT, 'tools', 'persona-search', 'judge.py'), out, name], {cwd: ROOT, env}).toString().trim().split('\n').pop());
+  } catch (error) { console.log(`${name}: top 10 not judged: ${String(error.message).split('\n')[0]}`); return null; }
+}
+
 if (!storage.settings().setupDone) {   // the wizard's strategy step: the app's own draft from the CV, kept as the review's "Save" does without Notion
   const started = Date.now(), kept = option('--draft', '');
   const draft = kept ? JSON.parse(fs.readFileSync(kept, 'utf8')) : await strategy.draft(storage, {}, apiKey, api ? null : claudeCode.client(storage));
@@ -71,9 +81,11 @@ for (let press = done + 1; press <= presses; press++) {
   const row = {press, code, crashes, seconds: Math.round((Date.now() - started) / 1000), ...metrics(),
     ...(press === 1 ? {ttfr: metrics('ttfr.py', path.join(out, 'run-1.log'))} : {})};
   fs.appendFileSync(path.join(out, 'presses.jsonl'), `${JSON.stringify(row)}\n`);
+  const verdict = process.argv.includes('--judge') && !api ? judged() : null;   // its own AI call, off the tape: a replay neither records nor needs it
+  if (verdict) fs.writeFileSync(path.join(out, `judge-${press}.json`), JSON.stringify(verdict, null, 2));
   const first = row.ttfr ? `; 1st/10th relevant at ${row.ttfr.first_in_places_s ?? '—'}/${row.ttfr.tenth_in_places_s ?? '—'} s, 1st 70+ at ${row.ttfr.first_fit70_s ?? '—'} s` : '';
   if (crashes.length) { failed.push(...crashes); console.log(`PRESS ${name} ${press} FAILED: ${crashes.map(crash => `${crash.step}: ${crash.error}`).join(' | ')}`); }
-  console.log(`PRESS ${name} ${press}: ${row.in_places} in places, ${row.scored_in_places} scored, ${row.fit70_in_places} fit 70+ (${row.seconds} s${first})`);
+  console.log(`PRESS ${name} ${press}: ${row.in_places} in places, ${row.scored_in_places} scored, ${row.fit70_in_places} fit 70+ (${row.seconds} s${first})${verdict ? `; top 10: ${verdict.right} of ${verdict.of} right` : ''}`);
 }
 if (failed.length) { console.log(`PERSONA FAILED ${name}: ${failed.length} crash(es), the numbers above are not a clean run`); process.exitCode = 1; }
 else console.log(`PERSONA DONE ${name}`);
