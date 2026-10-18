@@ -110,6 +110,9 @@ test('the $0 estimate says per version the chunks, tokens in and out, and the co
   assert.equal(chunks, 3);
   assert.ok(tokensIn > 650 * 3 && tokensIn < 25000, `in ${tokensIn}`);
   assert.ok(tokensOut > 0 && cost > 0 && cost < 0.05, `cost ${cost}`);
+  // measured on the 18 Oct 2026 backfill (a full answer is ~2,000 output tokens): 216 subjects cost $0.0016, 15 cost $0.0007, 5 cost $0.0003, 1,140 (4 chunks + join) $0.0112
+  const near = (subjects, actual) => { const {cost} = estimate(many(subjects)); assert.ok(cost > actual * 0.6 && cost < actual * 1.6, `${subjects} subjects: est ${cost} vs ${actual}`); };
+  near(216, 0.0016); near(15, 0.0007); near(5, 0.0003); near(989, 0.0112);
   assert.deepEqual(estimate([]), {chunks: 0, tokensIn: 0, tokensOut: 0, cost: 0});
 });
 
