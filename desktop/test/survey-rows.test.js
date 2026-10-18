@@ -91,16 +91,18 @@ test('a value\'s note: a short answer then its brackets or sentence; nothing dro
 });
 
 // Mockup 05 (owner approved, 18 Oct 2026): the card reads as one "Saved preferences" line; every answer stays one click away, folded under it.
-test('the card as read: one line naming what is saved, a "to check" pill for an answer in words, every answer folded under it', () => {
+test('the card as read: one boxed row naming what is saved, a "to check" pill for an answer in words, "Show answers" in that row, every answer folded under it', () => {
   const read = surveyRead({lines: [{id: 'a', text: lineOf('gender', 'Man')}, {id: 'b', text: 'Race / ethnicity: White (use "White / European")'}, {id: 'c', text: 'How many companies?: 4'}]});
-  const [line, fold] = read.children;
-  assert.match(line.textContent, /^Saved preferencesGender identity, Race \/ ethnicity, How many companies\? saved1 to check$/);
+  assert.equal(read.children.length, 1, 'no line floats under the row (coordinator check of mockup 05, 18 Oct 2026)');
+  const [fold] = read.children, [line] = fold.children;
   assert.equal(fold.tagName, 'DETAILS');
   assert.equal(fold.open, false);
-  assert.match(fold.children[0].textContent, /^Show answers · 3$/);
+  assert.equal(line.tagName, 'SUMMARY', 'the saved line is the fold\'s own header');
+  assert.match(line.textContent, /^Saved preferencesGender identity, Race \/ ethnicity, How many companies\? saved1 to checkShow answers · 3$/);
   assert.match(all(fold).map(each => each.textContent || '').join(' '), /Gender identity/);
   const empty = surveyRead({lines: []});
   assert.equal(empty.children.length, 1, 'nothing to fold when nothing is saved');
+  assert.equal(empty.children[0].tagName, 'DIV');
   assert.match(empty.textContent, /^No answers yet/);
-  assert.equal(surveyRead({lines: []}, {sorting: true}).children[1].open, true, 'open while the answers are being sorted');
+  assert.equal(surveyRead({lines: []}, {sorting: true}).children[0].open, true, 'open while the answers are being sorted');
 });

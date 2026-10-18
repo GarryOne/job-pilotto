@@ -9,37 +9,53 @@ import {toastMessage} from './startup.js';
 
 const MARK = 'proposal-pill';
 const box = field => document.querySelector(`#setting-contact [data-contact="${field}"]`);
+const BADGE = 'cv-proposals-badge';
+
+// The Contact card's title says how many boxes still hold a CV proposal ("4 from CV · check"), never a lone line under the card (mockup 05).
+function syncBadge() {
+  const title = document.querySelector('#setting-contact .card-words h3');
+  const left = document.querySelectorAll('#setting-contact [data-proposed]').length;
+  title?.querySelector(`.${BADGE}`)?.remove();
+  if (!title || !left) return;
+  const badge = pill(`${left} from CV · check`, 'warn');
+  badge.classList.add(BADGE);
+  badge.title = 'Filled in from your CV: check them, then Save all changes.';
+  title.append(badge);
+}
 
 // Take the marks off (after Save, or before showing new proposals); an edited box keeps your value, unmarked.
+const unmark = input => { delete input.dataset.proposed; input.parentElement.querySelector(`.${MARK}`)?.remove(); };
 export function clearProposals() {
-  for (const input of document.querySelectorAll('#setting-contact [data-proposed]')) {
-    delete input.dataset.proposed;
-    input.parentElement.querySelector(`.${MARK}`)?.remove();
-  }
+  document.querySelectorAll('#setting-contact [data-proposed]').forEach(unmark);
+  syncBadge();
 }
 
 // A box the form hides on purpose (the Swiss-only Place of origin); a closed Profile tab is not that: its boxes are filled for when it opens.
 const hiddenByForm = input => { const hidden = input.parentElement?.closest('[hidden]'); return Boolean(hidden && !hidden.matches('[data-profile-panel]')); };
 
 // Fill each empty box the form shows with its proposal. → how many were shown.
+// A box still marked from an earlier call (the tab opened again) keeps its mark: it is still unchecked.
 export function showProposals(proposals = []) {
-  clearProposals();
+  const fields = new Set(proposals.map(each => each.field));
+  document.querySelectorAll('#setting-contact [data-proposed]').forEach(input => { if (!fields.has(input.dataset.contact)) unmark(input); });
   let shown = 0;
   for (const {field, value, sure} of proposals) {
     const input = box(field);
+    if (input?.dataset.proposed) { shown++; continue; }
     if (!input || input.value.trim() || hiddenByForm(input)) continue;
     input.value = value;
     input.dataset.proposed = 'cv';
     const mark = pill(sure ? 'From your CV' : 'From your CV · check it', sure ? 'info' : 'warn');
     mark.classList.add(MARK);
     (input.nextElementSibling?.dataset?.contactControl ? input.nextElementSibling : input).after(mark);   // under the typed control when there is one
-    input.addEventListener('input', () => { delete input.dataset.proposed; mark.remove(); }, {once: true});
+    input.addEventListener('input', () => { delete input.dataset.proposed; mark.remove(); syncBadge(); }, {once: true});
     editDetailsCard(input.closest('.setting')?.id);   // a proposal is checked in its card's editor, never hidden behind the read view
     shown++;
   }
   if (shown) {
     detailsChanged();   // they are drafts on the Profile page's one save bar until saved
-    message('contact-panel-message', `${shown} detail${shown === 1 ? '' : 's'} filled in from your CV: check ${shown === 1 ? 'it' : 'them'}, then Save all changes.`);
+    message('contact-panel-message', '');
+    syncBadge();
   }
   return shown;
 }

@@ -105,4 +105,13 @@
 .panel.roomy .survey-read { display: grid; gap: var(--sp-2); margin-left: calc(var(--tile-lg) + var(--sp-3)); }
 .survey-saved { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-base); }
 .survey-saved > .icon { width: 20px; height: 20px; flex: none; color: var(--good); }
-.survey-all > summary { cursor: pointer; width: fit-content; }
+/* One boxed row (mockup 05): the saved line is the fold's header, "Show answers · N" with its chevron at its right. */
+.panel.roomy .survey-saved { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.panel.roomy .survey-all[open] > .survey-saved { border-radius: var(--r-md) var(--r-md) 0 0; }
+.panel.roomy .survey-all > :not(summary) { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 var(--r-md) var(--r-md); }
+summary.survey-saved { cursor: pointer; list-style: none; }
+summary.survey-saved::-webkit-details-marker { display: none; }
+.survey-saved > .survey-toggle { margin-left: auto; }
+.survey-saved > .survey-chevron { width: 16px; height: 16px; color: var(--ink-2); transition: transform .15s; }
+.survey-all[open] > .survey-saved > .survey-chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .survey-saved > .survey-chevron { transition: none; } }

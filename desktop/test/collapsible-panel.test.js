@@ -39,6 +39,7 @@ const CHEVRON_FILES = {
   'pages/experience.js': 'native <details>: the whole job row toggles',
   'gaps-rows.js': 'native <details>: the whole Reviewed line toggles',
   'cv-check-view.js': 'native <details>: the whole summary row toggles',
+  'survey-rows.js': 'native <details>: the whole Saved preferences row toggles',
 };
 test('every file that draws a chevron is accounted for', () => {
   const found = sources.filter(f => /(icon|control)\('chevron'/.test(read(f)));
