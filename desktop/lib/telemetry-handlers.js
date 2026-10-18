@@ -12,6 +12,7 @@ import * as telegramLib from './telegram.js';
 import {createWatcher} from './real-errors.js';
 import * as server from './server.js';
 import * as telemetryLib from './telemetry.js';
+import {onSearchDone, reportSearch} from './search-report.js';
 import os from 'node:os';
 import {installId as telemetryInstallId} from './app-feedback.js';
 import {log as appLog} from './log.js';
@@ -70,6 +71,7 @@ export function registerTelemetryHandlers(ctx) {
     const updated = analyticsLib.updateStep(storage.settings().lastRunVersion, identity.version);   // the first start after an update says so, once
     if (updated) track('update_installed', updated);
     if (storage.settings().lastRunVersion !== identity.version) storage.saveSettings({lastRunVersion: identity.version});
+    onSearchDone(info => { void reportSearch(storage, telemetry, info); });   // one report per finished Find jobs run (lib/search-report.js)
     server.setAppliedHook(info => track('applied', info));
     app.on('before-quit', () => { void analytics?.flush(); });
     pipeline.onRunEnd(({args, code, seconds, tail, timedOut, result}) => {

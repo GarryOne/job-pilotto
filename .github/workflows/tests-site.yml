@@ -19,6 +19,7 @@ on:
       - 'extension/recipe-schema.js'
       - 'extension/fill-meaning.js'
       - 'src/ai/providers/anthropic_api.py'
+      - 'src/role_kinds.py'
       - 'tools/applying-page-copy.mjs'
       - 'tools/changelog-publish.mjs'
       - 'tools/e2e-intel.mjs'
