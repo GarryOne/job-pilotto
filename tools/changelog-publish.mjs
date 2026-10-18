@@ -48,13 +48,13 @@ export const newerThanStored = (draft, have) => {
 
 export const chunksOf = (subjects, size = CHUNK) => Array.from({length: Math.ceil(subjects.length / size)}, (_, i) => subjects.slice(i * size, (i + 1) * size));
 
-// $0 estimate for the dry run: chunks, tokens in/out and cost, from the subject text (about 4 characters a token; each answer ~500 tokens; one merge call over 1 chunk).
+// $0 estimate for the dry run: chunks, tokens in/out and cost, from the subject text (about 4 characters a token; an answer ~200 + 60 tokens per subject, up to 2,400; one merge call over 1 chunk).
 export function estimate(subjects) {
   const parts = chunksOf(subjects);
   if (!parts.length) return {chunks: 0, tokensIn: 0, tokensOut: 0, cost: 0};
   const tokensIn = parts.reduce((sum, part) => sum + Math.ceil((MODEL_PROMPT.length + part.join('\n').length + part.length * 3) / 4), 0) + (parts.length > 1 ? Math.ceil(MERGE_PROMPT.length / 4) + parts.length * 400 : 0);
-  const tokensOut = 500 * (parts.length + (parts.length > 1 ? 1 : 0));
-  return {chunks: parts.length, tokensIn, tokensOut, cost: usageCost(MODEL, {input_tokens: tokensIn, output_tokens: tokensOut}) ?? 0};
+  const tokensOut = parts.reduce((sum, part) => sum + Math.min(2400, 200 + 60 * part.length), 0) + (parts.length > 1 ? 2400 : 0);   // a full answer (18 items) is ~2,000 tokens; measured 18 Oct 2026
+  return {chunks: parts.length, tokensIn, tokensOut, cost: 1.3 * (usageCost(MODEL, {input_tokens: tokensIn, output_tokens: tokensOut}) ?? 0)};   // x1.3: some answers are asked twice (cut off, unusable)
 }
 
 // One AI call that must answer a checked group list (retried once). Adds its cost to `spend`; never starts a call past the cap.
