@@ -15,9 +15,16 @@ echo $$ > "$pidfile"   # before the kill: the old watcher's exit trap then sees 
 trap '[ "$(cat "$pidfile" 2>/dev/null)" != "$$" ] || rm -f "$pidfile"' EXIT
 say() { echo "ship: $*" >> "$log"; }
 fixer="${SHIP_WATCH_FIX:-$(cd "$(dirname "$0")" && pwd)/pr-conflict-fix.sh}"
-waited=0; red=""; green=""; conflict=""
+# GREEN only when the checks of the PR's CURRENT head sha exist, all concluded, and the required "All checks passed" job succeeded: right after a push the PR's
+# rollup still shows the old head's checks (18 Oct 2026, #1476: GREEN 2 s after a push, RED minutes later). No head, no repo or no answer: not green.
+head_checks_passed() {
+  local repo; repo="$(jq -r '.url // empty' <<<"$1" | sed -E 's#^https?://[^/]+/([^/]+/[^/]+)/pull/.*#\1#')"
+  [ -n "$repo" ] && [ -n "$2" ] || return 1
+  gh api "repos/$repo/commits/$2/check-runs?per_page=100" --jq '.check_runs | length > 0 and all(.[]; .status == "completed" and (.conclusion | IN("success","skipped","neutral"))) and any(.[]; .name == "All checks passed" and .conclusion == "success")' 2>/dev/null | grep -qx true
+}
+waited=0; red=""; green=""; conflict=""; lasthead=""
 while :; do
-  view="$(gh pr view "$n" --json state,mergeCommit,mergeable 2>/dev/null)" || view=""
+  view="$(gh pr view "$n" --json state,mergeCommit,mergeable,headRefOid,url 2>/dev/null)" || view=""
   state="$(jq -r '.state // empty' <<<"$view" 2>/dev/null)"
   case "$state" in
     MERGED) say "MERGED #$n $(jq -r '.mergeCommit.oid // empty' <<<"$view" | cut -c1-7)"; exit 0 ;;
@@ -31,7 +38,8 @@ while :; do
     checks="$(gh pr checks "$n" --json name,bucket 2>/dev/null)" || checks=""
     now="$(jq -r '[.[]? | select(.bucket == "fail") | .name] | first // empty' <<<"${checks:-[]}" 2>/dev/null)" || now=""
     [ "$now" = "$red" ] || { [ -z "$now" ] || say "RED #$n $now"; red="$now"; }   # once per red check; green again re-arms it
-    if jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1; then
+    head="$(jq -r '.headRefOid // empty' <<<"$view" 2>/dev/null)"; [ "$head" = "$lasthead" ] || { green=""; lasthead="$head"; }   # a push re-arms GREEN
+    if jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1 && head_checks_passed "$view" "$head"; then
       [ -n "$green" ] || say "GREEN #$n"; green=1   # once per green; a new push that restarts the checks re-arms it
     else green=""; fi
   fi

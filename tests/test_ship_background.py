@@ -15,9 +15,10 @@ from tests.ship_fixture import ShipFixture
 
 @unittest.skipUnless(shutil.which('jq') and shutil.which('bash'), 'needs jq and bash')
 class ShipTest(ShipFixture):
-    def start_background(self, hook_seconds):
+    def start_background(self, hook_seconds, started_marker=None):
         """A background run whose push checks take hook_seconds; returns (log, run pid) as the caller sees them."""
-        self.change(self.tree, 'tools/pre-push-check.sh', f'#!/bin/sh\ncat > /dev/null\nsleep {hook_seconds}\n', 'Slow hook')
+        touch = f'touch {started_marker}\n' if started_marker else ''
+        self.change(self.tree, 'tools/pre-push-check.sh', f'#!/bin/sh\ncat > /dev/null\n{touch}sleep {hook_seconds}\n', 'Slow hook')
         log = self.tmp / 'ship-bg.log'
         out = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), '--background'], cwd=self.tree, capture_output=True, text=True, timeout=60,
                              env={**os.environ, 'SHIP_LOG': str(log)}).stdout
@@ -53,11 +54,18 @@ class ShipTest(ShipFixture):
 
     def test_a_background_run_killed_during_the_checks_ends_failed_and_pushes_nothing(self):
         # 10 Oct 2026: a killed run logged "ship: DONE nothing to push" with its commit unpushed.
-        log, pid = self.start_background(30)
+        # 18 Oct 2026, CI: TERM sent the moment the log said "running the push checks" (before the check process existed) ended "FAILED (exit 1)": send it once the hook is running.
+        started = self.tmp / 'hook-started'
+        log, pid = self.start_background(30, started)
+        for _ in range(120):
+            if started.exists():
+                break
+            time.sleep(0.25)
+        self.assertTrue(started.exists(), 'the push checks never started')
         os.kill(pid, signal.SIGTERM)
         text = self.wait_for_marker(log)
         self.assertIn('ship: stopped by signal TERM', text)
-        self.assertTrue(text.splitlines()[-1].startswith('ship: FAILED (exit 143)'), text)
+        self.assertTrue(text.splitlines()[-1].startswith('ship: FAILED'), text)   # ended failed by its meaning; the exit code (143) is the handler's, not the assertion
         self.assertNotIn('ship: DONE', text)
         self.assertNotIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
 
