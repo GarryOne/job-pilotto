@@ -1004,6 +1004,7 @@ main { min-width: 0; }
 .palette li span { grid-column: 1; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .palette li small { grid-column: 2; grid-row: 1; color: var(--muted); font-size: var(--fs-xs); align-self: center; }
 .palette li[aria-selected="true"] { background: var(--sky); }
+.palette li .spinner { display: inline-block; margin-inline-start: 8px; vertical-align: -2px; }   /* the shared .spinner.small, placed after the name of a running task */
 .palette-empty { padding: 14px 18px; margin: 0; }
 .palette-foot { margin: 0; padding: 8px 18px; border-top: 1px solid var(--line); font-size: var(--fs-xs); }
 .palette-hint { -webkit-app-region: no-drag; margin-top: 10px; background: transparent; border: 1px solid var(--navy-hover); color: var(--on-navy-3);
