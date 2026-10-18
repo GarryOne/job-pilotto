@@ -79,6 +79,10 @@ export function inspect({view, limits}) {
       found.push({view, severity: 'warning', kind: 'unnamed-control', detail: `${label(button)} has no text, label or icon`}); break;
     }
   }
+  // A primary button always shows its words; an icon alone is for secondary buttons (owner, 18 Oct 2026: "let's leave icons only for secondary buttons").
+  for (const button of root.querySelectorAll('button.primary')) {
+    if (visible(button) && !(button.textContent || '').trim()) { found.push({view, severity: 'warning', kind: 'icon-only-primary', detail: `${label(button)} is a primary button with no words: show what it does, not only an icon`}); break; }
+  }
   // Technical text shown to a person: an API's JSON error body, a request id, a stack trace, a raw exception, "[object Object]". It blocks them (they cannot tell what
   // happened or what to do), so it is severe. 3 Oct 2026: "400 {"type":"error",…,"request_id":…}" sat in the CV card and was filed as a CSS spill (#94); no check knew
   // what the text MEANT. Places that show technical text on purpose are left out: code and log blocks, terminals, text fields, the technical-log toggles.

@@ -281,3 +281,12 @@ test('a result card and the run\'s own open log say the same words on purpose an
   assert.ok(!(await kinds(page, `${card}<details open><summary>Full log</summary><pre class="log">${ITEMS}</pre></details>`)).includes('duplicate-content'), 'a log in details');
   assert.ok((await kinds(page, `<div class="warn"><div>${ITEMS}</div></div><div class="warn2"><div>${ITEMS} again</div></div>`)).includes('duplicate-content'), 'plain boxes');
 }));
+
+// Icons alone only on secondary buttons (owner, 18 Oct 2026: "let's leave icons only for secondary buttons"): a primary with no words is flagged on any view;
+// a primary with words (and an icon) and an icon-only secondary are not.
+test('a primary button with only an icon is flagged; with its words, or a secondary icon button, it is not', () => withChrome(async page => {
+  const svg = '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg>';
+  assert.ok((await kinds(page, `<button class="primary" aria-label="Fill now" title="Fill now">${svg}</button>`)).includes('icon-only-primary'));
+  assert.ok(!(await kinds(page, `<button class="primary with-icon">${svg}<span>Fill now</span></button>`)).includes('icon-only-primary'));
+  assert.ok(!(await kinds(page, `<button class="secondary icon-btn" aria-label="Done" title="Done: delete it">${svg}</button>`)).includes('icon-only-primary'));
+}));

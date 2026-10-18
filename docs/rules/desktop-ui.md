@@ -16,6 +16,8 @@ Living copy: `npm run gallery` (sections "Chips" and "Value → control", drawn 
 - **Nothing cut.** A saved value always fits its box; a row title is one line with … and the full text on hover; a question two lines. Prose ≤ 72 characters wide.
 - **Spacing from the scale:** label → field 4, field → field 12, card padding 16 (a settings card 24), card → card 16, section → section 32. Two columns only for short fields.
 - **Card or section:** a card is one topic you read or act on; never a card in a card (inside: rows, dividers, a table). One primary button per card.
+- **Icons alone only on secondary buttons** (owner, 18 Oct 2026: "let's leave icons only for secondary buttons"): a primary button, and a row's main action, always shows its words (an icon beside them is fine);
+  an icon-only button is a secondary one with a tooltip and an aria-label. Fails: `desktop/test/design-buttons.test.js` (every renderer file) and the UI check's `icon-only-primary` (every view).
 - **Contrast AA in both themes:** text 4.5:1, a field's edge 3:1. A filled accent under white text uses `--signal-solid`.
 - **What fails a change:** `desktop/test/contrast.test.js` (token pairs, both themes), `text-fields.test.js` (a new free text box: use the typed control, or
   raise the file's count in `text-fields-allowed.json` with the reason), `chip.test.js` (raw chip text, a new chip class), `design.test.js` (raw values);

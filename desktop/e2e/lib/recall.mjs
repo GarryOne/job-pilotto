@@ -16,6 +16,7 @@ export const PLANTS = [
   {id: 'page-overflow', detector: 'layout', expect: 'page-overflow', html: '<div style="width:4000px;height:8px;background:#ccc"></div>'},
   {id: 'broken-image', detector: 'layout', expect: 'broken-image', html: '<img src="file:///nonexistent-recall-plant.png" alt="logo" style="width:24px;height:24px">'},
   {id: 'unnamed-button', detector: 'layout', expect: 'unnamed-control', html: '<button style="width:32px;height:32px"></button>'},
+  {id: 'icon-only-primary', detector: 'layout', expect: 'icon-only-primary', html: '<button class="primary" aria-label="Start" title="Start" style="width:32px;height:32px"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg></button>'},
   {id: 'spinner-stretched', detector: 'layout', expect: 'distorted-spinner', html: '<div class="notice setup"><span class="spinner small" style="flex:1;min-width:280px"></span><span>Setting up transcription</span></div>'},
   {id: 'tiny-text', detector: 'layout', expect: 'tiny-text', html: '<p style="font-size:7px">Fine print nobody can read</p>'},
   {id: 'a11y-button-name', detector: 'a11y', expect: 'button-name', html: '<button style="width:32px;height:32px"></button>'},
