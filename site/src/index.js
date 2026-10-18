@@ -27,6 +27,7 @@ import {ingest as opsIngest, view as opsView} from './ops-overview.js';
 import {ingest as e2eIntelIngest} from './e2e-intel.js';
 import {ingest as changelogIngest, list as changelogList} from './changelog-store.js';
 import {view as e2eIntelView} from './e2e-page.js';
+import {designView} from './design.js';
 import {ingest as buildLogIngest, view as buildLogView} from './build-log.js';
 import {ingest as prChecksIngest, view as prChecksView} from './pr-checks.js';
 import {view as monetizationView} from './monetization.js';
@@ -167,6 +168,7 @@ async function route(request, env, ctx) {
     '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (src/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e-report.js)
+  if (pathname === '/admin/design' || pathname.startsWith('/admin/design/')) return designView(request, env);   // the design system page + snapshot, built at deploy (src/design.js)
   if (pathname === '/admin/join') return join(request, env);   // an invite link
   if (pathname === '/admin/real-form-filling/digest.json' || pathname === '/admin/real-form-filling/digest.md') return digestView(request, env);
   if (admin) {

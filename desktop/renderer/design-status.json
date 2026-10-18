@@ -1,0 +1,39 @@
+{
+ "_about": "Status of each gallery section and rules heading: approved | legacy | proposed. Everything listed here was on main on 18 Oct 2026; a new section or heading is not listed and fails desktop/test/design-system-page.test.js until it is classified (a [status] suffix on a rules heading, or an entry here).",
+ "sections": {
+  "Colours": "approved",
+  "Type": "approved",
+  "Corners and shadows": "approved",
+  "Buttons": "approved",
+  "Pills": "approved",
+  "Tags": "approved",
+  "Chips": "approved",
+  "Value → control": "approved",
+  "Card shell": "approved",
+  "Lit panel": "approved",
+  "Result card head and figures": "approved",
+  "Tiles": "approved",
+  "Notion advantages": "approved",
+  "Locked page": "approved",
+  "Choice cards": "approved",
+  "Library table": "approved",
+  "Data table": "approved",
+  "Item rows": "approved",
+  "Dialog parts": "approved",
+  "Toggle chips": "approved",
+  "Alerts": "approved",
+  "Settings parts": "approved",
+  "States: save": "approved",
+  "States: empty, loading, error": "approved",
+  "States: long content and narrow windows": "approved",
+  "States: read and edit": "approved"
+ },
+ "rules": {
+  "Design system (owner, 17 Oct 2026): read first": "approved",
+  "Cards: read → Edit → editor; one save bar (owner, 18 Oct 2026, UI redesign)": "approved",
+  "Structure": "approved",
+  "Checking a UI change (the tier decides how much)": "approved",
+  "Reuse, never one-off": "approved",
+  "Every new screen and action goes in the ⌘K palette": "approved"
+ }
+}
