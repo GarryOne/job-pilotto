@@ -5,6 +5,7 @@
 // tripwire (lib/privacy-tripwire.mjs) checks every field every few seconds and before anything is written. -> {seconds, opened, evidence, tripped}.
 // CLI: live-row.mjs. Guard: e2e/test/live-row.test.mjs (a fake site, memo-only).
 /* global document, location */
+import {liveVideo} from './live-video.mjs';
 import {stallNote} from './stall-note.mjs';
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
@@ -75,6 +76,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
+  const video = await liveVideo({context: run.context, page: run.page});   // CI's pool run only (JP_FILL_VIDEO_DIR): a short video of the tab being filled, for the Lab's ▶ Watch
   const asks = setInterval(() => {   // each ask noted by the app as it arrives (asks.jsonl): that page kept at once, as the extension saw it
     let lines = [];
     try { lines = fs.readFileSync(path.join(captureDir, 'asks.jsonl'), 'utf8').split('\n').filter(Boolean); } catch { return; }
@@ -173,6 +175,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must
     clearInterval(asks);
+    await video.finish({tripped: !!tripped, say});   // a privacy hit deletes the capture, so it deletes the video too
     await watcher?.stop().catch(() => {});
     await run.close().catch(() => {});
     await front.close().catch(() => {});

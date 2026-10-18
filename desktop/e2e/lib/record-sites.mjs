@@ -53,7 +53,7 @@ export function parseLive(output) {
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   const emptyMenus = new Set();   // labels of the menus that showed no choice
-  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, aiCalls = null, tripped = false, aiRefused = null;
+  let fillVideo = null, derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, aiCalls = null, tripped = false, aiRefused = null;
   const openFills = new Map();   // page -> the line its fill started on, while it has not reported (fill: filling {page})
   let countPage = '', lastReport = '', countAt = -1;   // the page the counted "fields:" line belongs to
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
@@ -113,6 +113,8 @@ export function parseLive(output) {
     if (noShot) errors.push(`no end screenshot: ${noShot[1].trim().slice(0, 100)}`);
     const layerLeft = line.match(/live: cookie layer still open at the end: (.*)$/);   // lib/end-shot.mjs: a miss, never a clean end
     if (layerLeft) errors.push(`cookie layer still open at the end: ${layerLeft[1].trim().slice(0, 100)}`);
+    const video = line.match(/^live: fill video: (.+)\|(\d+)\|(\d+)$/);   // the row's fill video, kept in CI for the Lab's ▶ Watch (lib/live-video.mjs, uploaded by pool-ci-rows.mjs)
+    if (video) fillVideo = {path: video[1], bytes: Number(video[2]), secs: Number(video[3])};
     const spend = line.match(/^live: AI spend \$([\d.]+)(?: on the CI key \((\d+) calls)?/);   // a row on the CI key (lib/live-row.mjs): what its asks cost; the pool's dollar cap sums it (lib/pool-ci.mjs)
     if (spend) { usd = Number(spend[1]); if (spend[2] != null) aiCalls = Number(spend[2]); }   // the calls: /admin/ai-cost counts them (pool-ai-cost.mjs)
     if (/^live: privacy tripwire: .* typed into "/.test(line)) tripped = true;   // a hit names the field (lib/privacy-tripwire.mjs); a line about the tripwire is not one
@@ -130,7 +132,7 @@ export function parseLive(output) {
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {...(readings ? {readings} : {}), reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(aiCalls != null ? {aiCalls} : {}), ...(tripped ? {tripped} : {}), ...(fillUnreported ? {fillUnreported} : {}), ...(aiRefused ? {aiRefused} : {})};
+  return {...(readings ? {readings} : {}), reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(aiCalls != null ? {aiCalls} : {}), ...(tripped ? {tripped} : {}), ...(fillVideo ? {video: fillVideo} : {}), ...(fillUnreported ? {fillUnreported} : {}), ...(aiRefused ? {aiRefused} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.
