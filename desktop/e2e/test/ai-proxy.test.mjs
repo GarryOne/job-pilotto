@@ -140,3 +140,24 @@ test("without the SDK: the proxy's answers and faults read right through the ada
   }));
   assert.deepEqual(kinds, {'rate-limit': 'unavailable', 'server-error': 'unavailable', 'invalid-key': 'limit', 'no-credit': 'limit'});
 });
+
+test('asAnthropic carries the answer schema, so a stand-in can tell a scoring call on an OpenAI turn too', async () => {
+  const {asAnthropic} = await import('../lib/ai-proxy.mjs');
+  const schema = {type: 'object', properties: {score: {type: 'integer'}}};
+  const asked = asAnthropic({model: 'm', input: 'rate this', text: {format: {type: 'json_schema', name: 'answer', strict: true, schema}}});
+  assert.deepEqual(asked.output_config.format.schema, schema);
+  assert.equal(asAnthropic({model: 'm', input: 'hi'}).output_config, undefined);
+});
+
+test('a stand-in can refuse a call the way the API does, and the refusal is counted and named as a stub', async () => {
+  const {STUBBED} = await import('../lib/ai-proxy.mjs');
+  const proxy = await startAiProxy();
+  try {
+    proxy.setCanned(() => ({refuse: 'no-credit'}));
+    const response = await post(proxy.url);
+    assert.equal(response.status, 400);
+    assert.match(await response.text(), /credit balance is too low/);
+    assert.equal(proxy.stats.failed, 1);
+    assert.ok(STUBBED.has('no-credit'));
+  } finally { await proxy.close(); }
+});
