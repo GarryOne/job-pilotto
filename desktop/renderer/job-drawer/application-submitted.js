@@ -4,7 +4,7 @@
 // application snapshot captured". Opening the employer's page is not proof of submission: only a recorded submission shows here.
 import {el} from '../components.js';
 import {copyButton, factGrid, group, stateCard} from './parts.js';
-import {documentsView} from './application-preparation.js';
+import {documentsView} from './documents-files.js';
 
 export function submittedView({parts, page}) {
   const sent = parts.submitted;

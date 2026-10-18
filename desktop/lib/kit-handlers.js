@@ -17,9 +17,9 @@ import fs from 'node:fs';
 import {log as appLog} from './log.js';
 
 export function registerKitHandlers(ctx) {
-  const {allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track} = ctx;
+  const {DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track} = ctx;
   registerReadyHandlers({ipcMain, notify, shell, storage, app, powerMonitor});   // Ready to send (the owner's install only): the card beside Tailor on Actions, its calls in lib/ready-handlers.js
-  const {makeFor: makeJobLetter} = registerJobLetterHandlers({ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
+  const {makeFor: makeJobLetter} = registerJobLetterHandlers({DEMO, ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   const prepareKitFor = async (code, name = 'this job', {quiet = false} = {}) => {

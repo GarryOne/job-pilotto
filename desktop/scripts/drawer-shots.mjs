@@ -17,6 +17,8 @@ const only = option('only') ? new Set(option('only').split(',')) : null;
 const wait = ms => `await new Promise(r => setTimeout(r, ${ms}));`;
 const click = (selector, text) => `[...document.querySelectorAll(${JSON.stringify(selector)})].find(n => ${text ? `n.textContent.trim().startsWith(${JSON.stringify(text)})` : 'true'})?.click(); ${wait(400)}`;
 const open = (job, tab, after = '', pre = '') => `${pre} window.__jp.openJob('https://example.com/jobs/${job}', '${tab}'); ${wait(900)} ${after}`;
+// Job 1 as if its CV were tailored (the demo's jobs are not; the demo's letter answers by itself).
+const TAILORED = "window.__jp.shared.allJobs.find(job => job.url === 'https://example.com/jobs/1').tailored = true;";
 const GMAIL_OFF = "localStorage.setItem('serviceChecks', JSON.stringify({google: {connected: false}}));";
 
 // [name, steps]
@@ -31,6 +33,8 @@ const CASES = [
   ['07-description-none', open(2, 'description', wait(500))],
   ['08-application-submitted', open(1, 'application')],
   ['09-application-preparation', open(1, 'application', click('.jd-choice button', 'Preparation'))],
+  ['09b-documents-ready', open(1, 'documents', wait(500), TAILORED)],
+  ['09c-documents-none', open(3, 'documents')],
   ['10-application-not-prepared', open(3, 'application')],
   ['11-application-no-snapshot', open(3, 'application', click('.jd-choice button', 'Submitted'))],
   ['12-interviews-with-next', open(1, 'interviews')],

@@ -274,7 +274,7 @@ function handlers() {
   registerLeadsHandlers({DEMO, aiReady, app, clipboard, ipcMain, log, nativeImage, needsNotion, storage, toWindow});   // lib/leads-handlers.js
   registerSystemHandlers({DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, getWindow: () => window});   // lib/system-handlers.js
   zoom.register(ipcMain); registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
-  const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track});   // lib/kit-handlers.js
+  const {prepareKitFor, tailorCv} = registerKitHandlers({DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, extensionGate, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});
   registerAppMetaHandlers({DEMO, FROM_SOURCE, restartAfterQuitGuard: reason => restarter.restart(reason), app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,

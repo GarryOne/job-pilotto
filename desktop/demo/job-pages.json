@@ -80,6 +80,13 @@
         "size": 5,
         "tooLarge": false,
         "url": "data:application/pdf;base64,JVBERi0="
+      },
+      {
+        "name": "CV · Helvetic Cloud.pdf",
+        "type": "application/pdf",
+        "size": 600,
+        "tooLarge": false,
+        "url": "data:application/pdf;base64,JVBERi0xLjQKJSVFT0YK"
       }
     ],
     "match": {
