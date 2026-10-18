@@ -37,7 +37,7 @@ Morning: Worker page /ready  (owner token)  ->  per job:  [Live view]  (WebSocke
                                                    [Open in my browser]  (hand-off: URL + cookies/storage + field snapshot -> extension restores, no AI)
                                                    [Done]  (deletes that job's data)
 ```
-- **Live view:** the proof's server (`tools/server-proof/server.mjs`, measured open p50 155 ms, input p50 79 ms) becomes the container's live-view module.
+- **Live view:** the proof's server (measured open p50 155 ms, input p50 79 ms; the one-off proof is deleted, its code lives on in `hosted/ready-fill/live.mjs`) became the container's live-view module.
 - **Hand-off:** proof result: session kept, 5 of 5 fields restored in ~10 ms, 143-162 ms to restored; storage must travel with cookies (a token held only in `sessionStorage` is
   refused with cookies alone). The extension restores the snapshot deterministically (no AI).
 - **The filler is the real extension**, not a new engine (rule: fix a shape, not a site; the extension's brain is the app's local server). The container therefore
@@ -82,7 +82,7 @@ Browser memory for 3 held tabs ≈ 1.3 GB (standard-1 has 4 GiB). 0 submits touc
 - [ ] Owner yes, then create Queue `ready-runs` + Worker `www-ready-runner`, add `READY_RUNNER` binding and `READY_QUEUE` producer to the site config (proof: none: account change, owner's decision)
 - [x] AI answers at night (owner 17 Oct 2026): the stand-in runs the Worker's answerForm on the batch's facts; every model call goes through the site (`/api/ready/ai`, night token, counted toward the $1 cap; no product key: see the next line); form questions only, not page-kind/judge calls (proof: worker/test/ready-night-ai.test.js @8c328f5)
 - [x] The night's AI is the user's own (owner 17 Oct 2026: "not part of the product... Free AI, or their own BYOK"): his Claude key sealed with the batch (BYOK, real model), else his Free AI minted by the site (its per-install limits); a refusal or the cap marks the night "AI stopped" and the card says so; measured ≈ 8.3k tokens in / 0.8k out per form, 1 call: Free AI ≈ $0.0007/form (15 forms ≈ $0.01 of the $0.50/day), BYOK Sonnet ≈ $0.025/form (15 ≈ $0.37 of the $1 night cap) (proof: site/test/ready-ai.test.js)
-- [ ] Delete `tools/server-proof/` and `.github/workflows/server-proof.yml` once the numbers are in this spec (proof: none: removal)
+- [x] Delete `tools/server-proof/` and `.github/workflows/server-proof.yml` once the numbers are in this spec (proof: none: removal; its numbers are above, runs 39047884877 and 39048751160)
 - [ ] Listing: Notion ✨ Feature catalog (3e962be8fd868133aa3ed99f1b0debcd), `site/public/intelligence.html` + teaser, README "AI at every step", landing page: only when it opens beyond the owner
 
 ## Not in phase 1
