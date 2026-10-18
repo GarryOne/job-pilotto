@@ -44,7 +44,8 @@ class FoundBoardsTests(unittest.TestCase):
     def test_a_board_is_read_with_your_own_search_and_place_and_its_employer(self):
         asked = []
         jobs = found_boards.read(SEARCH, [BOARD], fetch=lambda url: asked.append(url) or PAGE)
-        self.assertEqual(asked, ['https://empregos.example/procura?q=programador&local=Lisboa'])
+        self.assertEqual(asked, ['https://empregos.example/procura?q=programador&local=Lisboa', 'https://empregos.example/'],
+                         'no job in your roles: its own search form is looked for once (src/sources/board_forms.py)')
         self.assertEqual([(j['title'], j['company'], j['url']) for j in jobs], [('Programador Python', 'Acme Lda', 'https://empregos.example/oferta/1')])
 
     def _page_for(self, title):
