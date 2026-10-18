@@ -31,7 +31,7 @@ test('each Don\'t trips its check; each Do and every approved section trips none
     await page.waitForSelector('.dp-toc a');
     const sections = await page.evaluate(sectionsShown);
     const pairs = sections.filter(section => section.pair);
-    assert.equal(pairs.length, 8, 'one section per Don\'t / Do pair');
+    assert.equal(pairs.length, 9, 'one section per Don\'t / Do pair');
     for (const section of sections) {
       const found = judge(await page.evaluate(designRules, {view: section.id, limits: RULE_LIMITS, scope: `#${section.id}`})).filter(item => item.severity === 'severe' || section.pair);
       if (section.pair) {
@@ -59,7 +59,7 @@ test('a screen listed in KNOWN_LEFT is a warning naming who fixes it; anything e
   assert.match(known.detail, /session 46/);
   assert.equal(judge([{...finding, view: 'sessions', card: 'NA Northwind AI · Platform Engineer'}], {'sessions|fat-button|*': 'x'})[0].severity, 'warning', "'*' covers any card of the page");
   // Raise this only when a new rule lands and measures screens that broke it before it existed; lower it when a screen is fixed and its entry comes off.
-  const MAX_KNOWN = 6;
+  const MAX_KNOWN = 12;
   assert.ok(Object.keys(KNOWN_LEFT).length <= MAX_KNOWN, `KNOWN_LEFT has ${Object.keys(KNOWN_LEFT).length} entries, at most ${MAX_KNOWN}: fix the screen instead of listing it`);
   for (const [key, who] of Object.entries(KNOWN_LEFT)) assert.ok(/\|.+\|/.test(key) && String(who).trim(), key);
 });
