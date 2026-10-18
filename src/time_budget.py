@@ -12,6 +12,7 @@ STARTED = None
 RESERVE = {'titles': 75, 'enrich': 40, 'score': 0}   # seconds kept for the AI steps that come after this one
 FACTS = 60   # a refresh that scores first keeps this many seconds for reading the postings' facts after it (score_first)
 SCORE_FIRST = False
+SCORE_OWN = 180   # seconds scoring gets of its own once placing and sorting are done (score_own)
 FLOOR = 3     # the first jobs of a search are scored whatever the clock says (owner, 18 Oct 2026: "Yes, always 3"): a new user sees fits in press 1
 _scored = [0]  # scores started in this search (may_score)
 _lock = threading.Lock()
@@ -51,6 +52,16 @@ def restart(now=None):
     seconds = DEADLINE - STARTED
     STARTED = now if now is not None else time.monotonic()
     DEADLINE = STARTED + seconds
+
+
+def score_own(now=None):
+    """Scoring gets SCORE_OWN seconds of its own, plus the FACTS the reading keeps, counted from now: the AI steps before it (employer
+    reading, placing, title sorting) no longer spend the whole budget first. 18 Oct 2026, #1440: those steps took ~165 of the 180 s, scoring
+    got the 3-job floor, and Cluj's first search scored 6 jobs instead of 57 (same tape, replayed). Never shortens a deadline."""
+    global DEADLINE
+    if DEADLINE is None:
+        return
+    DEADLINE = max(DEADLINE, (now if now is not None else time.monotonic()) + SCORE_OWN + FACTS)
 
 
 def score_first(on=True):
