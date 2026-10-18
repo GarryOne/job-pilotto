@@ -103,12 +103,23 @@
 /* Documents tab: each document a .jd-card of label → value rows (job-drawer/documents-rows.js): a narrow label column, a divider between rows, a value
    cell that holds a pill + words or one line of buttons, the letter as one inset panel. Tokens only. */
 .summary-rows.doc-rows { grid-template-columns: 132px minmax(0, 1fr); column-gap: 0; row-gap: 0; align-items: stretch; }
-.doc-rows > dt, .doc-rows > dd { padding: var(--sp-2) 0; display: flex; align-items: center; }
+.doc-rows > dt, .doc-rows > dd { padding: var(--sp-3) 0; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; }
+/* The owner's Strategy mockup: a small grey label, a bigger bolder value (a letter panel and buttons keep their own weight). */
+.doc-rows > dt { font-weight: 400; font-size: var(--fs-sm); color: var(--muted); }
+.doc-rows > dd { font-weight: 600; font-size: var(--fs-lg); }
+.doc-rows > dd button, .doc-rows > dd .letter-shown { font-size: var(--fs-md); }
+.doc-rows > dd .letter-shown { font-weight: 400; }
 .doc-rows > dd { padding-left: var(--sp-4); }
 .summary-rows.doc-rows > :nth-child(n+3) { border-top: 1px solid var(--line); }
-.doc-rows > dt.is-top { align-items: flex-start; padding-top: var(--sp-3); }
+.doc-rows > dt.is-top { align-items: flex-start; padding-top: var(--sp-4); }
 .doc-rows .doc-value { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); overflow: visible; }
 .doc-rows .doc-value > .letter-shown { flex: 1 1 100%; }
 .letter-shown { max-height: 240px; overflow: auto; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); }
 .letter-shown p { margin: 0 0 var(--sp-3); max-width: 72ch; }
 .letter-shown p:last-child { margin-bottom: 0; }
+
+/* A document card's head: the icon tile (.jd-tile-icon, tinted by its tone) then the title. */
+.doc-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); --tone: var(--info); --tone-soft: var(--info-soft); }
+.doc-head.tone-violet { --tone: var(--violet); --tone-soft: var(--violet-soft); }
+.doc-head.tone-signal { --tone: var(--signal); --tone-soft: var(--signal-soft); }
+.jd-card > .doc-head h3 { margin: 0; }

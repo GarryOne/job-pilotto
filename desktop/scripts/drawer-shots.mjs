@@ -34,6 +34,7 @@ const CASES = [
   ['08-application-submitted', open(1, 'application')],
   ['09-application-preparation', open(1, 'application', click('.jd-choice button', 'Preparation'))],
   ['09b-documents-ready', open(1, 'documents', wait(500), TAILORED)],
+  ['09d-documents-light', open(1, 'documents', wait(500), TAILORED + " await window.pilot.setTheme('light'); await new Promise(r => setTimeout(r, 600));")],
   ['09c-documents-none', open(3, 'documents')],
   ['10-application-not-prepared', open(3, 'application')],
   ['11-application-no-snapshot', open(3, 'application', click('.jd-choice button', 'Submitted'))],

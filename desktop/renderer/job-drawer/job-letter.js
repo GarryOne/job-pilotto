@@ -2,11 +2,9 @@
 // Filled from the app (IPC jobLetter); an edit remakes the PDF at once. One label → value row per fact (rows in documents-rows.js).
 // Guarded by test/job-letter.test.js and test/job-documents.test.js.
 import {el, pill} from '../components.js';
-import {card} from './parts.js';
-import {docButton, docCopy, letterPanel, rows} from './documents-rows.js';
+import {docButton, docCard, docCopy, letterPanel, rows} from './documents-rows.js';
 
 const FROM = {kit: 'From your application kit', ai: 'Written for this job', you: 'Edited by you'};
-const TITLE = '✉️ Cover letter';
 
 export function jobLetterView(job) {
   const key = job.code || job.url;
@@ -38,5 +36,5 @@ export function jobLetterView(job) {
     ]));
   };
   draw();
-  return card(TITLE, body);
+  return docCard('Cover letter', 'mail', 'signal', body);
 }

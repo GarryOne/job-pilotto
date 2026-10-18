@@ -1,6 +1,7 @@
 // The Documents tab's row grid: one label → value row per fact (owner's rule, 18 Oct 2026: no caption lines above or below a button row), the
 // cards' buttons (one primary, the rest the same secondary) and the letter's inset text panel. Guarded by test/job-documents.test.js.
 import {el} from '../components.js';
+import {icon} from '../icons.js';
 
 // rows([[label, [nodes or text]]], {top: [labels that sit at the top of a tall value]}) → dl.summary-rows.
 export function rows(pairs, {top = ['Text']} = {}) {
@@ -33,4 +34,15 @@ export function letterPanel(text) {
   const panel = el('div', 'letter-shown');
   panel.append(...text.split(/\n\s*\n/).map(part => el('p', '', part)));
   return panel;
+}
+
+// A document's card: the mockup's icon tile (a tinted rounded square with a line icon) then the title, and the rows under them.
+export function docCard(title, iconName, tone, ...content) {
+  const box = el('section', 'jd-card');
+  const head = el('div', `doc-head tone-${tone}`);
+  const mark = el('span', 'jd-tile-icon');
+  mark.append(icon(iconName));
+  head.append(mark, el('h3', '', title));
+  box.append(head, ...content);
+  return box;
 }
