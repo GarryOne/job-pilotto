@@ -10,6 +10,7 @@ import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
+import {init as letterFallback} from './letter-fallback.js';
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -96,6 +97,7 @@ async function letterAction(button, working, run) {
   return result;
 }
 function initLetter() {
+  letterFallback();
   $('letter-text').addEventListener('input', letterButtons);
   $('letter-draft').addEventListener('click', async () => {
     if ($('letter-text').value.trim() && $('letter-text').value.trim() !== letterSaved.trim() && !confirm('Replace the text you changed with a new draft?')) return;
@@ -111,7 +113,7 @@ function initLetter() {
   });
   $('letter-approve').addEventListener('click', async () => {
     const result = await letterAction($('letter-approve'), 'Making the PDF…', () => window.pilot.coverLetterApprove($('letter-text').value));
-    message('letter-message', result.ok ? 'Approved ✓ Forms that ask for a cover letter file get this PDF.' : result.error, result.ok ? 'ok' : 'error');
+    message('letter-message', result.ok ? ($('letter-fallback').checked ? 'Approved ✓ Forms whose job has no letter of its own get this PDF.' : 'Approved ✓ Turn on the switch below to use it when a job has no letter of its own.') : result.error, result.ok ? 'ok' : 'error');
   });
   $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
 }

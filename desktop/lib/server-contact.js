@@ -68,12 +68,14 @@ export async function me(storage, url = '') {
   // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
   const resume = pickCv({tailored: tailored ? {path: cv.pdfPath(storage, tailored.job.code), name: cv.finalName(storage, tailored)} : null,
     general: {path: storage.path('cv.pdf'), name: settings.cvName || 'CV.pdf'}, url});
-  // The cover letter as a file, for forms that ask to upload one: this job's own (made with its tailored CV), else the approved general one (Profile → Cover letter).
+  // The cover letter as a file, for forms that ask to upload one: this job's own (made with its tailored CV), else the approved base letter only while its
+  // switch is on (owner, 18 Oct 2026: approving it and using it everywhere are two choices); never a draft, never one with a gap left to fill ("[Company]").
   let coverLetterFile = null;
   try {
-    if (tailored && jobLetter.hasPdf(storage, tailored.job.code)) coverLetterFile = {name: jobLetter.finalName(storage, tailored), type: 'application/pdf',
+    const base = letters.status(storage);
+    if (tailored && jobLetter.hasPdf(storage, tailored.job.code) && !letters.hasGap(jobLetter.load(storage, tailored.job.code)?.text)) coverLetterFile = {name: jobLetter.finalName(storage, tailored), type: 'application/pdf',
       data: fs.readFileSync(jobLetter.pdfPath(storage, tailored.job.code)).toString('base64'), tailored: true};
-    else if (letters.status(storage).pdf) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
+    else if (letters.fallbackOn(settings) && base.pdf && !letters.hasGap(base.text)) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
   } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
   const notes = await kept(storage, 'knowledge', async () => {

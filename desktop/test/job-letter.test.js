@@ -57,12 +57,16 @@ test('the PDF page is in the CV design: Inter, the CV\'s own style.css, the send
   assert.match(page, /I &lt;3 uptime\./);
 });
 
-test('the extension\'s upload slot gets the job\'s letter; the general one is the fallback; a job without one gets the general one', async () => {
+// The base letter in forms is its own switch, off by default (owner, 18 Oct 2026: approving a letter and using it everywhere are two choices).
+test('the extension\'s upload slot gets the job\'s letter; the base letter only while its switch is on', async () => {
   const storage = storageWithCv();
   cv.save(storage, JOB.code, {job: JOB, cv: CV}, Buffer.from('%PDF-cv'));
   await letters.generate(storage, {client: client('Dear Hiring Team,\n\nGeneral.')});
   letters.approve(storage, Buffer.from('%PDF-general'));
   const read = file => Buffer.from(file.data, 'base64').toString();
+  assert.equal((await me(storage, JOB.url)).coverLetterFile, null);   // approved, but the switch is off: no letter
+  assert.equal((await me(storage)).coverLetterFile, null);
+  storage.saveSettings({letterFallback: true});
   assert.equal(read((await me(storage, JOB.url)).coverLetterFile), '%PDF-general');   // tailored CV, no job letter yet
   jobLetter.save(storage, JOB.code, {job: JOB, text: 'Dear Hiring Team,\n\nKestrel.', source: 'ai'}, Buffer.from('%PDF-job'));
   const file = (await me(storage, JOB.url)).coverLetterFile;
@@ -70,6 +74,19 @@ test('the extension\'s upload slot gets the job\'s letter; the general one is th
   assert.match(file.name, /^Letter_Ada_Example_Kestrel\.pdf$/);
   assert.equal(read((await me(storage, 'https://jobs.other.test/x')).coverLetterFile), '%PDF-general');
   assert.equal(read((await me(storage)).coverLetterFile), '%PDF-general');
+});
+
+// A letter with a gap left to fill ("[Company]") never goes to a form (owner, 18 Oct 2026): a job's own falls back to the base letter, a base one to none.
+test('a letter with an unfilled gap is never uploaded', async () => {
+  const storage = storageWithCv();
+  storage.saveSettings({letterFallback: true});
+  cv.save(storage, JOB.code, {job: JOB, cv: CV}, Buffer.from('%PDF-cv'));
+  await letters.generate(storage, {client: client('Dear Hiring Team,\n\nGeneral.')});
+  letters.approve(storage, Buffer.from('%PDF-general'));
+  jobLetter.save(storage, JOB.code, {job: JOB, text: 'Dear [Hiring Manager],\n\nKestrel.', source: 'you'}, Buffer.from('%PDF-job'));
+  assert.equal(Buffer.from((await me(storage, JOB.url)).coverLetterFile.data, 'base64').toString(), '%PDF-general');
+  assert.equal(letters.hasGap('Dear {name},'), true);
+  assert.equal(letters.hasGap('I <3 uptime and cut costs by 50% (2024).'), false);
 });
 
 // The owner's class rule: every place that names the tailor action says it makes the letter too (a new place without it fails here).

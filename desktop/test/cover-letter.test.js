@@ -56,7 +56,16 @@ test('the extension gets the cover letter PDF only while a letter is approved', 
   await letters.generate(storage, {client: client('Dear Hiring Team,\n\nHello.')});
   assert.equal((await me(storage)).coverLetterFile, null);  // a draft is not uploaded
   letters.approve(storage, Buffer.from('%PDF-letter'));
+  assert.equal((await me(storage)).coverLetterFile, null);  // approved, but used in forms only once its own switch is on (owner, 18 Oct 2026)
+  storage.saveSettings({letterFallback: true});
   const file = (await me(storage)).coverLetterFile;
   assert.equal(file.type, 'application/pdf');
   assert.equal(Buffer.from(file.data, 'base64').toString(), '%PDF-letter');
+});
+
+test('a base letter with a gap left to fill cannot be approved', async () => {
+  const storage = withCv(tempStorage());
+  await letters.generate(storage, {client: client('Dear Hiring Team,\n\nI would love to join [Company].')});
+  assert.throws(() => letters.approve(storage, Buffer.from('%PDF-letter')), /\[Company\]/);
+  assert.equal(letters.status(storage).state, 'draft');
 });
