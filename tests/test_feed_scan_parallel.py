@@ -53,5 +53,24 @@ class ParallelScanTest(unittest.TestCase):
             time_budget.start(0)
 
 
+    def test_matches_are_counted_per_site_as_it_is_read(self):
+        # 19 Oct 2026: the card said 0 matches until every site was downloaded; the words-sure hits now count as each site is read.
+        import io
+        from contextlib import redirect_stdout
+        from src import run_counts
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE feed_jobs (board TEXT, id TEXT, fingerprint TEXT, first_seen TEXT, last_seen TEXT, PRIMARY KEY(board, id))')
+        seen = []
+
+        def on_jobs(found):
+            seen.append(run_counts.line())
+        run_counts.reset()
+        out = io.StringIO()
+        with redirect_stdout(out):
+            feeds.scan([{'company': f'Co{i}', 'ats': 'lever', 'slug': f's{i}'} for i in range(3)], db,
+                       fetcher=lambda source: [job(int(source['slug'][1:]))], details={}, on_jobs=on_jobs)
+        self.assertEqual([line.split(' matches=')[1].split()[0] for line in seen], ['1', '2', '3'], 'rises site by site, during the read')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -66,6 +66,7 @@ def scan(sources, db, fetcher=None, details=None, on_jobs=None):
             index = pending[done]
             downloads[index] = done.result()
             if on_jobs and (found := _sure(index, sources[index], downloads[index], db, now, shown)):
+                feeds.run_counts.matched(found)   # counted as each site is read; the full pass after the AI sort adds the rest, never takes one back
                 on_jobs(found)
     from .. import time_budget
     time_budget.restart()   # downloading is not AI time: the places, titles and scoring after it get the whole budget (src/time_budget.py)

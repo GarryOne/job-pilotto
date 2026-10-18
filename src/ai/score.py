@@ -454,7 +454,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                     data['first_pass'] = True   # a quick score by the cheap model, below the bar for a second look
                 save(db, job, said[used_model], data, profile)
                 scored += 1
-                run_counts.scored(job)
+                run_counts.scored(job, data.get('score'))
                 print(f'Scored {scored} of {len(jobs)} job(s)')   # a heartbeat for the live log: one Claude Code call takes tens of seconds
                 if on_scored and scored % every == 0:
                     on_scored()   # every `every` scores: the jobs so far go to Notion (a stopped search leaves them there)
