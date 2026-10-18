@@ -2,7 +2,8 @@
 // the remote choice, the digest minimum) as read and in their editor, and renderStrategy. One card's editor at a time, drafts kept per card, one page bar
 // (strategy-cards.js); the Main goals card is main-goals.js. Guarded by: test/strategy-cards.test.js, save-progress, strategy-chips, locations-card tests.
 import {withSaveProgress} from '../save-progress.js';
-import {el, tile} from '../components.js';
+import {el, pill, tile} from '../components.js';
+import {readRows, settingBlock} from '../card-shell.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -161,7 +162,7 @@ function targetCard([key, glyph, title, lists]) {
   card.dataset.card = key;
   card.append(cardHeader(key, glyph, CARD_TONE[key] || 'neutral', title, LEADS[key] || '', card));
   if (key === 'places') card.append(...[coverageLine(reloadTargets)].filter(Boolean));   // visible in both modes, Advanced or not
-  if (!open) { card.append(...VIEWS[key]()); return card; }
+  if (!open) { const read = el('div', 'card-read'); read.append(...VIEWS[key]()); card.append(read); return card; }
   for (const [name, label, placeholder] of lists) {
     // Relocation is a value (Yes / No / Not specified); its places are asked only for Yes, and kept whatever the mode.
     if (name === 'abroad') { card.append(el('p', 'sub', 'Relocation'), relocationChoice(renderTargets)); if (relocationNow(strategyState.lastStrategy, drafts().targetEdits) !== 'yes') continue; }
@@ -233,18 +234,23 @@ const VIEWS = {
       queries.length ? folded(queries, 6, 'Show all') : el('span', 'muted', 'None: your target roles are searched as they are'),
       ...(families.length ? [el('p', 'sub', 'Your target roles by family (edited in Main goals)'), ...families] : [])];
   },
+  // Roomy (mockup 03): a list is its small heading over its chips, a single value one icon row; every divider full width.
   places() {
-    const priority = el('div', 'priority');
-    const places = labelsOf('places');
-    priority.append(el('b', '', 'Preferred locations'), places.length ? withHints('places', chipsOf) : el('span', 'muted small', 'None'));
-    const regions = labelsOf('country'), rights = labelsOf('rights');
-    return [priority,
-      settingRow('globe', 'Acceptable locations', regions.length ? withHints('country', labels => folded(labels, 4, 'Show all')) : 'None selected'),
-      settingRow('send', 'Relocation', relocationWords(relocationNow(strategyState.lastStrategy, drafts().targetEdits), draftEntries('abroad'))),
-      settingRow('building', 'Remote work', remoteChoice()),
-      settingRow('shield', 'Work rights', rights.length ? withHints('rights', chipsOf) : 'Not set: jobs abroad are flagged "visa sponsorship needed"'),
-      // The goal "Work mode" (what you accept) and this (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026).
-      el('p', 'muted small card-foot', 'Work mode (in Main goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.')];
+    const places = labelsOf('places'), regions = labelsOf('country'), rights = labelsOf('rights'), abroad = draftEntries('abroad');
+    const mode = relocationNow(strategyState.lastStrategy, drafts().targetEdits);
+    const none = words => el('span', 'muted', words);
+    const blocks = [settingBlock('Preferred locations', places.length ? withHints('places', chipsOf) : none('None'), {qualifier: places.length ? 'ranked first' : ''}),
+      settingBlock('Acceptable locations', regions.length ? withHints('country', labels => folded(labels, 10, 'Show all')) : none('None selected'))];
+    if (mode === 'yes' && abroad.length) blocks.push(settingBlock('Places you would relocate to', folded(abroad.map(entry => entry.label), 10, 'Show all')));
+    if (rights.length) blocks.push(settingBlock('Work rights', withHints('rights', chipsOf), {qualifier: 'no visa needed'}));
+    // The goal "Work mode" (what you accept) and Remote work (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026):
+    // said on the row's hover, never as a footnote under the card (owner, 18 Oct 2026: no floating footnotes).
+    const remote = remoteChoice();
+    remote.title = 'Work mode (in Main goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.';
+    const rows = [...(mode === 'yes' && abroad.length ? [] : [{icon: 'send', label: 'Relocation', value: relocationWords(mode, abroad)}]),
+      {icon: 'building', label: 'Remote work', value: remote},
+      ...(rights.length ? [] : [{icon: 'shield', label: 'Work rights', value: pill('Not set', 'warn', {title: 'Jobs abroad are flagged "visa sponsorship needed"'})}])];
+    return [...blocks, readRows(rows, {lined: true})];
   },
   stack() {
     const stack = labelsOf('stack');

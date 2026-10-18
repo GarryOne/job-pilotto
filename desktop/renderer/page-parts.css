@@ -65,3 +65,4 @@
 .reference-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); }
 .reference-text { min-width: 0; overflow-wrap: anywhere; }
 .reference-row > button.link { margin-left: auto; }
+.summary-tile-value .ui-pill { margin-left: var(--sp-2); vertical-align: middle; font-weight: 600; }   /* a status beside the value (summaryTiles badge) */

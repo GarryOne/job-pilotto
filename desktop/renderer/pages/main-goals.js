@@ -17,8 +17,8 @@ import {strategyState} from './strategy-state.js';
 import {GOAL_LABELS, cardHeader, changed, drafts, isOpen} from './strategy-cards.js';
 import {draftEntries, listChips} from './strategy-targets.js';
 
-const TILES = [['roles', 'briefcase', 'Target roles'], ['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary']];
-const TONES = {roles: 'violet', seniority: 'teal', work_mode: 'good', minimum_salary: 'info'};
+const TILES = [['roles', 'briefcase', 'Target roles'], ['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'coins', 'Minimum salary']];
+const TONES = {roles: 'violet', seniority: 'info', work_mode: 'good', minimum_salary: 'warn'};
 
 // The saved goals, a Profile written before the goals rows standing in with its Compensation line and the search's level.
 function savedGoals() {
@@ -32,20 +32,25 @@ const goalNow = key => (key in (strategyState.goalEdits || {}) ? strategyState.g
 function rolesValue() {
   const titles = roleFamilies(draftEntries('roles')).flatMap(family => family.entries.map(entry => titleCase(entry.label)));
   if (!titles.length) return {text: '', note: 'No roles yet: Edit to add one.'};
-  return {text: titles.slice(0, 3).join(' · '), note: titles.length > 3 ? `+${titles.length - 3} more` : '', title: titles.join(', ')};
+  return {text: titles.slice(0, 3).join(' · '), more: titles.length > 3 ? `+${titles.length - 3} more` : '', title: titles.join(', ')};
 }
 function tileValue(key) {
   if (key === 'roles') return rolesValue();
   const {text, note} = goalNote(key, goalNow(key));
-  if (key === 'minimum_salary') return {...salaryWords(text), ...(note === 'estimated' ? {note: 'Estimated by the AI: Edit to confirm it'} : {})};
+  // A status beside the value, its words on hover (owner: no lone grey line under a value).
+  if (key === 'minimum_salary') {
+    const words = salaryWords(text);
+    if (note === 'estimated') return {text: words.text, badge: {text: 'Estimated', title: 'Estimated by the AI: Edit to confirm it'}};
+    return {text: words.text, ...(words.note ? {badge: {text: 'As written', tone: 'neutral', title: words.note}} : {})};
+  }
   const shown = GOAL_KINDS[key]?.read && text ? GOAL_KINDS[key].read(text) || text : text;
   return {text: shown};
 }
 
 const tiles = () => summaryTiles(TILES.map(([key, glyph, label]) => {
-  const {text, note, title} = tileValue(key);
-  return {key, icon: glyph, tone: TONES[key], label, value: text, note, title};
-}));
+  const {text, note, title, more, badge} = tileValue(key);
+  return {key, icon: glyph, tone: TONES[key], label, value: text, note, title, more, badge};
+}), {divided: true});
 
 // Languages and Work eligibility as Your details recorded them (owner, 18 Oct 2026: "Show the actual recorded eligibility without inferring broader work
 // rights"): the shared reference row (page-parts.js), the one link to where they are edited.

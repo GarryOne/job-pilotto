@@ -87,7 +87,7 @@ export function emptyState({icon = 'file', chip = 'Not created', title = '', tex
 }
 
 // A row of figures with an icon each (Main goals, CV scores): icon on its tone, label, the value big; an empty value reads "Not set". As many across as fit
-// (240px each at least). tiles: [{key, icon, tone, label, value, note?, title?, score?, max?}]. A score (CV scores: 82 of 100) draws a ring filled to
+// (240px each at least). tiles: [{key, icon, tone, label, value, note?, title?, score?, max?, more?}] (more: "+2 more" after the value; badge: {text, tone, title}, a status pill beside it). A score (CV scores: 82 of 100) draws a ring filled to
 // score/max in place of the icon, in the tile's tone (good / ok / low); its value defaults to the score. A missing score (null) is an empty ring and "Not set".
 const ring = (score, max, tone) => {
   const node = el('span', `summary-ring tone-${tone}`);
@@ -96,9 +96,10 @@ const ring = (score, max, tone) => {
   node.append(el('b', '', Number.isFinite(score) ? String(score) : '–'));
   return node;
 };
-export function summaryTiles(tiles = []) {
-  const box = el('div', 'summary-tiles');
-  for (const {key = '', icon = 'info', tone = 'neutral', label = '', value: given, note = '', title = '', score, max = 100} of tiles) {
+// divided: no box per tile, a divider between them (roomy cards, mockup 03 Main goals).
+export function summaryTiles(tiles = [], {divided = false} = {}) {
+  const box = el('div', `summary-tiles${divided ? ' is-divided' : ''}`);
+  for (const {key = '', icon = 'info', tone = 'neutral', label = '', value: given, note = '', title = '', score, max = 100, more = '', badge = null} of tiles) {
     const scored = score !== undefined;
     const value = given ?? (scored && Number.isFinite(score) ? String(score) : '');
     const cell = el('div', `summary-tile${scored ? ' has-ring' : ''}`);
@@ -108,6 +109,8 @@ export function summaryTiles(tiles = []) {
     const words = el('div', 'summary-tile-words');
     const big = el('b', `summary-tile-value${set ? '' : ' is-empty'}`, set || 'Not set');
     if (set && scored && given === undefined) big.append(el('span', 'summary-tile-of', ` / ${max}`));   // "82 / 100": the scale small and muted (mockup 08)
+    if (set && more) big.append(el('span', 'summary-tile-of', ` ${more}`));   // "+2 more" inline, never a lone line under the value
+    if (set && badge) big.append(pill(badge.text, badge.tone || 'warn', {title: badge.title || ''}));   // a status beside the value ("As written"), its words on hover
     words.append(el('span', 'summary-tile-label', label), big);
     if (note) words.append(el('span', 'muted small', note));
     cell.append(scored ? ring(score, max, tone) : tile(icon, tone), words);

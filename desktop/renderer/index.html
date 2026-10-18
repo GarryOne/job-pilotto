@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="page-parts.css">
 <link rel="stylesheet" href="profile-page.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="roomy-cards.css">
 <link rel="stylesheet" href="strategy-cards.css">
 <link rel="stylesheet" href="job-drawer.css">
 <link rel="stylesheet" href="question-review.css">
@@ -832,17 +833,17 @@
       <section class="strategy-section" id="strategy-yours" role="tabpanel">
         <!-- Owner, 18 Oct 2026 (mockup 03, decisions 1-4): Main goals, then Locations beside Job preferences, then Advanced search settings folded;
              each card reads as a summary with a quiet Edit, one editor open at a time, one save bar for every draft (pages/strategy-cards.js). -->
-        <div class="review strategy-live" id="strategy-live">
+        <div class="review strategy-live roomy-cards" id="strategy-live">
           <div id="strategy-main-goals"></div>
           <!-- Owner, 17 Oct 2026: where you want to work has one home; a difference between the old lists is asked once (pages/locations-which.js). -->
           <section class="card setting" id="strategy-locations-which" hidden>
-            <div class="card-head"><div><h3>Which locations are right?</h3><p class="muted small">Your search settings and your Profile named different places. Pick for each; nothing changes until you do.</p></div></div>
+            <div class="card-head"><span class="ui-tile tone-warn"><i data-icon="pin"></i></span><div class="card-words"><h3>Which locations are right?</h3><p class="muted small">Your search settings and your Profile name different places. Nothing changes until you pick.</p></div></div>
             <p class="muted small" id="locations-which-message"></p>
             <div id="locations-which-list"></div>
             <div id="locations-set-aside"></div>
           </section>
           <!-- Owner, 17 Oct 2026: must-haves / deal-breakers apart from preferences that rank; from Profile → Preferences (pages/job-preferences.js). -->
-          <div class="strategy-pair">
+          <div class="roomy-pair">
           <div id="strategy-locations"></div>
           <section class="card job-prefs setting" id="strategy-job-prefs">
             <!-- Its head (Unsaved, Edit / Done) and its read rows or editor are drawn by pages/job-preferences.js; "Review your preferences" is in the editor. -->
