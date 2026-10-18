@@ -14,16 +14,17 @@ const button = (label, className, run, aria = '') => {
 
 // A list of things to review (CV gaps, Needs review, CV check fixes): each item is its title, why it is here and where it came from, a status chip and its
 // actions. Pending items come first in the order given; done ones fold under "Reviewed · N". items: [{key, title, why?, source?, status: {text, tone}, done?,
-// actions: [{label, run, primary?, aria?, link?}], detail?, detailLabel?}]. Filled orange is the list's ONE next step: the first pending item's primary
+// actions: [{label, run, primary?, aria?, link?}], detail?, detailLabel?, note?}]; note: a row that only informs (its title the muted label, why its value). Filled orange is the list's ONE next step: the first pending item's primary
 // action; others are outlined, or a text link with link: true (Dismiss, Undo); aria names the row when rows share action words. A done item keeps its actions.
 // detail: the whole row opens it ("View details ›" at the row's right end, the detail under the row, in line with the title), mockup 08.
 // Options: statusAt 'end' (default) | 'first' (a priority, fixed width, mockup 08) | 'title' (beside the name, mockup 06); joined: one bordered list with
-// row dividers (mockup 06); doneSummary(doneItems): a muted line beside "Reviewed · N" ("OpenTelemetry confirmed · Vault dismissed"); doneOpen.
-export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.', statusAt = 'end', joined = false, doneSummary = null, doneOpen = false} = {}) {
-  const box = el('div', `review-list status-${statusAt}${joined ? ' is-joined' : ''}`);
+// row dividers (mockup 06); rows: the live-card look (owner, 18 Oct 2026): no box, a divider between rows, ~40px rows, the Reviewed line the last row;
+// doneSummary(doneItems): a muted line beside "Reviewed · N" ("OpenTelemetry confirmed · Vault dismissed"); doneOpen.
+export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing to review.', statusAt = 'end', joined = false, rows = false, doneSummary = null, doneOpen = false} = {}) {
+  const box = el('div', `review-list status-${statusAt}${joined || rows ? ' is-joined' : ''}${rows ? ' is-rows' : ''}`);
   let lead = false;   // the list's one orange button is drawn
   const row = item => {
-    const node = el('li', `review-item${item.done ? ' is-done' : ''}`);
+    const node = el('li', `review-item${item.done ? ' is-done' : ''}${item.note ? ' is-note' : ''}`);
     node.dataset.key = item.key || '';
     const main = el('div', 'review-main'), title = el('div', 'review-title');
     const status = item.status ? pill(item.status.text, item.status.tone || 'neutral') : el('span');
@@ -53,8 +54,8 @@ export function reviewList(items = [], {doneLabel = 'Reviewed', empty = 'Nothing
   };
   const pending = items.filter(item => !item.done), done = items.filter(item => item.done);
   if (!items.length) { box.append(el('p', 'muted', empty)); return box; }
-  const frame = joined ? el('div', 'review-box') : box;   // joined: the Reviewed line is the box's last row (mockup 06)
-  if (joined) box.append(frame);
+  const frame = joined || rows ? el('div', 'review-box') : box;   // joined or rows: the Reviewed line is the last row (mockup 06)
+  if (frame !== box) box.append(frame);
   if (pending.length) { const list = el('ul', 'review-items'); list.append(...pending.map(row)); frame.append(list); }
   if (done.length) {
     const fold = el('details', 'plain review-done'), list = el('ul', 'review-items'), head = el('summary', 'review-done-head'), tick = icon('check-circle');

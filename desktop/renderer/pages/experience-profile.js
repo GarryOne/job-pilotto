@@ -11,7 +11,7 @@ import {icon} from '../icons.js';
 import {$, message} from './core.js';
 import {surveyBody, surveyForm} from '../survey-rows.js';
 import {foldsChanged, forgetCards, registerCard} from '../profile-fold.js';
-import {gapsBody, pendingCount} from '../gaps-rows.js';
+import {allReviewed, gapsBody, pendingCount} from '../gaps-rows.js';
 import {setState} from '../gaps-model.js';
 import {changesFor, groupsOf, isEmpty, isNote, partsOn, previewOf, profileParts, shownText} from '../experience-profile-model.js';
 import {fieldsOf} from '../education-model.js';
@@ -98,7 +98,7 @@ function card(tab, each) {
   const count = key === 'strengths' ? part?.lines.length : 0, toReview = key === 'gaps' ? pendingCount(part) : 0;
   // The CV gaps are decided row by row (Confirm skill / Dismiss), never edited as lines: no Edit on that card (owner review fix 6, 18 Oct 2026).
   head.append(icon('file-text'), el('h4', '', title), ...(part?.note ? [el('span', 'muted small', part.note)] : []), ...(count ? [el('span', 'muted small', String(count))] : []),
-    ...(toReview ? [pill(`${toReview} to review`, 'warn')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? [] : [editButton(tab, each)]));
+    ...(toReview ? [pill(`${toReview} to review`, 'warn')] : key === 'gaps' && allReviewed(part) ? [pill('All reviewed', 'good')] : []), el('span', 'exp-part-gap'), ...(key === 'gaps' ? [] : [editButton(tab, each)]));
   setEditing(box, editing.has(key));
   box.append(head, editing.has(key) ? editorOf(key, box) : key === 'gaps' ? gapsBody(part, (item, state) => pressGap(tab, part, item, state), {tidied: gapsTidied, onUndo: () => undoGaps(tab)}) : body(key, part));
   return box;

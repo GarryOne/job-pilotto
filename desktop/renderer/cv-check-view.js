@@ -1,9 +1,10 @@
 // Profile → CV: the CV check card (owner review fix 8, mockup 08, 18 Oct 2026). Two score rings (readability, content), the recommended fixes first with a
 // priority chip and their fix behind "View details", then three folds (passed checks, score breakdown with what works and the missing terms, extracted
-// text), then the two actions with their cost line. The header says when and on which CV the result was made (a result belongs to one PDF: lib/cv-check.js
+// text), then the two actions, each a row: its name, its button, its cost as a badge (live-card rows, owner 18 Oct 2026). The header says when and on which CV the result was made (a result belongs to one PDF: lib/cv-check.js
 // drops it when the PDF changes). A folded card says "Mostly readable · 3 issues · 2 content suggestions". Moved here from pages/profile.js;
 // model: cv-check-model.js. Guarded by test/cv-check-model.test.js and test/cv-check-view.test.js.
-import {el, pill} from './components.js';
+import {el} from './components.js';
+import {reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
 import {costLine, fixesOf, passedOf, scoreTone, summaryOf} from './cv-check-model.js';
 
@@ -13,39 +14,17 @@ const LABEL = {high: 'High', medium: 'Medium', low: 'Low'};
 let last = null;   // the result shown, with how a review would be paid now
 export const lastCheck = () => last;
 
-// A score as a ring filled to its value, the number inside, its name and meaning beside it.
-function scoreTile(kind, score, title, meaning) {
-  const tile = el('div', 'cvc-tile');
-  const ring = el('span', `cvc-ring tone-${scoreTone(kind, score)}`);
-  ring.style.setProperty('--p', String(score));
-  ring.append(el('b', '', String(score)));
-  const words = el('div');
-  const line = el('div', 'cvc-tile-score');
-  line.append(el('b', '', String(score)), el('span', 'muted small', ' / 100'));
-  words.append(el('span', 'cvc-tile-title', title), line, el('span', 'muted small', meaning));
-  tile.append(ring, words);
-  return tile;
-}
-function emptyTile(title, meaning) {
-  const tile = el('div', 'cvc-tile is-empty');
-  const words = el('div');
-  words.append(el('span', 'cvc-tile-title', title), el('span', 'muted small', meaning));
-  tile.append(el('span', 'cvc-ring'), words);
-  return tile;
-}
-
-// One fix: its priority, what to change and why; "View details" opens the concrete change and says which check found it.
-function fixRow(fix) {
-  const row = el('details', 'cvc-fixline');
-  const head = el('summary');
-  const words = el('div', 'cvc-fix-words');
-  words.append(el('b', '', fix.title), el('span', 'muted small', fix.issue));
-  head.append(pill(LABEL[fix.priority], TONE[fix.priority]), words, el('span', 'cvc-more small', 'View details'), icon('chevron', 'icon cvc-chevron'));
-  const body = el('div', 'cvc-fix-body');
-  if (fix.suggestion) body.append(el('span', 'cvc-fix', `Fix: ${fix.suggestion}`));
-  body.append(el('span', 'muted small', fix.from === 'content' ? 'From the content review' : 'From the readability check'));
-  row.append(head, body);
-  return row;
+// The score tiles and the fixes are the shared page blocks (page-parts.js): a score is a ring filled to its value; a fix is a review item with its priority
+// chip first and the concrete change and which check found it folded under "View details".
+const scoreTiles = (ats, ai) => summaryTiles([
+  {key: 'readability', label: 'Readability', score: ats.score, tone: scoreTone('readability', ats.score), note: 'How easily your CV can be read and parsed.'},
+  ai ? {key: 'content', label: 'Content', score: ai.score, tone: scoreTone('content', ai.score), note: 'How well it presents your experience and skills.'}
+    : {key: 'content', icon: 'file-text', label: 'Content', value: 'Not reviewed yet', note: 'Review CV content below.'}]);
+function fixItem(fix, i) {
+  const detail = el('div', 'cvc-fix-body');
+  if (fix.suggestion) detail.append(el('span', 'cvc-fix', `Fix: ${fix.suggestion}`));
+  detail.append(el('span', 'muted small', fix.from === 'content' ? 'From the content review' : 'From the readability check'));
+  return {key: `${fix.from}-${i}`, title: fix.title, why: fix.issue, status: {text: LABEL[fix.priority], tone: TONE[fix.priority]}, detail};
 }
 
 function fold(glyph, title, count, children) {
@@ -65,12 +44,11 @@ export function showCvCheck(data, {cvName = '', when = at => at} = {}) {
   $('cvc-state').textContent = ats ? `Checked ${when(data.at)} · ${cvName || 'current CV'}` : 'Not checked yet';
   $('cvc-state').classList.toggle('is-off', !ats);   // no green dot before a check
   $('cvc-scores').hidden = !ats;
-  $('cvc-scores').replaceChildren(...(ats ? [scoreTile('readability', ats.score, 'Readability', 'How easily your CV can be read and parsed.'),
-    ai ? scoreTile('content', ai.score, 'Content', 'How well it presents your experience and skills.') : emptyTile('Content', 'Not reviewed yet: Review CV content below.')] : []));
+  $('cvc-scores').replaceChildren(...(ats ? [scoreTiles(ats, ai)] : []));
   const fixes = fixesOf(data);
   $('cvc-fixes').hidden = !ats;
   $('cvc-fixes').replaceChildren(...(ats ? [el('h4', '', 'Recommended fixes'),
-    ...(fixes.length ? fixes.map(fixRow) : [el('p', 'muted small', 'Nothing to fix: every check passed.')])] : []));
+    reviewList(fixes.map(fixItem), {statusAt: 'first', rows: true, empty: 'Nothing to fix: every check passed.'})] : []));
   const folds = [];
   if (ats) {
     const passed = passedOf(data);

@@ -42,6 +42,17 @@ test('review list: pending first, done folded as "Reviewed · N", one orange but
   assert.equal(kept.querySelector('.review-detail').textContent, 'The fix and where it came from');
 });
 
+test('review list rows: the live-card look (no box, divider rows ~40px, one name column); joined and plain keep theirs', () => {
+  const items = [{key: 'a', title: 'Prometheus', status: {text: 'To check', tone: 'warn'}}, {key: 'b', title: 'Vault', status: {text: 'Dismissed', tone: 'neutral'}, done: true}];
+  const rows = reviewList(items, {statusAt: 'title', rows: true});
+  assert.ok(rows.classList.contains('is-rows') && rows.querySelector('.review-box'), 'rows: one frame, the Reviewed line its last row');
+  assert.ok(!reviewList(items, {joined: true}).classList.contains('is-rows'));
+  const css = read('page-parts.css');
+  assert.match(css, /\.is-rows \.review-box \{ border: 0;/);
+  assert.match(css, /\.is-rows\.status-title \.review-title \{ display: grid; grid-template-columns: minmax\(140px, 28%\) auto;/);
+  assert.match(css, /\.is-rows \.review-item, [^{]*\{ min-height: 40px; \}/);
+});
+
 test('empty state: neutral "Not created" chip, title, one line, primary then quiet action, a note', () => {
   let drafted = 0;
   const box = emptyState({icon: 'file', title: 'No base letter yet', text: 'One letter for every job.', note: 'Uses about 1 cent of AI.',

@@ -33,6 +33,22 @@
 .review-done-tick { color: var(--good); }
 .review-done > .review-items { margin-top: var(--sp-2); }
 .review-box > .review-done > .review-items { margin-top: 0; }
+/* rows: the live-card look (owner, 18 Oct 2026): no box around the list, a divider between rows, ~40px rows flush with the card's text. */
+.is-rows .review-box { border: 0; border-radius: 0; }
+.is-rows .review-item, .is-rows .review-fold > .review-row, .review-box > .review-done > .review-done-head { min-height: 40px; }
+.is-rows .review-item { padding: var(--sp-2) 0; }
+.is-rows .review-item.has-detail { padding: 0; }
+.is-rows .review-fold > .review-row { padding: var(--sp-2) 0; }
+.is-rows .review-detail { padding: 0 0 var(--sp-3); }
+.is-rows.status-first .review-detail { padding-left: calc(72px + var(--sp-3)); }
+.is-rows .review-box > .review-done > .review-done-head { padding: var(--sp-2) 0; }
+/* status beside the name: one name column (the live card's label column), so every badge starts on the same line. */
+.is-rows.status-title .review-title { display: grid; grid-template-columns: minmax(140px, 28%) auto; justify-content: start; }
+.is-rows.status-title .review-title > b { min-width: 0; overflow-wrap: anywhere; }
+/* A note row: the title is the muted label, why its value on the same line (the live card's label | value). */
+.review-item.is-note .review-title > b { font-weight: 400; color: var(--muted); }
+.is-rows .review-item.is-note .review-main { display: grid; grid-template-columns: minmax(140px, 28%) minmax(0, 1fr); column-gap: var(--sp-2); align-items: baseline; }
+.is-rows .review-item.is-note .review-main > .muted { color: var(--ink); }
 /* A text-link action (Dismiss, Undo) is quiet: muted, the accent only on hover or focus (mockup 06). */
 .review-actions button.link { color: var(--muted); }
 .review-actions button.link:hover, .review-actions button.link:focus-visible { color: var(--signal); }

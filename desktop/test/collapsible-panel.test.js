@@ -37,7 +37,6 @@ const CHEVRON_FILES = {
   'pages/question-review.js': 'the arrow on Confirm & next, not a fold',
   'question-nav.js': 'previous / next arrows and the list button, not a fold',
   'pages/experience.js': 'native <details>: the whole job row toggles',
-  'gaps-rows.js': 'native <details>: the whole Reviewed line toggles',
   'cv-check-view.js': 'native <details>: the whole summary row toggles',
 };
 test('every file that draws a chevron is accounted for', () => {
