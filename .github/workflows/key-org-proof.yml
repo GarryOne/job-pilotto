@@ -43,6 +43,18 @@ jobs:
           echo "messages: HTTP $code"
           grep -iE '^anthropic-ratelimit-' /tmp/m.h || echo "(no anthropic-ratelimit headers)"
           python3 -c "import json;e=json.load(open('/tmp/m.b')).get('error',{});print(e.get('type'),'|',e.get('message'))" 2>/dev/null || true
+      - name: Anthropic key, the app's own request shape (3 tiny paid tests, about $0.003, owner's yes 18 Oct 2026)
+        run: |
+          if [ -z "$E2E_ANTHROPIC_KEY" ]; then echo "E2E_ANTHROPIC_KEY is not set"; exit 0; fi
+          ask() {   # $1 = label, $2 = max_tokens: prints the status, error type and message only
+            body=$(printf '{"model":"claude-haiku-5-5","max_tokens":%s,"messages":[{"role":"user","content":"Answer ok."}],"output_config":{"format":{"type":"json_schema","schema":{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}},"effort":"low"}}' "$2")
+            code=$(curl -sS -m 60 -o "/tmp/s-$1.b" -w '%{http_code}' https://api.anthropic.com/v1/messages \
+              -H "x-api-key: $E2E_ANTHROPIC_KEY" -H 'anthropic-version: 2023-06-01' -H 'content-type: application/json' -d "$body")
+            echo "$1 (max_tokens $2): HTTP $code $(python3 -c "import json;e=json.load(open('/tmp/s-$1.b')).get('error',{});print(e.get('type',''),'|',e.get('message',''))" 2>/dev/null)"
+          }
+          ask shape4000 4000
+          ask shape64000 64000
+          for n in $(seq 1 20); do ask "burst$n" 4000 & done; wait
       - name: OpenAI key (models list, free)
         run: |
           if [ -z "$E2E_OPENAI_KEY" ]; then echo "E2E_OPENAI_KEY is not set"; exit 0; fi

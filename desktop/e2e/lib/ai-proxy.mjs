@@ -4,6 +4,7 @@
 // without a real outage and without spending anything.
 import http from 'node:http';
 import {HUNG_REPORTS, markPlanted} from './planted.mjs';
+import {keyFingerprint} from './key-check.mjs';
 import {count, countError, countReplay, keep, keepMiss, recall, requestKey, usageOf} from './ai-meter.mjs';
 
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
@@ -65,15 +66,18 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     }
     if (maxCalls && stats.paid >= maxCalls) { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: `proxy: the cap of ${maxCalls} paid calls is reached`}})); return; }
     stats.paid = (stats.paid || 0) + 1;
+    stats.inflight = (stats.inflight || 0) + 1;
     try {
       const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !['host', 'connection', 'content-length', 'accept-encoding'].includes(name)));
       const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body});
       const answered = Buffer.from(await answer.arrayBuffer()), contentType = answer.headers.get('content-type') || 'application/json';
-      if (!answer.ok) countError(answer.status, answered.toString('utf8'));   // Anthropic's own answer: which limit, which error (lib/ai-meter.mjs)
+      if (!answer.ok) { countError(answer.status, answered.toString('utf8')); describeRefusal(stats, answer, req, body); }   // Anthropic's own answer: which limit, which error (lib/ai-meter.mjs); the first few with the request's shape
       if (answer.ok && metered.test(req.url)) { count(kind, usageOf(answered.toString('utf8'), contentType)); keep(key, {status: answer.status, contentType, body: answered}); }
+      stats.inflight--;
       res.writeHead(answer.status, {'content-type': contentType, 'content-length': answered.length});
       res.end(answered);
     } catch (error) {
+      stats.inflight--;
       res.writeHead(502, {'content-type': 'application/json'});
       res.end(JSON.stringify({type: 'error', error: {type: 'api_error', message: `proxy: ${error.message}`}}));
     }
@@ -84,6 +88,18 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     setMode: mode => { if (mode !== 'pass' && mode !== 'hang' && !FAILURES[mode]) throw new Error(`unknown proxy mode: ${mode}`); if (mode !== 'pass') stats.armed++; stats.mode = mode; },
     // From now on, calls `answer` returns a text for are answered with it (no model, no cost); the rest go through.
     setCanned: answer => { canned = answer; }, canned: () => canned, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
+}
+
+// 18 Oct 2026 (strategy): every app call was refused "credit balance is too low" while the key, the balance and a preflight call were fine, and the log showed no more than that.
+// The first three refusals of a proxy print what the request was (never the key or the prompt): the API's request-id, model, max_tokens, input size, how many calls were in flight,
+// and an 8-hex SHA-256 fingerprint of the key the app sent, to compare with the CI secret's (lib/key-check.mjs prints the secret's).
+export function describeRefusal(stats, answer, req, body, log = console.log) {
+  if ((stats.described = (stats.described || 0) + 1) > 3) return;
+  let asked = {};
+  try { asked = JSON.parse(body.toString('utf8')); } catch { /* not JSON: the size still shows */ }
+  const sent = String(req.headers['x-api-key'] || String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''));
+  const fingerprint = keyFingerprint(sent);
+  log(`  ai-proxy refusal ${answer.status}: request-id ${answer.headers.get('request-id') || answer.headers.get('x-request-id') || '?'}, model ${asked.model || '?'}, max_tokens ${asked.max_tokens ?? asked.max_output_tokens ?? '?'}, input ${body.length} bytes, ${stats.inflight || 0} in flight, key fingerprint ${fingerprint}`);
 }
 
 // What the Messages API returns for a reply that is `text`.
