@@ -1122,10 +1122,13 @@
                 <button class="secondary ui-more" id="answers-review" data-notion-only title="More actions" aria-label="More actions" aria-haspopup="menu"><i data-icon="more"></i></button></div></div>
             <div class="outline-body" id="answers-body"></div>
           </div>
+          <!-- One sticky dock at the bottom: the fold bar, then the page save bar (pages/profile-save-bar.js puts it here), so neither covers the other. -->
+          <div class="page-dock" id="profile-dock">
           <div class="foldbar" id="profile-foldbar" role="toolbar" aria-label="Fold the cards of this tab" hidden>
             <button type="button" class="secondary small-btn" data-fold="open">Expand all</button>
             <button type="button" class="secondary small-btn" data-fold="close">Collapse all</button>
             <span class="muted small foldbar-count"></span>
+          </div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>

@@ -38,3 +38,7 @@ button.card-edit:hover { border-color: var(--ink-2); }
 .page-save-bar .save-bar-title { font-weight: 600; }
 .tabs button.has-drafts::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: var(--sp-1); border-radius: var(--r-pill);
   background: var(--signal); vertical-align: middle; }
+/* Profile's bottom dock (index.html #profile-dock): the fold bar and the page save bar stacked in ONE sticky box. As two sticky bars with their own offsets,
+   the save bar slid over the fold bar on a short tab (18 Oct 2026). */
+.page-dock { position: sticky; bottom: 0; z-index: 5; display: grid; gap: var(--sp-2); margin-top: var(--sp-4); }
+.page-dock > .foldbar, .page-dock > .save-bar { position: static; margin: 0; }

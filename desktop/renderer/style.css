@@ -2291,7 +2291,7 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .notice-why[open] { flex-basis: 100%; }
 .strategy-page[data-tab="strategy-suggestions"] .improve-line { display: none; }
 /* The save bar (strategy draft, Your details): sticks to the bottom of the page's scroll, above the status bar, whatever the tab. */
-.save-bar { position: sticky; bottom: calc(var(--sp-5) + 52px);   /* above the Profile fold bar */ z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
+.save-bar { position: sticky; bottom: 0;   /* Profile docks it with its fold bar (#profile-dock) */ z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
   padding: var(--sp-3) var(--sp-5); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
 .save-bar-words { display: grid; gap: 2px; margin-right: auto; }
 .save-bar .message { margin: 0; }
