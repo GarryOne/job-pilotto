@@ -2,8 +2,6 @@
 // count_tokens per model: no tokens are produced, nothing is billed). Before it, a refusal showed only as a bare "400" or "AI limit reached" in the engine log and a step that
 // expected an AI answer (17 Oct 2026, strategy). Guarded by test/key-check.test.mjs.
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 const CHECKS = {
   openai: {secret: 'E2E_OPENAI_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({authorization: `Bearer ${key}`})},
   api: {secret: 'E2E_ANTHROPIC_KEY', url: 'https://api.anthropic.com/v1/models', headers: key => ({'x-api-key': key, 'anthropic-version': '2023-06-01'})},
@@ -19,14 +17,6 @@ const EXACT_SHAPE = {model: CLAUDE_MODELS[0], max_tokens: 256, messages: [{role:
 
 // 8 hex of the key's SHA-256: enough to tell two keys apart in a log, useless as a key (the strategy refusals of 18 Oct 2026: is the app sending the key the preflight checked?).
 export const keyFingerprint = key => (key ? crypto.createHash('sha256').update(String(key)).digest('hex').slice(0, 8) : 'none');
-
-// The AI keys the app under test itself holds (its own isolated-secrets.json, where the seed saved them), as fingerprints: strategy's calls were refused while the CI key was fine, and
-// nothing said which key the app really sends (18 Oct 2026). -> ["<item> <8 hex>"], never a value.
-export function appKeyFingerprints(profileDir) {
-  let items = {};
-  try { items = JSON.parse(fs.readFileSync(path.join(profileDir, 'isolated-secrets.json'), 'utf8')) || {}; } catch { return []; }
-  return Object.entries(items).filter(([service, item]) => /anthropic|openai/i.test(service) && item?.value).map(([service, item]) => `${service} ${keyFingerprint(item.value)}`);
-}
 
 const say = async response => { try { return String((await response.json())?.error?.message || '').replace(/\s+/g, ' ').replace(/sk-[\w-]{6,}|Bearer\s+\S+|\b[A-Za-z0-9_-]{32,}\b/g, '…').slice(0, 160); } catch { return ''; } };
 

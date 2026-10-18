@@ -57,3 +57,9 @@ test('a failed step with no refusal in the log is reported as before', async () 
   assert.equal(runner.results[0].note, 'expected 3, saw 2');
   assert.equal(runner.results[0].environment, undefined);
 });
+
+test('a refusal while a stub mode was armed says it came from the stub, by design', () => {
+  const note = refusalNote(profileWith(LOG), new Set(['no-credit']));
+  assert.match(note, /refused \(400\) 3 times, first at 2026-10-17T10:29:15.000Z \(the suite armed the stub no-credit on purpose/);
+  assert.doesNotMatch(refusalNote(profileWith(LOG), new Set()), /stub/);
+});
