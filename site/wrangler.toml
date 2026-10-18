@@ -99,6 +99,11 @@ LINKEDIN_CLIENT_ID = "77cda0c4oymws4"
 binding = "REPORTS"
 bucket_name = "form-reports"
 
+# The Lab's fill videos (src/lab-video.js): one per pool row from CI's run, 14 days (the code drops older ones on each upload), owner-only. The deploy (site.yml) creates the bucket when missing.
+[[r2_buckets]]
+binding = "LAB_FILLS"
+bucket_name = "lab-fills"
+
 # Hosted Always on (src/hosted-state.js, hosted-tick.js): the person's encrypted state, and the Queue the cron tick fills; the runner Worker (hosted-runner/) consumes it and starts the container.
 # Secret: HOSTED_KEK (Worker secret; the key of every account's state is derived from it). Created 16 Oct 2026: bucket hosted-state, queue hosted-runs.
 [[r2_buckets]]
