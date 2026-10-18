@@ -14,7 +14,7 @@ import time
 
 from ..paths import DATA
 from .models import SMALL_MODEL
-from . import providers
+from . import batch_scope, providers
 from .providers.contract import named
 
 MODEL = SMALL_MODEL
@@ -82,9 +82,12 @@ def _load():
         return {}
 
 
+batch_scope.watch('places_store', _load)
+
+
 def known(search):
-    """{location: 'best' | 'in' | 'out'} decided for these places so far."""
-    return _load().get(_key(search)) or {}
+    """{location: 'best' | 'in' | 'out'} decided for these places so far (for readers side by side: as it was when they began, src/ai/batch_scope.py)."""
+    return batch_scope.view('places_store', _load).get(_key(search)) or {}
 
 
 def _keep(key, decided):
@@ -95,6 +98,8 @@ def _keep(key, decided):
             data.pop(old)
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps(data, ensure_ascii=False))
+    if batch_scope.active():   # this reader's own answers, for its next call
+        batch_scope.view('places_store', _load).setdefault(key, {}).update(decided)
 
 
 def decide(locations, search, client=None):

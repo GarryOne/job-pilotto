@@ -13,7 +13,7 @@ import threading
 
 from ..paths import DATA
 from .models import SMALL_MODEL
-from . import providers
+from . import batch_scope, providers
 
 MODEL = SMALL_MODEL
 BATCH = 30   # ~30 s a batch through Claude Code (100 took ~2 min): a 3-minute search can stop between them
@@ -45,9 +45,12 @@ def _load():
         return {}
 
 
+batch_scope.watch('titles_store', _load)
+
+
 def known(search):
-    """{title: True/False} decided for this search so far."""
-    return _load().get(_key(search)) or {}
+    """{title: True/False} decided for this search so far (for readers side by side: as it was when they began, src/ai/batch_scope.py)."""
+    return batch_scope.view('titles_store', _load).get(_key(search)) or {}
 
 
 def decide(titles, search, client=None):
@@ -102,6 +105,8 @@ def decide(titles, search, client=None):
             data.pop(old)
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps(data, ensure_ascii=False))
+    if batch_scope.active():   # this reader's own answers, for its next call
+        batch_scope.view('titles_store', _load).setdefault(key, {}).update(decided)
     asked = [t for t in ask if t in decided]
     if late[0]:
         print(budget.left_line('titles', late[0], 'title(s)'), flush=True)

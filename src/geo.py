@@ -10,6 +10,7 @@ import math
 import re
 import threading
 
+from .ai import batch_scope
 from .paths import DATA
 
 BATCH = 40
@@ -40,12 +41,20 @@ def norm(text):
     return ' '.join(str(text or '').lower().split())[:120]
 
 
-def load():
+def _read():
     try:
         data = json.loads(STORE.read_text())
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+batch_scope.watch('geo', _read)
+
+
+def load():
+    """The kept answers (for readers side by side: as they were when the reader began, src/ai/batch_scope.py)."""
+    return batch_scope.view('geo', _read)
 
 
 def valid(item):
@@ -132,7 +141,7 @@ def resolve(strings, client=None, ask=True, share=False):
         data.update(found)
         with LOCK:
             STORE.parent.mkdir(parents=True, exist_ok=True)
-            STORE.write_text(json.dumps({**load(), **found}, ensure_ascii=False, sort_keys=True))
+            STORE.write_text(json.dumps({**_read(), **found}, ensure_ascii=False, sort_keys=True))
     return {k: data[k] for k in keys if k in data}
 
 
