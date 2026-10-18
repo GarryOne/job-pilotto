@@ -86,10 +86,13 @@ test('3. the gate searches every kept body, as UTF-8 and as latin1, whatever its
   assert.ok(lastGate(one('font/woff2', Buffer.from('José Rosalind'.replace('José', 'Jos\xe9'), 'latin1')), values).length > 0);
 });
 
-test('4. a lone name word in code is left by the scrub but blocks the send as name-in-code', () => {
-  const out = scrubRecord(one('application/javascript', 'const quill = 1;'), values);
-  assert.match(out.bodies.get(out.entries[0].hash).toString(), /const quill = 1/);
-  assert.deepEqual(lastGate(out, values).map(hit => hit.kind), ['name-in-code']);
+test('4. a lone name word in code: standing as text it is replaced; as part of an identifier (x.quill, quill()) it is code, left alone and not a hit', () => {
+  const as = 'const who = "Quill"; const list = ["a", Quill, "b"]; x.quill = 2; quill(); const a_quill = 1;';
+  const out = scrubRecord(one('application/javascript', as), values), code = out.bodies.get(out.entries[0].hash).toString();
+  assert.match(code, /who = "Candidate"/);
+  assert.match(code, /x\.quill = 2; quill\(\); const a_quill = 1;/, 'identifiers keep their shape');
+  assert.deepEqual(lastGate(out, values), [], 'what the scrub left is not the person');
+  assert.deepEqual(lastGate(one('application/javascript', 'const who = "Quill";'), values).map(hit => hit.kind), ['name-in-code'], 'an unscrubbed lone word in text position still blocks');
 });
 
 test('5. a session token, CSRF token or credential in a body goes by its field name or JWT shape; the page keeps its shape', () => {
@@ -131,4 +134,31 @@ test('an address on a reserved example or test domain is no person; a real one i
     assert.deepEqual(personalHits(fake, {values: new Map()}), [], fake);
   for (const real of ['https://checker.example/address/validate?address=igor.someone%40gmail.com', 'mail someone@company.ch now', 'rosalind.quill@mailbox.test'])
     assert.deepEqual(personalHits(real, {values: new Map()}), ['email'], real);
+});
+
+// A filled form is full of the person's own values (19 Oct 2026: the owner's Report on a Greenhouse form answered "could not remove everything personal"). Whatever the gate looks for, the scrub must have replaced.
+const ACCENTED = ownerValuesOf(['full name: Zoë Brontë\nemail: zoe.bronte@mailbox.test\nphone: +41 79 555 01 23\nLocation: Chișinău, Moldova\n']);
+const FILLED_HTML = '<form><label>Full name</label><input name="n" value="Zoë Brontë"><p>Hello Zoë, from Chișinău (Moldova)</p><select><option selected>Male</option></select>'
+  + '<input type="checkbox" checked> By checking this box I consent <textarea name="why">Brontë here: reach me on 0795550123</textarea></form>';
+const FILLED_JSON = JSON.stringify({countries: ['Germany', 'Moldova', 'Romania'], cities: ['Chișinău', 'Cluj'], applicant: {first: 'Zoë', last: 'Brontë', gender: 'Male'}});
+const FILLED_SCRIPT = 'var bronte = 1; const countries = ["Germany","Moldova","Romania"]; const label = \'Chisinau\'; function f() { return bronte; }';
+const filled = () => {
+  const bodies = new Map([['h', Buffer.from(FILLED_HTML)], ['j', Buffer.from(FILLED_JSON)], ['s', Buffer.from(FILLED_SCRIPT)]]);
+  return {bodies, entries: [entry({hash: 'h', size: 1}), entry({url: 'https://jobs.example.test/api/c', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'j', size: 1}),
+    entry({url: 'https://jobs.example.test/app.js', type: 'script', headers: {'content-type': 'application/javascript'}, hash: 's', size: 1})]};
+};
+
+test('a filled form with accents, a country list and demographic answers goes through the gate with every personal value replaced', () => {
+  const out = scrubRecord(filled(), ACCENTED), text = everything(out);
+  for (const own of [/zo[eë]/i, /bront/i, /chi[sș]in/i, /moldova/i, /555 ?01 ?23|0795550123/, /mailbox/]) assert.ok(!own.test(text), `left in the record: ${own} in ${[...out.bodies.values()].map(b => b.toString()).join(' || ')}`);
+  assert.match(text, /Male/, 'a demographic answer is the form\'s own option, not the person');
+  assert.match(text, /Germany/);
+  assert.deepEqual(lastGate(out, ACCENTED), [], 'the gate finds nothing after the scrub');
+});
+
+test('a value the scrub cannot clean is refused with its kind and where it sits', () => {
+  const kept = {bodies: new Map([['p', Buffer.from('{"note":"' + 'zoe.bronte' + '\\u0040mailbox.test"}')], ['n', Buffer.from(Buffer.from('Hello Brontë, said the page, in plain text here').toString('base64'))]]),
+    entries: [entry({url: 'https://jobs.example.test/x', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'p', size: 1}), entry({url: 'https://jobs.example.test/y', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'n', size: 1})]};
+  const hits = lastGate(kept, ACCENTED);
+  assert.deepEqual(hits.map(hit => `${hit.kind}:${hit.in}`).sort(), ['email:body', 'name:body'], 'a value that stayed (encoded where the scrub did not look) is refused with its kind and where');
 });

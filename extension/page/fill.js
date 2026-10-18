@@ -35,7 +35,7 @@
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).
   const fillPage = async (all, profile, resume, coverLetter = '', acceptConsents = false) => {
     if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
-    if (window.__jobPilottoStopped) return {error: 'Stopped by you; nothing was filled.'};
+    if (window.__jobPilottoStopped) return {error: 'Stopped by you.'};
     // The AI's likely answers it was not told (use: "propose", worker/src/extension.js): shown to you as proposals, never typed.
     // A kind only (use: "kind", no value): the AI's reading of a legal question, marked below and never filled (worker/src/extension.js answerForm).
     // The popup guard (page/guard-gate.js): between the stages a layer that opened over the form is closed by the extension, or the fill is held and types nothing more.

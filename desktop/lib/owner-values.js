@@ -13,7 +13,7 @@ export function personalValues(texts) {
   const own = texts.join('\n').split('\n').map(line => splitMark(line).text).join('\n'), values = new Map();   // a question's kind mark ("[pick one: …]") is the form's words, never the person's
   for (const email of own.match(EMAIL) || []) values.set(email.toLowerCase(), 'email');
   for (const phone of own.match(PHONE) || []) { const digits = phone.replace(/\D/g, ''); if (digits.length >= 9) values.set(digits, 'phone'); }
-  for (const [, value] of own.matchAll(/^\W*(?:full\s*)?(?:first\s*|last\s*|family\s*)?name\W*:\s*(.+)$/gim)) for (const word of value.split(/\s+/)) if (word.replace(/\W/g, '').length >= 3) values.set(word.replace(/[^\p{L}\p{N}'-]/gu, '').toLowerCase(), 'name');
+  for (const [, value] of own.matchAll(/^\W*(?:full\s*)?(?:first\s*|last\s*|family\s*)?name\W*:\s*(.+)$/gim)) for (const word of value.split(/\s+/)) if (word.replace(/[^\p{L}\p{N}]/gu, '').length >= 3) values.set(word.replace(/[^\p{L}\p{N}'-]/gu, '').toLowerCase(), 'name');
   return values;
 }
 // The app's files that hold the person's own details: profile.md / answers.md (the store on this Mac) and draft.json (the contact details and draft Profile

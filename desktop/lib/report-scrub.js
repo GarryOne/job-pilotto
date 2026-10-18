@@ -78,12 +78,33 @@ const nameRun = values => {
 const SPACE = '(?:\\s|%20|\\+|&nbsp;|&#0*32;|&#0*160;)+';   // the gaps of a multi-word value, as a page or an address may write them
 const NAME = 'Candidate', PLACE = 'Elsewhere';
 
-function ownOut(text, values, code, counts) {
+// One matcher for the person's words, used by the scrub AND the last gate (so the gate can never find what the scrub did not look for): accents and case aside ("Chișinău" is "chisinau"),
+// the gaps of a multi-word value as a page writes them, and bounded by letters/digits. In a script a lone word is the person's only when it stands as text (between quotes, commas, spaces, tags):
+// `x.moldova`, `zoe()` and `a_bronte` are identifiers, left alone and not searched for (the report reads the code; it does not run it).
+const fold = text => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const AS_TEXT_BEFORE = '(?<=["\'`>|,;:\\s\\[{])', AS_TEXT_AFTER = '(?=["\'`<|,;:\\s\\]}])';
+export function valueMatcher(value, code = false) {
+  const words = fold(value).split(/\s+/).filter(Boolean).map(word => [...word].map(ch => `${escape(ch)}\\p{M}*`).join(''));
+  const body = words.join(SPACE), lone = words.length === 1;
+  return code && lone ? new RegExp(`${AS_TEXT_BEFORE}${body}${AS_TEXT_AFTER}`, 'giu') : new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, 'giu');
+}
+// A value's replacement across accents: matched on the decomposed text, written back composed. Unchanged text comes back as it was. -> text
+function replaceValue(text, re, replacement, counts) {
+  const nfd = text.normalize('NFD');
+  let hit = false;
+  const out = nfd.replace(re, () => { hit = true; counts.own += 1; return replacement; });
+  return hit ? out.normalize('NFC') : text;
+}
+
+function ownOut(text, values, code, counts, report = false) {
   let out = code && nameRun(values) ? text.replace(nameRun(values), () => { counts.own += 1; return NAME; }) : text;
-  for (const [value, kind] of usable(values, code)) {
+  for (const [value, kind] of (report ? [...values] : usable(values, code))) {
     if (kind === 'phone') continue;   // a phone is scrubbed by shape below (any 9+ digits), whatever its separators
-    const word = kind === 'name' || kind === 'location', re = new RegExp(word ? `(?<![\\p{L}\\p{N}])${value.split(/\s+/).map(escape).join(SPACE)}(?![\\p{L}\\p{N}])` : escape(value), 'giu');   // letters and digits bound a word, not _ (a file name "Quill_Rosalind_CV.pdf")
-    out = out.replace(re, () => { counts.own += 1; return kind === 'email' || kind === 'account' ? FAKE_EMAIL : kind === 'location' ? PLACE : NAME; });   // every case: a name in capitals is still the name
+    if (kind === 'email' || kind === 'account') {
+      out = out.replace(new RegExp(escape(value), 'giu'), () => { counts.own += 1; return FAKE_EMAIL; });
+      continue;
+    }
+    out = replaceValue(out, valueMatcher(value, code), kind === 'location' ? PLACE : NAME, counts);   // every case: a name in capitals is still the name
   }
   return out;
 }
@@ -147,7 +168,7 @@ export function scrubRecord(record, values = new Map()) {
       const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(new URL(entry.url).pathname);
       let text = plainSeparators(body.toString('utf8'));
       if (!code) text = blankTyped(text, counts);
-      text = tokensOut(contactsOut(ownOut(text, values, code, counts), counts), code, counts);
+      text = tokensOut(contactsOut(ownOut(text, values, code, counts, true), counts), code, counts);
       const next = Buffer.from(text); hash = sha(next); bodies.set(hash, next);
     } else if (body) bodies.set(hash, body);
     entries.push({...entry, url, headers, bodyKey: '', hash, size: hash ? bodies.get(hash).length : 0});
@@ -165,11 +186,9 @@ export function lastGate({entries, bodies}, values = new Map()) {
     if ((text.match(PHONE) || []).some(p => p.replace(/\D/g, '').length >= 9)) add('phone', where);
     if (code && nameRun(values)?.test(text)) add('name', where);
     for (const shape of [JWT, BEARER, QUOTED_SECRET, ...(code ? [] : [BARE_SECRET])]) { shape.lastIndex = 0; if ([...text.matchAll(shape)].some(found => !/<token>/.test(found[0]))) add('token', where); }
-    const folded = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     for (const [value, kind] of values) {
       if (kind === 'phone' || kind === 'email') continue;
-      const plain = value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-      if (new RegExp(`(?<![\\p{L}\\p{N}])${escape(plain)}(?![\\p{L}\\p{N}])`, 'u').test(folded)) add(code && !/\s/.test(value) ? 'name-in-code' : kind, where);
+      if (valueMatcher(value, code).test(text.normalize('NFD'))) add(code && !/\s/.test(value) ? 'name-in-code' : kind, where);   // the same matcher the scrub used
     }
   };
   const scan = (text, code, where) => { for (const form of decodedForms(text)) run(form, code, where); for (const form of b64Forms(text)) for (const inner of decodedForms(form)) run(inner, code, where); };

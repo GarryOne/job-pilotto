@@ -37,22 +37,27 @@
   };
   const ask = message => chrome.runtime.sendMessage(message).catch(() => null);
   const close = () => { card.hidden = true; };
-  const WORDS = {stopped: 'Job Pilotto was stopped, so nothing was kept.',
+  const WORDS = {stopped: 'Job Pilotto was stopped, so nothing was kept. Press Apply in the app to start again.', worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.',
     off: 'The trace is turned off in Job Pilotto Settings, so there is nothing to report.', empty: 'Nothing has been kept on this page yet (a sign-in page is never kept). Try again after the page has loaded.'};
+
+  // The one sentence when the app's last check refuses (the same words as the app's Send, desktop/lib/report-handlers.js), then the kinds it found: never a value.
+  const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';
+  const KINDS = {email: 'an e-mail address', phone: 'a phone number', name: 'your name', 'name-in-code': 'your name inside a script', location: 'your place', token: 'a sign-in token'};
 
   // The press hands over the trace Job Pilotto already keeps for this tab: no reload, no new recording. A tab that moved past its first page asks once: the whole journey or this page.
   async function send(scope, button) {
     button.disabled = true; button.textContent = 'Preparing…';
     const answer = await ask({type: 'report-send', scope});
     if (answer?.ok) say('Review it in Job Pilotto', 'The Job Pilotto app shows exactly what would be sent. Nothing is sent until you press Send there.', [['OK', true, close]]);
-    else say('Nothing was sent', WORDS[answer?.refused] || (answer?.blocked ? 'Job Pilotto could not remove everything personal from it safely, so nothing was kept.' : 'Job Pilotto could not prepare this report.'), [['OK', true, close]]);
+    else say('Nothing was sent', WORDS[answer?.refused] || (answer?.blocked ? `${BLOCKED} Still found: ${[...new Set((answer?.blocked || []).map(kind => KINDS[kind] || kind))].join(', ')}.` : 'Job Pilotto could not prepare this report.'), [['OK', true, close]]);
   }
   async function confirm() {
     say('Report this form', 'Checking what Job Pilotto kept…', []);
     if (beside) window.dispatchEvent(new CustomEvent('jobpilotto-report-shown'));   // the panel folds itself so the card is the one thing at that corner (review.js)
     const state = await ask({type: 'report-state'});
     const lead = 'Job Pilotto keeps a trace of this form fill on your Mac, without sign-in pages. The app shows exactly what would be sent. Nothing leaves your Mac until you read it and press Send.';
-    if (!state?.has) { say('Nothing to report yet', WORDS[state?.enabled === false ? 'off' : 'empty'], [['OK', true, close]]); return; }
+    if (!state) { say('Report could not start', WORDS.worker, [['OK', true, close]]); return; }
+    if (!state.has) { say('Nothing to report yet', WORDS[state.stopped ? 'stopped' : state.enabled === false ? 'off' : 'empty'], [['OK', true, close]]); return; }
     const buttons = [['Cancel', false, close]];
     if (state.moved) buttons.push(['Only this page', false, button => send('page', button)], ['The whole journey (recommended for fixing)', true, button => send('journey', button)]);
     else buttons.push(['Review in Job Pilotto', true, button => send('journey', button)]);
@@ -61,7 +66,8 @@
   flag.addEventListener('click', event => { if (event.isTrusted) { beside = false; if (card.hidden) confirm(); else close(); } });
   // The panel's Report always (re)opens the card, even when it is already shown (a press is never a silent no-op). From a frame that is not the top one it arrives as a message (messages-report.js relays it).
   const openFromPanel = () => { beside = true; confirm(); };
-  chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') host.remove(); if (message?.type === 'report-open') openFromPanel(); });
+  // Stop takes the ⚑ away but keeps the card: the panel's Report still answers after a Stop (it says it was stopped), never draws into a detached node.
+  chrome.runtime.onMessage.addListener(message => { if (message?.type === 'stopped') flag.hidden = true; if (message?.type === 'report-open') openFromPanel(); });
 
   // Drawn only when the switch is on.
   // The panel's full-width "Report this form" (panel-claude.js, where Claude's offer used to be) opens the same card; only while the switch is on.

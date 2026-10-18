@@ -28,8 +28,10 @@ test('prepare: scrubbed, searched again, held in memory with a readable preview;
   assert.ok(!JSON.stringify([...ok.held.bodies.values()].map(String)).match(/Rosalind/));
   const less = finalize(ok.held, ['cdn.example.test'], values);
   assert.equal(less.ok, true); assert.deepEqual(less.record.entries.map(entry => new URL(entry.url).host), ['jobs.example.test']);
-  const leaky = prepare({entries: [{...wire.entries[1], body: Buffer.from('const n = "Quill";').toString('base64')}]}, values);
-  assert.equal(leaky.ok, false); assert.deepEqual(leaky.blocked.map(hit => hit.kind), ['name-in-code']);
+  const leaky = prepare({entries: [{...wire.entries[1], headers: {'content-type': 'application/json'}, body: Buffer.from(JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')})).toString('base64')}]}, values);   // a name inside a base64 run: the scrub reads text, the gate decodes
+  assert.equal(leaky.ok, false); assert.deepEqual(leaky.blocked.map(hit => hit.kind), ['name-in-code']);   // the entry is a script
+  const clean = prepare({entries: [{...wire.entries[1], body: Buffer.from('const n = "Quill";').toString('base64')}]}, values);
+  assert.equal(clean.ok, true, 'a name standing as text in a script is replaced by the scrub, so it no longer blocks the report');
   const hold = createHold({now: () => 0 }), id = hold.put(ok.held);
   assert.equal(hold.size(), 1); assert.ok(hold.take(id)); assert.equal(hold.take(id), null, 'taken once');
   let t = 0; const old = createHold({now: () => t}); old.put(ok.held); t = 16 * 60e3; assert.equal(old.size(), 0, 'gone after 15 minutes');

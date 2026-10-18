@@ -63,7 +63,7 @@
     if (view !== 'countdown' && timer) { clearInterval(timer); timer = null; }
     if (view === 'hidden') { box.replaceChildren(); return; }
     if (view === 'report') {
-      box.replaceChildren(el('p', {}, 'The extension is stuck on this page.'), el('button', {className: 'primary co-report', textContent: 'Report this form', onclick: () => window.dispatchEvent(new CustomEvent('jobpilotto-report-open'))}));
+      box.replaceChildren(el('p', {}, last.stuck === 'stopped' ? 'Stopped by you.' : 'The extension is stuck on this page.'));   // one Report on the panel: the footer's (review.js); a second button here was two doors to the same card (owner, 19 Oct 2026)
     } else if (view === 'needs') {
       box.replaceChildren(el('p', {}, 'The extension is stuck on this page.'), el('div', {className: 'co-row'}, button('Tell me what\'s needed', 'needs')));
     } else if (view === 'offer') {
