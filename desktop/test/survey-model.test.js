@@ -33,3 +33,12 @@ test('editing keeps lines in place, removes a cleared answer, and adds new ones 
   assert.equal(readLine(texts[4]).key, 'veteran');
   assert.deepEqual([...readLines(lines).answers.keys()], ['age', 'gender']);
 });
+
+test('nothing reads the list inside a saved survey mark: a long list is stored as a bare "[pick one]" and every question reads back the same either way', () => {
+  for (const each of SURVEYS) {
+    const option = each.options[0], short = lineOf(each.key, option, 'a note'), bare = short.replace(/\s*\[[^\]]*\]\s*$/, ' [pick one]'), none = short.replace(/\s*\[[^\]]*\]\s*$/, '');
+    assert.deepEqual(readLine(bare), readLine(short), `${each.key}: the card reads the same with the list shortened`);
+    assert.deepEqual(readLine(none), readLine(short), `${each.key}: and with no mark at all`);
+  }
+  assert.match(lineOf('ethnicity', 'White'), /\[pick one\]$/, 'the long Race / ethnicity list is not stored in the mark (over 160 characters); the code keeps the list in SURVEYS');
+});
