@@ -1,6 +1,6 @@
 // The public /changelog (src/changelog.js, public/changelog.html): nothing internal or Pro-related can be published, an entry is three kinds of items with emoji, the page renders text only.
 import assert from 'node:assert/strict';
-import {readFileSync, readdirSync} from 'node:fs';
+import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import {test} from 'node:test';
 import {FORBIDDEN, cleanGroups, newestFirst, problems, versionOf} from '../src/changelog.js';
 
@@ -44,10 +44,15 @@ test('only a well-formed, clean entry passes: version, date, channel, kinds, ite
 });
 
 test('every entry in the fallback file passes the same rules', () => {
-  const published = JSON.parse(pub('changelog.json'));
+  const published = JSON.parse(pub('changelog-seed.json'));
   assert.ok(Array.isArray(published));
   for (const entry of published) assert.deepEqual(problems(entry), [], `version ${entry.version}`);
   assert.equal(new Set(published.map(entry => entry.version)).size, published.length);
+});
+
+test('no static file shadows /changelog.json: a file in public/ is served before the Worker, so the stored versions would never show (18 Oct 2026: the page stayed on 0.7.16)', () => {
+  assert.equal(existsSync(new URL('../public/changelog.json', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../public/changelog-seed.json', import.meta.url)), true);
 });
 
 test('the page reads changelog.json, shows the three group titles and the channel, writes text (never HTML), is in the sitemap and linked from the footer', () => {

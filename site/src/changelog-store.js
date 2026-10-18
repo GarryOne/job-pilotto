@@ -1,6 +1,6 @@
 // Where the What's new page gets its versions (owner, 18 Oct 2026: it publishes itself for every beta and stable). CI (changelog-publish.yml → tools/changelog-publish.mjs) drafts each new version with the AI and sends it
 // (PUT /changelog/data, Bearer SELFHEAL_PUBLISH_KEY); the site checks it AGAIN with the same rules (src/changelog.js) and keeps one row per version (changelog_entries). GET /changelog/data (same key) says what is stored,
-// so CI drafts a version once. GET /changelog.json (public, cached 5 minutes) is what the page reads; with no row yet it falls back to the file in public/. No commit, no PR. Guard: test/changelog-store.test.js.
+// so CI drafts a version once. GET /changelog.json (public, cached 5 minutes) is what the page reads; with no row yet it falls back to public/changelog-seed.json. No commit, no PR. Guard: test/changelog-store.test.js.
 import {equal} from './guard.js';
 import {CHANNELS, newestFirst, problems} from './changelog.js';
 
@@ -39,7 +39,7 @@ export async function ingest(request, env) {
 export async function list(request, env) {
   let rows = [];
   try { ({results: rows = []} = await env.STATS.prepare('SELECT version, date, channel, body FROM changelog_entries WHERE hidden = 0').all()); } catch { rows = []; }
-  if (!rows.length) return env.ASSETS.fetch(request);
+  if (!rows.length) return env.ASSETS.fetch(new Request(new URL('/changelog-seed.json', request.url), request));   // not public/changelog.json: a static file with the route's name would be served before this code runs
   const entries = rows.map(row => ({version: row.version, date: row.date, channel: row.channel, groups: JSON.parse(row.body)}));
   return json(newestFirst(entries), 200, {'Cache-Control': 'public, max-age=300'});
 }
