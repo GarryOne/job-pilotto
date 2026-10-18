@@ -260,7 +260,8 @@ export async function runParts(ctx, parts) {
       try {
         await page.click('.nav[data-view="settings"]');
         page.once('dialog', dialog => dialog.accept().catch(() => {}));   // "Replace your CV data…?" when a CV was read before
-        await page.locator('#cv-import').click({timeout: 30000});
+        await page.locator('#cv-more .ui-more').click({timeout: 30000});   // the CV row's ⋯ holds Read my CV PDF (mockup 08, 18 Oct 2026)
+        await page.locator('.ui-menu button', {hasText: 'Read my CV PDF'}).click({timeout: 10000});
         await page.waitForFunction(() => { const said = document.getElementById('cv-message')?.textContent || ''; return said && !/Reading your CV/.test(said); }, null, {timeout: 180000, polling: 1000});
         const said = (await page.locator('#cv-message').innerText()).trim();
         console.log(`  the CV card says: ${said.slice(0, 160)}`);

@@ -113,6 +113,9 @@ export const cvCheck = {hash: 'demo', at: '2026-10-02T09:00:00.000Z',
       {where: 'Summary', issue: 'It does not name the roles you want.', suggestion: 'Start with the title you are applying for.', impact: 'medium'}],
     missing_keywords: ['SLO', 'incident response', 'Prometheus']}};
 
+// The uploaded CV's facts for the CV tab's document row (fictional).
+export const cvFile = {size: 335872, addedAt: '2026-10-12T08:30:00.000Z'};
+
 // The CV match dialog with a real answer (fictional job and CV).
 export const matchSaved = {at: '2026-10-02T09:00:00.000Z', stale: false, job: {title: 'Platform Engineer', company: 'Northwind Robotics'}, result: {grade: 'B', usd: 0.06,
   summary: 'Most of the platform work is stated; observability and the on-site days need a look.',

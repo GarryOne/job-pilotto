@@ -193,7 +193,8 @@ export async function review(storage, apiKey, text, {client = null, profile = ''
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clamp = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   return {...result, score: clamp(result.score), components: result.components.map(item => ({...item, score: clamp(item.score)})),
-    fixes: result.fixes.slice(0, 8), usd: usd(response.usage),
+    fixes: result.fixes.slice(0, 8), usd: usd(response.usage), billing: response.usage?.billing || anthropic.billing || 'api',   // how it was paid: the card's cost line
+   
     missing_keywords: result.missing_keywords.filter(term => !stated(text, term)).slice(0, 10)};   // a term the CV already states is not missing
 }
 

@@ -11,7 +11,9 @@ import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
 import {loadLetterStyle} from './letter-style.js';
 import {init as letterFallback} from './letter-fallback.js';
-import {el, openMenu, pill, tile} from '../components.js';
+import {el, moreButton, openMenu, tile} from '../components.js';
+import {cvCheckAction, lastCheck, showCvCheck} from '../cv-check-view.js';
+import {documentFacts} from '../cv-check-model.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {byStore, storeName} from '../store-words.js';
@@ -153,69 +155,22 @@ function renderNotionLinks() {
   }
 }
 
-// ---------- Profile → CV: the CV check (lib/cv-check.js) ----------
-const STATUS_ICON = {pass: '✓', warn: '!', fail: '✕'};
-function showCvCheck(data) {
-  const ats = data?.ats, ai = data?.ai;
-  show($('cvc-result'), !!ats);
-  show($('cvc-ai'), !!ai);
-  show($('cvc-ai-run'), !!ats);
-  $('cvc-run').textContent = ats ? 'Check again' : 'Check my CV (free)';
-  $('cvc-ai-run').textContent = ai ? 'Review again' : 'Add the content review';
-  $('cvc-state').textContent = ats ? `Checked ${runWhen(data.at)}` : 'Not checked yet';
-  if (ats) {
-    $('cvc-score').textContent = ats.score;
-    $('cvc-score').className = `cvc-score ${ats.score >= 90 ? 'good' : ats.score >= 75 ? 'ok' : 'low'}`;
-    $('cvc-verdict').textContent = `How a parser reads it: ${ats.verdict}`;
-    $('cvc-sub').textContent = `${ats.pages} page${ats.pages === 1 ? '' : 's'} · ${ats.checks.filter(c => c.status !== 'pass').length} to look at`;
-    $('cvc-checks').replaceChildren(...[...ats.checks].sort((a, b) => (a.status === 'pass') - (b.status === 'pass')).map(item => {
-      const row = el('li', `cvc-check is-${item.status}`);
-      const body = el('div');
-      body.append(el('b', '', item.label), el('span', 'muted small', item.detail));
-      if (item.fix) body.append(el('span', 'cvc-fix', `Fix: ${item.fix}`));
-      row.append(el('span', 'cvc-mark', STATUS_ICON[item.status]), body);
-      return row;
-    }));
-    $('cvc-text').textContent = ats.text;
-  }
-  if (ai) {
-    $('cvc-ai-score').textContent = ai.score;
-    $('cvc-ai-score').className = `cvc-score ${ai.score >= 85 ? 'good' : ai.score >= 70 ? 'ok' : 'low'}`;
-    $('cvc-ai-sub').textContent = `${ai.fixes.length} suggestion${ai.fixes.length === 1 ? '' : 's'} · $${(ai.usd || 0).toFixed(2)}`;
-    const parts = [];
-    parts.push(...ai.components.map(item => { const row = el('div', 'cvc-comp'); row.append(el('b', '', `${item.name} · ${item.score}`), el('span', 'muted small', item.note)); return row; }));
-    if (ai.strengths.length) { const row = el('div', 'cvc-comp'); row.append(el('b', '', 'Working well'), el('span', 'muted small', ai.strengths.join(' · '))); parts.push(row); }
-    parts.push(...ai.fixes.map(item => {
-      const row = el('div', `cvc-fixrow impact-${item.impact}`);
-      const body = el('div');
-      body.append(el('b', '', item.where), el('span', 'muted small', item.issue), el('span', 'cvc-fix', item.suggestion));
-      row.append(pill(item.impact, item.impact === 'high' ? 'bad' : item.impact === 'medium' ? 'warn' : 'neutral'), body);
-      return row;
-    }));
-    if (ai.missing_keywords.length) { const row = el('div', 'cvc-comp'); row.append(el('b', '', 'Terms the target roles ask for that the CV never states'), el('span', 'muted small', `${ai.missing_keywords.join(', ')}. Add one only if it is true.`)); parts.push(row); }
-    $('cvc-ai-parts').replaceChildren(...parts);
-  }
-}
-export async function loadCvCheck() { showCvCheck(await window.pilot.cvCheckStatus().catch(() => null)); }
-async function cvCheckAction(button, working, run) {
-  const label = button.textContent;
-  button.disabled = true;
-  button.textContent = working;
-  message('cvc-message', '');
-  const result = await run();
-  button.disabled = false;
-  button.textContent = label;
-  if (!result.ok) return message('cvc-message', result.error, 'error');
-  showCvCheck(result);
-}
-
+// ---------- Profile → CV: the document row and the CV check (renderer/cv-check-view.js) ----------
+const checkOptions = () => ({cvName: shared.state?.settings?.cvName || '', when: runWhen, say: (text, tone) => message('cvc-message', text, tone)});
+export async function loadCvCheck() { showCvCheck(await window.pilot.cvCheckStatus().catch(() => null), checkOptions()); }
+let cvReadBlocked = false;
+let readCvPdf = () => {};   // set by initProfile (it needs the page's error words)   // out of AI credit: another read would fail the same way until credit is added
 export async function loadCvSetting() {
-  loadCvCheck();
+  await loadCvCheck();
   const status = await window.pilot.cvStatus();
   // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
   $('cv-state').textContent = cvStateText(status, shared.cvReadFailed);
+  $('cv-facts').textContent = ['Current CV', documentFacts({pages: lastCheck()?.ats?.pages, ...(status.file || {})}, runWhen)].filter(Boolean).join(' · ');
   $('cv-view').hidden = !status.base;
-  $('cv-import').querySelector('span').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
+  // ⋯ the rarer CV actions: read the PDF again (or for the first time), and the folder with the CV's files.
+  $('cv-more').replaceChildren(moreButton(() => [
+    {label: status.base ? 'Read my CV PDF again' : 'Read my CV PDF', icon: 'refresh', disabled: cvReadBlocked, run: readCvPdf},
+    {label: 'Show CV folder', icon: 'folder', run: () => window.pilot.showCvFolder()}], 'More CV actions'));
 }
 
 export async function loadSettings() {
@@ -320,33 +275,27 @@ export async function init() {
     const result = await window.pilot.viewBaseCv();
     $('cv-message').textContent = !result.ok ? cvError(result.error, 'show') : result.overflow?.length ? `Page ${result.overflow.join(', ')} is too full: its end is cut off.` : '';
   });
-  $('cv-import').addEventListener('click', async () => {
+  readCvPdf = async () => {
     if ((await window.pilot.cvStatus()).base && !confirm('Replace your CV data (and any hand edits) with a fresh read of your CV PDF?')) return;
-    const button = $('cv-import');
-    button.disabled = true;
-    button.classList.add('busy');
     $('cv-message').textContent = 'Reading your CV… (about 30 s)';
     const result = await window.pilot.importCv();
-    const limited = !result.ok && isSpendingLimit(humanError(result.error));
-    button.disabled = limited;  // another read would fail the same way until credit is added
-    button.classList.remove('busy');
-    show($('cv-limit-link'), limited);
+    cvReadBlocked = !result.ok && isSpendingLimit(humanError(result.error));
+    show($('cv-limit-link'), cvReadBlocked);
     shared.cvReadFailed = !result.ok;
     $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : cvError(result.error, 'read');
     loadCvSetting();
-  });
+  };
   $('cv-limit-link').addEventListener('click', event => {
     event.preventDefault();
     window.pilot.openExternal('https://console.anthropic.com/settings/limits');
-    $('cv-import').disabled = false;
+    cvReadBlocked = false;
     show($('cv-limit-link'), false);
   });
   // Long detail cards start closed; the bar shows their summary (owner, 17 Oct 2026). Forms you fill in stay open.
-  foldProfilePanels({closed: new Set(['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'])});   // every Profile card folds (profile-fold.js); these start closed
+  foldProfilePanels({closed: new Set(['setting-experience-sources', 'setting-experience-roles'])});   // every Profile card folds (profile-fold.js); these start closed
   initFoldBar();
-  $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
-  $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
-  $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());
+  $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun(), checkOptions).then(loadCvSetting));
+  $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi(), checkOptions));
   $('set-telegram-save').addEventListener('click', async () => {
     const value = $('set-telegram').value.trim();
     if (!/^\d+:[\w-]{30,}$/.test(value)) { message('telegram-message', 'That doesn\'t look like a bot token (numbers, a colon, then letters).', 'error'); return; }

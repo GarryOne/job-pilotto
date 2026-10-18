@@ -4,7 +4,8 @@
 class Element {
   constructor(tag) {
     this.tagName = String(tag).toUpperCase(); this.children = []; this.parentNode = null; this.listeners = {}; this.attributes = {};
-    this.dataset = {}; this.className = ''; this.hidden = false; this.value = ''; this.disabled = false; this.style = {};
+    this.dataset = {}; this.className = ''; this.hidden = false; this.value = ''; this.disabled = false;
+    this.style = {setProperty(name, value) { this[name] = String(value); }};   // custom properties (--p) land as keys
     const self = this;
     this.classList = {add: (...names) => { self.className = [...new Set([...self.className.split(' ').filter(Boolean), ...names])].join(' '); },
       remove: (...names) => { self.className = self.className.split(' ').filter(n => !names.includes(n)).join(' '); },

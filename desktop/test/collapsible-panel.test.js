@@ -37,6 +37,7 @@ const CHEVRON_FILES = {
   'question-nav.js': 'previous / next arrows and the list button, not a fold',
   'pages/experience.js': 'native <details>: the whole job row toggles',
   'gaps-rows.js': 'native <details>: the whole Reviewed line toggles',
+  'cv-check-view.js': 'native <details>: the whole summary row toggles',
 };
 test('every file that draws a chevron is accounted for', () => {
   const found = sources.filter(f => /(icon|control)\('chevron'/.test(read(f)));
@@ -49,7 +50,7 @@ test('rows with their own chevron button toggle on the whole bar, with the point
   assert.match(read('pages/activity.js'), /toggleOnBar\(document\.querySelector\('#activity-warnings \.ap-warn-head'\)/);
 });
 test('long detail cards start closed, forms stay open', () => {
-  assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-cvcheck', 'setting-experience-sources', 'setting-experience-roles'\]\)\}\)/);
+  assert.match(read('pages/profile.js'), /foldProfilePanels\(\{closed: new Set\(\['setting-experience-sources', 'setting-experience-roles'\]\)\}\)/);
 });
 
 // Owner, 18 Oct 2026: Edit on a card redraws it and removes its own button, so the click reached the bar with a detached target and folded the card.
