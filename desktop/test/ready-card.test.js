@@ -57,3 +57,18 @@ test('on the owner\'s install the buttons work, and tonight\'s count comes from 
   assert.match(textOf(card), /Tonight: 2 of your finished jobs/);
   assert.ok(!textOf(card).includes('Not available'));
 });
+
+test('Try again answers visibly: Checking… while it asks, then the reason with the time it was checked (owner, 18 Oct 2026)', async () => {
+  const body = page();
+  let asked = 0, answer;
+  globalThis.window.pilot = {readyState: () => { asked++; return asked === 1 ? Promise.resolve({owner: false, why: 'Not yet.'}) : new Promise(resolve => { answer = resolve; }); }, readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  assert.match(textOf(card), /Not yet\. · checked \d\d:\d\d:\d\d/);
+  const again = card.querySelector('.ready-status button');
+  again.click();
+  assert.equal(asked, 2, 'asked the server again');
+  assert.equal(again.textContent, 'Checking…'); assert.equal(again.disabled, true);
+  answer({owner: false, why: 'Still not.'}); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(textOf(body.querySelector('.ready-card')), /Still not\. · checked/);
+});

@@ -39,10 +39,12 @@ export function build() {
 // Not working right now (no owner key, no token today, the site refused or is down): the card stays, says why, and its two buttons are off.
 export function blocked(card, why, retry) {
   const body = card.querySelector('.ready-body'), again = el('button', 'secondary', 'Try again');
-  again.addEventListener('click', retry);
+  const checked = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+  // Try again answers visibly (owner, 18 Oct 2026: "no feedback. No reaction"): Checking… while it asks, then the reason with the time it was checked.
+  again.addEventListener('click', () => { again.disabled = true; again.textContent = 'Checking…'; retry(); });
   body.textContent = '';
   const status = el('div', 'ready-status');
-  status.append(pill('Not available', 'warn'), el('span', 'muted', why || 'Our server did not answer.'), again);
+  status.append(pill('Not available', 'warn'), el('span', 'muted', `${why || 'Our server did not answer.'} · checked ${checked}`), again);
   body.append(status);
   for (const button of card.querySelectorAll('.task-body button')) { button.disabled = true; button.title = why || ''; }
 }

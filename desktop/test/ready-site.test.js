@@ -2,6 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {done, link, owner, ownerSecret, runNow, send, status, useKeychainReader} from '../lib/ready-site.js';
+import {setSiteOff} from '../lib/recipes.js';
+import {call as hostedCall} from '../lib/hosted-search.js';
+import {DEV_BUILD} from '../lib/telemetry.js';
 import {registerReadyHandlers} from '../lib/ready-handlers.js';
 import {ownKeyFor, withOwnAi} from '../lib/ready-batch.js';
 import {NAMES} from '../lib/ai/index.js';
@@ -140,4 +143,24 @@ test('the night carries the stored Claude key only when the API key is the engin
   assert.equal(ownKeyFor({}, keys), 'sk-ant-api03-old');   // an install from before the engine choice, with a key: it runs on the key
   assert.equal(ownKeyFor({}, {}), '');
   assert.deepEqual(withOwnAi({jobs: []}, ownKeyFor({aiEngine: 'cli'}, keys)), {jobs: []});   // the first night's case: Claude Code + an old key -> Free AI
+});
+
+test('the owner\'s app run from source reaches the site for Ready to send; a test, CI or smoke run never does, and Always on keeps its rule (18 Oct 2026)', async () => {
+  const owned = {secret: name => (name === 'READY_OWNER_SECRET' ? 'owner-secret' : /TRIAL/.test(name) ? 'JPF1.install.token' : ''), settings: () => ({}), saveSettings() {}, path: name => `/nowhere/${name}`};
+  try {
+    setSiteOff(DEV_BUILD);
+    const fake = site(200, {ok: true, jobs: []});
+    assert.deepEqual(await status(owned, {fetcher: fake.fetcher}), {ok: true, jobs: []});
+    await runNow(owned, {fetcher: fake.fetcher});
+    assert.deepEqual(fake.seen.map(s => new URL(s.url).pathname), ['/api/ready/state', '/api/ready/run']);
+    const always = site();
+    assert.equal((await hostedCall(owned, '/api/hosted/state', {fetcher: always.fetcher})).ok, false);   // Always on: still not from a development build
+    assert.equal(always.seen.length, 0);
+    for (const run of ['CI', 'a smoke test', 'the end-to-end journey']) {
+      setSiteOff(run);
+      const none = site();
+      const result = await status(owned, {fetcher: none.fetcher});
+      assert.equal(result.ok, false, run); assert.match(result.why, new RegExp(`Not in ${run}`)); assert.equal(none.seen.length, 0, run);
+    }
+  } finally { setSiteOff(''); }
 });
