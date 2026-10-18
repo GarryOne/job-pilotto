@@ -32,6 +32,7 @@ on:
       - 'site/test/host-cases.json'
       - 'src/ai/inbox_fields.py'
       - 'src/ai/score.py'
+      - 'src/notion/cron_report.py'   # desktop/test/automation.test.js reads CRAWL_MODES from it
       - 'src/notion/ledger.py'
       - 'src/stores/notion_texts.py'
       - 'tests/fixtures/opportunity_origin.json'
