@@ -24,6 +24,12 @@ jobs:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}
     steps:
+      - name: Fingerprint of each key (first 8 hex of its SHA-256, to compare with the suites' preflight line)
+        run: |
+          for name in E2E_ANTHROPIC_KEY E2E_OPENAI_KEY; do
+            value="${!name}"
+            if [ -z "$value" ]; then echo "$name: not set"; else echo "$name fingerprint $(printf '%s' "$value" | sha256sum | cut -c1-8)"; fi
+          done
       - name: Anthropic key (models list and token count, both free)
         run: |
           if [ -z "$E2E_ANTHROPIC_KEY" ]; then echo "E2E_ANTHROPIC_KEY is not set"; exit 0; fi
