@@ -52,3 +52,9 @@ test('the page reads the stored versions newest first, hidden ones left out; wit
   assert.deepEqual(list.map(item => item.version), ['0.7.16', '0.7.2']);
   assert.equal(list[0].groups[0].items[0].emoji, '🔎');
 });
+
+test('the 0.0.1 project-start entry is stored and listed last, under every real version', async () => {
+  const e = env();
+  await put(e, {entries: [entry('0.0.1', {channel: 'start', date: '2026-09-24'}), entry('0.4.0', {channel: 'stable'}), entry('0.7.2')]});
+  assert.deepEqual((await (await call(e, {}, '/changelog.json')).json()).map(item => item.version), ['0.7.2', '0.4.0', '0.0.1']);
+});

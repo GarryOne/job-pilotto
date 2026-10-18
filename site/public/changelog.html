@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
 <link rel="stylesheet" href="styles.css">
-<style>.release{margin:0 0 28px}.release h2{font-size:1.25rem;margin:0 0 6px}.release time{color:var(--muted,#8d949c);font-size:.9rem;margin-left:8px;font-weight:400}.release ul{margin:6px 0 0;padding-left:20px}.release li{margin:6px 0}.release h3{font-size:1rem;margin:14px 0 0}.release .channel{font-size:.75rem;font-weight:600;border:1px solid var(--line,#3a4048);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:middle}</style>
+<style>.release{margin:0 0 28px}.release h2{font-size:1.25rem;margin:0 0 6px}.release time{color:var(--muted,#8d949c);font-size:.9rem;margin-left:8px;font-weight:400}.release ul{margin:6px 0 0;padding-left:20px}.release li{margin:6px 0}.release h3{font-size:1rem;margin:14px 0 0}.release.start{margin-bottom:0}.gap{color:var(--muted,#8d949c);letter-spacing:.6em;text-align:center;margin:0 0 28px;font-size:1.4rem}.release .channel{font-size:.75rem;font-weight:600;border:1px solid var(--line,#3a4048);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:middle}</style>
 </head>
 <body>
 <div class="wrap">
@@ -56,8 +56,9 @@ fetch('changelog.json').then(r => (r.ok ? r.json() : [])).catch(() => []).then(l
   document.getElementById('releases-note').hidden = false;
   for (const entry of list) {
     const box = document.createElement('article'), title = document.createElement('h2'), when = document.createElement('time'), badge = document.createElement('span');
+    if (entry.channel === 'start') { const gap = document.createElement('div'); gap.className = 'gap'; gap.setAttribute('aria-hidden', 'true'); gap.textContent = '\u00b7 \u00b7 \u00b7'; root.append(gap); }
     box.className = 'release'; box.id = `v${entry.version}`;
-    title.textContent = `Version ${entry.version}`; when.textContent = entry.date; badge.className = 'channel'; badge.textContent = entry.channel === 'stable' ? 'Stable' : '\u{1F9EA} Beta';
+    title.textContent = `Version ${entry.version}`; when.textContent = entry.date; badge.className = 'channel'; badge.textContent = entry.channel === 'start' ? 'Project start' : entry.channel === 'stable' ? 'Stable' : '\u{1F9EA} Beta';
     title.append(when, badge); box.append(title);
     for (const group of entry.groups || []) {
       const head = document.createElement('h3'), items = document.createElement('ul');
