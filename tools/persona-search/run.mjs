@@ -43,9 +43,9 @@ const claudeCode = await lib('claude-code.js');
 const {realClaude} = await import(path.join(ROOT, 'desktop', 'e2e', 'lib', 'real-claude.mjs'));
 const storage = createStorage(dir, {encrypt: value => value, decrypt: value => value});   // its own folder: nothing reaches the Keychain
 ensureConfig(storage);
-// --engine api (the daily CI draw, tools/persona-search/draw.py): the Anthropic API on the key in RANDOM_DRAWS_ANTHROPIC_KEY, there being no plan-path Claude on a runner.
-const api = option('--engine', 'cli') === 'api', apiKey = process.env.RANDOM_DRAWS_ANTHROPIC_KEY || '';
-if (api && !apiKey) { console.error('--engine api needs RANDOM_DRAWS_ANTHROPIC_KEY'); process.exit(2); }
+// --engine api (the daily CI draw, tools/persona-search/draw.py): the Anthropic API on the key in LAB_HEAL_ANTHROPIC_KEY (a tape re-record, own workspace and cap) or else RANDOM_DRAWS_ANTHROPIC_KEY, there being no plan-path Claude on a runner.
+const api = option('--engine', 'cli') === 'api', apiKey = process.env.LAB_HEAL_ANTHROPIC_KEY || process.env.RANDOM_DRAWS_ANTHROPIC_KEY || '';
+if (api && !apiKey) { console.error('--engine api needs LAB_HEAL_ANTHROPIC_KEY or RANDOM_DRAWS_ANTHROPIC_KEY'); process.exit(2); }
 if (api) storage.setSecret('ANTHROPIC_API_KEY', apiKey);
 storage.saveSettings({aiEngine: api ? 'api' : 'cli', ...(api ? {} : {claudeCode: {path: realClaude() || (process.env.JOB_PILOTTO_TAPE_LIVE === '0' ? process.execPath : '')}}), store: 'sqlite', telemetry: false, shareEmployers: false});
 

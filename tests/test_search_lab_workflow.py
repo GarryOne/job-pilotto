@@ -56,5 +56,17 @@ class TapeStore(unittest.TestCase):
         self.assertEqual(note(0, 20, 480), 'Tape stale (0 AI and 20 web requests not recorded)')
         self.assertEqual(note(1, 0, 500), 'Tape stale (1 AI and 0 web requests not recorded)')
 
+
+class HealWorkflow(unittest.TestCase):
+    def test_the_heal_is_by_hand_on_its_own_key_and_publishes_nothing(self):
+        heal = (ROOT / '.github' / 'workflows' / 'search-lab-heal.yml').read_text(encoding='utf-8')
+        self.assertNotIn('pull_request', heal)
+        self.assertNotIn('\n  schedule:', heal)
+        self.assertIn('LAB_HEAL_ANTHROPIC_KEY: ${{ secrets.LAB_HEAL_ANTHROPIC_KEY }}', heal)   # owner 18 Oct 2026: apart from the random draws' key and cap
+        self.assertNotIn('RANDOM_DRAWS_ANTHROPIC_KEY', heal)
+        self.assertNotIn('tape-store.mjs publish', heal)
+        self.assertNotIn('lab-upload', heal)
+
+
 if __name__ == '__main__':
     unittest.main()
