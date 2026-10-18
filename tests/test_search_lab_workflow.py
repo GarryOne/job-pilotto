@@ -89,6 +89,18 @@ class HealWorkflow(unittest.TestCase):
             step = self.heal[self.heal.index(name):]
             self.assertIn("inputs.publish", step.split('run:')[0], f'{name} is skipped when publish is unticked')
 
+    def test_what_a_replay_lacked_is_logged_as_shapes_only(self):
+        # the CI log of this public repo: kinds of question and hosts with counts, never a job title, a company or an address path
+        out = node("import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import {shapes} from './tools/persona-search/heal.mjs';"
+                   "const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shapes-')); fs.writeFileSync(path.join(dir, 'missing.jsonl'), ["
+                   "JSON.stringify({model: 'm', user: 'Title: Secret Welder at Acme GmbH\\nCompany: Acme'}), JSON.stringify({model: 'm', user: 'Title: Other'}),"
+                   "JSON.stringify({web: true, method: 'GET', url: 'https://jobs.example.de/private/path?q=x'})].join('\\n'));"
+                   "console.log(JSON.stringify(shapes(dir)))")
+        self.assertIn('2 x ai m "Title"', out)
+        self.assertIn('1 x web jobs.example.de', out)
+        self.assertNotIn('Secret', out)
+        self.assertNotIn('private', out)
+
     def test_a_tape_says_how_it_is_replayed(self):
         # 18 Oct 2026: a tape recorded on the API engine missed 59 AI requests on the plan engine at wait scale 0, 30 on its own engine, and only repeats its search at the recorded pace
         run = (ROOT / 'tools' / 'persona-search' / 'run.mjs').read_text(encoding='utf-8')

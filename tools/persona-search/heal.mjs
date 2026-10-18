@@ -48,6 +48,19 @@ export async function replay(candidate, tape, out) {
   return press;
 }
 
+// What a replay could not find, as shapes only (public CI log: no job text, no address): per kind of AI question (the words before the first colon or line end) and per web host, with a count.
+export function shapes(tape) {
+  const file = path.join(tape, 'missing.jsonl');
+  if (!fs.existsSync(file)) return '  nothing missing';
+  const count = new Map();
+  for (const line of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+    let row; try { row = JSON.parse(line); } catch { continue; }
+    const kind = row.web ? `web ${String(row.url || '').replace(/^https?:\/\//, '').split('/')[0]}` : `ai ${row.model || '?'} "${String(row.user || '').split(/[:\n]/)[0].replace(/[^\p{L} ()]/gu, '').slice(0, 30)}"`;
+    count.set(kind, (count.get(kind) || 0) + 1);
+  }
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([kind, n]) => `  ${n} x ${kind}`).join('\n') || '  nothing missing';
+}
+
 // Heals that finished in the last 7 days: runs of this workflow whose `heal` job succeeded (a run that picked nothing skips it).
 function healedThisWeek() {
   const since = Date.now() - 7 * 86400000;
@@ -78,6 +91,7 @@ async function main([action, ...rest]) {
       fs.cpSync(tape, copy, {recursive: true});
       return replay(candidate, copy, path.join(work, `out-${name}`));
     }));
+    for (const [name, copy] of [['a', copies[0]], ['b', copies[1]]]) console.log(`heal-verify: replay ${name}: ${copy ? `${copy.in_places} in places, ${copy.scored_in_places} scored, ${copy.fit70_in_places} at 70+, ${copy.stale || 'covered'}` : 'no press'}\n${shapes(path.join(work, `tape-${name}`))}`);
     const problem = agree(...copies);
     console.log(problem ? `heal-verify: NOT accepted: ${problem}` : `heal-verify: two replays agree (${copies[0].in_places} in places, ${copies[0].fit70_in_places} scoring 70+)`);
     process.exit(problem ? 1 : 0);
