@@ -57,7 +57,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
     // The same numbers as the Find jobs card on Jobs (find-card-model.js searchNumbers); the digest's own counts stay as the quiet line under them.
     const numbers = searchNumbers(run?.log), digestStats = [stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run')];
     if (numbers) {
-      stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'scored'), stat(numbers.good, 'good fits (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting for a score')] : []));
+      stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'on your list'), stat(numbers.good, 'strong matches (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting')] : []));
       const facts = el('div', 'run-card-stats muted');
       facts.append(...digestStats);
       secondary = facts;
@@ -96,7 +96,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
       : 'This run found nothing new to show. Your saved jobs are in Jobs.'));
     // Fewer in Jobs than listed: the button counts what it opens, and a line says where the rest are ("7 of 10" read as a mismatch, 7 Oct 2026).
     // "of these N", not "N more": some of them are the Not scored rows just above (8 Oct 2026: "4 more" under two of those four).
-    if (here && here < total) rows.append(el('li', 'muted', `${total - here} of these ${total} ${total - here === 1 ? 'is' : 'are'} not in Jobs yet: waiting for a score.`));
+    if (here && here < total) rows.append(el('li', 'muted', `${total - here} of these ${total} ${total - here === 1 ? 'is' : 'are'} not in Jobs yet: still waiting.`));
     const words = !total || nothingNew ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} in Jobs →`;
     const view = el('button', 'link', words);
     view.addEventListener('click', () => {

@@ -16,7 +16,7 @@ const button = (text, handler, className = 'primary') => Object.assign(el('butto
 // This search's three numbers (find-card-model.js runCounts): possible matches (rising as each employer is read), scored, good fits 70+. While searching they flash when they go up, like the counters below
 // (components.js setCount): the card is drawn again at every change, so each new number starts from the one shown before.
 function runNumbers(model, live = true) {
-  const cells = [['Found', 'matches'], ['Scored', 'scored'], ['Good fits (70+)', 'good']];
+  const cells = [['Found', 'matches'], ['On your list', 'scored'], ['Strong matches (70+)', 'good'], ['Waiting', 'waiting']];
   const strip = numberStrip(cells.map(([label, key]) => ({label, value: String(model[key])})), {valueFirst: true});
   strip.querySelectorAll('.insight-number-value').forEach((node, i) => {
     const key = cells[i][1], before = shown[key];
@@ -50,11 +50,11 @@ function draw(model) {
     chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
     const lines = el('ul', 'run-card-rows');
     lines.append(...model.lines.map(text => el('li', 'run-card-row', text)));
-    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches} found so far, ${model.scored} scored` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Job Pilotto; a found job joins your matches below once it is scored.']}),
+    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Job Pilotto; a found job joins your list below once it is checked.']}),
       runNumbers(model), readProgress(model), chips, lines);
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before
-    card.replaceChildren(cardHead('Search done', ran ? `${model.matches} found, ${model.scored} scored` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: [model.waiting ? `${model.waiting.toLocaleString('en-US')} more possible job${model.waiting === 1 ? ' is' : 's are'} still waiting for a score. Run Find jobs again to score ${model.waiting === 1 ? 'it' : 'them'}.` : 'The best matches are first. Find jobs again any time.']}),
+    card.replaceChildren(cardHead('Search done', ran ? `${model.scored} new on your list` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: [model.waiting ? `${model.waiting.toLocaleString('en-US')} more possible job${model.waiting === 1 ? ' is' : 's are'} still waiting. Run Find jobs again to check ${model.waiting === 1 ? 'it' : 'them'}.` : 'The best matches are first. Find jobs again any time.']}),
       ...(ran ? [runNumbers(model, false)] : []));
   } else if (model.state === 'failed') {
     card.replaceChildren(cardHead('Search stopped', 'The search did not finish', {subtitles: [model.problem || 'Nothing is lost. Try again; if it keeps stopping, check your AI settings.']}),

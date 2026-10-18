@@ -147,8 +147,8 @@ export function showJobsData(data) {
     const count = jobCounts(data);   // one definition for every count (jobs-view.js), the Find jobs card's too
     $('jobs-stats').textContent = `${count.total} matches` +
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
-      // Found but not read and scored yet: the next refreshes take them, a batch at a time, best places first (src/daily.py).
-      (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
+      // Found but not checked yet (the engine: not scored): the next refreshes take them, a batch at a time, best places first (src/daily.py).
+      (data.waiting ? ` · ${data.waiting} waiting, run Find jobs again` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');   // about Notion
     $('jobs-stats').title = `${count.scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     const totalBefore = $('stat-total').textContent, flash = setCount($('stat-total'), count.total);
