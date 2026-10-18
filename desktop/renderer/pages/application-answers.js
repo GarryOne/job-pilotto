@@ -62,7 +62,7 @@ function row(view, {key, title, under, value, needs, field, kind = null, optiona
   chevron.addEventListener('click', toggle);
   toggleOnBar(head, toggle);
   const words = el('div', 'qa-words');
-  words.append(el('b', '', title));
+  words.append(Object.assign(el('b', 'qa-title', title), {title}));   // long questions clamp to two lines (CSS); the whole one on hover and in the open row
   if (under) words.append(el('span', 'muted small', under));
   head.append(chevron, words, isOpen ? pill('Editing', 'signal') : status && !value ? status : el('span', value ? 'qa-value' : 'qa-value muted', value ? shown(value) : optional ? 'Optional' : 'Not set'));
   if (button) {
@@ -100,6 +100,9 @@ function optionalFold(view, items) {
 
 // A question saved by a build before 17 Oct 2026 was cut at 120 characters (#1281): said under it, never guessed back.
 const cutShort = question => String(question || '').length >= 118 && String(question).length <= 120 && /[\p{L}\p{N}]$/u.test(question);
+// A question as a row's title: a cut one ends in "…" (never mid-word with nothing after), and every row that shows it says why (saved and Needs review alike).
+const titleOf = question => (cutShort(question) ? `${shown(question)}…` : shown(question));
+const cutNote = question => (cutShort(question) ? 'Cut short by an older version' : '');
 // A section's notes (an instruction for the AI, not an answer: owner, 17 Oct 2026) folded in one row; still on the page and still sent to the AI.
 function noteFold(notes) {
   const fold = el('details', 'plain qa-note-fold');
@@ -107,8 +110,8 @@ function noteFold(notes) {
     ...notes.map(note => el('p', 'muted small qa-note', shown(note.value || note.text))));
   return fold;
 }
-const answerRow = (view, item) => row(view, {key: item.id, button: false, title: item.kind === 'note' ? 'Note' : shown(item.question),
-  under: [item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), item.guess && !drafts.has(item.id) ? 'Unconfirmed: saved as a guess' : '', cutShort(item.question) ? 'Cut short by an older version' : ''].filter(Boolean).join(' · '), value: valueOf(item), needs: missing(item), optional: item.optional,
+const answerRow = (view, item) => row(view, {key: item.id, button: false, title: item.kind === 'note' ? 'Note' : titleOf(item.question),
+  under: [item.asked ? `Asked by ${item.asked}` : item.kind === 'note' ? '' : shown(item.hint), item.guess && !drafts.has(item.id) ? 'Unconfirmed: saved as a guess' : '', cutNote(item.question)].filter(Boolean).join(' · '), value: valueOf(item), needs: missing(item), optional: item.optional,
   field: () => (item.kind === 'note' ? input(valueOf(item), text => setAnswer(view, item, text), {placeholder: 'Your answer', ariaLabel: 'Note'}) : answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer')),
   kind: item.kind === 'note' ? null : () => kindField(view, item)});
 
@@ -198,7 +201,7 @@ function draw(view, into) {
     review.classList.add('is-review');
     for (const entry of open) {
       const {item, section} = entry, sure = statusOf(entry);
-      review.append(...row(view, {key: `review:${item.id}`, title: shown(item.question), under: [item.asked ? `Asked by ${item.asked}` : '', shown(section.title) || 'Answers'].filter(Boolean).join(' · '),
+      review.append(...row(view, {key: `review:${item.id}`, title: titleOf(item.question), under: [item.asked ? `Asked by ${item.asked}` : '', shown(section.title) || 'Answers', cutNote(item.question)].filter(Boolean).join(' · '),
         value: valueOf(item), needs: true, status: statusPill(sure.label, sure.tone, sure.glyph), action: sure.action,
         field: () => answerField(view, item, item.hint ? `e.g. ${shown(item.hint)}` : 'Your answer', entry), kind: () => kindField(view, item)}));
     }
