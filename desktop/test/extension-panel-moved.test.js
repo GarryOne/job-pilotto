@@ -24,6 +24,6 @@ test('the panel: moved is never ready, shows Go there, and the worker brings the
   assert.match(panel, /ready = !moved && (?:!pageMark && )?total > 0 && left === 0/);
   assert.match(panel, /moved \? 'Continues in another tab'/g);
   assert.match(panel, /\$\('\.go-there'\)\.onclick = .*type: 'panelGoTab', tab: movedTab/);
-  assert.match(read('panel-markup.js'), /class="secondary go-there" hidden/);
+  assert.match(read('panel-markup.js'), /class="link go-there" hidden/);
   assert.match(read('messages-panel.js'), /message\?\.type === 'panelGoTab'[\s\S]*chrome\.tabs\.update\(message\.tab, \{active: true\}\)/);
 });
