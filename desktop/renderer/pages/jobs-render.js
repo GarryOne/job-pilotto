@@ -211,7 +211,7 @@ export function renderJobs() {
       if (result.ok) { shared.openedInChrome.add(pageKey(job.url)); renderJobs(); } else if (result.needsExtension) { /* the install dialog is open (extension-needed.js) */ } else if (button) button.textContent = 'No link';
       else toastMessage('Could not open the job', 'It has no link.');
     };
-    if (job.status !== 'applied' && job.url && job.kit) {
+    if (job.status !== 'applied' && job.url && (job.kit || job.ready)) {
       // Stays "Opened" for the session (until marked applied); a click opens it again.
       const opened = shared.openedInChrome.has(pageKey(job.url));
       // The easy way is the main button: Chrome opens the form in a normal tab and the extension fills it from the kit.
@@ -226,9 +226,14 @@ export function renderJobs() {
         box.append(open);
         menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
       } else {
-        const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened ↻' : 'Apply'), {
-          title: opened ? 'Opened in Chrome: click to open it there again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
-        fill.addEventListener('click', () => fillInChrome(fill));
+        // Filled on the server: the main button opens that filled form (the night's hand-off) to check and submit, not a new fill.
+        const fill = Object.assign(el('button', `row-main ${opened && !job.ready ? 'state-opened' : 'state-apply'}`, job.ready ? 'Review & submit' : opened ? 'Opened ↻' : 'Apply'), {
+          title: job.ready ? 'The server filled this form overnight: open it in Chrome, check it and press Submit yourself' : opened ? 'Opened in Chrome: click to open it there again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+        fill.addEventListener('click', async () => {
+          if (!job.ready) return fillInChrome(fill);
+          const result = await window.pilot.readyOpen(job.code).catch(error => ({ok: false, error: error.message}));
+          if (result.ok) { shared.openedInChrome.add(pageKey(job.url)); renderJobs(); } else toastMessage('Could not open the filled form', result.error || 'Try again from Actions → Ready to send.');
+        });
         box.append(fill);
         if (jobsState.claudeReady && claudeHelp()) {
           const started = claudeStarted.has(pageKey(job.url));

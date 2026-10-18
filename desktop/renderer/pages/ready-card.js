@@ -3,7 +3,7 @@
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {$} from './core.js';
-import {liveOf, rowOf} from './ready-rows.js';
+import {liveOf, readyToSubmit, rowOf} from './ready-rows.js';
 import {liveParts} from './ready-live.js';
 import {showFillVideo} from './ready-video.js';
 import {confirmFill} from './ready-confirm.js';
@@ -19,7 +19,7 @@ export function paint(card, state, names, act) {
   // The night and tonight as badges (owner, 18 Oct 2026: "these status lines should be shown as badges"); the details stay in each badge's tooltip.
   const summary = el('div', 'ready-summary');
   if (night) {
-    const ready = jobs.filter(job => job.state === 'prepared').length, needs = jobs.filter(job => ['partial', 'wall'].includes(job.state)).length;
+    const ready = jobs.filter(readyToSubmit).length, needs = jobs.filter(job => ['partial', 'wall'].includes(job.state)).length;
     if (night.night) summary.append(el('span', 'muted', `Night of ${night.night}`));
     summary.append(pill(`${jobs.length} form${jobs.length === 1 ? '' : 's'}`, 'neutral'));
     if (ready) summary.append(pill(`${ready} ready`, 'good'));

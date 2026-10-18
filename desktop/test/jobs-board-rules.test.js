@@ -17,8 +17,8 @@ test('the board has a column for every Applications stage in the schema, and not
   assert.deepEqual([...STAGES].sort(), [...stageOptions].sort());
 });
 
-test('the 10 saved views of the Applications database, each a Stage set as in Notion', () => {
-  assert.deepEqual(VIEWS.map(view => view.label), ['All applications', 'Active', 'Applying', 'Kit ready', 'Saved', 'Closed', 'Dismissed', 'All', 'Rejected', 'This week']);
+test('the 10 saved views of the Applications database, each a Stage set as in Notion, and the app\'s own Ready to submit (filled on the server, pages/jobs-ready.js)', () => {
+  assert.deepEqual(VIEWS.map(view => view.label), ['All applications', 'Active', 'Applying', 'Kit ready', 'Ready to submit', 'Saved', 'Closed', 'Dismissed', 'All', 'Rejected', 'This week']);
   const of = id => STAGES.filter(stage => inView(job(stage), id, NOW));
   assert.deepEqual(of('active'), ['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer']);
   assert.deepEqual(of('all-applications'), ['Applying', 'Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer', 'Rejected', 'No response', 'Withdrawn']);

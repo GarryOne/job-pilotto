@@ -16,7 +16,7 @@ import {complete, settingsOf} from './ready.js';
 import * as site from './ready-site.js';
 import * as handoffs from './ready-handoff.js';
 import {setVisitRoute} from './server-hooks.js';
-import {waitingOf} from '../renderer/pages/ready-rows.js';
+import {readyToSubmit, waitingOf} from '../renderer/pages/ready-rows.js';
 
 // What the AI may answer a form from: the same texts the normal Apply gives it (Profile, standard answers, search settings, the CV's facts).
 async function facts(storage) {
@@ -47,6 +47,16 @@ export function registerReadyHandlers({ipcMain, notify = () => {}, shell, storag
     storage.saveSettings({ready: {...settings(), told: night}});
     notify('Ready to send ✓', `${waiting.ready} form${waiting.ready === 1 ? '' : 's'} filled overnight${waiting.left ? `, ${waiting.left} need you` : ''}. Open Actions to press Submit.`, {view: 'actions'});
   };
+  // Which jobs the night filled and left ready to submit (ready-rows.js readyToSubmit): the Jobs list marks them. Light, no job read; a kept answer for 30 s.
+  let codesAt = 0, codesKept = null;
+  ipcMain.handle('readyCodes', async () => {
+    if (process.env.JOB_PILOTTO_DEMO) { try { return {ok: true, codes: (JSON.parse(fs.readFileSync(storage.path('ready.json'), 'utf8')).site?.jobs || []).filter(readyToSubmit).map(job => job.job)}; } catch { return {ok: false}; } }
+    if (codesKept && Date.now() - codesAt < 30000) return codesKept;
+    const rows = await site.status(storage).catch(() => ({ok: false}));
+    if (!rows.ok) return {ok: false};
+    codesKept = {ok: true, codes: (rows.jobs || []).filter(readyToSubmit).map(job => job.job)}; codesAt = Date.now();
+    return codesKept;
+  });
   ipcMain.handle('readyState', async () => {
     if (process.env.JOB_PILOTTO_DEMO) { try { return JSON.parse(fs.readFileSync(storage.path('ready.json'), 'utf8')); } catch { return {owner: false}; } }   // the demo's fictional night (desktop/demo/ready.json)
     const rows = await site.status(storage);

@@ -1,6 +1,7 @@
 // Jobs → Board and the saved views, the rules without a window: the stage columns in funnel order, the Applications database's 10 views
 // (read from the real workspace's view filters, 9 Oct 2026) and which app action a card dropped on a column asks for.
 // Guarded by: test/jobs-board-rules.test.js. Drawn by pages/jobs-board.js and pages/jobs-views.js.
+import {READY_LABEL} from './pages/ready-rows.js';
 
 // Every Applications Stage (config/notion_schema.json), in the order a job moves through them.
 export const STAGES = ['Recruiter lead', 'Saved', 'Kit ready', 'Applying', 'Applied', 'Confirmation received', 'Screening',
@@ -34,6 +35,7 @@ export const VIEWS = [
   // filter for Applying" beside a chip that did it under another word). A chip of one stage carries that stage's name (test/jobs-board-rules.test.js).
   {id: 'applying', label: 'Applying', title: 'A form under way, its session open or not', test: among(['Applying'])},
   {id: 'kit-ready', label: 'Kit ready', title: 'A kit is drafted: ready to apply', test: among(['Kit ready'])},
+  {id: 'ready-to-submit', label: READY_LABEL, title: 'Filled on the server: open the form, check it and press Submit yourself', test: job => !!job.ready && job.status !== 'applied'},
   {id: 'saved', label: 'Saved', title: 'Jobs you saved for later', test: among(['Saved'])},
   {id: 'closed', label: 'Closed', title: 'Postings that closed before you applied', test: among(['Closed'])},
   {id: 'dismissed', label: 'Dismissed', title: 'Jobs you set aside', test: among(['Dismissed'])},
