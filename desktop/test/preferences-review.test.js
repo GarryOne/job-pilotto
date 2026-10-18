@@ -35,10 +35,13 @@ test('the card shows what the AI flagged (old -> proposed); Accept drafts the va
   assert.match(asked[0].fields.countries, /Switzerland/, 'Countries are still read: the Workload rule needs them');
   const card = node.querySelector('#preferences-review-card');
   assert.ok(card, 'the review card is drawn');
-  const lines = card.querySelectorAll('.pref-review-row');
+  const lines = card.querySelectorAll('.pref-choice');
   assert.deepEqual(lines.map(line => line.dataset.field), ['roles'], 'no row for Countries or Preferred cities: Locations edits them');
-  assert.match(lines[0].textContent, /SRE, or platform engineering/);
-  assert.match(lines[0].textContent, /Site reliability engineer/);
+  // The shared choice row: Now and Proposed side by side, a list as chips with the dropped ones struck and the new ones marked added.
+  const chips = tone => lines[0].querySelectorAll(`.choice-tone-${tone} .chip-tag`).map(chip => [chip.querySelector('.chip-value').textContent, chip.className.match(/is-(add|gone)/)?.[1] || '']);
+  assert.deepEqual(chips('now'), [['SRE', 'gone'], ['or platform engineering', 'gone']]);
+  assert.deepEqual(chips('new'), [['Site reliability engineer', 'add']]);
+  assert.equal(lines[0].querySelectorAll('button.primary').length, 0, 'the card\'s one primary is Accept all');
   assert.equal((await pageBar(node)).hidden, true, 'nothing drafted yet');
   lines[0].querySelectorAll('button').find(button => button.textContent === 'Accept').click();
   assert.equal((await pageBar(node)).hidden, false);
@@ -53,10 +56,10 @@ test('the card shows what the AI flagged (old -> proposed); Accept drafts the va
 test('Keep mine drafts nothing and the card drops that field; no card when the AI flagged nothing or is unavailable', async () => {
   const sent = [];
   const node = await open(profile('Switzerland'), PARSE, sent);
-  node.querySelector('.pref-review-row').querySelectorAll('button').find(button => button.textContent === 'Keep mine').click();
+  node.querySelector('.pref-choice').querySelectorAll('button').find(button => button.textContent === 'Keep mine').click();
   assert.equal((await pageBar(node)).hidden, true);
   assert.equal(sent.length, 0);
-  assert.deepEqual(node.querySelectorAll('.pref-review-row').map(line => line.dataset.field), [], 'roles kept as mine');
+  assert.deepEqual(node.querySelectorAll('.pref-choice').map(line => line.dataset.field), [], 'roles kept as mine');
   const none = await open(profile('Switzerland, Germany'), {...PARSE, roles: [], unparsed: []});
   assert.equal(none.querySelector('#preferences-review-card'), null);
   const off = await open(profile('Switzerland (anywhere), or remote'), null);

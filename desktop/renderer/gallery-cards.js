@@ -3,7 +3,7 @@
 import {cardEdit, el} from './components.js';
 import {chipLine, editRows, readRows, setEditing} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
-import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
+import {choiceRow, diffItems, emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
 import {refresh, segmented} from './question-control-values.js';
 
@@ -70,6 +70,11 @@ export function pageBlocks() {
     panel('summaryTiles score', summaryTiles([{key: 'fit', tone: 'good', label: 'Fit for your roles', score: 82}, {key: 'read', tone: 'ok', label: 'Easy to read', score: 64},
       {key: 'gaps', tone: 'low', label: 'Skills shown', score: 38}, {key: 'none', label: 'Not scored yet', score: null}])),
     panel('referenceRow', referenceRow({text: 'Swiss permit B · notice period 3 months'})),
+    panel('choiceRow: a proposal (Now / Proposed)', choiceRow({key: 'roles', title: 'Role priorities', sides: (({now, next}) => [{who: 'Now', tone: 'now', items: now}, {who: 'Proposed', tone: 'new', items: next}])(
+      diffItems(['Data Analyst', 'BI or analytics?'], ['Data Analyst', 'Analytics Engineer'])), actions: [{label: 'Accept'}, {label: 'Keep mine', link: true}]})),
+    panel('choiceRow: two sources, no winner', choiceRow({key: 'places', title: 'Preferred locations', sides: [
+      {who: 'Strategy', tone: 'violet', items: [{text: 'Lisbon'}, {text: 'Porto', mark: 'only'}]}, {who: 'Profile', tone: 'teal', text: 'Lisbon and surroundings'}],
+      actions: [{label: "Use Strategy's", tone: 'violet'}, {label: "Use Profile's", tone: 'teal'}, {label: 'Choose…', link: true}]})),
   );
   return box;
 }

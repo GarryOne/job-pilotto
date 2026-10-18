@@ -142,3 +142,27 @@ test('the blocks are linked and in the gallery (the rules: docs/rules/desktop-ui
   for (const page of ['index.html', 'gallery.html']) assert.match(read(page), /href="page-parts\.css"/, page);
   for (const part of ['reviewList(', 'emptyState(', 'summaryTiles(', 'referenceRow(']) assert.ok(read('gallery-cards.js').includes(part), part);
 });
+
+test('choice row: name and buttons on one line, two tinted sides, the difference on chips, one primary at most, "+N more" after 10', async () => {
+  const {choiceRow, diffItems} = await import('../renderer/page-parts.js');
+  const {now, next} = diffItems(['SRE', 'DevOps?'], ['sre', 'Platform Engineer']);
+  assert.deepEqual(now.map(item => item.mark), ['', 'gone']);
+  assert.deepEqual(next.map(item => item.mark), ['', 'add'], 'case aside');
+  const pressed = [];
+  const row = choiceRow({key: 'roles', title: 'Role priorities', sides: [{who: 'Now', tone: 'now', items: now}, {who: 'Proposed', tone: 'new', items: next}],
+    actions: [{label: 'Accept', primary: true, run: () => pressed.push('a')}, {label: 'Also primary', primary: true}, {label: 'Keep mine', link: true}]});
+  assert.equal(row.querySelector('.choice-head .choice-title').textContent, 'Role priorities');
+  assert.deepEqual(row.querySelectorAll('.choice-side').map(side => side.className), ['choice-side choice-tone-now', 'choice-side choice-tone-new']);
+  assert.equal(row.querySelectorAll('button.primary').length, 1, 'one primary');
+  assert.equal(row.querySelectorAll('.chip-tag.is-gone').length + row.querySelectorAll('.chip-tag.is-add').length, 2);
+  row.querySelector('button.primary').click();
+  assert.deepEqual(pressed, ['a']);
+  const long = choiceRow({sides: [{who: 'Strategy', tone: 'violet', items: Array.from({length: 14}, (_, n) => ({text: `Place ${n}`}))}, {who: 'Profile', tone: 'teal', text: ''}]});
+  assert.equal(long.querySelectorAll('.choice-tone-violet .chip-tag').length, 10);
+  assert.equal(long.querySelector('.chip-more').textContent, '+4 more');
+  assert.equal(long.querySelector('.choice-tone-teal .choice-text').textContent, 'Not set');
+});
+
+test('class: every "pick a value" card draws the shared choice row', () => {
+  for (const file of ['pages/preferences-review.js', 'pages/locations-which.js']) assert.match(read(file), /choiceRow\(\{/, `${file} uses choiceRow`);
+});

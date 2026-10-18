@@ -1,8 +1,8 @@
 // Shared page blocks of the UI redesign (owner, 18 Oct 2026, via the coordinator: "the design system needs these before B, C and D each build their own"):
 // a review list (pending first, done folded as "Reviewed · N"), an empty state ("Not created" + one line + two actions), summary tiles (icon, label, big
-// value), and a read-only reference row ("From Your details" + one link). Styles: page-parts.css. Rules: docs/rules/desktop-ui.md "Page blocks".
+// value), a read-only reference row ("From Your details" + one link) and a choice row (two values side by side, pick one). Styles: page-parts.css. Rules: docs/rules/desktop-ui.md "Page blocks".
 // Living copy: npm run gallery → "Page blocks". Guarded by test/page-parts.test.js.
-import {el, pill, tile} from './components.js';
+import {chip, el, pill, tile} from './components.js';
 import {icon} from './icons.js';
 
 const button = (label, className, run, aria = '') => {
@@ -122,4 +122,48 @@ export function referenceRow({text = '', from = 'From Your details', link = 'Edi
   const row = el('div', 'reference-row');
   row.append(el('span', 'muted small reference-from', from), el('span', 'reference-text', text), button(link, 'link small', () => open()));
   return row;
+}
+
+// A "pick a value" row (owner, 18 Oct 2026, on Review your preferences and Which locations are right?: "Accept is too fat. Text is too much"; sketch
+// approved): the setting's name and its buttons on one line (normal height, one primary at most), then the two sides beside each other, each in its own
+// colour (tone 'now' grey, 'new' violet for a proposal; 'violet' / 'teal' for two sources), values as chips with the difference marked: 'add' (+, green),
+// 'gone' (struck, red), 'only' (outlined: only on this side); after 10, "+N more". A side with text instead of items shows it as written.
+// sides: [{who, tone, items?: [{text, mark?}], text?}]; actions: [{label, run(button), primary?, tone?, link?, aria?, title?}]. Extra content (a typed
+// field) is appended by the caller under the row.
+const CHOICE_SHOWN = 10;
+function choiceChips(items) {
+  const line = el('div', 'chip-list');
+  const draw = item => { const node = chip(item.text); if (item.mark) node.classList.add(`is-${item.mark}`); return node; };
+  line.append(...items.slice(0, CHOICE_SHOWN).map(draw));
+  if (items.length > CHOICE_SHOWN) {
+    const more = button(`+${items.length - CHOICE_SHOWN} more`, 'link small chip-more', () => more.replaceWith(...items.slice(CHOICE_SHOWN).map(draw)));
+    line.append(more);
+  }
+  return line;
+}
+export function choiceRow({key = '', title = '', sides = [], actions = []} = {}) {
+  const row = el('div', 'choice-row'), head = el('div', 'choice-head'), buttons = el('div', 'choice-actions'), both = el('div', 'choice-sides');
+  row.dataset.key = key;
+  let lead = false;
+  for (const action of actions) {
+    const primary = action.primary && !lead && (lead = true);
+    const look = action.link ? 'link small' : primary ? 'primary small-btn' : `secondary small-btn${action.tone ? ` choice-tone-${action.tone}` : ''}`;
+    const node = button(action.label, look, () => action.run?.(node), action.aria);
+    if (action.title) node.title = action.title;
+    buttons.append(node);
+  }
+  head.append(el('b', 'choice-title', title), buttons);
+  for (const side of sides) {
+    const box = el('div', `choice-side choice-tone-${side.tone || 'now'}`);
+    box.append(el('span', 'choice-who', side.who || ''), side.items ? choiceChips(side.items) : el('span', 'choice-text', String(side.text || '').trim() || 'Not set'));
+    both.append(box);
+  }
+  row.append(head, both);
+  return row;
+}
+// Two lists compared, case and spacing aside: what is now ('gone' when the other side drops it) and what is proposed ('add' when it is new).
+export function diffItems(now = [], next = []) {
+  const same = text => String(text).trim().toLowerCase();
+  const had = new Set(now.map(same)), will = new Set(next.map(same));
+  return {now: now.map(text => ({text, mark: will.has(same(text)) ? '' : 'gone'})), next: next.map(text => ({text, mark: had.has(same(text)) ? '' : 'add'}))};
 }

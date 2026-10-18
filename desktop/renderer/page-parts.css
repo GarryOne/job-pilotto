@@ -65,3 +65,29 @@
 .reference-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); }
 .reference-text { min-width: 0; overflow-wrap: anywhere; }
 .reference-row > button.link { margin-left: auto; }
+
+/* Choice row (choiceRow): name + buttons on one line, the two sides beside each other (one column when narrow), each side tinted by its tone; chips mark
+   the difference: + added (green), struck removed (red), outlined only on this side. */
+.choice-row { display: grid; gap: var(--sp-2); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.choice-row:first-child { border-top: 0; }
+.choice-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.choice-title { flex: 1; min-width: 0; font-size: var(--fs-md); }
+.choice-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.choice-actions > button { white-space: nowrap; }
+.choice-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
+.choice-side { display: grid; align-content: start; gap: var(--sp-1); min-width: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); }
+.choice-who { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.choice-text { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.choice-side.choice-tone-new, .choice-side.choice-tone-violet { background: var(--violet-soft); border-color: transparent; }
+.choice-side.choice-tone-new .choice-who, .choice-side.choice-tone-violet .choice-who { color: var(--violet); }
+.choice-side.choice-tone-teal { background: var(--teal-soft); border-color: var(--teal-line); }
+.choice-side.choice-tone-teal .choice-who { color: var(--teal); }
+.choice-side.choice-tone-now .chip-tag { background: var(--surface); }   /* a chip on the grey side keeps its edge */
+.choice-side .chip-tag.is-add { background: var(--good-soft); color: var(--good); }
+.choice-side .chip-tag.is-add::before { content: "+"; }
+.choice-side .chip-tag.is-gone { background: var(--bad-soft); color: var(--bad); text-decoration: line-through; }
+.choice-side .chip-tag.is-only { background: transparent; box-shadow: inset 0 0 0 1px currentColor; font-weight: 600; }
+.choice-tone-violet .chip-tag.is-only { color: var(--violet); }
+.choice-tone-teal .chip-tag.is-only { color: var(--teal); }
+.choice-actions .choice-tone-violet { color: var(--violet); border-color: var(--violet); }
+.choice-actions .choice-tone-teal { color: var(--teal); border-color: var(--teal); }

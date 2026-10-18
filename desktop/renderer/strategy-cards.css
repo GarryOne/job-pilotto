@@ -35,3 +35,5 @@
 .strategy-page .pref-read-head .icon { width: 16px; height: 16px; color: var(--ink-2); }
 .strategy-page .pref-review-row { display: flex; align-items: center; gap: var(--sp-3); justify-content: space-between; margin-bottom: var(--sp-3); }
 .strategy-page .pref-review-row > button { flex: none; white-space: nowrap; }
+/* Which locations are right?: no empty message line under the lead (owner, 18 Oct 2026: "a big empty gap under the subtitle"). */
+#locations-which-message:empty, #locations-set-aside:empty { display: none; }

@@ -94,7 +94,7 @@ test('the AI review offers only the fields the card draws, even when it read wor
   body.replaceChildren(node);
   await (await import('../renderer/pages/job-preferences.js')).loadPreferences();
   await new Promise(resolve => setTimeout(resolve, 10));
-  const rows = node.querySelectorAll('.pref-review-row').map(each => each.dataset.field);
+  const rows = node.querySelectorAll('.pref-choice').map(each => each.dataset.field);
   assert.ok(rows.length >= 1, 'the card is drawn');
   for (const key of rows) assert.ok(FIELDS.find(field => field.key === key)?.side, `${key} is drawn here`);
 });

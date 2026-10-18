@@ -41,7 +41,7 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 - **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
   `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
 
-## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
+## Page blocks: review list, empty state, tiles, reference row, choice row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
 - **Review list** `reviewList(items, {doneLabel, empty, statusAt, joined, doneSummary})`: each item = title, why it is here, where it came from, a status chip, its
   actions (orange only for the first pending `primary`; others outlined, or `link: true` for Dismiss/Undo; `aria` names the row when rows share action words).
@@ -51,6 +51,10 @@ One shared version of each, never a page's own (`renderer/page-parts.js` + `page
 - **Summary tiles** `summaryTiles([{key, icon, tone, label, value, note, title, score, max}])`: icon, label, big value; empty = "Not set"; as many across as fit (≥ 240px each).
   A `score` (of `max`, default 100) draws a ring in the tone (good / ok / low) in place of the icon (CV scores).
 - **Reference row** `referenceRow({text, from: 'From Your details', link: 'Edit in Your details', open})`: a fact kept on another page, one quiet link there.
+- **Choice row** `choiceRow({key, title, sides: [{who, tone, items|text}], actions})` + `diffItems(now, next)`: any "pick a value" card (Review your
+  preferences, Which locations are right?). Name and normal-height buttons on one line (one primary at most; `link: true` for Keep mine / Choose…; `tone`
+  colours an outlined button by its side), the two sides beside each other in their tones (`now` grey, `new` violet; `violet` / `teal` for two sources),
+  chips marked `add` / `gone` / `only`, "+N more" after 10. Never two paragraphs to compare by eye; never an empty "Advanced" box.
 - **One count, every place** `defineCount(name, compute)` + `paintCount(name)`: the banner (`data-count-of` + `data-count-one`/`-many` for words), the filter
   chip and the tab badge (`data-count-of`) are painted from the same function, so they never disagree; 0 hides them unless `data-count-zero="show"`.
 - **Page header** (`header.view-head`): `h1` + one muted lead line, then `.head-actions`: the sync status (`.synced`), quiet buttons, the ⋯ menu (`moreButton`,
