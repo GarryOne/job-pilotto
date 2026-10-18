@@ -73,3 +73,24 @@ test('app.relaunch( is called only from lib/restart.js: a new caller must use th
   walk(root);
   assert.deepEqual(found, ['lib/restart.js']);
 });
+
+test('an exit restart (reset, import, demo) stops the engine runs before the app exits; a quit restart leaves that to the quit guards', () => {
+  const stopped = [];
+  const app = new EventEmitter(), calls = [];
+  app.relaunch = () => calls.push('relaunch'); app.quit = () => calls.push('quit'); app.exit = () => calls.push('exit');
+  const restarter = createRestarter({app, beforeExit: () => { stopped.push(calls.length); }});
+  restarter.restart('reset', undefined, {how: 'exit'});
+  assert.deepEqual(stopped, [0], 'runs are stopped before relaunch and exit');
+  assert.deepEqual(calls, ['relaunch', 'exit']);
+  const second = createRestarter({app: Object.assign(new EventEmitter(), {quit() {}, relaunch() {}, exit() {}}), beforeExit: () => stopped.push('quit')});
+  second.restart('fixes');
+  assert.deepEqual(stopped, [0], 'a quit restart does not call beforeExit');
+});
+
+test('a throwing beforeExit is logged and the restart still happens', () => {
+  const app = new EventEmitter(), calls = [], logs = [];
+  app.relaunch = () => calls.push('relaunch'); app.exit = () => calls.push('exit');
+  createRestarter({app, log: message => logs.push(message), beforeExit: () => { throw new Error('boom'); }}).restart('reset', undefined, {how: 'exit'});
+  assert.deepEqual(calls, ['relaunch', 'exit']);
+  assert.ok(logs.some(line => /stopping runs failed: boom/.test(line)));
+});

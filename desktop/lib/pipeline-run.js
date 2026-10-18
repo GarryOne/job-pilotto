@@ -7,6 +7,7 @@ import * as engineLog from './engine-log.js';
 import {log as appLog} from './log.js';
 import {readResult} from './run-result.js';
 import {spawn} from 'node:child_process';
+import {killTree} from './kill-tree.js';
 import {randomBytes} from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -20,7 +21,7 @@ import {ticketRunning} from './pipeline-queue.js';
 // The pipeline processes running now: stopRunning() ends them cleanly when the app quits (instead of them
 // failing on their next line once the app is gone).
 const children = new Set();
-export function stopRunning() { for (const child of children) child.kill('SIGTERM'); }
+export function stopRunning(options) { for (const child of [...children]) killTree(child, options); }
 // Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine (made readable).
 // stdout itself stays as printed, for the callers that parse it.
 // Every finished run is told to these (technical reports: a failed run, with its last lines; lib/telemetry.js).
@@ -56,14 +57,14 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
   const owner = ticket && told === ticket.tee ? ticket : null;
   if (owner?.stopped) { engineLog.end({code: null, seconds: 0, runId}); return Promise.resolve({code: null, stdout: '', result: null, runId, timedOut: false}); }
   return new Promise((resolve, reject) => {
-    const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv,
+    const child = spawn(python(), ['-m', ...args], {cwd: REPO, detached: process.platform !== 'win32', env: {...pipelineEnv(storage), ...extraEnv,
       JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
     owner?.children.add(child);
     child.on('exit', () => { children.delete(child); owner?.children.delete(child); });
     const stopper = stopAfterMs ? setTimeout(() => {
       appLog('run', `stopped after ${Math.round(stopAfterMs / 1000)} s: python -m ${shown.join(' ')} (its answer is no longer used)`, {run_id: runId});
-      child.kill('SIGTERM');
+      killTree(child);
     }, stopAfterMs) : null;
     child.on('exit', () => clearTimeout(stopper));
     let stdout = '', buffer = '', lastOutputAt = awakeNow(), timedOut = '', killTimer = null, rowUrl = '';
@@ -75,8 +76,8 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       if (!timedOut) return;
       appLog('run', `watchdog: python -m ${shown.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
       onLine(`⚠️ ${stoppedReason(timedOut)} The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
-      child.kill('SIGTERM');
-      killTimer = setTimeout(() => child.kill('SIGKILL'), LIMITS.killAfterMs);
+      killTree(child);
+      killTimer = setTimeout(() => killTree(child, {signal: 'SIGKILL'}), LIMITS.killAfterMs);
     }, LIMITS.checkMs) : null;
     const lines = chunk => {
       buffer += chunk;
