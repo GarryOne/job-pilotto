@@ -101,6 +101,17 @@ class HealWorkflow(unittest.TestCase):
         self.assertNotIn('Secret', out)
         self.assertNotIn('private', out)
 
+    def test_the_ai_misses_are_listed_before_the_web_ones_and_each_kind_has_its_own_room(self):
+        # 19 Oct 2026, proof 3: 12 web hosts filled the list and the one missing AI question was not shown
+        out = node("import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import {shapes} from './tools/persona-search/heal.mjs';"
+                   "const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shapes-')); const rows = [];"
+                   "for (let i = 0; i < 20; i++) for (let n = 0; n <= i; n++) rows.push(JSON.stringify({web: true, method: 'GET', url: `https://h${i}.example.de/x`}));"
+                   "rows.push(JSON.stringify({model: 'm', user: 'Strings: one'}));"
+                   "fs.writeFileSync(path.join(dir, 'missing.jsonl'), rows.join('\\n')); console.log(JSON.stringify(shapes(dir)))")
+        lines = out.split('\n')
+        self.assertIn('1 x ai m "Strings"', lines[0], 'the AI question is first, though it is the rarest')
+        self.assertEqual(sum('x web' in line for line in lines), 12, 'the web hosts are capped on their own')
+
     def test_a_tape_says_how_it_is_replayed(self):
         # 18 Oct 2026: a tape recorded on the API engine missed 59 AI requests on the plan engine at wait scale 0, 30 on its own engine, and only repeats its search at the recorded pace
         run = (ROOT / 'tools' / 'persona-search' / 'run.mjs').read_text(encoding='utf-8')

@@ -10,15 +10,19 @@ imports urllib). Off by default: a normal run never loads it.
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
   JOB_PILOTTO_TAPE_LIVE=0 (the CI replay of the Lab Job Search, no AI account there): a request the tape lacks is not asked, it is counted in
   'ai_missing' and raises, so the replay says "the tape is stale" instead of making an answer up.
+- The name lookups (socket.getaddrinfo, dns.jsonl): whether each host was found when recorded, and at which address; a replay answers the same, so the search never asks a host that did not exist
+  (careers._public). Every failed web answer (HTTP error, refusal, timeout, no host) is kept and replayed as the same kind of failure.
 - The time budget: what src/time_budget.py decided at each point (over, batch, in_calls, may_score) is kept in budget.jsonl and read back in a
   replay, so the replay takes the recording's path on any machine and thread timing (src/budget_tape.py). A tape recorded before it falls back to the clock.
 Tests: tests/test_search_tape.py, tests/test_budget_tape.py."""
+import builtins
 import email.message
 import hashlib
 import io
 import json
 import os
 import re
+import socket
 import threading
 import time
 import urllib.error
@@ -52,7 +56,7 @@ def _key(*parts):
 def _load():
     if _index:
         return _index
-    for kind in ('web', 'ai'):
+    for kind in ('web', 'ai', 'dns'):
         file = folder() / f'{kind}.jsonl'
         for line in file.read_text().splitlines() if file.exists() else []:
             try:
@@ -153,6 +157,14 @@ def _install_norm(method, url, body):
     return _key('install-post', url, _INSTALL.sub('"install": ""', text))
 
 
+def _error(record):
+    """The failure a recorded request ended in, as the same kind (a timeout stays a timeout, a refusal a refusal), not always a URLError: the search tells them apart."""
+    kind = getattr(builtins, record.get('exc') or '', None)
+    if isinstance(kind, type) and issubclass(kind, OSError) and kind is not OSError:
+        return kind(record['error'])
+    return urllib.error.URLError(record['error'])
+
+
 def _web(real):
     def urlopen(request, data=None, timeout=None, *args, **kwargs):
         url, method, key = _request_key(request, data)
@@ -170,7 +182,7 @@ def _web(real):
             if record.get('error'):
                 if record.get('status'):
                     raise urllib.error.HTTPError(url, record['status'], record['error'], {}, None)
-                raise urllib.error.URLError(record['error'])
+                raise _error(record)
             return _Reply((folder() / 'bodies' / record['key']).read_bytes(), record)
         started = time.monotonic()
         try:
@@ -181,7 +193,7 @@ def _web(real):
                           'seconds': round(time.monotonic() - started, 3)})
             raise
         except (urllib.error.URLError, OSError) as error:
-            _keep('web', {'key': key, 'url': url, 'method': method, 'error': f'{type(error).__name__}: {error}'[:200],
+            _keep('web', {'key': key, 'url': url, 'method': method, 'error': f'{type(error).__name__}: {error}'[:200], 'exc': type(error).__name__,
                           'seconds': round(time.monotonic() - started, 3)})
             raise
         norm = _install_norm(method, url, request.data if isinstance(request, urllib.request.Request) and data is None else data)
@@ -192,6 +204,36 @@ def _web(real):
         return _Reply(body, record)
     urlopen.search_tape = True
     return urlopen
+
+
+# ---------- the name lookups ----------
+
+def _lookup(real):
+    """socket.getaddrinfo with the tape: record keeps each host's first outcome (found, or the failure), replay gives it back. The search asks whether a host is public
+    before it reads it (careers._public), so a guessed address that did not exist when recorded is never asked; a replay that said every host exists made it ask (19 Oct
+    2026, proof 3: 73 web requests missing, all careers subdomains). A host the recording never looked up is answered as found, so the web check still counts it missing."""
+    def getaddrinfo(host, *args, **kwargs):
+        if host in (None, '', 'localhost', '127.0.0.1') or not isinstance(host, str):
+            return real(host, *args, **kwargs)
+        if mode() == 'replay':
+            record = _load().get(('dns', host))
+            if record is not None and not record.get('ok'):
+                raise socket.gaierror(record.get('code', -2), record.get('error') or 'Name or service not known')
+            return [(socket.AF_INET6 if ':' in ip else socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, 0)) for ip in (record or {}).get('ips') or ['93.184.216.34']]
+        try:
+            found = real(host, *args, **kwargs)
+        except socket.gaierror as error:
+            _keep_dns({'key': host, 'ok': False, 'code': error.errno, 'error': str(error.strerror or error)[:100]})
+            raise
+        _keep_dns({'key': host, 'ok': True, 'ips': sorted({str(item[4][0]) for item in found})[:4]})   # a private address stays private: careers._public reads it
+        return found
+    getaddrinfo.search_tape = True
+    return getaddrinfo
+
+
+def _keep_dns(record):
+    if ('dns', record['key']) not in _index:   # one line per host: the first outcome
+        _keep('dns', record)
 
 
 # ---------- the AI ----------
@@ -274,11 +316,8 @@ def install():
     urllib.request.urlopen = _web(urllib.request.urlopen)
     if mode() == 'replay':
         time.monotonic = virtual_now   # the budget and the paces read recorded time, whatever the wait scale
-    if mode() == 'replay':   # the engine checks a host is public by looking it up (careers._public): offline, every board would read as unreachable
-        import socket
-        real_lookup = socket.getaddrinfo
-        socket.getaddrinfo = lambda host, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 0))] \
-            if host not in ('localhost', '127.0.0.1') else real_lookup(host, *a, **k)
+    if not getattr(socket.getaddrinfo, 'search_tape', False):   # the engine checks a host is public by looking it up (careers._public)
+        socket.getaddrinfo = _lookup(socket.getaddrinfo)
     from .ai import providers
     real_build = providers.build
     providers.build = lambda env=None, action='', log=None: _Client(lambda: real_build(env, action, log))
