@@ -32,7 +32,7 @@ export function restart(who) {
 function stoppedPage() {
   window.__jobPilottoStopped = true;
   try { const clean = location.href.replace(/#jobpilotto-fill(=[A-Za-z0-9_-]{1,64})?$/, ''); if (clean !== location.href) history.replaceState(history.state, '', clean); } catch { /* sandboxed page */ }
-  for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note', 'jobpilotto-stop-host']) document.getElementById(id)?.remove();
+  for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note']) document.getElementById(id)?.remove();
   if (!document.documentElement) return;
   document.documentElement.dataset.jobpilottoFill = JSON.stringify({state: 'stopped'});
   if (window.top !== window) return;

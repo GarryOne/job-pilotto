@@ -140,8 +140,7 @@ test('the Stop button is on every page of the extension: the toolbar popup and t
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   assert.match(read('popup.html'), /id="stop"/, 'the popup has a Stop button, shown on every tab the app opened (popup-controls.js; none on the person\'s own tabs, owner 16 Oct 2026)');
   assert.match(read('popup.js'), /type: 'stop'/, 'the popup sends stop');
-  assert.match(read('panel-stop.js'), /type: 'stop'/, 'the page\'s Stop button sends stop');
-  assert.match(read('background.js'), /'panel-stop\.js'/, 'it is injected with the panel on every armed tab');
-  assert.match(read('stop.js'), /jobpilotto-stop-host/, 'a stopped page loses its Stop button');
-  assert.match(read('settle-tabs.js'), /jobpilotto-stop-host/, 'and so does a page the app did not open');
+  assert.match(read('review.js'), /'\.stop-btn, \.pill-stop'\)\) button\.onclick[^\n]*type: 'stop'/, 'the panel\'s Stop (in the live step row, and on the minimised pill) sends stop');
+  assert.match(read('panel-markup.js'), /class="stop-btn"[^]*class="pill-stop"/, 'a Stop in the step row and one beside the pill, so it is one press away open or minimised');
+  assert.doesNotMatch(read('background.js'), /panel-stop\.js/, 'the bottom-left chip is gone (owner, 19 Oct 2026): Stop lives in the panel');
 });

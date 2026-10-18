@@ -40,7 +40,9 @@
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
-  $('.x').onclick = () => { userMoved = true; setOpen(false); };
+  $('.min').onclick = () => { userMoved = true; setOpen(false); };   // minimise: back to the pill
+  $('.x').onclick = () => { userMoved = true; setOpen(false); host.hidden = true; };   // close: the panel is out of the way until the page loads again (Stop stays: its own chip)
+  for (const button of root.querySelectorAll('.stop-btn, .pill-stop')) button.onclick = event => { if (event.isTrusted) { button.disabled = true; button.textContent = 'Stopping…'; send({type: 'stop', reason: 'the Stop button in the panel'}).catch(() => {}); } };   // the one Stop (stop.js): in the live step row and beside the minimised pill
   // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): opens the report card (panel-report.js). A page script's click is ignored.
   // The card opens beside the panel and the panel folds (jobpilotto-report-shown); the top frame has the hook, a frame inside the page asks the worker to relay. A press that cannot open it says so in the panel, never silence.
   const reportFailed = () => note("Report could not open on this page. Reload the page and try again.");
@@ -82,6 +84,7 @@
     $('.pill small').textContent = night() && !pageMark && !moved ? `Last night\u2019s fill is back${(job?.company || session?.company) ? ` · ${job?.company || session?.company}` : ''}` : (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
+    jp.classList.toggle('busy', busy);   // the Stop beside the minimised pill shows while a fill runs
     const over = filledOnce || ['done', 'input'].includes(session?.status);
     if (!open) return {list, left, total, busy, over, account};
     // job + Claude
@@ -89,8 +92,11 @@
     $('.job').hidden = !title;
     $('.job-title').textContent = title || '';
     $('.job-meta').replaceChildren(...[company && Object.assign(document.createElement('span'), {textContent: company}),
-      job?.stage && Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job.stage) ? 'good' : ''}`, textContent: job.stage})].filter(Boolean));
+      Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job?.stage || '') ? 'good' : ''}`, textContent: job?.stage || 'Not submitted'})].filter(Boolean));
     $('.go-there').hidden = !(moved && Number.isInteger(movedTab));
+    const verify = $('.verify');
+    verify.hidden = !needsYou || moved;
+    if (!verify.hidden) { stoppedCard(false); $('.verify .v-title').textContent = needsYou === '1' ? 'Your action is needed' : needsYou; }   // the AI's own words for what the page waits on
     const claude = pageMark ? '' : moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
       : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
       : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
@@ -112,6 +118,7 @@
     $('.fill').disabled = filling;
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
+    $('.left h4').textContent = left === 1 ? 'Remaining field' : 'Remaining fields';
     $('.left').hidden = moved || !!pageMark || !left || busy || !over;
     const knockout = field => KNOCKOUT.test(field.label) || field.category === 'knockout', ranked = [...shown].sort((a, b) => knockout(b) - knockout(a));   // or the AI, any language
     const knockouts = ranked.filter(knockout).length;
@@ -133,7 +140,8 @@
     tailor.hidden = !canTailor || (cv.tailored && !asked);
     if (!tailor.hidden) {
       $('.t-text').textContent = readyNow ? 'Your tailored CV is ready. Press Fill again to attach it.' : cv.working ? 'Tailoring your CV for this job… about 1–2 minutes.'
-        : 'This form has your general CV. A CV tailored to this job gets noticeably more replies.';
+        : 'General CV attached';
+      $('.t-text').title = 'A CV tailored to this job gets noticeably more replies.';
       $('.t-btn').hidden = readyNow || cv.working;
     }
     // One tip at the bottom, about what the form is at: knockout questions left, no tailored CV yet, else the CV. Click for the next one.
@@ -141,7 +149,7 @@
     if (SHOW_TIPS && tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
-    window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, takeover: claudeAsk.takeover !== false, report: !!window.__jobPilottoReportOn, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
+    window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !needsYou && !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, takeover: claudeAsk.takeover !== false, report: !!window.__jobPilottoReportOn, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
     // The footer, one component for every state (owner, 16 Oct 2026): the connection on the left (a dot and its word; the build stays in the line, it is in every screenshot), Report on the right.
     const foot = $('.foot'), stateLine = $('.foot .state');
     foot.classList.toggle('on', !!connection?.connected);
@@ -163,6 +171,7 @@
   let stepTimer = null, filledOnce = false, stepped = false; const STEP_SAFETY_MS = 45000;
   function showStep(text, wait = STEP_SAFETY_MS) {
     stepped = true;
+    $('.step-hint').textContent = /^check/i.test(text) ? 'Checking whether any fields need your input.' : 'Counts update as new fields appear.';   // our own step words, each with its sub-line (mockups 01/02)
     const button = $('.fill');
     button.classList.add('is-busy');
     button.setAttribute('aria-busy', 'true');
@@ -184,6 +193,7 @@
   async function fill(force = false) {
     filling = true;
     $('.note').hidden = true;
+    stoppedCard(false);
     showStep('Reading the form…');
     render();
     const result = await send({type: 'panelFill', url: session?.url || job?.url || location.href, force}).catch(error => ({ok: false, error: error.message}));
@@ -191,11 +201,21 @@
     filledOnce = true;
     endStep();
     if (result?.ineligible) note(`Not filled: ${result.note}`, true);
-    else if (/^Stopped by you/.test(result?.error || '')) note(`Stopped by you · ${counts.total - counts.left} of ${counts.total} required fields currently contain values.`);   // a Stop keeps what was filled: say what is there, never "nothing was filled"
+    else if (!result?.ok && /^Stopped by you/.test(result?.error || '')) stoppedCard(true);   // the person's Stop: a calm state, not a failure (mockup 03)
     else if (!result?.ok) note(`Couldn't fill: ${result?.error || 'try again'}`);
     else if (result.sharedNote) note(result.sharedNote);   // the service changed how a control was filled: say so
     render();
   }
+  // 03 Stopped by you: a pause tile with how many fields hold values, the rest in "Left for you", and one way to read the form again (owner mockup, 19 Oct 2026).
+  function stoppedCard(on) {
+    $('.stopped').hidden = !on;
+    $('.recheck').hidden = !on;
+    if (on) $('.stopped .s-text').textContent = `${Math.max(0, counts.total - counts.left)} required fields currently contain values.`;
+  }
+  $('.recheck').onclick = () => { stoppedCard(false); fill(); };
+  // 04 Your action needed: the page waits for the person (the AI's word in data-jobpilotto-needs): a warm card, Show on form (scrolls to the first thing left), Check again (reads the form now).
+  $('.verify .v-show').onclick = () => shown[0] && flash(shown[0].el);
+  $('.verify .v-again').onclick = () => { render(); sync(); };
   function note(text, anyway = false) {
     $('.note').hidden = false;
     $('.note span').textContent = text;
@@ -219,7 +239,7 @@
     const answer = await send({type: 'panelTailor'}).catch(() => null);
     asked = !!answer?.ok;
     button.disabled = false;
-    button.textContent = 'Tailor my CV for this job';
+    button.textContent = 'Tailor CV';
     render();
   };
   $('.go-there').onclick = () => Number.isInteger(movedTab) && send({type: 'panelGoTab', tab: movedTab}).catch(() => {});
@@ -262,6 +282,7 @@
       moved = !!reply?.moved; movedTab = Number.isInteger(reply?.tab) ? reply.tab : null;
       session = reply?.session || null; claudeAsk = {takeover: reply?.claudeTakeover !== false, help: !!reply?.claudeHelp, always: !!reply?.claudeAlways, auto: !!reply?.claudeAuto, consent: !!reply?.claudeConsent};   // the app's Claude readiness and choices (lib/claude-ready.js)
       cv = reply?.cv || null;
+      if (reply?.theme === 'light' || reply?.theme === 'dark') jp.dataset.theme = reply.theme; else delete jp.dataset.theme;   // the app's setting, live; 'system' or no app: the system's (panel-markup.js)
       const before = JSON.stringify(watch);
       watch = Array.isArray(reply?.watch) ? reply.watch : [];
       // The app asked to see this form (and maybe one field): this tab comes forward, then the field.

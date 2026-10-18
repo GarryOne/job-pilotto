@@ -25,7 +25,7 @@ test('the app\'s surfaces: the sessions page button, the ⌘K entry, the IPC, th
 
 test('the extension\'s surfaces: popup, page, Chrome\'s Cancel, the app\'s request, and the one worker door all name stop', () => {
   assert.match(ext('popup.html'), /id="stop"/);
-  assert.match(ext('panel-stop.js'), /type: 'stop'/);
+  assert.match(ext('review.js'), /type: 'stop'/);
   assert.match(ext('stop.js'), /canceled_by_user/);
   assert.match(ext('stop-messages.js'), /message\?\.type === 'stop'/);
   assert.match(ext('messages-app.js'), /stopFromApp\(answer\)/);
