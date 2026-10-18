@@ -11,6 +11,7 @@
 #   tools/ship.sh --keep     accepted, does nothing (keeping is the default since 11 Oct 2026)
 #   tools/ship.sh --remove   remove the worktree and its branch after landing (the old default)
 #   tools/ship.sh --body=<file>  the PR's 5-second summary (a verdict line, short bullets, a before/after table): tools/pr-body.sh puts it on top
+#   tools/ship.sh --title=<text>  the PR's title; default: the newest commit that is not a "Move ..." split (tools/pr-title.sh); on a PR already open it retitles only when given
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 #   tools/ship.sh --draft    open the PR as a draft (nobody can merge it) and mark it ready only when every check it started is green (owner, 14 Oct 2026)
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
@@ -29,7 +30,8 @@ for arg in "$@"; do
     --background) background=1 ;;
     --draft) export SHIP_PR_DRAFT=1; args+=("$arg") ;;   # a draft until green: tools/ship-pr.sh marks it ready at REVIEW
     --body=*) SHIP_PR_BODY="$(cd "$(dirname "${arg#--body=}")" && pwd)/$(basename "${arg#--body=}")"; export SHIP_PR_BODY; [ -s "$SHIP_PR_BODY" ] || { echo "ship: --body file is empty or missing: ${arg#--body=}" >&2; exit 2; }; args+=("$arg") ;;   # the PR's 5-second summary (tools/pr-body.sh)
-    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep|--remove] [--background] [--draft] [--body=<file>]" >&2; exit 2 ;;
+    --title=*) SHIP_PR_TITLE="${arg#--title=}"; export SHIP_PR_TITLE; [ -n "$SHIP_PR_TITLE" ] || { echo "ship: --title is empty" >&2; exit 2; }; args+=("$arg") ;;   # the PR's title (default: tools/pr-title.sh)
+    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep|--remove] [--background] [--draft] [--body=<file>] [--title=<text>]" >&2; exit 2 ;;
   esac
 done
 
