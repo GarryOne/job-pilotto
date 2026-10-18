@@ -14,7 +14,7 @@ import {init as letterFallback} from './letter-fallback.js';
 import {el, openMenu, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {byStore} from '../store-words.js';
+import {byStore, storeName} from '../store-words.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule, showTelegram} from './connections.js';
 import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
@@ -117,9 +117,9 @@ function initLetter() {
   });
   $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
 }
-// Application answers' ⋯ (one "View source in Notion" per page, in a menu: owner, 18 Oct 2026, fix 10); the button is shown on Notion only.
+// Application answers' ⋯ (one "View source" link per page, in a menu: owner, 18 Oct 2026, fix 10); the button shows only where the store has pages.
 function answersMenu() {
-  openMenu($('answers-review'), [{label: 'View source in Notion', icon: 'external', run: () => openInNotion('NOTION_ANSWERS_PAGE_ID')}]);
+  openMenu($('answers-review'), [{label: `View source in ${storeName()}`, icon: 'external', run: () => openInNotion('NOTION_ANSWERS_PAGE_ID')}]);
 }
 // Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
 let showGithub = true;   // false for a non-technical candidate (fitDetailsToCandidate)

@@ -4,7 +4,6 @@
 // A new entry point fails notion-parity.test.js until it has a row here.
 const JOB = {view: 'pages/job-panel.js openJobPanel'};
 const PREP = {view: 'pages/prep.js openPrep'};
-const ANSWERS = {view: 'pages/application-answers.js loadApplicationAnswers'};   // Application answers: the answers + Form knowledge, edited on every store
 const FUNNEL = {view: 'pages/reports.js funnelTab'};             // Reports → Funnel: the Pipeline table and Where to improve (P8 D)
 
 export const NOTION_PARITY = {
@@ -13,7 +12,6 @@ export const NOTION_PARITY = {
   'index.html#focus-funnel-notion': FUNNEL,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
   'pages/strategy.js init': {view: 'pages/strategy-targets.js renderTargets'},   // ⋯ → View source in Notion: ⚙️ Search settings (or the Profile); its lists and Job preferences are edited on Strategy on every store
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
-  'pages/profile.js answersMenu': ANSWERS,                       // Application answers' ⋯ → View source in Notion
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
   'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview
