@@ -10,7 +10,7 @@ export function liveParts(live) {
   fill.style.width = `${live.percent}%`;
   bar.append(fill); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuenow', String(live.percent));
   text.append(el('span', '', live.line));
-  if (live.since) { text.append(el('span', 'ready-clock', '')); line.dataset.since = String(live.since); }
+  if (live.since) { text.append(el('span', 'ready-clock', '')); line.dataset.readySince = String(live.since); }
   line.append(bar, text);
   tick(line);   // the clock shows at once; the card's timer moves it
   return {badge, line};
