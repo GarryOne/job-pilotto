@@ -43,6 +43,9 @@ jobs:
       - name: Install the app
         working-directory: desktop
         run: npm ci
+      - name: Stage the shared files the app imports (the worker's AI client)
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
       - name: Draw the candidate
@@ -56,7 +59,9 @@ jobs:
       - name: Search as that candidate (first Find jobs, live)
         env:
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
-        run: node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses 1 --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log"
+        run: |
+          set -o pipefail   # a crash in the harness must fail this step, not just the tee's exit
+          node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses 1 --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log"
       - name: Send the counts to /admin
         if: github.ref == 'refs/heads/main'
         env:
