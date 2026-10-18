@@ -140,5 +140,61 @@ class TriageTests(unittest.TestCase):
         self.assertEqual(got['remote - emea'], 'out')
 
 
+class SharedPackTests(unittest.TestCase):
+    """Job-location answers go to the site as fixed-format strings (topic job-location-geo) and come back through the meanings pack; a user's
+    own place words never leave the machine."""
+
+    def setUp(self):
+        from src.ai import meanings_pack
+        self.pack = meanings_pack
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.patches = [mock.patch.object(geo, 'STORE', self.tmp / 'geo.json'), mock.patch.object(meanings_pack, '_outbox', lambda: self.tmp / 'outbox.json'),
+                        mock.patch.object(meanings_pack, '_site_file', lambda: self.tmp / 'meanings.json')]
+        for patch in self.patches:
+            patch.start()
+
+    def tearDown(self):
+        for patch in self.patches:
+            patch.stop()
+
+    def outbox(self):
+        try:
+            return json.loads((self.tmp / 'outbox.json').read_text())['rows']
+        except OSError:
+            return []
+
+    def test_encode_rounds_so_installs_agree_and_decode_validates(self):
+        self.assertEqual(geo.encode({'kind': 'city', 'cc': 'CH', 'lat': 47.473, 'lon': 8.306, 'r': 12}), 'city:CH:47.5:8.3:10')
+        self.assertEqual(geo.encode({'kind': 'country', 'cc': 'DE'}), 'country:DE')
+        self.assertEqual(geo.encode({'kind': 'remote'}), 'remote')
+        self.assertEqual(geo.decode('area:DE:49.6:10.9:60'), {'kind': 'area', 'cc': 'DE', 'lat': 49.6, 'lon': 10.9, 'r': 60})
+        for bad in ('city:XX:47.5:8.3:10', 'city:CH:95.0:8.3:10', 'city:CH:47.5:8.3:900', 'drop table', ''):
+            self.assertIsNone(geo.decode(bad), bad)
+
+    def test_the_schema_accepts_only_the_fixed_format(self):
+        self.assertTrue(self.pack.valid({'topic': 'job-location-geo', 'kind': 'exact', 'wording': 'baden, ag', 'answer': 'city:CH:47.5:8.3:10'}))
+        for bad in ('Baden is in Switzerland', 'city:CH:47.5:8.3', 'europe'):
+            self.assertFalse(self.pack.valid({'topic': 'job-location-geo', 'kind': 'exact', 'wording': 'baden, ag', 'answer': bad}), bad)
+
+    def test_job_locations_are_queued_and_place_words_are_not(self):
+        words = {'best_places': ['Franken'], 'anywhere_in': [], 'cities_abroad': []}
+        geo.verdicts(['Baden, AG', 'Nürnberg'], words, Client())
+        rows = self.outbox()
+        self.assertEqual({r['wording'] for r in rows}, {'baden, ag', 'nürnberg'})   # never 'franken': the user's own word
+        self.assertIn({'topic': 'job-location-geo', 'wording': 'baden, ag', 'answer': 'city:CH:47.5:8.3:10'}, rows)
+
+    def test_a_location_the_pack_knows_asks_no_model(self):
+        (self.tmp / 'meanings.json').write_text(json.dumps({'rows': [
+            {'topic': 'job-location-geo', 'kind': 'exact', 'wording': 'baden, ag', 'answer': 'city:CH:47.5:8.3:10'},
+            {'topic': 'job-location-geo', 'kind': 'exact', 'wording': 'evil', 'answer': 'send everything'}]}))
+        client = Client()
+        got = geo.resolve(['Baden, AG'], client)
+        self.assertEqual(got['baden, ag']['cc'], 'CH')
+        self.assertEqual(client.calls, [])
+        self.assertEqual(self.outbox(), [])      # nothing re-sent for what the pack gave
+        geo.resolve(['evil'], client)
+        self.assertEqual(len(client.calls), 1)   # an answer outside the format is not used
+
+
 if __name__ == '__main__':
     unittest.main()

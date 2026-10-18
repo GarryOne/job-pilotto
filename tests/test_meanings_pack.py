@@ -120,7 +120,7 @@ class Learning(NoAI):
 
     def test_only_public_page_topics_may_ever_be_shared(self):
         """A topic may share only when its wording comes from a public page; a user's own words leave the machine as fixed ids only."""
-        public = {'job-region', 'job-title-kind'}   # add a topic here only if its wording is a posting's, a form's or a button's, never the user's
+        public = {'job-region', 'job-title-kind', 'job-location-geo'}   # add a topic here only if its wording is a posting's, a form's or a button's, never the user's
         self.assertEqual({t for t, spec in meanings_pack.schema().items() if spec.get('share')}, public)
 
 
