@@ -54,14 +54,14 @@ test('the letter prompt still reads the style from the answers page (nothing mov
   assert.match(fs.readFileSync(new URL('../lib/job-letter.js', import.meta.url), 'utf8'), /"Cover letter style"/);
 });
 
-test('the card reads first: each rule as label and value, a quiet Edit opens the inputs, saving or discarding reads again', async () => {
+test('the card reads first: each rule as a column, label over value, a quiet Edit opens the inputs, saving or discarding reads again', async () => {
   const node = await open(loadStyle, 'letter-style-body', ANSWERS);
   const card = globalThis.document.createElement('div'), edit = globalThis.document.createElement('button');
   card.id = 'setting-letter-style'; edit.id = 'letter-style-edit';
   card.append(edit, node); body.replaceChildren(card);
   const read = node.querySelector('.card-read');
-  assert.deepEqual(read.querySelectorAll('dt').map(term => term.textContent), ['Length', 'Never mention']);
-  assert.deepEqual(read.querySelectorAll('dd').map(value => value.textContent), ['130–170 words', 'salary']);
+  assert.deepEqual(read.querySelectorAll('.fact-col-label').map(term => term.textContent), ['Length', 'Never mention'], 'one column per rule, label over value (mockup 07)');
+  assert.deepEqual(read.querySelectorAll('.fact-col-value').map(value => value.textContent), ['130–170 words', 'salary']);
   assert.ok(node.querySelector('.card-editor input'), 'the inputs live in the editor');
   const empty = await open(loadStyle, 'letter-style-body', ANSWERS.slice(0, 2));
   assert.match(empty.querySelector('.card-read').textContent, /No preferences yet: letters use a short, direct default/);
