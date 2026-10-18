@@ -75,7 +75,18 @@ def pool_facts():
         elif isinstance(fact, dict) and fact.get('kind') == 'layout' and isinstance(fact.get('host'), str):
             out.setdefault('layout', {})[fact['host']] = fact.get('recipe')
         elif isinstance(fact, dict) and fact.get('kind') == 'board' and isinstance(fact.get('host'), str) and isinstance(fact.get('recipe'), dict):
-            out.setdefault('board', {})[fact['host']] = {'url': fact.get('url'), 'countries': fact['recipe'].get('countries') or []}
+            out.setdefault('board', {})[fact['host']] = {'url': fact.get('url'), 'countries': fact['recipe'].get('countries') or [],
+                                                         'relevant': _cells(fact.get('relevant'))}
+    return out
+
+
+def _cells(items):
+    """What a board gave installs per role family × country (site/src/employers.js boardCells): fixed shape, or dropped."""
+    out = []
+    for cell in items if isinstance(items, list) else []:
+        if isinstance(cell, dict) and all(isinstance(cell.get(k), str) for k in ('family', 'country')) and \
+                all(isinstance(cell.get(k), int) and cell[k] >= 0 for k in ('installs', 'in_places', 'fit70')) and cell['installs'] > 0:
+            out.append({k: cell[k] for k in ('family', 'country', 'installs', 'in_places', 'fit70')})
     return out
 
 

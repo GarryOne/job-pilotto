@@ -130,15 +130,43 @@ async function slice(env, regions) {
 // Facts about sites that at least SITES_K installs shared in the last 90 days (src/pool.js sitefacts): a company's job page, a site only a
 // browser reads, a dead page. Counted, never who: only facts several installs agree on go out (the learned layer's k >= 3 rule).
 export const SITES_K = 3;
-const fact = row => ({host: row.host, kind: row.kind, ...(row.url ? {url: row.url} : {}), ...(row.body ? {recipe: JSON.parse(row.body)} : {}), installs: row.installs});
+const fact = (row, relevant) => ({host: row.host, kind: row.kind, ...(row.url ? {url: row.url} : {}), ...(row.body ? {recipe: JSON.parse(row.body)} : {}),
+  installs: row.installs, ...(relevant?.length ? {relevant} : {})});
 export async function agreedSites(env, k = SITES_K) {
   if (!env.STATS) return [];
   try {
     const rows = (await env.STATS.prepare(`SELECT host, kind, url, body, COUNT(DISTINCT install) AS installs FROM sitefacts GROUP BY host, kind, url, body
       HAVING installs >= ? ORDER BY installs DESC LIMIT 3000`).bind(k).all()).results || [];
-    if (env.POOL_LAYOUTS === 'off') return rows.filter(row => row.kind !== 'layout').map(fact);   // the kill switch for shared layouts
-    return rows.map(fact);
+    const cells = rows.some(row => row.kind === 'board') ? await boardCells(env, k) : {};
+    const facts = rows.map(row => fact(row, row.kind === 'board' ? cells[row.host] : null));
+    if (env.POOL_LAYOUTS === 'off') return facts.filter(item => item.kind !== 'layout');   // the kill switch for shared layouts
+    return facts;
   } catch { return []; }   // the table before its migration: nothing to serve yet
+}
+
+// What each job board gave the installs that read it, per role family × country (src/contribute.py site_facts 'yield', PR 6 of
+// docs/superpowers/specs/2026-10-18-search-learns-sources.md): jobs in their places and fit 70+, summed. A cell goes out only when k installs
+// share it (one install's numbers never do); an install's countries count only where the board serves. Installs rank the boards by it.
+async function boardCells(env, k) {
+  let rows;
+  try {
+    rows = (await env.STATS.prepare(`SELECT host, body, in_places, fit70, countries, families FROM sitefacts WHERE kind = 'board' AND in_places IS NOT NULL`).all()).results || [];
+  } catch { return {}; }   // before migration 0094
+  const cells = {}, list = text => String(text || '').split(',').filter(Boolean);
+  for (const row of rows) {
+    let serves;
+    try { serves = JSON.parse(row.body || '{}').countries || []; } catch { serves = []; }
+    for (const family of list(row.families)) {
+      for (const country of list(row.countries).filter(c => serves.includes(c))) {
+        const cell = ((cells[row.host] ||= {})[`${family}|${country}`] ||= {family, country, installs: 0, in_places: 0, fit70: 0});
+        cell.installs += 1;
+        cell.in_places += row.in_places || 0;
+        cell.fit70 += row.fit70 || 0;
+      }
+    }
+  }
+  return Object.fromEntries(Object.entries(cells).map(([host, byCell]) => [host, Object.values(byCell).filter(cell => cell.installs >= k)
+    .sort((a, b) => a.family.localeCompare(b.family) || a.country.localeCompare(b.country))]));
 }
 
 async function download(request, env, now = new Date()) {

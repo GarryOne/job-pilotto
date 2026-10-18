@@ -3,11 +3,16 @@ No code per board: each board's public search page, filled with the user's own b
 (schema.org JobPosting first (its hiringOrganization is the job's company, else "via <board>"; also from the job pages a list links to), then the job links and the AI page reader within its caps, then learned recipes: src/sources/careers.py).
 A board whose page only scripts fill first tries what it declares itself (feed alternates, robots.txt sitemaps: board_routes.py; the route
 that worked is kept per host). A board that refuses (401/403/429, a bot check) or gives no route is marked 'browser' (the visit list offers
-it) and looked at again after 30 days; one that gave no relevant job (title and place the search wants) three reads running is 'dead'
-(src/sources/board_yield.py). The outcome of each read is kept in data/found_boards.json
-('boards'), a cache. Wired as one aggregator, "Job boards found" (src/sources/aggregators.py). Tests: tests/test_found_boards.py."""
+it) and looked at again after 30 days; one that gave no job in the user's places three runs running is dropped (its history is the job
+cache's source_yield table: src/sources/board_yield.py dead). The outcome of each read is kept in data/found_boards.json
+('boards'), a cache. Wired as one aggregator, "Job boards found" (src/sources/aggregators.py). The boards that gave other installs like
+this one their jobs are read first, the top 2 in the first-jobs slice (src/first_jobs.py; their jobs are handed to the full read, not
+fetched twice). Tests: tests/test_found_boards.py, tests/test_proven_boards.py."""
+import sqlite3
+import time
 import urllib.error
 import urllib.parse
+from contextlib import closing
 from datetime import datetime, timezone
 
 from .. import run_counts
@@ -17,6 +22,8 @@ from . import board_employers, board_routes, careers
 MAX_SEARCHES = 2      # the user's board searches per board per run
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
+EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
+_early = {}               # {host: (monotonic time, (jobs, state, route))}: read in this search's first-jobs slice
 
 
 def _terms(search):
@@ -78,20 +85,47 @@ def _retry_due(entry, now):
     return ((now or datetime.now(timezone.utc)) - last).days >= BROWSER_RETRY_DAYS
 
 
-def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None):
-    """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dead
-    skipped, untried boards limited (board_yield.pick)."""
+def _dead():
+    """The boards dropped by their history (board_yield.dead) in this install's job cache; none before its first search."""
+    from .. import paths
+    from . import board_yield
+    path = paths.DATA / 'jobs.sqlite'
+    if not path.exists():
+        return set()
+    with closing(sqlite3.connect(path)) as db:
+        return board_yield.dead(db)
+
+
+def read_since(stamp):
+    """{board host: relevant jobs} of the found boards read at or after `stamp` (ISO, UTC): this search's reads, for source_yield."""
+    from ..ai import board_ideas
+    from .careers_parse import registrable
+    return {registrable(host): int(entry.get('relevant') or 0) for host, entry in (board_ideas.load().get('boards') or {}).items()
+            if (entry.get('last_read') or '') >= stamp}
+
+
+def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None, dead=None, early=False):
+    """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
+    by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
+    full read, which then takes them as they are instead of fetching the board again."""
     from ..ai import board_ideas
     from . import board_yield
     data = board_ideas.load()
     kept = data.setdefault('boards', {})
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
-    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now))
+    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, lambda entry: _retry_due(entry, now),
+                            dead if dead is not None else _dead())
     ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
     for done, board in enumerate(todo, 1):
-        entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url'], 'misses': 0})
-        found, state, route = read_board(board, search, fetch, entry.get('route'))
+        entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url']})
+        handed = _early.pop(board['host'], None)
+        if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early:
+            found, state, route = handed[1]   # read moments ago in this search's first-jobs slice
+        else:
+            found, state, route = read_board(board, search, fetch, entry.get('route'))
+            if early:
+                _early[board['host']] = (time.monotonic(), (found, state, route))
         entry.pop('route', None)
         if route:
             entry['route'] = route

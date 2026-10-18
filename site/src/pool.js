@@ -118,7 +118,8 @@ export async function contribute(request, env, now = new Date()) {
     const body = kind === 'layout' ? layoutOf(item.recipe) : kind === 'board' ? boardOf(item.board, url, host) : null;
     if (!host || !kind || (kind === 'jobpage' && !url) || (['layout', 'board'].includes(kind) && !body) || facts.has(`${host}|${kind}`) || /^e2e/.test(host)) { drop('sites'); continue; }
     facts.add(`${host}|${kind}`);
-    sites.push({host, kind, url: ['browser', 'layout'].includes(kind) ? null : url, body});
+    const given = kind === 'board' && item.yield && typeof item.yield === 'object' ? item.yield : null;   // what the board gave this install (PR 6, 18 Oct 2026)
+    sites.push({host, kind, url: ['browser', 'layout'].includes(kind) ? null : url, body, yield: given && {in_places: count(given.in_places) ?? 0, fit70: count(given.fit70) ?? 0}});
   }
   const candidates = cleanCandidates(body.candidates);   // the daily discovery batch's input (src/discovery-candidates.js)
   drop('candidates', (Array.isArray(body.candidates) ? Math.min(body.candidates.length, MAX_CANDIDATES) : 0) - candidates.length);
@@ -154,8 +155,11 @@ export async function contribute(request, env, now = new Date()) {
       .bind(install, today, item.key, item.company, item.host, aiFamily));
   }
   for (const item of sites) {
-    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body')
-      .bind(install, today, item.host, item.kind, item.url, item.body));
+    statements.push(env.STATS.prepare(`INSERT INTO sitefacts (install, day, host, kind, url, body, in_places, fit70, countries, families) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body, in_places = excluded.in_places, fit70 = excluded.fit70,
+      countries = excluded.countries, families = excluded.families WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body
+        OR in_places IS NOT excluded.in_places OR fit70 IS NOT excluded.fit70 OR countries IS NOT excluded.countries OR families IS NOT excluded.families`)
+      .bind(install, today, item.host, item.kind, item.url, item.body, item.yield?.in_places ?? null, item.yield?.fit70 ?? null, item.yield ? fine[0] : null, item.yield ? fine[2] : null));
   }
   statements.push(...candidateStatements(env.STATS, install, today, candidates));
   for (const item of boards) {

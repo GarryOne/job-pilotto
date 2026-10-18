@@ -41,7 +41,7 @@ class RunTests(unittest.TestCase):
         with mock.patch.object(first_jobs.store, 'import_watch_report', return_value=['new'] * 5), \
                 mock.patch.object(first_jobs.score, 'queue', return_value=jobs), mock.patch.object(first_jobs, 'to_score', return_value=jobs):
             count = first_jobs.run(mock.MagicMock(), mock.MagicMock(), [feed('A')], profile='p', hidden=frozenset(), sync=lambda: synced.append(1), say=said.append,
-                                   scan=lambda sources, feed_db: report, scorer=fake_score)
+                                   scan=lambda sources, feed_db: report, scorer=fake_score, boards=lambda *a: [])
         return count, calls, synced, said
 
     def test_three_jobs_are_scored_at_once_and_each_save_is_synced(self):
@@ -56,7 +56,7 @@ class RunTests(unittest.TestCase):
                 mock.patch.object(first_jobs.score, 'queue', return_value=[]), mock.patch.object(first_jobs, 'to_score', return_value=[]):
             scorer = mock.Mock()
             self.assertEqual(first_jobs.run(mock.MagicMock(), mock.MagicMock(), [feed('A')], profile='p', hidden=frozenset(), sync=lambda: None, say=lambda _: None,
-                                            scan=lambda sources, feed_db: {'jobs': [], 'sources': []}, scorer=scorer), 0)
+                                            scan=lambda sources, feed_db: {'jobs': [], 'sources': []}, scorer=scorer, boards=lambda *a: []), 0)
             scorer.assert_not_called()
 
 
@@ -80,7 +80,7 @@ class ScenarioTests(unittest.TestCase):
             def scorer(db_, candidates, profile, model, max_jobs, **kw):
                 return real_score.run(db_, candidates, profile, model, max_jobs, client=ModelClient({'m': lambda title: 70}), **kw)
             scored = first_jobs.run(db, None, [feed('Example')], profile='Profile v1', hidden=frozenset(), sync=sync, say=lambda _: None,
-                                    scan=lambda sources, feed_db: report, scorer=scorer, model='m')
+                                    scan=lambda sources, feed_db: report, scorer=scorer, model='m', boards=lambda *a: [])
             self.assertEqual(scored, 3)
             self.assertEqual(seen[0], (1, 5), 'at the first save: 1 scored, all 5 found are listed (the others say Scoring…)')
             self.assertEqual(len(seen), 3)

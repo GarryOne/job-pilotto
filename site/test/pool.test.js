@@ -8,7 +8,7 @@ import {purge, rollup} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql', '0038_sitefacts_layout.sql', '0045_pool_ai_family.sql', '0049_host_uses.sql', '0086_discovery_candidates.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql', '0038_sitefacts_layout.sql', '0045_pool_ai_family.sql', '0049_host_uses.sql', '0086_discovery_candidates.sql', '0094_sitefacts_board_yield.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args) ?? null});
   return {db, prepare: sql => statement(sql)};
@@ -230,6 +230,26 @@ test('a job board an install read jobs on: its template and countries only; serv
   }
   const boards = (await agreedSites(env)).filter(fact => fact.kind === 'board');
   assert.deepEqual(boards.map(fact => [fact.host, fact.url, fact.recipe, fact.installs]), [['net-empregos.com', template, {countries: ['pt']}, 3]]);
+});
+
+test('what a found board gave goes up with the install\'s families and countries; served per family × country only where 3 installs share it', async () => {
+  const {agreedSites} = await import('../src/employers.js');
+  const env = setup();
+  const template = 'https://www.net-empregos.com/pesquisa?chaves={role}';
+  const share = (install, families, countries, given) => post(env, {...body(install, []), v: 2, families, countries,
+    sites: [{host: 'net-empregos.com', kind: 'board', url: template, board: {countries: ['pt']}, yield: given}]});
+  await share('install-a', ['accounting_finance'], ['pt', 'nl'], {in_places: 12, fit70: 2});
+  await share('install-b', ['accounting_finance'], ['pt'], {in_places: 5, fit70: 0});
+  await share('install-c', ['accounting_finance', 'driving_delivery'], ['pt'], {in_places: 1, fit70: 1});
+  await share('install-d', ['software_dev'], ['pt'], {in_places: 40, fit70: 9, note: 'free text'});
+  const board = (await agreedSites(env)).find(fact => fact.kind === 'board');
+  assert.equal(board.installs, 4);
+  assert.deepEqual(board.relevant, [{family: 'accounting_finance', country: 'pt', installs: 3, in_places: 18, fit70: 3}],
+    'a cell 1 install gave never goes out; nl is not a country the board serves');
+  const row = env.STATS.db.prepare("SELECT in_places, fit70, countries, families FROM sitefacts WHERE install = (SELECT install FROM sitefacts ORDER BY in_places DESC LIMIT 1)").get();
+  assert.deepEqual({...row}, {in_places: 40, fit70: 9, countries: 'pt', families: 'software_dev'}, 'counts and fixed ids only');
+  const layout = env.STATS.db.prepare("SELECT COUNT(*) AS n FROM sitefacts WHERE kind != 'board' AND in_places IS NOT NULL").get();
+  assert.equal(layout.n, 0);
 });
 
 test('a share is kept with the AI family of the install that sent it, and the scouting page filters by it', async () => {

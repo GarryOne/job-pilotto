@@ -41,9 +41,11 @@ def _fits(db):
     return fits
 
 
-def measure(db, run_at, in_places=None):
+def measure(db, run_at, in_places=None, read=None):
     """[{kind, source, open, in_places, new, scored, fit70}] for every source with an open job, best first (fit 70+, then jobs in your places).
-    run_at: when this run started (ISO, UTC): a job first seen then or later is new. in_places: the place check (default the crawl's own)."""
+    run_at: when this run started (ISO, UTC): a job first seen then or later is new. in_places: the place check (default the crawl's own).
+    read: {board host: relevant jobs this read} for the found boards read this run (found_boards.read_since): each keeps a row, so "no job
+    in your places three reads running" can be seen here (board_yield.dead); one whose jobs link to other sites keeps its read's count."""
     if in_places is None:
         from .sources.feeds import wanted_location as in_places
     fits = _fits(db)
@@ -61,6 +63,8 @@ def measure(db, run_at, in_places=None):
         if job_id in fits:
             row['scored'] += 1
             row['fit70'] += fits[job_id] >= FIT
+    for host, relevant in (read or {}).items():
+        rows.setdefault(('job board', host), dict.fromkeys(FIELDS, 0) | {'kind': 'job board', 'source': host, 'in_places': relevant or 0})
     return sorted(rows.values(), key=lambda row: (-row['fit70'], -row['in_places'], -row['open'], row['source']))
 
 
@@ -81,6 +85,12 @@ def latest(db):
     return [dict(zip(names, row)) for row in found]
 
 
+def board_counts(db):
+    """{board host: {'in_places', 'fit70'}} of the last measured run: what each job board gave this search, shared with the pool
+    (src/contribute.py site_facts) so other installs read the boards that gave people like them their jobs first."""
+    return {row['source']: {'in_places': row['in_places'], 'fit70': row['fit70']} for row in latest(db) if row['kind'] == 'job board'}
+
+
 def line(rows, limit=5):
     """'Where your jobs came from: board-one.test (job board) 2 in your places, 2 fit 70+ · ...': the sources that gave jobs in your places."""
     useful = [row for row in rows if row['in_places']]
@@ -92,9 +102,9 @@ def line(rows, limit=5):
     return 'Where your jobs came from: ' + ' · '.join(said) + (f" and {more} more source{'s' if more != 1 else ''}" if more > 0 else '')
 
 
-def run(db, run_at):
+def run(db, run_at, read=None):
     """Measure, keep and say this run's yield; returns the rows. Never stops a search (the caller catches)."""
-    rows = measure(db, run_at)
+    rows = measure(db, run_at, read=read)
     record(db, run_at, rows)
     print(line(rows), flush=True)
     return rows

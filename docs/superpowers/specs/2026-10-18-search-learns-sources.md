@@ -55,7 +55,9 @@ the personas session's scratchpad).
 - [ ] PR 3 structural routes when a board refuses
 - [ ] PR 4 employer from every board job
 - [ ] PR 5 widen or narrow by yield
-- [ ] PR 6 learn across installs: boards ranked by relevant jobs per role family × country, the top 2 read in the first-jobs slice (owner, 18 Oct 2026)
+- [x] PR 6 learn across installs: boards ranked by relevant jobs per role family × country, the top 2 read in the first-jobs slice (owner, 18 Oct 2026) (proof: tests/test_proven_boards.py)
+  - a board's history over runs is source_yield (one copy): "no job in your places 3 runs running" drops it; found_boards.json keeps only the in-run count (board_yield)
+  - shared: each found board's source_yield counts with the install's families and countries (sitefacts, migration 0094); served per cell only when 3+ installs share it
 - [x] PR 7 small fixes: title rounds (proof: tests/test_title_triage.py)
 - [x] Rerun after the fixes (Artifact https://claude.ai/artifact/5ezTMMBhp5SV17qMVarmz2): a region's added towns keep its country, #1367 (proof: tests/test_swiss_place.py @d68840e)
 - [x] PR 8 jobs shown per source, as each is read (proof: tests/test_jobs_per_source.py)

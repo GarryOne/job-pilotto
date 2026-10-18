@@ -91,7 +91,7 @@ def ideas(search, client=None):
     place_words = [w for w in places.words_of(search)][:10]
     key = hashlib.sha256(json.dumps([countries, sorted(roles), kinds, 'main-model'], ensure_ascii=False).encode()).hexdigest()[:12]
     data = load()
-    shared = served(countries)
+    shared = ranked(served(countries), search)
     if key in (data.get('ideas') or {}):
         return _merge(data['ideas'][key], shared)
     try:
@@ -121,7 +121,7 @@ def ideas(search, client=None):
 
 def served(countries):
     """The boards the central pool serves for these countries (3+ installs read jobs there: src/contribute.py site_facts, kind 'board'),
-    checked like Claude's proposals; work without AI too."""
+    checked like Claude's proposals; work without AI too. Each keeps what it gave installs per role family in these countries ('cells')."""
     from .. import pool_tags
     from ..sources.visits_jobpages import pool_facts
     ids = {name: code for code, name in pool_tags.COUNTRIES.items()}
@@ -131,9 +131,44 @@ def served(countries):
         if wanted & set(fact.get('countries') or []):
             board = valid({'name': host, 'search_url': fact.get('url'), 'countries': [pool_tags.COUNTRIES.get(c, c) for c in fact['countries']]})
             if board and board['host'] == host:
-                out.append(board)
+                cells = [cell for cell in fact.get('relevant') or [] if cell['country'] in wanted]
+                out.append({**board, **({'cells': cells} if cells else {})})
     return out
 
 
+def _families(search):
+    """The user's role families as the pool's fixed ids, from the same words the pool share sends (src/contribute.py fine_tags)."""
+    from .. import pool_tags
+    from ..contribute import _plain
+    return set(pool_tags.families([_plain(k) for k in (search or {}).get('role_keywords', [])]))
+
+
+def ranked(boards, search):
+    """The boards best first by what they gave installs with this user's role families in these countries (owner, 18 Oct 2026: "relevant
+    jobs per role"): jobs in their places per install, then fit 70+ per install; 'rank' is kept on each board (0: no data for this user).
+    Boards without data keep their order after the ranked ones."""
+    if not any(board.get('cells') for board in boards):
+        return boards
+    families = _families(search)
+    for board in boards:
+        cells = [cell for cell in board.pop('cells', None) or [] if cell['family'] in families]
+        installs = sum(cell['installs'] for cell in cells)
+        board['rank'] = round(sum(cell['in_places'] for cell in cells) / installs, 1) if installs else 0
+        board['rank_fit70'] = round(sum(cell['fit70'] for cell in cells) / installs, 1) if installs else 0
+    return sorted(boards, key=lambda board: (-board['rank'], -board['rank_fit70']))
+
+
+def proven(search, limit=2):
+    """The boards that gave installs like this one the most jobs in their places (rank > 0), best first, without any AI call: read in the
+    first-jobs slice (src/first_jobs.py)."""
+    from .. import places
+    countries = places.countries(search, limit=5)
+    return [board for board in ranked(served(countries), search) if board.get('rank')][:limit] if countries else []
+
+
 def _merge(own, shared):
-    return list({b['host']: b for b in [*shared, *own]}.values())[:MAX_BOARDS * 2]
+    """Shared boards first (ranked), then Claude's own proposals; a board in both keeps its rank."""
+    merged = {board['host']: board for board in shared}
+    for board in own:
+        merged[board['host']] = {**merged.get(board['host'], {}), **board}
+    return list(merged.values())[:MAX_BOARDS * 2]
