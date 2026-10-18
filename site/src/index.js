@@ -11,6 +11,7 @@ import {endingsIngest} from './applying-resolution.js';
 import {ciRowsIngest} from './applying-ci-rows.js';
 import {view as searchLabView} from './search-lab-page.js';
 import {ingestRoute as searchLabIngest} from './search-lab-store.js';
+import {ingestRoute as searchLabDrawIngest} from './search-lab-draws.js';
 import {discoveryInput} from './discovery-candidates.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
@@ -179,6 +180,7 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/verify' && request.method === 'PUT') return verifyIngest(request, env);   // "Confirmed offline" verdicts (Bearer REPLAYS_PUBLISH_KEY, src/applying-verify.js)
   if (pathname === '/applying/fidelity' && request.method === 'PUT') return fidelityIngest(request, env);   // a prototype's replay-vs-live records (Bearer REPLAYS_PUBLISH_KEY, src/applying-fidelity.js)
   if (pathname === '/applying/ci-rows' && request.method === 'PUT') return ciRowsIngest(request, env);   // a CI recording run's rows, main only (Bearer REPLAYS_PUBLISH_KEY, src/applying-ci-rows.js)
+  if (pathname === '/search-lab/draws' && request.method === 'PUT') return searchLabDrawIngest(request, env);   // the daily CI draw, main only (Bearer REPLAYS_PUBLISH_KEY, src/search-lab-draws.js)
   if (pathname === '/search-lab/rows' && request.method === 'PUT') return searchLabIngest(request, env);   // a replayed search per candidate, main only (Bearer REPLAYS_PUBLISH_KEY, src/search-lab-store.js)
   if (pathname === '/applying/discovery-input' && request.method === 'GET') return discoveryInput(request, env);   // the daily discovery batch's input (Bearer REPLAYS_PUBLISH_KEY, src/discovery-candidates.js)
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);

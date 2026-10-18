@@ -1,0 +1,346 @@
+{
+ "families": [
+  {
+   "id": "nurse",
+   "title": "Registered Nurse",
+   "duty": "Patient care on a 30-bed ward, medication rounds, care plans, handovers.",
+   "education": "Nursing diploma",
+   "tools": "Electronic patient records, wound care, triage"
+  },
+  {
+   "id": "welder",
+   "title": "Welder",
+   "duty": "MIG/TIG welding of steel structures, reading drawings, quality checks.",
+   "education": "Vocational certificate in welding",
+   "tools": "MIG, TIG, EN ISO 9606 certified"
+  },
+  {
+   "id": "electrician",
+   "title": "Electrician",
+   "duty": "Installing and testing low-voltage systems in homes and offices.",
+   "education": "Vocational certificate in electrical installation",
+   "tools": "Wiring, fault finding, safety testing"
+  },
+  {
+   "id": "software",
+   "title": "Software Engineer",
+   "duty": "Built and ran web services and APIs in a product team.",
+   "education": "BSc Computer Science",
+   "tools": "Python, TypeScript, SQL, Docker, CI/CD"
+  },
+  {
+   "id": "data-analyst",
+   "title": "Data Analyst",
+   "duty": "Weekly dashboards and ad-hoc analysis for sales and operations.",
+   "education": "BSc Statistics",
+   "tools": "SQL, Python, Power BI, Excel"
+  },
+  {
+   "id": "accountant",
+   "title": "Accountant",
+   "duty": "Bookkeeping, VAT returns, month-end close, annual accounts.",
+   "education": "BSc Accounting",
+   "tools": "Excel, SAP, IFRS, payroll basics"
+  },
+  {
+   "id": "teacher",
+   "title": "Secondary School Teacher",
+   "duty": "Taught maths classes of 25 pupils, planned lessons, parent meetings.",
+   "education": "MSc Education",
+   "tools": "Curriculum design, classroom tools, assessment"
+  },
+  {
+   "id": "chef",
+   "title": "Chef de Partie",
+   "duty": "Ran a kitchen station for 120 covers a night, ordering, hygiene rules.",
+   "education": "Culinary vocational diploma",
+   "tools": "HACCP, menu costing, banqueting"
+  },
+  {
+   "id": "driver",
+   "title": "Truck Driver (Class CE)",
+   "duty": "Long-distance and regional freight, load securing, tachograph rules.",
+   "education": "Class CE licence, ADR certificate",
+   "tools": "Tachograph, route planning, load securing"
+  },
+  {
+   "id": "warehouse",
+   "title": "Warehouse Operator",
+   "duty": "Picking, packing and forklift work in a 20,000 sqm warehouse.",
+   "education": "Vocational certificate in logistics",
+   "tools": "Forklift licence, WMS scanners, inventory counts"
+  },
+  {
+   "id": "mechanic",
+   "title": "Car Mechanic",
+   "duty": "Servicing and diagnosing cars and light vans in a dealer workshop.",
+   "education": "Vocational certificate in automotive repair",
+   "tools": "Diagnostics, brakes, engines, EV basics"
+  },
+  {
+   "id": "designer",
+   "title": "UX Designer",
+   "duty": "Research, wireframes and prototypes for a web shop and a mobile app.",
+   "education": "BA Interaction Design",
+   "tools": "Figma, user testing, design systems"
+  },
+  {
+   "id": "marketing",
+   "title": "Digital Marketing Manager",
+   "duty": "Paid and organic campaigns, email, reporting to the head of sales.",
+   "education": "BA Marketing",
+   "tools": "Google Ads, Meta Ads, analytics, HubSpot"
+  },
+  {
+   "id": "sales",
+   "title": "Sales Representative",
+   "duty": "B2B sales to small firms, quotes, contracts, account follow-up.",
+   "education": "BA Business Administration",
+   "tools": "CRM, negotiation, cold outreach"
+  },
+  {
+   "id": "hr",
+   "title": "HR Generalist",
+   "duty": "Recruiting, onboarding, contracts and payroll support for 300 staff.",
+   "education": "BA Human Resources",
+   "tools": "Applicant tracking, labour law basics, HRIS"
+  },
+  {
+   "id": "civil-engineer",
+   "title": "Civil Engineer",
+   "duty": "Structural design and site supervision for residential buildings.",
+   "education": "MSc Civil Engineering",
+   "tools": "AutoCAD, Revit, Eurocodes"
+  },
+  {
+   "id": "pharmacist",
+   "title": "Pharmacist",
+   "duty": "Dispensing, counselling patients, stock and compliance in a pharmacy.",
+   "education": "MSc Pharmacy",
+   "tools": "Prescription systems, compliance, patient advice"
+  },
+  {
+   "id": "hotel",
+   "title": "Hotel Receptionist",
+   "duty": "Front desk, bookings, guest requests, night audit in a 90-room hotel.",
+   "education": "Hospitality vocational diploma",
+   "tools": "Property management system, reservations, guest care"
+  },
+  {
+   "id": "carpenter",
+   "title": "Carpenter",
+   "duty": "Building and fitting timber frames, stairs and kitchens on site.",
+   "education": "Vocational certificate in carpentry",
+   "tools": "Joinery, site measuring, CNC basics"
+  },
+  {
+   "id": "support",
+   "title": "Customer Support Agent",
+   "duty": "Email and chat support for an online service, escalations, knowledge base.",
+   "education": "BA Communication",
+   "tools": "Zendesk, ticket triage, written communication"
+  }
+ ],
+ "cities": [
+  {
+   "city": "Amsterdam",
+   "country": "Netherlands",
+   "language": "Dutch"
+  },
+  {
+   "city": "Rotterdam",
+   "country": "Netherlands",
+   "language": "Dutch"
+  },
+  {
+   "city": "Berlin",
+   "country": "Germany",
+   "language": "German"
+  },
+  {
+   "city": "Munich",
+   "country": "Germany",
+   "language": "German"
+  },
+  {
+   "city": "Leipzig",
+   "country": "Germany",
+   "language": "German"
+  },
+  {
+   "city": "Nuremberg",
+   "country": "Germany",
+   "language": "German"
+  },
+  {
+   "city": "Vienna",
+   "country": "Austria",
+   "language": "German"
+  },
+  {
+   "city": "Graz",
+   "country": "Austria",
+   "language": "German"
+  },
+  {
+   "city": "Zurich",
+   "country": "Switzerland",
+   "language": "German"
+  },
+  {
+   "city": "Lausanne",
+   "country": "Switzerland",
+   "language": "French"
+  },
+  {
+   "city": "Paris",
+   "country": "France",
+   "language": "French"
+  },
+  {
+   "city": "Lyon",
+   "country": "France",
+   "language": "French"
+  },
+  {
+   "city": "Toulouse",
+   "country": "France",
+   "language": "French"
+  },
+  {
+   "city": "Brussels",
+   "country": "Belgium",
+   "language": "French"
+  },
+  {
+   "city": "Antwerp",
+   "country": "Belgium",
+   "language": "Dutch"
+  },
+  {
+   "city": "Madrid",
+   "country": "Spain",
+   "language": "Spanish"
+  },
+  {
+   "city": "Valencia",
+   "country": "Spain",
+   "language": "Spanish"
+  },
+  {
+   "city": "Seville",
+   "country": "Spain",
+   "language": "Spanish"
+  },
+  {
+   "city": "Lisbon",
+   "country": "Portugal",
+   "language": "Portuguese"
+  },
+  {
+   "city": "Porto",
+   "country": "Portugal",
+   "language": "Portuguese"
+  },
+  {
+   "city": "Milan",
+   "country": "Italy",
+   "language": "Italian"
+  },
+  {
+   "city": "Bologna",
+   "country": "Italy",
+   "language": "Italian"
+  },
+  {
+   "city": "Naples",
+   "country": "Italy",
+   "language": "Italian"
+  },
+  {
+   "city": "Warsaw",
+   "country": "Poland",
+   "language": "Polish"
+  },
+  {
+   "city": "Gdansk",
+   "country": "Poland",
+   "language": "Polish"
+  },
+  {
+   "city": "Krakow",
+   "country": "Poland",
+   "language": "Polish"
+  },
+  {
+   "city": "Prague",
+   "country": "Czechia",
+   "language": "Czech"
+  },
+  {
+   "city": "Brno",
+   "country": "Czechia",
+   "language": "Czech"
+  },
+  {
+   "city": "Budapest",
+   "country": "Hungary",
+   "language": "Hungarian"
+  },
+  {
+   "city": "Cluj-Napoca",
+   "country": "Romania",
+   "language": "Romanian"
+  },
+  {
+   "city": "Timisoara",
+   "country": "Romania",
+   "language": "Romanian"
+  },
+  {
+   "city": "Sofia",
+   "country": "Bulgaria",
+   "language": "Bulgarian"
+  },
+  {
+   "city": "Zagreb",
+   "country": "Croatia",
+   "language": "Croatian"
+  },
+  {
+   "city": "Copenhagen",
+   "country": "Denmark",
+   "language": "Danish"
+  },
+  {
+   "city": "Stockholm",
+   "country": "Sweden",
+   "language": "Swedish"
+  },
+  {
+   "city": "Gothenburg",
+   "country": "Sweden",
+   "language": "Swedish"
+  },
+  {
+   "city": "Oslo",
+   "country": "Norway",
+   "language": "Norwegian"
+  },
+  {
+   "city": "Helsinki",
+   "country": "Finland",
+   "language": "Finnish"
+  },
+  {
+   "city": "Dublin",
+   "country": "Ireland",
+   "language": "English"
+  },
+  {
+   "city": "Tallinn",
+   "country": "Estonia",
+   "language": "Estonian"
+  }
+ ]
+}

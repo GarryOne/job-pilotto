@@ -41,7 +41,11 @@ const claudeCode = await lib('claude-code.js');
 const {realClaude} = await import(path.join(ROOT, 'desktop', 'e2e', 'lib', 'real-claude.mjs'));
 const storage = createStorage(dir, {encrypt: value => value, decrypt: value => value});   // its own folder: nothing reaches the Keychain
 ensureConfig(storage);
-storage.saveSettings({aiEngine: 'cli', claudeCode: {path: realClaude()}, store: 'sqlite', telemetry: false, shareEmployers: false});
+// --engine api (the daily CI draw, tools/persona-search/draw.py): the Anthropic API on the key in RANDOM_DRAWS_ANTHROPIC_KEY, there being no plan-path Claude on a runner.
+const api = option('--engine', 'cli') === 'api', apiKey = process.env.RANDOM_DRAWS_ANTHROPIC_KEY || '';
+if (api && !apiKey) { console.error('--engine api needs RANDOM_DRAWS_ANTHROPIC_KEY'); process.exit(2); }
+if (api) storage.setSecret('ANTHROPIC_API_KEY', apiKey);
+storage.saveSettings({aiEngine: api ? 'api' : 'cli', ...(api ? {} : {claudeCode: {path: realClaude()}}), store: 'sqlite', telemetry: false, shareEmployers: false});
 
 const metrics = (script = 'metrics.py', ...args) => JSON.parse(execFileSync(python(), [path.join(ROOT, 'tools', 'persona-search', script), ...args], {cwd: ROOT, env: {
   ...process.env, PYTHONPATH: ROOT, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_FOLLOW_APP: '0',
@@ -49,7 +53,7 @@ const metrics = (script = 'metrics.py', ...args) => JSON.parse(execFileSync(pyth
 
 if (!storage.settings().setupDone) {   // the wizard's strategy step: the app's own draft from the CV, kept as the review's "Save" does without Notion
   const started = Date.now(), kept = option('--draft', '');
-  const draft = kept ? JSON.parse(fs.readFileSync(kept, 'utf8')) : await strategy.draft(storage, {}, '', claudeCode.client(storage));
+  const draft = kept ? JSON.parse(fs.readFileSync(kept, 'utf8')) : await strategy.draft(storage, {}, apiKey, api ? null : claudeCode.client(storage));
   if (!kept || path.resolve(kept) !== path.join(out, 'draft.json')) fs.writeFileSync(path.join(out, 'draft.json'), JSON.stringify(draft, null, 2));
   strategy.keepLocally(storage, draft);
   storage.saveSettings({setupDone: true, cvName: 'cv.pdf'});
