@@ -27,7 +27,13 @@
   "States: save": "approved",
   "States: empty, loading, error": "approved",
   "States: long content and narrow windows": "approved",
-  "States: read and edit": "approved"
+  "States: read and edit": "approved",
+  "Don't: notes inside values": "approved",
+  "Don't: long lists as a paragraph": "approved",
+  "Don't: fat buttons, many primaries": "approved",
+  "Don't: Now vs Proposed in grey and bold": "approved",
+  "Don't: a note fold per row, a field twice": "approved",
+  "Don't: a menu for a few choices": "approved"
  },
  "rules": {
   "Design system (owner, 17 Oct 2026): read first": "approved",

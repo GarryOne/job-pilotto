@@ -15,7 +15,7 @@ export const BASE = '/';
 const RENDERER = 'desktop/renderer', HERE = 'tools/design-system';
 // What the page reads: the rules, the skill, the reference screenshots. The desktop tests start on each (tests-desktop.yml paths, tested).
 export const SOURCES = [`${RENDERER}/**`, 'docs/rules/desktop-ui.md', '.claude/skills/ui-look-and-feel/SKILL.md', 'desktop/docs/ui/**', `${HERE}/**`];
-const ENTRIES = [`${RENDERER}/gallery.js`, `${HERE}/browser/design-states.js`];
+const ENTRIES = [`${RENDERER}/gallery.js`, `${HERE}/browser/design-states.js`, `${HERE}/browser/design-donts.js`];
 const EXTRA = ['logo.png', 'design-status.json'];   // logo.png: drawn by gallery.js markup; design-status.json: the approved/legacy/proposed list
 
 const read = (file, base = ROOT) => fs.readFileSync(path.join(base, file));
@@ -54,8 +54,8 @@ function cssAssets(css) {
 // Section titles and notes of the gallery: section('Title', 'note' ...). The gallery draws them; this reads them for components.md and the tests.
 export function gallerySections() {
   const out = [];
-  for (const file of [`${RENDERER}/gallery.js`, `${HERE}/browser/design-states.js`]) {
-    for (const match of text(file).matchAll(/\bsection\(\s*'((?:[^'\\]|\\.)+)'\s*,\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)) out.push({title: match[1].replace(/\\'/g, "'"), note: (match[2] ?? match[3] ?? '').replace(/\\'/g, "'"), states: file.includes('design-states')});
+  for (const file of [`${RENDERER}/gallery.js`, `${HERE}/browser/design-states.js`, `${HERE}/browser/design-donts.js`]) {
+    for (const match of text(file).matchAll(/\b(?:section|pair)\(\s*(?:'((?:[^'\\]|\\.)+)'|"((?:[^"\\]|\\.)+)")\s*,\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)) out.push({title: (match[1] ?? match[2]).replace(/\\'/g, "'"), note: (match[3] ?? match[4] ?? '').replace(/\\'/g, "'"), states: !file.includes('/renderer/')});
   }
   return out;
 }
@@ -114,12 +114,14 @@ ${links}
   <div class="dp-main">
     <section class="dp-group" data-group="Components"><div class="dp-group-head"><h2>Components</h2><p>Drawn live by the app's own code (components.js, card-shell.js, save-bar.js) and CSS, with fictional data.</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="States"><div class="dp-group-head"><h2>States</h2><p>The shared parts in the states a screen meets: unsaved, saving, save failed, empty, loading, error, long content, narrow window.</p></div><div class="dp-group-body"></div></section>
+    <section class="dp-group" data-group="Don't / Do"><div class="dp-group-head"><h2>Don't / Do</h2><p>The owner's UI feedback of 18 Oct 2026, redrawn with fictional data. Each Don't fails a check in desktop/e2e/lib/design-rules.mjs; each Do passes.</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="Tokens"><div class="dp-group-head"><h2>Tokens</h2><p>tokens.css: the only place with raw colours, sizes and fonts. Use var(--name).</p></div><div class="dp-group-body"></div></section>
     <section class="dp-group" data-group="Rules"><div class="dp-group-head"><h2>Rules</h2><p>docs/rules/desktop-ui.md, as written. What code alone can't show: action hierarchy, save scope, drafts.</p></div><div class="dp-group-body">${rulesSection(statusFile)}</div></section>
     <div id="gallery" hidden></div>
   </div>
 </div>
 <script src="${BASE}b/design-states.js" type="module"></script>
+<script src="${BASE}b/design-donts.js" type="module"></script>
 <script src="gallery.js" type="module"></script>
 <script src="${BASE}b/design-page.js" type="module"></script>
 </body>

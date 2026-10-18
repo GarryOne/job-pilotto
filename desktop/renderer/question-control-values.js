@@ -72,6 +72,7 @@ export function amountControl(format, value, onChange, {placeholder = 'Amount', 
   node.classList.add('is-amount');
   const input = Object.assign(el('input', ''), {type: 'number', value: number, placeholder, ariaLabel});
   const select = Object.assign(el('select', ''), {ariaLabel: `${ariaLabel}: currency`});
+  select.dataset.longList = '1';   // a currency is a long list by nature: a menu is right here (desktop/e2e/lib/design-rules.mjs small-select)
   for (const each of currencies) select.append(new Option(each, each));
   select.value = currency;
   input.addEventListener('input', () => { number = input.value; onChange(answer()); });

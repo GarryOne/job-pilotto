@@ -27,6 +27,7 @@ checks that fail a PR: `docs/rules/desktop-ui.md` "Design system". Before drawin
 | Note for the AI | muted line with the bot icon, under its value | folded "Note for the AI" |
 | Missing | `pill('Not set', 'warn')` + its action | the kind's control, empty |
 
+- **Before drawing a read view, a list, a button row or a choice:** read `docs/rules/desktop-ui.md` "Read views, lists, buttons and choices" (the owner's feedback of 18 Oct 2026: values not notes, lists fold, one-line buttons, one primary, colour for Now vs Proposed, one row per field); `desktop/e2e/lib/design-rules.mjs` fails a journey that breaks them.
 - Prose that holds several values (a salary per country, "No French or Italian") is split: values into their controls, the rest into a note.
 - Many values of one kind (salaries per country) read as a small `.data-table`, not a box each.
 - Chips show what a person would write: the screen turns syntax into meaning first ("Tax" in quotes → the group "Whole word only"; "Zurich,Zurich,Switzerland · de" → "Zurich, Switzerland · German").

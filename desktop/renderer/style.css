@@ -21,6 +21,8 @@ button.primary:hover { filter: brightness(1.05); }
 button.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
 button.ghost { background: transparent; color: var(--muted); }
 button.link { background: none; border: 0; padding: 0; color: var(--signal); font-weight: 600; }
+/* A button's words stay on one line (owner, 18 Oct 2026: "the Accept button is too fat"; docs/rules/desktop-ui.md "Read views, lists, buttons and choices"; e2e/lib/design-rules.mjs fat-button). */
+button.primary, button.secondary, button.ghost, button.danger, button.danger-outline { white-space: nowrap; }
 button:disabled { opacity: .5; cursor: default; }
 button.primary:disabled { opacity: 1; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line-strong); }   /* readable grey, not a faded orange (AA ≥ 4.5:1) */
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; color: var(--label); }
@@ -2293,6 +2295,7 @@ button.is-busy { cursor: progress; opacity: .7; }
   padding: var(--sp-3) var(--sp-5); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
 .save-bar-words { display: grid; gap: 2px; margin-right: auto; }
 .save-bar .message { margin: 0; }
+.save-bar > button { flex: none; }   /* the words column shrinks, never the buttons */
 .save-bar.is-nudged { animation: save-bar-nudge .5s var(--ease) 2; }
 @keyframes save-bar-nudge { 50% { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); } }
 /* The target cards in two columns that stack on their own: no empty space under the shorter card of a row. */
