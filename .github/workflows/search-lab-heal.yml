@@ -67,6 +67,7 @@ jobs:
           NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
           ASKED: ${{ inputs.candidate }}
         run: |
+          set -o pipefail
           if [ -n "$ASKED" ]; then echo "candidate=$ASKED" >> "$GITHUB_OUTPUT"; echo "heal-pick: asked by hand for $ASKED"
           else node tools/persona-search/heal.mjs pick 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"; fi
 
@@ -124,6 +125,7 @@ jobs:
       - name: What it used (AI calls and tokens, web pages)
         if: always()
         run: |
+          set -o pipefail
           python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, os
           folder = os.path.join(os.environ['RUNNER_TEMP'], 'new')
@@ -139,6 +141,7 @@ jobs:
         env:
           NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}
         run: |
+          set -o pipefail   # a failed verify must stop the job: the next step publishes
           cp "$RUNNER_TEMP/old/draft.json" "$RUNNER_TEMP/new/draft.json"
           mkdir -p "$RUNNER_TEMP/verify"
           node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
