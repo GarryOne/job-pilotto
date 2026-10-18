@@ -7,7 +7,7 @@ import {isOwner} from './stats.js';
 import {readRepairs} from './repair-evidence.js';
 
 export const SOURCES = ['user', 'ci', 'replay'];
-export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
+export const KINDS = ['form', 'account-form', 'account', 'posting', 'closed', 'other'];
 export const OUTCOMES = ['form', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'other'];
 export const SHAPE = /^[a-z0-9._-]{1,80}(\/[a-z0-9._*-]{0,60}){0,8}\|[a-z0-9+-]{1,12}$/;
 const MAX_ROWS = 200, count = value => (Number.isInteger(value) && value >= 0 ? Math.min(value, 1e6) : null);

@@ -124,10 +124,14 @@
   {
    "date": "2026-10-16",
    "reason": "a new real fixture: the Richemont Sign In form after the page's own switch (captured 16 Oct 2026), answered account 0.93 on the app path"
+  },
+  {
+   "date": "2026-10-18",
+   "reason": "page-kind gets a closed kind (18 Oct 2026): 3 closed-posting fixtures re-recorded live on the plan path; the prompt line changed"
   }
  ],
  "promptFingerprint": {
-  "rung2": "0584650000e8118c",
+  "rung2": "75877ac2b54f8c99",
   "rung2-frames": "062eb0c3862f408e",
   "rung3": "a67ae2addd085090",
   "account-judge": "82bb54b889d5f14d",
@@ -852,25 +856,37 @@
   },
   "inv-closed-en": {
    "expect": {
-    "outcome": "expired",
+    "outcome": "closed",
     "accept": [
+     "closed",
      "expired",
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "closed",
+   "status": "exact"
   },
   "inv-closed-it": {
    "expect": {
-    "outcome": "expired",
+    "outcome": "closed",
     "accept": [
+     "closed",
      "expired",
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "closed",
+   "status": "exact"
+  },
+  "inv-closed-notfound-de": {
+   "expect": {
+    "outcome": "closed",
+    "accept": [
+     "closed"
+    ]
+   },
+   "outcome": "closed",
+   "status": "exact"
   },
   "inv-email-en": {
    "expect": {

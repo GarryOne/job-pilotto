@@ -36,7 +36,7 @@
   "mails": []
  },
  "answer": {
-  "kind": "other",
+  "kind": "closed",
   "confidence": 0.6,
   "apply_button": "",
   "apply_button_kind": "",

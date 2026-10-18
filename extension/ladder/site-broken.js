@@ -18,6 +18,8 @@ export function closedOf(kind, shape) {
   if (kind?.kind !== 'closed' || !shape) return null;
   return (shape.fields || 0) + (shape.textareas || 0) + (shape.files || 0) >= 2 ? null : 'closed';
 }
+// -> {why, needs} for the app's stuck report when the AI called the page closed (and no form is there), else null.
+export const closedReport = (kind, shape) => (closedOf(kind, shape) ? {why: 'site_broken', needs: brokenNeed('closed')} : null);
 // What the person reads (the app's session card): fixed sentences, at most 80 characters.
 export function brokenNeed(kind, status) {
   if (kind === 'closed') return 'This posting is closed';

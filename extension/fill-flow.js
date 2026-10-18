@@ -31,7 +31,7 @@ import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
-import {brokenNeed, brokenOf, closedOf, onBrokenPage} from './ladder/site-broken.js';
+import {brokenOf, closedReport, onBrokenPage} from './ladder/site-broken.js';
 import {deadEnd, useFallback, useReporter} from './ladder/dead-end.js';
 import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
@@ -415,7 +415,7 @@ export async function consider(tab, jobUrl) {
     if (late(tab, gen, 'page state')) return;   // a stale read never writes the page's state (worker/test/read-generation.test.js)
     await writeState(tab.id, {state: role});
     const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
-    const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, closed = role === 'no-form' && !email && !told && closedOf(said, counts) ? {why: 'site_broken', needs: brokenNeed('closed')} : null, other = role === 'no-form' && !email && !told && !closed ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
+    const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, closed = email || told ? null : closedReport(kind, counts), other = role === 'no-form' && !email && !told && !closed ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : closed ? 'the posting is closed (the AI says so): reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
     if (other && await restartFromPosting(tab, jobUrl, {decide})) return;   // a broken page mid-application: from the posting again (restart-from-posting.js)
     if (other) apiFor(tab.id, await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
