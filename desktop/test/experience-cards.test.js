@@ -48,7 +48,7 @@ async function open() {
   return node;
 }
 
-test('cards: summary, strengths and education open (mockup 09), the rest folded; strengths as label rows of chips; notes small, never a ❓; no role', async () => {
+test('cards: summary, strengths and education open (mockup 09), the rest folded; strengths as label rows of chips; notes an ⓘ tip, never a ❓; no role', async () => {
   const node = await open();
   const cards = node.querySelectorAll('details.qa-fold');
   assert.deepEqual(cards.map(card => [card.dataset.part, card.open]), [['summary', true], ['strengths', true], ['education', true], ['section:h2', false]]);
@@ -56,7 +56,9 @@ test('cards: summary, strengths and education open (mockup 09), the rest folded;
   assert.deepEqual(strengths.querySelectorAll('.exp-part-group').map(group => group.querySelector('b').textContent), ['Cloud', 'IaC']);
   assert.deepEqual(strengths.querySelectorAll('.chip-value').map(each => each.textContent), ['GCP in depth (GKE, Pub/Sub)', 'some AWS', 'Pulumi', 'Terraform']);
   assert.match(cards[2].textContent, /Example University, BSc, Physics/);
-  assert.match(cards[2].querySelector('.small').textContent, /^confirmed 2 Sep 2026 — graduation year still to confirm/);
+  const tip = cards[2].querySelector('.part-note');
+  assert.match(tip.getAttribute('title'), /^confirmed 2 Sep 2026 — graduation year still to confirm/, 'a note is an ⓘ tip on the last entry');
+  assert.ok(!cards[2].querySelectorAll('p.small, .muted.small').some(each => /confirmed 2 Sep/.test(each.textContent)), 'never a grey line inside the values');
   assert.match(cards[3].textContent, /in her own words, 1 Sep 2026/);
   assert.ok(!node.textContent.includes('❓') && !node.textContent.includes('**') && !node.textContent.includes('Northwind'), node.textContent);
 });

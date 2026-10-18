@@ -46,7 +46,7 @@ for (const [store, items] of Object.entries({sqlite: LOCAL, notion: NOTION})) {
     const text = node.textContent;
     assert.equal(node.querySelectorAll('textarea').length, 0, 'no textarea');
     assert.ok(!text.includes('❓'), 'no ❓ on screen');
-    assert.match(text, /\d+ questions? needs? review/, 'one banner instead of the Needs review list');
+    assert.match(text, /\d+ questions? needs? your review/, 'one banner instead of the Needs review list');
     assert.match(text, /Website-specific questions/);
     assert.match(text, /Not set/);
     // Saved answers: one card, a header per section, one line per answer with no button (owner's mockup, 17 Oct 2026).

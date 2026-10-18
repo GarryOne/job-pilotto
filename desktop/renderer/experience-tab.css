@@ -40,3 +40,5 @@
 #setting-experience-profile { container-type: inline-size; }
 @container (max-width: 640px) { .exp-profile:has(> [data-part=gaps]:not([open])) > :is([data-part=education], [data-part=gaps]) { grid-column: 1 / -1; } }
 .gaps-review { color: var(--info); font-weight: 600; }
+.part-note { display: inline-flex; margin-left: var(--sp-2); vertical-align: -2px; color: var(--muted); cursor: help; }
+.part-note > .icon { width: 14px; height: 14px; }

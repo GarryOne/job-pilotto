@@ -1113,16 +1113,15 @@
             <p class="message" id="letter-message"></p>
             <label class="check-row letter-fallback" id="letter-fallback-row" hidden><input type="checkbox" id="letter-fallback"><span><span>Use this approved base letter when a job has no tailored letter</span><small class="muted">Off: a form that asks for a letter file gets none unless the job has its own.</small></span></label>
           </div>
-          <div class="setting panel" id="setting-answers-facts" data-profile-panel="answers" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Profile facts used in forms</h3></div></div>
-            <p class="muted panel-lead">Forms answer these from Your details, their one home.</p>
+          <div class="setting panel roomy" id="setting-answers-facts" data-profile-panel="answers" hidden>
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="user"></i></span><div class="card-words"><h3>Profile facts used in forms</h3><p class="muted small">Forms answer these from Your details, their one home: a change there reaches every form.</p></div></div>
+              <div class="panel-actions"><button type="button" class="link small" id="answers-facts-open">Edit in Your details →</button></div></div>
             <div class="card-read" id="answers-facts-body"></div>
           </div>
-          <div class="setting panel" id="setting-answers" data-profile-panel="answers" hidden>
-            <div class="panel-top"><div class="summary-head"><i data-icon="file"></i><h3>Application answers</h3></div>
+          <div class="setting panel roomy" id="setting-answers" data-profile-panel="answers" hidden>
+            <div class="panel-top"><div class="summary-head card-head"><span class="ui-tile tone-teal"><i data-icon="file"></i></span><div class="card-words"><h3>Application answers</h3><p class="muted small">Reusable answers for application forms; one job's own answers live in its preparation kit.</p></div></div>
               <div class="panel-actions"><button class="secondary with-icon" id="answers-add"><i data-icon="plus"></i>Add answer</button>
                 <button class="secondary ui-more" id="answers-review" data-notion-only title="More actions" aria-label="More actions" aria-haspopup="menu"><i data-icon="more"></i></button></div></div>
-            <p class="muted panel-lead">Reusable answers for application forms. Answers for a specific application live in the job's preparation kit.</p>
             <div class="outline-body" id="answers-body"></div>
           </div>
           <div class="foldbar" id="profile-foldbar" role="toolbar" aria-label="Fold the cards of this tab" hidden>
