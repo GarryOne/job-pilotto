@@ -83,6 +83,19 @@ class FoundBoardsTests(unittest.TestCase):
         jobs, state, route = found_boards.read_board(BOARD, SEARCH, fetch=lambda url: text if 'procura' in url else '')
         self.assertEqual((jobs, state, route), ([], 'empty', None))
 
+    def test_the_kind_of_route_that_gave_the_jobs_is_kept_for_the_source_queue(self):
+        state = json.dumps({'r': [{'title': f'Programador {i}', 'url': f'/vaga/{i}0001/p', 'company': 'Acme', 'city': 'Lisboa'} for i in range(3)]})
+        page = '<html><body><script>window.__S__ = ' + state + ';</script></body></html>'
+        found_boards.read(SEARCH, [BOARD], fetch=lambda url: page)
+        from src.ai import board_ideas
+        self.assertEqual(board_ideas.load()['boards'][BOARD['host']]['route_kind'], 'state')
+
+    def test_a_readable_page_with_embedded_state_is_read_from_it(self):
+        state = json.dumps({'r': [{'title': f'Programador {i}', 'url': f'/vaga/{i}0001/p', 'company': 'Acme', 'city': 'Lisboa'} for i in range(3)]})
+        page = '<html><body>' + '<p>Vacatures zoeken en solliciteren bij werkgevers in jouw regio.</p>' * 40 + '<script>window.__S__ = ' + state + ';</script></body></html>'
+        jobs, found_state, route = found_boards.read_board(BOARD, SEARCH, fetch=lambda url: page)
+        self.assertEqual((found_state, route['kind'], len(jobs)), ('ok', 'state', 3))
+
 
 if __name__ == '__main__':
     unittest.main()
