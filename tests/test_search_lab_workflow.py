@@ -81,6 +81,14 @@ class HealWorkflow(unittest.TestCase):
             if '| tee' in step and 'run: |' in step:
                 self.assertIn('set -o pipefail', step, 'every multi-line step that pipes into tee stops on the first failure')
 
+    def test_a_proof_run_records_and_checks_but_publishes_nothing(self):
+        # 18 Oct 2026: f4's triage fix had to be proved on its branch before it merged, without replacing the tape in the store
+        self.assertIn('publish:', self.heal)
+        self.assertEqual(self.heal.count("ref: ${{ inputs.ref || github.sha }}"), 2, 'both jobs run the asked code')
+        for name in ('- name: Publish the new tape (it is', '- name: Replay it now'):
+            step = self.heal[self.heal.index(name):]
+            self.assertIn("inputs.publish", step.split('run:')[0], f'{name} is skipped when publish is unticked')
+
     def test_a_tape_says_how_it_is_replayed(self):
         # 18 Oct 2026: a tape recorded on the API engine missed 59 AI requests on the plan engine at wait scale 0, 30 on its own engine, and only repeats its search at the recorded pace
         run = (ROOT / 'tools' / 'persona-search' / 'run.mjs').read_text(encoding='utf-8')

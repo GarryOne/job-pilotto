@@ -12,6 +12,14 @@ on:
         description: 'Candidate to record again (driver, music, finance, sre, cluj, chisinau); empty = the first stale one, within the weekly cap'
         type: string
         default: ''
+      ref:
+        description: 'Branch or commit whose search code is recorded and replayed (empty = main). A proof of a search change before it merges.'
+        type: string
+        default: ''
+      publish:
+        description: 'Publish the new tape when two replays agree (untick to only prove it: record, check, no publish)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -33,6 +41,8 @@ jobs:
       NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -82,6 +92,8 @@ jobs:
       CANDIDATE: ${{ needs.pick.outputs.candidate }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -147,8 +159,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/verify"
           node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish the new tape (it is then the newest of that candidate)
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
         env:
           GH_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_WRITE_TOKEN }}
         run: node tools/persona-search/tape-store.mjs publish "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Replay it now, so the Lab page shows the healed row
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
         run: gh workflow run search-lab.yml --ref main
