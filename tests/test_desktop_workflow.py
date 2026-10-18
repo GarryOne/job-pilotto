@@ -8,6 +8,19 @@ STAGE = (pathlib.Path(__file__).resolve().parent.parent / 'desktop/scripts/stage
 
 
 class DesktopWorkflowTest(unittest.TestCase):
+    def test_a_run_handed_over_to_a_fresh_build_ends_cancelled_never_success(self):
+        # 18 Oct 2026: a Beta by hand whose workflow files changed on main skipped 7 of 8 jobs and still ended "success", which someone would trust. Both hand-over branches
+        # (the check before the release and the refused 403) start the new build, say why in the summary, set released=false and cancel this run, in that order.
+        release = WORKFLOW.split('id: release')[1].split("name: Today's e2e AI budget")[0]
+        branches = [part for part in re.split(r'gh workflow run desktop\.yml', release)[1:]]
+        self.assertEqual(len(branches), 2)
+        for branch in branches:
+            handed = branch.split('exit 0')[0]
+            self.assertIn('released=false', handed)
+            self.assertIn('gh run cancel "$GITHUB_RUN_ID"', handed)
+            self.assertLess(handed.index('released=false'), handed.index('gh run cancel'))
+        self.assertEqual(release.count('superseded by a new build of main'), 2, 'both branches say why in the run summary')
+
     def test_every_bundled_folder_counts_as_a_change_for_the_nightly_build(self):
         # desktop/scripts/stage.mjs copies these into the app; a change to any of them must make tonight's build run.
         paths = re.search(r'paths=\((.*?)\)', WORKFLOW, re.S).group(1).split()
