@@ -1,5 +1,6 @@
 // Claude's messages as readable text.
 import {el} from '../components.js';
+import {withoutMark} from '../no-mark.js';
 
 // A link in Claude's message: its words (a bare Notion or web address gets a short name), opening Notion where you're
 // signed in (⌘-click: the app's own Notion window), anything else in the browser.
@@ -16,6 +17,7 @@ function messageLink(words, url) {
 }
 // Claude's message, readable: paragraphs, bullet and numbered lists, **bold** and `code` (built as DOM, never HTML).
 export function richText(text) {
+  text = withoutMark(text);   // a leading question-mark emoji in a Claude line is the app's marker, never drawn (renderer/no-mark.js)
   const inline = line => {
     const nodes = [];
     for (const part of String(line).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s)]+)/)) {

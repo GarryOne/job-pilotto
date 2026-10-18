@@ -29,7 +29,7 @@ function row(item) {
 
 export function jobQuestionsView(job) {
   if (!job?.url || !window.pilot?.jobQuestions) return [];
-  const box = group('❓ This job\'s questions', []);
+  const box = group('📝 This job\'s questions', []);
   box.hidden = true;
   Promise.resolve(window.pilot.jobQuestions(job.url)).then(list => {
     if (!Array.isArray(list) || !list.length) return;

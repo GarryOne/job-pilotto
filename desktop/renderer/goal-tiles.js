@@ -19,7 +19,7 @@ export function goalTiles(goals, onSave, {tiles = GOAL_TILES, fixed = {}} = {}) 
     term.append(label);
     const box = el('dd', 'goal');
     box.dataset.goal = key;
-    // "(estimate)" and "(level ❓)" said in words under the value, with the one action each needs (owner mockup, 7 Oct 2026: red ❓ marks).
+    // "(estimate)" and "(level unknown)" said in words under the value, with the one action each needs (owner mockup, 7 Oct 2026: red marks).
     const {text: current, note} = goalNote(key, (goals || {})[key] || '');
     const value = el('span', 'goal-value', current || '—');
     value.title = current || 'Not set';

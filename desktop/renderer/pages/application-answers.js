@@ -2,7 +2,7 @@
 // look like this", his mockup): one tab, one save bar, two texts. A search and All · Needs review (n) · Saved; on All, one banner "n questions need
 // review" instead of the list; Saved answers = one card, a small header per section, one line per answer (question · value), opened in place
 // ("Editing", the answer control of its kind, "Answer as" under Advanced options); the page's own intro (lines before its first heading) is shown
-// small, never as answers; Website-specific questions folded (pages/website-rules.js). Never a ❓ on screen (renderer/answers-model.js).
+// small, never as answers; Website-specific questions folded (pages/website-rules.js). Never the not-answered mark on screen (renderer/answers-model.js).
 // Same on every store: block edits through pages/outline-tab.js. Guarded by test/profile-tabs-render.test.js and test/answers-layout.test.js.
 import {el, pill, toggleOnBar} from '../components.js';
 import {icon} from '../icons.js';

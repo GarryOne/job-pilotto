@@ -1,5 +1,6 @@
 // Setup step 5: review the drafted strategy.
 import {el, pill} from '../components.js';
+import {hasMark, withoutMark, withPills} from '../no-mark.js';
 import {goalTiles} from '../goal-tiles.js';
 import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
 import {shared} from './shared.js';
@@ -74,7 +75,7 @@ function markdownView(markdown, edit) {
   const box = document.createDocumentFragment();
   const inline = text => {
     const span = document.createElement('span');
-    text.split(/(\*\*[^*]+\*\*)/).forEach(part => span.append(part.startsWith('**') ? Object.assign(document.createElement('b'), {textContent: part.slice(2, -2)}) : part));
+    text.split(/(\*\*[^*]+\*\*)/).forEach(part => span.append(...(part.startsWith('**') ? [Object.assign(document.createElement('b'), {textContent: part.slice(2, -2)})] : withPills(part))));
     return span;
   };
   // The element shows the formatted text; while editing, its raw markdown (so **bold** survives).
@@ -83,7 +84,8 @@ function markdownView(markdown, edit) {
     element.title = 'Click to edit';
     element.addEventListener('click', () => {
       if (element.isContentEditable) return;
-      element.textContent = raw.trim() === '❓' ? '' : raw;  // an unanswered ❓: start empty
+      const shownRaw = withoutMark(raw);   // the store's not-answered marker is never shown, not even while typing: start without it
+      element.textContent = shownRaw;
       element.contentEditable = 'plaintext-only';
       element.focus();
       getSelection().selectAllChildren(element); getSelection().collapseToEnd();
@@ -93,11 +95,11 @@ function markdownView(markdown, edit) {
         done = true;
         element.contentEditable = 'false';
         const text = element.textContent;
-        if (keep && text.trim() !== raw.trim()) save(text.trim() || '❓');
+        if (keep && text.trim() !== shownRaw) save(text.trim() || '❓');
         else renderDocs();
       };
       // The "to answer" colour follows the text as it's typed, not only after saving.
-      const mark = () => element.classList.toggle('ask', element.textContent.includes('❓'));
+      const mark = () => element.classList.toggle('ask', hasMark(raw) && element.textContent.trim() === shownRaw);
       mark();
       element.addEventListener('input', mark);
       element.addEventListener('keydown', event => {
@@ -124,7 +126,7 @@ function markdownView(markdown, edit) {
         cells.forEach((cell, c) => {
           const td = row.insertCell();
           td.append(inline(cell));
-          if (cell.includes('❓')) td.classList.add('ask');
+          if (hasMark(cell)) td.classList.add('ask');
           if (!header && edit) editable(td, cell, text => edit(index, replaceCell(source, c, text)));
         });
         header = false;
@@ -139,7 +141,7 @@ function markdownView(markdown, edit) {
         const li = document.createElement('li');
         const raw = lines[i].trim().slice(2), index = i, source = lines[i];
         li.append(inline(raw));
-        if (raw.includes('❓')) li.classList.add('ask');
+        if (hasMark(raw)) li.classList.add('ask');
         if (edit) editable(li, raw, text => edit(index, replaceLine(source, text)));
         ul.append(li);
       }
@@ -148,7 +150,7 @@ function markdownView(markdown, edit) {
       continue;
     }
     const p = document.createElement('p'); p.append(inline(line));
-    if (line.includes('❓')) p.classList.add('ask');
+    if (hasMark(line)) p.classList.add('ask');
     const index = i, source = lines[i];
     if (edit) editable(p, line, text => edit(index, replaceLine(source, text)));
     box.append(p);

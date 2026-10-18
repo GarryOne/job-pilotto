@@ -148,7 +148,7 @@ function emailCard(result, pending, answered, meetingPanel) {
     details: email?.subject && result.company ? email.subject : '', noDetails: email?.subject ? 'The subject is the title above.' : ''});
   return {card, waiting: asked && !asked.answered ? 1 : 0};
 }
-// What the email itself is, while its job is the question: the engine's question line says it ("❓ Interview · Blockdaemon —
+// What the email itself is, while its job is the question: the engine's question line says it ("<mark> Interview · Blockdaemon —
 // which job?"), Focus's question too (event_kind); an invitation without either is an interview.
 const KIND_NOUN = {Interview: 'Interview invitation', 'Interview scheduled': 'Interview invitation', Rejected: 'Rejection',
   'Reply received': 'Reply', 'Application received': 'Application confirmation', Offer: 'Offer'};
