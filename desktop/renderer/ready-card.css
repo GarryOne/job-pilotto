@@ -33,3 +33,7 @@
 @media (prefers-reduced-motion: reduce) { .ready-progress .is-live.dot::before { animation: none; } .ready-bar > i { transition: none; } }
 /* Fill now's yes: the jobs it would fill, as a plain list under the popup's head. */
 .ready-confirm-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }
+/* A row the night works on: its own bar and live line under it (owner, 18 Oct 2026: "2 rows, 2 progress bars", "a line with live updates from each row"). */
+.ready-row-live { grid-column: 1 / -1; display: grid; gap: var(--sp-1); }
+.ready-live-text { font-size: var(--fs-sm); }
+.ready-live-text .ready-clock { margin-left: var(--sp-1); }

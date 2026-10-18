@@ -238,13 +238,18 @@ test('Fill now shows the bar at once, before any answer, and both buttons are of
   assert.ok(card.querySelector('.ready-note .ui-pill'), 'the line is a badge');
 });
 
-test('a running night: the bar says which form, the rows are badges, and neither button can replace it', async t => {
+test('a running night: each form it works on shows its own bar and Stop, the card counts them, and neither send button can replace it', async t => {
   t.mock.timers.enable({apis: ['setInterval']});   // the card's follow and clock timers
   const body = page();
   globalThis.window.pilot = {readyState: async () => owned({batch: {night: '2026-10-18', state: 'running'}, jobs: [{job: 'a', state: 'prepared'}, {job: 'b', state: 'queued'}]}), readyTonight: async () => ({ok: false})};
   await initReadyCard();
-  const card = body.querySelector('.ready-card');
-  assert.match(steps(card), /✓ Sent 2 jobs \| ✓ Server up \| Filling 2 of 2/);
+  const card = body.querySelector('.ready-card'), [done, line] = card.querySelectorAll('.ready-row');
+  assert.equal(card.querySelector('.ready-progress'), null, 'no card-wide bar for a night this window did not start: the rows show it');
+  assert.match(textOf(line.querySelector('.ready-row-live')), /Waiting its turn/);
+  assert.ok(line.querySelector('.ready-stop'), 'its Stop');
+  assert.match(textOf(done), /complete/);
+  assert.match(textOf(card.querySelector('.ready-summary')), /1 waiting/);
+  assert.ok(card.querySelector('.ready-stop-all'), 'and one Stop for the night');
   assert.ok(buttons(card).slice(0, 2).every(button => button.disabled), 'Fill tonight and Fill now are off');
   assert.match(textOf(card), /1 ready/);
 });
@@ -335,7 +340,7 @@ test('Fill again on a row: with no kit left on this Mac (the owner\'s night), it
 
 // One batch a night on the server: while a fill is sent or running, every button that sends one (Fill tonight, Fill now, each row's Fill again) is off, so a second
 // press never replaces the fill running (18 Oct 2026: Fill again pressed on two rows wiped the first).
-test('while a night is filled, every button that would send a batch is off', async t => {
+test('while a night is filled, Fill tonight and Fill now are off; a finished row\'s Fill again stays on (it joins the line)', async t => {
   t.mock.timers.enable({apis: ['setInterval']});
   const body = page();
   globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {}, tonight: [], names: {},
@@ -343,8 +348,57 @@ test('while a night is filled, every button that would send a batch is off', asy
     readyTonight: async () => ({ok: false})};
   await initReadyCard();
   const card = body.querySelector('.ready-card');
-  const sending = [card.querySelector('#ready-send'), card.querySelector('#ready-run'), ...card.querySelectorAll('.ready-again')];
-  assert.equal(sending.length, 4, 'Fill tonight, Fill now and a Fill again on each row');
-  for (const button of sending) assert.equal(button.disabled, true, nameOf(button));
+  for (const button of [card.querySelector('#ready-send'), card.querySelector('#ready-run')]) assert.equal(button.disabled, true, nameOf(button));
+  const again = card.querySelectorAll('.ready-again');
+  assert.equal(again.length, 1, 'the finished row has Fill again; the waiting row has Stop instead');
+  assert.equal(again[0].disabled, false, 'it joins the running night');
   assert.equal(card.querySelector('.ready-browser').disabled, false, 'opening a filled form still works');
+});
+
+// Forms in a line (owner, 18 Oct 2026: "2 rows, 2 progress bars", "a line with live updates from each row", "a stop button once a row started"): each form the night
+// works on has its own bar, live line and Stop; when one finishes, the other's bar goes on; Stop on a row stops that form, Stop all the night.
+test('two forms in a line: two bars and live lines; one finishing leaves the other going; Stop stops one, Stop all the night', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const {FOLLOW_MS} = await import('../renderer/pages/ready-card.js');
+  const body = page(), stopped = [];
+  const at = new Date(Date.now() - 65000).toISOString();
+  let site = {batch: {night: '2026-10-18', state: 'running'}, jobs: [{job: 'j0', state: 'filling', step: 'answering', step_n: 2, started_at: at}, {job: 'j1', state: 'queued'}, {job: 'j2', state: 'prepared'}]};
+  globalThis.window.pilot = {readyState: async () => owned(site), readyTonight: async () => ({ok: false}), readyStop: async code => { stopped.push(code); return {ok: true, stopped: 1}; }};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card'), rows = () => card.querySelectorAll('.ready-row');
+  const lineOf = i => rows()[i].querySelector('.ready-row-live');
+  const width = i => lineOf(i)?.querySelector('.ready-bar i').style.width;
+  assert.match(textOf(lineOf(0)), /Answering 2 questions with AI/);
+  assert.match(textOf(lineOf(0)), /1:0\d/, 'its own clock');
+  assert.match(textOf(lineOf(1)), /Waiting its turn/);
+  assert.notEqual(width(0), width(1), 'two bars, each its own');
+  assert.equal(lineOf(2), null, 'a finished form has no bar');
+  assert.match(textOf(card.querySelector('.ready-summary')), /1 filling.*1 waiting/);
+
+  site = {...site, jobs: [{job: 'j0', state: 'prepared'}, {job: 'j1', state: 'filling', step: 'opening', started_at: new Date().toISOString()}, {job: 'j2', state: 'prepared'}]};
+  t.mock.timers.tick(FOLLOW_MS); await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(lineOf(0), null, 'j0 finished: its row shows its result');
+  assert.match(textOf(rows()[0]), /complete/);
+  assert.match(textOf(lineOf(1)), /Opening the job's page/, 'j1 goes on with its own line');
+
+  rows()[1].querySelector('.ready-stop').click(); await new Promise(resolve => setImmediate(resolve));
+  card.querySelector('.ready-stop-all').click(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(stopped, ['j1', null], 'Stop on the row, then Stop all');
+});
+
+// Every long-running action on the card can be stopped: a form waiting or filling always has its Stop, and the night a Stop all, whatever its step.
+test('every form the night works on has a Stop, at every step, and the night has Stop all', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const steps = [null, 'opening', 'form', 'filling', 'answering', 'reading'];
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => owned({batch: {night: '2026-10-18', state: 'running'},
+    jobs: steps.map((step, i) => (step ? {job: `j${i}`, state: 'filling', step, step_n: 1, started_at: new Date().toISOString()} : {job: `j${i}`, state: 'queued'}))}), readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const card = body.querySelector('.ready-card');
+  card.querySelectorAll('.ready-row').forEach((row, i) => {
+    assert.ok(row.querySelector('.ready-stop'), `${steps[i] || 'waiting'}: a Stop`);
+    assert.equal(row.querySelector('.ready-stop').textContent, 'Stop', 'with its word (icons alone are for secondary buttons only)');
+    assert.ok(row.querySelector('.ready-row-live .ready-bar'), `${steps[i] || 'waiting'}: its bar`);
+  });
+  assert.ok(card.querySelector('.ready-stop-all'));
 });

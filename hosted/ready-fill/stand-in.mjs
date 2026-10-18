@@ -14,11 +14,12 @@ export async function createStandIn(batch, {answer = null} = {}) {
   // every lookup and every count is kept under that job's address, so a press on Apply or a next step stays on the same job.
   const key = address => { const page = String(address || '').split('#')[0]; return batch.jobs.find(job => isFormOf(page, job.url))?.url.split('#')[0] ?? page; };
   const jobs = new Map(batch.jobs.map(job => [key(job.url), job]));
-  const passes = new Map(), roles = new Map(), stuck = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
+  const passes = new Map(), roles = new Map(), stuck = new Map(), started = new Map(), asked = [];
+  let answered = 0;   // the AI answers asked since the form now filling started (forms fill one at a time: the live line's count)   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
   const answers = {
     '/extension/pair': port => ({url: `http://127.0.0.1:${port}`, token: 'night'}),
     '/extension/run': () => ({ok: true, id: 'night-run'}),
-    '/extension/answer': (port, url, body) => (answer ? answer(body) : {answers: [], usd: 0}),   // the night's AI (night-ai.mjs) when the batch has facts; otherwise the questions the kit and the rules do not cover stay open
+    '/extension/answer': (port, url, body) => { answered++; return answer ? answer(body) : {answers: [], usd: 0}; },   // the night's AI (night-ai.mjs) when the batch has facts; otherwise the questions the kit and the rules do not cover stay open
     '/extension/me': (port, url) => {
       const job = jobs.get(key(url));
       return {contact: batch.contact || {}, contactSource: 'night', ...(file('CV.pdf', job?.cv) ? {resume: file('CV.pdf', job.cv)} : {}), ...(file('Cover letter.pdf', job?.letterPdf) ? {coverLetterFile: file('Cover letter.pdf', job.letterPdf)} : {})};
@@ -55,6 +56,11 @@ export async function createStandIn(batch, {answer = null} = {}) {
     started: url => started.get(key(url)) || 0,
     role: url => roles.get(key(url)) || '',
     stuck: url => stuck.get(key(url)) || null,
+    answered: () => answered,
+    // A form added to the night while it runs (a 2nd Fill again joins the line): its kit and files are served like the others.
+    add: job => { if (!batch.jobs.some(each => each.id === job.id)) batch.jobs.push(job); jobs.set(key(job.url), job); },
+    // Before a form fills (again): what an earlier pass of it reported is forgotten, so its outcome is this fill's.
+    reset: url => { for (const map of [passes, roles, stuck, started]) map.delete(key(url)); answered = 0; },
     close: () => new Promise(resolve => server.close(resolve)),
   };
 }

@@ -10,7 +10,7 @@ import {dropKept} from '../src/ready-kept.js';
 const sql = file => readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql']) db.exec(sql(file));
+  for (const file of ['0015_ai_calls.sql', '0021_ai_cost.sql', '0043_ai_cost_provider.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_hosted.sql', '0089_ready.sql', '0090_ready_fill_at.sql', '0091_ready_ai_stopped.sql', '0097_ready_line.sql']) db.exec(sql(file));
   db.exec('CREATE TABLE anomalies (day TEXT, kind TEXT, who TEXT, n INTEGER, detail TEXT, PRIMARY KEY (day, kind, who))');
   db.exec('CREATE TABLE IF NOT EXISTS revoked (who TEXT PRIMARY KEY, reason TEXT, at TEXT)');
   const statement = (text, args = []) => ({bind: (...v) => statement(text, v), run: async () => { const r = db.prepare(text).run(...args); return {meta: {changes: Number(r.changes)}}; },
@@ -34,7 +34,7 @@ async function night(e = env()) {
 }
 
 test('off, or any install but the owner, reaches nothing: a class check over every route', async () => {
-  const subs = ['batch', 'result', 'ai', 'video', 'handoff', 'done', 'submitted', 'state', 'report', 'data', 'again', 'run', 'link', 'live', 'held'];
+  const subs = ['batch', 'result', 'ai', 'video', 'handoff', 'done', 'submitted', 'state', 'report', 'data', 'again', 'progress', 'stop', 'run', 'link', 'live', 'held'];
   const routed = [...readFileSync(new URL('../src/ready.js', import.meta.url), 'utf8').matchAll(/sub === '(\w+)'/g)].map(match => match[1]);
   for (const sub of routed) assert.ok(subs.includes(sub), `the route ${sub} is in this class check`);
   const off = env({READY_TO_SEND: 'off'});
@@ -82,11 +82,13 @@ test('a container reports counts, never a Submit; prepared needs nothing left em
   assert.equal((await post('pressed-submit')).status, 400);
   assert.equal((await call(e, 'POST', 'submitted', {job: 'j1'}, bearer)).status, 401);   // the container cannot mark one
   assert.equal((await call(e, 'POST', 'done', {job: 'j1'}, bearer)).status, 401);
+  assert.equal((await call(e, 'POST', 'result', {job: 'nope', state: 'wall'}, bearer)).status, 404);
   await post('prepared', {left: 2});   // the page said "prepared" but two required fields are empty: the server says partial
   assert.equal(e.STATS.db.prepare("SELECT state FROM ready_jobs WHERE job = 'j1'").get().state, 'partial');
+  await post('prepared', {job: 'j2'});   // nothing left empty: prepared (a form's result is taken once: a 2nd one for j1 changes nothing)
+  assert.equal(e.STATS.db.prepare("SELECT state FROM ready_jobs WHERE job = 'j2'").get().state, 'prepared');
   await post('prepared');
-  assert.equal(e.STATS.db.prepare("SELECT state, human_check FROM ready_jobs WHERE job = 'j1'").get().state, 'prepared');
-  assert.equal((await call(e, 'POST', 'result', {job: 'nope', state: 'wall'}, bearer)).status, 404);
+  assert.equal(e.STATS.db.prepare("SELECT state FROM ready_jobs WHERE job = 'j1'").get().state, 'partial');
 });
 
 test('the night stops at its cost cap and the cost is reported to /admin/ai-cost', async () => {

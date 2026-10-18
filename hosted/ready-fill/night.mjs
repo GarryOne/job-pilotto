@@ -82,8 +82,20 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
   }
   const guard = await net(context);
   const close = async () => { await context.close().catch(() => {}); await standIn.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); };
-  for (const job of batch.jobs) {
-    const done = await fillJob({context, standIn, job, fillSeconds, ...(record ? {record} : {})}).catch(error => ({state: 'failed', wall: 'error', filled: 0, left: 0, humanCheck: false, ms: 0, page: null, video: null, error: String(error).slice(0, 80)}));
+  // The night's forms in a line (owner, 18 Oct 2026): after each form the night is read again, and a form a Fill again added since joins the end of the line.
+  const line = [...batch.jobs];
+  while (line.length) {
+    const job = line.shift();
+    standIn.reset(job.url);
+    await held.get(job.id)?.close().catch(() => {}); held.delete(job.id);   // filled again: its earlier tab goes
+    const onStep = stepper({fetchImpl, site, token, job: job.id});
+    const done = await fillJob({context, standIn, job, fillSeconds, onStep, ...(record ? {record} : {})}).catch(error => ({state: 'failed', wall: 'error', filled: 0, left: 0, humanCheck: false, ms: 0, page: null, video: null, error: String(error).slice(0, 80)}));
+    if (done.stopped) {   // the owner stopped it: nothing is reported (the site already put the row back), its tab and video go
+      told.add(job.id); await done.page?.close().catch(() => {}); discard(done.video?.path);
+      log('job stopped', {id: job.id});
+      if (!await moreFor(line)) break;
+      continue;
+    }
     if (done.page && ['prepared', 'partial'].includes(done.state)) held.set(job.id, done.page); else await done.page?.close().catch(() => {});   // only a filled form is worth holding
     const usd = standIn.outcome(job.url)?.usd || 0;
     const video = await sendVideo(fetchImpl, site, token, job.id, done.video);   // before the result: the last result ends the night, and its token with it
@@ -92,6 +104,26 @@ async function fillAll({told, batch, chromium, site, token, fetchImpl, log, fill
     told.add(job.id);
     log('job', jobLine({id: job.id, done, blocked: guard.blocked.length, video, handoff}));
     if (answer.stop) { log('stopped by the Worker (cost cap or finished)'); break; }
+    if (!await moreFor(line)) break;
   }
   return {held, context, guard, standIn, close};
+
+  // Reads the night again: forms queued since join the line. -> false when the night is over (its token refused: finished or stopped by the owner).
+  async function moreFor(queue) {
+    const again = await post(fetchImpl, site, token, 'batch').catch(() => ({}));
+    if (again.ok === false || again.error || again.stop) return false;
+    for (const next of again.jobs || []) if (!queue.some(each => each.id === next.id)) { standIn.add(next); queue.push(next); }
+    return true;
+  }
+}
+
+// The live line of one form: its step sent to the site when it changes or every 10 s, never page text. -> onStep(step, n): true when the owner stopped this form.
+export function stepper({fetchImpl, site, token, job, now = Date.now}) {
+  let last = '', at = 0;
+  return async (step, n = null) => {
+    if (`${step}:${n}` === last && now() - at < 10000) return false;
+    last = `${step}:${n}`; at = now();
+    const answer = await post(fetchImpl, site, token, 'progress', {job, step, ...(n == null ? {} : {n})}).catch(() => ({}));
+    return answer.stop === true || answer.error === 'unauthorized';   // stopped, or the night is over (its token refused)
+  };
 }
