@@ -100,6 +100,21 @@ test('the page: each state in words, the move since the last green run, an empty
   assert.match(page([]), /No search replayed yet/);
 });
 
+test('the Lab screen draws a card, time bars, funnel meters and a sparkline per candidate, and History lists every run', () => {
+  const all = [row('a', 1, {label: 'Finance'}), row('a', 2, {label: 'Finance', in_places: 60, fit70: 3}), row('s', 1, {label: 'SRE', control: 1}), row('f', 1, {label: 'Music', state: 'failed', failed_step: 'Reading job boards'})];
+  const html = page(all);
+  assert.equal((html.match(/class="card lv-card"/g) || []).length, 3, 'one card per candidate');
+  assert.match(html, /class="lv-health"/);
+  assert.match(html, /<svg class="lv-spark"/);
+  assert.match(html, /1st relevant<\/span><div class="lv-track/);
+  assert.match(html, /Scored<\/span><div class="lv-track/);
+  assert.match(html, /Runs kept<\/span><b>4<\/b>/);
+  const history = page(all, [], 'history');
+  assert.equal((history.match(/<tr><td>2026/g) || []).length, 4, 'every kept run is a row');
+  assert.match(history, /Finance[^<]*<span class="muted">· 2 runs/);
+  assert.doesNotMatch(history, /class="card lv-card"/, 'the History screen is not the Lab screen');
+});
+
 test('the route: owner only, the page is in the "Job search" group, the group is in the menu', async () => {
   const env = {STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 's', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   await ingest(env.STATS, [row('a', 1, {label: 'Finance · Amsterdam'})]);
