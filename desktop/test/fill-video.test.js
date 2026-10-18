@@ -52,7 +52,7 @@ test('the encoder is the one this ffmpeg has: VP8 (the night image\'s), else VP9
 test('the encode is small on purpose: the given size and rate, no sound, a capped bitrate', () => {
   const args = ffmpegArgs({width: 960, height: 540, fps: 10, out: 'x.webm'}).join(' ');
   assert.ok(ffmpegArgs({width: 960, height: 540, fps: 10, out: 'x.webm', encoder: 'libvpx-vp9'}).join(' ').includes('-c:v libvpx-vp9'));
-  for (const part of ['-c:v libvpx', '-crf 32', '-b:v 300k', '-framerate 10', '-r 10', '-an', 'scale=960:540', 'pad=960:540']) assert.ok(args.includes(part), part);
+  for (const part of ['-c:v libvpx', '-crf 28', '-b:v 800k', '-framerate 10', '-r 10', '-an', 'scale=960:540', 'pad=960:540']) assert.ok(args.includes(part), part);
   assert.ok(args.endsWith('x.webm'));
 });
 
@@ -64,7 +64,7 @@ test('frames go in at the fixed rate and it stops by itself at its limit', async
   assert.equal(ffmpeg.runs[0].written.length, 3, '0.3 s at 10 fps, then no more');
   assert.equal(video.secs, 1, 'whole seconds, at least 1');
   assert.ok(video.bytes > 0 && fs.existsSync(video.path));
-  assert.ok(ffmpeg.runs[0].args.join(' ').includes('scale=960:540'), 'the page\'s shape at 960 px');
+  assert.ok(ffmpeg.runs[0].args.join(' ').includes('scale=1280:720'), '720p, the page\'s own shape');
   assert.ok(calls.includes('Page.startScreencast') && calls.includes('Page.stopScreencast') && calls.includes('detach'));
   assert.equal(await rec.stop(), video, 'a second stop gives the same answer');
   discard(video.path);
