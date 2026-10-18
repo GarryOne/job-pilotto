@@ -110,11 +110,13 @@ esac
 # Every workflow starts on the files its tests read (18 Oct 2026: #1443 made a desktop test read src/notion/cron_report.py, its own PR touched only desktop/ so the
 # Python suite never started, and main went red). Pure and under a second, so it runs on every PR; `WORKFLOW_PATHS_OK=1 git push ...` skips it.
 case "$command" in *WORKFLOW_PATHS_OK=1*) ;; *)
-  paths_out="$(cd "$repo" && timed "workflow paths" python3 -m unittest tests.test_workflow_paths 2>&1)" || {
-    echo "Push blocked: a workflow's paths: miss a file its tests read (tests/test_workflow_paths.py):" >&2
-    echo "$paths_out" | tail -n 15 >&2
-    exit 2
-  } ;;
+  if [ -f "$repo/tests/test_workflow_paths.py" ]; then   # a repo without the test (the hook's own fixtures) has nothing to check
+    paths_out="$(cd "$repo" && timed "workflow paths" python3 -m unittest tests.test_workflow_paths 2>&1)" || {
+      echo "Push blocked: a workflow's paths: miss a file its tests read (tests/test_workflow_paths.py):" >&2
+      echo "$paths_out" | tail -n 15 >&2
+      exit 2
+    }
+  fi ;;
 esac
 
 # The place sorter, checked with real AI answers when its code changes (7 Oct 2026: two of the day's place bugs were the real model's answers, which
