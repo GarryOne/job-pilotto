@@ -30,17 +30,20 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.origin) args.push('--origin', String(inputs.origin));
   if (inputs.interview) args.push('--interview', String(inputs.interview));
   if (inputs.firstJobs) args.push('--first-jobs');   // a small slice of fast feeds is read and 3 jobs scored first (src/first_jobs.py)
-  if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
+  if (ai && AI_MODES.includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
   // A search's AI steps stop at 3 minutes (owner, 7 Oct 2026: "never more than 2-3 minutes"); what is left waits for the next search (src/budget.py).
-  if (ai && ['scheduled', 'run'].includes(mode)) args.push('--budget', String(SEARCH_BUDGET_S));
+  // Every mode that runs AI steps has it: the first run's follow-up (mode today) had none from 16 Oct, so on a big market it sorted 600 titles and
+  // placed 277 places for 15 minutes before the first jobs were scored (Cluj, 18 Oct 2026: first 70+ match after 23 minutes).
+  if (ai && AI_MODES.includes(mode)) args.push('--budget', String(SEARCH_BUDGET_S));
   const {insights, kits} = cadence(storage.settings());
   if (ai && mode === 'scheduled' && insights !== 'off') args.push('--insight');
-  if (ai && kits > 0 && ['scheduled', 'run', 'today'].includes(mode)) args.push('--auto-kit-max', String(kits));
+  if (ai && kits > 0 && AI_MODES.includes(mode)) args.push('--auto-kit-max', String(kits));
   return args;
 }
 // Notion just connected after a time of trying: one run that spends no AI (every cap at 0), so the Job Matches sync
 // (src/notion/matches.py, hash-keyed over every scored job in the cache) puts what was scored before Notion there.
 // `--mode today` is the no-AI path that reaches that sync; it also reads the feeds, which is free.
+const AI_MODES = ['scheduled', 'run', 'today'];   // the modes that read, score and enrich with AI
 export const SEARCH_BUDGET_S = 180;
 // Find new employers starts no new check after 3 minutes (owner, 7 Oct 2026: "runs for too long"); each check is saved as it ends (src/scout.py).
 export const SCOUT_BUDGET_S = 180;
