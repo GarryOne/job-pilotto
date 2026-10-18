@@ -111,7 +111,9 @@ esac
 # Python suite never started, and main went red). Pure and under a second, so it runs on every PR; `WORKFLOW_PATHS_OK=1 git push ...` skips it.
 case "$command" in *WORKFLOW_PATHS_OK=1*) ;; *)
   if [ -f "$repo/tests/test_workflow_paths.py" ]; then   # a repo without the test (the hook's own fixtures) has nothing to check
-    paths_out="$(cd "$repo" && timed "workflow paths" python3 -m unittest tests.test_workflow_paths 2>&1)" || {
+    PATH_TESTS="tests.test_workflow_paths tests.test_windows_paths"   # every test that keeps a workflow's paths: complete (#1447 missed the Windows one)
+    # shellcheck disable=SC2086
+    paths_out="$(cd "$repo" && timed "workflow paths" python3 -m unittest $PATH_TESTS 2>&1)" || {
       echo "Push blocked: a workflow's paths: miss a file its tests read (tests/test_workflow_paths.py):" >&2
       echo "$paths_out" | tail -n 15 >&2
       exit 2
