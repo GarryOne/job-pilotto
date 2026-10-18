@@ -9,6 +9,7 @@ imports urllib). Off by default: a normal run never loads it.
 - The AI: the engine's AI client (messages.create). Record keeps each answer and its time, keyed by the whole request; replay serves it after its
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
 Tests: tests/test_search_tape.py."""
+import email.message
 import hashlib
 import io
 import json
@@ -81,7 +82,8 @@ class _Reply(io.BytesIO):
     def __init__(self, body, record):
         super().__init__(body)
         self.status = self.code = record.get('status') or 200
-        self.headers = {'Content-Type': record.get('type') or ''}
+        self.headers = email.message.Message()   # readers call headers.get_content_charset() / get_content_type(), as on the real reply
+        self.headers['Content-Type'] = record.get('type') or 'application/octet-stream'
         self.url = record.get('final') or record['url']
 
     def getcode(self):
@@ -202,6 +204,11 @@ def install():
     if getattr(urllib.request.urlopen, 'search_tape', False):
         return
     urllib.request.urlopen = _web(urllib.request.urlopen)
+    if mode() == 'replay':   # the engine checks a host is public by looking it up (careers._public): offline, every board would read as unreachable
+        import socket
+        real_lookup = socket.getaddrinfo
+        socket.getaddrinfo = lambda host, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 0))] \
+            if host not in ('localhost', '127.0.0.1') else real_lookup(host, *a, **k)
     from .ai import providers
     real_build = providers.build
     providers.build = lambda env=None, action='', log=None: _Client(lambda: real_build(env, action, log))
