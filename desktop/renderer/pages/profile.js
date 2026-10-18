@@ -67,7 +67,21 @@ function letterButtons() {
   $('letter-save').disabled = !text || text === letterSaved.trim();
   $('letter-approve').disabled = !text || ($('letter-state').classList.contains('is-on') && text === letterSaved.trim());
 }
-async function loadLetter() { loadLetterStyle(); showLetter(await window.pilot.coverLetter()); }
+// The kept letter shows at once; with none kept the skeleton stands in for the empty box (contact-reading.js), so "Not written yet" is never just an unread letter.
+async function loadLetter() {
+  loadLetterStyle();
+  let painted = false;
+  await swr('cover-letter', async () => ({ok: true, letter: await window.pilot.coverLetter()}), {
+    loading: () => { reading(true, document, 'letter'); $('letter-state').textContent = 'Reading…'; },
+    paint: ({letter}, kept) => {
+      if (!kept && painted && $('letter-text').value !== letterSaved) return;   // a refresh never redraws a letter under edit
+      reading(false, document, 'letter');
+      painted = true;
+      showLetter(letter);
+    },
+    fail: result => { reading(false, document, 'letter'); message('letter-message', result.error || 'Couldn\'t read your letter', 'error'); },
+  });
+}
 async function letterAction(button, working, run) {
   const buttons = ['letter-draft', 'letter-save', 'letter-approve'].map($);
   buttons.forEach(b => { b.disabled = true; });
