@@ -4,6 +4,7 @@ import {el, pill} from '../components.js';
 import {fitTooltip} from '../jobs-view.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {byFit, runItems} from '../run-cards.js';
+import {searchNumbers} from '../find-card-model.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {fullKey, showJobsIn} from './jobs.js';
@@ -51,9 +52,16 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
   const stat = (value, label) => { if (value == null) return ''; const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
   const rows = el('ol', 'run-card-rows');
-  let heading, more = null, help = null;
+  let heading, more = null, help = null, secondary = null;
   if (card.kind === 'digest') {
-    stats.append(stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
+    // The same numbers as the Find jobs card on Jobs (find-card-model.js searchNumbers); the digest's own counts stay as the quiet line under them.
+    const numbers = searchNumbers(run?.log), digestStats = [stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run')];
+    if (numbers) {
+      stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'scored'), stat(numbers.good, 'good fits (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting for a score')] : []));
+      const facts = el('div', 'run-card-stats muted');
+      facts.append(...digestStats);
+      secondary = facts;
+    } else stats.append(...digestStats);
     // A run that found nothing new lists no jobs: the digest's "top matches" are the best open jobs from any run, and shown here they read as
     // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
     const nothingNew = card.fresh === 0;
@@ -149,7 +157,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
   // The few-jobs cards are siblings of this card, never inside it (a card in a card): the pane's own slot, else after the card.
   const slot = target.id === 'activity-card' ? $('activity-help') : null;
   if (slot) { slot.replaceChildren(...(help ? [help] : [])); show(slot, !!help); }
-  target.replaceChildren(...(stats.childElementCount ? [stats] : []), body, ...(help && !slot ? [help] : []));
+  target.replaceChildren(...(stats.childElementCount ? [stats] : []), ...(secondary ? [secondary] : []), body, ...(help && !slot ? [help] : []));
 }
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane

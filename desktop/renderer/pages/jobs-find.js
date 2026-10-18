@@ -54,7 +54,7 @@ function draw(model) {
       runNumbers(model), readProgress(model), chips, lines);
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before
-    card.replaceChildren(cardHead('Search done', ran ? `${model.matches} found, ${model.scored} scored` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: ['The best matches are first. Find jobs again any time.']}),
+    card.replaceChildren(cardHead('Search done', ran ? `${model.matches} found, ${model.scored} scored` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: [model.waiting ? `${model.waiting.toLocaleString('en-US')} more possible job${model.waiting === 1 ? ' is' : 's are'} still waiting for a score. Run Find jobs again to score ${model.waiting === 1 ? 'it' : 'them'}.` : 'The best matches are first. Find jobs again any time.']}),
       ...(ran ? [runNumbers(model, false)] : []));
   } else if (model.state === 'failed') {
     card.replaceChildren(cardHead('Search stopped', 'The search did not finish', {subtitles: [model.problem || 'Nothing is lost. Try again; if it keeps stopping, check your AI settings.']}),
