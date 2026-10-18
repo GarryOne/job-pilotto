@@ -24,6 +24,9 @@ A line that answers two questions (e.g. race and "Hispanic or Latino?") gets one
 Never guess an answer the line does not state.
 ${SURVEYS.map(each => `- ${each.key}: ${each.label}; choices: ${each.options.join(' | ')}`).join('\n')}
 Answer every id exactly as given (a repeated id is allowed only for a line with several answers).`;
+// The question list a move ran against: when it grows ("Hispanic or Latino" came after the owner's move on 18 Oct 2026), the lines still prose are offered again,
+// since a line that answers a new question (race + "Hispanic or Latino?") could not be mapped before. Lines already answers are never sent again.
+export const QUESTIONS = SURVEYS.map(each => each.key).join(',');
 const squash = text => String(text).replace(/\s+/g, ' ').trim().toLowerCase();
 const digits = text => (String(text).match(/\d/g) || []).sort().join('');
 
@@ -62,13 +65,15 @@ const linesOf = async it => (profileParts(await it.page('profile').outline()).su
 
 // The one move. -> {changed, copy, reason}: reason (a word, never a value) says why nothing changed while lines were waiting. ai: {client, apiKey}; none: nothing changes and it is tried again. copy/now: a test passes its own.
 export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now = new Date()} = {}) {
-  const {surveyMovedAt, surveyTidy: prior} = storage.settings();
+  const {surveyMovedAt, surveyTidy: prior, surveyMovedFor} = storage.settings();
   if (!ai.client && !ai.apiKey) return {changed: 0, reason: 'no-ai'};
-  if (surveyMovedAt && (!prior?.before || prior.undone)) return {changed: 0};
+  if (prior?.undone) return {changed: 0};   // never after Undo
+  const grown = Boolean(surveyMovedAt) && surveyMovedFor !== QUESTIONS;   // moved against a shorter question list (or before it was recorded)
+  if (surveyMovedAt && !grown && !prior?.before) return {changed: 0};
   const it = store.openStore(storage, {fetcher}), lines = await linesOf(it);
   // Moved before, but a line is back as the bullet it was (a rolled-back run, owner's app.log 17 Oct 2026): move those again. Not after Undo.
   const kept = (prior?.before || []).filter(each => lines.some(line => line.text === each.value));
-  if (surveyMovedAt && !(prior.before || []).some(each => lines.some(line => line.text === each.was))) return {changed: 0};
+  if (surveyMovedAt && !grown && !(prior.before || []).some(each => lines.some(line => line.text === each.was))) return {changed: 0};
   const read = lines.map(line => ({line, read: readLine(line.text)}));
   const todo = read.filter(each => each.read.type === 'other').map(each => ({id: String(lines.indexOf(each.line)), text: each.read.text, line: each.line}));
   const taken = new Set(read.filter(each => each.read.type === 'answer').map(each => each.read.key));
@@ -80,7 +85,7 @@ export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now =
   if (!changes.length) {
     // Nothing trusted is not "done": one unreadable or refused AI answer must not end the move for good (owner's survey lines stayed prose). Asked again on the next open, up to TRIES times.
     const tries = (storage.settings().surveyTries || 0) + 1;
-    if (!todo.length || tries >= TRIES) storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTries: 0}); else storage.saveSettings({surveyTries: tries});
+    if (!todo.length || tries >= TRIES) storage.saveSettings({surveyMovedAt: now.toISOString(), surveyMovedFor: QUESTIONS, surveyTries: 0}); else storage.saveSettings({surveyTries: tries});
     return {changed: 0, ...(todo.length ? {reason: 'no-answer-trusted'} : {})};
   }
   const backup = await copy(storage, {fetcher, now});
@@ -96,7 +101,7 @@ export async function migrate(storage, {fetcher, ai = {}, copy = saveCopy, now =
     await applyEdits(it.page('profile'), await it.page('profile').outline(), back).catch(() => {});
     throw error;
   }
-  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyTidy: {at: now.toISOString(), dir: backup.dir, changed: moved.length, before: [...kept, ...changes.flatMap(change => change.op === 'insert' ? change.lines.map(text => ({value: text, was: null})) : [{value: change.value, was: change.was}])]}});
+  storage.saveSettings({surveyMovedAt: now.toISOString(), surveyMovedFor: QUESTIONS, surveyTidy: {at: now.toISOString(), dir: backup.dir, changed: moved.length, before: [...kept, ...changes.flatMap(change => change.op === 'insert' ? change.lines.map(text => ({value: text, was: null})) : [{value: change.value, was: change.was}])]}});
   return {changed: moved.length, copy: backup};
 }
 
