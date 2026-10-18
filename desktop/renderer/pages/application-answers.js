@@ -273,7 +273,8 @@ export function addQuestion() {
   tab?.redraw();
 }
 // The question review's "Manage saved answers" / "View source": the tab opens searched for that answer.
-export function searchAnswers(query = '') { filters.query = String(query || ''); }
+let wanted = null;   // the tab a jump named (Saved, Needs review), used by the next load instead of All
+export function searchAnswers(query = '', view = null) { filters.query = String(query || ''); wanted = view; }
 export function addRule() { newRule(); rulesOpen = true; tab?.redraw(); }
 
 export async function loadApplicationAnswers() {
@@ -283,6 +284,8 @@ export async function loadApplicationAnswers() {
     tab = {...outlineTab('answers', [TEXT, 'knowledge'], node, draw, {onReset: () => { drafts.clear(); kinds.clear(); opened.clear(); resetRules(); },
       bar: profileBar(), tab: 'answers', label: 'Application answers'}), node};
   }
-  filters.view = 'all';   // the tab opens on All
+  const named = wanted;
+  filters.view = named || 'all';   // the tab opens on All, or on the one a jump named
   await tab.load();
+  if (named) { setTimeout(() => { if (wanted === named) wanted = null; }, 2000); node.querySelector('.segmented')?.scrollIntoView?.({block: 'nearest'}); }   // later loads of the same jump keep it
 }

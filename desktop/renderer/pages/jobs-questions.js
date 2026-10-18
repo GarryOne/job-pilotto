@@ -1,8 +1,7 @@
 // Jobs page, Application questions (owner's mockup, 17 Oct 2026: "Replace 'Answer once' with one compact card"): a title, "N need review" (the
-// review queue's count, never the set-aside ones), one line, Review questions (pages/question-review.js, one question at a time) and Manage saved
-// answers. It reads the open questions (cached list first, then the store) and keeps them for the drawer (questionsNow).
+// review queue's count, never the set-aside ones), one line and Review questions (pages/question-review.js, one question at a time; the whole card opens it, Saved answers is in the drawer's header). It reads the open questions (cached list first, then the store) and keeps them for the drawer (questionsNow).
 // Guarded by: test/question-review.test.js, questions-load-error.test.js, questions-error-text.test.js.
-import {el} from '../components.js';
+import {el, cardOpens} from '../components.js';
 import {$, show} from './core.js';
 import {questionsProblem} from '../questions-view.js';
 import {fromDetailsLine} from '../answered-from-details.js';
@@ -13,6 +12,7 @@ let questionsShown = '';
 const now = {list: [], hidden: [], consent: 0, fromDetails: 0, error: '', read: false};
 // What the drawer walks through: the queue (list), the set-aside ones (hidden), the consent count, the last error, and whether the store answered yet.
 export const questionsNow = () => now;
+if ($('questions') && $('questions-review')) cardOpens($('questions'), $('questions-review'));   // the whole card opens the drawer
 $('questions-retry')?.addEventListener('click', () => { questionsShown = ''; loadQuestions({force: true}); });
 // Reading the questions walks the whole answers page (about 50 Notion calls, which queue ahead of every other read): not on every Jobs reload (each save, dismiss, kit…).
 // It is read again at the first load, after 10 minutes, and at once when something changed it: Retry, an answer, a fill that added questions (`onMoved`, from lib/server.js).

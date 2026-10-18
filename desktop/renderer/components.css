@@ -659,3 +659,8 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 .foldbar { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin-top: var(--sp-4); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
 .panel-summary { display: none; align-self: center; min-width: 0; }
 .panel.is-collapsed .panel-summary { display: inline; }
+
+/* A card whose empty area runs its one main action (components.js cardOpens): the pointer, and the service card's hover. */
+.is-card-opens { cursor: pointer; }
+.is-card-opens:hover { border-top-color: var(--line-strong); border-right-color: var(--line-strong); border-bottom-color: var(--line-strong); box-shadow: var(--shadow-sm); }   /* not the left edge: a card's accent stays */
+.is-card-opens:has(:focus-visible) { box-shadow: 0 0 0 2px var(--signal-line); }
