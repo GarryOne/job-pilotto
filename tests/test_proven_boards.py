@@ -176,7 +176,7 @@ class FirstSliceTests(Fixture):
             full = found_boards.read(SEARCH, [board(1), board(2), board(3)])
         self.assertEqual(sorted(self.fetched), [('b1.example', False), ('b1.example', True), ('b2.example', False), ('b2.example', True), ('b3.example', False)],
                          'the full read reads every board in full')
-        self.assertEqual(sorted(url for url in asked if not url.endswith('.example/')), ['https://b1.example/search', 'https://b2.example/search', 'https://b3.example/search'],
+        self.assertEqual(sorted(url for url in asked if not url.endswith(('.example/', '/robots.txt'))), ['https://b1.example/search', 'https://b2.example/search', 'https://b3.example/search'],
                          'the pages the slice fetched are not asked again')
         self.assertEqual(len(full), 2, 'and still returns the slice\'s jobs')
 

@@ -122,6 +122,40 @@ class LearnedLinkTests(unittest.TestCase):
             self.read()
         self.assertEqual(home, [HOME])
 
+    def test_with_no_form_the_board_s_own_job_sitemap_is_read_and_kept_as_its_route(self):
+        """18 Oct 2026: Randstad listed warehouse jobs for "financial analyst" in Amsterdam; its robots.txt names a job sitemap."""
+        sitemap = ('<urlset><url><loc>https://vacatures.example/vaga/26051177-magazijnmedewerker</loc></url>'
+                   '<url><loc>https://vacatures.example/vaga/26051178-financial-analyst</loc></url></urlset>')
+        def fetch(url):
+            self.asked.append(url)
+            pages = {HOME: '<html><body>no form here</body></html>', 'https://vacatures.example/robots.txt': 'Sitemap: https://vacatures.example/jobs.xml',
+                     'https://vacatures.example/jobs.xml': sitemap, 'https://vacatures.example/vaga/26051178-financial-analyst': posting('Financial Analyst', 78)}
+            return pages.get(url, posting('Magazijnmedewerker', 2))
+        self.fetch = fetch
+        self.assertEqual([job['title'] for job in self.read() if 'Financial' in job['title']], ['Financial Analyst'])
+        from src.ai import board_ideas
+        entry = board_ideas.load()['boards']['vacatures.example']
+        self.assertEqual((entry['route_kind'], entry['relevant'], entry['search_url']), ('sitemap', 1, GUESSED))
+        self.asked.clear()
+        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a: boards):
+            self.read()
+        self.assertEqual(self.asked[0], 'https://vacatures.example/jobs.xml', 'its route is read first from then on')
+        self.assertNotIn(HOME, self.asked)
+
+    def test_a_job_list_that_refuses_us_leaves_the_board_readable(self):
+        import urllib.error
+        def fetch(url):
+            if url == 'https://vacatures.example/robots.txt':
+                return 'Sitemap: https://vacatures.example/jobs.xml'
+            if url == 'https://vacatures.example/jobs.xml':
+                raise urllib.error.HTTPError(url, 403, 'Forbidden', None, None)
+            return '<html><body>no form</body></html>' if url == HOME else posting('Magazijnmedewerker', 2)
+        self.fetch = fetch
+        self.read()
+        from src.ai import board_ideas
+        entry = board_ideas.load()['boards']['vacatures.example']
+        self.assertEqual((entry['state'], entry.get('route')), ('ok', None), 'the search page still answers: not marked for a visit')
+
     def test_the_first_jobs_slice_never_reads_a_form(self):
         relevant = lambda jobs: [job for job in jobs if 'Financial' in job['title']]
         found_boards.read(SEARCH, [BOARD], fetch=self.fetch, is_relevant=relevant, dead=set(), early=True)
