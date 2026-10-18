@@ -3,6 +3,7 @@ import email.message
 import io
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -167,6 +168,78 @@ class WebTest(TapeTest):
             urlopen(ask(51234))
         with self.mode('replay'):
             self.assertEqual(urlopen(ask(60001)).read(), b'{"html": "<p>x</p>"}')
+
+
+class OutcomeTest(TapeTest):
+    """Every outcome of a request that is not a 200 is on the tape too (19 Oct 2026, proof 3: 73 web requests missing, all careers subdomains that never resolved
+    when recorded: the search does not ask a host that does not exist, but the replay's stand-in lookup said every host exists)."""
+    def lookup(self, known):
+        def real(host, *args, **kwargs):
+            if host not in known:
+                raise socket.gaierror(-2, 'Name or service not known')
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 0))]
+        return real
+
+    def test_a_host_that_did_not_resolve_when_recorded_does_not_resolve_in_the_replay(self):
+        for host in ('jobs.test', 'careers.nowhere.test'):
+            with self.mode('record'):
+                lookup = search_tape._lookup(self.lookup({'jobs.test'}))
+                try:
+                    lookup(host, None)
+                except socket.gaierror:
+                    pass
+        with self.mode('replay'):
+            lookup = search_tape._lookup(lambda *a, **k: self.fail('replay never looks a host up'))
+            self.assertEqual(lookup('jobs.test', None)[0][4][0], '93.184.216.34')
+            with self.assertRaises(socket.gaierror):
+                lookup('careers.nowhere.test', None)
+            self.assertEqual(lookup('never-looked-up.test', None)[0][4][0], '93.184.216.34', 'a host the recording never asked about is left to the web check, which counts it missing')
+
+    def test_the_replays_public_host_check_agrees_with_the_recording(self):
+        """careers._public is the search's own question: a host that did not resolve is not public, on the tape as when recorded."""
+        from src.sources import careers
+        results = {}
+        for mode in ('record', 'replay'):
+            with self.mode(mode), mock.patch.object(search_tape.socket, 'getaddrinfo', search_tape._lookup(self.lookup({'jobs.test'}))), \
+                    mock.patch.object(careers.socket, 'getaddrinfo', search_tape.socket.getaddrinfo):
+                results[mode] = [careers._public('jobs.test'), careers._public('careers.nowhere.test')]
+        self.assertEqual(results['record'], results['replay'])
+        self.assertEqual(results['replay'], [True, False])
+
+    def test_a_host_that_resolved_to_a_private_address_stays_private_in_the_replay(self):
+        private = lambda host, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('10.0.0.7', 0))]
+        with self.mode('record'):
+            search_tape._lookup(private)('intranet.test', None)
+        with self.mode('replay'):
+            self.assertEqual(search_tape._lookup(None)('intranet.test', None)[0][4][0], '10.0.0.7')
+
+    def test_every_failed_answer_replays_as_the_same_failure_with_no_live_call(self):
+        """HTTP 404 and 500, a refusal, a timeout, an unreachable host: the replay raises the same class, never reaches the web."""
+        failures = {'https://a.test/404': urllib.error.HTTPError('https://a.test/404', 404, 'Not Found', {}, None),
+                    'https://a.test/500': urllib.error.HTTPError('https://a.test/500', 500, 'Server Error', {}, None),
+                    'https://a.test/refused': ConnectionRefusedError(111, 'Connection refused'),
+                    'https://a.test/timeout': TimeoutError('timed out'),
+                    'https://a.test/dns': urllib.error.URLError(socket.gaierror(-2, 'Name or service not known'))}
+        calls = []
+
+        def real(request, data=None, *args, **kwargs):
+            calls.append(request if isinstance(request, str) else request.full_url)
+            raise failures[calls[-1]]
+        urlopen = search_tape._web(real)
+        raised = {}
+        with self.mode('record'):
+            for url in failures:
+                try:
+                    urlopen(url)
+                except Exception as error:   # noqa: BLE001: the class is the point
+                    raised[url] = type(error)
+        self.assertEqual(len(calls), len(failures))
+        with self.mode('replay'):
+            for url, kind in raised.items():
+                with self.assertRaises(kind, msg=url):
+                    urlopen(url)
+        self.assertEqual(len(calls), len(failures), 'replay never reaches the web')
+        self.assertEqual((search_tape.counts['web_tape'], search_tape.counts['web_missing']), (len(failures), 0))
 
 
 class AiTest(TapeTest):

@@ -63,7 +63,8 @@ export function shapes(tape) {
     const kind = row.web ? `web ${String(row.url || '').replace(/^https?:\/\//, '').split('/')[0]}` : `ai ${row.model || '?'} "${String(row.user || '').split(/[:\n]/)[0].replace(/[^\p{L} ()]/gu, '').slice(0, 30)}"`;
     count.set(kind, (count.get(kind) || 0) + 1);
   }
-  return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([kind, n]) => `  ${n} x ${kind}`).join('\n') || '  nothing missing';
+  const top = kind => [...count.entries()].filter(([name]) => name.startsWith(kind)).sort((a, b) => b[1] - a[1]).slice(0, 12);   // each kind has its own room: 12 hosts must not hide a missing AI question
+  return [...top('ai '), ...top('web ')].map(([kind, n]) => `  ${n} x ${kind}`).join('\n') || '  nothing missing';
 }
 
 // Heals that finished in the last 7 days: runs of this workflow whose `heal` job succeeded (a run that picked nothing skips it).
