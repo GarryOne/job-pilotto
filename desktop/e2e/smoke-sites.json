@@ -521,6 +521,34 @@
     "https://databricks.com/company/careers/open-positions/job?gh_jid=8532682002"
    ],
    "signature": "posting@www.databricks.com#posting"
+  },
+  {
+   "shape": "Discovery: heidelbergmaterials.wd3.myworkdayjobs.com",
+   "urls": [
+    "https://heidelbergmaterials.wd3.myworkdayjobs.com/Global_HM_Career_Site/job/Brno/Senior-System-Engineer_JR10019456"
+   ],
+   "signature": "posting>other>form>posting>none>posting>other>form>posting>none>posting>form@heidelbergmaterials.wd3.myworkdayjobs.com#form"
+  },
+  {
+   "shape": "Discovery: jobs.ionos.de",
+   "urls": [
+    "https://jobs.ionos.de/karriere/jobangebot/4987603101-werkstudent-wmd-shared-network-infrastructure"
+   ],
+   "signature": "posting@jobs.ionos.de#posting"
+  },
+  {
+   "shape": "Discovery: job-boards.eu.greenhouse.io",
+   "urls": [
+    "https://job-boards.eu.greenhouse.io/fractile/jobs/4725139101"
+   ],
+   "signature": "form@job-boards.eu.greenhouse.io#form"
+  },
+  {
+   "shape": "Discovery: careers.mediclinic.com",
+   "urls": [
+    "https://careers.mediclinic.com/Hirslanden/job/Hirslanden-Corporate-Office-DevOps-und-Kubernetes-Engineer-%28a%29-80-100-Z%C3%BCri-8152/1446653833/"
+   ],
+   "signature": "posting>none>posting>none@careers.mediclinic.com#posting"
   }
  ]
 }
