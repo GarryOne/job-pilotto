@@ -147,8 +147,8 @@ export const FIXED_SCRIPT = `
         : [el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), ...(r.offline && r.offline.verdict === 'holds' ? [el('span', {className: 'pill s-holds', textContent: OFFLINE_WORD.holds})] : []), el('span', {className: 'stack ' + (r.offline && r.offline.verdict === 'confirmed' ? 'muted' : r.offline && r.offline.verdict === 'holds' ? 'muted' : 'warn'), textContent: offlineLine(r)})])),
       el('td', {className: 'c-fill', textContent: fixFilled(r)}),
       el('td', {className: 'c-fix'}, r.commit ? el('code', {className: 'hash', title: r.fixes.map(f => f.commit + ' ' + (f.extensionVersion || '')).join(', '), textContent: r.commit + (r.commits.length > 1 ? ' +' + (r.commits.length - 1) : '')}) : '—', r.commit ? el('span', {className: 'stack muted', textContent: fixDate(r.landedAt) + (r.rung != null ? ' · rung ' + r.rung : '')}) : null),
-      el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.site, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
-    return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 5}, fixDetail(r)))] : [main]; };
+      el('td', {}, watchButton(r.site, () => { if (!fixOpen.has(r.site)) toggleOpen(fixOpen, r.site); drawFixed(); }), el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.site, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
+    return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 5}, fixDetail(r), watchPlayer(r.site)))] : [main]; };
   const FIX_GET = [r => r.site.toLowerCase(), r => FIX_ORDER.indexOf(fixKind(r)), r => (fixShares0(r) ?? null), r => r.landedAt, r => r.guard.length];
   const fixShares0 = r => ((r.filledAfter || []).filter(value => value != null).at(-1));
   // How verification works (owner, 15 Oct 2026: "too verbose, looks like an essay"): the status's own pill and one short line each; the source is a footnote.
