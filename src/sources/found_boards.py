@@ -7,7 +7,7 @@ it) and looked at again after 30 days; one that gave no job in the user's places
 cache's source_yield table: src/sources/board_yield.py dead). The outcome of each read is kept in data/found_boards.json
 ('boards'), a cache. Wired as one aggregator, "Job boards found" (src/sources/aggregators.py). The boards that gave other installs like
 this one their jobs are read first, the top 2 in the first-jobs slice (src/first_jobs.py; their jobs are handed to the full read, not
-fetched twice). Tests: tests/test_found_boards.py, tests/test_proven_boards.py."""
+fetched twice: the full read reuses the slice's pages). Tests: tests/test_found_boards.py, tests/test_proven_boards.py."""
 import sqlite3
 import time
 import urllib.error
@@ -25,7 +25,7 @@ IDLE_STOP = 2         # the full read stops a board after this many queries in a
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
 EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
-_early = {}               # {host: (monotonic time, (jobs, state, route))}: read in this search's first-jobs slice
+_early = {}               # {host: (monotonic time, {url: page})}: the pages this search's first-jobs slice fetched
 
 
 def _terms(search, limit=MAX_SEARCHES):
@@ -123,11 +123,12 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
-def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None, dead=None, early=False):
+def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False):
     """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
     by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
-    full read, which then takes them as they are instead of fetching the board again."""
+    full read, which asks the board in full and serves the pages the slice fetched from them instead of fetching them again."""
     from ..ai import board_ideas
+    fetch = fetch or careers.get_text   # looked up when called: a test's or a run's own fetcher applies
     from . import board_yield
     data = board_ideas.load()
     kept = data.setdefault('boards', {})
@@ -139,12 +140,19 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
     for done, board in enumerate(todo, 1):
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url']})
         handed = _early.pop(board['host'], None)
-        if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early:
-            found, state, route = handed[1]   # read moments ago in this search's first-jobs slice
-        else:
-            found, state, route = read_board(board, search, fetch, entry.get('route'), early=early)
+        pages = handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}
+        fetched = {}
+
+        def through(url, pages=pages, fetched=fetched):   # a page this search's first-jobs slice fetched is served from it, not asked again
+            if url in pages:
+                return pages[url]
+            page = fetch(url)
             if early:
-                _early[board['host']] = (time.monotonic(), (found, state, route))
+                fetched[url] = page
+            return page
+        found, state, route = read_board(board, search, through, entry.get('route'), early=early)
+        if early:   # the full read asks every query and the next pages, reusing these
+            _early[board['host']] = (time.monotonic(), fetched)
         entry.pop('route', None)
         entry.pop('route_kind', None)
         if route:

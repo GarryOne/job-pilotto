@@ -150,14 +150,19 @@ class RankTests(Fixture):
 
 
 class FirstSliceTests(Fixture):
-    def test_the_top_two_boards_are_read_in_the_first_slice_and_not_fetched_again(self):
+    def test_the_top_two_boards_are_read_in_the_first_slice_and_no_page_is_fetched_twice(self):
+        """The full read asks those boards every query and their next pages (18 Oct 2026: a slice's 2-query read used to stand for the whole
+        board, so its other queries and pages were never read); the pages the slice fetched are served from it, not asked again."""
         jobs = {'b1.example': [job('Controller', 'Amsterdam', 1)], 'b2.example': [job('Controller', 'Amsterdam', 2, host='b2.example')]}
-        def fake(b, search, fetch, route=None, **kwargs):
-            self.fetched.append(b['host'])
+        asked = []
+        def fake(b, search, fetch, route=None, early=False, **kwargs):
+            self.fetched.append((b['host'], early))
+            fetch(f"https://{b['host']}/search")
             return jobs.get(b['host'], []), 'ok', None
         imported, said = [], []
         with feeds.database(self.data / 'jobs.sqlite') as feed_db, \
                 mock.patch.object(board_ideas, 'proven', return_value=[board(1), board(2)]), \
+                mock.patch.object(found_boards.careers, 'get_text', lambda url: asked.append(url) or '<html></html>'), \
                 mock.patch.object(found_boards, 'read_board', fake), mock.patch.object(found_boards, '_dead', return_value=set()), \
                 mock.patch.object(feeds, 'wanted_title', lambda title: title == 'Controller'), \
                 mock.patch.object(feeds, 'wanted_location', lambda j: j['location'] == 'Amsterdam'), \
@@ -169,12 +174,29 @@ class FirstSliceTests(Fixture):
             self.assertEqual(sorted(j['url'] for j in imported), ['https://b1.example/job/ControllerAmsterdam1', 'https://b2.example/job/ControllerAmsterdam2'])
             self.assertTrue(any('Board 1, Board 2' in line for line in said), said)
             full = found_boards.read(SEARCH, [board(1), board(2), board(3)])
-        self.assertEqual(self.fetched, ['b1.example', 'b2.example', 'b3.example'], 'the full read fetched only the board the slice did not read')
+        self.assertEqual(self.fetched, [('b1.example', True), ('b2.example', True), ('b1.example', False), ('b2.example', False), ('b3.example', False)],
+                         'the full read reads every board in full')
+        self.assertEqual(asked, ['https://b1.example/search', 'https://b2.example/search', 'https://b3.example/search'],
+                         'the pages the slice fetched are not asked again')
         self.assertEqual(len(full), 2, 'and still returns the slice\'s jobs')
 
-    def test_no_proven_board_reads_nothing_and_says_nothing(self):
+    def test_with_no_proven_board_the_slice_reads_the_two_boards_proposed_for_your_country(self):
+        """18 Oct 2026: a driver's jobs all came from a board, read only after 140 employer sites (176 s); no install had shared one yet."""
+        said, read = [], []
+        proposed = [board(1), board(2), board(3)]
+        data = {'boards': {'b1.example': {'state': 'browser'}}}   # refused us before: a visit, not a slice read
+        with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(board_ideas, 'ideas', return_value=proposed), \
+                mock.patch.object(board_ideas, 'load', return_value=data), \
+                mock.patch.object(found_boards, 'read', lambda search, boards, early=False: read.append((boards, early)) or []), \
+                mock.patch.object(first_jobs, 'aggregators_kept', lambda feed_db, name, jobs: jobs):
+            first_jobs.proven_boards(None, said.append, SEARCH)
+        self.assertEqual([([b['host'] for b in boards], early) for boards, early in read], [(['b2.example', 'b3.example'], True)])
+        self.assertTrue(any('Board 2, Board 3' in line for line in said), said)
+
+    def test_no_proven_and_no_proposed_board_reads_nothing_and_says_nothing(self):
         said = []
-        with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(found_boards, 'read') as read:
+        with mock.patch.object(board_ideas, 'proven', return_value=[]), mock.patch.object(board_ideas, 'ideas', return_value=[]), \
+                mock.patch.object(found_boards, 'read') as read:
             self.assertEqual(first_jobs.proven_boards(None, said.append, SEARCH), [])
         read.assert_not_called()
         self.assertEqual(said, [])

@@ -37,27 +37,49 @@ class PickTests(unittest.TestCase):
 
 
 class RunTests(unittest.TestCase):
-    def run_slice(self, scored=3, calls=None):
+    def run_slice(self, scored=3, calls=None, found=5, fits=None):
         calls = calls if calls is not None else []
-        jobs = [{'id': str(i), 'title': 'Engineer', 'company': 'A', 'location': 'Zurich', 'url': f'https://x/{i}'} for i in range(5)]
+        jobs = [{'id': str(i), 'title': 'Engineer', 'company': 'A', 'location': 'Zurich', 'url': f'https://x/{i}'} for i in range(found)]
         report = {'jobs': jobs, 'sources': []}
+        given = {}   # job id -> the fit its score gave (fits: the score each job gets; none given: 40, never strong)
 
         def fake_score(db, candidates, profile, model, max_jobs, workers=5, stats=None, on_scored=None, every=10, only_ids=None, **kw):
-            calls.append(('score', sorted(only_ids), workers, every))
-            for _ in range(scored):
+            calls.append(('score', sorted(only_ids, key=int), workers, every))
+            for job_id in sorted(only_ids, key=int)[:scored]:
+                given[job_id] = (fits or {}).get(job_id, 40)
                 on_scored()
-            stats.update(done=scored)
+            stats.update(done=min(scored, len(only_ids)))
             return 'Scored'
         synced = []
         said = []
-        with mock.patch.object(first_jobs.store, 'import_watch_report', return_value=['new'] * 5), \
+        with mock.patch.object(first_jobs.store, 'import_watch_report', return_value=['new'] * found), \
                 mock.patch.object(first_jobs.score, 'queue', return_value=jobs), mock.patch.object(first_jobs, 'to_score', return_value=jobs):
             count = first_jobs.run(mock.MagicMock(), mock.MagicMock(), [feed('A')], profile='p', hidden=frozenset(), sync=lambda: synced.append(1), say=said.append,
-                                   scan=lambda sources, feed_db: report, scorer=fake_score, boards=lambda *a: [])
+                                   scan=lambda sources, feed_db: report, scorer=fake_score, boards=lambda *a: [], fits=lambda db: dict(given))
         return count, calls, synced, said
 
+    def test_scoring_goes_on_three_at_a_time_until_a_job_fits_70(self):
+        """18 Oct 2026: Cluj's slice found 70 jobs at 93 s, scored 3 (none 70+), and the first 70+ waited for the full crawl until 431 s."""
+        _, calls, _, said = self.run_slice(found=20, fits={'4': 82})
+        self.assertEqual([call[1] for call in calls], [['0', '1', '2'], ['3', '4', '5']], 'the second batch holds a 70+: it stops there')
+        self.assertTrue(any('fits 70+' in line for line in said), said)
+
+    def test_the_slice_scores_at_most_ten_while_none_fits(self):
+        count, calls, _, _ = self.run_slice(found=30)
+        self.assertEqual(sum(len(call[1]) for call in calls), first_jobs.MAX_FIRST)
+        self.assertEqual(count, first_jobs.MAX_FIRST)
+
+    def test_the_slice_stops_when_no_job_is_left_to_score(self):
+        _, calls, _, _ = self.run_slice(found=4)
+        self.assertEqual([call[1] for call in calls], [['0', '1', '2'], ['3']])
+
+    def test_a_batch_that_scores_nothing_ends_the_slice(self):
+        """A paused Profile or a spent limit: the next batch would score nothing either."""
+        _, calls, _, _ = self.run_slice(found=20, scored=0)
+        self.assertEqual(len(calls), 1)
+
     def test_three_jobs_are_scored_at_once_and_each_save_is_synced(self):
-        count, calls, synced, said = self.run_slice()
+        count, calls, synced, said = self.run_slice(fits={'0': 80})
         self.assertEqual(calls, [('score', ['0', '1', '2'], 3, 1)], 'the first 3 jobs, 3 at a time, a sync after every score')
         self.assertEqual(len(synced), 3)
         self.assertEqual(count, 3)
