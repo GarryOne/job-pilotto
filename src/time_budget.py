@@ -4,6 +4,7 @@ pace, measured on this computer by earlier refreshes (`record`), best places fir
 What is not in the batch waits for the next refresh, said in the log. `over()` stays as a safety net for a slow day: a step starts no new
 call past the deadline (a call already running finishes). No budget (a CLI run, a cloud run, a test): every step takes all it has."""
 import json
+import threading
 import time
 
 DEADLINE = None
@@ -11,6 +12,9 @@ STARTED = None
 RESERVE = {'titles': 75, 'enrich': 40, 'score': 0}   # seconds kept for the AI steps that come after this one
 FACTS = 60   # a refresh that scores first keeps this many seconds for reading the postings' facts after it (score_first)
 SCORE_FIRST = False
+FLOOR = 3     # the first jobs of a search are scored whatever the clock says (owner, 18 Oct 2026: "Yes, always 3"): a new user sees fits in press 1
+_scored = [0]  # scores started in this search (may_score)
+_lock = threading.Lock()
 
 
 def start(seconds, now=None):
@@ -18,6 +22,23 @@ def start(seconds, now=None):
     STARTED = now if now is not None else time.monotonic()
     DEADLINE = STARTED + seconds if seconds else None
     score_first(False)
+    _scored[0] = 0   # a new search: its first FLOOR scores start again whatever the clock
+
+
+def floor_left():
+    """Scores this search still starts whatever the clock says (FLOOR minus those already started)."""
+    return max(0, FLOOR - _scored[0])
+
+
+def may_score(now=None):
+    """One job's score may start now (and is counted): before the deadline, or while the search has started fewer than FLOOR scores.
+    18 Oct 2026, the persona rerun: the driver's 33 jobs were listed in press 1 and none scored, the budget spent before scoring began;
+    the floor moves those 3 scores from the next search to this one (no new spend)."""
+    with _lock:
+        if over('score', now) and not floor_left():
+            return False
+        _scored[0] += 1
+        return True
 
 
 def restart(now=None):
@@ -77,16 +98,17 @@ def batch(step, wanted, now=None, say=True):
     plan in the log when it takes fewer (say=False: a step that tops up with further batches says what is left once, at its end). Without a budget: all of them."""
     if DEADLINE is None or wanted <= 0:
         return wanted
+    floor = min(wanted, floor_left()) if step == 'score' else 0   # never fewer than the search's first scores (may_score)
     left = DEADLINE - (now if now is not None else time.monotonic()) - (FACTS if SCORE_FIRST and step in ('score', 'job') else 0)
     pace = max(0.5, _paces().get(step, PACE[step]))
-    n = max(0, min(wanted, int(left * SHARE[step] / pace)))
+    n = max(floor, min(wanted, int(left * SHARE[step] / pace)))
     if not say:
         return n
     if not n:
         print(f'⏱ No time left in this refresh to {WORDS[step].split(" ", 1)[0].rstrip("s")} any: {wanted} {NOUN[step]} wait for the next one', flush=True)
     elif n < wanted:
         print(f'⏱ This refresh {WORDS[step].format(n=n, total=wanted)} (about {round(pace, 1):g} s each, to finish in about '
-              f'{round((DEADLINE - STARTED) / 60, 1):g} min); {wanted - n} wait for the next refresh, best places first', flush=True)
+              f'{round((DEADLINE - STARTED) / 60, 1):g} min); {wanted - n} wait for the next refresh, best places and closest jobs first', flush=True)
     return n
 
 
@@ -127,11 +149,15 @@ def left_line(step, left, noun='job(s)'):
 
 
 def best_first(jobs):
-    """Jobs in your best places first (Search settings "Best places"), the order kept otherwise: a short search spends its time on them."""
-    from .paths import keyword_regex, load_search_config, place_regex
-    best = place_regex((load_search_config().get('locations') or {}).get('top_tier') or [r'(?!x)x'])
+    """Jobs in your best places first (Search settings "Best places"), then the closest to your search (src/job_rank.py: your role words,
+    level and skills), the order kept otherwise: a short search spends its time on them."""
+    from .paths import load_search_config, place_regex
+    from .job_rank import ranker
+    search = load_search_config()
+    best = place_regex((search.get('locations') or {}).get('top_tier') or [r'(?!x)x'])
+    closeness = ranker(search)
     from .sources import feeds
     def first(job):   # Claude's answer when it placed the location (src/ai/place_triage.py), else the best places' words
         verdict = feeds.place_of(job)
-        return 0 if (verdict == 'best' if verdict is not None else feeds.mentions(best, job.get('location') or '')) else 1
+        return (0 if (verdict == 'best' if verdict is not None else feeds.mentions(best, job.get('location') or '')) else 1, -closeness(job))
     return sorted(jobs, key=first)

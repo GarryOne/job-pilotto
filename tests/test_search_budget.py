@@ -41,7 +41,7 @@ class BudgetTests(unittest.TestCase):
         # 17 Oct 2026: the clock ran from the process start, the crawl took 10 min, and 2,868 jobs waited with "No time left" on every run.
         budget.start(180, now=0)
         self.assertTrue(budget.over('score', now=600), 'after a 10-minute crawl the old clock was spent')
-        self.assertEqual(budget.batch('score', 2868, now=600, say=False), 0)
+        self.assertEqual(budget.batch('score', 2868, now=600, say=False), budget.FLOOR, 'only the first 3 a search always scores (tests/test_score_floor.py)')
         budget.restart(now=600)   # feeds.scan calls this when the downloads are done
         self.assertFalse(budget.over('score', now=700))
         self.assertGreater(budget.batch('score', 2868, now=600, say=False), 0)
@@ -143,7 +143,7 @@ class SizedBatchTests(unittest.TestCase):
             self.assertEqual(budget.in_calls('title_rounds', 300, 30, 2, now=60), 120, '20% of 120 s at 10 s a round: 2 rounds of 2 calls of 30')
             self.assertEqual(budget.batch('enrich', 5, now=0), 5, 'a small batch is taken whole, nothing said')
         self.assertIn('This refresh scores 20 of 60 jobs', out.getvalue())
-        self.assertIn('40 wait for the next refresh, best places first', out.getvalue())
+        self.assertIn('40 wait for the next refresh, best places and closest jobs first', out.getvalue())
 
 
 class PlaceCallsTests(unittest.TestCase):

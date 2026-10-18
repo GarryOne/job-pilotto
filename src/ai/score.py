@@ -399,7 +399,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
         def one(job):
             if stop.is_set():
                 return None
-            if budget.over('score'):
+            if not budget.may_score():   # the deadline, past the search's first 3 scores (time_budget.FLOOR)
                 late[0] += 1
                 return None
             try:

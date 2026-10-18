@@ -203,8 +203,13 @@ def triage_places(jobs):
     try:
         from ..ai import place_triage
         # A refresh places a batch: the ones your place words name first, then the ones most jobs share (7 Oct 2026: it asked in feed
-        # order, Warsaw and Dallas first, and "Genève, Switzerland" with 6 jobs waited behind 1,400 others)
-        count = Counter(place_triage.norm(location) for location in locations)
+        # order, Warsaw and Dallas first, and "Genève, Switzerland" with 6 jobs waited behind 1,400 others), each job counted by how close
+        # it is to your search (src/job_rank.py; 18 Oct 2026: a first search in Cluj placed 1,313 locations for 10 minutes before scoring)
+        from ..job_rank import ranker
+        closeness, count = ranker(), Counter()
+        for job in jobs:
+            if (job.get('location') or '').strip() and job.get('title') and wanted_title(job['title']):
+                count[place_triage.norm(job['location'])] += 1 + closeness(job)
         ordered = sorted(count, key=lambda location: (not mentions(PLACE, location), -count[location]))
         placed().update(place_triage.decide(ordered, _SEARCH))
         placed().update(place_triage.vague(ordered, _SEARCH))   # of the ones outside: which name no town of their own
