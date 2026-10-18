@@ -48,6 +48,36 @@ class ShipPrTest(ShipFixture):
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')
 
+    def test_the_pr_title_names_what_changed_not_a_required_file_split(self):
+        # 18 Oct 2026: #1375 was titled by its first commit, the split of a file. Cases: (commits oldest first, --title, expected title)
+        cases = [
+            (['Add the thing'], None, 'Add the thing'),
+            (['Move feeds.scan into its own file', 'Show the new feed'], None, 'Show the new feed'),
+            (['Show the new feed', 'Move feeds.scan into its own file'], None, 'Show the new feed'),
+            (['Move a into b'], None, 'Move a into b'),
+            (['Move feeds.scan into its own file', 'Show the new feed'], 'Chosen words', 'Chosen words'),
+        ]
+        for i, (subjects, title, want) in enumerate(cases):
+            with self.subTest(subjects=subjects, title=title):
+                git(self.tree, 'fetch', '-q', 'origin')
+                git(self.tree, 'checkout', '-q', '-B', 'topic', 'origin/main')
+                for j, subject in enumerate(subjects):
+                    self.change(self.tree, f'f{i}_{j}.txt', 'y\n', subject)
+                result = self.pr_ship(None, *([f'--title={title}'] if title else []))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                create = [c for c in self.calls() if 'pr create' in c][-1]
+                self.assertIn(f'--title {want} --body', create)
+
+    def test_a_title_given_on_a_reship_updates_the_open_pr_and_none_leaves_it(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        open_pr = {'state': 'OPEN', 'head': 'topic'}
+        result = self.pr_ship(open_pr)
+        self.assertIn('reusing it', result.stdout)
+        self.assertNotIn('--title', ' | '.join(c for c in self.calls() if 'pr edit' in c))
+        self.change(self.tree, 'more.txt', 'z\n', 'More')
+        self.pr_ship(open_pr, '--title=Better words')
+        self.assertIn('pr edit 1 --title Better words', ' | '.join(self.calls()))
+
     def test_a_branch_carrying_another_open_prs_commit_is_refused_before_any_push(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
         oid = git(self.tree, 'rev-parse', 'HEAD')

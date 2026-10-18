@@ -40,7 +40,7 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
 fi
 # Laid out for GitHub (owner, 15 Oct 2026: headings, sizes, spacing; a run id is a link): tools/pr-body-format.py, the repo from the origin remote.
 repo="$(git remote get-url origin 2>/dev/null | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##' | grep -E '^[^/ ]+/[^/ ]+$' || true)"
-if [ -n "$summary" ] && [ -s "$summary" ]; then python3 "$(dirname "$0")/pr-body-format.py" "$repo" < "$summary"; else printf '### %s\n' "$(git log --reverse --format=%s "$base"..HEAD | head -n 1)"; fi
+if [ -n "$summary" ] && [ -s "$summary" ]; then python3 "$(dirname "$0")/pr-body-format.py" "$repo" < "$summary"; else printf '### %s\n' "$(bash "$(dirname "$0")/pr-title.sh" "$base")"; fi
 printf '\n'
 facts=""
 fact() {   # emoji, label, trailer key

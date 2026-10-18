@@ -41,7 +41,7 @@ ship_pr_land() {
   ship_pr_push
   n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
   if [ -z "$n" ]; then
-    title="$(git log --reverse --format=%s origin/main..HEAD | head -n 1)"
+    title="${SHIP_PR_TITLE:-$(bash "$here/tools/pr-title.sh" origin/main)}"   # the newest commit that is not a "Move ..." split, or --title= (18 Oct 2026)
     who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"   # the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
     [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
     body="$(bash "$here/tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
@@ -53,6 +53,10 @@ ship_pr_land() {
     step "the branch already has pull request #$n: reusing it"
     if [ -n "${SHIP_PR_BODY:-}" ]; then   # a new --body=<file> on a PR that is already open: its description is refreshed through the same tools/pr-body.sh (16 Oct 2026: #1049 kept the first draft's numbers)
       body="$(bash "$here/tools/pr-body.sh" origin/main "--body=$SHIP_PR_BODY")" && gh pr edit "$n" --body "$body" >/dev/null 2>&1 && step "refreshed the description of #$n from --body" || step "could not refresh the description of #$n (the old one stays)"
+    fi
+    if [ -n "${SHIP_PR_TITLE:-}" ]; then   # --title= on a PR that is already open: its title is replaced (only then)
+      who="$(session_name)"; title="$SHIP_PR_TITLE"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"
+      gh pr edit "$n" --title "$title" >/dev/null 2>&1 && step "retitled #$n" || step "could not retitle #$n (the old title stays)"
     fi
     if [ -n "${SHIP_PR_DRAFT:-}" ]; then gh pr ready "$n" --undo >/dev/null 2>&1 && step "#$n is a draft again until its new checks are green" || true; fi   # --draft: a new push restarts the checks
   fi
