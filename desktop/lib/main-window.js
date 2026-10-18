@@ -103,6 +103,16 @@ export function createMainWindow(ctx) {
           return {x: Math.max(0, Math.floor(r.left - m)), y: Math.max(0, Math.floor(r.top - m)),
             width: Math.min(innerWidth, Math.ceil(r.width + 2 * m)), height: Math.min(innerHeight - Math.max(0, r.top - m), Math.ceil(r.height + 2 * m))};
         })()`) : null;
+        // JOB_PILOTTO_SMOKE_FULL=1: the whole scrolled page, not just the viewport (the window grows to the tallest scroller's content, up to 20000 px).
+        if (process.env.JOB_PILOTTO_SMOKE_FULL && !selector) {
+          const [width, extra] = await win.window.webContents.executeJavaScript(`(() => { let extra = 0;
+            for (const el of document.querySelectorAll('*')) if (el.scrollHeight > el.clientHeight + 2 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)) extra = Math.max(extra, el.scrollHeight - el.clientHeight);
+            extra = Math.max(extra, document.documentElement.scrollHeight - innerHeight); return [innerWidth, extra]; })()`);
+          const zoom = win.window.webContents.getZoomFactor();
+          const [w, h] = win.window.getContentSize();
+          win.window.setContentSize(w, Math.min(20000, Math.ceil(h + extra * zoom)));
+          await new Promise(r => setTimeout(r, 800));
+        }
         if (selector && !rect) { console.error(`smoke: no element matches ${selector}`); app.quit(); return; }
         // capturePage takes DIPs, the page measured CSS pixels: they differ by the app's saved zoom (0.8 in a 1280 px window, so a crop landed to the left and short).
         if (rect) { const zoom = win.window.webContents.getZoomFactor(); for (const key of Object.keys(rect)) rect[key] = Math.round(rect[key] * zoom); }
