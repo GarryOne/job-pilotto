@@ -7,6 +7,7 @@ import {liveOf, rowOf} from './ready-rows.js';
 import {liveParts} from './ready-live.js';
 import {showFillVideo} from './ready-video.js';
 import {confirmFill} from './ready-confirm.js';
+import {pickFill} from './ready-pick.js';
 import {progressOf, strip, tickAll} from './ready-progress.js';
 import {OUTDATED_LINE, errorLine, restartButton} from '../errors.js';
 
@@ -34,7 +35,7 @@ export function paint(card, state, names, act) {
   if (filling + waiting) summary.append(act.stopAll());
   body.append(summary);
   // The card's own bar only for a whole night's Fill now (and its first seconds, before the rows show it); each row has its own bar.
-  const progress = state.phase === 'sending' || state.wholeNight ? progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError}) : null;
+  const progress = ['sending', 'preparing'].includes(state.phase) || state.wholeNight ? progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError}) : null;
   if (progress) body.append(strip(progress, state.since));
   const rows = el('div', 'ready-rows');
   jobs.forEach((job, i) => {
@@ -58,11 +59,11 @@ export function paint(card, state, names, act) {
   const next = el('div', 'ready-summary');
   next.append(el('span', 'muted', 'Tonight'));
   const count = pill(`${tonight.length} ready`, tonight.length ? 'good' : 'warn');
-  count.title = tonight.length ? `Your finished jobs with fit ≥ ${state.settings.minFit}, up to ${state.settings.perNight} a night` : 'No job has its kit, CV and cover letter ready yet.';
+  count.title = tonight.length ? `Your finished jobs with fit ≥ ${state.settings.minFit}, up to ${state.settings.perNight} a night` : 'No job has its kit, CV and cover letter ready yet: Fill now makes them for your best matches.';
   next.append(count);
   if (state.sent) next.append(Object.assign(pill(`Sent ${state.sent.count} · ${new Date(state.sent.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})}`, 'info'),
     {title: 'Sent again by itself when this list changes and before your Mac goes off.'}));
-  if (!tonight.length) next.append(el('span', 'muted', 'No job has its kit, CV and cover letter yet.'), act.tailor());
+  if (!tonight.length) next.append(el('span', 'muted', 'Fill now makes the kit, CV and letter for your best matches first.'));
   body.append(next);
 }
 
@@ -118,12 +119,12 @@ export async function initReadyCard() {
     if (!state?.owner) return blocked(card, state?.why, refresh);
     last = state;
     const unfinished = (state.site?.jobs || []).some(job => ['queued', 'filling'].includes(job.state)), running = nightState(state) === 'running' && (unfinished || !state.site?.jobs?.length);
-    const busy = phase === 'sending' || running;   // a night being filled is never replaced by a second press
+    const busy = ['sending', 'preparing'].includes(phase) || running;   // a night being filled is never replaced by a second press
     run.textContent = busy ? 'Filling…' : 'Fill now';
     Object.assign(names, state.names || {});
     const now = progressOf({phase, batch: state.site?.batch, jobs: state.site?.jobs || []})?.steps.find(step => step.state === 'now')?.label || '';
     if (now !== nowStep) { nowStep = now; since = now ? Date.now() : 0; }   // the clock counts the step running now
-    if (wholeNight && !['queued', 'running'].includes(nightState(state)) && phase !== 'sending') wholeNight = false;
+    if (wholeNight && !['queued', 'running'].includes(nightState(state)) && !['sending', 'preparing'].includes(phase)) wholeNight = false;
     paint(card, {...state, tonight: tonightNow ?? state.tonight, phase, phaseError, since, wholeNight, pending}, names, act);
     // Fill tonight and Fill now are off while a night is sent or filled: a new batch would replace the one running (18 Oct 2026: a 2nd press wiped the first fill).
     for (const each of sends()) { each.disabled = busy; if (busy) each.title = 'The server is filling tonight\'s forms: wait for it to finish'; else if (each === send || each === run) each.title = ''; }
@@ -169,7 +170,6 @@ export async function initReadyCard() {
   const act = {open, live: code => { const button = iconButton('pulse', 'Open live recording', 'the server\'s copy of this form, live; you finish it there', 'live'); button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: errorLine(error)})); if (!result.ok) say(result.error || 'Could not open it.', 'bad'); }); return button; },
     watch: code => { const button = iconButton('eye', 'Watch the fill', 'the video of the server filling this form tonight (3 minutes at most)', 'watch');
       button.addEventListener('click', () => watchFill(button, code)); return button; },
-    tailor: () => { const button = el('button', 'secondary', 'Tailor CVs for top matches'); button.addEventListener('click', () => $('tailor-top')?.click()); return button; },
     again: code => { const button = iconButton('refresh', 'Fill again', 'the server fills this form again from the start, after your yes', 'again'); button.addEventListener('click', () => fillAgain(code)); return button; },
     stop: code => { const button = el('button', 'secondary ready-stop', 'Stop'); button.type = 'button'; button.title = 'Stop filling this form: it goes back to how it was'; button.addEventListener('click', () => { button.disabled = true; stopFill(code); }); return button; },
     stopAll: () => { const button = el('button', 'secondary ready-stop-all', 'Stop all'); button.type = 'button'; button.title = 'Stop every form the night is filling or about to fill'; button.addEventListener('click', () => { button.disabled = true; stopFill(null); }); return button; },
@@ -203,11 +203,11 @@ export async function initReadyCard() {
   send.addEventListener('click', () => sendTonight());
   // Fill now (owner, 18 Oct 2026: "I'd expect it to start instantly"): the bar shows Sending at once; the app sends tonight's jobs and starts them in one press,
   // asking first (confirmFill) when it would fill opened jobs again or replace forms still waiting for you.
-  const fillNow = async (options = {}) => {
-    phase = 'sending'; phaseError = ''; say(''); repaint();
+  const fillNow = async (options = {}, preparing = false) => {
+    phase = preparing ? 'preparing' : 'sending'; phaseError = ''; say(''); repaint();
     const result = await window.pilot.readyRun(options).catch(error => ({ok: false, error: errorLine(error)}));
     if (result.ask) {
-      if (await confirmFill(result.ask)) return fillNow({...options, again: result.ask.again, confirmed: true});
+      if (await confirmFill(result.ask)) return fillNow({...options, again: result.ask.again, confirmed: true}, preparing);
       phase = 'idle'; repaint(); return say('Not started: nothing was sent.');
     }
     if (!result.ok) { phase = 'idle'; repaint(); return say(result.error || 'Could not start.', result.nothing ? 'warn' : 'bad'); }
@@ -215,7 +215,14 @@ export async function initReadyCard() {
     say(result.queued ? `${result.queued} job${result.queued === 1 ? '' : 's'} sent: the server is filling ${result.queued === 1 ? 'it' : 'them'} now. Nothing is submitted.` : 'Filling started on the server. Nothing is submitted.', 'good');
     refresh();
   };
-  run.addEventListener('click', () => fillNow());
+  // Fill now asks how many first (renderer/pages/ready-pick.js); without the popup's list (an older app, no job read yet) it fills tonight's ready jobs as before.
+  run.addEventListener('click', async () => {
+    if (typeof window.pilot.readyTop !== 'function') return fillNow();   // an app without the popup's call: the press answers at once
+    const top = await window.pilot.readyTop().catch(() => null);
+    if (!top?.ok || !top.picked?.length) return fillNow();
+    const choice = await pickFill(top);
+    if (choice) fillNow({top: choice.codes}, choice.prepare);
+  });
   // A row's Fill again: after a yes, the server fills that form again from the night's own copy (lib/ready-handlers.js readyAgain). Its own row shows it at once
   // ("sending"), then waiting or filling with its own bar; a night already running takes it at the end of its line.
   const fillAgain = async code => {

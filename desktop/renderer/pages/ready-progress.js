@@ -6,10 +6,11 @@ import {el, pill} from '../components.js';
 const FINISHED = ['finished', 'capped', 'deleted'];
 const step = (label, state) => ({label, state});
 
-// phase: 'idle' (no press), 'sending' (pressed, the send is on its way), 'started' (the site took it), 'failed' (with error). batch/jobs: the site's night.
+// phase: 'idle' (no press), 'preparing' (the kits, CVs and letters the chosen jobs lacked are being made), 'sending' (pressed, the send is on its way), 'started' (the site took it), 'failed' (with error). batch/jobs: the site's night.
 // -> {steps: [{label, state: done|now|todo|bad}], percent} or null when there is nothing to follow.
 export function progressOf({phase = 'idle', batch = null, jobs = [], error = ''} = {}) {
   if (phase === 'failed') return {steps: [step(error || 'Could not start', 'bad')], percent: 0};
+  if (phase === 'preparing') return {steps: [step('Preparing kits, CVs and letters', 'now'), step('Sending', 'todo'), step('Filling', 'todo'), step('Ready', 'todo')], percent: 5};
   if (phase === 'sending') return {steps: [step('Sending', 'now'), step('Starting the server', 'todo'), step('Filling', 'todo'), step('Ready', 'todo')], percent: 5};
   const state = batch?.state, running = state === 'running' || (phase === 'started' && state === 'queued');
   if (!running && !(phase === 'started' && FINISHED.includes(state))) return null;
