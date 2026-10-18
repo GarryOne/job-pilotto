@@ -16,7 +16,7 @@ const button = (text, handler, className = 'primary') => Object.assign(el('butto
 // This search's three numbers (find-card-model.js runCounts): possible matches (rising as each employer is read), scored, good fits 70+. While searching they flash when they go up, like the counters below
 // (components.js setCount): the card is drawn again at every change, so each new number starts from the one shown before.
 function runNumbers(model, live = true) {
-  const cells = [[live ? 'Possible matches' : 'Matches', 'matches'], ['Scored', 'scored'], ['Good fits (70+)', 'good']];
+  const cells = [['Looked at', 'matches'], ['Scored', 'scored'], ['Good fits (70+)', 'good']];
   const strip = numberStrip(cells.map(([label, key]) => ({label, value: String(model[key])})), {valueFirst: true});
   strip.querySelectorAll('.insight-number-value').forEach((node, i) => {
     const key = cells[i][1], before = shown[key];
@@ -26,7 +26,7 @@ function runNumbers(model, live = true) {
   return strip;
 }
 
-// Employers read as progress (bar + "1,953 of 2,251") and the raw listings as one small line; both are this search only.
+// Employers read as progress (bar + "1,953 of 2,251"). The raw count of downloaded listings is not shown: 130k+ is noise (owner, 19 Oct 2026).
 function readProgress(model) {
   const box = el('div', 'find-progress'), n = value => value.toLocaleString('en-US');
   if (model.employers) {
@@ -36,7 +36,6 @@ function readProgress(model) {
     head.append(el('span', '', 'Employers read'), el('span', 'muted', `${n(done)} / ${n(total)}`));
     box.append(head, bar);
   }
-  if (model.looked) box.append(el('p', 'muted', `${n(model.looked)} listings checked`));
   return box;
 }
 
