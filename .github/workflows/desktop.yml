@@ -150,10 +150,12 @@ jobs:
           git fetch -q origin main
           if [ "$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)" != "$GITHUB_SHA" ] && ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
             echo "::warning::Workflows changed on main during this build: not released; a new build of main starts."
-            echo "### ⚠️ ${version} not released: workflows changed on main during the build; a new build of main started." >> "$GITHUB_STEP_SUMMARY"
+            echo "### ⚠️ ${version} not released: superseded by a new build of main (workflows changed on main during the build)." >> "$GITHUB_STEP_SUMMARY"
             # what this run was, as below: a beta stays a beta, a nightly a nightly
             gh workflow run desktop.yml --ref main -f beta=${{ inputs.beta && 'true' || 'false' }} -f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}
             echo "released=false" >> "$GITHUB_OUTPUT"
+            # This run built nothing and must not read "success" (18 Oct 2026: a Beta by hand ended green with 7 of 8 jobs skipped): it ends cancelled, the reason in its summary.
+            gh run cancel "$GITHUB_RUN_ID" || true
             exit 0
           fi
           { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
@@ -179,7 +181,9 @@ jobs:
               echo "::warning::Release refused (403) after main moved: not released; a new build of main starts."
               # Keep what this build was (6 Oct 2026: a beta by hand came back as a plain build, which no gate approves): a beta stays a beta, a nightly a nightly.
               gh workflow run desktop.yml --ref main -f beta=${{ inputs.beta && 'true' || 'false' }} -f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}
+              echo "### ⚠️ ${version} not released: superseded by a new build of main (workflows changed on main)." >> "$GITHUB_STEP_SUMMARY"
               echo "released=false" >> "$GITHUB_OUTPUT"
+              gh run cancel "$GITHUB_RUN_ID" || true   # ends cancelled, never "success" (see above)
               exit 0
             fi
             exit 1
