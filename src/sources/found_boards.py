@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_employers, board_pages, board_routes, board_yield, careers
+from . import board_employers, board_forms, board_pages, board_routes, board_yield, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -130,6 +130,24 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
+def _through_form(board, entry, proposed, search, fetch, judge, before):
+    """(jobs, state, relevant) through the search form on the board's home page (src/sources/board_forms.py) when that brings relevant
+    jobs, kept as the board's link (the pool share sends it, src/contribute.py); else `before`, and the form is not looked for again
+    while the proposed link stays the same."""
+    entry['form_for'] = proposed
+    for template in board_forms.home_templates(board, fetch):
+        try:
+            again, state, _ = read_board({**board, 'search_url': template}, search, fetch, None)
+        except Exception:  # noqa: BLE001 — a form link that fails: the next one, or the proposed link's result
+            continue
+        relevant = judge(again) if again else []
+        if relevant:
+            entry['form_url'] = entry['search_url'] = template
+            print(f"Job boards found: {board['name']} read through its own search form", flush=True)
+            return again, state, relevant
+    return before
+
+
 def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False):
     """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
     by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
@@ -147,11 +165,14 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     reads = []
     for board in todo:
         entry = kept.setdefault(board['host'], {'name': board['name'], 'search_url': board['search_url']})
+        proposed = board['search_url']
+        if entry.get('form_url') and entry.get('form_for') == proposed:   # the board's own search form gave relevant jobs for this link
+            board = {**board, 'search_url': entry['form_url']}
         handed = _early.pop(board['host'], None)
-        reads.append((board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}))
+        reads.append((board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}, proposed))
 
     def one(item):   # one board's pages; what is kept of it is decided below, in the list's order, in this thread
-        board, entry, pages, fetched = item
+        board, entry, pages, fetched, _ = item
 
         def through(url):   # a page this search's first-jobs slice fetched is served from it, not asked again
             if url in pages:
@@ -162,7 +183,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             return page
         return read_board(board, search, through, entry.get('route'), early=early)
     with ThreadPoolExecutor(max_workers=BOARD_WORKERS) as pool:   # 18 Oct 2026: Chisinau's 2 slice boards gave nothing, its 4th and 8th 14 jobs
-        for done, ((board, entry, _, fetched), (found, state, route)) in enumerate(zip(reads, pool.map(one, reads)), 1):
+        for done, ((board, entry, _, fetched, proposed), (found, state, route)) in enumerate(zip(reads, pool.map(one, reads)), 1):
             if early:   # the full read asks every query and the next pages, reusing these
                 _early[board['host']] = (time.monotonic(), fetched)
             entry.pop('route', None)
@@ -170,7 +191,10 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             if route:
                 entry['route'] = route
                 entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
-            relevant = (is_relevant or board_yield.is_relevant)(found) if found else []
+            judge = is_relevant or board_yield.is_relevant
+            relevant = judge(found) if found else []
+            if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
+                found, state, relevant = _through_form(board, entry, proposed, search, fetch, judge, (found, state, relevant))
             entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
                           'source_kind': board.get('source_kind') or 'general'})
             board_yield.record(entry, len(found), len(relevant), state)
