@@ -131,8 +131,9 @@ export function referenceRow({text = '', from = 'From Your details', link = 'Edi
 // sides: [{who, tone, items?: [{text, mark?}], text?}]; actions: [{label, run(button), primary?, tone?, link?, aria?, title?}]. Extra content (a typed
 // field) is appended by the caller under the row.
 const CHOICE_SHOWN = 10;
-function choiceChips(items) {
+function choiceChips(items, who) {
   const line = el('div', 'chip-list');
+  line.append(who);   // the side's name leads its own chip row (owner, 18 Oct 2026: never a caption on a line above the chips)
   const draw = item => { const node = chip(item.text); if (item.mark) node.classList.add(`is-${item.mark}`); return node; };
   line.append(...items.slice(0, CHOICE_SHOWN).map(draw));
   if (items.length > CHOICE_SHOWN) {
@@ -155,7 +156,9 @@ export function choiceRow({key = '', title = '', sides = [], actions = []} = {})
   head.append(el('b', 'choice-title', title), buttons);
   for (const side of sides) {
     const box = el('div', `choice-side choice-tone-${side.tone || 'now'}`);
-    box.append(el('span', 'choice-who', side.who || ''), side.items ? choiceChips(side.items) : el('span', 'choice-text', String(side.text || '').trim() || 'Not set'));
+    const who = el('span', 'choice-who', side.who || '');
+    if (side.items) box.append(choiceChips(side.items, who));
+    else { const line = el('div', 'chip-list'); line.append(who, el('span', 'choice-text', String(side.text || '').trim() || 'Not set')); box.append(line); }
     both.append(box);
   }
   row.append(head, both);

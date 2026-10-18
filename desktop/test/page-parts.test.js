@@ -166,3 +166,12 @@ test('choice row: name and buttons on one line, two tinted sides, the difference
 test('class: every "pick a value" card draws the shared choice row', () => {
   for (const file of ['pages/preferences-review.js', 'pages/locations-which.js']) assert.match(read(file), /choiceRow\(\{/, `${file} uses choiceRow`);
 });
+
+test('choice row: each side is one line, its name leading its chips (no caption above them)', async () => {
+  const {choiceRow} = await import('../renderer/page-parts.js');
+  const row = choiceRow({sides: [{who: 'Strategy', tone: 'violet', items: [{text: 'Lisbon'}]}, {who: 'Profile', tone: 'teal', text: 'Lisbon area'}]});
+  for (const side of row.querySelectorAll('.choice-side')) {
+    assert.equal(side.children.length, 1, 'one line per side');
+    assert.match(side.children[0].children[0].className, /choice-who/, 'the name first, in the same row');
+  }
+});

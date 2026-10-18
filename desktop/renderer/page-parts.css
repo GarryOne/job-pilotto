@@ -76,8 +76,8 @@
 .choice-actions > button { white-space: nowrap; }
 .choice-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
 .choice-side { display: grid; align-content: start; gap: var(--sp-1); min-width: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line); }
-.choice-who { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.choice-text { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.choice-who { align-self: center; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); min-width: 64px; }
+.choice-text { align-self: center; font-size: var(--fs-sm); overflow-wrap: anywhere; min-width: 0; flex: 1 1 200px; }
 .choice-side.choice-tone-new, .choice-side.choice-tone-violet { background: var(--violet-soft); border-color: transparent; }
 .choice-side.choice-tone-new .choice-who, .choice-side.choice-tone-violet .choice-who { color: var(--violet); }
 .choice-side.choice-tone-teal { background: var(--teal-soft); border-color: var(--teal-line); }
