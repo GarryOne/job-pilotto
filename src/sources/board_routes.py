@@ -11,7 +11,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
-from . import careers
+from . import board_state, careers
 from .careers_parse import JOB_ID, JOB_PATH, MAX_JOB_PAGES, NOT_JOBS, jsonld_jobs
 
 MAX_SITEMAPS = 3      # sitemaps read per board
@@ -147,6 +147,8 @@ def follow(route, fetch, board, terms):
     """The jobs one route gives now."""
     if route['kind'] == 'sitemap':
         return _sitemap_jobs(route['url'], fetch, board, terms)
+    if route['kind'] == 'state':
+        return board_state.jobs(_get(fetch, route['url']), route['url'], board)
     text = _get(fetch, route['url'])
     return _feed_jobs(_items(text) if route['kind'] == 'feed' else _json_items(text), board, route['url'])
 
@@ -158,6 +160,9 @@ def discover(page, url, fetch, board, terms):
     def sitemaps():   # robots.txt is read only when no declared feed gave jobs
         robots = _get(fetch, f'{origin}/robots.txt')
         yield from ({'kind': 'sitemap', 'url': urllib.parse.urljoin(origin, m.strip())} for m in re.findall(r'^\s*sitemap:\s*(\S+)', robots, re.I | re.M)[:MAX_SITEMAPS])
+    embedded = board_state.jobs(page, url, board)   # the page's own data, already fetched: no extra request
+    if embedded:
+        return embedded, {'kind': 'state', 'url': url}
     for route in [{'kind': kind, 'url': address} for kind, address in declared(page, url)], sitemaps():
         for one in route:
             jobs = follow(one, fetch, board, terms)

@@ -131,8 +131,10 @@ def read(search, boards=None, fetch=careers.get_text, now=None, is_relevant=None
             if early:
                 _early[board['host']] = (time.monotonic(), (found, state, route))
         entry.pop('route', None)
+        entry.pop('route_kind', None)
         if route:
             entry['route'] = route
+            entry['route_kind'] = route['kind']   # sitemap, feed, json or state: the source queue ranks by it
         relevant = (is_relevant or board_yield.is_relevant)(found) if found else []
         entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
                       'source_kind': board.get('source_kind') or 'general'})
