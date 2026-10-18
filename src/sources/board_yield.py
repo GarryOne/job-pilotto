@@ -48,12 +48,25 @@ def total_relevant(kept):
     return sum(int(entry.get('relevant') or 0) for entry in kept.values() if entry.get('state') != 'browser')
 
 
+def remembered(boards, kept):
+    """The boards that gave this install relevant jobs and are missing from this run's proposal: a new AI proposal is a lottery (18 Oct 2026:
+    music's Talent.com gave 13 relevant jobs and was proposed in 1 of 5 runs), so a board that paid stays in the list, for the countries the
+    proposal serves. A board read as 'browser' or 'empty', or with no relevant job, is not kept this way (its own history drops it)."""
+    present = {board['host'] for board in boards}
+    served = {country for board in boards for country in board.get('countries') or []}
+    return [{'name': entry.get('name') or host, 'host': host, 'search_url': entry['search_url'], 'countries': entry.get('countries') or [],
+             'kinds': entry.get('kinds') or [], 'source_kind': entry.get('source_kind') or 'general'}
+            for host, entry in kept.items()
+            if host not in present and entry.get('state') == 'ok' and int(entry.get('relevant') or 0) > 0 and entry.get('search_url')
+            and served & set(entry.get('countries') or [])]
+
+
 def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset()):
     """The boards to read now: every one read before (not dropped: `dropped` = dead(db); a 'browser' one once its retry is due), then up to
     MAX_UNTRIED not read yet, only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
     by what the board gave other installs like this one: board_ideas.ideas)."""
     tried, untried = [], []
-    for board in boards:
+    for board in list(boards) + remembered(boards, kept):
         entry = kept.get(board['host'])
         if registrable(board['host']) in dropped or (entry and entry.get('state') == 'browser' and not retry_due(entry)):
             continue
@@ -70,6 +83,7 @@ def step(search, is_relevant=is_relevant):
     if not found:
         print('Job boards: no board found for these places and roles yet', flush=True)
         return []
+    found = found + remembered(found, board_ideas.load().get('boards') or {})   # boards that paid before stay, whatever this proposal says
     print('Job boards: ' + ', '.join(board['name'] for board in found), flush=True)
     before = {host: entry.get('last_read') for host, entry in (board_ideas.load().get('boards') or {}).items()}
     found_boards.read(search, found, is_relevant=is_relevant)
