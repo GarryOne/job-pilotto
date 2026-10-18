@@ -1,7 +1,7 @@
 name: Proof · Which org the e2e AI keys belong to
 # A $0 check (owner, 18 Oct 2026): the e2e strategy suite failed with "credit balance too low" (Anthropic) and "insufficient_quota" (OpenAI) while both consoles
 # showed credit, so the question is which org each CI secret really belongs to. Calls only the free model-list endpoints; prints the status and the organization
-# header, never a key. Runs on a PR that edits this file, or by hand once it is on main.
+# header, never a key; then one 1-token chat call per key (about $0.0001, owner's yes 18 Oct 2026) to see the exact billing error. Runs on a PR that edits this file, or by hand once it is on main.
 on:
   pull_request:
     paths:
@@ -32,9 +32,21 @@ jobs:
             -d '{"model":"claude-haiku-5-5","messages":[{"role":"user","content":"hi"}]}')
           echo "count_tokens: HTTP $code"
           python3 -c "import json;e=json.load(open('/tmp/c.b')).get('error',{});print(e.get('type'),'|',e.get('message'))" 2>/dev/null || true
+          echo "chat 1 token:"
+          code=$(curl -sS -m 30 -D /tmp/m.h -o /tmp/m.b -w '%{http_code}' https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $E2E_ANTHROPIC_KEY" -H 'anthropic-version: 2023-06-01' -H 'content-type: application/json' \
+            -d '{"model":"claude-haiku-5-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}')
+          echo "messages: HTTP $code"
+          grep -iE '^anthropic-ratelimit-' /tmp/m.h || echo "(no anthropic-ratelimit headers)"
+          python3 -c "import json;e=json.load(open('/tmp/m.b')).get('error',{});print(e.get('type'),'|',e.get('message'))" 2>/dev/null || true
       - name: OpenAI key (models list, free)
         run: |
           if [ -z "$E2E_OPENAI_KEY" ]; then echo "E2E_OPENAI_KEY is not set"; exit 0; fi
           code=$(curl -sS -m 30 -D /tmp/o.h -o /tmp/o.b -w '%{http_code}' https://api.openai.com/v1/models -H "Authorization: Bearer $E2E_OPENAI_KEY")
           echo "models: HTTP $code"
           grep -iE '^(openai-organization|openai-project|x-request-id):' /tmp/o.h || echo "(no organization header)"
+          code=$(curl -sS -m 30 -o /tmp/oc.b -w '%{http_code}' https://api.openai.com/v1/chat/completions \
+            -H "Authorization: Bearer $E2E_OPENAI_KEY" -H 'content-type: application/json' \
+            -d '{"model":"gpt-6-luna","max_completion_tokens":1,"messages":[{"role":"user","content":"hi"}]}')
+          echo "chat 1 token: HTTP $code"
+          python3 -c "import json;e=json.load(open('/tmp/oc.b')).get('error',{});print(e.get('type'),'|',e.get('code'),'|',e.get('message'))" 2>/dev/null || true
