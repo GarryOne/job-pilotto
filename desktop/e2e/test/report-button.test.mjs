@@ -1,4 +1,4 @@
-/* global document, location */
+/* global document, location, window */
 // The panel's Report button on a fixture form with the REAL extension: pressing it opens the report card, and a press that cannot is never silent (positive control: the button is found and pressed).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
