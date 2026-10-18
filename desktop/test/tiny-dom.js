@@ -18,7 +18,7 @@ class Element {
   replaceChildren(...items) { this.children = []; this.append(...items); }
   insertBefore(node, ref) { const at = this.children.indexOf(ref); node.parentNode = this; this.children.splice(at < 0 ? this.children.length : at, 0, node); }
   after(...nodes) { const parent = this.parentNode; let at = parent.children.indexOf(this); for (const node of nodes) { node.parentNode = parent; parent.children.splice(++at, 0, node); } }
-  remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(c => c !== this); }
+  remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(c => c !== this); this.removed = true; }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key] ?? null; }
   addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
@@ -28,7 +28,7 @@ class Element {
   getBoundingClientRect() { return {top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0}; }
   get offsetHeight() { return 0; }
   get offsetWidth() { return 0; }
-  get isConnected() { return true; }
+  get isConnected() { for (let node = this; node; node = node.parentNode) if (node.removed) return false; return true; }   // a node never attached still counts as on the page
   contains(node) { return node === this || this.all().includes(node); }
   closest(selector) { for (let node = this; node && node.matches; node = node.parentNode) if (node.matches(selector)) return node; return null; }
   get options() { return this.children.filter(c => c.tagName === 'OPTION'); }

@@ -50,6 +50,11 @@ export function blocked(card, why, retry) {
   for (const button of card.querySelectorAll('.task-body button')) { button.disabled = true; button.title = why || ''; }
 }
 
+// While the server fills (the night runs, or Fill now was just pressed), the card re-reads the night's rows, so each form's row changes as it is filled
+// (live demo, 18 Oct 2026: one re-read at 30 s, then the rows stayed "waiting" with both forms filled). Only the rows: tonight's job list is a slow read.
+export const FOLLOW_MS = 20000;
+const nightState = state => state?.site?.batch?.state;
+
 export async function initReadyCard() {
   const anchor = $('tailor-top')?.closest('.task-pair');
   if (!anchor) return;
@@ -65,14 +70,28 @@ export async function initReadyCard() {
     paint(card, {...state, tonight: tonightNow ?? state.tonight}, names, act);
   };
   // The night's rows, then what tonight would send from a fresh job read (the first paint uses the last kept list).
-  const refresh = async () => {
+  const read = async () => {
     const state = await window.pilot.readyState().catch(error => ({owner: false, why: error.message}));
     show(state);
+    return state;
+  };
+  let following = null, started = false;   // started: Fill now was pressed, so a night still "queued" is about to run
+  const stop = () => { clearInterval(following); following = null; started = false; };
+  const keepUp = state => (nightState(state) === 'running' || (started && nightState(state) === 'queued') ? follow() : stop());
+  const follow = () => {
+    following ||= setInterval(async () => {
+      if (!card.isConnected) return stop();
+      keepUp(await read());
+    }, FOLLOW_MS);
+  };
+  const refresh = async () => {
+    const state = await read();
+    keepUp(state);
     if (!state?.owner) return;
     const fresh = await window.pilot.readyTonight().catch(() => null);
     if (fresh?.ok) { tonightNow = fresh.tonight; show({...state, names: {...state.names, ...fresh.names}}); }
   };
-  const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this form in your browser and press Submit yourself'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
+  const act = {live: code => { const button = el('button', 'secondary', 'Open live'); button.title = 'See this filled form live; you finish it there'; button.addEventListener('click', async () => { const result = await window.pilot.readyLive(code).catch(error => ({ok: false, error: error.message})); if (!result.ok) say(result.error || 'Could not open it.'); }); return button; },
     done: code => { const button = el('button', 'secondary', 'Done'); button.title = 'Delete this form\'s data from the server'; button.addEventListener('click', async () => { await window.pilot.readyDone(code); refresh(); }); return button; }};
   const say = text => { note.textContent = text; };
   send.addEventListener('click', async () => {
@@ -85,7 +104,8 @@ export async function initReadyCard() {
     run.disabled = true;
     const result = await window.pilot.readyRun().catch(error => ({ok: false, error: error.message}));
     say(result.ok ? 'Filling started on the server. Results appear here as each form is filled; nothing is submitted.' : (result.error || 'Could not start.'));
-    refresh(); setTimeout(refresh, 30000);
+    started = !!result.ok;
+    refresh();
   });
   await refresh();
 }

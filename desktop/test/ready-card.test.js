@@ -83,3 +83,61 @@ test('what went to the server for tonight (by hand or by itself) is said on the 
     if (says) assert.match(text, says); else assert.ok(!text.includes('Sent for tonight'));
   }
 });
+
+// The card follows a running night (live demo, 18 Oct 2026: after Fill now it re-read once at 30 s and the rows stayed "waiting" while the server had filled both forms;
+// switching pages did not help). Each state a night can be in: re-read while it runs (or right after Fill now), stop when it ends, never re-read tonight's job list.
+test('the card re-reads the night while the server fills it, and stops when it ends', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const {FOLLOW_MS} = await import('../renderer/pages/ready-card.js');
+  const cases = [
+    ['running at open', ['running', 'running', 'finished'], false, 2],
+    ['queued, then Fill now', ['queued', 'queued', 'running', 'finished'], true, 2],
+    ['queued for tonight, no Fill now: no re-read', ['queued'], false, 0],
+    ['finished at open: no re-read', ['finished'], false, 0],
+    ['failed while running', ['running', 'failed'], false, 1],
+  ];
+  for (const [name, states, pressRun, rereads] of cases) {
+    const body = page();
+    let read = 0, tonight = 0;
+    const night = () => states[Math.min(read, states.length - 1)];
+    globalThis.window.pilot = {
+      readyState: async () => { const state = night(); read++; return {owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {j: 'Job · Co'},
+        site: {batch: {night: '2026-10-19', state}, jobs: [{job: 'j', state: state === 'finished' ? 'prepared' : 'queued'}]}}; },
+      readyTonight: async () => { tonight++; return {ok: false}; }, readyRun: async () => ({ok: true})};
+    await initReadyCard();
+    const card = body.querySelector('.ready-card');
+    if (pressRun) { card.querySelector('#ready-run').click(); await new Promise(resolve => setImmediate(resolve)); }
+    const before = read, tonightBefore = tonight;
+    for (let i = 0; i < 6; i++) { t.mock.timers.tick(FOLLOW_MS); await new Promise(resolve => setImmediate(resolve)); }
+    assert.equal(read - before, rereads, `${name}: re-reads`);
+    assert.equal(tonight, tonightBefore, `${name}: tonight's job list is not re-read while following`);
+    if (states.at(-1) === 'finished' && rereads) assert.match(textOf(card), /complete/, `${name}: the row turns complete`);
+  }
+});
+
+test('the card stops following once it is no longer on the page', async t => {
+  t.mock.timers.enable({apis: ['setInterval']});
+  const {FOLLOW_MS} = await import('../renderer/pages/ready-card.js');
+  const body = page();
+  let read = 0;
+  globalThis.window.pilot = {readyState: async () => { read++; return {owner: true, settings: {}, tonight: [], names: {}, site: {batch: {state: 'running'}, jobs: []}}; }, readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  body.querySelector('.ready-card').remove();
+  const before = read;
+  for (let i = 0; i < 3; i++) { t.mock.timers.tick(FOLLOW_MS); await new Promise(resolve => setImmediate(resolve)); }
+  assert.ok(read - before <= 1, 'at most the one read that finds it gone');
+});
+
+// The twin's driver refuses to press anything that reads like a Submit (e2e/lib/twin-guards.mjs), so no control on the card may read like one, or a live demo cannot
+// press it (18 Oct 2026: "Open live" was refused for its tooltip "…press Submit yourself"). Every button of a card with each kind of row, text and tooltip.
+test('no control on the card reads like a Submit to the twin\'s guard', async () => {
+  const {looksLikeSubmit} = await import('../e2e/lib/twin-guards.mjs');
+  const body = page();
+  globalThis.window.pilot = {readyState: async () => ({owner: true, settings: {minFit: 60, perNight: 10}, tonight: [], names: {},
+    site: {batch: {night: '2026-10-19', state: 'finished'}, jobs: ['prepared', 'partial', 'wall', 'no-form', 'failed', 'queued'].map((state, i) => ({job: `j${i}`, state}))}}),
+    readyTonight: async () => ({ok: false})};
+  await initReadyCard();
+  const all = body.querySelector('.ready-card').querySelectorAll('button');
+  assert.ok(all.length >= 9, 'Fill tonight, Fill now, Open live ×3, Done ×6');
+  for (const button of all) assert.ok(!looksLikeSubmit(`${textOf(button)} ${button.title || ''} ${button.getAttribute('aria-label') || ''}`), `${textOf(button)} / ${button.title}`);
+});
