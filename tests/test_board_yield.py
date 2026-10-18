@@ -1,5 +1,5 @@
 """Boards by yield (src/sources/board_yield.py, found_boards.read): a board keeps the jobs that are relevant (title and place), not the jobs it
-lists; it is dropped after 3 reads with none; untried boards come up to 3 a run while fewer than 10 relevant jobs are found; the 'Searching job
+lists; it is dropped after 3 reads with none; untried boards come up to 6 a run while fewer than 10 relevant jobs are found; the 'Searching job
 boards' step reads the found boards in any country and says nothing misleading when there are none. Spec: 2026-10-18-search-learns-sources.md PR 2."""
 import sys
 import tempfile
@@ -62,25 +62,25 @@ class YieldTests(Fixture):
         self.assertEqual((entry['jobs'], entry['relevant'], entry['state']), (2, 0, 'ok'))
         # Dropped after 3 runs with none: its history in source_yield (tests/test_proven_boards.py HistoryTests).
 
-    def test_at_most_three_untried_boards_a_run_and_none_once_ten_relevant_jobs_are_found(self):
+    def test_at_most_six_untried_boards_a_run_and_none_once_ten_relevant_jobs_are_found(self):
         asked = []
         def fake(b, search, fetch, route=None, **kwargs):
             asked.append(b['host'])
             return [], 'empty', None
         with mock.patch.object(found_boards, 'read_board', fake):
-            found_boards.read(SEARCH, [board(n) for n in range(6)], is_relevant=self.relevant)
-        self.assertEqual(asked, ['b0.example', 'b1.example', 'b2.example'])
+            found_boards.read(SEARCH, [board(n) for n in range(9)], is_relevant=self.relevant)
+        self.assertEqual(asked, [f'b{n}.example' for n in range(6)])
         asked.clear()
         with mock.patch.object(found_boards, 'read_board', fake):
-            found_boards.read(SEARCH, [board(n) for n in range(6)], is_relevant=self.relevant)
-        self.assertEqual(asked, [f'b{n}.example' for n in range(6)], 'the tried three again, then the next three untried')
+            found_boards.read(SEARCH, [board(n) for n in range(9)], is_relevant=self.relevant)
+        self.assertEqual(asked, [f'b{n}.example' for n in range(9)], 'the tried six again, then the next three untried')
         data = board_ideas.load()
         data['boards']['b0.example']['relevant'] = 12
         board_ideas.save(data)
         asked.clear()
         with mock.patch.object(found_boards, 'read_board', fake):
-            found_boards.read(SEARCH, [board(n) for n in range(9)], is_relevant=self.relevant)
-        self.assertEqual(asked, [f'b{n}.example' for n in range(6)], 'only the boards read before, no new one')
+            found_boards.read(SEARCH, [board(n) for n in range(12)], is_relevant=self.relevant)
+        self.assertEqual(asked, [f'b{n}.example' for n in range(9)], 'only the boards read before, no new one')
 
     def test_each_board_read_says_how_far_the_step_is(self):
         lines = []
