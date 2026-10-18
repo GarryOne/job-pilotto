@@ -41,6 +41,19 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
 - **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
   `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
 
+## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
+One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
+- **Review list** `reviewList(items, {doneLabel, empty})`: each item = title, why it is here, where it came from, a status chip, its actions (at most one
+  primary, the next step; Confirm/Dismiss/Review). Pending first; done ones folded as "Reviewed · N". CV gaps, Needs review, CV check fixes.
+- **Empty state** `emptyState({icon, chip: 'Not created', title, text, actions: [primary, quiet], note})`: a neutral chip, an icon, one line, two actions.
+- **Summary tiles** `summaryTiles([{key, icon, tone, label, value, note, title}])`: icon, label, big value; empty = "Not set"; 4 across, 2×2 when narrow.
+- **Reference row** `referenceRow({text, from: 'From Your details', link: 'Edit in Your details', open})`: a fact kept on another page, one quiet link there.
+- **One count, every place** `defineCount(name, compute)` + `paintCount(name)`: the banner (`data-count-of` + `data-count-one`/`-many` for words), the filter
+  chip and the tab badge (`data-count-of`) are painted from the same function, so they never disagree; 0 hides them unless `data-count-zero="show"`.
+- **Page header** (`header.view-head`): `h1` + one muted lead line, then `.head-actions`: the sync status (`.synced`), quiet buttons, the ⋯ menu (`moreButton`,
+  "View source in Notion" lives there), **at most one** `button.primary`; the page's `.tabs` come right under it. Profile uses the same parts in `.settings-page-head.has-action`.
+- **What fails a change:** `desktop/test/page-parts.test.js` (each block's shape; a page header with a second primary button; Strategy's tabs not right under its header).
+
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
   uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an imported binding is read-only.

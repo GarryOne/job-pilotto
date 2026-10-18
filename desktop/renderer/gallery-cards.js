@@ -3,6 +3,7 @@
 import {cardEdit, el} from './components.js';
 import {chipLine, editRows, readRows, setEditing} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
+import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
 
 function card(title, editing) {
@@ -34,5 +35,26 @@ export function cardSystem() {
   const bar = pageSaveBar({host: box, tabs: {details: 'Your details', experience: 'Experience', answers: 'Application answers'}, tabButton: key => buttons[key],
     words: 'Your drafts are kept while you switch tabs.'});
   for (const [id, tab] of [['languages', 'details'], ['summary', 'experience']]) bar.register({id, tab, label: id, count: () => 1, save: async () => ({ok: true}), discard: () => {}});
+  return box;
+}
+
+// The page blocks (page-parts.js) with fictional demo values: review list, empty state, summary tiles, reference row.
+export function pageBlocks() {
+  const box = el('div', 'settings-page');
+  const panel = (title, ...parts) => { const node = el('div', 'setting panel'); node.append(el('h3', '', title), ...parts); return node; };
+  box.append(
+    panel('reviewList', reviewList([
+      {key: 'budget', title: 'Budget ownership', why: 'Asked in 4 of your 5 best matches', source: 'From the CV check', status: {text: 'Needs review', tone: 'warn'},
+        actions: [{label: 'Confirm', primary: true}, {label: 'Dismiss'}]},
+      {key: 'spanish', title: 'Spanish', why: 'Asked in 2 of your 5 best matches', status: {text: 'Needs review', tone: 'warn'}, actions: [{label: 'Review', primary: true}]},
+      {key: 'lead', title: 'Team leadership', why: 'Added to Experience', status: {text: 'Confirmed', tone: 'good'}, done: true},
+    ])),
+    panel('emptyState', emptyState({icon: 'file', title: 'No base letter yet', text: 'One general letter, written from your CV and Profile; each job still gets its own.',
+      actions: [{label: 'Draft with AI'}, {label: 'Write my own'}], note: 'Drafting uses your AI once.'})),
+    panel('summaryTiles', summaryTiles([{key: 'role', icon: 'target', tone: 'signal', label: 'Role', value: 'Operations Manager'},
+      {key: 'where', icon: 'pin', tone: 'info', label: 'Where', value: 'Zurich · Remote'}, {key: 'salary', icon: 'coins', tone: 'good', label: 'Minimum salary', value: 'CHF 140k'},
+      {key: 'start', icon: 'calendar', tone: 'neutral', label: 'Start', value: ''}])),
+    panel('referenceRow', referenceRow({text: 'Swiss permit B · notice period 3 months'})),
+  );
   return box;
 }
