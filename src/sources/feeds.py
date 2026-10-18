@@ -73,8 +73,9 @@ def triage(jobs):
     from .. import features
     from ..ai import engine
     from ..time_budget import best_first   # your best places' titles first: a short search sorts them before the rest
-    titles = [job.get('title') for job in best_first(jobs) if job.get('title') and wanted_location(job) and not excluded_title(job['title'])
-              and not (TITLES.search(job['title']) or TITLES.search(plain(job['title'])))]
+    asked = [job for job in jobs if job.get('title') and wanted_location(job) and not excluded_title(job['title'])
+             and not (TITLES.search(job['title']) or TITLES.search(plain(job['title'])))]
+    titles = [job['title'] for job in best_first(asked)]   # sorted after the filter: a first search lists ~60,000 jobs, a few thousand are asked about
     if not titles or features.disabled('title_triage') or not engine.ready():
         return
     try:

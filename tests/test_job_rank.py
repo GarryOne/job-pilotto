@@ -30,11 +30,13 @@ class RankTest(unittest.TestCase):
         self.assertEqual(job_rank.ranker({})(job('Anything', 'java')), 0)
 
     def test_tens_of_thousands_of_jobs_sort_in_a_few_seconds(self):
-        close, posting = job_rank.ranker(SEARCH), 'Lorem ipsum dolor sit amet, java ' * 200
-        started = time.monotonic()
-        for n in range(20000):
-            close(job(f'Engineer {n}', posting))
-        self.assertLess(time.monotonic() - started, 10)
+        """CI, 18 Oct 2026: 20,000 postings took 17.5 s (feeds.plain on 4,000 characters each); a first search lists ~60,000."""
+        close = job_rank.ranker(SEARCH)
+        for posting in ('Lorem ipsum dolor sit amet, java ' * 200, 'Développeur à Genève, java ' * 200):
+            started = time.monotonic()
+            for n in range(20000):
+                close(job(f'Engineer {n}', posting))
+            self.assertLess(time.monotonic() - started, 8, posting[:12])
 
 
 class BestFirstTest(unittest.TestCase):
