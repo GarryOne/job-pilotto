@@ -1,6 +1,7 @@
 // Fails a CI suite at once, with the key's name, when the AI test key is refused (401/403) or a model a suite asks for is refused: free calls (the model list, then
 // count_tokens per model: no tokens are produced, nothing is billed). Before it, a refusal showed only as a bare "400" or "AI limit reached" in the engine log and a step that
 // expected an AI answer (17 Oct 2026, strategy). Guarded by test/key-check.test.mjs.
+import crypto from 'node:crypto';
 const CHECKS = {
   openai: {secret: 'E2E_OPENAI_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({authorization: `Bearer ${key}`})},
   api: {secret: 'E2E_ANTHROPIC_KEY', url: 'https://api.anthropic.com/v1/models', headers: key => ({'x-api-key': key, 'anthropic-version': '2023-06-01'})},
@@ -13,6 +14,9 @@ const MESSAGES = 'https://api.anthropic.com/v1/messages';
 // 400 that count_tokens cannot see (the request's shape, not the model) shows its message in the first suite's log (owner's yes, 18 Oct 2026, ~$0.05 per beta run in all).
 const EXACT_SHAPE = {model: CLAUDE_MODELS[0], max_tokens: 256, messages: [{role: 'user', content: 'Answer ok.'}],
   output_config: {format: {type: 'json_schema', schema: {type: 'object', properties: {answer: {type: 'string'}}, required: ['answer'], additionalProperties: false}}, effort: 'low'}};
+
+// 8 hex of the key's SHA-256: enough to tell two keys apart in a log, useless as a key (the strategy refusals of 18 Oct 2026: is the app sending the key the preflight checked?).
+export const keyFingerprint = key => (key ? crypto.createHash('sha256').update(String(key)).digest('hex').slice(0, 8) : 'none');
 
 const say = async response => { try { return String((await response.json())?.error?.message || '').replace(/\s+/g, ' ').replace(/sk-[\w-]{6,}|Bearer\s+\S+|\b[A-Za-z0-9_-]{32,}\b/g, '…').slice(0, 160); } catch { return ''; } };
 

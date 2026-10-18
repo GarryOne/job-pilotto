@@ -74,3 +74,17 @@ test('the app\'s own request shape is sent once to Claude, and a 400 on it stops
   assert.equal(bodies[0].output_config.effort, 'low');
   assert.ok(bodies[0].max_tokens <= 256);
 });
+
+// 18 Oct 2026 (strategy refusals): a refusal prints the request's shape and the key's fingerprint, never the key, and only the first three.
+test('describeRefusal: the first three refusals say the request-id, model, max_tokens, size and a key fingerprint, never the key', async () => {
+  const {describeRefusal} = await import('../lib/ai-proxy.mjs');
+  const {keyFingerprint} = await import('../lib/key-check.mjs');
+  const lines = [], stats = {inflight: 2};
+  const answer = {status: 400, headers: new Headers({'request-id': 'req_abc'})}, req = {headers: {'x-api-key': 'sk-ant-secret-value'}};
+  for (let n = 0; n < 5; n++) describeRefusal(stats, answer, req, Buffer.from(JSON.stringify({model: 'claude-haiku-5-5', max_tokens: 4000})), line => lines.push(line));
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /400: request-id req_abc, model claude-haiku-5-5, max_tokens 4000, input \d+ bytes, 2 in flight, key fingerprint [0-9a-f]{8}/);
+  assert.ok(lines[0].includes(keyFingerprint('sk-ant-secret-value')));
+  assert.ok(!lines.join('\n').includes('secret-value'));
+  assert.equal(keyFingerprint(''), 'none');
+});
