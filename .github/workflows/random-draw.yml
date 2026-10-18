@@ -7,6 +7,7 @@
 #   the first measured draw's cost is reported).
 # - Sites: data-centre IPs are refused by many boards; a refusal shows as "not reached" and is never retried or worked around (never past a login wall, captcha or 401/403/429).
 # - A re-run of a bad day: Run workflow with that day's seed (YYYY-MM-DD).
+# - The kept artifact is counts only (counts.json, draw.json): the search's top-10 job titles stay out of it.
 # Guard: tests/test_draw.py, site/test/search-lab-draws.test.js.
 name: CI · Random draw (daily)
 
@@ -67,12 +68,15 @@ jobs:
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
         run: node tools/persona-search/draw-upload.mjs "$RUNNER_TEMP/draw-out" --build "$GITHUB_SHA" --branch main
-      - name: Keep the numbers (no job text, no log)
+      - name: Keep the numbers (counts only: no job titles, companies or log)
         if: always()
-        uses: actions/upload-artifact@v6
+        run: |
+          mkdir -p "$RUNNER_TEMP/keep"
+          cp "$RUNNER_TEMP/draw-out/draw/draw.json" "$RUNNER_TEMP/keep/" || true
+          node -e "const fs=require('fs');const f=process.argv[1];if(!fs.existsSync(f))process.exit(0);const row=JSON.parse(fs.readFileSync(f,'utf8').split('\\n').filter(Boolean)[0]);delete row.top10;fs.writeFileSync(process.argv[2],JSON.stringify(row))" "$RUNNER_TEMP/draw-out/draw/presses.jsonl" "$RUNNER_TEMP/keep/counts.json"
+      - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: random-draw-${{ steps.draw.outputs.seed }}
-          path: |
-            ${{ runner.temp }}/draw-out/draw/draw.json
-            ${{ runner.temp }}/draw-out/draw/presses.jsonl
+          path: ${{ runner.temp }}/keep
           retention-days: 30
