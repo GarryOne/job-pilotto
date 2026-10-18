@@ -69,3 +69,34 @@ test('the live view page sends only mouse and keys, holds no key and does not le
   assert.ok(!/x-api-key|localStorage|document\.cookie/.test(page));
   for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased', 'mouseWheel']) assert.ok(page.includes(type), type);
 });
+
+// The live page's states, run on its own script (live demo, 18 Oct 2026: a broken image with its alt text showed while connecting): connecting shows a line and no
+// picture; the first frame shows the picture; a close before any frame says so; a close after one keeps the picture.
+test('the live page shows the picture only once a frame came, and says why when it closes first', () => {
+  const page = readFileSync(new URL('../public/ready-live.html', import.meta.url), 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const hiddenAt = id => new RegExp(`id="${id}"[^>]*\\bhidden\\b`).test(page);
+  const run = events => {
+    const nodes = {};
+    for (const id of ['screen', 'state', 'done', 'note', 'wait']) nodes[id] = {id, hidden: hiddenAt(id), textContent: '', disabled: true, src: '', focus() {}, addEventListener() {}};
+    let socket;
+    const WebSocket = class { constructor() { socket = this; this.readyState = 1; } send() {} };
+    new Function('document', 'location', 'WebSocket', 'fetch', script)({getElementById: id => nodes[id]}, {search: '?job=j1&k=1.x', protocol: 'https:', host: 'x'}, WebSocket, async () => ({}));
+    for (const event of events) event === 'open' ? socket.onopen() : event === 'close' ? socket.onclose() : socket.onmessage({data: JSON.stringify({kind: event, data: 'AAAA'})});
+    return nodes;
+  };
+  const cases = [
+    ['connecting', [], {screen: true, wait: false}, /Opening the filled form/],
+    ['open, no frame yet', ['open'], {screen: true, wait: false}, /Opening the filled form/],
+    ['first frame', ['open', 'first'], {screen: false, wait: true}, null],
+    ['closed before any frame', ['open', 'close'], {screen: true, wait: false}, /closed before the form showed/],
+    ['closed after a frame', ['open', 'frame', 'close'], {screen: false, wait: true}, null],
+  ];
+  for (const [name, events, hidden, says] of cases) {
+    const nodes = run(events);
+    nodes.wait.textContent ||= page.match(/<div id="wait">([^<]*)</)[1];
+    assert.equal(nodes.screen.hidden, hidden.screen, `${name}: picture hidden`);
+    assert.equal(nodes.wait.hidden, hidden.wait, `${name}: waiting line hidden`);
+    if (says) assert.match(nodes.wait.textContent, says, name);
+  }
+});
