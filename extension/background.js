@@ -25,6 +25,7 @@ import {noteStart} from './panel-start.js';
 import {KEY, fromOf, jobOf, bindMark, markFor, startJob} from './tab-identity.js';
 import {tellPanel} from './page-notes.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
+import {createReadyHandoff} from './ready-handoff.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -56,6 +57,7 @@ export const FILL_MARK = 'jobpilotto-fill';
 const started = new Set();
 const armedLogged = new Set();
 const panelRefused = new Set();
+const readyHandoff = createReadyHandoff({chrome, api: (path, init) => settings().then(config => api(config, path, init)), sessionGet, decide});   // Open in my browser (ready-handoff.js)
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!tab.url?.includes(`#${FILL_MARK}`)) return;
   // A mark added to a tab already open changes only its address (a hash change: no loading status).
@@ -68,6 +70,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     if (info.status === 'complete') await fillWaitsForAllow(tabId, tab.url, {decide});
     return;
   }
+  if (await readyHandoff.takeHandoff(tabId, tab.url, info.status)) return;   // Open in my browser: on to the night's page, its cookies set
   // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
   // the posting that led to an agency's form stays the job, whichever site the form is on.
   const carried = (await sessionGet(`carried:${tabId}`))[`carried:${tabId}`];
@@ -84,6 +87,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
   if (info.status === 'loading') noteStart(stepNow, tabId, tab.url);   // the panel spins "Starting…" until the fill's first step (panel-start.js)
   if (info.status !== 'complete') return;
+  await readyHandoff.restoreHandoff(tabId);   // the night's values first; the normal fill takes over for the rest
   // The job, not this page: a page the extension carried the mark onto (an agency's form) belongs to the posting that led to it.
   await consider(tab, await jobOf(tab));
 });
