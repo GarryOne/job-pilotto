@@ -1,14 +1,18 @@
-// The app the night's extension talks to (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): a small local server that answers like the Mac's, from the batch only. /extension/me and /extension/kit are keyed by the job's address;
+// The app the night's extension talks to (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): a small local server that answers like the Mac's, from the batch only. /extension/me and /extension/kit are keyed by the job's address (its form and the pages below it count as the job);
 // every other call answers {} (no AI judging, no Notion, no Keychain, no site password: phase 1 has no accounts). It keeps what the fill reported: the run record's counts and the page's role (an account or sign-in page is a wall).
 // It holds no secret and no network access beyond 127.0.0.1. Guard: desktop/test/ready-fill.test.js.
 import http from 'node:http';
+// The app's own rule for a job's form address (desktop/lib/form-address.js); in the image it sits at /desktop/lib, which this same path reaches from /night.
+import {isFormOf} from '../../desktop/lib/form-address.js';
 
 const HEADERS = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Content-Type': 'application/json'};
 const file = (name, base64) => (base64 ? {data: base64, name, type: 'application/pdf'} : null);
-const key = address => String(address || '').split('#')[0];
 
 // batch: {contact, jobs: [{id, url, title, company, kit, cv, letterPdf}]}. -> {port, close, outcome(url), asked}
 export async function createStandIn(batch, {answer = null} = {}) {
+  // A page the extension reports belongs to the job whose form it is (the posting, its form address, or a page below it, the way the app matches):
+  // every lookup and every count is kept under that job's address, so a press on Apply or a next step stays on the same job.
+  const key = address => { const page = String(address || '').split('#')[0]; return batch.jobs.find(job => isFormOf(page, job.url))?.url.split('#')[0] ?? page; };
   const jobs = new Map(batch.jobs.map(job => [key(job.url), job]));
   const passes = new Map(), roles = new Map(), started = new Map(), asked = [];   // passes: per job, the counts of each fill pass (a second pass fills only what the first left)
   const answers = {

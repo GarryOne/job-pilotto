@@ -1,6 +1,8 @@
-// One job of the night (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): open the posting in a tab of the night's browser, ask the real extension to fill it the way the app's "Apply" does (the address hash, then the panel's Fill
+// One job of the night (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): open the job's form (the address the app's Apply opens, lib/form-address.js) in a tab of the night's browser, ask the real extension to fill it the way the app's "Apply" does (the address hash, then the panel's Fill
 // button), and read what it reported to the stand-in. The tab stays open, filled, for the morning. Nothing here presses Submit or an account button: the extension copy holds the account press and no-submit.mjs refuses a submission.
 // -> {state, filled, left, humanCheck, wall, ms}, never a field value. Guard: desktop/test/ready-fill.test.js (classify) and the fixture proof (hosted/ready-fill/proof.mjs).
+import {formUrl} from '../../desktop/lib/form-address.js';   // in the image: /desktop/lib, reached by the same path from /night
+
 const FILL_BUTTON = /^(fill anyway|fill this form|fill again)$/i;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -34,7 +36,7 @@ async function pressFill(page, standIn, address, seconds = 25) {
 // context: the night's Playwright context; standIn: createStandIn(); job: {id, url}. -> the outcome plus the tab.
 export async function fillJob({context, standIn, job, fillSeconds = 120}) {
   const started = Date.now(), page = await context.newPage();
-  try { await page.goto(job.url, {waitUntil: 'domcontentloaded', timeout: 30000}); } catch { return {page, state: 'failed', wall: 'unreachable', filled: 0, left: 0, humanCheck: false, ms: Date.now() - started}; }
+  try { await page.goto(formUrl(job.url), {waitUntil: 'domcontentloaded', timeout: 30000}); } catch { return {page, state: 'failed', wall: 'unreachable', filled: 0, left: 0, humanCheck: false, ms: Date.now() - started}; }
   const panel = await pressFill(page, standIn, job.url);
   for (let waited = 0; panel && waited < fillSeconds && !standIn.outcome(job.url); waited++) await wait(1000);
   await wait(3000);   // the record is written once, at the fill's end; the page settles and a later pass or update may follow

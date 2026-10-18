@@ -6,7 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACCOUNT_PRESS, copyForNight, holdAccountPress} from '../../hosted/ready-fill/extension-copy.mjs';
-import {classify} from '../../hosted/ready-fill/fill-job.mjs';
+import {classify, fillJob} from '../../hosted/ready-fill/fill-job.mjs';
+import {formUrl} from '../lib/form-address.js';
 import {inputToCdp} from '../../hosted/ready-fill/live.mjs';
 import {costMicro} from '../../hosted/ready-fill/night.mjs';
 import {looksLikeSubmit} from '../../hosted/ready-fill/no-submit.mjs';
@@ -64,6 +65,35 @@ test('the stand-in answers from the batch by the job address and keeps only coun
     assert.deepEqual(app.outcome('https://boards.example.com/a/1'), {filled: 11, left: 0, role: 'form', usd: 0.01});
     assert.deepEqual(await call('/extension/answer', {method: 'POST', body: '{}'}), {answers: [], usd: 0});   // the fill reads answers.filter: an empty list, never undefined
   } finally { await app.close(); }
+});
+
+// 18 Oct 2026, first real night: an Ashby posting was opened as its posting page, the form sat behind it, and nothing was filled ("no form").
+// The night opens a job the way the app's Apply does (lib/form-address.js formUrl), and every report from the job's form or a page below its
+// posting (Apply pressed, the next step) counts for that job: CV, kit, fill record, start and role.
+const POSTING = 'https://jobs.ashbyhq.com/acme/00000000-0000-4000-8000-000000000001';
+test('the night opens the form the app would open, and the form\'s reports count for its job', async () => {
+  const batch = {contact: {first_name: 'Ada'}, jobs: [{id: 'j1', url: POSTING, title: 'SRE', company: 'Acme', kit: {answers: []}, cv: 'Q1ZCQVNF', letterPdf: ''}]};
+  const app = await createStandIn(batch);
+  const call = async (route, init = {}) => (await fetch(`http://127.0.0.1:${app.port}${route}`, init)).json();
+  try {
+    for (const page of [formUrl(POSTING), `${POSTING}/application/step-2`]) {
+      assert.equal((await call(`/extension/me?url=${encodeURIComponent(`${page}#jobpilotto-fill`)}`)).resume.data, 'Q1ZCQVNF', page);
+      assert.ok((await call(`/extension/kit?url=${encodeURIComponent(page)}`)).kit, page);
+    }
+    await call('/extension/event', {method: 'POST', body: JSON.stringify({type: 'fill-started', url: formUrl(POSTING)})});
+    await call('/extension/review', {method: 'POST', body: JSON.stringify({url: formUrl(POSTING), role: 'form'})});
+    await call('/extension/run', {method: 'POST', body: JSON.stringify({url: `${formUrl(POSTING)}#x`, fields: 7, unfilled: 1})});
+    assert.equal(app.started(POSTING), 1);
+    assert.deepEqual(app.outcome(POSTING), {filled: 7, left: 1, role: 'form', usd: 0});
+    assert.equal((await call(`/extension/kit?url=${encodeURIComponent('https://jobs.ashbyhq.com/acme/00000000-0000-4000-8000-000000000002')}`)).error, 'not tracked', 'another job at the same company is not this one');
+  } finally { await app.close(); }
+  const opened = [];
+  const page = {goto: async url => { opened.push(url); }, evaluate: async () => false, waitForFunction: async () => {}};
+  const standIn = {started: () => 1, outcome: () => ({filled: 7, left: 0}), role: () => 'form'};
+  const result = await fillJob({context: {newPage: async () => page}, standIn, job: {id: 'j1', url: POSTING}, fillSeconds: 1});
+  assert.deepEqual(opened, [formUrl(POSTING)]);
+  assert.notEqual(formUrl(POSTING), POSTING, 'the case is one where the form lives elsewhere');
+  assert.equal(result.state, 'prepared');
 });
 
 test('the outcome words: prepared needs a fill with nothing required left; an account page is a wall; no panel is no form', () => {

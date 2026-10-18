@@ -9,6 +9,7 @@ on:
       - 'hosted/ready-fill/**'
       - 'extension/**'
       - 'worker/src/**'
+      - 'desktop/lib/form-address.js'
       - 'site/ready-runner/**'
       - 'site/src/ready-consume.js'
       - '.github/workflows/release-ready-runner.yml'
