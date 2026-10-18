@@ -18,3 +18,6 @@ node_modules
 
 # The playwright blob report a harness test writes (it was committed by mistake)
 desktop/e2e/blob-report/
+
+# Built at deploy from the repository (tools/design-system/build.mjs); never committed
+site/public/admin/design/

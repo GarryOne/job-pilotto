@@ -31,6 +31,7 @@ export const PAGES = [
   {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
   {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
   {path: '/admin/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/design', group: 'Design', question: 'What do our screens look like and how are they built: tokens, components and the written rules, from the code?', name: 'Design system', icon: '🎨'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (site/test/form-pages.test.js).
@@ -81,7 +82,7 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 // The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
 // Form filling and Engineering, which was renamed Operations again on 18 Oct 2026: Lab and Benchmark are engineering too): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
 // it is a lock link beside "super admin" and only for the super admin.
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️'], ['Design', '🎨']];
 export function nav(active, who = {role: 'superadmin'}) {
   const isSuper = who.role === 'superadmin';
   const shown = PAGES.filter(page => !page.superadmin);
