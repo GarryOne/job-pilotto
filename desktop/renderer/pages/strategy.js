@@ -11,7 +11,7 @@ import {strategyState, showTab} from './strategy-state.js';
 import {ADVANCED, CARD_TONE, TARGET_CARDS, entriesOf, inColumns, renderCards, renderStrategy} from './strategy-targets.js';
 import {strategyBar} from './strategy-cards.js';
 import {loadCoverage} from './strategy-suggestions.js';
-import {loadPreferences, reviewPreferences} from './job-preferences.js';
+import {loadPreferences} from './job-preferences.js';
 import {loadLocationsWhich} from './locations-which.js';
 export {TARGET_CARDS, TARGET_LISTS, editedList} from './strategy-targets.js';
 export {reviewSuggestion, loadCoverage} from './strategy-suggestions.js';
@@ -98,6 +98,5 @@ export async function init() {
   const sourceKey = () => (shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID');
   $('strategy-more').addEventListener('click', () => openMenu($('strategy-more'), [{label: 'View source in Notion', icon: 'link', run: event => openInNotion(sourceKey(), event)}]));   // about Notion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
-  $('preferences-review').addEventListener('click', reviewPreferences);
 }
 

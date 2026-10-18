@@ -25,6 +25,7 @@ import {openWaitlist} from './plan-waitlist.js';
 import {showsProWaitlist} from '../plan-line.js';
 import {loadStrategy} from './strategy.js';
 import {openCard} from './strategy-cards.js';
+import {reviewPreferences} from './job-preferences.js';
 import * as viewHistory from '../view-history.js';
 import {buildCommands} from './build.js';
 import {initMenu, refreshMenu} from './menu.js';
@@ -172,7 +173,9 @@ export function paletteCommands() {
   if (shared.coverageActive) add('Strategy', 'Reset search coverage', 'Searches use your preferences again', 'reset search coverage override custom locations places', locationsCard);
   if (shared.locationsOpen) add('Strategy', 'Which locations are right?', 'Your search settings and Profile named different places', 'locations places conflict which right preferred acceptable relocation cities countries',
     () => { openView('strategy'); setTimeout(() => $('strategy-locations-which')?.scrollIntoView({block: 'start'}), 300); });
-  button('strategy', 'preferences-review', 'job preferences review clean values ai');
+  // Review your preferences lives in Job preferences' editor: opened first, then the AI reads the fields (pages/job-preferences.js).
+  add('Strategy', 'Review your preferences', 'The AI reads your job preferences and proposes clean values', 'job preferences review clean values ai',
+    () => { openView('strategy'); setTimeout(() => { openCard('prefs'); reviewPreferences(); $('strategy-job-prefs')?.scrollIntoView({block: 'start'}); }, 300); });
   button('jobs', 'apply-open', 'apply fill forms');
   button('jobs', 'applied-open', 'track add application outside');
   button('jobs', 'import-open', 'add job link paste posting');

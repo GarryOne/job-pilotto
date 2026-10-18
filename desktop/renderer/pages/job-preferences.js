@@ -2,17 +2,19 @@
 // ranking"; was Settings → Profile → Preferences, the owner's mockup of 16 Oct 2026). Two sides, each the fields it owns (chips, selects, workload
 // min/max) and its other rules folded under a one-line summary ("No on-call · Exclude recruitment agencies · 2 more"), plus "Add a deal-breaker" /
 // "Add a preference". Each control writes back only its own cell or line of the Profile (renderer/preferences-model.js), on every store, through
-// pages/outline-tab.js's one save bar. Work mode, seniority and the minimum salary are Goals' (above); permit, languages and the salary expectation
-// are Your details'. Guarded by test/job-preferences.test.js and test/profile-tabs-render.test.js.
+// pages/outline-tab.js, on Strategy's one save bar. Work mode, seniority and the minimum salary are Main goals' (above); permit, languages and the salary
+// expectation are Your details'. On Strategy (owner, 18 Oct 2026, mockup 03) the card reads as label/value rows per side with a quiet Edit; Edit opens the
+// controls and "Review your preferences" (strategy-cards.js: one editor at a time). Guarded by test/job-preferences.test.js and test/profile-tabs-render.test.js.
 import {el} from '../components.js';
 import {icon} from '../icons.js';
+import {chipLine, readRows} from '../card-shell.js';
 import {changeFor, shown} from '../answers-model.js';
 import {FIELDS, MODES, SIDES, chipsOf, chipsText, fieldChange, modesOf, modesText, readProfile, summaryOf, workloadOf, workloadText} from '../preferences-model.js';
 import {NOTE_LABEL, noteText, showWorkload} from '../preferences-review-model.js';
 import {lineInput, outlineTab} from './outline-tab.js';
 import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
-import {strategyBarNow} from './strategy-cards.js';
+import {CARDS, barFor, cardHeader, isOpen} from './strategy-cards.js';
 
 const TEXT = 'profile';
 const typed = new Map();   // field key or item id → the text as edited
@@ -172,8 +174,50 @@ function draw(view, into) {
   const reviewNode = reviewCard({fields: drawn(read.fields), state: review, handled, redraw: view.redraw,
     apply: (field, item, text) => binding(view, field, item, read.anchor).set(text),
     note: () => draftNote(view, read.fields, read.note, read.anchor)});
-  if (reviewNode) into.append(reviewNode);
+  if (reviewNode) into.append(reviewNode);   // what the AI flagged shows in both modes: accepting drafts it (Unsaved)
+  const card = strategyCard();
+  if (card && !isOpen('prefs')) { into.append(...Object.keys(SIDES).map(key => readSide(read, key))); return; }
+  if (card) into.append(reviewButton());
   for (const key of Object.keys(SIDES)) into.append(side(view, key, read, read.anchor));
+}
+
+// ---------- The card as read: each side's fields as label/value rows, its other rules on one line; drafts shown as they will be saved.
+const LEAD = 'What a job must have, and what ranks it higher. Scoring reads them.';
+function readValue(field, item) {
+  const text = String(typed.get(field.key) ?? item?.value ?? '').replace(/\*\*/g, '').trim();
+  if (!text) return el('span', 'muted', 'Any');
+  if (field.widget === 'chips') return chipLine(chipsOf(text));
+  if (field.widget === 'workload') return workloadText(workloadOf(text)) || text;
+  return text;
+}
+function readSide(read, key) {
+  const group = SIDES[key], countries = typed.get('countries') ?? read.fields.countries?.value ?? '';
+  const rows = FIELDS.filter(field => field.side === key && (field.key !== 'workload' || showWorkload(countries, review.parse?.countries)))
+    .map(field => ({label: field.label, value: readValue(field, read.fields[field.key])}));
+  const rules = read.other.filter(item => item.side === key).map(item => ({...item, value: typed.get(item.id) ?? item.value}));
+  rows.push({label: key === 'must' ? 'Other deal-breakers' : 'Other preferences', value: summaryOf(rules)});
+  const box = el('section', 'pref-read'), head = el('h4', 'pref-read-head', icon(group.icon));
+  box.dataset.side = key;
+  head.append(group.title);
+  box.append(head, readRows(rows, {lined: true}));
+  return box;
+}
+// "Review your preferences" (also in ⌘K): in the editor, since what it proposes are edits.
+function reviewButton() {
+  const button = Object.assign(el('button', 'secondary small-btn', 'Review your preferences'), {type: 'button', id: 'preferences-review'});
+  button.addEventListener('click', reviewPreferences);
+  const row = el('div', 'pref-review-row');
+  row.append(el('span', 'muted small', 'The AI reads your preferences and proposes clean values; nothing changes until you accept.'), button);
+  return row;
+}
+// On Strategy: the card's header (Unsaved, Edit / Done) and its mode. Elsewhere (tests, the Profile's old tab) there is no card: the controls are drawn.
+function strategyCard() {
+  const card = document.getElementById('strategy-job-prefs');
+  if (!card) return null;
+  card.dataset.card = 'prefs';
+  card.classList.toggle('is-editing', isOpen('prefs'));
+  card.querySelector(':scope > .card-head')?.replaceWith(cardHeader('prefs', 'sliders', 'violet', 'Job preferences', LEAD, card));
+  return card;
 }
 
 // Only the fields this card draws are reviewed (the others are edited in Goals or Your details).
@@ -183,10 +227,12 @@ export async function loadPreferences() {
   const node = document.getElementById('preferences-body');
   if (!node) return;
   if (!tab || tab.node !== node) tab = {...outlineTab('preferences', [TEXT], node, draw, {onReset: () => { typed.clear(); handled.clear(); noteDraft = null; }, words: 'Future searches and scores use them once you save.',
-    bar: strategyBarNow(), tab: 'strategy-yours', label: 'Job preferences'}), node};
+    bar: barFor(), tab: 'strategy-yours', label: 'Job preferences'}), node};
   review.asked = false;
   await tab.load();
 }
 
 // The "Review your preferences" button (also in ⌘K): read the fields again (asks the AI only when their text changed, or the last read failed).
 export const reviewPreferences = () => lastView && readFields(lastView, !!review.error);
+export const redrawPreferences = () => tab?.redraw();
+CARDS.prefs.count = () => (tab?.dirty() ? 1 : 0);   // its Unsaved pill (the bar counts each change through outline-tab.js)
