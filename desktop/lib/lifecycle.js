@@ -25,7 +25,7 @@ export function startWhenReady({app, firstCopy, start, getWindows, createWindow}
 }
 
 export function installQuitHandling({app, platform, state, pipeline, terminals, critical = {labels: () => [], whenDone: () => Promise.resolve()}, shouldAskOnQuit,
-  askWhyLeaving, showDialog, icon, getWindows, toWindow, notify, later = setTimeout, log = () => {}}) {
+  askWhyLeaving, showDialog, icon, getWindows, toWindow, notify, later = setTimeout, log = () => {}, onCancel = () => {}}) {
   let quitting = false;
   app.on('window-all-closed', () => { if (platform !== 'darwin') app.quit(); });
   app.on('will-quit', () => terminals.shutdown());
@@ -53,7 +53,7 @@ export function installQuitHandling({app, platform, state, pipeline, terminals, 
     if (!busy && !queue.length && !important.length) {
       const choice = show(quitDialog.sessionsOnly(sessions, label), 0);
       log('window', 'quit decision', {choice: choice === 0 ? 'keep sessions' : 'stop sessions', sessions: sessions.length});
-      if (choice === 0) { window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
+      if (choice === 0) { onCancel(); window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
       quitting = true;
       app.quit();
       return;
@@ -61,7 +61,7 @@ export function installQuitHandling({app, platform, state, pipeline, terminals, 
     const dialog = quitDialog.working({busy, queue, sessions, important, label, taskName: pipeline.taskName});
     const choice = show(dialog, 2);
     log('window', 'quit decision', {choice: ['when idle', 'now', 'cancel'][choice], queued: queue.length, sessions: sessions.length, important: important.join(', ')});
-    if (choice === 2) return;
+    if (choice === 2) { onCancel(); return; }
     quitting = true;
     if (choice === 1) {
       pipeline.freezeQueue(storage);

@@ -17,7 +17,7 @@ function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = []
     critical: {labels: () => important, whenDone: () => importantDone},
     shouldAskOnQuit: () => ask, askWhyLeaving: () => calls.push('ask'),
     showDialog: (_parent, options) => { calls.push(options.buttons); return choice; }, icon: () => ({}), getWindows: () => [window],
-    toWindow: (...args) => calls.push(args), notify: (...args) => calls.push(args), later: (fn, ms) => { timeout = fn; assert.equal(ms, 300000); },
+    toWindow: (...args) => calls.push(args), notify: (...args) => calls.push(args), onCancel: () => calls.push('cancelled'), later: (fn, ms) => { timeout = fn; assert.equal(ms, 300000); },
   });
   return {app, handlers, calls, drain, idle, timeout: () => timeout(), quit: () => beforeQuit({preventDefault: () => calls.push('prevent')})};
 }
@@ -87,4 +87,10 @@ test('an export alone still asks before quitting, and Quit when done waits for i
   assert.equal(f.calls.at(-1), 'quit');
   const cancel = fixture({busy: null, important: ['Exporting your data'], choice: 2}); cancel.quit();
   assert.ok(!cancel.calls.includes('quit'));
+});
+test('both ways of staying (Cancel, keep sessions) tell the restart to stand down; stopping or quitting does not', () => {
+  assert.ok(fixture({choice: 2}).quit() === undefined);
+  const cancel = fixture({choice: 2}); cancel.quit(); assert.ok(cancel.calls.includes('cancelled'));
+  const keep = fixture({busy: null, sessions: [{id: 's1', status: 'running'}]}); keep.quit(); assert.ok(keep.calls.includes('cancelled'));
+  const now = fixture({choice: 1}); now.quit(); assert.ok(!now.calls.includes('cancelled'));
 });

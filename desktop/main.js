@@ -14,6 +14,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import {createRestarter} from './lib/restart.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
 import * as pageRender from './lib/page-render.js';
@@ -276,7 +277,7 @@ function handlers() {
   const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, extensionGate, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});
-  registerAppMetaHandlers({DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
+  registerAppMetaHandlers({DEMO, FROM_SOURCE, restartAfterQuitGuard: reason => restarter.restart(reason), app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
     getLicense: () => license, getPlan, shell, getTelemetry: () => telemetry, getUpdateOffer, setUpdateOffer,
     getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js
   const {showForm} = registerApplyHandlers({DEMO, extensionGate, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
@@ -321,11 +322,8 @@ function handleImportant(channel, label, handler) {
   ipcMain.handle(channel, (...args) => critical.during(label, () => handler(...args)));
 }
 // Every restart says why: app.exit skips 'will-quit', so without this line a restart looks like a silent exit (a Windows e2e relaunch, 6 Oct 2026).
-function restartApp(reason, options) {
-  appLog('window', `restart: ${reason}`);
-  app.relaunch(options);
-  app.exit(0);
-}
+const restarter = createRestarter({app, log: message => appLog('window', message)});
+function restartApp(reason, options) { restarter.restart(reason, options, {how: 'exit'}); }
 // How the app ended, in logs/app.log: a Windows e2e relaunch closed with no line at all (6 Oct 2026). No line after "start" now means the
 // process was killed from outside (nothing in the app can log that).
 app.on('will-quit', () => appLog('window', 'quitting'));
@@ -496,5 +494,5 @@ installQuitHandling({app, platform: process.platform,
   askWhyLeaving: () => toWindow('askWhyLeaving'),
   showDialog: (parent, options) => dialog.showMessageBoxSync(parent, options),
   icon: () => nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')),
-  getWindows: () => BrowserWindow.getAllWindows(), toWindow, notify, log: appLog,
+  getWindows: () => BrowserWindow.getAllWindows(), toWindow, notify, log: appLog, onCancel: () => restarter.cancel(),
 });
