@@ -14,12 +14,12 @@ function world(answer) {
   const chrome = {
     storage: {session: {set: async items => Object.assign(session, items)}},
     cookies: {set: async cookie => (cookie.name === 'bad' ? null : (cookies.push(cookie), cookie))},
-    tabs: {update: async (tabId, change) => { updates.push([tabId, change.url]); }},
     scripting: {executeScript: async ({func, args}) => { scripts.push(args[0]); return [{result: 1}]; }},
   };
   const api = async (path, init) => { asks.push([path, JSON.parse(init.body).url]); return answer; };
   const sessionGet = async name => ({[name]: session[name]});
-  return {flow: createReadyHandoff({chrome, api, sessionGet}), session, cookies, updates, scripts, asks};
+  const move = async (tabId, url) => { updates.push([tabId, url]); };
+  return {flow: createReadyHandoff({chrome, api, sessionGet, move}), session, cookies, updates, scripts, asks};
 }
 
 test('no hand-off for this tab: asked once, nothing changes, the normal fill goes on', async () => {

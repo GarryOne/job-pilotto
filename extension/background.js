@@ -12,7 +12,7 @@ import {createTabReport} from './tab-report.js';
 import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
 import {createReportMessages} from './messages-report.js';
-import {claimAppTab, closePosting, followOpener, noteSource, movedByUs} from './tabs.js';
+import {claimAppTab, closePosting, followOpener, noteSource, movedByUs, moveTab} from './tabs.js';
 import {createSettleOpenTabs} from './settle-tabs.js';
 import {createStopMessages} from './stop-messages.js';
 import {consider, initFillFlow} from './fill-flow.js';
@@ -57,7 +57,7 @@ export const FILL_MARK = 'jobpilotto-fill';
 const started = new Set();
 const armedLogged = new Set();
 const panelRefused = new Set();
-const readyHandoff = createReadyHandoff({chrome, api: (path, init) => settings().then(config => api(config, path, init)), sessionGet, decide});   // Open in my browser (ready-handoff.js)
+const readyHandoff = createReadyHandoff({chrome, api: (path, init) => settings().then(config => api(config, path, init)), sessionGet, move: moveTab, decide});   // Open in my browser (ready-handoff.js)
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!tab.url?.includes(`#${FILL_MARK}`)) return;
   // A mark added to a tab already open changes only its address (a hash change: no loading status).

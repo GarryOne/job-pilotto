@@ -46,7 +46,8 @@ test('the press hands over the trace Job Pilotto already keeps: the panel only a
 
 test('the manifest\'s permissions are what they were: debugger stays a normal permission, nothing new, nothing optional', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
-  assert.deepEqual(manifest.permissions, ['activeTab', 'alarms', 'debugger', 'scripting', 'storage', 'webNavigation']);
+  // cookies: Ready to send's "Open in my browser" carries the night's cookies (owner, 18 Oct 2026, knowing Chrome asks each user once on update)
+  assert.deepEqual(manifest.permissions, ['activeTab', 'alarms', 'cookies', 'debugger', 'scripting', 'storage', 'webNavigation']);
   assert.ok(!(manifest.optional_permissions || []).includes('debugger'));
 });
 
