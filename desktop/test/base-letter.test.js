@@ -44,15 +44,17 @@ test('who pays: said before from the engine, after from the run; an unknown cost
   assert.equal(lastCost({paidBy: 'plan', usd: 0.03}), '');
 });
 
-test('the markup: two choices in the empty state, the usage line under each Draft with AI, no hardcoded price or duration', () => {
+test('the empty state is the shared one (page-parts.js emptyState) with two choices and who pays; no own Save; no hardcoded price or duration', () => {
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   const panel = html.slice(html.indexOf('id="setting-letter"'), html.indexOf('id="setting-answers'));
-  const empty = panel.slice(panel.indexOf('id="letter-empty"'), panel.indexOf('id="letter-editor"'));
-  assert.match(empty, /id="letter-start-ai"[\s\S]*Draft with AI/);
-  assert.match(empty, /id="letter-own"[\s\S]*Write my own/);
-  assert.equal((panel.match(/data-letter-usage/g) || []).length, 2);
+  assert.match(panel, /<div id="letter-empty" hidden><\/div>/, 'drawn by emptyState, not markup');
+  assert.equal((panel.match(/data-letter-usage/g) || []).length, 1, 'the editor\'s line; the empty state carries it as its note');
+  assert.doesNotMatch(panel, /id="letter-save"/, 'typed changes go on Profile\'s one save bar');
   assert.match(panel, /preparation kit/);
   const source = fs.readFileSync(new URL('../renderer/pages/base-letter.js', import.meta.url), 'utf8');
+  assert.match(source, /emptyState\(\{[\s\S]*label: 'Draft with AI'[\s\S]*label: 'Write my own'[\s\S]*note: usageLine\(\)/);
+  assert.match(source, /ai\.id = 'letter-start-ai';[\s\S]*own\.id = 'letter-own';/, 'the ids ⌘K and the tests find');
+  assert.match(source, /profileBar\(\)\.register\(\{id: 'base-letter', tab: 'letter'/);
   for (const text of [panel, source]) assert.doesNotMatch(text, /\$\d|\d+\s?s\b|seconds|\$5 credit/, 'no price or duration from the mockup');
   assert.match(source, /show\(\$\('letter-fallback-row'\), saved\.state === 'approved'\)/, 'the forms switch only for an approved letter');
 });

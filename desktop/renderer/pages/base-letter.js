@@ -3,6 +3,8 @@
 // that lets forms use it, pages/letter-fallback.js). Who pays is said before Draft with AI and after it ran (ai-engine-view.js usage words), never a guess.
 // A job's own letter lives in its preparation kit (job-drawer/job-letter.js). Guarded by test/base-letter.test.js and test/contact-reading.test.js.
 import {pill} from '../components.js';
+import {emptyState} from '../page-parts.js';
+import {profileBar} from './profile-save-bar.js';
 import {$, message, runWhen, show} from './core.js';
 import {shared} from './shared.js';
 import {reading} from '../contact-reading.js';
@@ -14,6 +16,7 @@ import {init as letterFallback} from './letter-fallback.js';
 let saved = {state: 'none', text: ''};   // the letter as stored: the buttons and the view follow what differs from it
 let writing = false;                     // "Write my own" pressed: the editor stays open on an empty letter
 let isReading = false;
+let draftSource = null;                 // the typed letter as a draft on Profile's one save bar
 let openAi = () => {};                   // Settings → AI engine, passed in by pages/profile.js (no import of the settings page here)
 
 // The state as a pill: neutral while none exists (owner, 18 Oct 2026: never a green dot for "not written").
@@ -27,10 +30,20 @@ export const showsEditor = (status, {writing: own = false, reading: busy = false
 
 const usageLine = () => [usageBefore(shared.state?.settings, !!shared.state?.secrets?.ANTHROPIC_API_KEY), lastCost(saved)].filter(Boolean).join(' ');
 
+// The empty state (page-parts.js emptyState), drawn again each paint so its usage note follows the engine; its buttons keep their ids (⌘K, tests).
+function drawEmpty() {
+  const box = emptyState({icon: 'file', chip: '', title: 'No base letter yet', text: 'Draft one with AI from your CV, Profile and writing preferences, or write your own.',
+    actions: [{label: 'Draft with AI', run: () => draft($('letter-start-ai'))}, {label: 'Write my own', run: () => { writing = true; paint(); $('letter-text').focus(); }}], note: usageLine()});
+  const [ai, own] = box.querySelectorAll('button');
+  ai.id = 'letter-start-ai';
+  own.id = 'letter-own';
+  $('letter-empty').replaceChildren(box);
+}
 function paint() {
   const editor = showsEditor(saved, {writing, reading: isReading, typed: $('letter-text').value});
   show($('letter-editor'), editor);
   show($('letter-empty'), !editor);
+  if (!editor) drawEmpty();
   $('letter-state').replaceChildren(isReading ? pill('Reading…') : statePill(saved));
   $('letter-draft').querySelector('span').textContent = saved.text ? 'Redraft with AI' : 'Draft with AI';
   show($('letter-pdf'), !!saved.pdf);
@@ -38,10 +51,11 @@ function paint() {
   document.querySelectorAll('[data-letter-usage]').forEach(node => { node.textContent = usageLine(); });
   buttons();
 }
+const typedChange = () => { const text = $('letter-text').value.trim(); return text && text !== (saved.text || '').trim() ? 1 : 0; };
 function buttons() {
   const text = $('letter-text').value.trim();
-  $('letter-save').disabled = !text || text === (saved.text || '').trim();
   $('letter-approve').disabled = !text || (saved.state === 'approved' && text === (saved.text || '').trim());
+  draftSource?.changed();
 }
 function showLetter(status) {
   saved = {...status};
@@ -67,14 +81,15 @@ export async function loadLetter() {
 }
 
 async function act(button, working, run) {
-  const all = ['letter-draft', 'letter-start-ai', 'letter-save', 'letter-approve'].map($);
+  const all = ['letter-draft', 'letter-start-ai', 'letter-approve'].map($).filter(Boolean);
   all.forEach(each => { each.disabled = true; });
   button.classList.add('busy');
   message('letter-message', working);
   const result = await run();
   button.classList.remove('busy');
   if (result.ok) showLetter(result); else buttons();
-  $('letter-draft').disabled = $('letter-start-ai').disabled = false;
+  $('letter-draft').disabled = false;
+  if ($('letter-start-ai')) $('letter-start-ai').disabled = false;
   return result;
 }
 
@@ -92,13 +107,16 @@ export function initLetter({openAiSettings} = {}) {
   if (openAiSettings) openAi = openAiSettings;
   letterFallback();
   $('letter-text').addEventListener('input', buttons);
-  $('letter-start-ai').addEventListener('click', () => draft($('letter-start-ai')));
   $('letter-draft').addEventListener('click', () => draft($('letter-draft')));
-  $('letter-own').addEventListener('click', () => { writing = true; paint(); $('letter-text').focus(); });
-  $('letter-save').addEventListener('click', async () => {
-    const result = await act($('letter-save'), 'Saving…', () => window.pilot.coverLetterSave($('letter-text').value));
-    message('letter-message', result.ok ? 'Saved as a draft. Approve it to make the PDF.' : result.error, result.ok ? 'ok' : 'error');
-  });
+  // Typed changes are a draft on Profile's one bar (Save all changes keeps it as a draft letter; Discard all puts the saved text back); Approve stays here.
+  draftSource = profileBar().register({id: 'base-letter', tab: 'letter', label: 'Base letter', count: typedChange,
+    save: async () => {
+      const result = await window.pilot.coverLetterSave($('letter-text').value).catch(error => ({ok: false, error: error.message}));
+      if (result.ok) { showLetter(result); message('letter-message', 'Saved as a draft. Approve it to make the PDF.', 'ok'); }
+      return result.ok ? {ok: true} : {ok: false, error: result.error};
+    },
+    discard: () => { $('letter-text').value = saved.text || ''; writing = false; paint(); },
+    reveal: () => $('letter-text').focus()});
   $('letter-approve').addEventListener('click', async () => {
     const result = await act($('letter-approve'), 'Making the PDF…', () => window.pilot.coverLetterApprove($('letter-text').value));
     const words = $('letter-fallback').checked ? 'Approved ✓ Forms whose job has no letter of its own get this PDF.' : 'Approved ✓ Turn on the switch below to use it when a job has no letter of its own.';

@@ -2,9 +2,10 @@
 // tab is the one home for letters; 18 Oct 2026, mockup 07: preferences first, read as a summary, a quiet Edit opens the inputs). The rules stay lines of
 // the answers page, so every letter prompt keeps reading them (lib/job-letter.js, src/ai/kit.py); this tab edits them, Application answers no longer lists
 // them. Read: one row per rule with its own label (no icon guessed from words); Edit: one input per rule and "Add a style rule", through
-// pages/outline-tab.js's save bar, on every store. Guarded by test/letter-style.test.js.
+// Profile's one save bar (pages/profile-save-bar.js), on every store. Guarded by test/letter-style.test.js.
 import {el} from '../components.js';
-import {readRows, setEditing} from '../card-shell.js';
+import {doneButton, readRows, setEditing} from '../card-shell.js';
+import {profileBar} from './profile-save-bar.js';
 import {shown} from '../answers-model.js';
 import {sections} from '../answers-model.js';
 import {lineInput, outlineTab} from './outline-tab.js';
@@ -17,6 +18,7 @@ const typed = new Map();
 let tab = null;
 
 const card = () => document.getElementById('setting-letter-style');
+let done = null;   // the editor's Done (card-shell.js doneButton), synced on each change
 const DEFAULT = 'No preferences yet: letters use a short, direct default (130–170 words).';
 
 function draw(view, into) {
@@ -36,12 +38,8 @@ function draw(view, into) {
     if (!text.trim()) { typed.delete('add-style'); view.undo(TEXT, change('')); } else { typed.set('add-style', text); view.change(TEXT, change(text.trim())); }
   }, {placeholder: 'e.g. Never mention: salary', ariaLabel: 'Add a style rule'});
   grid.append(labelled('Add a style rule', add, true));
-  // Done closes an unchanged editor; with changes the save bar's Save / Discard do (A's doneButton, card-shell.js in #1485: swap to it once on main).
-  const done = Object.assign(el('button', 'link small card-done', 'Done'), {type: 'button'});
-  const sync = () => { done.hidden = !!tab?.dirty(); };
-  done.addEventListener('click', () => setEditing(card(), false));
-  editor.addEventListener('input', () => queueMicrotask(sync));
-  sync();
+  // Done closes an unchanged editor; with changes Profile's save bar does (Save all changes / Discard all).
+  done = doneButton(card(), () => view.dirty());
   editor.append(grid, done);
   into.append(read, editor);
 }
@@ -51,7 +49,8 @@ export async function loadLetterStyle() {
   if (!node) return;
   if (!tab || tab.node !== node) {
     // Saved, discarded or read again: the card reads again (its drafts are gone with the bar's).
-    tab = {...outlineTab('letterstyle', [TEXT], node, draw, {onReset: () => { typed.clear(); setEditing(card(), false); }, words: 'The next letters follow them once you save.'}), node};
+    tab = {...outlineTab('letterstyle', [TEXT], node, draw, {onReset: () => { typed.clear(); setEditing(card(), false); }, onChange: () => done?.sync(),
+      bar: profileBar(), tab: 'letter', label: 'Writing preferences'}), node};
     document.getElementById('letter-style-edit')?.addEventListener('click', () => setEditing(card(), true));
   }
   await tab.load();

@@ -2,6 +2,7 @@
 // "Original wording" line into the one save bar and writes nothing until Save; Keep mine drafts nothing; Workload shows only for CH, DE or AT countries.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {pageBar, pressSave} from './page-bar.js';
 import {install} from './tiny-dom.js';
 import {showWorkload} from '../renderer/preferences-review-model.js';
 
@@ -38,10 +39,10 @@ test('the card shows what the AI flagged (old -> proposed); Accept drafts the va
   assert.deepEqual(lines.map(line => line.dataset.field), ['roles'], 'no row for Countries or Preferred cities: Locations edits them');
   assert.match(lines[0].textContent, /SRE, or platform engineering/);
   assert.match(lines[0].textContent, /Site reliability engineer/);
-  assert.equal(node.querySelector('.save-bar').hidden, true, 'nothing drafted yet');
+  assert.equal((await pageBar(node)).hidden, true, 'nothing drafted yet');
   lines[0].querySelectorAll('button').find(button => button.textContent === 'Accept').click();
-  assert.equal(node.querySelector('.save-bar').hidden, false);
-  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  assert.equal((await pageBar(node)).hidden, false);
+  await pressSave(node);
   const [[name, changes]] = sent;
   assert.equal(name, 'profile');
   assert.ok(changes.some(change => change.op === 'cell' && change.id === 'q2' && change.value === 'Site reliability engineer'), JSON.stringify(changes));
@@ -53,7 +54,7 @@ test('Keep mine drafts nothing and the card drops that field; no card when the A
   const sent = [];
   const node = await open(profile('Switzerland'), PARSE, sent);
   node.querySelector('.pref-review-row').querySelectorAll('button').find(button => button.textContent === 'Keep mine').click();
-  assert.equal(node.querySelector('.save-bar').hidden, true);
+  assert.equal((await pageBar(node)).hidden, true);
   assert.equal(sent.length, 0);
   assert.deepEqual(node.querySelectorAll('.pref-review-row').map(line => line.dataset.field), [], 'roles kept as mine');
   const none = await open(profile('Switzerland, Germany'), {...PARSE, roles: [], unparsed: []});
@@ -89,7 +90,7 @@ test('Accept all drafts ONE Original wording line holding only what the clean va
     {id: 'b2', type: 'bulleted_list_item', text: 'Role priorities: SRE, or platform engineering'}];   // "Targets" is no known section
   const node = await open(items, PARSE, sent);
   node.querySelector('#preferences-review-accept-all').click();
-  await node.querySelector('#outline-save-preferences').listeners.click[0]();
+  await pressSave(node);
   const notes = sent[0][1].filter(change => /^Original wording:/.test(change.lines?.[0] || ''));
   assert.deepEqual(notes.map(change => change.lines), [['Original wording: Role priorities — or platform engineering']]);
   // Read back: the saved line is Other preferences' own note, whatever section it was written in, drawn collapsed.

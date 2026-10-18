@@ -1,40 +1,32 @@
 // Settings → Profile: a tab drawn from one or more texts' outlines (Application answers: the standard answers + Form knowledge; Preferences: the
 // Profile), edited block by block on every store (IPC textOutline / textEdit, lib/text-outline-handlers.js). This module owns the loading, the pending
-// changes per text and ONE sticky save bar (.save-bar, as "Unsaved changes to your details"); a tab only draws and calls change(name, change).
-// {bar, tab, label}: the page's one save bar (save-bar.js pageSaveBar) instead of its own (Strategy → Job preferences on Strategy's bar, owner 18 Oct 2026).
+// changes per text, saved through the page's one save bar (save-bar.js; owner, 18 Oct 2026: one bar per page, no bar of its own since D's swap);
+// a tab only draws and calls change(name, change).
 // A change to the same block replaces the earlier one. Guarded by test/profile-tabs-render.test.js.
 import {el, loadingCard} from '../components.js';
 import {keep, swr} from '../swr.js';
-import {message} from './core.js';
+import {pageSaveBar} from '../save-bar.js';
 import {changeFor, shown} from '../answers-model.js';
 import {input, labelled} from './website-rules.js';
 
 const keyOf = change => (change.op === 'append' || change.op === 'insert' ? `${change.op}:${change.key}` : `${change.op}:${change.id}:${change.index ?? ''}`);
 
 // names: the texts the tab shows; draw(view, body) with view = {items: {name: outline}, store, link: {name: url}, change, undo, dirty, redraw}.
-// onReset: called when the drafts end (Discard, a save, a load), so the tab drops its own draft state.
-export function outlineTab(id, names, body, draw, {words = 'They are used for future applications once you save.', onReset = () => {}, bar: pageBar = null, tab = '', label = ''} = {}) {
+// onReset: called when the drafts end (Discard, a save, a load), so the tab drops its own draft state. bar/tab/label: the page's one save bar
+// (save-bar.js pageSaveBar: Profile's profileBar, Strategy's), the tab it sits on and the card's name in "N unsaved changes in <label>".
+export function outlineTab(id, names, body, draw, {onReset = () => {}, onChange = () => {}, bar, tab = '', label = ''} = {}) {
+  // No page bar yet (Strategy before its cards are drawn, a unit test): the shared bar in this card, never buttons of its own.
+  bar ||= pageSaveBar({host: body.parentNode, area: label || 'this card', words: 'Your changes are kept as a draft until you save.'});
   const pending = Object.fromEntries(names.map(name => [name, new Map()]));
   let state = {items: {}, store: '', link: {}};
   const size = () => names.reduce((sum, name) => sum + pending[name].size, 0);
-  const bar = el('div', 'save-bar');
-  bar.setAttribute('role', 'region');
-  bar.setAttribute('aria-label', 'Unsaved changes');
-  const note = el('span', 'message');
-  note.id = `outline-message-${id}`;
-  const discard = Object.assign(el('button', 'secondary', 'Discard'), {type: 'button', id: `outline-discard-${id}`});
-  const save = Object.assign(el('button', 'primary', 'Save changes'), {type: 'button', id: `outline-save-${id}`});
-  const lead = el('div', 'save-bar-words');
-  const count = el('b', '', 'Unsaved changes');   // "1 unsaved change" (owner's Application answers mockup, 17 Oct 2026)
-  lead.append(count, el('span', 'muted small', `Your changes are kept as a draft. ${words}`));
-  bar.append(lead, note, discard, save);
   let source = null;
-  const follow = () => { if (source) { source.changed(); return; } const n = size(); bar.hidden = !n; if (n) count.textContent = `${n} unsaved change${n === 1 ? '' : 's'}`; };
+  const follow = () => { source?.changed(); onChange(size()); };
 
   const view = () => ({...state, redraw, dirty: size,
     change(name, change) { pending[name].set(keyOf(change), change); follow(); },
     undo(name, change) { pending[name].delete(keyOf(change)); follow(); }});
-  function redraw() { body.replaceChildren(); draw(view(), body); if (!pageBar) body.append(bar); follow(); }
+  function redraw() { body.replaceChildren(); draw(view(), body); follow(); }
   const clear = () => { for (const name of names) pending[name].clear(); onReset(); };
 
   // Every text's changes, one textEdit each; a failed one keeps its changes. -> the errors.
@@ -49,16 +41,8 @@ export function outlineTab(id, names, body, draw, {words = 'They are used for fu
     redraw();
     return errors;
   }
-  if (pageBar) source = pageBar.register({id: `outline-${id}`, tab, label, count: size, discard: () => { clear(); redraw(); },
+  source = bar.register({id: `outline-${id}`, tab, label, count: size, discard: () => { clear(); redraw(); },
     save: async () => { const errors = await saveTexts(); return errors.length ? {ok: false, error: errors.join(' ')} : {ok: true}; }});
-  discard.addEventListener('click', () => { clear(); message(note.id, ''); redraw(); });
-  save.addEventListener('click', async () => {
-    save.disabled = true;
-    const errors = await saveTexts();
-    save.disabled = false;
-    message(note.id, errors.length ? errors.join(' ') : 'Saved ✓ The next kits and form fills use it.', errors.length ? 'error' : 'ok');
-    if (!errors.length) { bar.hidden = false; setTimeout(follow, 2500); }
-  });
 
   return {
     async load() {

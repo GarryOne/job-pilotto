@@ -2558,9 +2558,5 @@ details.qa-section { margin-top: var(--sp-3); }
 .exp-part-lines input { width: 100%; }
 .exp-part-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-2); }
 
-/* Profile → Cover letter → Base letter, before one exists (pages/base-letter.js, mockup 07): the shared .empty block with two choices and the usage line. */
-#setting-letter .letter-empty { display: grid; justify-items: center; gap: var(--sp-2); border: 1px dashed var(--line); border-radius: var(--r-sm); }
-#setting-letter .letter-empty > i { color: var(--muted); }
-#setting-letter .letter-empty > b { color: var(--ink); }
-#setting-letter .letter-empty p { margin: 0; }
+/* Profile → Cover letter → Base letter: no reserved line when nothing is said (the empty state is page-parts.js emptyState). */
 #setting-letter .letter-usage:empty, #setting-letter > .message:empty { display: none; }   /* no reserved line under the card when nothing is said */

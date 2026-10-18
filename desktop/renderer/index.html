@@ -1089,20 +1089,12 @@
             <div class="panel-top"><div class="summary-head"><i data-icon="file"></i><h3>Base letter</h3></div>
               <div class="panel-actions"><span id="letter-state"></span></div></div>
             <p class="muted panel-lead">An optional starting point for job letters. Each job's own letter lives in its preparation kit: preview, edit and download it there.</p>
-            <div class="empty letter-empty" id="letter-empty" hidden>
-              <i data-icon="file"></i>
-              <b>No base letter yet</b>
-              <p class="muted">Draft one with AI from your CV, Profile and writing preferences, or write your own.</p>
-              <div class="inline"><button type="button" class="primary with-icon" id="letter-start-ai"><i data-icon="sparkle"></i><span>Draft with AI</span></button>
-                <button type="button" class="secondary with-icon" id="letter-own"><i data-icon="edit"></i><span>Write my own</span></button></div>
-              <p class="muted small letter-usage" data-letter-usage></p>
-            </div>
+            <div id="letter-empty" hidden></div>
             <div class="letter-editor" id="letter-editor">
               <textarea id="letter-text" data-reads-letter="Reading your letter…" rows="10" placeholder="Write your letter: who you are, what you do best, what you look for next." spellcheck="true"></textarea>
               <label class="small muted">Ask for a change (optional)<input id="letter-feedback" type="text" placeholder="e.g. shorter, more about incident response"></label>
               <div class="inline">
                 <button type="button" class="secondary with-icon" id="letter-draft"><i data-icon="refresh"></i><span>Redraft with AI</span></button>
-                <button type="button" class="secondary" id="letter-save" disabled>Save changes</button>
                 <button type="button" class="primary" id="letter-approve" disabled>Approve &amp; make PDF</button>
                 <button type="button" class="link with-icon" id="letter-pdf" hidden><i data-icon="eye"></i><span>Open PDF</span></button>
               </div>
