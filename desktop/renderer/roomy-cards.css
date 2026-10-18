@@ -127,3 +127,6 @@ summary.survey-saved::-webkit-details-marker { display: none; }
 .qa-banner-words { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); flex: 1; min-width: 0; font-size: var(--fs-base); }
 .qa-banner-words > .icon { width: 22px; height: 22px; flex: none; color: var(--warn); }
 .qa-row > .ui-pill > .icon { width: 14px; height: 14px; flex: none; }
+/* A long form question: two lines then "…" (the whole question on hover, and unclamped in the open row). */
+.qa-row .qa-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; }
+.qa-row.is-open .qa-title { display: block; -webkit-line-clamp: unset; }
