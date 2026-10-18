@@ -161,6 +161,6 @@ test('the panel shows its ⚑ "Report this form" icon in every state: reading, p
     assert.deepEqual(seen, { name, there: true });
   }
   const panel = read('extension/review.js');
-  assert.match(panel, /\$\('\.report-btn'\)\.onclick = event => \{ if \(event\.isTrusted\) window\.__jobPilottoReportOpen\?\.\(\); \};/);
-  assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReportOpen = \(\) => \{ if \(card\.hidden\) confirm\(\); \};/, 'the same card as the corner ⚑');
+  assert.match(panel, /\$\('\.report-btn'\)\.onclick = event => \{[^]*if \(!event\.isTrusted\) return;[^]*window\.__jobPilottoReportOpen\(\);/);
+  assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReportOpen = openFromPanel;/, 'the same card as the corner ⚑');
 });
