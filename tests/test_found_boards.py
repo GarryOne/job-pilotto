@@ -10,6 +10,18 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sources import found_boards  # noqa: E402
+from src.sources import careers  # noqa: E402
+
+_READER = careers.READER
+
+
+def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    careers.READER = None
+
+
+def tearDownModule():
+    careers.READER = _READER
+
 
 SEARCH = {'jobs_board_search_queries': ['programador'], 'role_keywords': ['developer'],
           'locations': {'top_tier': ['Lisboa'], 'country_wide': [], 'abroad': []}}

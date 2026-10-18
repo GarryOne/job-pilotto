@@ -10,8 +10,20 @@ from src import desktop_jobs, first_jobs, store as job_store
 from src.ai import score as real_score
 from src.daily_helpers import for_job_matches
 from src.notion import client
+from src.sources import careers  # noqa: E402
 from tests import test_store_notion
 from tests.test_score import ModelClient
+
+_READER = careers.READER
+
+
+def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    careers.READER = None
+
+
+def tearDownModule():
+    careers.READER = _READER
+
 
 
 class FirstJobsOnNotionTests(unittest.TestCase):

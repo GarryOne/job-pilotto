@@ -13,6 +13,17 @@ from src import scout_candidates  # noqa: E402
 from src.ai import page_reader  # noqa: E402
 from src.sources import aggregators, board_employers, careers, found_boards  # noqa: E402
 
+_READER = careers.READER
+
+
+def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    careers.READER = None
+
+
+def tearDownModule():
+    careers.READER = _READER
+
+
 SEARCH = {'jobs_board_search_queries': ['fahrer'], 'role_keywords': ['fahrer'],
           'locations': {'top_tier': ['Nürnberg'], 'country_wide': [], 'abroad': []}}
 BOARD = {'name': 'Jobbörse', 'host': 'jobs.example', 'search_url': 'https://jobs.example/suche?q={role}&ort={place}', 'countries': ['Germany'], 'kinds': ['any']}

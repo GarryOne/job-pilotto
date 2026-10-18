@@ -12,6 +12,18 @@ from unittest import mock
 from src import contribute, first_jobs, source_yield, store
 from src.ai import board_ideas
 from src.sources import aggregators, board_employers, board_yield, feeds, found_boards, visits_jobpages
+from src.sources import careers  # noqa: E402
+
+_READER = careers.READER
+
+
+def setUpModule():   # no test here reaches a real model through a page read (guard: tests/test_found_boards_ai.py)
+    careers.READER = None
+
+
+def tearDownModule():
+    careers.READER = _READER
+
 
 POOL_FACTS = visits_jobpages.pool_facts
 SEARCH = {'role_keywords': ['controller'], 'locations': {'top_tier': ['Amsterdam'], 'country_wide': [], 'abroad': []}}

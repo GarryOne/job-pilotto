@@ -38,10 +38,11 @@ def _places(search):
 
 def read_board(board, search, fetch=careers.get_text, route=None):
     """(jobs, state, route) for one board: jobs in the aggregators' shape; state 'ok', 'empty' or 'browser'; route = the declared feed or
-    sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A script-only page tries its declared
-    routes before 'browser' (src/sources/board_routes.py)."""
+    sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A page no free step reads tries its
+    declared routes (src/sources/board_routes.py); a script-only one with none is 'browser'; a readable one goes to the AI page reader once
+    per board per run, within its caps, and the recipe it leaves replays with no model next time."""
     from .aggregators import _job
-    jobs, state, asked_routes = [], 'empty', False
+    jobs, state, asked_routes, asked_ai = [], 'empty', False, False
     try:
         if route:
             jobs = board_routes.follow(route, fetch, board, _terms(search))
@@ -74,6 +75,9 @@ def read_board(board, search, fetch=careers.get_text, route=None):
                     return declared, 'ok', found_route
                 if careers._shell(page):   # a frame with no route: a visit reads it
                     return jobs, 'browser', None
+            if not found and not asked_ai:   # an open, readable page no free step reads: the AI reads it once (its caps), and the recipe it
+                asked_ai = True              # leaves reads it free from then on (owner, 18 Oct 2026; src/sources/page_recipes.py)
+                found = careers._asked(url, page, [], fetch)
             for job in found:
                 jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
                                  job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
