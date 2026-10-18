@@ -51,6 +51,7 @@ on:
       - 'desktop/renderer/pages/startup.js'
       - 'desktop/scripts/python.sh'
       - 'desktop/scripts/release-notes.sh'
+      - 'desktop/scripts/side-by-side.mjs'
       - 'desktop/scripts/smoke-screens.mjs'
       - 'desktop/scripts/windows-smoke.mjs'
       - 'desktop/start.js'

@@ -13,6 +13,11 @@ look at it.
 `cd desktop && npm run design-system`, find the component for each value you will show, and build only from those (its "Don't / Do" pairs show what the
 owner rejected). No new look outside it; a missing part goes into the shared components first. The owner checks the result on the before/after shots.
 
+Before a PR, make ONE side-by-side image: reference (the owner's mockup, or today's screen as before) | your render, demo data, same scale, labelled
+(`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`). Light and dark are two images. `open` it for the owner and ask
+(AskUserQuestion) ship / change what, with your recommendation; ship only after his yes. The PR's before/after stays the record (owner, 18 Oct 2026:
+"Every session that works on UI, should open a preview image with side by side").
+
 ## 0. The design system: pick the control from the value (owner, 17 Oct 2026)
 Design system page, built from the repo: `cd desktop && npm run design-system` · living copy `npm run gallery` · rules: `docs/rules/desktop-ui.md` "Design system". Before drawing any value, name its kind and use this row:
 

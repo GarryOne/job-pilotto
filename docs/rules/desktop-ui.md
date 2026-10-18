@@ -88,6 +88,11 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
   (`desktop/e2e/lib/design-rules.mjs`) are **parked**: no journey, test or PR runs them (`DESIGN_RULES_ON = false`), and their `KNOWN_LEFT` list is moot.
   Before writing UI, open the design system (`cd desktop && npm run design-system`), find the component for each value and build only from those;
   the "Don't / Do" pairs show what the owner rejected and what to build instead.
+- **Before a PR: one side-by-side preview, the owner's yes** (owner, 18 Oct 2026: "this workflow is probably even better than just relying on the PR
+  before/after... Every session that works on UI, should open a preview image with side by side"). ONE image: reference (the owner's mockup, or today's
+  screen as before) | your render, demo data, same scale, labelled (`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`);
+  light and dark are two images. `open` it for the owner, ask ship / change what (AskUserQuestion, with a recommendation), and ship only after his yes.
+  The PR's before/after stays the record.
 
 ## Structure
 - **The window is one module per page** (`desktop/renderer/pages/`); `renderer/app.js` only runs each page's `init()` in order. Helpers every page
