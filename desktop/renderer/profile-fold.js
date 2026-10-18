@@ -23,6 +23,7 @@ export function countTab(cards, tab) {
 
 // The one line a folded card shows: how much it holds (filled boxes, rows), read from the card when it folds.
 export function summaryOf(panel) {
+  if (panel.dataset.summary) return panel.dataset.summary;   // a card that says it in its own words (the CV check: "Mostly readable · 3 issues")
   const fields = [...panel.querySelectorAll('input, textarea, select')].filter(node => !['checkbox', 'radio', 'hidden', 'button', 'file'].includes(node.type) && !node.closest('[hidden]'));
   if (fields.length) return `${fields.filter(node => String(node.value || '').trim()).length} of ${fields.length} filled`;
   const rows = panel.querySelectorAll('.summary-rows dt, .fact-line, .exp-part').length;
@@ -54,7 +55,7 @@ export function foldProfilePanels({closed = new Set()} = {}) {
     bar.classList.add('has-summary');   // components.css: title | summary | actions as three columns, the summary in one column down the tab
     (bar.querySelector('.summary-head') || bar).after(summary);   // right after the title
     const refresh = () => { summary.textContent = panel.classList.contains('is-collapsed') ? summaryOf(panel) : ''; };
-    new MutationObserver(refresh).observe(panel, {attributes: true, attributeFilter: ['class']});
+    new MutationObserver(refresh).observe(panel, {attributes: true, attributeFilter: ['class', 'data-summary']});   // folded, opened, or its own summary changed
     refresh();
     registry.set(panel, {tab: panel.dataset.profilePanel, set: folded => handle.set(folded), isFolded: () => panel.classList.contains('is-collapsed'), visible: () => !panel.hidden});
   }

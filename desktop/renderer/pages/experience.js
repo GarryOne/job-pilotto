@@ -21,21 +21,32 @@ export function sourceRow(source) {
   return row;
 }
 
-// One job: title, company and period, its bullets; a detail from another version carries where it came from.
+// One job as a Work history row (mockup 09, owner 18 Oct 2026: a neutral initial tile, no logos, no skill chips): company and role, dates · place, and
+// "+N details" when other CV versions add facts to it, which opens the bullets (each extra one names its version). It never looks like another job.
 export function roleBlock(role) {
   const extras = role.bullets.filter(b => b.from !== 'Main CV').length;
-  const box = el('details', 'exp-role');
+  const box = el('details', 'exp-role exp-job');
   const head = el('summary');
-  head.append(el('b', '', role.title), el('span', 'muted', ` · ${role.company} · ${role.period}`));
-  if (extras) head.append(' ', pill(`+${extras}`, 'good', {title: `${plural(extras, 'detail')} from other CV versions`}));
+  const who = el('div', 'job-who'), when = el('span', 'muted small job-when', [role.period, role.place].filter(Boolean).join(' · '));
+  who.append(el('b', '', role.company || role.title), el('span', 'small', role.company ? role.title : ''));
+  head.append(el('span', 'job-initial', String(role.company || role.title || '?').trim().charAt(0).toUpperCase()), who, when);
+  if (extras) head.append(pill(`+${plural(extras, 'detail')}`, 'good', {title: `${plural(extras, 'detail')} from other CV versions: tailoring may use them for this job`}));
+  head.append(icon('chevron', 'icon job-chevron'));
   const list = el('ul');
   for (const bullet of role.bullets) {
     const item = el('li', '', bullet.text.replace(/\*\*/g, ''));
     if (bullet.from !== 'Main CV') item.append(' ', pill(bullet.from, 'good'));
     list.append(item);
   }
-  box.append(head, list);
+  box.append(head, ...(extras ? [el('p', 'muted small', `${plural(extras, 'detail')} from other CV versions: tailoring may use them for this job.`)] : []), list);
   return box;
+}
+
+// The sources as one line, for the folded Experience sources card: "Main CV + LinkedIn + 2 other CV versions".
+export function sourcesSummary(view) {
+  if (!view?.main) return 'Main CV not read yet';
+  const cvs = view.sources.filter(source => source.kind !== 'linkedin').length;
+  return ['Main CV', ...(view.sources.some(source => source.kind === 'linkedin') ? ['LinkedIn'] : []), ...(cvs ? [`${cvs} other CV version${cvs === 1 ? '' : 's'}`] : [])].join(' + ');
 }
 
 // Roles another version has and the main CV does not: listed, never added (a tailored CV keeps the main CV's jobs). Stale matches are left out.
@@ -121,7 +132,8 @@ export function showExperience(view) {
   $('exp-sources').replaceChildren(...(view.main ? [sourceRow({reference: true, name: 'Main CV', roles: view.main.roles})] : [el('li', 'muted', 'Read your main CV first (CV → Read my CV PDF).')]));
   $('exp-versions').replaceChildren(...(view.sources.length ? [versionsBlock(rows, view.sources.length)] : []));
   const extras = view.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
-  $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'job role')} · ${extras} from other versions` : '';
+  $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'role')}${extras ? ` · ${plural(extras, 'detail')} from other versions` : ''}` : '';
+  $('setting-experience-sources').dataset.summary = sourcesSummary(view);   // the folded card's one line (profile-fold.js)
   const notInMain = onlyHereBlock(view.sources);
   $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or on the CV tab.')]), ...(notInMain ? [notInMain] : []));
   $('exp-add').disabled = $('exp-add-linkedin').disabled = !view.main;
