@@ -7,7 +7,7 @@ import {install} from './tiny-dom.js';
 
 install();
 const {document} = globalThis;
-const {cardHead, readRows, settingBlock} = await import('../renderer/card-shell.js');
+const {cardHead, readRows} = await import('../renderer/card-shell.js');
 const {summaryTiles} = await import('../renderer/page-parts.js');
 const read = file => fs.readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8');
 const classes = node => String(node.className).split(/\s+/);
@@ -44,13 +44,24 @@ test('cardHead: icon tile, title with its status pill, one-line lead, the action
   assert.equal(text(head.children[1].children[1]), 'Where you want to work.');
 });
 
-test('a list is its heading over its chips, the qualifier joined to the heading (never a lone line under the chips)', () => {
-  const chips = document.createElement('div');
-  const block = settingBlock('Preferred locations', chips, {qualifier: 'ranked first'});
-  assert.ok(classes(block).includes('setting-block'));
-  assert.equal(block.children.length, 2);
-  assert.equal(text(block.children[0]), 'Preferred locations· ranked first');
-  assert.equal(block.children[1], chips);
+// Owner, 18 Oct 2026: "Either we're fully inline, either we're fully on the new line" (picked: all on a new line); "the chips should be aligned with
+// normal text properly". The class: every lined row of every roomy card, and the conflict card's row.
+test('one layout: every label on its own line over its value, no heading-over-chips block or inline label column beside it', () => {
+  const css = read('roomy-cards.css') + read('strategy-cards.css');
+  assert.match(css, /\.roomy-cards \.summary-rows\.is-lined, \.roomy-cards \.summary-rows\.is-lined\.has-icons \{ grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(css, /\.which-row \{ display: grid; grid-template-columns: minmax\(0, 1fr\);/);
+  assert.doesNotMatch(css, /label-col|setting-block|pref-read-head/, 'no inline label column, list block or section heading left');
+  for (const file of ['pages/strategy-targets.js', 'pages/job-preferences.js', 'pages/main-goals.js', 'gallery-cards.js']) {
+    assert.doesNotMatch(read(file), /settingBlock|pref-read-head/, file);
+  }
+});
+
+test('chip text and a state pill start where plain text starts (pulled left by their own padding)', () => {
+  const css = read('roomy-cards.css');
+  assert.match(css, /is-lined > dd > :is\(\.chips, \.read-values, \.chip-list\) \{ margin: 0 0 0 calc\(-1 \* \(var\(--chip-pad-x\) \+ 1px\)\); \}/);
+  assert.match(css, /is-lined > dd > \.ui-pill:first-child \{ margin-left: -9px; \}/);
+  assert.match(read('components.css'), /\.ui-pill \{[^}]*padding: 2px 9px;/, 'the pill shift follows its padding');
+  assert.match(read('tokens.css'), /--chip-pad: 5px var\(--chip-pad-x\);/, 'the chip shift follows its padding');
 });
 
 test('readRows with icons: the icon in the label cell, the list marked has-icons; without, unchanged', () => {

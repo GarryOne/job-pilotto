@@ -3,7 +3,7 @@
 // (strategy-cards.js); the Main goals card is main-goals.js. Guarded by: test/strategy-cards.test.js, save-progress, strategy-chips, locations-card tests.
 import {withSaveProgress} from '../save-progress.js';
 import {el, pill, tile} from '../components.js';
-import {readRows, settingBlock} from '../card-shell.js';
+import {readRows} from '../card-shell.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -234,23 +234,25 @@ const VIEWS = {
       queries.length ? folded(queries, 6, 'Show all') : el('span', 'muted', 'None: your target roles are searched as they are'),
       ...(families.length ? [el('p', 'sub', 'Your target roles by family (edited in Main goals)'), ...families] : [])];
   },
-  // Roomy (mockup 03): a list is its small heading over its chips, a single value one icon row; every divider full width.
+  // Roomy (mockup 03): one row per setting, icon · label on its own line over the value (a list's chips or one value) (owner, 18 Oct 2026: "Either
+  // we're fully inline, either we're fully on the new line"); every divider full width.
   places() {
     const places = labelsOf('places'), regions = labelsOf('country'), rights = labelsOf('rights'), abroad = draftEntries('abroad');
     const mode = relocationNow(strategyState.lastStrategy, drafts().targetEdits);
     const none = words => el('span', 'muted', words);
-    const blocks = [settingBlock('Preferred locations', places.length ? withHints('places', chipsOf) : none('None'), {qualifier: places.length ? 'ranked first' : ''}),
-      settingBlock('Acceptable locations', regions.length ? withHints('country', labels => folded(labels, 10, 'Show all')) : none('None selected'))];
-    if (mode === 'yes' && abroad.length) blocks.push(settingBlock('Places you would relocate to', folded(abroad.map(entry => entry.label), 10, 'Show all')));
-    if (rights.length) blocks.push(settingBlock('Work rights', withHints('rights', chipsOf), {qualifier: 'no visa needed'}));
     // The goal "Work mode" (what you accept) and Remote work (where remote jobs are searched) read as a contradiction side by side (owner, 7 Oct 2026):
     // said on the row's hover, never as a footnote under the card (owner, 18 Oct 2026: no floating footnotes).
     const remote = remoteChoice();
     remote.title = 'Work mode (in Main goals) is the kind of job you accept; Remote work is whether jobs you could do from where you can work count.';
-    const rows = [...(mode === 'yes' && abroad.length ? [] : [{icon: 'send', label: 'Relocation', value: relocationWords(mode, abroad)}]),
+    const preferred = places.length ? withHints('places', chipsOf) : none('None');
+    preferred.title = 'Ranked first';
+    return [readRows([{icon: 'pin', label: 'Preferred locations', value: preferred},
+      {icon: 'globe', label: 'Acceptable locations', value: regions.length ? withHints('country', labels => folded(labels, 10, 'Show all')) : none('None selected')},
+      mode === 'yes' && abroad.length ? {icon: 'send', label: 'Places you would relocate to', value: folded(abroad.map(entry => entry.label), 10, 'Show all')}
+        : {icon: 'send', label: 'Relocation', value: relocationWords(mode, abroad)},
       {icon: 'building', label: 'Remote work', value: remote},
-      ...(rights.length ? [] : [{icon: 'shield', label: 'Work rights', value: pill('Not set', 'warn', {title: 'Jobs abroad are flagged "visa sponsorship needed"'})}])];
-    return [...blocks, readRows(rows, {lined: true})];
+      {icon: 'shield', label: 'Work rights', value: rights.length ? withHints('rights', chipsOf) : pill('Not set', 'warn', {title: 'Jobs abroad are flagged "visa sponsorship needed"'})}],
+    {lined: true})];
   },
   stack() {
     const stack = labelsOf('stack');

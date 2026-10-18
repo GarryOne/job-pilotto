@@ -1,7 +1,7 @@
 // The component gallery's "Card shell" section: one card read, the same card in its editor, and the page save bar with drafts on two tabs, all drawn by
 // the shared parts (card-shell.js, components.js cardEdit, save-bar.js), so the gallery is the living copy of docs/rules/desktop-ui.md "Cards: read → Edit → editor".
 import {cardEdit, el, pill} from './components.js';
-import {cardHead, chipLine, editRows, readRows, setEditing, settingBlock} from './card-shell.js';
+import {cardHead, chipLine, editRows, readRows, setEditing} from './card-shell.js';
 import {pageSaveBar} from './save-bar.js';
 import {emptyState, referenceRow, reviewList, summaryTiles} from './page-parts.js';
 import {icon} from './icons.js';
@@ -75,7 +75,7 @@ export function pageBlocks() {
 }
 
 // Roomy cards (owner, 18 Oct 2026, mockup 03 approved): what every Strategy and Profile card reads like. A container with .roomy-cards, cardHead (icon tile,
-// title, lead, quiet Edit), summaryTiles divided, settingBlock (a list: small heading over chips), readRows with icons (small grey label, bold value).
+// title, lead, quiet Edit), summaryTiles divided, readRows with icons (every label on its own line over its value: one value or a list's chips).
 export function roomyCards() {
   const box = el('div', 'roomy-cards');
   const card = (head, ...parts) => { const node = el('section', 'card'), read = el('div', 'card-read'); read.append(...parts); node.append(head, read); return node; };
@@ -83,8 +83,8 @@ export function roomyCards() {
   const pair = el('div', 'roomy-pair');
   pair.append(
     card(cardHead({glyph: 'pin', tone: 'teal', title: 'Locations', lead: 'Where you want to work.', action: edit('locations')}),
-      settingBlock('Preferred locations', chipLine(['Lyon', 'Porto']), {qualifier: 'ranked first'}), settingBlock('Acceptable locations', chipLine(['France', 'Portugal'])),
-      readRows([{icon: 'send', label: 'Relocation', value: 'Not specified'}, {icon: 'shield', label: 'Work rights', value: pill('Not set', 'warn', {title: 'Jobs abroad are flagged'})}], {lined: true})),
+      readRows([{icon: 'pin', label: 'Preferred locations', value: chipLine(['Lyon', 'Porto'])}, {icon: 'globe', label: 'Acceptable locations', value: chipLine(['France', 'Portugal'])},
+        {icon: 'send', label: 'Relocation', value: 'Not specified'}, {icon: 'shield', label: 'Work rights', value: pill('Not set', 'warn', {title: 'Jobs abroad are flagged'})}], {lined: true})),
     card(cardHead({glyph: 'sliders', tone: 'violet', title: 'Job preferences', lead: 'What a job must have.', action: edit('job preferences')}),
       readRows([{icon: 'briefcase', label: 'Employment type', value: 'Full-time'}, {icon: 'clock', label: 'Workload', value: '80 – 100%'},
         {icon: 'target', label: 'Role priorities', value: chipLine(['Store Manager', 'Area Manager'])}], {lined: true})));
