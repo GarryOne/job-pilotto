@@ -10,7 +10,9 @@ imports urllib). Off by default: a normal run never loads it.
   time. A request the tape lacks (a change scoring other jobs) goes to the live engine and is added, counted in 'live' (the report says it).
   JOB_PILOTTO_TAPE_LIVE=0 (the CI replay of the Lab Job Search, no AI account there): a request the tape lacks is not asked, it is counted in
   'ai_missing' and raises, so the replay says "the tape is stale" instead of making an answer up.
-Tests: tests/test_search_tape.py."""
+- The time budget: what src/time_budget.py decided at each point (over, batch, in_calls, may_score) is kept in budget.jsonl and read back in a
+  replay, so the replay takes the recording's path on any machine and thread timing (src/budget_tape.py). A tape recorded before it falls back to the clock.
+Tests: tests/test_search_tape.py, tests/test_budget_tape.py."""
 import email.message
 import hashlib
 import io

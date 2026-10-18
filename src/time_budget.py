@@ -7,6 +7,8 @@ import json
 import threading
 import time
 
+from . import budget_tape
+
 DEADLINE = None
 STARTED = None
 RESERVE = {'titles': 75, 'enrich': 40, 'score': 0}   # seconds kept for the AI steps that come after this one
@@ -22,6 +24,8 @@ def start(seconds, now=None):
     global DEADLINE, STARTED
     STARTED = now if now is not None else time.monotonic()
     DEADLINE = STARTED + seconds if seconds else None
+    if seconds:
+        budget_tape.new_search()
     score_first(False)
     _scored[0] = 0   # a new search: its first FLOOR scores start again whatever the clock
 
@@ -32,11 +36,17 @@ def floor_left():
 
 
 def may_score(now=None):
+    if now is None:
+        return budget_tape.decide('may_score', [], lambda: _may_score(None))
+    return _may_score(now)
+
+
+def _may_score(now):
     """One job's score may start now (and is counted): before the deadline, or while the search has started fewer than FLOOR scores.
     18 Oct 2026, the persona rerun: the driver's 33 jobs were listed in press 1 and none scored, the budget spent before scoring began;
     the floor moves those 3 scores from the next search to this one (no new spend)."""
     with _lock:
-        if over('score', now) and not floor_left():
+        if _over('score', now) and not floor_left():
             return False
         _scored[0] += 1
         return True
@@ -80,7 +90,14 @@ def reserve(step):
 
 
 def over(step='score', now=None):
-    """True when `step` must not start another AI call: the run's budget, minus what the later steps keep, is spent."""
+    """True when `step` must not start another AI call: the run's budget, minus what the later steps keep, is spent. On a search tape the
+    answer is the recorded one (src/budget_tape.py): a replay takes the recording's path, not its own clock's."""
+    if now is None:
+        return budget_tape.decide('over', [step], lambda: _over(step, None))
+    return _over(step, now)
+
+
+def _over(step, now):
     if DEADLINE is None:
         return False
     return (now if now is not None else time.monotonic()) >= DEADLINE - reserve(step)
@@ -105,6 +122,12 @@ def _paces():
 
 
 def batch(step, wanted, now=None, say=True):
+    if now is None:
+        return budget_tape.decide('batch', [step, wanted], lambda: _batch(step, wanted, None, say))
+    return _batch(step, wanted, now, say)
+
+
+def _batch(step, wanted, now, say):
     """How many of `wanted` items this step takes so the refresh ends on time: its share of the time left, at its measured pace. Says the
     plan in the log when it takes fewer (say=False: a step that tops up with further batches says what is left once, at its end). Without a budget: all of them."""
     if DEADLINE is None or wanted <= 0:
@@ -124,13 +147,19 @@ def batch(step, wanted, now=None, say=True):
 
 
 def in_calls(step, wanted, size, parallel, now=None, noun='location(s)'):
+    if now is None:
+        return budget_tape.decide('in_calls', [step, wanted, size, parallel], lambda: _in_calls(step, wanted, size, parallel, None, noun))
+    return _in_calls(step, wanted, size, parallel, now, noun)
+
+
+def _in_calls(step, wanted, size, parallel, now, noun):
     """How many of `wanted` items a step that answers `size` items a call, `parallel` calls at once, takes: its share of the time left
     over its measured time per round of calls (7 Oct 2026: placing locations was paced per location, at least 0.5 s each, so a refresh
     asked 32 of 1,500 locations in one call when Haiku answers 60 a call in ~6 s, two at a time)."""
     if DEADLINE is None or wanted <= 0:
         return wanted
     per_round = size * max(1, parallel)
-    rounds = batch(step, -(-wanted // per_round), now=now, say=False)
+    rounds = _batch(step, -(-wanted // per_round), now, False)
     n = min(wanted, rounds * per_round)
     if not n:
         print(f'⏱ No time left in this refresh for these: {wanted} {noun} wait for the next one', flush=True)
