@@ -45,11 +45,19 @@ class FoundBoardsTests(unittest.TestCase):
         from src.ai import board_ideas
         self.assertEqual(board_ideas.load()['boards']['empregos.example']['state'], 'browser')
 
-    def test_a_board_that_finds_nothing_three_times_is_dropped(self):
-        for _ in range(3):
-            found_boards.read(SEARCH, [BOARD], fetch=lambda url: '<html><body><p>Sem resultados para a sua pesquisa. ' + 'Experimente outras palavras ou outra zona. ' * 30 + '</p></body></html>')
-        from src.ai import board_ideas
-        self.assertEqual(board_ideas.load()['boards']['empregos.example']['state'], 'dead')
+    def test_a_board_that_finds_nothing_three_searches_running_is_dropped(self):
+        # Its history is the job cache's source_yield rows (one copy, PR 6 of 2026-10-18-search-learns-sources.md), as daily_search keeps them.
+        from datetime import datetime, timedelta, timezone
+        from src import paths, source_yield, store
+        empty = lambda url: '<html><body><p>Sem resultados para a sua pesquisa. ' + 'Experimente outras palavras ou outra zona. ' * 30 + '</p></body></html>'
+        with store.connect(paths.DATA / 'jobs.sqlite') as db:
+            for run in range(3):
+                now = datetime(2026, 10, 18, tzinfo=timezone.utc) + timedelta(hours=run)
+                found_boards.read(SEARCH, [BOARD], fetch=empty, now=now)
+                source_yield.run(db, now.isoformat(timespec='seconds'), read=found_boards.read_since(now.isoformat(timespec='seconds')))
+        asked = []
+        found_boards.read(SEARCH, [BOARD], fetch=lambda url: asked.append(url) or empty(url))
+        self.assertEqual(asked, [], 'dropped: not read a 4th time')
 
 
     def test_a_board_that_only_a_browser_reads_is_offered_as_a_visit(self):

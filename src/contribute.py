@@ -213,10 +213,12 @@ def dead_ends(db, days=30):
     return [{'company': str(row[0])[:120], 'host': host(row[1])} for row in rows]
 
 
-def site_facts(limit=300):
+def site_facts(limit=300, db=None):
     """[{host, kind, url?}] facts about employer sites this install learned while reading them (7 Oct 2026): where a company's job list is
     (jobpage), that a site refuses automated visitors so only a browser reads it (browser), a job page that is gone (dead). Public facts
-    about sites, never which ones this person opened or what they found there; the central pool serves a fact once 3 installs agree."""
+    about sites, never which ones this person opened or what they found there; the central pool serves a fact once 3 installs agree.
+    db: the job cache, for what each found board gave (counts only)."""
+    from . import source_yield
     from .sources import visits
     data = visits._load()
     out, seen = [], set()
@@ -243,12 +245,14 @@ def site_facts(limit=300):
     # which holds the user's own words) and the countries it serves, as the pool's fixed ids.
     from . import pool_tags
     from .ai import board_ideas
-    ids = {name: code for code, name in pool_tags.COUNTRIES.items()}
+    from .sources.careers_parse import registrable
+    ids, counts = {name: code for code, name in pool_tags.COUNTRIES.items()}, source_yield.board_counts(db) if db is not None else {}
     for host, board in (board_ideas.load().get('boards') or {}).items():
         countries = sorted({ids[c] for c in board.get('countries') or [] if c in ids})
         if board.get('state') == 'ok' and countries and (host, 'board') not in seen and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host):
             seen.add((host, 'board'))
-            out.append({'host': host, 'kind': 'board', 'url': board.get('search_url'), 'board': {'countries': countries}})
+            given = counts.get(registrable(host))   # what it gave this search (source_yield), summed per family × country by the site
+            out.append({'host': host, 'kind': 'board', 'url': board.get('search_url'), 'board': {'countries': countries}, **({'yield': given} if given else {})})
     for url in (data.get('jobpage_bad') or {}):
         add(visits.host_of(url), 'dead', str(url).split('#')[0].split('?')[0])
     return out[:limit]
@@ -304,7 +308,7 @@ def payload(feed_list, report, stores=None, install=None, search=None, db=None, 
     boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(search),
             'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {}),
-            **({'sites': sites} if (sites := site_facts()) else {}), **({'candidates': found} if (found := contribute_candidates.candidates(db, stages)) else {})}
+            **({'sites': sites} if (sites := site_facts(db=db)) else {}), **({'candidates': found} if (found := contribute_candidates.candidates(db, stages)) else {})}
 
 
 def enabled(env=None):

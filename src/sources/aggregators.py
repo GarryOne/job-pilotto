@@ -197,6 +197,23 @@ def sources(env=None):
     return found
 
 
+def kept(db, name, found, now=None):
+    """One reader's jobs in your roles and places, in the report's shape, each recorded in the seen history; their employer named
+    (board_employers). Also the first-jobs slice's proven boards (src/first_jobs.py)."""
+    now, matched = now or datetime.now(timezone.utc), []
+    with db:
+        for job in found:
+            if not (job.get('url') and feeds.wanted_title(job['title']) and feeds.wanted_location(job)):
+                continue
+            matched.append({**{k: job[k] for k in ('company', 'id', 'title', 'url', 'date_posted', 'description')},
+                            'location': job['location'] or 'Unspecified', 'work_mode': 'Remote (stated)' if job['remote'] else '',
+                            'salary_text': job['salary'], 'notes': f'Found on {name}', 'source': name, 'source_kind': 'job board',
+                            'status': feeds.record(db, name.lower(), job, now.isoformat(timespec='seconds'))})
+    board_employers.fill_missing(matched)   # the page's own hiringOrganization, a few per run
+    board_employers.note(matched, name)
+    return matched
+
+
 def scan(db, search, now=None, readers=None, on_jobs=None):
     """A feeds.scan-style report ({'jobs', 'sources'}) from the aggregators that are due; your roles and places only, source named on each job.
     on_jobs(jobs): each reader's jobs as soon as it is read (owner, 18 Oct 2026: jobs shown as quickly as possible)."""
@@ -213,18 +230,9 @@ def scan(db, search, now=None, readers=None, on_jobs=None):
             continue
         try:
             found = read(search)
-            matched = []
+            matched = kept(db, name, found, now)
             with db:
-                for job in found:
-                    if not (job.get('url') and feeds.wanted_title(job['title']) and feeds.wanted_location(job)):
-                        continue
-                    matched.append({**{k: job[k] for k in ('company', 'id', 'title', 'url', 'date_posted', 'description')},
-                                    'location': job['location'] or 'Unspecified', 'work_mode': 'Remote (stated)' if job['remote'] else '',
-                                    'salary_text': job['salary'], 'notes': f'Found on {name}', 'source': name, 'source_kind': 'job board',
-                                    'status': feeds.record(db, name.lower(), job, now.isoformat(timespec='seconds'))})
                 db.execute('INSERT OR REPLACE INTO aggregator_runs (source, at) VALUES (?, ?)', (name, now.isoformat(timespec='seconds')))
-            board_employers.fill_missing(matched)   # the page's own hiringOrganization, a few per run
-            board_employers.note(matched, name)
             if on_jobs and matched:
                 on_jobs(matched)
             report['jobs'].extend(matched)

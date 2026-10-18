@@ -251,7 +251,8 @@ def search(args, stores=None):
                 print(f'Warning: Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
             try:   # which sources gave this search its relevant jobs, kept per run (src/source_yield.py); never stops a search
-                source_yield.run(db, started)
+                from .sources import found_boards
+                source_yield.run(db, started, read=found_boards.read_since(started))   # every board read keeps a row: its history (board_yield.dead)
             except Exception as error:  # noqa: BLE001
                 print(f'Warning: source yield not measured: {type(error).__name__}: {error}')
         if args.mode == 'scheduled':

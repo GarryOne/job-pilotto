@@ -45,17 +45,10 @@ class YieldTests(Fixture):
 
     def test_a_board_is_judged_by_relevant_jobs_not_by_jobs_listed(self):
         banner = [job('Wij zoeken jou', 'Utrecht', 1), job('Alle vacatures', 'Utrecht', 2)]   # a banner counted as 2 jobs before
-        for _ in range(3):
-            self.read([board(1)], {'b1.example': banner})
+        self.read([board(1)], {'b1.example': banner})
         entry = board_ideas.load()['boards']['b1.example']
-        self.assertEqual((entry['jobs'], entry['relevant'], entry['state']), (2, 0, 'dead'))
-
-    def test_a_board_with_relevant_jobs_stays_and_a_good_read_resets_the_count(self):
-        self.read([board(1)], {})
-        self.read([board(1)], {})
-        self.read([board(1)], {'b1.example': [job('Controller', 'Amsterdam')]})
-        entry = board_ideas.load()['boards']['b1.example']
-        self.assertEqual((entry['relevant'], entry['misses'], entry['state']), (1, 0, 'ok'))
+        self.assertEqual((entry['jobs'], entry['relevant'], entry['state']), (2, 0, 'ok'))
+        # Dropped after 3 runs with none: its history in source_yield (tests/test_proven_boards.py HistoryTests).
 
     def test_at_most_three_untried_boards_a_run_and_none_once_ten_relevant_jobs_are_found(self):
         asked = []

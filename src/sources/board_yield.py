@@ -1,8 +1,11 @@
 """What a job board is worth to this search: the jobs it gave that are relevant (a title the search wants, in a place it wants), not the jobs it
 lists (spec docs/superpowers/specs/2026-10-18-search-learns-sources.md, PR 2). A board is dropped after 3 reads with none; untried boards are
 read up to 3 a run while fewer than 10 relevant jobs are found; the 'Searching job boards' step reads the found boards in any country.
-Tests: tests/test_board_yield.py."""
+The count kept in found_boards.json is this read's only (it decides within the run); a board's history over runs is the source_yield table
+(src/source_yield.py, one copy): "dead" is read there (PR 6, 18 Oct 2026). Tests: tests/test_board_yield.py, tests/test_proven_boards.py."""
 from datetime import date
+
+from .careers_parse import registrable
 
 DEAD_AFTER = 3         # reads with no relevant job (a StepStone banner counted as 2 jobs before)
 ENOUGH = 10            # relevant jobs in the user's places: from here no untried board is read
@@ -23,24 +26,36 @@ def is_relevant(jobs):
 
 
 def record(entry, listed, relevant, state):
-    """Keep one read in the board's entry: jobs listed, relevant jobs, reads in a row with no relevant one ('misses') and the state (ok: it
-listed jobs; dead: 3 reads without a relevant one)."""
+    """Keep this read in the board's entry: jobs listed, relevant jobs and the state (ok: it listed jobs; empty; browser: only a person's
+    browser reads it). Whether it is dropped is its history in source_yield (dead)."""
     entry.update({'jobs': listed, 'relevant': relevant, 'last_yield': date.today().isoformat()})
-    entry['misses'] = 0 if relevant else entry.get('misses', 0) + 1
-    entry['state'] = 'browser' if state == 'browser' else 'dead' if entry['misses'] >= DEAD_AFTER else 'ok' if listed else 'empty'
+    entry.pop('misses', None)   # kept here before 18 Oct 2026; the history is source_yield's now
+    entry['state'] = 'browser' if state == 'browser' else 'ok' if listed else 'empty'
+
+
+def dead(db):
+    """Board hosts whose last DEAD_AFTER measured runs gave no job in the user's places (source_yield rows; a run that read a board keeps
+    a row for it, src/source_yield.py measure)."""
+    from .. import source_yield
+    db.execute(source_yield.TABLE)
+    last = {}
+    for host, in_places in db.execute("SELECT source, in_places FROM source_yield WHERE kind = 'job board' ORDER BY source, run_at DESC"):
+        last.setdefault(host, []).append(in_places)
+    return {host for host, counts in last.items() if len(counts) >= DEAD_AFTER and not any(counts[:DEAD_AFTER])}
 
 
 def total_relevant(kept):
-    return sum(int(entry.get('relevant') or 0) for entry in kept.values() if entry.get('state') not in ('browser', 'dead'))
+    return sum(int(entry.get('relevant') or 0) for entry in kept.values() if entry.get('state') != 'browser')
 
 
-def pick(boards, kept, retry_due=lambda entry: False):
-    """The boards to read now: every one read before (not dropped; a 'browser' one once its retry is due), then up to MAX_UNTRIED not read yet, only while the relevant jobs of
-    the boards already read are fewer than ENOUGH."""
+def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset()):
+    """The boards to read now: every one read before (not dropped: `dropped` = dead(db); a 'browser' one once its retry is due), then up to
+    MAX_UNTRIED not read yet, only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
+    by what the board gave other installs like this one: board_ideas.ideas)."""
     tried, untried = [], []
     for board in boards:
         entry = kept.get(board['host'])
-        if entry and (entry.get('state') == 'dead' or (entry.get('state') == 'browser' and not retry_due(entry))):
+        if registrable(board['host']) in dropped or (entry and entry.get('state') == 'browser' and not retry_due(entry)):
             continue
         (tried if entry and entry.get('last_read') else untried).append(board)
     return tried + (untried[:MAX_UNTRIED] if total_relevant(kept) < ENOUGH else [])
