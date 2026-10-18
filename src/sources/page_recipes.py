@@ -2,7 +2,8 @@
 
 When Claude lists the jobs on a page (ai/page_reader.py), the rules here look at its answer and the page and derive a recipe the code can replay:
   {'kind': 'links', 'prefix': '/de/jobs'}           the jobs are the links one level under this path (title = the link text), or
-  {'kind': 'tag', 'tag': 'h3', 'class': 'job-title'} the jobs are the texts of these elements (pages that list jobs as sections).
+  {'kind': 'tag', 'tag': 'h3', 'class': 'job-title'} the jobs are the texts of these elements (pages that list jobs as sections), or
+  {'kind': 'state', 'path': '0.hits.list'}   the jobs are the records of this list in the JSON state the page carries (board_state.py).
 A recipe is kept only when replaying it on the same page gives back what Claude found. The 4-hourly crawl then replays it with no model call,
 and asks Claude again only when the replay finds nothing (the page changed).
 A recipe is plain data with a fixed shape and checked values (never a pattern or code from anywhere), so it can travel in the employer index
@@ -30,6 +31,9 @@ def valid(recipe):
     if recipe.get('kind') == 'tag':
         return (set(recipe) == {'kind', 'tag', 'class'} and recipe['tag'] in TAGS and isinstance(recipe['class'], str)
                 and bool(re.fullmatch(r'[\w -]{1,60}', recipe['class'])))
+    if recipe.get('kind') == 'state':
+        return (set(recipe) == {'kind', 'path'} and isinstance(recipe['path'], str)
+                and bool(re.fullmatch(r'\d{1,2}(\.[\w$-]{1,40}){0,12}', recipe['path'])))
     return False
 
 
@@ -49,7 +53,10 @@ def replay(recipe, markup, base):
     if not valid(recipe):
         return []
     found = []
-    if recipe['kind'] == 'links':
+    if recipe['kind'] == 'state':
+        from . import board_state   # the page's embedded JSON: the list at the path (a title and a link each)
+        found = [(r['title'], r['url']) for r in board_state.at_path(markup, base, recipe['path'])]
+    elif recipe['kind'] == 'links':
         host = urllib.parse.urlsplit(base).hostname
         depth = len([part for part in recipe['prefix'].split('/') if part]) + 1
         for url, text in _links(markup, base):
@@ -83,6 +90,11 @@ def derive(markup, base, jobs):
     links = [job['url'] if job['url'].split('#')[0].rstrip('/') != base.rstrip('/') else None for job in jobs]
     if not titles:
         return None
+    from . import board_state   # jobs the page carries as JSON state: the path to the list that holds them
+    for path, records in board_state.candidates(markup, base):
+        recipe = {'kind': 'state', 'path': path}
+        if valid(recipe) and _fits(recipe, markup, base, titles, links):
+            return recipe
     paths = [urllib.parse.urlsplit(link).path.rstrip('/') for link in links if link]
     if len(paths) >= max(1, len(titles) // 2):
         parents = {path.rsplit('/', 1)[0] for path in paths}
