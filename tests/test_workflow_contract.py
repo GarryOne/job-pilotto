@@ -79,6 +79,21 @@ class StaticContractTests(unittest.TestCase):
                 self.assertIn(SEARCH_PAGE, missing(workflow_text(name, '9a07604^')))
 
 
+class HeadlessBrowserTests(unittest.TestCase):
+    """Every workflow a user's repo calls that reads web pages (a search, the scout, employer discovery) installs the headless browser in
+    the run (owner, 19 Oct 2026: script-built job boards are read headlessly wherever the search runs; never in the app's installer)."""
+    def test_every_users_workflow_that_reads_pages_installs_the_browser(self):
+        reading = [path for path in sorted(WORKFLOWS.glob('*.yml')) if 'workflow_call' in path.read_text()
+                   and re.search(r'python -m src (daily|scout|discover)\b', path.read_text())]
+        self.assertGreaterEqual({path.name for path in reading}, {'daily.yml', 'scout.yml'})
+        for path in reading:
+            with self.subTest(workflow=path.name):
+                text = path.read_text()
+                self.assertIn('pip install --quiet -r requirements-render.txt', text)
+                self.assertIn('playwright install', text)
+
+
+
 FAKE_NOTION = r'''
 import json, sys, urllib.request
 PAGE = "## Roles to look for\n- zebra wrangler\n## Companies to skip\n- Initech\n"
