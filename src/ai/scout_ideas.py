@@ -243,17 +243,18 @@ def read_directory(client, directory, known, get=careers.get_text, search=None):
 
 # ---------- the whole step ----------
 
-def run(db, search, client=None, now=None, get=careers.get_text):
+def run(db, search, client=None, now=None, get=careers.get_text, label=''):
     """Ask for new ideas: every run, since 6 Oct 2026 (every 3 days before, so most runs only worked through the same fixed lists; a
     photographer's search probed Netflix and Stripe twice in a row). Returns {'candidates', 'companies', 'directories', 'note'}.
-    The candidates are not inserted here: the scout's harvest does that, with its usual rules (duplicates, excluded names)."""
+    The candidates are not inserted here: the scout's harvest does that, with its usual rules (duplicates, excluded names). `label` (the kind
+    the central scout aimed at) goes into the origin, so the queue learns each kind's yield: "AI idea healthcare 2026-10-19"."""
     now = now or datetime.now(timezone.utc)
     db.execute(TABLE)
     client = client or engine.client(action='scout')
     answer, _ = _ask(client, IDEAS_MODEL, ideas_system(search), 'Where the search stands (JSON):\n' + json.dumps(payload(db, search), ensure_ascii=False), IDEAS_SCHEMA)
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     stamp = now.date().isoformat()
-    candidates = clean_candidates(answer['companies'], f'AI idea {stamp}', IDEA_PRIORITY, known)
+    candidates = clean_candidates(answer['companies'], f"AI idea {f'{label} ' if label else ''}{stamp}", IDEA_PRIORITY, known)
     listed = []
     for directory in answer['directories'][:MAX_DIRECTORIES]:
         try:

@@ -278,7 +278,7 @@ def central_stats(db, feeds_out, market=()):
             'quiet': scalar(f"SELECT COUNT(*) FROM feed_health WHERE COALESCE(last_relevant, first_checked) < date('now', '-{QUIET_DAYS} days')"),
             'link_choices': scalar('SELECT COUNT(*) FROM link_choices'), 'commoncrawl': meta.get('commoncrawl', ''),
             'unread_systems': {row[0]: row[1] for row in db.execute('SELECT system, COUNT(*) FROM unread_systems GROUP BY system')} if scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'unread_systems'") else {},
-            'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''),
+            'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''), 'ideas_cell': meta.get('ideas_cell', ''),
             'sources': [{'origin': s['origin'], 'probed': s['probed'], 'found': s['found']} for s in scout_ideas.origin_yield(db)[:25]],
             'market': list(market)}
 
