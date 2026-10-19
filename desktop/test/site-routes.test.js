@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 
-const ROOT = new URL('../../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(ROOT, 'docs/site-routes.json'), 'utf8'));
 const SHIPPED = ['desktop/lib', 'desktop/main.js', 'desktop/renderer', 'extension', 'src', 'worker/src', 'hosted'];
 const TEXT = /\.(js|mjs|cjs|py|html)$/;
