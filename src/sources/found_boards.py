@@ -133,6 +133,17 @@ def _read_by_ai(board, search, fetch):
     return _shaped(board, careers._asked(url, page, [], fetch)) if page and not careers._shell(page) else []
 
 
+def _bare(url):
+    """The proposed link with only the query parts that carry {role} or {place}, or None when it has nothing else: a filter the proposer added
+    can empty every search (owner, 19 Oct 2026: Arbeitsagentur's "&branche=Medien" gave "Keine Ergebnisse" for Musiker in Berlin)."""
+    parts = urllib.parse.urlsplit(url)
+    pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    kept = [(key, value) for key, value in pairs if '{role}' in value or '{place}' in value]
+    if len(kept) == len(pairs):
+        return None
+    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(kept, safe='{}')))
+
+
 def _retry_due(entry, now):
     try:
         last = datetime.fromisoformat(entry['last_read'])
@@ -168,6 +179,17 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
     as its route (owner, 18 Oct 2026: Randstad listed warehouse jobs for "financial analyst" and has a job sitemap). Else `before`; the
     board is not looked at again while the proposed link stays the same."""
     entry['form_for'] = proposed
+    bare = _bare(proposed)
+    if bare:   # an extra filter in the link (a sector, a radius): the same search with only the words and the place
+        try:
+            again, state, _ = read_board({**board, 'search_url': bare}, search, fetch, None, show=show)
+        except Exception:  # noqa: BLE001 — the other ways stand
+            again, state = [], 'empty'
+        relevant = judge(again) if again else []
+        if relevant:
+            entry['search_url'] = bare
+            print(f"Job boards found: {board['name']} read without the link's extra filters", flush=True)
+            return again, state, relevant
     if before[0]:   # the rules read something that was no relevant job (a menu, a news search): the AI reads the page itself
         read = _read_by_ai(board, search, fetch)
         relevant = judge(read) if read else []
