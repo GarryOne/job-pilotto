@@ -68,7 +68,7 @@ def not_a_board(entry):
     return kind in ('one employer', 'other') or (kind == 'gone' and len(entry.get('gone_days') or []) >= 2)
 
 
-def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remember=True):
+def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remember=True, enough=ENOUGH):
     """The boards to read now: every one read before (not dropped: `dropped` = dead(db); a 'browser' one once its retry is due), then up to
     MAX_UNTRIED not read yet (one found not to be a board skipped, as a 'browser' one, until its retry), only while the relevant jobs of the boards already read are fewer than ENOUGH. The order is the list's (ranked
     by what the board gave other installs like this one: board_ideas.ideas). remember=False: these boards only (the first-jobs slice's
@@ -79,7 +79,7 @@ def pick(boards, kept, retry_due=lambda entry: False, dropped=frozenset(), remem
         if registrable(board['host']) in dropped or (entry and (entry.get('state') == 'browser' or not_a_board(entry)) and not retry_due(entry)):
             continue
         (tried if entry and entry.get('last_read') else untried).append(board)
-    return tried + (untried[:MAX_UNTRIED] if total_relevant(kept) < ENOUGH else [])
+    return tried + (untried[:MAX_UNTRIED] if total_relevant(kept) < enough else [])
 
 
 def _read_by_the_search():

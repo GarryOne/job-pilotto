@@ -77,19 +77,28 @@ def save(data):
     file.write_text(json.dumps(data, ensure_ascii=False, indent=1))
 
 
-def ideas(search, client=None):
-    """The boards Claude proposed for this search's countries, roles and kinds (validated), from the cache when it already answered for
-    them; [] without AI or without countries."""
+def asked_for(search):
+    """(cache key, countries, roles, kinds, place words) of this search's board proposal; None without countries or roles. The key is the
+    proposal's in found_boards.json 'ideas' (and its web search's, src/sources/board_web.py)."""
     from .. import places
     from ..notion.search_settings import terms
     from ..role_kinds import of_search
     countries = places.countries(search, limit=5)
     roles = terms((search or {}).get('role_keywords'))[:20]
     if not countries or not roles:
-        return []
+        return None
     kinds = sorted(of_search(search) or [])
-    place_words = [w for w in places.words_of(search)][:10]
     key = hashlib.sha256(json.dumps([countries, sorted(roles), kinds, 'main-model'], ensure_ascii=False).encode()).hexdigest()[:12]
+    return key, countries, roles, kinds, [w for w in places.words_of(search)][:10]
+
+
+def ideas(search, client=None):
+    """The boards Claude proposed for this search's countries, roles and kinds (validated), from the cache when it already answered for
+    them; [] without AI or without countries."""
+    asked = asked_for(search)
+    if not asked:
+        return []
+    key, countries, roles, kinds, place_words = asked
     data = load()
     shared = ranked(served(countries), search)
     if key in (data.get('ideas') or {}):

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_check, board_employers, board_forms, board_pages, board_routes, board_yield, careers
+from . import board_check, board_employers, board_forms, board_web, board_pages, board_routes, board_yield, careers
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -165,12 +165,13 @@ def _another_way(board, entry, proposed, search, fetch, judge, before):
     return before
 
 
-def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, spare=()):
+def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, spare=(), web=True):
     """Every job of the found boards for this search; each board's yield kept (jobs listed, relevant ones), boards marked browser or dropped
     by their history skipped, untried boards limited (board_yield.pick). early: the first-jobs slice; its jobs are kept for this search's
     full read, which asks the board in full and serves the pages the slice fetched from them instead of fetching them again. workers: boards
     read at once. spare: boards read, in their order, each in place of one that refuses automated reading, as soon as it refuses (owner,
-    19 Oct 2026: a second wave after the first made Finance's first-jobs step wait 35 s; 4 of music's first 6 boards refused)."""
+    19 Oct 2026: a second wave after the first made Finance's first-jobs step wait 35 s; 4 of music's first 6 boards refused). web: a full
+    read with no trade or local board that gave a job asks one web search for them and reads what it finds (src/sources/board_web.py)."""
     from ..ai import board_ideas
     fetch = fetch or careers.get_text   # looked up when called: a test's or a run's own fetcher applies
     from . import board_yield
@@ -179,7 +180,8 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
     jobs = []
     retry, dropped = (lambda entry: _retry_due(entry, now)), (dead if dead is not None else _dead())
-    todo = board_yield.pick(boards if boards is not None else board_ideas.ideas(search), kept, retry, dropped)
+    proposed = boards if boards is not None else board_ideas.ideas(search)
+    todo = board_yield.pick(proposed, kept, retry, dropped, remember=web, enough=board_yield.ENOUGH if web else float('inf'))   # web=False: these only
     ticker = Ticker('Reading job boards', len(todo), every=0)   # the driver persona's board read was silent for 7 minutes (18 Oct 2026)
 
     def item(board):
@@ -267,4 +269,8 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
         keep(spare_item, result)
     board_ideas.save(data)
     board_employers.note(jobs, 'Job boards found')
+    if web and not early and board_web.needed(kept, proposed):   # no trade or local board gave a job: one web search for them (board_web)
+        more = board_web.search(search, proposed, fetch=fetch)
+        if more:   # read now, whatever the relevant jobs so far: they are what this search lacked
+            jobs.extend(read(search, more, fetch, now, is_relevant, dead, workers=workers, web=False))
     return jobs
