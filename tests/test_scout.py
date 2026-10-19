@@ -260,6 +260,19 @@ class ScoutTests(unittest.TestCase):
         self.assertLess(low, 45)
         self.assertEqual(stats['swiss'], 6)
 
+    def test_central_judges_count_every_kind_of_job(self):
+        # Owner, 19 Oct 2026: a job search across Europe for every role. The central scout read a care home's feed through the example
+        # search's data-analyst titles, judged it "low" and published no places for it.
+        care = [posting(i, title=title) for i, title in enumerate(('Registered Nurse', 'Warehouse Operative', 'Chef de partie', 'Care Assistant'))]
+        with mock.patch.object(scout_core, 'CENTRAL', True):
+            _, stats = scout.quality(care)
+            self.assertEqual((stats['relevant'], stats['preferred']), (4, 4))
+            self.assertEqual(scout.job_places(care), ['Zurich, Switzerland'])
+        with mock.patch.object(scout_core, 'CENTRAL', False):   # an install's own scout still judges by its own roles
+            _, stats = scout.quality(care)
+            self.assertEqual(stats['relevant'], 0)
+            self.assertEqual(scout.job_places(care), [])
+
     def test_detects_ats_in_links(self):
         self.assertEqual(ats.detect('https://job-boards.greenhouse.io/datadog/jobs/123'), ('greenhouse', 'datadog'))
         self.assertEqual(ats.detect('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035'),

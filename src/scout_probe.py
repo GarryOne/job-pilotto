@@ -10,6 +10,7 @@ from collections import Counter
 from datetime import timedelta
 from .paths import keyword_regex, place_regex
 from .sources import ats, careers, feeds
+from . import scout_core
 from .scout_core import SMALL_GUESS, _SEARCH, ensure_tables, now
 
 
@@ -18,7 +19,7 @@ from .scout_core import SMALL_GUESS, _SEARCH, ensure_tables, now
 # probed while the readers were wrong stayed skipped). A fingerprint of that code only (src/sources/readers.py): the reader modules and the
 # functions here that judge a site, without comments, docstrings or print lines, so a wording change elsewhere in this file wakes no one.
 READER_FILES = ('sources/ats.py', 'sources/careers.py', 'sources/web_search.py', 'sources/render.py', 'scout_probe.py')
-JUDGES = ('belongs_to', 'job_hosts', 'find_feed', 'quality', 'relevant_roles', 'job_places')
+JUDGES = ('belongs_to', 'job_hosts', 'find_feed', 'counted', 'quality', 'relevant_roles', 'job_places')
 
 
 def readers_version():
@@ -159,9 +160,15 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, 
     return None
 
 
+def counted(title):
+    """Whether a job title counts for the judges below: the search's roles for an install's own scout; any job for the central scout, which
+    serves every role across Europe (owner, 19 Oct 2026: its example search's data-analyst titles judged care homes and hauliers "low")."""
+    return bool(title) if scout_core.CENTRAL else bool(feeds.TITLES.search(title or ''))
+
+
 def quality(jobs):
     """Deterministic 0-100 score of how useful a feed is for this search, with its evidence."""
-    relevant = [j for j in jobs if feeds.TITLES.search(j['title'])]
+    relevant = [j for j in jobs if counted(j['title'])]
     preferred = [j for j in relevant if feeds.wanted_location(j)]
     swiss = [j for j in preferred if SWISS_OR_ZURICH.search(j['location'] or '')]
     stack = [j for j in relevant if STACK.search(j.get('description') or '')]
@@ -208,5 +215,5 @@ def relevant_roles(jobs):
 def job_places(jobs, limit=40):
     """Where a feed has matching roles: its most common location strings, so a client can skip feeds with none in
     its own places without downloading them."""
-    counts = Counter((j.get('location') or '').strip()[:60] for j in jobs if feeds.TITLES.search(j['title']))
+    counts = Counter((j.get('location') or '').strip()[:60] for j in jobs if counted(j['title']))
     return [place for place, _ in counts.most_common(limit + 1) if place][:limit]
