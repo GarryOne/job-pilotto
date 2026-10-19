@@ -1,4 +1,4 @@
-/* global document, window, chrome */
+/* global document */
 // The form panel's "Tailor CV + letter" answers ON THE PANEL in every branch (started, done, not in your list, failed, app silent), and the other controls that ask the app
 // (Open in Job Pilotto, Add this job) show their progress and failure there too. Real extension on a fixture form, a stand-in app with fake data, no paid AI, nothing live (owner, 19 Oct 2026).
 import assert from 'node:assert/strict';
