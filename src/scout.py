@@ -96,16 +96,22 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     print('Scout: reading the employer lists…' if not skip else
           'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are left out)…')
     ensure_tables(db)
+    # The budget counts from here, not from the first check (19 Oct 2026: a driver's 180 s scout ran 638 s: a Wikidata timeout, the AI's ideas
+    # and the role searches ran before the clock started). The steps that only add names start while half of it is left: the checks keep theirs.
+    deadline = time.monotonic() + budget if budget else None
+    may_add = budget_tape.until('scout names', deadline - budget / 2 if budget else None)
     # New names every run, however long the queue (owner, 18 Oct 2026: the old 100-name pause froze them for 12 days): the queue is worked in
     # order of each source's yield, and a source with no feed in many checks stops waiting (src/scout_queue.py).
     added = harvest(db, seeds, harvest_sources, skip)
     print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
-    ideas = ai_ideas(db, harvest_sources)
+    ideas = ai_ideas(db, harvest_sources) if may_add() else None
     if ideas:
         added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
-    searched = scout_role_search.guarded(db, load_search_config(), harvest_sources)
+    searched = scout_role_search.guarded(db, load_search_config(), harvest_sources) if may_add() else None
     if searched and searched['candidates']:
         added += harvest(db, seeds, [lambda: searched['candidates']], skip)
+    if budget and not may_add():
+        print('Scout: half its time is gone, so no more new names this run; the checks get the rest.')
     expired = scout_queue.expire(db)
     if expired:
         print('Scout: no longer waiting on ' + ', '.join(f'{n} from {kind} (no feed in its first checks)' for kind, n in expired.items()) + '.')
@@ -224,7 +230,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # A time budget (the app: SCOUT_BUDGET_S): no new check starts after it, the ones running finish, the rest wait for the next run (owner,
     # 7 Oct 2026: "runs for too long"; 91 checks at 20-45 s each took over half an hour). Each one is saved as it ends, so nothing is lost.
     outcomes = [None] * len(candidates)
-    may_start = budget_tape.until('scout', time.monotonic() + budget if budget else None)   # a tape's replay starts what its recording did
+    may_start = budget_tape.until('scout', deadline)   # a tape's replay starts what its recording did
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
         todo, futures = iter(enumerate(candidates)), {}
