@@ -33,6 +33,31 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats['sources'], [{'origin': 'Common Crawl', 'probed': 1, 'found': 1}])
         self.assertEqual((stats['recipes'], stats['page_reads']), (0, 0), 'tables this scout never made count as 0')
 
+    def test_each_source_counts_the_employers_it_found_by_their_main_kind(self):
+        """Owner, 19 Oct 2026: /admin/scouting must show where we are strong or weak, so which source fills which kind of role."""
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        scout.harvest(db, {'excluded': []}, [lambda: [dict(name='Care', origin='Wikidata healthcare: PL', priority=55),
+                                                      dict(name='Code', origin='Common Crawl CC-MAIN-2026-39', priority=70)]])
+        db.execute("UPDATE scout_candidates SET ats = 'personio', slug = 'Care' WHERE name = 'Care'")
+        db.execute("UPDATE scout_candidates SET ats = 'lever', slug = 'code' WHERE name = 'Code'")
+        feeds_out = [{'ats': 'personio', 'slug': 'care', 'kinds': {'healthcare': 0.8}}, {'ats': 'lever', 'slug': 'code', 'kinds': {'software': 1}},
+                     {'ats': 'lever', 'slug': 'starter', 'kinds': {'software': 1}}, {'ats': 'lever', 'slug': 'mixless'}]
+        self.assertEqual(scout.central_stats(db, feeds_out)['source_kinds'],
+                         {'starter or installs': {'software': 1, 'unknown': 1}, 'Wikidata healthcare': {'healthcare': 1}, 'Common Crawl': {'software': 1}})
+
+    def test_a_run_record_says_what_the_run_did_and_where_its_ideas_aimed(self):
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        scout.harvest(db, {'excluded': []}, [])
+        db.execute('CREATE TABLE scout_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+        db.execute("INSERT INTO scout_meta VALUES ('ideas_cell', 'logistics|pl')")
+        from datetime import datetime
+        run = scout.run_record({'harvested': 7, 'checked': 40}, [({}, {'status': 'found'}), ({}, {'status': 'none'})], at=datetime(2026, 10, 19, 22, 20))
+        self.assertEqual(scout.central_stats(db, [], run=run)['run'],
+                         {'at': '2026-10-19T22:20', 'added': 7, 'checked': 40, 'found': 1, 'cell': 'logistics|pl'})
+        self.assertIsNone(scout.central_stats(db, [])['run'], 'no run record: the site keeps its log as it is')
+
     def test_the_numbers_travel_with_the_index(self):
         sent = []
         scout.publish_index([{'company': 'A', 'ats': 'lever', 'slug': 'a'}], 'https://x.test/api/index', 'k',

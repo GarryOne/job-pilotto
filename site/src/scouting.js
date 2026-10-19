@@ -2,6 +2,7 @@
 // No user data: feeds, queue, yield per kind of source, Common Crawl, recipes, AI reads, market coverage against jobs.ch. Checked to a fixed shape.
 const int = (value, max = 10_000_000) => (Number.isFinite(Number(value)) ? Math.max(0, Math.min(max, Math.round(Number(value)))) : 0);
 const word = (value, max = 60) => String(value ?? '').replace(/[^\p{L}\p{N} ._:/()+-]/gu, '').slice(0, max);
+const cellOf = value => (/^[a-z_]{2,20}\|[a-z]{2}$/.test(value || '') ? value : '');   // '<kind>|<country>', src/scout_cells.py
 const counts = (object, keys = 40) => Object.fromEntries(Object.entries(object && typeof object === 'object' ? object : {}).slice(0, keys).map(([k, v]) => [word(k, 40), int(v)]));
 
 export function cleanStats(stats) {
@@ -9,7 +10,11 @@ export function cleanStats(stats) {
   return {
     feeds: int(stats.feeds), jobs: int(stats.jobs), relevant: int(stats.relevant), by_ats: counts(stats.by_ats), by_region: counts(stats.by_region),
     queue: counts(stats.queue, 12), recipes: int(stats.recipes), recipes_broken: int(stats.recipes_broken), quiet: int(stats.quiet), page_reads: int(stats.page_reads), link_choices: int(stats.link_choices),
-    commoncrawl: word(stats.commoncrawl, 30), ideas_at: word(stats.ideas_at, 30), ideas_note: word(stats.ideas_note, 300),
+    commoncrawl: word(stats.commoncrawl, 30), ideas_at: word(stats.ideas_at, 30), ideas_note: word(stats.ideas_note, 300), ideas_cell: cellOf(stats.ideas_cell),
+    // Which kind of source found the employers of each kind (src/scout_index.py source_kinds), and this run's record (run_record).
+    source_kinds: Object.fromEntries(Object.entries(stats.source_kinds && typeof stats.source_kinds === 'object' ? stats.source_kinds : {}).slice(0, 30).map(([k, v]) => [word(k), counts(v, 15)])),
+    run: stats.run && typeof stats.run === 'object' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(stats.run.at || '')
+      ? {at: stats.run.at, cell: cellOf(stats.run.cell), added: int(stats.run.added), checked: int(stats.run.checked), found: int(stats.run.found)} : null,
     sources: (Array.isArray(stats.sources) ? stats.sources : []).slice(0, 25).map(s => ({origin: word(s?.origin), probed: int(s?.probed), found: int(s?.found)})),
     market: (Array.isArray(stats.market) ? stats.market : []).slice(0, 20).map(m => ({term: word(m?.term, 40), ours: int(m?.ours), jobsch: m?.jobsch == null ? null : int(m.jobsch)})),
   };
@@ -19,8 +24,13 @@ export async function store(db, stats, day) {
   const clean = cleanStats(stats);
   if (!db || !clean) return false;
   await db.prepare('INSERT INTO scout_stats (day, body) VALUES (?, ?) ON CONFLICT (day) DO UPDATE SET body = excluded.body').bind(day, JSON.stringify(clean)).run();
+  if (clean.run) {   // the run log: the last RUNS runs
+    await db.prepare('INSERT INTO scout_runs (at, body) VALUES (?, ?) ON CONFLICT (at) DO UPDATE SET body = excluded.body').bind(clean.run.at, JSON.stringify(clean.run)).run();
+    await db.prepare('DELETE FROM scout_runs WHERE at NOT IN (SELECT at FROM scout_runs ORDER BY at DESC LIMIT ?)').bind(RUNS).run();
+  }
   return true;
 }
+export const RUNS = 60;
 
 // The latest day and a short history of the totals, for the page.
 export async function load(db, days = 30) {
@@ -28,7 +38,9 @@ export async function load(db, days = 30) {
   const rows = ((await db.prepare('SELECT day, body FROM scout_stats ORDER BY day DESC LIMIT ?').bind(days).all().catch(() => ({results: []}))).results) || [];
   if (!rows.length) return null;
   const latest = JSON.parse(rows[0].body);
-  return {day: rows[0].day, ...latest, history: rows.map(row => { const b = JSON.parse(row.body); return {day: row.day, feeds: b.feeds, jobs: b.jobs, relevant: b.relevant}; }).reverse()};
+  const runs = (((await db.prepare('SELECT body FROM scout_runs ORDER BY at DESC LIMIT ?').bind(RUNS).all().catch(() => ({results: []}))).results) || [])
+    .map(row => { try { return JSON.parse(row.body); } catch { return null; } }).filter(Boolean).reverse();
+  return {day: rows[0].day, ...latest, runs, history: rows.map(row => { const b = JSON.parse(row.body); return {day: row.day, feeds: b.feeds, jobs: b.jobs, relevant: b.relevant}; }).reverse()};
 }
 
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));

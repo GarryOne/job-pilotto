@@ -33,7 +33,7 @@ from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
 from .scout_candidates import harvest, skipped_origins, starter_list
 from .scout_core import DEFAULT_BATCH, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, ensure_tables, key_for, now, pending_count
-from .scout_index import board_stats, build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
+from .scout_index import board_stats, build_index, central_stats, dead_ends, run_record, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
 from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
 from .scout_probe import READERS, find_feed, next_batch, quality, skipping
 from .scout_core import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
@@ -426,7 +426,7 @@ def main():
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
             from . import scout_cells
             scout_cells.keep(db, feeds_out)   # the next run's ideas aim at the thinnest kind × country
-            stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
+            stats = central_stats(db, feeds_out, market_coverage(swiss_titles), run=run_record(summary, results))
             boards = board_stats(fetch_boards(index_url, key))
             count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)
             print(publish_summary(feeds_out, contributions, boards))

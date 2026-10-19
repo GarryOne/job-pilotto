@@ -257,7 +257,27 @@ def record_unread(db, unread):
     return Counter(system for system, _, _ in unread)
 
 
-def central_stats(db, feeds_out, market=()):
+def source_kinds(db, feeds_out):
+    """{source: {kind: employers}}: which kind of source found the employers of each kind in this list (by the main kind of their jobs), so
+    /admin/scouting shows which source fills which gap (owner, 19 Oct 2026). Feeds no scout candidate led to: 'starter or installs'."""
+    from .ai import scout_ideas
+    from .scout_cells import top_kind
+    origin = {(row[0], str(row[1]).lower()): row[2] for row in db.execute("SELECT ats, slug, origin FROM scout_candidates WHERE ats IS NOT NULL AND slug IS NOT NULL")}
+    out = {}
+    for feed in feeds_out:
+        source = scout_ideas.origin_kind(origin.get((feed.get('ats'), str(feed.get('slug')).lower()), '')) or 'starter or installs'
+        kinds = out.setdefault(source, {})
+        kinds[top_kind(feed)] = kinds.get(top_kind(feed), 0) + 1
+    return dict(sorted(out.items(), key=lambda item: -sum(item[1].values()))[:30])
+
+
+def run_record(summary, results, at=None):
+    """One central run, for /admin/scouting's run history: when, the cell its ideas aimed at, names added, employers checked and found."""
+    return {'at': (at or now()).isoformat(timespec='minutes'), 'added': summary.get('harvested', 0), 'checked': summary.get('checked', 0),
+            'found': sum(1 for _, outcome in results if outcome.get('status') == 'found')}
+
+
+def central_stats(db, feeds_out, market=(), run=None):
     """The central scout's own numbers for the website's /intel page: no user data, only counts and its own source names."""
     from .ai import scout_ideas
 
@@ -279,6 +299,7 @@ def central_stats(db, feeds_out, market=()):
             'link_choices': scalar('SELECT COUNT(*) FROM link_choices'), 'commoncrawl': meta.get('commoncrawl', ''),
             'unread_systems': {row[0]: row[1] for row in db.execute('SELECT system, COUNT(*) FROM unread_systems GROUP BY system')} if scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'unread_systems'") else {},
             'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''), 'ideas_cell': meta.get('ideas_cell', ''),
+            'source_kinds': source_kinds(db, feeds_out), 'run': {**run, 'cell': meta.get('ideas_cell', '')} if run else None,
             'sources': [{'origin': s['origin'], 'probed': s['probed'], 'found': s['found']} for s in scout_ideas.origin_yield(db)[:25]],
             'market': list(market)}
 
