@@ -61,7 +61,7 @@ test('the page reads changelog.json, shows the three group titles and the channe
   assert.match(html, /Beta/);
   assert.match(html, /fetch\('changelog\.json'\)/);
   assert.doesNotMatch(html.split('<script>')[1], /innerHTML/);
-  assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobpilotto\.top\/changelog<\/loc>/);
+  assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobadabra\.top\/changelog<\/loc>/);
   assert.match(pub('index.html'), /<a href="changelog\.html">What's new<\/a>/);
   assert.doesNotMatch(html, /\$\d|\bPro\b/);
 });

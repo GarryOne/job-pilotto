@@ -5,7 +5,7 @@ import {closeNight} from './ready-morning.js';
 import {LIVE} from './ready-line.js';
 import {readyOn, reportNight, start} from './ready.js';
 
-export const SITE = 'https://www.jobpilotto.top', MAX_STARTS = 3;
+export const SITE = 'https://www.jobadabra.top', MAX_STARTS = 3;
 
 // -> {started, finished}
 export async function tick(env, now = new Date()) {

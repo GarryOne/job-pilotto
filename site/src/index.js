@@ -14,7 +14,7 @@ import {ingestRoute as searchLabIngest} from './search-lab-store.js';
 import {ingestRoute as searchLabDrawIngest} from './search-lab-draws.js';
 import {discoveryInput} from './discovery-candidates.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
-import {apexRedirect} from './hosts.js';
+import {apexRedirect, legacyPageRedirect} from './hosts.js';
 import * as linkedin from './linkedin.js';
 import * as notion from './notion.js';
 import * as stats from './stats.js';
@@ -155,6 +155,8 @@ async function metered(request, env, ctx) {
 async function route(request, env, ctx) {
   const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top; workers.dev is never redirected (src/hosts.js)
   if (alias) return alias;
+  const legacy = legacyPageRedirect(request);   // a page on the old www.jobpilotto.top -> www.jobadabra.top; its API paths are served as before
+  if (legacy) return legacy;
   const {pathname} = new URL(request.url);
   if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
   if (pathname === '/install') return install(request, env, ctx, stats.record);

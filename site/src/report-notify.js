@@ -19,7 +19,7 @@ export const moreMessage = base => `📮 <b>More forms were reported today</b>: 
 // `count` = this report's place in the day (1 = the first). Returns true when a message went out; never throws.
 export async function tellOwner(env, report, count, fetcher = fetch) {
   if (!env.BRAIN_BOT_TOKEN || !env.BRAIN_CHAT_ID || count > TELL_PER_DAY + 1) return false;
-  const base = env.SITE_URL || 'https://www.jobpilotto.top';
+  const base = env.SITE_URL || 'https://www.jobadabra.top';
   const text = count > TELL_PER_DAY ? moreMessage(base) : reportMessage({...report, base});
   try {
     const answer = await fetcher(`https://api.telegram.org/bot${env.BRAIN_BOT_TOKEN}/sendMessage`, {method: 'POST', headers: {'Content-Type': 'application/json'},

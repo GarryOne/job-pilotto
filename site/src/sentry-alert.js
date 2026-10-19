@@ -65,7 +65,7 @@ async function send(env, body, fetcher) {
 export async function check(env, fetcher = fetch, now = Date.now()) {
   const none = {told: 0, held: 0, skipped: 0};
   if (env.SENTRY_TELEGRAM === 'off' || !env.SENTRY_AUTH_TOKEN || !env.SENTRY_TELEGRAM_TOKEN || !env.SENTRY_TELEGRAM_CHAT || !env.STATS) return none;
-  const base = env.SITE_URL || 'https://www.jobpilotto.top';
+  const base = env.SITE_URL || 'https://www.jobadabra.top';
   const due = [];
   for (const item of await recentIssues(env, fetcher)) {
     const kind = kindOf(item, now);

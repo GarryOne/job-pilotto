@@ -22,7 +22,7 @@ export async function checkout(request, env, now = new Date(), fetcher = fetch) 
   const hour = `procheckout:${access.who}:${now.toISOString().slice(0, 13)}`, used = Number(await env.WAITLIST?.get(hour)) || 0;
   if (used >= 20) return json({ok: false, error: 'Too many attempts. Try again in an hour.'}, 429);
   await env.WAITLIST?.put(hour, String(used + 1), {expirationTtl: 7200});
-  const home = env.PRO_RETURN_URL || 'https://www.jobpilotto.top/';
+  const home = env.PRO_RETURN_URL || 'https://www.jobadabra.top/';
   const made = await createCheckout(env, {kind: body.kind, install: given.install, successUrl: `${home}?pro=thanks`, cancelUrl: `${home}?pro=cancelled`}, fetcher);
   return made.url ? json({ok: true, url: made.url}) : json({ok: false, error: made.error}, 503);
 }
