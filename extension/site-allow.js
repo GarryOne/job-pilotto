@@ -19,7 +19,7 @@ export async function fillWaitsForAllow(tabId, url, {chrome = globalThis.chrome,
   let host = '';
   try { host = new URL(url).hostname; } catch { return; }
   chrome.action.setBadgeText({tabId, text: '!'}).catch(() => {});   // the tab may already be closed
-  chrome.action.setTitle({tabId, title: 'Job Pilotto: waiting for you: press Allow on the page it opened, then the form is filled'}).catch(() => {});
+  chrome.action.setTitle({tabId, title: 'Jobadabra: waiting for you: press Allow on the page it opened, then the form is filled'}).catch(() => {});
   const known = (await chrome.storage.session.get(`${WAIT}${tabId}`))[`${WAIT}${tabId}`];
   await chrome.storage.session.set({[`${WAIT}${tabId}`]: url});
   await openAllowPage({chrome});

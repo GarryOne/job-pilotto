@@ -30,7 +30,7 @@ test('a key is checked for kind, end date and withdrawal, with words the user ca
   assert.deepEqual(check(good, {now: NOW, publicKey}).license, {id: 'a1', name: 'Ana', kind: 'founder', until: '2026-12-31'});
   assert.match(check(good, {now: NOW, publicKey, revoked: ['a1']}).error, /withdrawn/);
   assert.match(check(sign({id: 'a2', name: 'Bo', kind: 'pass', until: '2026-10-14'}), {now: NOW, publicKey}).error, /ended on 2026-10-14/);
-  assert.match(check(sign({id: 'a3', name: 'Cy', kind: 'boss'}), {now: NOW, publicKey}).error, /isn't a Job Pilotto license key/);
+  assert.match(check(sign({id: 'a3', name: 'Cy', kind: 'boss'}), {now: NOW, publicKey}).error, /isn't a Jobadabra license key/);
   assert.match(check('hello', {now: NOW, publicKey}).error, /JP1/);
 });
 

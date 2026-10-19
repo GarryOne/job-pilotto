@@ -8,5 +8,5 @@ const review = fs.readFileSync(new URL('../../extension/review.js', import.meta.
 test('the panel footer carries the extension version in its text and its tooltip', () => {
   assert.match(review, /const version = chrome\.runtime\.getManifest\(\)\.version;/);
   assert.match(review, /stateLine\.textContent = `\$\{word\} · v\$\{version\}\$\{build\?\.label \? ` · \$\{build\.label\}` : ''\}`;/, 'the version and the build stay in the footer line');
-  assert.match(review, /Job Pilotto extension v\$\{version\}/, 'and in its tooltip');
+  assert.match(review, /Jobadabra extension v\$\{version\}/, 'and in its tooltip');
 });

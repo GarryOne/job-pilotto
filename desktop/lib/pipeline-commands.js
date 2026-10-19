@@ -173,7 +173,7 @@ export const notSubmitted = afterWrite(async (storage, url) => {
 });
 // The user said how an application went (desktop/lib/outcomes.js): the same stage event the Gmail check writes, in Notion.
 export const markOutcome = afterWrite(async (storage, url, stage) => {
-  const {code, stdout} = await run(storage, ['src.notion.ledger', 'event', url, stage, '--note', 'Marked in Job Pilotto', '--source', 'CLI']);
+  const {code, stdout} = await run(storage, ['src.notion.ledger', 'event', url, stage, '--note', 'Marked in Jobadabra', '--source', 'CLI']);
   const last = stdout.trim().split('\n').filter(Boolean).pop() || '';
   return code === 0 ? {ok: true, stage} : {ok: false, error: last || 'It was not saved. Try again.'};
 });

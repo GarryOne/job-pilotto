@@ -34,7 +34,7 @@ def new_job(job):
     posted = (job.get('posted_at') or job.get('first_seen_at') or '')[:10]   # a crawled job's dates (Tracker._create_row's Posted)
     return {'source': os.getenv('JOB_PILOTTO_SOURCE') or 'Telegram', 'origin': 'Outbound',
             **({'ats': ats} if ats else {}), **({'posted': posted} if posted else {}),
-            **({} if job.get('posted_at') else {'notes': 'Posted date is when Job Pilotto first saw the job.'}),
+            **({} if job.get('posted_at') else {'notes': 'Posted date is when Jobadabra first saw the job.'}),
             **{k: v for k, v in job.items() if k in base.APPLICATION_FIELDS and v not in (None, '')}}
 
 

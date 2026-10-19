@@ -57,7 +57,7 @@ export function aiLimitHead(run, name = 'The run') {
 }
 // A run the app's watchdog stopped (lib/pipeline.js stoppedReason): what happened, the step it was on in plain words, and the way
 // out, with the log folded since the box says it (the owner's targeted fix #4, 6 Oct 2026: 110 log lines hid the reason).
-const STOPPED = /Stopped by Job Pilotto: (no output for (\d+) (min|s)|still running after (\d+) min)\b.*?(?:The last thing it did: (.+))?$/;
+const STOPPED = /Stopped by Jobadabra: (no output for (\d+) (min|s)|still running after (\d+) min)\b.*?(?:The last thing it did: (.+))?$/;
 const DOING = [[/^Descriptions:/, 'fetching job descriptions'], [/^Scor(?:ed|ing) /, 'scoring new jobs'], [/^Enriched /, 'reading new jobs'],
   [/^(?:Checking employer career pages|Checked: )/, 'checking employer career pages'], [/^(?:Searching job boards|Job boards:)/, 'searching the job boards']];
 const unit = (n, word) => `${n} ${word}${n === '1' ? '' : 's'}`;
@@ -99,8 +99,8 @@ export function notConnectedHead(run, connectedNow = null) {
   return {problem: 'Gmail is not connected', title: 'Gmail is not connected', icon: 'mail', short: 'Gmail not connected',
     summary: 'Connect your Google account before checking for emails and calendar updates.', fix: {label: 'Connect Gmail', view: 'settings'}};
 }
-// A run that ended while it waited for another Job Pilotto run (lib/pipeline.js run_lock): it never started its work (fix #10).
-const WAITED = /Another Job Pilotto (?:search|run) is running[^\n]*waiting for it/i;
+// A run that ended while it waited for another Jobadabra run (lib/pipeline.js run_lock): it never started its work (fix #10).
+const WAITED = /Another Jobadabra (?:search|run) is running[^\n]*waiting for it/i;
 const DOING_NOUN = {tailor: 'tailoring', visits: 'finding jobs in your browser', kits: 'preparing kits', search: 'the search', scout: 'finding employers', weekly: 'the analysis',
   insight: 'the insight', mail: 'the Gmail check', review: 'the review', interview: 'the interview review'};
 export function waitedHead(run) {
@@ -109,16 +109,16 @@ export function waitedHead(run) {
   if (!line) return null;
   const title = `Couldn’t start ${DOING_NOUN[run.kind] || 'the run'}`;
   return {problem: line, title, short: title, icon: 'clock', quiet: true,
-    summary: 'The last recorded step was waiting for another Job Pilotto run. This attempt ended without a result.',
+    summary: 'The last recorded step was waiting for another Jobadabra run. This attempt ended without a result.',
     hint: 'Try again when the other run has finished.', fix: {label: 'Try again', rerun: true}};
 }
 
 export function failureHead(run, name = '') {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
-  // Job Pilotto was closed while it ran (lib/pipeline.js takeQueue): not an error, and its log is kept (owner, 7 Oct 2026: it read "stopped unexpectedly").
+  // Jobadabra was closed while it ran (lib/pipeline.js takeQueue): not an error, and its log is kept (owner, 7 Oct 2026: it read "stopped unexpectedly").
   if (run.interrupted) {
     return {problem: 'interrupted', quiet: true, short: 'Interrupted', viewLog: true, title: `${name || 'The run'} was interrupted`,
-      summary: 'Job Pilotto was closed while this ran. What it saved is kept; run it again to continue.', fix: {label: 'Run again', rerun: true}};
+      summary: 'Jobadabra was closed while this ran. What it saved is kept; run it again to continue.', fix: {label: 'Run again', rerun: true}};
   }
   const problem = String(run.problem || '').trim();
   // No reason recognised: say it stopped unexpectedly, offer to run it again and the log (the owner's fix #7, 6 Oct 2026: "Had problems" over a raw log).

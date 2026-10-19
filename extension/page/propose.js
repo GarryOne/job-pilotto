@@ -37,7 +37,7 @@
     try {
       const row = ((await window.__jobPilottoDescribeForm?.()) || []).find(item => clean(item.label) === clean(label));
       if (!row || !value || !window.__jobPilottoExtensionFill) return {ok: false};
-      const result = await window.__jobPilottoExtensionFill([{field: row.field, value: String(value), source: 'you, from Job Pilotto'}], {}, null, '', false);
+      const result = await window.__jobPilottoExtensionFill([{field: row.field, value: String(value), source: 'you, from Jobadabra'}], {}, null, '', false);
       const ok = !result?.error && (result?.filled || 0) > 0;
       if (ok) delete elOf(row.field)?.dataset.jobpilottoSuggested;
       // Chrome's page translation rewrites the form's words (labels, a menu's choices) but not the answers: said in the log.

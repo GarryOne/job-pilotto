@@ -31,7 +31,7 @@ export function assign(host, id = credentials.currentProfile(), opts = {}) {
   if (!secret) return 'failed';
   const there = keychain.read(to, {account: ACCOUNT, ...opts});
   if (there && there !== secret) return 'kept';
-  if (!there && !keychain.write(to, secret, {account: ACCOUNT, comment: noteOf(from, opts), label: `Job Pilotto: ${host}`, ...opts})) return 'failed';
+  if (!there && !keychain.write(to, secret, {account: ACCOUNT, comment: noteOf(from, opts), label: `Jobadabra: ${host}`, ...opts})) return 'failed';
   if (keychain.read(to, {account: ACCOUNT, ...opts}) !== secret) return 'failed';
   keychain.remove(from, {account: ACCOUNT, ...opts});
   return 'moved';
@@ -71,7 +71,7 @@ export function adopt(dir, id, opts = {}) {
   try { accounts = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch {}
   for (const [host, item] of Object.entries(accounts)) {
     if (!id || !/^[a-z0-9.-]{1,253}$/i.test(host) || !host.includes('.') || !item?.password) continue;
-    if (keychain.write(credentials.serviceOf(host, id), String(item.password), {account: ACCOUNT, comment: noteText(item), label: `Job Pilotto: ${host}`, ...opts})) adopted += 1;
+    if (keychain.write(credentials.serviceOf(host, id), String(item.password), {account: ACCOUNT, comment: noteText(item), label: `Jobadabra: ${host}`, ...opts})) adopted += 1;
   }
   fs.rmSync(file, {force: true});
   return adopted;

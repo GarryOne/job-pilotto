@@ -1,12 +1,12 @@
 // "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
-// Job Pilotto website's /api/notion/start with a random session id; after the user approves in Notion (picking
-// a page, or letting Notion copy the Job Pilotto template), the website trades Notion's code for the token
+// Jobadabra website's /api/notion/start with a random session id; after the user approves in Notion (picking
+// a page, or letting Notion copy the Jobadabra template), the website trades Notion's code for the token
 // (it holds the connection's secret) and keeps it 10 minutes; the app collects it once with the session id.
 import crypto from 'node:crypto';
 
 export const SITE = process.env.JOB_PILOTTO_SITE || 'https://www.jobpilotto.top';
 
-// The page Notion copied the Job Pilotto template into ("Use a template provided by the developer" on its
+// The page Notion copied the Jobadabra template into ("Use a template provided by the developer" on its
 // consent page; the connection's settings must offer it), as a plain 32-character id; null when the user picked
 // their own page instead ("Select pages") or Notion sent something that isn't a page id.
 export function templateRoot(signedIn) {

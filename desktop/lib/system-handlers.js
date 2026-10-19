@@ -27,9 +27,9 @@ export function registerSystemHandlers(ctx) {
   // A reset only clears this Mac and never calls Notion (owner, 16 Oct 2026); connecting Notion later is the normal first-time flow.
   handleImportant('resetProfile', 'Resetting this computer', async () => {
     const answer = dialog.showMessageBoxSync(getWindow(), {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
-      message: 'Reset Job Pilotto on this computer?',
+      message: 'Reset Jobadabra on this computer?',
       detail: 'Your keys, CV, tailored CVs, recordings, interview drafts, job list, settings and this profile\'s job-site accounts on this computer are deleted for good, '
-        + 'and Job Pilotto restarts at the setup. To get them back, import the export you saved first (the accounts only if you ticked them). '
+        + 'and Jobadabra restarts at the setup. To get them back, import the export you saved first (the accounts only if you ticked them). '
         + 'Your Notion workspace is not touched, and neither is your GitHub repo. Your Gmail sign-in is disconnected, so the next setup starts clean.'});   // about Notion
     if (answer !== 1) return {ok: false};
     // The Gmail sign-in lives in the Keychain, outside the data folder: forgotten too, or the fresh setup shows the old account (9 Oct 2026).
@@ -50,15 +50,15 @@ export function registerSystemHandlers(ctx) {
   ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
   ipcMain.handle('backupStatus', () => ({at: storage.settings().lastBackupAt || null, file: storage.settings().lastBackupFile || null,
     folder: backup.folder(), place: backup.place(backup.folder())}));
-  // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
+  // Export: one file with this computer's Jobadabra data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
   handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, accounts = false} = {}) => {
     // Whose data and when: the name from the Profile's contact details (3 s at most: never hold the dialog on Notion), the first role searched for.
     const contact = await Promise.race([contactDetails.read(storage).catch(() => ({})), new Promise(done => setTimeout(() => done({}), 3000))]);
     const role = (() => { try { return JSON.parse(storage.readText('config/search.json') || '{}').jobs_board_search_queries?.[0] || ''; } catch { return ''; } })();
     const name = contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-    const picked = await dialog.showSaveDialog(getWindow(), {title: 'Export your Job Pilotto data',
-      defaultPath: path.join(app.getPath('documents'), reset.exportName({name, role})), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
+    const picked = await dialog.showSaveDialog(getWindow(), {title: 'Export your Jobadabra data',
+      defaultPath: path.join(app.getPath('documents'), reset.exportName({name, role})), filters: [{name: 'Jobadabra export', extensions: ['gz']}]});
     if (picked.canceled || !picked.filePath) return {ok: false};
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
     // This Mac's data only: Notion data stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026).
@@ -74,12 +74,12 @@ export function registerSystemHandlers(ctx) {
   });
   // Import: the file replaces this computer's data (which is kept as a backup), at a restart.
   ipcMain.handle('importProfile', async () => {
-    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Import Job Pilotto data', properties: ['openFile'],
-      filters: [{name: 'Job Pilotto export', extensions: ['gz', 'tgz']}]});
+    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Import Jobadabra data', properties: ['openFile'],
+      filters: [{name: 'Jobadabra export', extensions: ['gz', 'tgz']}]});
     if (picked.canceled || !picked.filePaths[0]) return {ok: false};
     const answer = dialog.showMessageBoxSync(getWindow(), {type: 'warning', buttons: ['Cancel', 'Import and restart'], defaultId: 0, cancelId: 0,
-      message: 'Replace this computer\'s Job Pilotto data with the export?',
-      detail: 'Your current data here is moved to a backup folder first, then Job Pilotto restarts with the imported data. Your Notion workspace is not changed.'});
+      message: 'Replace this computer\'s Jobadabra data with the export?',
+      detail: 'Your current data here is moved to a backup folder first, then Jobadabra restarts with the imported data. Your Notion workspace is not changed.'});
     if (answer !== 1) return {ok: false};
     try { reset.stageImport(storage.dir, picked.filePaths[0]); } catch (error) { return {ok: false, error: error.message}; }
     restartApp('import');

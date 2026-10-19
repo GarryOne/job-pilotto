@@ -12,7 +12,7 @@ export { escapeHtml, formatRuns, formatNotionRuns, formatApplied, formatSaved };
 import { LABEL as WATCHDOG_LABEL, TITLE as WATCHDOG_TITLE } from './watchdog.js';
 
 const HELP = [
-  '✈️ <b>Job Pilotto</b>\nCommands',
+  '✈️ <b>Jobadabra</b>\nCommands',
   '<b>Jobs</b>\n/check — find and score new jobs, then send the digest (~3 min; /run works too)\n/today — the current ranked list (~1 min)\n/saved — jobs you saved with ⭐\n/employers — find new employers with a public job feed (~1 min; /scout works too)',
   '<b>Applications</b>\n/applied — your applications with their stage; tap a number to record a reply\n/add &lt;job URL&gt; [date] — track an application made elsewhere, e.g. /add https://… two days ago\n/mail — check Gmail and Calendar now (also runs 3 times a day)',
   '<b>Reports</b>\n/insight — one insight about your search (~1 min)\n/weekly — the weekly report (~1 min); it also arrives every Monday\n/status — latest runs',
@@ -372,7 +372,7 @@ export async function handleInterview(env, message) {
       return `⚠️ ${escapeHtml(file.file_name || 'That file')} isn't a recording or a text transcript. Send audio/video, or .txt, .md, .srt, .vtt.`;
     }
     if ((file.file_size || 0) > MAX_FILE) {
-      return '⚠️ That file is over 20 MB, the most Telegram lets a bot download. Send it as a voice note (smaller), or use the Interviews page of the Job Pilotto app.';
+      return '⚠️ That file is over 20 MB, the most Telegram lets a bot download. Send it as a voice note (smaller), or use the Interviews page of the Jobadabra app.';
     }
     await dispatch(env, { mode: 'interview', file: file.file_id, note: (message.caption || '').slice(0, 500) });
     return file.recording
@@ -387,7 +387,7 @@ export async function handleInterview(env, message) {
   return '🎤 Analysing your notes; the summary arrives in about a minute.';
 }
 
-// /add <job URL> [date]: track an application made outside Job Pilotto; the rest of the line is its date.
+// /add <job URL> [date]: track an application made outside Jobadabra; the rest of the line is its date.
 // /add <a recruiter's message> (or a message forwarded to the bot): a recruiter lead, read by Claude (add mode, no job).
 const LEAD_MIN = 40;
 export async function handleAdd(env, text) {

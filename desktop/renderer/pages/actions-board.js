@@ -56,8 +56,8 @@ export function boardDialog() {
   known.id = 'board-known';
   const hint = el('p', 'muted small field-hint', 'The tab opens in your Chrome.');
   const steps = el('ol', 'board-steps muted small', '');
-  for (const text of ['Sign in yourself if Chrome asks.', 'Press Read in the Job Pilotto extension.', 'Choose "Filter for my search, then read" or "Read the jobs as they are".']) steps.append(el('li', '', text));
-  const never = el('p', 'muted small', 'Job Pilotto never types your password.');
+  for (const text of ['Sign in yourself if Chrome asks.', 'Press Read in the Jobadabra extension.', 'Choose "Filter for my search, then read" or "Read the jobs as they are".']) steps.append(el('li', '', text));
+  const never = el('p', 'muted small', 'Jobadabra never types your password.');
   const message = el('p', 'message', '');
   message.id = 'board-message';
   const cancel = el('button', 'ghost', 'Cancel');

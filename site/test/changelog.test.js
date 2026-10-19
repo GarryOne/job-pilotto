@@ -89,7 +89,7 @@ test('every page with the top menu links to "What\'s new", on desktop (link row)
 test('the changelog header stacks its one-line intro, and an empty list says the notes are coming', () => {
   const html = pub('changelog.html');
   assert.match(html, /<header class="section-head stacked"/);
-  assert.match(html, /Every version of Job Pilotto, in plain words\./);
+  assert.match(html, /Every version of Jobadabra, in plain words\./);
   assert.match(html, /The first release notes are coming soon\./);
   assert.match(pub('styles.css'), /\.section-head\.stacked \{ grid-template-columns: 1fr; \}/);
 });

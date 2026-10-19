@@ -8,7 +8,7 @@ import {toastMessage} from './startup.js';
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
 async function showBackup() {
   const status = await window.pilot.backupStatus();
-  const where = `${status.place} → Job Pilotto Backups`;
+  const where = `${status.place} → Jobadabra Backups`;
   $('backup-last').textContent = status.at ? new Date(status.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
   $('backup-where').textContent = where.replace(' → ', ' / ');
 }
@@ -24,7 +24,7 @@ async function showStore() {
   pill.textContent = store.trying ? 'Not chosen' : unconnected ? 'Not connected' : store.label;
   pill.className = `ui-pill ${store.trying || unconnected ? 'tone-warn' : 'tone-good'}`;
   $('store-lead').textContent = store.trying
-    ? `Job Pilotto is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`   // about Notion
+    ? `Jobadabra is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`   // about Notion
     : unconnected ? 'Your jobs and applications are to be kept in your Notion, which is not connected yet: connect it to keep track of them.'   // about Notion
     : cloud ? 'Your jobs, applications and answers are in your Notion workspace: open and edit them there too.'
       : 'Your jobs, applications and answers are kept on this Mac, in one place, and in its backups. Move them to Notion to use Always on.';   // about Notion
@@ -90,7 +90,7 @@ export async function init() {
   });
   $('backup-show').addEventListener('click', () => window.pilot.showBackups());
 
-  // ---------- danger zone: reset this computer's Job Pilotto data ----------
+  // ---------- danger zone: reset this computer's Jobadabra data ----------
   // Reset is allowed after the export (the same one as Settings → Your data, the same save dialog) or after choosing to go without it.
   const WORD = 'RESET';
   // One place says whether the button can be pressed and why not: the hint under the field, the button's title and aria-label.
@@ -132,8 +132,8 @@ export async function init() {
     else if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
     // The backup's Profile and tracking are in its Notion workspace (lib/reset.js notionLeftBehind): say which one to connect, before a new one is made.
     if (done?.imported && done.notionElsewhere) toastMessage({title: 'Connect the same Notion workspace',
-      body: 'Your Profile and job tracking are in the Notion workspace this backup used. Connect that workspace and pick your existing Job Pilotto page: '
+      body: 'Your Profile and job tracking are in the Notion workspace this backup used. Connect that workspace and pick your existing Jobadabra page: '
         + 'a new workspace starts with an empty Profile.', target: {view: 'settings', section: 'connections'}});
-    else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted. Import your export to get it back.');
+    else if (done?.deleted) toastMessage('Jobadabra was reset', 'Your previous data on this computer was deleted. Import your export to get it back.');
   });
 }

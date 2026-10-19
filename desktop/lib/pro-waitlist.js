@@ -15,7 +15,7 @@ export async function joinProWaitlist(storage, email, {fetcher = globalThis.fetc
     const response = await fetcher(`${SITE}/api/waitlist`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email: address, source: 'app'})});
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.ok === false) return {ok: false, error: body.error || 'That did not work. Try again in a moment.'};
-  } catch { return {ok: false, error: 'Could not reach Job Pilotto. Check your connection and try again.'}; }
+  } catch { return {ok: false, error: 'Could not reach Jobadabra. Check your connection and try again.'}; }
   storage.saveSettings({proWaitlist: {email: address, at: now()}});
   return {ok: true, email: address};
 }

@@ -273,7 +273,7 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
         stage = plain(props.get('Stage'))
         info = latest.get(row['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
         last_at = info['last']
-        # Never a second event of a kind the application already has: Job Pilotto's own events (Gmail, Telegram,
+        # Never a second event of a kind the application already has: Jobadabra's own events (Gmail, Telegram,
         # the app) move Stage too, and a later event of another kind must not make that look like a hand edit.
         if info['kind'] != stage and stage not in info.get('kinds', ()):
             when = plain(props.get('Applied on')) if stage == 'Applied' else row.get('last_edited_time')
@@ -339,7 +339,7 @@ def company_for(tracker, url, meta):
 
 def add_application(tracker, url, *, applied=None, approx=False, channel=None, via=None, source='CLI',
                     meta=None, today=None, origin=None, found=None):
-    """Track an application made outside Job Pilotto (or before it): the Applications row, an Applied
+    """Track an application made outside Jobadabra (or before it): the Applications row, an Applied
     event on the application's date, and the frozen record. Returns a one-line summary.
     found: a dict that gets the job's row and whether it was created (not updated), for the run's link to it."""
     today = today or date.today()
@@ -380,7 +380,7 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
     if found is not None:
         found.update(row=row, created=not existed)
     add_event(tracker, row, 'Applied', source, at=applied.isoformat(),
-              note='Applied outside Job Pilotto' + ('; date is an upper bound (on or before)' if approx else ''))
+              note='Applied outside Jobadabra' + ('; date is an upper bound (on or before)' if approx else ''))
     try:
         _, recorded = record(tracker, url, posting=lambda _url: meta)
     except Exception as error:  # noqa: BLE001
@@ -404,7 +404,7 @@ def main(argv=None):
     ev.add_argument('--source', default='CLI', choices=('CLI', 'Watcher', 'Telegram', 'Backfill'))
     sy = sub.add_parser('sync', help='log hand-edited stages and apply the no-response rule')
     sy.add_argument('--dry-run', action='store_true')
-    ad = sub.add_parser('add', help='track an application made outside Job Pilotto')
+    ad = sub.add_parser('add', help='track an application made outside Jobadabra')
     ad.add_argument('url')
     ad.add_argument('--applied', default='', help='"2026-09-23", "23 Sep", "on or before 23 Sep" (default today)')
     ad.add_argument('--channel', choices=CHANNELS)

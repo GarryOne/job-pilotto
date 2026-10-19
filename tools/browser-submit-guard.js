@@ -46,11 +46,11 @@
   const nativeSubmit = HTMLFormElement.prototype.submit;
   const nativeRequestSubmit = HTMLFormElement.prototype.requestSubmit;
   HTMLFormElement.prototype.submit = function (...args) {
-    if (active) throw new Error('Job Pilotto blocked form submission during agent work');
+    if (active) throw new Error('Jobadabra blocked form submission during agent work');
     return nativeSubmit.apply(this, args);
   };
   if (nativeRequestSubmit) HTMLFormElement.prototype.requestSubmit = function (...args) {
-    if (active) throw new Error('Job Pilotto blocked form submission during agent work');
+    if (active) throw new Error('Jobadabra blocked form submission during agent work');
     return nativeRequestSubmit.apply(this, args);
   };
 
@@ -60,7 +60,7 @@
   window.__jobPilottoHandOver = () => {
     active = false;
     const box = document.getElementById('job-pilotto-submit-guard');
-    if (box) box.firstChild.textContent = 'Job Pilotto: filled, consents ticked. Review everything, then press Submit yourself. ';
+    if (box) box.firstChild.textContent = 'Jobadabra: filled, consents ticked. Review everything, then press Submit yourself. ';
     box?.querySelector('button')?.remove();
   };
   const showUnlock = () => {
@@ -68,7 +68,7 @@
     box.id = 'job-pilotto-submit-guard';
     box.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:2147483647;background:#132439;color:white;padding:10px 12px;border-radius:8px;font:13px sans-serif;box-shadow:0 2px 12px #0008';
     const status = document.createElement('span');
-    status.textContent = 'Job Pilotto: Submit and legal consent paused. ';
+    status.textContent = 'Jobadabra: Submit and legal consent paused. ';
     const release = document.createElement('button');
     release.type = 'button';
     release.textContent = 'Unlock for my review';
@@ -77,7 +77,7 @@
       event.stopPropagation();
       if (window.confirm('Have you reviewed every field and attachment? Unlock Submit and legal choices for your own action?')) {
         active = false;
-        status.textContent = 'Job Pilotto: unlocked for your review. ';
+        status.textContent = 'Jobadabra: unlocked for your review. ';
         release.remove();
       }
     });

@@ -211,7 +211,7 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
 
 
 def track_applied(db, url, meta, now=None):
-    """A job applied to outside Job Pilotto (/add, the app's Applied elsewhere), in the jobs list as Applied.
+    """A job applied to outside Jobadabra (/add, the app's Applied elsewhere), in the jobs list as Applied.
     A job a search already found keeps its crawled details; only its status changes. Returns the job id."""
     row = db.execute("SELECT id FROM jobs WHERE canonical_key IN (?, ?) OR url=?", (f'url:{normalize_url(url)}', f'url:{url}', url)).fetchone()
     if row:

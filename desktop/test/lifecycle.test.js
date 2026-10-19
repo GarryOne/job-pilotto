@@ -24,7 +24,7 @@ function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = []
 
 test('quit when done notifies, waits for idle, and allows the final quit without prompting again', async () => {
   const f = fixture(); f.quit();
-  assert.ok(f.calls.some(value => Array.isArray(value) && value[0] === 'Job Pilotto will quit when done'));
+  assert.ok(f.calls.some(value => Array.isArray(value) && value[0] === 'Jobadabra will quit when done'));
   assert.ok(!f.calls.includes('quit'));
   f.drain(); await f.idle; await new Promise(resolve => setImmediate(resolve));   // it also waits for important work (none here)
   assert.equal(f.calls.at(-1), 'quit');

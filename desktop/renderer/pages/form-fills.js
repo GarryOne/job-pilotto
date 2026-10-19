@@ -121,7 +121,7 @@ export async function renderFormFills(container) {
     const retry = Object.assign(el('button', 'link', 'Retry'), {type: 'button'});
     retry.addEventListener('click', () => renderFormFills(container));
     host.replaceChildren(el('p', 'message error', `Could not read your form fills from ${storeName()}: ${answer.error}`),
-      el('p', 'muted small', byStore('Form fills are kept in Notion 🤖 Agent Runs.', 'Form fills are kept by Job Pilotto on this Mac.')), retry);
+      el('p', 'muted small', byStore('Form fills are kept in Notion 🤖 Agent Runs.', 'Form fills are kept by Jobadabra on this Mac.')), retry);
     return;
   }
   state.runs = answer?.runs || [];

@@ -39,7 +39,7 @@ export function createWatcher({sentry = () => false, notice = () => {}, now = ()
       const at = now();
       if (told.has(found.key) && at - told.get(found.key) < HOUR) continue;
       told.set(found.key, at);
-      try { notice(`⚠️ Job Pilotto fill error${found.host ? ` on ${found.host}` : ''}${found.extVersion ? ` (extension ${found.extVersion})` : ''}: ${found.message}`); } catch { /* idem */ }
+      try { notice(`⚠️ Jobadabra fill error${found.host ? ` on ${found.host}` : ''}${found.extVersion ? ` (extension ${found.extVersion})` : ''}: ${found.message}`); } catch { /* idem */ }
     }
   };
 }

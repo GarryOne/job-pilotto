@@ -60,7 +60,7 @@ export function renderBoard(jobs) {
       box.addEventListener('dragover', event => { if (dragged && dragged.stage !== column.stage) { event.preventDefault(); box.classList.add('is-over'); } });
       box.addEventListener('dragleave', () => box.classList.remove('is-over'));
       box.addEventListener('drop', event => { event.preventDefault(); box.classList.remove('is-over'); if (dragged) moveJob(dragged, column.stage); });
-    } else box.title = `${column.stage} is set by Job Pilotto, not by moving a card`;
+    } else box.title = `${column.stage} is set by Jobadabra, not by moving a card`;
     return box;
   }));
   if (!jobs.length) board.prepend(el('p', 'empty board-empty', 'No applications here yet. Save, apply to or log a job and it shows on the board.'));

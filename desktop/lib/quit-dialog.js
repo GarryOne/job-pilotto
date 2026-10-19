@@ -52,11 +52,11 @@ export function working({busy = null, queue = [], sessions = [], important = [],
   if (queue.length) lines.push(`•  ${plural(queue.length, 'task', 'tasks')} waiting: ${queue.map(job => taskName(job.kind)).join(', ')}`);
   if (sessions.length) lines.push(`•  Claude is filling ${plural(sessions.length, 'application', 'applications')}: ${sessions.slice(0, SHOWN).map(label).join(', ')}${sessions.length > SHOWN ? '…' : ''}`);
   if (important.length && !busy && !queue.length && !sessions.length) {   // only an export, a Notion setup…: no jobs to run again
-    return {message: 'Job Pilotto is still working', detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once it finishes.\n` +
+    return {message: 'Jobadabra is still working', detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once it finishes.\n` +
       'Quit now: it stops where it is; start it again after.', buttons: ['Quit when done', 'Quit now', 'Cancel']};
   }
   return {
-    message: 'Job Pilotto is still working',
+    message: 'Jobadabra is still working',
     detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once these finish.\n` +
       `Quit now: stops them, and the jobs you started run again next time. What's saved stays saved.` +
       (sessions.length ? `\n\n${AFTER}` : ''),

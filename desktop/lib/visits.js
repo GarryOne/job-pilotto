@@ -13,7 +13,7 @@ import * as pipeline from './pipeline.js';
 import {log} from './log.js';
 import {cutShort, resultMessage} from './visit-result.js';
 
-const NO_BROWSER = 'No Chrome (or Edge, Brave, Vivaldi) found to open it in. Install Chrome and the Job Pilotto extension.';
+const NO_BROWSER = 'No Chrome (or Edge, Brave, Vivaldi) found to open it in. Install Chrome and the Jobadabra extension.';
 
 export function open(url, run = spawn) {
   url = String(url || '').replace(/^http:\/\//i, 'https://');   // a scout's plain-http address (Tag Heuer, Hublot, 7 Oct 2026): opened as https
@@ -274,8 +274,8 @@ const blocked = new Set();
 // "Read this board": a tab opened for the person's own read (#jp-board): held, with no clock, until the extension has news (they pressed Read).
 const held = new Map();   // ticket -> starts that site's minute now (its clock stays off while the ticket is in `blocked`)
 const HELD_LINE = '⏳ Waiting for you in Chrome: ';   // the banner's step (renderer/pages/runs-page.js shows its Go to Chrome button on it)
-const HELD_WORDS = {press: 'sign in to the board in its tab if it asks, then press Read in the Job Pilotto extension',
-  login: 'sign in to the board in its tab, then press Read in the Job Pilotto extension', check: 'answer the check in the board\'s tab, then press Read in the Job Pilotto extension'};
+const HELD_WORDS = {press: 'sign in to the board in its tab if it asks, then press Read in the Jobadabra extension',
+  login: 'sign in to the board in its tab, then press Read in the Jobadabra extension', check: 'answer the check in the board\'s tab, then press Read in the Jobadabra extension'};
 let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
 export function onWaiting(fn) { waitingNotice = fn; }   // start addresses waiting on the person (the one-time Allow in Chrome)
 // The extension waits on the person for a site: said in the task's log and as its running step (the banner), not "Reading …".
@@ -293,7 +293,7 @@ export function waitingFor(payload) {
   blocked.add(url);
   watchers.get(url)?.({waiting: true});
   waitingNotice?.();
-  onLine('⏳ Waiting for you in Chrome: press "Allow on the sites the app opens" on the Job Pilotto page it opened (once)');
+  onLine('⏳ Waiting for you in Chrome: press "Allow on the sites the app opens" on the Jobadabra page it opened (once)');
   log('visit', 'waiting for the person in Chrome', {host: new URL(url).hostname, why: String(payload?.why || '').slice(0, 20)});
   return {ok: true};
 }
@@ -381,7 +381,7 @@ export async function runAll(sites, {hold = false, atOnce = 2, filter = true, te
       }, Math.min(5000, quietMs, siteMs));
       setTimeout(() => {
         if (!waiting.delete(ticket)) return;
-        resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'
+        resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Jobadabra page)'
           : 'no answer from the extension in time: is it installed and enabled in Chrome?', jobs: 0, added: 0});
       }, waitMs);
     });
@@ -394,7 +394,7 @@ export async function runAll(sites, {hold = false, atOnce = 2, filter = true, te
         resolve?.({stopped: 'You closed the tab', closed: true, jobs: 0, added: 0});
       }
       if (event.step) tee(siteLine('reading', site.name, `${event.step}${jobs ? ` · ${jobs} jobs so far` : ''}`));
-      if (event.waiting) tee(siteLine('waiting', site.name, typeof event.waiting === 'string' ? event.waiting : 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
+      if (event.waiting) tee(siteLine('waiting', site.name, typeof event.waiting === 'string' ? event.waiting : 'Waiting for you in Chrome: press Allow on the Jobadabra page'));
       if (event.page) { active?.lastPage.set(key(chosen.url), event.url); seenPages.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
     const mark = hold ? 'jp-board' : filter ? 'jp-read-filter' : 'jp-read';

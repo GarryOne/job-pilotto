@@ -24,7 +24,7 @@ export function model(mine = {}, schedule = null, now = new Date()) {
   if (!mine.on || !email) return {state: 'needs-email', pill: ['On', 'good'], line: 'Add your email to get the matches. Searches start as soon as you do.', asksEmail: true, button: 'save', off: false, download: false};
   if (schedule?.state === 'paused') {
     const why = {
-      'inactive': ['Paused: you have not opened Job Pilotto for 14 days. Resume to get matches again.', 'resume'],
+      'inactive': ['Paused: you have not opened Jobadabra for 14 days. Resume to get matches again.', 'resume'],
       'trial-over': ['Your free trial is over. Get Pro to keep Always on running.', null],
       'budget': ['Paused: the free AI in your trial is used up. Get Pro to keep Always on running.', null],
       'guard': ['Paused: it reached this month\'s limit. It continues next month.', null],

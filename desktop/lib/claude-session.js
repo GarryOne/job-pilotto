@@ -54,13 +54,13 @@ export function sessionEnv(storage, parent = process.env, platform = process.pla
 
 // The session's instructions: the skill does the work; this names the job, the files and the hand-off.
 export function prompt(url, {auditFile, session = ''}) {
-  // This session opens the one form tab itself, with the mark that arms the Job Pilotto extension on it (claude-in-chrome
+  // This session opens the one form tab itself, with the mark that arms the Jobadabra extension on it (claude-in-chrome
   // only sees tabs in its own group, so a tab the app opened is invisible to it): the extension fills most fields in
   // seconds; this session does the rest.
   const identity = 'Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty. ';   // every claude session carries its account e-mail (11 Oct 2026)
   const mark = session ? `#jobpilotto-fill=${session}` : '#jobpilotto-fill';   // the id makes the tab this session's from its first page
   const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}${mark} ` +
-    `(keep the ${mark} at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put ${mark} at the end of that address too, or the tab stops being part of this application). It is the ` +
+    `(keep the ${mark} at the end, it arms the Jobadabra extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put ${mark} at the end of that address too, or the tab stops being part of this application). It is the ` +
     'only tab for this application: never open a second one. On each page, if <html> has data-jobpilotto-hook, read ' +
     'document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s). state running: keep waiting. ' +
     'done: fill ONLY its todo (dropdowns that ignore scripted clicks, per the skill), then press Next when the form has another page. ' +
@@ -90,7 +90,7 @@ export function prompt(url, {auditFile, session = ''}) {
     `sends my "Form filled" or "Needs your input" notification. If the posting is gone ("Job not found", 404, or not on the company's board), ` +
     `don't stop to ask: run python3 -m src.ai.apply_batch --mark-closed ${url} (marks it Closed and notifies me), close the tab, and finish. ` +
     `If you stop on any other blocker before filling, just run tools/notify.sh ${url} "Needs your input — see Terminal". ` +
-    "Job Pilotto marks the job applied when I submit, so you don't need to watch the tab. Everything you write is read by an applicant, not a " +
+    "Jobadabra marks the job applied when I submit, so you don't need to watch the tab. Everything you write is read by an applicant, not a " +
     "developer: never mention this repo, git status, tests, config files or code, and don't comment on anything that isn't the form. When you " +
     'stop or wait, end with one plain line about the form (for example "Review the form and click Submit"). ' +
     'When you stop because you need something from me before you can go on (a missing detail, a choice, a role I may not want), write it ' +
@@ -129,7 +129,7 @@ function openMac({claude, repo, env, shim, promptFile, dir, index}, run) {
 // stay in their file (a long argument through cmd.exe would need quoting cmd can't do reliably).
 export function windowsCommand({claude, repo, promptFile}) {
   const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
-  return `"start "Job Pilotto" /D "${repo}" "${claude}" --chrome --permission-mode bypassPermissions "${ask}""`;
+  return `"start "Jobadabra" /D "${repo}" "${claude}" --chrome --permission-mode bypassPermissions "${ask}""`;
 }
 function openWindows(options, run) {
   run(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', windowsCommand(options)],
@@ -199,7 +199,7 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
   return started;
 }
 
-// "Read with Claude" (owner, 7 Oct 2026): where the Job Pilotto extension could not read a site, a Claude in Chrome session sets that
+// "Read with Claude" (owner, 7 Oct 2026): where the Jobadabra extension could not read a site, a Claude in Chrome session sets that
 // site's filters for the user's search and reads its jobs page by page, saving each page through the app's own reader (src.desktop
 // visit-read, the same as the extension's). Never applies, signs in, messages or solves a check: it stops and asks the person.
 export function readPrompt(url, name, contextFile) {
@@ -264,7 +264,7 @@ export async function resumeInApp(storage, id, {claude, platform = process.platf
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
   const stopped = old.status === 'ended' || old.status === 'failed';
   const flags = [...browserFlags(path.dirname(settingsFile)), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--resume', term.claudeIdOf(id)];
-  const ask = stopped ? ['Job Pilotto was closed while you were working on this application. Carry on where you left off: check the form in Chrome (its tab may still be open), finish it, and stop before Submit.'] : [];
+  const ask = stopped ? ['Jobadabra was closed while you were working on this application. Carry on where you left off: check the form in Chrome (its tab may still be open), finish it, and stop before Submit.'] : [];
   const {file, args} = platform === 'win32'
     ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ...ask]}
     : {file: claude, args: [...flags, ...ask]};

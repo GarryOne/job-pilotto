@@ -42,7 +42,7 @@ button.go{background:var(--acc);border-color:var(--acc);color:#fff}button:disabl
   done.addEventListener('click', async () => {
     done.disabled = true;
     const reply = await fetch(`/api/ready/submitted?job=${encodeURIComponent(job)}&k=${encodeURIComponent(k)}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({job})}).then(r => r.json()).catch(() => ({ok: false}));
-    note.textContent = reply.ok ? 'Noted. Job Pilotto marks it Applied and deletes this form\'s data from the server. You can close this page.' : 'Could not save that; try again.';
+    note.textContent = reply.ok ? 'Noted. Jobadabra marks it Applied and deletes this form\'s data from the server. You can close this page.' : 'Could not save that; try again.';
     if (!reply.ok) done.disabled = false;
   });
 })();

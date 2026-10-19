@@ -75,7 +75,7 @@ export function registerVisitsHandlers(ctx) {
     const seen = server.extensionSeen?.()?.version, latest = server.latestExtension();
     if (seen && latest && seen !== latest) {
       appLog('visit', 'read sites refused: Chrome has an older extension', {seen, latest});
-      return {text: `Chrome still has the Job Pilotto extension ${seen}; Find jobs using your browser needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
+      return {text: `Chrome still has the Jobadabra extension ${seen}; Find jobs using your browser needs ${latest}. In Chrome open chrome://extensions, press Reload on Jobadabra, then Run again.`};
     }
     appLog('visit', 'read sites task', {sites: chosen.length, postings: unread.length, atOnce: n, filter: !!filter, by: 'you'});
     pipeline.work(storage, 'visits', log, async (tee, signal) => {

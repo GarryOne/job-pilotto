@@ -51,7 +51,7 @@ def _plain(html):
 
 def _subject(items):
     first = re.search(r'<b>(.*?)</b>', items[0][0], re.S)
-    title = _plain(first.group(1) if first else items[0][0])[:100] or 'Job Pilotto'
+    title = _plain(first.group(1) if first else items[0][0])[:100] or 'Jobadabra'
     return title if len(items) == 1 else f'{title} and {len(items) - 1} more'
 
 

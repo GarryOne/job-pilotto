@@ -131,7 +131,7 @@ const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'}
 const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 // While the library loads from Notion (like the Jobs list): a spinner in the empty table the first time;
 // afterwards the rows stay and the subtitle says it's refreshing.
-const savedTo = () => byStore('Saved to Notion 🎤 Interviews', 'Saved in Job Pilotto');
+const savedTo = () => byStore('Saved to Notion 🎤 Interviews', 'Saved in Jobadabra');
 // Loading: the last good list at once (lib/view-cache.js, "saved 3 min ago · updating…"); with nothing saved yet,
 // skeleton rows in the table (the boxes are there, shimmering) until Notion answers.
 async function showSavedLoading() {
@@ -345,7 +345,7 @@ function renderSaved() {
     cell(jobCell, picker).className = 'iv-job';
     cell(who);
 
-    // Where: the job in this list, else the linked Applications row (a job applied to outside Job Pilotto).
+    // Where: the job in this list, else the linked Applications row (a job applied to outside Jobadabra).
     const place = job || row.place || {};
     cell(placeAndMode(place.location, place.work_mode) || '–').className = 'iv-where';
     cell(row.overall ? pill(OUTCOME[row.overall] || row.overall, OUTCOME_TONE[row.overall] || 'neutral', {dot: true})

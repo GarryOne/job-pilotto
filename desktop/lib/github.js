@@ -105,12 +105,12 @@ export async function findRepo(api, chosen = '') {
   }
   const repo = repos.find(r => r.full_name === chosen) || repos.find(r => r.name === REPO_NAME) || (repos.length === 1 ? repos[0] : null);
   if (!repo && repos.length > 1) {
-    throw Object.assign(new Error('Choose which repository Job Pilotto should use.'),
+    throw Object.assign(new Error('Choose which repository Jobadabra should use.'),
       {needsChoice: true, repos: repos.filter(r => r.private).map(r => r.full_name)});
   }
   if (!repo) throw Object.assign(new Error(installations.length
-    ? `Job Pilotto can't see a repository called ${REPO_NAME}. Add it to the app's repositories, then check again.`
-    : 'Create your private repository and install Job Pilotto on it, then check again.'), {needsRepo: true});
+    ? `Jobadabra can't see a repository called ${REPO_NAME}. Add it to the app's repositories, then check again.`
+    : 'Create your private repository and install Jobadabra on it, then check again.'), {needsRepo: true});
   if (!repo.private) throw new Error(`${repo.full_name} is public. Make it private in its Settings, then check again.`);
   return {login, repo: repo.full_name, created: false, createdAt: repo.created_at || ''};
 }
@@ -232,7 +232,7 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
   if (existing) onStep(`Found your repository ${repo} (created ${new Date(createdAt).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'})}): using it…`);
   const {files, secrets, variables, removed} = payload(storage);
   onStep('Adding the schedules and your search settings…');
-  for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Job Pilotto: ${file}`);
+  for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Jobadabra: ${file}`);
   onStep('Storing your keys as encrypted secrets…');
   await setSecrets(api, repo, secrets);
   await setVariables(api, repo, variables);
@@ -352,10 +352,10 @@ export async function updateRepo(storage, {fetcher} = {}) {
   const {files, secrets, variables, removed} = payload(storage);
   const changed = [];
   for (const [file, content] of Object.entries(files)) {
-    if (await putFile(api, cloud.repo, file, content, `Job Pilotto: ${file}`)) changed.push(file);
+    if (await putFile(api, cloud.repo, file, content, `Jobadabra: ${file}`)) changed.push(file);
   }
   for (const {path: file, sha} of await retiredWorkflows(api, cloud.repo, files)) {
-    await api('DELETE', `/repos/${cloud.repo}/contents/${file}`, {message: `Job Pilotto: ${file} is no longer used`, sha});
+    await api('DELETE', `/repos/${cloud.repo}/contents/${file}`, {message: `Jobadabra: ${file} is no longer used`, sha});
     changed.push(`removed ${file}`);
   }
   const digest = fingerprint({secrets, variables, removed});

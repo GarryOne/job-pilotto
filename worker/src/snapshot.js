@@ -5,7 +5,7 @@
 // which scrubs every report again (anyone can post one); worker/test/snapshot.test.js fails when the two differ.
 // Kept: tags, type, role, id/name/for, class names (react-select's select__control…), aria-* structure, label and
 // option texts. Dropped: every value the user typed or chose, hidden and password inputs, textarea contents, data-*,
-// links, styles, scripts, images, Job Pilotto's own marks. Emails, URLs, phone-like numbers, long tokens and the
+// links, styles, scripts, images, Jobadabra's own marks. Emails, URLs, phone-like numbers, long tokens and the
 // given secrets (the user's contact details) are replaced in every text that is kept.
 const SNAPSHOT_MAX = 8192;
 const SNAPSHOT_TAGS = new Set(['div', 'span', 'label', 'legend', 'fieldset', 'input', 'select', 'option', 'optgroup', 'textarea',
@@ -48,7 +48,7 @@ const snapshotScrub = (root, secretValues = []) => {
     const raw = node.a && typeof node.a === 'object' ? node.a : {};
     const type = String(raw.type || '').toLowerCase();
     if (t === 'input' && /^(hidden|password)$/.test(type)) return null;
-    // Job Pilotto's own elements (the dropdown badge, which names the answer; the panel, styles); its classes on a field go.
+    // Jobadabra's own elements (the dropdown badge, which names the answer; the panel, styles); its classes on a field go.
     if (/(^|\s)job-pilotto-badge(\s|$)/.test(String(raw.class || '')) || /^job-?pilotto/i.test(String(raw.id || ''))) return null;
     const a = {};
     for (const [key, value] of Object.entries(raw)) {

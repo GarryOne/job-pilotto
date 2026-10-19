@@ -1,4 +1,4 @@
-// Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
+// Jobadabra desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, screen, session, shell, systemPreferences} from 'electron';
 import {aiNameOf, claudeFamily} from './lib/ai/names.js';
 import {takeoverOffered, takeoverOn} from './lib/claude-ready.js';
@@ -96,6 +96,7 @@ import {createMainWindow} from './lib/main-window.js';
 import {createAppReminders} from './lib/app-reminders.js';
 import {createCvWindows} from './lib/cv-windows.js';
 import {createAppAllowance} from './lib/app-allowance.js';
+import {keepLegacyIdentity} from './lib/app-identity.js';
 import {registerTelemetryHandlers} from './lib/telemetry-handlers.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
@@ -237,7 +238,7 @@ function handlers() {
           kept = storage.settings().notionKeptFolder || null;
           if (kept) storage.saveSettings({notionKeptFolder: undefined});
           // A page made by this connect (Notion's template copy, or built by the app) is named after this computer and today, so a second
-          // install connecting the same Notion doesn't leave two pages both called "Job Pilotto". Never blocks the connect.
+          // install connecting the same Notion doesn't leave two pages both called "Jobadabra". Never blocks the connect.
           const fresh = !!(result.built?.length || templateRoot);
           const page = fresh ? await notion.nameWorkspace(token, result.ids, notion.workspaceTitle(computerName()))
             .catch(error => { log(`Notion page not renamed: ${error.message}`); return null; }) : null;
@@ -250,7 +251,7 @@ function handlers() {
       }
       return {...result, titles, kept, startedOnNotion, stayedOnMac: !!result.ok && storage.settings().store === 'sqlite'};
     } catch (error) {
-      return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
+      return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Jobadabra connection again (Developer tools → Connections).' : error.message};
     }
   }
   if (!DEMO) settleStore(storage, {log: appLog});   // a new install's data on this Mac, a connected Notion stays Notion (D7)
@@ -291,12 +292,12 @@ function handlers() {
 // Started from a terminal that's since closed, writing a log line fails (EIO/EPIPE); that must never crash the app.
 for (const stream of [process.stdout, process.stderr]) stream?.on?.('error', () => {});
 
+keepLegacyIdentity({app, safeStorage});   // Jobadabra on screen; the data folder and the Keychain item keep the old name (lib/app-identity.js)
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
 if (DEMO_FOLDER) app.setPath('userData', DEMO_FOLDER);
 else if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
 // A live-test twin (lib/twin.js) on the real folder, or without the mirror's Notion token, stops here, before anything opens it.
-if (twinRefusal()) { console.error(`Job Pilotto twin refused: ${twinRefusal()}`); app.exit(3); }
-
+if (twinRefusal()) { console.error(`Jobadabra twin refused: ${twinRefusal()}`); app.exit(3); }
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
 let resetDone = null;
@@ -331,7 +332,7 @@ app.on('will-quit', () => appLog('window', 'quitting'));
 process.on('exit', code => appLog('window', `process exit ${code}`));
 // One copy per data folder: lifecycle callbacks are tested without launching Electron.
 const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
-  showDuplicate: () => appLog('window', 'another copy holds this data folder: this one quits') || dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
+  showDuplicate: () => appLog('window', 'another copy holds this data folder: this one quits') || dialog.showMessageBoxSync({type: 'info', message: 'Jobadabra is already running',
     detail: `Quit the other copy first (${process.platform === 'darwin' ? '⌘Q' : 'close its window'}), then open this one again.`}),
 });
 
@@ -390,8 +391,8 @@ process.on('uncaughtExceptionMonitor', error => {
 startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(), createWindow, start: () => {
   if (offerMove({app, dialog})) return false;  // moving to Applications: Electron quits and opens the moved copy
   buildMenu();
-  app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
-    version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
+  app.setAboutPanelOptions({applicationName: 'Jobadabra', applicationVersion: app.getVersion(),
+    version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Jobadabra'});
   if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge(devMarker.mark()); }  // from source: never mistaken for the installed app
   logTo(path.join(app.getPath('userData'), 'logs'), electronLog); appLog('app', 'start', {version: app.getVersion(), os: `${process.platform} ${process.arch} ${os.release()}`, packaged: app.isPackaged});
   if (resetDone) appLog('data', resetDone.failed ? `reset or import not applied: ${resetDone.failed}` : `applied at start: ${resetDone.imported ? 'import' : resetDone.deleted ? 'reset (deleted)' : 'reset'}`, {backup: resetDone.backup || '', waitedMs: resetDone.waited || 0});   // waitedMs: Windows still held the folder after the old app quit

@@ -1,5 +1,5 @@
 // The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
-// (Job Pilotto menu, under About); on Windows it sits in Help. Next to it, Update Channel: Stable / Beta / Test builds (lib/update-channel.js,
+// (Jobadabra menu, under About); on Windows it sits in Help. Next to it, Update Channel: Stable / Beta / Test builds (lib/update-channel.js,
 // the same switch as Settings → Diagnostics); picking one asks first, then checks at once so the build can be installed from there.
 // Help → Send Feedback… on both platforms (lib/app-feedback.js). Edit → Find… (⌘F), Find Next (⌘G), Find Previous
 // (⇧⌘G): find(what) tells the window ('open' | 'next' | 'previous'; renderer/pages/find.js).
@@ -35,8 +35,8 @@ export function answer(result, current) {
   if (result?.fromSource) return {type: 'info', message: 'Running from source (npm start)', detail: 'Updates are for the installed app. Here, update with git pull and restart.', buttons: ['OK']};
   if (!result?.ok) return {type: 'warning', message: 'Couldn\'t check for updates', detail: result?.text || 'Try again later.', buttons: ['OK']};
   if (!result.offer) return {type: 'info', message: 'You\'re up to date', buttons: ['OK'],
-    detail: `Job Pilotto ${current} is the latest version.`};
-  return {type: 'info', message: `Job Pilotto ${result.offer.version} is available`, install: true,
+    detail: `Jobadabra ${current} is the latest version.`};
+  return {type: 'info', message: `Jobadabra ${result.offer.version} is available`, install: true,
     detail: `You have ${current}. Updating takes about 30 seconds: the app closes, updates and opens again.`,
     buttons: ['Update now', 'Later']};
 }

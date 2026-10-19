@@ -54,7 +54,7 @@ export let joinHandler = () => [];
 export function setJoinHandler(fn) { joinHandler = fn; }
 export let focusHandler = () => ({ok: false});
 export function setFocusHandler(fn) { focusHandler = fn; }
-// The panel's "Open in Job Pilotto": the app comes forward on that session's page.
+// The panel's "Open in Jobadabra": the app comes forward on that session's page.
 export let pageHandler = () => {};  // the extension says what a session's page is now (extension/page-mark.js): the card follows it at once, panel or not
 export function setPageHandler(fn) { pageHandler = fn; }
 export let accountPressedHandler = () => {};  // the extension pressed an account page's button (sign-up): the app records it and waits for the confirmation mail

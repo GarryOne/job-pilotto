@@ -19,6 +19,6 @@ try {
   await import('./main.js');
 } catch (error) {
   if (!testRun) throw error;
-  console.error(`Job Pilotto could not start: ${error.stack || error}`);
+  console.error(`Jobadabra could not start: ${error.stack || error}`);
   (await import('electron')).app.exit(1);
 }

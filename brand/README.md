@@ -1,14 +1,16 @@
-# Job Pilotto brand
+# Jobadabra brand
 
-The logo: a JP monogram whose line takes off as a paper plane. Two versions of the same mark:
+The logo: a magician's top hat with a J on its body and a spark rising out of its opening. One vector definition, `tools/brand_mark.py`
+(shapes in a 200 × 200 box, three colourways); everything else is built from it.
 
-| Where | Artwork | Built files |
+| Where | Look | Built files |
 |---|---|---|
-| Desktop app (macOS icon, sidebar) | `logo-tile-original.png`: app navy and burnt orange on an off-white tile | `app-icon.png`, `app-logo-128.png`, `logo-mark-app.png` |
-| Everywhere else (website, favicon, Chrome extension, GitHub App, social image) | `logo-original.png`: brighter orange, on white | `icon-<size>.png` (16, 32, 48, 128, 180, 512), `logo-mark.png` |
+| Desktop app icon (Dock, installer) | yellow tile, black hat | `app-icon.png` |
+| Sidebar, website header | near-black tile with an amber outline, yellow hat | `app-logo-128.png`, `site-logo.png`, `logo-mark-ink.png` |
+| Favicon, Chrome extension, GitHub App, social image | yellow tile, black hat | `icon-<size>.png` (16, 32, 48, 128, 180, 512), `favicon.svg` |
+| Vector marks | `logo-light.svg` (on light), `logo-dark.svg` (on dark), `logo-tile.svg` (on yellow) | |
 
-`logo-mark*.png` are transparent: light backgrounds only (the J and P are navy). On dark backgrounds
-always use a tile.
+`logo-mark.png` is the hat for light backgrounds. The wordmark is text in the app's own font (the design and colours are unchanged).
 
-Rebuild after changing either artwork: `python3 tools/brand.py` (writes brand/ and copies the icons into
-desktop/, extension/ and site/), then `cd desktop && npm run screenshots` for the website.
+Rebuild after changing the mark: `python3 tools/brand.py` (writes brand/ and copies the icons into desktop/, extension/ and site/),
+then `cd desktop && npm run screenshots` for the website.

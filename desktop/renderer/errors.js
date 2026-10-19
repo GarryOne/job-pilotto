@@ -1,6 +1,6 @@
 // The plain line for an error from the app behind the window: a window newer than the running app gets "Restart it" and a Restart button, never the raw IPC text.
 // Guards: test/outdated-error.test.js (preload turns "No handler registered" into OUTDATED_LINE for every action; the Ready card shows line + Restart).
-export const OUTDATED_LINE = 'Job Pilotto was updated while it was open. Restart it to use this.';   // same words as preload.cjs
+export const OUTDATED_LINE = 'Jobadabra was updated while it was open. Restart it to use this.';   // same words as preload.cjs
 export const isOutdated = error => String(error?.message || error) === OUTDATED_LINE || /No handler registered/.test(String(error?.message || error));
 export const relaunch = () => window.pilot.interviews.relaunch();   // the app's one shared restart path (lib/restart.js)
 export function restartButton() {

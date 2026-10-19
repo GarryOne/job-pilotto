@@ -132,7 +132,7 @@ class NewRowPostedTests(unittest.TestCase):
         stores = memory.open_store()
         seen, _ = rules.mark(stores, {'url': 'https://x.test/1', 'title': 'SRE', 'company': 'Acme',
                                       'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Saved')
-        self.assertEqual((seen['posted'], seen['notes']), ('2026-10-02', 'Posted date is when Job Pilotto first saw the job.'))
+        self.assertEqual((seen['posted'], seen['notes']), ('2026-10-02', 'Posted date is when Jobadabra first saw the job.'))
         posted, _ = rules.mark(stores, {'url': 'https://x.test/2', 'title': 'SRE', 'company': 'Acme',
                                         'posted_at': '2026-09-30', 'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Applied')
         self.assertEqual((posted['posted'], posted['notes']), ('2026-09-30', ''))

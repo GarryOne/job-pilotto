@@ -61,7 +61,7 @@
     .card { width: 348px; max-height: min(640px, calc(100vh - 110px)); display: flex; flex-direction: column; background: #fff;
       border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px rgba(19,36,57,.3), 0 0 0 1px rgba(19,36,57,.06); }
     .head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--navy); color: #fff; }
-    .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; font: 800 10px/1 system-ui; }
+    .mark { width: 22px; height: 22px; border-radius: 6px; background: #f5c542; display: grid; place-items: center; font: 800 10px/1 system-ui; }
     .head b { font-size: 13px; }
     .head .x { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
     .head .x:hover { color: #fff; background: rgba(255,255,255,.1); }
@@ -138,7 +138,7 @@
 </div>
 <div class="dock"><div class="jp" id="jp">
   <div class="card">
-    <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="x">×</button></div>
+    <div class="head"><span class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="16" height="16"><path d="M52 96 L36 150 Q100 198 164 150 L148 96 Z" fill="#15171c"/><ellipse cx="100" cy="84" rx="94" ry="19" fill="#15171c"/><ellipse cx="100" cy="82" rx="56" ry="6.5" fill="#f5c542"/><path d="M100 4 Q107 33 133 38 Q107 43 103 66 Q102 76 100 84 Q98 76 97 66 Q93 43 67 38 Q93 33 100 4" fill="#15171c"/><path d="M110 90 L110 124 Q110 154 87 150 Q75 148 77 138" fill="none" stroke="#f5c542" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Jobadabra</b><button class="x">×</button></div>
     <div class="body">
       <div class="job"><div class="job-title">Senior Site Reliability Engineer</div><div class="job-meta">Northwind AI <span class="tag dot">Applying</span></div></div>
       <div class="progress"><div class="progress-line"><b id="p-title">Ready to fill</b><span id="p-count">0 / 9 required fields</span></div><div class="bar"><i id="bar"></i></div></div>
@@ -146,7 +146,7 @@
       <div class="claude" id="ask" hidden><i>🤖</i><span><b>Notice period?</b> Not in your answers yet. Suggested: <b>3 months</b> (from your CV). <button class="secondary" id="use" style="margin-top:6px">Use it, and save for next time</button></span></div>
       <div class="actions"><button class="secondary">I submitted it</button></div>
     </div>
-    <div class="foot on">In sync with Job Pilotto</div>
+    <div class="foot on">In sync with Jobadabra</div>
   </div>
   <button class="pill"><span class="ring" id="ring"><span id="ring-n">0</span></span><div><b id="pill-b">Fill this form</b><small>Northwind AI</small></div></button>
 </div></div>

@@ -69,7 +69,7 @@ export function installQuitHandling({app, platform, state, pipeline, terminals, 
       app.quit();
       return;
     }
-    notify('Job Pilotto will quit when done', dialog.detail);
+    notify('Jobadabra will quit when done', dialog.detail);
     Promise.all([pipeline.whenIdle(), critical.whenDone()]).then(() => app.quit());
   };
   app.on('before-quit', beforeQuit);

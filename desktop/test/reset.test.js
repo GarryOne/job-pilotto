@@ -13,7 +13,7 @@ import {tar} from '../lib/tar.js';
 const fakeCrypto = {encrypt: v => Buffer.from(v).toString('base64'), decrypt: s => Buffer.from(s, 'base64').toString()};
 function profile() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
-  const dir = path.join(base, 'Job Pilotto');
+  const dir = path.join(base, 'Jobadabra');
   const storage = createStorage(dir, fakeCrypto);
   storage.saveSettings({setupDone: true, cvName: 'CV.pdf'});
   storage.setSecret('NOTION_TOKEN', 'ntn_real');
@@ -164,13 +164,13 @@ test('a reset and then an import in the same minute both happen', () => {
   assert.equal(fs.readFileSync(path.join(a.dir, 'profile.md'), 'utf8'), 'mine');
 });
 
-test('a file that is not a Job Pilotto export is refused and nothing changes', async () => {
+test('a file that is not a Jobadabra export is refused and nothing changes', async () => {
   const a = profile();
   const bogus = path.join(a.base, 'bogus.tar.gz');
   fs.writeFileSync(path.join(a.base, 'x.txt'), 'x');
   const {execFileSync} = await import('node:child_process').then(m => m);
   execFileSync(tar(), ['-czf', bogus, '-C', a.base, 'x.txt']);
-  assert.throws(() => reset.stageImport(a.dir, bogus), /not a Job Pilotto export/);
+  assert.throws(() => reset.stageImport(a.dir, bogus), /not a Jobadabra export/);
   assert.equal(reset.applyPending(a.dir), null);
 });
 
@@ -207,9 +207,9 @@ test('Windows runs its own tar by full path, never a Git for Windows GNU tar fro
 test('the export file is named after its person, their role and the time', async () => {
   const {exportName} = await import('../lib/reset.js');
   const at = new Date(2026, 9, 6, 22, 41);
-  assert.equal(exportName({name: 'Igor Mardari', role: 'photographe', at}), 'Job Pilotto export · Igor Mardari · photographe · 2026-10-06 22.41.tar.gz');
-  assert.equal(exportName({at}), 'Job Pilotto export · 2026-10-06 22.41.tar.gz');                    // nothing known yet: still a valid name
-  assert.equal(exportName({name: 'A/B: "C"', role: 'x'.repeat(60), at}), `Job Pilotto export · A B C · ${'x'.repeat(40)} · 2026-10-06 22.41.tar.gz`);  // no characters a file name refuses, no endless role
+  assert.equal(exportName({name: 'Igor Mardari', role: 'photographe', at}), 'Jobadabra export · Igor Mardari · photographe · 2026-10-06 22.41.tar.gz');
+  assert.equal(exportName({at}), 'Jobadabra export · 2026-10-06 22.41.tar.gz');                    // nothing known yet: still a valid name
+  assert.equal(exportName({name: 'A/B: "C"', role: 'x'.repeat(60), at}), `Jobadabra export · A B C · ${'x'.repeat(40)} · 2026-10-06 22.41.tar.gz`);  // no characters a file name refuses, no endless role
 });
 
 // 7 Oct 2026, Windows: the relaunch after an import moved the data folder half a second after the old app quit, while Windows still held it (EPERM), and the

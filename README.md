@@ -1,4 +1,4 @@
-# Job Pilotto
+# Jobadabra
 
 Job-search automation for any role across Europe. Fork it, point it at your own places,
 languages and CV, and it crawls job boards and employer feeds every 4 hours, has Claude score each
@@ -16,7 +16,7 @@ terminal, with a Chrome extension that fills the forms. Website:
 
 <p align="center">
   <img src="docs/images/architecture.png" width="100%"
-       alt="Job Pilotto architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 5.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
+       alt="Jobadabra architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 5.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
 </p>
 
 <sub>Discover → rank with Claude → deliver to Telegram and Notion → you submit → learn from every reply.
@@ -103,7 +103,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 45 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Something in Jobadabra is reading, suggesting or checking at each stop of the search: 45 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 Every step runs on the AI you choose: Claude or OpenAI, through an API key or your own Claude Code / Codex plan (setup step 5 below).
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.top/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
@@ -200,7 +200,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
   weak answers and what to practise. Recordings are transcribed with speakers first (see below).
 - 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… two days ago`:
   title, company, location and description come from the posting page, then it gets the same AI facts, fit
-  score and Job Matches row as a job Job Pilotto found (`src/ai/added.py`, about USD 0.01–0.02). LinkedIn,
+  score and Job Matches row as a job Jobadabra found (`src/ai/added.py`, about USD 0.01–0.02). LinkedIn,
   Glassdoor and Indeed pages are never read: in the app, paste the title, company and description instead.
 - 📥 **Log box: inbound and recruiter opportunities from a message or screenshots.** A recruiter's pitch, a
   reply, an interview time, a rejection from LinkedIn, Gmail or WhatsApp: in the app, Jobs → **+ Log job activity**
@@ -216,7 +216,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - 🎤 **Interview prep kit.** Focus → Prepare → **Build prep kit**: what the interview will likely assess, likely
   questions with what from your CV to answer with, stories to have ready, gaps and how to handle them honestly,
   questions to ask, what's still unknown to ask the recruiter, and a prep plan for the time left. It adapts to the
-  call (recruiter screen or technical round) and works in what Job Pilotto has learned about you: topics you
+  call (recruiter screen or technical round) and works in what Jobadabra has learned about you: topics you
   answered weakly and the ones asked most in past interviews, lessons from your rejection reviews, and employer feedback. It
   needs the role first: without a job description it asks you for one (paste it or the posting link). Written on the
   job's Notion page (🎤 Interview prep) with Claude Sonnet 5, about USD 0.05 (`src/ai/prep.py`).
@@ -229,7 +229,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
   invite itself); one recruiter by email and on LinkedIn stays one job. **It never guesses:** an email that doesn't
   name its job isn't attached to one, and Focus asks "Is this about …?" with the likeliest job. The evening before an
   interview you get a prep message.
-- 💸 **Every cent, shown.** Job Pilotto uses your own Anthropic key and records what each run cost (⏰ Cronjob Runs in
+- 💸 **Every cent, shown.** Jobadabra uses your own Anthropic key and records what each run cost (⏰ Cronjob Runs in
   your Notion: every jobs check, Gmail check, Log box entry, kit, prep kit, review, report). The app's Recent
   activity shows the cost next to each run, runs you started are tagged "By you", and a monthly budget
   (`src/ai/budget.py`) pauses the optional AI steps at 90% and tells you.
@@ -517,9 +517,9 @@ live chart.
 
 <img src="docs/images/notion-pipeline.png" alt="Pipeline funnel in Notion" width="383">
 
-## How Job Pilotto compares
+## How Jobadabra compares
 
-Job Pilotto is for people who want a self-managed pipeline they control end to end: public job
+Jobadabra is for people who want a self-managed pipeline they control end to end: public job
 feeds, explicit location and language filters, evidence-based match scores, reviewable application
 kits, Telegram triage, Notion tracking — and browser agents that fill the form but **never submit
 it**. Compared from each project's published features and source code, September 2026; this is not
@@ -529,7 +529,7 @@ a measured accuracy or success-rate benchmark.
 
 | | Tool | Score | Strongest at |
 |:-:|---|:-:|---|
-| 🥇 | 🦾 **Job Pilotto** | **10**/10 | the whole route, and you press Submit |
+| 🥇 | 🦾 **Jobadabra** | **10**/10 | the whole route, and you press Submit |
 | 🥈 | [Job-CoPilot.ai](https://job-copilot.ai/) | **4**/10 | fit score and cover letters, hosted |
 | 🥈 | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | **4**/10 | open source; reads Gmail, pipeline analytics |
 | 4 | [JobCopilot.com](https://jobcopilot.com/) | **3½**/10 | volume: applies for you, hosted |
@@ -537,11 +537,11 @@ a measured accuracy or success-rate benchmark.
 | 6 | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | **3**/10 | open source; job discovery |
 | 7 | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | **2**/10 | open source form autofiller |
 
-<sub>Fair warning: the rows are what Job Pilotto was built for, so its 10 is partly the choice of rows. Volume (hundreds of applications a day) isn't a row: JobCopilot.com does it, Job Pilotto won't.</sub>
+<sub>Fair warning: the rows are what Jobadabra was built for, so its 10 is partly the choice of rows. Volume (hundreds of applications a day) isn't a row: JobCopilot.com does it, Jobadabra won't.</sub>
 
 **Legend:** ✅ yes · ⚠️ partial or experimental · ❌ no · ➖ not described in its public docs
 
-| | 🦾 **Job Pilotto** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
+| | 🦾 **Jobadabra** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | 🔓 Source code public, your data in your own accounts | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 🕷️ Finds new jobs by itself, on a schedule | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
@@ -560,15 +560,15 @@ Notes on the rows: ⚠️ on a tailored CV means tailoring without a check of wh
 review one that happened; suxrobGM/jobpilot reads Gmail replies and shows pipeline analytics; arthurpanhku's
 dashboard shows success rates; BhairavJShah's
 [autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py) submits when
-no doubts remain. High-volume unattended applying is left out on purpose: Job Pilotto doesn't do it, by design.
+no doubts remain. High-volume unattended applying is left out on purpose: Jobadabra doesn't do it, by design.
 
 <p align="center">
   <img src="docs/images/pipeline-coverage.png" width="100%"
-       alt="Job Pilotto pipeline: discover, score, prepare, fill, human review and submit, track, learn; outcomes feed back into your settings">
+       alt="Jobadabra pipeline: discover, score, prepare, fill, human review and submit, track, learn; outcomes feed back into your settings">
 </p>
 <sub>Diagram source: <a href="docs/images/pipeline-coverage.svg"><code>docs/images/pipeline-coverage.svg</code></a>.</sub>
 
-**In short:** 🏆 Job Pilotto covers the most of the pipeline — discovery → scoring → kits → filling
+**In short:** 🏆 Jobadabra covers the most of the pipeline — discovery → scoring → kits → filling
 → tracking → learning from outcomes (Gmail replies, funnel, interview reviews) — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
 volume and unattended applying; they don't let you own the sources, scoring or final click.
 🧪 Other open-source projects worth borrowing from: [jlifeng/JobPilot](https://github.com/jlifeng/JobPilot)
@@ -673,7 +673,7 @@ Everything below is for the [optional features](#optional-features); set up only
    | **API key**, pay per use, also for **Always on** (GitHub) | Anthropic (`ANTHROPIC_API_KEY`) | OpenAI (`OPENAI_API_KEY`) |
    | **Your own CLI**, your plan, $0 per call, this Mac only | Claude Code (`claude`, Claude plan) | Codex (`codex`, ChatGPT plan) |
 
-   - Policy: Job Pilotto runs your own, signed-in CLI as you could yourself; it never reads, stores or forwards its login, never
+   - Policy: Jobadabra runs your own, signed-in CLI as you could yourself; it never reads, stores or forwards its login, never
      signs in for you, never modifies it, and never uses it from GitHub, Telegram's cloud worker or the website. Not signed in?
      Run `claude` (or `codex login`) in Terminal and sign in yourself.
    - Plan limit reached: the step pauses and runs again later. Optional tick: "If my plan's limit is hit, use my API key"
@@ -751,7 +751,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `ANTHROPIC_ADMIN_KEY` | optional Admin API key (`sk-ant-admin…`, GitHub secret or Keychain `job-pilotto.anthropic.admin-key`): exact monthly spend from Anthropic's cost report |
 | `JOB_PILOTTO_GOOGLE_AUTH_AT` | when you last signed in to Google (set by `google auth --github`); the health check warns before the 7-day Testing limit |
 | `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5-5`) |
-| `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
+| `DIGEST_BRAND_NAME` | your digest's display name (default `Jobadabra`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Jobadabra"` if you want to keep your own role in the name |
 
 Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop all AI spending.
 
@@ -878,7 +878,7 @@ working in this repo.
 Read-only access (`gmail.readonly`, `calendar.readonly`): nothing in your mailbox or calendar is ever
 sent, changed or deleted.
 
-### The quick way: the shared Job Pilotto app (one click or one command)
+### The quick way: the shared Jobadabra app (one click or one command)
 
 In the Mac app: **Settings → Gmail and Calendar → Connect Google**. From a terminal:
 
@@ -890,7 +890,7 @@ A Google tab opens: pick your account → "Google hasn't verified this app" → 
 Pilotto** → tick both read-only permissions → Continue. That's all: the token goes to your Keychain
 (`job-pilotto.google.*`) and your fork's `GOOGLE_*` repository secrets, and it doesn't expire.
 
-This uses the published "Job Pilotto" Google app, whose client ships inside the Mac app (it is not in
+This uses the published "Jobadabra" Google app, whose client ships inside the Mac app (it is not in
 git; from a source checkout, use `setup` for your own Google app).
 Your mail stays in *your* copy (your Notion, your Telegram, your Anthropic key); the app's developer
 never sees it ([privacy policy](https://gist.github.com/GarryOne/a1abc02a6396c505234163ada978de11)).
@@ -914,7 +914,7 @@ guides: [Desktop app credentials](https://developers.google.com/workspace/guides
 <details><summary>What it does, step by step (to do it by hand)</summary>
 
 1. `gcloud auth login you@gmail.com`, then
-   `gcloud projects create job-pilotto-$RANDOM --name="Job Pilotto" --account=you@gmail.com` and
+   `gcloud projects create job-pilotto-$RANDOM --name="Jobadabra" --account=you@gmail.com` and
    `gcloud services enable gmail.googleapis.com calendar-json.googleapis.com --project=<id> --account=you@gmail.com`.
 2. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get started: app name, your
    email, audience **External** → Create.
@@ -1073,7 +1073,7 @@ pipeline; skip any step whose feature you don't want, and `doctor` shows that fe
 4. Set the GitHub secrets and variables listed above.
 5. Deploy the Worker: `cd worker && ./setup.sh` (creates Worker secrets, sets the Telegram webhook
    and command menu — needs a Cloudflare account logged in via `wrangler`).
-6. Trigger a first run by hand: Actions tab → `Job Pilotto` → Run workflow → mode `run`, or
+6. Trigger a first run by hand: Actions tab → `Jobadabra` → Run workflow → mode `run`, or
    send `/run` to your bot once the webhook is live.
 7. For the local apply tooling (macOS): copy `.env.example` to `.env` and set `JOB_PILOTTO_CV_PATH`
    (and `NOTION_TOKEN` if you don't use the Keychain).
@@ -1148,7 +1148,7 @@ answers) into any file that gets committed to git.
 
 ## License and use
 
-**Free to use, source available:** Job Pilotto is licensed under the [Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE.md).
+**Free to use, source available:** Jobadabra is licensed under the [Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE.md).
 You may read, run and change it for yourself (and your company's internal use); you may not offer it, or anything built
 from it, as a competing product or service. Each version becomes Apache 2.0 two years after its release. It is not
 "open source" in the OSI sense, so don't call it that.

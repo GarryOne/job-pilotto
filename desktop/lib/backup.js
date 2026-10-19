@@ -9,7 +9,7 @@ import * as reset from './reset.js';
 
 export const EVERY_MS = 7 * 24 * 3600 * 1000;
 export const KEEP = 4;
-const PREFIX = 'Job Pilotto backup ';
+const PREFIX = 'Job Pilotto backup ';   // existing backups keep this name (how they are found and pruned); renamed with the data folder, later
 
 // -> the backups folder. A test run names its own (JOB_PILOTTO_BACKUP_DIR, honoured only under JOB_PILOTTO_E2E: it must never reach the owner's folders).
 // Cloud folders are found by looking, never by a user name: iCloud Drive on a Mac, OneDrive's Documents (its "backed up" Documents folder) on Windows.

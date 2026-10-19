@@ -14,10 +14,10 @@ test('Gmail not connected: Not checked, a box that connects it', () => {
 });
 
 test('ended while waiting for another run: Couldn’t start, Try again', () => {
-  const run = {kind: 'tailor', ok: false, log: ['Another Job Pilotto search is running (app or terminal): waiting for it…']};
+  const run = {kind: 'tailor', ok: false, log: ['Another Jobadabra search is running (app or terminal): waiting for it…']};
   const head = waitedHead(run);
   assert.equal(head.title, 'Couldn’t start tailoring');
-  assert.match(head.summary, /waiting for another Job Pilotto run/);
+  assert.match(head.summary, /waiting for another Jobadabra run/);
   assert.deepEqual(head.fix, {label: 'Try again', rerun: true});
   assert.equal(waitedHead({...run, problem: 'x'}), null);
 });

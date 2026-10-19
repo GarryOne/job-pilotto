@@ -2,7 +2,7 @@
 // or their own Claude Code or Codex on this Mac (the engines and the one client factory: lib/ai/index.js) (src/ai/engine.py runs it for the Python jobs; client() below for the app's own
 // calls: the strategy draft, CV tailoring, form learning). Here: is Claude Code installed, which version, is it signed in
 // (one tiny `claude -p` call, on the user's plan), and the environment a job on this Mac gets for the choice.
-// Job Pilotto runs the user's OWN, unmodified, signed-in `claude`, exactly as they could run it themselves. It never
+// Jobadabra runs the user's OWN, unmodified, signed-in `claude`, exactly as they could run it themselves. It never
 // reads, stores, logs or forwards Claude credentials, never signs in for the user, never sets auth variables for it
 // (it drops the API key and the Free AI relay the app gives its own calls), and is never used by GitHub runs.
 import {execFile, spawn} from 'node:child_process';
@@ -18,7 +18,7 @@ export {alias, cleanEnv, cliClient, parseJson, problem, promptAndFiles, runJson}
 // and apply.js imports pipeline.js.
 const claudeBinary = async () => (await import('./apply.js')).claudeBinary();
 
-export const NOTICE = 'Job Pilotto will run your own Claude Code on this Mac. It uses your Claude plan\'s usage limits, not API credits. '
+export const NOTICE = 'Jobadabra will run your own Claude Code on this Mac. It uses your Claude plan\'s usage limits, not API credits. '
   + 'Scheduled runs in your GitHub repository (Always on) still use your API key. '
   + 'You stay in control: switch back to an API key any time.';
 export const ENGINES = ai.NAMES;
@@ -60,7 +60,7 @@ const freshFolder = () => fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-cla
 
 // Windows: the Claude Desktop app is a chat app and does not include Claude Code (the `claude` command); what installs it is told here.
 const hint = (platform = process.platform) => platform === 'win32'
-  ? ' The Claude Desktop app does not include Claude Code: in a Command Prompt run  winget install Anthropic.ClaudeCode  (answer Y to the terms), then restart Job Pilotto and press Verify.' : '';
+  ? ' The Claude Desktop app does not include Claude Code: in a Command Prompt run  winget install Anthropic.ClaudeCode  (answer Y to the terms), then restart Jobadabra and press Verify.' : '';
 // Where it looked, so a miss can be told from a stale PATH or an unusual install (a few folders; shown only in the user's own window).
 async function looked() {
   try { const dirs = (await import('./apply.js')).claudeSearchDirs(); return ` Looked in: ${[...new Set(dirs)].slice(0, 8).join(', ')}.`; } catch { return ''; }

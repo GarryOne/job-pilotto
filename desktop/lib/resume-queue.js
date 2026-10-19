@@ -17,7 +17,7 @@ export function resumeQuestion(names) {
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
   return {type: 'question', buttons: ['Start again', 'Leave stopped'], defaultId: 0, cancelId: 1,
     message: `Start ${list} again?`,
-    detail: `${names.length > 1 ? 'They were' : 'It was'} running or waiting when Job Pilotto closed. What a run saved is kept; started again, it continues `
+    detail: `${names.length > 1 ? 'They were' : 'It was'} running or waiting when Jobadabra closed. What a run saved is kept; started again, it continues `
       + 'from there. Left stopped, it stays in Recent activity as Interrupted, with Run again.'};
 }
 export async function askResume(names, {ask, env = process.env} = {}) {

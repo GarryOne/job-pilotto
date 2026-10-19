@@ -172,7 +172,7 @@ def company_for(stores, url, meta):
 
 def add_application(stores, url, *, applied=None, approx=False, channel=None, via=None, source='CLI', meta=None,
                     today=None, origin=None, found=None):
-    """Track an application made outside Job Pilotto (or before it): the application at Applied, an Applied event on
+    """Track an application made outside Jobadabra (or before it): the application at Applied, an Applied event on
     its date, and the frozen record. Same arguments and summary line as src/notion/ledger.py add_application.
     found: a dict that gets the application record ('row') and whether it was created ('created')."""
     from .notion import origin as origin_rule
@@ -209,7 +209,7 @@ def add_application(stores, url, *, applied=None, approx=False, channel=None, vi
     if found is not None:
         found.update(row=app, created=not existed)
     add_event(stores, app, 'Applied', source, at=applied.isoformat(),
-              note='Applied outside Job Pilotto' + ('; date is an upper bound (on or before)' if approx else ''))
+              note='Applied outside Jobadabra' + ('; date is an upper bound (on or before)' if approx else ''))
     try:
         _, recorded = record(stores, url, posting=lambda _url: meta)
     except Exception as error:  # noqa: BLE001

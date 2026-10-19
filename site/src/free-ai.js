@@ -44,7 +44,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (env.FREE_AI === 'off') return error(503, 'Free AI is paused right now. You can add your own key in Settings → AI engine.');
   if (!env.AI || !env.WAITLIST) return error(503, 'Free AI is not available right now.');
   const access = await who(request.headers.get('x-api-key'), env, now);
-  if (!access) return error(401, 'Free AI needs this install\'s token. Restart Job Pilotto and try again.', 'authentication_error');
+  if (!access) return error(401, 'Free AI needs this install\'s token. Restart Jobadabra and try again.', 'authentication_error');
   if (path === '/v1/models' && request.method === 'GET') return Response.json({data: [], has_more: false});   // key checks
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
   const pro = await proLane(env, access.install);   // a Pro account with credit: its own lane (src/pro-ai.js); null = the Free rules
@@ -58,7 +58,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
   const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
   if (!pro && seen >= allowance) return error(503, BUSY);
-  if (perMinute >= (pro ? PRO_PER_MINUTE : num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute))) return error(429, 'Free AI: too many requests in a minute. Job Pilotto will retry.', 'rate_limit_error');
+  if (perMinute >= (pro ? PRO_PER_MINUTE : num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute))) return error(429, 'Free AI: too many requests in a minute. Jobadabra will retry.', 'rate_limit_error');
   if (!pro && !access.license && life >= trialUsd(env) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
   if (!pro && installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
   if (!pro && (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay)) return error(429, DAY_MESSAGE, 'rate_limit_error');

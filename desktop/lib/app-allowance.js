@@ -60,7 +60,7 @@ export function createAppAllowance(ctx) {
     const state = licenseState();
     return {licensed: state.licensed, licenseKind: state.license?.kind || 'none', licenseId: state.license?.id || '', applicationsUsed: state.used, freeDaysLeft: state.daysLeft, allowanceEnded: state.ended};
   }
-  // How much Job Pilotto helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
+  // How much Jobadabra helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
   // extension filled, and the funnel (ever reached: applied, a human reply, screening, interviews, offers). From the
   // last Jobs and Focus reads (lib/view-cache.js), so nothing extra is read from Notion.
   function outcomes(settings) {

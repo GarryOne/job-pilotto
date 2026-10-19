@@ -23,8 +23,8 @@ export function toastMessage(title, body, hint) {
   toast.dataset.key = `${title}\n${body}`;
   toast.append(Object.assign(document.createElement('b'), {textContent: title}), Object.assign(document.createElement('span'), {textContent: body}));
   if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
-    window.pilot.platform === 'win32' ? 'Windows notifications are off for this app: Settings → System → Notifications → Job Pilotto → On.'
-      : 'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
+    window.pilot.platform === 'win32' ? 'Windows notifications are off for this app: Settings → System → Notifications → Jobadabra → On.'
+      : 'macOS notifications are off for this app: System Settings → Notifications → Electron (or Jobadabra) → Allow notifications.'}));
   // A pop-up that is news about something opens it on a click (renderer/targets.js); the others just close.
   if (target) { toast.classList.add('toast-link'); toast.title = 'Click to open'; }
   if (action) {
@@ -69,8 +69,8 @@ export async function init() {
   window.pilot.onToast(toastMessage);
   window.pilot.onOpenTarget(openTarget);   // a clicked system notification
 
-  // Help improve Job Pilotto (opt-in anonymous form reports).
-  // How much Job Pilotto does (renderer/assistant-mode.js): "Do it for me" (the default) or "Let me check each step".
+  // Help improve Jobadabra (opt-in anonymous form reports).
+  // How much Jobadabra does (renderer/assistant-mode.js): "Do it for me" (the default) or "Let me check each step".
   wireMode(async patch => (shared.state.settings = await window.pilot.saveSettings(patch)));
   showMode(shared.state?.settings || {});   // the setup's question and Settings show the same choice; nothing saved yet is "Do it for me"
   wireClaudeAuto(async patch => (shared.state.settings = await window.pilot.saveSettings(patch)));   // "Always let Claude finish when I'm stuck" (claude-auto.js)

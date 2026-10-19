@@ -1,4 +1,4 @@
-// What the app sent to the Job Pilotto service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
+// What the app sent to the Jobadabra service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
 // (the batched counts, the fingerprints of a form's controls, the label-meanings request, a fill report). Settings → Advanced reads it.
 // Nothing here is sent anywhere; it is only a copy of what already was.
 const FILE = 'data/shared-log.json', KEEP = 20, MAX_CHARS = 8000;

@@ -1,4 +1,4 @@
-"""⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
+"""⚙️ Search settings: what Jobadabra looks for, as a readable Notion page (the source of truth).
 
 The page has one heading per setting and one bullet per entry, e.g.
 
@@ -33,7 +33,7 @@ from ..paths import CONFIG, whole_word
 PAGE_ID = os.getenv('NOTION_SEARCH_SETTINGS_PAGE', '')
 TITLE = '⚙️ Search settings'
 FORMAT = 'Format 2'
-INTRO = ('What Job Pilotto looks for. Edit freely: one entry per bullet; the next search uses your changes. '
+INTRO = ('What Jobadabra looks for. Edit freely: one entry per bullet; the next search uses your changes. '
          'A word matches anywhere, any case, with or without accents ("entwickler" also finds "Softwareentwickler"). '
          '"In quotes" = whole word only. /…/ = a regular expression. ' + FORMAT + '.')
 

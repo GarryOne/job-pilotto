@@ -1,4 +1,4 @@
-// "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
+// "Answer once": questions Jobadabra needs you to answer. With Notion connected they are the ❓ lines of
 // your standard answers page (the source of truth), and its table rows whose Answer cell is still ❓ ("If a
 // salary field is optional | ❓ to confirm — leave blank, or always fill"). The strategy draft writes lines ("Notice period: ❓"),
 // and a form fill adds the required questions nothing could answer ("Visa sponsorship needed: ❓ (asked by

@@ -55,7 +55,7 @@ export const TIPS = [
   {id: 'location-notice', evidence: 'advice', category: 'knockout',
     text: 'Answer location, office days and notice period honestly. Your CV and your answers should agree, or a recruiter will notice.'},
   {id: 'read-answers', evidence: 'advice', category: 'knockout',
-    text: 'Job Pilotto fills the form and you click Submit. Read the answers once: knockout questions decide fast.'},
+    text: 'Jobadabra fills the form and you click Submit. Read the answers once: knockout questions decide fast.'},
   {id: 'early', evidence: 'to-test', category: 'timing',
     text: 'Early applications are often seen first. Apply soon after a role is posted.'},
   {id: 'own-page', evidence: 'to-test', category: 'timing',

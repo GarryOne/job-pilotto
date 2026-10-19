@@ -19,18 +19,18 @@ export function script(origin, source = '') {
 #   curl -fsSL ${origin}/install | bash -s JP1.…   (with a founder key from an invite)
 set -euo pipefail
 [ "$(uname -s)" = Darwin ] || { echo "This installer is for macOS. Windows: ${origin}/download/windows"; exit 1; }
-[ "$(uname -m)" = arm64 ] || { echo "Job Pilotto needs a Mac with Apple silicon (M1 or newer)."; exit 1; }
+[ "$(uname -m)" = arm64 ] || { echo "Jobadabra needs a Mac with Apple silicon (M1 or newer)."; exit 1; }
 
 APP="/Applications/Job Pilotto.app"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-echo "Downloading Job Pilotto…"
+echo "Downloading Jobadabra…"
 curl -fL --progress-bar -o "$tmp/app.zip" "${ZIP}"
 ditto -x -k "$tmp/app.zip" "$tmp/unpacked"
 
 if pgrep -f "/Job Pilotto.app/Contents/MacOS/" >/dev/null; then
-  echo "Quitting the running Job Pilotto…"
+  echo "Quitting the running Jobadabra…"
   osascript -e 'quit app "Job Pilotto"' >/dev/null 2>&1 || true
   for _ in $(seq 30); do pgrep -f "/Job Pilotto.app/Contents/MacOS/" >/dev/null || break; sleep 1; done
 fi
@@ -47,7 +47,7 @@ if [ -n "$key" ]; then
       dir="$HOME/Library/Application Support/Job Pilotto"
       mkdir -p "$dir" && (umask 077 && printf '%s' "$key" > "$dir/pending-license.txt")
       echo 'Founder key saved: the app unlocks itself.' ;;
-    *) echo "That isn't a Job Pilotto key (it starts with JP1.); installing without it." ;;
+    *) echo "That isn't a Jobadabra key (it starts with JP1.); installing without it." ;;
   esac
 fi
 # Where this install came from (the install link's ?src=): left for the app, which reports it once with its own anonymous

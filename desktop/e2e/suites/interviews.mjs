@@ -20,7 +20,7 @@ const REVIEW_MS = 5 * 60 * 1000;
 export async function run(ctx) {
   const {page, app, proxy} = ctx;
   // Where the library says it is kept (renderer/pages/interviews.js savedTo): Notion's database, or the app itself on this Mac's store.
-  const SAVED_TO = ctx.store === 'sqlite' ? 'Saved in Job Pilotto' : 'Saved to Notion 🎤 Interviews';
+  const SAVED_TO = ctx.store === 'sqlite' ? 'Saved in Jobadabra' : 'Saved to Notion 🎤 Interviews';
   // A finished review says where it went (interviews.js: byStore 'The review is on the Notion page.' / 'The review is saved with it.').
   const REVIEW_DONE = ctx.store === 'sqlite' ? 'The review is saved with it' : 'The review is on the Notion page';
   ctx.findings = [];

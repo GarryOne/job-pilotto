@@ -29,7 +29,7 @@ function showStray(entry) {
 const EXT_LINE = {
   connected: 'Connected: it fills application forms with your details and CV.',
   closed: 'Installed in Chrome. Chrome isn\'t running, so it can\'t reach this app: open it and it reports within 30 seconds.',
-  idle: 'Installed in Chrome, connecting to this app. If it stays amber, press Connect the extension below and then Connect to the Job Pilotto app.',
+  idle: 'Installed in Chrome, connecting to this app. If it stays amber, press Connect the extension below and then Connect to the Jobadabra app.',
   off: 'Installed in Chrome but turned off: switch it back on in chrome://extensions.',
   absent: 'Not installed in Chrome yet — the three steps below take a minute.',
   checking: 'Looking for it in Chrome…',
@@ -270,7 +270,7 @@ async function disconnectGoogle() {
   message('google-message', 'Disconnecting…', 'waiting');
   const result = await window.pilot.googleDisconnect().catch(error => ({ok: false, error: error.message}));
   message('google-message', result.ok
-    ? `Disconnected: Gmail and Calendar are no longer read${result.github === true ? ', here or by Always on' : ''}.${result.revoked ? '' : ' Google could not be reached: remove Job Pilotto under myaccount.google.com → Security → Third-party access.'}`
+    ? `Disconnected: Gmail and Calendar are no longer read${result.github === true ? ', here or by Always on' : ''}.${result.revoked ? '' : ' Google could not be reached: remove Jobadabra under myaccount.google.com → Security → Third-party access.'}`
     : result.error, result.ok ? 'ok' : 'error');
   showGoogle();
 }
@@ -340,7 +340,7 @@ export async function init() {
       cloudWaiting = true;
       showCloudPill();
       if (Date.now() - cloudSince < 10 * 60 * 1000) setTimeout(() => $('cloud-connect').click(), 5000);
-      else { cloudWaiting = false; showCloudPill(); message('cloud-message', 'Still not installed. Install Job Pilotto on a repository on GitHub, then press Turn on again.', 'error'); }
+      else { cloudWaiting = false; showCloudPill(); message('cloud-message', 'Still not installed. Install Jobadabra on a repository on GitHub, then press Turn on again.', 'error'); }
       return;
     }
     cloudWaiting = false;
@@ -349,7 +349,7 @@ export async function init() {
       show($('cloud-steps'), false);
       $('cloud-repo').replaceChildren(...result.repos.map(name => Object.assign(document.createElement('option'), {value: name, textContent: name})));
       show($('cloud-choose'));
-      message('cloud-message', 'Job Pilotto is installed on several repositories: choose the one to use.', '');
+      message('cloud-message', 'Jobadabra is installed on several repositories: choose the one to use.', '');
       return;
     }
     if (!result.ok) { message('cloud-message', result.error, 'error'); return; }
@@ -367,7 +367,7 @@ export async function init() {
       const code = Object.assign(document.createElement('b'), {className: 'device-code', textContent: step.code});
       const copy = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Copy'});
       copy.addEventListener('click', () => { navigator.clipboard.writeText(step.code); copy.textContent = 'Copied ✓'; });
-      box.replaceChildren('In the browser tab that opened, enter this code and approve Job Pilotto:', document.createElement('br'),
+      box.replaceChildren('In the browser tab that opened, enter this code and approve Jobadabra:', document.createElement('br'),
         code, ' ', copy, document.createElement('br'), Object.assign(document.createElement('span'), {className: 'muted small', textContent: step.url}));
     }
     else message('cloud-message', step.text);
@@ -407,7 +407,7 @@ export async function init() {
   $('google-warning-go').addEventListener('click', async () => {
     $('google-warning-dialog').close();
     $('google-connect').disabled = true;
-    message('google-message', 'Finish the sign-in in your browser: on Google\'s warning page press Advanced, then Go to Job Pilotto (unsafe).');
+    message('google-message', 'Finish the sign-in in your browser: on Google\'s warning page press Advanced, then Go to Jobadabra (unsafe).');
     const result = await window.pilot.googleConnect();
     $('google-connect').disabled = false;
     message('google-message', result.ok ? 'Connected ✓' : result.error, result.ok ? 'ok' : 'error');
@@ -482,8 +482,8 @@ export async function init() {
   }
   $('ext-connect').addEventListener('click', async () => {
     const result = await window.pilot.extensionOptions().catch(() => null);
-    message('ext-message', result?.opened ? 'Its settings page is open: press Connect to the Job Pilotto app there.'
-      : inBrowser('Couldn\'t open the extension\'s settings page. Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.', browserApp), result?.opened ? 'ok' : 'error');
+    message('ext-message', result?.opened ? 'Its settings page is open: press Connect to the Jobadabra app there.'
+      : inBrowser('Couldn\'t open the extension\'s settings page. Open it from Chrome: 🧩 → ⋮ next to Jobadabra → Options.', browserApp), result?.opened ? 'ok' : 'error');
   });
   $('open-data').addEventListener('click', () => window.pilot.showFolder('data'));
   $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });

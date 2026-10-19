@@ -1,8 +1,8 @@
-# What Job Pilotto does
+# What Jobadabra does
 
-Job Pilotto looks for new jobs every few hours, reads each one, scores how well it fits you, drafts your answers and fills the application form. **You decide what to apply to, review everything, and click Submit yourself.** It never submits for you.
+Jobadabra looks for new jobs every few hours, reads each one, scores how well it fits you, drafts your answers and fills the application form. **You decide what to apply to, review everything, and click Submit yourself.** It never submits for you.
 
-The Job Pilotto app on your Mac does the work. This Notion workspace is where you see and track everything.
+The Jobadabra app on your Mac does the work. This Notion workspace is where you see and track everything.
 
 # Your pages
 
@@ -27,7 +27,7 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 - **API key:** pay per use; runs show the dollar cost.
 - **Always on (GitHub) needs an API key**, whichever you pick for the Mac.
 - Plan limit reached: the step pauses and retries later (or uses your key, if you ticked that).
-- Job Pilotto never touches your Claude login: not signed in → run `claude` in Terminal and sign in yourself.
+- Jobadabra never touches your Claude login: not signed in → run `claude` in Terminal and sign in yourself.
 
 # A normal week
 
@@ -46,7 +46,7 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 
 # Good to know
 
-- **Your data** is in this Notion workspace and on your Mac. Nothing is stored by Job Pilotto on a server.
+- **Your data** is in this Notion workspace and on your Mac. Nothing is stored by Jobadabra on a server.
 - **AI costs** go to your own Anthropic account, usually a few dollars a month. Each search's cost is in Cronjob Runs.
 - **Jobs page, Show menu:** *New matches* = jobs found for you, not reviewed yet. *Inbound* = recruiters and contacts who found you (never mixed into matches).
 - **Fit scores** are a guide, not a verdict: a 65 with a great team can beat an 80.

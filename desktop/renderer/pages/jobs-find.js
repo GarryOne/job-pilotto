@@ -50,7 +50,7 @@ function draw(model) {
     chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
     const lines = el('ul', 'run-card-rows');
     lines.append(...model.lines.map(text => el('li', 'run-card-row', text)));
-    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Job Pilotto; a found job joins your list below once it is checked.']}),
+    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Jobadabra; a found job joins your list below once it is checked.']}),
       runNumbers(model), readProgress(model), chips, lines);
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before

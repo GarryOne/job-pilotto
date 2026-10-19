@@ -12,16 +12,16 @@
     .report-pop .act { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font-weight: 600; }
     .report-pop .act.main { background: var(--signal); border-color: var(--signal); color: #fff; } .report-pop .act[disabled] { opacity: .6; cursor: default; }
     .report-pop .act:focus-visible, .report-pop textarea:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }`;
-  const WORDS = {stopped: 'Job Pilotto was stopped before anything was recorded on this page. Press Apply in the app to start again.',
-    off: 'The recording is turned off in Job Pilotto Settings, so there is nothing to send.', empty: 'Nothing has been recorded on this page yet (a sign-in page is never recorded). Try again after the page has loaded.',
-    worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.', app: 'The Job Pilotto app did not answer. Is the app open? Open it and press Report again.', expired: 'This report expired. Press Report again.',
+  const WORDS = {stopped: 'Jobadabra was stopped before anything was recorded on this page. Press Apply in the app to start again.',
+    off: 'The recording is turned off in Jobadabra Settings, so there is nothing to send.', empty: 'Nothing has been recorded on this page yet (a sign-in page is never recorded). Try again after the page has loaded.',
+    worker: 'Jobadabra could not reach its extension service. Reload this page and try again.', app: 'The Jobadabra app did not answer. Is the app open? Open it and press Report again.', expired: 'This report expired. Press Report again.',
     failed: 'The app hit an error while preparing this report, so nothing was sent. Press Report again; if it repeats, the app\'s log says what stopped it.',
-    connect: 'The extension is not connected to the app. Open Job Pilotto, then reload this page and press Report again.',
+    connect: 'The extension is not connected to the app. Open Jobadabra, then reload this page and press Report again.',
     old: 'This version of the app does not have Report yet. Update the app, then try again.',
     error: 'The extension hit an error while handing over the recording. Reload this page and try again.',
     unknown: 'The app did not understand the request. Update the app and the extension to the same version.',
     other: 'Something unexpected stopped the report, so nothing was sent. Press Report again.'};
-  const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';   // the same sentence the app logs
+  const BLOCKED = 'Jobadabra could not remove everything personal from it safely, so nothing was sent.';   // the same sentence the app logs
   const KINDS = {email: 'an e-mail address', phone: 'a phone number', name: 'your name', 'name-in-code': 'your name inside a script', location: 'your place', token: 'a sign-in token'};
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   let pop = null, send = null;
@@ -58,10 +58,10 @@
     const lines = document.createElement('div');
     lines.innerHTML = '<p class="muted"></p><p class="muted">Never sent: what you typed, passwords, cookies, your CV or your profile. Encrypted before it leaves this Mac; deleted after 30 days.</p>';
     lines.firstChild.textContent = `${plural(data.responses || 0, 'page response')} from ${plural((data.hosts || []).length, 'site')}. Personal details removed: ${removed}.${data.removed?.unclean ? ' One page part could not be cleaned, so it was left out.' : ''}`;
-    say('Send this form\'s recording?', 'It shows how Job Pilotto read this form, so it can be fixed.', [['Cancel', false, async () => { close(); ask({type: 'report-cancel'}); }], ['Send', true, async button => {
+    say('Send this form\'s recording?', 'It shows how Jobadabra read this form, so it can be fixed.', [['Cancel', false, async () => { close(); ask({type: 'report-cancel'}); }], ['Send', true, async button => {
       button.disabled = true; button.textContent = 'Sending…';
       const done = await ask({type: 'report-confirm', note: note.value});
-      if (done?.ok) say('Sent', 'Thank you. It is encrypted, and you can delete it any time in Job Pilotto Settings.', [['OK', true, close]]);
+      if (done?.ok) say('Sent', 'Thank you. It is encrypted, and you can delete it any time in Jobadabra Settings.', [['OK', true, close]]);
       else say('Nothing was sent', done ? refusal(done) : WORDS.worker, [['OK', true, close]]);
     }]], [lines.firstChild, lines.lastChild, note]);
   }

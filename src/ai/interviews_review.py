@@ -33,4 +33,4 @@ def review_block_ids(blocks):
     return ids
 
 
-PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'
+PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Jobadabra app.'

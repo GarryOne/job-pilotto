@@ -1,4 +1,4 @@
-// Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
+// Settings → Your data: export, import and reset this computer's Jobadabra data (the data folder).
 // The app can't replace its own data folder while it runs (Chromium keeps files open there), so import and
 // reset are requested, the app restarts, and the folder is swapped at the very start of the next launch,
 // before anything opens it. An import moves the current data to a backup folder first; a reset deletes it (the person exports first).
@@ -34,13 +34,13 @@ export function backupName(dir, now = new Date()) {
 }
 
 // The export's file name: whose it is and when, so two exports (or two people's) are told apart at a glance in Finder:
-// "Job Pilotto export · Igor Mardari · Photographe · 2026-10-06 22.41.tar.gz". The name and role are left out when unknown; the time uses
+// "Jobadabra export · Igor Mardari · Photographe · 2026-10-06 22.41.tar.gz". The name and role are left out when unknown; the time uses
 // a dot (":" is not allowed in a macOS or Windows file name), local time like the backup folders.
 export function exportName({name = '', role = '', at = new Date()} = {}) {
   const clean = text => String(text || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40).trim();
   const pad = n => String(n).padStart(2, '0');
   const when = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}.${pad(at.getMinutes())}`;
-  return ['Job Pilotto export', clean(name), clean(role), when].filter(Boolean).join(' · ') + '.tar.gz';
+  return ['Jobadabra export', clean(name), clean(role), when].filter(Boolean).join(' · ') + '.tar.gz';
 }
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
@@ -63,7 +63,7 @@ export function exportTo(dir, file, {keys = null, accounts = null, version = ''}
   return file;
 }
 
-// Import: unpack next to the data folder and check it's a Job Pilotto export; the swap happens at the next start.
+// Import: unpack next to the data folder and check it's a Jobadabra export; the swap happens at the next start.
 export function stageImport(dir, file) {
   const staged = `${dir} (import)`;
   fs.rmSync(staged, {recursive: true, force: true});
@@ -74,7 +74,7 @@ export function stageImport(dir, file) {
   try { manifest = JSON.parse(fs.readFileSync(path.join(staged, 'manifest.json'), 'utf8')); } catch {}
   if (manifest?.app !== 'Job Pilotto' || !fs.existsSync(path.join(staged, 'settings.json'))) {
     fs.rmSync(staged, {recursive: true, force: true});
-    throw new Error('This file is not a Job Pilotto export');
+    throw new Error('This file is not a Jobadabra export');
   }
   fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup: true, import: staged}));
   return manifest;

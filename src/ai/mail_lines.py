@@ -30,7 +30,7 @@ def ask(stores, email, result, suggested, index, lines, stats):
     guess = f" (maybe {_label(suggested)})" if suggested is not None else ''
     lines.append(tgcard.block('Which job is this for?', escape(result.get('company') or email['subject'][:60]) + ': '
                               + escape(result.get('summary') or kind) + (f' Maybe {_label(suggested)}.' if suggested is not None else ''),
-                              tgcard.fact('Next step', 'answer in Job Pilotto: Focus')))
+                              tgcard.fact('Next step', 'answer in Jobadabra: Focus')))
     if stats is not None:
         stats.setdefault('updates', []).append(f"{kind} · {result.get('company') or subject[:60]} — which job?"[:140])
 

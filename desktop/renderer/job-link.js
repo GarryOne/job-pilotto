@@ -12,7 +12,7 @@ export function withListJob(job, jobs = []) {
   return {...job, title: job.title || listed?.title || '', jobUrl: job.jobUrl || listed?.url || ''};
 }
 
-// The two links: Open job in Notion (⌘-click: in a Job Pilotto window, like everywhere else) and Show in Jobs
+// The two links: Open job in Notion (⌘-click: in a Jobadabra window, like everywhere else) and Show in Jobs
 // (the Jobs list filtered to it), the second only when the job's key is known.
 export function jobLinkActions(job, {openNotion, show}) {
   return [

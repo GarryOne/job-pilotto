@@ -11,4 +11,4 @@ export function branch(cwd, run = execFileSync) {
   catch { return ''; }
 }
 
-export const title = (dev, gitBranch = '', word = mark()) => (dev || word === 'TWIN' ? `Job Pilotto · ${word}${gitBranch ? ` · ${gitBranch}` : ''}` : 'Job Pilotto');
+export const title = (dev, gitBranch = '', word = mark()) => (dev || word === 'TWIN' ? `Jobadabra · ${word}${gitBranch ? ` · ${gitBranch}` : ''}` : 'Jobadabra');

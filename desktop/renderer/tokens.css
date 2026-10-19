@@ -1,4 +1,4 @@
-/* Job Pilotto design tokens: the only place with raw colours, sizes and fonts.
+/* Jobadabra design tokens: the only place with raw colours, sizes and fonts.
    Screens use these through var(--…) and the components (components.js); test/design.test.js fails
    when a stylesheet uses a colour, corner radius or font size that isn't one of them. */
 :root {

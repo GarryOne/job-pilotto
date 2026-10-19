@@ -128,7 +128,7 @@ export async function snapshotStrategy(token, ids, when, fetcher) {
   const page = await call(token, 'POST', 'pages', {parent: {page_id: parent}, icon: {type: 'emoji', emoji: '🗂'},
     properties: {title: {title: [{text: {content: `Previous strategy — ${when}`}}]}},
     children: [{object: 'block', type: 'callout', callout: {icon: {type: 'emoji', emoji: '💡'}, rich_text: [{type: 'text', text: {content:
-      'Your strategy as it was before you replaced it in the Job Pilotto app. Nothing here is used; copy anything back you want to keep.'}}]}}]}, fetcher);
+      'Your strategy as it was before you replaced it in the Jobadabra app. Nothing here is used; copy anything back you want to keep.'}}]}}]}, fetcher);
   for (const [label, id] of [['Profile', ids.NOTION_PROFILE_PAGE_ID], ['Standard answers', ids.NOTION_ANSWERS_PAGE_ID],
     ['Search settings', ids.NOTION_SEARCH_SETTINGS_PAGE]]) {
     if (!id) continue;

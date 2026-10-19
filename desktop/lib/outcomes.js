@@ -1,4 +1,4 @@
-// "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
+// "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Jobadabra what an employer did, with one click on a job.
 // It is written to Notion as the same stage event the Gmail check makes (src/notion/ledger.py), and, when Technical reports are on, counted
 // anonymously: only the job BOARD (a known name, or a short hash of any other site), the outcome and a coarse number of days. Never the
 // company, the role or the job's address, because where someone applied is theirs to keep.

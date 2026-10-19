@@ -25,7 +25,7 @@ async function jobFor(storage, question, {company = '', url = '', call}) {
 // Writes the answer into the job's section. -> {ok, job: {id, url, title, company}} or {ok: false, error}.
 export async function save(storage, question, value, {company = '', url = '', call = engine.call} = {}) {
   const job = await jobFor(storage, question, {company, url, call});
-  if (!job) return {ok: false, error: 'Job Pilotto could not tell which application asked this question, so it cannot keep the answer for that job only. Reuse it for matching questions, or answer it from the job.'};
+  if (!job) return {ok: false, error: 'Jobadabra could not tell which application asked this question, so it cannot keep the answer for that job only. Reuse it for matching questions, or answer it from the job.'};
   const before = await call(storage, 'applications', 'section', {app_id: job.id, name: JOB_ANSWERS_SECTION});
   await call(storage, 'applications', 'set_section', {app_id: job.id, name: JOB_ANSWERS_SECTION, markdown: withJobAnswer(before, question, value)});
   return {ok: true, job: {id: job.id, url: job.url || '', title: job.title || '', company: job.company || ''}};

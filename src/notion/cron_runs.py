@@ -221,7 +221,7 @@ def log_run(tracker, run, failed=False):
         return None
 
 
-STOPPED_WORDS = 'Stopped before it finished: Job Pilotto was closed, or Stop was pressed'
+STOPPED_WORDS = 'Stopped before it finished: Jobadabra was closed, or Stop was pressed'
 EXIT_GRACE_S = 3
 
 

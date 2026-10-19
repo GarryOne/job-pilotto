@@ -61,7 +61,7 @@ test('a drop asks the app, never writes a stage itself: setStatus for Saved/Appl
   assert.deepEqual(dropFor(applied, 'Dismissed'), {call: 'setStatus', arg: 'dismissed'});
   for (const stage of OUTCOME_STAGES) assert.deepEqual(dropFor(applied, stage), {call: 'setStage', arg: stage}, stage);
   for (const stage of ['Kit ready', 'Applying', 'Closed', 'Recruiter lead']) {
-    assert.match(dropFor(applied, stage).refused, /set by Job Pilotto/, stage);
+    assert.match(dropFor(applied, stage).refused, /set by Jobadabra/, stage);
     assert.equal(takesDrop(stage), false, stage);
   }
   assert.deepEqual(dropFor(applied, 'Applied'), {none: true});

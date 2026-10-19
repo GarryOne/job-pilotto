@@ -147,7 +147,7 @@ def present(item, gmail=True):
         meta = [item.get('event_kind', ''), _short(item.get('note', ''), 60)]
     elif kind == 'details':
         icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
-        headline = f"Tell Job Pilotto about the {who} interview" if item['company'] or 'company' not in item.get('missing', []) \
+        headline = f"Tell Jobadabra about the {who} interview" if item['company'] or 'company' not in item.get('missing', []) \
             else f'Who is the employer behind {who}?'
         meta = [_short(item['job'], 40), 'missing: ' + ', '.join(item.get('missing', []))]
     elif kind == 'apply':

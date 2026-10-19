@@ -86,7 +86,7 @@ test('text that runs out of its box and stays visible is found, in the app chrom
   try {
     const page = await browser.newPage({viewport: {width: 1024, height: 700}});
     const run = markup => findings(page, `<aside class="sidebar" style="width:72px"><div class="brand" style="white-space:nowrap">${markup}</div></aside><section class="view" data-view="jobs"><h1>Jobs</h1></section>`);
-    const spilled = await run('Job Pilotto <span class="dev-tag">DEV</span>');
+    const spilled = await run('Jobadabra <span class="dev-tag">DEV</span>');
     const hit = spilled.find(item => item.kind === 'spill');
     assert.ok(hit, `the spilling brand was not flagged: ${JSON.stringify(spilled)}`);
     assert.equal(hit.chrome, true, 'something in the sidebar belongs to the app, not to the page');
@@ -180,7 +180,7 @@ test('the real menu at the smallest window height: the old hidden-scrollbar colu
 
 // CONTENT SHOWN IN THE WRONG FORM (5 Oct 2026 is the reference case: a Jobs check's digest as raw Telegram text above its own card).
 // The checks must catch that case AND others of the same type, and stay quiet on clean screens.
-const DIGEST = '✈️ Job Pilotto · 🆕 1 new · top 1 of 1<br>1 open · 1 📍<br>1. Senior Site Reliability Engineer (https://boards.e2e.test/job/1791157080)<br>&nbsp;&nbsp;E2E Acme · Zurich<br>Tap a job number to mark it applied, save or dismiss it.';
+const DIGEST = '✈️ Jobadabra · 🆕 1 new · top 1 of 1<br>1 open · 1 📍<br>1. Senior Site Reliability Engineer (https://boards.e2e.test/job/1791157080)<br>&nbsp;&nbsp;E2E Acme · Zurich<br>Tap a job number to mark it applied, save or dismiss it.';
 const ITEMS = 'Senior Site Reliability Engineer at E2E Acme in Zurich, hybrid, strong match on Kubernetes, Terraform, AWS and service level objectives; no salary stated; English only; posted two days ago by the platform team';
 const kinds = async (page, body) => (await findings(page, `<section class="view" data-view="jobs">${body}</section>`)).map(item => item.kind);
 const withChrome = async run => { const browser = await chromium.launch({channel: 'chrome'}); try { await run(await browser.newPage({viewport: {width: 1280, height: 800}})); } finally { await browser.close(); } };

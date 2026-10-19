@@ -273,7 +273,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
     reading = '';
   }
   // The "which job?" note repeats the question the email's row already asks: drop it.
-  report.notes = report.notes.filter(note => !/which job\?.*Answer in Job Pilotto/.test(note.text));
+  report.notes = report.notes.filter(note => !/which job\?.*Answer in Jobadabra/.test(note.text));
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length
     && !report.outcomes.length && !report.assessments.length;
   return empty && !report.status.sentence && !parsed.updates.length && !parsed.emails.length ? null : report;

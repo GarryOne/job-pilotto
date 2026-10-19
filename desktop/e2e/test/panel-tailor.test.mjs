@@ -1,6 +1,6 @@
 /* global document */
 // The form panel's "Tailor CV + letter" answers ON THE PANEL in every branch (started, done, not in your list, failed, app silent), and the other controls that ask the app
-// (Open in Job Pilotto, Add this job) show their progress and failure there too. Real extension on a fixture form, a stand-in app with fake data, no paid AI, nothing live (owner, 19 Oct 2026).
+// (Open in Jobadabra, Add this job) show their progress and failure there too. Real extension on a fixture form, a stand-in app with fake data, no paid AI, nothing live (owner, 19 Oct 2026).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {startRealExtension} from '../lib/real-extension.mjs';
@@ -88,7 +88,7 @@ test('Tailor CV: an app that does not answer is said on the panel, not a dead li
   } finally { await t.real.close(); }
 });
 
-test('Open in Job Pilotto: an app that refuses is said on the panel', async () => {
+test('Open in Jobadabra: an app that refuses is said on the panel', async () => {
   const t = await start('silent');
   try {
     await t.real.page.waitForFunction(() => !document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.open-app').hidden, null, {timeout: 15000});

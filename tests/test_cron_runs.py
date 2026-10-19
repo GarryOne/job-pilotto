@@ -324,7 +324,7 @@ class PlainResultTest(unittest.TestCase):
         from unittest import mock
         with mock.patch.dict(os.environ, {'DIGEST_BRAND_NAME': ''}):
             from src import digest
-            self.assertEqual(importlib.reload(digest).BRAND_NAME, 'Job Pilotto')
+            self.assertEqual(importlib.reload(digest).BRAND_NAME, 'Jobadabra')
         importlib.reload(digest)
 
 

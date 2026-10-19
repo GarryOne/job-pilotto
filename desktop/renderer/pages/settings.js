@@ -141,7 +141,7 @@ export async function connectExtension({auto = false} = {}) {
     const result = await window.pilot.extensionOptions().catch(() => null);
     const {toastMessage} = await import('./startup.js');  // dynamic: startup.js imports this file
     if (result?.opened) toastMessage('Connecting the Chrome extension', auto ? 'Its settings page opened and connects by itself. You can close that tab.' : 'Its settings page is open and connects by itself. You can close that tab.');
-    else if (!auto) { toastMessage('Couldn\'t open the extension', 'Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.'); openSetting('extension'); }
+    else if (!auto) { toastMessage('Couldn\'t open the extension', 'Open it from Chrome: 🧩 → ⋮ next to Jobadabra → Options.'); openSetting('extension'); }
     for (const wait of [3000, 8000]) setTimeout(() => import('./connections.js').then(page => page.showExtensionStatus()), wait);
   } finally { connecting = false; }
 }
@@ -290,7 +290,7 @@ export function showRunMode() {
   const repo = shared.state.settings.cloud?.repo;
   document.querySelectorAll('[data-run-mode]').forEach(button => button.classList.toggle('is-active', (button.dataset.runMode === 'cloud') === !!repo));
   $('run-mode-text').textContent = repo ? `Runs in your GitHub repository ${repo}, even with your Mac off.`
-    : 'Scheduled tasks run on this Mac while Job Pilotto is open.';
+    : 'Scheduled tasks run on this Mac while Jobadabra is open.';
   $('run-mode-more').textContent = repo ? 'Manage Always on' : 'Learn about Always on';
   $('tz-note').textContent = `Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
 }
