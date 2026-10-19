@@ -72,8 +72,10 @@ def ai_ideas(db, harvest_sources=None):
     from .ai import engine, scout_ideas
     if harvest_sources is not None or os.getenv('JOB_PILOTTO_FIXTURE_DIR') or not features.enabled('scout_ai') or not engine.ready():
         return None
+    from . import scout_cells   # the central scout aims at the list's thinnest kind × country, not the example search's roles
+    search, label = scout_cells.aim(db, load_search_config()) if scout_core.CENTRAL else (load_search_config(), '')
     try:
-        found = scout_ideas.run(db, load_search_config())
+        found = scout_ideas.run(db, search, label=label)
     except Exception as error:  # noqa: BLE001 — the ideas are a bonus: a failed call must never stop the scout
         print(f'Warning: scout ideas skipped: {type(error).__name__}: {error}')
         return None
@@ -422,6 +424,8 @@ def main():
             swiss_titles = []
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
+            from . import scout_cells
+            scout_cells.keep(db, feeds_out)   # the next run's ideas aim at the thinnest kind × country
             stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
             boards = board_stats(fetch_boards(index_url, key))
             count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)

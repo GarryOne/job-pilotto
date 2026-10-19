@@ -10,11 +10,13 @@ import re
 KINDS = ('software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other')
 # Which kind a title or a role word is, in any language: the meanings pack (the old word lists of this file and coverage.py as seed, plus what
 # the site learned) and, for any other wording, the AI (src/ai/decide.py); 'other' when neither knows, as an unmatched title was before.
-TASK = ('A job title, or a role a job seeker looks for, in any language. Answer its kind of work: software = software, IT, data, devops, '
-        'security engineering; sales_b2b = selling to companies, account management, business development; sales_retail = shop and store '
-        'sales; logistics = warehouse, driving, delivery, supply chain; hospitality = kitchen, restaurant, hotel, bar; healthcare = nursing, '
-        'medical, pharmacy, care; creative_media = photo, video, design, content, journalism; finance_admin = accounting, finance, office, HR, '
-        'admin; education = teaching, training, childcare; trades = technicians, mechanics, electricians, construction; other = anything else.')
+WORK = {'software': 'software, IT, data, devops, security engineering', 'sales_b2b': 'selling to companies, account management, business development',
+        'sales_retail': 'shop and store sales', 'logistics': 'warehouse, driving, delivery, supply chain', 'hospitality': 'kitchen, restaurant, hotel, bar',
+        'healthcare': 'nursing, medical, pharmacy, care', 'creative_media': 'photo, video, design, content, journalism',
+        'finance_admin': 'accounting, finance, office, HR, admin', 'education': 'teaching, training, childcare',
+        'trades': 'technicians, mechanics, electricians, construction', 'other': 'anything else'}   # the work of each kind, in plain words
+TASK = ('A job title, or a role a job seeker looks for, in any language. Answer its kind of work: '
+        + '; '.join(f'{kind} = {WORK[kind]}' for kind in KINDS) + '.')
 
 
 def kinds_of(texts, topic='role-kind'):
