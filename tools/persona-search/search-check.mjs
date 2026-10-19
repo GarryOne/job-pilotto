@@ -18,10 +18,11 @@ export const FORBIDDEN_ENV = ['ANTHROPIC_API_KEY', 'LAB_HEAL_ANTHROPIC_KEY', 'RA
 export const cleanEnv = env => Object.fromEntries(Object.entries(env).filter(([key]) => !FORBIDDEN_ENV.includes(key)));
 
 // -> the steps of one check: the CV, then the one press on the plan engine (no --engine api: that is the CI draw).
-export function plan(args, now = new Date(), tmp = os.tmpdir()) {
+// The process id is in the folder's name: two checks started in the same second (a browser-on/off pair) never share an install.
+export function plan(args, now = new Date(), tmp = os.tmpdir(), pid = process.pid) {
   const [who, ...rest] = args, seedAt = rest.indexOf('--seed');
   if (!who || !(who === 'random' || CANDIDATES.includes(who))) throw new Error(`usage: search-check.mjs <${[...CANDIDATES, 'random'].join('|')}> [--seed <text>] [--dry]`);
-  const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15), out = path.join(tmp, `jp-search-check-${stamp}`);
+  const stamp = `${now.toISOString().replace(/[-:]/g, '').slice(0, 15)}-${pid}`, out = path.join(tmp, `jp-search-check-${stamp}`);
   const random = who === 'random', seed = random ? (seedAt >= 0 ? rest[seedAt + 1] : `local-${stamp}`) : null, name = random ? 'draw' : who;
   return {who, name, seed, out, tag: `check-${stamp}`,
     cv: random ? ['python3', 'tools/persona-search/draw.py', seed, out] : ['python3', 'tools/persona-search/personas.py', out],
