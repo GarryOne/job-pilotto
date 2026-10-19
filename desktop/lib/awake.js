@@ -14,7 +14,23 @@ export function watchSleep(powerMonitor, log = () => {}, now = () => Date.now())
   });
 }
 
+// Electron does not always send suspend/resume (JOB-PILOTTO-APP-14: a run stopped for "no output for 530 min" after a night asleep). Timers freeze
+// while asleep, so a gap between two ticks of this heartbeat, beyond what suspend/resume already reported, is sleep too.
+const TICK_MS = 5000, GAP_MS = 30000;
+let lastTick = null, sleptAtTick = 0, beat = null;
+export function noteTick(now = Date.now()) {
+  if (lastTick != null && now - lastTick > GAP_MS) slept += Math.max(0, now - lastTick - TICK_MS - (sleptMs(now) - sleptAtTick));
+  lastTick = now;
+  sleptAtTick = sleptMs(now);
+}
+export function startHeartbeat() {
+  if (beat) return;
+  noteTick();
+  beat = setInterval(() => noteTick(), TICK_MS);
+  beat.unref?.();
+}
+
 // Milliseconds the computer has slept since the app started (while asleep, the sleep so far).
 export const sleptMs = (now = Date.now()) => slept + (suspendedAt == null ? 0 : Math.max(0, now - suspendedAt));
 export const awakeNow = (now = Date.now()) => now - sleptMs(now);
-export function resetSleepForTests() { slept = 0; suspendedAt = null; }
+export function resetSleepForTests() { slept = 0; suspendedAt = null; lastTick = null; sleptAtTick = 0; }

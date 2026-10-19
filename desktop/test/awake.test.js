@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
-import {watchSleep, sleptMs, awakeNow, resetSleepForTests} from '../lib/awake.js';
+import {watchSleep, noteTick, sleptMs, awakeNow, resetSleepForTests} from '../lib/awake.js';
 import {stale, ORPHAN} from '../lib/orphans.js';
 
 test('the time asleep is left out of the awake clock', () => {
@@ -18,6 +18,32 @@ test('the time asleep is left out of the awake clock', () => {
   assert.equal(sleptMs(clock + 5000), 20 * 60_000);
   assert.equal(awakeNow(clock + 5000), clock + 5000 - 20 * 60_000);
   assert.equal(logged[0][2].slept_s, 1200);
+  resetSleepForTests();
+});
+
+// JOB-PILOTTO-APP-14: a run was stopped for "no output for 530 min": the Mac slept overnight without Electron sending suspend/resume.
+// Timers freeze while asleep, so a gap between two ticks of the app's own heartbeat is sleep.
+test('a sleep with no suspend event is found from a gap between heartbeat ticks', () => {
+  resetSleepForTests();
+  noteTick(1_000_000);
+  noteTick(1_005_000);                       // a normal 5 s tick
+  assert.equal(sleptMs(1_005_000), 0);
+  noteTick(1_005_000 + 530 * 60_000);        // the next tick comes 530 min later
+  assert.equal(sleptMs(1_005_000 + 530 * 60_000), 530 * 60_000 - 5000);
+  resetSleepForTests();
+});
+
+test('a sleep that suspend/resume reported is not counted twice by the heartbeat', () => {
+  resetSleepForTests();
+  const power = new EventEmitter();
+  let clock = 2_000_000;
+  watchSleep(power, () => {}, () => clock);
+  noteTick(clock);
+  power.emit('suspend');
+  clock += 20 * 60_000;
+  power.emit('resume');
+  noteTick(clock);
+  assert.equal(sleptMs(clock), 20 * 60_000);
   resetSleepForTests();
 });
 
