@@ -2,18 +2,9 @@ name: CI · Lab Job Search · replay (offline)
 # The Lab Job Search's detector (owner, 18 Oct 2026; PR 2 of the sketch https://claude.ai/artifact/FsAAKdxxXF2wXpD1nbHAuC): each fictional candidate's first search is replayed from its tape
 # (src/search_tape.py: every web and AI answer recorded once; tools/persona-search/tape-store.mjs keeps them encrypted on the private repo's release `search-tapes`), and its numbers are posted to
 # /admin/lab-job-search (PUT /search-lab/rows, main only). $0: no site is visited, no model is called (--no-live: an AI request the tape lacks makes the row FAILED "tape stale", never thin numbers).
-# Starts on a push to main that touches the search, once a day, and by hand (a branch's run is refused by the site: only main moves the page). Never on a PR.
+# PARKED (owner, 19 Oct 2026, "Stop replay; judge live"): no push, no schedule, no PR; by hand only (a branch's run is refused by the site: only main moves the page).
+# Five proofs showed a fresh tape does not replay the same twice (thread order, clocks); the Lab judges the search live (Random draws, Real installs) instead.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'desktop/lib/**'
-      - 'tools/persona-search/**'
-      - 'site/src/search-lab-*.js'
-      - '.github/workflows/search-lab.yml'
-  schedule:
-    - cron: '41 4 * * *'
   workflow_dispatch:
 
 permissions:

@@ -3,9 +3,8 @@ name: CI · Lab Job Search · heal stale tapes
 # change asks for requests nobody recorded); that one candidate is recorded again live on the API engine (its OWN key LAB_HEAL_ANTHROPIC_KEY in the Tests org, own workspace and cap), and the new tape replaces the old one
 # ONLY when two offline replays of it agree and are not stale ("keep the old green until 2 replays agree"). Capped at 6 heals a week (about $0.92 each, measured: under the owner's $6 a week).
 # Starts OFF: the scheduled run does nothing until the repository variable LAB_HEAL_ON is "true". By hand with a candidate: heals that one regardless of the cap. Never on a PR.
+# PARKED for good (owner, 19 Oct 2026: the check is real users' results + Random draws): no schedule, by hand only.
 on:
-  schedule:
-    - cron: '17 6 * * *'   # after the replay at 04:41 UTC; one heal a day at most
   workflow_dispatch:
     inputs:
       candidate:

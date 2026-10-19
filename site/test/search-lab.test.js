@@ -96,7 +96,10 @@ test('the page: each state in words, the move since the last green run, an empty
   assert.match(html, /60 <span class="down"[^>]*>▼/, 'jobs in places 77 → 60 is worse');
   assert.match(html, /a step crashed: Reading job boards/);
   assert.match(html, /<span class="chip">control<\/span>/);
-  assert.match(page([row('t', 1), row('t', 2, {state: 'stale', failed_step: 'Tape stale (1 AI and 0 web requests not recorded)'})]), />Tape stale<\/span>/);
+  assert.match(page([row('t', 1), row('t', 2, {state: 'stale', failed_step: 'Tape stale (1 AI and 0 web requests not recorded)'})]), />No valid replay<\/span>/);
+  const stale = page([row('t', 1), row('t', 2, {state: 'stale', in_places: 4321, failed_step: 'Tape stale (1 AI and 0 web requests not recorded)'})]);
+  assert.match(stale, /No valid replay \(replay parked\)/);
+  assert.doesNotMatch(stale, /4,321|4321/, 'a stale replay shows no counts');
   assert.match(page([]), /No search replayed yet/);
 });
 
@@ -108,11 +111,7 @@ test('the Lab screen draws a card, time bars, funnel meters and a sparkline per 
   assert.match(html, /<svg class="lv-spark"/);
   assert.match(html, /First job<\/span><div class="lv-track/);
   assert.match(html, /Scored<\/span><div class="lv-track/);
-  const lead = html.indexOf('class="lv-tiles lv-leads"');
-  assert.ok(lead > 0 && lead < html.indexOf('class="lv-health"'), 'the two time tiles come before the state tiles');
-  assert.match(html, /⏱ Time to first job<\/span><b>/);
-  assert.match(html, /⏱ Time to first 70\+ job<\/span><b>/);
-  assert.match(html, /best [^<]* · worst /);
+  assert.doesNotMatch(html, /class="lv-tiles lv-leads"/, 'the Lab screen leads with no replay seconds (owner, 19 Oct 2026: judge live)');
   for (const name of ['Time to first job', 'Time to 10th job', 'Time to first 70+ job']) assert.ok(html.includes(name), `${name} is the one name on the Lab screen`);
   assert.doesNotMatch(html, /1st relevant|1st 70\+/, 'no second name for the same time');
   assert.match(html, /Runs kept<\/span><b>4<\/b>/);
@@ -130,7 +129,8 @@ test('the route: owner only, the page is in the "Job search" group, the group is
   const shown = await get({Cookie: 'jp_stats=k3y'});
   assert.equal(shown.status, 200);
   const html = await shown.text();
-  assert.match(html, /Finance · Amsterdam/);
+  assert.match(html, /Real installs/, 'the page opens on the live numbers');
+  assert.match(await (await get({Cookie: 'jp_stats=k3y'}).then(() => worker.fetch(new Request('https://www.jobpilotto.top/admin/lab-job-search?tab=lab', {headers: {Cookie: 'jp_stats=k3y'}}), env, {}))).text(), /Finance · Amsterdam/);
   assert.match(html, /🔎 Job search/, 'the menu has the group');
   assert.ok(GROUPS.some(([name]) => name === 'Job search'));
   assert.equal(PAGES.find(item => item.path === '/admin/lab-job-search').group, 'Job search');

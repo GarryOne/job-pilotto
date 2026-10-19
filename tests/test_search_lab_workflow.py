@@ -17,9 +17,11 @@ def node(code):
 
 
 class Workflow(unittest.TestCase):
-    def test_never_on_a_pr_and_main_moves_the_page(self):
-        self.assertNotIn('pull_request', WORKFLOW)
-        self.assertIn('branches: [main]', WORKFLOW)
+    def test_parked_by_hand_only_and_main_moves_the_page(self):
+        trigger = WORKFLOW.split('\njobs:')[0]
+        for line in ('  push:', '  schedule:', '  pull_request:'):
+            self.assertNotIn(line, trigger, 'owner, 19 Oct 2026: the replay is parked, judge live')
+        self.assertIn('  workflow_dispatch:', trigger)
         self.assertIn('--branch "${{ github.ref_name }}"', WORKFLOW)
 
     def test_the_replay_is_offline_and_runs_the_candidates_the_upload_knows(self):
@@ -62,6 +64,7 @@ class HealWorkflow(unittest.TestCase):
 
     def test_the_heal_is_off_until_switched_on_never_on_a_pr_and_on_its_own_key(self):
         self.assertNotIn('pull_request', self.heal)
+        self.assertNotIn('  schedule:', self.heal.split('\njobs:')[0], 'parked for good (owner, 19 Oct 2026): by hand only')
         self.assertIn("vars.LAB_HEAL_ON == 'true'", self.heal)   # starts OFF (owner 18 Oct 2026): the scheduled run does nothing until the variable is set
         self.assertIn('LAB_HEAL_ANTHROPIC_KEY: ${{ secrets.LAB_HEAL_ANTHROPIC_KEY }}', self.heal)   # apart from the random draws' key and cap
         self.assertNotIn('RANDOM_DRAWS_ANTHROPIC_KEY', self.heal)
@@ -153,15 +156,13 @@ PR_WORKFLOW = (ROOT / '.github' / 'workflows' / 'search-lab-pr.yml').read_text(e
 class PullRequestReplay(unittest.TestCase):
     """The replay a pull request gets (19 Oct 2026, owner: "Keep, replay on each PR"): $0, read-only, red only for a real Worse."""
     def test_it_is_read_only_free_and_for_this_repository_only(self):
-        self.assertIn('pull_request:', PR_WORKFLOW)
+        self.assertNotIn('\n  pull_request:', PR_WORKFLOW.split('\njobs:')[0], 'parked (owner, 19 Oct 2026): a PR starts nothing here')
         self.assertNotIn('pull_request_target', PR_WORKFLOW)
         self.assertNotRegex(PR_WORKFLOW, r'secrets\.[A-Z_]*(ANTHROPIC|OPENAI|PUBLISH)[A-Z_]*', 'no AI key and no key that writes the Lab page')
         self.assertNotIn('lab-upload', PR_WORKFLOW, 'a PR never writes the Lab page')
         self.assertIn('--no-live', PR_WORKFLOW)
         self.assertRegex(PR_WORKFLOW, r'(?m)^permissions:\n  contents: read\n')
         self.assertIn('github.event.pull_request.head.repo.full_name == github.repository', PR_WORKFLOW, 'a fork gets no tape key: its PR is not run')
-        for path in ('src/**', 'desktop/lib/**', 'tools/persona-search/**'):
-            self.assertIn(f"- '{path}'", PR_WORKFLOW)
 
     def test_the_pr_and_main_are_replayed_on_their_own_copies_of_the_tape_and_a_red_compare_stays_red(self):
         # a replay writes its report into the tape's folder, and two replays on one folder disagree (#1538)

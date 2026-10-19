@@ -3,14 +3,9 @@ name: CI · Lab Job Search · PR replay (offline)
 # and the two are compared with the Lab page's own rules (tools/persona-search/pr-compare.mjs, site/src/search-lab-judge.js). Read-only: nothing is posted to /admin/lab-job-search (only main moves the page) and no site key is given to it.
 # Red only for a real "Worse" (a count lower, a time >25% slower, a step that crashes where main's does not). A tape the PR makes stale says "needs a live re-record after the merge" and stays green.
 # Only for a PR from this repository: the tape is decrypted with a secret a fork's PR never gets.
+# PARKED (owner, 19 Oct 2026, "Stop replay; judge live"): no pull_request trigger, so a PR starts nothing here; the job below stays for a by-hand look.
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'desktop/lib/**'
-      - 'tools/persona-search/**'
-      - 'site/src/search-lab-judge.js'
-      - '.github/workflows/search-lab-pr.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
