@@ -27,6 +27,7 @@ on:
       - 'config/notion_schema.json'
       - 'config/notion_template.json'
       - 'docs/notion-profile-template.md'
+      - 'docs/site-routes.json'
       - 'docs/superpowers/specs/2026-10-10-ai-ladder.md'
       - 'site/src/knowledge.js'
       - 'site/src/ladder-moves.js'

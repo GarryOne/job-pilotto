@@ -1,0 +1,401 @@
+{
+ "_about": "Every route the website answers for anything outside itself, listed in public so the app, extension and engine can be audited and tested without the site code. kind: app = called by shipped code (desktop, extension, engine, hosted container, Telegram worker); ci = called by our own CI/tools with a key; webhook = a provider calls it; page = a link or beacon from our own pages; owner = the owner only (Bearer or browser login). Checked by desktop/test/site-routes.test.js (public) and site/test/site-routes.test.js (the site).",
+ "routes": [
+  {
+   "path": "/api/account/email",
+   "kind": "app"
+  },
+  {
+   "path": "/api/ai/",
+   "prefix": true,
+   "kind": "app"
+  },
+  {
+   "path": "/api/attribution",
+   "kind": "app"
+  },
+  {
+   "path": "/api/contribute",
+   "kind": "app"
+  },
+  {
+   "path": "/api/contributions",
+   "kind": "app"
+  },
+  {
+   "path": "/api/controls",
+   "kind": "app"
+  },
+  {
+   "path": "/api/feedback",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/config",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/data",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/export",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/inbox",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/result",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/schedule",
+   "kind": "app"
+  },
+  {
+   "path": "/api/hosted/state",
+   "kind": "app"
+  },
+  {
+   "path": "/api/index",
+   "kind": "app"
+  },
+  {
+   "path": "/api/install-token",
+   "kind": "app"
+  },
+  {
+   "path": "/api/linkedin/start",
+   "kind": "app"
+  },
+  {
+   "path": "/api/linkedin/token",
+   "kind": "app"
+  },
+  {
+   "path": "/api/notify/email",
+   "kind": "app"
+  },
+  {
+   "path": "/api/notion/start",
+   "kind": "app"
+  },
+  {
+   "path": "/api/notion/token",
+   "kind": "app"
+  },
+  {
+   "path": "/api/packs/aliases",
+   "kind": "app"
+  },
+  {
+   "path": "/api/playbook",
+   "kind": "app"
+  },
+  {
+   "path": "/api/pro/checkout",
+   "kind": "app"
+  },
+  {
+   "path": "/api/pro/signin/start",
+   "kind": "app"
+  },
+  {
+   "path": "/api/pro/signin/verify",
+   "kind": "app"
+  },
+  {
+   "path": "/api/pro/status",
+   "kind": "app"
+  },
+  {
+   "path": "/api/ready/",
+   "prefix": true,
+   "kind": "app"
+  },
+  {
+   "path": "/api/recipes",
+   "kind": "app"
+  },
+  {
+   "path": "/api/recipes/lookup",
+   "kind": "app"
+  },
+  {
+   "path": "/api/report-form",
+   "kind": "app"
+  },
+  {
+   "path": "/api/report-form/",
+   "prefix": true,
+   "kind": "app"
+  },
+  {
+   "path": "/api/trial/status",
+   "kind": "app"
+  },
+  {
+   "path": "/api/waitlist",
+   "kind": "app"
+  },
+  {
+   "path": "/confirm",
+   "kind": "app"
+  },
+  {
+   "path": "/download/",
+   "prefix": true,
+   "kind": "app"
+  },
+  {
+   "path": "/install",
+   "kind": "app"
+  },
+  {
+   "path": "/report/fill-failure",
+   "kind": "app"
+  },
+  {
+   "path": "/report/telemetry",
+   "kind": "app"
+  },
+  {
+   "path": "/admin/e2e",
+   "kind": "ci"
+  },
+  {
+   "path": "/admin/e2e/report/",
+   "prefix": true,
+   "kind": "ci"
+  },
+  {
+   "path": "/admin/e2e/run/",
+   "prefix": true,
+   "kind": "ci"
+  },
+  {
+   "path": "/admin/real-form-filling/digest.json",
+   "kind": "ci"
+  },
+  {
+   "path": "/admin/real-form-filling/digest.md",
+   "kind": "ci"
+  },
+  {
+   "path": "/admin/test-mail",
+   "kind": "ci"
+  },
+  {
+   "path": "/ai-cost/data",
+   "methods": [
+    "GET"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/api/aliases",
+   "kind": "ci"
+  },
+  {
+   "path": "/api/brain/log",
+   "kind": "ci"
+  },
+  {
+   "path": "/api/signals",
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/ci-rows",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/discovery-input",
+   "methods": [
+    "GET"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/endings",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/fidelity",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/replays",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/verify",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/applying/video",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/benchmark/data",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/changelog/data",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/digest/data",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/e2e/data",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/ops/data",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/pr-checks/data",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/search-lab/draws",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/search-lab/rows",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/self-heal/data",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
+   "path": "/telemetry/version",
+   "kind": "ci"
+  },
+  {
+   "path": "/api/brain/telegram",
+   "kind": "webhook"
+  },
+  {
+   "path": "/api/pro/webhook",
+   "kind": "webhook"
+  },
+  {
+   "path": "/admin/join",
+   "kind": "page"
+  },
+  {
+   "path": "/api/hit",
+   "kind": "page"
+  },
+  {
+   "path": "/api/linkedin/callback",
+   "kind": "page"
+  },
+  {
+   "path": "/api/notion/callback",
+   "kind": "page"
+  },
+  {
+   "path": "/changelog.json",
+   "methods": [
+    "GET"
+   ],
+   "assetsFallback": true,
+   "kind": "page"
+  },
+  {
+   "path": "/email-settings",
+   "kind": "page"
+  },
+  {
+   "path": "/unsubscribe",
+   "kind": "page"
+  },
+  {
+   "path": "/admin/lab-form-filling/video",
+   "methods": [
+    "GET"
+   ],
+   "kind": "owner"
+  },
+  {
+   "path": "/admin/mail/launch",
+   "kind": "owner"
+  },
+  {
+   "path": "/api/guard",
+   "kind": "owner"
+  },
+  {
+   "path": "/api/knowledge",
+   "kind": "owner"
+  },
+  {
+   "path": "/api/ladder-moves",
+   "kind": "owner"
+  },
+  {
+   "path": "/api/recipes/targets",
+   "kind": "owner"
+  },
+  {
+   "path": "/api/triage",
+   "kind": "owner"
+  }
+ ]
+}
