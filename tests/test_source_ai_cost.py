@@ -26,6 +26,23 @@ class SourceCostTests(unittest.TestCase):
         run = {'score': {'usd': 0.5}, 'sources': dict(cost.SIDE)}
         self.assertEqual(round(cron_runs.total_usd(run), 2), 2.5)
 
+    def test_a_web_search_s_fee_counts_with_its_tokens(self):
+        """Anthropic charges $10 per 1,000 web searches on top of the tokens (19 Oct 2026: the board web search's $0.03 was missing from
+        the run's cost); a call on a plan stays $0."""
+        searched = SimpleNamespace(input_tokens=0, output_tokens=0, cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                                   server_tool_use=SimpleNamespace(web_search_requests=3))
+        self.assertAlmostEqual(cost.usd('claude-haiku-5-5', searched), 0.03)
+        self.assertEqual(cost.usd('claude-haiku-5-5', SimpleNamespace(**{**vars(searched), 'billing': 'subscription'})), 0.0)
+        self.assertEqual(cost.usd('claude-haiku-5-5', SimpleNamespace(**{**vars(searched), 'server_tool_use': None})), 0.0)
+
+    def test_every_web_search_caller_reports_its_cost(self):
+        root = Path(__file__).resolve().parents[1] / 'src'
+        callers = [path for path in root.rglob('*.py') if 'web_search_20250305' in path.read_text()]
+        self.assertGreaterEqual(len(callers), 3)
+        for path in callers:
+            with self.subTest(path=path.name):
+                self.assertIn('cost.side(', path.read_text(), 'its fee and tokens must reach the run cost')
+
     def test_at_the_monthly_pause_source_reading_is_switched_off_too(self):
         args = argparse.Namespace(auto_kit_max=3, score_max=60, enrich_max=200)
         warnings = []

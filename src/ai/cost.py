@@ -16,6 +16,9 @@ PRICES = {
 }
 
 
+WEB_SEARCH_USD = 0.01   # Anthropic's web search tool: $10 per 1,000 searches, on top of the tokens (checked 19 Oct 2026)
+
+
 def usd(model, usage):
     """API cost of one call in USD, from its usage. A Claude Code call (src/ai/engine.py, billing 'subscription') is
     on the user's Claude plan, not API credits: $0."""
@@ -25,8 +28,9 @@ def usd(model, usage):
     price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
+    searches = getattr(getattr(usage, 'server_tool_use', None), 'web_search_requests', 0) or 0   # the web search tool's own fee
     return (usage.input_tokens * price_in + written * price_in * 1.25 + cached * price_cache
-            + usage.output_tokens * price_out) / 1e6
+            + usage.output_tokens * price_out) / 1e6 + searches * WEB_SEARCH_USD
 
 
 def answered(model, usage):
