@@ -117,6 +117,9 @@
     /* Centred over the form, the panel must not catch the driver's own clicks aimed at a field under it: it takes no hit-test while working, except Stop (the person's one way out) and the small minimise button. */
     .jp.working > *, .jp.working .card * { pointer-events: none; } .jp.working .stop-btn, .jp.working .pill-stop, .jp.working .min { pointer-events: auto; }   /* centred, at the corner's own size (owner, 19 Oct 2026: the 1.3 zoom was too big) */
     .jp.working .primary .label { white-space: normal; overflow: visible; text-overflow: clip; }   /* the step's whole sentence, wrapped, never cut short */
+    /* The panel breathes an orange glow while it works (owner, 19 Oct 2026); none under reduced motion. */
+    @keyframes breathe { 0%, 100% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--line), 0 0 0 0 rgba(240,112,20,0); } 50% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--signal-2), 0 0 46px 8px rgba(240,112,20,.6); } }
+    .jp.working .card:not([hidden]) { animation: breathe 2.6s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .jp.working .card { animation: none; } }
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
     .steps li::before { content: '\\2713'; color: var(--good); font-weight: 700; width: 14px; flex: none; }
