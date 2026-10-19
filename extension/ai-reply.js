@@ -10,7 +10,7 @@ export function readReply(reply) {
 }
 
 // What the JS engine, JSON.parse and a missing value say, in any browser: never for a person.
-const RAW = /TypeError|ReferenceError|SyntaxError|RangeError|Cannot read propert|Cannot set propert|\bundefined\b|\bnull\b|is not (a function|iterable|defined|an object)|Unexpected (token|end|character)|JSON|\[object|\bNaN\b/i;
+const RAW = /TypeError|ReferenceError|SyntaxError|RangeError|Cannot read propert|Cannot set propert|\bundefined\b|\bnull\b|is not (a function|iterable|defined|an object)|Unexpected (token|end|character)|JSON|\[object|\bNaN\b/i;   // words-ok: JS engine error texts, not a page's words
 export function plainWhy(message, fallback = 'something unexpected went wrong (details are in the log)') {
   const text = String(message?.message ?? message ?? '').trim();
   return !text ? fallback : RAW.test(text) ? fallback : text;
