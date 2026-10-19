@@ -130,15 +130,25 @@ def run(db, search, searcher=None, provider=web_search.provider):
 
 
 def guarded(db, search, harvest_sources=None):
-    """`run` for the scout: None when tests pass their own harvest sources or the journey fixture runs, or on a failure (a bonus that must never stop the scout)."""
+    """`run` and the hiring search (src/scout_hiring.py) for the scout, their candidates together: None when tests pass their own harvest
+    sources or the journey fixture runs; a failure of either leaves the other (a bonus that must never stop the scout)."""
     import os
     if harvest_sources is not None or os.getenv('JOB_PILOTTO_FIXTURE_DIR'):
         return None
+    from . import scout_hiring
     try:
         found = run(db, search)
     except Exception as error:  # noqa: BLE001
         print(f'Warning: role search skipped: {type(error).__name__}: {error}')
-        return None
+        found = {'candidates': [], 'queries': 0, 'note': ''}
     if found['queries']:
         print(f"Scout role search: {found['note']}.")
-    return found
+    try:   # and who hires for the role on the open web (src/scout_hiring.py): employers on any job system or their own site
+        hiring = scout_hiring.run(db, search)
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: hiring search skipped: {type(error).__name__}: {error}')
+        hiring = {'candidates': [], 'queries': 0, 'note': ''}
+    if hiring['queries']:
+        print(f"Scout hiring search: {hiring['note']}.")
+    return {'candidates': found['candidates'] + hiring['candidates'], 'queries': found['queries'] + hiring['queries'],
+            'note': '; '.join(note for note in (found['note'], hiring['note']) if note)}
