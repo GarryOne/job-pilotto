@@ -92,7 +92,7 @@ function template() {
   return text.slice(text.indexOf('## 👤'));
 }
 
-export const INSTRUCTIONS = `You set up Job Pilotto, a job-search assistant, for a new user from their CV and, if they wrote one, a short note. They did not fill in a questionnaire: you propose what they are looking for from the CV, and they correct it in a review before anything is saved.
+export const INSTRUCTIONS = `You set up Jobadabra, a job-search assistant, for a new user from their CV and, if they wrote one, a short note. They did not fill in a questionnaire: you propose what they are looking for from the CV, and they correct it in a review before anything is saved.
 
 First decide their goals from the CV (the note wins where it says something):
 - Target roles: their current role family at their current level, plus close titles the CV clearly supports.

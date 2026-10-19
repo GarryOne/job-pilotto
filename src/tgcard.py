@@ -1,4 +1,4 @@
-"""One look for every Telegram message Job Pilotto sends (Telegram HTML).
+"""One look for every Telegram message Jobadabra sends (Telegram HTML).
 
     <emoji> <b>Title</b>            a bold title, one emoji at most
     plain subtitle · counts         what the message is about, plain text with " · "

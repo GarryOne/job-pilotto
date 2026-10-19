@@ -60,7 +60,7 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
       const answer = await response.json().catch(() => ({}));
       if (response.ok && step === 'verify') await refresh();
       return {...answer, ok: response.ok && answer.ok === true, status: response.status};
-    } catch { return {ok: false, error: 'Could not reach Job Pilotto. Check your connection and try again.'}; }
+    } catch { return {ok: false, error: 'Could not reach Jobadabra. Check your connection and try again.'}; }
   }
   return {state, refresh, checkout, signin};
 }

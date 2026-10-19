@@ -24,7 +24,7 @@ test('a long list is cut with "and N more", never a wall of job titles', () => {
 test('a search, waiting tasks and sessions together: one line each, then the three choices', () => {
   const dialog = working({busy: {kind: 'search'}, queue: [{kind: 'mail'}, {kind: 'insight'}], sessions: sessions(['N26']), label,
     taskName: kind => ({search: 'New jobs check', mail: 'Gmail check', insight: 'Insight'})[kind]});
-  assert.equal(dialog.message, 'Job Pilotto is still working');
+  assert.equal(dialog.message, 'Jobadabra is still working');
   assert.match(dialog.detail, /^•  New jobs check is running\n•  2 tasks waiting: Gmail check, Insight\n•  Claude is filling 1 application: N26\n\n/);
   assert.match(dialog.detail, /Quit when done:.*\nQuit now:/);
   assert.deepEqual(dialog.buttons, ['Quit when done', 'Quit now', 'Cancel']);

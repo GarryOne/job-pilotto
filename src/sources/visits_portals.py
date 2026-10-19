@@ -70,7 +70,7 @@ def portals(search=None, kinds=None):
             continue
         url = board['search_url'].replace('{role}', urllib.parse.quote(roles[0])).replace('{place}', urllib.parse.quote(places[0] if places else ''))
         out.append({'key': f'board:{host}', 'name': board.get('name') or host, 'url': url,
-                    'note': 'A job board of your country that only a browser reads: open it, then click the Job Pilotto icon'})
+                    'note': 'A job board of your country that only a browser reads: open it, then click the Jobadabra icon'})
     return out
 
 

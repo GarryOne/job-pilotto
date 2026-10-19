@@ -28,7 +28,7 @@ export function notifyEnv(storage) {
 }
 
 const WORDS = {
-  taken: 'That address already has a Job Pilotto account. Use another address, or sign in with it once Pro is out.',
+  taken: 'That address already has a Jobadabra account. Use another address, or sign in with it once Pro is out.',
   pro: 'That account is a Pro account; its address changes through Pro sign-in.',
   unauthorized: 'This install could not be recognised by the website. Try again in a minute.',
 };

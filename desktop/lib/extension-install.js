@@ -1,4 +1,4 @@
-// Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
+// Is the Jobadabra extension loaded in a Chromium browser on this computer — and is it awake?
 //
 // The extension reports in every 30 s (extension/background.js) and that report is the only proof it is really
 // running: it is what lets the app fill a form right now. But "no report" is not "not installed" — the browser may
@@ -16,7 +16,7 @@ import {execFile} from 'node:child_process';
 import {browserCommand, schemeOf} from './browser-launch.js';
 
 // The name in extension/manifest.json: how the extension is recognised whatever folder it was loaded from.
-export const NAME = 'Job Pilotto';
+export const NAME = 'Jobadabra';   // the extension's name in Chrome; an install from before the rename is still called 'Job Pilotto' (line 78)
 
 // Chromium-family browsers that keep their extension records in <support>/<dir>/<Profile>/Secure Preferences.
 // `dir` is the Mac layout; `win` the PC's, which repeats the browser's own folder under a "User Data" one.
@@ -56,7 +56,7 @@ const parse = (file, read) => { try { return JSON.parse(read(file, 'utf8')); } c
 
 const real = at => { try { return fs.realpathSync(at); } catch { return path.resolve(at); } };
 
-// The Job Pilotto records in one browser profile set: {id, profile, version, folder, enabled, unpacked} each.
+// The Jobadabra records in one browser profile set: {id, profile, version, folder, enabled, unpacked} each.
 // Secure Preferences first (that is where Chrome keeps extension settings now); Preferences for older browsers.
 //
 // Two shapes, and both matter: an extension from the Web Store (or one with a manifest "key") is recorded with its
@@ -75,7 +75,7 @@ export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync,
       const settings = parse(at, read)?.extensions?.settings;
       if (!settings) continue;
       for (const [id, entry] of Object.entries(settings)) {
-        const named = entry?.manifest?.name === NAME;
+        const named = [NAME, 'Job Pilotto'].includes(entry?.manifest?.name);
         const byPath = entry?.location === 4 && !!ours && !!entry.path && real(entry.path) === ours;
         if (!named && !byPath) continue;
         found.push({id, profile, version: entry.manifest?.version || '', folder: entry.path || '',
@@ -163,6 +163,6 @@ export function openInChrome(url, {exec = execFile, platform = process.platform,
 export const extensionsUrl = browser => `${schemeOf(browser)}://extensions`;
 
 // The two pages the install flow needs: the browser's own extensions list, and the extension's options page, whose
-// "Connect to the Job Pilotto app" is what makes it start reporting.
+// "Connect to the Jobadabra app" is what makes it start reporting.
 export const openExtensionsPage = (options = {}) => openInChrome(extensionsUrl(options.browser), options);
 export const openOptionsPage = (folder, options = {}) => openInChrome(`chrome-extension://${extensionId(folder)}/options.html`, options);

@@ -163,7 +163,7 @@ export function registerExtServerHandlers(ctx) {
   visits.onWaiting(() => {   // once a run: a notification that brings Chrome forward on click
     if (Date.now() - waitingSaid < 10 * 60000) return;
     waitingSaid = Date.now();
-    notify('Job Pilotto is waiting for you in Chrome', 'Press "Allow on the sites the app opens" once: then it reads the sites by itself.', () => visits.focusBrowser());
+    notify('Jobadabra is waiting for you in Chrome', 'Press "Allow on the sites the app opens" once: then it reads the sites by itself.', () => visits.focusBrowser());
   });   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);

@@ -1,6 +1,6 @@
-// Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
+// Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Jobadabra
 // workspace, or build it from config/notion_schema.json, then add anything missing (schema.repair).
-// templateRoot: the page Notion copied the Job Pilotto template into during "Connect with Notion" (the token's
+// templateRoot: the page Notion copied the Jobadabra template into during "Connect with Notion" (the token's
 // duplicated_template_id). Notion copies it over a minute or so: the app waits for that copy only (never an
 // older one elsewhere), and builds in that page when it stays empty. Without it: the user picked their own page.
 import * as notion from './notion.js';
@@ -11,7 +11,7 @@ export async function connectWorkspace(token, {templateRoot = null, fresh = fals
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), repair = schema.repair, every = 5000} = {}) {
   const root = templateRoot ? String(templateRoot).replace(/-/g, '') : null;
   const send = progress => onProgress({...progress, ...(root ? {template: true} : {})});
-  // fresh (this profile has no workspace of its own, e.g. after a reset; owner, 16 Oct 2026, "Always start new"): an existing Job Pilotto page is
+  // fresh (this profile has no workspace of its own, e.g. after a reset; owner, 16 Oct 2026, "Always start new"): an existing Jobadabra page is
   // never discovered or reused; the app builds a new workspace beside it and leaves the old one as it is. Only the template's own copy (root) is read.
   const startNew = fresh && !root;
   if (startNew) await notion.call(token, 'GET', 'users/me', null, fetcher);   // is the token valid at all?

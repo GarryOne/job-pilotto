@@ -46,7 +46,7 @@ test('saving a new address asks the site first and keeps nothing when the site s
   const s = storage({secrets: KEY.JOB_PILOTTO_TRIAL_KEY ? {JOB_PILOTTO_TRIAL_KEY: KEY.JOB_PILOTTO_TRIAL_KEY} : {}}), asked = [];
   const refused = await save(s, {by: ['email', 'app'], email: 'Me@Example.com', marketing: true}, site([{ok: false, error: 'taken'}], asked));
   assert.equal(refused.ok, false);
-  assert.match(refused.error, /already has a Job Pilotto account/);
+  assert.match(refused.error, /already has a Jobadabra account/);
   assert.equal(s.settings().notifyEmail, undefined);
   assert.equal(s.settings().notifyBy, undefined);
   const saved = await save(s, {by: ['email', 'app'], email: 'Me@Example.com', marketing: true}, site([{ok: true}], asked));

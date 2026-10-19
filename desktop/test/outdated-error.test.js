@@ -26,7 +26,7 @@ test('every exposed action: "No handler registered" becomes the plain restart li
     assert.equal(error.message, OUTDATED_LINE, `${name}: the screen would show the raw IPC text`);
   }
   assert.ok(tried > 100 && announced === tried, `${tried} actions rejected, ${announced} announced`);
-  assert.equal(OUTDATED_LINE, fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8').match(/new Error\('(Job Pilotto was updated[^']*)'\)/)[1], 'preload.cjs and errors.js use the same words');
+  assert.equal(OUTDATED_LINE, fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8').match(/new Error\('(Jobadabra was updated[^']*)'\)/)[1], 'preload.cjs and errors.js use the same words');
 });
 
 test('errorLine: restart line for an outdated app, plain text otherwise (no IPC wrapper)', () => {

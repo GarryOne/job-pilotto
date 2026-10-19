@@ -18,7 +18,7 @@ export async function createCheckout(env, {kind, install, successUrl, cancelUrl}
   if (!price || !env.STRIPE_SECRET_KEY) return {error: 'Payments are not set up yet.'};
   const body = form({mode: 'payment', 'line_items[0][price]': price, 'line_items[0][quantity]': '1', client_reference_id: install, 'metadata[kind]': kind, 'metadata[install]': install,
     success_url: successUrl, cancel_url: cancelUrl, billing_address_collection: 'required', customer_creation: 'always',
-    'consent_collection[terms_of_service]': 'required', 'custom_text[terms_of_service_acceptance][message]': 'I agree to the Terms. I ask for the service to start now and know my 14-day right of withdrawal ends once it has started, but Job Pilotto refunds within 14 days on request.',
+    'consent_collection[terms_of_service]': 'required', 'custom_text[terms_of_service_acceptance][message]': 'I agree to the Terms. I ask for the service to start now and know my 14-day right of withdrawal ends once it has started, but Jobadabra refunds within 14 days on request.',
     'automatic_tax[enabled]': env.STRIPE_TAX === 'on' ? 'true' : 'false'});
   const response = await fetcher(`${API}/checkout/sessions`, {method: 'POST', headers: {authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'content-type': 'application/x-www-form-urlencoded'}, body});
   const session = await response.json().catch(() => ({}));

@@ -120,7 +120,7 @@ def mail_pass(stores, google, client, model, apps, index, state, days, stats, dr
             row = interview_lead(stores, client, model, email, apps, result, stats)
             if row is not None:
                 lines.append(tgcard.block('Which job is this for?', f"{_label(row)}: the interview was detected, but the role could not be identified.",
-                                          tgcard.fact('Next step', 'In Job Pilotto: Focus → Add details. Paste the job link or LinkedIn conversation.')))
+                                          tgcard.fact('Next step', 'In Jobadabra: Focus → Add details. Paste the job link or LinkedIn conversation.')))
         if not row and named:
             # The email names a role: the job it is on (tracked, or on your list and applied to without marking it). None found: asked below.
             row = _from_email(stores, apps, result, email, stats, lines, on_new)

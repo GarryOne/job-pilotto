@@ -69,11 +69,11 @@ export function createSubmitWatch(ctx) {
       await chrome.storage.session.set({[`judged:${tabId}`]: pressAt});
       await chrome.storage.session.remove(`submit:${tabId}`);
       decide('submitted', 'marked Applied', {host: gate.host, path: gate.path});
-      await note(tabId, '✈️ Submitted: marked Applied in Job Pilotto and Notion.', pageKey(tab.url));
+      await note(tabId, '✈️ Submitted: marked Applied in Jobadabra and Notion.', pageKey(tab.url));
       return {done: true};
     } catch (error) {
       decide('submitted', `could not reach the app: ${error.message}`, {host: gate.host, path: gate.path});
-      await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${plainWhy(error)}). Open Job Pilotto to mark it Applied.`, pageKey(tab.url));
+      await note(tabId, `✈️ Submitted, but Jobadabra couldn't reach the app to mark it Applied (${plainWhy(error)}). Open Jobadabra to mark it Applied.`, pageKey(tab.url));
       return {done: true};
     }
   }

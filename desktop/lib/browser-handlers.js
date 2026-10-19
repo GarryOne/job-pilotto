@@ -84,7 +84,7 @@ export function registerBrowserHandlers(ctx) {
     const opened = !(await shell.openPath(extensionFolder()));  // openPath resolves to an error string when it fails
     return {folder: extensionFolder(), opened};
   });
-  // The extension's own options page: its "Connect to the Job Pilotto app" is what starts it reporting. The ID the
+  // The extension's own options page: its "Connect to the Jobadabra app" is what starts it reporting. The ID the
   // browser recorded is authoritative (a manifest "key" makes it differ from the folder path's hash).
   // Every "Open Chrome" / Connect press comes here: one launch while Chrome is starting (lib/chrome-launch-once.js).
   ipcMain.handle('extensionOptions', launchOnce(async () => {

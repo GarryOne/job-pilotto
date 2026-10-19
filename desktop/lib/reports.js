@@ -1,4 +1,4 @@
-// "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
+// "Help improve Jobadabra": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 // operate), send the form STRUCTURE (site, labels, types, options, reason, extension version, and the field's HTML
 // snapshot, scrubbed in the page by extension/page/snapshot.js and again by the Worker) to the project's Worker,
 // which opens an issue for the daily fixer. Never answers or personal data. Part of the technical reports:

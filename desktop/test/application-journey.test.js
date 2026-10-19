@@ -71,9 +71,9 @@ test('invariant 7: a page that tells the person what to do (told: a phone number
 test('invariant 7: a page the ladder could not read (other) is reported like email and told, with a fixed label as the need, never page text', () => {
   const posting = {kind: 'form', stuck: '', stage: ''};
   const first = journey(posting, {type: 'stuck', why: 'other', needs: 'Send your CV to the address in the footer of this page'});
-  assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['other', 'Job Pilotto could not tell how to apply: open the page', 'how to apply is unclear'], 'the page\'s sentence is not kept');
+  assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['other', 'Jobadabra could not tell how to apply: open the page', 'how to apply is unclear'], 'the page\'s sentence is not kept');
   assert.deepEqual(journey({...posting, ...first.set}, {type: 'stuck', why: 'no-form'}).set, {}, 'a later no-form does not replace it');
   assert.deepEqual(journey({...posting, stage: 'account'}, {type: 'stuck', why: 'other'}).set, {}, 'never over the account step');
-  assert.equal(journeyStep({...posting, ...first.set}).needs, 'Job Pilotto could not tell how to apply: open the page');
+  assert.equal(journeyStep({...posting, ...first.set}).needs, 'Jobadabra could not tell how to apply: open the page');
   assert.ok(STUCK.includes('other'));
 });

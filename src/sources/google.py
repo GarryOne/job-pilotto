@@ -327,7 +327,7 @@ def authorize(client_id, client_secret, open_browser=webbrowser.open):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write('<h2>Job Pilotto is connected. You can close this tab.</h2>'.encode())
+            self.wfile.write('<h2>Jobadabra is connected. You can close this tab.</h2>'.encode())
 
         def log_message(self, *args):
             pass

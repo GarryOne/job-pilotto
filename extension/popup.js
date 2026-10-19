@@ -1,4 +1,4 @@
-// The toolbar popup: whether the extension can reach the Job Pilotto app and, on a tab the app opened and manages, what fits that tab (Apply on this page,
+// The toolbar popup: whether the extension can reach the Jobadabra app and, on a tab the app opened and manages, what fits that tab (Apply on this page,
 // Allow, Read on a board it opened for you, Stop). On any other tab it only says where things happen: no control at all (popup-controls.js, owner 16 Oct 2026).
 import {api, settings} from './flow.js';
 import {popupMode} from './tab-pages.js';
@@ -21,13 +21,13 @@ async function connection(config, app) {
   try {
     await api(config, '/extension/review', {method: 'POST', body: '{}'});  // a harmless call: matches no page, changes nothing
     $('status').classList.add('on');
-    $('status').textContent = app ? 'Connected to the Job Pilotto app' : 'Connected to your Worker';
+    $('status').textContent = app ? 'Connected to the Jobadabra app' : 'Connected to your Worker';
   } catch (error) {
     if (error.status && error.status !== 401) {  // it answered (your Worker has no review route): reachable
       $('status').classList.add('on');
-      $('status').textContent = app ? 'Connected to the Job Pilotto app' : 'Connected to your Worker';
+      $('status').textContent = app ? 'Connected to the Jobadabra app' : 'Connected to your Worker';
     } else {
-      $('status').textContent = app ? 'The Job Pilotto app isn\'t open: the panel still shows what\'s left' : 'Your Worker isn\'t reachable';
+      $('status').textContent = app ? 'The Jobadabra app isn\'t open: the panel still shows what\'s left' : 'Your Worker isn\'t reachable';
     }
   }
 }
@@ -49,13 +49,13 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
   if (mode === 'fill') {
     // Not allowed on this site yet: the panel can't start, so the popup says so and offers the Allow (site-allow.js), never "the panel fills the form".
     if (!(await chrome.permissions.contains({origins: [`${new URL(tab.url).origin}/*`]}).catch(() => true))) {
-      $('intro').textContent = 'The Job Pilotto app opened this page to apply, but the extension isn\'t allowed on this site yet. Allow it, once, on the sites the app opens for you:';
+      $('intro').textContent = 'The Jobadabra app opened this page to apply, but the extension isn\'t allowed on this site yet. Allow it, once, on the sites the app opens for you:';
       $('visit').hidden = false;
       show(popupControls(mode, {allowed: false}));
       allowButton('Allowed: the form is being filled.');
       return checked;
     }
-    $('intro').textContent = 'The Job Pilotto app opened this page to apply: the panel on the page fills the form and tells you what is left.';
+    $('intro').textContent = 'The Jobadabra app opened this page to apply: the panel on the page fills the form and tells you what is left.';
     // Always there on a tab the app opened (owner, 9 Oct 2026: after a refresh nothing started and there was no way to start it): run the fill again, here.
     show(popupControls(mode));
     $('apply-here').addEventListener('click', () => {
@@ -73,11 +73,11 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
   show(popupControls(mode, {allowed}));
   // Waiting for the one-time permission (Chrome asks; withdraw it any time in Chrome's settings).
   if (!allowed) {
-    $('visit-text').textContent = 'The Job Pilotto app opened this site to read its jobs. Allow the extension, once, to read the sites the app opens for you:';
+    $('visit-text').textContent = 'The Jobadabra app opened this site to read its jobs. Allow the extension, once, to read the sites the app opens for you:';
     allowButton('Allowed: reading starts on the tabs the app opened.');
   } else if (mode === 'board') {
     // "Read this board": the app opened it and waits; the person signs in here if the board asks, then presses Read (their own visit, in their own Chrome).
-    $('visit-text').textContent = `The Job Pilotto app opened ${host} for you to read. Sign in in this tab if it asks, then press Read.`;
+    $('visit-text').textContent = `The Jobadabra app opened ${host} for you to read. Sign in in this tab if it asks, then press Read.`;
     for (const [id, filter] of [['read-filter', true], ['read-as-is', false]]) $(id).addEventListener('click', () => {
       $('read-filter').disabled = $('read-as-is').disabled = true;
       $('visit-progress').textContent = filter ? 'Claude is choosing the filters for your search…' : 'Reading…';
@@ -87,7 +87,7 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
       });
     });
   } else {
-    $('visit-text').textContent = 'The Job Pilotto app opened this page and the extension is reading it by itself.';
+    $('visit-text').textContent = 'The Jobadabra app opened this page and the extension is reading it by itself.';
   }
   const progress = state => {
     if (!state) return;

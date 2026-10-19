@@ -60,7 +60,7 @@ SCHEMA = {
 SYSTEM = """You help the owner prepare for one job interview. Use only what the job text and the owner's Profile say;
 never invent facts about the owner or the employer. For a recruiter or agency screen, focus on motivation, fit, the
 owner's pitch, salary expectations, notice period and availability; for technical rounds, on depth in the role's stack,
-incidents and trade-offs. What Job Pilotto learned about the owner (weak topics, topics asked most, rejection lessons, employer feedback):
+incidents and trade-offs. What Jobadabra learned about the owner (weak topics, topics asked most, rejection lessons, employer feedback):
 work those into the questions, the gaps and the plan, and say where a past lesson applies.
 When "What already happened on THIS application" lists earlier interviews, this is a FOLLOW-UP round: don't repeat an
 intro kit (the pitch, generic motivation questions they already heard). Fill since_last_call with what the last call
@@ -134,7 +134,7 @@ def describe(stores, record, text='', url=''):
 
 
 def what_you_learned(stores, record):
-    """What Job Pilotto has learned about you so far, for this kit: topics you answered weakly and the ones asked
+    """What Jobadabra has learned about you so far, for this kit: topics you answered weakly and the ones asked
     most (reviewed interviews), why past applications were rejected (rejection reviews), and what employers said
     (employer feedback). Lines for the prompt; each part is left out when there's nothing yet."""
     from .insights_data import interview_stats
@@ -246,7 +246,7 @@ MAX_SHOTS = 5
 
 def _ask():
     return {'ok': False, 'needs_description': True,
-            'text': 'To prepare you, Job Pilotto needs the job description: paste it, or the posting link.'}
+            'text': 'To prepare you, Jobadabra needs the job description: paste it, or the posting link.'}
 
 
 def screenshots(stores, record, fetch=True):

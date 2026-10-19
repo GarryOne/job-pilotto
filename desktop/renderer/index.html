@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'">
-<title>Job Pilotto</title>
+<title>Jobadabra</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="ui-menu.css">
@@ -35,7 +35,7 @@
 <!-- First run: the setup wizard -->
 <section id="wizard" class="wizard" hidden>
   <aside class="steps">
-    <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
+    <div class="brand"><img class="mark" src="logo.png" alt="">Jobadabra</div>
     <ol id="step-list">
       <li data-step="welcome">Welcome</li>
       <li data-step="ai">AI</li>
@@ -59,7 +59,7 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Check-in · about 5 minutes</span>
           <h1>Let's set up your job search</h1>
-          <p class="muted subtitle">Job Pilotto finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p></div>
+          <p class="muted subtitle">Jobadabra finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p></div>
         <div class="head-actions">
           <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
           <button class="primary" data-next>Start</button>
@@ -72,10 +72,10 @@
           <li><span class="ui-tile tone-signal"><i data-icon="target"></i></span>Check the goals and strategy it proposes from your CV</li>
         </ul>
       </section>
-      <p class="muted small step-note"><i data-icon="upload"></i><span>Used Job Pilotto before, here or on another computer?
+      <p class="muted small step-note"><i data-icon="upload"></i><span>Used Jobadabra before, here or on another computer?
         <button class="link" id="welcome-import" data-import>Import an export…</button> It brings back your data and restarts.</span></p>
       <label class="muted small step-note switch-row" id="welcome-trace-row"><i data-icon="flag"></i><input type="checkbox" id="welcome-trace" checked><span>Keep a trace of each form fill, so you can report a problem and we can fix it. Stays on this Mac, sent only when you press Report in the panel and then Send (personal details removed automatically first), never sign-in pages, deleted when the application ends. Chrome shows a debugging bar while it is kept.</span></label>
-      <p class="muted small step-note"><i data-icon="shield"></i><span>Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
+      <p class="muted small step-note"><i data-icon="shield"></i><span>Jobadabra sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
         interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous
         shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region),
         to grow the shared pool of employers. Never your answers, CV, emails or names. Turn either off any time in
@@ -86,7 +86,7 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 5</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Job Pilotto uses AI to read job postings, score them and draft answers. Start with Free (nothing to set up), or bring your own Claude or OpenAI:
+          <p class="muted subtitle">Jobadabra uses AI to read job postings, score them and draft answers. Start with Free (nothing to set up), or bring your own Claude or OpenAI:
             an API key (you pay per use, usually a few dollars a month) or your own Claude Code / Codex (your Claude or ChatGPT plan).</p></div>
       </header>
       <section class="card step-card engine" id="ai-engine"></section>
@@ -96,7 +96,7 @@
             (a separate account from a Claude.ai subscription).</li>
           <li>New account? Go to <a href="#" data-link="https://console.anthropic.com/settings/billing">Billing</a> and add a small amount
             of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
-          <li>Back in <b>API keys</b>: click <b>Create Key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
+          <li>Back in <b>API keys</b>: click <b>Create Key</b>, name it "Jobadabra", copy it, and paste it here.</li>
         </ol>
         <div class="step-field">
           <label for="anthropic-key">API key</label>
@@ -110,7 +110,7 @@
             (a separate account from a ChatGPT subscription).</li>
           <li>New account? Go to <a href="#" data-link="https://platform.openai.com/settings/organization/billing">Billing</a> and add a small amount
             of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
-          <li>Back in <b>API keys</b>: click <b>Create new secret key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
+          <li>Back in <b>API keys</b>: click <b>Create new secret key</b>, name it "Jobadabra", copy it, and paste it here.</li>
         </ol>
         <div class="step-field">
           <label for="openai-key">OpenAI API key</label>
@@ -119,7 +119,7 @@
         </div>
       </section>
       <section class="card step-card" id="ai-free" hidden>
-        <p class="muted small">With Free, AI requests go through the Job Pilotto website to an open AI model (nothing is stored).
+        <p class="muted small">With Free, AI requests go through the Jobadabra website to an open AI model (nothing is stored).
           With your own key they go straight from this Mac to Claude or OpenAI.</p>
         <p class="message" id="ai-free-message"></p>
       </section>
@@ -154,7 +154,7 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 3 of 5</span>
           <h1 id="draft-title">Your strategy</h1>
-          <p class="muted subtitle" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
+          <p class="muted subtitle" id="draft-subtitle" hidden>Check what Jobadabra will search for, score jobs against and use in applications.</p></div>
         <div class="head-actions"><span class="pill-ai" id="draft-cost" hidden></span></div>
       </header>
       <!-- Before a draft exists (or to build again): what the user wants, in their words, then Build. The note field
@@ -238,8 +238,8 @@
           <p class="muted subtitle">Everything works without these. You can add them later in Settings.</p></div>
       </header>
       <div class="service-card is-row is-wide setup-assistant-mode"><span class="ui-tile tone-signal"><i data-icon="zap"></i></span>
-        <span class="service-text"><b>Should Job Pilotto create and sign in to employer accounts for you?</b><span class="muted small">It takes each application up to its Submit button and never submits for you. You can change this in Settings → Profile.</span></span>
-        <div class="segmented" role="group" aria-label="How much Job Pilotto does"><button data-assistant-mode="full">Yes, do it for me</button><button data-assistant-mode="assist">I'll do it myself</button></div></div>
+        <span class="service-text"><b>Should Jobadabra create and sign in to employer accounts for you?</b><span class="muted small">It takes each application up to its Submit button and never submits for you. You can change this in Settings → Profile.</span></span>
+        <div class="segmented" role="group" aria-label="How much Jobadabra does"><button data-assistant-mode="full">Yes, do it for me</button><button data-assistant-mode="assist">I'll do it myself</button></div></div>
       <div class="service-grid is-rows extras">
         <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="layers"></i></span>
           <span class="service-text"><b>Notion</b><span class="muted small">Keep your applications, kits and interviews in your own free Notion workspace instead of this Mac. Needed for Always on (runs while this Mac is off).</span>
@@ -274,7 +274,7 @@
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <section id="app" class="app" hidden>
   <nav class="sidebar">
-    <div class="brand" data-version-title><img class="mark" src="logo.png" alt="">Job Pilotto</div>
+    <div class="brand" data-version-title><img class="mark" src="logo.png" alt="">Jobadabra</div>
     <div class="nav-scroll" id="nav-scroll">
     <p class="nav-group">Work</p>
     <button class="nav" data-view="focus"><i data-icon="target"></i>Focus</button>
@@ -377,8 +377,8 @@
           <button class="link" id="jobs-more" hidden title="The list shows your best matches first; load the next ones">Show more</button>
           <span class="filter-chip" id="jobs-filter" hidden><span id="jobs-filter-text"></span><button class="filter-chip-x" id="jobs-filter-clear" title="Show all jobs" aria-label="Clear the filter"><i data-icon="close"></i></button></span>
           <button class="link" id="jobs-filter-back" hidden>← Back to Focus</button>
-          <button class="link" id="import-open" title="A job that is not in Job Pilotto yet. Paste its link and it is scored like one the search found">+ Add a job…</button>
-          <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
+          <button class="link" id="import-open" title="A job that is not in Jobadabra yet. Paste its link and it is scored like one the search found">+ Add a job…</button>
+          <button class="link" id="applied-open" title="Applied to a job outside Jobadabra? Track it with the rest">+ Applied elsewhere…</button>
           <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log job activity…</button></div>
         <div class="list-right"><div class="density" id="jobs-mode" role="group" aria-label="Show as">
           <button data-mode="list" aria-pressed="true">List</button><button data-mode="board" aria-pressed="false">Board</button>
@@ -470,7 +470,7 @@
           <div class="ss-title-row"><h1 id="ss-title">Application sessions</h1><span id="ss-status"></span><span class="muted small" id="ss-refreshing" hidden>Updating…</span></div>
           <div class="ss-subtitle"><span class="muted" id="ss-role"></span></div>
         </div>
-        <div class="head-actions"><button class="danger-outline" id="ss-stop" title="Stops everything the Job Pilotto extension does, on every tab, until you press Reopen form on an application">Stop the extension</button><span id="ss-more"></span></div>
+        <div class="head-actions"><button class="danger-outline" id="ss-stop" title="Stops everything the Jobadabra extension does, on every tab, until you press Reopen form on an application">Stop the extension</button><span id="ss-more"></span></div>
       </header>
       <div class="ss-tips" id="ss-tips" hidden aria-label="Tips while you apply"></div>
       <!-- Until the app answers, a spinner: the two-pane shell (message box, session log) used to paint first and
@@ -1141,8 +1141,8 @@
               </div>
               <p class="muted" id="run-mode-text"></p>
               <button class="arrow-link" id="run-mode-more">Learn about Always on</button>
-              <label class="check-row"><input type="checkbox" id="auto-search"><span><span>Search on the schedule while Job Pilotto is open</span></span></label>
-              <label class="check-row"><input type="checkbox" id="open-login"><span><span>Open Job Pilotto when I log in to my Mac</span></span></label>
+              <label class="check-row"><input type="checkbox" id="auto-search"><span><span>Search on the schedule while Jobadabra is open</span></span></label>
+              <label class="check-row"><input type="checkbox" id="open-login"><span><span>Open Jobadabra when I log in to my Mac</span></span></label>
             </div>
             <div class="run-mode-side"><span class="muted">Last refresh</span><b id="last-search">No refresh yet</b></div>
           </div>
@@ -1199,7 +1199,7 @@
           </div>
           <div class="setting panel" id="setting-cloud">
             <div class="summary-head"><i data-icon="refresh"></i><h3>Always on: your GitHub</h3></div>
-            <p class="muted panel-lead">Keep Job Pilotto working when this Mac is asleep or off.</p>
+            <p class="muted panel-lead">Keep Jobadabra working when this Mac is asleep or off.</p>
             <div class="aon-row aon-stack" id="cloud-row">
               <span class="ui-tile tone-signal"><i data-icon="cloud"></i></span>
               <div class="aon-text">
@@ -1217,14 +1217,14 @@
                 <div class="aon-sub aon-needs small" id="cloud-needs" hidden></div>
                 <div class="aon-sub howto small" id="cloud-steps" hidden>
                   <p><b>On the GitHub page that opened:</b> choose <b>Only select repositories</b> → pick a <b>private</b> repository in GitHub's list
-                    → <b>Install</b>. Job Pilotto continues by itself as soon as it's installed.</p>
+                    → <b>Install</b>. Jobadabra continues by itself as soon as it's installed.</p>
                   <p class="muted">No repository to pick? <button class="link" id="cloud-create">Create one</button> (it's prefilled: private, job-pilotto-private), then
                     <button class="link" id="cloud-install">open the install page again</button>.</p>
                 </div>
                 <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
                 <details class="troubleshoot" id="cloud-howto"><summary>How it works</summary>
-                  <p class="muted small">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
-                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and <span data-about-notion>Notion</span>, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
+                  <p class="muted small">Jobadabra sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
+                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and <span data-about-notion>Notion</span>, even when this Mac is asleep or off. Jobadabra gets access to that one repository only, nothing else on your GitHub.
                     Your keys are stored there as encrypted secrets.</p>
                 </details>
               </div>
@@ -1245,7 +1245,7 @@
                   <ol class="howto small" id="tg-cloud-howto">
                     <li>Create a free <a href="#" data-link="https://dash.cloudflare.com/sign-up">Cloudflare</a> account if you don't have one.</li>
                     <li><a href="#" data-link="https://dash.cloudflare.com/profile/api-tokens?name=Job%20Pilotto%20Telegram&amp;permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D">Create a token</a> (it opens prefilled: <b>Workers Scripts: Edit</b>, <b>Account Settings: Read</b>) → Continue → Create → copy it.</li>
-                    <li>Paste it here and click <b>Turn on</b>. Job Pilotto puts a small bot helper on your Cloudflare account; your buttons then start runs in your repository.</li>
+                    <li>Paste it here and click <b>Turn on</b>. Jobadabra puts a small bot helper on your Cloudflare account; your buttons then start runs in your repository.</li>
                   </ol>
                   <div class="inline"><input type="password" id="tg-cloud-token" placeholder="Cloudflare API token">
                     <button class="secondary" id="tg-cloud-on">Turn on</button></div>
@@ -1256,9 +1256,9 @@
           </div>
           <div class="setting panel" id="setting-claude">
             <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
-            <p class="muted panel-lead">Job Pilotto takes each application up to its Submit button. You check it and press Submit.</p>
+            <p class="muted panel-lead">Jobadabra takes each application up to its Submit button. You check it and press Submit.</p>
             <div class="assistant-mode">
-              <div class="segmented" role="group" aria-label="How much Job Pilotto does">
+              <div class="segmented" role="group" aria-label="How much Jobadabra does">
                 <button data-assistant-mode="full">Do it for me</button><button data-assistant-mode="assist">Let me check each step</button>
               </div>
               <p class="muted small" id="assistant-mode-text"></p>
@@ -1274,7 +1274,7 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="connections" hidden>
-          <div class="settings-page-head"><h2>Connections</h2><p class="muted">Manage the services Job Pilotto uses.</p>
+          <div class="settings-page-head"><h2>Connections</h2><p class="muted">Manage the services Jobadabra uses.</p>
             <p class="conn-status" id="conn-status" aria-live="polite"></p></div>
           <div class="alert tone-warn settings-alert" id="conn-alert" hidden>
             <i data-icon="info"></i>
@@ -1301,7 +1301,7 @@
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
         <div><h3 data-about-notion>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small" data-about-notion>Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+          <p class="muted small" data-about-notion>Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Jobadabra lost access (for example after you removed it in Notion).</p></div>
         <ul class="ui-benefits" id="set-notion-benefits" hidden></ul>
         <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
         
@@ -1322,7 +1322,7 @@
         <div class="inline"><button class="secondary" id="google-connect">Connect Google</button><span id="google-more" hidden></span></div>
         <p class="message" id="google-message"></p>
         <details class="conn-setup plain" id="alerts-guide"><summary>Get LinkedIn, jobs.ch and Indeed jobs from your job alerts</summary>
-          <p class="muted small">Job Pilotto reads the job-alert emails these sites send to this Gmail (read-only) and adds the jobs that fit your roles and
+          <p class="muted small">Jobadabra reads the job-alert emails these sites send to this Gmail (read-only) and adds the jobs that fit your roles and
             places, with the site named. Their pages are never opened, so a job keeps its title, company, place and link. Set up one alert per role, sent daily by email:</p>
           <ol class="conn-steps">
             <li><span class="conn-step-words"><b>LinkedIn</b><span class="muted">Search jobs for your role and place, then turn on <b>Set alert</b>, daily, by email.</span></span>
@@ -1360,7 +1360,7 @@
                 <button class="secondary is-signal" data-show-extension-folder>Show folder</button>
               </span>
               <span class="muted small" data-mac-only>Mac tip: in the folder picker, press <code>⌘⇧G</code>, paste the copied path, then press Return.</span></span></li>
-            <li><span class="conn-step-words"><b>Connect to Job Pilotto</b>
+            <li><span class="conn-step-words"><b>Connect to Jobadabra</b>
               <span class="muted">Keep this app open and connect from the extension's settings page.</span>
               <span class="muted small">Autofill uses Settings → Your details and your CV.</span></span>
               <button class="secondary is-signal" id="ext-connect" hidden>Connect the extension</button></li>
@@ -1369,13 +1369,13 @@
         <div class="conn-details">
           <details class="troubleshoot"><summary><i data-icon="link"></i>Connection troubleshooting</summary>
             <ul class="small">
-              <li>Installed but the pill stays amber: open the extension (🧩 → ⋮ next to <b>Job Pilotto</b> → <b>Options</b>) and press <b>Connect to the Job Pilotto app</b>.</li>
+              <li>Installed but the pill stays amber: open the extension (🧩 → ⋮ next to <b>Jobadabra</b> → <b>Options</b>) and press <b>Connect to the Jobadabra app</b>.</li>
               <li>It reports every 30 seconds, so give it that long after opening Chrome or reloading it.</li>
               <li id="ext-looked"></li>
             </ul>
           </details>
           <details class="troubleshoot"><summary><i data-icon="pin"></i>Pin the extension in Chrome</summary>
-            <p class="muted small">Click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Job Pilotto</b>. Its orange ✈ button then sits in the toolbar.</p>
+            <p class="muted small">Click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Jobadabra</b>. Its orange ✈ button then sits in the toolbar.</p>
           </details>
         </div>
       </div>
@@ -1403,7 +1403,7 @@
           <p class="muted small keychain-note"><i data-icon="shield"></i>Credentials are stored in your Mac’s Keychain and never leave this Mac, except to the service they belong to.</p>
           <details class="troubleshoot"><summary>Troubleshooting other services</summary>
             <ul class="small">
-              <li><b>Notion</b> says it lost access: Manage → <b>Reconnect with Notion</b> and pick your Job Pilotto page again.</li>
+              <li><b>Notion</b> says it lost access: Manage → <b>Reconnect with Notion</b> and pick your Jobadabra page again.</li>
               <li><b>Gmail</b> shows "Sign-in expired": Manage → <b>Reconnect</b>.</li>
               <li><b>Telegram</b> doesn't answer: open your bot, press <b>Start</b>, then Manage → paste the token again → <b>Connect</b>.</li>
               <li>An AI key was rejected: create a new one at console.anthropic.com and paste it under Anthropic → Manage.</li>
@@ -1438,13 +1438,13 @@
           </div>
           <div class="setting panel" id="setting-data">
             <div class="summary-head"><i data-icon="refresh"></i><h3>Move your data</h3></div>
-            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one.<span id="data-notion-line"> Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</span></p>
+            <p class="muted panel-lead">Save a copy of what Jobadabra keeps on this computer, or restore one.<span id="data-notion-line"> Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</span></p>
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
-                <div><b>Export</b><p class="muted small">Save a copy of everything Job Pilotto keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
+                <div><b>Export</b><p class="muted small">Save a copy of everything Jobadabra keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
                   <button class="secondary" id="export-data">Export data</button></div></div>
               <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
-                <div><b>Import</b><p class="muted small">Restore from a Job Pilotto export. Current data is backed up first.</p>
+                <div><b>Import</b><p class="muted small">Restore from a Jobadabra export. Current data is backed up first.</p>
                   <button class="secondary" id="import-data" data-import>Import data</button></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
@@ -1457,7 +1457,7 @@
           </div>
           <div class="setting panel" id="setting-files">
             <div class="summary-head"><i data-icon="folder"></i><h3>Local files</h3></div>
-            <p class="muted panel-lead">The folder where Job Pilotto stores your data on this computer.</p>
+            <p class="muted panel-lead">The folder where Jobadabra stores your data on this computer.</p>
             <div class="path-line"><code id="data-folder"></code><button class="secondary" id="open-data">Show in Finder</button></div>
           </div>
         </div>
@@ -1484,7 +1484,7 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="appearance" hidden>
-          <div class="settings-page-head"><h2>Appearance</h2><p class="muted">How Job Pilotto looks on this Mac.</p></div>
+          <div class="settings-page-head"><h2>Appearance</h2><p class="muted">How Jobadabra looks on this Mac.</p></div>
           <div class="setting panel is-lit" id="setting-theme">
             <div class="summary-head"><i data-icon="sun"></i><h3>Theme</h3></div>
             <div class="segmented" role="group" aria-label="Theme">
@@ -1505,7 +1505,7 @@
           <div class="setting panel" id="setting-diagnostics">
             <div class="panel-top"><div class="summary-head"><i data-icon="settings"></i><h3>Diagnostics</h3></div>
               <button class="secondary" id="diag-troubleshoot">Open troubleshooting</button></div>
-            <p class="muted panel-lead">Check how Job Pilotto and the extension are working.</p>
+            <p class="muted panel-lead">Check how Jobadabra and the extension are working.</p>
             <dl class="summary-rows is-lined"><dt>App status</dt><dd id="diag-app"></dd><dt>Chrome extension</dt><dd id="diag-ext"></dd>
               <dt>Last refresh</dt><dd id="diag-search"></dd>
               <dt>Updates</dt><dd id="diag-update" class="diag-update"><span id="diag-update-text"></span><button class="link" id="diag-update-check">Check now</button></dd>
@@ -1522,12 +1522,12 @@
               <label class="switch-row"><input type="checkbox" id="telemetry-on"><span>Send</span></label></div>
             <p class="panel-lead tr-lead">✨ Small, anonymous signals that help us fix problems and improve matching for everyone. Your answers, CV, emails, names, companies and keys <b>stay on your Mac</b>: they are removed before anything is sent.</p>
             <div class="tr-grid">
-              <section class="tr-card"><h4>🛠️ Keeping it smooth</h4><ul><li>Anonymous notes when something doesn't work as expected (through Sentry)</li><li>Which forms Job Pilotto finds tricky, so we can teach it</li></ul></section>
+              <section class="tr-card"><h4>🛠️ Keeping it smooth</h4><ul><li>Anonymous notes when something doesn't work as expected (through Sentry)</li><li>Which forms Jobadabra finds tricky, so we can teach it</li></ul></section>
               <section class="tr-card"><h4>📈 How it helps</h4><ul><li>Which steps are used (through PostHog)</li><li>Anonymous counts: matches, forms filled, replies, interviews, offers</li></ul></section>
               <section class="tr-card"><h4>📬 How applications go</h4><ul><li>A reply, interview, offer or rejection</li><li>Counted by job board and days only, with no company or role</li></ul></section>
               <section class="tr-card"><h4>🔎 Better searches</h4><ul><li>Role words you add to widen a search</li><li>The reason you dismiss a job, if you tap one</li><li>Once a day: how many jobs sit in each score band, and from which kinds of job board</li><li>After each search: how many jobs it found and scored, and how many seconds it took, with your kind of role and country</li><li>Just counts, never a job, title or company</li></ul></section>
               <section class="tr-card"><h4>📝 Smarter forms</h4><ul><li>Which question wordings match which profile field ("preferred first name" = your first name)</li><li>Which answers you adjusted: the form's own wording, never what you wrote</li><li>How many fields stayed empty and why, per job board</li></ul></section>
-              <section class="tr-card"><h4>🤝 Fixes from the community</h4><ul><li>Job Pilotto can fetch shared fixes for tricky form controls</li><li>It sends only the control's anonymous shape, never its text</li><li>You're told in the form panel when one was used</li></ul></section>
+              <section class="tr-card"><h4>🤝 Fixes from the community</h4><ul><li>Jobadabra can fetch shared fixes for tricky form controls</li><li>It sends only the control's anonymous shape, never its text</li><li>You're told in the form panel when one was used</li></ul></section>
             </div>
             <p class="tr-foot">🔍 Everything sent is listed below, nothing hidden. Turn it off any time: no reports and no shared fixes; everything else works as before.</p>
             <label class="switch-row" id="tester-logs-row" hidden><input type="checkbox" id="tester-logs-on"><span>Beta tester: when a search fails or hangs, also send the last 200 lines of its log (emails, paths, keys and numbers removed first)</span></label>
@@ -1537,7 +1537,7 @@
           <div class="setting panel" id="setting-report-form" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Keep a trace of each form fill</h3></div>
               <label class="switch-row"><input type="checkbox" id="report-form-on"><span>On</span></label></div>
-            <p class="muted panel-lead">Keep a trace of each form fill, so you can report a problem and we can fix it. It stays on this Mac, is sent only when you press Report in the panel and then Send (your personal details are removed automatically first), never includes sign-in pages, and is deleted when the application ends. Chrome shows a debugging bar while Job Pilotto keeps the trace. Never sent: what you typed, passwords, your CV or profile.</p>
+            <p class="muted panel-lead">Keep a trace of each form fill, so you can report a problem and we can fix it. It stays on this Mac, is sent only when you press Report in the panel and then Send (your personal details are removed automatically first), never includes sign-in pages, and is deleted when the application ends. Chrome shows a debugging bar while Jobadabra keeps the trace. Never sent: what you typed, passwords, your CV or profile.</p>
             <p class="muted small" id="report-sent-row" hidden><span id="report-sent-count"></span> <button class="secondary" id="report-delete" type="button">Delete them</button></p>
           </div>
           <div class="setting panel" id="setting-pool">
@@ -1559,14 +1559,14 @@
               <span class="muted">Manual tokens and connection details.</span></summary>
             <h4>Notion: your own connection token</h4>
             <div>
-          <p class="muted small">For a workspace that doesn't allow outside connections: create one in <a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>, give it your Job Pilotto page, paste its token.</p>
+          <p class="muted small">For a workspace that doesn't allow outside connections: create one in <a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>, give it your Jobadabra page, paste its token.</p>
           <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div></div>
             <h4>Chrome extension: manual connection</h4>
-            <p class="muted small">If its settings page didn't connect: 🧩 → ⋮ next to Job Pilotto → <b>Options</b> → paste these.</p>
+            <p class="muted small">If its settings page didn't connect: 🧩 → ⋮ next to Jobadabra → <b>Options</b> → paste these.</p>
             <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div><div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
           </details>
           <div class="setting danger-zone" id="setting-reset">
-            <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Reset Job Pilotto on this Mac</h3></div>
+            <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Reset Jobadabra on this Mac</h3></div>
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
             <p class="small" data-about-notion>Start over on this Mac. Your Notion and GitHub are not touched.</p>
             <div id="reset-options" hidden>
@@ -1601,12 +1601,12 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="credentials" hidden>
-          <div class="settings-page-head"><h2>Credentials</h2><p class="muted">Accounts Job Pilotto created on job sites. The passwords stay in this Mac's Keychain, encrypted; one is shown only when you press Show.</p></div>
+          <div class="settings-page-head"><h2>Credentials</h2><p class="muted">Accounts Jobadabra created on job sites. The passwords stay in this Mac's Keychain, encrypted; one is shown only when you press Show.</p></div>
           <div class="setting panel" id="setting-credentials">
             <div class="task-table" id="credentials-table">
               <div class="task-row is-head"><span>Site</span><span>Password</span><span></span></div>
             </div>
-            <p class="muted small" id="credentials-empty" hidden>No accounts yet. When Job Pilotto signs up on a job site, the account appears here.</p>
+            <p class="muted small" id="credentials-empty" hidden>No accounts yet. When Jobadabra signs up on a job site, the account appears here.</p>
             <p class="message" id="credentials-message"></p>
             <div class="switch-line">
               <span class="cv-card-text"><span>Old job-site password: <b id="credentials-shared">••••••••</b></span><span class="muted small">Only for accounts made before 10 Oct 2026. New accounts each have their own: Show it in the list above.</span></span>
@@ -1860,10 +1860,10 @@
 <dialog id="extension-needed-dialog" class="save-dialog panel-dialog">
   <form method="dialog">
     <h2 id="extension-needed-title">Install the Chrome extension first</h2>
-    <p>Applying runs in your own Chrome, where you are already signed in. The Job Pilotto extension is what fills each form from your CV and answers; without it the page would open and stay empty.</p>
+    <p>Applying runs in your own Chrome, where you are already signed in. The Jobadabra extension is what fills each form from your CV and answers; without it the page would open and stay empty.</p>
     <ul>
       <li><b>Why an extension:</b> only an extension can read and fill a form inside your browser.</li>
-      <li><b>What it sees:</b> only the application pages Job Pilotto opens for you. It never presses Submit: you do.</li>
+      <li><b>What it sees:</b> only the application pages Jobadabra opens for you. It never presses Submit: you do.</li>
       <li><b>What it takes:</b> about a minute, three steps, once: turn on Developer mode, load the extension folder, connect it to this app.</li>
     </ul>
     <p class="muted small">After installing, press Apply again.</p>
@@ -1878,10 +1878,10 @@
     <h2 id="notion-connect-title"></h2>
     <p class="ui-gate-reason" id="notion-connect-reason" hidden></p>
     <div class="alert tone-warn" id="notion-connect-import" hidden><i data-icon="alert"></i>
-      <div><strong>Pick the workspace your backup used</strong><p>Your Profile and job tracking are in the Notion workspace this backup used. On Notion's screen, choose that workspace and your existing Job Pilotto page. Don't create a new copy: a new workspace starts with an empty Profile.</p></div></div>
+      <div><strong>Pick the workspace your backup used</strong><p>Your Profile and job tracking are in the Notion workspace this backup used. On Notion's screen, choose that workspace and your existing Jobadabra page. Don't create a new copy: a new workspace starts with an empty Profile.</p></div></div>
     <!-- Data on this Mac (renderer/notion-connect-rules.js connectMode): connecting is moving, said before the press. -->
     <div class="alert" id="notion-connect-move" hidden><i data-icon="info"></i>
-      <div data-about-notion><strong>Your data moves to Notion</strong><p>Your jobs, applications, interviews and answers on this Mac move into your Notion, once and one way. From then on Job Pilotto reads and saves them there; this Mac keeps an archived copy. If it stops halfway, nothing changes and the next try goes on where it stopped.</p></div></div>
+      <div data-about-notion><strong>Your data moves to Notion</strong><p>Your jobs, applications, interviews and answers on this Mac move into your Notion, once and one way. From then on Jobadabra reads and saves them there; this Mac keeps an archived copy. If it stops halfway, nothing changes and the next try goes on where it stopped.</p></div></div>
     <ul class="ui-benefits" id="notion-connect-benefits"></ul>
     <p class="muted small" id="notion-connect-note"></p>
     <p class="message" id="notion-connect-message"></p>
@@ -1896,7 +1896,7 @@
 <dialog id="import-dialog">
   <form method="dialog">
     <h2>➕ Add a job</h2>
-    <p class="muted small">Paste a job link. Job Pilotto reads the posting, scores it against your profile, and adds it to Jobs as a new match. It is not marked Applied.</p>
+    <p class="muted small">Paste a job link. Jobadabra reads the posting, scores it against your profile, and adds it to Jobs as a new match. It is not marked Applied.</p>
     <label for="import-url">Job link</label>
     <input id="import-url" type="url" placeholder="https://…" required>
     <p class="message" id="import-message"></p>
@@ -1909,8 +1909,8 @@
 <dialog id="applied-dialog">
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>
-    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your<span data-notion-only> Notion</span> Applications
-      as Applied with the same facts and fit score as the jobs Job Pilotto finds, and Gmail replies about it are tracked like any other.</p>
+    <p class="muted small">A job you applied to outside Jobadabra (LinkedIn, a referral, the company's site). It goes to your<span data-notion-only> Notion</span> Applications
+      as Applied with the same facts and fit score as the jobs Jobadabra finds, and Gmail replies about it are tracked like any other.</p>
     <label for="applied-url">Job link</label>
     <input id="applied-url" type="url" placeholder="https://…" required>
     <div id="applied-manual" hidden>
@@ -2010,13 +2010,13 @@
       <h2>Google shows a warning first</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
-    <p class="dialog-lead">Job Pilotto is free and Google has not reviewed it yet, so its sign-in page says <b>"Google hasn't verified this app"</b>. That is expected. Three clicks get you through:</p>
+    <p class="dialog-lead">Jobadabra is free and Google has not reviewed it yet, so its sign-in page says <b>"Google hasn't verified this app"</b>. That is expected. Three clicks get you through:</p>
     <ol class="dialog-steps">
       <li>Click <b>Advanced</b> at the bottom left of Google's page (Google writes it in your language: Avansat, Erweitert, Avancé…).</li>
-      <li>Click <b>Go to Job Pilotto (unsafe)</b>, the link that appears.</li>
+      <li>Click <b>Go to Jobadabra (unsafe)</b>, the link that appears.</li>
       <li>Tick the Gmail and Calendar read access and press <b>Continue</b>.</li>
     </ol>
-    <p class="muted small">Read-only: Job Pilotto can read your mail and calendar to track replies and interviews, and never sends, changes or deletes anything. The sign-in stays on this computer, in its Keychain or Credential Manager.</p>
+    <p class="muted small">Read-only: Jobadabra can read your mail and calendar to track replies and interviews, and never sends, changes or deletes anything. The sign-in stays on this computer, in its Keychain or Credential Manager.</p>
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Cancel</button>
       <button id="google-warning-go" type="button" class="primary" value="default">Continue to Google</button>
@@ -2087,7 +2087,7 @@
     </div>
     <p id="prep-context" class="dialog-lead"></p>
     <div id="prep-describe" hidden>
-      <p class="muted small">To prepare you, Job Pilotto needs to know the role. Paste the job description (or what the recruiter told you), or the posting's link.</p>
+      <p class="muted small">To prepare you, Jobadabra needs to know the role. Paste the job description (or what the recruiter told you), or the posting's link.</p>
       <label for="prep-text">Job description</label>
       <textarea id="prep-text" rows="8" placeholder="What the role does, its stack, the team, requirements…"></textarea>
       <label for="prep-url">Or the posting's link</label>

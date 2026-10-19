@@ -11,7 +11,7 @@ let permissionKind = 'screen';
 export async function showPermission(noCallAudio = false) {
   const access = await iv.access();
   // npm start: macOS may list the terminal that started the app instead of Electron.
-  const who = access.dev ? 'your terminal app (e.g. <b>iTerm</b>; quit and reopen it)' : '<b>Job Pilotto</b> (+ to add it)';
+  const who = access.dev ? 'your terminal app (e.g. <b>iTerm</b>; quit and reopen it)' : '<b>Jobadabra</b> (+ to add it)';
   let text = '';
   if (access.microphone === 'denied' || access.microphone === 'restricted') {
     permissionKind = 'microphone';
@@ -71,7 +71,7 @@ export async function startRecording(micOnly, openDraft) {
     mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
   } catch {
     call?.getTracks().forEach(t => t.stop());
-    message('iv-message', 'Job Pilotto may not use the microphone yet: allow it (see above), then restart.', 'error');
+    message('iv-message', 'Jobadabra may not use the microphone yet: allow it (see above), then restart.', 'error');
     showPermission();
     $('iv-record').disabled = !$('iv-consent').checked;
     return;

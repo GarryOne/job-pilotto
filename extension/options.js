@@ -1,4 +1,4 @@
-// Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
+// Settings: only the connection to the Jobadabra app — filled in by itself when this page opens, or by Connect.
 // The user's contact details and CV live in the app, which the extension asks for each time it fills a form (flow.js).
 import {plainWhy} from './ai-reply.js';
 import {pair} from './flow.js';
@@ -36,19 +36,19 @@ function pairWords(state, detail = '') {
   // that has nothing to do.
   button.className = state === 'disconnected' ? '' : 'secondary small';
   button.disabled = state === 'checking';
-  button.textContent = state === 'connected' ? 'Reconnect' : state === 'checking' ? 'Connecting…' : 'Connect to the Job Pilotto app';
+  button.textContent = state === 'connected' ? 'Reconnect' : state === 'checking' ? 'Connecting…' : 'Connect to the Jobadabra app';
   $('pair-status').textContent = detail;
   $('pair-status').className = state === 'connected' ? 'on' : '';
 }
 async function connectToApp() {
-  pairWords('checking', 'Looking for the Job Pilotto app on this Mac…');
+  pairWords('checking', 'Looking for the Jobadabra app on this Mac…');
   try {
     const {workerUrl, token} = await pair();
     $('workerUrl').value = workerUrl;
     $('token').value = token;
-    pairWords('connected', 'Connected to the Job Pilotto app ✓');
+    pairWords('connected', 'Connected to the Jobadabra app ✓');
   } catch (error) {
-    pairWords('disconnected', `Couldn't reach the Job Pilotto app (${plainWhy(error)}). Open the app, then try again.`);
+    pairWords('disconnected', `Couldn't reach the Jobadabra app (${plainWhy(error)}). Open the app, then try again.`);
   }
 }
 $('pair').addEventListener('click', connectToApp);

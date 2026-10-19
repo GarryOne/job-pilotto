@@ -1,6 +1,6 @@
-# Job Pilotto — Chrome extension
+# Jobadabra — Chrome extension
 
-Fills a job application from the kit Job Pilotto drafted for it. **It never clicks Submit**: after
+Fills a job application from the kit Jobadabra drafted for it. **It never clicks Submit**: after
 filling, the page shows *Unlock for my review*; you check every field, unlock, and submit yourself.
 
 ## What it does
@@ -17,7 +17,7 @@ Everything happens in **the panel**, bottom right of every application form (the
   Claude answers only the questions the kit doesn't cover (about USD 0.03–0.06 when needed, nothing when the kit
   covers every question). Text fields, radios, non-legal checkboxes, selects, searchable dropdowns and your CV.
   Without a kit, a posting that rules you out isn't filled unless you choose **Fill anyway**.
-- **App first:** the job, its session and the form's state are shared with the Job Pilotto app both ways. Ticks
+- **App first:** the job, its session and the form's state are shared with the Jobadabra app both ways. Ticks
   you make here are ticked off on the app's session page; its *Show it in the form* scrolls here. Without the app
   (not open, or your own Worker) the panel still shows what's left and fills through your connection.
 - **Never submits:** the panel reads the form and scrolls to fields; filling goes through the extension's fill,
@@ -27,7 +27,7 @@ Everything happens in **the panel**, bottom right of every application form (the
 
 ## Privacy
 
-- Permissions: `activeTab`, `scripting`, `storage`. The application panel runs only on a page the Job Pilotto app opened
+- Permissions: `activeTab`, `scripting`, `storage`. The application panel runs only on a page the Jobadabra app opened
   (Apply). A job list the app cannot read by itself is read on a tab the app opens for it (Find jobs using your browser): the job list you see,
   then its next pages, pausing between pages, stopping at a sign-in wall or a "are you human" check. With filters on, it first asks Claude
   (through the app, on your AI) which of the page's own filters fit your search, from their names and your search words only, and sets them;
@@ -42,7 +42,7 @@ Everything happens in **the panel**, bottom right of every application form (the
 
 1. Chrome → `chrome://extensions` → turn on **Developer mode** (top right).
 2. **Load unpacked** → choose this `extension/` folder.
-3. Pin ✈️ Job Pilotto (puzzle-piece icon → pin).
+3. Pin ✈️ Jobadabra (puzzle-piece icon → pin).
 4. Right-click the icon → **Options**: paste your Worker URL and extension token, fill your
    contact details, choose your CV file, **Save**.
 

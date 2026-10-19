@@ -71,6 +71,6 @@ export async function video(storage, job, {fetcher = globalThis.fetch, ...option
     const response = await fetcher(`${FREE_BASE.replace(/\/api\/ai$/, '')}/api/ready/video?job=${encodeURIComponent(job)}`, {headers: {'x-api-key': key, 'x-ready-owner': ownerSecret(storage)}});
     if (!response.ok) return {ok: false, error: response.status === 404 ? 'No video was kept for this form.' : `Our server did not answer (${response.status}).`};
     return {ok: true, bytes: new Uint8Array(await response.arrayBuffer())};
-  } catch { return {ok: false, error: 'Could not reach Job Pilotto just now. Check your connection.'}; }
+  } catch { return {ok: false, error: 'Could not reach Jobadabra just now. Check your connection.'}; }
 }
 export const link = async (storage, job, options) => words(await call(storage, '/api/ready/link', {method: 'POST', body: {job}, ...options}));   // -> {ok, url, expiresAt}: the 10-minute live-view link for one form

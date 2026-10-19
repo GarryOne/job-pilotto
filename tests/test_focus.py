@@ -350,7 +350,7 @@ class AddDetailsTests(unittest.TestCase):
         items = focus.build([invite], [], reviewed, target=0, now=NOW)['items']
         details = [i for i in items if i['kind'] == 'details']
         self.assertEqual([i['missing'] for i in details], [['salary', 'job description']])
-        self.assertEqual(focus.present(details[0])['headline'], 'Tell Job Pilotto about the Huxley interview')
+        self.assertEqual(focus.present(details[0])['headline'], 'Tell Jobadabra about the Huxley interview')
 
     def test_skip_means_you_dont_know_the_employer_yet_for_this_interview(self):
         invite = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',

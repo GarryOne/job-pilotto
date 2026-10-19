@@ -28,7 +28,7 @@ test('quit during a task that is not resumed: listed as Interrupted with what it
   assert.equal(row.kind, 'visits');
   assert.equal(row.interrupted, true);
   assert.deepEqual(row.log.slice(0, 2), ['Reading 3 sites in your browser, 2 at a time', 'Reading LinkedIn in your browser…']);
-  assert.match(row.log.at(-1), /^Interrupted: Job Pilotto was closed while this ran/);
+  assert.match(row.log.at(-1), /^Interrupted: Jobadabra was closed while this ran/);
   assert.deepEqual(runStatus(row, false), ['Interrupted', 'warn']);
   finish();
   await done;

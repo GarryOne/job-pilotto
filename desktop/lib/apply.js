@@ -1,5 +1,5 @@
 // "Apply to N jobs": pick the N best open jobs and start applying.
-//   chrome: open them as tabs in the browser with the extension (Chrome, Edge…); the Job Pilotto extension fills each, you submit.
+//   chrome: open them as tabs in the browser with the extension (Chrome, Edge…); the Jobadabra extension fills each, you submit.
 //   agents: one Claude session per job in Terminal (tools/apply-batch-claude.sh), driving Chrome with
 //     Claude in Chrome; it follows a job board's Apply to the employer's site, signs up there if asked,
 //     and fills every page. Recommended when Claude Code is installed; needs Notion kits.
@@ -108,7 +108,7 @@ export async function applyOne(storage, url, details = {}, {open = spawn, term =
   return {ok: true, session};
 }
 
-const NO_CHROME = 'No supported browser was found. Install Chrome or Edge (with the Job Pilotto extension) to fill applications.';
+const NO_CHROME = 'No supported browser was found. Install Chrome or Edge (with the Jobadabra extension) to fill applications.';
 
 // How to open URLs in the browser that has the extension (Chrome, Edge, Brave, Vivaldi): see browser-launch.js.
 // `prefer` is that browser's app name. null when none is installed.
@@ -119,7 +119,7 @@ export function launchBrowser(find = extensionInstall.installed, command = brows
   return extensionBrowser(find) || browserOf(command(['x'], process.platform, process.env, fs.existsSync)) || 'Google Chrome';
 }
 
-// The browser the Job Pilotto extension is installed in, enabled, for a form to open in: the copy loaded from the app's own
+// The browser the Jobadabra extension is installed in, enabled, for a form to open in: the copy loaded from the app's own
 // folder first. '' when none is found (Chrome, then Edge, is tried).
 export function extensionBrowser(find = extensionInstall.installed) {
   try {

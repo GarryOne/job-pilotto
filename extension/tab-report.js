@@ -37,7 +37,7 @@ export function createTabReport(ctx) {
     const manifest = chrome.runtime.getManifest().version, {reloadedFor} = await chrome.storage.local.get('reloadedFor');
     return reloadedFor && newer(reloadedFor, manifest) ? reloadedFor : manifest;
   };
-  // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
+  // Tell the Jobadabra app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
   async function reportTabs() {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
@@ -101,7 +101,7 @@ export function createTabReport(ctx) {
 
   function connected(ok, why = '') {
     chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});
-    chrome.action.setTitle({title: ok ? 'Job Pilotto' : `Job Pilotto: ${why}`}).catch(() => {});
+    chrome.action.setTitle({title: ok ? 'Jobadabra' : `Jobadabra: ${why}`}).catch(() => {});
   }
   // A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
   // ever carried over to whatever opens next (tab-pages.js).

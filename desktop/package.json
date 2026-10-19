@@ -52,8 +52,8 @@
     "libsodium-wrappers": "^0.7.16",
     "pdfjs-dist": "^6.3.289"
   },
-  "description": "Job Pilotto: finds jobs that fit you, drafts your answers and fills forms; you submit.",
-  "author": "Job Pilotto",
+  "description": "Jobadabra: finds jobs that fit you, drafts your answers and fills forms; you submit.",
+  "author": "Jobadabra",
   "build": {
     "appId": "app.jobpilotto.desktop",
     "productName": "Job Pilotto",
@@ -106,9 +106,11 @@
       "gatekeeperAssess": false,
       "icon": "assets/icon.png",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Job Pilotto records your interview calls (with everyone's agreement) to transcribe them on this Mac.",
-        "NSAudioCaptureUsageDescription": "Job Pilotto records the call's audio to transcribe your interviews on this Mac.",
-        "NSAppleEventsUsageDescription": "Job Pilotto switches Chrome to the application form Claude filled, so you can review it."
+        "CFBundleDisplayName": "Jobadabra",
+        "CFBundleName": "Jobadabra",
+        "NSMicrophoneUsageDescription": "Jobadabra records your interview calls (with everyone's agreement) to transcribe them on this Mac.",
+        "NSAudioCaptureUsageDescription": "Jobadabra records the call's audio to transcribe your interviews on this Mac.",
+        "NSAppleEventsUsageDescription": "Jobadabra switches Chrome to the application form Claude filled, so you can review it."
       }
     },
     "dmg": {

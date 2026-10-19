@@ -29,7 +29,7 @@ export function start(request, env) {
   const url = new URL(request.url);
   const session = url.searchParams.get('session') || '';
   if (!configured(env)) return page('Not available yet', 'Connect with LinkedIn isn\'t set up on this server yet.', false);
-  if (!SESSION.test(session)) return page('Something went wrong', 'Start again from the Job Pilotto app.', false);
+  if (!SESSION.test(session)) return page('Something went wrong', 'Start again from the Jobadabra app.', false);
   const authorize = new URL('https://www.linkedin.com/oauth/v2/authorization');
   authorize.search = new URLSearchParams({response_type: 'code', client_id: env.LINKEDIN_CLIENT_ID, redirect_uri: url.origin + CALLBACK,
     state: session, scope: SCOPE}).toString();
@@ -40,8 +40,8 @@ export function start(request, env) {
 export async function callback(request, env, fetcher = fetch) {
   const url = new URL(request.url);
   const session = url.searchParams.get('state') || '';
-  if (url.searchParams.get('error')) return page('Not connected', 'You cancelled on LinkedIn\'s page. Go back to Job Pilotto and try again.', false);
-  if (!configured(env) || !SESSION.test(session) || !url.searchParams.get('code')) return page('Something went wrong', 'Start again from the Job Pilotto app.', false);
+  if (url.searchParams.get('error')) return page('Not connected', 'You cancelled on LinkedIn\'s page. Go back to Jobadabra and try again.', false);
+  if (!configured(env) || !SESSION.test(session) || !url.searchParams.get('code')) return page('Something went wrong', 'Start again from the Jobadabra app.', false);
   const tokenResponse = await fetcher('https://www.linkedin.com/oauth/v2/accessToken', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({grant_type: 'authorization_code', code: url.searchParams.get('code'), redirect_uri: url.origin + CALLBACK,
       client_id: env.LINKEDIN_CLIENT_ID, client_secret: env.LINKEDIN_CLIENT_SECRET}).toString()});
@@ -53,7 +53,7 @@ export async function callback(request, env, fetcher = fetch) {
   const keep = {sub: String(info.sub), name: info.name || '', given_name: info.given_name || '', family_name: info.family_name || '',
     email: info.email_verified === false ? '' : info.email || '', locale: typeof info.locale === 'string' ? info.locale : (info.locale?.language || '')};
   await env.WAITLIST.put(`linkedin:${await sha256(session)}`, JSON.stringify(keep), {expirationTtl: TTL});
-  return page('Connected to LinkedIn ✓', `${keep.name ? `${keep.name} is connected. ` : ''}Go back to Job Pilotto: it takes it from here. You can close this tab.`, true);
+  return page('Connected to LinkedIn ✓', `${keep.name ? `${keep.name} is connected. ` : ''}Go back to Jobadabra: it takes it from here. You can close this tab.`, true);
 }
 
 // POST /api/linkedin/token {session} -> {ok, pending} until the user has approved, then the profile (once).

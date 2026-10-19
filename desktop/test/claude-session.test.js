@@ -25,8 +25,8 @@ test('the session gets Notion and the app folders, the app\'s python3 first, nev
 test('python3 for the session is a small script pointing at the app\'s Python (forward slashes on Windows)', () => {
   const storage = tempStorage();
   assert.equal(session.pythonShim(storage, 'python3', 'darwin'), null);
-  const dir = session.pythonShim(storage, 'C:\\Users\\x\\AppData\\Local\\Programs\\Job Pilotto\\resources\\pilot\\python\\python.exe', 'win32');
-  assert.match(fs.readFileSync(path.join(dir, 'python3'), 'utf8'), /exec 'C:\/Users\/x\/AppData\/Local\/Programs\/Job Pilotto\/resources\/pilot\/python\/python.exe' "\$@"/);
+  const dir = session.pythonShim(storage, 'C:\\Users\\x\\AppData\\Local\\Programs\\Jobadabra\\resources\\pilot\\python\\python.exe', 'win32');
+  assert.match(fs.readFileSync(path.join(dir, 'python3'), 'utf8'), /exec 'C:\/Users\/x\/AppData\/Local\/Programs\/Jobadabra\/resources\/pilot\/python\/python.exe' "\$@"/);
 });
 
 test('the prompt names the job and the audit file, uses the open form tab and the password helper', () => {
@@ -50,7 +50,7 @@ test('the prompt names the job and the audit file, uses the open form tab and th
 
 test('Windows: one console window per job through start, reading its instructions from a file', async () => {
   assert.equal(session.windowsCommand({claude: 'C:\\Users\\x\\.local\\bin\\claude.exe', repo: 'C:\\App\\pilot', promptFile: 'C:\\Temp\\p_1.txt'}),
-    '"start "Job Pilotto" /D "C:\\App\\pilot" "C:\\Users\\x\\.local\\bin\\claude.exe" --chrome --permission-mode bypassPermissions ' +
+    '"start "Jobadabra" /D "C:\\App\\pilot" "C:\\Users\\x\\.local\\bin\\claude.exe" --chrome --permission-mode bypassPermissions ' +
     '"Read the file C:/Temp/p_1.txt and do exactly what it says.""');
   const storage = tempStorage();
   const spawned = [], steps = [];

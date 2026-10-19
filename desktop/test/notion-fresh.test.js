@@ -17,8 +17,8 @@ const page = (id, parent, name) => ({object: 'page', id, parent: {page_id: paren
 const database = (id, parent, name) => ({object: 'database', id, parent: {page_id: parent}, last_edited_time: '2026-09-28', title: title(name)});
 
 // Two workspaces shared with one connection: the old one (root "old") and a new empty page ("new").
-function workspace({oldTitle = 'Job Pilotto', rows = 2} = {}) {
-  const items = [page('old', null, oldTitle), page('new', null, 'Job Pilotto')];
+function workspace({oldTitle = 'Jobadabra', rows = 2} = {}) {
+  const items = [page('old', null, oldTitle), page('new', null, 'Jobadabra')];
   for (const [env, name] of Object.entries(T.databases)) items.push(database(`db_${env}`, 'old', name));
   for (const [env, name] of Object.entries(T.pages)) items.push(page(`pg_${env}`, 'old', name));
   items[0].parent = {type: 'workspace', workspace: true};
@@ -67,7 +67,7 @@ test('a page already renamed "(archived …)" by an older reset is still never c
   assert.equal(await notion.sharedRoot('t', w.fetcher), 'new');
 });
 
-// Owner, 16 Oct 2026 ("Always start new"): a fresh profile never discovers or reuses an existing Job Pilotto page; it builds a new one beside it.
+// Owner, 16 Oct 2026 ("Always start new"): a fresh profile never discovers or reuses an existing Jobadabra page; it builds a new one beside it.
 const built = [];
 const fakeRepair = async (_token, ids, _schema, _fetcher, page) => { built.push(page); return {ids: {NOTION_PROFILE_PAGE_ID: `${page}-profile`}, created: ['Profile'], columns: []}; };
 const noWait = {sleep: async () => {}, every: 0};
@@ -108,7 +108,7 @@ test('a connect that is not fresh (this profile already has its workspace) still
 
 test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
-  const dir = path.join(base, 'Job Pilotto');
+  const dir = path.join(base, 'Jobadabra');
   createStorage(dir, {encrypt: v => v, decrypt: v => v}).saveSettings({setupDone: true});
   const file = path.join(base, 'export.tar.gz');
   reset.exportTo(dir, file);
@@ -121,23 +121,23 @@ test('an export carries no Notion copy; an older one that does imports without k
 
 test('a reset leaves nothing about Notion for after the restart', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
-  const dir = path.join(base, 'Job Pilotto');
+  const dir = path.join(base, 'Jobadabra');
   fs.mkdirSync(dir);
   reset.request(dir);
   assert.deepEqual(reset.applyPending(dir), {deleted: true});
 });
 
-// Two installs that each connected the same Notion left two pages both called "Job Pilotto" (6 Oct 2026): a page made by a connect is
+// Two installs that each connected the same Notion left two pages both called "Jobadabra" (6 Oct 2026): a page made by a connect is
 // named after the computer and the day; a page the user named is never renamed.
 test('a new workspace page is named after this computer and today; a page with its own name is kept', async () => {
-  assert.equal(notion.workspaceTitle("Igor's MacBook Pro", new Date(2026, 9, 7)), "Job Pilotto · Igor's MacBook Pro · 7 Oct 2026");
-  assert.equal(notion.workspaceTitle('', new Date(2026, 9, 7)), 'Job Pilotto · 7 Oct 2026');
+  assert.equal(notion.workspaceTitle("Igor's MacBook Pro", new Date(2026, 9, 7)), "Jobadabra · Igor's MacBook Pro · 7 Oct 2026");
+  assert.equal(notion.workspaceTitle('', new Date(2026, 9, 7)), 'Jobadabra · 7 Oct 2026');
   const w = workspace();
   const ids = (await notion.discover('t', w.fetcher)).ids;
-  const named = await notion.nameWorkspace('t', ids, "Job Pilotto · Igor's MacBook Pro · 7 Oct 2026", w.fetcher);
+  const named = await notion.nameWorkspace('t', ids, "Jobadabra · Igor's MacBook Pro · 7 Oct 2026", w.fetcher);
   assert.deepEqual([named.renamed, w.patched], [true, ['pages/old']]);
   assert.ok((await notion.discover('t', w.fetcher)).ids.NOTION_PROFILE_PAGE_ID, 'still found after the rename');
   const mine = workspace({oldTitle: 'My jobs'});
-  const again = await notion.nameWorkspace('t', (await notion.discover('t', mine.fetcher)).ids, 'Job Pilotto · X · 7 Oct 2026', mine.fetcher);
+  const again = await notion.nameWorkspace('t', (await notion.discover('t', mine.fetcher)).ids, 'Jobadabra · X · 7 Oct 2026', mine.fetcher);
   assert.deepEqual([again.renamed, again.title, mine.patched], [false, 'My jobs', []]);
 });

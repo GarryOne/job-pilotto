@@ -247,7 +247,7 @@ function draw(view, into) {
   if (!any && !optional.length) saved.append(el('p', 'muted qa-empty', list.length ? 'No answer matches this search.' : 'No standard answers yet: they are added as forms ask questions, or with Add answer.'));
   into.append(saved);
 
-  // Website-specific questions, folded: exceptions and what Job Pilotto learned from forms.
+  // Website-specific questions, folded: exceptions and what Jobadabra learned from forms.
   const rules = el('details', 'answer-item qa-section kn-rules');
   rules.open = rulesOpen || !!filters.query;
   rules.addEventListener('toggle', () => { rulesOpen = rules.open; });

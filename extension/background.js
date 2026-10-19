@@ -233,19 +233,19 @@ function stepBox(tabId, message) {
       box.append(spin, document.createElement('span'));
       document.documentElement.append(box);
     }
-    box.lastChild.textContent = `Job Pilotto: ${message}`;
+    box.lastChild.textContent = `Jobadabra: ${message}`;
   }}).catch(() => {});
 }
 
 // "Didn't fill: <reason>" with a Fill anyway button on the page itself.
 async function ineligibleNote(tabId, reason, partly = false) {   // partly: your details were filled before the verdict came (flow.js, owner 11 Oct 2026)
-  if (await tellPanel(tabId, partly ? `Job Pilotto filled only your details on this form: ${reason || 'not eligible'}` : `Job Pilotto didn't fill this form: ${reason || 'not eligible'}`, true)) return;   // the panel's note line, with its Fill anyway
+  if (await tellPanel(tabId, partly ? `Jobadabra filled only your details on this form: ${reason || 'not eligible'}` : `Jobadabra didn't fill this form: ${reason || 'not eligible'}`, true)) return;   // the panel's note line, with its Fill anyway
   await chrome.scripting.executeScript({target: {tabId}, args: [String(reason || 'not eligible'), !!partly], func: (text, partly) => {   // an app reply without a note must not crash the note (10 Oct 2026, the Aldi replay)
     document.getElementById('jobpilotto-note')?.remove();
     const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'});
     box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:340px;background:#132439;color:#fff;' +
       'border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
-    const message = Object.assign(document.createElement('div'), {textContent: partly ? `Job Pilotto filled only your details on this form: ${text}` : `Job Pilotto didn't fill this form: ${text}`});
+    const message = Object.assign(document.createElement('div'), {textContent: partly ? `Jobadabra filled only your details on this form: ${text}` : `Jobadabra didn't fill this form: ${text}`});
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;margin-top:10px';
     const button = (label, primary) => {
@@ -384,7 +384,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     await progress(tab.id, '', page);
     decide('fill', `failed: ${error.message}`, {url: page});
     // An automatic fill (the page was not asked for by you, just reached in an armed tab) fails quietly: logged, never a popup.
-    if (!quiet) await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${plainWhy(error)}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
+    if (!quiet) await note(tab.id, `✈️ Jobadabra couldn't fill this page: ${plainWhy(error)}. If the form is behind an "Apply" button, open that form from the Jobadabra app.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
     return {error: plainWhy(error)};
   }
@@ -428,7 +428,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   return false;
 });
 
-// Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
+// Just loaded: open the settings page, which connects to the Jobadabra Mac app by itself.
 chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });
 
 const settleOpenTabs = createSettleOpenTabs({arm, memoryReady: () => memoryReady});   // settle-tabs.js: after a reload the panel is put back on the app's tabs and taken off every other page

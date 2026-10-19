@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Privacy · Job Pilotto</title>
+<title>Privacy · Jobadabra</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<meta name="description" content="How Job Pilotto handles your data: your Notion, your computer, nothing kept by us.">
+<meta name="description" content="How Jobadabra handles your data: your Notion, your computer, nothing kept by us.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
@@ -14,13 +14,13 @@
 </head>
 <body>
 <div class="wrap">
-  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a></nav>
+  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Jobadabra</a></nav>
   <main class="legal">
     <h1>Privacy</h1>
     <p class="muted">Last updated 16 October 2026</p>
     <p><b>In short:</b> your job search lives in <b>your own Notion workspace</b> and on <b>your own computer</b>. We don't run a
       database of your data and we don't sell or share anything.</p>
-    <h2>What Job Pilotto stores, and where</h2>
+    <h2>What Jobadabra stores, and where</h2>
     <ul>
       <li><b>Your Notion workspace</b> (the page you connect): job matches, applications, replies, interviews, insights, your Profile,
         standard answers and search settings. You can read, edit or delete everything there.</li>
@@ -40,10 +40,10 @@
       filled, applications, replies, interviews, offers). Each report carries a random install number, not your name, and the channel the install came from (a label such as "reddit-devops" or "linkedin.com"): set by the install command's tagged link, or, for a download button, asked once at the first start from the download click made on the same network in the 7 days before. For that match the website keeps a salted hash of the network address of a download click for 8 days, then deletes it; never the address itself.</p>
     <p>Before anything leaves your computer, the app removes personal data: your answers, CV, cover letters, emails, Notion content,
       names, email addresses, phone numbers, keys, file paths and the query part of links. We keep reports for 90 days, use them only
-      to improve Job Pilotto and to publish overall numbers (never about one person), and never sell them. <b>Settings → Advanced →
+      to improve Jobadabra and to publish overall numbers (never about one person), and never sell them. <b>Settings → Advanced →
       Technical reports</b> shows exactly what was sent, and turns them off.</p>
     <h2>Crash reports and usage steps (Sentry and PostHog)</h2>
-    <p>While Technical reports are on, an installed Job Pilotto also uses two services, with the same rules. <b>Sentry</b> (hosted in the
+    <p>While Technical reports are on, an installed Jobadabra also uses two services, with the same rules. <b>Sentry</b> (hosted in the
       EU) receives crash and error reports: the kind of error, a cleaned-up message, which parts of the app's code it passed
       through, the app version, your operating system and the random install number. <b>PostHog</b> (hosted in the EU) receives which steps
       people take, so we can see where setup or applying gets stuck: for example "setup step: CV", "search finished", "kit prepared",
@@ -54,7 +54,7 @@
       are attached to that report, with emails, folder paths, keys, links' query parts and numbers removed first.</p>
     <p>This website sends nothing to PostHog or any other third-party analytics. It counts page views and Download clicks itself (page, where the visit came from, country), with no cookie and no id kept between page views.</p>
     <h2>Shared fixes from our service</h2>
-    <p>Forms differ, so Job Pilotto learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
+    <p>Forms differ, so Jobadabra learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
       extension ask our website for <em>shared fixes</em> for the special controls on the form in front of you. The request holds
       only the anonymous structural fingerprints of those controls and your random install number, never the form's text, your
       answers or your CV. A fix is a small data record (for example which element counts as the "Yes" button); it can only change
@@ -62,7 +62,7 @@
       form panel tells you when it used one. For Apply with Claude, the app also asks our website for notes about the job board's
       forms (the board's name only). We limit these requests per install and may block an install that tries to copy the shared data.
       <strong>Settings → Advanced → Technical reports</strong> turns reports and shared fixes off together; everything else keeps working.</p>
-    <p>When you tell Job Pilotto how an application went (a reply, a call or interview, an offer, a rejection, no answer), it is saved
+    <p>When you tell Jobadabra how an application went (a reply, a call or interview, an offer, a rejection, no answer), it is saved
       in your Notion, and, while Technical reports are on, counted anonymously by <em>job board</em>, the outcome and a rough number of
       days (for example 8–14) since you applied, to learn which applications get answers. Never the company, the role, the job's address
       or your answers, and the count is not kept per person.</p>
@@ -74,16 +74,16 @@
       They are grouped by a coarse kind of role and region from fixed lists. Never a job, its title, its company, its link or any text, and they
       are not kept per person. They help us make the score and the suggestions better for everyone.</p>
     <h2>Help the pool grow</h2>
-    <p>Job Pilotto downloads a shared list of employer career pages (with a random install number and an access token from our website, a few times a day at most). Every install also helps it grow, <b>on by default</b> (you can turn it off): as each run finds them, the app sends the public career pages and job boards your searches read (company, job-board system and
+    <p>Jobadabra downloads a shared list of employer career pages (with a random install number and an access token from our website, a few times a day at most). Every install also helps it grow, <b>on by default</b> (you can turn it off): as each run finds them, the app sends the public career pages and job boards your searches read (company, job-board system and
       address; how many jobs each listed and matched, and how many of those you saved, applied to or got an interview or offer from,
       with their language, seniority and remote counts), up to 40 public job-posting addresses from employers' own career pages (only the address, never its title, company, place or score, nor anything you wrote; we record a few of them on a test applicant to find forms the app fills badly) and labels from fixed lists: your kind of role and role family, your country, region and city area, with a
       random install number. Never your jobs, applications, CV, answers, emails, Notion content or keys. We check every page
       ourselves before adding it, take up an employer you added by hand only once at least three people added the same one, publish a label for a page only when several people agree, keep this data for 90 days (posting addresses 14 days) and never
       sell it. <b>Settings → Help the pool grow</b> shows the exact message under <b>See what would be sent</b>, and turning it off stops it at once.</p>
     <h2>Connect with Notion</h2>
-    <p>When you connect Notion, Notion asks you which pages Job Pilotto may use. Our server receives a one-time code from Notion,
-      trades it for your access token and hands that token to the Job Pilotto app on your computer. The token is held for at most
-      10 minutes, only until your app collects it, then deleted; it is never logged. Job Pilotto only reads and writes the pages you
+    <p>When you connect Notion, Notion asks you which pages Jobadabra may use. Our server receives a one-time code from Notion,
+      trades it for your access token and hands that token to the Jobadabra app on your computer. The token is held for at most
+      10 minutes, only until your app collects it, then deleted; it is never logged. Jobadabra only reads and writes the pages you
       chose. You can remove its access at any time in Notion (Settings → Connections).</p>
     <h2>Website</h2>
     <p>If you join the Pro early-access list, we keep the email address (and the role you typed) to write to you about it, and
@@ -100,7 +100,7 @@
     <p>Questions or deletion requests: open an issue at <a href="https://github.com/GarryOne/job-pilotto">github.com/GarryOne/job-pilotto</a>.</p>
   </main>
   <footer>
-    <span>✈ Job Pilotto</span>
+    <span>✈ Jobadabra</span>
     <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="index.html">Home</a></span>
   </footer>
 </div>

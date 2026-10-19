@@ -9,7 +9,7 @@ export function shouldOffer({platform, packaged, inApplications}) {
 
 export const question = {
   type: 'question',
-  message: 'Move Job Pilotto to Applications?',
+  message: 'Move Jobadabra to Applications?',
   detail: 'It is running from the disk image or Downloads. From Applications it can update itself and ' +
     'keeps its access to your saved keys.\n\nIt moves itself and opens again.',
   buttons: ['Move to Applications', 'Not now'],
@@ -25,10 +25,10 @@ export function offerMove({app, dialog, platform = process.platform}) {
   if (dialog.showMessageBoxSync(question) !== 0) return false;
   try {
     return app.moveToApplicationsFolder({conflictHandler: kind => kind !== 'existsAndRunning' &&
-      dialog.showMessageBoxSync({type: 'question', message: 'Replace the Job Pilotto in Applications?',
+      dialog.showMessageBoxSync({type: 'question', message: 'Replace the Jobadabra in Applications?',
         detail: 'Your data is kept: it lives outside the app.', buttons: ['Replace', 'Cancel'], defaultId: 0, cancelId: 1}) === 0});
   } catch (error) {
-    dialog.showMessageBoxSync({type: 'warning', message: 'Job Pilotto couldn\'t move itself',
+    dialog.showMessageBoxSync({type: 'warning', message: 'Jobadabra couldn\'t move itself',
       detail: `${error.message}\n\nDrag it from the disk image onto the Applications folder, then open it from there.`});
     return false;
   }

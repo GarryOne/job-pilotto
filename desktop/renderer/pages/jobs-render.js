@@ -46,7 +46,7 @@ const claudeStarted = new Set();
 document.addEventListener('sessions-loaded', () => renderStuck());
 const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 // In conversation: the opportunities that found you and are still open, one Focus-style row each; a click opens the
-// job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.
+// job in Notion (⌘-click: in a Jobadabra window), or its link when it has no page.
 // It gives way to the list whenever the list is narrowed to something (a counter or Focus step clicked, the Inbound or
 // Everything menu choice, words typed): the same jobs would show twice.
 // Folded or open as you last left it (a click on the bar).
@@ -338,7 +338,7 @@ export function renderJobs() {
         run: () => openMatchCheck(job, {tailor: tailorNow})});
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
-    // by job board and days only, when Technical reports are on. It is how Job Pilotto learns which applications get answers.
+    // by job board and days only, when Technical reports are on. It is how Jobadabra learns which applications get answers.
     const choices = job.url ? outcomeChoices(job.stage, storeName()) : [];
     if (choices.length) {
       menu.push('-');
@@ -369,7 +369,7 @@ export function renderJobs() {
       run: async () => {
         // Only a bare Applied: a stage past it (a confirmation, an interview) is the employer's own evidence.
         if (!confirm(`Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from ${storeName()}.\n\n`
-          + 'Use this when Job Pilotto marked it Applied by itself and no application was sent.')) return;
+          + 'Use this when Jobadabra marked it Applied by itself and no application was sent.')) return;
         const result = await window.pilot.notSubmitted(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Not changed', result.error || 'Something went wrong.'); return; }
         jobsChanged(job, {stage: 'Applying', status: 'applied'});
@@ -381,7 +381,7 @@ export function renderJobs() {
     // A dismissed job can go for good (owner, 7 Oct 2026): its Notion pages to the trash (30 days there), and no search brings it back.
     else menu.push({icon: 'trash', label: 'Delete', danger: true, title: byStore('Remove this job: its Notion pages go to the trash, and searches will not show it again', 'Remove this job for good: searches will not show it again'),
       run: async () => {
-        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\n${byStore('Its Notion pages go to Notion\'s trash (restorable there for 30 days), and searches will not show it again.', 'It is removed from Job Pilotto, and searches will not show it again.')}`)) return;
+        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\n${byStore('Its Notion pages go to Notion\'s trash (restorable there for 30 days), and searches will not show it again.', 'It is removed from Jobadabra, and searches will not show it again.')}`)) return;
         const result = await window.pilot.deleteJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result?.ok) { toastMessage('Not deleted', result?.error || 'Something went wrong.'); return; }
         const left = shared.allJobs.filter(other => other !== job);
@@ -469,5 +469,5 @@ function kitLabel(state = '') {
     const changed = state.split(':')[1]?.split(',').map(name => INPUT_NAMES[name] || name).join(', ') || 'inputs';
     return {label: '📝 Kit · earlier inputs', title: `Drafted with earlier inputs: your ${changed} changed since. Redraft it from the ⋯ menu if you still want it.`};
   }
-  return {label: '📝 Kit', title: 'Inputs unknown: drafted before Job Pilotto recorded which CV, Profile and answers a kit came from.'};
+  return {label: '📝 Kit', title: 'Inputs unknown: drafted before Jobadabra recorded which CV, Profile and answers a kit came from.'};
 }

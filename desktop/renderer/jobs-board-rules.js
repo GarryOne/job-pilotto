@@ -65,6 +65,6 @@ export function dropFor(job, stage) {
   if (!job || job.stage === stage) return {none: true};
   if (STATUS[stage]) return {call: 'setStatus', arg: STATUS[stage]};
   if (OUTCOME_STAGES.includes(stage)) return {call: 'setStage', arg: stage};
-  return {refused: `${stage} is set by Job Pilotto (${SET_BY_APP[stage] || 'the app'}), not by moving a card.`};
+  return {refused: `${stage} is set by Jobadabra (${SET_BY_APP[stage] || 'the app'}), not by moving a card.`};
 }
 export const takesDrop = stage => !!STATUS[stage] || OUTCOME_STAGES.includes(stage);

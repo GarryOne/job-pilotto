@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {digestTitles} from '../lib/digest.mjs';
 
-const MESSAGE = `✈️ Job Pilotto · 🆕 2 new · top 2 of 2
+const MESSAGE = `✈️ Jobadabra · 🆕 2 new · top 2 of 2
 2 open · 2 📍 · 5 applied · 2 filtered
 🆕 New since last run
 1. Senior Zebra Wrangler, Data (https://boards.e2e.test/job/3005)

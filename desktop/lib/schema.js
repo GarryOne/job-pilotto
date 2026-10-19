@@ -164,7 +164,7 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
     if (out.ids[env] || page.made_by) continue;
     const made = await api('POST', 'pages', {parent: {page_id: await parent()}, icon: {type: 'emoji', emoji: page.emoji},
       properties: {title: {title: [{text: {content: page.title}}]}},
-      children: [{object: 'block', type: 'paragraph', paragraph: {rich_text: [{type: 'text', text: {content: 'Filled in by Job Pilotto.'}}]}}]});
+      children: [{object: 'block', type: 'paragraph', paragraph: {rich_text: [{type: 'text', text: {content: 'Filled in by Jobadabra.'}}]}}]});
     out.ids[env] = made.id.replace(/-/g, '');
     out.created.push(page.title);
   }

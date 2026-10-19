@@ -1,6 +1,6 @@
 // Every reader that shows a page to the AI or picks a control on it leaves out the extension's own UI: the panel (its open shadow root under
 // #jobpilotto-review-host), the step box, the "didn't fill" note, the reading banner and the Submit guard (speed-5x, 11 Oct 2026: the page-kind sketch
-// listed "Tailor my CV for this job", "Open in Job Pilotto" and "77 left required fields", so the AI's input changed with the panel's timing and a replay
+// listed "Tailor my CV for this job", "Open in Jobadabra" and "77 left required fields", so the AI's input changed with the panel's timing and a replay
 // of the same page sent another sketch). Each reader runs from its own source, as ladder-capture.mjs does; a new reader goes in READERS. Headless Chromium.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,18 +19,18 @@ const PAGE = `<!doctype html><html><head><title>Engineer</title></head><body sty
   <a href="/apply" style="display:inline-block;padding:10px">Apply now</a> <button>Share</button></main>
   <div role="dialog" style="position:fixed;left:0;bottom:0;width:100%;height:160px;z-index:50;background:#eee"><p>We use cookies for privacy and consent.</p><button>Reject all</button></div>
   <div id="jobpilotto-review-host" style="position:fixed;right:18px;bottom:18px;z-index:2147483646"></div>
-  <div id="jobpilotto-progress" style="position:fixed;top:12px;right:12px;z-index:2147483647;width:320px;height:60px"><span>Job Pilotto: reading the page</span></div>
-  <div id="jobpilotto-note" style="position:fixed;top:80px;right:12px;z-index:2147483647;width:340px;height:120px"><div>Job Pilotto didn't fill this form: cookie consent</div>
+  <div id="jobpilotto-progress" style="position:fixed;top:12px;right:12px;z-index:2147483647;width:320px;height:60px"><span>Jobadabra: reading the page</span></div>
+  <div id="jobpilotto-note" style="position:fixed;top:80px;right:12px;z-index:2147483647;width:340px;height:120px"><div>Jobadabra didn't fill this form: cookie consent</div>
     <button type="button">Fill anyway</button><button type="button">Close note</button></div>
-  <div id="jobpilotto-reading" role="status" style="position:fixed;right:16px;bottom:200px;z-index:2147483647">Job Pilotto is reading</div>
+  <div id="jobpilotto-reading" role="status" style="position:fixed;right:16px;bottom:200px;z-index:2147483647">Jobadabra is reading</div>
   <div id="job-pilotto-submit-guard" style="position:fixed;bottom:12px;left:12px;z-index:2147483647"><span>Submit and legal consent paused. </span><button>Unlock Submit</button></div>
   <script>
     const shadow = document.getElementById('jobpilotto-review-host').attachShadow({mode: 'open'});
     shadow.innerHTML = '<div class="jp" role="dialog" style="position:fixed;right:18px;bottom:18px;z-index:5000;width:420px;height:420px;background:#fff">'
-      + '<h2>77 left required fields</h2><p>2 consents to review, privacy</p><button>Tailor my CV for this job</button><a href="#open">Open in Job Pilotto</a>'
+      + '<h2>77 left required fields</h2><p>2 consents to review, privacy</p><button>Tailor my CV for this job</button><a href="#open">Open in Jobadabra</a>'
       + '<label>First name <input aria-label="First name"></label></div>';
   </script></body></html>`;
-const OURS = /Tailor my CV|Open in Job Pilotto|77 left|consents to review|Fill anyway|Close note|Unlock Submit|Job Pilotto/;
+const OURS = /Tailor my CV|Open in Jobadabra|77 left|consents to review|Fill anyway|Close note|Unlock Submit|Jobadabra/;
 
 // The in-page function of a reader that takes arguments (apply-press.js applyCandidates: `func: selector => ...`), called with them.
 const argsBuilder = (file, marker, head, args) => {

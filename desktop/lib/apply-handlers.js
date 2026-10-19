@@ -146,7 +146,7 @@ export function registerApplyHandlers(ctx) {
   // and its 📈 event, the store's rules), without the anonymous outcome report: a move on the board can be a correction.
   ipcMain.handle('setStage', async (_, url, stage) => {
     const job = String(url || ''), to = String(stage || '');
-    if (!job || !BOARD_STAGES.includes(to)) return {ok: false, error: 'That stage is set by Job Pilotto, not by moving a card.'};
+    if (!job || !BOARD_STAGES.includes(to)) return {ok: false, error: 'That stage is set by Jobadabra, not by moving a card.'};
     const result = await pipeline.markOutcome(storage, job, to).catch(error => ({ok: false, error: error.message}));
     appLog('outcome', `moved on the board to ${to}: ${result.ok ? 'saved' : result.error || 'failed'}`, {by: 'you'});
     return result;
@@ -156,7 +156,7 @@ export function registerApplyHandlers(ctx) {
   // where none exists; Copy puts it on the clipboard through the engine, never printed.
   ipcMain.handle('sitePassword', async (_, action) => {
     if (DEMO) return {ok: true, password: 'Maple-Rocket-42'};
-    if (process.platform === 'darwin' && !sitePassword.read()) return {ok: false, error: 'No shared password: every account made by Job Pilotto has its own. Show it in Credentials.'};
+    if (process.platform === 'darwin' && !sitePassword.read()) return {ok: false, error: 'No shared password: every account made by Jobadabra has its own. Show it in Credentials.'};
     if (action === 'show' && sitePassword.read()) return {ok: true, password: sitePassword.read()};
     const {code} = await pipeline.run(storage, ['src.ai.passwords', 'shared']);
     appLog('apply', `job-site password ${action === 'show' ? 'shown' : 'copied'}`, {ok: code === 0});

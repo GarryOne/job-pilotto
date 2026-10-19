@@ -7,7 +7,7 @@ import {viewer} from './auth.js';
 // overview: true = the section's Overview tab (src/section-overview.js draws the headline numbers every other page of the group declares in src/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
-  {path: '/admin', group: 'Overview', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
+  {path: '/admin', group: 'Overview', question: 'Is Jobadabra healthy today, at a glance?', name: 'Overview', icon: '🧭'},
   {path: '/admin/growth-overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
   {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},

@@ -134,7 +134,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // button's own end, without pressing anything.
       submitted(job.url);
       appliedHook({how: 'extension'});
-      const where = notionGate.notionInUse(storage) ? 'in your Notion' : 'in Job Pilotto';   // about Notion
+      const where = notionGate.notionInUse(storage) ? 'in your Notion' : 'in Jobadabra';   // about Notion
       notify('Marked Applied ✓', `${jobName(job)}. Saved ${where}.`, {view: 'jobs', job: job.code || job.url});
       return {ok: true, message: `Marked Applied ${where}.`};
     },
@@ -171,14 +171,14 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
         return 0;
       });
       if (added) tellWindow('moved', ['open questions']);   // the Jobs page reads the answers page again (it is not re-read on every reload, 6 Oct 2026)
-      if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`, {view: 'jobs'});
+      if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Jobadabra → Jobs.`, {view: 'jobs'});
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
       reports.send(storage, run, undefined, sharedLogger).then(report => {  // each field also shows in the app reports (/telemetry)
         // A fill that failed while Chrome ran an older copy than this app ships is explained first, as its own
         // report: otherwise the fields read as "the extension can't fill these", and the cause stays invisible
         // (1 Oct 2026: a Claude session hit exactly that and filled the whole form by hand).
         const stale = staleExtension(report?.version, latestExtension());
-        if (stale) formIssue({site: report.site, label: 'Job Pilotto extension', type: 'version', reason: stale, version: report.version});
+        if (stale) formIssue({site: report.site, label: 'Jobadabra extension', type: 'version', reason: stale, version: report.version});
         for (const field of report?.fields || []) formIssue({site: report.site, label: field.label, type: field.type, reason: field.reason, version: report.version});
       }).catch(error => console.error('Fill report:', error.message));
     },
@@ -249,7 +249,7 @@ export function newestExtensionFile(dir = path.join(pipeline.REPO, 'extension'))
   try { walk(dir); } catch { return 0; }
   return newest;
 }
-export const EXTENSION_CHANGED = 'extension changed: reload it (chrome://extensions → ↻ on Job Pilotto); a development copy does not reload itself';
+export const EXTENSION_CHANGED = 'extension changed: reload it (chrome://extensions → ↻ on Jobadabra); a development copy does not reload itself';
 export function extensionChangedNote({boot, version, at}, state, {latest, newest}) {
   const next = state && state.boot === boot ? state : {boot, at, told: false};
   if (next.told || !version || version !== latest || !(newest() > next.at)) return {state: next, note: ''};
@@ -260,8 +260,8 @@ export function extensionChangedNote({boot, version, at}, state, {latest, newest
 // places that need it: the fill failure the app records, and the sessions page's "likely cause" line.
 export function staleExtension(version, latest) {
   if (!version || !latest || version === latest) return '';
-  return `Chrome runs Job Pilotto extension ${version}, older than this app's ${latest}: reload it once `
-    + '(chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.';
+  return `Chrome runs Jobadabra extension ${version}, older than this app's ${latest}: reload it once `
+    + '(chrome://extensions → ↻ on Jobadabra); from then on it updates itself.';
 }
 // Apply with Claude → extension hand-off (extension/hook.js). The launcher (tools/apply-batch-claude.sh) asks
 // for a ticket per job (POST /claude/ticket, from this computer, with a header web pages can't send without a

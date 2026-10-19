@@ -24,9 +24,9 @@ test('messages are recorded; a refusal answers like Telegram; getUpdates is empt
 });
 
 test('a digest with technical text, an empty promise or over Telegram\'s limit is a problem; a normal one is not', () => {
-  const good = '✈️ <b>Job Pilotto</b> · 🆕 1 new · top 1 of 1\n<i>1 open</i>\n1. SRE (https://x/1) · 🎯 80\n   Acme · Zurich';
+  const good = '✈️ <b>Jobadabra</b> · 🆕 1 new · top 1 of 1\n<i>1 open</i>\n1. SRE (https://x/1) · 🎯 80\n   Acme · Zurich';
   assert.deepEqual(digestProblems(good), []);
-  assert.match(digestProblems('✈️ Job Pilotto · top 2 of 5\nnothing').join(), /promises jobs but none is listed/);
+  assert.match(digestProblems('✈️ Jobadabra · top 2 of 5\nnothing').join(), /promises jobs but none is listed/);
   assert.match(digestProblems(good.replace('Acme', 'undefined')).join(), /technical text/);
   assert.match(digestProblems(`✈️ ${'x'.repeat(5000)}`).join(), /4096/);
   assert.match(digestProblems('hello').join(), /header/);

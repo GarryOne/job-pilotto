@@ -132,10 +132,10 @@ export async function settings() {
   return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents', 'ladderAct']);   // ladderAct: the e2e harness's switch only (ladder/fill-climb.js)
 }
 
-// The Job Pilotto Mac app gives its connection to this extension only (it checks the extension's ID).
+// The Jobadabra Mac app gives its connection to this extension only (it checks the extension's ID).
 export const APP = 'http://127.0.0.1:47111';
-export const NOT_CONNECTED = "the Job Pilotto app didn't accept this extension, even after reconnecting";
-export const NO_APP = "can't reach the Job Pilotto app: is it open?";
+export const NOT_CONNECTED = "the Jobadabra app didn't accept this extension, even after reconnecting";
+export const NO_APP = "can't reach the Jobadabra app: is it open?";
 const usesApp = config => !config.workerUrl || config.workerUrl.startsWith(APP);
 
 // Connect to the app (the Settings button, and by itself whenever the app turns the token down).
@@ -299,7 +299,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high', category: a.category || ''}));
   let ai = null, aiError = null, later = [], pendingAI = null;   // pendingAI: Claude's answers on their way while the known fields fill (below)
-  // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
+  // Contact details and CV come from the Jobadabra app each time (it's the one place they live).
   const me = early || await apiFor(tab.id, config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
     // No app or no connection: stop, rather than fill a form without your name and CV.
     if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);

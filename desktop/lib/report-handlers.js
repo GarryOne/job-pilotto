@@ -10,7 +10,7 @@ import {createHold, finalize, prepare} from './report-form.js';
 import {scrubNote} from './report-scrub.js';
 
 export const reportFormOn = storage => storage.settings().reportForm !== false;
-export const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';
+export const BLOCKED = 'Jobadabra could not remove everything personal from it safely, so nothing was sent.';
 
 export function registerReportHandlers({ipcMain, storage, uploader = null, texts = appProfileTexts, hold = createHold()}) {
   let shown = null;   // the record the popup is showing: {id}

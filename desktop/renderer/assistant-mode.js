@@ -1,4 +1,4 @@
-// How much Job Pilotto does on an application (owner, 10 Oct 2026: "at most 2 modes", automatic by default): settings.accountAutomation 'full' = "Do it for me"
+// How much Jobadabra does on an application (owner, 10 Oct 2026: "at most 2 modes", automatic by default): settings.accountAutomation 'full' = "Do it for me"
 // (the default: accounts made and signed in to, their terms accepted, the confirmation link opened when Gmail is connected, a closer look at an unclear account
 // page), 'assist' = "Let me check each step". Never in either: an application's Submit, a captcha or bot check, an SMS code. Shown on Settings → Profile and
 // in the setup (pages/settings.js, pages/profile.js, pages/startup.js); desktop/lib/site-accounts.js automationOf reads it. Guard: test/assistant-mode.test.js.

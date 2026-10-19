@@ -37,7 +37,7 @@ export async function pair(token, seconds = 120, fetcher) {
       if (message?.chat?.type === 'private' && /^\/start\b/.test(message.text || '')) {
         await api(token, 'getUpdates', {offset, timeout: 0}, fetcher); // don't handle this /start again later
         await api(token, 'sendMessage', {chat_id: message.chat.id, parse_mode: 'HTML',
-          text: '✈️ <b>Job Pilotto is connected.</b> New matches arrive here after each search. Send /help for commands.'}, fetcher);
+          text: '✈️ <b>Jobadabra is connected.</b> New matches arrive here after each search. Send /help for commands.'}, fetcher);
         return {chatId: String(message.chat.id), username: bot.username};
       }
     }
@@ -81,8 +81,8 @@ export function telegramEnv(storage, onLine, note = () => {}) {
     dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine, {note}) : localDispatch(storage, onLine),
     status: () => {
       const s = storage.settings();
-      if (s.cloud?.repo) return `☁️ Always on: Job Pilotto runs from your GitHub repo ${s.cloud.repo} on your schedule, even with your computer off.`;
-      return s.lastSearchAt ? `🖥️ Last search from the Job Pilotto app: ${new Date(s.lastSearchAt).toLocaleString()}` +
+      if (s.cloud?.repo) return `☁️ Always on: Jobadabra runs from your GitHub repo ${s.cloud.repo} on your schedule, even with your computer off.`;
+      return s.lastSearchAt ? `🖥️ Last search from the Jobadabra app: ${new Date(s.lastSearchAt).toLocaleString()}` +
         `${s.lastSearchOk === false ? ' (with problems)' : ''}. Next one on your schedule while the app is open.` : '🖥️ No search yet.';
     },
   };

@@ -207,7 +207,7 @@ function assessmentPanel(review) {
   const top = el('div', 'mail-ai-top');
   // The AI's own rating of how sure it is that this is the reason (src/ai/rejection.py: "low" when the evidence is thin).
   top.append(el('b', '', VERDICT_TITLE[review.verdict] || review.verdict), pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn',
-    {title: 'How sure the AI is that this is the reason, from what Job Pilotto kept: the posting, your profile and the emails. Low means little evidence.'}));
+    {title: 'How sure the AI is that this is the reason, from what Jobadabra kept: the posting, your profile and the emails. Low means little evidence.'}));
   words.append(top, el('p', '', review.focus || review.summary));
   // "AI assessment ⌄" (the mockup's label) opens the comparison under the verdict: what the role wanted, what you bring.
   const key = `ai:${jobKey(review.job)}`;

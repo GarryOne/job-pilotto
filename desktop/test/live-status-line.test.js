@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import {HEARTBEAT_MS, STATUS_LINE} from '../lib/pipeline.js';
 
 test('the lock wait and the heartbeat are status lines; ordinary progress is not', () => {
-  assert.ok(STATUS_LINE.test('Another Job Pilotto search is running (app or terminal): waiting for a daily scheduled run started 20:42 (pid 40107); waited 2 min so far…'));
+  assert.ok(STATUS_LINE.test('Another Jobadabra search is running (app or terminal): waiting for a daily scheduled run started 20:42 (pid 40107); waited 2 min so far…'));
   assert.ok(STATUS_LINE.test('⏳ Still running · no new output for 45 s'));
   assert.ok(!STATUS_LINE.test('Checking employer career pages…'));
   assert.ok(HEARTBEAT_MS.quiet >= HEARTBEAT_MS.every);

@@ -10,7 +10,7 @@ import {watchWindow} from './window-log.js';
 import {captureQuery} from './e2e-hidden.js';
 import {guardUnsaved} from './unsaved-guard.js';
 
-// The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Job Pilotto and Chrome fit side by side (owner, 9 Oct 2026).
+// The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Jobadabra and Chrome fit side by side (owner, 9 Oct 2026).
 export const MIN_WIDTH = 640;
 export function createMainWindow(ctx) {
   const {BrowserWindow, DEMO, HIDDEN, app, dialog, here, nativeTheme, shell, getWindow, setWindow, getZoom = () => null} = ctx;
@@ -21,7 +21,7 @@ export function createMainWindow(ctx) {
   function openNotion(url) {
     if (!/^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) return shell.openExternal(url);
     if (!notionWindow || notionWindow.isDestroyed()) {
-      notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto', show: !HIDDEN,   // about Notion
+      notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Jobadabra', show: !HIDDEN,   // about Notion
         webPreferences: {partition: 'persist:notion', contextIsolation: true, sandbox: true}});
       const outside = target => !/^https:\/\/([a-z0-9-]+\.)*notion\.(so|site|com)\//.test(target);
       notionWindow.webContents.setWindowOpenHandler(({url: target}) => {

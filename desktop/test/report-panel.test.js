@@ -34,12 +34,12 @@ test('the panel flag is off until the uploader exists and while the switch is of
   assert.doesNotMatch(code('extension/panel-report.js'), /class="flag"|bottom: 12px|left: 12px/, 'no bottom-left ⚑ chip (owner, 19 Oct 2026: Stop and the flag leave the corner)');
 });
 
-test('the press hands over the trace Job Pilotto already keeps: the popup asks for its state, prepares, sends or cancels from a trusted click; nothing reloads', () => {
+test('the press hands over the trace Jobadabra already keeps: the popup asks for its state, prepares, sends or cancels from a trusted click; nothing reloads', () => {
   const panel = code('extension/panel-report.js');
   assert.deepEqual([...new Set(panel.match(/type: 'report-[a-z]+'/g))].sort(), ["type: 'report-cancel'", "type: 'report-confirm'", "type: 'report-send'", "type: 'report-state'"]);
   assert.ok(/event\.isTrusted/.test(panel), 'a page\'s script cannot press the buttons');
   assert.match(panel, /Never sent: what you typed, passwords, cookies, your CV or your profile/);
-  assert.doesNotMatch(panel, /read it and press Send|Review in Job Pilotto|will reload|Start recording/);
+  assert.doesNotMatch(panel, /read it and press Send|Review in Jobadabra|will reload|Start recording/);
   assert.match(panel, /var\(--ink\)/, 'the popup takes the panel\'s own tokens, so its theme reaches it');
   assert.equal(fs.existsSync(new URL('../../extension/report-recorder.js', import.meta.url)), false, 'the reload-and-record collector is gone');
 });
@@ -84,7 +84,7 @@ test('the trace switch is on by default and named in plain words in Settings (so
   assert.match(html, /Stays on this Mac, sent only when you press Report in the panel and then Send \(personal details removed automatically first\), never sign-in pages, deleted when the application ends/);
   assert.equal(reportFormOn({settings: () => ({})}), true, 'on for every install that never chose');
   assert.equal(reportFormOn({settings: () => ({reportForm: false})}), false);
-  assert.match(read('extension/panel-markup.js'), /Chrome shows a debugging bar while Job Pilotto keeps a trace/);
+  assert.match(read('extension/panel-markup.js'), /Chrome shows a debugging bar while Jobadabra keeps a trace/);
   assert.match(read('extension/review.js'), /traceBarSeen/);
 });
 
@@ -98,7 +98,7 @@ test('no panel button is a silent no-op: a click handler never calls a window ho
 });
 
 test('one refusal sentence in the panel and the app\'s Send, and the panel names the kinds that blocked it', () => {
-  const sentence = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';
+  const sentence = 'Jobadabra could not remove everything personal from it safely, so nothing was sent.';
   for (const file of ['extension/panel-report.js', 'desktop/lib/report-handlers.js']) assert.ok(read(file).includes(sentence), `${file}: the same sentence`);
   assert.doesNotMatch(read('extension/panel-report.js'), /nothing was kept\.'/, 'one wording: nothing was sent');
   assert.match(code('extension/panel-report.js'), /Still found: /);

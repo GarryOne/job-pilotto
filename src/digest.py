@@ -21,9 +21,9 @@ HOME = place_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['co
 RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
 MIN_DIGEST_SCORE = PREFERENCES.get('digest_min_score', 50)
-# The tool's own name is "Job Pilotto" (generic, any fork); this is your own digest's display name.
+# The tool's own name is "Jobadabra" (generic, any fork); this is your own digest's display name.
 # `or`: a workflow passes an unset repository variable as '' ("✈️ · 🆕 173 new" on GitHub, 29 Sep 2026).
-BRAND_NAME = os.getenv('DIGEST_BRAND_NAME') or 'Job Pilotto'
+BRAND_NAME = os.getenv('DIGEST_BRAND_NAME') or 'Jobadabra'
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'Spanish': '🇪🇸', 'Portuguese': '🇵🇹', 'Dutch': '🇳🇱', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
                     'lead_manager': 'Lead/Manager'}

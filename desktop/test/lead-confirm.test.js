@@ -270,9 +270,9 @@ test('the question says which two days it compares, in short form', () => {
 test('the Log box lists the engine\'s steps with how long each took; a wait for another search stays one row', async () => {
   const {leadStepOf} = await import('../lib/pipeline.js');
   assert.equal(leadStepOf('⏳ Claude is reading the screenshot'), 'Claude is reading the screenshot');
-  assert.equal(leadStepOf('Another Job Pilotto search is running (app or terminal): waiting for a discover run started 14:27 (pid 72932); waited 0 min so far…'),
+  assert.equal(leadStepOf('Another Jobadabra search is running (app or terminal): waiting for a discover run started 14:27 (pid 72932); waited 0 min so far…'),
     'Waiting for a discover run started 14:27 to finish');
-  assert.match(leadStepOf('Another Job Pilotto search is running (app or terminal): waiting for another run; waited 3 min so far…'), /another run to finish.* · 3 min$/);
+  assert.match(leadStepOf('Another Jobadabra search is running (app or terminal): waiting for another run; waited 3 min so far…'), /another run to finish.* · 3 min$/);
   assert.equal(leadStepOf('Checked: Zühlke Engineering AG'), null);
   let steps = [{text: 'Starting the engine', at: 0}];
   steps = lead.addStep(steps, 'Waiting for a discover run to finish · 1 min', 4000);

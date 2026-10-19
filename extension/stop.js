@@ -39,7 +39,7 @@ function stoppedPage() {
   const box = document.createElement('div');
   box.id = 'jobpilotto-note';
   box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
-  box.textContent = 'Job Pilotto is stopped on this page. Press Apply in the app to start again.';
+  box.textContent = 'Jobadabra is stopped on this page. Press Apply in the app to start again.';
   box.onclick = () => box.remove();
   document.documentElement.append(box);
 }

@@ -1,4 +1,4 @@
-// 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
+// 🧠 Form knowledge: what Jobadabra learned from your form fills (learn.js), used by every later kit and fill.
 // The active store's knowledge page is the only copy (lib/store: a Notion page beside the Profile, or knowledge.md on this Mac):
 // one bullet per note, which you can read, fix or delete there ("[job-boards.greenhouse.io · option] How did you hear: … → "Careers Website"").
 import * as learn from './learn.js';

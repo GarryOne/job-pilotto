@@ -85,7 +85,7 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
         if host_of(pick['url']) not in have and (not last or last < stale):
             have.add(host_of(pick['url']))
             out.append({'name': pick['name'], 'url': pick['url'], 'kind': 'employer', 'why': 'picked for your search, no job list we can read', 'last_read': last,
-                        'note': 'Opens their site: if it is not their job list, go to it, then click the Job Pilotto icon'})
+                        'note': 'Opens their site: if it is not their job list, go to it, then click the Jobadabra icon'})
     for portal in portals(search, kinds):
         last = (read.get(host_of(portal['url'])) or {}).get('at')
         if not last or last < stale:

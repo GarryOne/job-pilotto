@@ -1,7 +1,7 @@
-// The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
+// The Jobadabra panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 // left ("3 left", green "Ready to submit"). Open: the job, what Claude is doing on it, the progress, one Fill button,
-// what's left for you (click one: the page scrolls to it), and Open in Job Pilotto.
-// App first: the job, its Apply with Claude session and the form's state are shared with the Job Pilotto app both
+// what's left for you (click one: the page scrolls to it), and Open in Jobadabra.
+// App first: the job, its Apply with Claude session and the form's state are shared with the Jobadabra app both
 // ways (the agreements you tick here are ticked off there; "Show it in the form" there scrolls here). Without the
 // app it still shows the form's progress, and fills through the extension's own connection.
 // The panel itself never types, ticks or clicks anything in the form: filling goes through the extension's fill.
@@ -9,7 +9,7 @@
 // panel-markup.js is the styles and markup, panel-learn.js reports what the person did. They share window.__jobPilottoPanel* (a content script has no imports).
 (() => {
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
-  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn', 'PanelWritten', 'Overlay'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
+  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'PanelForm', 'PanelMarkup', 'PanelLearn', 'PanelWritten', 'Overlay'].some(name => !window['__jobPilotto' + name] && (console.warn('Jobadabra panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
   let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
@@ -91,7 +91,7 @@
     $('.ring span').textContent = moved ? '↗' : pageMark ? '…' : ready && !needsYou ? '✓' : total ? String(left) : '–';
     const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     // A tab the application has moved on from (the app bound another tab of it) never says Ready or counts: only the tab with the form does.
-    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready || needsYou ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    $('.pill b').textContent = moved ? 'Continues in another tab' : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready || needsYou ? readyWords : total ? `${left} left` : 'Jobadabra';
     $('.pill small').textContent = night() && !pageMark && !moved ? `Last night\u2019s fill is back${(job?.company || session?.company) ? ` · ${job?.company || session?.company}` : ''}` : (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
@@ -111,12 +111,12 @@
     const claude = pageMark ? '' : moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
       : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
       : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
-      : session?.live && session.status === 'input' ? 'Claude is waiting for you in Job Pilotto.'
+      : session?.live && session.status === 'input' ? 'Claude is waiting for you in Jobadabra.'
       : session?.status === 'done' ? 'Claude filled this form. Review it, then submit it yourself.' : '';
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = moved ? 'Continues in another tab' : markStepWords ? (title || company || 'Job Pilotto') : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line b').textContent = moved ? 'Continues in another tab' : markStepWords ? (title || company || 'Jobadabra') : pageMark ? (MARK_WORDS[pageMark] || 'Apply button detected. Redirecting…') : ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
     $('.progress-line span').textContent = moved || pageMark ? '' : ready ? 'every required field is filled' : total ? 'required fields filled' : '';
     $('.bar i').style.width = `${moved || pageMark ? 0 : ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
@@ -178,7 +178,7 @@
     const word = connection?.connected ? 'Connected' : connection ? 'Not connected' : 'Checking the connection…';   // the reason is in the tooltip
     const version = chrome.runtime.getManifest().version;
     stateLine.textContent = `${word} · v${version}${build?.label ? ` · ${build.label}` : ''}`;
-    foot.title = `${connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker') : (connection?.why || 'Not connected: the form still fills from your settings')} · Job Pilotto extension v${version}${build?.label ? ` (${build.label})` : ''}`;
+    foot.title = `${connection?.connected ? (connection.app ? (session ? 'In sync with Jobadabra' : 'Connected to Jobadabra') : 'Connected to your Worker') : (connection?.why || 'Not connected: the form still fills from your settings')} · Jobadabra extension v${version}${build?.label ? ` (${build.label})` : ''}`;
     if (build && build.behind !== 0 && build.behind !== undefined) {
       const reload = Object.assign(document.createElement('button'), {className: 'reload', textContent: build.reloadLabel || 'Reload the extension to get the latest fixes'});
       reload.addEventListener('click', () => { reload.disabled = true; reload.textContent = 'Reloading…'; send({type: 'panelReload'}).catch(() => {}); });
@@ -265,9 +265,9 @@
     if (!answer?.ok) note(failText);
     return answer;
   }
-  const APP_DOWN = 'Job Pilotto is not answering: open the app, then try again.';
+  const APP_DOWN = 'Jobadabra is not answering: open the app, then try again.';
   $('.t-btn').onclick = async event => {
-    const told = await ask(event.currentTarget, 'Asking Job Pilotto…', {type: addMode ? 'panelAddJob' : 'panelTailor'}, APP_DOWN);
+    const told = await ask(event.currentTarget, 'Asking Jobadabra…', {type: addMode ? 'panelAddJob' : 'panelTailor'}, APP_DOWN);
     if (told?.ok) asked = true;
     render();
     sync();   // the app's answer (started / not in your list / failed) comes now, not on the next tick

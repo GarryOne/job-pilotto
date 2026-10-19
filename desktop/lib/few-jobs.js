@@ -34,6 +34,6 @@ export function due(found, settings = {}, now = Date.now()) {
 export const words = found => ({
   title: 'Few new jobs: ways to find more',
   body: `The last check found ${found.counts[0]} new job${found.counts[0] === 1 ? '' : 's'}. See what would bring more, easiest first.`,
-  telegram: `🔎 Your last job check found ${found.counts[0]} new job${found.counts[0] === 1 ? '' : 's'}. Open Job Pilotto → Strategy: a filter to loosen, words or places to add, `
+  telegram: `🔎 Your last job check found ${found.counts[0]} new job${found.counts[0] === 1 ? '' : 's'}. Open Jobadabra → Strategy: a filter to loosen, words or places to add, `
     + 'job sources to connect, and sites only you can open.',
 });

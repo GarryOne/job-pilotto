@@ -25,7 +25,7 @@ export async function call(storage, route, {method = 'GET', body, fetcher = glob
     const response = await fetcher(`${BASE}${route}`, {method, headers: {'x-api-key': key, 'Content-Type': 'application/json', ...headers}, ...(body ? {body: JSON.stringify(body)} : {})});
     const text = await response.text(), json = (() => { try { return JSON.parse(text); } catch { return {}; } })();
     return response.ok ? {ok: true, ...json} : {ok: false, status: response.status, error: json.error || UNAVAILABLE};
-  } catch { return {ok: false, error: 'Could not reach Job Pilotto just now. Check your connection.'}; }
+  } catch { return {ok: false, error: 'Could not reach Jobadabra just now. Check your connection.'}; }
 }
 
 // What the hosted run reads: the search settings and the profile text as they are on this Mac. (The CV file is not sent: the profile is what the search scores against.)

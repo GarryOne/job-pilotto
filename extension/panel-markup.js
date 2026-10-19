@@ -31,7 +31,7 @@
     .card { width: 372px; max-height: min(640px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--card);
       border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px var(--shadow), 0 0 0 1px var(--line); }
     .head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--head); color: #fff; }
-    .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; font: 800 10px/1 system-ui; }
+    .mark { width: 22px; height: 22px; border-radius: 6px; background: #f5c542; display: grid; place-items: center; font: 800 10px/1 system-ui; }
     .head b { font-size: 13px; }
     .head b { flex: 1; font-size: 14px; }
     .head .min { margin-left: auto; background: transparent; color: #b9c8dc; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 6px; } .head .min:hover { color: #fff; background: rgba(255,255,255,.1); }
@@ -128,7 +128,7 @@
   </style>
   <div class="jp">
     <div class="card" hidden>
-      <div class="head"><span class="mark">JP</span><b>Job Pilotto</b><button class="min" title="Minimise" aria-label="Minimise">–</button><button class="x" title="Close" aria-label="Close">×</button></div>
+      <div class="head"><span class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="16" height="16"><path d="M52 96 L36 150 Q100 198 164 150 L148 96 Z" fill="#15171c"/><ellipse cx="100" cy="84" rx="94" ry="19" fill="#15171c"/><ellipse cx="100" cy="82" rx="56" ry="6.5" fill="#f5c542"/><path d="M100 4 Q107 33 133 38 Q107 43 103 66 Q102 76 100 84 Q98 76 97 66 Q93 43 67 38 Q93 33 100 4" fill="#15171c"/><path d="M110 90 L110 124 Q110 154 87 150 Q75 148 77 138" fill="none" stroke="#f5c542" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Jobadabra</b><button class="min" title="Minimise" aria-label="Minimise">–</button><button class="x" title="Close" aria-label="Close">×</button></div>
       <div class="body">
         <div class="job" hidden><div class="job-title"></div><div class="job-meta"></div></div>
         <div class="claude" hidden><i>🤖</i><span></span></div>
@@ -136,8 +136,8 @@
         <div class="stopped" hidden><span class="pause"><i></i><i></i></span><div><b>Stopped by you</b><span class="s-text"></span></div></div>
         <div class="verify" hidden><span class="shield"></span><div class="v-body"><b class="v-title"></b><span class="v-text">Finish it on the page, then press Check again.</span></div><button class="primary v-show" type="button">Show on form</button><button class="link v-again" type="button">Check again</button></div>
         <div class="live"><h4>Done so far</h4><ol class="steps"></ol></div>
-        <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button><button class="stop-btn" type="button" title="Stops everything Job Pilotto does, on every tab, until you press Apply in the app again">Stop</button><p class="step-hint">Counts update as new fields appear.</p></div>
-        <div class="note trace-note" hidden><span>Chrome shows a debugging bar while Job Pilotto keeps a trace of this fill, so you can report a problem.</span><button class="got-it" type="button">Got it</button></div>
+        <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button><button class="stop-btn" type="button" title="Stops everything Jobadabra does, on every tab, until you press Apply in the app again">Stop</button><p class="step-hint">Counts update as new fields appear.</p></div>
+        <div class="note trace-note" hidden><span>Chrome shows a debugging bar while Jobadabra keeps a trace of this fill, so you can report a problem.</span><button class="got-it" type="button">Got it</button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <button class="secondary recheck" type="button" hidden>Check form again</button>
@@ -145,13 +145,13 @@
         <div class="actions">
           <div class="claude-offer" hidden></div>
           <button class="link go-there" hidden>Go there</button>
-          <button class="link open-app" hidden>Open in Job Pilotto</button>
+          <button class="link open-app" hidden>Open in Jobadabra</button>
         </div>
       </div>
       <div class="tip" hidden><b class="tip-chip"></b><span class="tip-text"></span></div>
       <div class="foot"><span class="state">Checking the connection…</span><button class="report-btn" type="button" title="Send this form to be fixed: you read exactly what would be sent first" aria-label="Report this form"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 14V2.5M3.5 3h8l-1.6 2.7L11.5 8.5h-8"/></svg>Report</button></div>
     </div>
-    <button class="pill" title="Job Pilotto"><span class="ring"><span></span></span><div><b></b><small></small></div></button>
-    <button class="pill-stop" type="button" title="Stops everything Job Pilotto does, on every tab, until you press Apply in the app again">Stop</button>
+    <button class="pill" title="Jobadabra"><span class="ring"><span></span></span><div><b></b><small></small></div></button>
+    <button class="pill-stop" type="button" title="Stops everything Jobadabra does, on every tab, until you press Apply in the app again">Stop</button>
   </div>`;
 })();

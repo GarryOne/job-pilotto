@@ -355,7 +355,7 @@ def alert(stores, send, now=None):
     blocks = [f"<b>{html.escape(c.name)} · {'Failed' if c.state == FAIL else 'Warning'}</b>\n{html.escape(c.detail)}"
               + (f"\n<b>Next step:</b> {html.escape(c.fix)}" if c.fix else '') for c in problems]
     count = f"{len(problems)} problem{'s' if len(problems) != 1 else ''}"
-    text = f"🩺 <b>Job Pilotto health</b>\n{count}\n\n" + '\n\n'.join(blocks)
+    text = f"🩺 <b>Jobadabra health</b>\n{count}\n\n" + '\n\n'.join(blocks)
     if send:
         send(text)
     return text

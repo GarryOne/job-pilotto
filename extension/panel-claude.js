@@ -83,7 +83,7 @@
       let left = COUNT;
       timer = setInterval(() => { left -= 1; count.textContent = String(Math.max(left, 0)); if (left <= 0) { clearInterval(timer); timer = null; act('done'); } }, 1000);
     } else if (view === 'sent') {
-      box.replaceChildren(el('p', {}, 'Claude is starting in Job Pilotto. It works in this tab and stops before Submit.'));
+      box.replaceChildren(el('p', {}, 'Claude is starting in Jobadabra. It works in this tab and stops before Submit.'));
     }
   }
 

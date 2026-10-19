@@ -19,7 +19,7 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
     assert.ok(html.includes(`<link rel="canonical" href="https://www.jobpilotto.top${canonical}">`), page);
     assert.match(html, /<meta property="og:title"/);
     assert.match(html, /<meta property="og:image"/);
-    assert.ok(!/<title>Job Pilotto<\/title>/.test(html), `${page} needs a descriptive title`);
+    assert.ok(!/<title>Jobadabra<\/title>/.test(html), `${page} needs a descriptive title`);
   }
   const ld = file('index.html').match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   assert.equal(JSON.parse(ld[1])['@type'], 'SoftwareApplication');

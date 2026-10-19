@@ -67,7 +67,7 @@ function rejectionHead(page) {
     nodes.push(stateCard({icon: 'close', tone: 'bad', title: 'Application rejected', text: [rejection.when && `Rejection email received ${rejection.when}`, rejection.from && `from ${rejection.from}`].filter(Boolean).join(' ')}),
       card('Employer statement', quote));
   }
-  nodes.push(stateCard({icon: 'bulb', tone: 'info', title: 'AI suggestions', text: 'Suggestions from what Job Pilotto kept, not confirmed rejection reasons.'}));
+  nodes.push(stateCard({icon: 'bulb', tone: 'info', title: 'AI suggestions', text: 'Suggestions from what Jobadabra kept, not confirmed rejection reasons.'}));
   return nodes;
 }
 

@@ -1,4 +1,4 @@
-// Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
+// Jobadabra's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 // pills, tags, tiles and ⋯ menus with these, so the same thing looks and behaves the same everywhere;
 // gallery.html shows every one of them side by side.
 import {icon} from './icons.js';

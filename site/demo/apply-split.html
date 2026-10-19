@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Apply demo · both sides</title>
 <!-- The website's split-screen video: the browser (apply-demo.html: the form and the extension's panel) on the left,
-     Job Pilotto on the Mac on the right, kept in step by the messages the form page sends (start, filled, ask, ready).
+     Jobadabra on the Mac on the right, kept in step by the messages the form page sends (start, filled, ask, ready).
      The question is answered in the app, and the form fills it. Fictional candidate. Recorded by scripts/apply-demo.mjs. -->
 <style>
   * { box-sizing: border-box; }
@@ -23,7 +23,7 @@
   .app { display: grid; grid-template-columns: 170px 1fr; background: #eef2f6; color: #182537; }
   .side { background: #0d1219; color: #cfd8e3; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; color: #fff; font-size: 15px; padding: 2px 6px 14px; border-bottom: 1px solid #1f2b38; margin-bottom: 8px; }
-  .brand i { width: 30px; height: 30px; border-radius: 8px; background: #0b1016; border: 2px solid #ffb224; color: #f4efe3; font: 800 11px/26px system-ui; text-align: center; font-style: normal; }
+  .brand i { width: 30px; height: 30px; border-radius: 8px; background: #0b1016; border: 2px solid #ffb224; color: #f4efe3; font-style: normal; display: grid; place-items: center; }
   .nav { padding: 8px 10px; border-radius: 9px; font-size: 13.5px; display: flex; justify-content: space-between; }
   .nav.on { background: #17212c; color: #fff; box-shadow: inset 3px 0 0 #ffb224; }
   .nav em { font-style: normal; background: #ffb224; color: #14110c; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 7px; }
@@ -60,14 +60,14 @@
 <body>
 <div class="captions">
   <div class="cap"><b>1</b> In your browser · the extension fills the form</div>
-  <div class="cap"><b>2</b> Job Pilotto on your Mac · live, in sync</div>
+  <div class="cap"><b>2</b> Jobadabra on your Mac · live, in sync</div>
 </div>
 <div class="stage">
   <div class="pane browser"><iframe id="form" src="apply-demo.html"></iframe></div>
   <div class="sync"><span id="sync">⇄</span></div>
   <div class="pane app" id="app">
     <aside class="side">
-      <div class="brand"><i>JP</i>Job Pilotto</div>
+      <div class="brand"><i><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="20" height="20"><path d="M52 96 L36 150 Q100 198 164 150 L148 96 Z" fill="#f5c542"/><ellipse cx="100" cy="84" rx="94" ry="19" fill="#f5c542"/><ellipse cx="100" cy="82" rx="56" ry="6.5" fill="#15171c"/><path d="M100 4 Q107 33 133 38 Q107 43 103 66 Q102 76 100 84 Q98 76 97 66 Q93 43 67 38 Q93 33 100 4" fill="#f5c542"/><path d="M110 90 L110 124 Q110 154 87 150 Q75 148 77 138" fill="none" stroke="#15171c" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Jobadabra</div>
       <div class="nav">Focus</div><div class="nav">Jobs <em>8</em></div><div class="nav on">Applying <em>1</em></div>
       <div class="nav">Actions</div><div class="nav">Interviews</div>
     </aside>

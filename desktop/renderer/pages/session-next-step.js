@@ -80,7 +80,7 @@ const START_MS = 30 * 1000;   // as lib/chrome-launch-once.js: how long one pres
 function renderWaiting() {
   renderChecking();
   $('ss-next-title').textContent = 'Waiting for Chrome\u2026';
-  $('ss-question').replaceChildren(el('p', 'rich-p', 'The app just started. This card updates by itself once Chrome\'s Job Pilotto extension reports.'));
+  $('ss-question').replaceChildren(el('p', 'rich-p', 'The app just started. This card updates by itself once Chrome\'s Jobadabra extension reports.'));
   $('ss-actions').replaceChildren();   // nothing to press while it waits
 }
 // The tab is on a posting whose Apply the extension presses (or just pressed): nothing else of the session is true for this page, so no counts, no ready, no asks (owner, 15 Oct 2026).
@@ -96,12 +96,12 @@ function renderSilent(item) {
   $('ss-next-title').textContent = 'Chrome isn\'t reporting';
   const starting = Date.now() - shared.chromeStartedAt < START_MS;
   const retried = shared.chromeStartedAt && !starting;   // pressed before, and Chrome still has not reported
-  $('ss-question').replaceChildren(el('p', 'rich-p', retried ? 'Chrome didn\'t report within 30 seconds. Check that Chrome is open with the Job Pilotto extension on, or try Open Chrome again.'
-    : 'Job Pilotto can\'t see this application\'s tab: Chrome is closed, or its Job Pilotto extension isn\'t running. Open Chrome and this card updates by itself.'));
+  $('ss-question').replaceChildren(el('p', 'rich-p', retried ? 'Chrome didn\'t report within 30 seconds. Check that Chrome is open with the Jobadabra extension on, or try Open Chrome again.'
+    : 'Jobadabra can\'t see this application\'s tab: Chrome is closed, or its Jobadabra extension isn\'t running. Open Chrome and this card updates by itself.'));
   const button = sessionButton(starting ? 'Starting Chrome\u2026' : 'Open Chrome', 'primary', async event => {
     const result = await opening(event.currentTarget, () => window.pilot.extensionOptions());
     window.pilot.uiLog('sessions: Chrome not reporting, Open Chrome pressed', {opened: !!result?.opened, starting: !!result?.starting});
-    if (!result?.opened) { toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Job Pilotto extension reports.'); return; }
+    if (!result?.opened) { toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Jobadabra extension reports.'); return; }
     shared.chromeStartedAt = result.since || Date.now();
     renderNextStep(item);
     setTimeout(() => { if (silentChrome(item)) renderNextStep(item); }, START_MS + 100);   // offered again, with the reason
@@ -114,7 +114,7 @@ function renderLost(item) {
   renderChecking();
   $('ss-decision').className = 'ss-next tone-warn';
   $('ss-next-title').textContent = 'Tab not found';
-  $('ss-question').replaceChildren(el('p', 'rich-p', 'Job Pilotto can\'t find this application\'s tab in Chrome. It may still be open under another address. Open it again and the extension fills it from your kit; if the tab shows up by itself, this card updates.'));
+  $('ss-question').replaceChildren(el('p', 'rich-p', 'Jobadabra can\'t find this application\'s tab in Chrome. It may still be open under another address. Open it again and the extension fills it from your kit; if the tab shows up by itself, this card updates.'));
   $('ss-actions').replaceChildren(sessionButton('Open it again', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
 }
 export function renderNextStep(item) {
@@ -138,7 +138,7 @@ export function renderNextStep(item) {
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
-    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Job Pilotto could not tell how to apply' : item.stuck === 'site_broken' ? 'The site is not answering' : 'The extension can\'t reach this form')
+    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Jobadabra could not tell how to apply' : item.stuck === 'site_broken' ? 'The site is not answering' : 'The extension can\'t reach this form')
     : stopped ? 'You stopped the extension'
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
@@ -160,10 +160,10 @@ export function renderNextStep(item) {
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', `Marked Applied in ${storeName()}. The confirmation page in Chrome is what decided it.`)]
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. The extension fills it in Chrome; a robot check or a choice there is yours. If it stays stuck, Claude can take over; you still submit the application.'
-      : item.stuck === 'other' ? 'Job Pilotto read the page and could not tell how to apply: there may be no form, or the way is not written on it. Open it in Chrome and look. Job Pilotto never acts on it for you.'
-      : item.stuck === 'site_broken' ? `${item.accountNeeds || 'The site did not answer'}. Open it in Chrome to check, or try again later. Job Pilotto never acts on it for you.`
-      : item.stuck === 'told' ? `The page says: "${item.accountNeeds || ''}". Open it in Chrome to read it. Job Pilotto never acts on it for you.`
-      : item.stuck === 'email' ? `This job is applied to by email, not through a form. Send your CV and cover letter to ${item.accountNeeds || 'the address on the page'}. Job Pilotto never sends it for you.`
+      : item.stuck === 'other' ? 'Jobadabra read the page and could not tell how to apply: there may be no form, or the way is not written on it. Open it in Chrome and look. Jobadabra never acts on it for you.'
+      : item.stuck === 'site_broken' ? `${item.accountNeeds || 'The site did not answer'}. Open it in Chrome to check, or try again later. Jobadabra never acts on it for you.`
+      : item.stuck === 'told' ? `The page says: "${item.accountNeeds || ''}". Open it in Chrome to read it. Jobadabra never acts on it for you.`
+      : item.stuck === 'email' ? `This job is applied to by email, not through a form. Send your CV and cover letter to ${item.accountNeeds || 'the address on the page'}. Jobadabra never sends it for you.`
       : item.stuck === 'incomplete' ? 'The form is open in Chrome, but the extension could not fill any of it and required fields are still empty. Fill them there, or let Claude take over; you still submit the application.'
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Open it in Chrome to go on; if it stays stuck, Claude can find the form and fill it; you still submit it.'),
       // The next press, in the AI's own words (e.g. 'Solve the check, then press "Créer un compte"'): what is left for you on this page.
@@ -235,11 +235,11 @@ export function renderNextStep(item) {
         return;
       }
       if (result?.outdated) {
-        toastMessage('Reload the Chrome extension once', `Chrome runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
-          'In Chrome open chrome://extensions and click ↻ on Job Pilotto, then press again — it updates itself from then on.');
+        toastMessage('Reload the Chrome extension once', `Chrome runs Jobadabra ${result.extension}; this app has ${result.latest}. ` +
+          'In Chrome open chrome://extensions and click ↻ on Jobadabra, then press again — it updates itself from then on.');
         return;
       }
-      const why = {permission: 'macOS won\'t let Job Pilotto control Chrome: System Settings → Privacy & Security → Automation → Job Pilotto → Google Chrome. Or press ⌘R in that tab.',
+      const why = {permission: 'macOS won\'t let Jobadabra control Chrome: System Settings → Privacy & Security → Automation → Jobadabra → Google Chrome. Or press ⌘R in that tab.',
         // Chrome running with no windows means an automation's headless Chrome holds the scripting connection, not
         // the window the user is working in: say so, rather than "no tab matches" about a tab that is right there.
         'no-window': osText('Chrome answered with no windows: a background Chrome (an automation\'s) holds the scripting connection, not the window you use. Press ⌘R in the tab you are reviewing.'),
@@ -254,7 +254,7 @@ export function renderNextStep(item) {
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
     else if (item.resumable) pushResume();
     const never = el('span', 'ss-never muted small');
-    never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
+    never.append(icon('info'), el('span', '', 'Jobadabra never clicks Submit.'));
     actions.push(never);
   } else if (asking && !live) {
     if (item.resumable) pushResume();

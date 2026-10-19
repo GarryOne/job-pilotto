@@ -16,7 +16,7 @@ def _block(kind, content, bold=False):
         {'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}} for c in chunks[:100]]}}
 
 
-NO_JOB = 'No job linked yet — link it in the Interviews page of the Job Pilotto app'
+NO_JOB = 'No job linked yet — link it in the Interviews page of the Jobadabra app'
 
 
 def job_line(app):

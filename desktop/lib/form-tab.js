@@ -1,5 +1,5 @@
 // "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this switches Chrome to it (Mac, through Chrome's
-// scripting; macOS asks once to let Job Pilotto control Chrome). WHICH tab is the session's is decided in one place, lib/session-tab.js (its bound tab id,
+// scripting; macOS asks once to let Jobadabra control Chrome). WHICH tab is the session's is decided in one place, lib/session-tab.js (its bound tab id,
 // else the session id in its address); this file only drives Chrome. No tab owned: 'none', and nothing is opened or taken instead.
 import {execFile} from 'node:child_process';
 import {isTwin} from './twin.js';
@@ -30,7 +30,7 @@ export async function closeFormTab({id, boundTab = ''}, platform = process.platf
 
 // Reloads this session's form tab: the repair for a tab whose page still holds a panel from an older extension: after an uninstall/reinstall the
 // page's script is orphaned and can't answer the app, and only a fresh page load brings the extension back onto it. Says why when it can't:
-// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-window' (Chrome runs but answered with no windows: another Chrome
+// 'reloaded', 'permission' (macOS won't let Jobadabra control Chrome), 'no-tab', 'no-window' (Chrome runs but answered with no windows: another Chrome
 // instance, an automation's headless one, holds the scripting connection), 'no-chrome', 'manual' (not a Mac: the reload is the user's), 'other'.
 export async function reloadFormTab({id, boundTab = ''}, platform = process.platform) {
   if (platform !== 'darwin') return 'manual';

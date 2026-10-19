@@ -24,7 +24,7 @@ export const STEPS = ['posting', 'account', 'confirm', 'form', 'ended'];
 
 const BROKEN = 'The site did not answer: try again later';   // site_broken with no sentence from the extension (an older one)
 const label = needs => String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-const noteFor = (why, need) => (why === 'email' && need ? `Send your application to ${need}` : why === 'told' && need ? `The page says: ${need}` : why === 'other' ? 'Job Pilotto could not tell how to apply: open the page' : why === 'site_broken' ? need || BROKEN : need ? `Needs you: ${need}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form');
+const noteFor = (why, need) => (why === 'email' && need ? `Send your application to ${need}` : why === 'told' && need ? `The page says: ${need}` : why === 'other' ? 'Jobadabra could not tell how to apply: open the page' : why === 'site_broken' ? need || BROKEN : need ? `Needs you: ${need}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form');
 
 // -> {set: {field: value} to apply (empty: nothing changed), result: what the old terminals function returned}.
 export function journey(session, event) {
@@ -80,7 +80,7 @@ export function journeyStep(session) {
   if (session.accountState === 'confirm') return {step: 'confirm', needs};
   if (session.stage === 'account' || session.stuck === 'account' || session.accountState) return {step: 'account', needs};
   if (session.stuck === 'email') return {step: 'posting', needs: `Send your application to ${needs}`};
-  if (session.stuck === 'other') return {step: 'posting', needs: 'Job Pilotto could not tell how to apply: open the page'};
+  if (session.stuck === 'other') return {step: 'posting', needs: 'Jobadabra could not tell how to apply: open the page'};
   if (session.stuck === 'told') return {step: 'posting', needs: `The page says: ${needs}`};
   if (session.stuck === 'site_broken') return {step: 'posting', needs: needs || BROKEN};
   return {step: 'posting', needs: session.stuck === 'no-form' ? 'The extension can\'t reach the form' : ''};

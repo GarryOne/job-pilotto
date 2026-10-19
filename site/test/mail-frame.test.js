@@ -51,13 +51,13 @@ test('every template goes through the frame: logo, title, footer with stop + set
   }
 });
 
-test('the digest is job rows with a fit chip and one "Open in Job Pilotto" button; the sign-in code is a big box with the security line', async () => {
+test('the digest is job rows with a fit chip and one "Open in Jobadabra" button; the sign-in code is a big box with the security line', async () => {
   const {e, sent} = setup();
   await createAccount(e, 'me@example.com', now, {plan: 'trial'});
   await send(e, 'digest', 'me@example.com', SAMPLES.digest, {now});
   await send(e, 'account-code', 'me@example.com', SAMPLES['account-code'], {now});
   assert.equal(sent[0].subject, '3 new job matches');
-  assert.ok(sent[0].html.includes('Example Bank · Zürich · Hybrid') && sent[0].html.includes('jp-fit') && sent[0].html.includes('Open in Job Pilotto'));
+  assert.ok(sent[0].html.includes('Example Bank · Zürich · Hybrid') && sent[0].html.includes('jp-fit') && sent[0].html.includes('Open in Jobadabra'));
   assert.match(sent[0].text, /Senior Site Reliability Engineer \(Example Bank · Zürich · Hybrid\) fit 86/);
   assert.ok(sent[1].html.includes('482913') && sent[1].html.includes('sent even if you stopped other emails'));
 });

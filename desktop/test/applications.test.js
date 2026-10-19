@@ -24,7 +24,7 @@ test('moves when the user agrees, replaces an older copy only after asking', () 
   assert.equal(moved.length, 1);
   assert.equal(moved[0].conflictHandler('exists'), true);
   assert.equal(moved[0].conflictHandler('existsAndRunning'), false);
-  assert.deepEqual(asked, ['Move Job Pilotto to Applications?', 'Replace the Job Pilotto in Applications?']);
+  assert.deepEqual(asked, ['Move Jobadabra to Applications?', 'Replace the Jobadabra in Applications?']);
 });
 
 test('"Not now" and already in Applications leave it where it is', () => {
@@ -39,7 +39,7 @@ test('"Not now" and already in Applications leave it where it is', () => {
 test('a failed move says how to do it by hand', () => {
   const {app, dialog, asked} = fakes([0], {moveThrows: true});
   assert.equal(offerMove({app, dialog, platform: 'darwin'}), false);
-  assert.equal(asked[1], 'Job Pilotto couldn\'t move itself');
+  assert.equal(asked[1], 'Jobadabra couldn\'t move itself');
 });
 
 test('Windows never touches the Mac-only Electron calls', () => {

@@ -9,7 +9,7 @@ export const DAILY_MAX = 6;                 // per address, per rolling 24 h (sp
 const GLOBAL_DAY_MAX = 3000;                // a safety net over every address; env.MAIL_DAY_MAX overrides
 const DAY = 24 * 60 * 60 * 1000;
 const ADDRESS = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
-const FROM = {service: 'Job Pilotto <notifications@jobpilotto.top>', marketing: 'Job Pilotto <news@jobpilotto.top>'};
+const FROM = {service: 'Jobadabra <notifications@jobpilotto.top>', marketing: 'Jobadabra <news@jobpilotto.top>'};
 
 export const clean = to => String(to || '').trim().toLowerCase();
 export const validAddress = to => ADDRESS.test(clean(to)) && clean(to).length <= 254;
@@ -64,7 +64,7 @@ export async function send(env, template, to, data = {}, {now = new Date()} = {}
     if (mine.n >= DAILY_MAX || all.n >= Number(env.MAIL_DAY_MAX || GLOBAL_DAY_MAX)) { await record(env, now, addr, spec.list, template, 'rate'); return {ok: false, reason: 'rate'}; }
     const stop = spec.essential ? null : await stopLink(env, to, spec.list);
     const why = spec.essential ? 'A security email: sent even if you stopped other emails.'
-      : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Job Pilotto with this address.';
+      : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Jobadabra with this address.';
     const frame = {title: spec.title(data), why, button: spec.button?.(data) || null, links: stop && {stop, settings: await settingsLink(env, to)}};
     const text = frameText({...frame, body: spec.text(data)});
     const html = frameHtml({...frame, body: spec.html(data)});

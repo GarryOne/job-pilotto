@@ -170,7 +170,7 @@ export async function runApply(ctx, parts) {
       ...highlightProblems({actual, ai: ['question_1004'], plain: ['question_1001', 'question_1003', 'first_name', 'email']}),
       ...submitProblems(forms.fired, form.path)]);
     const panel = await panelOf(tab);
-    if (!panel) throw new Error('no Job Pilotto panel on the form');
+    if (!panel) throw new Error('no Jobadabra panel on the form');
     console.log(`  panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
     fail([...leftProblems(panel.left, []), ...notLeftProblems(panel.left, form.consentWords)]);   // the consent box is ticked, not left
   }, {needs: ctx.needs});
@@ -183,7 +183,7 @@ export async function runApply(ctx, parts) {
     fail([...fillProblems({expected: {...expectedOf(form), 'input-2': CONTACT.first_name, 'input-3': CONTACT.last_name, 'input-4': CONTACT.email}, actual}),
       ...submitProblems(forms.fired, form.path)]);
     const panel = await panelOf(tab);
-    if (!panel) throw new Error('no Job Pilotto panel on the form');
+    if (!panel) throw new Error('no Jobadabra panel on the form');
     console.log(`  workday panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
     fail(leftProblems(panel.left, ['hear about us']));
   }, {needs: ctx.needs});
@@ -201,7 +201,7 @@ export async function runApply(ctx, parts) {
       problems.push(...fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email}, actual}).map(text => `${spec.id}: ${text}`));
       problems.push(...submitProblems(forms.fired, form.path).map(text => `${spec.id}: ${text}`));
       const panel = await panelOf(tab);
-      if (!panel) { problems.push(`${spec.id}: no Job Pilotto panel on the form`); continue; }
+      if (!panel) { problems.push(`${spec.id}: no Jobadabra panel on the form`); continue; }
       // Each field it failed on for a real person is now either filled, or listed for the person by name: never skipped in silence.
       const listed = label => panel.left.some(item => item.toLowerCase().includes(String(label).split(/\s+/).slice(0, 3).join(' ').toLowerCase()));
       for (const [i, item] of spec.fields.entries()) {
@@ -262,7 +262,7 @@ export async function runApply(ctx, parts) {
       ...(actual.salary.value ? ['salary: the step the person has not reached was filled'] : [])]);
     await tab.click('#next_step');   // the person goes on to step 2 (never Submit)
     const panel = await panelOf(tab);
-    if (!panel) throw new Error('no Job Pilotto panel on the form');
+    if (!panel) throw new Error('no Jobadabra panel on the form');
     await tab.locator('#jobpilotto-review-host .fill').click({timeout: 15000});
     await tab.waitForFunction(() => document.getElementById('salary')?.value, null, {timeout: 60000}).catch(() => { throw new Error('"Fill again" did not fill step 2 (salary stayed empty)'); });
     // The consent boxes are ticked at the end of the fill, after the answers: the salary showing is not the end of it.

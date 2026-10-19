@@ -52,7 +52,7 @@ def run(db, url, *, stores, read_profile=None, client=None, stats=None, now=None
     if len(description) < MIN_DESCRIPTION:
         if ledger.walled(pasted):
             raise ValueError('This site showed a sign-in page instead of the posting. Paste the job\'s text, or open the posting in Chrome '
-                             'and use the Job Pilotto extension\'s "Read the jobs on this page".')
+                             'and use the Jobadabra extension\'s "Read the jobs on this page".')
         raise ValueError('This page could not be read: it has no posting text.')
     now = now or datetime.now(timezone.utc)
     item = {'url': url, 'title': meta.get('title') or 'Role', 'company': meta.get('company') or '',

@@ -60,7 +60,7 @@ export function start(storage, onError = () => {}) {
       if (req.url === '/extension/pair') {
         const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
         res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
-        res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Jobadabra extension can pair'}));
         return;
       }
       if (req.url === '/engine/render') {
@@ -96,7 +96,7 @@ export function start(storage, onError = () => {}) {
         const local = req.method === 'POST' && req.headers['x-job-pilotto'] === 'launcher' && !req.headers.origin;
         const form = new URLSearchParams(body?.toString() || '');
         const message = form.get('message')?.slice(0, 300);
-        if (local && message) notify(`Job Pilotto · ${form.get('job')?.slice(0, 120) || 'Apply with Claude'}`, message, {view: 'sessions'});
+        if (local && message) notify(`Jobadabra · ${form.get('job')?.slice(0, 120) || 'Apply with Claude'}`, message, {view: 'sessions'});
         res.writeHead(local && message ? 200 : 403, {'Content-Type': 'application/json'});
         res.end(JSON.stringify({ok: !!(local && message)}));
         return;

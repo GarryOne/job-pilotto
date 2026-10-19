@@ -125,7 +125,7 @@ def _new_row(stores, item, url, source, event_source, when, note):
         fields.update(applied_on=day.isoformat(), date_approximate=True)
     record = stores.applications.create(fields, APPLIED)
     rules.add_event(stores, record, APPLIED, event_source, at=day.isoformat() if day else None,
-                    note=f'Applied outside Job Pilotto; {note} (date is an upper bound)'[:300])
+                    note=f'Applied outside Jobadabra; {note} (date is an upper bound)'[:300])
     return record
 
 

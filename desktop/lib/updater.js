@@ -2,7 +2,7 @@
 // tools/release-stable.sh; every push only makes a pre-release), and installs it on one click, the same way on both
 // computers: the download is fetched, the app quits, the new version is put in place, and the app reopens. On the Mac
 // that means unpacking the .zip and swapping this Job Pilotto.app; on Windows, running the installer quietly once
-// this process has let go of Job Pilotto.exe and its app.asar. Its Notion schema, pipeline and extension come with it
+// this process has let go of Jobadabra.exe and its app.asar. Its Notion schema, pipeline and extension come with it
 // (the schema repair runs at the next start).
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
@@ -147,9 +147,9 @@ export const WINDOWS_INSTALLER_ARGS = ['--updated', '--force-run'];
 
 // Downloads and installs `update`; calls quit() when the app should close. onStep(text) for progress.
 // What a Windows person reads before the app closes for an update (lib/app-updates.js shows it as a dialog).
-export const windowsExplanation = update => ({type: 'info', buttons: ['Install now'], defaultId: 0, title: 'Job Pilotto update',
-  message: `Installing Job Pilotto ${update.version}`,
-  detail: 'Job Pilotto closes now. A small installer window shows the progress (about a minute), then Job Pilotto opens again by itself. Your data stays as it is.'});
+export const windowsExplanation = update => ({type: 'info', buttons: ['Install now'], defaultId: 0, title: 'Jobadabra update',
+  message: `Installing Jobadabra ${update.version}`,
+  detail: 'Jobadabra closes now. A small installer window shows the progress (about a minute), then Jobadabra opens again by itself. Your data stays as it is.'});
 // explain(update): Windows only, awaited after the download and before the installer starts: says what happens next (the app
 // closes, the installer shows its progress, the app opens again), so the closing window is never a surprise.
 export async function install(update, {exe, pid = process.pid, quit, onStep = () => {}, logFile = '', fetcher = globalThis.fetch,
@@ -174,7 +174,7 @@ export async function install(update, {exe, pid = process.pid, quit, onStep = ()
     return;
   }
   const oldApp = path.resolve(exe, '..', '..', '..');  // …/Job Pilotto.app/Contents/MacOS/Job Pilotto
-  if (!oldApp.endsWith('.app') || oldApp.startsWith('/Volumes/')) throw new Error('Move Job Pilotto to Applications first, then update.');
+  if (!oldApp.endsWith('.app') || oldApp.startsWith('/Volumes/')) throw new Error('Move Jobadabra to Applications first, then update.');
   fs.accessSync(path.dirname(oldApp), fs.constants.W_OK);  // an Applications folder this user can write to
   onStep('Unpacking…');
   await new Promise((resolve, reject) => run('ditto', ['-x', '-k', file, dir]).on('exit', code => (code ? reject(new Error('Unpacking failed')) : resolve())));

@@ -159,7 +159,7 @@ export function tabAddress(url, limit = 70) {
   return text.length <= limit ? text : `${text.slice(0, limit - 21)}…${text.slice(-20)}`;
 }
 
-// After the first look (CHECK_MS) the extension still hasn't reported which tabs are open (Chrome is closed, or its Job Pilotto
+// After the first look (CHECK_MS) the extension still hasn't reported which tabs are open (Chrome is closed, or its Jobadabra
 // extension isn't running): a session waiting on its tab can't be seen, so its card says so instead of its last state (owner, 8 Oct 2026).
 // For the first WAIT_MS after the app starts or restarts, Chrome is still starting: a neutral "Waiting for Chrome…", the warning only after (owner, 15 Oct 2026).
 export const WAIT_MS = 60 * 1000;

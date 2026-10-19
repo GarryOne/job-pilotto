@@ -53,7 +53,7 @@ export const formatNotionRuns = (pages) => formatRunItems(pages.map(runItem));
 
 // `databaseUrl`: the Applications database in Notion, or '' with the data on this Mac.
 export function formatAppliedItems(items, databaseUrl) {
-  if (!items.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job${databaseUrl ? `, or add one in <a href="${databaseUrl}">Notion</a>` : ', or add one in the Job Pilotto app'}.`;
+  if (!items.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job${databaseUrl ? `, or add one in <a href="${databaseUrl}">Notion</a>` : ', or add one in the Jobadabra app'}.`;
   const lines = items.map((item, index) => {
     const stage = item.stage || 'No stage';
     const title = `<b>${escapeHtml(item.title || 'Untitled')}</b>`;

@@ -78,7 +78,7 @@ function renderNotionLinks() {
   show(box, links.length > 0);
   for (const [env, label, glyph] of links) {
     const link = Object.assign(document.createElement('button'), {className: 'notion-link', textContent: label,
-      title: osText(`${shared.state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Job Pilotto window)`)});
+      title: osText(`${shared.state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Jobadabra window)`)});
     link.prepend(icon(glyph));
     link.addEventListener('click', event => window.pilot.openNotion(shared.state.notion[env], event.metaKey || event.ctrlKey));
     box.append(link);

@@ -65,7 +65,7 @@ SCHEMA = {
     },
 }
 
-SYSTEM = f"""You review one rejected job application for its candidate (the owner of Job Pilotto) and say, honestly \
+SYSTEM = f"""You review one rejected job application for its candidate (the owner of Jobadabra) and say, honestly \
 and kindly, why it most likely failed and whether there's anything they can do better. You get the job posting, \
 what was sent (answers, cover letter), the fit analysis made before applying, the timeline, interview reviews if \
 there were interviews, the rejection email, and the candidate's profile (CV).
@@ -129,7 +129,7 @@ def material(stores, app, email_text=''):
     if record.get('cover_letter'):
         parts += ['## Cover letter sent', record['cover_letter'][:4000]]
     if not record:
-        parts += ['## Note', 'No application record was kept (applied outside Job Pilotto): the answers and cover letter are unknown.']
+        parts += ['## Note', 'No application record was kept (applied outside Jobadabra): the answers and cover letter are unknown.']
     parts += ['## Timeline', '\n'.join(f"- {e.get('At')}: {e.get('Kind')} — {e.get('Note') or ''}"[:300] for e in events) or '(none)']
     if interviews:
         parts += ['## Interview reviews', '\n\n'.join(json.dumps({k: v for k, v in i.items() if v}, ensure_ascii=False)[:3000]
@@ -169,7 +169,7 @@ def blocks(result, model):
         out += [_block('to_do', i) for i in result['improve'][:3]]
     else:
         out.append(_block('paragraph', 'Nothing to improve here: they were looking for a different profile.'))
-    out.append(_block('paragraph', f'Reviewed by {model}. A best guess from what Job Pilotto kept, not what the company said.'))
+    out.append(_block('paragraph', f'Reviewed by {model}. A best guess from what Jobadabra kept, not what the company said.'))
     return out
 
 

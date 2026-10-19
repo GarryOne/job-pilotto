@@ -314,7 +314,7 @@ export async function init() {
     // starts by itself after launch switched the panel away from the run being read). Starting a run yourself clears it (Refresh, Check Gmail, View activity).
     if (shared.idleSeen || /^Searching job boards/.test(line)) { shared.logLines = []; shared.idleSeen = false; }
     // "Still running · no new output for 1 min" and the wait for another run: only the newest of a row stays (lib/pipeline.js STATUS_LINE).
-    const status = /^(?:⏳ Still running|Another Job Pilotto search is running)/;
+    const status = /^(?:⏳ Still running|Another Jobadabra search is running)/;
     if (status.test(line) && status.test(shared.logLines.at(-1) || '')) shared.logLines.pop();
     shared.logLines.push(line);
     refreshActivity();

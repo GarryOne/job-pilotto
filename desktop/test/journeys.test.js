@@ -147,10 +147,10 @@ test('scenario: a posting that tells the person to call: the card quotes the pag
   assert.equal(terminals.get('f1').stuck, 'told');
 });
 
-test('scenario: the ladder ends with no usable answer (other): the card says Job Pilotto could not tell how to apply, never "can\'t reach the form", and Claude is not offered', () => {
+test('scenario: the ladder ends with no usable answer (other): the card says Jobadabra could not tell how to apply, never "can\'t reach the form", and Claude is not offered', () => {
   const {flow, card} = journeyOf();
   flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'other', session: 'f1'});
-  assert.deepEqual(card(), {step: 'posting', needs: 'Job Pilotto could not tell how to apply: open the page'});
+  assert.deepEqual(card(), {step: 'posting', needs: 'Jobadabra could not tell how to apply: open the page'});
   assert.equal(terminals.get('f1').stuck, 'other');
 });
 

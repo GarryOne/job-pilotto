@@ -15,7 +15,7 @@ function dialog() {
   close.type = 'button'; close.setAttribute('aria-label', 'Close'); close.append(icon('close'));
   head.append(tile, el('h2', '', 'Add employers from a page'), close);
   const lead = el('p', 'dialog-lead', 'Paste a page that names companies: your matches from a talent agent, a newsletter, a startup list. '
-    + 'Job Pilotto finds each one’s job board and checks it first.');
+    + 'Jobadabra finds each one’s job board and checks it first.');
   const label = el('label', '', 'The page’s text, or its address'), field = el('textarea', '');
   label.htmlFor = 'emp-paste-text';
   Object.assign(field, {id: 'emp-paste-text', rows: 8, placeholder: 'Select all on the page, copy, and paste here. Or paste a public address (https://…).'});

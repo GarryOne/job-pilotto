@@ -330,7 +330,7 @@ class Tracker:
         if posted:
             properties['Posted'] = {'date': {'start': posted}}
         if not job.get('posted_at'):
-            properties['Notes'] = text('Posted date is when Job Pilotto first saw the job.')
+            properties['Notes'] = text('Posted date is when Jobadabra first saw the job.')
         # A job you went after (saved, kit, applying, applied): Outbound (src/notion/origin.py).
         properties = origin.stamp(properties, origin.OUTBOUND)
         return self._request('POST', 'pages', {'parent': {'database_id': self.database_id},

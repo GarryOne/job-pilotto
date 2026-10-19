@@ -105,7 +105,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                 when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
                 who = _field(row, 'company') or _field(row, 'via') or 'a recruiter'
                 items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_role(row)[:70]}",
-                                   f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
+                                   f"{when}, but Jobadabra doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
                                    "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
                                    row, missing=missing))
         last = next((e for e in reversed(history) if not _bookkeeping(e)), None)

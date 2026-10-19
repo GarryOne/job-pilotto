@@ -5,8 +5,8 @@ import * as server from './server.js';
 import path from 'node:path';
 
 export const EXTENSION_REASONS = {
-  absent: 'Job Pilotto fills the application form through its Chrome extension, and it is not installed yet.',
-  off: 'Job Pilotto fills the application form through its Chrome extension, and it is turned off in your browser.',
+  absent: 'Jobadabra fills the application form through its Chrome extension, and it is not installed yet.',
+  off: 'Jobadabra fills the application form through its Chrome extension, and it is turned off in your browser.',
 };
 
 // {ok: false, needsExtension: true, state, error} when a form tab would open with nothing to fill it; null when it may go on.

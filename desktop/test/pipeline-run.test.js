@@ -49,7 +49,7 @@ test('a run that stops talking is stopped, says so, and is reported as a failed 
   assert.ok(Date.now() - started < 8000, 'stopped within seconds, not left running');
   assert.notEqual(code, 0);
   assert.match(timedOut, /no output for/);
-  assert.ok(lines.some(line => /Stopped by Job Pilotto: no output for/.test(line)), 'the log says why');
+  assert.ok(lines.some(line => /Stopped by Jobadabra: no output for/.test(line)), 'the log says why');
   assert.match(ended.at(-1).timedOut, /no output for/);                                    // the technical report gets the reason
   assert.match(logText(path.join(dir, 'app.log')), /\[run\] watchdog: python -m http\.server/);
   logTo(null);
@@ -59,7 +59,7 @@ test('a run that stops talking is stopped, says so, and is reported as a failed 
 test('a stopped run says what to do next, and keeps the prefix the log and tests match (#185)', async () => {
   const {stoppedReason} = await import('../lib/pipeline.js');
   const text = stoppedReason('no output for 10 s');
-  assert.match(text, /^Stopped by Job Pilotto: no output for 10 s\./);
+  assert.match(text, /^Stopped by Jobadabra: no output for 10 s\./);
   assert.match(text, /Run it again/);
   assert.match(text, /check your AI key or plan in Settings/);
 });

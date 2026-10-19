@@ -28,7 +28,7 @@ export async function hold(env, account, item, now = new Date()) {
 }
 
 function digestOf(rows) {
-  const subject = rows.length === 1 ? rows[0].subject : `Your Job Pilotto update: ${rows.length} items`;
+  const subject = rows.length === 1 ? rows[0].subject : `Your Jobadabra update: ${rows.length} items`;
   const buttons = rows.flatMap(row => JSON.parse(row.buttons || '[]')).slice(0, 6);
   return {subject, html: rows.map(row => row.html).join('<hr>'), text: rows.map(row => row.text).join('\n\n---\n\n'), buttons};
 }

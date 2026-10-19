@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Job Pilotto settings</title>
+<title>Jobadabra settings</title>
 <style>
   [hidden] { display: none !important; }   /* a rule below with its own display (.visit: grid) would beat the hidden attribute */
   body { max-width: 560px; margin: 32px auto; padding: 0 20px; font: 14px/1.5 system-ui, sans-serif; color: #182537; }
@@ -13,7 +13,7 @@
   input[type=checkbox] { accent-color: #ffb224; }
   .hint { color: #5b6b80; font-size: 12px; }
   /* The brand palette, as the site and the app use it: yellow #ffb224 with dark ink on it, warm amber for a quiet
-     action, green for done. (Was blue #165bba, which is nowhere in Job Pilotto.) */
+     action, green for done. (Was blue #165bba, which is nowhere in Jobadabra.) */
   button { margin-top: 20px; padding: 9px 18px; border: 0; border-radius: 8px; background: #ffb224; color: #14110c; font: 600 14px system-ui; cursor: pointer; }
   button:hover { background: #f5a70f; }
   button.secondary { background: #fdf4e4; color: #9a6200; }
@@ -24,21 +24,21 @@
 </style>
 </head>
 <body>
-<h1 class="title"><img src="icons/icon-48.png" alt="" width="32" height="32">Job Pilotto settings</h1>
-<p class="hint">The extension talks only to the Job Pilotto app on this Mac. Your details and CV stay in the app.</p>
+<h1 class="title"><img src="icons/icon-48.png" alt="" width="32" height="32">Jobadabra settings</h1>
+<p class="hint">The extension talks only to the Jobadabra app on this Mac. Your details and CV stay in the app.</p>
 
 <h2>Connection</h2>
-<p><button id="pair" type="button">Connect to the Job Pilotto app</button> <span id="pair-status"></span></p>
+<p><button id="pair" type="button">Connect to the Jobadabra app</button> <span id="pair-status"></span></p>
 <label for="workerUrl">Connection URL <small>(filled in for you; or your own Worker's URL)</small></label>
 <input id="workerUrl" placeholder="https://your-bot.your-subdomain.workers.dev">
 <label for="token">Token</label>
 <input id="token" type="password" placeholder="filled in for you">
-<div class="hint">Filled in for you when this page opens, and saved with it — press Save only if you type or change them yourself. Keep the Job Pilotto app open while you apply.</div>
+<div class="hint">Filled in for you when this page opens, and saved with it — press Save only if you type or change them yourself. Keep the Jobadabra app open while you apply.</div>
 
 <h2>Filling</h2>
 <p class="hint">Each switch saves the moment you toggle it.</p>
 <label class="check"><input type="checkbox" id="checkEligibility"> Check eligibility before filling</label>
-<div class="hint">On: Job Pilotto doesn't fill a form when the job clearly excludes you (location, work permit, language),
+<div class="hint">On: Jobadabra doesn't fill a form when the job clearly excludes you (location, work permit, language),
 and tells you why; you can still choose Fill anyway. Turn it off to always fill, e.g. while testing.</div>
 
 <label class="check"><input type="checkbox" id="testMode"> Test mode: fill every field, inventing dummy values where unsure</label>
@@ -47,19 +47,19 @@ for eligibility. Turn it off for real applications.</div>
 
 <label class="check"><input type="checkbox" id="clickDropdowns"> Fill drop-down menus too</label>
 <div class="hint">Some sites (e.g. Greenhouse) only open their drop-down menus for a real click. With this on, the
-extension clicks them for you; Chrome shows "Job Pilotto started debugging this browser" while it does.</div>
+extension clicks them for you; Chrome shows "Jobadabra started debugging this browser" while it does.</div>
 
 <label class="check"><input type="checkbox" id="anySite"> Work on every job site, not only the big ones</label>
 <div class="hint">Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, SuccessFactors, Personio, Teamtailor, Recruitee, softgarden, Umantis, Taleo, iCIMS and BambooHR always work. With this on, Chrome asks once to let
-Job Pilotto run on other sites too, so a tab the app opens there can be filled (a job board that sends you to the employer's own
+Jobadabra run on other sites too, so a tab the app opens there can be filled (a job board that sends you to the employer's own
 site). It never starts on a page you opened yourself.</div>
 
 <label class="check"><input type="checkbox" id="acceptConsents"> Tick consent and data-notice boxes for me</label>
 <div class="hint">Privacy notices, "I acknowledge", data-processing consents: ticked after filling (listed on the page so you can
-read them), and Submit is left ready for you. Job Pilotto never presses Submit.</div>
+read them), and Submit is left ready for you. Jobadabra never presses Submit.</div>
 
 <h2>Your details and CV</h2>
-<p class="hint">They live in the Job Pilotto app (Settings → Your details for application forms), and the extension
+<p class="hint">They live in the Jobadabra app (Settings → Your details for application forms), and the extension
 asks the app for them each time it fills a form. Change them there.</p>
 
 <button id="save">Save connection details</button><span id="saved"></span>

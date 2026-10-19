@@ -1,5 +1,5 @@
 // Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
-// default, same extension API), Brave, Vivaldi. `prefer` is the browser the Job Pilotto extension is installed in:
+// default, same extension API), Brave, Vivaldi. `prefer` is the browser the Jobadabra extension is installed in:
 // a form opened anywhere else would never be filled.
 import fs from 'node:fs';
 import path from 'node:path';

@@ -29,7 +29,7 @@ export function open(text, prefix = 'JP1', publicKey = PUBLIC_KEY) {
 // Check a pasted key: {ok, license: {id, name, kind, until}} or {ok: false, error} in words the user can act on.
 export function check(text, {now = Date.now(), revoked = [], publicKey = PUBLIC_KEY} = {}) {
   const payload = open(text, 'JP1', publicKey);
-  if (!payload || !payload.id || !payload.name || !KINDS.includes(payload.kind)) return {ok: false, error: "That isn't a Job Pilotto license key. Paste it exactly as you got it (it starts with JP1.)."};
+  if (!payload || !payload.id || !payload.name || !KINDS.includes(payload.kind)) return {ok: false, error: "That isn't a Jobadabra license key. Paste it exactly as you got it (it starts with JP1.)."};
   if (revoked.includes(payload.id)) return {ok: false, error: 'This key was withdrawn. Ask Igor for a new one.'};
   if (payload.until && Date.parse(`${payload.until}T23:59:59Z`) < now) return {ok: false, error: `This key ended on ${payload.until}. Ask Igor for a new one.`};
   return {ok: true, license: {id: payload.id, name: payload.name, kind: payload.kind, until: payload.until || null}};

@@ -50,7 +50,7 @@ export const queued = () => waiting.map(({id, kind, trigger, queuedAt, note}) =>
 // each again (resume: a search's mode, a task's command). The app starts the ones you started again next time
 // (the schedule catches up its own). freezeQueue() keeps it as it is while the app quits.
 const QUEUE_FILE = 'queue.json';
-export const INTERRUPTED = 'Interrupted: Job Pilotto was closed while this ran';
+export const INTERRUPTED = 'Interrupted: Jobadabra was closed while this ran';
 let frozen = false;
 function saveQueue(storage) {
   if (frozen) return;

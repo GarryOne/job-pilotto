@@ -16,7 +16,7 @@ const num = (text, pattern) => { const m = String(text).match(pattern); return m
 
 export function parseDigest(text) {
   const lines = String(text || '').trim().split('\n');
-  if (!/^✈️.*(🆕|jobs \d|Job digest)/.test(lines[0] || '')) return null;  // with or without the brand name; "Job Pilotto · Job digest" since the plain layout
+  if (!/^✈️.*(🆕|jobs \d|Job digest)/.test(lines[0] || '')) return null;  // with or without the brand name; "Jobadabra · Job digest" since the plain layout
   const items = [];
   let section = '';   // the heading the jobs below it are listed under: 'new' (found by this run), 'best' or 'older' (found by an earlier one)
   lines.forEach((line, i) => {

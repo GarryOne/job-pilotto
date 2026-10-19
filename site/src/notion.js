@@ -3,7 +3,7 @@
 // /api/notion/callback, this Worker trades the one-time code for the user's token and keeps it in KV for 10
 // minutes under a hash of the session id; the app then collects it once with POST /api/notion/token (deleted
 // on read). Configuration: NOTION_CLIENT_ID (var) and NOTION_CLIENT_SECRET (secret); see site/wrangler.toml. With the
-// connection's template URL set, Notion copies the Job Pilotto template for the user and the token carries
+// connection's template URL set, Notion copies the Jobadabra template for the user and the token carries
 // duplicated_template_id, which the app builds on (desktop/lib/notion-workspace.js).
 const TTL = 600;
 const SESSION = /^[A-Za-z0-9_-]{32,128}$/;
@@ -29,7 +29,7 @@ export function start(request, env) {
   const url = new URL(request.url);
   const session = url.searchParams.get('session') || '';
   if (!configured(env)) return page('Not available yet', 'Connect with Notion isn\'t set up on this server. In the app, use "Paste a token instead".', false);
-  if (!SESSION.test(session)) return page('Something went wrong', 'Start again from the Job Pilotto app.', false);
+  if (!SESSION.test(session)) return page('Something went wrong', 'Start again from the Jobadabra app.', false);
   const authorize = new URL('https://api.notion.com/v1/oauth/authorize');
   authorize.search = new URLSearchParams({client_id: env.NOTION_CLIENT_ID, response_type: 'code', owner: 'user',
     redirect_uri: url.origin + CALLBACK, state: session}).toString();
@@ -40,8 +40,8 @@ export function start(request, env) {
 export async function callback(request, env, fetcher = fetch) {
   const url = new URL(request.url);
   const session = url.searchParams.get('state') || '';
-  if (url.searchParams.get('error')) return page('Not connected', 'You cancelled on Notion\'s page. Go back to Job Pilotto and try again.', false);
-  if (!configured(env) || !SESSION.test(session) || !url.searchParams.get('code')) return page('Something went wrong', 'Start again from the Job Pilotto app.', false);
+  if (url.searchParams.get('error')) return page('Not connected', 'You cancelled on Notion\'s page. Go back to Jobadabra and try again.', false);
+  if (!configured(env) || !SESSION.test(session) || !url.searchParams.get('code')) return page('Something went wrong', 'Start again from the Jobadabra app.', false);
   const response = await fetcher('https://api.notion.com/v1/oauth/token', {method: 'POST', headers: {
     Authorization: `Basic ${btoa(`${env.NOTION_CLIENT_ID}:${env.NOTION_CLIENT_SECRET}`)}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28'},
     body: JSON.stringify({grant_type: 'authorization_code', code: url.searchParams.get('code'), redirect_uri: url.origin + CALLBACK})});
@@ -50,7 +50,7 @@ export async function callback(request, env, fetcher = fetch) {
   const keep = {access_token: data.access_token, workspace_name: data.workspace_name || '', workspace_id: data.workspace_id || '',
     duplicated_template_id: data.duplicated_template_id || null, ...(data.refresh_token ? {refresh_token: data.refresh_token} : {})};
   await env.WAITLIST.put(`notion:${await sha256(session)}`, JSON.stringify(keep), {expirationTtl: TTL});
-  return page('Connected to Notion ✓', `${data.workspace_name ? `${data.workspace_name} is connected. ` : ''}Go back to Job Pilotto: it takes it from here. You can close this tab.`, true);
+  return page('Connected to Notion ✓', `${data.workspace_name ? `${data.workspace_name} is connected. ` : ''}Go back to Jobadabra: it takes it from here. You can close this tab.`, true);
 }
 
 // POST /api/notion/token {session} -> {ok, pending} until the user has approved, then the token (once).

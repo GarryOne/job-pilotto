@@ -1,5 +1,5 @@
 // Settings → Profile → Application answers → Website-specific rules (owner's Form knowledge mockup, 16 Oct 2026, merged into Application answers
-// the same day): the rules Job Pilotto remembered from forms as a table (Field · Saved value or rule · Website · Edit · ⋮), filtered by website and
+// the same day): the rules Jobadabra remembered from forms as a table (Field · Saved value or rule · Website · Edit · ⋮), filtered by website and
 // type; Edit opens the row (field label, applies to, saved value, rule type, why, technical details, Delete rule); "Add rule" adds one. A rule
 // whose value is missing is also listed under Needs review (reviewRows). Rules come from renderer/knowledge-model.js; a line that is not a rule
 // is listed under the table, never dropped. Writes: view.change('knowledge', …) (pages/outline-tab.js). Guarded by test/profile-tabs-render.test.js.
@@ -119,7 +119,7 @@ export function drawRules(view, into, query = '') {
   for (const rule of shown) tbody.append(...row(view, rule, siteList));
   table.append(tbody);
   into.append(bar);
-  if (!all.length) into.append(el('p', 'muted', 'Nothing remembered yet: when you fix a field a form fill got wrong, Job Pilotto keeps the rule here.'));
+  if (!all.length) into.append(el('p', 'muted', 'Nothing remembered yet: when you fix a field a form fill got wrong, Jobadabra keeps the rule here.'));
   else if (!shown.length) into.append(el('p', 'muted', 'No rule matches these filters.'));
   else into.append(table);
   const info = el('p', 'muted small kn-note');

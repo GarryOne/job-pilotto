@@ -175,7 +175,7 @@ function noticeText(run) {
   if (!NAMES[run.kind] && run.kind) return null;
   const where = run.where === 'github' ? ' (on GitHub)' : '';
   const name = NAMES[run.kind] || 'Find jobs';
-  if (run.ok === false || run.off) return {title: `${name} had problems${where}`, body: 'Open Job Pilotto and click the activity bar to see what happened.'};
+  if (run.ok === false || run.off) return {title: `${name} had problems${where}`, body: 'Open Jobadabra and click the activity bar to see what happened.'};
   if (run.kind === 'mail') {
     const count = run.updates?.length ?? Number(/(\d+) update/.exec(run.result || run.summary || '')?.[1] || 0);
     if (!count) return null;
@@ -185,7 +185,7 @@ function noticeText(run) {
   // A run that worked but said something (its Status is Warnings, or its log has a warning line) is not "done": the Actions page already calls it "With warnings",
   // and a pop-up that says "done" over a refused AI call is the contradiction the UI loop found (#51, #52).
   const verdict = runWarned(run) ? 'finished with warnings' : 'done';
-  const look = runWarned(run) ? ' Open Job Pilotto to see what it said.' : '';
+  const look = runWarned(run) ? ' Open Jobadabra to see what it said.' : '';
   if (!run.kind || run.kind === 'search') {
     const fresh = run.new;
     return {title: `${run.trigger === 'schedule' ? 'Scheduled job search' : 'Find jobs'} ${verdict}${where}`,

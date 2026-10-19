@@ -1,4 +1,4 @@
-// The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
+// The user's Notion is their Jobadabra interface. This module connects the app to their copy of the
 // template: finds each database and page by title (config/notion_template.json), checks the columns
 // the pipeline needs, and writes pages (the drafted Profile and standard answers).
 // This file: finding and connecting the databases, and the workspace page (name). Pieces: notion-core.js (call, pace),
@@ -41,9 +41,9 @@ export async function discover(token, fetcher, {root = null} = {}) {
   return {ids, missing};
 }
 
-// A new workspace: the one page the connection was given (no Job Pilotto databases or pages in it yet),
+// A new workspace: the one page the connection was given (no Jobadabra databases or pages in it yet),
 // where the app builds everything from config/notion_schema.json. null when there isn't exactly one.
-// fresh (a profile with no workspace of its own, 16 Oct 2026): a page that already holds a Job Pilotto workspace (or sits above one) is
+// fresh (a profile with no workspace of its own, 16 Oct 2026): a page that already holds a Jobadabra workspace (or sits above one) is
 // never the place to build, so an old workspace next to a new empty page doesn't hide it; only an empty top page counts.
 export async function sharedRoot(token, fetcher, {fresh = false} = {}) {
   const [databases, pages] = liveOnly(fresh ? await searchAll(token, 'database', fetcher) : [], await searchAll(token, 'page', fetcher));
@@ -52,7 +52,7 @@ export async function sharedRoot(token, fetcher, {fresh = false} = {}) {
   if (!fresh) return tops.length === 1 ? tops[0].id.replace(/-/g, '') : null;
   const parent = new Map([...databases, ...pages].map(i => [i.id, i.parent?.page_id || i.parent?.database_id]));
   const names = new Set([...Object.values(TEMPLATE.databases), ...Object.values(TEMPLATE.pages)].map(normalise));
-  const holds = new Set();   // every page on the way up from a Job Pilotto database or page
+  const holds = new Set();   // every page on the way up from a Jobadabra database or page
   for (const item of [...databases, ...pages].filter(i => names.has(normalise(titleOf(i)))))
     for (let id = parent.get(item.id), depth = 0; id && depth < 20; id = parent.get(id), depth++) holds.add(id);
   const empty = tops.filter(p => !holds.has(p.id));
@@ -96,26 +96,26 @@ export async function connectWaiting(token, {fetcher, onProgress = () => {}, sle
 }
 
 // ---------- starting over: archive the workspace, or copy it all into an export ----------
-// The page the Job Pilotto databases and pages sit in (the Profile's parent).
+// The page the Jobadabra databases and pages sit in (the Profile's parent).
 export async function workspaceRoot(token, ids, fetcher) {
-  if (!ids.NOTION_PROFILE_PAGE_ID) throw new Error('No Job Pilotto workspace is connected');
+  if (!ids.NOTION_PROFILE_PAGE_ID) throw new Error('No Jobadabra workspace is connected');
   const root = (await call(token, 'GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`, null, fetcher)).parent?.page_id;
-  if (!root) throw new Error('Your Job Pilotto pages are not inside one page, so there is no page to archive');
+  if (!root) throw new Error('Your Jobadabra pages are not inside one page, so there is no page to archive');
   return root.replace(/-/g, '');
 }
 
-// A new workspace page gets a name that tells it apart ("Job Pilotto · Igor's MacBook Pro · 7 Oct 2026"): two installs that each
-// connected the same Notion made two pages both called "Job Pilotto" (6 Oct 2026). Only a page still called exactly "Job Pilotto"
+// A new workspace page gets a name that tells it apart ("Jobadabra · Igor's MacBook Pro · 7 Oct 2026"): two installs that each
+// connected the same Notion made two pages both called "Jobadabra" (6 Oct 2026). Only a page still called exactly "Jobadabra"
 // (the template's or the app's own) is renamed: a name the user chose is kept. -> {id, title, renamed}.
 export function workspaceTitle(computer, when = new Date()) {
   const day = when.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
-  return ['Job Pilotto', String(computer || '').trim().slice(0, 40), day].filter(Boolean).join(' · ');
+  return ['Jobadabra', String(computer || '').trim().slice(0, 40), day].filter(Boolean).join(' · ');
 }
 export async function nameWorkspace(token, ids, title, fetcher) {
   const root = await workspaceRoot(token, ids, fetcher);
   const page = await call(token, 'GET', `pages/${root}`, null, fetcher);
   const now = titleOf(page).trim();
-  if (now !== 'Job Pilotto') return {id: root, title: now, renamed: false};
+  if (now !== 'Jobadabra' && now !== 'Job Pilotto') return {id: root, title: now, renamed: false};
   const [key] = Object.entries(page.properties || {}).find(([, p]) => p.type === 'title') || ['title'];
   await call(token, 'PATCH', `pages/${root}`, {properties: {[key]: {title: [{type: 'text', text: {content: title}}]}}}, fetcher);
   return {id: root, title, renamed: true};

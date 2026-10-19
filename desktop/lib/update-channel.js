@@ -9,9 +9,9 @@ export const channelOf = settings => (settings.testChannel === true ? 'test' : s
 
 const ASK = {
   beta: {type: 'question', message: 'Get the beta version?', buttons: ['Join the beta', 'Not now'],
-    detail: 'Be the first to test new features. Beta versions pass our automatic checks, but can still have bugs. Job Pilotto will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version any time: Settings → Diagnostics → Beta → Back to stable.'},
+    detail: 'Be the first to test new features. Beta versions pass our automatic checks, but can still have bugs. Jobadabra will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version any time: Settings → Diagnostics → Beta → Back to stable.'},
   test: {type: 'warning', message: 'Get test builds?', buttons: ['Get test builds', 'Not now'],
-    detail: 'Test builds are made straight from the latest change, before the end-to-end checks have run on them, so they can be broken. Job Pilotto will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version at any time.'},
+    detail: 'Test builds are made straight from the latest change, before the end-to-end checks have run on them, so they can be broken. Jobadabra will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version at any time.'},
 };
 
 // ctx: {app, dialog, storage, updater, isLocked() (demo or from source), checkForUpdate, installUpdate, setUpdateOffer, parentWindow(), onChange()}
