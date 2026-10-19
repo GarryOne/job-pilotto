@@ -99,7 +99,7 @@ class LearnedLinkTests(unittest.TestCase):
         entry = board_ideas.load()['boards']['vacatures.example']
         self.assertEqual((entry['search_url'], entry['relevant']), (LEARNED, 1), 'kept: the pool share sends it (src/contribute.py)')
         self.asked.clear()
-        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a: boards):
+        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a, **k: boards):
             self.read()
         self.assertTrue(self.asked and self.asked[0].startswith('https://vacatures.example/zoeken?'), self.asked)
         self.assertNotIn(HOME, self.asked, 'learned once: the home page is not read again')
@@ -117,7 +117,7 @@ class LearnedLinkTests(unittest.TestCase):
             home.append(url) if url == HOME else None
             return '<html><body>none</body></html>' if url == HOME else posting('Magazijnmedewerker', 2)
         self.fetch = fetch
-        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a: boards):
+        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a, **k: boards):
             self.read()
             self.read()
         self.assertEqual(home, [HOME])
@@ -137,7 +137,7 @@ class LearnedLinkTests(unittest.TestCase):
         entry = board_ideas.load()['boards']['vacatures.example']
         self.assertEqual((entry['route_kind'], entry['relevant'], entry['search_url']), ('sitemap', 1, GUESSED))
         self.asked.clear()
-        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a: boards):
+        with mock.patch.object(found_boards, '_retry_due', return_value=True), mock.patch.object(found_boards.board_yield, 'pick', lambda boards, *a, **k: boards):
             self.read()
         self.assertEqual(self.asked[0], 'https://vacatures.example/jobs.xml', 'its route is read first from then on')
         self.assertNotIn(HOME, self.asked)
