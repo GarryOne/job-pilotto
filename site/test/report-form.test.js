@@ -19,9 +19,9 @@ const bucket = () => { const kept = new Map(); return {kept, put: async (name, v
   get: async name => (kept.has(name) ? {body: kept.get(name), text: async () => String(kept.get(name))} : null)}; };
 const env = (extra = {}) => ({STATS: d1(), REPORTS: bucket(), STATS_KEY: 'k', STATS_API_KEY: 'owner-key', STATS_SALT: 's', ...extra});
 const WRAPPED = 'A'.repeat(344), INSTALL = 'install-aaaa-bbbb';
-const upload = async (e, {install = INSTALL, token, size = 1000, purpose = 'report', now = new Date('2026-10-15T10:00:00Z'), meta = {requests: 12, cause: 'stalled'}} = {}) => reportForm(
+const upload = async (e, {fetcher, install = INSTALL, token, size = 1000, purpose = 'report', now = new Date('2026-10-15T10:00:00Z'), meta = {requests: 12, cause: 'stalled'}} = {}) => reportForm(
   new Request('https://x/api/report-form', {method: 'POST', headers: {'X-Install': install, Authorization: `Bearer ${token ?? await tokenFor(install, e, purpose)}`, 'X-Report-Key': WRAPPED, 'X-Report-Meta': JSON.stringify(meta)}, body: new Uint8Array(size).fill(7)}),
-  e, '/api/report-form', now);
+  e, '/api/report-form', now, fetcher);
 const owner = (e, method, path, headers = {}) => reportForm(new Request(`https://x${path}`, {method, headers: {Authorization: 'Bearer owner-key', ...headers}}), e, path.split('?')[0]);
 
 test('an encrypted report is stored as two objects and a counts-only row', async () => {
@@ -81,4 +81,29 @@ test('the day\'s total holds when every install id is new: 50 reports and 200 MB
   const bytes = env(), full = ALL_BYTES_PER_DAY / MAX_BYTES;
   for (let i = 0; i < full; i++) assert.equal((await upload(bytes, {install: `install-big-${String(i).padStart(4, '0')}`, size: MAX_BYTES})).status, 200, `big ${i}`);
   assert.equal((await upload(bytes, {install: 'install-big-extra', size: 1000})).status, 429, 'the byte cap holds with new install ids too');
+});
+
+const telegram = () => { const calls = []; return {calls, fetcher: async (url, init) => { calls.push({url, body: JSON.parse(init.body)}); return {ok: true}; }}; };
+const tellEnv = () => env({BRAIN_BOT_TOKEN: 'bot-token', BRAIN_CHAT_ID: '42'});
+
+test('each stored report sends the owner exactly one Telegram message: counts only, a link to /admin/reports', async () => {
+  const e = tellEnv(), fake = telegram();
+  assert.equal((await upload(e, {fetcher: fake.fetcher})).status, 200);
+  assert.equal(fake.calls.length, 1);
+  const {url, body} = fake.calls[0];
+  assert.equal(url, 'https://api.telegram.org/botbot-token/sendMessage'); assert.equal(body.chat_id, '42');
+  assert.match(body.text, /^📮 <b>A form was reported<\/b> · stalled · 12 page responses · install [0-9a-f]{8} · 10:00 UTC\n<a href="https:\/\/www\.jobpilotto\.top\/admin\/reports">/);
+  assert.ok(!body.text.includes(INSTALL), 'the install only by a short digest');
+  assert.deepEqual(body.text.replace(/<[^>]*>/g, '').match(/https?:\/\/[^\s]*/g) || [], [], 'no URL in the visible text');
+});
+
+test('a failing or missing Telegram never fails the upload; the 11th report of a day sends one summary, then silence', async () => {
+  const down = async () => { throw new Error('boom'); };
+  assert.equal((await upload(tellEnv(), {fetcher: down})).status, 200);
+  const none = telegram();
+  assert.equal((await upload(env(), {fetcher: none.fetcher})).status, 200); assert.equal(none.calls.length, 0, 'no bot configured, no call');
+  const e = tellEnv(), fake = telegram();
+  for (let i = 0; i < 13; i++) assert.equal((await upload(e, {fetcher: fake.fetcher, install: `install-${String(i).padStart(4, '0')}-abcd`})).status, 200);
+  assert.equal(fake.calls.length, 11);
+  assert.match(fake.calls[10].body.text, /More forms were reported today/);
 });

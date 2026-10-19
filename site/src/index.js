@@ -53,6 +53,7 @@ import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
 import {reportForm} from './report-form.js';
+import {view as reportsView} from './report-view.js';
 import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {freeAi} from './free-ai.js';
@@ -164,7 +165,7 @@ async function route(request, env, ctx) {
   // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
     '/admin/operations/overview': opsView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
-    '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
+    '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/brain': brainView, '/admin/sentry': sentryView, '/admin/reports': reportsView}[pathname];   // access: the super admin's only (src/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (src/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e-report.js)
   if (pathname === '/admin/join') return join(request, env);   // an invite link

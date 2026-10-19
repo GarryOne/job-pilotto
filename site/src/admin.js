@@ -19,6 +19,7 @@ export const PAGES = [
   {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
   {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
   {path: '/admin/form-learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', name: 'Learning', icon: '🧬'},
+  {path: '/admin/reports', group: 'Form filling', question: 'Which forms did people report as stuck, and have we fetched them?', title: 'Reported forms', name: 'Reports', icon: '📮'},
   {path: '/admin/lab-job-search', group: 'Job search', question: 'Does a new user get relevant jobs fast, in any role and place, and did our last change make it better or worse?', title: 'Lab Job Search', name: 'Lab', icon: '🔬'},
   {path: '/admin/scouting', group: 'Job search', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/intelligence-overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', name: 'Overview', icon: '🧭', overview: true},

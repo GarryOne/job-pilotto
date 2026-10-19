@@ -63,4 +63,10 @@ async function learning(env, now) {
   ];
 }
 
-export const FORM_FILLING = {'/admin/real-form-filling': realUsers, '/admin/lab-form-filling': lab, '/admin/benchmark-form-filling': benchmark, '/admin/form-learning': learning};
+// Reported forms: reports still waiting to be fetched, and the last 30 days (counts only; src/report-view.js).
+async function reports(env) {
+  const row = await first(env, "SELECT COUNT(*) AS n, SUM(status = 'new') AS waiting FROM form_reports");
+  return [{label: 'Reported forms waiting', value: num(row?.waiting), sub: `${num(row?.n)} reported in the last 30 days`, status: 'none'}];
+}
+
+export const FORM_FILLING = {'/admin/reports': reports, '/admin/real-form-filling': realUsers, '/admin/lab-form-filling': lab, '/admin/benchmark-form-filling': benchmark, '/admin/form-learning': learning};
