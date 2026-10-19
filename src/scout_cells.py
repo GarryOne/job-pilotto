@@ -72,6 +72,6 @@ def aim(db, search):
     cell = next_cell(db)
     if not cell:
         return search, ''
-    _set(db, 'ideas_cell', f'{cell[0]}|{cell[1]}')
+    db.execute('INSERT OR REPLACE INTO scout_meta (key, value) VALUES (?, ?)', ('ideas_cell', f'{cell[0]}|{cell[1]}'))   # plain text, as ideas_at
     print(f'Scout ideas: aimed at {cell[0]} in {COUNTRIES[cell[1]]}, one of the thinnest cells of the central list.')
     return search_for(*cell), cell[0]
