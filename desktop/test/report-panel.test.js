@@ -60,8 +60,8 @@ test('Report sends in the panel: a submitted recording is scrubbed and held, ans
   assert.deepEqual(await h.route({action: 'send', note: 'It stopped at the CV step; I am Rosalind Quill, rosalind.quill@mailbox.test'}), {ok: true});
   assert.equal(uploads.length, 1, 'the uploader is called once');
   assert.ok(![...uploads[0].record.bodies.values()].some(body => /Rosalind/.test(body.toString())), 'what is uploaded is scrubbed');
-  assert.match(uploads[0].meta.cause, /^It stopped at the CV step; I am Candidate Candidate, /);
-  assert.doesNotMatch(uploads[0].meta.cause, /Rosalind|Quill|mailbox/, 'the note is scrubbed like the rest');
+  assert.match(uploads[0].meta.note, /^It stopped at the CV step; I am Candidate Candidate, /);
+  assert.doesNotMatch(uploads[0].meta.note, /Rosalind|Quill|mailbox/, 'the note is scrubbed like the rest');
   assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'}, 'nothing is held after a send');
 });
 
