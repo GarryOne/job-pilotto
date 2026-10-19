@@ -17,10 +17,11 @@ def node(code):
 
 
 class Workflow(unittest.TestCase):
-    def test_parked_by_hand_only_and_main_moves_the_page(self):
+    def test_once_a_day_and_by_hand_never_on_a_push_or_pr_and_main_moves_the_page(self):
         trigger = WORKFLOW.split('\njobs:')[0]
-        for line in ('  push:', '  schedule:', '  pull_request:'):
-            self.assertNotIn(line, trigger, 'owner, 19 Oct 2026: the replay is parked, judge live')
+        for line in ('  push:', '  pull_request:'):
+            self.assertNotIn(line, trigger, 'owner, 19 Oct 2026: a daily schedule only, no push and no PR')
+        self.assertIn("cron: '41 4 * * *'", trigger)
         self.assertIn('  workflow_dispatch:', trigger)
         self.assertIn('--branch "${{ github.ref_name }}"', WORKFLOW)
 
