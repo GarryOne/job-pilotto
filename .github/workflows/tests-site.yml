@@ -13,6 +13,7 @@ on:
       # Files outside site/ that its tests read (tests/test_workflow_paths.py fails when one is missing).
       - '.github/workflows/site.yml'
       - 'docs/lab/search-experiments.json'
+      - 'docs/site-routes.json'
       - 'extension/alias-schema.js'
       - 'extension/ladder/**'
       - 'extension/tab-pages.js'
