@@ -4,12 +4,14 @@ name = "www"   # https://www.jobpilotto.top; also https://www.jobpilotto.workers
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
-# Hosts: workers.dev stays on (installed apps and old engine tags call it, forever); jobpilotto.top is an alias on the same worker
+# Hosts: jobadabra.top (19 Oct 2026, the new main address) and jobpilotto.top are aliases of this worker; workers.dev stays on (installed apps and old engine tags call it, forever); jobpilotto.top is an alias on the same worker
 # (the bare name redirects to www: a Cloudflare Redirect Rule on the zone for static pages, src/hosts.js for the rest). Replaceable: another domain is two more lines here.
 workers_dev = true
 routes = [
   {pattern = "www.jobpilotto.top", custom_domain = true},
   {pattern = "jobpilotto.top", custom_domain = true},
+  {pattern = "www.jobadabra.top", custom_domain = true},
+  {pattern = "jobadabra.top", custom_domain = true},
 ]
 
 [ai]

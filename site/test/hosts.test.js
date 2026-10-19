@@ -36,3 +36,13 @@ test('wrangler.toml keeps workers.dev on and attaches the alias hosts as custom 
   assert.match(toml, /pattern = "www\.jobpilotto\.top", custom_domain = true/);
   assert.match(toml, /pattern = "jobpilotto\.top", custom_domain = true/);
 });
+
+test('jobadabra.top: bare name goes to www, www is served, wrangler attaches both', () => {
+  const response = apexRedirect(ask('jobadabra.top', '/privacy?x=1'));
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get('Location'), 'https://www.jobadabra.top/privacy?x=1');
+  for (const path of API_PATHS) assert.equal(apexRedirect(ask('www.jobadabra.top', path)), null, path);
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  assert.match(toml, /pattern = "www\.jobadabra\.top", custom_domain = true/);
+  assert.match(toml, /pattern = "jobadabra\.top", custom_domain = true/);
+});
