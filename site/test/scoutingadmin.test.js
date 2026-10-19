@@ -11,7 +11,8 @@ const feeds = [
 test('the daily snapshot counts employers, those outside IT, failing ones, finds from installs and dead ends', () => {
   assert.equal(topKind(feeds[0]), 'sales_retail');
   assert.equal(topKind(feeds[2]), 'unknown');
-  assert.deepEqual(snapshot(feeds, 1, 7), {feeds: 3, non_it: 1, failing: 1, from_pool: 1, dead_ends: 7});
+  assert.deepEqual(snapshot(feeds, 1, 7), {feeds: 3, non_it: 1, failing: 1, from_pool: 1, dead_ends: 7, cells: {'sales_retail|ch': [1, 3142]}},
+    'each kind × European country cell: employers and open jobs, kept daily for the trends');
 });
 
 test('the page says its verdict and draws every section, from data or with an empty line', () => {
