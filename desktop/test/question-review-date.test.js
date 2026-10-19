@@ -7,7 +7,7 @@ import {formatFor} from '../renderer/question-kind.js';
 
 const body = install();
 const asked = [];
-for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
+for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-chip', 'questions-chip-text', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
   const node = globalThis.document.createElement('div'); node.id = id; body.append(node);
 }
 const START = {key: 'start', question: 'What is your earliest start date, and are there any constraints we should be aware of?', company: 'Acme AG', proposal: '1 December 2026',

@@ -6,7 +6,7 @@ import {formatFor} from '../renderer/question-kind.js';
 
 const body = install();
 const calls = [];
-for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
+for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-chip', 'questions-chip-text', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
   const node = globalThis.document.createElement('div'); node.id = id; body.append(node);
 }
 const LIST = ['Notice period', 'Why us?'].map((question, i) => ({key: `k${i}`, question, company: 'Acme AG', format: formatFor({})}));

@@ -34,7 +34,8 @@ export function renderStuck() {
   // Not before the sessions are known: with none loaded yet every Applying job would look abandoned for a moment.
   const count = sessionsLoaded ? shared.allJobs.filter(stuck).length : 0;
   show($('jobs-stuck'), count > 0);
-  $('jobs-stuck-text').textContent = `${count} job${count === 1 ? ' is' : 's are'} still marked Applying but ${count === 1 ? 'has' : 'have'} no open session. Did you submit ${count === 1 ? 'it' : 'them'}?`;
+  $('jobs-stuck-text').textContent = `${count} still marked Applying`;
+  $('jobs-stuck').title = `${count} job${count === 1 ? ' is' : 's are'} marked Applying but ${count === 1 ? 'has' : 'have'} no open session. Did you submit ${count === 1 ? 'it' : 'them'}? Click to show ${count === 1 ? 'it' : 'them'}.`;
 }
 
 // Pill tones: where a job stands, and how it's worked.
@@ -53,7 +54,7 @@ const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 export const TALKING_OPEN = 'jobsTalkingOpen';
 function renderTalking(narrowed = false) {
   const talking = inConversation(shared.allJobs);
-  show($('jobs-talking'), talking.length > 0 && !narrowed);
+  show($('jobs-talking'), talking.length > 0);   // on Focus since 19 Oct 2026: nothing to give way to
   const found = talking.filter(isInbound).length;
   const mixed = found > 0 && found < talking.length;  // a tag per row only tells something when both kinds are listed
   $('jobs-talking-count').textContent = `${talking.length} active · ${found} inbound · ${talking.length - found} outbound`;

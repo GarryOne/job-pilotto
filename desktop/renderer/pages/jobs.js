@@ -151,7 +151,7 @@ export function showJobsData(data) {
       (data.waiting ? ` · ${data.waiting} waiting, run Find jobs again` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');   // about Notion
     $('jobs-stats').title = `${count.scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
-    const totalBefore = $('stat-total').textContent, flash = setCount($('stat-total'), count.total);
+    const totalBefore = $('stat-total')?.textContent, flash = setCount($('stat-total'), count.total);
     // Whether a person could see it (7 Oct 2026: "the flashing is not consistently working"): logs/app.log, area ui
     if (flash !== 'same') window.pilot.uiLog?.('Total matches changed', {from: totalBefore, to: count.total, flash,
       page: document.querySelector('.view[data-view="jobs"]')?.offsetParent ? 'jobs' : 'another page',
@@ -169,9 +169,7 @@ export function showJobsData(data) {
     for (const kind of Object.keys(applications)) setCount($(`stat-${kind}`), applications[kind]);
     const talking = inProcess(shared.allJobs);
     document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer.`;
-    document.querySelector('[data-stat="applied"]').title = 'Applications sent = waiting for a reply + in process + closed. Forms still being filled are sessions, not counted here.';
     document.querySelector('[data-stat="waiting"]').title = 'Sent, no answer yet (Applied, Confirmation received).';
-    document.querySelector('[data-stat="closed"]').title = 'Rejected, withdrawn, or no answer after the waiting time.';
     renderStuck();
   }
 }
@@ -206,11 +204,15 @@ export async function startSearch(why = undefined) {
   }
 }
 
+// A counter's filter for a caller with no tile (Strategy's glance: Total, Applied): the Jobs page keeps four tiles, the others are filters only (19 Oct 2026).
+let pickStatNow = () => {};
+export const pickStat = kind => pickStatNow(kind);
+
 export async function init() {
   searchSelect($('lead-target'));
   try { $('jobs-talking').open = localStorage.getItem(TALKING_OPEN) !== '0'; } catch {}
   $('jobs-talking').addEventListener('toggle', event => { try { localStorage.setItem(TALKING_OPEN, event.target.open ? '1' : '0'); } catch {} });
-  $('jobs-stuck-show').addEventListener('click', () => {
+  $('jobs-stuck').addEventListener('click', () => {
     jobsState.statFilter = 'stuck';
     $('filter-status').value = 'all';
     renderJobs();
@@ -222,15 +224,16 @@ export async function init() {
   $('jobs-filter-back').addEventListener('click', () => document.querySelector('.nav[data-view="focus"]').click());
   // The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
   // clicking the active one again, or Total matches, shows every match.
-  document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => {
-    const kind = card.dataset.stat;
+  document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => pickStat(card.dataset.stat)));
+  function pickStat(kind) {
     const next = statClick(kind, typeof jobsState.statFilter === 'string' ? jobsState.statFilter : null, $('filter-status').value);
     jobsState.statFilter = next.stat;
     if (next.stat) jobsState.view = null;   // one narrowing at a time: a counter replaces a saved view
     $('filter-status').value = next.filter;
     if (kind === 'companies' && jobsState.statFilter) $('sort-by').value = 'company';
     renderJobs();
-  }));
+  }
+  pickStatNow = pickStat;
   // Add a job: one link, then the find path (read, score, Job Matches). It shows under New matches.
   $('jobs-more').addEventListener('click', showMore);
   $('import-open').addEventListener('click', () => {

@@ -60,6 +60,9 @@ function renderQuestions(list, error = '', hidden = [], consent = 0, fromDetails
   $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} need${list.length === 1 ? 's' : ''} review`;
   $('questions-details').textContent = fromDetailsLine(now.fromDetails);
   show($('questions-details'), !error && now.fromDetails > 0);
+  // The same count as a chip next to the Jobs title: the full card is on Focus (19 Oct 2026).
+  show($('questions-chip'), !error && list.length > 0);
+  $('questions-chip-text').textContent = `${list.length} question${list.length === 1 ? '' : 's'}`;
   $('questions-error').textContent = error ? questionsProblem(error).text : '';
   show($('questions-error'), !!error);
   show($('questions-retry'), !!error);

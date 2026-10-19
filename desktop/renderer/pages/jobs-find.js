@@ -6,10 +6,17 @@ import {jobCounts} from '../jobs-view.js';
 import {findCard} from '../find-card-model.js';
 import {jobsState} from './jobs-state.js';
 import {$, show} from './core.js';
+import {foldedLine, isFolded, liveRow, setFolded} from './jobs-find-line.js';
 
-let signature = '', wasSearching = false, finishedHere = false, shown = {};
+let signature = '', lastModel = null, wasSearching = false, finishedHere = false, shown = {};
 let start = () => {};
-export const wireFindCard = startSearch => { start = startSearch; };
+// While searching the whole card is the toggle: one line (folded, the default) or today's full card; a click on a button or link inside keeps its own job.
+export const wireFindCard = startSearch => {
+  start = startSearch;
+  const card = $('find-card'), toggle = () => { if (!card.classList.contains('is-searching')) return; setFolded(!isFolded()); signature = ''; draw(lastModel); };
+  card?.addEventListener('click', event => { if (!event.target.closest('button, a')) toggle(); });
+  card?.addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target === card) { event.preventDefault(); toggle(); } });
+};
 
 const button = (text, handler, className = 'primary') => Object.assign(el('button', className, text), {type: 'button', onclick: handler});
 
@@ -39,9 +46,15 @@ function readProgress(model) {
   return box;
 }
 
+const foldCue = () => Object.assign(el('span', 'find-line-chevron is-up', ''), {title: 'Click anywhere on the card to fold it'});
+
 function draw(model) {
   const card = $('find-card');
-  card.className = `card find-card is-${model.state}`;
+  lastModel = model;
+  const folded = model.state === 'searching' && isFolded();
+  card.className = `card find-card is-${model.state}${folded ? ' is-folded' : ''}`;
+  if (model.state === 'searching') Object.assign(card, {tabIndex: 0}), card.setAttribute('aria-expanded', String(!folded)); else card.removeAttribute('tabindex');
+  if (folded) { card.replaceChildren(...foldedLine(model)); show(card, true); document.body.dataset.findCard = model.state; return; }
   if (model.state === 'empty') {
     const big = button('Find my first jobs', () => start(), 'primary find-big');
     card.replaceChildren(cardHead('Get started', 'Find your first jobs', {subtitles: ['Reads employer sites and job boards, scores each job against your profile, and lists the first matches in under a minute. The rest keeps coming.']}), big);
@@ -49,9 +62,9 @@ function draw(model) {
     const chips = el('div', 'chip-row');
     chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
     const lines = el('ul', 'run-card-rows');
-    lines.append(...model.lines.map(text => el('li', 'run-card-row', text)));
+    lines.append(...model.lines.map((text, i) => liveRow(text, i === model.lines.length - 1)));
     card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Jobadabra; a found job joins your list below once it is checked.']}),
-      runNumbers(model), readProgress(model), chips, lines);
+      runNumbers(model), readProgress(model), chips, lines, foldCue());
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before
     card.replaceChildren(cardHead('Search done', ran ? `${model.scored} new on your list` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: [model.waiting ? `${model.waiting.toLocaleString('en-US')} more possible job${model.waiting === 1 ? ' is' : 's are'} still waiting. Run Find jobs again to check ${model.waiting === 1 ? 'it' : 'them'}.` : 'The best matches are first. Find jobs again any time.']}),
@@ -75,7 +88,7 @@ export function renderFindCard(runsNow) {
   const counts = jobCounts(jobsState.lastJobsData);   // the same numbers as the counters below (jobs-view.js)
   const model = findCard({running: runsNow.running, last: (runsNow.runs || []).find(run => (run.kind || 'search') === 'search') || null,
     lastSearchAt: runsNow.lastSearchAt, listed: runsNow.listed ?? counts.total, finishedHere});   // runsNow.listed: only the screenshots set it
-  const key = JSON.stringify(model);
+  const key = JSON.stringify([model, isFolded()]);
   if (key === signature) return;
   signature = key;
   draw(model);

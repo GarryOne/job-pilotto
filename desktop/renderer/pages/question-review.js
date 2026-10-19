@@ -257,5 +257,6 @@ export async function manageAnswers(query = '', view = 'saved') {
 registerOverlay('review', {close: closeQuestionReview, open: () => openQuestionReview()});
 $('review-drawer-backdrop')?.addEventListener('click', closeQuestionReview);
 $('questions-review')?.addEventListener('click', () => openQuestionReview());
+$('questions-chip')?.addEventListener('click', () => openQuestionReview());   // the chip next to the Jobs title (19 Oct 2026)
 $('questions-manage')?.addEventListener('click', event => { event.preventDefault(); manageAnswers(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.open && !event.defaultPrevented) closeQuestionReview(); });

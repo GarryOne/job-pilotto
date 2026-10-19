@@ -27,6 +27,7 @@ const CHEVRON_FILES = {
   'components.js': 'collapsiblePanel + toggleOnBar',
   'page-parts.js': 'reviewList: the whole detail row and the Reviewed line toggle (a <details> summary)',
   'pages/application-answers.js': 'toggleOnBar',
+  'pages/jobs-find-line.js': 'the folded Find jobs card: a click anywhere on the card toggles it (pages/jobs-find.js)',
   'pages/activity-mail.js': 'the fold is one full-width button',
   'interview-insight.js': 'the bar folds, the arrow bubbles',
   'pages/jobs-fit.js': 'Collapse button, not a fold bar',

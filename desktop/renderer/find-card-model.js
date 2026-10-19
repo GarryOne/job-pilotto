@@ -42,11 +42,11 @@ export function searchNumbers(log = []) {
   return {found: matches, scored, good, waiting: Math.max(0, matches - scored)};
 }
 
-// The employer read as progress: the latest "Reading employer job sites: 1953 of 2251" ticker line (src/progress.py), or null before it starts.
+// The employer read as progress: the latest "Reading employer job sites: 1953 of 2251" ticker line (src/progress.py), or null before it starts (`left`: "about 3 min" / "under a minute" from the same line, or '').
 export function employersRead(log = []) {
   for (let i = log.length - 1; i >= 0; i--) {
-    const found = /Reading employer job sites: (\d+) of (\d+)/.exec(String(log[i]));
-    if (found) return {done: Number(found[1]), total: Number(found[2])};
+    const found = /Reading employer job sites: (\d+) of (\d+)(?:.*?· (under a minute|about \d+ min) left)?/.exec(String(log[i]));
+    if (found) return {done: Number(found[1]), total: Number(found[2]), left: found[3] || ''};
   }
   return null;
 }
@@ -64,3 +64,13 @@ export function findCard({running = null, last = null, lastSearchAt = '', listed
   if (!lastSearchAt && !listed) return {state: 'empty'};
   return {state: 'none'};
 }
+
+const n = value => Number(value).toLocaleString('en-US');
+
+// The words of the folded line, from the searching model (pure): only what the search has told so far.
+export function foldedParts(model) {
+  const read = model.employers;
+  return [read ? `${n(read.done)} of ${n(read.total)} sites` : '', model.looked ? `${n(model.looked)} jobs listed` : '',
+    model.scored ? `${n(model.scored)} on your list` : '', read?.left ? `${read.left} left` : ''].filter(Boolean);
+}
+

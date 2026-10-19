@@ -9,7 +9,7 @@ const saved = [{key: 'salary', question: 'What is your salary expectation? (In U
 const fresh = [{key: 'permit', question: 'Do you have a valid permission to work in Switzerland?', company: 'DeepJudge AG', format: {kind: 'yes_no', control: 'yes_no', options: ['Yes', 'No']}}, ...saved];
 const disk = new Map();
 globalThis.localStorage = {getItem: k => disk.get(k) ?? null, setItem: (k, v) => disk.set(k, String(v)), removeItem: k => disk.delete(k)};
-for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
+for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-chip', 'questions-chip-text', 'questions-review', 'questions-manage', 'review-drawer-layer', 'review-drawer-backdrop', 'review-panel']) {
   const node = globalThis.document.createElement('div'); node.id = id; body.append(node);
 }
 let reads = 0, release = null;

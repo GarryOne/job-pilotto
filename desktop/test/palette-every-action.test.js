@@ -11,7 +11,7 @@ const nav = readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), '
 const SKIP = {skip: process.env.CI || !existsSync(`${desktop}node_modules/.bin/electron`)};
 
 // Left out on purpose: shortcuts that lead to a page ⌘K already lists, a twin whose Actions card is listed, a sole danger button that shares its section's entry, icon-only arrows.
-const LEFT_OUT = new Set(['refresh', 'ov-review-setup', 'ov-profile', 'ov-backups', 'reset-review', 'cal-prev', 'cal-next', 'ov-alert-go', 'conn-alert-go']);   // the last two: an alert's shortcut to the Chrome extension card, which is listed
+const LEFT_OUT = new Set(['refresh', 'ov-review-setup', 'ov-profile', 'ov-backups', 'reset-review', 'cal-prev', 'cal-next', 'ov-alert-go', 'conn-alert-go', 'questions-chip']);   // the last two: an alert's shortcut to the Chrome extension card, which is listed
 
 const probe = () => {
   const entries = window.__jp.paletteCommands(), listed = new Set(entries.map(entry => entry.node).filter(Boolean));

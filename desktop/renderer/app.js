@@ -92,8 +92,7 @@ await interviews();
 matchCheck();
 tune();
 // Tips on the other stops (the Application sessions page has its own): the topics of that stop, one slim bar, hidden everywhere with one ×.
-mountStageTips('tips-jobs', ['cv', 'tailor', 'ats', 'knockout', 'timing']);
-mountStageTips('tips-focus', ['follow-up', 'mindset', 'timing']);
+mountStageTips('tips-focus', ['cv', 'tailor', 'ats', 'knockout', 'follow-up', 'mindset', 'timing']);   // the Jobs tips live on Focus since 19 Oct 2026
 mountStageTips('tips-interviews', ['interview', 'mindset']);
 await calendar();
 reports();

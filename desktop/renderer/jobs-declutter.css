@@ -1,0 +1,38 @@
+/* Jobs page, list first (owner, 19 Oct 2026): the folded Find jobs card, its live dots, the chips by the title and the slim row of four tiles. Uses tokens only. */
+.jobs-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.chip-button { display: inline-flex; align-items: center; gap: var(--sp-1); font: inherit; font-size: var(--fs-sm); font-weight: 600; padding: 2px var(--sp-3);
+  border-radius: var(--r-pill); border: 1px solid var(--warn); background: var(--warn-soft); color: var(--ink); cursor: pointer; }
+.chip-button[hidden] { display: none; }
+.chip-button .icon { width: 14px; height: 14px; color: var(--warn); }
+.last-search[hidden] { display: none; }
+
+/* Four tiles in a slim row: the number and its label side by side, no icon. */
+.stat-cards .stat { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+.stat-cards .stat-icon { display: none; }
+.stat-cards .stat > div { display: flex; align-items: baseline; gap: var(--sp-2); }
+
+/* The folded card: one line, then a thin bar of sites read. */
+.find-card.is-searching { cursor: pointer; position: relative; }
+.find-card.is-folded { padding: var(--sp-3) var(--sp-4); gap: var(--sp-2); }
+.find-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); min-width: 0; }
+.find-line-part { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.find-line-chevron { margin-left: auto; color: var(--muted); display: inline-flex; }
+.find-line-chevron .icon { width: 16px; height: 16px; transform: rotate(90deg); }
+.find-card:not(.is-folded) .find-line-chevron.is-up { position: absolute; top: var(--sp-4); right: var(--sp-4); }
+.find-card:not(.is-folded) .find-line-chevron.is-up::before { content: ""; width: 8px; height: 8px; border-left: 2px solid currentColor; border-top: 2px solid currentColor; transform: rotate(45deg); }
+.find-line-bar { height: 3px; border-radius: var(--r-sm); background: var(--line); overflow: hidden; }
+.find-line-bar > span, .find-card .bar > span { display: block; height: 100%; background: var(--signal, var(--info)); transition: width .4s; }
+
+/* "Searching..." cycles . .. ... */
+.find-dots::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: find-dots 1.4s steps(4) infinite; }
+@keyframes find-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+
+/* A dot on each live line: it grows and shrinks on the newest line, and rests green on the ones before it. */
+.live-row { display: flex; align-items: center; gap: var(--sp-2); }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); flex: none; }
+.live-dot.is-live { background: var(--signal, var(--info)); animation: live-pulse 1.2s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { transform: scale(.6); opacity: .55; } 50% { transform: scale(1.15); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .find-dots::after { animation: none; content: "..."; }
+  .live-dot.is-live { animation: none; }
+}

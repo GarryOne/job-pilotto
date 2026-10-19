@@ -31,6 +31,7 @@ export async function showSearchStatus() {
   const box = $('search-status');
   const [title, detail] = [box.querySelector('b'), box.querySelector('small')];
   const searching = running && (running.kind || 'search') === 'search';
+  box.hidden = !!searching;   // the bottom bar and the Find jobs card already show a running search (19 Oct 2026)
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
   // Running: a link to its progress (the bottom bar's panel); done: what it found.
   if (searching) { title.textContent = 'Finding jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }

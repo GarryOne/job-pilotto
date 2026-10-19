@@ -92,9 +92,10 @@ export function renderDock() {
   const live = sessionList.filter(item => !item.endedAt || item.status === 'done');
   // Not on the sessions page itself (it lists them all): the tray would only repeat what's on screen.
   const onSessionsPage = !document.querySelector('.view[data-view="sessions"]')?.hidden;
-  show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage);
-  if (!sessionList.length) return;
   const {active: running, waiting} = dockCounts(sessionList, closedForm);
+  // Nothing active and nothing waiting: hidden, so it never covers the first job (19 Oct 2026).
+  show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage && running + waiting > 0);
+  if (!sessionList.length) return;
   // Two pills: how many are active (blue), how many wait for you (amber).
   $('sd-summary').replaceChildren(pill(`${running} active`, 'info'), ...(waiting ? [pill(`${waiting} need${waiting === 1 ? 's' : ''} input`, 'warn')] : []));
   $('sd-toggle').setAttribute('aria-expanded', shared.dockOpen);

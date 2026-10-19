@@ -81,9 +81,9 @@ test('matches rise during the employer read, good fits are 70+, employers read a
   const later = at(1953, 'Run counts: looked=135769 matches=31 scored=4 good=2');
   assert.deepEqual([early.matches, later.matches, later.scored, later.good], [12, 31, 4, 2]);
   assert.ok(later.matches >= early.matches, 'never goes down during the read');
-  assert.deepEqual(later.employers, {done: 1953, total: 2251});
+  assert.deepEqual(later.employers, {done: 1953, total: 2251, left: 'under a minute'});
   assert.equal(later.looked, 135769);
-  assert.deepEqual(employersRead(['Reading employer job sites: 5 of 9', read(7)]), {done: 7, total: 2251});
+  assert.deepEqual(employersRead(['Reading employer job sites: 5 of 9', read(7)]), {done: 7, total: 2251, left: 'under a minute'});
   assert.equal(employersRead(['Scored 1 of 3 job(s)']), null);
   assert.equal(runCounts(['Run counts: looked=5 matches=1 scored=0']).good, 0, 'an older line has no good fits');
 });

@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="ready-card.css">
 <link rel="stylesheet" href="menu.css">
 <link rel="stylesheet" href="actions-layout.css">
+<link rel="stylesheet" href="jobs-declutter.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
@@ -316,7 +317,10 @@
   <main>
     <div class="view" data-view="jobs">
       <header class="view-head jobs-head">
-        <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
+        <div><div class="jobs-title-row"><h1>Job matches</h1>
+          <button class="chip-button tone-warn" id="questions-chip" type="button" hidden title="Application questions that need your review"><i data-icon="chat"></i><span id="questions-chip-text"></span></button>
+          <button class="chip-button tone-warn" id="jobs-stuck" type="button" hidden><i data-icon="alert"></i><span id="jobs-stuck-text"></span></button></div>
+          <p class="muted subtitle" id="jobs-stats">Loading…</p></div>
         <div class="jobs-head-right">
         <div class="head-actions">
           <button class="secondary with-icon" id="refresh" title="Finds your first jobs in seconds, then reads the job boards and every employer site on your list, finds more employers, removes the jobs that are gone or outside your search, and scores the new ones with AI."><i data-icon="refresh"></i><span>Find jobs</span></button>
@@ -329,35 +333,12 @@
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
         <button class="primary" data-refresh-jobs>Find jobs</button></div>
       <section class="card find-card" id="find-card" aria-live="polite" hidden></section>
-      <div class="ss-tips" id="tips-jobs" aria-label="Tips"></div>
       <div class="stat-cards">
-        <button class="stat signal" data-stat="applied" aria-pressed="false"><span class="stat-icon"><i data-icon="send"></i></span><div><b id="stat-applied">–</b><span>Applied</span></div></button>
         <button class="stat blue" data-stat="waiting" aria-pressed="false"><span class="stat-icon"><i data-icon="clock"></i></span><div><b id="stat-waiting">–</b><span>Waiting for reply</span></div></button>
         <button class="stat green" data-stat="interviews" aria-pressed="false"><span class="stat-icon"><i data-icon="mic"></i></span><div><b id="stat-interviews">–</b><span>In process</span></div></button>
-        <button class="stat red" data-stat="closed" aria-pressed="false"><span class="stat-icon"><i data-icon="close"></i></span><div><b id="stat-closed">–</b><span>Closed</span></div></button>
-        <button class="stat blue" data-stat="total" aria-pressed="false"><span class="stat-icon"><i data-icon="file"></i></span><div><b id="stat-total">–</b><span>Total matches</span></div></button>
         <button class="stat green" data-stat="high" aria-pressed="false"><span class="stat-icon"><i data-icon="target"></i></span><div><b id="stat-high">–</b><span>High fit (70+)</span></div></button>
         <button class="stat sky" data-stat="inbound" aria-pressed="false" title="Opportunities that found you (a recruiter, a LinkedIn message, a call), every stage"><span class="stat-icon"><i data-icon="chat"></i></span><div><b id="stat-inbound">–</b><span>Inbound</span></div></button>
-        <button class="stat violet" data-stat="companies" aria-pressed="false"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></button>
       </div>
-      <!-- Application questions (pages/jobs-questions.js): one compact card; the questions are reviewed one at a time in a drawer (pages/question-review.js). -->
-      <section class="card qr-card" id="questions" hidden aria-labelledby="questions-title">
-        <span class="qr-card-icon"><i data-icon="chat"></i></span>
-        <div class="qr-card-text">
-          <p class="qr-card-title"><b id="questions-title">Application questions</b><span class="ui-pill tone-warn" id="questions-count"></span></p>
-          <p class="muted">Review missing answers and suggested matches.</p>
-          <p class="muted small" id="questions-details" hidden></p>
-          <p class="message error" id="questions-error" hidden></p>
-        </div>
-        <div class="qr-card-actions">
-          <button class="primary" id="questions-review" type="button">Review questions <i data-icon="chevron"></i></button>
-          <button class="secondary" id="questions-retry" type="button" hidden>Retry</button>
-        </div>
-      </section>
-      <details class="card jobs-talking" id="jobs-talking" open hidden>
-        <summary><h2>In conversation</h2><span class="muted small" id="jobs-talking-count"></span></summary>
-        <ol class="focus-list" id="jobs-talking-list"></ol>
-      </details>
       <div class="toolbar">
         <label class="search-box"><i data-icon="search"></i><input id="filter-text" type="search" placeholder="Search jobs, companies or places, or paste a job link" aria-label="Search jobs"></label>
         <select id="filter-status" aria-label="Show">
@@ -368,10 +349,6 @@
         </select></label>
       </div>
       <div class="chip-row" id="jobs-views" role="group" aria-label="Saved views"></div>
-      <div class="stuck-banner" id="jobs-stuck" hidden>
-        <i data-icon="alert"></i><span id="jobs-stuck-text"></span>
-        <button class="secondary small-button" id="jobs-stuck-show">Show them</button>
-      </div>
       <div class="list-bar">
         <div class="list-left"><span id="jobs-count"></span>
           <button class="link" id="jobs-more" hidden title="The list shows your best matches first; load the next ones">Show more</button>
@@ -408,6 +385,24 @@
       <div class="ss-tips" id="tips-focus" aria-label="Tips"></div>
       <div class="focus-grid">
         <div class="focus-main">
+          <!-- Application questions (pages/jobs-questions.js): one compact card; the questions are reviewed one at a time in a drawer (pages/question-review.js). -->
+          <section class="card qr-card" id="questions" hidden aria-labelledby="questions-title">
+            <span class="qr-card-icon"><i data-icon="chat"></i></span>
+            <div class="qr-card-text">
+              <p class="qr-card-title"><b id="questions-title">Application questions</b><span class="ui-pill tone-warn" id="questions-count"></span></p>
+              <p class="muted">Review missing answers and suggested matches.</p>
+              <p class="muted small" id="questions-details" hidden></p>
+              <p class="message error" id="questions-error" hidden></p>
+            </div>
+            <div class="qr-card-actions">
+              <button class="primary" id="questions-review" type="button">Review questions <i data-icon="chevron"></i></button>
+              <button class="secondary" id="questions-retry" type="button" hidden>Retry</button>
+            </div>
+          </section>
+          <details class="card jobs-talking" id="jobs-talking" open hidden>
+            <summary><h2>In conversation</h2><span class="muted small" id="jobs-talking-count"></span></summary>
+            <ol class="focus-list" id="jobs-talking-list"></ol>
+          </details>
           <section class="card" id="focus-onboarding" hidden>
             <div class="focus-card-head"><h2 class="with-glyph"><i data-icon="target"></i>Get started</h2>
               <span class="focus-head-side"><span id="onboarding-count"></span><button class="link" id="onboarding-hide">Hide</button></span></div>

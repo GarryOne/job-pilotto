@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import {install} from './tiny-dom.js';
 
 const body = install();
-for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-review', 'questions-manage']) {
+for (const id of ['questions', 'questions-count', 'questions-details', 'questions-error', 'questions-retry', 'questions-chip', 'questions-chip-text', 'questions-review', 'questions-manage']) {
   const node = globalThis.document.createElement('div');
   node.id = id;
   body.append(node);

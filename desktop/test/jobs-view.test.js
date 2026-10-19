@@ -208,7 +208,7 @@ test('Jobs page: "New matches" (not "To review"), Inbound and Everything as thei
     ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All matches', 'everything:Everything']);
   assert.ok(!html.includes('To review'));
   const cards = [...html.matchAll(/data-stat="(\w+)"/g)].map(m => m[1]);
-  assert.deepEqual(cards, ['applied', 'waiting', 'interviews', 'closed', 'total', 'high', 'inbound', 'companies']);
+  assert.deepEqual(cards, ['waiting', 'interviews', 'high', 'inbound']);   // four since 19 Oct 2026 (Jobs list first)
   assert.match(html, /<b id="stat-inbound">–<\/b><span>Inbound<\/span>/);
 });
 

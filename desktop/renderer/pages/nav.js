@@ -159,8 +159,12 @@ export function paletteCommands() {
   button('jobs', 'refresh', 'find jobs scan');
   button('employers', 'emp-paste', 'add employers companies paste page text address list newsletter portfolio talent agent matches startups');
   // Application questions, one at a time (pages/question-review.js): the same drawer as Jobs' card and Profile → Application answers.
-  add('Jobs', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing facts details notice period salary permit suggested forms application',
+  add('Focus', 'Review application questions', 'Answer the questions forms asked, one at a time', 'questions answers review answer once missing facts details notice period salary permit suggested forms application',
     () => openQuestionReview());
+  // Blocks moved from Jobs to Focus (19 Oct 2026): each keeps its ⌘K entry (test/jobs-declutter.test.js).
+  add('Focus', 'In conversation', 'Opportunities that found you and the ones you talk to', 'conversation talking recruiter inbound leads outbound interview screening',
+    () => { openView('focus'); document.getElementById('jobs-talking')?.scrollIntoView({block: 'start'}); });
+  button('jobs', 'jobs-stuck', 'applying marked stuck no session submitted still applied');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   // Strategy → Job preferences (pages/job-preferences.js; was Profile → Preferences, 17 Oct 2026): the card, and its Review button.
   add('Strategy', 'Job preferences', 'Must-haves, deal-breakers and the preferences that rank jobs', 'deal-breakers must-haves preferences ranking on-call industries workload',
