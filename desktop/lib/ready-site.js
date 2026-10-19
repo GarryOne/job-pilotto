@@ -32,7 +32,7 @@ const reasonOf = result => (result.error === UNAVAILABLE ? '' : String(result.er
 const isGone = result => result.status === 410 || (result.status === 404 && /\bheld\b/.test(reasonOf(result)));
 // Only a refused owner reads "not on": a 401, or a 404 without a reason of Ready to send's own (the route is off). The site's reasons are said in plain words.
 export const NOT_ON = 'Ready to send is not on for this install.';
-const REASONS = {'no queued night to run': 'Nothing was sent for tonight yet: press Fill now to send and start it.', 'already started': 'Filling has already started on the server.',
+const REASONS = {'no queued night to run': 'Nothing was sent for tonight yet: press Fill now to send and start it.', 'already started': 'Filling has already started on the server.', 'the queue refused the night': 'The server could not hand the night to its filler just now. Press Fill now again in a minute.',
   'capped: this night reached its spending limit': 'This night reached its spending limit, so it is not filled again.', 'nothing is filling': 'Nothing is filling on the server now.',
   'already filling': 'This form is already being filled, or waits its turn.'};
 const refusedOwner = result => result.status === 401 || (result.status === 404 && !reasonOf(result));
