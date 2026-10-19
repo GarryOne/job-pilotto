@@ -12,6 +12,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+from .. import budget_tape
 from . import cost, engine
 from .models import SMALL_MODEL
 from .providers.contract import named
@@ -81,7 +82,7 @@ def decide(topic, items, answers, instructions, client=None, db=None):
             'properties': {'index': {'type': 'integer'}, 'answer': {'type': 'string', 'enum': list(answers)}}}}}}
         stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
         for start in range(0, len(todo), BATCH):
-            if _calls['n'] >= MAX_CALLS_PER_RUN:
+            if not budget_tape.within('decide', f'{topic} {todo[start]}', _calls['n'], MAX_CALLS_PER_RUN):
                 return out or None
             _calls['n'] += 1
             chunk = todo[start:start + BATCH]

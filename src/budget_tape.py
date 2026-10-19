@@ -115,3 +115,11 @@ def decide(kind, args, compute):
             with open(_folder() / 'budget.jsonl', 'a', encoding='utf-8') as file:
                 file.write(json.dumps({'key': key, 'value': value}) + '\n')
     return value
+
+
+def within(name, key, used, limit):
+    """`may another call of `name` be made for `key`?` for a per-run limit on model calls (the page reader's 25, the decide batches' 60): plain `used < limit` live;
+    in a search tape the answer is kept per `key` (the page or batch asked about) and a replay gets the recording's, so the calls go to the pages the recording
+    called, whatever order the replay's threads reach them in (19 Oct 2026, heal proof 5: 2 careers pages asked that the recording had not, a count of
+    who came first). A key the tape lacks (a changed search) is the plain count."""
+    return decide(f'{name} within limit', [key], lambda: used < limit)
