@@ -7,7 +7,7 @@ export const TELL_PER_DAY = 10;
 
 // The cause in plain words, for the message and for /admin/reports. The app sends a word (X-Report-Meta cause; the Worker keeps a-z, 0-9, _ and -): the ladder's signals get a sentence,
 // any other word is spelled out (wrong_page -> "Wrong page"), none is "No cause given". A new word needs no change here.
-const CAUSES = {stalled: 'Stalled on the form', failed: 'The fill failed', contradicted: 'Answer contradicted the page', unsure: 'Not sure how to fill', blind: 'Could not read the page', refused: 'A control refused the value'};
+const CAUSES = {person: 'Reported by the person', stalled: 'Stalled on the form', failed: 'The fill failed', contradicted: 'Answer contradicted the page', unsure: 'Not sure how to fill', blind: 'Could not read the page', refused: 'A control refused the value'};
 export const causeWords = cause => CAUSES[cause] || (cause ? cause.replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : 'No cause given');
 
 export function reportMessage({cause, requests, who, now, base}) {

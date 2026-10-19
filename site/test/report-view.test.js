@@ -7,17 +7,18 @@ const NOW = new Date('2026-10-19T12:00:00Z');
 const ROWS = [
   {id: 'a', day: '2026-10-19', who: 'abcdef0123456789', bytes: 2048, requests: 12, cause: 'stalled', status: 'new'},
   {id: 'b', day: '2026-10-18', who: '99887766aabbccdd', bytes: 3 * 1048576, requests: 40, cause: 'wrong_page', status: 'fetched'},
+  {id: 'd', day: '2026-10-19', who: 'ddeeff0011223344', bytes: 100, requests: 2, cause: 'person', status: 'new'},
   {id: 'c', day: '2026-09-01', who: '11223344aabbccdd', bytes: 500, requests: 3, cause: '', status: 'new'},
 ];
 
 test('the page lists each report newest first with its status, size and the day\'s totals, and no host', () => {
   const html = page({rows: ROWS, today: {reports: 1, bytes: 2048}, now: NOW});
-  assert.deepEqual([...html.matchAll(/<span class="st (\w+)">/g)].map(m => m[1]), ['waiting', 'fetched', 'expired']);
+  assert.deepEqual([...html.matchAll(/<span class="st (\w+)">/g)].map(m => m[1]), ['waiting', 'fetched', 'waiting', 'expired']);
   assert.ok(html.indexOf('abcdef01') < html.indexOf('99887766'));
   assert.match(html, /1 \/ 50/); assert.match(html, /3\.0 MB/); assert.match(html, /reports-fetch\.mjs/);
-  for (const words of ['Stalled on the form', 'Wrong page', 'No cause given']) assert.ok(html.includes(words), words);
+  for (const words of ['Stalled on the form', 'Wrong page', 'No cause given', 'Reported by the person']) assert.ok(html.includes(words), words);
   assert.ok(!/wrong_page|>stalled</.test(html), 'no code words');
-  assert.equal(statusOf(ROWS[2], NOW), 'expired');
+  assert.equal(statusOf(ROWS.at(-1), NOW), 'expired');
   assert.match(page({rows: [], today: null, now: NOW}), /No report yet/);
 });
 
