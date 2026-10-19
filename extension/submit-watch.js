@@ -1,6 +1,7 @@
 // Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
 // if it is the site's confirmation. The address alone is not a submission, and a press that leaves the page unchanged is not one either. A FLOW FILE (docs/flows/applying.md).
 // Guards: the confirmation, submit-outcome and tab-pages tests in desktop/test and the e2e row "the person submits a form" (npm run flows).
+import {plainWhy} from './ai-reply.js';
 import {KEY} from './tab-identity.js';
 import {LATE_CONFIRMATION_MS} from './tab-pages.js';
 import {SUBMIT_WAIT_MS} from './tab-pages.js';
@@ -72,7 +73,7 @@ export function createSubmitWatch(ctx) {
       return {done: true};
     } catch (error) {
       decide('submitted', `could not reach the app: ${error.message}`, {host: gate.host, path: gate.path});
-      await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Open Job Pilotto to mark it Applied.`, pageKey(tab.url));
+      await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${plainWhy(error)}). Open Job Pilotto to mark it Applied.`, pageKey(tab.url));
       return {done: true};
     }
   }

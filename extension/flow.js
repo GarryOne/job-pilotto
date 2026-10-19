@@ -24,6 +24,7 @@ import {HELD, clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
 import {markCauses} from './ladder/control-marks.js';
 import {controlDoor} from './ladder/control-door.js';
 import './popup-guard.js';   // the worker's answer to the page's gate (page/guard-gate.js)
+import {plainWhy, readReply} from './ai-reply.js';   // the AI's reply checked in one place; error texts a person sees
 import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
@@ -215,8 +216,12 @@ export function answersOrDropped(ai) {
   if (!ai) throw Object.assign(new Error('the tab left this page before Claude answered'), {dropped: true});
   return ai;
 }
-const askAnswers = async (tab, config, open) => apiFor(tab.id, config, '/extension/answer', {method: 'POST',
-  body: JSON.stringify({url: tab.url, fields: open, page_text: await inPage(tab.id, () => window.__jobPilottoPageText()), test: !!config.testMode})});
+// An unreadable reply (ai-reply.js) is asked again once, then fails: never kept as sure; the fill goes on without it.
+const askAnswers = async (tab, config, open) => {
+  const body = JSON.stringify({url: tab.url, fields: open, page_text: await inPage(tab.id, () => window.__jobPilottoPageText()), test: !!config.testMode});
+  const ask = () => apiFor(tab.id, config, '/extension/answer', {method: 'POST', body}).then(readReply);
+  return ask().catch(error => { if (!error.unreadable) throw error; decide('fill', 'Claude reply unreadable: asking again once', {fields: open.length}); return ask(); });
+};
 // A page that already shows a form (fill-flow.js consider): its open questions go to the AI now, beside the page-kind ask; the fill takes the answer
 // if this page is filled as a form with the same questions (early-answers.js). Not with a kit (Claude answers after that fill) or a cached answer.
 export async function askEarly(tab, config, jobUrl = '') {
@@ -408,7 +413,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     } catch (error) {
       debug.errors.push(`dropdowns: ${error.message}`);
       notClicked('the click failed');
-      summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
+      summary.todo = [`Drop-downs not chosen automatically (${plainWhy(error)}): click each highlighted one`, ...(summary.todo || [])];
     }
   }
   // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
@@ -432,7 +437,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         if (more?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // the same, in the later pass
         const reach = more?.reach; if (reach) decide('fill', 'answers reached rows', reach).catch(() => {});   // counts only: asked, matched an id, matched by question, none (a page that re-created its controls)
         let clickError = '';
-        const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(error => { clickError = error.message; return []; }) : [];
+        const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(error => { clickError = plainWhy(error); return []; }) : [];
         debug.laterDropdowns = combos;
         summary.filled = (summary.filled || 0) + (more?.filled || 0) + combos.filter(c => c.picked).length;
         summary.unfilledRequired = more?.unfilledRequired ?? summary.unfilledRequired;
@@ -445,7 +450,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       }
     } catch (error) {
       if (error.dropped) debug.errors.push(`Claude (after the fill): ${error.message}`);   // not an AI failure: nothing to tell the person
-      else { aiError = error.message; debug.errors.push(`Claude (after the fill): ${error.message}`); }
+      else { aiError = plainWhy(error); debug.errors.push(`Claude (after the fill): ${error.message}`); }
     }
   }
   // Fields left for a mechanical reason (a widget the extension couldn't operate): a scrubbed HTML snapshot of each,
