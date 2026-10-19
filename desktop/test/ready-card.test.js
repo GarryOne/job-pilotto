@@ -8,6 +8,7 @@ install();   // components.js builds elements as it loads; shared.js reads the a
 globalThis.window.pilot = {state: async () => ({})};
 const {initReadyCard} = await import('../renderer/pages/ready-card.js');
 const {OUTDATED_LINE} = await import('../renderer/errors.js');
+const {liveOf} = await import('../renderer/pages/ready-rows.js');
 
 const page = () => {
   const body = install(), pair = globalThis.document.createElement('div'), tailor = globalThis.document.createElement('button');
@@ -402,4 +403,23 @@ test('every form the night works on has a Stop, at every step, and the night has
     assert.ok(row.querySelector('.ready-row-live .ready-bar'), `${steps[i] || 'waiting'}: its bar`);
   });
   assert.ok(card.querySelector('.ready-stop-all'));
+});
+
+// Waiting forms say why (owner, 19 Oct 2026: three forms sat on "Waiting its turn" for 2 h). One loop over every reason the site gives (site/src/ready-why.js).
+const WHY = [   // [site's why, night state, the words, its badge]
+  [{kind: 'later', at: '2026-10-20T00:00:00.000Z'}, 'queued', /Set for \d\d:\d\d.*Fill now starts it at once/, 'waiting'],
+  [{kind: 'soon'}, 'queued', /within 5 minutes/, 'waiting'],
+  [{kind: 'no-queue'}, 'queued', /not set up/, 'stuck'],
+  [{kind: 'starting', at: '2026-10-19T12:30:00.000Z'}, 'running', /Starting the server/, 'waiting'],
+  [{kind: 'silent', at: '2026-10-19T12:30:00.000Z'}, 'running', /Started at \d\d:\d\d.*no form has reported/, 'stuck'],
+  [{kind: 'capped'}, 'capped', /cost cap/, 'stuck'],
+];
+test('a waiting form says why it waits, for every reason the site gives, and its bar does not move', () => {
+  for (const [why, state, words, badge] of WHY) {
+    const live = liveOf({job: 'a', state: 'queued'}, state, false, why);
+    assert.match(live.line, words, why.kind);
+    assert.equal(live.badge, badge, why.kind);
+    assert.ok(live.percent <= 2, `${why.kind}: the bar is not drawn as moving`);
+  }
+  assert.match(liveOf({job: 'a', state: 'queued'}, 'running', false, null).line, /Waiting its turn/, 'forms taking turns keep their line');
 });

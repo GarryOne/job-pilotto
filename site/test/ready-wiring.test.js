@@ -135,3 +135,18 @@ test('the container not holding the night or the tab reads as gone (410), never 
   await tick(e, new Date('2026-10-18T01:05:00Z'));
   assert.equal((await call(e, 'GET', 'handoff?job=j1', undefined, await owner())).status, 500, 'a real failure stays a failure');
 });
+
+test('Fill now: a night sent for later starts at the press, not at its fill time; /state says why it waits before that and after a silent start (19 Oct 2026)', async () => {
+  const e = env({READY_QUEUE: queue()});
+  const state = async at => (await (await call(e, 'GET', 'state', undefined, await owner(), at)).json()).batch;
+  await call(e, 'POST', 'batch', batchBody('2026-10-18T01:00:00Z'), await owner());   // the auto-send: tonight's fill time is hours away
+  assert.equal(await tick(e, evening).then(out => out.started), 0, 'the cron waits for the fill time');
+  assert.deepEqual(await state(evening).then(batch => [batch.state, batch.why.kind, batch.why.at]), ['queued', 'later', '2026-10-18T01:00:00.000Z']);
+  const started = await call(e, 'POST', 'run', {}, await owner());   // the press: within this one call, not a tick
+  assert.equal(started.status, 202);
+  assert.equal(e.READY_QUEUE.sent.length, 1);
+  assert.equal((await state(evening)).why.kind, 'starting');
+  assert.equal((await state(new Date(evening.getTime() + 10 * 60000))).why.kind, 'silent');   // told 10 minutes ago, no form reported
+  e.STATS.db.prepare("UPDATE ready_jobs SET state = 'filling', step = 'form', started_at = ?").run(evening.toISOString());
+  assert.equal((await state(new Date(evening.getTime() + 10 * 60000))).why, null);   // the first form is working: the rest take turns
+});
