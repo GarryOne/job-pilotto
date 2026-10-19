@@ -76,9 +76,21 @@ jobs:
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: node desktop/e2e/ai-cost-report.mjs --job sentry-fix --execution /home/runner/work/_temp/claude-execution-output.json
+      # GitHub starts no workflow for a push or PR made with GITHUB_TOKEN, so the PR would sit without checks: push and open it with the CI GitHub App's token (else the workflow token, and no checks).
+      - name: The App token, so the PR's checks start
+        id: pr_app
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        continue-on-error: true   # a failed mint falls back to the workflow token, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - name: Check the change, run the tests, open the pull request
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         env:
+          PR_TOKEN: ${{ steps.pr_app.outputs.token }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           SHORT_ID: ${{ steps.pick.outputs.candidate }}
         run: |
@@ -114,8 +126,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$branch"
           echo "$changed" | xargs git add --
-          git commit -q -m "$title" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
-          git push -q origin "$branch"
+          tools/bot-commit.sh "$title" "the Sentry fix is proven by its unit test and the suites, not by a page"
+          git push -q "https://x-access-token:${PR_TOKEN:-$GH_TOKEN}@github.com/$REPO.git" "$branch"
           tools/bot-pr-body.sh HEAD~1 --verdict="🟢 $title" --why="the Sentry fixer picked $SHORT_ID, the most critical real, fresh issue" \
             --unblocks="Sentry issue $SHORT_ID, once the owner merges and resolves it" --label='Sentry issue' --before="$SHORT_ID is open" --after="fixed by this change" \
             --rate='Real users=🟡 Medium|an error users hit' --rate='Tests & harness=🟡 Medium|a test with the fix' --detail=.heal/body.md > .heal/laid-out.md
@@ -123,5 +135,5 @@ jobs:
           extra=""
           if [ "$BASE" != main ]; then gh label create dry-run --repo "$REPO" --force --color FBCA04 --description 'A dry run: close it'; extra="--label dry-run"; fi
           # shellcheck disable=SC2086
-          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/laid-out.md --label auto-sentry-fix $extra)
+          url=$(GH_TOKEN="${PR_TOKEN:-$GH_TOKEN}" gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/laid-out.md --label auto-sentry-fix $extra)
           echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"

@@ -73,8 +73,20 @@ jobs:
           name: ai-cost-finder-review
           path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
+      # GitHub starts no workflow for a push or PR made with GITHUB_TOKEN, so the PR would sit without checks: push and open it with the CI GitHub App's token (else the workflow token, and no checks).
+      - name: The App token, so the PR's checks start
+        id: pr_app
+        continue-on-error: true   # a failed mint falls back to the workflow token, never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - name: Check, test, open the pull request
         if: steps.budget.outputs.skip != 'true'
+        env:
+          PR_TOKEN: ${{ steps.pr_app.outputs.token }}
         run: |
           changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v '^\.finder-review/' || true)
           if [ -z "$changed" ]; then
@@ -98,12 +110,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$branch"
           echo "$changed" | xargs git add --
-          git commit -q -m "$title"
-          git push -q origin "$branch"
+          tools/bot-commit.sh "$title" "the Finder and its unit tests, no page the app fills"
+          git push -q "https://x-access-token:${PR_TOKEN:-$GH_TOKEN}@github.com/$REPO.git" "$branch"
           tools/bot-pr-body.sh HEAD~1 --verdict="🟢 $title" --why="the Finder's weekly self-review (finder-review.yml) read the week's verdict reasons and misses" \
             --unblocks='a Finder that finds more real bugs and fewer false ones, once the owner merges' --label='Finder' --before='the Finder as it was' --after='the Finder with this change' \
             --rate='Tests & harness=🟡 Medium|the Finder and its unit tests' --detail=.finder-review/body.md > .finder-review/laid-out.md
-          url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/laid-out.md)
+          url=$(GH_TOKEN="${PR_TOKEN:-$GH_TOKEN}" gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/laid-out.md)
           { echo "## Finder self-review: PR opened"; echo "$url"; } >> "$GITHUB_STEP_SUMMARY"
 
   # The verdict pass's measured accuracy: five random verdicts of the week in one issue to tick right or wrong; last week's audit is closed with its score. No AI.
