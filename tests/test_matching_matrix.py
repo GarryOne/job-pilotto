@@ -33,7 +33,7 @@ def kept(search, postings, cache=None):
         if cache is not None:   # place words worked out by AI (src/places.py); none = a fresh install that has not asked yet. Never the real data folder.
             (Path(data) / 'places.json').write_text(json.dumps(cache))
         shutil.copytree(ROOT / 'config', tmp, dirs_exist_ok=True)
-        base = json.loads((ROOT / 'config' / 'search.json').read_text())
+        base = json.loads((ROOT / 'config' / 'search.example.json').read_text())
         base.update({'role_keywords': ['data analyst'], 'title_exclude_keywords': [], 'remote_excluded_regions': [], 'level': [],
                      'locations': {'top_tier': ['zurich'], 'country_wide': [], 'abroad': []}})
         base.update(search)

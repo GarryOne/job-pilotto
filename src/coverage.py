@@ -153,18 +153,18 @@ def load(path=FILE):
 
 def looks_technical(keywords):
     """True when any role keyword names IT/engineering work (regex fragments like "\\bsre\\b" are read as their words).
-    An empty list is unknown, not non-technical."""
+    An empty list is no IT search: roles not known yet steer no one to tech (owner, 19 Oct 2026: a global search, not a tech one)."""
     words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', str(word)) for word in keywords]
     from .role_kinds import kinds_of   # the meanings pack (these words were its seed) and the AI, in any language
-    return not words or 'software' in kinds_of(words).values()
+    return bool(words) and 'software' in kinds_of(words).values()
 
 
 def technical_search(search):
-    """True when a search's roles are IT or engineering work (or not known yet): the developer-only sources (SwissDevJobs, TechTree, the
-    tech seed lists) are for it. One definition for the scout and the job boards (6 Oct 2026: a photographer's checks crawled both boards)."""
+    """True when a search's roles are IT or engineering work: the developer-only sources (SwissDevJobs, TechTree, the tech seed lists) are for it.
+    Roles not known yet (no strategy drafted, or words we cannot place) are not IT work: no one is steered to tech before their own roles say so. One definition for the scout and the job boards (6 Oct 2026: a photographer's checks crawled both boards)."""
     from .role_kinds import of_search   # the kinds of role a search looks for: one classifier for scout, boards and employers
     kinds = of_search(search)
-    return kinds is None or 'software' in kinds
+    return bool(kinds) and 'software' in kinds
 
 
 def verdict(summary, keywords=(), locations=(), excludes=None):
@@ -176,9 +176,13 @@ def verdict(summary, keywords=(), locations=(), excludes=None):
     have = {str(word).lower() for word in keywords}
     from .role_kinds import kind_of, of_search
     wanted = of_search({'role_keywords': list(keywords)})
-    # The words of the search's own kinds of role only: an IT search gets IT words, a shop search shop words (6 Oct 2026: nothing for others).
-    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have
-                   and (s['term'] not in TRADE_VOCAB if not wanted or 'software' in wanted else kind_of(s['term']) in wanted)]
+    # The words of the search's own kinds of role only: an IT search gets IT words, a shop search shop words (6 Oct 2026: nothing for others);
+    # roles not known yet get none (19 Oct 2026: before the strategy no one is offered engineering terms).
+    def offered(term):
+        if not wanted:
+            return False
+        return term not in TRADE_VOCAB if 'software' in wanted else kind_of(term) in wanted
+    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have and offered(s['term'])]
     share = summary['matched'] / summary['in_places'] if summary.get('in_places') else 1
     for item in suggestions:
         item['local'] = item['term'] in LOCAL_VOCAB

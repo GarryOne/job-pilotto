@@ -111,7 +111,7 @@ class RoleNeutralPromptsTests(unittest.TestCase):
         self.assertIs(scout_ideas.ideas_system(SEARCH), scout_ideas.IDEAS_SYSTEM)
         self.assertIs(scout_ideas.read_system(SEARCH), scout_ideas.READ_SYSTEM)
         self.assertIs(scout_ideas.read_system(None), scout_ideas.READ_SYSTEM)   # no search known: as before
-        self.assertIs(scout_ideas.ideas_system({'role_keywords': []}), scout_ideas.IDEAS_SYSTEM)   # unknown roles are not "non-technical"
+        self.assertIs(scout_ideas.ideas_system({'role_keywords': []}), scout_ideas.IDEAS_SYSTEM_GENERAL)   # unknown roles steer no one to IT (19 Oct 2026)
 
     def test_a_nurses_prompts_mention_no_it_work_and_name_her_kind_of_employers(self):
         ideas, read = scout_ideas.ideas_system(NURSE), scout_ideas.read_system(NURSE)

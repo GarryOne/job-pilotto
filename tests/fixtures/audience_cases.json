@@ -12,5 +12,5 @@
   {"keywords": ["mechanical engineer"], "technical": false},
   {"keywords": ["primary school teacher"], "technical": false},
   {"keywords": ["infirmière"], "technical": false},
-  {"keywords": [], "technical": true}
+  {"keywords": [], "technical": false}
  ]}
