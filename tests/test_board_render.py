@@ -62,6 +62,30 @@ class ScriptBuiltTests(Base):
         self.assertEqual(given, ['browser', None, None])
 
 
+class EmptyFirstPageTests(Base):
+    """19 Oct 2026, Music Berlin: Arbeitsagentur had 0 jobs for the first words ("audio producer") and 5 for "sound engineer"; the one AI read
+    was spent on the empty page and the rules could not read the list, so the board gave 0."""
+    NONE = '<html><body>' + '<p>Keine Ergebnisse für diese Suche. Andere suchten auch nach anderen Berufen.</p>' * 20 + '</body></html>'
+
+    def read(self, pages):
+        self.asked = []
+        with mock.patch.object(careers, 'reader', return_value=lambda url, markup, **kw: self.asked.append(url) or (ANSWER if 'card' in markup else [])):
+            return found_boards.read_board(BOARD, SEARCH, fetch=lambda url: pages(url))
+
+    def test_an_empty_ai_answer_is_asked_again_on_the_next_search(self):
+        jobs, state, _ = self.read(lambda url: self.NONE if 'programador' in url else TEXT)
+        self.assertEqual((state, sorted({job['title'] for job in jobs})), ('ok', sorted(TITLES)))
+        self.assertEqual(len(self.asked), 2)
+
+    def test_the_ai_is_asked_at_most_twice_on_a_board_with_no_jobs(self):
+        self.assertEqual(self.read(lambda url: self.NONE)[:2], ([], 'empty'))
+        self.assertEqual(len(self.asked), 2)
+
+    def test_after_an_answer_with_jobs_the_ai_is_not_asked_again(self):
+        self.read(lambda url: TEXT)
+        self.assertEqual(len(self.asked), 1)
+
+
 class HomeFormTests(Base):
     def test_a_script_built_home_page_s_search_form_is_found_in_the_browser(self):
         form = '<form action="/suche" method="get"><input name="was"><input name="wo"></form>'

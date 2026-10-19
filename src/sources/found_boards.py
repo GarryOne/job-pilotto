@@ -23,6 +23,7 @@ from . import board_check, board_employers, board_forms, board_web, board_pages,
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
+AI_ASKS = 2           # search words whose page the AI page reader may read per board, until one answer has jobs (an empty first page is no sure "none")
 IDLE_STOP = 2         # the full read stops a board after this many queries in a row that add no new job
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
@@ -54,7 +55,7 @@ def read_board(board, search, fetch=careers.get_text, route=None, early=False, s
 
 
 def _read(board, search, fetch, route, early, show=None):
-    jobs, state, asked_routes, asked_ai = [], 'empty', False, False
+    jobs, state, asked_routes, asks, asked_term = [], 'empty', False, 0, None
     try:
         if route:
             jobs = board_routes.follow(route, fetch, board, _terms(search))
@@ -98,9 +99,10 @@ def _read(board, search, fetch, route, early, show=None):
                         return jobs, 'browser', None
                     fetch = show   # this board's other searches and next pages are built by scripts too
                     found = careers.jsonld_jobs(page, url) or careers.read_page_from(page, url, fetch)
-            if not found and not asked_ai:   # an open, readable page no free step reads: the AI reads it once (its caps), and the recipe it
-                asked_ai = True              # leaves reads it free from then on (owner, 18 Oct 2026; src/sources/page_recipes.py)
-                found = careers._asked(url, page, [], fetch)
+            if not found and asks < AI_ASKS and term != asked_term:   # an open, readable page no free step reads: the AI reads it (its caps), and the
+                asks, asked_term = asks + 1, term                      # recipe it leaves reads it free from then on (owner, 18 Oct 2026; page_recipes.py).
+                found = careers._asked(url, page, [], fetch)           # An empty answer (no jobs for these words) asks again on the next words' page
+                asks = AI_ASKS if found else asks                      # (19 Oct 2026: Arbeitsagentur, 0 for "audio producer", 5 for "sound engineer")
             if found and not early:   # the next pages of these results, while they still give relevant jobs (board_pages.py)
                 found = found + board_pages.more(url, page, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(markup, link, fetch),
                                                  lambda some: board_yield.is_relevant(some))
