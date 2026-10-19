@@ -20,7 +20,7 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
   const refused = kinds => ({ok: false, blocked: [...new Set(kinds)]});
 
   // The extension's calls: {action: 'state'} -> {enabled}; 'submit' {entries, truncated} -> {ok, preview} | {ok: false, refused | blocked}; 'send' {note} -> {ok} | {ok: false, error | blocked}; 'cancel' -> {ok}.
-  setVisitRoute('/extension/report-form', async payload => {
+  const route = async payload => {
     if (payload?.action === 'state') return {ok: true, enabled: enabled()};
     if (payload?.action === 'cancel') { drop(); return {ok: true}; }
     if (!enabled()) return {ok: false, refused: 'off'};
@@ -44,6 +44,10 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
       return sent.ok ? {ok: true} : {ok: false, error: sent.error};
     }
     return {ok: false, refused: 'unknown'};
+  };
+  // A throw while preparing or sending is an answer ("failed", logged by its kind, never its text: it may quote an address), not a 500 the extension cannot tell from a closed app (19 Oct 2026).
+  setVisitRoute('/extension/report-form', async payload => {
+    try { return await route(payload); } catch (error) { appLog('report', `a report step failed (${payload?.action}): ${error?.name || 'Error'}`); return {ok: false, refused: 'failed'}; }
   });
 
   ipcMain.handle('reportFormGet', () => ({on: reportFormOn(storage), ready: !!uploader}));

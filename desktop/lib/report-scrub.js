@@ -40,7 +40,7 @@ const TOKEN = /^(?=.*\d)[A-Za-z0-9_-]{16,}$/;   // an id-like path segment: long
 export function scrubUrl(url) {
   let u;
   try { u = new URL(url, 'https://x.invalid'); } catch { return String(url).split('#')[0].split('?')[0]; }
-  const path = u.pathname.split('/').map(part => (ONE_EMAIL.test(decodeURIComponent(part)) || TOKEN.test(part) ? '<id>' : part)).join('/'); 
+  const path = u.pathname.split('/').map(part => (ONE_EMAIL.test(urlDecode(part)) || TOKEN.test(part) ? '<id>' : part)).join('/');   // urlDecode never throws: a path with a bare "%" is common (16 Oct 2026 recording of a Doctolib form)
   const keys = [...u.searchParams.keys()], query = keys.length ? `?${keys.map(key => `${encodeURIComponent(key)}=<v>`).join('&')}` : '';
   return `${/^https?:/i.test(url) ? `${u.protocol}//${u.host}` : ''}${path}${query}`;
 }
@@ -56,8 +56,8 @@ function blankTyped(html, counts) {
 // A session token, CSRF token or credential inside a body (an API answer carrying an auth token, a token in a page's meta tag or boot data), found by the FIELD NAME it sits in and by the shape of a
 // JWT / Bearer value, never by the value's words; it is replaced by <token>. A reported journey crosses more pages and answers, so this runs on every kept text body. Kinds only: counts.tokens.
 const SECRET_KEY = '(?:token|secret|passw(?:or)?d|passwd|csrf|xsrf|nonce|auth(?!or)|session|sid|jwt|bearer|api[_-]?key|access[_-]?key|credential|signature)';   // words-ok: field names of credentials
-const QUOTED_SECRET = new RegExp(`(["']?[\\w.-]*${SECRET_KEY}[\\w.-]*["']?\\s*[:=]\\s*)(["'])((?:(?!\\2)[^\\\\\\n]|\\\\.){6,}?)\\2`, 'gi');
-const BARE_SECRET = new RegExp(`(\\b[\\w.-]*${SECRET_KEY}[\\w.-]*=)([A-Za-z0-9._~+/%-]{10,})`, 'gi');   // key=value pairs of a form body or text
+const QUOTED_SECRET = new RegExp(`(["']?[\\w.-]{0,60}${SECRET_KEY}[\\w.-]{0,60}["']?\\s*[:=]\\s*)(["'])((?:(?!\\2)[^\\\\\\n]|\\\\.){6,}?)\\2`, 'gi');
+const BARE_SECRET = new RegExp(`(\\b[\\w.-]{0,60}${SECRET_KEY}[\\w.-]{0,60}=)([A-Za-z0-9._~+/%-]{10,})`, 'gi');   // key=value pairs of a form body or text
 const META_SECRET = new RegExp(`(<meta\\b[^>]*\\bname\\s*=\\s*["'][^"']*${SECRET_KEY}[^"']*["'][^>]*\\bcontent\\s*=\\s*)("[^"]*"|'[^']*')`, 'gi');
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, BEARER = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{12,}/gi;
 function tokensOut(text, code, counts) {
@@ -165,7 +165,7 @@ export function scrubRecord(record, values = new Map()) {
     const body = entry.hash ? kept.bodies.get(entry.hash) : null;
     if (body && !understood(type)) { counts.binary += 1; hash = ''; }
     else if (body && TEXT.test(type)) {
-      const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(new URL(entry.url).pathname);
+      const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(entry.url.split(/[?#]/)[0]);
       let text = plainSeparators(body.toString('utf8'));
       if (!code) text = blankTyped(text, counts);
       text = tokensOut(contactsOut(ownOut(text, values, code, counts, true), counts), code, counts);

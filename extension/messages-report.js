@@ -11,15 +11,18 @@ const ROUTE = '/extension/report-form';
 const FILL_MARK = 'jobpilotto-fill';
 const STATE_TTL_MS = 30e3;
 // Any frame of the tab holding a password field: a sign-in page is never kept.
+// Why a call to the app failed, as the panel's kinds: no answer at all (the app is closed or the connection broke) is "app"; an answer that is an error is not (the app is open).
+export const failureOf = error => ({refused: !error?.status ? 'app' : error.status === 401 ? 'connect' : error.status === 404 ? 'old' : 'failed'});
 const passwordIn = async tabId => (await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: () => !!document.querySelector('input[type="password" i]')})).some(frame => frame.result);
 
 export function createReportMessages() {
-  const tell = async (payload, tabId) => api(await settings(), ROUTE, {method: 'POST', body: JSON.stringify(payload)}, true, tabId);
-  let switchState = {at: 0, on: false};   // the app's Settings switch, asked at most every 30 s
+  // -> the app's answer, or {ok: false, refused: <kind>} when the call itself failed (failureOf)
+  const tell = async (payload, tabId) => api(await settings(), ROUTE, {method: 'POST', body: JSON.stringify(payload)}, true, tabId).catch(error => ({ok: false, ...failureOf(error)}));
+  let switchState = {at: 0, on: false, problem: ''};   // the app's Settings switch, asked at most every 30 s; problem: why it could not be asked
   const switchOn = async tabId => {
     if (Date.now() - switchState.at < STATE_TTL_MS) return switchState.on;
-    const answer = await tell({action: 'state'}, tabId).catch(() => null);
-    switchState = {at: Date.now(), on: !!answer?.enabled};
+    const answer = await tell({action: 'state'}, tabId);
+    switchState = {at: answer?.refused ? 0 : Date.now(), on: !!answer?.enabled, problem: answer?.refused || ''};   // a failed ask is asked again at the next press
     return switchState.on;
   };
   const trace = createTrace({chrome, hasPassword: passwordIn, enabled: () => switchOn()});
@@ -45,16 +48,16 @@ export function createReportMessages() {
       if (message.type === 'report-state') {
         switchState.at = 0;   // the panel asking is a page load: look at the switch again
         const on = await switchOn(tabId);
-        if (!on) trace.end(tabId);
-        return {enabled: on, tracing: trace.isTracing(tabId), has: trace.has(tabId), moved: trace.pageCount(tabId) > 1, stopped: isStopped()};
+        if (!on && !switchState.problem) trace.end(tabId);   // off in Settings drops the trace; an app that did not answer does not
+        return {enabled: on, problem: switchState.problem, tracing: trace.isTracing(tabId), has: trace.has(tabId), moved: trace.pageCount(tabId) > 1, stopped: isStopped()};
       }
       // report-send: the trace as it is now, handed to the app, which scrubs it, holds it and answers with counts for the popup; report-confirm sends what it holds (with the person's note); report-cancel drops it
-      if (message.type === 'report-confirm') { const answer = await tell({action: 'send', note: String(message.note || '').slice(0, 300)}, tabId).catch(() => null); return answer?.ok ? {ok: true} : {ok: false, refused: answer?.refused || 'app', blocked: answer?.blocked, error: answer?.error}; }
-      if (message.type === 'report-cancel') { await tell({action: 'cancel'}, tabId).catch(() => null); return {ok: true}; }
+      if (message.type === 'report-confirm') { const answer = await tell({action: 'send', note: String(message.note || '').slice(0, 300)}, tabId); return answer?.ok ? {ok: true} : {ok: false, refused: answer?.refused, blocked: answer?.blocked, error: answer?.error}; }
+      if (message.type === 'report-cancel') { await tell({action: 'cancel'}, tabId); return {ok: true}; }
       const result = trace.snapshot(tabId, 'journey');
       if (!result.ok) return result;
-      const answer = await tell({action: 'submit', entries: result.entries, truncated: result.truncated}, tabId).catch(() => null);
-      return answer?.ok ? {ok: true, preview: answer.preview} : {ok: false, refused: answer?.refused || 'app', blocked: answer?.blocked};
+      const answer = await tell({action: 'submit', entries: result.entries, truncated: result.truncated}, tabId);
+      return answer?.ok ? {ok: true, preview: answer.preview} : {ok: false, refused: answer?.refused, blocked: answer?.blocked};
     })().then(reply, () => reply({ok: false, refused: 'error'}));
     return true;   // the answer comes later
   };
