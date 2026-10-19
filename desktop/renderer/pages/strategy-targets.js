@@ -155,7 +155,8 @@ function minScoreInput() {
   });
   return input;
 }
-const LEADS = {places: 'Where you want to work.'};
+const LEADS = {places: 'Where you want to work.', queries: 'What we type into job boards such as jobs.ch.', stack: 'Key skills and tools you want in jobs.',
+  languages: 'A job that requires one is hidden; one that only prefers it ranks lower.'};
 function targetCard([key, glyph, title, lists]) {
   const open = isOpen(key), card = el('section', `card${open ? ' is-editing' : ''}`);
   card.dataset.list = key;
@@ -176,13 +177,8 @@ function targetCard([key, glyph, title, lists]) {
   return card;
 }
 // ---------- The cards as read (not editing): grouped and short; Edit shows every list in full as before ----------
-// One labelled row: an icon, a label, then its value (words or chips).
-function settingRow(glyph, label, value) {
-  const row = el('div', 'setting-row'), words = el('div', 'setting-body');
-  words.append(el('b', '', label), typeof value === 'string' ? el('span', 'muted', value) : value);
-  row.append(icon(glyph), words);
-  return row;
-}
+// A row's label with its one-line fact joined to it, in the muted label style (owner's rule, 18 Oct 2026: never a lone line above or below a chip row).
+const labelWith = (label, hint) => { const words = el('span', '', label); words.append(el('span', 'muted small', ` · ${hint}`)); return words; };
 const savedLabels = name => entriesOf(strategyState.lastStrategy, name).map(entry => entry.label);
 // A list as read: as saved, or, while its card holds a draft, as Save will write it (words still typed included), so a closed card's summary shows it.
 export function draftEntries(name) {
@@ -223,16 +219,17 @@ async function keepTypo(entry) {
 // word of what it is for). Its own card under Advanced since the roles moved to Main goals (18 Oct 2026); the roles' families are listed here too.
 const VIEWS = {
   queries() {
-    const queries = labelsOf('queries');
+    const queries = labelsOf('queries'), none = words => el('span', 'muted', words);
     // Families from the engine (src/role_kinds.py): Retail, Logistics…; spellings and translations fold under "View title variants".
     const families = roleFamilies(draftEntries('roles')).map(family => {
       const row = el('div', 'family-row');
       row.append(el('b', '', family.label), folded(family.entries.map(entry => entry.label), 2, 'View title variants'));
       return row;
     });
-    return [el('p', 'sub', 'What we type into job boards such as jobs.ch.'),
-      queries.length ? folded(queries, 6, 'Show all') : el('span', 'muted', 'None: your target roles are searched as they are'),
-      ...(families.length ? [el('p', 'sub', 'Your target roles by family (edited in Main goals)'), ...families] : [])];
+    const familyBox = el('div', 'family-rows');
+    familyBox.append(...families);
+    return [readRows([{icon: 'search', label: 'What we type', value: queries.length ? folded(queries, 6, 'Show all') : none('None: your target roles are searched as they are')},
+      {icon: 'target', label: labelWith('Target roles by family', 'edited in Main goals'), value: families.length ? familyBox : none('None'), missing: ''}], {lined: true})];
   },
   // Roomy (mockup 03): one row per setting, icon · label on its own line over the value (a list's chips or one value) (owner, 18 Oct 2026: "Either
   // we're fully inline, either we're fully on the new line"); every divider full width.
@@ -256,24 +253,23 @@ const VIEWS = {
   },
   stack() {
     const stack = labelsOf('stack');
-    return [el('p', 'sub', 'Key skills and tools you want in jobs.'), stack.length ? withHints('stack', labels => folded(labels, 10, 'Show all')) : el('span', 'muted small', 'None')];
+    return [readRows([{icon: 'layers', label: 'Key skills', value: stack.length ? withHints('stack', labels => folded(labels, 10, 'Show all')) : el('span', 'muted', 'None')}], {lined: true})];
   },
   search() {
     const row = (glyph, label, name, none) => {
       const draw = labels => (AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all'));
-      if (!labelsOf(name).length) return settingRow(glyph, label, none);
-      return settingRow(glyph, label, name === 'gplaces' ? draw(labelsOf(name).map(placeLabel)) : withHints(name, draw));
+      const value = !labelsOf(name).length ? el('span', 'muted', none) : name === 'gplaces' ? draw(labelsOf(name).map(placeLabel)) : withHints(name, draw);
+      return {icon: glyph, label, value};
     };
-    return [settingRow('user', 'Your level', levelChoice()), settingRow('target', 'Minimum fit score for the digest', minScoreInput()),
+    return [readRows([{icon: 'user', label: 'Your level', value: levelChoice()}, {icon: 'target', label: 'Minimum fit score for the digest', value: minScoreInput()},
       row('close', 'Job titles to skip', 'titleSkip', 'None'), row('building', 'Companies to skip', 'skip', 'None'), row('globe', 'Remote jobs: regions to skip', 'remoteSkip', 'None'),
       row('sparkle', 'Words that find new employers', 'finders', 'None'), row('search', 'Google Jobs searches', 'gqueries', 'None: Google Jobs is not searched'),
-      row('pin', 'Google Jobs places', 'gplaces', 'None')];
+      row('pin', 'Google Jobs places', 'gplaces', 'None')], {lined: true})];
   },
   languages() {
     const data = strategyState.lastStrategy, {languages, hide, lower} = exclusionGroups({...data, texts: {...data?.texts, languages: labelsOf('languages')}});
     const block = el('div', 'setting-body');
-    block.append(languages.length ? chipsOf(languages) : el('span', 'muted', 'None'),
-      el('span', 'muted small', 'A job that requires one is hidden; one that only prefers it ranks lower.'));
+    block.append(languages.length ? chipsOf(languages) : el('span', 'muted', 'None'));
     // Warning colour only for a consequence: the last coverage check counted matching jobs these languages hid (src/coverage.py).
     const listed = new Set(languages.map(language => language.toLowerCase()));
     const hidden = (strategyState.shownVerdict?.languages || []).filter(item => listed.has(String(item.language).toLowerCase())).reduce((sum, item) => sum + (item.count || 0), 0);
@@ -282,16 +278,11 @@ const VIEWS = {
       warn.append(`Hides ${hidden.toLocaleString('en-US')} job${hidden === 1 ? '' : 's'} that match your roles and places (see Suggestions).`);
       block.append(warn);
     }
-    const rules = el('div', 'setting-row'), title = el('div', 'setting-body');
-    title.append(el('b', '', 'Excluded language requirements'), block);
-    rules.append(icon('globe'), title);
-    const more = el('details', 'plain exclusion-more'), summary = el('summary');
-    summary.append(icon('sliders'), el('span', '', 'Other exclusions and ranking rules'),
-      el('span', 'muted small', `${hide.length} hide jobs · ${lower.length} rank${lower.length === 1 ? 's' : ''} lower`));
-    more.append(summary,
-      el('p', 'sub', 'Hide matching jobs'), hide.length ? chipsOf(hide.map(item => item.label), false) : el('span', 'muted small', 'None'),
-      el('p', 'sub', 'Rank them lower'), lower.length ? chipsOf(lower.map(item => item.label), false) : el('span', 'muted small', 'None'));
-    return [rules, more];
+    const group = (title, items) => [el('span', 'muted small', title), items.length ? chipsOf(items.map(item => item.label), false) : el('span', 'muted small', 'None')];
+    const rules = el('div', 'setting-body');
+    rules.append(...group('Hide matching jobs', hide), ...group('Rank them lower', lower));
+    return [readRows([{icon: 'globe', label: 'Languages that rule a job out', value: block},
+      {icon: 'sliders', label: labelWith('Other exclusions and ranking rules', `${hide.length} hide jobs, ${lower.length} rank${lower.length === 1 ? 's' : ''} lower`), value: rules}], {lined: true})];
   },
 };
 const reloadTargets = async () => { await loadStrategy(); renderTargets(); };

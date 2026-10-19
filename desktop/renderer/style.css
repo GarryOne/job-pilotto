@@ -2322,9 +2322,9 @@ button.is-busy { cursor: progress; opacity: .7; }
   .strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-left: 0; border-top: 1px solid var(--line); padding: var(--sp-2) 0; }
 }
 /* Roles by family, and the icon + label + value rows of the other cards. */
-.strategy-page .family-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
-.strategy-page .sub + .family-row { border-top: 0; }
-.strategy-page .family-row b { font-size: var(--fs-md); }
+.strategy-page .family-row { display: grid; gap: var(--sp-1); padding: var(--sp-1) 0; }
+.strategy-page .sub + .family-row, .strategy-page .family-rows .family-row:first-child { border-top: 0; padding-top: 0; }
+.strategy-page .family-row b { font-size: var(--fs-sm); font-weight: 400; color: var(--ink-2); }
 .strategy-page .family-row .chips, .strategy-page .setting-body .chips { margin: 0; }
 .strategy-page .chip-more { padding: 2px 4px; font-size: var(--fs-sm); }
 .strategy-page .setting-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--sp-3); padding-top: var(--sp-3); }
