@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import {test} from 'node:test';
+import {after, test} from 'node:test';
 import {prepare} from '../lib/report-form.js';
 import {registerReportHandlers} from '../lib/report-handlers.js';
 import {visitMore} from '../lib/server-hooks.js';
@@ -30,7 +30,10 @@ test('a throw while preparing is an answer the panel can name ("failed"), logged
 });
 
 // The worker on stand-in chrome and fetch: each way the call to the app can fail.
+let answerWith = () => http(200, {ok: true}), shared = null;   // one worker for the file (each one keeps a timer running); each test says how the app answers
 async function worker(respond) {
+  answerWith = respond;
+  if (shared) return shared;
   const listeners = {debugger: [], navigate: [], committed: [], removed: []};
   globalThis.chrome = {
     runtime: {onMessage: {addListener() {}}, getManifest: () => ({version: '1'}), sendMessage: async () => ({})},
@@ -41,7 +44,7 @@ async function worker(respond) {
       sendCommand: async (target, method) => (method === 'Page.getFrameTree' ? {frameTree: {frame: {id: 'top'}}} : method === 'Network.getResponseBody' ? {body: '<form></form>', base64Encoded: false} : {})},
     scripting: {executeScript: async () => [{result: false}]},
   };
-  globalThis.fetch = async (url, init) => respond(JSON.parse(init?.body || '{}'));
+  globalThis.fetch = async (url, init) => answerWith(JSON.parse(init?.body || '{}'));
   const {createReportMessages} = await import('../../extension/messages-report.js');
   const handle = createReportMessages();
   const ask = message => new Promise(resolve => { handle(message, {tab: {id: TAB}}, resolve); });
@@ -53,8 +56,10 @@ async function worker(respond) {
   emit('Network.loadingFinished', {requestId: 'A', encodedDataLength: 10});
   emit('Page.frameNavigated', {frame: {id: 'top'}});
   await new Promise(resolve => setTimeout(resolve, 20));
+  shared = ask;
   return ask;
 }
+after(async () => { if (shared) await (await import('../../extension/stop.js')).stopAll('test'); });   // halts the recording's timers so the file can end
 const http = (status, data) => ({ok: status < 400, status, json: async () => data});
 
 // What each failure of the call becomes, in the words of the panel.
