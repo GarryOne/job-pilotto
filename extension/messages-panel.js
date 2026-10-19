@@ -122,6 +122,16 @@ export function createPanelMessages(ctx) {
       })().catch(() => reply({ok: false}));
       return true;
     }
+    // "Add this job" (shown when Tailor found the job not in the list): the app reads the posting and adds it, like Jobs → Add by link.
+    if (message?.type === 'panelAddJob' && sender.tab) {
+      (async () => {
+        const job = String(await jobOf(sender.tab)).split('#')[0];
+        decide('panel', 'asked the app to add this job to the list', {});
+        const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'add-job', url: job, page: sender.tab.url.split('#')[0]})});
+        reply({ok: !!data?.ok});
+      })().catch(() => reply({ok: false}));
+      return true;
+    }
     // "Review my answer" on an open written question (panel-written.js): the app's AI reads the person's text or the draft; the answer is shown, never typed (worker/src/written-answer.js).
     if (message?.type === 'panelReviewAnswer' && sender.tab) {
       (async () => {

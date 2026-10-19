@@ -41,7 +41,7 @@
   const written = window.__jobPilottoPanelWritten.start({send, alive: () => host.isConnected});   // Review my answer beside each written question's box (panel-written.js)
   window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
   const SHOW_TIPS = false;   // the tip line (Fact / Recruiters say / Tip / Worth trying) is off for now (owner, 15 Oct 2026: "hide, disable it, we'll get back to it"); true brings it back
-  let counts = {total: 0, left: 0}, moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, build = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let counts = {total: 0, left: 0}, moved = false, movedTab = null, open = false, shown = [], job = null, session = null, connection = null, build = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, addMode = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -148,12 +148,22 @@
     // A CV written for this job gets noticeably more replies than the general one: offered while the form is still open, the person's click (it costs a few cents).
     // Once it is written the fill has to run again to attach it.
     const tailor = $('.tailor');
-    tailor.hidden = !canTailor || (cv.tailored && !asked);
+    // What the app says it did with the press (desktop/lib/tailor-status.js): shown while it runs, and for the press made on this panel; every branch is said here.
+    const said = cv?.status && (asked || ['running', 'adding'].includes(cv.status.state)) ? cv.status : null;
+    const running = !!cv?.working || said?.state === 'running', adding = said?.state === 'adding';
+    tailor.hidden = !canTailor || (cv.tailored && !asked && !said);
     if (!tailor.hidden) {
-      $('.t-text').textContent = readyNow ? 'Your tailored CV is ready. Press Fill again to attach it.' : cv.working ? 'Tailoring your CV for this job… about 1–2 minutes.'
-        : 'General CV attached';
-      $('.t-text').title = 'A CV tailored to this job gets noticeably more replies.';
-      $('.t-btn').hidden = readyNow || cv.working;
+      const letterNote = said?.letter === false ? ' (the letter was not made)' : '';
+      $('.t-text').textContent = adding ? 'Adding this job to your list…'
+        : running ? 'Tailoring your CV + cover letter for this job… about 1–2 minutes.'
+        : said?.state === 'not-listed' ? 'This job is not in your list yet.'
+        : said?.state === 'added' ? 'Added to your list. Now tailor the CV + letter.'
+        : said?.state === 'failed' ? `Not done: ${said.error || 'try again'}`
+        : readyNow ? `Tailored: CV + letter ready${letterNote}. Press Fill again to attach them.` : 'General CV attached';
+      $('.t-text').title = 'A CV tailored to this job gets noticeably more replies. The cover letter is attached only if the form asks for one.';
+      $('.t-btn').hidden = readyNow || running || adding;
+      addMode = said?.state === 'not-listed';
+      $('.t-btn').textContent = addMode ? 'Add this job' : said?.state === 'failed' ? 'Try again' : 'Tailor CV + letter';
     }
     // One tip at the bottom, about what the form is at: knockout questions left, no tailored CV yet, else the CV. Click for the next one.
     const prefer = knockouts ? 'knockout' : canTailor && !cv.tailored ? 'tailor' : 'cv';
@@ -246,18 +256,24 @@
     $('.tip').hidden = false;
   }
   $('.tip').onclick = askTip;
+  // Every control that asks the app something goes through ask(): it says it is working on the panel, and says so on the panel when the app did not answer (a silent control looks dead).
+  async function ask(button, busyText, message, failText) {
+    const label = button.textContent;
+    button.disabled = true; button.textContent = busyText;
+    const answer = await send(message).catch(() => null);
+    button.disabled = false; button.textContent = label;
+    if (!answer?.ok) note(failText);
+    return answer;
+  }
+  const APP_DOWN = 'Job Pilotto is not answering: open the app, then try again.';
   $('.t-btn').onclick = async event => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.textContent = 'Asking Job Pilotto…';
-    const answer = await send({type: 'panelTailor'}).catch(() => null);
-    asked = !!answer?.ok;
-    button.disabled = false;
-    button.textContent = 'Tailor CV';
+    const answer = await ask(event.currentTarget, 'Asking Job Pilotto…', {type: addMode ? 'panelAddJob' : 'panelTailor'}, APP_DOWN);
+    if (answer?.ok) asked = true;
     render();
+    sync();   // the app's answer (started / not in your list / failed) comes now, not on the next tick
   };
   $('.go-there').onclick = () => Number.isInteger(movedTab) && send({type: 'panelGoTab', tab: movedTab}).catch(() => {});
-  $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
+  $('.open-app').onclick = event => session && ask(event.currentTarget, 'Opening…', {type: 'panelOpenApp', session: session.id}, APP_DOWN);
   // The extension's fill reports its steps here (instead of a floating box).
   chrome.runtime.onMessage.addListener((message, _, reply) => {
     if (message?.type !== 'panelStep') return false;

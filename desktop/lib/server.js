@@ -18,7 +18,7 @@ import {packagedBuild} from './build-handlers.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHandler, sitePasswordHandler, reviewHandler,
-  accountPressedHandler, pageHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
+  accountPressedHandler, pageHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, addJobHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
@@ -26,7 +26,7 @@ export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, dec
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setPageHandler, setTakeOverHandler,
-  setTailorHandler, setErrorWatcher, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
+  setTailorHandler, setAddJobHandler, setErrorWatcher, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
 // The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's
@@ -271,6 +271,7 @@ export function start(storage, onError = () => {}) {
           if (event.type === 'claude-auto') claudeAutoHandler(event);
           if (event.type === 'account-fact') accountFactHandler(event);
           if (event.type === 'tailor-cv') tailorHandler({...event, job});
+          if (event.type === 'add-job') addJobHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
           // A click opens this application's session (the newest one open on this job), not just the list.
           const target = {view: 'sessions', ...(sessionOfJob(event.url) ? {session: sessionOfJob(event.url)} : {})};

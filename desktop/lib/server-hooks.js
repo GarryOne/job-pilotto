@@ -77,6 +77,8 @@ export let accountFactHandler = () => {};  // the extension handled something on
 export function setAccountFactHandler(fn) { accountFactHandler = fn; }
 export let tailorHandler = () => {};  // the panel's "Tailor my CV for this job" (set by main.js)
 export function setTailorHandler(fn) { tailorHandler = fn; }
+export let addJobHandler = () => {};  // the panel's "Add this job" when Tailor found the job not in the list (set by cv-handlers.js)
+export function setAddJobHandler(fn) { addJobHandler = fn; }
 export let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
 export function setFormIssueHandler(fn) { formIssue = fn; }
 export let errorWatcher = () => {};  // the extension's decision lines, read for real errors (lib/real-errors.js, set by telemetry-handlers.js)
