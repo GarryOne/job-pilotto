@@ -5,10 +5,12 @@
 import {FAMILIES, LATEST_FAMILY, familyLinks, familyParam} from './engines.js';
 import {viewer} from './auth.js';
 import {load as loadScouting, section as nightly} from './scouting.js';
+import {EUROPE} from './pool-tags.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
 const n = value => Number(value || 0).toLocaleString('en-US');
 const pct = (part, whole) => (whole ? `${Math.round((100 * part) / whole)}%` : '—');
+const FLOOR = 25;   // employers per kind and country the scout aims for (owner, 19 Oct 2026)
 const day = (date, back = 0) => new Date(date.getTime() - back * 86400000).toISOString().slice(0, 10);
 const rows = (list, cells, empty) => list.length ? list.map(item => `<tr>${cells(item).map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')
   : `<tr><td colspan="9" class="muted">${esc(empty)}</td></tr>`;
@@ -88,6 +90,11 @@ export function page(data, url = new URL('https://www.jobpilotto.top/admin/scout
     for (const region of feed.regions?.length ? feed.regions : ['unknown']) grid[`${kind}|${region}`] = (grid[`${kind}|${region}`] || 0) + 1;
   }
   const regions = [...new Set(Object.keys(grid).map(key => key.split('|')[1]))].sort();
+  // And by European country (where its jobs are, src/scout_index.py countries): a kind under FLOOR employers in a country is a gap the scout
+  // aims at (owner, 19 Oct 2026: "Scout where the list is thin", every industry in every European country).
+  const byCountry = {};
+  for (const feed of feeds) for (const country of feed.countries || []) if (EUROPE.includes(country)) byCountry[`${topKind(feed)}|${country}`] = (byCountry[`${topKind(feed)}|${country}`] || 0) + 1;
+  const thin = (kind, country) => !['other', 'unknown'].includes(kind) && (byCountry[`${kind}|${country}`] || 0) < FLOOR;
   const verdict = !feeds.length ? 'No employer list published yet: the central scout publishes nightly (04:20 UTC).'
     : `${n(feeds.length)} employers in the central list${growth == null ? '' : `, ${growth >= 0 ? '+' : ''}${n(growth)} this week`}; `
       + `${n(data.sharing7)} install${data.sharing7 === 1 ? '' : 's'} sharing this week; ${pct(nonIt, feeds.length)} hire mostly outside IT.`;
@@ -99,6 +106,7 @@ export function page(data, url = new URL('https://www.jobpilotto.top/admin/scout
 .verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
 .kpi{background:#14181d;border:1px solid #262c33;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.kpi b{font-size:22px}
+.scroll{overflow-x:auto}.countries td,.countries th{text-align:right;font-variant-numeric:tabular-nums;padding:6px 5px}.countries td:first-child,.countries th:first-child{text-align:left}.thin{color:#ef8a8a}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start}
 </style></head><body><main>
 <header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/insights">Insights →</a>${data.family ? ` · what ${esc(FAMILIES[data.family])} installs shared` : ''}</small></div></header>
@@ -121,6 +129,9 @@ ${rows(data.daily, row => [esc(row.day), n(row.feeds), n(row.non_it), n(row.fail
 <section class="card"><h2>🗺️ Coverage by kind of role and region</h2><small class="muted">Employers by the kind they mostly hire for (their role mix) and region: the gaps are where to scout next.</small>
 <table><tr><th>Kind</th><th>All</th>${regions.map(region => `<th>${esc(region)}</th>`).join('')}</tr>
 ${rows(Object.entries(kinds).sort((a, b) => b[1] - a[1]), ([kind, count]) => [esc(kind), n(count), ...regions.map(region => n(grid[`${kind}|${region}`]))], 'No employers yet.')}</table></section>
+<section class="card"><h2>🇪🇺 Coverage by kind of role and country</h2><small class="muted">European employers by the kind they mostly hire for and the countries their jobs are in. Red: under ${FLOOR}, a gap the scout aims at next.</small>
+<div class="scroll"><table class="countries"><tr><th>Kind</th>${EUROPE.map(country => `<th>${country.toUpperCase()}</th>`).join('')}</tr>
+${rows(Object.entries(kinds).sort((a, b) => b[1] - a[1]), ([kind]) => [esc(kind), ...EUROPE.map(country => `<span class="${thin(kind, country) ? 'thin' : ''}">${n(byCountry[`${kind}|${country}`])}</span>`)], 'No employers yet.')}</table></div></section>
 <div class="grid2">
 <section class="card"><h2>🩺 Freshness</h2><small class="muted">From each employer's last reads (the central scout, nightly).</small>
 <table><tr><td>Growing (more jobs than last read)</td><td>${n(up)}</td></tr><tr><td>Shrinking</td><td>${n(down)}</td></tr>

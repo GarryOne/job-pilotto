@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {page, snapshot, topKind} from '../src/scoutingadmin.js';
 
 const feeds = [
-  {company: 'Coop', ats: 'successfactors', slug: 'jobs.coop.ch', regions: ['europe'], kinds: {sales_retail: 0.6, logistics: 0.3}, fresh: {ok: '2026-10-06', fails: 0, jobs: 3142, trend: 'up', new: '2026-10-06'}},
+  {company: 'Coop', ats: 'successfactors', slug: 'jobs.coop.ch', regions: ['europe'], countries: ['ch'], kinds: {sales_retail: 0.6, logistics: 0.3}, fresh: {ok: '2026-10-06', fails: 0, jobs: 3142, trend: 'up', new: '2026-10-06'}},
   {company: 'Datadog', ats: 'greenhouse', slug: 'datadog', regions: ['europe', 'north_america'], kinds: {software: 0.95}, fresh: {ok: '2026-10-01', fails: 4, jobs: 0, trend: 'down', new: null}},
   {company: 'Old', ats: 'lever', slug: 'old', regions: []}];
 
@@ -19,9 +19,21 @@ test('the page says its verdict and draws every section, from data or with an em
     routes: [{how: 'ai_idea', feeds: 3, hits: 9}], useful: [{company: 'Coop', hits: 9, installs: 1, jobs: 3142}], dead: [{company: 'Fnac Suisse', host: 'fnac.ch', installs: 2, last: '2026-10-06'}],
     deadTotal: 2, central: null});
   assert.match(html, /3 employers in the central list, \+1 this week; 1 install sharing this week; 33% hire mostly outside IT\./);
-  for (const heading of ['Growth', 'The pool', 'Discovery routes that work', 'Coverage by kind of role and region', 'Freshness', 'Most useful employers', 'Dead ends', 'Scouting'])
+  for (const heading of ['Growth', 'The pool', 'Discovery routes that work', 'Coverage by kind of role and region', 'Coverage by kind of role and country', 'Freshness', 'Most useful employers', 'Dead ends', 'Scouting'])
     assert.match(html, new RegExp(heading), heading);
   assert.match(html, /<td>Datadog<\/td><td>4<\/td>/, 'a failing employer is listed');
   const empty = page({feeds: [], daily: [], sharing7: 0, sharing30: 0, shared: 0, routes: [], useful: [], dead: [], deadTotal: 0, central: null});
   assert.match(empty, /No employer list published yet/);
+});
+
+test('the kind × country table counts European employers per country and marks a kind under the floor', () => {
+  const many = Array.from({length: 25}, (_, i) => ({company: `Care ${i}`, ats: 'lever', slug: `care${i}`, kinds: {healthcare: 0.9}, countries: ['de', 'us']}));
+  const html = page({feeds: [...many, ...feeds], daily: [], sharing7: 0, sharing30: 0, shared: 0, routes: [], useful: [], dead: [], deadTotal: 0, central: null});
+  const table = html.split('class="countries"')[1].split('</table>')[0];
+  const row = kind => table.match(new RegExp(`<tr><td>${kind}</td>(.*?)</tr>`))[1];
+  const cell = (kind, i) => row(kind).match(/<td>(.*?)<\/td>/g)[i];
+  assert.match(cell('healthcare', 1), /class="">25</, 'Germany: 25 healthcare employers, at the floor');
+  assert.match(cell('healthcare', 0), /class="thin">0</, 'Switzerland: none, a gap');
+  assert.match(cell('sales_retail', 0), /class="thin">1</, 'Coop: one retail employer in Switzerland');
+  assert.doesNotMatch(table, />US</, 'only European countries are columns');
 });

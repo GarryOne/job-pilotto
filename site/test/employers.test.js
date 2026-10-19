@@ -131,6 +131,14 @@ test('the index keeps who a feed fits, from the fixed lists only', async () => {
   assert.deepEqual(feeds[1].fits, {roles: [], regions: []});
 });
 
+test('the index keeps the countries a feed hires in, fixed ids only, and none when it has none', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a', {countries: ['de', 'hu', 'Zurich', 'de']}), feed('b')]});
+  const feeds = (await (await call(env(), 'GET', auth)).json()).feeds;
+  assert.deepEqual(feeds[0].countries, ['de', 'hu']);
+  assert.equal('countries' in feeds[1], false);
+});
+
 test('in the soft rollout older installs without a token still get the list, and are counted', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a')]});
