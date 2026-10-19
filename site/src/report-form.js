@@ -9,6 +9,7 @@
 // Limits: 8 MB per report, 3 per install per day, and 50 reports / 200 MB per UTC day across ALL installs (a minted install id gets a fresh per-install quota, so only the total holds; one D1 row a day). Without the bucket or the database: 503 "not configured" (nothing breaks). Guard: test/report-form.test.js.
 import {authorize, flag} from './guard.js';
 import {isOwner} from './auth.js';
+import {tellOwner} from './report-notify.js';
 
 export const MAX_BYTES = 8 * 1024 * 1024, PER_INSTALL_PER_DAY = 3, KEEP_DAYS = 30, ALL_REPORTS_PER_DAY = 50, ALL_BYTES_PER_DAY = 200 * 1024 * 1024;
 const bad = (status, error) => Response.json({ok: false, error}, {status});
@@ -16,10 +17,10 @@ const bearerOf = request => (request.headers.get('Authorization') || '').replace
 const dayOf = date => date.toISOString().slice(0, 10);
 const objects = (day, id) => [`${day}/${id}.bin`, `${day}/${id}.k`];
 
-export async function reportForm(request, env, pathname, now = new Date()) {
+export async function reportForm(request, env, pathname, now = new Date(), fetcher = fetch) {
   if (!env.REPORTS || !env.STATS) return bad(503, 'not configured');
   const id = pathname.split('/')[3] || '';
-  if (request.method === 'POST' && !id) return upload(request, env, now);
+  if (request.method === 'POST' && !id) return upload(request, env, now, fetcher);
   if (request.method === 'DELETE' && id) return remove(request, env, id);
   if (!(await isOwner(request, env))) return bad(401, 'unauthorized');
   if (request.method === 'GET' && !id) {
@@ -40,7 +41,7 @@ export async function reportForm(request, env, pathname, now = new Date()) {
   return new Response('Method not allowed', {status: 405});
 }
 
-async function upload(request, env, now) {
+async function upload(request, env, now, fetcher) {
   const install = String(request.headers.get('X-Install') || '');
   const access = await authorize(env, install, bearerOf(request), 'report');
   if (!access.ok) return bad(401, 'unauthorized');
@@ -64,6 +65,8 @@ async function upload(request, env, now) {
   await env.REPORTS.put(bin, body);
   await env.REPORTS.put(key, wrapped);
   await env.STATS.prepare('INSERT INTO form_reports (id, day, who, bytes, requests, cause) VALUES (?, ?, ?, ?, ?, ?)').bind(id, day, access.who, body.byteLength, requests, cause).run();
+  const {reports} = await env.STATS.prepare('SELECT reports FROM form_report_days WHERE day = ?').bind(day).first() || {reports: 1};
+  await tellOwner(env, {cause, requests, who: access.who, now}, reports, fetcher);   // counts only; a failure to tell never fails the upload
   return Response.json({ok: true, id});
 }
 
