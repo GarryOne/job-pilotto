@@ -17,7 +17,7 @@ import {log as appLog} from './log.js';
 import {resumeDelay, scheduleResume} from './resume-queue.js';
 import {startSchedule} from './schedule.js';
 import {watchOrphans} from './orphans.js';
-import {watchSleep} from './awake.js';
+import {watchSleep, startHeartbeat} from './awake.js';
 
 import {runState} from './run-state.js';
 import {isTwin} from './twin.js';
@@ -136,6 +136,7 @@ export function registerBackgroundHandlers(ctx) {
     if (!DEMO && storage.settings().setupDone && poolShare.on(storage)) setTimeout(() => pipeline.run(storage, ['src.contribute', '--send'])
       .then(({code}) => appLog('pool', 'catch-up share at start', {code}), error => appLog('pool', 'catch-up share failed', {error: error.message})), 60000);
     restartTelegram();
+    startHeartbeat();
     watchSleep(powerMonitor, appLog);   // the run watchdogs leave out the time this Mac sleeps (lib/awake.js)
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts; every finished run: announceRuns (every 5 s).
