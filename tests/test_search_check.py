@@ -31,6 +31,13 @@ class SearchCheck(unittest.TestCase):
         self.assertEqual(dry('driver')['name'], 'driver')
         self.assertEqual(dry('random')['name'], 'draw')
 
+    def test_two_checks_started_in_the_same_second_get_their_own_folders(self):
+        # 19 Oct 2026: a browser-on and a browser-off check started together shared one install folder (the name was the second only).
+        steps = node("import {plan} from './tools/persona-search/search-check.mjs'; const now = new Date('2026-10-19T13:14:11Z');"
+                     "console.log(JSON.stringify([plan(['music'], now, '/t', 101), plan(['music'], now, '/t', 202)]))")
+        self.assertNotEqual(steps[0]['out'], steps[1]['out'])
+        self.assertNotEqual(steps[0]['tag'], steps[1]['tag'], "run.mjs names the install folder after the tag")
+
     def test_an_unknown_candidate_is_refused(self):
         self.assertNotEqual(subprocess.run(['node', 'tools/persona-search/search-check.mjs', 'nobody', '--dry'], cwd=ROOT, capture_output=True).returncode, 0)
 
