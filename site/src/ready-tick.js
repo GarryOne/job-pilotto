@@ -23,10 +23,8 @@ export async function tick(env, now = new Date()) {
   if (!env.READY_QUEUE) return out;
   const {results: due} = await env.STATS.prepare("SELECT id FROM ready_batches WHERE state = 'queued' AND (fill_at IS NULL OR fill_at <= ?) ORDER BY created_at LIMIT ?").bind(stamp, MAX_STARTS).all();
   for (const row of due) {
-    const token = await start(env, row.id, now);   // null when another tick took it
-    if (!token) continue;
-    await env.READY_QUEUE.send({batch: row.id, token, site: env.READY_SITE || SITE});
-    out.started++;
+    const sent = await dispatch(env, row.id, now);   // 'taken' when another tick took it; a Queue that refuses puts the night back to queued: the next tick tries again
+    if (sent === 'sent') out.started++;
   }
   return out;
 }
@@ -41,8 +39,20 @@ export async function runNow(env, install, now = new Date()) {
 
 // One queued night starts at once: its token and one message on the Queue (the caller checked READY_QUEUE). -> {status, body}
 export async function startBatch(env, id, now = new Date()) {
-  const token = await start(env, id, now);
-  if (!token) return {status: 409, body: {ok: false, error: 'already started'}};
-  await env.READY_QUEUE.send({batch: id, token, site: env.READY_SITE || SITE});
+  const sent = await dispatch(env, id, now);
+  if (sent === 'taken') return {status: 409, body: {ok: false, error: 'already started'}};
+  if (sent === 'refused') return {status: 502, body: {ok: false, error: 'the queue refused the night'}};
   return {status: 202, body: {ok: true, batch: id}};
+}
+
+// The night's token, then its one message. A message that cannot be sent must not leave the night "running" with nothing to start it (19 Oct 2026: forms sat on
+// "waiting" for 2 h): it goes back to queued. -> 'sent' | 'taken' (already started) | 'refused' (the Queue threw).
+async function dispatch(env, id, now) {
+  const token = await start(env, id, now);
+  if (!token) return 'taken';
+  try { await env.READY_QUEUE.send({batch: id, token, site: env.READY_SITE || SITE}); } catch {
+    await env.STATS.prepare("UPDATE ready_batches SET state = 'queued', expires_at = NULL WHERE id = ? AND state = 'running'").bind(id).run();
+    return 'refused';
+  }
+  return 'sent';
 }

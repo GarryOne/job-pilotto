@@ -150,3 +150,20 @@ test('Fill now: a night sent for later starts at the press, not at its fill time
   e.STATS.db.prepare("UPDATE ready_jobs SET state = 'filling', step = 'form', started_at = ?").run(evening.toISOString());
   assert.equal((await state(new Date(evening.getTime() + 10 * 60000))).why, null);   // the first form is working: the rest take turns
 });
+
+test('a Queue that refuses the message puts the night back to queued, for the press and for the cron, so it never sits "running" with nothing to start it (19 Oct 2026)', async () => {
+  let fail = true;
+  const sent = [], flaky = {send: async message => { if (fail) throw new Error('queue down'); sent.push(message); }};
+  const e = env({READY_QUEUE: flaky});
+  await call(e, 'POST', 'batch', batchBody('2026-10-18T01:00:00Z'), await owner());
+  const state = () => e.STATS.db.prepare('SELECT state, expires_at FROM ready_batches').get();
+  const press = await call(e, 'POST', 'run', {}, await owner());
+  assert.equal(press.status, 502);
+  assert.deepEqual({...state()}, {state: 'queued', expires_at: null});
+  assert.equal((await tick(e, new Date('2026-10-18T01:05:00Z'))).started, 0);   // the cron's try fails the same way and leaves it queued
+  assert.equal(state().state, 'queued');
+  fail = false;
+  assert.equal((await tick(e, new Date('2026-10-18T01:10:00Z'))).started, 1);   // the next tick starts it
+  assert.equal(state().state, 'running');
+  assert.equal(sent.length, 1);
+});
