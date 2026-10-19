@@ -267,8 +267,8 @@
   }
   const APP_DOWN = 'Job Pilotto is not answering: open the app, then try again.';
   $('.t-btn').onclick = async event => {
-    const answer = await ask(event.currentTarget, 'Asking Job Pilotto…', {type: addMode ? 'panelAddJob' : 'panelTailor'}, APP_DOWN);
-    if (answer?.ok) asked = true;
+    const told = await ask(event.currentTarget, 'Asking Job Pilotto…', {type: addMode ? 'panelAddJob' : 'panelTailor'}, APP_DOWN);
+    if (told?.ok) asked = true;
     render();
     sync();   // the app's answer (started / not in your list / failed) comes now, not on the next tick
   };
