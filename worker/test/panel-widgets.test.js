@@ -162,5 +162,5 @@ test('the panel shows its ⚑ "Report this form" icon in every state: reading, p
   }
   const panel = read('extension/review.js');
   assert.match(panel, /\$\('\.report-btn'\)\.onclick = event => \{[^]*if \(!event\.isTrusted\) return;[^]*window\.__jobPilottoReport\.open\(\);/);
-  assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReport = \{mount, open\};/, 'the popup the footer\'s Report opens');
+  assert.match(read('extension/panel-report.js'), /window\.__jobPilottoReport = \{mount, open, words: WORDS, sentence: refusal\};/, 'the popup the footer\'s Report opens');
 });

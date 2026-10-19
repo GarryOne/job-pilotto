@@ -55,3 +55,15 @@ test('nothing is sent when this is not a real install, when the bundle is over t
   const limited = createUploader({storage: storage(), pem: publicKey, fetcher: async url => (url.endsWith('install-token') ? Response.json({token: 'T'}) : Response.json({ok: false}, {status: 429}))});
   assert.match((await limited.send(record())).error, /most reports for today/);
 });
+
+test('the person\'s note travels only inside the encrypted bundle; the clear X-Report-Meta header carries counts and a fixed word', async () => {
+  setSiteOff('');
+  const calls = [], answers = [{token: 'T1'}, {ok: true, id: 'r-2'}];
+  const fetcher = async (url, init) => { calls.push({url, init}); return Response.json(answers.shift() ?? {ok: true}); };
+  const up = createUploader({storage: storage(), fetcher, base: 'https://site.test', pem: publicKey, now: () => 5});
+  assert.equal((await up.send(record(), {note: 'captcha Quill'})).ok, true);
+  const headers = calls[1].init.headers;
+  assert.deepEqual(JSON.parse(headers['X-Report-Meta']), {requests: 1, cause: 'person'});
+  assert.ok(!JSON.stringify(headers).includes('captcha'), 'no header carries the note');
+  assert.equal(decrypt(calls[1].init.body, headers['X-Report-Key']).note, 'captcha Quill', 'the owner reads it after decrypting');
+});

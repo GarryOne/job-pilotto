@@ -9,14 +9,16 @@ import {installId} from './pool-share.js';
 import {SITE, siteIsOff} from './recipes.js';
 import {installToken} from './install-token.js';
 
+// The one clear-text label the site sees: a fixed word the app chooses, never the person's note (the site holds counts only; the note is read after decrypting, on the owner's Mac).
+export const CAUSE = 'person';
 export const MAX_BYTES = 8 * 1024 * 1024;
 const KEY_FILE = new URL('./report-key.pem', import.meta.url);
 
 // The record as the offline loop reads it (a pool record: record.json + bodies/<hash>), marked as a person's. -> {record, bodies: {hash: base64}}
-export function bundleOf({entries, bodies, stats}, now = Date.now()) {
+export function bundleOf({entries, bodies, stats}, now = Date.now(), note = '') {
   const first = entries.find(entry => entry.type === 'document') || entries[0], host = (() => { try { return new URL(first.url).host; } catch { return 'unknown'; } })();
   const name = `reported-${crypto.randomBytes(3).toString('hex')}-${host.split('.').slice(-2).join('.')}`;
-  return {record: {name, where: 'person', source: 'person', startMs: now, seed: now, url: first?.url || '', unfinished: 0, unfinishedKinds: {}, entries, stats}, bodies: Object.fromEntries([...bodies].map(([hash, body]) => [hash, body.toString('base64')]))};
+  return {record: {name, where: 'person', source: 'person', startMs: now, seed: now, url: first?.url || '', unfinished: 0, unfinishedKinds: {}, entries, stats}, bodies: Object.fromEntries([...bodies].map(([hash, body]) => [hash, body.toString('base64')])), ...(note ? {note} : {})};   // the person's note rides only inside the encrypted bundle
 }
 
 // -> {body: Buffer: iv(12) + tag(16) + ciphertext, wrapped: base64 of the AES key under the owner's public key}
@@ -37,12 +39,12 @@ export function createUploader({storage, fetcher = globalThis.fetch, base = SITE
 
   return {
     // -> {ok, id} | {ok: false, error}. A record is sent only after the person pressed Send and the gate ran a last time (report-handlers.js).
-    async send(record, {cause = ''} = {}) {
+    async send(record, {note = ''} = {}) {
       if (siteIsOff()) return {ok: false, error: 'This is not a regular install, so nothing is sent.'};
-      const {body, wrapped} = encryptBundle(bundleOf(record, now()), pem);
+      const {body, wrapped} = encryptBundle(bundleOf(record, now(), note), pem);
       if (body.length > MAX_BYTES) return {ok: false, error: 'This report is too large to send. Untick the biggest site and try again.'};
       const install = installId(storage);
-      const response = await fetcher(`${base}/api/report-form`, {method: 'POST', headers: {...(await headers(install)), 'X-Report-Key': wrapped, 'X-Report-Meta': JSON.stringify({requests: record.entries.length, cause}), 'Content-Type': 'application/octet-stream'}, body});
+      const response = await fetcher(`${base}/api/report-form`, {method: 'POST', headers: {...(await headers(install)), 'X-Report-Key': wrapped, 'X-Report-Meta': JSON.stringify({requests: record.entries.length, cause: CAUSE}), 'Content-Type': 'application/octet-stream'}, body});
       const answer = await response.json().catch(() => ({}));
       if (response.status === 429) return {ok: false, error: 'You have sent the most reports for today. Try again tomorrow.'};
       if (!response.ok || !answer.id) return {ok: false, error: `The site did not take it (${response.status}). Nothing was kept there.`};
