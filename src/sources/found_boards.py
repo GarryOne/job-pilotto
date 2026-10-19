@@ -43,17 +43,17 @@ def _places(search):
     return places.words_of(search)[:MAX_PLACES] or ['']
 
 
-def read_board(board, search, fetch=careers.get_text, route=None, early=False):
+def read_board(board, search, fetch=careers.get_text, route=None, early=False, show=None):
     """(jobs, state, route) for one board: jobs in the aggregators' shape, each once; state 'ok', 'empty' or 'browser'; route = the declared feed or
     sitemap that gave the jobs (kept, tried first next time), None when the search page itself did. A page no free step reads tries its
-    declared routes (src/sources/board_routes.py); a script-only one with none is 'browser'; a readable one goes to the AI page reader once
-    per board per run, within its caps, and the recipe it leaves replays with no model next time."""
-    jobs, state, route = _read(board, search, fetch, route, early)
+    declared routes (src/sources/board_routes.py); a script-only one with none is read by the headless browser (show: careers.renderer(),
+    owner 19 Oct 2026), else 'browser' (a visit); a readable one goes to the AI page reader once per board per run, within its caps, and the
+    recipe it leaves replays with no model next time."""
+    jobs, state, route = _read(board, search, fetch, route, early, show)
     return list({job['url']: job for job in jobs}.values()), state, route   # every way out: a board refusing mid-read kept its repeats (18 Oct 2026)
 
 
-def _read(board, search, fetch, route, early):
-    from .aggregators import _job
+def _read(board, search, fetch, route, early, show=None):
     jobs, state, asked_routes, asked_ai = [], 'empty', False, False
     try:
         if route:
@@ -88,22 +88,49 @@ def _read(board, search, fetch, route, early):
                     return jobs, 'browser', None
                 if declared:
                     return declared, 'ok', found_route
-                if careers._shell(page):   # a frame with no route: a visit reads it
-                    return jobs, 'browser', None
+                if careers._shell(page):   # a page built by scripts, with no route: the headless browser reads it, else a visit does
+                    if show is None:
+                        return jobs, 'browser', None
+                    try:
+                        page = show(url)
+                    except Exception as error:  # noqa: BLE001 — refused (401/403/429, a bot check), not allowed or no browser: a visit
+                        careers.note_refusal(url, error)
+                        return jobs, 'browser', None
+                    fetch = show   # this board's other searches and next pages are built by scripts too
+                    found = careers.jsonld_jobs(page, url) or careers.read_page_from(page, url, fetch)
             if not found and not asked_ai:   # an open, readable page no free step reads: the AI reads it once (its caps), and the recipe it
                 asked_ai = True              # leaves reads it free from then on (owner, 18 Oct 2026; src/sources/page_recipes.py)
                 found = careers._asked(url, page, [], fetch)
             if found and not early:   # the next pages of these results, while they still give relevant jobs (board_pages.py)
                 found = found + board_pages.more(url, page, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(markup, link, fetch),
                                                  lambda some: board_yield.is_relevant(some))
-            for job in found:
-                jobs.append(_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}",
-                                 job['location'], job['url'], job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')))
+            jobs.extend(_shaped(board, found))
             state = 'ok' if jobs else state
         new = {job['url'] for job in jobs} - seen
         seen |= new
         idle = 0 if new else idle + 1
     return jobs, state, None
+
+
+def _shaped(board, found):
+    from .aggregators import _job
+    return [_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}", job['location'], job['url'],
+                 job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')) for job in found]
+
+
+def _read_by_ai(board, search, fetch):
+    """The board's first search page read by the AI page reader (a recipe from an earlier answer first, src/sources/page_recipes.py), for a
+    board whose page rules gave jobs but none relevant (owner, 19 Oct 2026: a music board's menu, "Berufe beginnend mit a: ... z:", was
+    read as 30 jobs). [] with the reader off or no answer."""
+    if careers.READER is None:   # the page reader is off (tests, a user who keeps pages from the AI): nothing is fetched
+        return []
+    place = (_places(search) or [''])[0] if '{place}' in board['search_url'] else ''
+    url = board['search_url'].replace('{role}', urllib.parse.quote_plus(_terms(search, 1)[0])).replace('{place}', urllib.parse.quote_plus(place))
+    try:
+        page = fetch(url)
+    except Exception:  # noqa: BLE001 — the page does not answer now: the other ways stand
+        return []
+    return _shaped(board, careers._asked(url, page, [], fetch)) if page and not careers._shell(page) else []
 
 
 def _retry_due(entry, now):
@@ -133,17 +160,29 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
-def _another_way(board, entry, proposed, search, fetch, judge, before):
-    """(jobs, state, relevant) for a board whose proposed link gave no relevant job: through the search form on its home page
+def _another_way(board, entry, proposed, search, fetch, judge, before, show=None):
+    """(jobs, state, relevant) for a board whose proposed link gave no relevant job: when its rules read something (a menu, a news search),
+    the AI page reader reads its search page (_read_by_ai); else through the search form on its home page
     (src/sources/board_forms.py), kept as the board's link (the pool share sends it, src/contribute.py); else the job list it declares
     itself (a feed, its home page's own data or the sitemap in robots.txt: board_routes, job pages naming the search words first), kept
     as its route (owner, 18 Oct 2026: Randstad listed warehouse jobs for "financial analyst" and has a job sitemap). Else `before`; the
     board is not looked at again while the proposed link stays the same."""
     entry['form_for'] = proposed
+    if before[0]:   # the rules read something that was no relevant job (a menu, a news search): the AI reads the page itself
+        read = _read_by_ai(board, search, fetch)
+        relevant = judge(read) if read else []
+        if relevant:
+            print(f"Job boards found: {board['name']} read by the AI page reader", flush=True)
+            return read, 'ok', relevant
     page = board_forms.home(board, fetch)
+    if show and page[1] and careers._shell(page[1]):   # a home page built by scripts: its search form exists only in the headless browser
+        try:
+            page = (page[0], show(page[0]))
+        except Exception:  # noqa: BLE001 — refused or no browser: the plain home page stands
+            pass
     for template in board_forms.home_templates(board, fetch, page):
         try:
-            again, state, _ = read_board({**board, 'search_url': template}, search, fetch, None)
+            again, state, _ = read_board({**board, 'search_url': template}, search, fetch, None, show=show)
         except Exception:  # noqa: BLE001 — a form link that fails: the next one, or the proposed link's result
             continue
         relevant = judge(again) if again else []
@@ -173,6 +212,8 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
     19 Oct 2026: a second wave after the first made Finance's first-jobs step wait 35 s; 4 of music's first 6 boards refused). web: a full
     read with no trade or local board that gave a job asks one web search for them and reads what it finds (src/sources/board_web.py)."""
     from ..ai import board_ideas
+    # the headless browser, for the real web only: never a test's pages, and off with the page reader (tests turn it off: test_found_boards_ai.py)
+    show = careers.renderer() if fetch in (None, careers.get_text) and careers.READER is not None else None
     fetch = fetch or careers.get_text   # looked up when called: a test's or a run's own fetcher applies
     from . import board_yield
     data = board_ideas.load()
@@ -207,7 +248,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             if early:
                 fetched[url] = page
             return page
-        result = read_board(board, search, through, entry.get('route'), early=early)
+        result = read_board(board, search, through, entry.get('route'), early=early, show=show)
         if not result[0] and result[1] != 'browser' and entry.get('site_kind') in (None, 'gone'):   # nothing read: a board at all? (board_check)
             site, page = board_check.kind(board, fetch)
             if site:
@@ -253,7 +294,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             board_yield.record(entry, 0, 0, 'empty')
             return
         if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
-            found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant))
+            found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant), show=show)
         entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
                       'source_kind': board.get('source_kind') or 'general'})
         board_yield.record(entry, len(found), len(relevant), state)

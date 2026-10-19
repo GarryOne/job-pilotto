@@ -95,7 +95,7 @@ class ReadTests(unittest.TestCase):
             self.addCleanup(patch.stop)
 
     def read(self, boards, spare=(), now=None):
-        def read_board(b, search, fetch, route=None, early=False):
+        def read_board(b, search, fetch, route=None, early=False, show=None):
             return ([], 'empty', None) if b['host'] in ('b1.example', 'b2.example', 'b3.example') else \
                 ([{'title': 'Berufskraftfahrer', 'url': f"https://{b['host']}/1", 'location': 'Nürnberg'}], 'ok', None)
         with mock.patch.object(found_boards, 'read_board', read_board), mock.patch.object(found_boards, '_another_way', side_effect=lambda *a: a[-1]):

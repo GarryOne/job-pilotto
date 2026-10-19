@@ -101,7 +101,7 @@ class ReadTests(Base):
     def test_a_full_read_without_trade_boards_reads_what_the_search_found_and_the_slice_never_searches(self):
         asked, searched = [], []
 
-        def read_board(b, search, fetch, route=None, early=False):
+        def read_board(b, search, fetch, route=None, early=False, show=None):
             asked.append(b['host'])
             return [{'title': 'Tontechniker', 'url': f"https://{b['host']}/1", 'location': 'Berlin'}], 'ok', None
         with mock.patch.object(found_boards, 'read_board', read_board), mock.patch.object(found_boards, '_dead', return_value=set()), \
