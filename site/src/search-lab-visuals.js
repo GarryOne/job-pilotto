@@ -6,7 +6,7 @@ import {TIME_NAMES} from './search-lab-judge.js';
 
 export const TONE_COLOR = {good: '#4cc38a', bad: '#ff6b6b', wait: '#f0b44c', info: '#5aa9ff', mute: '#6b7480'};
 const STATE_TONE = {working: 'good', failed: 'bad', worse: 'bad', stale: 'wait', new: 'info'};
-const WORDS = {working: 'Working', failed: 'FAILED', worse: 'Worse', stale: 'Tape stale', new: 'New'};
+const WORDS = {working: 'Working', failed: 'FAILED', worse: 'Worse', stale: 'No valid replay', new: 'New'};
 const fmt = value => (value == null ? '–' : Number(value).toLocaleString('en-US'));
 const clock = value => (value == null ? 'not reached' : value < 60 ? `${value} s` : `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`);
 const pct = (part, whole) => (whole ? Math.round((100 * part) / whole) : 0);
@@ -37,7 +37,7 @@ export function tiles(rows, newest) {
   return `<div class="lv-tiles">${tile(fine === rows.length && rows.length ? 'good' : 'wait', 'Not worse than last green', `${fine} / ${rows.length}`, 'candidates replayed')}
 ${tile(count('worse') ? 'bad' : 'good', 'Worse', count('worse'), 'a count lower or a time over 25 % slower')}
 ${tile(count('failed') ? 'bad' : 'good', 'FAILED', count('failed'), 'a step crashed')}
-${tile(count('stale') ? 'wait' : 'good', 'Tape stale', count('stale'), 'the tape lacks what this build asks')}
+${tile(count('stale') ? 'wait' : 'good', 'No valid replay', count('stale'), 'replay parked')}
 ${tile('info', 'Newest run', newest?.build ? esc(newest.build.slice(0, 7)) : '–', newest ? esc(when(newest.run_at)) : 'nothing replayed yet')}</div>${healthBar(rows)}`;
 }
 
@@ -74,12 +74,12 @@ export function cards(rows, all) {
   const scale = Math.max(60, ...reached);
   return `<div class="lv-cards">${rows.map(row => {
     const history = all.filter(item => item.candidate === row.now.candidate).sort((a, b) => a.run_at.localeCompare(b.run_at)).slice(-30);
-    const tone = STATE_TONE[row.state], base = row.base, ok = row.state !== 'failed';
+    const tone = STATE_TONE[row.state], base = row.base, ok = row.state !== 'failed' && row.state !== 'stale';
     return `<section class="card lv-card" style="--tone:${TONE_COLOR[tone]}"><header><b>${esc(row.label)}</b>${row.control ? ' <span class="chip">control</span>' : ''}<span class="state ${tone === 'info' ? 'wait' : tone}">${WORDS[row.state]}</span></header>
 ${ok ? `<div class="lv-big"><div><b>${fmt(row.now.in_places)}</b><span class="muted">jobs in your places</span></div><div><b>${fmt(row.now.scored)}</b><span class="muted">scored</span></div><div><b style="color:${TONE_COLOR.good}">${fmt(row.now.fit70)}</b><span class="muted">scoring 70+</span></div></div>
 <h3>Time to results</h3>${timeBars(row, scale)}<h3>Funnel</h3>${meter('Scored', row.now.scored ?? 0, row.now.in_places ?? 0, 'info')}${meter('70+', row.now.fit70 ?? 0, row.now.scored ?? 0, 'good')}
 <h3>Across ${history.length} run${history.length === 1 ? '' : 's'}</h3><div class="lv-sparks"><div><span class="muted">in places</span>${spark(history.map(item => item.in_places), TONE_COLOR.info)}</div><div><span class="muted">70+</span>${spark(history.map(item => item.fit70), TONE_COLOR.good)}</div><div><span class="muted">${TIME_NAMES.first_s}, s</span>${spark(history.map(item => item.first_s), TONE_COLOR.wait)}</div></div>`
-  : `<p class="lv-crash">${esc(row.why[0] || 'a step crashed')}</p>`}
+  : row.state === 'stale' ? '<p class="muted">No valid replay (replay parked)</p>' : `<p class="lv-crash">${esc(row.why[0] || 'a step crashed')}</p>`}
 ${row.why.length && ok ? `<div class="why">${row.why.map(esc).join('<br>')}</div>` : ''}
 <footer class="muted"><span>build <code>${esc((row.now.build || '–').slice(0, 7))}</code> · ${esc(when(row.now.run_at))}</span><span>${base ? `last green <code>${esc((base.build || '–').slice(0, 7))}</code> · ${esc(when(base.run_at))}` : 'no green run yet'}</span></footer></section>`;
   }).join('')}</div>`;
@@ -87,11 +87,10 @@ ${row.why.length && ok ? `<div class="why">${row.why.map(esc).join('<br>')}</div
 
 // Numbers over the newest search of every candidate and over every kept run: the strip under the tiles.
 export function statsStrip(rows, all) {
-  const now = rows.map(row => row.now), sum = field => now.reduce((total, item) => total + (item[field] || 0), 0);
+  const now = rows.filter(row => row.state !== 'stale').map(row => row.now), sum = field => now.reduce((total, item) => total + (item[field] || 0), 0);
   const okRuns = all.filter(run => run.state === 'ok').length, builds = new Set(all.map(run => run.build).filter(Boolean)).size;
   const stat = (name, value, note) => `<div class="lv-stat"><span class="muted">${name}</span><b>${value}</b><span class="muted">${note}</span></div>`;
-  return `<section class="card lv-stats">${stat(`Median ${TIME_NAMES.first_s.toLowerCase()}`, clock(median(now.map(item => item.first_s))), 'across candidates')}${stat(`Median ${TIME_NAMES.fit_s.toLowerCase()}`, clock(median(now.map(item => item.fit_s))), 'across candidates')}
-${stat('Jobs in places', fmt(sum('in_places')), 'all candidates, newest run')}${stat('Scored', fmt(sum('scored')), `${pct(sum('scored'), sum('in_places'))} % of those`)}${stat('Scoring 70+', fmt(sum('fit70')), `${pct(sum('fit70'), sum('scored'))} % of scored`)}
+  return `<section class="card lv-stats">${stat('Jobs in places', fmt(sum('in_places')), 'all candidates, newest run')}${stat('Scored', fmt(sum('scored')), `${pct(sum('scored'), sum('in_places'))} % of those`)}${stat('Scoring 70+', fmt(sum('fit70')), `${pct(sum('fit70'), sum('scored'))} % of scored`)}
 ${stat('Runs kept', fmt(all.length), `${okRuns} replayed, ${all.length - okRuns} not`)}${stat('Builds seen', fmt(builds), 'distinct commits')}${stat('Oldest kept run', when(all.reduce((top, run) => (!top || run.run_at < top ? run.run_at : top), '')), 'oldest kept run')}</section>`;
 }
 
