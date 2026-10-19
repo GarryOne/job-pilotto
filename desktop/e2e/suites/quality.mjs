@@ -106,7 +106,7 @@ export async function run(ctx) {
       // The search is the candidate's (a senior SRE in Zurich), saved the way the app saves it (saveStrategy, search only): on this Mac's store into
       // config/search.json, on Notion into ⚙️ Search settings too, which the engine reads first and which would otherwise keep the setup's places
       // (9 Oct 2026, stand-in: "changed your places: −geneva … −bern" dropped the Geneva and Bern postings, 3008 and 3005).
-      const base = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
+      const base = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.example.json'), 'utf8'));
       const search = {...base, role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
         locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})};
       const saved = await page.evaluate(search => window.pilot.saveStrategy({search, profile_markdown: '', answers_markdown: '', contact: {}}, ['search']), search);

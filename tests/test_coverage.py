@@ -112,8 +112,8 @@ class VerdictTest(unittest.TestCase):
             said = coverage.verdict(self.SUMMARY, keywords=keywords)
             self.assertEqual(said['suggestions'], [], keywords)
             self.assertFalse(said['narrow'], keywords)
-        for keywords in (['data analyst'], ['\\bit\\b support'], ['ingénieur système'], ['Softwareentwickler'], []):
-            self.assertTrue(coverage.verdict(self.SUMMARY, keywords=keywords)['suggestions'], keywords)   # technical (or unknown): as before
+        for keywords in (['data analyst'], ['\\bit\\b support'], ['ingénieur système'], ['Softwareentwickler']):
+            self.assertTrue(coverage.verdict(self.SUMMARY, keywords=keywords)['suggestions'], keywords)   # technical: as before
 
     def test_a_wide_enough_search_or_nothing_worth_adding_is_not_a_warning(self):
         self.assertFalse(coverage.verdict(dict(self.SUMMARY, matched=800), keywords=[])['narrow'])                                  # catches a quarter

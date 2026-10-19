@@ -1,66 +1,19 @@
 {
-  "_comment": "Example search settings (a data analyst in Amsterdam and Berlin), not anyone's real search. Each user's own settings live in their Notion page ⚙️ Search settings (the setup wizard drafts them from the CV); the app and the terminal keep a cached copy in their own config folder. Regex fragments are case-insensitive.",
-  "role_keywords": [
-    "data analyst",
-    "business intelligence",
-    "\\bbi\\b",
-    "analytics engineer",
-    "reporting analyst"
-  ],
-  "title_exclude_keywords": [
-    "\\bintern(ship)?\\b",
-    "\\bsales\\b",
-    "recruit(er|ing)",
-    "\\blegal\\b"
-  ],
-  "board_discovery_keywords": [
-    "data",
-    "analyst",
-    "analytics",
-    "business intelligence",
-    "\\bbi\\b"
-  ],
-  "jobs_board_search_queries": [
-    "data analyst",
-    "business intelligence analyst",
-    "analytics engineer"
-  ],
-  "quality_stack_keywords": [
-    "\\bsql\\b",
-    "python",
-    "dbt",
-    "looker",
-    "power bi",
-    "tableau",
-    "snowflake"
-  ],
+  "_comment": "Search settings before the strategy is drafted: no role, stack or place, because the roles come from the person's own CV (the setup wizard drafts them; format example: config/search.example.json). Regex fragments are case-insensitive.",
+  "role_keywords": [],
+  "title_exclude_keywords": [],
+  "board_discovery_keywords": [],
+  "jobs_board_search_queries": [],
+  "quality_stack_keywords": [],
   "locations": {
-    "top_tier": [
-      "amsterdam",
-      "berlin"
-    ],
-    "country_wide": [
-      "netherlands",
-      "germany"
-    ],
+    "top_tier": [],
+    "country_wide": [],
     "abroad": []
   },
   "google_jobs": {
-    "queries": [
-      "data analyst",
-      "analytics engineer"
-    ],
-    "country": "nl",
-    "locations": [
-      {
-        "location": "Amsterdam,North Holland,Netherlands",
-        "language": "nl"
-      },
-      {
-        "location": "Berlin,Berlin,Germany",
-        "language": "de"
-      }
-    ],
+    "queries": [],
+    "country": "",
+    "locations": [],
     "searches_per_run": 1,
     "min_searches_left": 20
   },

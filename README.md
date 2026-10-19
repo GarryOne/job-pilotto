@@ -46,7 +46,7 @@ crawls every Active row of your Employers & Sources database (your own list, kep
 own optional scout). On top of both, every run downloads the shared employer index: feeds found and verified
 daily by one central scout, worldwide, each with the places it hires in; only feeds with roles in *your* places
 are crawled (`JOB_PILOTTO_INDEX_ALL=1` for all, `JOB_PILOTTO_DISABLE=index` for none). Nothing about you is sent to
-get it. If the service is down, the cache or the starter list is used. Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
+get it. If the service is down, the cache or the starter list is used. Make it yours by editing `config/search.json` (job titles, places, skills; it ships empty, the setup drafts it from your CV; format example: `config/search.example.json`; see
 [Configuration](#configuration)) and `config/sources.json` (employer feeds to crawl). That's a
 working job search. Everything below is an upgrade you can skip.
 
@@ -978,7 +978,7 @@ src/
     ledger.py        application record frozen at Applied, 📈 Application Events, the scheduled
                      sync (hand edits, No response after 30 days) and `add`
 config/
-  search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
+  search.json        role/location/skill keywords (empty until your strategy is drafted; example in search.example.json) — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
   sources.json       shared starter list of verified employer feeds, always crawled
                      (refresh: python3 -m src scout --export-sources)

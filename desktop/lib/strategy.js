@@ -219,7 +219,7 @@ export const withoutUnknownGithub = (markdown, contact = {}) => (contact?.github
 export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
   const cv = fs.readFileSync(storage.path('cv.pdf'));
   const known = knownFacts(storage);
-  const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
+  const example = fs.readFileSync(path.join(REPO, 'config', 'search.example.json'), 'utf8');
   const anthropic = client || anthropicApi(apiKey);
   const request = {
     model: MODEL,

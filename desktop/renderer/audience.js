@@ -5,11 +5,11 @@ const TECH_WORDS = /(?<![a-z])(software|developer|devops|sre|site reliability|cl
 const STEMS = ['software', 'entwickler', 'informatik', 'devops', 'kubernetes', 'programmier', 'sysadmin', 'systemadmin'];
 const words = fragment => String(fragment).replace(/\\[bwsd]|[\\^$()|?*+[\]{}.]/g, ' ');
 
-// Role keywords (regex fragments or plain words) -> true when any names IT/engineering work. An empty list is unknown, not non-technical (as in Python).
-export const looksTechnical = (keywords = []) => !keywords.length || keywords.map(words).some(word => TECH_WORDS.test(word) || STEMS.some(stem => word.toLowerCase().includes(stem)));
+// Role keywords (regex fragments or plain words) -> true when any names IT/engineering work. An empty list is no IT search: roles not known yet steer no one to tech (as in Python).
+export const looksTechnical = (keywords = []) => keywords.map(words).some(word => TECH_WORDS.test(word) || STEMS.some(stem => word.toLowerCase().includes(stem)));
 
 // What to show: IT-only guidance only to someone who is clearly technical: with no roles known yet, the general version is the safe one.
-export const clearlyTechnical = (keywords = []) => keywords.length > 0 && looksTechnical(keywords);
+export const clearlyTechnical = (keywords = []) => looksTechnical(keywords);
 
 // ---- where the candidate is: examples and fields written for another market stay out of their way ----
 // A place fragment as plain words: "\\bz[u\u00fc]rich\\b" -> "Z\u00fcrich", "manchester" -> "Manchester".

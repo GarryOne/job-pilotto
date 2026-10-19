@@ -292,6 +292,9 @@ def whole_word(fragment):
 def keyword_regex(fragments):
     """Case-insensitive regex matching any of these already-regex fragments (word boundaries,
 
-    optional chars etc. are the fragment author's choice — see config/search.json). A quoted entry is read as a whole word (whole_word)."""
+    optional chars etc. are the fragment author's choice — see config/search.example.json). A quoted entry is read as a whole word (whole_word).
+    No fragments match nothing (an empty pattern would match every title: a search with no roles yet wants no posting)."""
     import re
+    if not fragments:
+        return re.compile(r'(?!x)x')
     return re.compile('|'.join(whole_word(fragment) for fragment in fragments), re.I)
