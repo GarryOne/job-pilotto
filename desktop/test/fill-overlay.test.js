@@ -26,3 +26,14 @@ test('the overlay is invisible to hit-tests, ends on every way out, and is hidde
   assert.match(markup, /\.jp\.working \{ align-items: center; \}/, 'the panel is centred while filling');
   assert.doesNotMatch(markup, /\.jp\.working[^}]*\bzoom:/, 'the centred panel is the corner\'s size: no zoom (owner, 19 Oct 2026: 1.3 was too big)');
 });
+
+test('the magic behind the panel lives inside the layer, only moves transform and opacity, and stands still under reduced motion', () => {
+  const fx = read('extension/panel-overlay-fx.js');
+  assert.match(read('extension/panel-overlay.js'), /__jobPilottoOverlayFx\?\.\(layer\)/, 'drawn into the overlay layer: every end that removes the layer removes it');
+  assert.match(fx, /prefers-reduced-motion: reduce/, 'nothing is added under reduced motion');
+  assert.match(fx, /pointer-events:none/, 'takes no hit-test');
+  assert.doesNotMatch(fx, /setInterval|setTimeout|requestAnimationFrame|<style|fetch\(|url\(/, 'no timers, no page <style> a CSP could refuse, no network image');
+  for (const frame of fx.match(/\[\{[^\n]*\}\]/g) || []) assert.doesNotMatch(frame, /\b(left|top|width|height|margin|filter|box-shadow)\s*:/, 'animates compositor properties only');
+  const markup = read('extension/panel-markup.js');
+  assert.match(markup, /@media \(prefers-reduced-motion: reduce\) \{ \.jp\.working \.card \{ animation: none; \} \}/, 'the panel glow stops under reduced motion');
+});

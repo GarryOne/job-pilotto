@@ -2,7 +2,7 @@
 // The layer takes NO hit-test (pointer-events: none): every page read (elementFromPoint, on-top.js) and the driver's own clicks see the page; the blocking is done by capturing listeners
 // that drop only the person's trusted input. The driver (extension/input-gap.js) sets data-jobpilotto-driving around its own debugger input, which lets that through. The panel, the Stop chip
 // and the report card (ids starting jobpilotto) are never held. It lifts on every end: review.js calls off() when the fill ends, is stopped, needs the person or is stuck; a page change drops
-// it with the document; an extension reload and a missing refresh lift it from here. Injected before review.js (panel-files.js). Guards: desktop/e2e/test/fill-overlay.test.mjs, desktop/test/fill-overlay.test.js.
+// it with the document; an extension reload and a missing refresh lift it from here. The animated aurora, sparkles and shimmer on it are panel-overlay-fx.js. Injected before review.js (panel-files.js). Guards: desktop/e2e/test/fill-overlay.test.mjs, desktop/test/fill-overlay.test.js.
 (() => {
   const ID = 'jobpilotto-fill-overlay', MAX_MS = 180000;   // MAX_MS: no step refreshed it for three minutes: the person is never locked out of a stuck page
   const HELD = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'auxclick', 'contextmenu', 'keydown', 'keyup', 'keypress', 'wheel', 'touchstart', 'touchmove', 'dragstart', 'selectstart'];
@@ -26,6 +26,7 @@
     layer = Object.assign(document.createElement('div'), {id: ID});
     layer.style.cssText = 'position:fixed;inset:0;z-index:2147483645;pointer-events:none;background:rgba(19,36,57,.55);';
     document.documentElement.append(layer);
+    window.__jobPilottoOverlayFx?.(layer);   // the magic behind the panel (panel-overlay-fx.js): inside the layer, so every end takes it away
     for (const name of HELD) window.addEventListener(name, hold, {capture: true, passive: false});
     watch = setInterval(() => { if (!chrome.runtime?.id || Date.now() - refreshed > MAX_MS) off(); }, 1000);
   }
