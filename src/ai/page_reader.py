@@ -14,6 +14,7 @@ import sqlite3
 import urllib.parse
 from datetime import datetime, timezone
 
+from .. import budget_tape
 from . import cost, engine
 from ..sources import ats, careers
 from .models import SMALL_MODEL
@@ -131,7 +132,7 @@ def read(url, markup, client=None, db=None, careers_page=False):
         row = db.execute('SELECT digest, jobs_json FROM page_reads WHERE url = ?', (url,)).fetchone()
         if row and row[0] == digest:
             return clean(json.loads(row[1]), url)
-        if _reads.get(counter, 0) >= limit:
+        if not budget_tape.within('page read', f'{counter} {url}', _reads.get(counter, 0), limit):
             return clean(json.loads(row[1]), url) if row else None
         client = client or engine.client(action='scout')
         _reads[counter] = _reads.get(counter, 0) + 1
@@ -189,7 +190,7 @@ def choose_links(site, markup, client=None, db=None):
         row = db.execute('SELECT digest, links_json FROM link_choices WHERE site = ?', (site,)).fetchone()
         if row and row[0] == digest:
             picked = json.loads(row[1])
-        elif _reads['n'] >= MAX_READS_PER_RUN:
+        elif not budget_tape.within('page read', f'links {site}', _reads['n'], MAX_READS_PER_RUN):
             return []
         else:
             client = client or engine.client(action='scout')
