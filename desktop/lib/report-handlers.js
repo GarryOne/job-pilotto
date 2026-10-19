@@ -39,7 +39,7 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
       if (!final.ok) return refused(final.blocked.map(hit => hit.kind));
       const note = scrubNote(payload.note, values());
       if (!note.ok) return refused(note.blocked);
-      const sent = await uploader.send(final.record, {cause: note.text}).catch(error => ({ok: false, error: String(error?.message || error).slice(0, 160)}));
+      const sent = await uploader.send(final.record, {note: note.text}).catch(error => ({ok: false, error: String(error?.message || error).slice(0, 160)}));
       appLog('report', sent.ok ? 'a report was sent' : `a report was not sent: ${sent.error}`);
       return sent.ok ? {ok: true} : {ok: false, error: sent.error};
     }
