@@ -28,11 +28,12 @@ export function paint(card, state, names, act) {
     if (night.aiStopped) summary.append(Object.assign(pill('AI stopped', 'warn'), {title: "Your AI stopped during the night (its limit or the night's cost cap): open questions are left for you, the rest is filled."}));
   } else summary.append(pill('Nothing sent yet', 'neutral'));
   // The forms the night works on now: how many fill and wait, and one Stop for all of them (owner, 18 Oct 2026: Stop for the whole night).
-  const lives = jobs.map(job => liveOf(job, night?.state, state.pending?.has(job.job)));
-  const filling = lives.filter(live => live && live.badge !== 'waiting').length, waiting = lives.filter(live => live?.badge === 'waiting').length;
+  const lives = jobs.map(job => liveOf(job, night?.state, state.pending?.has(job.job), night?.why));
+  const badged = badge => lives.filter(live => live?.badge === badge).length, stuck = badged('stuck'), waiting = badged('waiting'), filling = lives.filter(live => live && !['waiting', 'stuck'].includes(live.badge)).length;
   if (filling) summary.append(pill(`${filling} filling`, 'info', {dot: true}));
+  if (stuck) summary.append(pill(`${stuck} stuck`, 'warn'));
   if (waiting) summary.append(pill(`${waiting} waiting`, 'neutral'));
-  if (filling + waiting) summary.append(act.stopAll());
+  if (filling + waiting + stuck) summary.append(act.stopAll());
   body.append(summary);
   // The card's own bar only for a whole night's Fill now (and its first seconds, before the rows show it); each row has its own bar.
   const progress = ['sending', 'preparing'].includes(state.phase) || state.wholeNight ? progressOf({phase: state.phase, batch: night, jobs: state.site?.jobs || [], error: state.phaseError}) : null;

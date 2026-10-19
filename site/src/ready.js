@@ -10,6 +10,7 @@ import {makeLink, viaLink} from './ready-link.js';
 import {fillAgain} from './ready-again.js';
 import {LIVE, progress, stop} from './ready-line.js';
 import {runNow} from './ready-tick.js';
+import {whyOf} from './ready-why.js';
 import {closeNight, morning, readyToken} from './ready-morning.js';
 import {dropKept, jobsWithKept, keptPut, videoGet} from './ready-kept.js';
 export {readyToken};
@@ -181,7 +182,7 @@ async function mine(request, env, now, sub) {
     if (!row) return json({ok: true, batch: null, jobs: []});
     const {results} = await env.STATS.prepare('SELECT job, host, state, filled, left_empty, human_check, wall, ms, submitted_at, cleared_at, step, step_n, started_at FROM ready_jobs WHERE batch = ? ORDER BY job').bind(row.id).all();
     const videos = await jobsWithKept(env, install, 'video', row.id).catch(() => new Set());   // Watch the fill: which rows have the night's video
-    return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at, aiStopped: !!row.ai_stopped}, jobs: results.map(job => ({...job, video: videos.has(job.job)}))});
+    return json({ok: true, batch: {night: row.night, state: row.state, costUsd: row.cost_micro / 1e6, expiresAt: row.expires_at, aiStopped: !!row.ai_stopped, why: whyOf(env, row, results, now)}, jobs: results.map(job => ({...job, video: videos.has(job.job)}))});
   }
   if (sub === 'report') {   // the morning line: prepared / reached a form / filled completely / he submitted, per night
     const {results} = await env.STATS.prepare(`SELECT b.night, b.cost_micro, COUNT(*) AS prepared_for, SUM(j.state IN ('prepared','partial')) AS reached, SUM(j.state = 'prepared') AS complete,
