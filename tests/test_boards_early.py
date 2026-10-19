@@ -57,7 +57,7 @@ class SpareTests(unittest.TestCase):
         data, order, said = {'boards': {}}, [], []
         spare_started = threading.Event()
 
-        def read_board(board, search, fetch, route=None, early=False):
+        def read_board(board, search, fetch, route=None, early=False, show=None):
             if board['host'] == slow:   # the slowest first board: still being read when the spare one starts
                 self.assertTrue(spare_started.wait(5), 'the spare board is read while the first ones are, not after them')
             if int(board['host'][1:].split('.')[0]) > 6:
