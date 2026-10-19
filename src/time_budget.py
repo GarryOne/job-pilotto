@@ -89,11 +89,13 @@ def reserve(step):
     return RESERVE.get(step, 0)
 
 
-def over(step='score', now=None):
+def over(step='score', now=None, key=None):
     """True when `step` must not start another AI call: the run's budget, minus what the later steps keep, is spent. On a search tape the
-    answer is the recorded one (src/budget_tape.py): a replay takes the recording's path, not its own clock's."""
+    answer is the recorded one (src/budget_tape.py): a replay takes the recording's path, not its own clock's. Batches that run side by
+    side name themselves with `key` (their first item): the answer is kept per batch, not per call position, which is the threads' arrival order
+    (19 Oct 2026, heal proof 6: 18 title questions the recording had skipped as out of time were asked by the replay)."""
     if now is None:
-        return budget_tape.decide('over', [step], lambda: _over(step, None))
+        return budget_tape.decide('over', [step] if key is None else [step, str(key)], lambda: _over(step, None))
     return _over(step, now)
 
 

@@ -135,7 +135,7 @@ def decide(locations, search, client=None):
     countries = {}
 
     def one(batch):
-        if budget.over('place_rounds'):
+        if budget.over('place_rounds', key=batch[0]):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=4000, system=[{'type': 'text', 'text': SYSTEM}],
@@ -206,7 +206,7 @@ def vague(locations, search, client=None):
     lock, done = threading.Lock(), [0]
 
     def one(batch):
-        if budget.over('place_vague'):
+        if budget.over('place_vague', key=batch[0]):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': VAGUE_SYSTEM}],
@@ -291,7 +291,7 @@ def read(jobs, search, client=None):
     lock, done = threading.Lock(), [0]
 
     def one(batch):
-        if budget.over('place_reading'):
+        if budget.over('place_reading', key=batch[0].get('url') or batch[0].get('title')):
             return
         listed = '\n\n'.join(f"{n}. Title: {job['title']}\nLocation field: {job.get('location') or '(none)'}\nText: {' '.join(job['description'].split())[:1200]}"
                               for n, job in enumerate(batch, 1))

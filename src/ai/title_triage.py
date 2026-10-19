@@ -79,7 +79,7 @@ def decide(titles, search, client=None):
     late = [0]   # titles of batches not started: the search's time was up (src/time_budget.py); the next search asks about them
 
     def one(batch):
-        if budget.over('titles'):
+        if budget.over('titles', key=batch[0]):
             with lock:
                 late[0] += len(batch)
             return
