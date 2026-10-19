@@ -78,7 +78,7 @@ ${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}
 // A section folded away under its title: the numbers stay one click from the charts (owner, 19 Oct 2026: "too much of raw numbers/text/tables").
 const fold = (title, html) => `<details class="fold"><summary>${title}</summary>${html}</details>`;
 
-export function page(data, url = new URL('https://www.jobpilotto.top/admin/scouting'), today = new Date()) {
+export function page(data, url = new URL('https://www.jobadabra.top/admin/scouting'), today = new Date()) {
   const {feeds} = data;
   const nonIt = feeds.filter(feed => !['software', 'unknown'].includes(topKind(feed))).length;
   const past = history(data.daily, today);

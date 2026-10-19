@@ -14,3 +14,21 @@ export function apexRedirect(request) {
 
 // Our own hosts, www stripped: a referrer from any of them is the site linking to itself (src/stats.js sourceOf).
 export const OWN_HOSTS = [...ALIAS_APEXES, 'jobpilotto.workers.dev'];
+
+// The main address is www.jobadabra.top (owner, 19 Oct 2026). The old name keeps answering for ever: installed apps and the engine call
+// www.jobpilotto.top/api/*, /report/*, /telemetry with POSTs and auth headers, which a redirect would break. Only the human pages move:
+// a GET of a page on the old hosts -> 301 to the same path on www.jobadabra.top, query kept. wrangler.toml's run_worker_first lists the same
+// paths (static pages are otherwise served before this code runs); test/hosts.test.js fails when a page in public/ is missing from either.
+export const MAIN_HOST = 'www.jobadabra.top';
+export const LEGACY_HOSTS = ['www.jobpilotto.top'];   // the bare jobpilotto.top goes through apexRedirect first
+export const PAGE_PATHS = ['/', '/changelog', '/compare', '/friends', '/intelligence', '/platforms', '/pricing', '/privacy', '/ready-live', '/terms'];
+export function legacyPageRedirect(request) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+  const url = new URL(request.url);
+  if (!LEGACY_HOSTS.includes(url.hostname)) return null;
+  const path = url.pathname.replace(/\.html$/, '').replace(/^\/index$/, '/');
+  if (!PAGE_PATHS.includes(path)) return null;
+  url.hostname = MAIN_HOST;
+  url.pathname = path;
+  return Response.redirect(url.toString(), 301);
+}

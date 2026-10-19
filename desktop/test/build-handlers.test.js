@@ -17,7 +17,7 @@ test('a source run reports the commit it started on and the fixes waiting in the
 
 test('a package is never "ahead" here: its fixes come through the Update button; it says its version and links the changelog', async () => {
   const state = await make({FROM_SOURCE: false, packaged: {commit: 'def5678', time: ''}, app: {getVersion: () => '0.7.0'}}).handlers.buildState();
-  assert.deepEqual({label: state.label, ahead: state.ahead, whatsNew: state.whatsNew}, {label: 'v0.7.0', ahead: 0, whatsNew: 'https://www.jobpilotto.top/changelog'});
+  assert.deepEqual({label: state.label, ahead: state.ahead, whatsNew: state.whatsNew}, {label: 'v0.7.0', ahead: 0, whatsNew: 'https://www.jobadabra.top/changelog'});
   assert.equal(state.restart, '');
 });
 

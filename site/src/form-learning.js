@@ -7,7 +7,7 @@ import {esc} from './stats.js';
 import {familySection, funnelSection, recipesTile, trend} from './form-sections.js';
 import {pageView, shell} from './form-shell.js';
 
-export const page = (data, url = new URL('https://www.jobpilotto.top/admin/form-learning')) => shell({title: 'Form Learning', icon: '🧬', data, url,
+export const page = (data, url = new URL('https://www.jobadabra.top/admin/form-learning')) => shell({title: 'Form Learning', icon: '🧬', data, url,
   inner: d => [`<div class="tiles">\n${recipesTile(d)}\n</div>`, familySection(d.families, d.learning?.sample), answersSection(d.answers, trend), proposalCard(d.learning?.proposals, esc), bestCaseSection(d.bestCase), funnelSection(d)].join('\n')});
 
 export const view = pageView(page);

@@ -8,4 +8,4 @@ Disallow: /feedback
 Disallow: /friends
 Disallow: /install
 
-Sitemap: https://www.jobpilotto.top/sitemap.xml
+Sitemap: https://www.jobadabra.top/sitemap.xml

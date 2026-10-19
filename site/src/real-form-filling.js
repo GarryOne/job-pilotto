@@ -7,7 +7,7 @@ import {pageView, shell} from './form-shell.js';
 import {reportCounts, reportsSection} from './report-counts.js';
 import {leftEmptyHeadlineCard, leftEmptySection} from './left-empty.js';
 
-export const page = (data, url = new URL('https://www.jobpilotto.top/admin/real-form-filling')) => shell({title: 'Real Form Filling', icon: '📝', data, url,
+export const page = (data, url = new URL('https://www.jobadabra.top/admin/real-form-filling')) => shell({title: 'Real Form Filling', icon: '📝', data, url,
   inner: d => [leftEmptyHeadlineCard(d.leftEmpty), realTiles(d), reportsSection(d.reports), weaknessesSection(d.learning), leftEmptySection(d.leftEmpty, {headline: false}), realUseSection(d), resultsSection(d.results), efficiencySection(d.learning), marksSection(d.marks)].join('\n')});
 
 export const view = pageView(page, async db => ({reports: await reportCounts(db)}));

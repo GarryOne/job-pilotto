@@ -4,7 +4,7 @@ import {digestOf} from './guard.js';
 import {hostedOn, INACTIVE_DAYS, startRun} from './hosted.js';
 import {monthStopUsd, trialUsd} from './free-ai.js';
 
-export const BATCH = 50, MONTH_COMPUTE_MICRO = 1_500_000, SITE = 'https://www.jobpilotto.top';
+export const BATCH = 50, MONTH_COMPUTE_MICRO = 1_500_000, SITE = 'https://www.jobadabra.top';
 const DAY = 24 * 60 * 60 * 1000, HOUR = 60 * 60 * 1000;
 const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
 const count = async (kv, key) => Number(kv ? await kv.get(key) : 0) || 0;

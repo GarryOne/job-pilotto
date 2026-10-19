@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {appBuild, headBuild, restartLabel} from './build-state.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const CHANGELOG = 'https://www.jobpilotto.top/changelog';
+export const CHANGELOG = 'https://www.jobadabra.top/changelog';
 export const packagedBuild = () => packagedInfo();
 const packagedInfo = () => { try { const info = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'build-info.json'), 'utf8')); return {commit: String(info.commit || ''), time: String(info.at || info.date || '')}; } catch { return null; } };
 
