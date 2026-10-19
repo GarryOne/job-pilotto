@@ -14,7 +14,13 @@
     .report-pop .act:focus-visible, .report-pop textarea:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }`;
   const WORDS = {stopped: 'Job Pilotto was stopped before anything was recorded on this page. Press Apply in the app to start again.',
     off: 'The recording is turned off in Job Pilotto Settings, so there is nothing to send.', empty: 'Nothing has been recorded on this page yet (a sign-in page is never recorded). Try again after the page has loaded.',
-    worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.', app: 'Job Pilotto could not prepare this report. Is the app open?', expired: 'This report expired. Press Report again.'};
+    worker: 'Job Pilotto could not reach its extension service. Reload this page and try again.', app: 'The Job Pilotto app did not answer. Is the app open? Open it and press Report again.', expired: 'This report expired. Press Report again.',
+    failed: 'The app hit an error while preparing this report, so nothing was sent. Press Report again; if it repeats, the app\'s log says what stopped it.',
+    connect: 'The extension is not connected to the app. Open Job Pilotto, then reload this page and press Report again.',
+    old: 'This version of the app does not have Report yet. Update the app, then try again.',
+    error: 'The extension hit an error while handing over the recording. Reload this page and try again.',
+    unknown: 'The app did not understand the request. Update the app and the extension to the same version.',
+    other: 'Something unexpected stopped the report, so nothing was sent. Press Report again.'};
   const BLOCKED = 'Job Pilotto could not remove everything personal from it safely, so nothing was sent.';   // the same sentence the app logs
   const KINDS = {email: 'an e-mail address', phone: 'a phone number', name: 'your name', 'name-in-code': 'your name inside a script', location: 'your place', token: 'a sign-in token'};
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -34,13 +40,15 @@
     pop.hidden = false;
   };
   const close = () => { pop.hidden = true; };
-  const refusal = answer => (WORDS[answer?.refused] || (answer?.blocked ? `${BLOCKED} Still found: ${[...new Set((answer.blocked || []).map(kind => KINDS[kind] || kind))].join(', ')}.` : answer?.error || WORDS.app));
+  // The one true sentence for an answer that is not ok: its kind, else what the last check found, else what the upload said; never "the app is not open" unless the app did not answer.
+  const refusal = answer => (WORDS[answer?.refused] || (answer?.blocked ? `${BLOCKED} Still found: ${[...new Set((answer.blocked || []).map(kind => KINDS[kind] || kind))].join(', ')}.` : answer?.error || WORDS.other));
   const ask = message => (send ? send(message).catch(() => null) : Promise.resolve(null));
 
   async function open() {
     say('Send this form\'s recording?', 'Preparing what would be sent…', [['Cancel', false, close]]);
     const state = await ask({type: 'report-state'});
     if (!state) { say('Nothing was sent', WORDS.worker, [['OK', true, close]]); return; }
+    if (state.problem) { say('Nothing was sent', refusal({refused: state.problem}), [['OK', true, close]]); return; }   // the app could not be asked: that is not "turned off"
     if (state.enabled === false) { say('Nothing to send', WORDS.off, [['OK', true, close]]); return; }
     if (!state.has) { say('Nothing to send yet', WORDS[state.stopped ? 'stopped' : 'empty'], [['OK', true, close]]); return; }
     const answer = await ask({type: 'report-send'});
@@ -67,5 +75,5 @@
     (root.querySelector('.jp') || root).append(pop);   // inside the panel's own box: its fonts and colour tokens apply
     ask({type: 'report-state'}).then(onState);
   }
-  window.__jobPilottoReport = {mount, open};
+  window.__jobPilottoReport = {mount, open, words: WORDS, sentence: refusal};   // words and sentence: for desktop/test/report-failures.test.js
 })();

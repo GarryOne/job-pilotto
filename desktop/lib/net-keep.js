@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import {normalise} from './ai/model-memo.js';
 
 const LOOP = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
-export const recordable = url => /^https?:/.test(url) && !LOOP.test(url);
+export const recordable = url => /^https?:/.test(url) && !LOOP.test(url) && URL.canParse(url);   // an address the URL parser refuses cannot be kept or grouped by host
 export const siteOf = host => host.split('.').slice(-2).join('.');   // prototype: the last two labels (the build: the public suffix list)
 const NONCE = /^(?=.*\d)(?=.*[a-z])[a-z0-9_-]{8,}$/i;
 export const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
