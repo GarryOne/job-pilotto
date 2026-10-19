@@ -5,7 +5,7 @@ import {api, settings} from './flow.js';
 import {isStopped, onStopped, restart, stopAll, watchDebugger} from './stop.js';
 
 const PERSON_STARTS = ['panelFill', 'applyHere', 'fillAnyway', 'panelTakeOver'];   // the person pressing a button that starts the work again
-const REFUSED = ['claudeFill', 'panelTailor', 'panelReviewAnswer', 'armTab'];   // what acts or spends: nothing while stopped (the password and the review reports: messages-app.js)
+const REFUSED = ['claudeFill', 'panelTailor', 'panelAddJob', 'panelReviewAnswer', 'armTab'];   // what acts or spends: nothing while stopped (the password and the review reports: messages-app.js)
 
 export function createStopMessages() {
   watchDebugger();

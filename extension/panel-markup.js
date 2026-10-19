@@ -114,10 +114,9 @@
     .stopped:not([hidden]) ~ .fill-box, .verify:not([hidden]) ~ .fill-box { display: none; }   /* the state card has its own way on (Check form again / Show on form) */
     /* Working (owner, 19 Oct 2026): centred over the dimmed page, larger; the step row (spinner, step, Stop) stays, the steps done so far are listed above it. */
     .jp.working { align-items: center; } .jp.working .card:not([hidden]) ~ .pill, .jp.working .left, .jp.working .tailor, .jp.working .actions, .jp.working .recheck { display: none; }
-    .jp.working { zoom: 1.3; }
     /* Centred over the form, the panel must not catch the driver's own clicks aimed at a field under it: it takes no hit-test while working, except Stop (the person's one way out) and the small minimise button. */
-    .jp.working > *, .jp.working .card * { pointer-events: none; } .jp.working .stop-btn, .jp.working .pill-stop, .jp.working .min { pointer-events: auto; } .jp.working .card { max-width: calc((100vw - 32px) / 1.3); max-height: calc((100vh - 32px) / 1.3); }   /* in the prime spot: a third larger, every size with it */
-    .jp.working .progress-line b { font-size: 26px; } .jp.working .body { gap: 14px; }
+    .jp.working > *, .jp.working .card * { pointer-events: none; } .jp.working .stop-btn, .jp.working .pill-stop, .jp.working .min { pointer-events: auto; }   /* centred, at the corner's own size (owner, 19 Oct 2026: the 1.3 zoom was too big) */
+    .jp.working .primary .label { white-space: normal; overflow: visible; text-overflow: clip; }   /* the step's whole sentence, wrapped, never cut short */
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
     .steps li::before { content: '\\2713'; color: var(--good); font-weight: 700; width: 14px; flex: none; }
@@ -139,7 +138,7 @@
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <button class="secondary recheck" type="button" hidden>Check form again</button>
-        <div class="tailor" hidden><span class="t-text"></span><button class="t-btn">Tailor CV</button></div>
+        <div class="tailor" hidden><span class="t-text"></span><button class="t-btn">Tailor CV + letter</button></div>
         <div class="actions">
           <div class="claude-offer" hidden></div>
           <button class="link go-there" hidden>Go there</button>

@@ -34,6 +34,7 @@ import {registerSearchTuningHandlers} from './lib/search-tuning-handlers.js';
 import {settingsDepsFor} from './lib/settings-deps.js';
 import {createSessionFlow} from './lib/session-flow.js';
 import * as cvlib from './lib/cv.js';
+import * as tailorStatus from './lib/tailor-status.js';
 import * as github from './lib/github.js';
 import * as reminders from './lib/interview-reminders.js';
 import * as engineLog from './lib/engine-log.js';
@@ -301,7 +302,7 @@ if (twinRefusal()) { console.error(`Job Pilotto twin refused: ${twinRefusal()}`)
 let resetDone = null;
 // What the form's panel shows about a job's CV: tailored already, or being tailored now (jobs whose Tailor CV was asked from the panel).
 const tailoring = new Set();
-const cvOf = url => ({tailored: !!cvlib.forUrl(storage, url), working: tailoring.has(server.pageKey(url))});
+const cvOf = url => ({tailored: !!cvlib.forUrl(storage, url), working: tailoring.has(server.pageKey(url)), status: tailorStatus.statusOf(url)});
 // The CV in Notion (once per version) and the weekly backup of Mac-only files: failures are logged, never block.
 function syncCv() {
   if (DEMO) return;

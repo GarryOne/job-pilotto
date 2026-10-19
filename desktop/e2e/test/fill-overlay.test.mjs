@@ -49,7 +49,7 @@ test('a fill step dims the page, holds the person\'s click, key and wheel, and c
     const under = await t.app.page.evaluate(() => { const h = document.getElementById('jobpilotto-review-host'); const c = h.shadowRoot.querySelector('.card').getBoundingClientRect(); return document.elementFromPoint(c.x + c.width / 2, c.y + c.height / 2)?.id; });
     assert.notEqual(under, 'jobpilotto-review-host', 'the centred panel takes no hit-test: the driver\'s clicks aimed at a field under it reach the field (recorded cases text-state-from-keys-1, menu-choices-worded-differently-2)');
     const wide = await t.app.page.evaluate(() => document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.card').getBoundingClientRect().width);
-    assert.ok(wide >= 460, `the panel is larger in the prime spot (${Math.round(wide)}px wide, the docked card is 372)`);
+    assert.ok(wide <= 380, `the centred panel is the corner's size, not larger (${Math.round(wide)}px wide, the docked card is 372)`);
     // The driver's gap: the worker marks its own input, and it lands.
     await t.worker.evaluate(async () => { const [tab] = await chrome.tabs.query({url: 'https://jobs.example.test/*'}); await chrome.scripting.executeScript({target: {tabId: tab.id}, func: () => document.documentElement.setAttribute('data-jobpilotto-driving', '1')}); });
     await t.app.page.mouse.click(clicked.x, clicked.y);
