@@ -1,6 +1,6 @@
 # Job Pilotto
 
-Job-search automation for SRE / platform / DevOps roles. Fork it, point it at your own places,
+Job-search automation for any role across Europe. Fork it, point it at your own places,
 languages and CV, and it crawls job boards and employer feeds every 4 hours, has Claude score each
 posting against your profile, drafts a cover letter and form answers for your best matches, and
 sends a ranked digest to Telegram. Applications are tracked in Notion. **It never submits an
