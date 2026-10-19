@@ -215,7 +215,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
     taken, stopped = 0, False   # jobs handed to a batch so far; the API or the AI limit stopped the run
 
     def one(job):
-        return None if budget.over('enrich') else extract(client, model, job)
+        return None if budget.over('enrich', key=job.get('url') or job.get('title')) else extract(client, model, job)
 
     def read(jobs):
         """One batch, in parallel. True when the run must stop (the API is down, or the AI limit): the next run continues."""

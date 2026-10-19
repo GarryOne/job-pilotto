@@ -140,7 +140,31 @@ class DecideTest(Base):
         self.assertEqual(replayed, recorded)
 
 
+class OverTest(Base):
+    def test_time_up_is_decided_per_batch_whatever_the_order(self):
+        """19 Oct 2026, heal proof 6: the title batches run in threads; the recording skipped the batches whose turn came when time was up,
+        a replay's threads came in another order and asked batches the recording had skipped (18 questions missing)."""
+        from src import time_budget
+        with self.mode('record'):
+            clock = iter([True, True, False, False])
+            with mock.patch.object(time_budget, '_over', lambda step, now: next(clock)):
+                got = {key: time_budget.over('titles', key=key) for key in ('a', 'b', 'c', 'd')}
+        self.assertEqual(got, {'a': True, 'b': True, 'c': False, 'd': False})
+        with self.mode('replay'):
+            again = {key: time_budget.over('titles', key=key) for key in ('d', 'c', 'b', 'a')}
+        self.assertEqual(again, got)
+
+
 class ClassTest(unittest.TestCase):
+    def test_every_time_up_check_in_a_thread_pool_names_its_batch(self):
+        """`budget.over('step')` without a key is decided by call position: fine in a single loop, wrong where batches run side by side."""
+        bad = []
+        for path in sorted((ROOT / 'src' / 'ai').glob('*.py')):
+            for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                if re.search(r"budget\.over\('[a-z_]+'\)", line):
+                    bad.append(f'{path.name}:{number}: {line.strip()}')
+        self.assertEqual(bad, [], 'name the batch: budget.over(step, key) is decided per batch in a search tape')
+
     def test_every_per_run_call_limit_in_the_ai_modules_asks_the_tape(self):
         """A new limit written as a plain comparison on a counter fails here, with its line."""
         bad = []
