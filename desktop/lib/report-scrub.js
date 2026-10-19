@@ -155,50 +155,83 @@ export function personalHits(text, {code = false, values = new Map()} = {}) {
   return [...hits];
 }
 
-// -> {entries, bodies, stats}: the record after the keep rules (net-keep.js) and the scrub. stats.removed counts what was taken out, by kind.
+// The person's words, contacts and tokens out of one piece of text, by the same steps for a body, a decoded run inside it and a note. -> text
+const cleanText = (text, values, code, counts) => tokensOut(contactsOut(ownOut(plainSeparators(text), values, code, counts, true), counts), code, counts);
+
+// What the last gate scans besides the plain text: a base64 run and a percent-encoded run, each decoded. The scrub rewrites them in their decoded form and writes them back encoded, so the gate has nothing left
+// in a form the scrub never looked at (19 Oct 2026). A run that comes out unchanged stays as it was. -> text
+const PERCENT_RUN = /[^\s"'<>&=,;]*%[0-9a-f]{2}[^\s"'<>&=,;]*/gi;
+function repairForms(text, values, code, counts) {
+  const out = text.replace(BASE64, run => {
+    const inner = Buffer.from(run.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('latin1'), clean = cleanText(inner, values, code, counts);
+    return clean === inner || [...clean].some(ch => ch.charCodeAt(0) > 255) ? run : Buffer.from(clean, 'latin1').toString('base64');
+  });
+  return out.replace(PERCENT_RUN, run => { const plain = urlDecode(run), clean = cleanText(plain, values, code, counts); return clean === plain ? run : encodeURIComponent(clean); });
+}
+
+// A URL the gate still finds something in (a long number, the person's name, a token in a path segment or a query key): that part becomes <id>, else only the host stays. -> string
+function cleanUrl(url, values) {
+  const u = new URL(url, 'https://x.invalid'), bad = text => scanKinds(text, false, values).size > 0, origin = /^https?:/i.test(url) ? `${u.protocol}//${u.host}` : '';
+  if (!bad(url)) return url;
+  const path = u.pathname.split('/').map(part => (bad(part) ? '<id>' : part)).join('/'), query = [...u.searchParams.keys()].map(key => `${bad(key) ? '<k>' : encodeURIComponent(key)}=<v>`).join('&');
+  const next = `${origin}${path}${query ? `?${query}` : ''}`;
+  return bad(next) ? `${origin}/<id>` : next;
+}
+
+// -> {entries, bodies, stats}: the record after the keep rules (net-keep.js) and the scrub. stats.removed counts what was taken out, by kind (unclean = a body left out because the gate still found
+// something in it after every repair).
 export function scrubRecord(record, values = new Map()) {
-  const kept = keepRecord(record), counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0, tokens: 0}, bodies = new Map(), entries = [];
+  const kept = keepRecord(record), counts = {typed: 0, own: 0, contacts: 0, urls: 0, binary: 0, tokens: 0, unclean: 0}, bodies = new Map(), entries = [];
   for (const entry of kept.entries) {
-    const url = scrubUrl(entry.url); if (url !== entry.url) counts.urls += 1;
+    let url = scrubUrl(entry.url); url = cleanUrl(url, values); if (url !== entry.url) counts.urls += 1;
     const own = Object.fromEntries(Object.entries(entry.headers || {}).filter(([name]) => KEEP_HEADER.test(name))), type = own['content-type'] || '', headers = own.location ? {...own, location: scrubUrl(own.location)} : own;
     let hash = entry.hash;
-    const body = entry.hash ? kept.bodies.get(entry.hash) : null;
+    const body = entry.hash ? kept.bodies.get(entry.hash) : null, code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(entry.url.split(/[?#]/)[0]);
+    let out = null;   // the body that stays
     if (body && !understood(type)) { counts.binary += 1; hash = ''; }
     else if (body && TEXT.test(type)) {
-      const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(entry.url.split(/[?#]/)[0]);
       let text = plainSeparators(body.toString('utf8'));
       if (!code) text = blankTyped(text, counts);
-      text = tokensOut(contactsOut(ownOut(text, values, code, counts, true), counts), code, counts);
-      const next = Buffer.from(text); hash = sha(next); bodies.set(hash, next);
-    } else if (body) bodies.set(hash, body);
+      out = Buffer.from(cleanText(text, values, code, counts));
+      if (bodyKinds(out, code, values).size) out = Buffer.from(repairForms(out.toString('utf8'), values, code, counts));
+    } else if (body) out = body;
+    if (out && bodyKinds(out, code, values).size) { counts.unclean += 1; out = null; hash = ''; }   // still found after every repair: left out, counted, said in the preview
+    if (out) { hash = out === body ? hash : sha(out); bodies.set(hash, out); }
     entries.push({...entry, url, headers, bodyKey: '', hash, size: hash ? bodies.get(hash).length : 0});
   }
   return {entries, bodies, stats: {...kept.stats, removed: counts}};
 }
 
-// The last gate before anything leaves: every kept body (whatever its type), as UTF-8 and as latin1, in every decoded form, searched again with the person's values. A lone name
-// word inside code is a hit too ('name-in-code'): losing one report is cheaper than leaking a name. -> [{kind, in: 'url' | 'body'}] (kinds only; empty = clear)
-export function lastGate({entries, bodies}, values = new Map()) {
-  const hits = [], seen = new Set(), add = (kind, where) => { if (!seen.has(kind + where)) { seen.add(kind + where); hits.push({kind, in: where}); } };
-  const run = (text, code, where) => {
+// What the gate finds in ONE text and its decoded forms (URL, JSON, entities, base64 runs). -> Set of kinds
+function scanKinds(text, code, values) {
+  const kinds = new Set(), run = form => {
     EMAIL.lastIndex = 0; PHONE.lastIndex = 0;
-    if ((text.match(EMAIL) || []).some(e => !EXAMPLE.test(e))) add('email', where);
-    if ((text.match(PHONE) || []).some(p => p.replace(/\D/g, '').length >= 9)) add('phone', where);
-    if (code && nameRun(values)?.test(text)) add('name', where);
-    for (const shape of [JWT, BEARER, QUOTED_SECRET, ...(code ? [] : [BARE_SECRET])]) { shape.lastIndex = 0; if ([...text.matchAll(shape)].some(found => !/<token>/.test(found[0]))) add('token', where); }
+    if ((form.match(EMAIL) || []).some(e => !EXAMPLE.test(e))) kinds.add('email');
+    if ((form.match(PHONE) || []).some(p => p.replace(/\D/g, '').length >= 9)) kinds.add('phone');
+    if (code && nameRun(values)?.test(form)) kinds.add('name');
+    for (const shape of [JWT, BEARER, QUOTED_SECRET, ...(code ? [] : [BARE_SECRET])]) { shape.lastIndex = 0; if ([...form.matchAll(shape)].some(found => !/<token>/.test(found[0]))) kinds.add('token'); }
     for (const [value, kind] of values) {
       if (kind === 'phone' || kind === 'email') continue;
-      if (valueMatcher(value, code).test(text.normalize('NFD'))) add(code && !/\s/.test(value) ? 'name-in-code' : kind, where);   // the same matcher the scrub used
+      if (valueMatcher(value, code).test(form.normalize('NFD'))) kinds.add(code && !/\s/.test(value) ? 'name-in-code' : kind);   // the same matcher the scrub used
     }
   };
-  const scan = (text, code, where) => { for (const form of decodedForms(text)) run(form, code, where); for (const form of b64Forms(text)) for (const inner of decodedForms(form)) run(inner, code, where); };
+  for (const form of decodedForms(text)) run(form);
+  for (const form of b64Forms(text)) for (const inner of decodedForms(form)) run(inner);
+  return kinds;
+}
+// A body as UTF-8 and as latin1. -> Set of kinds
+const bodyKinds = (body, code, values) => new Set([...scanKinds(body.toString('utf8'), code, values), ...scanKinds(body.toString('latin1'), code, values)]);
+const contentKind = type => String(type || '').split(';')[0].trim().toLowerCase().replace(/[^\w./+-]/g, '?').slice(0, 60) || 'none';   // the MIME type: a kind of content, never a value
+
+// The last gate before anything leaves: every kept body (whatever its type), as UTF-8 and as latin1, in every decoded form, searched again with the person's values. A lone name
+// word inside code is a hit too ('name-in-code'): losing one report is cheaper than leaking a name. -> [{kind, in: 'url' | 'body', type}] (kinds and the content kind only; empty = clear)
+export function lastGate({entries, bodies}, values = new Map()) {
+  const hits = [], seen = new Set();
   for (const entry of entries) {
-    scan(entry.url, false, 'url');
-    const body = entry.hash ? bodies.get(entry.hash) : null, type = entry.headers?.['content-type'] || '';
+    const body = entry.hash ? bodies.get(entry.hash) : null, type = entry.headers?.['content-type'] || '', add = (kinds, where) => { for (const kind of kinds) if (!seen.has(`${kind}/${where}/${contentKind(type)}`)) { seen.add(`${kind}/${where}/${contentKind(type)}`); hits.push({kind, in: where, type: contentKind(type)}); } };
+    add(scanKinds(entry.url, false, values), 'url');
     if (!body) continue;
-    const code = CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(entry.url.split('?')[0]);
-    scan(body.toString('utf8'), code, 'body');
-    scan(body.toString('latin1'), code, 'body');
+    add(bodyKinds(body, CODE.test(type) || /\.(m?js|css)(\?|$)/i.test(entry.url.split('?')[0]), values), 'body');
   }
   return hits;
 }

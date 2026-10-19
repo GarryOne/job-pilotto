@@ -57,7 +57,7 @@
     const note = Object.assign(document.createElement('textarea'), {placeholder: 'What went wrong? (optional)', maxLength: 300});
     const lines = document.createElement('div');
     lines.innerHTML = '<p class="muted"></p><p class="muted">Never sent: what you typed, passwords, cookies, your CV or your profile. Encrypted before it leaves this Mac; deleted after 30 days.</p>';
-    lines.firstChild.textContent = `${plural(data.responses || 0, 'page response')} from ${plural((data.hosts || []).length, 'site')}. Personal details removed: ${removed}.`;
+    lines.firstChild.textContent = `${plural(data.responses || 0, 'page response')} from ${plural((data.hosts || []).length, 'site')}. Personal details removed: ${removed}.${data.removed?.unclean ? ' One page part could not be cleaned, so it was left out.' : ''}`;
     say('Send this form\'s recording?', 'It shows how Job Pilotto read this form, so it can be fixed.', [['Cancel', false, async () => { close(); ask({type: 'report-cancel'}); }], ['Send', true, async button => {
       button.disabled = true; button.textContent = 'Sending…';
       const done = await ask({type: 'report-confirm', note: note.value});

@@ -1,6 +1,7 @@
 // lib/report-scrub.js: a "Report this form" record after the scrub holds none of a fake person's own values, and the last gate stops what the scrub missed (spec 2026-10-15-report-this-form.md §2, §7).
 // The person here is invented (Rosalind Quill); nothing real is read.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {test} from 'node:test';
 import {lastGate, personalHits, scrubRecord, scrubUrl} from '../lib/report-scrub.js';
 import {EMAIL} from '../lib/live-capture.js';
@@ -65,7 +66,8 @@ test('1. a body whose type the scrub does not understand is dropped, the entry k
     assert.equal(out.entries.length, 1);
   }
   const wrapped = scrubRecord(one('application/json', JSON.stringify({file: b64})), values);
-  assert.ok(lastGate(wrapped, values).length > 0, 'base64 inside JSON is decoded and searched; the record is refused');
+  assert.deepEqual(lastGate(wrapped, values), [], 'base64 inside JSON is decoded, cleaned and written back (19 Oct 2026); the gate still searches it');
+  assert.ok(lastGate(one('application/json', JSON.stringify({file: b64})), values).length > 0, 'the same blob uncleaned is refused');
   const fine = scrubRecord(one('font/woff2', Buffer.from([0, 1, 2, 3])), values);
   assert.equal(fine.entries[0].size, 4, 'a font stays');
 });
@@ -161,4 +163,48 @@ test('a value the scrub cannot clean is refused with its kind and where it sits'
     entries: [entry({url: 'https://jobs.example.test/x', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'p', size: 1}), entry({url: 'https://jobs.example.test/y', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'n', size: 1})]};
   const hits = lastGate(kept, ACCENTED);
   assert.deepEqual(hits.map(hit => `${hit.kind}:${hit.in}`).sort(), ['email:body', 'name:body'], 'a value that stayed (encoded where the scrub did not look) is refused with its kind and where');
+});
+
+// 19 Oct 2026: after the bare-% fix the owner's Report on a Doctolib form answered "Still found: a phone number, a sign-in token". The gate decodes forms the scrub never rewrote (a base64 run, a URL-encoded
+// body, a long number in a URL path). One loop over every place and form the gate looks in × every shape it flags: after scrubRecord, lastGate is clear. A new place or form without the scrub's twin fails here.
+const SHAPES = {
+  email: 'someone.real@gmail.com', ownEmail: 'rosalind.quill@mailbox.test', phone: '+41 79 555 01 23', longNumber: '123456789012', jwt: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.c2lnbmF0dXJlMTIz',
+  bearer: 'Bearer abcdef0123456789xyz', secretPair: 'sessionid=0123456789abcdef', quotedSecret: '"accessToken":"Zk39sd0QpL2mXv81aa"', name: 'Rosalind Quill', place: 'Port Vale',
+};
+const PLACES = {   // payload -> [{url, type, body}]; a body is text or a Buffer
+  'url path': s => ({url: `https://jobs.example.test/jobs/${encodeURIComponent(s).replace(/%40/g, '@')}/apply`, type: 'text/html', body: '<p>ok</p>'}),
+  'url path (segment inside a word)': s => ({url: `https://jobs.example.test/p/${encodeURIComponent(s.replace(/\s+/g, '-'))}-x/apply`, type: 'text/html', body: '<p>ok</p>'}),
+  'url query key': s => ({url: `https://jobs.example.test/apply?${encodeURIComponent(s)}=1`, type: 'text/html', body: '<p>ok</p>'}),
+  'body plain': s => ({url: 'https://jobs.example.test/a', type: 'text/html', body: `<p>${s}</p>`}),
+  'body JSON-quoted': s => ({url: 'https://jobs.example.test/a', type: 'application/json', body: JSON.stringify({v: s})}),
+  'body URL-encoded': s => ({url: 'https://jobs.example.test/a', type: 'application/x-www-form-urlencoded', body: `lang=en&a=${encodeURIComponent(s)}`}),
+  'body URL-encoded inside JSON': s => ({url: 'https://jobs.example.test/a', type: 'application/json', body: JSON.stringify({q: `x=1&a=${encodeURIComponent(s)}&y=2`})}),
+  'body base64 in JSON': s => ({url: 'https://jobs.example.test/a', type: 'application/json', body: JSON.stringify({blob: Buffer.from(`   ${s}   `.padEnd(60)).toString('base64')})}),
+  'body base64 in a script': s => ({url: 'https://jobs.example.test/a.js', type: 'application/javascript', body: `var d = "${Buffer.from(`   ${s}   `.padEnd(60)).toString('base64')}";`}),
+  'body latin1 bytes': s => ({url: 'https://jobs.example.test/a', type: 'text/html', body: Buffer.from(`<p>caf\xe9 ${s}</p>`, 'latin1')}),
+};
+test('whatever shape the gate flags, in whatever place or decoded form it looks, the scrub leaves the gate clear', () => {
+  const missed = [];
+  for (const [shape, payload] of Object.entries(SHAPES)) for (const [place, make] of Object.entries(PLACES)) {
+    const made = make(payload), body = Buffer.isBuffer(made.body) ? made.body : Buffer.from(made.body);
+    const out = scrubRecord({bodies: new Map([['b', body]]), entries: [entry({url: made.url, type: 'fetch', headers: {'content-type': made.type}, hash: 'b', size: body.length})]}, values);
+    const hits = lastGate(out, values);
+    if (hits.length) missed.push(`${shape} @ ${place}: ${hits.map(hit => `${hit.kind}/${hit.in}`).join(',')}`);
+  }
+  assert.deepEqual(missed, []);
+});
+
+test('a part that cannot be cleaned is left out and counted; a refusal names where and the kind of content, never a value', () => {
+  const body = Buffer.from(JSON.stringify({blob: Buffer.from('xx +41 79 555 01 23 '.padEnd(60)).toString('base64')}));
+  const out = scrubRecord({bodies: new Map([['b', body]]), entries: [entry({url: 'https://jobs.example.test/a', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'b', size: body.length})]}, values);
+  assert.deepEqual(lastGate(out, values), []);
+  const raw = lastGate(one('application/json', 'call +41 79 555 01 23'), values);
+  assert.deepEqual(raw.map(hit => `${hit.kind}:${hit.in}:${hit.type}`), ['phone:body:application/json']);
+  assert.ok(!JSON.stringify(raw).includes('555'));
+});
+
+test('a kept body the scrub cannot rewrite (a font spelling a long number) is left out, counted as unclean, and the preview says so', () => {
+  const out = scrubRecord(one('font/woff2', Buffer.from('xx 123456789012 xx')), values);
+  assert.ok(gone(out)); assert.equal(out.stats.removed.unclean, 1); assert.deepEqual(lastGate(out, values), []);
+  assert.match(fs.readFileSync(new URL('../../extension/panel-report.js', import.meta.url), 'utf8'), /One page part could not be cleaned, so it was left out/);
 });
