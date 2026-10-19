@@ -65,10 +65,11 @@ test('Report sends in the panel: a submitted recording is scrubbed and held, ans
   assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'}, 'nothing is held after a send');
 });
 
-test('a recording the last gate stops is not held and names its kind; Cancel sends nothing; a planted value in the note is refused with its kind', async () => {
+test('a name inside a base64 run is cleaned, not refused; Cancel sends nothing; a planted value in the note is refused with its kind', async () => {
   const uploads = [], h = harness({uploader: {...okUploader, send: async record => { uploads.push(record); return {ok: true}; }}});
-  const blocked = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/x.json', JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')}), 'application/json')]});   // the person's name inside a base64 run: the scrub reads text, the last gate decodes
-  assert.deepEqual(blocked, {ok: false, blocked: ['name']});
+  const blocked = await h.route({action: 'submit', entries: [entry('https://jobs.example.test/x.json', JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')}), 'application/json')]});   // the person's name inside a base64 run: cleaned in its decoded form (19 Oct 2026), so the report is held, not stopped
+  assert.equal(blocked.ok, true);
+  assert.deepEqual(await h.route({action: 'cancel'}), {ok: true});
   assert.deepEqual(await h.route({action: 'send', note: ''}), {ok: false, refused: 'expired'}, 'nothing was held');
   await h.route({action: 'submit', entries: [entry('https://jobs.example.test/apply', '<p>x</p>')]});
   assert.deepEqual(await h.route({action: 'cancel'}), {ok: true});

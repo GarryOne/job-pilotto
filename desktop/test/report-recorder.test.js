@@ -28,8 +28,9 @@ test('prepare: scrubbed, searched again, held in memory with a readable preview;
   assert.ok(!JSON.stringify([...ok.held.bodies.values()].map(String)).match(/Rosalind/));
   const less = finalize(ok.held, ['cdn.example.test'], values);
   assert.equal(less.ok, true); assert.deepEqual(less.record.entries.map(entry => new URL(entry.url).host), ['jobs.example.test']);
-  const leaky = prepare({entries: [{...wire.entries[1], headers: {'content-type': 'application/json'}, body: Buffer.from(JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')})).toString('base64')}]}, values);   // a name inside a base64 run: the scrub reads text, the gate decodes
-  assert.equal(leaky.ok, false); assert.deepEqual(leaky.blocked.map(hit => hit.kind), ['name-in-code']);   // the entry is a script
+  const leaky = prepare({entries: [{...wire.entries[1], headers: {'content-type': 'application/json'}, body: Buffer.from(JSON.stringify({blob: Buffer.from('Hello Quill, this is plain text for you to read here').toString('base64')})).toString('base64')}]}, values);   // a name inside a base64 run
+  assert.equal(leaky.ok, true, 'a name inside a base64 run is cleaned in its decoded form and written back (19 Oct 2026)');
+  assert.ok(!leaky.held.bodies.size || ![...leaky.held.bodies.values()].some(body => Buffer.from(body.toString().match(/[A-Za-z0-9+/=]{40,}/)?.[0] || '', 'base64').toString().includes('Quill')));
   const clean = prepare({entries: [{...wire.entries[1], body: Buffer.from('const n = "Quill";').toString('base64')}]}, values);
   assert.equal(clean.ok, true, 'a name standing as text in a script is replaced by the scrub, so it no longer blocks the report');
   const hold = createHold({now: () => 0 }), id = hold.put(ok.held);

@@ -17,6 +17,7 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
   const values = () => ownerValuesOf(texts());
   const enabled = () => reportFormOn(storage) && !!uploader;
   const drop = () => { if (shown) hold.take(shown.id); shown = null; };
+  const where = hits => hits.map(hit => `${hit.kind} in ${hit.in} (${hit.type || 'none'})`).join(', ');   // kind, url or body, content kind: never a value
   const refused = kinds => ({ok: false, blocked: [...new Set(kinds)]});
 
   // The extension's calls: {action: 'state'} -> {enabled}; 'submit' {entries, truncated} -> {ok, preview} | {ok: false, refused | blocked}; 'send' {note} -> {ok} | {ok: false, error | blocked}; 'cancel' -> {ok}.
@@ -26,7 +27,7 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
     if (!enabled()) return {ok: false, refused: 'off'};
     if (payload?.action === 'submit') {
       const result = prepare({entries: payload.entries, truncated: payload.truncated}, values());
-      if (!result.ok) { appLog('report', `a report was stopped by the last check: ${result.blocked.map(hit => hit.kind).join(', ')}`); return refused(result.blocked.map(hit => hit.kind)); }
+      if (!result.ok) { appLog('report', `a report was stopped by the last check: ${where(result.blocked)}`); return refused(result.blocked.map(hit => hit.kind)); }
       drop();
       shown = {id: hold.put(result.held)};
       appLog('report', `a report is ready to send: ${result.preview.responses} responses, ${result.preview.hosts.length} hosts`);
@@ -36,7 +37,7 @@ export function registerReportHandlers({ipcMain, storage, uploader = null, texts
       const held = shown && hold.take(shown.id); shown = null;
       if (!held) return {ok: false, refused: 'expired'};
       const final = finalize(held, [], values());
-      if (!final.ok) return refused(final.blocked.map(hit => hit.kind));
+      if (!final.ok) { appLog('report', `a report was stopped by the last check on sending: ${where(final.blocked)}`); return refused(final.blocked.map(hit => hit.kind)); }
       const note = scrubNote(payload.note, values());
       if (!note.ok) return refused(note.blocked);
       const sent = await uploader.send(final.record, {note: note.text}).catch(error => ({ok: false, error: String(error?.message || error).slice(0, 160)}));
