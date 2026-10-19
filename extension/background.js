@@ -2,6 +2,7 @@
 // opens, Apply with Claude's hand-off, the ring's messages to the app, and the connection check. The result of a
 // fill shows in a panel on the page and in the icon badge.
 import {NO_APP, api, fillTab, settings} from './flow.js';
+import {plainWhy} from './ai-reply.js';
 import {oneFillPerTab} from './one-fill.js';
 import {decide, pushDecisions} from './log.js';
 import {PANEL_FILES} from './panel-files.js';
@@ -383,9 +384,9 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     await progress(tab.id, '', page);
     decide('fill', `failed: ${error.message}`, {url: page});
     // An automatic fill (the page was not asked for by you, just reached in an armed tab) fails quietly: logged, never a popup.
-    if (!quiet) await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
+    if (!quiet) await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${plainWhy(error)}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
-    return {error: error.message};
+    return {error: plainWhy(error)};
   }
 }
 
@@ -400,7 +401,7 @@ async function handOff(tab, job, ticket) {
     const checked = await api(config, '/extension/ticket', {method: 'POST', body: JSON.stringify({ticket, job})});
     if (!checked.ok) throw new Error('ticket not accepted');
   } catch (error) {
-    await state({state: 'error', error: `not allowed: ${error.message}`});
+    await state({state: 'error', error: `not allowed: ${plainWhy(error)}`});
     return;
   }
   await state({state: 'running'});

@@ -1,5 +1,6 @@
 // Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 // The user's contact details and CV live in the app, which the extension asks for each time it fills a form (flow.js).
+import {plainWhy} from './ai-reply.js';
 import {pair} from './flow.js';
 
 const $ = id => document.getElementById(id);
@@ -47,7 +48,7 @@ async function connectToApp() {
     $('token').value = token;
     pairWords('connected', 'Connected to the Job Pilotto app ✓');
   } catch (error) {
-    pairWords('disconnected', `Couldn't reach the Job Pilotto app (${error.message}). Open the app, then try again.`);
+    pairWords('disconnected', `Couldn't reach the Job Pilotto app (${plainWhy(error)}). Open the app, then try again.`);
   }
 }
 $('pair').addEventListener('click', connectToApp);

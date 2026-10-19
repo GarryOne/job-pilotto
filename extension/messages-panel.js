@@ -2,6 +2,7 @@
 // Claude, the tip, tailoring a CV and opening the app. Each returns a function that answers the messages it owns and returns undefined for any other. A FLOW FILE
 // (docs/flows/applying.md). Guards: the panel and review tests in desktop/test and the matrix (npm run flows).
 import {NO_APP} from './flow.js';
+import {plainWhy} from './ai-reply.js';
 import {TIPS} from './tips-pool.js';
 import {api} from './flow.js';
 import {decide} from './log.js';
@@ -26,7 +27,7 @@ export function createPanelMessages(ctx) {
         } catch (error) {
           // The app answered (an error is still an answer): connected, and say what failed; only no answer is "not connected".
           return {connected: !!error.status, app, job: null, answers: 0, coverLetter: '', retry: !!error.status && error.status !== 404,
-            why: !error.status ? (app ? NO_APP : error.message) : error.status === 404 ? '' : `Connected, but this job couldn't be loaded (${error.message || error.status}): trying again`};
+            why: !error.status ? (app ? NO_APP : plainWhy(error)) : error.status === 404 ? '' : `Connected, but this job couldn't be loaded (${plainWhy(error, '') || error.status}): trying again`};
         }
       })().then(reply, () => reply({connected: false}));
       return true;
