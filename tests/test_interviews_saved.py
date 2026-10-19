@@ -82,7 +82,7 @@ class InterviewSavedTests(unittest.TestCase):
         tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Acme', 'Saved', '')])
         pages = NotionInterviews(tracker, database_id=interviews.INTERVIEWS_DATABASE_ID)
         page = pages.save(None, {'title': 'Call', 'transcript': SPOKEN})
-        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 No job linked yet — link it in the Interviews page of the Job Pilotto app')
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 No job linked yet — link it in the Interviews page of the Jobadabra app')
         pages.save(page['id'], {'app_id': 'g-1'})
         text_, links = self.first_line(tracker, page['id'])
         self.assertEqual(text_, '🔗 Job: Grafana Labs · SRE')
