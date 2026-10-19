@@ -92,7 +92,7 @@ test('each stored report sends the owner exactly one Telegram message: counts on
   assert.equal(fake.calls.length, 1);
   const {url, body} = fake.calls[0];
   assert.equal(url, 'https://api.telegram.org/botbot-token/sendMessage'); assert.equal(body.chat_id, '42');
-  assert.match(body.text, /^📮 <b>A form was reported<\/b> · stalled · 12 page responses · install [0-9a-f]{8} · 10:00 UTC\n<a href="https:\/\/www\.jobpilotto\.top\/admin\/reports">/);
+  assert.match(body.text, /^📮 <b>A form was reported<\/b> · Stalled on the form · 12 page responses · install [0-9a-f]{8} · 10:00 UTC\n<a href="https:\/\/www\.jobpilotto\.top\/admin\/reports">/);
   assert.ok(!body.text.includes(INSTALL), 'the install only by a short digest');
   assert.deepEqual(body.text.replace(/<[^>]*>/g, '').match(/https?:\/\/[^\s]*/g) || [], [], 'no URL in the visible text');
 });
