@@ -116,10 +116,12 @@ WIKIDATA_QUERY = """SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {
 # an ISO code (so "Georgia" is the country). `staffed=False` also takes companies with no head count, which Wikidata lacks for many countries.
 
 
-def wikidata_query(country='Switzerland', staffed=True):
-    if country == 'Switzerland' and staffed:
+def wikidata_query(country='Switzerland', staffed=True, of='Q4830453'):
+    """Wikidata's organisations of class `of` (a business by default) in this country, with their websites."""
+    if country == 'Switzerland' and staffed and of == 'Q4830453':
         return WIKIDATA_QUERY
-    where = (f'?country rdfs:label "{country}"@en; wdt:P297 []. ?c wdt:P17 ?country; wdt:P31/wdt:P279* wd:Q4830453; wdt:P856 ?site'
+    country_is = f'wdt:P297 "{country}"' if re.fullmatch(r'[A-Z]{2}', country) else f'rdfs:label "{country}"@en; wdt:P297 []'   # an ISO code or an English name
+    where = (f'?country {country_is}. ?c wdt:P17 ?country; wdt:P31/wdt:P279* wd:{of}; wdt:P856 ?site'
              + ('; wdt:P1128 ?staff. FILTER(?staff >= 30)' if staffed else '. OPTIONAL { ?c wdt:P1128 ?staff }'))
     return ('SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {\n  ' + where + '\n  ?c rdfs:label ?label. FILTER(LANG(?label) = "en") }'
             ' GROUP BY ?label ?site ORDER BY DESC(?employees) LIMIT 1500')
@@ -192,6 +194,73 @@ def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
             yield dict(name=name, origin=origin, priority=60 if staff >= 200 else 50 if staff else 45, website=site)
 
 
+# Employers of a kind of role (src/role_kinds.py KINDS) are often not tagged "business" on Wikidata: a hospital is a hospital, a school a school
+# (19 Oct 2026: 906 German hospitals with a website, 110 of them reachable as a business; the central list had 4 healthcare employers in
+# Germany). Wikidata's own classes for the organisations that employ each kind; open data, no site or vendor names.
+INDUSTRIES = {'healthcare': ('Q16917', 'Q837142'),          # hospital, nursing home
+              'hospitality': ('Q27686', 'Q18534542'),       # hotel, restaurant chain
+              'logistics': ('Q1468664', 'Q83698915'),       # logistics company, trucking company
+              'education': ('Q3914',),                      # school
+              'trades': ('Q811930',),                       # construction company
+              'sales_retail': ('Q507619', 'Q18043413')}     # retail chain, supermarket chain
+INDUSTRY_QUERIES_PER_RUN = 1    # Wikidata's service takes up to a minute a query: an install asks one new (class, country) a run, each kept a week
+CENTRAL_INDUSTRY_QUERIES = 12   # the central scout has no time limit of its own
+
+
+def industry_pairs(kinds, countries):
+    """Every (kind, class, country) to ask, in a fixed order: the queue a run takes its slice of."""
+    return [(kind, of, country) for kind in sorted(set(kinds) & set(INDUSTRIES)) for of in INDUSTRIES[kind] for country in countries]
+
+
+def wikidata_industry_candidates(db, kinds, countries, get=_get_json, cache=None, clock=None, per_run=INDUSTRY_QUERIES_PER_RUN):
+    """The organisations that employ these kinds of role in these countries (INDUSTRIES), a few (class, country) queries a run in turn
+    (scout_meta 'industry_cursor'), each list kept a week. Origin "Wikidata <kind>: <country>", so the queue learns each kind's yield."""
+    from .paths import DATA
+    pairs = industry_pairs(kinds, countries)
+    if not pairs:
+        return
+    db.execute('CREATE TABLE IF NOT EXISTS scout_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+    row = db.execute("SELECT value FROM scout_meta WHERE key = 'industry_cursor'").fetchone()
+    start = int(row[0]) if row and str(row[0]).isdigit() else 0
+    db.execute("INSERT OR REPLACE INTO scout_meta (key, value) VALUES ('industry_cursor', ?)", (str((start + per_run) % len(pairs)),))
+    base = Path(cache) if cache else DATA / 'cache' / 'wikidata-industry.json'
+    for n in range(min(per_run, len(pairs))):
+        kind, of, country = pairs[(start + n) % len(pairs)]
+        slug = re.sub(r'[^a-z]+', '-', country.lower()).strip('-')
+        try:
+            rows = wikidata_rows(get, base.with_name(f'{base.stem}-{of}-{slug}{base.suffix}'), clock, wikidata_query(country, staffed=False, of=of))
+        except Exception as error:  # noqa: BLE001 — one class or country down leaves the others
+            print(f'Warning: Wikidata {kind} in {country} skipped ({type(error).__name__}: {error})')
+            continue
+        seen = set()
+        for row in rows:
+            name, site = row['label']['value'], row['site']['value']
+            if site not in seen:
+                seen.add(site)
+                yield dict(name=name, origin=f'Wikidata {kind}: {country}', priority=55, website=site)
+
+
+def industry_countries(countries):
+    """The countries to ask Wikidata about: the search's own; for the central scout every European one, as ISO codes (pool_tags.EUROPE,
+    the columns of /admin/scouting's kind x country coverage)."""
+    if scout_core.CENTRAL:
+        from .pool_tags import EUROPE
+        return [code.upper() for code in EUROPE]
+    return list(countries)
+
+
+def search_kinds():
+    """The kinds of role the scout looks for employers of: every one for the central scout, the search's own otherwise (none when unknown)."""
+    if scout_core.CENTRAL:
+        return tuple(INDUSTRIES)
+    try:
+        from . import role_kinds
+        return tuple(role_kinds.of_search(load_search_config()) or ())
+    except Exception as error:  # noqa: BLE001 — no kinds worked out (offline, no AI): no industry lists this run
+        print(f'Warning: the kinds of your roles are not known ({type(error).__name__}): no industry lists this run')
+        return ()
+
+
 def board_employer_candidates():
     """Employers named on the jobs that boards and aggregators list, whatever the role: origin "Board employer" (src/sources/board_employers.py)."""
     from .sources import board_employers
@@ -216,7 +285,9 @@ def default_sources(db, seeds, countries, skip=()):
     (owner, 18 Oct 2026: a Lisbon or Berlin search started with Swiss names); a search outside IT reads no tech-only list."""
     every = [named('seeds', lambda: seed_candidates(seeds)), named('hacker news', hacker_news_candidates), named('whiteboards', whiteboards_candidates),
              named('jobs.ch employers', lambda: local_company_candidates(db), 'Switzerland'), named('swissdevjobs', swissdevjobs_candidates, 'Switzerland'),
-             named('wikidata', lambda: wikidata_candidates(countries=countries)), named('board employers', board_employer_candidates)]
+             named('wikidata', lambda: wikidata_candidates(countries=countries)), named('board employers', board_employer_candidates),
+             named('wikidata industries', lambda: wikidata_industry_candidates(db, search_kinds(), industry_countries(countries),
+                                                                               per_run=CENTRAL_INDUSTRY_QUERIES if scout_core.CENTRAL else INDUSTRY_QUERIES_PER_RUN))]
     if skip:
         every = [s for s in every if s.list_name not in ('hacker news', 'whiteboards', 'swissdevjobs')]
     return [s for s in every if not s.country or s.country in countries]
