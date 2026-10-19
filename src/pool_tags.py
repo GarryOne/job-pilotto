@@ -11,8 +11,11 @@ COUNTRIES = {
     'nl': 'Netherlands', 'be': 'Belgium', 'lu': 'Luxembourg', 'es': 'Spain', 'pt': 'Portugal', 'se': 'Sweden', 'dk': 'Denmark',
     'no': 'Norway', 'fi': 'Finland', 'pl': 'Poland', 'cz': 'Czechia', 'ro': 'Romania', 'md': 'Moldova', 'gr': 'Greece',
     'us': 'United States', 'ca': 'Canada', 'au': 'Australia', 'sg': 'Singapore', 'in': 'India', 'ae': 'United Arab Emirates',
-    'il': 'Israel', 'br': 'Brazil', 'mx': 'Mexico', 'jp': 'Japan',
+    'il': 'Israel', 'br': 'Brazil', 'mx': 'Mexico', 'jp': 'Japan', 'bg': 'Bulgaria', 'hr': 'Croatia', 'ee': 'Estonia', 'hu': 'Hungary',
 }
+# The European ones: the columns of the central list's kind × country coverage (/admin/scouting). Every country the Lab's draws use
+# (tools/persona-search/draws.json) is here; tests/test_pool_tags.py checks it.
+EUROPE = ('ch', 'de', 'at', 'fr', 'it', 'gb', 'ie', 'nl', 'be', 'lu', 'es', 'pt', 'se', 'dk', 'no', 'fi', 'pl', 'cz', 'ro', 'md', 'gr', 'bg', 'hr', 'ee', 'hu')
 METROS = {
     'ch-geneva': 'Geneva', 'ch-lausanne': 'Lausanne and Vaud', 'ch-zurich': 'Zurich', 'ch-basel': 'Basel', 'ch-bern': 'Bern',
     'ch-zug-luzern': 'Zug and Lucerne', 'ch-ticino': 'Ticino', 'ch-st-gallen': 'St. Gallen',
@@ -52,12 +55,17 @@ FAMILIES = {
 def places(texts):
     """(countries, metros) named by these place words, as fixed-list ids. Switzerland, the first market, also from its fixed table
     (src/regions.py), so a Swiss search is Swiss offline and on its first run."""
+    return (countries(texts), meanings.labels('pool-metro', texts, METROS, 'A place a job seeker searches in. Answer its metro area, or none when it is a '
+                                              'whole country, a region, or a place outside these areas.'))
+
+
+def countries(texts):
+    """The countries these place words name, as fixed-list ids: a search's places, or where an employer's jobs are (the central scout's
+    kind × country coverage, 19 Oct 2026). Each place is asked once and kept (src/ai/decide.py)."""
     from . import places as places_
     cache = places_.load()
     swiss = ['ch'] if any(places_.in_switzerland(t, cache) for t in texts) else []
-    return (sorted({*swiss, *meanings.labels('pool-country', texts, COUNTRIES, 'A place a job seeker searches in. Answer the country it is in.')}),
-            meanings.labels('pool-metro', texts, METROS, 'A place a job seeker searches in. Answer its metro area, or none when it is a '
-                            'whole country, a region, or a place outside these areas.'))
+    return sorted({*swiss, *meanings.labels('pool-country', texts, COUNTRIES, 'A place a job seeker searches in. Answer the country it is in.')})
 
 
 def families(texts):

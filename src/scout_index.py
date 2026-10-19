@@ -11,7 +11,7 @@ import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from . import contribute, regions, role_kinds
+from . import contribute, pool_tags, regions, role_kinds
 from .notion import cron_runs
 from .sources import ats, careers, feeds
 from .scout_core import ensure_tables, _get_text, clean_name, key_for, now
@@ -149,6 +149,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
                      'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs),
                      'regions': contribute.regions_of([j.get('location') or '' for j in jobs] + (['remote'] if any(j.get('remote') for j in jobs) else []))}
+            entry['countries'] = pool_tags.countries(entry['places'])   # where its jobs are, as fixed ids: /admin/scouting's kind × country coverage
             kinds = role_kinds.mix([j.get('title') for j in jobs])   # what it hires for: installs skip one with nothing of their kind
             if kinds:
                 entry['kinds'] = kinds

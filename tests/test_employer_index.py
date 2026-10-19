@@ -197,6 +197,7 @@ class BuildAndPublishTest(unittest.TestCase):
         self.assertTrue(all(f['checked'] == '2026-09-30' and 0 < f['quality'] <= 100 for f in feeds))
         self.assertEqual([f['company'] for f in failed], ['Dead'])
         self.assertEqual(feeds[0]['places'], ['Zurich, Switzerland'])
+        self.assertEqual(feeds[0]['countries'], ['ch'])   # where its jobs are, as fixed ids: the kind × country coverage (19 Oct 2026)
         self.assertEqual({f['kind'] for f in feeds}, {'employer'})
 
     def test_publish_sends_the_key_and_refuses_empty(self):

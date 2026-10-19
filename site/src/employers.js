@@ -34,6 +34,7 @@ export function recipeOf(recipe) {
 }
 // What a feed hires for: {kind: share}, fixed kinds only (src/role_kinds.py KINDS, checked equal by tests/test_role_kinds.py), shares 0–1.
 export const KINDS = ['software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];
+const countriesOf = list => (Array.isArray(list) ? [...new Set(list.filter(c => COUNTRIES.includes(c)))] : []);
 export const kindsOf = kinds => {
   if (!kinds || typeof kinds !== 'object' || Array.isArray(kinds)) return null;
   const out = Object.fromEntries(Object.entries(kinds).filter(([kind, share]) => KINDS.includes(kind) && typeof share === 'number' && share >= 0 && share <= 1)
@@ -85,6 +86,7 @@ export function clean(feeds) {
       ...(freshOf(item.fresh) ? {fresh: freshOf(item.fresh)} : {}),
       ...(poolOf(item.pool) ? {pool: poolOf(item.pool)} : {}),
       regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
+      ...(countriesOf(item.countries).length ? {countries: countriesOf(item.countries)} : {}),   // where its jobs are (src/scout_index.py), fixed ids only
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
       ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});
   }

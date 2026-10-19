@@ -34,7 +34,7 @@ class PoolTagsTest(unittest.TestCase):
 
     def test_the_site_accepts_the_same_ids(self):
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool-tags.js').read_text()
-        for name, table in (('COUNTRIES', pool_tags.COUNTRIES), ('METROS', pool_tags.METROS), ('FAMILIES', pool_tags.FAMILIES)):
+        for name, table in (('COUNTRIES', pool_tags.COUNTRIES), ('METROS', pool_tags.METROS), ('FAMILIES', pool_tags.FAMILIES), ('EUROPE', pool_tags.EUROPE)):
             listed = re.search(rf'export const {name} = \[(.*?)\];', site).group(1)
             self.assertEqual(re.findall(r"'([^']+)'", listed), list(table), f'{name}: run the generator in this test file\'s docstring history or edit site/src/pool-tags.js')
 
@@ -58,3 +58,13 @@ class OwnWordsTest(unittest.TestCase):
             tags = contribute.fine_tags()
         self.assertEqual(asked, [False])
         self.assertEqual(tags, {'countries': ['ch', 'fr'], 'metros': ['ch-geneva'], 'families': ['photography']})
+
+
+class EuropeTest(unittest.TestCase):
+    def test_every_country_the_lab_draws_is_a_european_column(self):
+        """The scout aims at the same countries the Lab's random draws search in (owner, 19 Oct 2026: one list, not two)."""
+        import json
+        draws = json.loads((Path(__file__).resolve().parents[1] / 'tools' / 'persona-search' / 'draws.json').read_text())
+        names = {pool_tags.COUNTRIES[code] for code in pool_tags.EUROPE}
+        self.assertEqual({city['country'] for city in draws['cities']} - names, set())
+        self.assertEqual(set(pool_tags.EUROPE) - set(pool_tags.COUNTRIES), set())
