@@ -5,9 +5,14 @@ import {esc} from './stats.js';
 
 export const TELL_PER_DAY = 10;
 
+// The cause in plain words, for the message and for /admin/reports. The app sends a word (X-Report-Meta cause; the Worker keeps a-z, 0-9, _ and -): the ladder's signals get a sentence,
+// any other word is spelled out (wrong_page -> "Wrong page"), none is "No cause given". A new word needs no change here.
+const CAUSES = {stalled: 'Stalled on the form', failed: 'The fill failed', contradicted: 'Answer contradicted the page', unsure: 'Not sure how to fill', blind: 'Could not read the page', refused: 'A control refused the value'};
+export const causeWords = cause => CAUSES[cause] || (cause ? cause.replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : 'No cause given');
+
 export function reportMessage({cause, requests, who, now, base}) {
   const time = now.toISOString().slice(11, 16);
-  return `📮 <b>A form was reported</b> · ${esc(cause || 'no cause')} · ${Number(requests) || 0} page responses · install ${esc(String(who).slice(0, 8))} · ${time} UTC\n<a href="${esc(base)}/admin/reports">/admin/reports</a>`;
+  return `📮 <b>A form was reported</b> · ${esc(causeWords(cause))} · ${Number(requests) || 0} page responses · install ${esc(String(who).slice(0, 8))} · ${time} UTC\n<a href="${esc(base)}/admin/reports">/admin/reports</a>`;
 }
 export const moreMessage = base => `📮 <b>More forms were reported today</b>: no more messages until tomorrow, the list is on <a href="${esc(base)}/admin/reports">/admin/reports</a>`;
 

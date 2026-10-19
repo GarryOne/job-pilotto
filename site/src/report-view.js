@@ -3,6 +3,7 @@
 // Guarded by test/report-view.test.js.
 import {esc} from './stats.js';
 import {viewer} from './auth.js';
+import {causeWords} from './report-notify.js';
 import {ALL_BYTES_PER_DAY, ALL_REPORTS_PER_DAY, KEEP_DAYS, PER_INSTALL_PER_DAY} from './report-form.js';
 
 const mb = bytes => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`);
@@ -13,7 +14,7 @@ export const statusOf = (row, now) => (row.day < dayAgo(now, KEEP_DAYS) ? 'expir
 export function page({rows, today, now = new Date()}) {
   const body = rows.map(row => {
     const status = statusOf(row, now);
-    return `<tr><td>${esc(row.day)}</td><td><code>${esc(String(row.who).slice(0, 8))}</code></td><td class="num">${Number(row.requests) || 0}</td><td>${esc(row.cause || '–')}</td>
+    return `<tr><td>${esc(row.day)}</td><td><code>${esc(String(row.who).slice(0, 8))}</code></td><td class="num">${Number(row.requests) || 0}</td><td>${esc(causeWords(row.cause))}</td>
     <td><span class="st ${status}">${status}</span></td><td class="num">${mb(Number(row.bytes) || 0)}</td></tr>`;
   }).join('');
   const waiting = rows.filter(row => statusOf(row, now) === 'waiting').length;

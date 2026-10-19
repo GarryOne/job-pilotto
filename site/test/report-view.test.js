@@ -15,6 +15,8 @@ test('the page lists each report newest first with its status, size and the day\
   assert.deepEqual([...html.matchAll(/<span class="st (\w+)">/g)].map(m => m[1]), ['waiting', 'fetched', 'expired']);
   assert.ok(html.indexOf('abcdef01') < html.indexOf('99887766'));
   assert.match(html, /1 \/ 50/); assert.match(html, /3\.0 MB/); assert.match(html, /reports-fetch\.mjs/);
+  for (const words of ['Stalled on the form', 'Wrong page', 'No cause given']) assert.ok(html.includes(words), words);
+  assert.ok(!/wrong_page|>stalled</.test(html), 'no code words');
   assert.equal(statusOf(ROWS[2], NOW), 'expired');
   assert.match(page({rows: [], today: null, now: NOW}), /No report yet/);
 });
