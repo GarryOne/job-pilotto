@@ -1,0 +1,38 @@
+---
+name: check-job-search-locally
+description: Run ONE live job search of a fictional candidate (a fixed Lab one or a random role and city) on the owner's Mac, on the Claude subscription ($0 API), and report time to first job, jobs in places, scored and 70+ against earlier runs. Use when the owner says "check the job search", "run a search test", "try the search on <candidate>".
+---
+
+# Check the job search locally (on demand)
+
+The owner's job-search check is **real installs' results + the Random draws** (owner, 19 Oct 2026); the offline replay is parked. This skill is the one on-demand live run: a fictional
+candidate through the app's own path (CV → strategy → first "Find jobs"), on this Mac.
+
+## What it uses and costs
+- **AI: the owner's Claude subscription via `claude -p`: $0 API.** Never the Tests key, never any API key: the script removes `ANTHROPIC_API_KEY`, `LAB_HEAL_ANTHROPIC_KEY`,
+  `RANDOM_DRAWS_ANTHROPIC_KEY`, `OPENAI_API_KEY`, `REPLAYS_PUBLISH_KEY` from its environment (`tools/persona-search/search-check.mjs`, test `tests/test_search_check.py`).
+- **Sites:** live public job sites, never past a login wall, no apply (the engine's own rules).
+- **A throwaway install** (`run.mjs`: its folder under the OS temp dir): never the owner's app folder, Keychain, Notion, Telegram or data; telemetry and sharing off.
+- **Identity:** `claude -p` knows the owner's name, e-mail, country and city; the harness runs the real `claude` install, never a shell wrapper that adds the session's settings
+  (`desktop/e2e/lib/real-claude.mjs`), and the candidate is fictional (`example.test`). If a result shows the owner's real name or city, stop and say so.
+- **Time:** about 5-12 minutes for the one press (a plan-path run is slower than CI's). Nothing is posted anywhere.
+
+## Run it
+1. Pick the candidate from the owner's words: `finance`, `music`, `driver`, `sre` (control), `cluj`, `chisinau`, or `random` (a role family + European city picked by a seed;
+   `--seed <text>` repeats one). No word → `random`. Say the pick in one line.
+2. Say in one line what will run, where its log is, and that it takes ~10 minutes; then start it **in the background with a tee** and arm a Monitor:
+   `node tools/persona-search/search-check.mjs <candidate> 2>&1 | tee <scratchpad>/search-check.log` (`run_in_background`), Monitor:
+   `tail -n 0 -F <log> | grep --line-buffered -E "^PRESS|Traceback|FAILED|SEARCH CHECK DONE|Error"`. The first line of the log (folder, seed) must show within ~20 s; if not, say it failed and diagnose.
+   `--dry` prints the plan and starts nothing.
+3. On the result lines (`Time to first job`, `Jobs in your places`, `Scored`, `Scoring 70+`) tell the owner, in a small table, each number **beside the earlier local runs' median**
+   (the script prints it from `~/jp-search-check/history.jsonl`; first run: "no earlier local run").
+4. Put them next to the live picture: open `/admin/lab-job-search` (Random draws, Real installs; read it with the Bearer from Keychain `job-pilotto.site.api_key`, memory *reference-owner-pages-access*)
+   and quote the latest Random draw's numbers and the real installs' medians for the same role family. One line: better / same / worse, and the weakest number.
+5. A FAILED row (a step crashed) is shown as FAILED with its step, never as numbers.
+
+## Also on CI (only when the owner asks, and asks first)
+`gh workflow run random-draw.yml` runs one Random draw on CI (~$0.85 on the Random-draws API key, a different candidate each seed). Say the cost and wait for a yes before starting it;
+add `-f seed=YYYY-MM-DD` to repeat a day.
+
+## Not this skill
+- Fixing a weak search (that is a normal code change through the change loop), the parked replay (`search-lab*.yml`, by hand only) or the Real installs tab.
