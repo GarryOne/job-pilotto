@@ -171,6 +171,7 @@
   "read-back-equivalence.test.mjs",
   "real-claude.test.mjs",
   "real-extension.test.mjs",
+  "panel-plain-ai-errors.test.mjs",
   "report-button.test.mjs",
   "recall.test.mjs",
   "record-repair.test.mjs",
