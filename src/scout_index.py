@@ -215,8 +215,10 @@ def health(db, entries, today, failed=()):
 
 SWISS = re.compile(regions.SWITZERLAND, re.I)   # Switzerland's fixed table (src/regions.py): the Swiss market's numbers, the same towns everywhere
 # Fixed words for the market coverage (engineering and IT, the central scout's own scope): the same words are asked of jobs.ch.
-MARKET_TERMS = ('devops', 'site reliability', 'platform engineer', 'cloud engineer', 'kubernetes', 'software engineer', 'data engineer',
-                'security engineer', 'system engineer', 'backend', 'frontend', 'machine learning')
+# One or two words per kind of role (src/role_kinds.py), as Swiss posts write them (German first, the most posts): the yardstick covers every
+# kind of job, not IT alone (owner, 19 Oct 2026: "a global job search, across europe"; it was 12 IT words until then).
+MARKET_TERMS = ('software engineer', 'devops', 'data engineer', 'key account', 'verkauf', 'logistik', 'chauffeur', 'koch', 'pflege', 'grafik',
+                'buchhaltung', 'sachbearbeiter', 'lehrperson', 'elektriker', 'polymechaniker')
 
 
 def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0):
