@@ -17,6 +17,8 @@ import urllib.request
 from . import role_kinds
 from .paths import DATA
 from . import service
+
+OUTCOMES = {'no_feed': 30, 'refused': 30, 'unreachable': 7}   # fixed words, days each rests (see scout_core)
 from .sources import ats, page_recipes
 
 REGION_NAMES = ('europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote')   # site/src/pool.js REGIONS
@@ -65,7 +67,7 @@ def clean_nofeed(items):
     out = []
     for item in items if isinstance(items, list) else []:
         if isinstance(item, dict) and re.fullmatch(r'[a-z0-9]{1,120}', str(item.get('key') or '')) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(item.get('last') or '')):
-            out.append({'key': item['key'], 'last': item['last']})
+            out.append({'key': item['key'], 'last': item['last'], 'outcome': item.get('outcome') if item.get('outcome') in OUTCOMES else 'no_feed'})
     return out[:5000]
 
 
@@ -149,9 +151,17 @@ def central_nofeed(cache=None, today=None, days=30):
     install's scout skips them instead of probing the same dead end."""
     if os.getenv('JOB_PILOTTO_FIXTURE_DIR') and cache is None:   # a fixture run reads nothing downloaded (as load() does)
         return set()
-    cutoff = ((today or datetime.now(timezone.utc).date()) - timedelta(days=days)).isoformat()
+    day = today or datetime.now(timezone.utc).date()
     stored = _read(cache or CACHE) or {}
-    return {item['key'] for item in stored.get('nofeed') or [] if item.get('last', '') >= cutoff}
+    return {item['key'] for item in stored.get('nofeed') or []
+            if item.get('last', '') >= (day - timedelta(days=min(days, OUTCOMES.get(item.get('outcome'), days)))).isoformat()}
+
+
+def fresh_nofeed(items, today=None):
+    """{key} of the dead ends in `items` ({key, last, outcome}) still resting today; the same rule as central_nofeed, for a list just fetched."""
+    day = today or datetime.now(timezone.utc).date()
+    return {item['key'] for item in clean_nofeed(items)
+            if item['last'] >= (day - timedelta(days=OUTCOMES[item['outcome']])).isoformat()}
 
 
 def clean(feeds):

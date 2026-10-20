@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS scout_candidates (
     added_at TEXT NOT NULL,
     checked_at TEXT,
     next_check TEXT,
-    checked_with TEXT
+    checked_with TEXT,
+    outcome TEXT
 );
 -- Which checked employers each Employers & Sources database already has a row for (sync_notion): a run without Notion, a failed
 -- write or a new workspace leaves some out, and they are written later instead of staying only on this computer (6 Oct 2026).
@@ -88,7 +89,8 @@ CREATE TABLE IF NOT EXISTS feed_sources (
 # the table (17 Oct 2026: with more than IDEAS_PAUSE names waiting, run() skipped harvest() -- the only place that added them -- and next_batch
 # failed with "no such column: checked_with").
 ADDED_COLUMNS = {'scout_candidates': (('website', 'TEXT'),   # since 3 Oct 2026
-                                      ('checked_with', 'TEXT'))}   # the readers that judged it (scout.READERS), since 6 Oct 2026
+                                      ('checked_with', 'TEXT'),   # the readers that judged it (scout.READERS), since 6 Oct 2026
+                                      ('outcome', 'TEXT'))}   # why a 'none' has no feed: one of OUTCOMES, since 20 Oct 2026
 
 
 def ensure_tables(db):
@@ -134,6 +136,12 @@ def _get_text(url):
 # The central scout (python -m src scout --publish-index, job-pilotto-internal) keeps the full lists it publishes; an install ignores the copies
 # of the lists the app shipped before 6 Oct 2026 (src/legacy_lists.py): those sources reach it through the central index now.
 CENTRAL = False
+# Why an employer has no readable job feed, as the fixed words installs and the central scout share (20 Oct 2026) and how many days each rests
+# before it is probed again: a site that was down comes back sooner than one that has none or turned the engine away.
+from .employer_index import OUTCOMES   # noqa: E402 (kept beside its comment)
+# Keys of employers some install found with no readable job site lately (the central scout reads them before its run; an install reads the
+# downloaded employer index instead), so the central scout does not probe what installs already tried.
+SHARED_DEAD = set()
 # The central scout's time for names and checks, so it always publishes inside its 75-minute job (central-scout.yml): 20 Oct 2026, 2 of 4 runs
 # were cancelled checking 500 hospital and school sites (slower than job-system boards) and published nothing. Publishing takes ~15 minutes.
 CENTRAL_BUDGET_S = 45 * 60
