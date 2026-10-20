@@ -30,6 +30,20 @@ class ThinCellTest(unittest.TestCase):
         self.assertNotEqual(first, ('logistics', 'pl'), 'a cell with one employer comes after the empty ones')
         self.assertNotEqual(scout_cells.next_cell(self.db), first, 'the next run aims elsewhere')
 
+    def test_the_floor_follows_the_country_size(self):
+        self.assertEqual({scout_cells.floor_for(c) for c in scout_cells.BIG}, {scout_cells.FLOOR})
+        self.assertEqual({scout_cells.floor_for(c) for c in scout_cells.SMALL}, {scout_cells.SMALL_FLOOR})
+        self.assertTrue(set(scout_cells.BIG + scout_cells.SMALL) <= set(scout_cells.EUROPE), 'every named country is a column of the page')
+        self.assertFalse(set(scout_cells.BIG) & set(scout_cells.SMALL))
+        self.assertEqual(scout_cells.floor_for('ch'), scout_cells.MID_FLOOR)
+        self.assertEqual([scout_cells.floor_for(c) for c in scout_cells.EUROPE].count(scout_cells.MID_FLOOR), 13, 'the 13 mid-size countries')
+
+    def test_a_small_country_at_its_own_floor_is_not_aimed_at(self):
+        enough = [feed(kind, 'lu') for kind in scout_cells.AIMED for _ in range(scout_cells.SMALL_FLOOR)]
+        scout_cells.keep(self.db, enough)
+        seen = {scout_cells.next_cell(self.db) for _ in range(len(scout_cells.AIMED) * len(scout_cells.EUROPE))}
+        self.assertFalse([cell for cell in seen if cell and cell[1] == 'lu'])
+
     def test_no_counts_yet_means_the_usual_search(self):
         own = {'role_keywords': ['data analyst']}
         self.assertEqual(scout_cells.aim(self.db, own), (own, ''))
