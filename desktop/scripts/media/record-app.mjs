@@ -26,8 +26,8 @@ function personaCopy(persona) {
 export async function launchApp({persona = path.join(desktop, 'demo')} = {}) {
   const data = personaCopy(persona);
   const app = await electron.launch({
-    executablePath: path.join(desktop, 'node_modules', '.bin', process.platform === 'win32' ? 'electron.cmd' : 'electron'),
-    args: [desktop, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+    executablePath: path.join(desktop, 'node_modules', '.bin', 'electron'),   // a Mac (here or the CI runner): the site shows the Mac app
+    args: [desktop],
     env: {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_CONFIG_DIR: data, JOB_PILOTTO_DATA_DIR: data,
       JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: 'Europe/Zurich'},
     timeout: 90000,
