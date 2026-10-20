@@ -2,9 +2,10 @@
 // due. The app answers unless the person turned the setting off (Settings → Advanced, on by default since 20 Oct 2026), and then lists sites that refused the app's own reading and were not
 // asked in the last 30 days. Each is fetched ONCE, one at a time, with a pause, WITHOUT cookies or logins (credentials omitted), and the page goes to the app, which keeps its jobs
 // or the stop. Never LinkedIn, Indeed, Glassdoor, levels.fyi, Reddit (checked here too, whatever the app says); a refusal, bot check or login page is the app's stop, never retried and
-// never solved. Not a flow file: nothing here touches an application. Guard: desktop/test/extension-refused-read.test.js.
+// never solved; a site that still refuses goes on to a real tab in an incognito window (refused-tab.js, no cookies). Not a flow file: nothing here touches an application. Guard: desktop/test/extension-refused-read.test.js.
 import {api, settings} from './flow.js';
 import {ALL_SITES} from './site-allow.js';
+import {tabReader} from './refused-tab.js';
 
 export const ALARM = 'refused-reads';
 export const NOW_ALARM = 'refused-reads-now';   // every minute: has the app a Read now waiting? (one cheap call, the engine is not asked)
@@ -22,29 +23,41 @@ export function mayFetch(url) {
 const titleOf = html => (/<title[^>]*>([^<]{0,300})/i.exec(html) || [])[1]?.trim() || '';
 const wait = ms => new Promise(done => setTimeout(done, ms));
 let running = false;
+const incognitoAllowed = chrome => new Promise(resolve => { try { chrome.extension.isAllowedIncognitoAccess(answer => resolve(!!answer)); } catch { resolve(true); } });   // unknown: no nagging
 
 // One pass. Everything the browser does is injected so a test can run it without Chrome.
-export async function pass({chrome = globalThis.chrome, call = api, config = null, fetchPage = fetch, pause = () => wait(PAUSE_MS[0] + Math.random() * (PAUSE_MS[1] - PAUSE_MS[0]))} = {}) {
+export async function pass({chrome = globalThis.chrome, call = api, config = null, fetchPage = fetch, tabs = null, pause = () => wait(PAUSE_MS[0] + Math.random() * (PAUSE_MS[1] - PAUSE_MS[0]))} = {}) {
   if (running) return {read: 0, skipped: 'running'};
   running = true;
   try {
     const cfg = config || await settings();
     const allowed = await chrome.permissions.contains(ALL_SITES);
-    const asked = await call(cfg, '/extension/refused-queue', {method: 'POST', body: JSON.stringify({allowed})}).catch(() => null);
+    const asked = await call(cfg, '/extension/refused-queue', {method: 'POST', body: JSON.stringify({allowed, incognito: await incognitoAllowed(chrome)})}).catch(() => null);
     const sites = allowed && asked?.on ? (asked.sites || []).slice(0, MAX_SITES) : [];
     let read = 0;
+    const judge = page => call(cfg, '/extension/refused-judge', {method: 'POST', body: JSON.stringify(page)});
+    const tab = tabs || tabReader({chrome, judge});
     for (const [index, site] of sites.entries()) {
       if (index) await pause();
       if (!mayFetch(site.url)) { await call(cfg, '/extension/refused-outcome', {method: 'POST', body: JSON.stringify({url: site.url, status: 0, html: ''})}).catch(() => null); continue; }
-      let page = {url: site.url, status: 0, html: '', final: ''};
-      try {
-        const response = await fetchPage(site.url, {credentials: 'omit', redirect: 'follow', cache: 'no-store'});
-        const html = (await response.text()).slice(0, MAX_BYTES);
-        page = {url: site.url, status: response.status, html, title: titleOf(html), final: response.url || site.url};
-      } catch (error) { page.status = 0; page.error = String(error?.message || error).slice(0, 100); }
+      // The ladder (owner, 20 Oct 2026): the Chrome download, then a real tab; a site that last opened at the tab step starts there.
+      let page = {url: site.url, status: 0, html: '', final: '', step: 'download'};
+      if (site.step !== 'tab') {
+        try {
+          const response = await fetchPage(site.url, {credentials: 'omit', redirect: 'follow', cache: 'no-store'});
+          const html = (await response.text()).slice(0, MAX_BYTES);
+          page = {url: site.url, status: response.status, html, title: titleOf(html), final: response.url || site.url, step: 'download'};
+        } catch (error) { page.status = 0; page.error = String(error?.message || error).slice(0, 100); }
+      }
+      const state = site.step === 'tab' ? 'refused' : page.status === 429 ? 'page' : (await judge(page).catch(() => null))?.state || 'refused';   // a 429 is "slow down", never a ladder step
+      if (state !== 'page' && page.status !== 429) {
+        const tabbed = await tab.read(site.url).catch(() => ({skipped: 'error'}));
+        if (tabbed.page) page = {...tabbed.page, step: 'tab', ...(tabbed.state === 'captcha' ? {captcha: true} : {})};
+      }
       await call(cfg, '/extension/refused-outcome', {method: 'POST', body: JSON.stringify(page)}).catch(() => null);
       read++;
     }
+    await tab.close().catch(() => {});
     if (sites.length) await call(cfg, '/extension/refused-done', {method: 'POST', body: '{}'}).catch(() => null);
     return {read};
   } finally { running = false; }

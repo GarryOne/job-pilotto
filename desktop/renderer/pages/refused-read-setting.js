@@ -8,6 +8,7 @@ export async function init() {
   const paint = settings => {
     box.checked = readRefusedOn(settings);
     document.getElementById('refused-read-allow').hidden = !(box.checked && settings?.refusedNeedsAllow === true);
+    document.getElementById('refused-read-incognito').hidden = !(box.checked && settings?.refusedNeedsIncognito === true);
   };
   paint((await window.pilot.state().catch(() => null))?.settings);
   box.addEventListener('change', async () => {

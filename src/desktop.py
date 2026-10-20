@@ -70,6 +70,7 @@ def main(argv=None):
     refused.add_argument('--now', action='append', default=[])   # a site to read at once (the person opened a job there)
     refused.add_argument('--all', action='store_true')   # Check for new jobs: every refused site, resting or not
     # refused-queue: refused employer sites and boards the extension may read when due (src/sources/refused_reads.py); the app asks only when the setting is on
+    sub.add_parser('refused-judge').add_argument('file')   # what a page in the real tab is now (JSON: url, status, html, title, final): page, passive_check, captcha, login or refused
     sub.add_parser('refused-outcome').add_argument('file')   # what the extension's fetch of one of them brought (JSON: url, status, html, title, final)
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
     sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
@@ -240,10 +241,15 @@ def main(argv=None):
             from .sources import refused_reads
             print(json.dumps({'ok': True, 'sites': refused_reads.queue(now_hosts=args.now, everything=args.all)}, ensure_ascii=False))
             return 0
+        if args.command == 'refused-judge':
+            from .sources import refused_state
+            page = json.loads(Path(args.file).read_text())
+            print(json.dumps({'ok': True, 'state': refused_state.page_state(page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''))}))
+            return 0
         if args.command == 'refused-outcome':
             from .sources import refused_reads
             page = json.loads(Path(args.file).read_text())
-            result = refused_reads.outcome(str(page.get('url') or ''), page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''))
+            result = refused_reads.outcome(str(page.get('url') or ''), page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''), step=page.get('step') if page.get('step') in ('engine', 'download', 'tab') else 'download')
             if result.get('feed'):   # like a page the person opened: the next jobs check reads, filters and scores it
                 with store.connect(JOBS_DB) as db:
                     from . import scout
