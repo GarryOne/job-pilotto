@@ -4,7 +4,7 @@ name: CI · Tests
 # readability nor speed, only as few runners as possible (owner, 15 Oct 2026: a push started ~10 jobs, PRs waited for runners): ONE Linux job runs every Linux suite in sequence,
 # each its own named step that fails alone (continue-on-error), and a last step fails the job listing every red suite, so one red suite never hides another. The Windows desktop
 # tests stay a job of their own (another OS). A pull request keeps the split into fast parallel workflows, started by their `on: paths:` (tests-python.yml, tests-worker.yml,
-# tests-site.yml, tests-desktop.yml, page-cases.yml, control-tests.yml): speed matters there. The steps repeat what those workflows run: tests/test_main_one_job.py fails when one
+# tests-desktop.yml, page-cases.yml, control-tests.yml): speed matters there. The steps repeat what those workflows run: tests/test_main_one_job.py fails when one
 # suite is on a PR and not here. Page cases and the ops overview no longer start by themselves on a push: their runs are steps below.
 on:
   push:
@@ -41,12 +41,6 @@ jobs:
         id: python
         continue-on-error: true
         run: bash tools/check.sh --area python
-      - name: Suite · site
-        id: site
-        continue-on-error: true
-        run: |
-          (cd site && npm ci)
-          bash tools/check.sh --area site
       - name: Suite · worker
         id: worker
         continue-on-error: true
@@ -104,18 +98,10 @@ jobs:
           path: desktop/e2e/widget-zoo.json
           if-no-files-found: ignore
           retention-days: 3
-      # Where our engineering time goes (tools/ops-overview.mjs; ops-overview.yml keeps its hourly backup). Never a verdict: a failure here is a warning, not a red main.
-      - name: Publish the ops overview
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
-        run: node tools/ops-overview.mjs
       - name: Every suite passed
         if: always()
         env:
-          RESULTS: python=${{ steps.python.outcome }} site=${{ steps.site.outcome }} worker=${{ steps.worker.outcome }} desktop=${{ steps.desktop.outcome }} replay-install=${{ steps.replay-install.outcome }} page-cases=${{ steps.pages.outcome }}
+          RESULTS: python=${{ steps.python.outcome }} worker=${{ steps.worker.outcome }} desktop=${{ steps.desktop.outcome }} replay-install=${{ steps.replay-install.outcome }} page-cases=${{ steps.pages.outcome }}
           WARNINGS: page-cases-report=${{ steps.pages-report.outcome }} control-tests=${{ steps.zoo.outcome }}
         run: |
           red=""

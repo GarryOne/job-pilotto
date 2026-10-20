@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {evaluate, mock, rest} from '../../tools/free-ai-eval.mjs';
 import {schemaProblems, spearman, summarize, table, topOverlap} from '../../tools/free-ai-eval-metrics.mjs';
-import {SMALL, STRONG} from '../../site/src/free-ai-models.js';
+import {SMALL, STRONG} from '../lib/free-ai-models.js';
 
 const schema = {type: 'object', required: ['score', 'tier'], properties: {score: {type: 'integer'}, tier: {type: 'string', enum: ['A', 'B', 'C']}, tags: {type: 'array', items: {type: 'string'}}}};
 const cases = Array.from({length: 8}, (_, i) => ({id: `job-${i}`, baseline: 10 + i * 10, params: {max_tokens: 100, output_config: {format: {type: 'json_schema', schema}},

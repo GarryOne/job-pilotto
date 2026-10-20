@@ -2,7 +2,7 @@
 // step pictures only of a run whose row needs a fix or is a site problem; older folders pruned at the start of a smoke run (the newest of each row always stays). Guard: test/evidence-clean.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
-import {rowStatus} from '../../../site/src/applying-status.js';
+import {rowStatus} from './applying-status.mjs';
 import {stepFilesIn} from './step-shots.mjs';
 
 export const KEEP_DAYS = 30;

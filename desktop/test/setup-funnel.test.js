@@ -2,16 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {STEPS, track} from '../lib/setup-funnel.js';
+import {siteTest} from './site-private.js';
+
+// The website's funnel (/telemetry) counts the same steps, then "done". It keeps 'notion' as a legacy step (older apps reported it; a newer install that went past it counts as having reached it).
+const SITE_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];
+
+siteTest('the website counts the same setup steps', () => {
+  const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
+  assert.match(site, new RegExp(`SETUP_STEPS = \\[${SITE_STEPS.map(s => `'${s}'`).join(', ')}\\]`));
+});
 
 test('the steps match the wizard', () => {
   const core = fs.readFileSync(new URL('../renderer/pages/core.js', import.meta.url), 'utf8');
   assert.match(core, new RegExp(`STEPS = \\[${STEPS.map(s => `'${s}'`).join(', ')}\\]`));
-  // The website's funnel (/telemetry) counts the same steps, then "done".
-  const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
-  // The website keeps 'notion' as a legacy step (older apps reported it; a newer install that went past it counts as having reached it).
-  const siteSteps = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];
-  assert.deepEqual(STEPS, siteSteps.filter(s => s !== 'notion' && s !== 'done'));
-  assert.match(site, new RegExp(`SETUP_STEPS = \\[${siteSteps.map(s => `'${s}'`).join(', ')}\\]`));
+  assert.deepEqual(STEPS, SITE_STEPS.filter(s => s !== 'notion' && s !== 'done'));
   // Every step has its page in the wizard, and the sidebar lists exactly these.
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   // 'hosted' is built in script (renderer/pages/hosted.js: index.html may only shrink), placed before 'extras'; the others are in the page.

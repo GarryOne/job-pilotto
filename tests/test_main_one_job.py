@@ -10,7 +10,6 @@ WORKFLOWS = ROOT / '.github' / 'workflows'
 BUILD = (WORKFLOWS / 'build.yml').read_text(encoding='utf-8')
 LINUX_SUITES = {   # what a PR's workflow runs -> a line of its step in build.yml
     'tests-python.yml': 'bash tools/check.sh --area python',
-    'tests-site.yml': 'bash tools/check.sh --area site',
     'tests-worker.yml': 'bash tools/check.sh --area worker',
     'tests-desktop.yml': 'bash tools/check.sh --area desktop',
     'page-cases.yml': 'node --test --test-concurrency=1 test/recorded-pages.test.mjs',
@@ -32,18 +31,17 @@ class MainOneJob(unittest.TestCase):
 
     def test_each_suite_fails_alone_and_a_last_step_lists_the_red_ones(self):
         steps = re.findall(r'(?ms)^      - name: (Suite · [^\n]*)\n(.*?)(?=^      - )', BUILD)
-        self.assertGreaterEqual(len(steps), 6)
+        self.assertGreaterEqual(len(steps), 5)
         for name, body in steps:
             self.assertIn('continue-on-error: true', body, name)
-        for key in ('python', 'site', 'worker', 'desktop', 'pages'):
+        for key in ('python', 'worker', 'desktop', 'pages'):
             self.assertIn(f'steps.{key}.outcome', BUILD, key)
         self.assertRegex(BUILD, r'(?s)if: always\(\)\n\s+env:\n\s+RESULTS:.*exit 1')
 
     def test_the_other_workflows_no_longer_start_on_a_push(self):
-        for name in ('page-cases.yml', 'control-tests.yml', 'ops-overview.yml'):
+        for name in ('page-cases.yml', 'control-tests.yml'):
             trigger = (WORKFLOWS / name).read_text(encoding='utf-8').split('\njobs:')[0]
             self.assertNotRegex(trigger, r'(?m)^  push:', name)
-        self.assertIn('tools/ops-overview.mjs', BUILD)
 
     def test_a_timeout_fits_the_sum(self):
         self.assertRegex(BUILD, r'timeout-minutes: (4\d|5\d|60)\b')

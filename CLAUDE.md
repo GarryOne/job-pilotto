@@ -94,6 +94,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 | How knowledge is kept between sessions | [docs/rules/knowledge.md](docs/rules/knowledge.md) |
 | Running a fix round (coordinator): order, target, no tooling mid-round | [docs/rules/rounds.md](docs/rules/rounds.md) |
 | Maintaining the apply flow: record once, detect/fix/verify offline | [docs/rules/apply-flow-workflow.md](docs/rules/apply-flow-workflow.md) |
+| The website, /admin and their CI live in a private repo | [docs/rules/private-site.md](docs/rules/private-site.md) |
 | Why each rule exists | [docs/rules/why.md](docs/rules/why.md) |
 
 ## Tests

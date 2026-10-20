@@ -10,7 +10,7 @@ import time
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-AREAS = ('python', 'worker', 'site', 'desktop')
+AREAS = ('python', 'worker', 'site', 'desktop') if (ROOT / 'site').is_dir() else ('python', 'worker', 'desktop')   # the website is in the private repo job-pilotto-site: its CI lays site/ over this tree
 
 
 def node_supported(version):
@@ -105,7 +105,7 @@ def main(argv=None):
         print(f'check: {error}', file=sys.stderr)
         return 2
     if args.clean_install:
-        for area in ('desktop', 'worker', 'site'):
+        for area in [a for a in ('desktop', 'worker', 'site') if (ROOT / a).is_dir()]:
             folder = ROOT / area
             with tempfile.TemporaryDirectory(prefix='job-pilotto-check-') as scratch:
                 for name in ('package.json', 'package-lock.json'):

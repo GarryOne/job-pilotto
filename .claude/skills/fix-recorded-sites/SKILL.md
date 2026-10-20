@@ -13,7 +13,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
 ## 0. Pick the work (one line each to the owner)
 - **The list is "Needs a fix" on `/admin/lab-form-filling`** (owner-only; Bearer = Keychain `job-pilotto.site.api_key`, memory `reference-owner-pages-access`; the same rows are in `?json`).
   Worst first: regressions, the earliest stop, the least filled form. A form reached with under half its asked fields filled is a **shortfall**. A code or bot check is a documented hold, not on the list.
-- **Take a CAUSE, not a row** (owner, 11 Oct 2026; `docs/rules/rounds.md`): the **By cause** tab, or `node tools/needs-fix-causes.mjs --rows`. A row "Run first" (never recorded, or not since its fix) is the recorder's, not a fix.
+- **Take a CAUSE, not a row** (owner, 11 Oct 2026; `docs/rules/rounds.md`): the **By cause** tab, or `~/job-pilotto-site/tools/site-run.sh node tools/needs-fix-causes.mjs --rows`. A row "Run first" (never recorded, or not since its fix) is the recorder's, not a fix.
   Weigh by demand (the scorecard's "Of matched jobs"); a "Blind spot" platform (real fills worse than the tests) goes first: its signal is in `record-applying-sites` "Reading real use".
 - **Claim it:** `node tools/claim-shape.mjs claim "<row>" --session <your name> --alive <names ListAgents shows>` (exit 1 prints the holder: next row). Release it whenever you stop.
 - **Skip what is not a failure:** an email/told outcome (a correct hold), a site answering 5xx, a row already fixed on main (`git log origin/main --grep '<site>'`, `Pool-row:` trailers).

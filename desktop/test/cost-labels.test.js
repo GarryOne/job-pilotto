@@ -3,7 +3,7 @@
 // ran (run cards, "Actual cost"), is a fact and stays; so do the AI-cost pages.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
@@ -18,7 +18,9 @@ const files = () => execFileSync('git', ['ls-files', '-z'], {cwd: repo, maxBuffe
 
 test('no price in a button, hint, tooltip or dialog before the action: the words say what it does, not what it costs', () => {
   const all = files();
-  for (const folder of [/^desktop\/renderer\//, /^desktop\/lib\//, /^extension\//, /^site\/public\//, /^site-[a-z]+\/public\//]) assert.ok(all.some(file => folder.test(file)), `${folder} is scanned`);
+  // The website's folders are in the private repo job-pilotto-site: its CI runs this test over the joined tree, where they must be scanned too.
+  const folders = [/^desktop\/renderer\//, /^desktop\/lib\//, /^extension\//, ...(existsSync(join(repo, 'site')) ? [/^site\/public\//, /^site-[a-z]+\/public\//] : [])];
+  for (const folder of folders) assert.ok(all.some(file => folder.test(file)), `${folder} is scanned`);
   const found = all.flatMap(file => readFileSync(join(repo, file), 'utf8').split('\n').map((line, i) => [file, i + 1, line.trim()])
     .filter(([name, , line]) => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('<!--') && PRICE.test(line)
       && !INFORMATION.some(([page, said]) => name.endsWith(page) && said.test(line))).map(([f, n]) => `${f}:${n}`));

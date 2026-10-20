@@ -13,6 +13,7 @@ on:
       - 'desktop/e2e/lib/app-log.mjs'
       - 'desktop/e2e/lib/app.mjs'
       - 'desktop/e2e/lib/applicant-seed.mjs'
+      - 'desktop/e2e/lib/applying-status.mjs'
       - 'desktop/e2e/lib/apply-fixtures.mjs'
       - 'desktop/e2e/lib/applying-report.mjs'
       - 'desktop/e2e/lib/capture-page.mjs'
