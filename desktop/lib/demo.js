@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-// The folder the demo reads its fictional data from: the app's demo/, or JOB_PILOTTO_DEMO_DIR (the product media's
-// personas, desktop/scripts/media). Every demo read goes through demoPath (desktop/test/demo-dir.test.js).
+// The folder the demo reads its fictional data from: the app's demo/, or JOB_PILOTTO_DEMO_DIR (the product media,
+// recorded in the private site repo). Every demo read goes through demoPath (desktop/test/demo-dir.test.js).
 export const folder = (here, env = process.env) => env.JOB_PILOTTO_DEMO_DIR || path.join(here, 'demo');
 export const demoPath = (here, name) => path.join(folder(here), name);
 

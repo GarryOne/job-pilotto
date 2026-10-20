@@ -31,7 +31,7 @@ test('a screenshot run is hidden too: no Dock icon, no show, no focus', () => {
 
 test('every script that starts electron for a picture sets JOB_PILOTTO_SMOKE (so it is hidden)', async () => {
   const {readFileSync} = await import('node:fs');
-  for (const name of ['shot', 'ui-shots', 'site-demo', 'screenshots']) {
+  for (const name of ['shot', 'ui-shots', 'screenshots']) {
     assert.match(readFileSync(new URL(`../scripts/${name}.mjs`, import.meta.url), 'utf8'), /JOB_PILOTTO_SMOKE:|JOB_PILOTTO_SMOKE:? /, name);
   }
 });
@@ -64,7 +64,7 @@ test('a hidden run opens browser tabs in the background', () => {
 
 test('a screenshot run opens the window marked as a capture; a normal or e2e run does not', () => {
   // Owner, 17 Oct 2026: the first-launch tour covered the sidebar in PR shots. Every capture tool (shot, ui-shots, screenshots, drawer-shots,
-  // find-card-shots, site-demo, smoke-screens) sets JOB_PILOTTO_SMOKE, so the mark is given here once and the renderer leaves its one-time overlays out.
+  // find-card-shots, smoke-screens) sets JOB_PILOTTO_SMOKE, so the mark is given here once and the renderer leaves its one-time overlays out.
   assert.deepEqual(captureQuery({JOB_PILOTTO_SMOKE: '/x/shot.png'}), {capture: '1'});
   assert.equal(captureQuery({}), undefined);
   assert.equal(captureQuery({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1'}), undefined);
