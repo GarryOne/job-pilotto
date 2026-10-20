@@ -41,10 +41,10 @@ ship_pr_land() {
   ship_pr_push
   n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
   if [ -z "$n" ]; then
-    title="${SHIP_PR_TITLE:-$(bash "$here/tools/pr-title.sh" origin/main)}"   # the newest commit that is not a "Move ..." split, or --title= (18 Oct 2026)
+    title="${SHIP_PR_TITLE:-$(bash "$tools/pr-title.sh" origin/main)}"   # the newest commit that is not a "Move ..." split, or --title= (18 Oct 2026)
     who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"   # the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
     [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
-    body="$(bash "$here/tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
+    body="$(bash "$tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
     rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
     out="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" ${SHIP_PR_DRAFT:+--draft} 2>&1)" || ship_pr_fail "could not open the pull request: $(echo "$out" | tail -n 1)"
     if [ -n "$rows" ]; then gh label create pool-fix --color 1D76DB --description "fixes a row of the applying pool (from its Pool-row lines)" >/dev/null 2>&1 || true; gh pr edit "$(echo "$out" | tail -n 1)" --add-label pool-fix >/dev/null 2>&1 || true; fi   # a missing label never fails a landing
@@ -52,7 +52,7 @@ ship_pr_land() {
   else
     step "the branch already has pull request #$n: reusing it"
     if [ -n "${SHIP_PR_BODY:-}" ]; then   # a new --body=<file> on a PR that is already open: its description is refreshed through the same tools/pr-body.sh (16 Oct 2026: #1049 kept the first draft's numbers)
-      body="$(bash "$here/tools/pr-body.sh" origin/main "--body=$SHIP_PR_BODY")" && gh pr edit "$n" --body "$body" >/dev/null 2>&1 && step "refreshed the description of #$n from --body" || step "could not refresh the description of #$n (the old one stays)"
+      body="$(bash "$tools/pr-body.sh" origin/main "--body=$SHIP_PR_BODY")" && gh pr edit "$n" --body "$body" >/dev/null 2>&1 && step "refreshed the description of #$n from --body" || step "could not refresh the description of #$n (the old one stays)"
     fi
     if [ -n "${SHIP_PR_TITLE:-}" ]; then   # --title= on a PR that is already open: its title is replaced (only then)
       who="$(session_name)"; title="$SHIP_PR_TITLE"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"
