@@ -1,4 +1,4 @@
-// One job of the night (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): open the job's form (the address the app's Apply opens, lib/form-address.js) in a tab of the night's browser, ask the real extension to fill it the way the app's "Apply" does (the address hash, then the panel's Fill
+// One job of the night (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): open the job's form (the address the app's Apply opens, lib/form-address.js) in a tab of the night's browser, ask the real extension to fill it the way the app's "Apply" does (the address hash, then the panel's Fill
 // button), and read what it reported to the stand-in. The tab stays open, filled, for the morning. Nothing here presses Submit or an account button: the extension copy holds the account press and no-submit.mjs refuses a submission.
 // -> {state, filled, left, humanCheck, wall, ms}, never a field value. Guard: desktop/test/ready-fill.test.js (classify) and the fixture proof (hosted/ready-fill/proof.mjs).
 import {formUrl} from '../../desktop/lib/form-address.js';   // in the image: /desktop/lib, reached by the same path from /night

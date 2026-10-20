@@ -1,6 +1,6 @@
 // Ready to send: the night's filler (hosted/ready-fill/) run for real against the e2e fixture forms, with a fake Worker. It proves what the unit tests cannot: the real extension, in Chromium, fills three fixture forms
 // from a batch (kit, CV, contact) through the stand-in app, stops before Submit (the fixtures log any Submit that was clicked), reports counts only, and the held tabs give a hand-off. Run: `node ready-fill-proof.mjs` (fictional data only).
-// Prints one line per job and a JSON summary (also to $1 when given): states, counts, seconds, browser memory. Spec docs/superpowers/specs/2026-10-17-ready-to-send.md, PR 2.
+// Prints one line per job and a JSON summary (also to $1 when given): states, counts, seconds, browser memory. Spec private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md, PR 2.
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
