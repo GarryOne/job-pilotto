@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {siteTest} from './site-private.js';
 import {queue, outcome, done, settingOn, passRunning} from '../lib/refused-reads.js';
+import * as now from '../lib/refused-now.js';
 
 const storageWith = settings => { const kept = {...settings}; return {settings: () => kept, saveSettings: patch => Object.assign(kept, patch), kept}; };
 const SITES = [{url: 'https://jobs.coop.ch', name: 'Coop', kind: 'employer'}, {url: 'https://www.monsterboard.nl/v?q=a', name: 'Monsterboard', kind: 'board'}];
@@ -81,4 +82,21 @@ test('Settings has the switch, on by default, and Privacy and the rule name the 
 siteTest('Privacy names the feature', async () => {   // the page lives in job-pilotto-site
   const fs = await import('node:fs');
   assert.match(fs.readFileSync(new URL('../../site/public/privacy.html', import.meta.url), 'utf8'), /Read refused sites in my browser/);
+});
+
+test('Read now: a job opened from a site, or Check for new jobs, makes the engine ask for those sites at once', async () => {
+  const f = fakes(), seen = [];
+  const run = async (storage, args) => { seen.push(args); return f.run(storage, args); };
+  now.take();
+  now.readNow('https://www.jobs.coop.ch/offres/1');
+  assert.equal(now.pending(), true);
+  await queue(storageWith({readRefusedSites: true}), {run, work: f.work, scoreArgs: () => ['src.desktop', 'score']});
+  assert.deepEqual(seen[0], ['src.desktop', 'refused-queue', '--now', 'jobs.coop.ch']);
+  assert.equal(now.pending(), false, 'taken once, not asked again');
+  await outcome(storageWith({readRefusedSites: true}), {url: 'https://jobs.coop.ch', status: 200, html: 'x'}, {run: f.run}).catch(() => {});
+  await done();
+  now.readAllNow();
+  await queue(storageWith({readRefusedSites: true}), {run, work: f.work, scoreArgs: () => ['src.desktop', 'score']});
+  assert.deepEqual(seen.at(-1), ['src.desktop', 'refused-queue', '--all']);
+  await done();
 });

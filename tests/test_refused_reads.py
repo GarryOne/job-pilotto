@@ -55,14 +55,44 @@ class RefusedReadsTest(unittest.TestCase):
             self.assertEqual(refused_reads.outcome(f'https://{host}/jobs', 200, JOBS, now=NOW)['state'], 'skipped', host)
         self.assertTrue(refused_reads.allowed('https://jobs.coop.ch/offres'))
 
-    def test_a_site_is_asked_once_in_thirty_days_whatever_it_answered(self):
-        for status, html in [(200, JOBS), (200, '<html>Please verify you are human</html>'), (200, '<html><body>No openings</body></html>')]:
-            with self.subTest(status=status):
+    def test_a_site_every_step_stopped_at_rests_thirty_days_an_opened_one_seven(self):
+        hosts = lambda when: {item['url'].split('/')[2] for item in refused_reads.queue(now=when)}
+        for status, html, rests in [(200, JOBS, 7), (200, '<html><body>No openings</body></html>', 7), (200, '<html>Please verify you are human</html>', 30), (403, '', 30)]:
+            with self.subTest(status=status, rests=rests):
                 visits._save({})
                 visits.refused('Coop', 'https://jobs.coop.ch', 'HTTP 403', now=NOW)
                 refused_reads.outcome('https://jobs.coop.ch', status, html, now=NOW)
-                self.assertNotIn('jobs.coop.ch', {item['url'].split('/')[2] for item in refused_reads.queue(now=NOW + timedelta(days=29))})
-                self.assertIn('jobs.coop.ch', {item['url'].split('/')[2] for item in refused_reads.queue(now=NOW + timedelta(days=31))})
+                self.assertNotIn('jobs.coop.ch', hosts(NOW + timedelta(days=rests - 1)))
+                self.assertIn('jobs.coop.ch', hosts(NOW + timedelta(days=rests + 1)))
+
+    def test_read_now_asks_a_resting_site_at_once_but_never_a_login_wall_site(self):
+        refused_reads.outcome('https://jobs.coop.ch', 403, '', now=NOW)
+        later = NOW + timedelta(hours=1)
+        self.assertNotIn('jobs.coop.ch', {i['url'].split('/')[2] for i in refused_reads.queue(now=later)})
+        self.assertIn('jobs.coop.ch', {i['url'].split('/')[2] for i in refused_reads.queue(now=later, now_hosts=['www.jobs.coop.ch'])})
+        self.assertNotIn('glassdoor.com', {i['url'].split('/')[2] for i in refused_reads.queue(now=later, now_hosts=['glassdoor.com'])})
+
+    def test_the_queue_starts_each_site_at_the_step_that_worked_last_time(self):
+        refused_reads.outcome('https://jobs.coop.ch', 200, JOBS, now=NOW, step='tab')
+        item = next(i for i in refused_reads.queue(now=NOW + timedelta(days=8)) if 'coop' in i['url'])
+        self.assertEqual(item['step'], 'tab')
+
+    def test_a_route_is_a_job_system_and_its_account_or_a_plain_feed_nothing_else(self):
+        good = [{'system': 'greenhouse', 'account': 'acme'}, {'system': 'workday', 'account': 'acme.wd3.Careers'}, {'feed': 'https://acme.com/jobs.xml'}]
+        for route in good:
+            self.assertEqual(refused_reads.valid_route(route), route)
+        for route in [{'system': 'visit', 'account': 'x'}, {'system': 'greenhouse', 'account': 'a b'}, {'system': 'workday', 'account': 'acme'},
+                      {'feed': 'http://acme.com/j'}, {'feed': 'https://acme.com/j?q=nurse'}, {'feed': 'https://www.linkedin.com/jobs/x'},
+                      {'system': 'greenhouse', 'account': 'acme', 'title': 'Nurse'}, {'system': 'lever', 'account': 'acme', 'feed': 'https://a.com/x'}, None, 'x']:
+            self.assertIsNone(refused_reads.valid_route(route), route)
+
+    def test_an_opened_page_that_links_to_a_job_system_shares_that_route_and_only_that(self):
+        page = JOBS.replace('</body>', '<a href="https://boards.greenhouse.io/coopch/jobs/123">Apply</a></body>')
+        refused_reads.outcome('https://jobs.coop.ch', 200, page, now=NOW, step='tab')
+        fact = next(f for f in refused_reads.shared() if f['host'] == 'jobs.coop.ch')
+        self.assertEqual(fact['read']['route'], {'system': 'greenhouse', 'account': 'coopch'})
+        self.assertEqual(fact['read']['step'], 'tab')
+        self.assertNotIn('Photographe', json.dumps(fact))
 
     def test_a_refusal_a_bot_check_or_a_login_page_is_a_stop_and_nothing_is_read(self):
         for status, html, final in [(403, JOBS, ''), (401, '', ''), (200, '<html><body>Just a moment...</body></html>', ''),
