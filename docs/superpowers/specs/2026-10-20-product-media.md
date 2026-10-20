@@ -14,12 +14,12 @@ Persona: keep today's demo person (SRE) for now; re-recording with another searc
 - Pieces and formats agreed with the site redesign (bd): hero, extension-fill, stills, snips; dark only; captions in the manifest only.
 
 ## Progress
-- [x] Sketch + owner's decisions (20 Oct 2026)
-- [x] Recorder: app (screencast + click log) and the real extension on a fictional form
-- [x] Renderer: zoom, cursor, click ring from the log; MP4/WebM/phone/GIF/poster within budget
-- [x] Stills + close-ups (WebP), manifest, checks (fictional e-mails only, dark, the form filled, capture rate)
-- [x] Director (`direct.mjs`) + plans folder
-- [x] CI workflow (artifact `product-media`)
+- [x] Sketch + owner's decisions (20 Oct 2026) (proof: none: the owner's answers in session 7d; the sketch link above)
+- [x] Recorder: app (screencast + click log) and the real extension on a fictional form (proof: desktop/scripts/media/record-extension.mjs)
+- [x] Renderer: zoom, cursor, click ring from the log; MP4/WebM/phone/GIF/poster within budget (proof: desktop/test/media-camera.test.js)
+- [x] Stills + close-ups (WebP), manifest, checks (fictional e-mails only, dark, the form filled, capture rate) (proof: desktop/test/media-check.test.js)
+- [x] Director (`direct.mjs`) + plans folder (proof: desktop/scripts/media/plans/hero.json)
+- [x] CI workflow (artifact `product-media`) (proof: .github/workflows/product-media.yml)
 - [ ] apply-split (browser + app side by side) for /how-it-works
 - [ ] First director plans committed for hero and extension-fill
 - [ ] The site's deploy pulls the artifact (6e, after the site is live)
