@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import budget_tape, contribute, employer_index, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
+from . import budget_tape, contribute, employer_index, scout_need, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -102,23 +102,30 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # and the role searches ran before the clock started). The steps that only add names start while half of it is left: the checks keep theirs.
     deadline = time.monotonic() + budget if budget else None
     may_add = budget_tape.until('scout names', deadline - budget / 2 if budget else None)
+    # Central + Mac only when thin (owner, 20 Oct 2026): a search the shared list already covers adds no names; only the person's own are checked.
+    have = None if scout_core.CENTRAL or harvest_sources is not None else scout_need.covered()
+    if have:
+        print(f'Scout: the shared list already has {have} employers for your kind of work in your places, so no new names today; '
+              'checking only the ones you added.')
+        may_add = lambda: False   # noqa: E731
     # New names every run, however long the queue (owner, 18 Oct 2026: the old 100-name pause froze them for 12 days): the queue is worked in
     # order of each source's yield, and a source with no feed in many checks stops waiting (src/scout_queue.py).
-    added = harvest(db, seeds, harvest_sources, skip)
-    print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
+    added = 0 if have else harvest(db, seeds, harvest_sources, skip)
+    if not have:
+        print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
     ideas = ai_ideas(db, harvest_sources) if may_add() else None
     if ideas:
         added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
     searched = scout_role_search.guarded(db, load_search_config(), harvest_sources) if may_add() else None
     if searched and searched['candidates']:
         added += harvest(db, seeds, [lambda: searched['candidates']], skip)
-    if budget and not may_add():
+    if budget and not may_add() and not have:
         print('Scout: half its time is gone, so no more new names this run; the checks get the rest.')
     expired = scout_queue.expire(db)
     if expired:
         print('Scout: no longer waiting on ' + ', '.join(f'{n} from {kind} (no feed in its first checks)' for kind, n in expired.items()) + '.')
     batch = batch_for(pending_count(db), batch)
-    candidates, left = next_batch(db, batch, skip), 0
+    candidates, left = [c for c in next_batch(db, batch, skip) if not have or c['status'] == 'manual'], 0
     # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take
     # their places, so a run probes its whole batch (7 Oct 2026: 52 of 92 were left out and the run checked 40).
     dead = set() if scout_core.CENTRAL else employer_index.central_nofeed()
@@ -132,7 +139,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
                        (now().isoformat(timespec='seconds'), later, READERS, c['key']))
         db.commit()
         left += len(skipped)
-        candidates = next_batch(db, batch, skip)   # those just left out now wait 30 days, so the next names come in
+        candidates = [c for c in next_batch(db, batch, skip) if not have or c['status'] == 'manual']   # those left out wait 30 days; the next come in
     if left:
         print(f'Scout: {left} employer(s) left for 30 days: other installs found no readable job site there lately; others took their places.')
     print(f'Scout: checking {len(candidates)} employer(s)…')
@@ -272,7 +279,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # "15 checked" is never read as the same list again (6 Oct 2026).
     first = sum(1 for c in candidates if not c.get('checked_at'))
     return {'checked': len(candidates), 'first_time': first, 'left': left, 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
-            'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None}, \
+            'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None, **({'covered': have} if have else {})}, \
         list(zip(candidates, outcomes))
 
 
