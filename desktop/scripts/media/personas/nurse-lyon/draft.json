@@ -1,0 +1,88 @@
+{
+ "answers": {
+  "anything_else": ""
+ },
+ "draft": {
+  "summary": "Registered nurse roles in Lyon first, then the Lyon area. Night-only jobs are hidden.",
+  "goals": {
+   "seniority": "Experienced",
+   "work_mode": "On-site",
+   "minimum_salary": "€33,000 a year (estimate)",
+   "languages": "French (native), English (B2)"
+  },
+  "profile_markdown": "# Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Countries | France |\n| Home base | Lyon |\n| Work mode | On-site |\n| Languages I can work in | French (native), English (B2) |\n| Shifts | Days; nights at most one week in two |\n\n# Compensation\n\n- Target: €35,000–38,000 a year, gross\n- Minimum acceptable: €33,000 a year\n\n# Summary (from CV)\n\nRegistered nurse (IDE) with six years in cardiology and two in intensive care.\n",
+  "answers_markdown": "# Eligibility\n\n- Work permit: French citizen\n- Notice period: 1 month\n",
+  "open_questions": [
+   "Is €33,000 a year right as your minimum?",
+   "How many weekends a month are acceptable?"
+  ],
+  "search": {
+   "role_keywords": [
+    "infirmier",
+    "infirmière",
+    "nurse",
+    "\\bide\\b"
+   ],
+   "title_exclude_keywords": [
+    "intern",
+    "junior"
+   ],
+   "board_discovery_keywords": [
+    "infirmier"
+   ],
+   "jobs_board_search_queries": [
+    "infirmier",
+    "nurse"
+   ],
+   "quality_stack_keywords": [
+    "cardiologie",
+    "réanimation"
+   ],
+   "locations": {
+    "top_tier": [
+     "lyon"
+    ],
+    "country_wide": [
+     "rhône"
+    ],
+    "abroad": []
+   },
+   "remote_excluded_regions": [
+    "\\busa?\\b"
+   ],
+   "google_jobs": {
+    "queries": [
+     "infirmier lyon"
+    ],
+    "country": "fr",
+    "locations": [
+     {
+      "location": "Lyon,Auvergne-Rhone-Alpes,France",
+      "language": "fr"
+     }
+    ]
+   }
+  },
+  "preferences": {
+   "disqualifying_languages": [],
+   "excluded_companies": [],
+   "work_rights": [
+    "\\bfrance\\b"
+   ]
+  },
+  "contact": {
+   "first_name": "Camille",
+   "last_name": "Laurent",
+   "full_name": "Camille Laurent",
+   "email": "camille.laurent@example.com",
+   "phone": "",
+   "location": "Lyon",
+   "linkedin": "",
+   "github": "",
+   "website": ""
+  },
+  "usd": 0.14
+ },
+ "cv": "",
+ "at": "2026-10-11T08:00:00.000Z"
+}

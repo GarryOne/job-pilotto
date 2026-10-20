@@ -37,7 +37,9 @@ jobs:
         with:
           node-version: '22'
       - name: ffmpeg
-        run: command -v ffmpeg || brew install ffmpeg
+        run: |   # the runner's own ffmpeg has no WebP encoder (run 39451422713): Homebrew's has all three
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp || brew install ffmpeg
+          ffmpeg -hide_banner -encoders | grep -E 'libx264|libvpx-vp9|libwebp'
       - name: Install the app
         working-directory: desktop
         run: npm ci

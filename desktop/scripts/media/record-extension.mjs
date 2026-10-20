@@ -8,10 +8,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {startRealExtension} from '../../e2e/lib/real-extension.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
-import {answerReply, formHtml} from './stand-in.mjs';
+import {answerReply, formHost, formHtml} from './stand-in.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-export const FORM_URL = 'https://careers.lakeside-payments.example/jobs/apply';
 export const VIEW = {width: 1440, height: 900};   // 16:10, captured at 2x
 
 const panelBox = page => page.evaluate(() => {
@@ -28,11 +27,12 @@ export async function recordExtensionVideo({persona, piece, dir}) {
       '/extension/page-kind': () => ({ok: true, kind: 'form', role: 'form', by: 'ai', confidence: 0.95, signal: 'confident'})}});
   try {
     const {page, context} = ext;
-    await context.route('https://careers.lakeside-payments.example/**', route => route.fulfill({status: 200, contentType: 'text/html', body: formHtml(template, persona.job)}));
+    const host = formHost(persona.job);
+    await context.route(`https://${host}/**`, route => route.fulfill({status: 200, contentType: 'text/html', body: formHtml(template, persona.job)}));
     await page.setViewportSize(VIEW);
     const cdp = await context.newCDPSession(page);
     await cdp.send('Emulation.setDeviceMetricsOverride', {width: VIEW.width, height: VIEW.height, deviceScaleFactor: 2, mobile: false});
-    await page.goto(FORM_URL);
+    await page.goto(`https://${host}/jobs/apply`);
     await ext.assertIsolated();
     const cast = await startScreencast(page, path.join(dir, 'frames'));
     const log = stepLog(cast.clock);
@@ -46,7 +46,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
       if (item.hold) {
         await page.waitForTimeout(250);
         const box = item.look === 'panel' ? await panelBox(page) : item.look ? await page.locator(item.look).first().boundingBox() : null;
-        log.add({type: 'hold', look: item.look || null, box, s: item.hold});
+        log.add({type: 'hold', look: item.look || null, box, s: item.hold, ...(item.poster ? {poster: true} : {})});
         await page.waitForTimeout(item.hold * 1000 - 250);
       }
     }

@@ -1,0 +1,35 @@
+{
+ "setupDone": true,
+ "cvName": "CV_Camille_Laurent.pdf",
+ "telegramBot": "camille_jobs_bot",
+ "telegramChatId": 1,
+ "notionIds": {
+  "NOTION_APPLICATIONS_DB": "demo",
+  "NOTION_MATCHES_DB": "demo",
+  "NOTION_PROFILE_PAGE_ID": "demo",
+  "NOTION_ANSWERS_PAGE_ID": "demo"
+ },
+ "lastSearchAt": "2026-10-12T06:30:00.000Z",
+ "schedule": {
+  "search": 4,
+  "kits": 3,
+  "insights": "daily",
+  "scout": "daily",
+  "mail": 3
+ },
+ "cloud": {
+  "repo": "camillelaurent/job-pilotto-private"
+ },
+ "demoLocationsWhich": [
+  {
+   "kind": "acceptable",
+   "strategy": [
+    "Lyon",
+    "Villeurbanne"
+   ],
+   "profile": [
+    "Lyon area"
+   ]
+  }
+ ]
+}

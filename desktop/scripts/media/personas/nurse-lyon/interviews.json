@@ -1,0 +1,190 @@
+{
+ "saved": [
+  {
+   "id": "demo-iv-3",
+   "title": "Clinique Belvédère · Phone screen",
+   "date": "2026-10-07",
+   "input": "Recording",
+   "overall": "positive",
+   "round": "Phone screen",
+   "next_step": "Interview at the clinic on Wed 14 Oct",
+   "application": [
+    "0000000000000000000000000000a001"
+   ]
+  },
+  {
+   "id": "demo-iv-2",
+   "url": "https://www.notion.so/demo-iv-2",
+   "title": "Polyclinique des Canuts · Head nurse",
+   "date": "2026-10-06",
+   "input": "Recording",
+   "overall": "positive",
+   "round": "Head nurse",
+   "next_step": "A morning on the ward next week",
+   "application": [
+    "0000000000000000000000000000a003"
+   ]
+  },
+  {
+   "id": "demo-iv-1",
+   "url": "https://www.notion.so/demo-iv-1",
+   "title": "Polyclinique des Canuts · HR screen",
+   "date": "2026-10-02",
+   "input": "Recording",
+   "overall": "neutral",
+   "round": "HR screen",
+   "next_step": "Meet the head nurse",
+   "application": [
+    "0000000000000000000000000000a003"
+   ]
+  }
+ ],
+ "draft": {
+  "id": "demo-draft",
+  "title": "Clinique Belvédère, phone screen",
+  "createdAt": "2026-10-07T14:00:00.000Z",
+  "kind": "audio",
+  "file": "recording.webm",
+  "status": "ready",
+  "stereo": true,
+  "seconds": 1260,
+  "jobUrl": "https://example.com/jobs/1"
+ },
+ "transcript": "[00:00:02] Speaker 1: Thanks for calling. I run the cardiology ward. Could you tell me about a patient whose condition changed during your shift?\n[00:00:12] You: Yes. After an angioplasty, a patient showed a new arrhythmia on telemetry. I called the cardiologist, ran an ECG and stayed with him until he was stable.\n[00:00:30] Speaker 1: And afterwards?\n[00:00:33] You: I wrote it up for the handover and we added closer checks for the next twelve hours.\n[00:00:42] Speaker 2: How do you teach a patient their new medication?\n[00:00:47] You: Short sessions, a written schedule, and I ask them to explain it back to me.\n[00:00:58] Speaker 1: Great. Next step would be an interview at the clinic with the head nurse.",
+ "insight": {
+  "id": "demo-insight",
+  "url": "https://www.notion.so/demo-insight",
+  "headline": "Strong clinical stories lose their point when the answer runs long.",
+  "confidence": "low",
+  "sample": 2,
+  "updated": "2026-10-06T18:00:00+00:00",
+  "nothing_useful": false,
+  "patterns": [
+   {
+    "text": "Answers to HR questions take too long to reach the point.",
+    "title": "Answers become unstructured",
+    "kind": "weakness",
+    "round_type": "HR screen",
+    "interviews": [
+     "demo-iv-1",
+     "demo-iv-2"
+    ],
+    "tentative": false,
+    "evidence": [
+     {
+      "interview": "demo-iv-1",
+      "quote": "Long answer on the shift question"
+     },
+     {
+      "interview": "demo-iv-2",
+      "quote": "Two minutes before the point"
+     }
+    ]
+   },
+   {
+    "text": "Patient-care stories with clear steps are a repeatable strength.",
+    "title": "Patient stories land well",
+    "kind": "strength",
+    "round_type": "HR screen",
+    "interviews": [
+     "demo-iv-1",
+     "demo-iv-2"
+    ],
+    "tentative": false,
+    "evidence": [
+     {
+      "interview": "demo-iv-1",
+      "quote": "Clear story about the arrhythmia"
+     },
+     {
+      "interview": "demo-iv-2",
+      "quote": "Calm walk-through of a fall"
+     }
+    ]
+   },
+   {
+    "text": "Strong experience is sometimes played down.",
+    "title": "Relevant experience is understated",
+    "kind": "note",
+    "round_type": "HR screen",
+    "interviews": [
+     "demo-iv-1",
+     "demo-iv-2"
+    ],
+    "tentative": false,
+    "evidence": [
+     {
+      "interview": "demo-iv-2",
+      "quote": "Said \"a bit of ICU\" for two years of it"
+     }
+    ]
+   }
+  ],
+  "next_steps": [
+   {
+    "text": "Prepare 2-3 short patient stories.",
+    "title": "Prepare three 60-second patient stories",
+    "focus": "Deterioration • Handover • Patient education",
+    "interviews": [
+     "demo-iv-1"
+    ],
+    "done": false
+   },
+   {
+    "text": "Draft a clear answer on shifts and weekends.",
+    "title": "Rehearse your shift answer",
+    "focus": "",
+    "interviews": [
+     "demo-iv-2"
+    ],
+    "done": false
+   },
+   {
+    "text": "Refresh day-surgery recovery checks.",
+    "title": "Refresh recovery checks",
+    "focus": "Pain scores • Bleeding • Discharge criteria",
+    "interviews": [
+     "demo-iv-2"
+    ],
+    "done": false
+   }
+  ],
+  "interviews": [
+   {
+    "id": "demo-iv-1",
+    "title": "Polyclinique des Canuts · HR screen",
+    "round_type": "HR screen"
+   },
+   {
+    "id": "demo-iv-2",
+    "title": "Polyclinique des Canuts · Head nurse",
+    "round_type": "Clinical"
+   }
+  ],
+  "evidence": "",
+  "action": "",
+  "headline_detail": "The same pattern appeared in the handover, workload and night-shift questions.",
+  "version": 6
+ },
+ "records": {
+  "demo-iv-3": {
+   "id": "demo-iv-3",
+   "app_id": "0000000000000000000000000000a001",
+   "title": "Clinique Belvédère · Phone screen",
+   "at": "2026-10-07T15:00:00",
+   "input": "Recording",
+   "round": "Phone screen",
+   "overall": "Positive",
+   "questions": 2,
+   "weak_answers": "Salary expectations: vague",
+   "topics": "Patients, shifts, pay",
+   "weak_topics": "Pay",
+   "next_step": "Interview at the clinic on Wed 14 Oct",
+   "cost": 0.03,
+   "model": "claude-sonnet-5-5",
+   "transcript": "[00:00] Head nurse: Thanks for calling.\n[00:05] You: Thanks for having me.",
+   "review": "A friendly first call: the head nurse explained the shift pattern and asked about acute situations.\n\n### Strengths\n\n- Clear patient story with the right steps\n- Asked about patients per nurse\n\n### Weak spots\n\n- Salary answer was vague\n\n### Facts from the call\n\n- Team size: 14 (added to the job)\n\n### Practise before the next round\n\n- A 2-minute answer on handover\n\n### Questions\n\n- ✅ \\[Patients\\] Tell us about a patient who got worse — The arrhythmia after an angioplasty → Better: Name what you changed afterwards\n- ⚠️ \\[Pay\\] What are your salary expectations? — Open to discuss → Better: Give the range: €35–38k",
+   "created_at": "2026-10-07T16:00:00"
+  }
+ }
+}

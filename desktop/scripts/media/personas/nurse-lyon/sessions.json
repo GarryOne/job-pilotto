@@ -1,0 +1,41 @@
+[
+ {
+  "id": "d1",
+  "url": "https://jobs.example/institut-cardio-rhone/cardiac-care",
+  "title": "Registered Nurse, Cardiac Care Unit",
+  "company": "Institut Cardio Rhône",
+  "status": "input",
+  "note": "Waiting for your reply",
+  "location": "Lyon",
+  "workMode": "On-site",
+  "startedAt": "2026-10-12T07:42:00Z",
+  "needsYouSince": "2026-10-12T07:48:00Z",
+  "question": "Filled 12 of 14 fields on the form. Two need you:\n\n- **Diploma year:** your profile says 2017 for the IDE diploma. **Suggested:** 2017\n- **Earliest start date:** your notice is 1 month. **Suggested:** the 1st of next month\n\nNothing was submitted.",
+  "brief": "Filled 12 of 14 fields. Two need you: diploma year and earliest start date."
+ },
+ {
+  "id": "d2",
+  "url": "https://jobs.example/lumen-sante/home-care",
+  "title": "Home-Care Nurse",
+  "company": "Lumen Santé à Domicile",
+  "status": "input",
+  "note": "Waiting for your reply",
+  "location": "Lyon",
+  "workMode": "On-site",
+  "startedAt": "2026-10-12T07:42:00Z",
+  "needsYouSince": "2026-10-12T07:47:00Z",
+  "live": false,
+  "resumable": true,
+  "question": "Filled 9 of 10 fields. One question needs you:\n\n- **Driving licence:** the form asks for the licence number. It is not in your profile.\n\nShall I leave it for you?",
+  "brief": "One question needs you: the driving licence number."
+ },
+ {
+  "id": "d3",
+  "url": "https://jobs.example/residence-les-tilleuls/coordinator",
+  "title": "Nurse Coordinator, Care Home",
+  "company": "Résidence Les Tilleuls",
+  "status": "running",
+  "note": "Filling started",
+  "startedAt": "2026-10-12T07:41:00Z"
+ }
+]

@@ -20,7 +20,7 @@ export const VIDEOS = {
   'extension-fill': {kind: 'video', source: 'extension', width: 1600, height: 1000, budget: 1e6, gif: 720,
     shows: 'The Jobadabra extension filling an application form in the browser',
     caption: 'The extension fills the form', alt: 'An application form being filled by the Jobadabra extension, with its panel on the right',
-    steps: [{hold: 1.2}, {fill: true}, {hold: 5, look: 'form'}, {hold: 3.2, look: 'panel'}]},
+    steps: [{hold: 1.2}, {fill: true}, {hold: 5, look: 'form', poster: true}, {hold: 3.2, look: 'panel'}]},
 };
 
 // Stills: one window each, after the steps. bd crops them 16:10 from the top-left, so each page keeps its action there.
@@ -40,7 +40,7 @@ export const SNIPS = {
   'up-next': {steps: [{go: 'focus'}], selector: 'section.card.is-lit', margin: 12, shows: 'The Up next card'},
   'job-row': {steps: [{go: 'jobs'}], selector: '.job-row', margin: 4, shows: 'One job in the list, with its fit score'},
   funnel: {steps: [{go: 'focus'}], selector: '#focus-funnel', margin: 12, shows: 'Today\'s progress'},
-  sessions: {steps: [{go: 'focus'}], selector: '#sessions-dock', margin: 0, shows: 'Application sessions at the bottom of the window'},
+  sessions: {steps: [{go: 'sessions'}], selector: '#ss-decision', margin: 12, shows: 'An application that needs one answer from you'},
   calendar: {steps: [{go: 'calendar'}], selector: '.cal-layout', margin: 12, shows: 'The calendar'},
 };
 

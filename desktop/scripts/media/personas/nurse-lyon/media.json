@@ -1,0 +1,36 @@
+{
+ "name": "nurse-lyon",
+ "today": "2026-10-12",
+ "tz": "Europe/Paris",
+ "applicant": {
+  "first_name": "Camille",
+  "last_name": "Laurent",
+  "full_name": "Camille Laurent",
+  "email": "camille.laurent@example.com",
+  "phone": "+33 1 99 00 12 34",
+  "location": "Lyon",
+  "linkedin": "https://www.linkedin.com/in/camille-laurent-example"
+ },
+ "answers": {
+  "permit": "Yes",
+  "notice": "1 month",
+  "why": "Your cardiac care unit is the work I have done for six years, and I want to bring my telemetry and patient-education experience to your team."
+ },
+ "job": {
+  "company": "Institut Cardio Rhône",
+  "title": "Registered Nurse, Cardiac Care Unit",
+  "place": "Lyon, France",
+  "city": "Lyon"
+ },
+ "forbid": [
+  "SRE",
+  "Kubernetes",
+  "Terraform",
+  "DevOps",
+  "Helvetic",
+  "Northwind",
+  "Alex Morgan",
+  "Zurich",
+  "Platform Engineer"
+ ]
+}

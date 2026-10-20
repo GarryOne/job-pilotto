@@ -1,0 +1,9 @@
+{
+ "demo-weekly-page": {
+  "message": "📊 Search analysis\nLast 7 days\nNot enough data yet: 0 open jobs, 0 applications in the statistics\nFocus\nRun a job search in Strategy to load nursing jobs in Lyon.",
+  "log": [
+   "Cronjob run logged: demo"
+  ],
+  "report": []
+ }
+}

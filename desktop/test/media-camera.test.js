@@ -2,7 +2,7 @@
 // the view never leaves the page, every output frame maps to a recorded frame.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {cameraAt, cameraKeys, clipTo, cursorAt, frameAt, MAX_ZOOM, renderPlan} from '../scripts/media/camera.mjs';
+import {cameraAt, cameraKeys, clipTo, cursorAt, frameAt, MAX_ZOOM, posterTime, renderPlan} from '../scripts/media/camera.mjs';
 
 const viewport = {w: 1800, h: 1125};
 const box = {x: 250, y: 500, width: 1200, height: 540};
@@ -51,4 +51,10 @@ test('every output frame names a recorded frame at or before its time, at the gi
 test('a close-up\'s crop stays inside the window; one fully outside gives none', () => {
   assert.deepEqual(clipTo({x: -12, y: 900, width: 2000, height: 300}, {w: 1800, h: 1125}), {x: 0, y: 900, width: 1800, height: 225});
   assert.equal(clipTo({x: 1900, y: 0, width: 50, height: 50}, {w: 1800, h: 1125}), null);
+});
+
+test('the poster is the end of the hold marked poster (the filled form), else the first frame', () => {
+  const events = [{type: 'hold', t: 1, s: 1.2}, {type: 'mark', t: 2.3}, {type: 'hold', t: 3, s: 5, poster: true}, {type: 'hold', t: 8, s: 3.2}];
+  assert.equal(posterTime(events), 7.5);
+  assert.equal(posterTime(events.map(({poster, ...event}) => event)), 0);
 });
