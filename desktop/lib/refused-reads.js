@@ -59,7 +59,7 @@ export async function outcome(storage, payload, {run = pipeline.run} = {}) {
   if (!settingOn(storage)) return {ok: false, error: 'off'};
   const url = String(payload?.url || '');
   if (!/^https:\/\//.test(url)) return {ok: false, error: 'no page address'};
-  const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500), step: ['engine', 'download', 'tab'].includes(payload.step) ? payload.step : 'download', captcha: payload.captcha === true};
+  const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500), step: ['engine', 'download', 'tab'].includes(payload.step) ? payload.step : 'download', captcha: payload.captcha === true};   // words-ok: the engine AI's fixed page_state answer, not a page's words
   const answer = await engineJson(storage, 'refused-outcome', body, run).catch(() => null);
   const name = answer?.name || new URL(url).hostname;
   appLog('refused-reads', 'site fetched in your browser', {host: new URL(url).hostname, state: answer?.state || 'failed', jobs: answer?.jobs ?? null});
