@@ -23,6 +23,7 @@
   "record-guard.test.mjs",
   "record-scrub.test.mjs",
   "real-notion-token.test.mjs",
+  "refused-tab-guard.test.mjs",
   "recorded-ci-deps.test.mjs",
   "replay-gate.test.mjs",
   "row-case-gates.test.mjs",
