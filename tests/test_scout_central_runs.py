@@ -2,6 +2,7 @@
 nothing; the AI ideas failed with "database is locked"; /admin/scouting's run log stayed empty. One test per cause. No network."""
 import os
 import re
+import sys
 import sqlite3
 import tempfile
 import unittest
@@ -10,15 +11,20 @@ from pathlib import Path
 from unittest import mock
 
 from src import scout, scout_cells, scout_core, scout_hiring
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from site_private import needs_site  # noqa: E402
 
 WORKFLOW_MINUTES, PUBLISH_MINUTES = 75, 15   # job-pilotto-internal central-scout.yml timeout; the 20 Oct 01:06 run published in 15 min
 
 
 class CentralRunsTest(unittest.TestCase):
-    def test_the_run_time_has_the_shape_the_site_keeps(self):
+    @needs_site   # reads site/src/scouting.js, which lives in job-pilotto-site
+    def test_the_site_keeps_the_run_time_shape_the_engine_sends(self):
         """The engine sent '2026-10-20T01:06+00:00'; site/src/scouting.js keeps only 'YYYY-MM-DDTHH:MM', so every run was dropped."""
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'scouting.js').read_text()
         self.assertIn(r"/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(stats.run.at || '')", site)
+
+    def test_the_run_time_has_the_shape_the_site_keeps(self):
         at = scout.run_record({}, [], at=datetime(2026, 10, 20, 1, 6, 28, tzinfo=timezone.utc))['at']
         self.assertEqual(at, '2026-10-20T01:06')
 
