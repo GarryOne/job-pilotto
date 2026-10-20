@@ -31,4 +31,5 @@ test('a run stops before recording when ffmpeg lacks an encoder the pieces need'
   const list = ' V..... libx264  H.264\n V..... libvpx-vp9  VP9\n V..... libwebp  WebP\n';
   assert.deepEqual(missingEncoders(list), []);
   assert.deepEqual(missingEncoders(list.replace('libwebp', 'png')), ['libwebp']);
+  assert.deepEqual(missingEncoders(list.replace(' libwebp ', ' libwebp_anim ')), ['libwebp'], 'the animated-only encoder is not enough');
 });

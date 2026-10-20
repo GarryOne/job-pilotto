@@ -18,7 +18,7 @@ function withinBudget(make, file, budget, ladder) {
 // The encoders every piece needs; a missing one stops the run before any recording (an ffmpeg built without WebP, run 39451422713).
 export const ENCODERS = ['libx264', 'libvpx-vp9', 'libwebp'];
 export function missingEncoders(list = execFileSync('ffmpeg', ['-hide_banner', '-encoders'], {encoding: 'utf8'})) {
-  return ENCODERS.filter(name => !new RegExp(`\\b${name}\\b`).test(list));
+  return ENCODERS.filter(name => !new RegExp(`\\s${name}\\s`).test(list));   // whole names: libwebp_anim is not libwebp
 }
 
 // -> {mp4, webm, poster, phone?, gif?}: file names in outDir, plus the bytes of each.

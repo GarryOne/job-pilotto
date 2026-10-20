@@ -37,9 +37,16 @@ jobs:
         with:
           node-version: '22'
       - name: ffmpeg
-        run: |   # the runner's own ffmpeg has no WebP encoder (run 39451422713): Homebrew's has all three
-          ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp || brew install ffmpeg
-          ffmpeg -hide_banner -encoders | grep -E 'libx264|libvpx-vp9|libwebp'
+        # The runner's ffmpeg and Homebrew's plain ffmpeg (9.x) have no WebP encoder (runs 39451422713, 39454764473); ffmpeg-full has it.
+        # ' libwebp ' with spaces: libwebp_anim alone is not enough. The step fails here, before any recording, if an encoder is missing.
+        run: |
+          if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -qE ' libwebp '; then
+            brew install ffmpeg-full
+            bin="$(brew --prefix ffmpeg-full)/bin"
+            echo "$bin" >> "$GITHUB_PATH"
+            export PATH="$bin:$PATH"
+          fi
+          for encoder in libx264 libvpx-vp9 libwebp; do ffmpeg -hide_banner -encoders | grep -qE " $encoder " || { echo "ffmpeg lacks $encoder"; exit 1; }; done
       - name: Install the app
         working-directory: desktop
         run: npm ci
