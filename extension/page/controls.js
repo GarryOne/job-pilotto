@@ -115,8 +115,9 @@
     let options = [];
     for (let i = 0; i < 8 && !options.length; i++) {
       await wait(100);
-      options = [...doc.querySelectorAll(params.option || '[role=option], [role=listbox] li, [class*=option]')]
-        .filter(option => option.getClientRects().length && !option.children?.length && clean(option.textContent));
+      // The innermost match with a text: an option drawn as <div role=option><span>text</span></div> is the div (the span is no match), a plain <li> its own leaf.
+      const found = [...doc.querySelectorAll(params.option || '[role=option], [role=listbox] li, [class*=option]')].filter(option => option.getClientRects().length && clean(option.textContent));
+      options = found.filter(option => !found.some(other => other !== option && option.contains(other)));
     }
     const pick = options.find(option => norm(option.textContent) === wanted) || options.find(option => norm(option.textContent).startsWith(wanted));
     if (pick && refuses(pick)) return REFUSED;

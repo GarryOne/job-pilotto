@@ -25,7 +25,7 @@ test('fast path fills only safe known fields and reports gaps without values', (
   legal.labels = [{textContent: 'I agree to privacy terms'}];
   const submit = new HTMLInputElement('submit', 'submit');
   const elements = [email, legal, submit];
-  const document = {querySelectorAll() { return elements; }};
+  const document = {querySelectorAll(selector) { return /role=combobox/.test(selector) ? [] : elements; }};   // no custom dropdowns on this page
   const window = {__jobPilottoGuardActive: true};
   const code = fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8');
   // The one control reader loads first, as everywhere the fastpath runs (the extension's PAGE_FILES, the apply run's init scripts): its audit asks it.

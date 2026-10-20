@@ -1,0 +1,13 @@
+{
+ "source": "issue #23",
+ "site": "www.jobs.ch",
+ "label": "Permis de travail",
+ "reason": "question on the page not read",
+ "note": "From a fill-failure report (issue #23).",
+ "answer": "Nationalité suisse",
+ "expect": {
+  "read": true,
+  "required": true,
+  "traced": true
+ }
+}

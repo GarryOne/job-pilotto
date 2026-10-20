@@ -78,7 +78,7 @@ test('a date field gets the date in its format and must keep it', async () => {
 test('a custom dropdown opens, picks the option by its text, and must show it', async () => {
   const trigger = {textContent: 'Select…', click() { opened = true; }};
   let opened = false;
-  const option = text => ({textContent: text, children: [], getClientRects: () => [1], click() { trigger.textContent = text; }});
+  const option = text => ({textContent: text, children: [], contains: () => false, getClientRects: () => [1], click() { trigger.textContent = text; }});
   const doc = {querySelectorAll: () => (opened ? [option('Switzerland'), option('Sweden')] : [])};
   assert.equal((await ops.setCustomSelect(trigger, 'Sweden', doc)).ok, true);
   assert.equal(trigger.textContent, 'Sweden');

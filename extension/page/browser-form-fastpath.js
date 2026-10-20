@@ -262,6 +262,9 @@
         required: window.__jobPilottoRequired?.marked ? window.__jobPilottoRequired.marked(el) : !!(el.required || el.getAttribute('aria-required') === 'true'),   // page/required-mark.js: the attribute, aria-required or a class that says required
         legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal',   // the AI's reading too, any language (page/categories.js)
         filled: window.__jobPilottoReadBack.holds(el)}));   // the one reading of a control's state (page/read-back.js): a box holding only a country code is empty, a picklist by its chip
+    // Custom dropdowns that are no input (page/read-back.js customSelects): rows like the form reader's, so a required one left unanswered is a row, not only a coverage miss.
+    for (const el of window.__jobPilottoReadBack?.customSelects?.(visible) || []) rows.push({field: el.id || el.name || label(el), label: label(el), type: 'select', required: el.getAttribute('aria-required') === 'true' || !!window.__jobPilottoRequired?.marked?.(el),
+      legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal', filled: window.__jobPilottoReadBack.holds(el)});
     // The upload slots (page/upload.js, found by structure) are the file rows; where that script is not loaded (the Playwright launchers), the CV heading is guessed.
     const slots = window.__jobPilottoUpload?.rows ? window.__jobPilottoUpload.rows() : [];
     if (slots.length) return [...rows.filter(r => r.type !== 'file'), ...slots];

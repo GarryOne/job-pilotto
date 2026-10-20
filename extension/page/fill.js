@@ -74,7 +74,7 @@
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || row.filled || row.legal || contactFields.has(item.field)) continue;
-      if (['combobox', 'radio', 'checkbox'].includes(row.type)) continue;
+      if (['combobox', 'radio', 'checkbox'].includes(row.type) || row.custom) continue;   // a custom dropdown is operated by page/controls.js below
       plain.push({field: item.field, value: item.value});
     }
     const typed = window.__jobPilottoFillKnownFields([...contact, ...plain]);

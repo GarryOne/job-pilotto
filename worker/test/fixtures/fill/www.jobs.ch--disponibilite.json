@@ -1,0 +1,13 @@
+{
+ "source": "issue #23",
+ "site": "www.jobs.ch",
+ "label": "Disponibilité",
+ "reason": "question on the page not read",
+ "note": "From a fill-failure report (issue #23). The answer is one of the page's listed choices.",
+ "answer": "Dans 1 mois",
+ "expect": {
+  "read": true,
+  "required": true,
+  "traced": true
+ }
+}

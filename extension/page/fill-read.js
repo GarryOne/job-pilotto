@@ -127,6 +127,15 @@
       }
     }
     fields.push(...radioOps.ariaFields());   // ARIA radio groups (page/radios.js)
+    // Custom dropdowns that are no input (<div role=combobox>, <button aria-haspopup=listbox>): a question with choices like a native select. Their list sits in the page,
+    // named by aria-controls or beside the trigger; the operator (page/controls.js) picks by the question or the id. Before, only the coverage audit saw them
+    // ("question on the page not read"), so nothing was ever asked (jobs.ch "Disponibilité", "Permis de travail", 20 Oct 2026).
+    for (const el of window.__jobPilottoReadBack.customSelects(visible)) {
+      if (!el.id && !el.name) el.id = `jp-field-${++unnamed}`;
+      const options = window.__jobPilottoReadBack.choicesOf(el);
+      fields.push({field: el.id || el.name, label: labelOf(el), type: 'select', custom: true, required: el.getAttribute('aria-required') === 'true' || window.__jobPilottoRequired.marked(el),
+        ...(options.length ? {options} : {}), filled: window.__jobPilottoReadBack.holds(el), legal: LEGAL.test(labelOf(el))});
+    }
     return fields.filter(f => f.field);
   };
 
