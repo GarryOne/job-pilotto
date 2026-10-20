@@ -5,6 +5,7 @@
 // (/extension/refused-judge: page | passive_check | captcha | login | refused); only `page` is read, a captcha is a stop for the app to offer to the person.
 // Runs only when Chrome lets the extension into incognito (Allow in Incognito, once) and the window REPORTS it is incognito; otherwise nothing is opened.
 // At most DAILY_TABS sites a day, never focused. Not a flow file: nothing here touches an application. Guard: desktop/test/extension-refused-tab.test.js.
+import {moveTab} from './tabs.js';
 export const DAILY_TABS = 5;
 export const WAIT_MS = 15000;
 export const POLL_MS = 3000;
@@ -45,7 +46,7 @@ export function tabReader({chrome = globalThis.chrome, judge, now = Date.now, sl
     const open = await window_();
     if (!open) return {skipped: 'no incognito window'};
     await spend(used + 1);
-    await chrome.tabs.update(open.tabId, {url, active: false});
+    await moveTab(open.tabId, url, chrome);   // the window is minimized and unfocused, so the tab is never brought forward
     const deadline = now() + waitMs;
     let state = 'passive_check', page = null;
     while (now() < deadline) {
@@ -56,7 +57,7 @@ export function tabReader({chrome = globalThis.chrome, judge, now = Date.now, sl
       state = (await judge(page).catch(() => null))?.state || 'refused';
       if (state !== 'passive_check') break;   // waiting is only for a check that clears by itself
     }
-    await chrome.tabs.update(open.tabId, {url: 'about:blank'}).catch(() => {});   // the site's page is gone before the next one
+    await moveTab(open.tabId, 'about:blank', chrome).catch(() => {});   // the site's page is gone before the next one
     return {state, page};
   }
 
