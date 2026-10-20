@@ -1,0 +1,60 @@
+# The product's screenshots and videos, remade by themselves after a screen, extension or demo-data change on main (owner, 20 Oct 2026:
+# "I want me doing nothing and everything being done automatically"). desktop/scripts/media/media.mjs records the app (demo mode, dark) and the real
+# extension on a fictional form, adds zooms and clicks in code (no AI here: the director's plans are committed), checks every piece, and uploads the
+# set as the artifact `product-media`, which the site's deploy pulls. Mac runner: the site shows the Mac app, with its fonts.
+name: Product media (screenshots + videos)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/renderer/**'
+      - 'desktop/demo/**'
+      - 'desktop/scripts/media/**'
+      - 'extension/**'
+      - '.github/workflows/product-media.yml'
+  workflow_dispatch:
+    inputs:
+      pieces:
+        description: 'Pieces (hero extension-fill stills snips); empty = all'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-media
+  cancel-in-progress: true   # a newer main makes newer pictures
+
+jobs:
+  media:
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: ffmpeg
+        run: command -v ffmpeg || brew install ffmpeg
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the browser harness (the real extension runs in its Chromium)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          npx playwright-core install chromium
+      - name: Record, render, check
+        working-directory: desktop
+        env:
+          PIECES: ${{ inputs.pieces }}
+        run: npm run media -- --out "$RUNNER_TEMP/media" $PIECES 2>&1 | tee "$RUNNER_TEMP/media.log"; exit "${PIPESTATUS[0]}"
+      # The site's deploy (GarryOne/job-pilotto-site, session 6e) downloads the newest artifact of this name with its own read-only token and unzips it
+      # into site/public/media/: keep the name stable and manifest.json at its root.
+      - uses: actions/upload-artifact@v6
+        with:
+          name: product-media
+          path: ${{ runner.temp }}/media
+          retention-days: 90

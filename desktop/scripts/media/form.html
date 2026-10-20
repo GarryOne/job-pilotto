@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- A fictional employer's application form for the product videos: the real extension fills it (desktop/scripts/media/record-extension.mjs).
+     {{company}} {{title}} {{place}} {{city}}: the persona's job (scenes.mjs DEFAULT_PERSONA.job, or a persona's media.json).
+     Real inputs, a hiring-system look, no company or person that exists. Never submitted: the button does nothing. -->
+<html lang="en"><head><meta charset="utf-8"><title>{{title}} · {{company}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f6f9; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #1f2933; }
+  header { background: #fff; border-bottom: 1px solid #dde3ea; padding: 14px 48px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; background: #0f766e; color: #fff; display: grid; place-items: center; font-weight: 700; }
+  header b { font-size: 15px; } header span { color: #52606d; font-size: 13px; }
+  main { max-width: 760px; margin: 0 auto; padding: 26px 48px 60px; }
+  h1 { margin: 0 0 2px; font-size: 26px; } .sub { color: #52606d; margin: 0 0 22px; font-size: 14px; }
+  h2 { font-size: 16px; margin: 22px 0 10px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { margin-bottom: 14px; display: grid; gap: 5px; }
+  label { font-weight: 600; font-size: 13px; } label em { color: #d64545; font-style: normal; }
+  input[type=text], input[type=email], input[type=tel], input[type=url], select, textarea {
+    font: inherit; font-size: 14px; height: 40px; border: 1px solid #cbd2d9; border-radius: 6px; background: #fff; padding: 8px 12px; width: 100%; color: #1f2933; }
+  textarea { height: 86px; resize: none; }
+  input[type=file] { font-size: 13px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: #3e4c59; font-weight: 400; }
+  button { margin-top: 10px; background: #0f766e; color: #fff; border: 0; border-radius: 8px; padding: 11px 22px; font: 600 14px/1 inherit; }
+</style></head>
+<body>
+<header><div class="logo">✦</div><div><b>{{company}}</b><br><span>Careers · {{city}}</span></div></header>
+<main>
+  <h1>{{title}}</h1>
+  <p class="sub">{{place}} · Full time</p>
+  <form id="application" onsubmit="event.preventDefault()">
+    <h2>Your details</h2>
+    <div class="row">
+      <div class="field"><label for="first_name">First name <em>*</em></label><input type="text" id="first_name" name="first_name" autocomplete="off" required></div>
+      <div class="field"><label for="last_name">Last name <em>*</em></label><input type="text" id="last_name" name="last_name" autocomplete="off" required></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="email">Email <em>*</em></label><input type="email" id="email" name="email" autocomplete="off" required></div>
+      <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" autocomplete="off"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="location">Location (city)</label><input type="text" id="location" name="location" autocomplete="off"></div>
+      <div class="field"><label for="linkedin">LinkedIn profile</label><input type="url" id="linkedin" name="linkedin" autocomplete="off"></div>
+    </div>
+    <div class="field"><label for="resume">Resume/CV <em>*</em></label><input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" required></div>
+    <h2>A few questions</h2>
+    <div class="field"><label for="permit">Are you legally authorised to work in this country? <em>*</em></label>
+      <select id="permit" name="permit" required><option value="">Select…</option><option>Yes</option><option>No</option></select></div>
+    <div class="field"><label for="notice">What is your notice period?</label><input type="text" id="notice" name="notice" autocomplete="off"></div>
+    <div class="field"><label for="why">Why do you want to work at {{company}}?</label><textarea id="why" name="why"></textarea></div>
+    <div class="field"><label class="check"><input type="checkbox" id="privacy" name="privacy" required> I agree to the processing of my data for this application. <em>*</em></label></div>
+    <button type="submit">Submit application</button>
+  </form>
+</main>
+</body></html>

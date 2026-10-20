@@ -1,0 +1,11 @@
+{
+  "by": "claude-sonnet-5-5",
+  "at": "2026-10-20",
+  "zooms": {
+    "form": 1.15,
+    "panel": 1.6
+  },
+  "caption": "Your application, filled in for you",
+  "shows": "A job application form fills itself in, then a small panel confirms every required field is complete and ready to submit.",
+  "alt": "A job application form for a DevOps Engineer role. A small Jobadabra window first reads the page. The form then shows name, email, phone, city, CV and question answers filled in, and the panel says Ready to submit."
+}
