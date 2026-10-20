@@ -9,7 +9,7 @@ export const DAILY_MAX = 6;                 // per address, per rolling 24 h (sp
 const GLOBAL_DAY_MAX = 3000;                // a safety net over every address; env.MAIL_DAY_MAX overrides
 const DAY = 24 * 60 * 60 * 1000;
 const ADDRESS = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
-const FROM = {service: 'Jobadabra <notifications@jobpilotto.top>', marketing: 'Jobadabra <news@jobpilotto.top>'};
+const FROM = {service: 'Jobadabra <notifications@jobadabra.top>', marketing: 'Jobadabra <news@jobadabra.top>'};
 
 export const clean = to => String(to || '').trim().toLowerCase();
 export const validAddress = to => ADDRESS.test(clean(to)) && clean(to).length <= 254;

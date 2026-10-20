@@ -10,7 +10,7 @@ const confirmHtml = url => (url ? `<p>${link(url, 'Confirm your email')} so thes
 const confirmText = url => (url ? `\nConfirm your email so these mails keep coming: ${url}` : '');
 const first = (buttons = []) => (buttons[0] ? {label: buttons[0].text, url: buttons[0].url} : null);
 
-const SITE = 'https://www.jobpilotto.top';
+const SITE = 'https://www.jobadabra.top';
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const muted = text => `<p class="jp-muted" style="margin:0 0 14px;color:#667085;font-size:13.5px">${esc(text)}</p>`;
 

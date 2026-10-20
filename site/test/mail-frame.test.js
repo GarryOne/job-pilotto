@@ -25,9 +25,9 @@ const SAMPLES = {
   'account-code': {code: '482913'},
   'digest': {matches, total: 3},
   'trial-left': {left: 4},
-  'trial-ending': {days: 2, pricingUrl: 'https://www.jobpilotto.top/pricing'},
-  'always-on-paused': {reason: 'trial-over', pricingUrl: 'https://www.jobpilotto.top/pricing', pro: false},
-  'pro-launch': {price: '29', launch: '19', pricingUrl: 'https://www.jobpilotto.top/pricing'},
+  'trial-ending': {days: 2, pricingUrl: 'https://www.jobadabra.top/pricing'},
+  'always-on-paused': {reason: 'trial-over', pricingUrl: 'https://www.jobadabra.top/pricing', pro: false},
+  'pro-launch': {price: '29', launch: '19', pricingUrl: 'https://www.jobadabra.top/pricing'},
 };
 
 test('every template has a sample here (a new template must be added to this test)', () => assert.deepEqual(Object.keys(SAMPLES).sort(), Object.keys(TEMPLATES).sort()));
@@ -40,8 +40,8 @@ test('every template goes through the frame: logo, title, footer with stop + set
     assert.equal((await send(e, name, 'me@example.com', SAMPLES[name], {now})).ok, true, name);
     const {html, text} = sent[0];
     assert.ok(html.includes('data-jp-frame="1"') && html.includes('<title>'), `${name}: framed`);
-    assert.ok(html.includes('https://www.jobpilotto.top/images/logo-mark.png') && !html.includes('data:'), `${name}: hosted logo`);
-    assert.ok(html.includes('>jobpilotto.top</a>') && text.trim().endsWith('https://www.jobpilotto.top'), `${name}: site link`);
+    assert.ok(html.includes('https://www.jobadabra.top/images/logo-mark.png') && !html.includes('data:'), `${name}: hosted logo`);
+    assert.ok(html.includes('>jobadabra.top</a>') && text.trim().endsWith('https://www.jobadabra.top'), `${name}: site link`);
     assert.ok((html.match(/background:#d0612b/g) || []).length <= 1, `${name}: at most one orange button`);
     assert.ok(!/<(script|form|iframe)/i.test(html), `${name}: email-safe`);
     if (spec.essential) { assert.ok(!html.includes('Stop these emails') && !sent[0].headers, `${name}: a security mail has nothing to stop`); continue; }

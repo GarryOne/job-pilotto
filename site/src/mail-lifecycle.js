@@ -5,7 +5,7 @@ import {digestOf} from './guard.js';
 import {addrOf, send} from './mail.js';
 import {FREE_APPLICATIONS, stand} from './trial.js';
 
-export const PRICING_URL = 'https://www.jobpilotto.top/pricing';
+export const PRICING_URL = 'https://www.jobadabra.top/pricing';
 const DAY = 24 * 60 * 60 * 1000;
 export const LEFT_AT = 5;        // "5 applications left"
 export const ENDING_DAYS = 3;    // "trial ends in 3 days"
