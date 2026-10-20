@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your data and safety · Jobadabra</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="description" content="What Jobadabra can access, where your data stays, and how you can check every download yourself.">
+<link rel="canonical" href="https://www.jobadabra.top/trust">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jobadabra">
+<meta property="og:title" content="Your data and safety · Jobadabra">
+<meta property="og:description" content="What Jobadabra can access, where your data stays, and how you can check every download yourself.">
+<meta property="og:url" content="https://www.jobadabra.top/trust">
+<meta property="og:image" content="https://www.jobadabra.top/images/logo-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body data-page="trust">
+<div class="wrap">
+  <nav class="topnav on-dark" id="topnav">
+    <a class="brand" href="/"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Jobadabra</a>
+    <div class="links">
+      <a href="/how-it-works">How it works</a>
+      <a href="/features">Features</a>
+      <a href="/coverage">Jobs we cover</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/faq">FAQ</a>
+      <a href="/changelog">What's new</a>
+    </div>
+    <a class="news" href="/changelog">What's new</a>
+    <a class="btn btn-primary btn-small" href="/download">Download</a>
+  </nav>
+
+  <header class="page-head">
+    <span class="eyebrow">Your data and safety</span>
+    <h1>Your data stays yours</h1>
+    <p class="lede">Everything runs on your computer and in your own accounts. Nothing about you is stored on a Jobadabra server, and it never presses Submit.</p>
+    <nav class="page-jump" aria-label="On this page"><a href="#access">What it can access</a><a href="#download">Why you can trust the download</a></nav>
+  </header>
+
+  <section class="block first" id="access">
+    <div class="section-head stacked">
+      <span class="eyebrow">Privacy</span>
+      <h2>What it can access</h2>
+    </div>
+    <div class="access-wrap">
+      <table class="access">
+        <thead><tr><th>What</th><th>Access</th><th>Where it stays</th></tr></thead>
+        <tbody>
+          <tr><td>📄 Your CV and answers</td><td>Read by the AI to draft your profile, application kits and tailored CVs</td><td>Your computer</td></tr>
+          <tr><td>🗂️ Your applications</td><td>Kept by the app; in your own Notion only if you choose it</td><td>Your computer</td></tr>
+          <tr><td>🔑 Your keys</td><td>Encrypted by your computer's keychain; each sent only to its own service</td><td>Your computer</td></tr>
+          <tr><td>📧 Gmail · 📅 Calendar</td><td><b>Read-only</b>. Job emails are sorted by the AI</td><td>Your Google account</td></tr>
+          <tr><td>🎙️ Recordings</td><td>Transcribed on your computer</td><td>Your computer</td></tr>
+          <tr><td>🧩 Browser</td><td>Fills forms on job sites. Never presses Submit</td><td>Your browser</td></tr>
+          <tr><td>💸 AI spending</td><td>Free AI is included. With your own key: your account, with a monthly cap (alert at 70%, extras paused at 90%)</td><td>Your AI account</td></tr>
+          <tr><td>☁️ GitHub <small>optional</small></td><td>One private repository you choose, to run while your computer is off</td><td>Your GitHub</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="source-note">The full policy: <a href="/privacy">Privacy</a>.</p>
+  </section>
+
+  <section class="block" id="download">
+    <div class="section-head stacked">
+      <span class="eyebrow">Trust</span>
+      <h2>Why you can trust the download</h2>
+      <p class="lede">You don't have to take our word for it: the code is public and every download can be checked.</p>
+    </div>
+    <ul class="trust-grid">
+      <li><b>📖 Public code</b><span>What it reads, what it sends, where your keys go. <a href="https://github.com/GarryOne/job-pilotto">Read it on GitHub</a></span></li>
+      <li><b>🏗️ Built in public</b><span>Each download is built by GitHub Actions from a tagged commit, not on anyone's laptop. The build logs are public.</span></li>
+      <li><b>✅ Checkable</b><span>GitHub signs each download with the commit it was built from. With the <a href="https://cli.github.com">GitHub CLI</a>:</span>
+        <code class="trust-cmd">gh attestation verify Job-Pilotto-mac-arm64.dmg -R GarryOne/job-pilotto</code></li>
+      <li><b>🔒 Nothing about you on our servers</b><span>With Free AI, a request passes through our server to the model and nothing is stored; with your own key, the AI runs from your computer. We only receive scrubbed technical reports, and you can turn them off.</span></li>
+      <li><b>✋ You submit</b><span>It fills forms and never presses Submit or applies in bulk.</span></li>
+      <li><b>⚠️ Not signed by Apple or Microsoft yet</b><span>That's why your computer asks once before opening it. Found a problem? <a href="https://github.com/GarryOne/job-pilotto/security/policy">Report it privately</a></span></li>
+    </ul>
+  </section>
+
+  <div class="next-page"><span>Ready to try it? Free to start, Mac and Windows.</span><a href="/download">Download →</a></div>
+
+  <footer class="site-foot">
+    <div><b>✈ Jobadabra</b>A job search for any role, across Europe.</div>
+    <div><b>Product</b><a href="/how-it-works">How it works</a><a href="/features">Features</a><a href="/intelligence">AI inside</a><a href="/coverage">Jobs we cover</a><a href="/changelog">What's new</a></div>
+    <div><b>Before you start</b><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/compare">Compare</a><a href="/platforms">Platforms</a></div>
+    <div><b>Trust</b><a href="/trust">Your data and safety</a><a href="/research">Research</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  </footer>
+</div>
+<script src="site.js" defer></script>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>

@@ -26,7 +26,7 @@ name = "EMAIL"
 directory = "./public"
 binding = "ASSETS"
 # The worker runs first for the pages, so the old host can redirect them (src/hosts.js legacyPageRedirect); every other path is served as before.
-run_worker_first = ["/", "/changelog", "/compare", "/friends", "/intelligence", "/platforms", "/pricing", "/privacy", "/ready-live", "/terms", "/*.html"]
+run_worker_first = ["/", "/changelog", "/compare", "/coverage", "/download", "/faq", "/features", "/friends", "/how-it-works", "/intelligence", "/platforms", "/pricing", "/privacy", "/ready-live", "/research", "/terms", "/trust", "/*.html"]
 
 # Pro early-access sign-ups.
 [[kv_namespaces]]

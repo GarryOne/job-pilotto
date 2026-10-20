@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · Jobadabra</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="description" content="How Jobadabra handles your data: your Notion, your computer, nothing kept by us.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>.legal{max-width:720px;margin:48px auto;padding:0 20px} .legal h1{margin-bottom:4px} .legal h2{margin-top:28px} .legal p,.legal li{line-height:1.6}</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Jobadabra</a></nav>
+  <main class="legal">
+    <h1>Privacy</h1>
+    <p class="muted">Last updated 16 October 2026</p>
+    <p><b>In short:</b> your job search lives in <b>your own Notion workspace</b> and on <b>your own computer</b>. We don't run a
+      database of your data and we don't sell or share anything.</p>
+    <h2>What Jobadabra stores, and where</h2>
+    <ul>
+      <li><b>Your Notion workspace</b> (the page you connect): job matches, applications, replies, interviews, insights, your Profile,
+        standard answers and search settings. You can read, edit or delete everything there.</li>
+      <li><b>Your computer</b>: your keys (encrypted by the operating system), your CV and tailored CVs, call recordings, and a cache of
+        job listings. Settings → Your data lets you export or delete them.</li>
+      <li><b>Optional, only if you connect them</b>: Gmail and Calendar (read-only, to track replies and interviews), Telegram (to send you
+        matches), a private GitHub repository (to run while your computer is off), and the AI provider you give a key for
+        (Anthropic), which receives job postings and the parts of your profile needed to score jobs and draft answers.</li>
+    </ul>
+    <h2>Technical reports from the app</h2>
+    <p>To fix problems for everyone, the app sends us technical reports, <b>on by default</b>: errors and crashes, jobs that failed
+      (which step, the error line), form fields it couldn't fill (the site, the field's label and type, never your answer), how the form's special controls
+      (Yes/No buttons, custom dropdowns, date fields) behaved, described only by an anonymous structural fingerprint and counts
+      of worked or failed, counts of how the AI answered a form's questions (how many it was sent, answered, left empty or put
+      under a wrong field, and how long it took, per AI engine; never a question or an answer), and once a
+      day the app version, operating system, which features are on, and anonymous counts of how it helped you (jobs matched, forms
+      filled, applications, replies, interviews, offers). Each report carries a random install number, not your name, and the channel the install came from (a label such as "reddit-devops" or "linkedin.com"): set by the install command's tagged link, or, for a download button, asked once at the first start from the download click made on the same network in the 7 days before. For that match the website keeps a salted hash of the network address of a download click for 8 days, then deletes it; never the address itself.</p>
+    <p>Before anything leaves your computer, the app removes personal data: your answers, CV, cover letters, emails, Notion content,
+      names, email addresses, phone numbers, keys, file paths and the query part of links. We keep reports for 90 days, use them only
+      to improve Jobadabra and to publish overall numbers (never about one person), and never sell them. <b>Settings → Advanced →
+      Technical reports</b> shows exactly what was sent, and turns them off.</p>
+    <h2>Crash reports and usage steps (Sentry and PostHog)</h2>
+    <p>While Technical reports are on, an installed Jobadabra also uses two services, with the same rules. <b>Sentry</b> (hosted in the
+      EU) receives crash and error reports: the kind of error, a cleaned-up message, which parts of the app's code it passed
+      through, the app version, your operating system and the random install number. <b>PostHog</b> (hosted in the EU) receives which steps
+      people take, so we can see where setup or applying gets stuck: for example "setup step: CV", "search finished", "kit prepared",
+      "application started", "marked applied", and which page was opened (Jobs, Settings…), how many seconds you spent on it (using it, or idle) and which button was clicked and roughly where in the window, never what is on it or its label. Neither service
+      receives your answers, CV, cover letters, emails, jobs, companies, names, keys or file paths, and neither records your screen, keystrokes
+      or IP-based location. Both are off in a copy run from source and when Technical reports is off. A crash report also carries the last few of those step names.
+      Beta testers (who switched the beta on) have one more switch, off until they turn it on: when a search fails or hangs, the last 200 lines of its log
+      are attached to that report, with emails, folder paths, keys, links' query parts and numbers removed first.</p>
+    <p>This website sends nothing to PostHog or any other third-party analytics. It counts page views and Download clicks itself (page, where the visit came from, country), with no cookie and no id kept between page views.</p>
+    <h2>Read refused sites in my browser (on by default)</h2>
+    <p>Some employer career pages and job boards refuse Jobadabra's own reading. <b>Settings → Advanced → Read refused sites in my browser</b> is on until you turn it off.
+      When it is on, the Jobadabra Chrome extension fetches such a page <b>once, then again only after 30 days</b>, one site at a time, from your own computer and
+      internet connection, <b>without your cookies or logins</b>, and sends the page to the app on your computer, which keeps the jobs on it. It never reads LinkedIn, Indeed,
+      Glassdoor, levels.fyi, Reddit or any page behind a login, and it never solves a captcha or bot check: on a refusal, a check or a login page it stops and notes the site.
+      Each site read, or stopped, is listed in Recent activity. Nothing from these pages is sent to us.</p>
+    <h2>Shared fixes from our service</h2>
+    <p>Forms differ, so Jobadabra learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
+      extension ask our website for <em>shared fixes</em> for the special controls on the form in front of you. The request holds
+      only the anonymous structural fingerprints of those controls and your random install number, never the form's text, your
+      answers or your CV. A fix is a small data record (for example which element counts as the "Yes" button); it can only change
+      how one control is filled, never press Submit or tick a consent box, and you still review and click Submit yourself. The
+      form panel tells you when it used one. For Apply with Claude, the app also asks our website for notes about the job board's
+      forms (the board's name only). We limit these requests per install and may block an install that tries to copy the shared data.
+      <strong>Settings → Advanced → Technical reports</strong> turns reports and shared fixes off together; everything else keeps working.</p>
+    <p>When you tell Jobadabra how an application went (a reply, a call or interview, an offer, a rejection, no answer), it is saved
+      in your Notion, and, while Technical reports are on, counted anonymously by <em>job board</em>, the outcome and a rough number of
+      days (for example 8–14) since you applied, to learn which applications get answers. Never the company, the role, the job's address
+      or your answers, and the count is not kept per person.</p>
+    <p>The same goes for a few more counts about your search, while Technical reports are on: which role words you add to widen it (from a fixed
+      list), how much of the market your role keywords catch, why you dismiss a job if you tap a reason (seniority, location, technology, company,
+      kind of role), after each search how many jobs it found in your places, how many were scored and how many scored 70 or more, the seconds until the first jobs appeared, which search of yours it was, your kind of role (from a fixed list) and country (a city only appears on our side when at least three installs share it), and once a day how many of your jobs sit in each fit-score band and what became of them (new, saved, applied, replied ...) and, for each
+      kind of job board, how many you acted on or dismissed. When you mark how an application went, the job's fit-score band is counted with it.
+      When you change by hand an answer that was filled in, only the form's own question wording (for example "Notice period") is counted, never what you wrote.
+      They are grouped by a coarse kind of role and region from fixed lists. Never a job, its title, its company, its link or any text, and they
+      are not kept per person. They help us make the score and the suggestions better for everyone.</p>
+    <h2>Help the pool grow</h2>
+    <p>Jobadabra downloads a shared list of employer career pages (with a random install number and an access token from our website, a few times a day at most). Every install also helps it grow, <b>on by default</b> (you can turn it off): as each run finds them, the app sends the public career pages and job boards your searches read (company, job-board system and
+      address; how many jobs each listed and matched, and how many of those you saved, applied to or got an interview or offer from,
+      with their language, seniority and remote counts), up to 40 public job-posting addresses from employers' own career pages (only the address, never its title, company, place or score, nor anything you wrote; we record a few of them on a test applicant to find forms the app fills badly) and labels from fixed lists: your kind of role and role family, your country, region and city area, with a
+      random install number. Never your jobs, applications, CV, answers, emails, Notion content or keys. We check every page
+      ourselves before adding it, take up an employer you added by hand only once at least three people added the same one, publish a label for a page only when several people agree, keep this data for 90 days (posting addresses 14 days) and never
+      sell it. <b>Settings → Help the pool grow</b> shows the exact message under <b>See what would be sent</b>, and turning it off stops it at once.</p>
+    <h2>Connect with Notion</h2>
+    <p>When you connect Notion, Notion asks you which pages Jobadabra may use. Our server receives a one-time code from Notion,
+      trades it for your access token and hands that token to the Jobadabra app on your computer. The token is held for at most
+      10 minutes, only until your app collects it, then deleted; it is never logged. Jobadabra only reads and writes the pages you
+      chose. You can remove its access at any time in Notion (Settings → Connections).</p>
+    <h2>Website</h2>
+    <p>If you join the Pro early-access list, we keep the email address (and the role you typed) to write to you about it, and
+      nothing else. Ask us to delete it any time.</p>
+    <p>The website counts visits and Download clicks without cookies: the page, where you came from (for example google.com),
+      country and device type. Visitors are told apart for one day by a one-way hash, so we never store your IP address.
+      Cloudflare Web Analytics measures page speed and visits the same way, without cookies.</p>
+    <h2>Email, Pro and hosted Always on</h2>
+    <p><b>Email address:</b> if you give one (in the setup, for notifications, or when you buy Pro) we use it to send you what you chose: your sign-in code, trial reminders and notifications. Product news and the Pro launch offer are sent only if the box for them stays ticked; every message has an unsubscribe link that works in one click, and you can also untick it in Settings. We keep the address as a one-way hash for the mail log and the unsubscribe list, plus the address itself with your account so we can write to you; ask us to delete it any time.</p>
+    <p><b>Pro and payments:</b> a Pro payment is made on Stripe's page, in your browser. Stripe is our payment processor: it receives your card details and billing country; we never see your card. We keep your Pro account (your email, which of your computers it covers, your AI credit balance) and the receipt facts we must keep by law.</p>
+    <p><b>Hosted Always on:</b> if you switch it on, your profile and job search data needed to run for you are stored on our servers encrypted, until you delete them or close the account. Settings lets you export or delete them at any time. Without hosted Always on, none of it leaves your computer and your Notion.</p>
+    <p><b>Ready to send</b> (being tested; not offered yet): the jobs you send to be filled overnight (the address, your answers, CV and letter) are stored on our servers encrypted and deleted when you press Done, after 24 hours, or when you delete everything. For each form it filled, the server also keeps, encrypted, what <i>Open in my browser</i> needs to show it filled in your own browser: the page's address, that site's cookies and storage, and the values it typed. It keeps the video of each fill (<i>Watch the fill</i>) encrypted too. All of it is deleted with the form's data (Done, 24 hours, Delete everything); none of it is written to a log. Nothing is ever submitted for you.</p>
+    <h2>Contact</h2>
+    <p>Questions or deletion requests: open an issue at <a href="https://github.com/GarryOne/job-pilotto">github.com/GarryOne/job-pilotto</a>.</p>
+  </main>
+  <footer>
+    <span>✈ Jobadabra</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="index.html">Home</a></span>
+  </footer>
+</div>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>

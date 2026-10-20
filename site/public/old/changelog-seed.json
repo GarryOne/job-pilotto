@@ -1,0 +1,22 @@
+[
+  {
+    "version": "0.7.16",
+    "date": "2026-10-14",
+    "channel": "stable",
+    "groups": [
+      {
+        "kind": "improvements",
+        "items": [
+          {"emoji": "📋", "lead": "Unfilled dropdowns go to you", "text": "If a required dropdown can't be filled automatically, the app now hands it to you instead of giving up silently."},
+          {"emoji": "🔌", "lead": "Late browser extension still works", "text": "The app picks up its job even if the browser extension starts after it."}
+        ]
+      },
+      {
+        "kind": "fixes",
+        "items": [
+          {"emoji": "☑️", "lead": "Clear \"no\" answers on checkboxes kept", "text": "An explicit \"no\" on an unchecked box or two-state control is now saved as your answer rather than treated as skipped."}
+        ]
+      }
+    ]
+  }
+]

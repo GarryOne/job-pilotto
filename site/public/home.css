@@ -1,0 +1,65 @@
+/* The short landing (owner, 20 Oct 2026): hero beside its video, the live numbers, three steps, "you stay in control", the closing download.
+   Builds on styles.css tokens and parts (.hero, .btn, .mac-window, section.block); only what those lack lives here. Guarded by site/test/landing.test.js. */
+
+/* Hero: words left, the app right (stacked on phones). */
+.hero.split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); justify-items: stretch; align-items: center; text-align: left; gap: 56px; padding-block: 72px 64px; }
+.hero.split .hero-copy { justify-items: start; gap: 22px; }
+.hero.split h1 { font-size: clamp(2.5rem, 4.6vw, 4rem); }
+.hero.split .eyebrow { justify-content: flex-start; }
+.hero.split .hero-visual { max-width: none; }
+.hero.split .demo { aspect-ratio: 1600 / 985; height: auto; object-fit: cover; object-position: left top; }   /* the hero's own shape, not the old demo video's */
+@media (max-width: 900px) { .hero.split { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-block: 48px; } }
+
+/* Mac and Windows: two identical buttons, side by side; full width on phones. */
+.downloads { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); gap: 12px; }
+.downloads .btn svg { flex: none; }
+@media (max-width: 520px) { .downloads { grid-template-columns: minmax(0, 1fr); width: 100%; } }
+.hero .downloads-note { font: 400 .76rem var(--mono); color: #8a97a6; }
+
+/* The live numbers: one band, four figures. */
+.numbers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.numbers li { display: grid; gap: 4px; padding: 22px 24px; border-left: 1px solid var(--line); }
+.numbers li:first-child { border-left: 0; }
+.numbers b { font: 600 clamp(1.6rem, 3vw, 2.2rem)/1.05 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.numbers span { color: var(--muted); font-size: .9rem; }
+.numbers a { color: var(--signal); font-weight: 600; text-underline-offset: 3px; }
+@media (max-width: 760px) { .numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); } .numbers li:nth-child(3) { border-left: 0; }
+  .numbers li:nth-child(n+3) { border-top: 1px solid var(--line); } }
+section.block.tight { padding-block: 56px; }
+
+/* Three steps, each with its picture and a link to the detail. */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.steps li { display: grid; grid-template-rows: auto 1fr; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.steps .pic { aspect-ratio: 16 / 10; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--raised); }
+.steps .pic img, .steps .pic video { width: 100%; height: 100%; object-fit: cover; object-position: left top; display: block; }
+.steps .words { display: grid; gap: 8px; align-content: start; padding: 20px 22px 22px; }
+.steps .words p { color: var(--muted); font-size: .95rem; }
+.steps .more { color: var(--signal); font-weight: 600; font-size: .92rem; text-decoration: none; }
+.steps .more:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 860px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+
+/* You stay in control: three facts, a teal rule each (teal = what runs on its own stops here). */
+.facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.facts li { display: grid; gap: 6px; padding-left: 18px; border-left: 2px solid var(--teal); }
+.facts span { color: var(--muted); font-size: .95rem; }
+@media (max-width: 760px) { .facts { grid-template-columns: minmax(0, 1fr); } }
+
+/* A section's head with its "more" link at the right. */
+.head-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+.head-row h2 { font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
+.head-row a { color: var(--signal); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.head-row a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* The closing download. */
+.closing { display: flex; justify-content: space-between; align-items: center; gap: 28px; flex-wrap: wrap; }
+.closing .lede { margin-top: 10px; }
+.closing .lede a { color: var(--signal); font-weight: 600; text-underline-offset: 3px; }
+
+/* Footer: every page, in a few short groups. */
+.site-foot { display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr)); gap: 28px; padding-block: 48px 64px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: .9rem; }
+.site-foot b { display: block; color: var(--ink); font-size: .82rem; margin-bottom: 8px; }
+.site-foot a { display: block; text-decoration: none; padding-block: 3px; }
+.site-foot a:hover { color: var(--ink); }
+@media (max-width: 760px) { .site-foot { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

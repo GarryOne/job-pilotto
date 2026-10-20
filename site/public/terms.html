@@ -10,11 +10,24 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="home.css">
 <style>.legal{max-width:720px;margin:48px auto;padding:0 20px} .legal h1{margin-bottom:4px} .legal h2{margin-top:28px} .legal p,.legal li{line-height:1.6}</style>
 </head>
 <body>
 <div class="wrap">
-  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Jobadabra</a></nav>
+  <nav class="topnav on-dark" id="topnav">
+    <a class="brand" href="/"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Jobadabra</a>
+    <div class="links">
+      <a href="/how-it-works">How it works</a>
+      <a href="/features">Features</a>
+      <a href="/coverage">Jobs we cover</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/faq">FAQ</a>
+      <a href="/changelog">What's new</a>
+    </div>
+    <a class="news" href="/changelog">What's new</a>
+    <a class="btn btn-primary btn-small" href="/download">Download</a>
+  </nav>
   <main class="legal">
     <h1>Terms of use</h1>
     <p class="muted">Last updated 16 October 2026</p>
@@ -36,11 +49,14 @@
       <li><b>Changes:</b> we may update these terms; the date above shows the latest version.</li>
     </ul>
   </main>
-  <footer>
-    <span>✈ Jobadabra</span>
-    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="index.html">Home</a></span>
+  <footer class="site-foot">
+    <div><b>✈ Jobadabra</b>A job search for any role, across Europe.</div>
+    <div><b>Product</b><a href="/how-it-works">How it works</a><a href="/features">Features</a><a href="/intelligence">AI inside</a><a href="/coverage">Jobs we cover</a><a href="/changelog">What's new</a></div>
+    <div><b>Before you start</b><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/compare">Compare</a><a href="/platforms">Platforms</a></div>
+    <div><b>Trust</b><a href="/trust">Your data and safety</a><a href="/research">Research</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
   </footer>
 </div>
+<script src="site.js" defer></script>
 <script src="/track.js" defer></script>
 <!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
 </body>

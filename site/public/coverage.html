@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jobs we cover · Jobadabra</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="description" content="How many employers and open jobs Jobadabra reads across Europe, country by country and by kind of work, updated every day.">
+<link rel="canonical" href="https://www.jobadabra.top/coverage">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jobadabra">
+<meta property="og:title" content="Jobs we cover · Jobadabra">
+<meta property="og:description" content="How many employers and open jobs Jobadabra reads across Europe, country by country and by kind of work, updated every day.">
+<meta property="og:url" content="https://www.jobadabra.top/coverage">
+<meta property="og:image" content="https://www.jobadabra.top/images/logo-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body data-page="coverage">
+<div class="wrap">
+  <nav class="topnav on-dark" id="topnav">
+    <a class="brand" href="/"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Jobadabra</a>
+    <div class="links">
+      <a href="/how-it-works">How it works</a>
+      <a href="/features">Features</a>
+      <a href="/coverage" aria-current="page">Jobs we cover</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/faq">FAQ</a>
+      <a href="/changelog">What's new</a>
+    </div>
+    <a class="news" href="/changelog">What's new</a>
+    <a class="btn btn-primary btn-small" href="/download">Download</a>
+  </nav>
+
+  <header class="page-head">
+    <span class="eyebrow">Jobs we cover</span>
+    <h1>Employers across Europe, checked every day</h1>
+    <p class="lede">Our scout finds employers' own job pages and checks them daily. Your app searches all of them, plus job boards and any employer you add.</p>
+  </header>
+
+  <section class="block first" id="numbers" aria-label="The employer list, today">
+    <ul class="numbers">
+      <li><b data-cov="employers">5,000+</b><span>employers in the list</span></li>
+      <li><b data-cov="jobs_europe">—</b><span>open jobs at them in Europe</span></li>
+      <li><b data-cov="country_count">25</b><span>European countries</span></li>
+      <li><b data-cov="week_added">—</b><span>employers added this week</span></li>
+    </ul>
+    <p class="source-note" data-cov-note>Counts only, from the central employer list's daily snapshot. No employer is named here and nothing comes from any user.</p>
+  </section>
+
+  <section class="block" id="countries">
+    <div class="section-head stacked">
+      <span class="eyebrow">By country</span>
+      <h2>Where the employers hire</h2>
+      <p class="lede">An employer counts in every country it has jobs in.</p>
+    </div>
+    <div class="bars" data-cov-bars="countries"><p class="source-note">The chart loads with the page.</p></div>
+  </section>
+
+  <section class="block" id="kinds">
+    <div class="section-head stacked">
+      <span class="eyebrow">By kind of work</span>
+      <h2>Every field, some stronger than others</h2>
+      <p class="lede">Each employer by the kind of work it mostly hires for. IT and sales are the largest today; the scout adds employers where the list is thin first.</p>
+    </div>
+    <div class="bars" data-cov-bars="kinds"><p class="source-note">The chart loads with the page.</p></div>
+    <p class="source-note" data-cov-other hidden>Plus <b data-cov="other_kinds"></b> employers that hire across several kinds of work.</p>
+  </section>
+
+  <section class="block" id="yours">
+    <div class="section-head stacked">
+      <span class="eyebrow">On top of the list</span>
+      <h2>Job boards and your own employers</h2>
+    </div>
+    <ul class="trust-grid">
+      <li><b>Job boards</b><span>Read for the places you search in, on top of the employers.</span></li>
+      <li><b>Your own employers</b><span>Add any company you care about: it is checked first, and your list stays yours.</span></li>
+      <li><b>Only what fits you</b><span>A search shows only jobs in your roles and places, so a search in Lyon and one in Warsaw see different jobs from the same list.</span></li>
+    </ul>
+  </section>
+
+  <div class="next-page"><span>Three steps from a new opening to a reply.</span><a href="/how-it-works">How it works →</a></div>
+
+<script>
+// The coverage numbers: aggregates of the central list's latest daily snapshot (GET /api/coverage, cached an hour). Counts only.
+fetch('/api/coverage').then(r => (r.ok ? r.json() : null)).then(data => {
+  if (!data) return;
+  const n = v => Number(v).toLocaleString('en-US');
+  for (const slot of document.querySelectorAll('[data-cov]')) {
+    const v = data[slot.dataset.cov];
+    if (typeof v === 'number' && v > 0) slot.textContent = slot.dataset.cov === 'week_added' ? `+${n(v)}` : n(v);
+  }
+  if (data.other_kinds > 0) document.querySelector('[data-cov-other]').hidden = false;
+  const note = document.querySelector('[data-cov-note]');
+  if (note && data.day) note.textContent = `Counts only, from the central employer list's snapshot of ${data.day}. No employer is named here and nothing comes from any user.`;
+  for (const box of document.querySelectorAll('[data-cov-bars]')) {
+    const rows = data[box.dataset.covBars] || [];
+    if (!rows.length) continue;
+    const max = Math.max(...rows.map(row => row[1]));
+    box.replaceChildren(...rows.map(([name, count]) => {
+      const row = document.createElement('div');
+      row.title = `${name}: ${n(count)} employers`;
+      const label = Object.assign(document.createElement('span'), {textContent: name});
+      const bar = document.createElement('span');
+      bar.append(Object.assign(document.createElement('i'), {style: `width:${(100 * count / max).toFixed(1)}%`}));
+      row.append(label, bar, Object.assign(document.createElement('b'), {textContent: n(count)}));
+      return row;
+    }));
+  }
+}).catch(() => {});
+</script>
+
+  <footer class="site-foot">
+    <div><b>✈ Jobadabra</b>A job search for any role, across Europe.</div>
+    <div><b>Product</b><a href="/how-it-works">How it works</a><a href="/features">Features</a><a href="/intelligence">AI inside</a><a href="/coverage">Jobs we cover</a><a href="/changelog">What's new</a></div>
+    <div><b>Before you start</b><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/compare">Compare</a><a href="/platforms">Platforms</a></div>
+    <div><b>Trust</b><a href="/trust">Your data and safety</a><a href="/research">Research</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  </footer>
+</div>
+<script src="site.js" defer></script>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>

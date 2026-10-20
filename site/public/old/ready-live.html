@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">
+<title>Ready to send</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1d1b18;--mut:#6d675d;--line:#d9d3c5;--acc:#c2410c;--good:#15803d}
+@media (prefers-color-scheme:dark){:root{--bg:#14130f;--fg:#ece8df;--mut:#a39d90;--line:#33302a;--acc:#fb923c;--good:#4ade80}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:12px max(16px,env(safe-area-inset-left,0px));display:grid;gap:10px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font:700 18px/1.2 system-ui;margin:0}#state{color:var(--mut);font-size:13px}
+#view{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#000;max-width:100%;touch-action:none}
+#screen{display:block;width:100%;height:auto;outline:none;cursor:default}[hidden]{display:none!important}
+#wait{color:#cfcabd;padding:48px 16px;text-align:center}
+button{font:inherit;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:6px;padding:6px 14px;cursor:pointer}
+button.go{background:var(--acc);border-color:var(--acc);color:#fff}button:disabled{opacity:.5;cursor:default}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+</style></head><body>
+<header><h1>Ready to send</h1><span id="state">Connecting…</span></header>
+<div id="view"><div id="wait">Opening the filled form… (a few seconds)</div><img id="screen" tabindex="0" alt="The filled form, live" draggable="false" hidden></div>
+<div class="bar"><span id="note">Click and type in the picture. Solve a bot check and press Submit on the form yourself.</span><button id="done" class="go" disabled>I submitted it</button></div>
+<script>
+(() => {
+  const query = new URLSearchParams(location.search), job = query.get('job') || '', k = query.get('k') || '';
+  const screen = document.getElementById('screen'), state = document.getElementById('state'), done = document.getElementById('done'), note = document.getElementById('note');
+  const say = text => { state.textContent = text; };
+  // The picture stays hidden until its first frame (live demo, 18 Oct 2026: a broken image with its alt text showed while connecting).
+  const wait = document.getElementById('wait');
+  const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ready/live?job=${encodeURIComponent(job)}&k=${encodeURIComponent(k)}`);
+  const send = message => socket.readyState === 1 && socket.send(JSON.stringify(message));
+  socket.onopen = () => { say('Live'); done.disabled = false; screen.focus(); };
+  socket.onclose = () => { say('Closed: open it again from the app (Actions → Ready to send → Open live recording).'); done.disabled = true; if (screen.hidden) wait.textContent = 'The server no longer holds this filled form (it restarted or the night ended). In the app, Open in my browser still opens it until Done or 24 h; or press Fill now to fill it again.'; };
+  socket.onmessage = event => { let m; try { m = JSON.parse(event.data); } catch { return; } if (m.kind === 'first' || m.kind === 'frame') { screen.src = `data:image/jpeg;base64,${m.data}`; screen.hidden = false; wait.hidden = true; } };
+  const at = event => { const box = screen.getBoundingClientRect(); return {x: (event.clientX - box.left) * (screen.naturalWidth / box.width), y: (event.clientY - box.top) * (screen.naturalHeight / box.height)}; };
+  const buttons = event => ({button: ['left', 'middle', 'right'][event.button] || 'left', buttons: event.buttons});
+  let last = 0;
+  screen.addEventListener('mousemove', event => { if (Date.now() - last > 40) { last = Date.now(); send({t: 'mouse', type: 'mouseMoved', ...at(event), buttons: event.buttons}); } });
+  screen.addEventListener('mousedown', event => { screen.focus(); send({t: 'mouse', type: 'mousePressed', ...at(event), ...buttons(event), clickCount: event.detail || 1}); event.preventDefault(); });
+  screen.addEventListener('mouseup', event => send({t: 'mouse', type: 'mouseReleased', ...at(event), ...buttons(event), clickCount: event.detail || 1}));
+  screen.addEventListener('wheel', event => { send({t: 'mouse', type: 'mouseWheel', ...at(event), deltaX: event.deltaX, deltaY: event.deltaY}); event.preventDefault(); }, {passive: false});
+  const key = up => event => { if (event.metaKey || event.ctrlKey) return; send({t: 'key', key: event.key, text: event.key.length === 1 ? event.key : (event.key === 'Enter' ? '\r' : undefined), code: event.keyCode, up}); event.preventDefault(); };
+  screen.addEventListener('keydown', key(false)); screen.addEventListener('keyup', key(true));
+  done.addEventListener('click', async () => {
+    done.disabled = true;
+    const reply = await fetch(`/api/ready/submitted?job=${encodeURIComponent(job)}&k=${encodeURIComponent(k)}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({job})}).then(r => r.json()).catch(() => ({ok: false}));
+    note.textContent = reply.ok ? 'Noted. Jobadabra marks it Applied and deletes this form\'s data from the server. You can close this page.' : 'Could not save that; try again.';
+    if (!reply.ok) done.disabled = false;
+  });
+})();
+</script></body></html>

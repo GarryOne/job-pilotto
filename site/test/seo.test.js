@@ -28,7 +28,7 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
 });
 
 test('the landing page links to the platform support page, which lists what is supported and what is coming', () => {
-  assert.match(file('index.html'), /href="platforms\.html"/);
+  assert.match(file('index.html'), /href="(\/platforms|platforms\.html)"/);
   const page = file('platforms.html');
   for (const word of ['Supported now', 'Next on the list', 'Under consideration', 'Microsoft Edge', 'Gmail', 'Outlook']) assert.ok(page.includes(word), word);
 });

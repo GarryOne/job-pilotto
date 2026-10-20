@@ -109,19 +109,22 @@ test('other methods are refused', async () => {
   assert.equal((await call(env(), 'POST', auth, {feeds: []})).status, 405);
 });
 
-test('the landing page reads the pool size from the public summary of this route and says users can add their own employers', async () => {
+test('the landing page reads the pool size from the public summary of this route, and the site says users can add their own employers', async () => {
+  // Since the redesign (owner, 20 Oct 2026) the landing shows two live numbers (site.js fills them) and the detail lives on /coverage and /faq.
   const {readFileSync} = await import('node:fs');
-  const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(page, /fetch\('\/api\/index\?summary=1'\)/);
-  assert.doesNotMatch(page, /class="ico"|pool-tile|cov-head|fit-pill/);   // the original plain grid: no icons, no cards
-  assert.match(page, /<b class="num" id="pool-employers">0<\/b> employers with <b class="num" id="pool-jobs">0<\/b> open jobs/);   // normal text, coloured
-  assert.match(page, /id="pool-employers"/);
-  assert.match(page, /id="pool-jobs"/);
-  assert.doesNotMatch(page, /IT & engineering roles/);   // the tile stays wide: every open job, all roles
-  assert.match(page, /Add any company you care about, or run your own scout/);   // the pool is a start, not the limit (the third card says so)
-  assert.match(page, /Can I add my own employers\?/);
-  assert.doesNotMatch(page, /tech jobs in Switzerland/);   // the pool is worldwide; the focus is the kind of job
-  assert.match(page, /switch that off in Settings/);   // the sharing note lives in the FAQ and privacy page, not the small card
+  const pub = name => readFileSync(new URL(`../public/${name}`, import.meta.url), 'utf8');
+  const page = pub('index.html');
+  assert.match(pub('site.js'), /fetch\('\/api\/index\?summary=1'\)/);
+  assert.match(page, /<b data-count="employers">[^<]+<\/b>/);
+  assert.match(page, /<b data-count="jobs">[^<]+<\/b>/);
+  assert.match(page, /<script src="\/?site\.js"/);
+  for (const name of ['index.html', 'coverage.html']) {
+    assert.doesNotMatch(pub(name), /IT & engineering roles/, name);   // every open job, all roles
+    assert.doesNotMatch(pub(name), /tech jobs in Switzerland/, name);   // the list is Europe-wide; the focus is the kind of job
+  }
+  assert.match(pub('coverage.html'), /Add any company you care about/);   // the list is a start, not the limit
+  assert.match(pub('faq.html'), /Can I add my own employers\?/);
+  assert.match(pub('faq.html'), /switch that off in Settings/);   // the sharing note lives in the FAQ and privacy page
   const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
   assert.match(privacy, /on by default/);
   assert.match(privacy, /Every install also helps it grow, <b>on by default<\/b> \(you can turn it off\)/);   // opt-out for everyone (7 Oct 2026)

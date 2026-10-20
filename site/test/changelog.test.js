@@ -62,7 +62,7 @@ test('the page reads changelog.json, shows the three group titles and the channe
   assert.match(html, /fetch\('changelog\.json'\)/);
   assert.doesNotMatch(html.split('<script>')[1], /innerHTML/);
   assert.match(pub('sitemap.xml'), /<loc>https:\/\/www\.jobadabra\.top\/changelog<\/loc>/);
-  assert.match(pub('index.html'), /<a href="changelog\.html">What's new<\/a>/);
+  assert.match(pub('index.html'), /<a href="(\/changelog|changelog\.html)">What's new<\/a>/);
   assert.doesNotMatch(html, /\$\d|\bPro\b/);
 });
 
@@ -80,8 +80,8 @@ test('every page with the top menu links to "What\'s new", on desktop (link row)
       const html = readFileSync(new URL(`${tree}/${name}`, import.meta.url), 'utf8');
       if (!/<nav class="topnav[^>]*>[\s\S]*?class="links"/.test(html)) continue;   // privacy and terms have a brand-only bar: no menu
       const nav = html.match(/<nav class="topnav[\s\S]*?<\/nav>/)[0];
-      assert.match(nav, /<div class="links">[\s\S]*<a href="changelog\.html"[^>]*>What's new<\/a>[\s\S]*<\/div>/, `${tree}/${name}: link row`);
-      assert.match(nav, /<a class="news" href="changelog\.html">What's new<\/a>/, `${tree}/${name}: phone link`);
+      assert.match(nav, /<div class="links">[\s\S]*<a href="(\/changelog|changelog\.html)"[^>]*>What's new<\/a>[\s\S]*<\/div>/, `${tree}/${name}: link row`);
+      assert.match(nav, /<a class="news" href="(\/changelog|changelog\.html)">What's new<\/a>/, `${tree}/${name}: phone link`);
     }
   }
 });
