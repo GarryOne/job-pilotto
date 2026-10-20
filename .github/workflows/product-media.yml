@@ -23,9 +23,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: product-media
-  cancel-in-progress: true   # a newer main makes newer pictures
+concurrency:   # newest wins: a newer push to main cancels the older commit's run; a by-hand run is its own group and never cancelled
+  group: product-media-${{ github.event_name == 'push' && 'main' || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   media:
