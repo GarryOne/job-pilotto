@@ -1,4 +1,4 @@
-// Runs one night in the BUILT container image against a stand-in site (spec docs/superpowers/specs/2026-10-17-ready-to-send.md), so a night that
+// Runs one night in the BUILT container image against a stand-in site (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md), so a night that
 // cannot start is caught before merge and before a deploy, in about a minute (18 Oct 2026: every real night failed at setup and nothing showed it).
 // Usage: node hosted/ready-fill/image-check.mjs <image tag>   (docker must be running; CI: .github/workflows/ready-fill-image.yml, release-ready-runner.yml)
 // Fictional data only: one job whose page the stand-in serves itself, no AI, no key, no address outside this machine.

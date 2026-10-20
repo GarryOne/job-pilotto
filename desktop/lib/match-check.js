@@ -1,7 +1,7 @@
 // CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
 // Which terms the posting asks for does the CV state (found), only suggest (implied) or never mention (missing); which requirements of the posting
 // a screening question could turn into a yes/no (work permit, place and office days, language, licence, clearance), and whether the CV and the Profile support
-// them. A grade is a sort order that recruiters override, not a verdict (docs/research/ats-reddit-2026-10.md). Facts only: a missing term is "add it only if
+// them. A grade is a sort order that recruiters override, not a verdict (private research job-pilotto-internal:docs/research/ats-reddit-2026-10.md). Facts only: a missing term is "add it only if
 // it is true". On request (a few cents); the last answer for a job is kept in cv/match/<code>.json, for the CV it was made with.
 import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';

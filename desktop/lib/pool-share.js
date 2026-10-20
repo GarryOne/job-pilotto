@@ -1,4 +1,4 @@
-// "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
+// "Help the pool grow" (private spec job-pilotto-internal:docs/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
 // (migrate.openPoolShare, 7 Oct 2026), and one switch in Settings for everyone. On, the runs (this Mac
 // and the user's GitHub repo) tell the central pool which employer career pages they use, with coarse role / region tags
 // (src/contribute.py). The app keeps only this switch and the random install id.
