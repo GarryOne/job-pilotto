@@ -54,6 +54,7 @@ def next_cell(db):
                   for kind in AIMED for country in EUROPE if cells.get(f'{kind}|{country}', 0) < FLOOR and f'{kind}|{country}' not in recent)
     if not thin:
         _set(db, 'cells_aimed', [])   # every thin cell had its turn: start again
+        db.commit()
         return None
     kind, country = thin[0][3], thin[0][4]
     _set(db, 'cells_aimed', (recent + [f'{kind}|{country}'])[-RECENT:])
@@ -73,5 +74,6 @@ def aim(db, search):
     if not cell:
         return search, ''
     db.execute('INSERT OR REPLACE INTO scout_meta (key, value) VALUES (?, ?)', ('ideas_cell', f'{cell[0]}|{cell[1]}'))   # plain text, as ideas_at
+    db.commit()   # before the AI call: its cache writes through another connection, and an open write here locked it (20 Oct 2026)
     print(f'Scout ideas: aimed at {cell[0]} in {COUNTRIES[cell[1]]}, one of the thinnest cells of the central list.')
     return search_for(*cell), cell[0]

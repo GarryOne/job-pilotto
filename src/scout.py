@@ -404,7 +404,7 @@ def main():
                 print(scout_paste.summary(scout_paste.add(db, scout_paste.read_file(args.paste_file), search=load_search_config())))
             except Exception as error:  # noqa: BLE001 — the usual run still goes on
                 print(f'Warning: pasted page not read: {type(error).__name__}: {error}')
-        summary, results = run(db, args.batch, stores, budget=args.budget)
+        summary, results = run(db, args.batch, stores, budget=args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0))
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
             written, failed = sync_employers(db, stores)
             if written or failed:

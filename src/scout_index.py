@@ -275,7 +275,8 @@ def source_kinds(db, feeds_out):
 
 def run_record(summary, results, at=None):
     """One central run, for /admin/scouting's run history: when, the cell its ideas aimed at, names added, employers checked and found."""
-    return {'at': (at or now()).isoformat(timespec='minutes'), 'added': summary.get('harvested', 0), 'checked': summary.get('checked', 0),
+    return {'at': (at or now()).strftime('%Y-%m-%dT%H:%M'),   # no '+00:00': the site keeps runs by this exact shape (src/scouting.js)
+            'added': summary.get('harvested', 0), 'checked': summary.get('checked', 0),
             'found': sum(1 for _, outcome in results if outcome.get('status') == 'found')}
 
 

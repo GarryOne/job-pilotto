@@ -89,7 +89,9 @@ def run(db, search, asker=None):
         return {'candidates': [], 'queries': 0, 'note': ''}
     asker = asker or ask
     found, done = [], 0
-    for role, place, label in queries(db, search):
+    asked = queries(db, search)
+    db.commit()   # before the AI call: its cache writes through another connection, and an open write here would lock it
+    for role, place, label in asked:
         origin = f"Hiring search {label + ' ' if label else ''}{now().date().isoformat()}"
         try:
             found += candidates(asker(role, place), origin)
