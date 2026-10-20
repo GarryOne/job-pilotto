@@ -29,6 +29,9 @@ def _look(page, link, fetch_page, careers_page=False):
     site = ats.phenom_site(page)   # a Phenom career site (src/sources/ats_phenom.py): read through its own search, so its list is not read from the page
     if site:
         return {'ats': 'phenom', 'slug': site}
+    site = ats.eightfold_site(page)   # an Eightfold career site (src/sources/ats_eightfold.py): read through its own search
+    if site:
+        return {'ats': 'eightfold', 'slug': site}
     jobs = jsonld_jobs(page, link) or careers.read_page_from(page, link, fetch_page)
     if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
         jobs = []   # that link is one job's page, not the list of jobs
