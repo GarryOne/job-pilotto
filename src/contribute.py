@@ -14,7 +14,7 @@ import re
 import urllib.request
 
 from .paths import DATA, load_search_config
-from . import contribute_candidates
+from . import contribute_candidates, pool_served
 from .sources import ats
 
 URL = 'https://www.jobpilotto.top/api/contribute'
@@ -310,7 +310,8 @@ def payload(feed_list, report, stores=None, install=None, search=None, db=None, 
     boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(search),
             'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {}),
-            **({'sites': sites} if (sites := site_facts(db=db)) else {}), **({'candidates': found} if (found := contribute_candidates.candidates(db, stages)) else {})}
+            **({'sites': sites} if (sites := site_facts(db=db)) else {}), **({'candidates': found} if (found := contribute_candidates.candidates(db, stages)) else {}),
+            **({'served': served} if (served := pool_served.load()) else {})}   # steps skipped thanks to the pool: a running total per fixed kind
 
 
 def enabled(env=None):
