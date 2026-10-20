@@ -9,9 +9,11 @@ import * as visits from './visits.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
+import {registerRefusedReadsHandlers} from './refused-reads-handlers.js';
 
 export function registerVisitsHandlers(ctx) {
   const {DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage} = ctx;
+  registerRefusedReadsHandlers({allowanceBlock, log, storage});   // "Read refused sites in my browser": the extension's own calls, lib/refused-reads.js
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   ipcMain.handle('openVisit', (_, url) => visits.openYourself(url));   // the tab you already have for the site, else a new one
   ipcMain.handle('focusBrowser', () => visits.focusBrowser());

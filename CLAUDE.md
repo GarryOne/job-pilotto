@@ -18,6 +18,9 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 ## Safety rules (never relaxed without the owner)
 - **Never Submit an application, never auto-apply.** The kit drafts, the owner submits. No captcha, bot check or SMS code; never past a login wall
   (LinkedIn, Glassdoor, Indeed, levels.fyi, Reddit: only through the user's own visit; 401/403/429 is a no).
+  **One opt-in exception** (owner, 19 Oct 2026): a user who turned on Settings → "Read refused sites in my browser" (OFF by default, named on the privacy page) lets the extension read a public
+  employer careers page or job board that refused the engine, once per 30 days, one site at a time, **without cookies or logins**, never the sites above or any login wall; a refusal, bot check or
+  captcha in the browser = stop and record, never retried, never solved; each site read is listed in Recent activity. Code: `src/sources/refused_reads.py`, `extension/refused-read.js`.
 - **Tests and automation never touch the owner's live app, accounts or real data.** List what product code reaches (ports, Keychain, tokens, real
   profile/CV, paid APIs), cut it off and assert it (the engine itself refuses the app's folder unless `JOB_PILOTTO_DATA_DIR`+`CONFIG_DIR` are set, or `JOB_PILOTTO_FOLLOW_APP=1` is the owner's own run); always through the harness (`desktop/e2e/lib/extension.mjs`, `real-extension.mjs`); real sites
   only with fake applicant data. The one exception is the twin ([docs/live-test.md](docs/live-test.md)): never the owner's window, never Submit, never a password field.

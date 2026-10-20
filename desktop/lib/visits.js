@@ -33,7 +33,7 @@ const onLine = line => { if (taskTee && String(line).trim()) taskTee(`  ${String
 export const FILTER_WAIT_MS = 20000;   // Claude's filter choice: past this, the page is read as it is (it once took 130 s on LinkedIn; a site has 60 s in all)
 
 // Any engine command that takes one JSON file (a page outline, a site's recipe): its last stdout line as JSON, or null.
-async function engineJson(storage, command, body, runEngine = pipeline.run) {
+export async function engineJson(storage, command, body, runEngine = pipeline.run) {
   const file = path.join(os.tmpdir(), `jp-${command}-${process.pid}-${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify(body));
   try {
