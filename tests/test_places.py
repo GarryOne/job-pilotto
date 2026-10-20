@@ -131,3 +131,41 @@ class CountryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SharedPlaceTests(unittest.TestCase):
+    """20 Oct 2026 (place pack): a place word another install already placed is read from the shared pack, not asked of the model again."""
+
+    def run_refresh(self, pack, words):
+        from unittest import mock
+        from src import geo, pool_served
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / 'places.json'
+            client = FakeClient(ANSWER)
+            with mock.patch.object(geo, 'STORE', Path(tmp) / 'geo.json'), mock.patch.object(pool_served, 'STORE', Path(tmp) / 'served.json'), \
+                    mock.patch('src.ai.meanings_pack.first', lambda topic, key: pack.get(key)):
+                asked = places.refresh(search(top=words), client, file)
+                return asked, client, places.load(file), pool_served.load()
+
+    def test_a_city_the_pack_knows_is_not_asked_and_is_counted(self):
+        asked, client, kept, served = self.run_refresh({'lisboa': 'city:PT:38.7:-9.1:25'}, ['Lisboa'])
+        self.assertEqual((asked, len(client.calls)), (0, 0))
+        self.assertEqual(kept['lisboa']['countries'], ['Portugal'])
+        self.assertEqual(kept['lisboa']['kind'], 'city')
+        self.assertEqual(served, {'places': 1})
+
+    def test_a_country_or_region_is_still_asked_because_the_pack_has_no_city_list(self):
+        asked, client, kept, served = self.run_refresh({'germany': 'country:DE'}, ['Germany'])
+        self.assertEqual((asked, len(client.calls)), (1, 1))
+        self.assertEqual(served, {})
+
+    def test_a_pack_answer_outside_its_country_is_ignored(self):
+        asked, client, _kept, _served = self.run_refresh({'lisboa': 'city:PT:52.5:13.4:25'}, ['Lisboa'])   # Berlin's coordinates: not Portuguese
+        self.assertEqual(len(client.calls), 1)
+
+    def test_a_users_place_word_is_never_queued_for_the_site(self):
+        from unittest import mock
+        with mock.patch('src.ai.meanings_pack.queue') as queue:
+            self.run_refresh({'lisboa': 'city:PT:38.7:-9.1:25'}, ['Lisboa'])
+            self.run_refresh({}, ['Lisboa'])
+        queue.assert_not_called()

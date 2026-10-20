@@ -181,6 +181,20 @@ def ask(client, words):
     return out
 
 
+def from_pack(words):
+    """{normalized word: entry} for the words the shared pack already places as a city (download only: the user's words are never sent; a country or region
+    has no city list in the pack, so it is still asked). The entry has no extra spellings, like a city the model answered with none."""
+    from . import geo
+    stamp = datetime.now(timezone.utc).date().isoformat()
+    out = {}
+    for word in words:
+        placed = geo._from_pack([geo.norm(word)]).get(geo.norm(word))
+        name = placed and placed['kind'] == 'city' and geo.country_name(placed['cc'])
+        if name:
+            out[_key(word)] = {'word': word, 'kind': 'city', 'names': [], 'countries': [name], 'at': stamp}
+    return out
+
+
 def refresh(search, client=None, file=None):
     """Work out the place words of this search that are not in the cache yet; returns how many it asked about. Nothing is asked when all are known."""
     file = file or path()
@@ -189,6 +203,17 @@ def refresh(search, client=None, file=None):
     words = [word for word in words_of(search) if 'countries' not in cache.get(_key(word), {})][:MAX_WORDS]
     if not words:
         return 0
+    shared = from_pack(words)
+    if shared:
+        from . import pool_served
+        pool_served.count('places', len(shared))
+        cache.update(shared)
+        words = [word for word in words if _key(word) not in shared]
+        if not words:
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(json.dumps(cache, indent=1, ensure_ascii=False) + '\n')
+            print(f"Places: {len(shared)} place word{'' if len(shared) == 1 else 's'} placed from the shared pool")
+            return 0
     if client is None:
         from .ai import engine
         if not engine.ready():

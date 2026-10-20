@@ -9,6 +9,7 @@ import json
 import math
 import re
 import threading
+from pathlib import Path
 
 from .ai import batch_scope
 from .paths import DATA
@@ -92,6 +93,20 @@ def encode(entry):
     return f"{entry['kind']}:{entry['cc']}:{entry['lat']:.1f}:{entry['lon']:.1f}:{max(5, 5 * round(entry['r'] / 5))}"
 
 
+BOXES = json.loads((Path(__file__).resolve().parent.parent / 'config' / 'country_boxes.json').read_text())   # cc -> name + box; site/src/meanings.js checks the same table
+
+
+def country_name(cc):
+    """The English name of a country code in config/country_boxes.json, None when the table lacks it."""
+    return (BOXES.get(cc) or {}).get('name')
+
+
+def inside(entry):
+    """False when the entry's point lies outside its country's box (a pack answer someone got wrong); True when inside or the table lacks the country."""
+    box = (BOXES.get(entry.get('cc')) or {}).get('box')
+    return not box or 'lat' not in entry or (box[0] <= entry['lat'] <= box[2] and box[1] <= entry['lon'] <= box[3])
+
+
 def decode(answer):
     """The entry for a fixed-format answer from the pack, validated like the model's own answer; None for anything else."""
     text = str(answer or '')
@@ -103,7 +118,8 @@ def decode(answer):
     if not found:
         return None
     kind, cc, lat, lon, radius = found.groups()
-    return valid({'kind': kind, 'cc': cc, 'lat': lat, 'lon': lon, 'r_km': radius})
+    entry = valid({'kind': kind, 'cc': cc, 'lat': lat, 'lon': lon, 'r_km': radius})
+    return entry if entry and inside(entry) else None
 
 
 def _from_pack(keys):
