@@ -1,7 +1,6 @@
 """Which way each site's posting text is read (jobposting, api, main, browser_only, refused): kept per site, shared as a fixed word, never a text or an address."""
 from collections import Counter
 
-from . import visits
 from .careers_parse import registrable
 
 ROUTES = ('jobposting', 'api', 'main', 'browser_only', 'refused')
@@ -9,6 +8,7 @@ NEGATIVE = ('browser_only', 'refused')   # the routes where an install can skip 
 
 
 def _host(url):
+    from . import visits   # inside the functions: visits imports visits_jobpages, which imports this file
     from .describe import walled
     return None if walled(url) else (registrable(visits.host_of(url or '')) or None)
 
@@ -18,6 +18,7 @@ def record(url, route):
     host = _host(url)
     if not host or route not in ROUTES:
         return
+    from . import visits
     with visits.LOCK:
         data = visits._load()
         seen = data.setdefault('routes', {}).setdefault(host, {})
@@ -27,6 +28,7 @@ def record(url, route):
 
 def facts():
     """[{host, kind: 'route', route}]: for each site the route that read it most often (the pool's fixed words)."""
+    from . import visits
     out = []
     for host, seen in sorted((visits._load().get('routes') or {}).items()):
         counts = Counter({r: n for r, n in (seen or {}).items() if r in ROUTES and isinstance(n, int)})
