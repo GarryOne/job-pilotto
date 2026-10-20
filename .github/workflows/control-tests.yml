@@ -46,6 +46,7 @@ on:
       - 'extension/**'
       - 'worker/src/ai-prices.js'
       - 'worker/src/ai.js'
+      - 'worker/src/answer-declarations.js'
       - 'worker/src/answer-examples.js'
       - 'worker/src/answer-facts.js'
       - 'worker/src/country-names.js'
