@@ -11,11 +11,12 @@ from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 import json
 import re
+import threading
 import urllib.error
 import urllib.request
 from urllib.parse import parse_qsl, urlsplit
 
-from . import ats, boards, host_pace
+from . import ats, boards, host_pace, read_routes
 
 SMARTRECRUITERS = re.compile(r'jobs\.smartrecruiters\.com/([^/?#]+)/(\d+)')
 
@@ -74,6 +75,9 @@ REFUSED_DAYS = 7
 MIN_TEXT = 400   # shorter: a cookie notice, an error or a login page, not a posting
 
 
+_ROUTE = threading.local()   # the route that read the last page on this thread (src/sources/read_routes.py), set by page_text and fetch
+
+
 class Refused(Exception):
     """The site refused an automated visit: respected, never worked around."""
 
@@ -116,29 +120,36 @@ def page_text(url, opener=None):
     if workday:
         tenant, wd, site, path = workday.groups()
         data = json.loads(_get(f'https://{tenant}.{wd}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/job/{path}', opener, 'application/json'))
+        _ROUTE.route = 'api'
         return boards.text((data.get('jobPostingInfo') or {}).get('jobDescription') or '')[:12000]
     html = _get(url, opener)
     posting = next(boards.walk(boards.Page(html).schemas, 'JobPosting'), {})
     text = boards.text(posting.get('description', '') if isinstance(posting.get('description'), str) else '')
     if len(text) >= 200:
+        _ROUTE.route = 'jobposting'
         return text[:12000]
     words = main_text(html)
     if CHALLENGE.search(words[:3000]) and len(words) < 3000:
         raise Refused('a bot check')
+    _ROUTE.route = 'main'
     return words[:12000] if len(words) >= MIN_TEXT else ''
 
 
 def fetch(url, client=None):
     """The posting's text, from its own API or page; '' when the page has none; Refused when the site refuses an automated visit."""
+    _ROUTE.route = None
     match = SMARTRECRUITERS.search(url or '')
     if match:
+        _ROUTE.route = 'api'
         return ats.smartrecruiters_detail(match.group(1), match.group(2))
     host = urlsplit(url or '').hostname or ''
     if host.endswith('jobs.ch'):
         page = (client or boards.Client()).get(url)
         posting = next(boards.walk(boards.Page(page['html']).schemas, 'JobPosting'), {})
+        _ROUTE.route = 'jobposting'
         return boards.text(posting.get('description', ''))[:12000]
     if host.endswith('techtree.dev'):   # 6 Oct 2026: every TechTree job stayed unscored, "–"
+        _ROUTE.route = 'main'
         return techtree_text((client or boards.Client()).get(url)['html'])
     return page_text(url)
 
@@ -185,9 +196,15 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
             todo.append((job_id, url))
 
     def one(item):
+        _ROUTE.route = None
         try:
-            return item, fetcher(item[1]), None
+            text = fetcher(item[1])
+            if fetcher is fetch:   # how this site's text was read: shared with other installs (src/sources/read_routes.py)
+                read_routes.record(item[1], _ROUTE.route if text else 'browser_only')
+            return item, text, None
         except Exception as error:  # noqa: BLE001 — one posting failing never stops the others
+            if isinstance(error, Refused) and fetcher is fetch:
+                read_routes.record(item[1], 'refused')
             return item, '', error
     filled = failed = gone = empty = 0
     with ThreadPoolExecutor(max_workers=4) as pool:

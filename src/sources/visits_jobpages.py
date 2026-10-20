@@ -9,7 +9,7 @@ import re
 import urllib.parse
 from datetime import timedelta
 
-from . import careers
+from . import careers, read_routes
 from ..ai import meanings_pack
 from ..ai.providers.contract import named
 
@@ -74,6 +74,8 @@ def pool_facts():
             out.setdefault(fact['kind'], {})[fact['host']] = fact.get('url')
         elif isinstance(fact, dict) and fact.get('kind') == 'browser_read' and isinstance(fact.get('host'), str) and _read_ok(fact.get('read')):
             out.setdefault('browser_read', {})[fact['host']] = _read_ok(fact['read'])
+        elif isinstance(fact, dict) and fact.get('kind') == 'route' and fact.get('route') in read_routes.ROUTES and isinstance(fact.get('host'), str):
+            out.setdefault('route', {})[fact['host']] = fact['route']   # how a site's posting text is read (src/sources/read_routes.py)
         elif isinstance(fact, dict) and fact.get('kind') == 'layout' and isinstance(fact.get('host'), str):
             out.setdefault('layout', {})[fact['host']] = fact.get('recipe')
         elif isinstance(fact, dict) and fact.get('kind') == 'board' and isinstance(fact.get('host'), str) and isinstance(fact.get('recipe'), dict):
