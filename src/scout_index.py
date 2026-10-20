@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from . import contribute, pool_tags, regions, role_kinds
 from .notion import cron_runs
 from .sources import ats, careers, feeds
-from .scout_core import ensure_tables, _get_text, clean_name, key_for, now
+from .scout_core import OUTCOMES, ensure_tables, _get_text, clean_name, key_for, now
 from .scout_probe import job_places, quality, relevant_roles
 
 
@@ -315,12 +315,14 @@ def dead_ends(db, shared=(), days=30):
     for item in shared:
         key, last = str(item.get('key') or ''), str(item.get('last') or '')
         if re.fullmatch(r'[a-z0-9]{1,120}', key) and last >= since:
-            out[key] = {'key': key, 'company': str(item.get('company') or '')[:120], 'host': item.get('host'), 'last': last[:10]}
-    for row in db.execute("SELECT name, website, checked_at FROM scout_candidates WHERE status = 'none' AND checked_at >= ?", (since,)):
+            out[key] = {'key': key, 'company': str(item.get('company') or '')[:120], 'host': item.get('host'), 'last': last[:10],
+                        'outcome': item.get('outcome') if item.get('outcome') in OUTCOMES else 'no_feed'}
+    for row in db.execute("SELECT name, website, checked_at, outcome FROM scout_candidates WHERE status = 'none' AND checked_at >= ?", (since,)):
         key = key_for(row[0])
         if key and key not in out:
             host = re.sub(r'^https?://(www\.)?', '', row[1] or '').split('/')[0].lower() or None
-            out[key] = {'key': key, 'company': str(row[0])[:120], 'host': host, 'last': str(row[2])[:10]}
+            out[key] = {'key': key, 'company': str(row[0])[:120], 'host': host, 'last': str(row[2])[:10],
+                        'outcome': row[3] if row[3] in OUTCOMES else 'no_feed'}
     return list(out.values())[:5000]
 
 

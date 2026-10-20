@@ -165,6 +165,32 @@ class ScoutTests(unittest.TestCase):
             self.assertEqual({r[0] for r in db.execute("SELECT name FROM scout_candidates WHERE status='none' AND name LIKE 'Dead%'")},
                              {'Dead0', 'Dead1', 'Dead2'}, 'the left-out names wait their 30 days')
 
+    def test_central_scout_leaves_names_installs_already_tried(self):
+        """20 Oct 2026: the central scout trusted only its own table, so names installs had found dead were probed again there."""
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                mock.patch.object(scout_core, 'CENTRAL', True), mock.patch.object(scout_core, 'SHARED_DEAD', {'dead0', 'dead1'}):
+            names = ['Dead0', 'Dead1', 'Live0', 'Live1']
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=99 - i) for i, n in enumerate(names)]])
+            summary, results = scout.run(db, batch=2, harvest_sources=[], probe=lambda system, slug: [])
+            self.assertEqual(sorted(c['name'] for c, _ in results), ['Live0', 'Live1'], 'two checked, none of the shared dead ends')
+
+    def test_each_no_feed_name_says_why_it_has_none(self):
+        """20 Oct 2026: shared outcomes are fixed words: no_feed, refused (site turned the engine away), unreachable (the check failed)."""
+        from src.sources import careers
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                mock.patch.object(scout_core, 'CENTRAL', True), mock.patch.dict(careers.REFUSALS, {'refused.example': 'bot check'}, clear=False), \
+                mock.patch('src.sources.visits.refused'):   # the real one writes data/visits.json
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name='Plain', origin='AI idea', priority=90),
+                                                       dict(name='Broken', origin='AI idea', priority=89),
+                                                       dict(name='Shut', origin='AI idea', priority=88, website='https://refused.example')]])
+            def probe(system, slug):
+                if slug.startswith('broken'):
+                    raise TypeError('odd site')
+                return []
+            scout.run(db, batch=3, harvest_sources=[], probe=probe, workers=1)
+            got = dict(db.execute("SELECT name, outcome FROM scout_candidates WHERE status = 'none'").fetchall())
+            self.assertEqual(got, {'Plain': 'no_feed', 'Broken': 'unreachable', 'Shut': 'refused'})
+
     def test_a_time_budget_ends_the_run_and_keeps_the_rest_for_later(self):
         """7 Oct 2026: 91 checks took over half an hour. With a budget, no check starts after it; the rest stay untried for the next run."""
         import time as clock

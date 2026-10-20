@@ -121,7 +121,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     candidates, left = next_batch(db, batch, skip), 0
     # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take
     # their places, so a run probes its whole batch (7 Oct 2026: 52 of 92 were left out and the run checked 40).
-    dead = set() if scout_core.CENTRAL else employer_index.central_nofeed()
+    dead = scout_core.SHARED_DEAD if scout_core.CENTRAL else employer_index.central_nofeed()
     for _ in range(10):
         skipped = [c for c in candidates if key_for(c['name']) in dead and c['status'] != 'manual']
         if not skipped:
@@ -160,7 +160,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
         except Exception as error:  # noqa: BLE001  one employer's odd site must not end the run (7 Oct 2026: a TypeError at 90 of 91 lost them all)
             print(f"Warning: {candidate['name']} could not be checked: {type(error).__name__}: {str(error)[:160]}; counted as no job site we can "
                   'read, and checked again when the readers change')
-            return {'status': 'none'}
+            return {'status': 'none', 'outcome': 'unreachable'}
         finally:
             with PROGRESS_LOCK:
                 done.append(candidate['name'])
@@ -180,7 +180,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
             if why:   # its site refuses automated visitors: a person can still open it (src/sources/visits.py)
                 from .sources import visits
                 visits.refused(candidate['name'], site if '//' in site else f'https://{site}', why)
-            return {'status': 'none'}
+            return {'status': 'none', 'outcome': 'refused' if why else 'no_feed'}
         system, slug, jobs = found
         if not jobs:
             return {'status': 'watch', 'ats': system, 'slug': slug}
@@ -197,10 +197,10 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
         next_check = (stamp + timedelta(days=RECHECK_DAYS[status])).isoformat(timespec='seconds') \
             if status in RECHECK_DAYS else None
         db.execute("""UPDATE scout_candidates SET status=?, ats=COALESCE(?, ats), slug=COALESCE(?, slug), quality=?,
-            stats_json=?, checked_at=?, next_check=?, checked_with=? WHERE key=?""",
+            stats_json=?, checked_at=?, next_check=?, checked_with=?, outcome=? WHERE key=?""",
                    (status, outcome.get('ats'), outcome.get('slug'), outcome.get('quality'),
                     json.dumps(outcome.get('stats')) if outcome.get('stats') else None,
-                    stamp.isoformat(timespec='seconds'), next_check, READERS, candidate['key']))
+                    stamp.isoformat(timespec='seconds'), next_check, READERS, outcome.get('outcome'), candidate['key']))
         if outcome['status'] == 'found':
             db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at)
                 VALUES (?, ?, ?, ?, ?, ?)""", (outcome['ats'], outcome['slug'], candidate['name'], candidate['tier'],
@@ -214,7 +214,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
                                            'jobs': int((outcome.get('stats') or {}).get('jobs') or 0)})
             else:
                 site = re.sub(r'^https?://(www\.)?', '', candidate.get('website') or '').split('/')[0].lower() or None
-                ok = contribute.share_now(dead={'company': candidate['name'][:120], 'host': site})
+                ok = contribute.share_now(dead={'company': candidate['name'][:120], 'host': site, 'outcome': outcome.get('outcome') or 'no_feed'})
             if ok:
                 shared[outcome['status']].append(candidate['name'])
             elif contribute.enabled():
@@ -404,6 +404,10 @@ def main():
                 print(scout_paste.summary(scout_paste.add(db, scout_paste.read_file(args.paste_file), search=load_search_config())))
             except Exception as error:  # noqa: BLE001 — the usual run still goes on
                 print(f'Warning: pasted page not read: {type(error).__name__}: {error}')
+        fetched = None   # the central scout reads what installs shared before its run, so it skips their dead ends (20 Oct 2026)
+        if args.publish_index and scout_core.CENTRAL and os.getenv('INDEX_PUBLISH_KEY'):
+            fetched = fetch_contributions(os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL, os.environ['INDEX_PUBLISH_KEY'], with_nofeed=True)
+            scout_core.SHARED_DEAD = employer_index.fresh_nofeed(fetched[1])
         summary, results = run(db, args.batch, stores, budget=args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0))
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
             written, failed = sync_employers(db, stores)
@@ -420,7 +424,7 @@ def main():
             if not key:
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
-            contributions, shared_dead = fetch_contributions(index_url, key, with_nofeed=True)
+            contributions, shared_dead = fetched or fetch_contributions(index_url, key, with_nofeed=True)
             swiss_titles = []
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)

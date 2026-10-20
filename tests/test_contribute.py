@@ -149,11 +149,15 @@ class DeadEndTests(unittest.TestCase):
         today = datetime.now(timezone.utc).isoformat(timespec='seconds')
         db.execute("INSERT INTO scout_candidates VALUES ('Fnac Suisse', 'https://www.fnac.ch/fr', 'none', ?, ?)", (today, scout.READERS))
         db.execute("INSERT INTO scout_candidates VALUES ('Old Readers', 'https://old.ch', 'none', ?, 'aaaaaaaaaaaa')", (today,))
-        self.assertEqual(contribute.dead_ends(db), [{'company': 'Fnac Suisse', 'host': 'fnac.ch'}], 'only what the current readers found')
+        self.assertEqual(contribute.dead_ends(db), [{'company': 'Fnac Suisse', 'host': 'fnac.ch', 'outcome': 'no_feed'}], 'only what the current readers found')
         with tempfile.TemporaryDirectory() as tmp:
             cache = Path(tmp) / 'index.json'
             cache.write_text(json.dumps({'feeds': [], 'nofeed': [{'key': 'fnacsuisse', 'last': today[:10]}, {'key': 'stale', 'last': '2020-01-01'}]}))
             self.assertEqual(employer_index.central_nofeed(cache), {'fnacsuisse'}, 'older than 30 days: probed again')
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=10)).date().isoformat()
+            cache.write_text(json.dumps({'feeds': [], 'nofeed': [{'key': 'down', 'last': week_ago, 'outcome': 'unreachable'},
+                                                               {'key': 'shut', 'last': week_ago, 'outcome': 'refused'}]}))
+            self.assertEqual(employer_index.central_nofeed(cache), {'shut'}, 'a site that was down rests 7 days, a refusal 30')
 
 
 class ShareNowTests(unittest.TestCase):

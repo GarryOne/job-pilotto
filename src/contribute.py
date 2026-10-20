@@ -205,12 +205,12 @@ def dead_ends(db, days=30):
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec='seconds')
     try:
         scout_core.ensure_tables(db)
-        rows = db.execute("SELECT name, website FROM scout_candidates WHERE status = 'none' AND checked_at >= ? AND checked_with = ? LIMIT 300",
+        rows = db.execute("SELECT name, website, outcome FROM scout_candidates WHERE status = 'none' AND checked_at >= ? AND checked_with = ? LIMIT 300",
                           (since, scout.READERS)).fetchall()
     except Exception:  # noqa: BLE001 — no scout tables yet
         return []
     host = lambda site: (re.sub(r'^https?://(www\.)?', '', site or '').split('/')[0].lower() or None) if site else None
-    return [{'company': str(row[0])[:120], 'host': host(row[1])} for row in rows]
+    return [{'company': str(row[0])[:120], 'host': host(row[1]), 'outcome': row[2] if row[2] in scout_core.OUTCOMES else 'no_feed'} for row in rows]
 
 
 def site_facts(limit=300, db=None):
