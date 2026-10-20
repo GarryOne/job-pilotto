@@ -23,6 +23,6 @@ Persona: keep today's demo person (SRE) for now; re-recording with another searc
 - [x] Nurse-in-Lyon persona (owner, 20 Oct 2026), the media's default; dates shift to the recording week; the default person's words refused (proof: desktop/test/media-persona.test.js)
 - [x] Stills fill the window (CDP capture), close-ups at 2x, Strategy waited for, extension poster = the filled form (proof: desktop/test/media-persona.test.js, desktop/test/media-camera.test.js)
 - [ ] apply-split (browser + app side by side) for /how-it-works
-- [x] First director plans committed for hero and extension-fill (proof: desktop/scripts/media/plans/hero.json, plans/extension-fill.json)
+- [x] First director plans committed for hero and extension-fill (proof: desktop/scripts/media/plans/extension-fill.json)
 - [ ] The site's deploy pulls the artifact (6e, after the site is live)
 - [ ] Retire site-demo.mjs / apply-demo.mjs once the site uses the new set
