@@ -65,6 +65,18 @@ test('the summary is public and holds only counts, never the feeds', async () =>
   assert.deepEqual(await res.json(), {employers: 2, jobs: 20});   // the job portal is not counted as an employer
 });
 
+// 20 Oct 2026: the landing said 2,183 employers for 12 days while the list held 5,604. Once the list outgrew one KV value, publish left the
+// old copy as it was and the summary kept counting that copy.
+test('the summary follows every publish, also once the list is too large for the old single-value copy', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b')]});
+  const many = Array.from({length: 6000}, (_, i) => feed(`big-employer-number-${i}`, {places: ['Zurich, Switzerland', 'Geneva, Switzerland', 'Remote, Europe']}));
+  const put = await call(env(), 'PUT', auth, {feeds: many});
+  assert.match((await put.json()).legacy, /too large/);   // the precondition: the old copy was not rewritten
+  const res = await worker.fetch(new Request('https://www.jobpilotto.top/api/index?summary=1'), env(), {});
+  assert.deepEqual(await res.json(), {employers: 6000, jobs: 72000});
+});
+
 test('an install can download a few times a day, then waits', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a')]});

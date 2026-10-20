@@ -9,6 +9,7 @@ import {store as storeScouting} from './scouting.js';
 import {snapshot, storeSnapshot} from './scoutingadmin.js';
 const KEY = 'index:employers';
 const NOFEED_KEY = 'index:nofeed';
+const SUMMARY_KEY = 'index:summary';   // the website's two counts, written at every publish (the old single-value copy stops once the list outgrows it)
 const GENERATED_KEY = 'index:generated';   // when the central scout last published: installs ask "still this one?" hourly, answered from KV alone
 const BOARDS_KEY = 'index:boards';   // per job board, what it gives people by role, family and place (src/scout.py board_stats): installs order the boards they suggest   // employers with no readable job site, published by the central scout: installs skip them 30 days
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
@@ -176,7 +177,8 @@ async function download(request, env, now = new Date()) {
   const stored = (regions && await slice(env, regions)) || await env.WAITLIST.get(KEY);
   if (!stored) return text(404, JSON.stringify({ok: false, error: 'No index published yet'}), {'Content-Type': 'application/json'});
   if (new URL(request.url).searchParams.get('summary') === '1') {
-    return text(200, JSON.stringify(summary(stored)), {'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600'});
+    const counts = (!regions && await env.WAITLIST.get(SUMMARY_KEY)) || JSON.stringify(summary(stored));
+    return text(200, counts, {'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600'});
   }
   // The full list is for the owner's scout and for installs that hold a token, a few downloads a day each.
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -221,6 +223,7 @@ async function publish(request, env) {
   const generated = new Date().toISOString();
   if (env.STATS) await store(env.STATS, feeds, generated);
   await env.WAITLIST?.put(GENERATED_KEY, generated);
+  await env.WAITLIST?.put(SUMMARY_KEY, JSON.stringify(summary(feeds)));
   // "No readable job site", checked here like everything published: a key, a name, a host, a date.
   // Test employers ("E2E Ghost", 7 Oct 2026) are never published, whatever reached the central scout.
   const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && !/^e2e/.test(item.key) && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
