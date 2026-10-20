@@ -26,6 +26,9 @@ def _look(page, link, fetch_page, careers_page=False):
     site = successfactors_site(page, link)
     if site:
         return {'ats': 'successfactors', 'slug': site}
+    site = ats.phenom_site(page)   # a Phenom career site (src/sources/ats_phenom.py): read through its own search, so its list is not read from the page
+    if site:
+        return {'ats': 'phenom', 'slug': site}
     jobs = jsonld_jobs(page, link) or careers.read_page_from(page, link, fetch_page)
     if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
         jobs = []   # that link is one job's page, not the list of jobs

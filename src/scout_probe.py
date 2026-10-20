@@ -197,6 +197,7 @@ def board_url(system, slug):
         'netflix': 'https://explore.jobs.netflix.net/careers', 'teamtailor': f'https://{slug}.teamtailor.com/jobs',
         'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '', 'umantis': f'https://{slug}.umantis.com/Jobs/All',
         'successfactors': f'https://{slug}/search/', 'oracle': oracle_url(slug) if system == 'oracle' else '',
+        'phenom': f'https://{slug}/',
         'careers': careers.decode(slug) if system == 'careers' else '', 'jobsch': f'https://www.jobs.ch/en/companies/{slug}/',
         'visit': slug}[system]   # a page read through the user's own visit: its address is the slug
 
