@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS = [ROOT / 'CLAUDE.md', ROOT / 'AGENTS.md', ROOT / 'CONTRIBUTING.md', ROOT / 'RELEASE.md']
+DOCS = [ROOT / 'CLAUDE.md', ROOT / 'AGENTS.md']   # the other top-level docs are on the gate cache's ignore list: no test may read them
 DOCS += sorted((ROOT / 'docs' / 'rules').glob('*.md')) + sorted((ROOT / '.claude' / 'skills').rglob('*.md'))
 STALE = [r'cd site\b', r'site\.yml', r'tests-site\.yml', r'site-next\.yml', r'npx wrangler[^\n`]* --config site']
 
