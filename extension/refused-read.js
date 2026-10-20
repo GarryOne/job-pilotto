@@ -52,7 +52,7 @@ export async function pass({chrome = globalThis.chrome, call = api, config = nul
       const state = site.step === 'tab' ? 'refused' : page.status === 429 ? 'page' : (await judge(page).catch(() => null))?.state || 'refused';   // a 429 is "slow down", never a ladder step
       if (state !== 'page' && page.status !== 429) {
         const tabbed = await tab.read(site.url).catch(() => ({skipped: 'error'}));
-        if (tabbed.page) page = {...tabbed.page, step: 'tab', ...(tabbed.state === 'captcha' ? {captcha: true} : {})};
+        if (tabbed.page) page = {...tabbed.page, step: 'tab', ...(tabbed.state === 'captcha' ? {captcha: true} : {})};   // words-ok: the app AI's fixed page_state answer, not a page's words
       }
       await call(cfg, '/extension/refused-outcome', {method: 'POST', body: JSON.stringify(page)}).catch(() => null);
       read++;
