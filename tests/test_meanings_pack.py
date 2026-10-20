@@ -12,6 +12,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / 'tests'))
+from site_private import needs_site  # noqa: E402
 from src.ai import decide, meanings, meanings_pack  # noqa: E402
 
 
@@ -125,6 +127,7 @@ class Learning(NoAI):
 
 
 class Seed(unittest.TestCase):
+    @needs_site   # the tool also writes the site's D1 migration (site/migrations), which lives in job-pilotto-site
     def test_the_seed_is_what_its_sources_give(self):
         run = subprocess.run([sys.executable, 'tools/meanings_seed.py', '--check'], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
