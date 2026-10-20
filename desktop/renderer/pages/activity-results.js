@@ -53,12 +53,13 @@ export function showAwaitedResult(runs, {opening = false} = {}) {
     showActionsResult(run, kind, draw);
     markResultSeen(run.id, settledBy(runs, run));
   };
-  if (run.message || !run.pageId) { show(run.message); return; }
   // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.
   // On Actions, the card takes its place at once, as skeleton bars, and fills in when the page is read: appearing seconds later at the top, it pushed the task grid
   // down while a person was about to press a task (#286). Retry runs the same read again.
+  // Declared before the early return below: Retry on the no-result card calls load() even when that return was taken.
   const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => detail?.message || tries >= 6 ? detail?.message : new Promise(resolve => setTimeout(resolve, 4000)).then(() => read(tries + 1)))
     .catch(() => null);
+  if (run.message || !run.pageId) { show(run.message); return; }
   function load() {
     waitingForResult.add(run.id);
     if ($('activity-panel').hidden) showActionsResult(run, kind, renderCardSkeleton);
