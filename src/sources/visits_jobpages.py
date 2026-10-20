@@ -72,12 +72,25 @@ def pool_facts():
     for fact in served if isinstance(served, list) else []:
         if isinstance(fact, dict) and fact.get('kind') in ('jobpage', 'browser', 'dead') and isinstance(fact.get('host'), str):
             out.setdefault(fact['kind'], {})[fact['host']] = fact.get('url')
+        elif isinstance(fact, dict) and fact.get('kind') == 'browser_read' and isinstance(fact.get('host'), str) and _read_ok(fact.get('read')):
+            out.setdefault('browser_read', {})[fact['host']] = _read_ok(fact['read'])
         elif isinstance(fact, dict) and fact.get('kind') == 'layout' and isinstance(fact.get('host'), str):
             out.setdefault('layout', {})[fact['host']] = fact.get('recipe')
         elif isinstance(fact, dict) and fact.get('kind') == 'board' and isinstance(fact.get('host'), str) and isinstance(fact.get('recipe'), dict):
             out.setdefault('board', {})[fact['host']] = {'url': fact.get('url'), 'countries': fact['recipe'].get('countries') or [],
                                                          'relevant': _cells(fact.get('relevant'))}
     return out
+
+
+def _read_ok(read):
+    """A served browser outcome in its fixed shape (src/sources/refused_reads.shared), or None."""
+    from . import refused_reads
+    from .. import role_kinds
+    if not isinstance(read, dict) or read.get('outcome') not in refused_reads.OUTCOMES:
+        return None
+    jobs = read.get('jobs')
+    return {'outcome': read['outcome'], **({'jobs': jobs} if isinstance(jobs, int) and jobs >= 0 else {}),
+            **({'kinds': role_kinds.valid(read.get('kinds'))} if role_kinds.valid(read.get('kinds')) else {})}
 
 
 def _cells(items):

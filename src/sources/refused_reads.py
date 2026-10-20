@@ -53,11 +53,14 @@ def queue(now=None, limit=MAX_QUEUE):
     data = visits._load()
     kept = data.get('refused_reads') or {}
     out, seen = [], set()
+    pool = visits.pool_facts().get('browser_read') or {}   # what other installs' browsers met there
+    elsewhere = lambda host: (pool.get(host.lower().removeprefix('www.')) or {}).get('outcome')
     for site in (data.get('sites') or {}).values():
         host = visits.host_of(site['url'])
-        if allowed(site['url']) and host not in seen and not _recent(kept, host, now):
+        if allowed(site['url']) and host not in seen and not _recent(kept, host, now) and elsewhere(host) not in STOPPED:
             seen.add(host)
             out.append({'url': site['url'], 'name': site['company'], 'kind': 'employer'})
+    out.sort(key=lambda item: elsewhere(visits.host_of(item['url'])) != 'opened')   # opened in another install's browser: asked first
     search = None
     for board in (board_ideas.load().get('boards') or {}).values():
         if board.get('state') != 'browser':
@@ -71,11 +74,36 @@ def queue(now=None, limit=MAX_QUEUE):
     return out[:limit]
 
 
-def _keep(host, url, state, why, now):
+def _keep(host, url, state, why, now, jobs=None, kinds=None):
     with visits.LOCK:
         data = visits._load()
-        data.setdefault('refused_reads', {})[host] = {'at': now.isoformat(timespec='seconds'), 'url': url, 'state': state, 'why': why}
+        data.setdefault('refused_reads', {})[host] = {'at': now.isoformat(timespec='seconds'), 'url': url, 'state': state, 'why': why,
+                                                      **({'jobs': jobs} if jobs is not None else {}), **({'kinds': kinds} if kinds else {})}
         visits._save(data)
+
+
+# What every install learns from one read (owner, 20 Oct 2026: "never do that same step again"): a fixed word, and for a page that opened its
+# job count and kinds of work. Shared in the daily pool share (src/contribute.py site_facts), served back as pool_facts()['browser_read'].
+OUTCOMES = ('opened', 'refused', 'bot', 'login')
+STOPPED = ('refused', 'bot', 'login')   # the browser was stopped there: not asked again here either
+
+
+def _word(entry):
+    if entry.get('state') in ('read', 'empty'):
+        return 'opened'
+    why = str(entry.get('why') or '')
+    return 'bot' if 'bot' in why else 'login' if 'login' in why else 'refused' if why.startswith('HTTP') else None
+
+
+def shared():
+    """[{host, kind: 'browser_read', read: {outcome, jobs?, kinds?}}] for the daily share: no address path, page, title or reason text."""
+    out = []
+    for host, entry in (visits._load().get('refused_reads') or {}).items():
+        word = _word(entry or {})
+        if word:
+            read = {'outcome': word, **({'jobs': entry['jobs'], **({'kinds': entry['kinds']} if entry.get('kinds') else {})} if word == 'opened' and isinstance(entry.get('jobs'), int) else {})}
+            out.append({'host': host.lower().removeprefix('www.'), 'kind': 'browser_read', 'read': read})
+    return out
 
 
 def _stop_why(status, html, final):
@@ -103,6 +131,8 @@ def outcome(url, status, html, title='', final='', now=None):
         return {'ok': True, 'state': 'stopped', 'why': why, 'name': host}
     result = visits.read(url, html or '', None, title or '', now=now)
     state = 'read' if result['jobs'] else 'empty'
-    _keep(host, url, state, '', now)
+    from .. import role_kinds
+    titles = [job.get('title') for job in result['jobs'] if isinstance(job, dict)]
+    _keep(host, url, state, '', now, jobs=len(result['jobs']), kinds=role_kinds.mix(titles) if titles else None)
     print(f"Refused sites: read {host} in your browser: {len(result['jobs'])} job(s), {result.get('fits', 0)} matching your search")
     return {'ok': True, 'state': state, 'jobs': len(result['jobs']), 'fits': result.get('fits', 0), 'name': result['name'], 'feed': result['feed']}
