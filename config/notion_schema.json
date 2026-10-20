@@ -1770,6 +1770,10 @@
               "color": "orange"
             },
             {
+              "name": "eightfold",
+              "color": "pink"
+            },
+            {
               "name": "careers",
               "color": "gray"
             },
