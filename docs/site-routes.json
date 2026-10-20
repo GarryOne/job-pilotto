@@ -63,6 +63,13 @@
    "kind": "app"
   },
   {
+   "path": "/api/coverage",
+   "kind": "page",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
    "path": "/api/install-token",
    "kind": "app"
   },

@@ -76,6 +76,7 @@ import {brain} from './brain.js';
 import {attribution, purge as purgeNets} from './attribution.js';
 import {log as brainLog, view as brainView} from './brainlog.js';
 import {index as employerIndex} from './employers.js';
+import {coverage} from './coverage.js';
 import * as pool from './pool.js';
 import * as testMail from './test-mail.js';   // test-account-*@ inboxes for the tests (Email Worker + /admin/test-mail)
 import {handleReport} from '../../worker/src/report.js';
@@ -201,6 +202,7 @@ async function route(request, env, ctx) {
   if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
   if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
   if (pathname === '/api/index') return employerIndex(request, env);
+  if (pathname === '/api/coverage' && request.method === 'GET') return coverage(env);   // the website's public numbers (counts only, src/coverage.js)
   if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
   if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
   if (pathname === '/api/recipes/targets') return recipeLibrary.targets(request, env);
