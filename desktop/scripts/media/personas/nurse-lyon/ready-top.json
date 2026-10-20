@@ -1,0 +1,52 @@
+{
+ "ok": true,
+ "chips": [
+  1,
+  3,
+  5,
+  10
+ ],
+ "picked": [
+  {
+   "code": "demo0",
+   "name": "Registered Nurse, Cardiac Care Unit · Institut Cardio Rhône",
+   "fit": 90,
+   "needsKit": false,
+   "needsCv": false
+  },
+  {
+   "code": "demo1",
+   "name": "ICU Nurse · Hôpital Rive-Ouest",
+   "fit": 87,
+   "needsKit": true,
+   "needsCv": true
+  },
+  {
+   "code": "demo2",
+   "name": "Day-Surgery Nurse · Polyclinique des Canuts",
+   "fit": 84,
+   "needsKit": true,
+   "needsCv": true
+  },
+  {
+   "code": "demo3",
+   "name": "Home-Care Nurse · Lumen Santé à Domicile",
+   "fit": 76,
+   "needsKit": true,
+   "needsCv": true
+  },
+  {
+   "code": "demo4",
+   "name": "Nurse Coordinator · Résidence Les Tilleuls",
+   "fit": 71,
+   "needsKit": true,
+   "needsCv": true
+  }
+ ],
+ "lines": {
+  "1": "1 job ready: nothing to prepare, no AI cost.",
+  "3": "3 jobs: prepare 2 kits + 2 CVs with letters, about $0.20 of AI.",
+  "5": "5 jobs: prepare 4 kits + 4 CVs with letters, about $0.40 of AI.",
+  "10": "5 jobs: prepare 4 kits + 4 CVs with letters, about $0.40 of AI."
+ }
+}

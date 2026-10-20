@@ -1,0 +1,431 @@
+{
+ "https://example.com/jobs/1": {
+  "app": {
+   "id": "demo-app-1",
+   "url": "https://example.com/jobs/1",
+   "title": "Registered Nurse, Cardiology",
+   "company": "Clinique Belvédère",
+   "stage": "Interview scheduled",
+   "applied_on": "2026-10-01",
+   "location": "Lyon",
+   "channel": "Direct",
+   "next_interview": "2026-10-14T10:00:00",
+   "interview_prep": "2026-10-09",
+   "call_facts": "Team size: 14 · Shifts: 7:00–19:00, one weekend in three"
+  },
+  "sections": {
+   "🧾 Job description": "Clinique Belvédère is looking for a registered nurse, cardiology.\n\n- Care for 10 cardiology patients per shift with a nursing assistant.\n- Watch telemetry and act on alarms.\n- Teach patients and families before discharge.",
+   "📝 Application kit": "Drafted by claude-sonnet-5-5 for Registered Nurse, Cardiology — Clinique Belvédère. Review before sending; nothing was submitted.\n\n### 💡 Lead with\n\n- Six years on a cardiology ward with telemetry\n\n### ✉️ Cover letter\n\nDear Ms Dubois,\n\nI have cared for cardiology patients for six years and would like to join your ward.\n\n### 🧾 Form answers\n\n**Notice period**\n\n1 month",
+   "🎤 Interview prep": "**Interview · built 09 Oct 2026 · $0.04**\n\n### What they will likely assess\n\n- How you act when a patient gets worse\n\n### Stories to have ready\n\n- The arrhythmia after an angioplasty\n\n### Ask them\n\n- How many patients per nurse on a day shift?"
+  },
+  "events": [
+   {
+    "id": "ev-3",
+    "kind": "Interview scheduled",
+    "at": "2026-10-07T14:22:00",
+    "source": "Gmail",
+    "source_id": "18f3a1b2c3d4e5f6",
+    "note": "We would like to invite you to an interview for the Registered Nurse, Cardiology role on Wed 14 Oct at 10:00, at the clinic. You will meet the head nurse and a ward nurse.",
+    "changes": {
+     "fields": {},
+     "from": "Claire Dubois <recrutement@clinique-belvedere.example>",
+     "subject": "Interview invitation – 14 Oct"
+    }
+   },
+   {
+    "id": "ev-2",
+    "kind": "Confirmation received",
+    "at": "2026-10-01T09:10:00",
+    "source": "Gmail",
+    "source_id": "18f2e0d9c8b7a654",
+    "note": "Thank you for applying. We received your application and will reply within a week.",
+    "changes": {
+     "fields": {},
+     "from": "Clinique Belvédère <careers@clinique-belvedere.example>",
+     "subject": "Application received"
+    }
+   },
+   {
+    "id": "e1",
+    "app_id": "demo-app-1",
+    "kind": "Applied",
+    "at": "2026-10-01",
+    "source": "Jobadabra",
+    "note": "Applied with the extension"
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/1",
+   "fit": 92,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Experienced",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French",
+    "English +"
+   ],
+   "technologies": "Telemetry; ECG; Patient education",
+   "salary": "€34–38k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Care for 10 cardiology patients per shift with a nursing assistant.\nWatch telemetry and act on alarms.\nTeach patients and families before discharge.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "Cardiology ward with telemetry and day shifts: a close match to your last six years.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": [
+   {
+    "id": "demo-iv-a",
+    "app_id": "demo-app-1",
+    "title": "Phone screen",
+    "round": "Screening",
+    "at": "2026-10-07T10:00:00",
+    "input": "Recording",
+    "overall": "positive",
+    "next_step": "Interview at the clinic on Wed 14 Oct",
+    "transcript": "**Claire (Clinique Belvédère)** 01:40\nTell me about a patient whose condition changed during your shift.\n\n**You** 02:05\nA patient after an angioplasty showed a new arrhythmia on telemetry. I called the cardiologist, ran an ECG and stayed with him until he was stable.",
+    "review": "> [!🎤] Positive · a calm, clear screening.\n\n**Strengths**\n\n- A concrete patient story with the right steps\n- Knows the ward's telemetry setup\n\n**Answers to improve**\n\n- Say how you handed over to the next shift (02:05)\n\nReviewed by claude-sonnet-5-5."
+   }
+  ]
+ },
+ "https://example.com/jobs/2": {
+  "app": {
+   "id": "demo-app-2",
+   "url": "https://example.com/jobs/2",
+   "title": "ICU Nurse (Réanimation)",
+   "company": "Hôpital Rive-Ouest",
+   "stage": "Screening",
+   "applied_on": "2026-10-01",
+   "location": "Lyon",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Hôpital Rive-Ouest is looking for a icu nurse (réanimation).\n\n- Care for 2 to 3 ventilated patients per shift.\n- Prepare and give high-risk medication.\n- Work with the intensivist on daily rounds."
+  },
+  "events": [
+   {
+    "id": "e2a",
+    "kind": "Applied",
+    "at": "2026-10-01T09:14:00",
+    "source": "Extension"
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/2",
+   "fit": 87,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Experienced",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French"
+   ],
+   "technologies": "Ventilation; Central lines; AFGSU 2",
+   "salary": "€35–39k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Care for 2 to 3 ventilated patients per shift.\nPrepare and give high-risk medication.\nWork with the intensivist on daily rounds.",
+   "fit_detail": {
+    "strengths": "ICU experience in the last 3 years; AFGSU level 2 up to date; Lyon, your first-choice city",
+    "gaps": "Night shifts every other week; salary not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 98,
+     "compensation": 60,
+     "growth": 80,
+     "risk": 25
+    }
+   },
+   "reason": "Two years of ICU experience and your AFGSU 2; 12-hour shifts, two weekends a month.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/3": {
+  "app": {
+   "id": "demo-app-3",
+   "url": "https://example.com/jobs/3",
+   "title": "Day-Surgery Nurse",
+   "company": "Polyclinique des Canuts",
+   "stage": "",
+   "applied_on": "2026-10-01",
+   "location": "Villeurbanne",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Polyclinique des Canuts is looking for a day-surgery nurse.\n\n- Prepare patients before surgery and watch them in recovery.\n- Call each patient the day after discharge."
+  },
+  "events": [
+   {
+    "id": "e3a",
+    "kind": "Applied",
+    "at": "2026-10-01T09:14:00",
+    "source": "Extension"
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/3",
+   "fit": 84,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Mid-level",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French"
+   ],
+   "technologies": "Pre-op checks; Recovery; Discharge calls",
+   "salary": "€32–35k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Prepare patients before surgery and watch them in recovery.\nCall each patient the day after discharge.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "Weekday day shifts only, no nights: what you asked for.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/4": {
+  "app": {
+   "id": "demo-app-4",
+   "url": "https://example.com/jobs/4",
+   "title": "Registered Nurse, Cardiac Care Unit",
+   "company": "Institut Cardio Rhône",
+   "stage": "",
+   "applied_on": "",
+   "location": "Lyon",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Institut Cardio Rhône is looking for a registered nurse, cardiac care unit.\n\n- Care for patients after a heart attack or cardiac surgery.\n- Watch the central monitoring station and act on alarms.\n- Teach patients their new medication before they go home."
+  },
+  "events": [],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/4",
+   "fit": 90,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Experienced",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French",
+    "English +"
+   ],
+   "technologies": "Telemetry; Cardiac monitoring; Patient education",
+   "salary": "€35–40k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Care for patients after a heart attack or cardiac surgery.\nWatch the central monitoring station and act on alarms.\nTeach patients their new medication before they go home.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "Cardiac care unit with telemetry, your daily work; permanent contract, days with one weekend a month.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/5": {
+  "app": {
+   "id": "demo-app-5",
+   "url": "https://example.com/jobs/5",
+   "title": "Home-Care Nurse",
+   "company": "Lumen Santé à Domicile",
+   "stage": "",
+   "applied_on": "",
+   "location": "Lyon",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Lumen Santé à Domicile is looking for a home-care nurse.\n\n- Visit 8 to 10 patients a day across Lyon.\n- Dress wounds, give injections and check treatments."
+  },
+  "events": [],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/5",
+   "fit": 76,
+   "tier": "Good",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Mid-level",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French"
+   ],
+   "technologies": "Wound care; Diabetes; Driving licence",
+   "salary": "€31–34k a year + car",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Visit 8 to 10 patients a day across Lyon.\nDress wounds, give injections and check treatments.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "Independent rounds and patient education; needs a driving licence, which you have.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/6": {
+  "app": {
+   "id": "demo-app-6",
+   "url": "https://example.com/jobs/6",
+   "title": "Nurse Coordinator, Care Home",
+   "company": "Résidence Les Tilleuls",
+   "stage": "",
+   "applied_on": "",
+   "location": "Caluire-et-Cuire",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Résidence Les Tilleuls is looking for a nurse coordinator, care home.\n\n- Lead a team of 12 nurses and care assistants.\n- Write and review care plans with families and doctors."
+  },
+  "events": [],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/6",
+   "fit": 71,
+   "tier": "Good",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Senior",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French"
+   ],
+   "technologies": "Team lead; Care plans; Geriatrics",
+   "salary": "€37–41k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Lead a team of 12 nurses and care assistants.\nWrite and review care plans with families and doctors.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "A first coordinator role; older patients rather than acute care.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/9": {
+  "app": {
+   "id": "demo-app-9",
+   "url": "https://example.com/jobs/9",
+   "title": "Occupational Health Nurse",
+   "company": "Rhône Logistique",
+   "stage": "",
+   "applied_on": "",
+   "location": "Vénissieux",
+   "channel": "Direct"
+  },
+  "sections": {
+   "🧾 Job description": "Rhône Logistique is looking for a occupational health nurse.\n\n- Run health checks for 600 employees.\n- Train first-aiders and lead prevention campaigns."
+  },
+  "events": [],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/9",
+   "fit": 66,
+   "tier": "Good",
+   "confidence": "High",
+   "scored": "2026-10-02",
+   "scoring_method": "Current",
+   "seniority": "Mid-level",
+   "role_family": "Nursing",
+   "work_mode": "On-site",
+   "languages": [
+    "French"
+   ],
+   "technologies": "Occupational health; First aid; Prevention",
+   "salary": "€33–36k a year",
+   "recruiter": false,
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Run health checks for 600 employees.\nTrain first-aiders and lead prevention campaigns.",
+   "fit_detail": {
+    "strengths": "Your ward experience matches; Lyon, your first-choice city; day shifts",
+    "gaps": "Weekend rota not stated",
+    "parts": {
+     "role_fit": 90,
+     "location": 95,
+     "compensation": 75,
+     "growth": 70,
+     "risk": 20
+    }
+   },
+   "reason": "Monday to Friday, days only; less clinical than the roles you want.",
+   "first_seen": "2026-10-01"
+  },
+  "interviews": []
+ },
+ "https://example.com/jobs/7": {
+  "__error": "The store did not answer (timeout after 20 s)."
+ }
+}

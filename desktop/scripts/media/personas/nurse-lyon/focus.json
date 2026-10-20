@@ -1,0 +1,366 @@
+{
+ "items": [
+  {
+   "priority": 1,
+   "kind": "reply",
+   "icon": "chat",
+   "badge": "Reply today",
+   "tone": "bad",
+   "headline": "Reply to Hôpital Rive-Ouest recruiter",
+   "meta": [
+    "ICU Nurse",
+    "LinkedIn",
+    "€34k–38k",
+    "Lyon"
+   ],
+   "title": "Reply on LinkedIn: Hôpital Rive-Ouest — ICU Nurse",
+   "detail": "Recruiter message today (LinkedIn). €34k–38k · Lyon · Léa Martin",
+   "link": "https://www.linkedin.com/messaging/",
+   "link_label": "Open LinkedIn",
+   "done": true,
+   "page_id": "demo-1",
+   "notion_url": "",
+   "company": "Hôpital Rive-Ouest",
+   "job": "ICU Nurse",
+   "job_url": ""
+  },
+  {
+   "priority": 1,
+   "kind": "reply",
+   "icon": "mail",
+   "badge": "Reply today",
+   "tone": "bad",
+   "headline": "Reply to Example Santé Recrutement",
+   "meta": [
+    "Paediatric Nurse",
+    "Email",
+    "€33k–36k",
+    "Lyon"
+   ],
+   "title": "Reply by email: Example Santé Recrutement — Paediatric Nurse",
+   "detail": "Recruiter message today (Email). €33k–36k · Lyon 2e · Hugo Bernard",
+   "link": "https://mail.google.com/",
+   "link_label": "Open email",
+   "done": true,
+   "page_id": "demo-2",
+   "notion_url": "",
+   "company": "",
+   "job": "Paediatric Nurse",
+   "job_url": ""
+  },
+  {
+   "priority": 1,
+   "kind": "happened",
+   "icon": "calendar",
+   "badge": "Did it happen?",
+   "tone": "warn",
+   "headline": "Interview with Polyclinique des Canuts",
+   "meta": [
+    "Day-Surgery Nurse",
+    "Tue 06 Oct 08:30"
+   ],
+   "title": "Did the interview happen? Polyclinique des Canuts — Day-Surgery Nurse",
+   "detail": "It was Tue 06 Oct, 08:30. Yes: note how it went (salary, next steps, people, questions) and it moves on. No: say if it moved or was cancelled.",
+   "link": "",
+   "link_label": "",
+   "done": false,
+   "page_id": "demo-happened",
+   "notion_url": "",
+   "company": "Polyclinique des Canuts",
+   "job": "Day-Surgery Nurse",
+   "job_url": "",
+   "stage": "Interview scheduled",
+   "at": "2026-10-06T06:30:00+00:00"
+  },
+  {
+   "priority": 1,
+   "kind": "prepare",
+   "icon": "mic",
+   "badge": "Interview Wed 10:00",
+   "tone": "bad",
+   "headline": "Prepare for Clinique Belvédère",
+   "meta": [
+    "Registered Nurse, Cardiology",
+    "Kit from 09 Oct · your call on 10 Oct was reviewed since"
+   ],
+   "title": "Prepare: Clinique Belvédère — Registered Nurse, Cardiology",
+   "detail": "Interview Wed 14 Oct, 10:00. Read the posting and your kit, and practise the topics you answered weakly before. Kit from 09 Oct · your call on 10 Oct was reviewed since: build a new kit for this round (about $0.04); the earlier one stays on the job's page.",
+   "link": "",
+   "link_label": "",
+   "done": false,
+   "page_id": "demo-prepare",
+   "notion_url": "https://www.notion.so/demo-prepare",
+   "company": "Clinique Belvédère",
+   "job": "Registered Nurse, Cardiology",
+   "job_url": "",
+   "stage": "Interviewing",
+   "at": "2026-10-14T08:00:00+00:00",
+   "prep_at": "2026-10-09",
+   "prep_stale": true,
+   "prep_reason": "Kit from 09 Oct · your call on 10 Oct was reviewed since",
+   "prep_since": "2026-10-10",
+   "prep_why": "reviewed"
+  },
+  {
+   "priority": 2,
+   "kind": "feedback",
+   "icon": "chat",
+   "badge": "Learn from it",
+   "tone": "info",
+   "headline": "Ask Clinique des Glycines for feedback",
+   "meta": [
+    "Emergency Nurse",
+    "One specific point can improve your next interview"
+   ],
+   "title": "Ask for feedback",
+   "detail": "You reached Screening or later. One useful point can improve your next interview.",
+   "company": "Clinique des Glycines",
+   "job": "Emergency Nurse",
+   "page_id": "demo-feedback",
+   "draft": "Thank you for your time and consideration.\n\nCould you share what mainly influenced the decision? Shift pattern, clinical experience, availability, or something else?\n\nEven a few words would be really helpful.",
+   "link": "https://mail.google.com/",
+   "notion_url": "",
+   "job_url": ""
+  },
+  {
+   "priority": 2,
+   "kind": "follow_up",
+   "icon": "send",
+   "badge": "Follow up",
+   "tone": "warn",
+   "headline": "Follow up with Lumen Santé à Domicile",
+   "meta": [
+    "Home-Care Nurse",
+    "you wrote Thu 08 Oct",
+    "4 days, no reply"
+   ],
+   "title": "Follow up with Lumen Santé à Domicile",
+   "detail": "You wrote Thu 08 Oct (4 days ago), no reply yet.",
+   "link": "https://www.linkedin.com/messaging/",
+   "link_label": "Open chat",
+   "done": true,
+   "page_id": "demo-follow-up",
+   "notion_url": "",
+   "company": "Lumen Santé à Domicile",
+   "job": "Home-Care Nurse",
+   "job_url": "",
+   "stage": "Screening",
+   "reached": "LinkedIn",
+   "at": "2026-10-08T10:05:00+02:00",
+   "quiet": 4
+  },
+  {
+   "priority": 3,
+   "kind": "apply",
+   "icon": "briefcase",
+   "badge": "Next step",
+   "tone": "info",
+   "headline": "Apply to your next role",
+   "meta": [
+    "14 application kits ready to review",
+    "3 of 5 today"
+   ],
+   "title": "Apply to 2 more jobs today",
+   "detail": "3 of 5 today. 14 kits ready.",
+   "link": "",
+   "done": false,
+   "page_id": "",
+   "notion_url": "",
+   "company": "",
+   "job": "",
+   "job_url": ""
+  },
+  {
+   "priority": 4,
+   "kind": "waiting",
+   "icon": "pulse",
+   "badge": "Waiting",
+   "tone": "neutral",
+   "headline": "Waiting for Institut Cardio Rhône's next step",
+   "meta": [
+    "Cardiac Care Nurse",
+    "Meeting the head nurse next week"
+   ],
+   "title": "Waiting for Institut Cardio Rhône's next step",
+   "detail": "Interview reviewed. Next: Meeting the head nurse next week. Nothing to do yet; follow up if there is no news in 2 days.",
+   "link": "",
+   "link_label": "",
+   "done": false,
+   "page_id": "demo-waiting",
+   "notion_url": "",
+   "company": "Institut Cardio Rhône",
+   "job": "Cardiac Care Nurse",
+   "job_url": "",
+   "stage": "Interviewing",
+   "after_interview": true,
+   "next_step": "Meeting the head nurse next week"
+  },
+  {
+   "priority": 1,
+   "kind": "which_job",
+   "emoji": "❓",
+   "title": "Re: Interview invitation",
+   "detail": "Confirming our meeting on 16 Oct. See you then!",
+   "company": "Hôpital Rive-Ouest",
+   "job": "ICU Nurse (Réanimation)",
+   "via": "",
+   "stage": "Screening",
+   "salary": "",
+   "location": "Lyon",
+   "reached": "Email",
+   "job_url": "",
+   "page_id": "",
+   "notion_url": "",
+   "link": "",
+   "link_label": "",
+   "done": false,
+   "event_id": "demo-ev-q1",
+   "event_kind": "Reply",
+   "note": "Confirming our meeting on 16 Oct. See you then!",
+   "suggested_url": "https://example.com/jobs/2"
+  }
+ ],
+ "today": {
+  "applied": 3,
+  "target": 5,
+  "kits_ready": 14,
+  "history": [
+   {
+    "day": "2026-09-29",
+    "applied": 2
+   },
+   {
+    "day": "2026-09-30",
+    "applied": 3
+   },
+   {
+    "day": "2026-10-01",
+    "applied": 1
+   },
+   {
+    "day": "2026-10-02",
+    "applied": 4
+   },
+   {
+    "day": "2026-10-03",
+    "applied": 0
+   },
+   {
+    "day": "2026-10-04",
+    "applied": 0
+   },
+   {
+    "day": "2026-10-05",
+    "applied": 0
+   },
+   {
+    "day": "2026-10-06",
+    "applied": 3
+   },
+   {
+    "day": "2026-10-07",
+    "applied": 5
+   },
+   {
+    "day": "2026-10-08",
+    "applied": 2
+   },
+   {
+    "day": "2026-10-09",
+    "applied": 4
+   },
+   {
+    "day": "2026-10-10",
+    "applied": 3
+   },
+   {
+    "day": "2026-10-11",
+    "applied": 0
+   },
+   {
+    "day": "2026-10-12",
+    "applied": 3
+   }
+  ]
+ },
+ "insight": {
+  "issue": true,
+  "report": true,
+  "reason": "Issue detected",
+  "headline": "Give your cardiology answers one concrete patient story",
+  "detail": "Practise one story: what you noticed on the monitor, what you did, and how the patient was followed up.",
+  "lesson": "Demo evidence: three applications, two employers, interview reviews and employer feedback. Fictional data.",
+  "notion_url": "https://www.notion.so/example"
+ },
+ "summary": "Reply to recruiters first, then review ready applications.",
+ "funnel": {
+  "steps": [
+   {
+    "step": "📝 Prepared",
+    "reached": 24
+   },
+   {
+    "step": "📨 Applied",
+    "reached": 12,
+    "urls": [
+     "https://example.com/jobs/3"
+    ]
+   },
+   {
+    "step": "💬 Human reply",
+    "reached": 6
+   },
+   {
+    "step": "📞 Screening",
+    "reached": 3
+   },
+   {
+    "step": "🧑‍⚕️ Interviews",
+    "reached": 2
+   },
+   {
+    "step": "🏆 Offer",
+    "reached": 0
+   }
+  ],
+  "improve": {
+   "step": "🧑‍⚕️ Interviews",
+   "advice": "Interviews ask for patient stories. Prepare two short ones before each call."
+  },
+  "notion_url": "",
+  "inbound": {
+   "contacted": 3,
+   "screening": 2,
+   "interviews": 1,
+   "offers": 0,
+   "steps": [
+    {
+     "step": "📥 Contacted you",
+     "reached": 3,
+     "of_contacted": 1,
+     "urls": [
+      "https://example.com/lead/9"
+     ]
+    },
+    {
+     "step": "📞 Screening",
+     "reached": 2,
+     "of_contacted": 0.67,
+     "urls": []
+    },
+    {
+     "step": "🧑‍💻 Interviews",
+     "reached": 1,
+     "of_contacted": 0.33,
+     "urls": []
+    },
+    {
+     "step": "🏆 Offers",
+     "reached": 0,
+     "of_contacted": 0,
+     "urls": []
+    }
+   ]
+  }
+ }
+}

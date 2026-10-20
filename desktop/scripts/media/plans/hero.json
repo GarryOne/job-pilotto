@@ -3,10 +3,10 @@
   "at": "2026-10-20",
   "zooms": {
     "section.card.is-lit": 1,
-    "#jobs-body": 1.4,
-    "#job-panel": 1.3
+    "#jobs-body": 1.35,
+    "#job-panel": 1.25
   },
-  "caption": "Your next steps, ranked and ready",
-  "shows": "A to-do list, scored job matches, then one job opening in a side panel.",
-  "alt": "Job-search dashboard with a list of next steps, scored job matches, and a job's details in a side panel."
+  "caption": "Your best-fit jobs, ready to apply",
+  "shows": "A ranked list of nursing jobs with fit scores, then one role opened to show salary, contract, duties and points to clarify.",
+  "alt": "Screen recording of a job-search app. A to-do list leads to a ranked list of nursing jobs, each with a match score, company, location and an Apply button. One job opens in a side panel showing salary, contract type, main duties and a note to clarify."
 }

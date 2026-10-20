@@ -1,0 +1,71 @@
+[
+ {
+  "id": "ins-4",
+  "created_at": "",
+  "day": "2026-10-09",
+  "category": "Weekly report",
+  "title": "Steady week: 4 applications, 2 interviews",
+  "body": "> [!] Replies came only from jobs posted under 5 days ago\n\nYou sent 4 applications and had two interviews.\n\n### Priorities from recurring evidence\n\nInterviews ask for patient stories — 3 applications, 2 employers\n\n- Prepare two short patient stories\n- Polyclinique des Canuts · interview review: Asked twice about acute situations\n\n### What worked\n\n- Applying within 5 days of posting: 3 of 4 replied\n\n### Change next week\n\n- Send the 5 drafted kits\n\n### Focus\n\nFive applications to fresh postings\n\n### Numbers\n\n- Applications: 12 total, 4 this week; interview rate of decided 33%\n- Market: 186 open jobs, 120 in your places, 31 new this week",
+  "fields": {
+   "basis": "Both",
+   "confidence": "Medium",
+   "sample_size": 12,
+   "evidence": "You sent 4 applications and had two interviews.",
+   "action": "Five applications to fresh postings",
+   "cost": 0.03,
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "id": "ins-3",
+  "created_at": "",
+  "day": "2026-10-08",
+  "category": "Process",
+  "title": "Interviews ask for patient stories",
+  "body": "Prepare two short patient stories\n\nSupported hypothesis: 3 applications, 2 employers; interview reviews.\n\nPolyclinique des Canuts · Day-Surgery Nurse · interview review\nAsked twice about acute situations",
+  "fields": {
+   "basis": "Applications",
+   "confidence": "medium",
+   "sample_size": 3,
+   "evidence": "Polyclinique des Canuts · Day-Surgery Nurse · interview review: Asked twice about acute situations",
+   "action": "Prepare two short patient stories",
+   "issue_detected": true,
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "id": "ins-2",
+  "created_at": "",
+  "day": "2026-10-07",
+  "category": "Skills",
+  "title": "AFGSU 2 appears in 60% of your best-fit jobs",
+  "fields": {
+   "basis": "Jobs",
+   "confidence": "Medium",
+   "sample_size": 25,
+   "evidence": "15 of 25 postings name AFGSU 2",
+   "action": "Put your AFGSU 2 date at the top of your CV",
+   "cost": 0.01,
+   "model": "claude-sonnet-5-5"
+  },
+  "body": ""
+ },
+ {
+  "id": "ins-1",
+  "created_at": "",
+  "day": "2026-10-06",
+  "category": "Timing",
+  "title": "Replies come within 2 days of applying",
+  "fields": {
+   "basis": "Applications",
+   "confidence": "Low",
+   "sample_size": 10,
+   "evidence": "6 of 7 replies within 2 days\n7 of 10 got a reply",
+   "action": "No reply after 3 days: treat it as a silent no and move on",
+   "cost": 0.01,
+   "model": "claude-sonnet-5-5",
+   "feedback": "Useful"
+  },
+  "body": ""
+ }
+]

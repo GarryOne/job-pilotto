@@ -1,0 +1,106 @@
+{
+ "narrow": true,
+ "local": false,
+ "share": 0.01,
+ "matched": 29,
+ "in_places": 1840,
+ "fetched": 18675,
+ "feeds": 190,
+ "at": "2026-10-11T17:09:00+00:00",
+ "suggestions": [
+  {
+   "term": "infirmier",
+   "count": 42,
+   "examples": [
+    "Infirmier·ère diplômé·e d'État"
+   ],
+   "local": true
+  },
+  {
+   "term": "IDE",
+   "count": 18,
+   "examples": [
+    "IDE de nuit"
+   ],
+   "local": true
+  }
+ ],
+ "places": {
+  "title_hits": 64,
+  "matched": 29,
+  "elsewhere": 0,
+  "options": [
+   {
+    "place": "Villeurbanne",
+    "count": 9,
+    "examples": [
+     "Infirmier·ère, Villeurbanne"
+    ],
+    "fragment": "villeurbanne"
+   }
+  ]
+ },
+ "sources": [
+  {
+   "id": "brave",
+   "name": "Web search (Brave)",
+   "effort": "A free key, about 2 minutes",
+   "gain": "finds employers' own job sites when their name leads nowhere"
+  },
+  {
+   "id": "aggregators",
+   "name": "Adzuna and Jooble",
+   "effort": "Two free keys, about 3 minutes",
+   "gain": "job search engines across all trades and countries",
+   "people": "gave a match to 6 in 10 people like you"
+  }
+ ],
+ "excluded": [
+  {
+   "fragment": "\\bnuit\\b",
+   "count": 7,
+   "examples": [
+    "Infirmier·ère de nuit"
+   ]
+  }
+ ],
+ "languages": [
+  {
+   "language": "english",
+   "count": 2,
+   "examples": [
+    "International clinic nurse"
+   ]
+  }
+ ],
+ "for_you": [
+  {
+   "company": "Clinique Belvédère",
+   "interview": 3,
+   "applied": 7,
+   "why": "your kind of work"
+  },
+  {
+   "company": "Polyclinique des Canuts",
+   "interview": 1,
+   "applied": 5,
+   "why": "your area"
+  }
+ ],
+ "visits": [
+  {
+   "name": "Santé Emploi Rhône",
+   "url": "https://jobs.sante-emploi-rhone.example",
+   "kind": "portal",
+   "why": "refuses automated visitors",
+   "last_read": null,
+   "note": ""
+  }
+ ],
+ "employers": {
+  "read": 21,
+  "matched": 6,
+  "pending": 9,
+  "last_scout": "2026-10-11T20:00:00+00:00"
+ }
+}

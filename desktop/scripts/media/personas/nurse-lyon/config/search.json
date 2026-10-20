@@ -1,0 +1,38 @@
+{
+ "role_keywords": [
+  "registered nurse",
+  "infirmier",
+  "infirmière",
+  "ICU nurse",
+  "cardiology nurse"
+ ],
+ "title_exclude_keywords": [
+  "night only",
+  "intern"
+ ],
+ "board_discovery_keywords": [
+  "infirmier",
+  "nurse"
+ ],
+ "jobs_board_search_queries": [
+  "registered nurse",
+  "infirmier",
+  "ICU nurse"
+ ],
+ "quality_stack_keywords": [
+  "cardiologie",
+  "réanimation",
+  "telemetry"
+ ],
+ "locations": {
+  "top_tier": [
+   "lyon"
+  ],
+  "country_wide": [
+   "villeurbanne",
+   "rhône"
+  ],
+  "abroad": []
+ },
+ "remote_excluded_regions": []
+}

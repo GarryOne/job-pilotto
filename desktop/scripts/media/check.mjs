@@ -13,6 +13,9 @@ export function realSecrets(secrets) {
   return Object.entries(secrets || {}).filter(([, value]) => typeof value === 'string' && value.length >= 20 && !/demo|placeholder|example|fake|xxx|0000/i.test(value)).map(([key]) => key);
 }
 
+// A persona's screens must not show the default person's words (media.json "forbid"): a leftover means a demo file the persona did not replace.
+export const leftWords = (text, words = []) => words.filter(word => new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(String(text || '')));
+
 // The fields the extension must have filled on form.html for the clip to show a real fill (the question answers come from the persona).
 export const MUST_FILL = ['first_name', 'last_name', 'email', 'resume', 'permit', 'privacy'];
 export const missingFills = filled => MUST_FILL.filter(field => !(filled || []).includes(field));
@@ -21,8 +24,10 @@ export const missingFills = filled => MUST_FILL.filter(field => !(filled || []).
 export const DARK_MAX = 0.35;
 
 // -> list of problems (empty = fine) for one recorded piece.
-export function pieceProblems({name, source, log, posterBrightness}) {
+export function pieceProblems({name, source, log, posterBrightness, forbid = []}) {
   const problems = [];
+  const left = leftWords(log.text, forbid);
+  if (left.length) problems.push(`${name}: the default demo person shows through: ${left.join(', ')}`);
   const emails = realEmails(log.text);
   if (emails.length) problems.push(`${name}: an e-mail address that may be real is on screen: ${emails.join(', ')}`);
   if (source === 'app' && posterBrightness > DARK_MAX) problems.push(`${name}: the window is not dark (brightness ${posterBrightness.toFixed(2)})`);

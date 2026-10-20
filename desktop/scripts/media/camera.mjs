@@ -61,6 +61,12 @@ export function cursorAt(events, t, viewport) {
 
 // Every output frame of a video at `fps`: which recorded frame, the page area shown, the cursor. What render.cjs draws. Pure.
 // log: {viewport, frames: [{t, file}], events}. cursor: false hides it (a piece with no clicks).
+// The poster's moment: the end of the hold marked poster (the filled form, ready to submit), else the first frame. Pure.
+export function posterTime(events = []) {
+  const hold = events.find(event => event.type === 'hold' && event.poster);
+  return hold ? Number((hold.t + hold.s * 0.9).toFixed(2)) : 0;
+}
+
 export function renderPlan(log, fps = 30) {
   const keys = cameraKeys(log), end = log.frames.at(-1).t, cursor = log.events.some(event => event.type === 'click');
   const out = [];

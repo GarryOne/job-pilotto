@@ -1,0 +1,142 @@
+[
+ {
+  "id": 1790630000000,
+  "kind": "search",
+  "trigger": "schedule",
+  "where": "cloud",
+  "startedAt": "2026-10-12T05:00:00Z",
+  "endedAt": "2026-10-12T05:03:00Z",
+  "ok": true,
+  "new": 3,
+  "result": "3 new jobs while you were away",
+  "log": [
+   "Ran on our servers: no technical log is kept.",
+   "New job: Registered Nurse, Cardiac Care Unit | Institut Cardio Rhône | https://example.com/jobs/4 | 90",
+   "New job: Home-Care Nurse | Lumen Santé à Domicile | https://example.com/jobs/5 | 76",
+   "New job: Occupational Health Nurse | Rhône Logistique | https://example.com/jobs/9 | 66"
+  ],
+  "pageId": "demo-nomsg-page",
+  "summary": "0 new jobs"
+ },
+ {
+  "id": 1790626000000,
+  "kind": "search",
+  "trigger": "schedule",
+  "where": "cloud",
+  "startedAt": "2026-10-11T18:30:00Z",
+  "endedAt": "2026-10-11T18:30:00Z",
+  "ok": true,
+  "new": 3,
+  "result": "3 new jobs while you were away",
+  "log": [
+   "Ran on our servers: no technical log is kept.",
+   "New job: Registered Nurse, Cardiac Care Unit | Institut Cardio Rhône | https://example.com/jobs/4 | 90",
+   "New job: Home-Care Nurse | Lumen Santé à Domicile | https://example.com/jobs/5 | 76",
+   "New job: Occupational Health Nurse | Rhône Logistique | https://example.com/jobs/9 | 66"
+  ]
+ },
+ {
+  "id": 1790622000000,
+  "kind": "insight",
+  "mode": "insight",
+  "trigger": "you",
+  "startedAt": "2026-10-11T17:20:00Z",
+  "endedAt": "2026-10-11T17:20:00Z",
+  "ok": true,
+  "summary": "Shifts — the best-paid jobs ask for one weekend in three",
+  "log": [],
+  "message": "💡 Insight · Shifts\n6 of your 10 best-paid jobs ask for one weekend in three\n• Interview notes: two head nurses asked about weekends first.\n👉 Say your weekend limit early, in the first call.\nConfidence low · applications data, 4 applications"
+ },
+ {
+  "id": 1790620000000,
+  "kind": "search",
+  "trigger": "schedule",
+  "startedAt": "2026-10-11T17:08:00Z",
+  "endedAt": "2026-10-11T17:10:00Z",
+  "ok": true,
+  "found": 186,
+  "new": 9,
+  "changed": 2,
+  "log": []
+ },
+ {
+  "id": 1790618400000,
+  "kind": "add",
+  "trigger": "you",
+  "startedAt": "2026-10-11T16:40:00Z",
+  "endedAt": "2026-10-11T16:40:00Z",
+  "ok": true,
+  "summary": "🤝 Tracked recruiter lead: Paediatric Nurse — Maison de Santé Presqu'île (Recruiter lead) · fit 72/100",
+  "job": {
+   "pageId": "demo-lead-9",
+   "url": "https://www.notion.so/demo-lead-9",
+   "title": "Paediatric Nurse",
+   "jobUrl": "https://example.com/lead/9",
+   "created": true
+  },
+  "log": [
+   "⏳ Reading your jobs",
+   "⏳ Claude is reading the message",
+   "🤝 Tracked recruiter lead: Paediatric Nurse — Maison de Santé Presqu'île (Recruiter lead) · fit 72/100"
+  ]
+ },
+ {
+  "id": 1790616000000,
+  "kind": "mail",
+  "trigger": "schedule",
+  "startedAt": "2026-10-11T16:00:00Z",
+  "endedAt": "2026-10-11T16:00:00Z",
+  "ok": true,
+  "updates": [
+   "💬 Reply received · Hôpital Rive-Ouest — ICU Nurse"
+  ],
+  "summary": "Mail: 6 new email(s) classified, 1 update(s)",
+  "log": []
+ },
+ {
+  "id": 1790500000000,
+  "kind": "weekly",
+  "trigger": "schedule",
+  "startedAt": "2026-10-05T06:00:00Z",
+  "endedAt": "2026-10-05T06:01:00Z",
+  "ok": true,
+  "summary": "4 applications sent, 2 interviews landed",
+  "log": [],
+  "message": "📊 Weekly report\nSteady week: 4 applications sent, 2 interviews landed\n✅ Worked\n• Applying within five days of a posting matched every interview.\n🔧 Change next week\n• Send more of the 14 drafted kits."
+ },
+ {
+  "id": 1790590000000,
+  "kind": "scout",
+  "mode": "scout",
+  "trigger": "schedule",
+  "startedAt": "2026-10-11T08:15:00Z",
+  "endedAt": "2026-10-11T08:15:00Z",
+  "ok": true,
+  "log": [],
+  "message": "🔎 Source scout · checked 12 · 🆕 4 new sources\n1. Institut Cardio Rhône · quality 61 · ⭐ Tier 1\n   3 nursing roles · 3 in your places\n   Lyon\n2. Clinique Belvédère · quality 48 · ⭐ Tier 1\n   2 nursing roles · 2 in your places\n   Lyon\n3. Clinique du Lac Bleu · quality 22\n   1 nursing role · 0 in your places\n4. Rhône Logistique · quality 15\n   1 nursing role · 1 in your places"
+ },
+ {
+  "id": 1790580000000,
+  "kind": "today",
+  "mode": "today",
+  "trigger": "you",
+  "startedAt": "2026-10-12T06:30:00Z",
+  "endedAt": "2026-10-12T06:32:00Z",
+  "ok": true,
+  "log": [],
+  "message": "✈️ Jobadabra · 🆕 3 new · top 4 of 29\n🎯 Best matches\n1. Registered Nurse, Cardiology (https://example.com/jobs/1) · 🎯 92\n   Clinique Belvédère · Lyon\n2. Registered Nurse, Cardiac Care Unit (https://example.com/jobs/4) · 🎯 90\n   Institut Cardio Rhône · Lyon\n3. ICU Nurse (https://example.com/jobs/2) · 🎯 87\n   Hôpital Rive-Ouest · Lyon"
+ },
+ {
+  "id": 1790540000000,
+  "kind": "search",
+  "trigger": "you",
+  "startedAt": "2026-10-10T17:08:00Z",
+  "endedAt": "2026-10-10T17:09:00Z",
+  "ok": true,
+  "found": 9,
+  "new": 1,
+  "changed": 0,
+  "message": "✈️ Job digest\n1 new\n\n1. Day-Surgery Nurse (https://example.com/jobs/3)\nPolyclinique des Canuts · Villeurbanne · On-site",
+  "log": []
+ }
+]

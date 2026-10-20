@@ -1,0 +1,36 @@
+{
+ "visits": [
+  {
+   "name": "Clinique Belvédère",
+   "url": "https://careers.clinique-belvedere.example/jobs",
+   "kind": "employer",
+   "last_read": ""
+  },
+  {
+   "name": "Institut Cardio Rhône",
+   "url": "https://careers.institut-cardio-rhone.example",
+   "kind": "employer",
+   "last_read": "2026-10-07T10:00:00"
+  },
+  {
+   "name": "Santé Emploi Rhône",
+   "url": "https://jobs.sante-emploi-rhone.example/?q=infirmier",
+   "kind": "portal",
+   "last_read": "2026-10-06T09:00:00"
+  }
+ ],
+ "jobs": [
+  {
+   "url": "https://jobs.sante-emploi-rhone.example/demo1",
+   "title": "Infirmier·ère de bloc",
+   "company": "Clinique des Glycines",
+   "location": "Bron"
+  },
+  {
+   "url": "https://jobs.sante-emploi-rhone.example/demo2",
+   "title": "Infirmier·ère en pédiatrie",
+   "company": "Maison de Santé Presqu'île",
+   "location": "Lyon"
+  }
+ ]
+}
