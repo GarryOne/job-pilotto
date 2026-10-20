@@ -201,6 +201,7 @@ def join(slug):
 # The feeds below live in their own files (pure move); they read `_get`/`_json`/`_job`/`plain` above, so they are imported here, after those.
 from .ats_sites import (WORKDAY_PAGES, WORKDAY_ALL_PAGES, WORKDAY_MAX_TERMS, workday_terms, _split_workday, workday, successfactors,  # noqa: E402,F401
                         umantis, careers, MAX_ROLES, MAX_PLACES, _strategy_terms, search_roles, search_places, amazon, netflix)
+from .ats_oracle import (ORACLE_ALL_PAGE, ORACLE_ALL_PAGES, ORACLE_TERM_PAGE, split_oracle, oracle_base, oracle)  # noqa: E402,F401
 from .ats_jobsch import (JOBSCH_PAGES, JOBSCH_COMPANY, jobsch_company, _postings, _unescape, jobsch_towns, jobsch_find, jobsch)  # noqa: E402,F401
 
 
@@ -208,7 +209,7 @@ from .ats_jobsch import (JOBSCH_PAGES, JOBSCH_COMPANY, jobsch_company, _postings
 DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
-            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'successfactors': successfactors, 'careers': careers,
+            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'successfactors': successfactors, 'oracle': oracle, 'careers': careers,
             'amazon': amazon, 'netflix': netflix, 'jobsch': jobsch, 'visit': lambda slug: _visit(slug)}
 
 
@@ -237,6 +238,8 @@ URL_PATTERNS = [
     ('join', r'join\.com/companies/([\w-]+)'),
     ('umantis', r'(recruitingapp-\d{2,6})\.umantis\.com'),
     ('workday', r'([\w-]+)\.(wd\d{1,2})\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([\w-]+)'),
+    # Oracle Recruiting Cloud: tenant, region and site number, written `tenant.region.SITE` (src/sources/ats_oracle.py)
+    ('oracle', r'([\w-]+)\.fa\.([a-z0-9]{2,8})\.oraclecloud\.com/hcmUI/CandidateExperience/(?:[a-z]{2}(?:[-_][A-Za-z]{2})?/)?sites/([\w-]+)'),
 ]
 IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o', 'career', 'app', 'support', 'help', 'blog', 'static', 'tt', 'assets', 'scripts', 'cdn'}
 
@@ -247,7 +250,7 @@ def detect(url):
         match = re.search(pattern, url or '', re.I)
         if match and match.group(1).lower() not in IGNORED_SLUGS:
             # Workday's board is three parts (tenant, cluster, site), written `tenant.wdN.Site`: letters, digits and dots only.
-            return name, '.'.join(match.groups()) if name == 'workday' else match.group(1)
+            return name, '.'.join(match.groups()) if name in ('workday', 'oracle') else match.group(1)
     return None
 
 
