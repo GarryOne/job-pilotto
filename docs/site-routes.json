@@ -270,6 +270,13 @@
    "kind": "ci"
   },
   {
+   "path": "/benchmark-search/data",
+   "methods": [
+    "PUT"
+   ],
+   "kind": "ci"
+  },
+  {
    "path": "/changelog/data",
    "methods": [
     "GET",
