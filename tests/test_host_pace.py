@@ -144,10 +144,16 @@ class PaceTest(PaceCase):
         self.assertGreater(host_pace.waiting('https://other.jobsystem.example/j/2'), 0)
         self.assertEqual(host_pace.waiting('https://elsewhere.example/'), 0)
 
-    def test_requests_to_one_domain_are_spaced(self):
+    def test_a_domain_is_not_waited_for_until_it_asks_then_its_requests_are_spaced(self):
         for _ in range(3):
             self.read('/ok')
-        self.assertEqual([round(wait, 2) for wait in self.clock.slept], [host_pace.START_GAP] * 2)   # the 2nd and 3rd waited their turn
+        self.assertEqual(self.clock.slept, [])   # never slowed us: today's speed (a search crawls hundreds of feeds on one job system)
+        host_pace.answer(self.base, 429)
+        self.clock.now = host_pace.waiting(self.base)
+        for _ in range(3):
+            self.read('/ok')
+        self.assertEqual(len(self.clock.slept), 2)   # the 2nd and 3rd waited their turn
+        self.assertTrue(all(wait >= 1 for wait in self.clock.slept))
 
 
 # Every engine reader of a public site, called on an address that answers 429 without end: each must end as "try later" (Busy, or its own
