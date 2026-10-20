@@ -6,13 +6,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as storeEngine from './store/engine.js';
 import {byStore} from './store/words.js';
+import {demoPath} from './demo.js';
 
 export function registerInterviewHandlers(ctx) {
   const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
   const {appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders, sharedRead, shell, storage, toWindow, viewCache, getWindow} = ctx;
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.
-  const demoInterviews = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'interviews.json'), 'utf8'));
+  const demoInterviews = () => JSON.parse(fs.readFileSync(demoPath(here, 'interviews.json'), 'utf8'));
   // Recordings made in the app are matched to the job whose Next interview time is close to when they began (a suggestion only:
   // the job is confirmed by saving). Imported files have no real start time, so they get none.
   ipcMain.handle('ivDrafts', () => {

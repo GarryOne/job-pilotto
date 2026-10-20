@@ -195,7 +195,7 @@ function handlers() {
   // setup step stay as they are; "Set up my own" (leaveDemo) restarts back into them.
   ipcMain.handle('lookAround', async (_, from = '') => {
     let folder;
-    try { folder = demo.prepare(path.join(here, 'demo')); } catch (error) { return {ok: false, error: `The demo couldn't start: ${error.message}`}; }
+    try { folder = demo.prepare(demo.folder(here)); } catch (error) { return {ok: false, error: `The demo couldn't start: ${error.message}`}; }
     if (telemetry) {
       telemetry.record('setup', setupFunnel.lookAround(String(from), storage.settings()));
       await Promise.race([telemetry.flush(), new Promise(resolve => setTimeout(resolve, 1500))]);  // else sent at the next start

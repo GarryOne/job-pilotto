@@ -20,7 +20,6 @@ import {extensionReady} from './extension-ready.js';
 import * as sitePassword from './site-password.js';
 import * as terminals from './terminals.js';
 import fs from 'node:fs';
-import path from 'node:path';
 import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
@@ -33,6 +32,7 @@ import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
 import {OUTCOME_STAGES as BOARD_STAGES} from '../renderer/jobs-board-rules.js';
+import {demoPath} from './demo.js';
 
 export const extensionGate = installedGate;   // what main.js hands to every handler that opens a Chrome form
 export function registerApplyHandlers(ctx) {
@@ -66,7 +66,7 @@ export function registerApplyHandlers(ctx) {
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   // Demo: each form's tab opened 12 minutes ago, so the card's "open for" reads the same in every screenshot.
-  ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8'))
+  ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(demoPath(here, 'review.json'), 'utf8'))
     .map(state => ({tabAt: Date.now() - 12 * 60 * 1000, ...state})) : review.allStates()));
   ipcMain.handle('reviewWatch', (_, id, items) => {
     appLog('review', `watch ${id}: ${(items || []).length} field(s)`, {labels: (items || []).map(item => String(item.label).slice(0, 60))});

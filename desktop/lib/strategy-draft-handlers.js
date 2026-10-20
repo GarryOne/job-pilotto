@@ -10,8 +10,8 @@ import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 import fs from 'node:fs';
-import path from 'node:path';
 import {log as appLog} from './log.js';
+import {demoPath} from './demo.js';
 
 export function registerStrategyDraftHandlers(ctx) {
   const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
@@ -21,7 +21,7 @@ export function registerStrategyDraftHandlers(ctx) {
     const send = progress => toWindow('draftProgress', progress);
     // Demo mode: the fictional draft in demo/draft.json after a short pretend run; no AI is called.
     if (DEMO) {
-      const demo = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'draft.json'), 'utf8')).draft;
+      const demo = JSON.parse(fs.readFileSync(demoPath(here, 'draft.json'), 'utf8')).draft;
       demo.profile_markdown = strategy.withNote(demo.profile_markdown, answers);
       send({part: 'Proposing your goals', percent: 20, notes: [aiText(storage, 'Sent your CV to {AI} (demo: nothing is sent)'), aiText(storage, '{AI} read your CV')]});
       await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) || 300));

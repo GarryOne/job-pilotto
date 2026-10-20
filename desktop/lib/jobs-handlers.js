@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog, logFile} from './log.js';
 import {sharedRead} from './shared-read.js';
+import {demoPath} from './demo.js';
 
 export function registerJobsHandlers(ctx) {
   const {DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track} = ctx;
@@ -24,7 +25,7 @@ export function registerJobsHandlers(ctx) {
   ipcMain.handle('runs', () => activity());
   // Pages are logged by their LAST 8 characters: the first 8 are the workspace's, the same on every page (6 Oct 2026: a log of reads could not tell them apart).
   ipcMain.handle('runDetail', async (_, pageId) => {
-    if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'run-pages.json'), 'utf8'))[pageId] || {message: null, log: []};
+    if (DEMO) return JSON.parse(fs.readFileSync(demoPath(here, 'run-pages.json'), 'utf8'))[pageId] || {message: null, log: []};
     try {
       const started = Date.now(), read = await runHistory.detail(storage, pageId);
       appLog('run', 'page read', {page: String(pageId).replace(/-/g, '').slice(-8), message: !!read.message, lines: read.log.length, ms: Date.now() - started});
@@ -64,7 +65,7 @@ export function registerJobsHandlers(ctx) {
   });
   ipcMain.handle('jobs', sharedRead('jobs', async (_, options = {}) => {
     if (options?.limit) jobsLimit = Math.max(JOBS_PAGE, Math.round(options.limit));
-    if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
+    if (DEMO) return JSON.parse(fs.readFileSync(demoPath(here, 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
     const cloud = storage.settings().cloud;
     if (cloud?.repo && Date.now() - Date.parse(cloud.checkedAt || 0) > 5 * 60 * 1000) {
@@ -82,7 +83,7 @@ export function registerJobsHandlers(ctx) {
     }
     return viewCache.remember(storage, 'jobs', result);
   }, {keyOf: (_, options) => options?.limit || '', log: appLog}));
-  ipcMain.handle('calendarJobs', sharedRead('calendarJobs', async () => (DEMO ? {jobs: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs}
+  ipcMain.handle('calendarJobs', sharedRead('calendarJobs', async () => (DEMO ? {jobs: JSON.parse(fs.readFileSync(demoPath(here, 'jobs.json'), 'utf8')).jobs}
     : needsNotion('interviews') || viewCache.remember(storage, 'calendar', await pipeline.calendarJobs(storage))), {log: appLog}));
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
   ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));

@@ -4,8 +4,8 @@
 // for no conversation at all (Notion keeps it in each page's body: one request per run, minutes for 200 runs); `formFill` reads one run whole. Demo mode: demo/form-fills.json
 // (fictional). Guarded by test/form-fills-handlers.test.js.
 import fs from 'node:fs';
-import path from 'node:path';
 import * as engine from './store/engine.js';
+import {demoPath} from './demo.js';
 
 const LIMIT = 200;
 const slim = run => { if (!run) return null; const {transcript, ...rest} = run; return {...rest, has_transcript: !!transcript}; };
@@ -19,7 +19,7 @@ export async function formFill(storage, id, {call = engine.call} = {}) {
 }
 
 export function registerFormFillsHandlers({ipcMain, storage, DEMO, here, log, call = engine.call}) {
-  const demo = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'form-fills.json'), 'utf8')).map(slim);
+  const demo = () => JSON.parse(fs.readFileSync(demoPath(here, 'form-fills.json'), 'utf8')).map(slim);
   ipcMain.handle('formFills', async () => {
     if (DEMO) return {runs: demo()};
     const started = Date.now();

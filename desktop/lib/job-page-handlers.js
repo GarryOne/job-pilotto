@@ -11,6 +11,7 @@ import {posting as crawledPosting} from './pipeline-commands.js';
 import * as store from './store/index.js';
 import {KIT_SECTION, kitOf} from './store/extension-store.js';
 import {jobFiles} from './store/files.js';
+import {demoPath} from './demo.js';
 
 // {app, match, sections, kit, events, files, links} or {error}; app null when the job has no application yet (a match nobody acted on). match:
 // the search's 🎯 Job Matches record (its facts: the Match tab), null for a job added by hand. files: the job's files as data: URLs
@@ -53,7 +54,7 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
   // no description section (a job nobody applied to). {ok, description, url} or {ok: false, error}; a failure is an answer, logged.
   ipcMain.handle('jobPosting', async (_, url) => {
     if (DEMO) {   // fictional postings for a few demo jobs (demo/postings.json); the others have none saved
-      const found = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'postings.json'), 'utf8'))[String(url || '').trim()];
+      const found = JSON.parse(fs.readFileSync(demoPath(here, 'postings.json'), 'utf8'))[String(url || '').trim()];
       return found ? {ok: true, url: String(url), ...found} : {ok: false, error: 'job not found'};
     }
     try {
@@ -68,7 +69,7 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
   });
   ipcMain.handle('jobPage', async (_, url) => {
     if (DEMO) {
-      const pages = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'job-pages.json'), 'utf8'));
+      const pages = JSON.parse(fs.readFileSync(demoPath(here, 'job-pages.json'), 'utf8'));
       const page = pages[url] || {app: null, sections: {}, events: []};
       // Demo fixtures for the states a screenshot needs: __error answers {error}, __delay_ms waits first (the loading state), as a slow store would.
       if (page.__delay) await new Promise(resolve => setTimeout(resolve, page.__delay));
