@@ -1,4 +1,4 @@
-"""Eightfold career sites (jobs.vodafone.com...): the public search the site's own page calls (`/api/pcsx/search`), no login.
+"""Eightfold career sites (jobs.vodafone.com...): the public search the site's own page calls (its pcsx search), no login.
 
 Telecoms, banks and manufacturers run their careers pages on it, usually on the employer's own domain, so a site is found from its page
 (`eightfold_site`), not from a link. Slug: the site's host name. The page names the employer's Eightfold domain; the search is asked for the
