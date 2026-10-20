@@ -1,5 +1,5 @@
 // The Pro plan's words and numbers for the window (Settings → Plan, the sidebar counter, ⌘K), kept free of the DOM so a test can read them
-// (spec docs/superpowers/specs/2026-10-16-pro-plan.md §4, owner decisions 16 Oct 2026): the AI credit is a bar and a percent, never dollars or "applications left";
+// (private spec job-pilotto-internal:docs/specs/2026-10-16-pro-plan.md §4, owner decisions 16 Oct 2026): the AI credit is a bar and a percent, never dollars or "applications left";
 // "one-time payment, no subscription", never "lifetime"; the own key is the way out when the credit runs low. The top-up credits are the site's (site/src/pro-pay.js CREDIT).
 export const TOPUPS = [{kind: 'topup5', price: '$5', credit: '$2.80'}, {kind: 'topup10', price: '$10', credit: '$5.80'}, {kind: 'topup20', price: '$20', credit: '$11.80'}];
 export const INCLUDED = ['Unlimited applications, no time limit', '$5 of our AI included: enough for about a whole job search', 'Your own AI key: unlimited, nothing counted',

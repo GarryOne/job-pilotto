@@ -1,5 +1,5 @@
 // Every website route that shipped code calls is in docs/site-routes.json (the public list of what the site answers), and every route listed for the app is still called.
-// Pairs with site/test/site-routes.test.js (the site proves it answers each listed route). Spec: docs/superpowers/specs/2026-10-19-site-private-repo.md.
+// Pairs with site/test/site-routes.test.js (the site proves it answers each listed route). Spec: private spec job-pilotto-internal:docs/specs/2026-10-19-site-private-repo.md.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';

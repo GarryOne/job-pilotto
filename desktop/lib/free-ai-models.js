@@ -1,5 +1,5 @@
 // Which Workers AI model answers which AI step of the Free engine, and what a call costs us (USD per million tokens, Cloudflare list prices).
-// The names here come from tools/free-ai-eval.mjs (spec 2026-10-16-free-workers-ai.md "Quality"), not from a shortlist.
+// The names here come from tools/free-ai-eval.mjs (private spec job-pilotto-internal:docs/specs/2026-10-16-free-workers-ai.md "Quality"), not from a shortlist.
 export const SMALL = '@cf/qwen/qwen3-30b-a3b-fp8';
 export const STRONG = '@cf/zai-org/glm-5.3-flash';   // needs the Workers Paid plan; until it is on, STRONG_ON=off keeps these steps on SMALL
 export const OSS = '@cf/openai/gpt-oss-120b';   // measured 16 Oct 2026 (tools/free-ai-writing-eval.mjs): clearly better than SMALL at the rejection review only
