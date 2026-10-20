@@ -3,8 +3,8 @@
 
 What it is for: a company's public careers page built in the browser (the HTML a plain request gets is an empty shell). What it is not for:
 getting past a site that refuses automated visitors. It shows who it is (the same user agent as every other request, plus "browser"),
-waits between pages of one site, loads no images, fonts or media, and gives up at the first 401/403/429 or bot-check page: a block is
-taken as it is. robots.txt is not consulted (owner's decision, 6 Oct 2026: "if they block us, they block"). No stealth settings, no fingerprint changes, no proxies, no CAPTCHA solving.
+waits between pages of one site, loads no images, fonts or media, and gives up at the first 401/403 or bot-check page: a block is
+taken as it is. A 429 is "slow down": the site's pace widens (host_pace) and the page waits for a later turn. robots.txt is not consulted (owner's decision, 6 Oct 2026: "if they block us, they block"). No stealth settings, no fingerprint changes, no proxies, no CAPTCHA solving.
 """
 import json
 import os
@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 import urllib.parse
 import urllib.request
 
-from . import ats, careers
+from . import ats, careers, host_pace
 
 TIMEOUT_MS = 20000
 SETTLE_MS = 1500          # after the page loads, for the lists a script fills in
@@ -23,7 +23,7 @@ CHALLENGE = ('just a moment', 'attention required', 'verify you are human', 'cap
 
 
 class Refused(Exception):
-    """The site answered 401/403/429 or showed a bot check: not retried, not worked around."""
+    """The site answered 401/403 or showed a bot check: not retried, not worked around."""
 
 
 # Playwright's sync API belongs to the thread that started it: every browser call runs on this one worker thread, one page at a time.
@@ -85,7 +85,9 @@ def _through_app(url):
                                      headers={'Content-Type': 'application/json', 'X-Job-Pilotto-Render': key})
     with urllib.request.urlopen(request, timeout=TIMEOUT_MS / 1000 + 15) as response:
         answer = json.load(response)
-    if answer.get('status') in (401, 403, 429):
+    if host_pace.answer(url, int(answer.get('status') or 200)):
+        raise host_pace.Busy(url, host_pace.waiting(url))
+    if answer.get('status') in host_pace.REFUSED:
         raise Refused(f"HTTP {answer['status']}")
     if answer.get('error'):
         raise ValueError(f"the app could not show the page: {answer['error']}")
@@ -101,6 +103,7 @@ def _render(url, parts):
     wait = HOST_DELAY_S - (time.monotonic() - _state['last'].get(parts.hostname, 0))
     if wait > 0:
         time.sleep(wait)
+    host_pace.turn(url)
     if _app():
         try:
             return _through_app(url)
@@ -112,7 +115,9 @@ def _render(url, parts):
         context.route('**/*', lambda route: route.abort() if route.request.resource_type in ('image', 'media', 'font') else route.continue_())
         page = context.new_page()
         response = page.goto(url, wait_until='domcontentloaded', timeout=TIMEOUT_MS)
-        if response is not None and response.status in (401, 403, 429):
+        if response is not None and host_pace.answer(url, response.status):
+            raise host_pace.Busy(url, host_pace.waiting(url))
+        if response is not None and response.status in host_pace.REFUSED:
             raise Refused(f'HTTP {response.status}')
         page.wait_for_timeout(SETTLE_MS)
         markup = page.content()

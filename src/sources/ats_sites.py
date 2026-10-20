@@ -53,7 +53,7 @@ def workday(slug):
             if fixtures:
                 data = json.loads(_fixture(fixtures, request.full_url))
             else:
-                with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                with host_pace.open(request, TIMEOUT) as response:
                     data = json.loads(response.read())
             postings = data.get('jobPostings') or []
             for j in postings:
@@ -182,4 +182,5 @@ def netflix(slug='netflix'):
 
 
 from . import ats  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)
+from . import host_pace  # noqa: E402
 from .ats import _fixture, _job, plain, USER_AGENT, TIMEOUT  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)

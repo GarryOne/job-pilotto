@@ -2,7 +2,7 @@
 A job whose company is missing ("Unknown employer") or only the board's name ("via <board>") has its employer read from the job page's own
 JobPosting data (hiringOrganization), a few pages per run. Every real employer name seen is kept in data/board_employers.json and offered to
 the scout (scout_candidates.board_employer_candidates) with the origin "Board employer"; the scout's queue ranks it by yield, not this file.
-Never past a refusal: 401/403/429 or an unreadable page leaves the job as it was. Tests: tests/test_board_employers.py."""
+Never past a refusal: 401/403 or an unreadable page (a 429 waits: host_pace) leaves the job as it was. Tests: tests/test_board_employers.py."""
 import json
 import urllib.error
 from datetime import datetime, timezone

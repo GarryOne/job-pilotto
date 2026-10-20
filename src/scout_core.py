@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from .paths import CONFIG, load_search_config
-from .sources import ats
+from .sources import ats, host_pace
 
 
 SEEDS = CONFIG / 'scout_seeds.json'
@@ -123,13 +123,13 @@ def key_for(name):
 
 def _get_json(url, timeout=30):
     request = urllib.request.Request(url, headers={'User-Agent': ats.USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with host_pace.open(request, timeout) as response:
         return json.load(response)
 
 
 def _get_text(url):
     request = urllib.request.Request(url, headers={'User-Agent': ats.USER_AGENT})
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with host_pace.open(request, 30) as response:
         return response.read().decode('utf-8', 'replace')
 
 

@@ -1,6 +1,6 @@
 """What a job board declares itself when its search page gives nothing (script-only page): an RSS/Atom or JSON feed named by <link rel=alternate>,
 or the sitemap named in robots.txt leading to job pages that publish schema.org JobPosting data. Found by structure, never per site; the route
-that worked is kept per host in data/found_boards.json (found_boards.read) and tried first next time. A 401/403/429 or a bot check on any of
+that worked is kept per host in data/found_boards.json (found_boards.read) and tried first next time. A 401/403 or a bot check on any of
 these stops at once (Stop): the user's own visit (src/sources/visits_portals.py) stays the path. Tests: tests/test_board_routes.py."""
 import email.utils
 import html
@@ -11,7 +11,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
-from . import board_state, careers
+from . import board_state, careers, host_pace
 from .careers_parse import JOB_ID, JOB_PATH, MAX_JOB_PAGES, NOT_JOBS, jsonld_jobs
 
 MAX_SITEMAPS = 3      # sitemaps read per board
@@ -20,7 +20,7 @@ FEED_TYPES = {'application/rss+xml': 'feed', 'application/atom+xml': 'feed', 'ap
 
 
 class Stop(Exception):
-    """The board (or one of its declared routes) refused: 401/403/429 or a bot check. No further route is tried."""
+    """The board (or one of its declared routes) refused: 401/403 or a bot check (a 429 is host_pace's "slow down"). No further route is tried."""
 
 
 def _get(fetch, url):
@@ -29,7 +29,7 @@ def _get(fetch, url):
         return fetch(url)
     except urllib.error.HTTPError as error:
         careers.note_refusal(url, error)
-        if error.code in (401, 403, 429):
+        if error.code in host_pace.REFUSED:
             raise Stop(url) from error
     except (urllib.error.URLError, OSError, ValueError) as error:
         if type(error).__name__ == 'Refused':

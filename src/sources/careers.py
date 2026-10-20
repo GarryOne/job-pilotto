@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from . import ats
+from . import ats, host_pace
 
 MAX_BYTES = 2_000_000
 from ..ai import meanings_pack
@@ -48,7 +48,7 @@ def get_text(url):
     if fixtures:
         return ats._fixture(fixtures, url).decode('utf-8', 'replace')
     request = urllib.request.Request(url, headers={'User-Agent': ats.USER_AGENT, 'Accept': 'text/html,application/xhtml+xml'})
-    with urllib.request.urlopen(request, timeout=ats.TIMEOUT) as response:
+    with host_pace.open(request, ats.TIMEOUT) as response:
         return response.read(MAX_BYTES).decode(response.headers.get_content_charset() or 'utf-8', 'replace')
 
 
@@ -242,12 +242,12 @@ def renderer():
     return render.render if render.available() else None
 
 
-REFUSALS = {}   # host -> why, for this run: a site that answered 401/403/429 or a bot check (the scout offers it as a site only you can open)
+REFUSALS = {}   # host -> why, for this run: a site that answered 401/403 or a bot check (a 429 is host_pace's "slow down") (the scout offers it as a site only you can open)
 
 
 def note_refusal(url, error):
     code = getattr(error, 'code', None)
-    why = f'HTTP {code}' if code in (401, 403, 429) else (str(error) if type(error).__name__ == 'Refused' else '')
+    why = f'HTTP {code}' if code in host_pace.REFUSED else (str(error) if type(error).__name__ == 'Refused' else '')
     if why:
         REFUSALS[(urllib.parse.urlsplit(url if '//' in url else f'https://{url}').hostname or '').lower().removeprefix('www.')] = why
 

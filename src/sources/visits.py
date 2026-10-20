@@ -1,4 +1,4 @@
-"""Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
+"""Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403, a bot check) and job portals
 with no open API (LinkedIn, Indeed, Glassdoor, levels.fyi). The app lists them; you open one in your own Chrome, as yourself, and the
 extension's "Read the jobs on this page" sends the page you see to the app. Nothing here browses, clicks, logs in or gets past a check:
 the page arrives only because a person opened it and pressed the button.
@@ -25,7 +25,7 @@ KEEP_DAYS = 21          # a visit's jobs are served for this long; then the feed
 MAX_JOBS = 500
 MAX_LIST = 40   # the Actions list scrolls (7 Oct 2026: H&M, Manor and Rolex were left out at 15)
 LOCK = threading.Lock()
-REFUSED = re.compile(r'\b(401|403|429)\b|Refused|bot check', re.I)
+REFUSED = re.compile(r'\b(401|403)\b|Refused|bot check', re.I)   # a site asking us to slow down is paced (host_pace), not refused
 
 
 def _now():
@@ -50,7 +50,7 @@ def host_of(url):
 
 
 def refused(company, url, why, now=None):
-    """Note an employer whose job site refused us (from the scout or a jobs check): it is offered for a visit. Only 401/403/429 or a bot check."""
+    """Note an employer whose job site refused us (from the scout or a jobs check): it is offered for a visit. Only 401/403 or a bot check."""
     if not url or not REFUSED.search(str(why)):
         return False
     with LOCK:
@@ -74,6 +74,8 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
     stale = (now - timedelta(days=STALE_DAYS)).isoformat(timespec='seconds')
     out = []
     for site in (data.get('sites') or {}).values():
+        if not REFUSED.search(str(site.get('why') or 'Refused')):   # noted before 20 Oct 2026 for a "slow down": paced now, not a visit
+            continue
         last = (read.get(host_of(site['url'])) or {}).get('at')
         if not last or last < stale:
             out.append({'name': site['company'], 'url': site['url'], 'kind': 'employer', 'why': 'refuses automated visitors', 'last_read': last, 'note': ''})

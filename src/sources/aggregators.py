@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from . import ats, board_employers, boards_ahead, feeds
+from . import ats, board_employers, boards_ahead, feeds, host_pace
 
 SPACING_HOURS = 6
 PAGES = 2
@@ -31,7 +31,7 @@ ADZUNA_COUNTRIES = {'gb': 'United Kingdom', 'us': 'United States', 'at': 'Austri
 
 def _get(url, data=None, headers=None):
     request = urllib.request.Request(url, data=data, headers={'User-Agent': ats.USER_AGENT, 'Accept': 'application/json', **(headers or {})})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with host_pace.open(request, TIMEOUT) as response:
         return json.loads(response.read())
 
 
@@ -143,10 +143,13 @@ def jobsch(search, get=None):
             try:
                 markup = fetch('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': query, **({'location': place} if place else {}), 'page': page}))
             except urllib.error.HTTPError as error:
-                if error.code in (403, 429):   # jobs.ch asks us to slow down: a block is taken as it is, what was read is kept (6 Oct 2026)
+                if error.code in host_pace.REFUSED:   # a block is taken as it is, what was read is kept (6 Oct 2026)
                     print(f'Warning: jobs.ch refused more searches for now (HTTP {error.code}); {len(jobs)} job(s) read before that are kept')
                     return jobs
                 raise
+            except host_pace.Busy as error:   # it asked us to slow down for longer than this run waits: the next run goes on
+                print(f'Warning: {error}; {len(jobs)} job(s) read before that are kept')
+                return jobs
             listed = list(boards.walk(boards.Page(markup).schemas, 'JobPosting'))
             towns = ats.jobsch_towns(markup if isinstance(markup, str) else markup.decode('utf-8', 'replace'))
             fresh = 0

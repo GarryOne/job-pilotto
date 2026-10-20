@@ -2,7 +2,7 @@
 11 pages and the read took 3 from page 1. The next page is found by structure, never per site: the page's own rel=next link, else its
 numbered pages (careers_parse.page_links, the careers-page paging of 6 Oct 2026). Paging goes on only while the last page gave a new
 relevant job (a title the search wants in a place it wants: board_yield.is_relevant), at most MAX_PAGES pages in all, only where the
-site's robots.txt allows the page, with a pause between pages; a refusal (401/403/429, a bot check) or a failed page ends the paging and
+site's robots.txt allows the page, with a pause between pages; a refusal (401/403, a bot check), a site still asking us to slow down (host_pace) or a failed page ends the paging and
 keeps what was read. Called by found_boards.read_board for the full read only (the first-jobs slice stays at page 1).
 Tests: tests/test_board_pages.py."""
 import html
