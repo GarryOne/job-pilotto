@@ -249,7 +249,7 @@ def main(argv=None):
         if args.command == 'refused-outcome':
             from .sources import refused_reads
             page = json.loads(Path(args.file).read_text())
-            result = refused_reads.outcome(str(page.get('url') or ''), page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''), step=page.get('step') if page.get('step') in ('engine', 'download', 'tab') else 'download')
+            result = refused_reads.outcome(str(page.get('url') or ''), page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''), step=page.get('step') if page.get('step') in ('engine', 'download', 'tab') else 'download', captcha=page.get('captcha') is True)
             if result.get('feed'):   # like a page the person opened: the next jobs check reads, filters and scores it
                 with store.connect(JOBS_DB) as db:
                     from . import scout
