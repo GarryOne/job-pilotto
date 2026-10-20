@@ -1,4 +1,4 @@
-# The hosted Always on image (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §1): the public engine as the app runs it, serving `python -m src hosted --serve`.
+# The hosted Always on image (private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §1): the public engine as the app runs it, serving `python -m src hosted --serve`.
 # Cloudflare Container, instance standard-1; the Worker POSTs /run {site, token} per run. AI goes through our route. Build from the repo root: docker build -f hosted/Dockerfile .
 # The headless browser (src/sources/render.py) reads job boards and careers pages built by scripts, as the Mac app and the GitHub runs do (owner, 19 Oct 2026).
 FROM python:3.12-slim

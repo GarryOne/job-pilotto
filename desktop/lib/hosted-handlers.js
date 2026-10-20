@@ -1,4 +1,4 @@
-// The hosted Always on IPC (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §4): turn it on or off, read its state, download my data, push the profile again after a change.
+// The hosted Always on IPC (private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §4): turn it on or off, read its state, download my data, push the profile again after a change.
 // main.js passes in the services they share. Guard: test/hosted-search.test.js and test/ipc.test.js.
 import * as hosted from './hosted-search.js';
 import * as pipeline from './pipeline.js';

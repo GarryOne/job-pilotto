@@ -1,4 +1,4 @@
-// "I have Pro" on the Plan card (spec docs/superpowers/specs/2026-10-16-pro-plan.md PR 5): e-mail address → a 6-digit code mailed by the site → this computer joins the Pro account
+// "I have Pro" on the Plan card (private spec job-pilotto-internal:docs/specs/2026-10-16-pro-plan.md PR 5): e-mail address → a 6-digit code mailed by the site → this computer joins the Pro account
 // (3 computers at most; a 4th picks the one to remove). Pro moves, data never does (Settings → Your data exports and imports). Guard: test/plan-signin.test.js.
 import {el} from '../components.js';
 import {message} from './core.js';

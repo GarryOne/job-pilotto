@@ -1,5 +1,5 @@
 """Hosted Always on, the container's side: `python -m src hosted --site URL --token HR1...` (or `--serve` in the container) pulls the person's state from our Worker, runs one SQLite-store search with AI through our route, and posts the new matches back.
-Spec docs/superpowers/specs/2026-10-16-hosted-always-on.md §1-2. The run token is the only credential: it asks the Worker for the state (GET /api/hosted/state), is the AI key
+Spec private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §1-2. The run token is the only credential: it asks the Worker for the state (GET /api/hosted/state), is the AI key
 (x-api-key on /api/ai), and posts the one result (POST /api/hosted/result). No Notion, Gmail, Telegram or user key is ever here. Guard: tests/test_hosted_run.py.
 """
 import io

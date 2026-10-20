@@ -1,6 +1,6 @@
 # The website and /admin live in a private repo
 
-Owner, 19 Oct 2026: "leave open-source rather less than more … make it hard for someone to copy our product from the source code". Moved 20 Oct 2026 (spec `docs/superpowers/specs/2026-10-19-site-private-repo.md`).
+Owner, 19 Oct 2026: "leave open-source rather less than more … make it hard for someone to copy our product from the source code". Moved 20 Oct 2026 (private spec job-pilotto-internal:docs/specs/2026-10-19-site-private-repo.md).
 
 ## What is where
 - **Private, `GarryOne/job-pilotto-site`** (clone: `~/job-pilotto-site`): `site/` (the www Worker, /admin, D1 migrations, ready and hosted runners, its tests), `site-next/`, the jobs that feed /admin (ops overview, changelog, daily digest, e2e-intel, hosted e2e, the Lab Job Search uploads) and their workflows.
