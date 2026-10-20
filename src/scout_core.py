@@ -134,3 +134,6 @@ def _get_text(url):
 # The central scout (python -m src scout --publish-index, job-pilotto-internal) keeps the full lists it publishes; an install ignores the copies
 # of the lists the app shipped before 6 Oct 2026 (src/legacy_lists.py): those sources reach it through the central index now.
 CENTRAL = False
+# The central scout's time for names and checks, so it always publishes inside its 75-minute job (central-scout.yml): 20 Oct 2026, 2 of 4 runs
+# were cancelled checking 500 hospital and school sites (slower than job-system boards) and published nothing. Publishing takes ~15 minutes.
+CENTRAL_BUDGET_S = 45 * 60
