@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sources import ats
 from src import store as job_store
-from src import scout, scout_candidates, scout_core
+from src import pool_served, scout, scout_candidates, scout_core
 from src.stores import memory, notion
 
 SEEDS = {'excluded': ['Acme'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
@@ -160,7 +160,9 @@ class ScoutTests(unittest.TestCase):
                 mock.patch.object(scout.employer_index, 'central_nofeed', return_value={'dead0', 'dead1', 'dead2'}):
             names = [f'Dead{i}' for i in range(3)] + [f'Live{i}' for i in range(5)]
             scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=99 - i) for i, n in enumerate(names)]])
-            summary, results = scout.run(db, batch=4, harvest_sources=[], probe=lambda system, slug: [])
+            with mock.patch.object(pool_served, 'STORE', Path(tmp) / 'pool_served.json'):
+                summary, results = scout.run(db, batch=4, harvest_sources=[], probe=lambda system, slug: [])
+                self.assertEqual(pool_served.load().get('names_tried'), 3, 'the three skipped probes are counted as served by the pool')
             self.assertEqual(sorted(c['name'] for c, _ in results), ['Live0', 'Live1', 'Live2', 'Live3'], 'four checked, none of them left out')
             self.assertEqual({r[0] for r in db.execute("SELECT name FROM scout_candidates WHERE status='none' AND name LIKE 'Dead%'")},
                              {'Dead0', 'Dead1', 'Dead2'}, 'the left-out names wait their 30 days')

@@ -140,6 +140,9 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
         db.commit()
         left += len(skipped)
         candidates = [c for c in next_batch(db, batch, skip) if not have or c['status'] == 'manual']   # those left out wait 30 days; the next come in
+    if left and not scout_core.CENTRAL:
+        from . import pool_served
+        pool_served.count('names_tried', left)   # steps skipped thanks to other installs (owner's number)
     if left:
         print(f'Scout: {left} employer(s) left for 30 days: other installs found no readable job site there lately; others took their places.')
     print(f'Scout: checking {len(candidates)} employer(s)…')
