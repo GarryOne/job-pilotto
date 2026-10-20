@@ -160,7 +160,8 @@ def open(request, timeout=15, opener=None):  # noqa: A001 — the readers' urlop
             if attempt == RETRIES:
                 raise Busy(url, max(waiting(url), clock())) from error
             continue
-        answer(url, getattr(response, 'status', None) or 200)
+        status = getattr(response, 'status', None)
+        answer(url, status if isinstance(status, int) else 200)
         return response
 
 

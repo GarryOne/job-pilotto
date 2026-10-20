@@ -1,5 +1,6 @@
 """Reading refused sites in the user's own browser (owner, 19 Oct 2026): the queue (only refused employer sites and job boards, never a login-wall site,
-each at most once in 30 days), and what a page the extension fetched becomes (a stop on 401/403/429, a bot check or a login page; else the jobs on it)."""
+each at most once in 30 days), and what a page the extension fetched becomes (a stop on 401/403, a bot check or a login page; a 429 waits a day,
+never a stop; else the jobs on it)."""
 import json
 import tempfile
 import unittest
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from src.sources import refused_reads, visits
+from src.sources import host_pace, refused_reads, visits
 
 NOW = datetime(2026, 10, 19, 9, 0, tzinfo=timezone.utc)
 SEARCH = {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève'], 'country_wide': []}}
@@ -28,15 +29,18 @@ class RefusedReadsTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.patches = [mock.patch.object(visits, 'STORE', Path(self.tmp.name) / 'visits.json'),
                         mock.patch('src.ai.board_ideas.load', lambda: json.loads(json.dumps(BOARDS))),
-                        mock.patch.object(refused_reads, 'search_config', lambda: SEARCH)]
+                        mock.patch.object(refused_reads, 'search_config', lambda: SEARCH),
+                        mock.patch.object(host_pace, 'FILE', Path(self.tmp.name) / 'host_pace.json')]
         for patch in self.patches:
             patch.start()
+        host_pace.reset()
         visits.refused('Coop', 'https://jobs.coop.ch', 'HTTP 403', now=NOW)
         visits.refused('Glassdoor', 'https://www.glassdoor.com/Job/x', 'HTTP 403', now=NOW)
 
     def tearDown(self):
         for patch in self.patches:
             patch.stop()
+        host_pace.reset()
         self.tmp.cleanup()
 
     def test_queue_has_refused_employer_sites_and_boards_but_never_a_login_wall_site(self):
@@ -52,7 +56,7 @@ class RefusedReadsTest(unittest.TestCase):
         self.assertTrue(refused_reads.allowed('https://jobs.coop.ch/offres'))
 
     def test_a_site_is_asked_once_in_thirty_days_whatever_it_answered(self):
-        for status, html in [(200, JOBS), (429, ''), (200, '<html>Please verify you are human</html>'), (200, '<html><body>No openings</body></html>')]:
+        for status, html in [(200, JOBS), (200, '<html>Please verify you are human</html>'), (200, '<html><body>No openings</body></html>')]:
             with self.subTest(status=status):
                 visits._save({})
                 visits.refused('Coop', 'https://jobs.coop.ch', 'HTTP 403', now=NOW)
@@ -61,12 +65,20 @@ class RefusedReadsTest(unittest.TestCase):
                 self.assertIn('jobs.coop.ch', {item['url'].split('/')[2] for item in refused_reads.queue(now=NOW + timedelta(days=31))})
 
     def test_a_refusal_a_bot_check_or_a_login_page_is_a_stop_and_nothing_is_read(self):
-        for status, html, final in [(403, JOBS, ''), (429, '', ''), (401, '', ''), (200, '<html><body>Just a moment...</body></html>', ''),
+        for status, html, final in [(403, JOBS, ''), (401, '', ''), (200, '<html><body>Just a moment...</body></html>', ''),
                                     (200, JOBS, 'https://jobs.coop.ch/login?next=/jobs'), (200, JOBS, 'https://www.linkedin.com/uas/login')]:
             with self.subTest(status=status, final=final), mock.patch.object(visits, 'read') as read:
                 result = refused_reads.outcome('https://jobs.coop.ch', status, html, final=final, now=NOW)
                 self.assertEqual((result['ok'], result['state']), (True, 'stopped'))
                 read.assert_not_called()
+
+    def test_a_429_in_the_browser_waits_a_day_never_a_stop(self):
+        with mock.patch.object(visits, 'read') as read:
+            result = refused_reads.outcome('https://jobs.coop.ch', 429, '', now=NOW)
+        self.assertEqual(result['state'], 'waiting')
+        read.assert_not_called()
+        self.assertNotIn('jobs.coop.ch', {item['url'].split('/')[2] for item in refused_reads.queue(now=NOW + timedelta(hours=12))})
+        self.assertIn('jobs.coop.ch', {item['url'].split('/')[2] for item in refused_reads.queue(now=NOW + timedelta(days=refused_reads.WAIT_DAYS, hours=1))})
 
     def test_a_page_with_jobs_is_read_like_a_page_the_person_opened(self):
         result = refused_reads.outcome('https://jobs.coop.ch/offres', 200, JOBS, title='Careers', now=NOW)

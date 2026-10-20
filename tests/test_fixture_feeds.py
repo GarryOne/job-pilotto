@@ -43,7 +43,7 @@ if __name__ == '__main__':
 class DiscoveryTest(unittest.TestCase):
     def test_the_jobs_ch_crawl_stays_offline_in_fixture_mode(self):
         from src.sources import boards
-        with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': '/nowhere'}), mock.patch.object(boards, 'urlopen', side_effect=AssertionError('went online')), \
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': '/nowhere'}), mock.patch('urllib.request.urlopen', side_effect=AssertionError('went online')), \
                 mock.patch('sys.argv', ['discover']):
             self.assertEqual(boards.main(), 0)
 

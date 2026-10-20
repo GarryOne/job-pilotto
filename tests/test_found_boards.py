@@ -97,11 +97,11 @@ class FoundBoardsTests(unittest.TestCase):
     def test_a_board_that_refuses_mid_read_counts_each_job_once(self):
         """18 Oct 2026: a driver's board gave the same jobs to several queries, then refused; the log said 111 jobs, 99 relevant, for 47 jobs."""
         search = {**SEARCH, 'jobs_board_search_queries': ['um', 'dois', 'tres']}
-        for code in (429, 'Refused'):
+        for code in (403, 'Refused'):
             def pages(url, code=code):
                 if 'q=tres' in url:
-                    if code == 429:
-                        raise urllib.error.HTTPError(url, 429, 'Too many', None, None)
+                    if code == 403:
+                        raise urllib.error.HTTPError(url, 403, 'Forbidden', None, None)
                     raise type('Refused', (OSError,), {})('robots')
                 return PAGE   # the same job for every query
             jobs, state, _ = found_boards.read_board(BOARD, search, fetch=pages)
@@ -130,8 +130,14 @@ class FoundBoardsTests(unittest.TestCase):
 
     def test_a_board_that_only_a_browser_reads_is_offered_as_a_visit(self):
         from src.sources import visits_portals
+        from src.sources import host_pace
+        def busy(url):   # a site asking us to slow down (429) is paced, not a site only a browser reads (owner, 20 Oct 2026)
+            raise host_pace.Busy(url, 0)
+        found_boards.read(SEARCH, [BOARD], fetch=busy)
+        self.assertEqual([p for p in visits_portals.portals(SEARCH) if p['key'].startswith('board:')], [])
+
         def refuse(url):
-            raise urllib.error.HTTPError(url, 429, 'Too many', None, None)
+            raise urllib.error.HTTPError(url, 403, 'Forbidden', None, None)
         found_boards.read(SEARCH, [BOARD], fetch=refuse)
         offered = [p for p in visits_portals.portals(SEARCH) if p['key'].startswith('board:')]
         self.assertEqual([(p['name'], p['url']) for p in offered], [('Empregos', 'https://empregos.example/procura?q=developer&local=Lisboa')])   # the first role word, as LinkedIn and Indeed
