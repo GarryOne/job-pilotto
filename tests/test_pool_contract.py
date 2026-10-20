@@ -9,10 +9,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from site_private import needs_site
+
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / 'site' / 'test' / 'fixtures' / 'pool-payloads.json'
 
 
+@needs_site
 class PoolContractTest(unittest.TestCase):
     def test_the_sites_fixture_is_what_the_engine_sends_today(self):
         with tempfile.TemporaryDirectory() as tmp:

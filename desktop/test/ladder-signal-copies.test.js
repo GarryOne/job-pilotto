@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import {siteTest} from './site-private.js';
 import {SIGNALS} from '../../extension/ladder/core.js';
 
 const read = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
@@ -17,9 +18,12 @@ test('the app\'s learning keeps the full list', () => {
   assert.deepEqual(listIn('desktop/lib/ladder/learning.js'), SIGNALS);
 });
 
-test('the site\'s admin parser and the CI pool\'s run parser read every signal that hands a page on', () => {
-  assert.deepEqual(listIn('site/src/applying.js'), HANDED_ON);
+test('the CI pool\'s run parser reads every signal that hands a page on', () => {
   assert.deepEqual(listIn('desktop/e2e/lib/record-sites.mjs'), HANDED_ON);
+});
+
+siteTest('the site\'s admin parser reads every signal that hands a page on', () => {
+  assert.deepEqual(listIn('site/src/applying.js'), HANDED_ON);
 });
 
 test('the ladder fixtures\' field note names the same signals', () => {

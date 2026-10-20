@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from src import employer_index  # noqa: E402
 from src.ai import page_reader  # noqa: E402
 from src.sources import ats, careers, page_recipes  # noqa: E402
+from site_private import needs_site  # noqa: E402
 
 LISTING = ('<nav><a href="/de/about">Über uns</a><a href="/de/jobs">Jobs</a></nav>'
            '<ul><li><a href="/de/jobs/devops-engineer">DevOps Engineer 80-100%</a></li><li><a href="/de/jobs/sre">Site Reliability Engineer</a></li>'
@@ -130,6 +131,7 @@ class IndexCarriesRecipesTests(unittest.TestCase):
                   {'company': 'B', 'ats': 'careers', 'slug': 'b.ch__jobs', 'recipe': {'kind': 'regex', 'pattern': '.*'}}]
         self.assertEqual([f.get('recipe') for f in employer_index.clean(served)], [{'kind': 'links', 'prefix': '/jobs'}, None])
 
+    @needs_site
     @unittest.skipUnless(shutil.which('node'), 'node is not installed')
     def test_the_website_accepts_exactly_the_recipes_the_engine_accepts(self):
         samples = [{'kind': 'links', 'prefix': '/de/jobs'}, {'kind': 'tag', 'tag': 'h3', 'class': 'job-title'}, {'kind': 'links', 'prefix': '/(a)+'},

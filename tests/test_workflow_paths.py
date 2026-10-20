@@ -111,7 +111,7 @@ class TheClass(unittest.TestCase):
         # one Linux job with a step per suite and the Windows job (tests/test_main_one_job.py has the full list)
         build = (WORKFLOWS / 'build.yml').read_text()
         self.assertNotIn('pull_request', on_block('build.yml'), 'a pull request runs each area by itself')
-        for area in ('python', 'worker', 'site', 'desktop'):
+        for area in ('python', 'worker', 'desktop'):
             self.assertIn(f'--area {area}', build, area)
         self.assertIn('uses: ./.github/workflows/tests-desktop-windows.yml', build)
         self.assertIn('workflow_call:', on_block('tests-desktop-windows.yml'))
@@ -140,10 +140,9 @@ class TheShapes(unittest.TestCase):
         started = self.started(['desktop/e2e/lib/forms.mjs'])
         self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'page-cases.yml', 'control-tests.yml'}, started)
 
-    def test_a_worker_or_site_change_starts_only_its_suite(self):
+    def test_a_worker_change_starts_only_its_suite(self):
         self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})
         self.assertEqual(self.started(['worker/src/report.js']), {'tests-worker.yml', 'tests-desktop.yml'}, 'a desktop test reads it')
-        self.assertEqual(self.started(['site/src/aicost.js']), {'tests-site.yml'})
 
     def test_a_workflow_change_starts_that_workflow(self):
         for name in pr_workflows():

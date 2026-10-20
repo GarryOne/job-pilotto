@@ -3,7 +3,7 @@
 // The tool only RAISES the file (pin); a row leaves it only in a PR that names it in a Replay-accept line. Pure parts here; guard: e2e/test/replay-ratchet.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
-import {platformOf} from '../../../site/src/platform.js';
+import {platformOf} from './platform.mjs';
 
 export const FILE = new URL('../replay-faithful.json', import.meta.url);
 

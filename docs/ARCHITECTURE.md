@@ -29,7 +29,7 @@ The core crawl and printed digest need no accounts. Everything else turns on whe
 | Python engine | `src/` | The pipeline. Entry: `python -m src <check\|scout\|discover\|feeds\|enrich\|doctor>`. `src/daily.py` orchestrates a jobs check (`daily` is the old name). |
 | Desktop app | `desktop/` | Electron cockpit (v0.5). `start.js` → `main.js`. The window is one module per page under `desktop/renderer/pages/`. `desktop/lib/pipeline.js` shells out to the same Python engine. |
 | Chrome extension | `extension/` | Fills a form from the kit. Talks to the app on `127.0.0.1` (`desktop/lib/server.js`). Never submits. |
-| Website worker | `site/` | One Cloudflare worker: the site, Notion sign-in, the employer index, telemetry, license/trial, fill-failure intake. |
+| Website worker | private repo `job-pilotto-site` (`site/` there) | One Cloudflare worker: the site, Notion sign-in, the employer index, telemetry, license/trial, fill-failure intake. Its routes the app calls are listed in `docs/site-routes.json`; see [docs/rules/private-site.md](rules/private-site.md). |
 | Telegram bot | `worker/` | Commands and buttons. The app long-polls it locally. "Always on" uploads a bundle to the user's own Cloudflare account so buttons work while the Mac is off. |
 
 `desktop/lib/github.js` is the "Always on" path. The user creates `<user>/job-pilotto-private` from a public starter. That repo's workflows (`templates/github-actions/`, scheduled every 4 hours for jobs, optional scout, mail three times a day) call the reusable workflows in this repo: `daily.yml`, `scout.yml`, `mail.yml`. Those workflows have no schedule of their own, so the public repo never runs on anyone's data.

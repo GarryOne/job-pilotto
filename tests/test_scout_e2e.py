@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src import employer_index, scout  # noqa: E402
 from src.sources import ats, careers, feeds  # noqa: E402
+from site_private import needs_site  # noqa: E402
 
 # The title and the places match the example search (data analyst; Amsterdam) and the owner's own (site reliability; Zürich) alike,
 # so the test is the same in CI and on a machine whose terminal follows the Desktop App's settings.
@@ -84,6 +85,7 @@ class ScoutEndToEnd(unittest.TestCase):
         self.assertTrue(row['next_check'])
 
 
+@needs_site
 @unittest.skipUnless(shutil.which('node'), 'node is not installed')
 class IndexContract(unittest.TestCase):
     """What Python writes into the employer index, the website's validator (JavaScript) must accept: else a feed vanishes when published."""

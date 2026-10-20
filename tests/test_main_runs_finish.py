@@ -9,10 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXCEPTIONS = {
-    'site.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
-    'site-next.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
     'worker.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
-    'release-ready-runner.yml': 'a deploy: one group, a started deploy finishes and a waiting older one is replaced by the newest',
 }
 
 
@@ -36,7 +33,7 @@ class NewestMainRunWins(unittest.TestCase):
 
     def test_a_push_to_main_cancels_the_older_commits_run(self):
         pushed = self.push_workflows()
-        self.assertGreaterEqual(len(pushed), 4, 'positive control: the push workflows are read (CI · Tests and the three deploys)')
+        self.assertGreaterEqual(len(pushed), 2, 'positive control: the push workflows are read (CI · Tests and the worker deploy)')
         offenders = []
         for name, text in pushed.items():
             if name in EXCEPTIONS: continue

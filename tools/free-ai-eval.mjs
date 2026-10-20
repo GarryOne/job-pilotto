@@ -6,8 +6,8 @@
 // rest: needs a token with Account > Workers AI > Read + Edit: CF_API_TOKEN or the Keychain item job-pilotto.cloudflare.workers_ai_token; --account <id> names the Cloudflare account the token belongs to, never the production one (its free daily allowance is the live Free AI's). A few hundred calls cost cents.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
-import {costUsd, SMALL, STRONG} from '../site/src/free-ai-models.js';
-import {fromWorkersAi, toWorkersAi} from '../site/src/free-ai-translate.js';
+import {costUsd, SMALL, STRONG} from '../desktop/lib/free-ai-models.js';
+import {fromWorkersAi, toWorkersAi} from '../desktop/lib/free-ai-translate.js';
 import {claudeRun, isClaude} from './free-ai-eval-claude.mjs';
 import {answerProblems, factProblems, kitProblems, schemaProblems, summarize, table} from './free-ai-eval-metrics.mjs';
 

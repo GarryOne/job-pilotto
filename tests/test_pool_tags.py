@@ -7,6 +7,7 @@ from unittest import mock
 
 from src import pool_tags
 from src.ai import meanings
+from site_private import needs_site
 
 
 class PoolTagsTest(unittest.TestCase):
@@ -32,6 +33,7 @@ class PoolTagsTest(unittest.TestCase):
             pool_tags.places(['x'])
         self.assertEqual(seen[0], (*pool_tags.COUNTRIES, 'none'))
 
+    @needs_site
     def test_the_site_accepts_the_same_ids(self):
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool-tags.js').read_text()
         for name, table in (('COUNTRIES', pool_tags.COUNTRIES), ('METROS', pool_tags.METROS), ('FAMILIES', pool_tags.FAMILIES), ('EUROPE', pool_tags.EUROPE)):

@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {cleanHost} from '../lib/host-clean.js';
 
-const cases = JSON.parse(readFileSync(new URL('../../site/test/host-cases.json', import.meta.url), 'utf8'));
+const cases = JSON.parse(readFileSync(new URL('./fixtures/host-cases.json', import.meta.url), 'utf8'));
 
 test('a host is kept only as a plain host name', () => {
   for (const [input, output] of cases.good) assert.equal(cleanHost(input), output, input);

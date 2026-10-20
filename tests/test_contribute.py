@@ -11,6 +11,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import contribute  # noqa: E402
 from src.stores import memory  # noqa: E402
+from site_private import needs_site  # noqa: E402
 
 NOW = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
 SEARCH = {'role_keywords': ['site reliability', '\\bsre\\b', 'platform engineer', 'security engineer'],
@@ -100,6 +101,7 @@ if __name__ == '__main__':
 
 
 class TradeTagsTests(unittest.TestCase):
+    @needs_site
     def test_every_role_tag_the_app_sends_is_one_the_website_keeps(self):
         """6 Oct 2026: a photographer's shares were all tagged 'other' (the tags knew only IT); the site drops a tag it does not list."""
         import re
@@ -127,6 +129,9 @@ class FoundHereTests(unittest.TestCase):
         body = contribute.payload(feeds, report, None, install='abc-12345678', search=SEARCH, db=db)
         self.assertEqual(body['feeds'], [{'ats': 'successfactors', 'slug': 'jobs.coop.ch', 'company': 'Coop', 'matched': False, 'own': False,
                                          'how': 'ai_idea', 'site': 'https://jobs.coop.ch/', 'jobs': 3142, 'hits': 0, 'failed': False}])
+
+    @needs_site
+    def test_the_words_the_app_sends_for_how_a_feed_was_found_are_the_ones_the_site_keeps(self):
         self.assertEqual(set(word for _, word in contribute.HOW) | {'index', 'own', 'other'},
                          set(re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
                              (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1))),

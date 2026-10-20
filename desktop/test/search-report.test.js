@@ -1,6 +1,7 @@
 // The search report (lib/search-report.js): only listed fields, counts and seconds, nothing a person wrote; sent only with Technical reports on.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {siteTest} from './site-private.js';
 import fs from 'node:fs';
 import {FIELDS, FAMILIES, record, reportSearch} from '../lib/search-report.js';
 import {create, KINDS} from '../lib/telemetry.js';
@@ -42,5 +43,9 @@ test('one report per finished run: the nth search and the runs until the first 7
 test('Settings and the privacy page both say that search counts and times are sent', () => {
   const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
   assert.match(read('../renderer/index.html'), /After each search: how many jobs it found and scored, and how many seconds it took/);
+});
+
+siteTest('the privacy page says that search counts and times are sent', () => {
+  const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
   assert.match(read('../../site/public/privacy.html'), /after each search how many jobs it found in your places/);
 });

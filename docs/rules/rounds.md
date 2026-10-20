@@ -7,13 +7,13 @@ the wrong cause for the waiting ([why.md](why.md)).
 ## Start of a round (the coordinator, in this order, a few minutes)
 1. **The Mac first:** `uptime`, `sysctl vm.swapusage`. Swap over ~70% or load far above the core count: it is memory, not CPU (11 Oct: UTM 3 GB + 8
    sessions ~2.5 GB, load 31). Ask the owner to quit the VM; list the finished sessions they can close (each ~400 MB). Do not add parallel runs on a swapping Mac.
-2. **Read the By cause tab** (`/admin/lab-form-filling`, or `node tools/needs-fix-causes.mjs --rows`). Rows in **Run first** (never run, or no run since their fix)
+2. **Read the By cause tab** (`/admin/lab-form-filling`, or `~/job-pilotto-site/tools/site-run.sh node tools/needs-fix-causes.mjs --rows`). Rows in **Run first** (never run, or no run since their fix)
    go to the pool owner for a run BEFORE any fixer starts: 10 of 29 rows were never-run shapes, not failures.
 3. **Weigh by real demand before choosing a cause** (owner, 11 Oct 2026): `/admin/lab-form-filling`'s scorecard gives each platform's share of users' matched jobs
    ("Of matched jobs"; 11 Oct: Greenhouse 55%, Ashby 34%, everything else 0-3%). A cause on a 0-3% platform waits unless its fix is generic and cheap; a
    platform with a high share and a low real fill ("Blind spot": Ashby real forms filled 57%) comes first even when no pool row is red. Success of the round
    is also the real-use fill share of the big platforms, not only pool rows confirmed.
-3. **One session per cause** (the biggest unclaimed), not per row. The brief = `node tools/needs-fix-causes.mjs --brief "<cause>"` (rows, newest captures, exact commands, proof order, rules) + your one line of judgment (`--note "..."`); "Run first" refuses. The brief says its target: "rows of this cause confirmed by a pool run", and the
+3. **One session per cause** (the biggest unclaimed), not per row. The brief = `~/job-pilotto-site/tools/site-run.sh node tools/needs-fix-causes.mjs --brief "<cause>"` (rows, newest captures, exact commands, proof order, rules) + your one line of judgment (`--note "..."`); "Run first" refuses. The brief says its target: "rows of this cause confirmed by a pool run", and the
    owner pastes it into a NEW session (the paste is the owner's approval; a message to a running session waits for the owner in that window).
 4. **Prove a fix in four steps, fastest first** (owner, 11 Oct 2026: proof used to take hours): (1) 3 of 3 real asks of the app's AI on the saved page
    (`ladder-score`, plan path); (2) the row's network record replayed offline (`node replay-net.mjs`; `npm run row -- "<pool row>"` only for a row without a network record, 15-90 s: its pages, the live run's AI answers, the app's own server, the real
