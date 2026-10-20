@@ -198,3 +198,12 @@ class SharedPackTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PackCheckTests(unittest.TestCase):
+    def test_a_pack_answer_outside_its_countrys_box_is_dropped_but_an_unlisted_country_passes(self):
+        self.assertIsNotNone(geo.decode('city:CH:47.4:8.5:10'))
+        self.assertIsNone(geo.decode('city:CH:52.5:13.4:10'))   # Berlin as Swiss
+        self.assertIsNotNone(geo.decode('city:KE:-1.3:36.8:25'))   # no box for Kenya in config/country_boxes.json: kept as before
+        self.assertEqual(geo.country_name('PT'), 'Portugal')
+        self.assertIsNone(geo.country_name('KE'))
