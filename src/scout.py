@@ -31,7 +31,7 @@ from . import budget_tape, contribute, employer_index, scout_need, scout_queue, 
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
-from .scout_candidates import harvest, skipped_origins, starter_list
+from .scout_candidates import counts_when_covered, harvest, harvest_met, skipped_origins, starter_list
 from .scout_core import DEFAULT_BATCH, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, ensure_tables, key_for, now, pending_count
 from .scout_index import board_stats, build_index, central_stats, dead_ends, run_record, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
 from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
@@ -111,6 +111,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # New names every run, however long the queue (owner, 18 Oct 2026: the old 100-name pause froze them for 12 days): the queue is worked in
     # order of each source's yield, and a source with no feed in many checks stops waiting (src/scout_queue.py).
     added = 0 if have else harvest(db, seeds, harvest_sources, skip)
+    added += harvest_met(db, seeds, stores, skip) if harvest_sources is None else 0   # the employers the person met: even on a day with no new names
     if not have:
         print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
     ideas = ai_ideas(db, harvest_sources) if may_add() else None
@@ -125,7 +126,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     if expired:
         print('Scout: no longer waiting on ' + ', '.join(f'{n} from {kind} (no feed in its first checks)' for kind, n in expired.items()) + '.')
     batch = batch_for(pending_count(db), batch)
-    candidates, left = [c for c in next_batch(db, batch, skip) if not have or c['status'] == 'manual'], 0
+    candidates, left = [c for c in next_batch(db, batch, skip) if not have or counts_when_covered(c)], 0
     # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take
     # their places, so a run probes its whole batch (7 Oct 2026: 52 of 92 were left out and the run checked 40).
     dead = scout_core.SHARED_DEAD if scout_core.CENTRAL else employer_index.central_nofeed()
@@ -139,7 +140,7 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
                        (now().isoformat(timespec='seconds'), later, READERS, c['key']))
         db.commit()
         left += len(skipped)
-        candidates = [c for c in next_batch(db, batch, skip) if not have or c['status'] == 'manual']   # those left out wait 30 days; the next come in
+        candidates = [c for c in next_batch(db, batch, skip) if not have or counts_when_covered(c)]   # those left out wait 30 days; the next come in
     if left and not scout_core.CENTRAL:
         from . import pool_served
         pool_served.count('names_tried', left)   # steps skipped thanks to other installs (owner's number)

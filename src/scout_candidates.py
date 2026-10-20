@@ -293,6 +293,46 @@ def default_sources(db, seeds, countries, skip=()):
     return [s for s in every if not s.country or s.country in countries]
 
 
+MET_ORIGIN = 'Met by you'
+MET_PRIORITY = 96      # a company the person met comes before every list (seeds are 90-100, boards 65)
+MET_PER_RUN = 200
+
+
+def met_company_candidates(stores):
+    """Every employer behind a job the person pursues (a pasted link, "Applied elsewhere", a recruiter lead, a mail), through the store's
+    application rows, whichever way each one got there: its name, and the job system its link names when it names one. Never the title or
+    text of a job: the scout needs the employer, not the posting."""
+    try:
+        rows = stores.applications.list()
+    except Exception as error:  # noqa: BLE001 — a store that cannot list leaves the scout with its other sources
+        print(f'Warning: employers you met not read: {type(error).__name__}: {error}')
+        return
+    seen = set()
+    for row in rows:
+        name = str(row.get('company') or '').strip()[:120]
+        if not name or key_for(name) in seen or len(seen) >= MET_PER_RUN:
+            continue
+        seen.add(key_for(name))
+        found = ats.detect(str(row.get('url') or ''))
+        yield dict(name=name, origin=MET_ORIGIN, priority=MET_PRIORITY, ats=found[0] if found else None, slug=found[1] if found else None)
+
+
+def counts_when_covered(candidate):
+    """On a day the shared list needs no new names, a name the person added (manual watch) or met is still checked."""
+    return candidate['status'] == 'manual' or candidate['origin'] == MET_ORIGIN
+
+
+def harvest_met(db, seeds, stores, skip=()):
+    """Add the employers the person met, also on a day the shared list needs no new names, and move one already queued up to the front."""
+    if stores is None:
+        return 0
+    ensure_tables(db)
+    for c in met_company_candidates(stores):
+        db.execute("UPDATE scout_candidates SET priority = MAX(priority, ?) WHERE key = ? AND status IN ('pending', 'none', 'low', 'watch')",
+                   (MET_PRIORITY, key_for(c['name'])))
+    return harvest(db, seeds, [lambda: met_company_candidates(stores)], skip)
+
+
 def harvest(db, seeds, sources=None, skip=()):
     """Add unseen candidates; returns how many were new. Failing sources are skipped, and so are candidates whose origin is in `skip`."""
     ensure_tables(db)
