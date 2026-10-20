@@ -2,6 +2,7 @@
 // fetched goes to the engine, and the pass is one Recent activity task with a line per site. A bot check or refusal in Chrome is a stop line, never "done".
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {siteTest} from './site-private.js';
 import {queue, outcome, done, settingOn, passRunning} from '../lib/refused-reads.js';
 
 const storageWith = settings => { const kept = {...settings}; return {settings: () => kept, saveSettings: patch => Object.assign(kept, patch), kept}; };
@@ -74,6 +75,10 @@ test('Settings has the switch, on by default, and Privacy and the rule name the 
   assert.equal(readRefusedOn({readRefusedSites: false}), false);
   assert.equal(readRefusedOn({readRefusedSites: true}), true);
   assert.match(fs.readFileSync(new URL('desktop/renderer/index.html', root), 'utf8'), /id="refused-read-tick"/);
-  assert.match(fs.readFileSync(new URL('site/public/privacy.html', root), 'utf8'), /Read refused sites in my browser/);
   assert.match(fs.readFileSync(new URL('CLAUDE.md', root), 'utf8'), /Read refused sites in my browser/);
+});
+
+siteTest('Privacy names the feature', async () => {   // the page lives in job-pilotto-site
+  const fs = await import('node:fs');
+  assert.match(fs.readFileSync(new URL('../../site/public/privacy.html', import.meta.url), 'utf8'), /Read refused sites in my browser/);
 });
