@@ -21,7 +21,7 @@ export const OWN_HOSTS = [...ALIAS_APEXES, 'jobpilotto.workers.dev'];
 // paths (static pages are otherwise served before this code runs); test/hosts.test.js fails when a page in public/ is missing from either.
 export const MAIN_HOST = 'www.jobadabra.top';
 export const LEGACY_HOSTS = ['www.jobpilotto.top'];   // the bare jobpilotto.top goes through apexRedirect first
-export const PAGE_PATHS = ['/', '/changelog', '/compare', '/friends', '/intelligence', '/platforms', '/pricing', '/privacy', '/ready-live', '/terms'];
+export const PAGE_PATHS = ['/', '/changelog', '/compare', '/coverage', '/download', '/faq', '/features', '/friends', '/how-it-works', '/intelligence', '/platforms', '/pricing', '/privacy', '/ready-live', '/research', '/terms', '/trust'];
 export function legacyPageRedirect(request) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   const url = new URL(request.url);
