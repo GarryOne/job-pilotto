@@ -6,7 +6,9 @@ reports the answer (`answer`) when it fetches another way (the headless browser)
 - 429, and 503 with a Retry-After, mean "slow down", never "refused": the site's gap doubles (at least its Retry-After), the request waits
   and is tried again up to RETRIES times in the run; past MAX_WAIT it raises Busy (an OSError, so a reader's "failed, try later" path takes
   it) and the job waits for the next run. Before 20 Oct 2026 one 429 parked a whole shared job-system host for 7 days.
-- After SPEEDUP_AFTER answers in a row without a slow-down, the gap shrinks by SPEEDUP, never below START_GAP.
+- A domain that never asked us to slow down is not waited for at all (START_GAP 0): a gap per domain from the start made a search's
+  feed crawl 2-4x slower on its big job systems (measured on the sre/music search tapes, 20 Oct 2026, PR #1610).
+- After SPEEDUP_AFTER answers in a row without a slow-down, the gap shrinks by SPEEDUP; under MIN_GAP it is dropped (back to no wait).
 - One pace per registrable domain (careers_parse.registrable): every employer on a shared job system shares it, since the limit is on our address.
 - What was learned (gap, calm-until) is kept in data/host_pace.json, only numbers per domain, so the next run starts at it.
 Tests: tests/test_host_pace.py (fake local server, every reader in the class).
@@ -22,12 +24,13 @@ import urllib.request
 
 REFUSED = (401, 403)      # a refusal: respected, never retried
 SLOW = (429, 503)         # "slow down" (503 only with a Retry-After)
-START_GAP = 0.2           # seconds between two requests to one domain that never asked us to slow down
+START_GAP = 0.0           # seconds between two requests to a domain that never asked us to slow down: none
+MIN_GAP = 0.25            # a learned gap shrunk below this is dropped
 MAX_GAP = 120.0
 SPEEDUP_AFTER = 10
 SPEEDUP = 0.8
 RETRIES = 3               # tries again in the same run after a slow-down
-MAX_WAIT = 60.0           # longer than this and the request waits for the next run (Busy)
+MAX_WAIT = 10.0           # longer than this and the request waits for the next run (Busy): a search never stalls on one site
 KEEP_DAYS = 30            # a learned pace older than this is forgotten
 
 clock = time.time   # tests set a fake clock and sleep, so waits don't depend on the machine
@@ -142,7 +145,8 @@ def answer(url, status, wait=None):
         elif status < 400:
             line['ok'] += 1
             if line['ok'] >= SPEEDUP_AFTER and line['gap'] > START_GAP:
-                line['gap'], line['ok'] = max(START_GAP, line['gap'] * SPEEDUP), 0
+                gap = line['gap'] * SPEEDUP
+                line['gap'], line['ok'] = (gap if gap >= MIN_GAP else START_GAP), 0
                 _save(state)
     return slow
 
