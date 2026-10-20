@@ -2,7 +2,7 @@
 # "I want me doing nothing and everything being done automatically"). desktop/scripts/media/media.mjs records the app (demo mode, dark) and the real
 # extension on a fictional form, adds zooms and clicks in code (no AI here: the director's plans are committed), checks every piece, and uploads the
 # set as the artifact `product-media`, which the site's deploy pulls. Mac runner: the site shows the Mac app, with its fonts.
-name: Product media (screenshots + videos)
+name: Release · Product media
 
 on:
   push:
