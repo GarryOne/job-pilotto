@@ -1,4 +1,4 @@
-// Ready to send's "Open in my browser" (spec docs/superpowers/specs/2026-10-17-ready-to-send.md, PR 5b; owner 18 Oct 2026: carry the cookies, the normal fill takes over):
+// Ready to send's "Open in my browser" (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md, PR 5b; owner 18 Oct 2026: carry the cookies, the normal fill takes over):
 // the hand-off the night's server gave for one job (page address, its browser storage, a snapshot of the filled fields) waits here until the
 // extension, in the tab the app opened for that job, asks for it once. Only that page's own site's cookies leave this module: the night's browser
 // also holds other sites' cookies. Pure apart from the pending map. Guard: test/ready-handoff.test.js.

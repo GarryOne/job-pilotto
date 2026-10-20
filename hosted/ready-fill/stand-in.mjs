@@ -1,4 +1,4 @@
-// The app the night's extension talks to (spec docs/superpowers/specs/2026-10-17-ready-to-send.md): a small local server that answers like the Mac's, from the batch only. /extension/me and /extension/kit are keyed by the job's address (its form and the pages below it count as the job);
+// The app the night's extension talks to (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): a small local server that answers like the Mac's, from the batch only. /extension/me and /extension/kit are keyed by the job's address (its form and the pages below it count as the job);
 // every other call answers {} (no AI judging, no Notion, no Keychain, no site password: phase 1 has no accounts). It keeps what the fill reported: the run record's counts and the page's role (an account or sign-in page is a wall).
 // It holds no secret and no network access beyond 127.0.0.1. Guard: desktop/test/ready-fill.test.js.
 import http from 'node:http';
