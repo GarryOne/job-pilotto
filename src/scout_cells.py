@@ -9,9 +9,19 @@ from collections import Counter
 from . import role_kinds
 from .pool_tags import COUNTRIES, EUROPE
 
-FLOOR = 25      # employers per kind and country the scout aims for (site/src/scoutingadmin.js FLOOR)
+FLOOR = 25      # employers per kind and country the scout aims for in the big markets (site/shared/scoutingvisual.js FLOOR)
+# The floor follows the country's size (owner, 20 Oct 2026: a flat 25 is never reachable in Luxembourg or Moldova, so only 13 of 225 cells counted).
+# Mid-size countries are every one that is in neither list. An install's own "covered" check (src/scout_need.py) keeps the flat FLOOR: it asks about one search.
+BIG = ('de', 'gb', 'fr', 'it', 'es', 'pl', 'nl')
+SMALL = ('lu', 'md', 'bg', 'hr', 'ee')
+MID_FLOOR, SMALL_FLOOR = 10, 5
 AIMED = tuple(kind for kind in role_kinds.KINDS if kind not in ('software', 'other'))   # every kind but the strong one and the leftover
 RECENT = 40     # cells aimed at lately wait their turn, so one empty cell does not take every run
+
+
+def floor_for(country):
+    """Employers per kind a European country needs before the scout stops aiming at it: FLOOR (big markets), 10 (mid-size), 5 (small)."""
+    return FLOOR if country in BIG else SMALL_FLOOR if country in SMALL else MID_FLOOR
 
 
 def top_kind(feed):
@@ -46,12 +56,12 @@ def keep(db, feeds):
 
 
 def next_cell(db):
-    """(kind, country id) the next ideas aim at: the thinnest cell under FLOOR not aimed at lately, or None (no counts yet, or none thin)."""
+    """(kind, country id) the next ideas aim at: the thinnest cell (share of its country's floor) not aimed at lately, or None (no counts yet, or none thin)."""
     cells, recent = _meta(db, 'cells', None), _meta(db, 'cells_aimed', [])
     if not isinstance(cells, dict):
         return None
-    thin = sorted((cells.get(f'{kind}|{country}', 0), AIMED.index(kind), EUROPE.index(country), kind, country)
-                  for kind in AIMED for country in EUROPE if cells.get(f'{kind}|{country}', 0) < FLOOR and f'{kind}|{country}' not in recent)
+    thin = sorted((cells.get(f'{kind}|{country}', 0) / floor_for(country), AIMED.index(kind), EUROPE.index(country), kind, country)
+                  for kind in AIMED for country in EUROPE if cells.get(f'{kind}|{country}', 0) < floor_for(country) and f'{kind}|{country}' not in recent)
     if not thin:
         _set(db, 'cells_aimed', [])   # every thin cell had its turn: start again
         db.commit()
