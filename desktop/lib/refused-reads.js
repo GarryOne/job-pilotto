@@ -14,10 +14,11 @@ let pass = null;   // {tee, expected, results, fits, finish}
 export const passRunning = () => !!pass;
 
 // The extension asks what to read: [] when the setting is off, a pass is running, or nothing is due (never asks the engine when off).
-export async function queue(storage, {allowed = true, log = () => {}, run = pipeline.run, work = pipeline.work, allowanceBlock = () => false, scoreArgs = pipeline.visitsArgs} = {}) {
+export async function queue(storage, {allowed = true, incognito = true, log = () => {}, run = pipeline.run, work = pipeline.work, allowanceBlock = () => false, scoreArgs = pipeline.visitsArgs} = {}) {
   const off = {ok: true, on: false, sites: []};
   if (!settingOn(storage)) return off;
   if (!!storage.settings().refusedNeedsAllow === allowed) storage.saveSettings({refusedNeedsAllow: !allowed});   // Settings says "Allow all sites in the extension once"
+  if (!!storage.settings().refusedNeedsIncognito === incognito) storage.saveSettings({refusedNeedsIncognito: !incognito});   // Settings says "Allow in Incognito" for the private-window step
   if (!allowed || pass) return {...off, on: true};
   let sites = [];
   try {
@@ -58,7 +59,7 @@ export async function outcome(storage, payload, {run = pipeline.run} = {}) {
   if (!settingOn(storage)) return {ok: false, error: 'off'};
   const url = String(payload?.url || '');
   if (!/^https:\/\//.test(url)) return {ok: false, error: 'no page address'};
-  const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500)};
+  const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500), step: ['engine', 'download', 'tab'].includes(payload.step) ? payload.step : 'download'};
   const answer = await engineJson(storage, 'refused-outcome', body, run).catch(() => null);
   const name = answer?.name || new URL(url).hostname;
   appLog('refused-reads', 'site fetched in your browser', {host: new URL(url).hostname, state: answer?.state || 'failed', jobs: answer?.jobs ?? null});
@@ -70,6 +71,14 @@ export async function outcome(storage, payload, {run = pipeline.run} = {}) {
   pass.tee(siteLine(ok ? 'done' : 'stopped', name, ok ? `${jobs} job${jobs === 1 ? '' : 's'} read` : pass.results.at(-1).why));
   if (pass.results.length >= pass.expected) await pass.finish();
   return answer || {ok: false};
+}
+
+// What a page in the extension's real tab is now (page, passive_check, captcha, login, refused): the engine's AI answers, the extension waits or stops on it.
+export async function judge(storage, payload, {run = pipeline.run} = {}) {
+  if (!settingOn(storage)) return {ok: false, error: 'off'};
+  const body = {url: String(payload?.url || '').slice(0, 500), status: Number(payload?.status) || 0, html: String(payload?.html || '').slice(0, 60000), title: String(payload?.title || '').slice(0, 300), final: String(payload?.final || '').slice(0, 500)};
+  const answer = await engineJson(storage, 'refused-judge', body, run).catch(() => null);
+  return {ok: !!answer?.ok, state: answer?.state || 'refused'};   // no answer: a stop, never a guess that it cleared
 }
 
 export const done = () => pass?.finish();   // the extension's pass ended (some sites left unread when Chrome stops)

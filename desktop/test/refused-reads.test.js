@@ -100,3 +100,13 @@ test('Read now: a job opened from a site, or Check for new jobs, makes the engin
   assert.deepEqual(seen.at(-1), ['src.desktop', 'refused-queue', '--all']);
   await done();
 });
+
+test('Settings is told when the private-window step cannot run (no Allow in Incognito) and when it can', async () => {
+  const f = fakes(), storage = storageWith({readRefusedSites: true});
+  await queue(storage, {run: f.run, work: f.work, incognito: false, scoreArgs: () => ['src.desktop', 'score']});
+  assert.equal(storage.kept.refusedNeedsIncognito, true);
+  await done();
+  await queue(storage, {run: f.run, work: f.work, incognito: true, scoreArgs: () => ['src.desktop', 'score']});
+  assert.equal(storage.kept.refusedNeedsIncognito, false);
+  await done();
+});

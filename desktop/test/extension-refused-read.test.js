@@ -67,3 +67,29 @@ test('Read now: the extension looks every minute and only reads when the app say
     assert.equal(paths.includes('/extension/refused-queue'), pending, 'the engine is only asked when a Read now waits');
   }
 });
+
+test('the ladder: a site the download cannot open goes on to the real tab, and the outcome says which step opened it', async () => {
+  const calls = [], tabbed = [];
+  const call = async (_cfg, path, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    calls.push([path, body]);
+    if (path === '/extension/refused-queue') return {ok: true, on: true, sites: [{url: 'https://jobs.coop.ch'}, {url: 'https://jobs.manor.ch'}, {url: 'https://jobs.last.ch', step: 'tab'}]};
+    if (path === '/extension/refused-judge') return {ok: true, state: body.status === 403 ? 'refused' : 'page'};
+    return {ok: true};
+  };
+  const fetchPage = async url => ({status: url.includes('coop') ? 403 : 200, url, text: async () => '<html><title>Jobs</title></html>'});
+  const tabs = {read: async url => { tabbed.push(url); return {state: 'page', page: {url, status: 200, html: '<html>jobs</html>', title: 'Jobs', final: url}}; }, close: async () => {}};
+  await pass({chrome: chromeWith(true), call, config: {}, fetchPage, tabs, pause: async () => {}});
+  assert.deepEqual(tabbed, ['https://jobs.coop.ch', 'https://jobs.last.ch'], 'only the refused one and the one that last opened at the tab step; an open site never uses the tab');
+  const steps = Object.fromEntries(calls.filter(([path]) => path === '/extension/refused-outcome').map(([, body]) => [new URL(body.url).hostname, body.step]));
+  assert.deepEqual(steps, {'jobs.coop.ch': 'tab', 'jobs.manor.ch': 'download', 'jobs.last.ch': 'tab'});
+  assert.equal(calls.filter(([path]) => path === '/extension/refused-outcome').length, 3, 'one outcome per site, never two');
+});
+
+test('a 429 is "slow down", never a ladder step: no tab is opened for it', async () => {
+  const tabbed = [];
+  const call = async (_cfg, path) => path === '/extension/refused-queue' ? {ok: true, on: true, sites: [{url: 'https://jobs.coop.ch'}]} : {ok: true, state: 'refused'};
+  const fetchPage = async url => ({status: 429, url, text: async () => ''});
+  await pass({chrome: chromeWith(true), call, config: {}, fetchPage, tabs: {read: async url => { tabbed.push(url); return {skipped: 'x'}; }, close: async () => {}}, pause: async () => {}});
+  assert.deepEqual(tabbed, []);
+});
