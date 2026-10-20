@@ -151,5 +151,13 @@
     return rows;
   };
   window.__jobPilottoChosen = chosen;   // the name the audit and coverage.js call it by
-  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, hiddenAway, comboValue, fileState, baseline, namesIn, shownSlot, pass};
+  // Custom dropdowns that are no input (<div role=combobox>, <button aria-haspopup=listbox>): fields the form reader and the audit both list, shown and not wrapping a real control
+  // (a combobox that holds its own input is read through the input). The list they open sits in the page, named by aria-controls or beside the trigger.
+  const customSelects = shown => [...document.querySelectorAll('div[role=combobox], button[role=combobox], button[aria-haspopup=listbox]')]
+    .filter(el => shown(el) && !el.disabled && !hiddenAway(el) && !el.querySelector('input:not([type=hidden]), select, textarea'));
+  const choicesOf = el => {
+    const list = (el.getAttribute('aria-controls') && document.getElementById(el.getAttribute('aria-controls'))) || el.parentElement?.parentElement?.querySelector('[role=listbox]');
+    return Array.from(list?.querySelectorAll('[role=option]') || [], o => String(o.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 80);
+  };
+  window.__jobPilottoReadBack = {customSelects, choicesOf, stateOf, holds: el => stateOf(el) === 'committed', chosen, hiddenAway, comboValue, fileState, baseline, namesIn, shownSlot, pass};
 })();
