@@ -255,6 +255,8 @@ def site_facts(limit=300, db=None):
             out.append({'host': host, 'kind': 'board', 'url': board.get('search_url'), 'board': {'countries': countries}, **({'yield': given} if given else {})})
     for url in (data.get('jobpage_bad') or {}):
         add(visits.host_of(url), 'dead', str(url).split('#')[0].split('?')[0])
+    from .sources import refused_reads   # what this install's browser met on refused sites (owner, 20 Oct 2026: every install learns from it)
+    out += [fact for fact in refused_reads.shared() if re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', fact['host'])]
     return out[:limit]
 
 
