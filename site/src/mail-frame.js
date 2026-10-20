@@ -1,7 +1,7 @@
 // The one frame every e-mail goes through (owner, 17 Oct 2026): a branded card with the logo, a title, the content, at most one orange button and a footer saying why the person gets it,
-// with "Stop these emails", "Email settings" and jobpilotto.top. Email-safe: a table layout, inline styles, a hosted https logo, light colours inline with a dark-mode override in <style>.
+// with "Stop these emails", "Email settings" and jobadabra.top. Email-safe: a table layout, inline styles, a hosted https logo, light colours inline with a dark-mode override in <style>.
 // src/mail.js applies it in send(), so no template can skip it; each template supplies only its content. A plain-text twin comes from frameText(). Guard: test/mail-frame.test.js.
-export const SITE = 'https://www.jobpilotto.top';
+export const SITE = 'https://www.jobadabra.top';
 const LOGO = `${SITE}/images/logo-mark.png`;
 const ACCENT = '#d0612b';
 export const esc = text => String(text ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -35,7 +35,7 @@ export const codeBox = code => `<p class="jp-box jp-ink" style="font:700 30px ui
 
 // html: {title, body (html), button: {label, url} | null, why, links: {stop, settings} | null}. links null = nothing to stop (a security mail): only the site link shows.
 export function frameHtml({title, body, button: action, why, links}) {
-  const foot = [links && link(links.stop, 'Stop these emails'), links && link(links.settings, 'Email settings'), link(SITE, 'jobpilotto.top')].filter(Boolean).join(' · ');
+  const foot = [links && link(links.stop, 'Stop these emails'), links && link(links.settings, 'Email settings'), link(SITE, 'jobadabra.top')].filter(Boolean).join(' · ');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(title)}</title>${STYLE}</head>`
     + `<body class="jp-bg" style="margin:0;background:#f4f5f7"><table role="presentation" data-jp-frame="1" width="100%" cellpadding="0" cellspacing="0" class="jp-bg" style="background:#f4f5f7"><tr><td align="center" style="padding:22px 14px">`
     + `<table role="presentation" width="560" cellpadding="0" cellspacing="0" class="jp-card" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e6e8ec;border-radius:12px;font:15px/1.55 ${FONT};color:#161a22">`

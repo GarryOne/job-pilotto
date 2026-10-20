@@ -39,7 +39,7 @@ export async function settings(request, env, now = new Date()) {
   }
   if (request.method !== 'GET') return page('Not allowed', '', 405);
   const st = await stateOf(env, addr), marketingOn = env.MARKETING_MAIL === 'on';
-  const body = `${st.blocked ? '<p><b>Mail to this address is stopped</b> after a bounce or a complaint. Write to hello@jobpilotto.top to turn it back on.</p>' : ''}`
+  const body = `${st.blocked ? '<p><b>Mail to this address is stopped</b> after a bounce or a complaint. Write to hello@jobadabra.top to turn it back on.</p>' : ''}`
     + `<form method="post">${row('service', st.service, 'Jobadabra emails', 'New matches, your digest and account notices.', st.blocked)}`
     + `<p><label><b>Digest</b><br><select name="cadence"${st.blocked ? ' disabled' : ''}>${CADENCES.map(c => `<option value="${c}"${st.cadence === c ? ' selected' : ''}>${c === 'daily' ? 'One email a day' : 'One email a week (Mondays)'}</option>`).join('')}</select></label><br><small style="color:#667085">Everything except new matches, which arrive at once.</small></p>`
     + `${row('marketing', marketingOn && st.marketing, 'Product news', marketingOn ? 'News and offers, only when there is something to say.' : 'Off. We are not sending any product news right now.', !marketingOn || st.blocked)}`

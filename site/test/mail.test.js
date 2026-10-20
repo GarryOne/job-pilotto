@@ -25,7 +25,7 @@ test('a digest goes out from the service address with the footer, the one-click 
   const {e, sent} = setup(), got = await send(e, 'digest', 'Me@Example.com', digest, {now});
   assert.deepEqual(got, {ok: true, id: 'm1'});
   assert.equal(sent[0].to, 'me@example.com');
-  assert.match(sent[0].from, /notifications@jobpilotto\.top/);
+  assert.match(sent[0].from, /notifications@jobadabra\.top/);
   const link = await stopLink(e, 'me@example.com', 'service');
   assert.ok(sent[0].text.includes(link) && sent[0].html.includes(link.replaceAll('&', '&amp;')));
   assert.equal(sent[0].headers['List-Unsubscribe'], `<${link}>`);
@@ -80,7 +80,7 @@ test('marketing mail needs the opt-in on the account, and its unsubscribe clears
     assert.equal((await send(e, 'news', 'nobody@example.com', {}, {now})).reason, 'not_opted_in');
     e.STATS.db.prepare('UPDATE pro_accounts SET marketing_opt_in = 1 WHERE id = ?').run(id);
     assert.equal((await send(e, 'news', 'me@example.com', {}, {now})).ok, true);
-    assert.match(sent[0].from, /news@jobpilotto\.top/);
+    assert.match(sent[0].from, /news@jobadabra\.top/);
     await unsubscribe(new Request(await stopLink(e, 'me@example.com', 'marketing'), {method: 'POST'}), e, now);
     assert.equal(rows(e, 'SELECT marketing_opt_in FROM pro_accounts')[0].marketing_opt_in, 0);
     assert.equal((await send(e, 'news', 'me@example.com', {}, {now})).reason, 'unsubscribed');

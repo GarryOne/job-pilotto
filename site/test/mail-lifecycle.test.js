@@ -71,7 +71,7 @@ test('"Always on paused" goes to a trial account whose hosted schedule paused, f
   const put = e.STATS.db.prepare("INSERT INTO hosted_schedules (account, install, state, pause_reason, next_run_at, last_seen_at, created_at) VALUES (?, 'i', ?, ?, 'x', 'x', 'x')");
   put.run(over, 'paused', 'trial-over'); put.run(idle, 'paused', 'inactive'); put.run(running, 'on', null);
   assert.equal((await run(e, now)).paused, 2);
-  assert.match(sent.find(m => m.to === 'over@example.com').text, /Get Pro to keep it running: https:\/\/www\.jobpilotto\.top\/pricing/);
+  assert.match(sent.find(m => m.to === 'over@example.com').text, /Get Pro to keep it running: https:\/\/www\.jobadabra\.top\/pricing/);
   assert.ok(!/Pro/.test(sent.find(m => m.to === 'idle@example.com').text), 'an inactivity pause is not an upsell');
   assert.equal((await run(e, new Date(now.getTime() + 5 * 86400000))).paused, 0);
   assert.equal((await run(e, new Date(now.getTime() + 31 * 86400000))).paused, 2);
@@ -89,7 +89,7 @@ test('the Pro-launch mail: off without its flag; counts without send=1; goes onl
   assert.deepEqual(await launch(on, {send: true, now}), {sent: 1, skipped: 0});
   assert.equal(sent[0].to, 'yes@example.com');
   assert.match(sent[0].text, /\$19 at launch \(then \$29\), VAT included/);
-  assert.match(sent[0].from, /news@jobpilotto\.top/);
+  assert.match(sent[0].from, /news@jobadabra\.top/);
   assert.deepEqual(await launch(on, {send: true, now}), {sent: 0, skipped: 0}, 'once only');
 });
 
