@@ -1,5 +1,5 @@
-"""Refused sites read in the user's own browser (owner, 19 Oct 2026; rule: CLAUDE.md "Never past a login wall", the opt-in exception). Only for a user who turned
-on "Read refused sites in my browser" (the app checks the setting before it asks this file anything): the employer career sites and job boards that refused the engine
+"""Refused sites read in the user's own browser (owner, 19 Oct 2026; rule: CLAUDE.md "Never past a login wall", the opt-in exception). Unless the user turned
+off "Read refused sites in my browser", which is on by default (the app checks the setting before it asks this file anything): the employer career sites and job boards that refused the engine
 (401/403/429, a bot check) are fetched ONCE by the extension from the user's Chrome, without cookies or logins, at most every READ_DAYS, one at a time, and the page it brings
 is read like a page the person opened (visits_read.read). A bot check, a refusal or a login page in the browser means stop and record: never retried, never solved.
 Never LinkedIn, Indeed, Glassdoor, levels.fyi, Reddit or any login wall. Guarded by tests/test_refused_reads.py and desktop/test/refused-reads.test.js."""
