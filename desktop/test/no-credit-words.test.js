@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 
 const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const WHERE = ['desktop/renderer', 'desktop/lib', 'desktop/main.js', 'site/public', 'site-next', 'site/src', 'README.md', 'docs/ARCHITECTURE.md', 'src'];
+const WHERE = ['desktop/renderer', 'desktop/lib', 'desktop/main.js', 'site/public', 'site/src', 'site/web', 'site/admin', 'site/api', 'site/shared', 'site/worker', 'site-next', 'README.md', 'docs/ARCHITECTURE.md', 'src'];
 const OLD = /free (AI )?credit|free-credit|\$1 (of|free)|trial credit|\\\$1 free/i;
 
 test('no file the user sees or the product runs from still talks about the $1 free credit', () => {
