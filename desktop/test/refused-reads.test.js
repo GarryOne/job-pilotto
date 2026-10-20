@@ -1,4 +1,4 @@
-// "Read refused sites in my browser" (owner, 19 Oct 2026): off by default and then the engine is never asked; on, the engine's queue goes to the extension, each page it
+// "Read refused sites in my browser" (owner, 19 Oct 2026): ON by default (opt-out, 20 Oct 2026); turned off, the engine is never asked; on, the engine's queue goes to the extension, each page it
 // fetched goes to the engine, and the pass is one Recent activity task with a line per site. A bot check or refusal in Chrome is a stop line, never "done".
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -23,12 +23,13 @@ function fakes() {
   return {calls, lines, run, work, ended: () => finished};
 }
 
-test('off by default: the queue is empty and the engine is never asked', async () => {
-  const f = fakes();
-  assert.equal(settingOn(storageWith({})), false);
-  const answer = await queue(storageWith({}), {run: f.run, work: f.work});
+test('on by default; turned off, the queue is empty and the engine is never asked', async () => {
+  const f = fakes(), off = () => storageWith({readRefusedSites: false});
+  assert.equal(settingOn(storageWith({})), true);
+  assert.equal(settingOn(off()), false);
+  const answer = await queue(off(), {run: f.run, work: f.work});
   assert.deepEqual([answer.on, answer.sites, f.calls], [false, [], []]);
-  assert.equal((await outcome(storageWith({}), {url: 'https://jobs.coop.ch', status: 200, html: 'x'}, {run: f.run})).ok, false, 'an outcome sent while off is dropped');
+  assert.equal((await outcome(off(), {url: 'https://jobs.coop.ch', status: 200, html: 'x'}, {run: f.run})).ok, false, 'an outcome sent while turned off is dropped');
   assert.deepEqual(f.calls, []);
 });
 
@@ -66,10 +67,11 @@ test('the extension ending a pass early closes the task with what it has', async
   assert.ok(!passRunning());
 });
 
-test('Settings has the switch, off by default, and Privacy and the rule name the feature', async () => {
+test('Settings has the switch, on by default, and Privacy and the rule name the feature', async () => {
   const fs = await import('node:fs'), root = new URL('../../', import.meta.url);
   const {readRefusedOn} = await import('../renderer/pages/refused-read-setting.js');
-  assert.equal(readRefusedOn({}), false);
+  assert.equal(readRefusedOn({}), true);
+  assert.equal(readRefusedOn({readRefusedSites: false}), false);
   assert.equal(readRefusedOn({readRefusedSites: true}), true);
   assert.match(fs.readFileSync(new URL('desktop/renderer/index.html', root), 'utf8'), /id="refused-read-tick"/);
   assert.match(fs.readFileSync(new URL('site/public/privacy.html', root), 'utf8'), /Read refused sites in my browser/);

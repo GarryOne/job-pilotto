@@ -18,7 +18,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 ## Safety rules (never relaxed without the owner)
 - **Never Submit an application, never auto-apply.** The kit drafts, the owner submits. No captcha, bot check or SMS code; never past a login wall
   (LinkedIn, Glassdoor, Indeed, levels.fyi, Reddit: only through the user's own visit; 401/403/429 is a no).
-  **One opt-in exception** (owner, 19 Oct 2026): a user who turned on Settings → "Read refused sites in my browser" (OFF by default, named on the privacy page) lets the extension read a public
+  **One opt-out exception** (owner, 19 Oct 2026, ON by default since 20 Oct 2026: "this should be opt-out, meaning on by default"): unless the user turned off Settings → "Read refused sites in my browser" (named on the privacy page), it lets the extension read a public
   employer careers page or job board that refused the engine, once per 30 days, one site at a time, **without cookies or logins**, never the sites above or any login wall; a refusal, bot check or
   captcha in the browser = stop and record, never retried, never solved; each site read is listed in Recent activity. Code: `src/sources/refused_reads.py`, `extension/refused-read.js`.
 - **Tests and automation never touch the owner's live app, accounts or real data.** List what product code reaches (ports, Keychain, tokens, real

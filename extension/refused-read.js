@@ -1,5 +1,5 @@
 // "Read refused sites in my browser" (owner, 19 Oct 2026; rule: CLAUDE.md, the opt-in exception to "never past a login wall"): once an hour the extension asks the app what is
-// due. The app answers only when the person turned the setting on (Settings → Advanced, off by default), and then lists sites that refused the app's own reading and were not
+// due. The app answers unless the person turned the setting off (Settings → Advanced, on by default since 20 Oct 2026), and then lists sites that refused the app's own reading and were not
 // asked in the last 30 days. Each is fetched ONCE, one at a time, with a pause, WITHOUT cookies or logins (credentials omitted), and the page goes to the app, which keeps its jobs
 // or the stop. Never LinkedIn, Indeed, Glassdoor, levels.fyi, Reddit (checked here too, whatever the app says); a refusal, bot check or login page is the app's stop, never retried and
 // never solved. Not a flow file: nothing here touches an application. Guard: desktop/test/extension-refused-read.test.js.

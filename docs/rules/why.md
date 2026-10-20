@@ -13,7 +13,7 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
 - **Login walls and bot checks** (owner, 7 Oct 2026): LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit are read only through the user's own visit;
   401/403/429 or a check is a no.
   **The one opt-in exception** (owner, 19 Oct 2026, verbatim: "we don't want to crawl job boards, many requests a day, but rather employer sites, once. And that's it. And we want to give the UX to the user that everything is happening magically. He is not asked to intervene. We can state clearly in the app (have a settings), in the privacy... that we're doing this." / "So we don't want to do this against his will" / "but if he's accepting this. then let's do"). A coordinator advised against it (the read is routed through the user so the site cannot tell); he chose it knowingly,
-  with job boards included, on the terms in CLAUDE.md: off by default, once per 30 days, no cookies, never the login-wall sites, stop on any check. Numbers behind it (19 Oct 2026, six searches): about 5% of employer sites refuse the engine, 13 of 18 tested answered in a real Chrome.
+  with job boards included, on the terms in CLAUDE.md: first opt-in, then ON by default on 20 Oct 2026 (owner: "this should be opt-out, meaning on by default"; the person can turn it off), once per 30 days, no cookies, never the login-wall sites, stop on any check. Numbers behind it (19 Oct 2026, six searches): about 5% of employer sites refuse the engine, 13 of 18 tested answered in a real Chrome.
 
 ## Meaning and pages
 - **Meaning comes from AI, never keyword lists** (owner, 8 Oct 2026: "AI should interpret mails"): an English-only subject-word Gmail search never
