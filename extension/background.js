@@ -27,6 +27,7 @@ import {KEY, fromOf, jobOf, bindMark, markFor, startJob} from './tab-identity.js
 import {tellPanel} from './page-notes.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
 import {createReadyHandoff} from './ready-handoff.js';
+import {startRefusedReads} from './refused-read.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -156,6 +157,7 @@ if (chrome.webNavigation) {
   chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {}); });
   chrome.permissions.onAdded.addListener(() => { startWaiting(); resumeFillWaiting({decide}); });
   watchUnallowedFillTabs({decide});
+  startRefusedReads();   // asks the app once an hour what refused sites are due; the app answers only when its setting is on (extension/refused-read.js)
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;
     const key = `armed:${details.tabId}`;

@@ -66,6 +66,8 @@ def main(argv=None):
     sub.add_parser('visit-jobpages').add_argument('file')   # sites about to be read (JSON [{name, url, kind}]): their job pages, a web search each when unknown
     sub.add_parser('visit-jobpage').add_argument('file')   # a page that is not a job list (JSON: url, html): the job list's address, kept per site
     sub.add_parser('visit-read').add_argument('file')
+    sub.add_parser('refused-queue')   # refused employer sites and boards the extension may fetch once (src/sources/refused_reads.py); the app asks only when the setting is on
+    sub.add_parser('refused-outcome').add_argument('file')   # what the extension's fetch of one of them brought (JSON: url, status, html, title, final)
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
     sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
     sub.add_parser('role-ideas').add_argument('file', nargs='?')   # roles suggested from the Profile (JSON: set_aside), counted in the places' titles
@@ -230,6 +232,23 @@ def main(argv=None):
             from .sources import visits
             page = json.loads(Path(args.file).read_text())
             print(json.dumps({'ok': True, 'url': visits.job_page(page['url'], page.get('html') or '')}))
+            return 0
+        if args.command == 'refused-queue':
+            from .sources import refused_reads
+            print(json.dumps({'ok': True, 'sites': refused_reads.queue()}, ensure_ascii=False))
+            return 0
+        if args.command == 'refused-outcome':
+            from .sources import refused_reads
+            page = json.loads(Path(args.file).read_text())
+            result = refused_reads.outcome(str(page.get('url') or ''), page.get('status'), str(page.get('html') or ''), str(page.get('title') or ''), str(page.get('final') or ''))
+            if result.get('feed'):   # like a page the person opened: the next jobs check reads, filters and scores it
+                with store.connect(JOBS_DB) as db:
+                    from . import scout
+                    scout.ensure_tables(db)
+                    db.execute("INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('visit', ?, ?, 'Standard', NULL, ?)",
+                               (result['feed'], result['name'], datetime.now(timezone.utc).isoformat(timespec='seconds')))
+                    db.commit()
+            print(json.dumps({key: value for key, value in result.items() if key != 'feed'}, ensure_ascii=False))
             return 0
         if args.command == 'visit-read':
             from .sources import visits

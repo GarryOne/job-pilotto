@@ -53,6 +53,12 @@
       Beta testers (who switched the beta on) have one more switch, off until they turn it on: when a search fails or hangs, the last 200 lines of its log
       are attached to that report, with emails, folder paths, keys, links' query parts and numbers removed first.</p>
     <p>This website sends nothing to PostHog or any other third-party analytics. It counts page views and Download clicks itself (page, where the visit came from, country), with no cookie and no id kept between page views.</p>
+    <h2>Read refused sites in my browser (off by default)</h2>
+    <p>Some employer career pages and job boards refuse Job Pilotto's own reading. <b>Settings → Advanced → Read refused sites in my browser</b> is off until you turn it on.
+      When it is on, the Job Pilotto Chrome extension fetches such a page <b>once, then again only after 30 days</b>, one site at a time, from your own computer and
+      internet connection, <b>without your cookies or logins</b>, and sends the page to the app on your computer, which keeps the jobs on it. It never reads LinkedIn, Indeed,
+      Glassdoor, levels.fyi, Reddit or any page behind a login, and it never solves a captcha or bot check: on a refusal, a check or a login page it stops and notes the site.
+      Each site read, or stopped, is listed in Recent activity. Nothing from these pages is sent to us.</p>
     <h2>Shared fixes from our service</h2>
     <p>Forms differ, so Jobadabra learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
       extension ask our website for <em>shared fixes</em> for the special controls on the form in front of you. The request holds
