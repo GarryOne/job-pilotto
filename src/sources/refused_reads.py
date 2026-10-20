@@ -1,7 +1,8 @@
 """Refused sites read in the user's own browser (owner, 19 Oct 2026; rule: CLAUDE.md "Never past a login wall", the opt-in exception). Unless the user turned
 off "Read refused sites in my browser", which is on by default (the app checks the setting before it asks this file anything): the employer career sites and job boards that refused the engine
-(401/403/429, a bot check) are fetched ONCE by the extension from the user's Chrome, without cookies or logins, at most every READ_DAYS, one at a time, and the page it brings
-is read like a page the person opened (visits_read.read). A bot check, a refusal or a login page in the browser means stop and record: never retried, never solved.
+(401/403, a bot check) are fetched ONCE by the extension from the user's Chrome, without cookies or logins, at most every READ_DAYS, one at a time, and the page it brings
+is read like a page the person opened (visits_read.read). A bot check, a refusal or a login page in the browser means stop and record: never retried, never solved. A 429 ("slow down") is kept
+as 'waiting' for WAIT_DAYS and widens the site's pace (host_pace), never a refusal.
 Never LinkedIn, Indeed, Glassdoor, levels.fyi, Reddit or any login wall. Guarded by tests/test_refused_reads.py and desktop/test/refused-reads.test.js."""
 import re
 import urllib.parse
@@ -9,9 +10,10 @@ from datetime import datetime, timedelta, timezone
 
 from ..ai import board_ideas
 from ..paths import load_search_config
-from . import render, visits
+from . import host_pace, render, visits
 
 READ_DAYS = 30      # a site is asked once in this many days, whatever it answered
+WAIT_DAYS = 1       # ... except a site that asked us to slow down: asked again the next day
 MAX_QUEUE = 12      # sites handed to the extension in one go
 CONCURRENCY = 1     # the extension asks one site at a time, with a pause (extension/refused-read.js)
 NEVER = (*board_ideas.PORTALS, 'reddit.', 'xing.')   # login-wall sites: only through the person's own visit
@@ -34,8 +36,9 @@ def allowed(url):
 
 
 def _recent(kept, host, now):
-    stamp = (kept.get(host) or {}).get('at')
-    return bool(stamp) and stamp >= (now - timedelta(days=READ_DAYS)).isoformat(timespec='seconds')
+    entry = kept.get(host) or {}
+    days = WAIT_DAYS if entry.get('state') == 'waiting' else READ_DAYS
+    return bool(entry.get('at')) and entry['at'] >= (now - timedelta(days=days)).isoformat(timespec='seconds')
 
 
 def _board_url(board, search):
@@ -80,7 +83,7 @@ def _keep(host, url, state, why, now):
 
 def _stop_why(status, html, final):
     """Why this page ends the visit, or ''. A refusal status, a bot check (the page is short and says so) or a login page: a floor, never a judgment of a good page."""
-    if status in (401, 403, 429):
+    if status in host_pace.REFUSED:
         return f'HTTP {status}'
     text = (html or '')[:6000].lower()
     if len(html or '') < 20000 and any(word in text for word in render.CHALLENGE):
@@ -96,6 +99,10 @@ def outcome(url, status, html, title='', final='', now=None):
     host = visits.host_of(url)
     if not allowed(url):
         return {'ok': True, 'state': 'skipped', 'why': 'a site that is only read through your own visit', 'name': host}
+    if host_pace.answer(url, int(status or 0)):   # "slow down": asked again after WAIT_DAYS, not a refusal
+        _keep(host, url, 'waiting', 'asked us to slow down', now)
+        print(f'Refused sites: {host} asked us to slow down; asked again in {WAIT_DAYS} day(s)')
+        return {'ok': True, 'state': 'waiting', 'why': 'asked us to slow down', 'name': host}
     why = _stop_why(int(status or 0), html, final)
     if why:
         _keep(host, url, 'stopped', why, now)

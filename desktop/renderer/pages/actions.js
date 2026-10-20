@@ -151,8 +151,10 @@ export async function init() {
       note: site.last_read ? `read ${site.last_read.slice(0, 10)}` : 'never read', title: site.note,
       drop: 'Remove', dropTitle: 'Not offered again', onDrop: () => window.pilot.visitsHide(site.url)})));
     // Jobs in your places whose posting only your browser can open: ticked (not on Run again of a run, which is about its sites); Dismiss: not offered again.
-    $('visits-unread').replaceChildren(...(stuck?.jobs || []).map(job => visitRow({value: job.url, ticked: !wanted,
-      name: job.company ? `${job.title} · ${job.company}` : job.title, note: `${job.location ? `${job.location} · ` : ''}${new URL(job.url).hostname.replace(/^www\./, '')}`,
+    // A site that asked us to slow down (429) waits for its next try, unticked: a browser read now would be asked the same (owner, 20 Oct 2026).
+    const nextTry = job => (job.waiting_until ? ` · waiting: the site asked us to slow down, next try ${new Date(job.waiting_until * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}` : '');
+    $('visits-unread').replaceChildren(...(stuck?.jobs || []).map(job => visitRow({value: job.url, ticked: !wanted && !job.waiting_until,
+      name: job.company ? `${job.title} · ${job.company}` : job.title, note: `${job.location ? `${job.location} · ` : ''}${new URL(job.url).hostname.replace(/^www\./, '')}${nextTry(job)}`,
       drop: 'Dismiss', dropTitle: 'Not offered again', onDrop: () => window.pilot.visitsDismiss(job.url)})));
     countVisits();
   };

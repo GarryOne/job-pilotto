@@ -4,4 +4,5 @@
   {"name": "jobup.ch", "url": "https://www.jobup.ch/en/jobs/?term=sales", "kind": "portal", "last_read": "2026-10-06T09:00:00"}],
  "jobs": [
   {"url": "https://ch.indeed.com/viewjob?jk=demo1", "title": "Conseiller de vente", "company": "Bucherer", "location": "Genève"},
-  {"url": "https://bulgari.recruitmentplatform.com/job/demo2", "title": "Client Advisor", "company": "Bulgari", "location": "Genève"}]}
+  {"url": "https://bulgari.recruitmentplatform.com/job/demo2", "title": "Client Advisor", "company": "Bulgari", "location": "Genève"},
+  {"url": "https://apply.jobsystem.example/maison/j/demo3", "title": "Boutique Manager", "company": "Maison Lumière", "location": "Genève", "waiting_until": 1792512000}]}

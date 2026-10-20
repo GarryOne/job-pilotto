@@ -2,7 +2,7 @@
 No code per board: each board's public search page, filled with the user's own board searches and places, is read like a careers page
 (schema.org JobPosting first (its hiringOrganization is the job's company, else "via <board>"; also from the job pages a list links to), then the job links and the AI page reader within its caps, then learned recipes: src/sources/careers.py).
 A board whose page only scripts fill first tries what it declares itself (feed alternates, robots.txt sitemaps: board_routes.py; the route
-that worked is kept per host). A board that refuses (401/403/429, a bot check) or gives no route is marked 'browser' (the visit list offers
+that worked is kept per host). A board that refuses (401/403, a bot check; a 429 is host_pace's "slow down") or gives no route is marked 'browser' (the visit list offers
 it) and looked at again after 30 days; one that gave no job in the user's places three runs running is dropped (its history is the job
 cache's source_yield table: src/sources/board_yield.py dead). The outcome of each read is kept in data/found_boards.json
 ('boards'), a cache. Wired as one aggregator, "Job boards found" (src/sources/aggregators.py). The boards that gave other installs like
@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_check, board_employers, board_forms, board_web, board_pages, board_routes, board_yield, careers
+from . import board_check, board_employers, board_forms, board_web, board_pages, board_routes, board_yield, careers, host_pace
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -73,7 +73,7 @@ def _read(board, search, fetch, route, early, show=None):
                 page = fetch(url)
             except urllib.error.HTTPError as error:
                 careers.note_refusal(url, error)
-                if error.code in (401, 403, 429):
+                if error.code in host_pace.REFUSED:
                     return jobs, 'browser', None
                 continue
             except (urllib.error.URLError, OSError, ValueError) as error:
@@ -94,7 +94,7 @@ def _read(board, search, fetch, route, early, show=None):
                         return jobs, 'browser', None
                     try:
                         page = show(url)
-                    except Exception as error:  # noqa: BLE001 — refused (401/403/429, a bot check), not allowed or no browser: a visit
+                    except Exception as error:  # noqa: BLE001 — refused (401/403, a bot check), not allowed or no browser: a visit
                         careers.note_refusal(url, error)
                         return jobs, 'browser', None
                     fetch = show   # this board's other searches and next pages are built by scripts too

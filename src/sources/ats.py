@@ -16,7 +16,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from . import posting_text
+from . import host_pace, posting_text
 
 USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto)'
 TIMEOUT = 20
@@ -38,7 +38,7 @@ def _get(url):
     if fixtures:
         return _fixture(fixtures, url)
     request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT, 'Accept': 'application/json, text/xml'})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with host_pace.open(request, TIMEOUT) as response:
         return response.read()
 
 

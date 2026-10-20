@@ -14,7 +14,7 @@ import re
 import time
 from urllib.parse import urljoin, urlsplit, urlencode
 import os
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from ..paths import DATA, REPORTS, keyword_regex, load_search_config
 from .feeds import wanted_title
@@ -100,8 +100,8 @@ class Client:
         path=directory/(hashlib.sha256(url.encode()).hexdigest()+'.json')
         if not self.refresh and path.exists() and time.time()-path.stat().st_mtime<21600:
             return json.loads(path.read_text())
-        time.sleep(1.0)   # jobs.ch refused a fast burst (403, 6 Oct 2026): one page a second
-        with urlopen(Request(url,headers={'User-Agent':'JobPilotto/0.1 (personal job discovery)'}),timeout=15) as r:
+        from . import host_pace   # each site at its own learned pace (jobs.ch refused a fast burst, 403, 6 Oct 2026)
+        with host_pace.open(Request(url,headers={'User-Agent':'JobPilotto/0.1 (personal job discovery)'}),15) as r:
             data={'url':r.url,'html':r.read(5_000_000).decode('utf-8',errors='replace')}
         path.write_text(json.dumps(data));return data
 

@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import parse_qsl, urlsplit
 
-from . import ats, boards
+from . import ats, boards, host_pace
 
 SMARTRECRUITERS = re.compile(r'jobs\.smartrecruiters\.com/([^/?#]+)/(\d+)')
 
@@ -65,11 +65,11 @@ def techtree_text(html):
 # Any posting page (owner, 7 Oct 2026: "universal, on any employer, feed, website or portal"): only these three had a reader, and every other
 # site's postings were never even fetched ("can't be read" in the log was untrue for Bulgari, Fnac, H&M, Digitec, Workday). Now: Workday's
 # own JSON for a Workday posting; else the page's schema.org JobPosting (most career sites publish it); else the page's main text. A site
-# that refuses (401/403/429 or a "are you human" page) is respected: not asked again for a week, its jobs left for your browser (the
+# that refuses (401/403 or a "are you human" page) is respected: not asked again for a week, its jobs left for your browser (the
 # extension, Find jobs using your browser). Sign-in sites (LinkedIn, Glassdoor, Indeed…) are never fetched (owner's rule).
 WORKDAY = re.compile(r'^https://([^./]+)\.(wd\d+)\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([^/?#]+)/job/([^?#]+)')
 CHALLENGE = re.compile(r'captcha|are you (?:a )?human|verify (?:that )?you are (?:a )?human|cf-chl|access denied|just a moment\.\.\.', re.I)
-REFUSED_CODES = (401, 403, 429)
+REFUSED_CODES = host_pace.REFUSED   # 429 is "slow down" (host_pace), never a refusal (owner, 20 Oct 2026)
 REFUSED_DAYS = 7
 MIN_TEXT = 400   # shorter: a cookie notice, an error or a login page, not a posting
 
@@ -92,7 +92,7 @@ def readable(url):
 def _get(url, opener=None, accept='text/html'):
     request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto; personal job search)', 'Accept': accept})
     try:
-        with (opener or urllib.request.urlopen)(request, timeout=15) as response:
+        with host_pace.open(request, 15, opener) as response:
             return response.read(3_000_000).decode('utf-8', errors='replace')
     except urllib.error.HTTPError as error:
         if error.code in REFUSED_CODES:
@@ -150,7 +150,8 @@ def _refused_hosts(now):
     except (OSError, ValueError):
         kept = {}
     since = (now - timedelta(days=REFUSED_DAYS)).isoformat()
-    return {host: at for host, at in kept.items() if at >= since}
+    # {host: {'at', 'why'}} since 20 Oct 2026; a bare time was kept before, also for a 429 ("slow down", host_pace now): dropped, asked again
+    return {host: line for host, line in kept.items() if isinstance(line, dict) and str(line.get('at', '')) >= since}
 
 
 def _keep_refused(hosts):
@@ -164,7 +165,8 @@ def _keep_refused(hosts):
 
 def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
     """Fill in up to `limit` open jobs (seen in the last `days`) that have no description, from any posting page (page_text), 4 at a time.
-    A site that refuses is not asked again for a week; it and sign-in sites are said as "readable in your browser". Returns a log line."""
+    A site that refuses is not asked again for a week; it and sign-in sites are said as "readable in your browser". A site that asks us to
+    slow down (host_pace.Busy) keeps its jobs for a later run, not refused. Returns a log line."""
     now = now or datetime.now(timezone.utc)
     since = (now - timedelta(days=days)).isoformat(timespec='seconds')
     rows = db.execute("SELECT id, url FROM jobs WHERE state='open' AND coalesce(description, '') = '' AND first_seen_at >= ? "
@@ -173,7 +175,7 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
         return ''
     refused_before = _refused_hosts(now) if fetcher is fetch else {}
     host = lambda url: (urlsplit(url or '').hostname or '?').lower()
-    walled_at, refused_at, scripted_at, todo = Counter(), Counter(), Counter(), []
+    walled_at, refused_at, scripted_at, waiting_at, todo = Counter(), Counter(), Counter(), Counter(), []
     for job_id, url in rows:
         if not readable(url):
             walled_at[host(url)] += 1
@@ -191,9 +193,11 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(one, todo))
     for (job_id, url), text, error in results:
-        if isinstance(error, Refused):
+        if isinstance(error, host_pace.Busy):
+            waiting_at[host(url)] += 1   # tried again in a later run, at the pace the site asked for
+        elif isinstance(error, Refused):
             refused_at[host(url)] += 1
-            refused_before[host(url)] = now.isoformat()
+            refused_before[host(url)] = {'at': now.isoformat(), 'why': str(error)}
         elif getattr(error, 'code', None) in (404, 410):   # the posting was taken down: the job expired, not unscored
             db.execute("UPDATE jobs SET state='expired' WHERE id=?", (job_id,))
             gone += 1
@@ -211,6 +215,7 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
     hosts = lambda counts: ', '.join(sorted(counts))
     return (f'Descriptions: read {filled} of {len(rows)} missing job texts' + (f', {gone} posting(s) taken down (closed)' if gone else '')
             + (f', {empty} drawn only in a browser ({hosts(scripted_at)})' if empty else '') + (f', {failed} failed (tried again next time)' if failed else '')
+            + (f', {sum(waiting_at.values())} waiting: {hosts(waiting_at)} asked us to slow down (tried again later)' if waiting_at else '')
             + (f', {sum(refused_at.values())} refused by {hosts(refused_at)}' if refused_at else '')
             + (f', {sum(walled_at.values())} on sign-in sites ({hosts(walled_at)})' if walled_at else '')
             + (' → readable in your browser (Actions, Find jobs using your browser)' if refused_at or walled_at or empty else ''))
@@ -230,8 +235,9 @@ def same_posting(a, b):
 
 
 def stuck(db, days=14, limit=60, now=None):
-    """[{url, title, company, location}] open jobs in your places whose posting text only a browser can read: a sign-in site, a site that refused
-    us, or a page tried for BROWSER_AFTER with no text (drawn by scripts). Without the text they are never scored, so never listed; the
+    """[{url, title, company, location, waiting_until}] open jobs in your places whose posting text only a browser can read: a sign-in site, a site
+    that refused us, or a page tried for BROWSER_AFTER with no text (drawn by scripts). waiting_until (epoch seconds, else 0): the site asked us to
+    slow down and is asked again then (owner, 20 Oct 2026: shown as waiting, not refused). Without the text they are never scored, so never listed; the
     extension reads them in your browser (Actions, Find jobs using your browser: "Jobs we couldn't read", 8 Oct 2026). Newest first."""
     from . import feeds, visits
     now = now or datetime.now(timezone.utc)
@@ -244,9 +250,10 @@ def stuck(db, days=14, limit=60, now=None):
     out = []
     for url, title, location, company, seen in rows:
         host = (urlsplit(url or '').hostname or '').lower()
-        if not url or url in gone or not (walled(url) or host in refused or seen <= tried):
+        waiting = host_pace.waiting(url) if url else 0
+        if not url or url in gone or not (walled(url) or host in refused or seen <= tried or waiting):
             continue
-        job = {'url': url, 'title': title or '', 'company': company or '', 'location': location or ''}
+        job = {'url': url, 'title': title or '', 'company': company or '', 'location': location or '', 'waiting_until': round(waiting)}
         if feeds.wanted_location(job) and not any(same_posting(url, kept['url']) for kept in out):   # one row per posting
             out.append(job)
     return out[:limit]
