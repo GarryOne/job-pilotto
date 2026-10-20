@@ -1762,6 +1762,10 @@
               "color": "blue"
             },
             {
+              "name": "oracle",
+              "color": "red"
+            },
+            {
               "name": "careers",
               "color": "gray"
             },
