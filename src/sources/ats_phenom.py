@@ -10,9 +10,6 @@ import os
 import re
 import urllib.request
 
-from . import ats, host_pace
-from .ats import _job
-
 PHENOM_PAGE = 50     # jobs a request asks for
 PHENOM_ALL_PAGES = 4  # newest 200 with no word
 PHENOM_TERM_PAGES = 2
@@ -71,3 +68,7 @@ def phenom(slug):
             if len(found) < PHENOM_PAGE:
                 break
     return jobs
+
+
+from . import ats, host_pace  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)
+from .ats import _job  # noqa: E402
