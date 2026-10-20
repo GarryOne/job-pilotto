@@ -58,6 +58,7 @@ One choice (Settings → Profile → Application assistant, `renderer/assistant-
   saved fact to one of the form's own options, in its language (`use: fill` with the fact it rests on); the code validates it (the value is a listed option; a
   country passes in any language by the standard country names, `worker/src/country-names.js`). An unsure match stays proposed and goes to Answer once;
   demographics are filled from the answer given once; a choice no fact covers is left; a certification or attestation stays the person's; never Submit.
+  **A declaration of fact is not legal** (owner, 20 Oct 2026: "The demographic questions should be filled by extension. This is not something sensible. It's reducing the user's time waste on the form filling"; a public-official, criminal-record or accommodation question is category `knockout`: filled from a saved answer, else left so the app asks once and keeps it; `legal` is only a consent, terms, a privacy notice or a certification). Guard: `worker/test/declaration-rule.test.js`.
   Guard: `worker/test/choice-from-fact.test.js`.
 - Changing what a mode does or its default is the owner's call, with a Decision Log entry.
 
