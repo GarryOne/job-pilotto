@@ -3,7 +3,7 @@ stage 1 facts and a fit score (Canva's and Delivery Hero's jobs had stayed unsco
 import sqlite3
 import unittest
 
-from src.sources import feeds
+from src.sources import feeds, visits
 
 
 class FeedDetailsTest(unittest.TestCase):
@@ -104,7 +104,7 @@ class TechTreeDescriptionTest(unittest.TestCase):
                 raise describe.Refused('HTTP 403')
             return 'A posting about selling watches in Geneva. ' * 20
         with mock.patch.object(describe.boards, 'Client') as client, mock.patch.object(describe, 'page_text', page_text), \
-                mock.patch('src.paths.DATA', pathlib.Path(tempfile.mkdtemp())):
+                mock.patch('src.paths.DATA', pathlib.Path(tempfile.mkdtemp())), mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'visits.json'):
             client.return_value.get.return_value = {'html': self.PAGE}
             line = describe.backfill(db, now=now)
             self.assertEqual(line, 'Descriptions: read 2 of 4 missing job texts, 1 refused by career.hm.com, 1 on sign-in sites (ch.linkedin.com)'
