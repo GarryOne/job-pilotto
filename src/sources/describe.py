@@ -16,7 +16,9 @@ import urllib.error
 import urllib.request
 from urllib.parse import parse_qsl, urlsplit
 
+from .. import pool_served
 from . import ats, boards, host_pace, read_routes
+from .careers_parse import registrable
 
 SMARTRECRUITERS = re.compile(r'jobs\.smartrecruiters\.com/([^/?#]+)/(\d+)')
 
@@ -186,12 +188,17 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
         return ''
     refused_before = _refused_hosts(now) if fetcher is fetch else {}
     host = lambda url: (urlsplit(url or '').hostname or '?').lower()
-    walled_at, refused_at, scripted_at, waiting_at, todo = Counter(), Counter(), Counter(), Counter(), []
+    from . import visits
+    pooled = visits.pool_facts().get('route') or {} if fetcher is fetch else {}   # how other installs found each site read (src/sources/read_routes.py)
+    walled_at, refused_at, scripted_at, waiting_at, closed_at, todo = Counter(), Counter(), Counter(), Counter(), Counter(), []
     for job_id, url in rows:
         if not readable(url):
             walled_at[host(url)] += 1
         elif host(url) in refused_before:
             refused_at[host(url)] += 1
+        elif read_routes.skip(url, pooled, now):   # other installs found this site closed to a plain read: not asked again
+            closed_at[host(url)] += 1
+            pool_served.count('site_route')
         else:
             todo.append((job_id, url))
 
@@ -200,11 +207,11 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
         try:
             text = fetcher(item[1])
             if fetcher is fetch:   # how this site's text was read: shared with other installs (src/sources/read_routes.py)
-                read_routes.record(item[1], _ROUTE.route if text else 'browser_only')
+                read_routes.record(item[1], _ROUTE.route if text else 'browser_only', now)
             return item, text, None
         except Exception as error:  # noqa: BLE001 — one posting failing never stops the others
             if isinstance(error, Refused) and fetcher is fetch:
-                read_routes.record(item[1], 'refused')
+                read_routes.record(item[1], 'refused', now)
             return item, '', error
     filled = failed = gone = empty = 0
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -235,7 +242,8 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
             + (f', {sum(waiting_at.values())} waiting: {hosts(waiting_at)} asked us to slow down (tried again later)' if waiting_at else '')
             + (f', {sum(refused_at.values())} refused by {hosts(refused_at)}' if refused_at else '')
             + (f', {sum(walled_at.values())} on sign-in sites ({hosts(walled_at)})' if walled_at else '')
-            + (' → readable in your browser (Actions, Find jobs using your browser)' if refused_at or walled_at or empty else ''))
+            + (f', {sum(closed_at.values())} not asked: other installs found {hosts(closed_at)} closed to a plain read' if closed_at else '')
+            + (' → readable in your browser (Actions, Find jobs using your browser)' if refused_at or walled_at or closed_at or empty else ''))
 
 
 BROWSER_AFTER = timedelta(hours=6)   # a job whose text this Mac could not read for this long (a page drawn by scripts) is a browser job too
@@ -261,6 +269,7 @@ def stuck(db, days=14, limit=60, now=None):
     gone = visits.dismissed()
     since, tried = (now - timedelta(days=days)).isoformat(timespec='seconds'), (now - BROWSER_AFTER).isoformat(timespec='seconds')
     refused = _refused_hosts(now)
+    closed = read_routes.closed(visits.pool_facts().get('route'))
     rows = db.execute("""SELECT jobs.url, jobs.title, jobs.location, companies.name, jobs.first_seen_at FROM jobs
         LEFT JOIN companies ON companies.id = jobs.company_id WHERE jobs.state = 'open' AND coalesce(jobs.description, '') = ''
         AND jobs.first_seen_at >= ? ORDER BY jobs.first_seen_at DESC""", (since,)).fetchall()
@@ -268,7 +277,7 @@ def stuck(db, days=14, limit=60, now=None):
     for url, title, location, company, seen in rows:
         host = (urlsplit(url or '').hostname or '').lower()
         waiting = host_pace.waiting(url) if url else 0
-        if not url or url in gone or not (walled(url) or host in refused or seen <= tried or waiting):
+        if not url or url in gone or not (walled(url) or host in refused or registrable(host) in closed or seen <= tried or waiting):
             continue
         job = {'url': url, 'title': title or '', 'company': company or '', 'location': location or '', 'waiting_until': round(waiting)}
         if feeds.wanted_location(job) and not any(same_posting(url, kept['url']) for kept in out):   # one row per posting
