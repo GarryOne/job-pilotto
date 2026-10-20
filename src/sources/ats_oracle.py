@@ -8,9 +8,6 @@ Guarded by tests/test_ats_oracle.py.
 import re
 import urllib.parse
 
-from . import ats
-from .ats import _job
-
 ORACLE_ALL_PAGE = 100    # jobs a request returns (the endpoint's own page size)
 ORACLE_ALL_PAGES = 2     # newest 200 with no word: what an employer hires for, not only what one user asks
 ORACLE_TERM_PAGE = 50    # per search word, as Workday reads a word's first two pages
@@ -55,3 +52,7 @@ def oracle(slug):
             if len(items) < size:
                 break
     return jobs
+
+
+from . import ats  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)
+from .ats import _job  # noqa: E402
