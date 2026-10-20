@@ -50,6 +50,17 @@ test('a failed or stopped search sends only its outcome: no measuring, no count 
   assert.deepEqual(storage.settings().searchReport, {n: 2, toFit: 2});
 });
 
+test('a search that cannot be measured says why in the app log, never silently', async () => {
+  const lines = [], storage = storageWith(), telemetry = create(storage, {version: '1', fetcher: async () => ({ok: true})});
+  const say = (area, message, data) => lines.push([area, message, data]);
+  const exit1 = async () => ({code: 1, stdout: ''}), garbage = async () => ({code: 0, stdout: 'not json'});
+  assert.equal(await reportSearch(storage, telemetry, {startedAt: 't', ok: true}, exit1, say), null);
+  assert.equal(await reportSearch(storage, telemetry, {startedAt: 't', ok: true}, garbage, say), null);
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every(([area, message]) => area === 'telemetry' && /search report not sent/.test(message)));
+  assert.equal(storage.settings().searchReport, undefined);   // a report that was not made does not count as a search
+});
+
 test('Settings and the privacy page both say that search counts and times are sent', () => {
   const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
   assert.match(read('../renderer/index.html'), /After each search: how many jobs it found and scored, and how many seconds it took/);

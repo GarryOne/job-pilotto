@@ -5,6 +5,7 @@
 // Guarded by: test/search-report.test.js (the record has only listed fields: a new field fails it until it is listed here and on the privacy page).
 import {engineOf} from './ai/names.js';
 import {run} from './pipeline-run.js';
+import {log as appLog} from './log.js';
 
 // Every field a search report may carry, with the test its value must pass. Anything else is dropped.
 const count = v => Number.isInteger(v) && v >= 0 && v < 1e6;
@@ -33,18 +34,21 @@ export const onSearchDone = listener => listeners.add(listener);
 export const searchDone = info => { for (const listener of listeners) { try { listener(info); } catch { /* never breaks a search */ } } };
 
 // After a finished Find jobs run: measure it and record it. Never throws, never waits on the user.
-export async function reportSearch(storage, telemetry, {startedAt, ok, stopped = false, trigger = 'you'}, exec = run) {
+export async function reportSearch(storage, telemetry, {startedAt, ok, stopped = false, trigger = 'you'}, exec = run, say = appLog) {
   try {
     if (!telemetry?.enabled()) return null;
     const base = {engine: engineOf(storage), trigger: ['first', 'you', 'schedule', 'telegram'].includes(trigger) ? trigger : 'other'};
     if (!ok) return telemetry.record('search', record({}, {...base, result: stopped ? 'stopped' : 'failed'}));   // nothing to measure: it counts toward "reached a 70+" as a miss
     const {stdout, code} = await exec(storage, ['src', 'search_report', '--since', startedAt], () => {}, {}, {privateOutput: true});
-    if (code !== 0) return null;
+    if (code !== 0) { say('telemetry', 'search report not sent: the measuring step failed', {code}); return null; }
     const measured = JSON.parse(String(stdout).trim().split('\n').pop());
     const state = storage.settings().searchReport || {n: 0, toFit: null};
     const n = state.n + 1;
     const toFit = state.toFit ?? (measured.fit70 > 0 ? n : null);   // runs until the first 70+ (this one included), fixed once reached
     storage.saveSettings({searchReport: {n, toFit}});
     return telemetry.record('search', record(measured, {...base, nth: n, runs_to_fit70: toFit, result: 'done'}));
-  } catch { return null; }
+  } catch (error) {
+    try { say('telemetry', 'search report not sent: it could not be built', {error: error.message}); } catch { /* the log never breaks a search */ }
+    return null;
+  }
 }
