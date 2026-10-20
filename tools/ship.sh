@@ -36,14 +36,18 @@ for arg in "$@"; do
 done
 
 here="$(git rev-parse --show-toplevel)"
-git config core.hooksPath tools/githooks 2>/dev/null || true   # the commit-msg hook (trailer values) for every worktree of this repo; the setting is shared and relative
+# A repo without this toolkit (the private job-pilotto-site, 20 Oct 2026: its PRs had no layout, no tags, no watcher) is shipped with THIS checkout's tools: they act on the repo of the
+# current directory (origin, branch, gh) and the push checks are the small ship-private-checks.sh. `~/job-pilotto/tools/ship.sh --background --body=<file>` from a site worktree.
+tools="$here/tools"; external=""
+if [ ! -f "$tools/ship-pr.sh" ]; then tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; external=1; fi
+[ -n "$external" ] || git config core.hooksPath tools/githooks 2>/dev/null || true   # the commit-msg hook (trailer values) for every worktree of this repo; the setting is shared and relative
 branch="$(git rev-parse --abbrev-ref HEAD)"
 main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 [ "$branch" != main ] || { echo "ship: this is the main checkout. Work in a worktree (tools/worktree.sh <topic>), then run this there." >&2; exit 2; }
 if ! git diff --quiet || ! git diff --cached --quiet; then echo "ship: uncommitted changes in tracked files: commit them first" >&2; exit 2; fi
 
 log="${SHIP_LOG:-${TMPDIR:-/tmp}/ship-${branch//\//-}.log}"
-[ -f "$here/tools/session-name.sh" ] && source "$here/tools/session-name.sh" || session_name() { echo "${JOB_PILOTTO_SESSION:-?}"; }
+[ -f "$tools/session-name.sh" ] && source "$tools/session-name.sh" || session_name() { echo "${JOB_PILOTTO_SESSION:-?}"; }
 if [ "$background" = 1 ]; then
   export JOB_PILOTTO_SESSION="$(session_name)"   # the detached run has no Claude session among its parents any more
   : > "$log"
@@ -65,10 +69,10 @@ unset SHIP_LOG
 exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
-if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
-if [ -f "$here/tools/ship-timeline.sh" ]; then source "$here/tools/ship-timeline.sh"; timeline_begin "$log"; else timeline_mark() { :; }; timeline_write() { :; }; fi   # one line per landing in ship-timeline.log
-if [ -f "$here/tools/ship-pr.sh" ]; then source "$here/tools/ship-pr.sh"; else ship_mode() { echo direct; }; fi   # landing through a pull request with auto-merge (12 Oct 2026); any other origin pushes to main as before
-if [ -f "$here/tools/ship-red.sh" ]; then source "$here/tools/ship-red.sh"; else ship_red_gate() { :; }; fi   # while main is red every landing but the fix waits (tools/red-main.sh)
+if [ -f "$tools/landing-lock.sh" ]; then source "$tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
+if [ -f "$tools/ship-timeline.sh" ]; then source "$tools/ship-timeline.sh"; timeline_begin "$log"; else timeline_mark() { :; }; timeline_write() { :; }; fi   # one line per landing in ship-timeline.log
+if [ -f "$tools/ship-pr.sh" ]; then source "$tools/ship-pr.sh"; else ship_mode() { echo direct; }; fi   # landing through a pull request with auto-merge (12 Oct 2026); any other origin pushes to main as before
+if [ -f "$tools/ship-red.sh" ] && [ -z "$external" ]; then source "$tools/ship-red.sh"; else ship_red_gate() { :; }; fi   # the red-main wait reads the public repo's main: not for another repo   # while main is red every landing but the fix waits (tools/red-main.sh)
 step() { timeline_mark "$*"; echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
@@ -83,8 +87,8 @@ ship_watch_start() {  # detached like the background run itself: the caller's en
   [ "${SHIP_WATCH:-1}" != 0 ] || return 0
   [ -z "${watching:-}" ] || return 0; watching=1   # started when the PR opened (ship_pr_land): the end of the run does not restart it
   local pidfile; pidfile="$(git rev-parse --path-format=absolute --git-common-dir)/ship-watch-${branch//\//-}.pid"
-  if command -v setsid >/dev/null; then setsid bash "$here/tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null &
-  else python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash "$here/tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null & fi
+  if command -v setsid >/dev/null; then setsid bash "$tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null &
+  else python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash "$tools/ship-watch.sh" "$1" "$log" "$pidfile" > /dev/null 2>&1 < /dev/null & fi
 }
 trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (every check green; the owner reviews and merges)"; ship_watch_start "$review_n"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT   # from the PR's opening, tools/ship-watch.sh adds MERGED / CLOSED / RED / GREEN to the log
 
@@ -129,7 +133,11 @@ payload="$(jq -n --arg command "$push_command" --arg cwd "$here" '{tool_input: {
 run_checks() {  # [why]
   step "running the push checks${1:+ $1} ($([ "$mode" = pr ] && echo 'the fast pure checks; CI runs the suites on the PR' || echo 'the suites of the touched areas'); ${flags:+$flags}this can take a few minutes)"
   checks="$(mktemp)"
-  bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
+  if [ -n "$external" ]; then
+    bash "$tools/ship-private-checks.sh" origin/main > "$checks" 2>&1 &
+  else
+    bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
+  fi
   check_pid=$!
   while kill -0 "$check_pid" 2>/dev/null; do
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 "$check_pid" 2>/dev/null || break; sleep 1; done

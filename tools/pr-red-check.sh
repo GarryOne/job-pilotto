@@ -21,16 +21,16 @@ dirs=("$cwd")
 if [ -f "$transcript" ]; then
   while IFS= read -r w; do [ -d "$w" ] && dirs+=("$w"); done < <(
     tail -n 4000 "$transcript" | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command // empty' 2>/dev/null |
-      grep -E 'tools/ship\.sh' | grep -oE '/[^[:space:]"'"'"'`;|&()]*\.claude/worktrees/[^/[:space:]"'"'"'`;|&()]+' | sort -u | head -5)
+      grep -E 'tools/ship\.sh' | grep -oE '/[^[:space:]"'"'"'`;|&()]*(\.claude/worktrees/|job-pilotto-site-)[^/[:space:]"'"'"'`;|&()]+' | sort -u | head -5)   # also the private site repo's sibling worktrees (job-pilotto-site-<topic>), shipped with this repo's tools/ship.sh
 fi
 
-lookup() {  # <branch>: prints "<n>\t<url>\t<red checks joined by ,>" for its open PR when one is red, nothing otherwise; cached for $ttl seconds
-  local branch="$1" key file now stamp out
-  key="${branch//\//-}"; file="$dir/$key.look"; now="$(date +%s)"
+lookup() {  # <branch> <dir of its worktree>: prints "<n>\t<url>\t<red checks joined by ,>" for its open PR when one is red, nothing otherwise; cached for $ttl seconds
+  local branch="$1" wt="$2" key file now stamp out
+  key="$(basename "$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null)")-${branch//\//-}"; file="$dir/$key.look"; now="$(date +%s)"   # the worktree name keeps two repos' same-named branches apart
   stamp="$(head -n 1 "$file" 2>/dev/null)"
   if [ -n "$stamp" ] && [ "$((now - stamp))" -ge 0 ] 2>/dev/null && [ "$((now - stamp))" -lt "$ttl" ]; then tail -n +2 "$file"; return 0; fi
   local tmp="$file.$$"
-  ( gh pr list --head "$branch" --state open --json number,mergeable,statusCheckRollup --jq '
+  ( cd "$wt" && gh pr list --head "$branch" --state open --json number,mergeable,statusCheckRollup --jq '
       .[0] // empty | . as $pr | [ .statusCheckRollup[]? | select(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT" or .conclusion == "STARTUP_FAILURE" or .state == "FAILURE" or .state == "ERROR")
         | {name: (.name // .context), url: (.detailsUrl // .targetUrl // "")} ] as $red | ($pr.mergeable == "CONFLICTING") as $conflict | select(($red | length) > 0 or $conflict)
       | "\($pr.number)\t\(if ($red | length) > 0 and $red[0].url != "" then $red[0].url else "-" end)\t\(if ($red | length) > 0 then ([$red[].name] | unique | join(",")) else "-" end)\t\(if $conflict then "conflict" else "-" end)"' > "$tmp" 2>/dev/null; echo done >> "$tmp.ok" ) &
@@ -47,7 +47,7 @@ for d in "${dirs[@]}"; do
   branch="$(git -C "$d" symbolic-ref --short -q HEAD 2>/dev/null)" || continue
   case "$branch" in main|HEAD|"") continue ;; esac
   case "$seen" in *" $branch "*) continue ;; esac; seen="$seen$branch "
-  row="$(lookup "$branch")"; [ -n "$row" ] || continue
+  row="$(lookup "$branch" "$d")"; [ -n "$row" ] || continue
   IFS=$'\t' read -r n url checks conflict <<<"$row"   # "-" stands for an empty field (tab is IFS whitespace: empty fields would collapse)
   [ "$checks" != - ] || checks=""
   key="$checks"; [ "$conflict" != conflict ] || key="${key:+$key+}conflict"   # an acknowledgement holds for exactly this set of problems
