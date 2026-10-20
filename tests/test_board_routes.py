@@ -119,10 +119,17 @@ class BoardRoutesTests(unittest.TestCase):
         self.assertNotIn('https://stellen.example/robots.txt', fetch.asked)
 
     def test_a_bot_check_page_is_not_tried_for_routes(self):
-        refused = urllib.error.HTTPError('x', 429, 'Slow down', None, None)
+        refused = urllib.error.HTTPError('x', 403, 'Forbidden', None, None)
         _, fetch = self.read({self.search_url: refused, 'https://stellen.example/robots.txt': 'Sitemap: https://stellen.example/sm.xml'})
         self.assertEqual(fetch.asked, [self.search_url])
         self.assertEqual(self.entry()['state'], 'browser')
+
+    def test_a_site_asking_to_slow_down_is_not_marked_browser(self):
+        """20 Oct 2026 (owner): a 429 is "slow down" (src/sources/host_pace.py), never a refusal."""
+        from src.sources import host_pace
+        busy = host_pace.Busy(self.search_url, 0)
+        self.read({self.search_url: busy})
+        self.assertNotEqual(self.entry().get('state'), 'browser')
 
     def test_a_route_that_stops_working_falls_back_to_the_page(self):
         pages = {self.search_url: SHELL.format(head=RSS_HEAD), 'https://stellen.example/feed/jobs.xml': RSS}
