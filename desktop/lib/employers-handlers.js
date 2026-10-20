@@ -3,8 +3,8 @@
 // Active on/off is the one write: employers.upsert({name, active}), the same call Find employers makes. Demo mode: demo/employers.json
 // (fictional). Guarded by test/employers-handlers.test.js.
 import fs from 'node:fs';
-import path from 'node:path';
 import * as engine from './store/engine.js';
+import {demoPath} from './demo.js';
 
 // Every employer, active or not (list(active=None)), sorted by name.
 export async function employers(storage, {call = engine.call} = {}) {
@@ -30,7 +30,7 @@ export function fromPage(storage, text, scoutFromPage) {
 }
 
 export function registerEmployersHandlers({ipcMain, storage, DEMO, here, log, call = engine.call, scoutFromPage = async () => {}}) {
-  const demo = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'employers.json'), 'utf8'));
+  const demo = () => JSON.parse(fs.readFileSync(demoPath(here, 'employers.json'), 'utf8'));
   ipcMain.handle('employers', async () => {
     if (DEMO) return {employers: demo()};
     const started = Date.now();

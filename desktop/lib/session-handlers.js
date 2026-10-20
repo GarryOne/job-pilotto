@@ -19,6 +19,7 @@ export async function closeSessionTab({review, closeTab}, old) {
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 import {stopLiveForms} from './stop-all.js';
+import {demoPath} from './demo.js';
 const REOPEN_MS = 15 * 1000;
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
   DEMO, extensionGate = () => null, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
@@ -137,7 +138,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   });
   // Apply with Claude sessions inside the app (lib/terminals.js): the dock, the session page and its terminal.
   // Demo mode: fictional sessions (demo/sessions.json) for screenshots; nothing runs.
-  const demoSessions = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'sessions.json'), 'utf8'));
+  const demoSessions = () => JSON.parse(fs.readFileSync(demoPath(here, 'sessions.json'), 'utf8'));
   checkedSessions.handle('sessions', () => {
     const started = Date.now();
     const list = DEMO ? demoSessions() : terminals.list();
@@ -153,7 +154,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   // A finished session as a conversation (its Claude Code transcript), for the log's page-text view.
   checkedSessions.handle('sessionTranscript', (_, id) => {
     const record = DEMO ? null : terminals.record(String(id));
-    const file = DEMO ? path.join(here, 'demo', 'transcript.jsonl') : record?.transcript;
+    const file = DEMO ? demoPath(here, 'transcript.jsonl') : record?.transcript;
     const talk = file ? transcript.conversation(file) : null;
     if (talk?.length || DEMO || !record?.runPage) return talk;
     // The Mac's transcript is gone (Claude Code deletes old ones): the copy on the session's Agent Runs row.

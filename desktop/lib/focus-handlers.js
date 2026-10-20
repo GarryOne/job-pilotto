@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
 import {afterWrite, sharedRead} from './shared-read.js';
+import {demoPath} from './demo.js';
 
 export function registerFocusHandlers(ctx) {
   const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
@@ -55,7 +56,7 @@ export function registerFocusHandlers(ctx) {
   // Demo mode remembers what you do there, as Notion would for a person: an answered "which job?" leaves Focus and is
   // answered, a built prep kit is ready. Without it every re-read of the file undid it (owner, 6 Oct 2026).
   let demoFocus = null;
-  const demoFocusData = () => demoFocus || (demoFocus = JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || path.join(here, 'demo', 'focus.json'), 'utf8')));
+  const demoFocusData = () => demoFocus || (demoFocus = JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || demoPath(here, 'focus.json'), 'utf8')));
   ipcMain.handle('focus', sharedRead('focus', async () => {
     const gate = needsNotion('focus');
     if (gate) return gate;
@@ -64,7 +65,7 @@ export function registerFocusHandlers(ctx) {
     return {ok: true, focus: demoFocusData()};
   }, {log: appLog}));
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
-  ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
+  ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(demoPath(here, 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
   // Is the candidate looking for IT work? The tips keep their IT examples for those who are (renderer/audience.js; with no roles known yet the general version is shown).
   ipcMain.handle('audience', () => {
     if (DEMO) return {technical: true};   // the demo candidate is an SRE
@@ -117,7 +118,7 @@ export function registerFocusHandlers(ctx) {
     const at = focus.items.findIndex(one => one.kind === 'which_job' && one.event_id === eventId);
     if (at >= 0) {
       const [item] = focus.items.splice(at, 1);
-      const job = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs.find(one => one.url === target);
+      const job = JSON.parse(fs.readFileSync(demoPath(here, 'jobs.json'), 'utf8')).jobs.find(one => one.url === target);
       const label = target === 'none' ? '' : job ? `${job.company || job.via} — ${job.title}` : `${item.company || 'New job'} — new job`;
       focus.answered_questions = [{subject: item.subject, job: label, at: new Date().toISOString()}, ...(focus.answered_questions || [])];
     }

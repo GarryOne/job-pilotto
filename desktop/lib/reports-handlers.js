@@ -2,8 +2,8 @@
 // person gives an insight (Useful / Not useful / Acting on it), merged into its fields so the others stay. Demo mode: demo/reports.json,
 // made by the engine's own writers (test/fixtures/report_insights.py). Guarded by test/reports-handlers.test.js.
 import fs from 'node:fs';
-import path from 'node:path';
 import * as engine from './store/engine.js';
+import {demoPath} from './demo.js';
 
 export const FEEDBACK = ['Useful', 'Not useful', 'Acting on it'];   // the Insights Feedback column's options (Telegram's buttons too)
 export const DAYS = 120;   // the history the page reads: about four months
@@ -23,7 +23,7 @@ export async function setFeedback(storage, id, value, {call = engine.call} = {})
 
 export function registerReportsHandlers({ipcMain, storage, DEMO, here, log, call = engine.call}) {
   ipcMain.handle('reportsInsights', async () => {
-    if (DEMO) return {ok: true, insights: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'reports.json'), 'utf8'))};
+    if (DEMO) return {ok: true, insights: JSON.parse(fs.readFileSync(demoPath(here, 'reports.json'), 'utf8'))};
     const started = Date.now();
     try {
       const insights = await insightsList(storage, {call});

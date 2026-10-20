@@ -7,9 +7,9 @@ import * as pipeline from './pipeline.js';
 import * as server from './server.js';
 import * as visits from './visits.js';
 import fs from 'node:fs';
-import path from 'node:path';
 import {log as appLog} from './log.js';
 import {registerRefusedReadsHandlers} from './refused-reads-handlers.js';
+import {demoPath} from './demo.js';
 
 export function registerVisitsHandlers(ctx) {
   const {DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage} = ctx;
@@ -49,7 +49,7 @@ export function registerVisitsHandlers(ctx) {
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false}; }
   });
   // "Jobs we couldn't read" in the same dialog: open jobs in your places whose posting only your browser can read; Dismiss drops one.
-  const demoVisits = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'visits.json'), 'utf8'));   // demo mode: a few sites and unread jobs to look at
+  const demoVisits = () => JSON.parse(fs.readFileSync(demoPath(here, 'visits.json'), 'utf8'));   // demo mode: a few sites and unread jobs to look at
   ipcMain.handle('visitsStuck', async () => ({ok: true, jobs: DEMO ? demoVisits().jobs : await visits.stuckJobs(storage)}));
   ipcMain.handle('visitsDismiss', async (_, url) => {
     if (!/^https?:\/\//.test(String(url || ''))) return {ok: false};
