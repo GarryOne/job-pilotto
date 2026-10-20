@@ -77,6 +77,16 @@ class RefusedReadsTest(unittest.TestCase):
         item = next(i for i in refused_reads.queue(now=NOW + timedelta(days=8)) if 'coop' in i['url'])
         self.assertEqual(item['step'], 'tab')
 
+    def test_a_captcha_in_the_real_tab_is_never_solved_and_is_offered_to_the_person(self):
+        with mock.patch.object(visits, 'read') as read:
+            result = refused_reads.outcome('https://jobs.coop.ch', 200, '<html>x</html>', now=NOW, step='tab', captcha=True)
+        read.assert_not_called()
+        self.assertEqual((result['state'], result['why'], result['needs_check']), ('stopped', 'needs a quick check from you', True))
+        listed = [site for site in visits.visit_list(now=NOW) if 'coop' in site['url']]
+        self.assertTrue(listed, 'the site stays in the list of sites only you can open')
+        self.assertEqual(next(f for f in refused_reads.shared() if f['host'] == 'jobs.coop.ch')['read'], {'outcome': 'bot', 'step': 'tab'})
+        self.assertNotIn('jobs.coop.ch', {i['url'].split('/')[2] for i in refused_reads.queue(now=NOW + timedelta(days=29))}, 'not asked again by itself for 30 days')
+
     def test_a_route_is_a_job_system_and_its_account_or_a_plain_feed_nothing_else(self):
         good = [{'system': 'greenhouse', 'account': 'acme'}, {'system': 'workday', 'account': 'acme.wd3.Careers'}, {'feed': 'https://acme.com/jobs.xml'}]
         for route in good:

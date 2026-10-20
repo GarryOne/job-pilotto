@@ -110,3 +110,18 @@ test('Settings is told when the private-window step cannot run (no Allow in Inco
   assert.equal(storage.kept.refusedNeedsIncognito, false);
   await done();
 });
+
+test('a captcha met in the real tab goes to the engine flagged, and the site line offers it to the person', async () => {
+  const sent = [], lines = [];
+  const run = async (_s, args) => {
+    if (args[1] === 'refused-queue') return {stdout: JSON.stringify({ok: true, sites: [SITES[0]]})};
+    sent.push(JSON.parse(await import('node:fs').then(fs => fs.readFileSync(args[2], 'utf8'))));
+    return {stdout: JSON.stringify({ok: true, state: 'stopped', why: 'needs a quick check from you', needs_check: true, name: 'Coop'})};
+  };
+  const storage = storageWith({readRefusedSites: true});
+  await queue(storage, {run, work: (_s, _k, _l, fn) => fn(line => lines.push(line)), scoreArgs: () => ['x']});
+  await outcome(storage, {url: 'https://jobs.coop.ch', status: 200, html: '<html></html>', step: 'tab', captcha: true}, {run});
+  assert.deepEqual([sent[0].step, sent[0].captcha], ['tab', true]);
+  assert.ok(lines.includes('  ▸ stopped · Coop · needs a quick check from you'), lines.join('|'));
+  await done();
+});

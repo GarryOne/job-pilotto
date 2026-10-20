@@ -19,7 +19,7 @@ test('the list is pure: no chrome API, no storage, no import', () => {
 
 test('every "can\'t reach" reason names its ending: told for the page\'s own way, handed only for a named wall, else unresolved', () => {
   assert.deepEqual(STUCK_REASONS.map(why => endingOfStuck(why)), ['told', 'told', 'unresolved', 'unresolved', 'unresolved', 'unresolved', 'site_broken']);
-  assert.equal(endingOfStuck('no-form', 'Solve the robot check in this tab; the form fills after it'), 'handed');
+  assert.equal(endingOfStuck('no-form', "This site wants a quick check: solve it, then I'll continue"), 'handed');
   assert.equal(endingOfStuck('account', 'Create the account: choose a password'), 'handed');
   assert.equal(endingOfStuck('account', '  '), 'unresolved', 'no named need: a stop with no reason');
   assert.equal(endingOfStuck('something new'), 'unresolved');

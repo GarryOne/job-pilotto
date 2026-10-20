@@ -177,7 +177,7 @@ def _stop_why(status, html, final):
     return ''
 
 
-def outcome(url, status, html, title='', final='', now=None, step='download'):
+def outcome(url, status, html, title='', final='', now=None, step='download', captcha=False):
     """What the extension's fetch of `url` brought: {ok, state: 'read'|'empty'|'stopped'|'skipped', jobs, why, name, feed}. Every answer is kept so the site is not asked again for READ_DAYS."""
     now = now or _now()
     host = visits.host_of(url)
@@ -187,6 +187,12 @@ def outcome(url, status, html, title='', final='', now=None, step='download'):
         _keep(host, url, 'waiting', 'asked us to slow down', now)
         print(f'Refused sites: {host} asked us to slow down; asked again in {WAIT_DAYS} day(s)')
         return {'ok': True, 'state': 'waiting', 'why': 'asked us to slow down', 'name': host}
+    if captcha:   # the real tab met a captcha (the AI's page_state): never solved or retried by us; the person is offered the site to open and solve (owner, 20 Oct 2026)
+        why = 'a bot check: needs a quick check from you'
+        _keep(host, url, 'stopped', why, now, step=step)
+        visits.refused(host, url, why, now=now)   # listed with the sites only you can open
+        print(f'Refused sites: {host} shows a captcha; waiting for you to open it and solve it')
+        return {'ok': True, 'state': 'stopped', 'why': 'needs a quick check from you', 'needs_check': True, 'name': host}
     why = _stop_why(int(status or 0), html, final)
     if why:
         _keep(host, url, 'stopped', why, now, step=step)

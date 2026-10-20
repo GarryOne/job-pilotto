@@ -144,11 +144,11 @@ test('Claude taking a job over closes its form tab only when nothing was filled 
 test('a page with a bot check in front says what the person must do, on the card and in its steps', async () => {
   terminals._reset();
   terminals.startForm({id: 'f1', url: URL1, company: 'H&M'});
-  terminals.noteStuck('f1', 'no-form', 'jobs.smartrecruiters.com', 'Solve the robot check in this tab; the form fills after it');
+  terminals.noteStuck('f1', 'no-form', 'jobs.smartrecruiters.com', "This site wants a quick check: solve it, then I'll continue");
   assert.equal(terminals.get('f1').stuck, 'no-form');
-  assert.equal(terminals.get('f1').note, 'Needs you: Solve the robot check in this tab; the form fills after it');
+  assert.equal(terminals.get('f1').note, "Needs you: This site wants a quick check: solve it, then I'll continue");
   const {sessionSteps} = await import('../renderer/session-steps-list.js');
-  assert.ok(sessionSteps(terminals.get('f1')).some(step => step.text === 'Needs you: Solve the robot check in this tab; the form fills after it'));
+  assert.ok(sessionSteps(terminals.get('f1')).some(step => step.text === "Needs you: This site wants a quick check: solve it, then I'll continue"));
   terminals._reset();
   terminals.startForm({id: 'f2', url: URL1, company: 'Plain'});
   terminals.noteStuck('f2', 'no-form');

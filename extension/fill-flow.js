@@ -117,7 +117,7 @@ export function writeState(tabId, value, token = '') {
     func: (text, token, now) => { if (now === 'running') window.__jobPilottoFillToken = token; else if (token && window.__jobPilottoFillToken !== token) return; if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
 }
 // A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
-export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills after it';   // said in the session (desktop/lib/terminals.js noteStuck)
+export const BOT_CHECK_NEED = "This site wants a quick check: solve it, then I'll continue";   // said in the panel and the session (owner, 20 Oct 2026: the person solves a real captcha, we never do; the form fills after it) (desktop/lib/terminals.js noteStuck)
 export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas && !counts.choices;
 // After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
 // whole decision again). null when neither happens in time.
