@@ -18,6 +18,7 @@ export const FIELDS = {
   nth: count, runs_to_fit70: count,
   engine: oneOf(['api', 'cli', 'openai', 'codex']),
   trigger: oneOf(['first', 'you', 'schedule', 'telegram', 'other']),
+  result: oneOf(['done', 'failed', 'stopped']),   // a search that did not finish sends only this, its engine and its trigger
 };
 
 // The report from the engine's measured record plus the app's own facts; unlisted or invalid fields are left out.
@@ -32,9 +33,11 @@ export const onSearchDone = listener => listeners.add(listener);
 export const searchDone = info => { for (const listener of listeners) { try { listener(info); } catch { /* never breaks a search */ } } };
 
 // After a finished Find jobs run: measure it and record it. Never throws, never waits on the user.
-export async function reportSearch(storage, telemetry, {startedAt, ok, trigger = 'you'}, exec = run) {
+export async function reportSearch(storage, telemetry, {startedAt, ok, stopped = false, trigger = 'you'}, exec = run) {
   try {
-    if (!telemetry?.enabled() || !ok) return null;
+    if (!telemetry?.enabled()) return null;
+    const base = {engine: engineOf(storage), trigger: ['first', 'you', 'schedule', 'telegram'].includes(trigger) ? trigger : 'other'};
+    if (!ok) return telemetry.record('search', record({}, {...base, result: stopped ? 'stopped' : 'failed'}));   // nothing to measure: it counts toward "reached a 70+" as a miss
     const {stdout, code} = await exec(storage, ['src', 'search_report', '--since', startedAt], () => {}, {}, {privateOutput: true});
     if (code !== 0) return null;
     const measured = JSON.parse(String(stdout).trim().split('\n').pop());
@@ -42,7 +45,6 @@ export async function reportSearch(storage, telemetry, {startedAt, ok, trigger =
     const n = state.n + 1;
     const toFit = state.toFit ?? (measured.fit70 > 0 ? n : null);   // runs until the first 70+ (this one included), fixed once reached
     storage.saveSettings({searchReport: {n, toFit}});
-    const fields = record(measured, {nth: n, runs_to_fit70: toFit, engine: engineOf(storage), trigger: ['first', 'you', 'schedule', 'telegram'].includes(trigger) ? trigger : 'other'});
-    return telemetry.record('search', fields);
+    return telemetry.record('search', record(measured, {...base, nth: n, runs_to_fit70: toFit, result: 'done'}));
   } catch { return null; }
 }

@@ -21,7 +21,7 @@ test('the record keeps listed fields and drops anything else, including text and
 });
 
 test('every listed field is the one the privacy page names, and the family list equals the engine\'s', () => {
-  assert.deepEqual(Object.keys(FIELDS).sort(), ['city', 'country', 'engine', 'family', 'first_fit70_s', 'first_s', 'fit70', 'in_places', 'nth', 'runs_to_fit70', 'scored', 'tenth_s', 'trigger']);
+  assert.deepEqual(Object.keys(FIELDS).sort(), ['city', 'country', 'engine', 'family', 'first_fit70_s', 'first_s', 'fit70', 'in_places', 'nth', 'result', 'runs_to_fit70', 'scored', 'tenth_s', 'trigger']);
   const py = fs.readFileSync(new URL('../../src/role_kinds.py', import.meta.url), 'utf8').match(/^KINDS = \(([^)]*)\)/m)[1].match(/'(\w+)'/g).map(s => s.slice(1, -1));
   assert.deepEqual(FAMILIES, py);
 });
@@ -35,9 +35,19 @@ test('one report per finished run: the nth search and the runs until the first 7
   const c = await reportSearch(storage, telemetry, {startedAt: 't', ok: true, trigger: 'schedule'}, exec);
   assert.deepEqual([a.kind, a.nth, a.runs_to_fit70], ['search', 1, undefined]);
   assert.deepEqual([b.nth, b.runs_to_fit70, c.nth, c.runs_to_fit70], [2, 2, 3, 2]);
-  assert.equal(await reportSearch(storage, telemetry, {startedAt: 't', ok: false}, exec), null);
+  assert.equal(c.result, 'done');
   storage.saveSettings({telemetry: false});
   assert.equal(await reportSearch(storage, telemetry, {startedAt: 't', ok: true}, async () => assert.fail('no measuring when reports are off')), null);
+});
+
+test('a failed or stopped search sends only its outcome: no measuring, no count of searches', async () => {
+  const storage = storageWith({searchReport: {n: 2, toFit: 2}}), telemetry = create(storage, {version: '1', fetcher: async () => ({ok: true})});
+  const exec = async () => assert.fail('a search that did not finish is not measured');
+  const failed = await reportSearch(storage, telemetry, {startedAt: 't', ok: false, trigger: 'schedule'}, exec);
+  const stopped = await reportSearch(storage, telemetry, {startedAt: 't', ok: false, stopped: true, trigger: 'you'}, exec);
+  assert.deepEqual([failed.kind, failed.result, failed.trigger, failed.nth, failed.in_places], ['search', 'failed', 'schedule', undefined, undefined]);
+  assert.deepEqual([stopped.result, stopped.trigger], ['stopped', 'you']);
+  assert.deepEqual(storage.settings().searchReport, {n: 2, toFit: 2});
 });
 
 test('Settings and the privacy page both say that search counts and times are sent', () => {

@@ -81,7 +81,7 @@ function searchOnce(storage, onLine, mode, trigger = 'you', employers = false) {
     const startedAt = new Date().toISOString();   // "Your search changed" compares with when a refresh began, not ended (renderer/search-changed.js)
     const {code, result} = await searchSteps(storage, onLine, mode, trigger, undefined, {employers});
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchStartedAt: startedAt, lastSearchOk: code === 0});
-    searchDone({startedAt, ok: code === 0, trigger});   // the search report (lib/search-report.js), when Technical reports are on
+    searchDone({startedAt, ok: code === 0, stopped: code === null, trigger});   // the search report (lib/search-report.js), when Technical reports are on
     return {ok: code === 0, result};
   })();
 }
