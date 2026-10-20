@@ -15,6 +15,9 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
   Worst first: regressions, the earliest stop, the least filled form. A form reached with under half its asked fields filled is a **shortfall**. A code or bot check is a documented hold, not on the list.
 - **Take a CAUSE, not a row** (owner, 11 Oct 2026; `docs/rules/rounds.md`): the **By cause** tab, or `~/job-pilotto-site/tools/site-run.sh node tools/needs-fix-causes.mjs --rows`. A row "Run first" (never recorded, or not since its fix) is the recorder's, not a fix.
   Weigh by demand (the scorecard's "Of matched jobs"); a "Blind spot" platform (real fills worse than the tests) goes first: its signal is in `record-applying-sites` "Reading real use".
+- **Also the open fill-failure issues** (`gh issue list -R GarryOne/job-pilotto-internal --label fill-failure --state open`; one per field a real fill left, with its build
+  and snapshot): `node tools/fill-fixture.mjs <n> --repo GarryOne/job-pilotto-internal` makes the replay fixture (red until fixed: your reproducer, it lands with the fix);
+  "record the site" goes to `record-applying-sites`. The fix's commit says `Fixes GarryOne/job-pilotto-internal#<n>`, so the issue closes when it merges.
 - **Claim it:** `node tools/claim-shape.mjs claim "<row>" --session <your name> --alive <names ListAgents shows>` (exit 1 prints the holder: next row). Release it whenever you stop.
 - **Skip what is not a failure:** an email/told outcome (a correct hold), a site answering 5xx, a row already fixed on main (`git log origin/main --grep '<site>'`, `Pool-row:` trailers).
 - **Worktree** `tools/worktree.sh fix-<shape>`, scratch `<scratchpad>/fix-recorded-sites/`, no subagents, say the tier (usually 2). One row per session; side work goes to a new session with a brief.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleReport, sanitize } from '../src/report.js';
+import { handleReport, newer, sanitize } from '../src/report.js';
 
 const report = { site: 'job-boards.greenhouse.io', version: '0.6.2', fields: [
   { label: 'Location (City)', type: 'combobox', required: true, reason: 'dropdown clicked, but no option matched', options: ['Geneva, Switzerland'] },
@@ -43,7 +43,7 @@ test('untrusted reports are limited: 10 per sender per day', async () => {
   assert.equal(trusted.status, 200);  // the owner's app is never limited
 });
 
-test('a failure becomes an issue only when it recurs: three different senders, or ten reports; then once a week', async () => {
+test('a failure becomes an issue only when it recurs: three different senders, or ten reports; then again only on a newer build', async () => {
   const store = new Map();
   const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
   const calls = [];
@@ -59,7 +59,7 @@ test('a failure becomes an issue only when it recurs: three different senders, o
   await post('3.3.3.3');
   assert.equal(calls.length, 1);   // three different senders: one issue
   await post('4.4.4.4');
-  assert.equal(calls.length, 1);   // not again this week
+  assert.equal(calls.length, 1);   // not again on the same build
   // one install failing over and over also counts, at ten reports
   const other = { ...report, site: 'solo.example.com' };
   const reports = [];
@@ -83,4 +83,49 @@ test('the owner\'s signed report and a required question nobody read go to triag
   assert.equal(calls.length, 1);   // a whole question missed: at once
   await post({ site: 'own.example.com', fields: [{ label: 'Pick one', reason: 'dropdown clicked, but no option matched' }] }, 't0k');
   assert.equal(calls.length, 2);   // the owner's app: at once
+});
+
+test('each field counts on its own: the same field beside other fields is the same failure, passed on alone', async () => {
+  // 20 Oct 2026: a field reported beside different fields (or in another language's combination) opened a new issue each time: 8 of 40 were duplicates
+  const store = new Map();
+  const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
+  const sent = [];
+  const dispatch = async (env, inputs) => sent.push(JSON.parse(inputs.report));
+  const post = (ip, fields, version = '0.9.448') => handleReport(new Request('https://x/report/fill-failure', { method: 'POST', headers: { 'CF-Connecting-IP': ip },
+    body: JSON.stringify({ site: 'boards.example.com', version, fields }) }), { WAITLIST: kv }, dispatch);
+  const city = { label: 'City', type: 'combobox', reason: 'dropdown clicked, but no option matched' };
+  const box = { label: 'Alerts', type: 'checkbox', reason: 'answer given, but the field did not take it' };
+  await post('1.1.1.1', [city]);
+  await post('2.2.2.2', [city, box]);
+  await post('3.3.3.3', [box, city]);
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0].fields.map((f) => f.label), ['City']);   // the box was seen by two senders only: it waits
+  assert.equal([...store.keys()].filter((key) => key.startsWith('report:site:')).length, 1);   // one record per site, whatever the fields
+});
+
+test('a field already passed on comes again only from a newer build', async () => {
+  const store = new Map();
+  const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
+  const sent = [];
+  const dispatch = async (env, inputs) => sent.push(JSON.parse(inputs.report));
+  const post = (version) => handleReport(new Request('https://x/report/fill-failure', { method: 'POST', headers: { Authorization: 'Bearer t' },
+    body: JSON.stringify({ site: 'own.example.com', version, fields: [{ label: 'Country', reason: 'dropdown not clicked: the click failed' }] }) }), { WAITLIST: kv, REPORT_TOKEN: 't' }, dispatch);
+  await post('0.9.448');
+  await post('0.9.448');
+  await post('0.9.440');
+  assert.equal(sent.length, 1);
+  const again = await (await post('0.9.460')).json();
+  assert.equal(sent.length, 2);
+  assert.equal(again.issue, true);
+  assert.equal(sent[1].version, '0.9.460');
+});
+
+test('builds compare by number; an unstamped copy is no later than a stamped one', () => {
+  assert.equal(newer('0.9.460', '0.9.448'), true);
+  assert.equal(newer('0.10.0', '0.9.999'), true);
+  assert.equal(newer('0.9.448', '0.9.448'), false);
+  assert.equal(newer('0.9', '0.9.448'), false);
+  assert.equal(newer('0.9.461-dev', '0.9.460'), true);
+  assert.equal(newer('0.9.1', ''), true);
+  assert.equal(newer('', '0.9.1'), false);
 });

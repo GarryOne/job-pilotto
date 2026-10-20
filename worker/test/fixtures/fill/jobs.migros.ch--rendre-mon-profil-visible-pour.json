@@ -1,0 +1,13 @@
+{
+ "source": "issue #15",
+ "site": "jobs.migros.ch",
+ "label": "Rendre mon profil visible pour :",
+ "reason": "question on the page not read",
+ "note": "From a fill-failure report (issue #15).",
+ "field": "radio:fbclc_searPref",
+ "answer": "J'accepte que mes données soient conservées même après la candidature à un poste à pourvoir au sein du groupe Migros pou",
+ "expect": {
+  "read": true,
+  "required": true
+ }
+}

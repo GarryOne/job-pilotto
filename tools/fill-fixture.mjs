@@ -42,11 +42,57 @@ export function fromFields(site, fields, { source = 'synthetic', answer = null }
     const html = typeof field?.snapshot === 'string' ? field.snapshot : field?.snapshot ? snapshotFromReport(field.snapshot) : '';
     if (!html || !site || !field.label) continue;
     const reading = READING.test(field.reason || '');
+    // A reading failure is checked with a stand-in answer too: given none, the replay traces even a read question as unread (20 Oct 2026).
+    const stand = standIn(field, html, answer);
+    if (!reading && !stand) continue;   // nothing a replay can check here: whyNoFixture says what to do instead
+    const group = radioGroupName(html);
     out.push({ name: `${site}--${slug(field.label)}`, html,
-      spec: { source, site, label: field.label, reason: field.reason || '', note: `From a fill-failure report (${source}).`,
-        answer: reading ? '' : answer, expect: reading ? { read: true, required: true } : {} } });
+      spec: { source, site, label: field.label, reason: field.reason || '', note: `From a fill-failure report (${source}).`, ...(group ? { field: `radio:${group}` } : {}),
+        answer: reading ? (stand?.answer ?? '') : stand.answer, expect: reading ? { read: true, required: true } : stand.expect } });
   }
   return out;
+}
+
+// The choices a snapshot itself holds (a dropdown whose list loads from the site holds none) and the radio group a container marks.
+const choicesIn = (html) => [...String(html).matchAll(/<(?:option[^>]*|[^>]*role="option"[^>]*)>\s*([^<]+?)\s*</g)].map((m) => m[1]).filter((text) => !/^(select|choose|please|--|—|\.\.\.)/i.test(text));
+const radioGroupName = (html) => (/data-jp-field[^>]*role="radiogroup"|role="radiogroup"[^>]*data-jp-field/.test(html) ? /<input[^>]*type="radio"[^>]*name="([^"]+)"|<input[^>]*name="([^"]+)"[^>]*type="radio"/.exec(html)?.slice(1).find(Boolean) : '') || '';
+
+// A radio's own words (not its group's question): its aria-label, its <label for>, or the label right after it.
+function radioChoice(html) {
+  const radio = /<input[^>]*type="radio"[^>]*>/.exec(html);
+  if (!radio) return '';
+  const aria = /aria-label="([^"]+)"/.exec(radio[0])?.[1], id = /\sid="([^"]+)"/.exec(radio[0])?.[1];
+  const forId = id ? new RegExp(`<label[^>]*for="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>\\s*([^<]+?)\\s*<`).exec(html)?.[1] : '';
+  const after = /<label[^>]*>\s*([^<]+?)\s*</.exec(html.slice(radio.index))?.[1];
+  return [aria, forId, after, /\svalue="([^"]+)"/.exec(radio[0])?.[1]].map((text) => String(text || '').trim()).find(Boolean) || '';
+}
+
+// A stand-in answer (never the user's real one) and what the replay must see, for a control failure; null when the snapshot cannot show it.
+export function standIn(field, html, answer = null) {
+  const type = String(field.type || '').toLowerCase(), dropdown = /^dropdown/.test(field.reason || '') || /combobox|select/.test(type);
+  if (dropdown) {
+    if (/<select/.test(html)) return null;   // a native menu: the replay sees picks on drawn options only
+    const choice = answer ?? choicesIn(html)[0];
+    return choice ? { answer: choice, expect: { picked: choice } } : null;
+  }
+  if (type === 'radio' || (!type && /type="radio"/.test(html))) {
+    const label = answer ?? radioChoice(html);
+    return label ? { answer: label, expect: { checked: label } } : null;
+  }
+  if (!type || /text|email|tel|url|number|textarea|search/.test(type)) {
+    const text = answer ?? 'Example answer';
+    return { answer: text, expect: { value: text } };
+  }
+  return null;   // a checkbox: the replay reads no box state yet
+}
+
+// Why a reported field gets no fixture: said to the person running the tool, with what to do instead.
+export function whyNoFixture(field) {
+  if (!field?.snapshot) return 'no snapshot in the report';
+  const type = String(field.type || '').toLowerCase();
+  if (/^dropdown/.test(field.reason || '') || /combobox|select/.test(type)) return 'its choices are not drawn in the snapshot (they load from the site, or it is a native menu): record the site (skill record-applying-sites)';
+  if (type === 'checkbox') return 'a checkbox: write the fixture by hand (the replay reads no box state yet)';
+  return 'nothing a replay can check from the snapshot';
 }
 // A private triage issue's report fields: the ```json block of its "Snapshots" section.
 export function fieldsOfIssue(body) {
@@ -77,6 +123,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // A private triage issue (job-pilotto-internal, --repo): its fields JSON, one fixture per field with a snapshot.
   const site = issue.title?.match(/^Fill failure: ([a-z0-9.-]+)/)?.[1] || '';
   const fromTriage = site ? fromFields(site, fieldsOfIssue(issue.body), { source: `issue #${number}`, answer: option('--answer') ?? null }) : [];
+  if (site) {
+    const made = new Set(fromTriage.map((each) => each.spec.label));
+    for (const field of fieldsOfIssue(issue.body).filter((f) => f?.label && !made.has(f.label))) console.log(`No fixture for "${field.label}": ${whyNoFixture(field)}.`);
+  }
   if (fromTriage.length) {
     for (const each of fromTriage) console.log(`Wrote ${write(each, { force: args.includes('--force') })}.html and .json.`);
     console.log('Then: cd worker && node --test test/fill-replay.test.js  (it should fail before the fix, pass after)');

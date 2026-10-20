@@ -15,7 +15,7 @@ money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
 flowchart LR
   apps[Users' apps] -- scrubbed reports --> tel[/telemetry + /api/signals/]
   apps -- failing controls --> prop[recipe proposer: private repo] -- recipes --> apps
-  tel -- recurring problems --> triage[triage: private repo] --> issues[(private issues)]
+  apps -- failing fields --> triage[triage: private repo] --> issues[(private issues)]
   issues -- owner fixes by hand or PR --> main[(main)]
   main --> ci[build: tests] & desktop[desktop: pre-release] & site[site: deploy]
   desktop --> canary[soak: e2e top-ups + 48 h beta use] --> stable[stable release] --> apps
@@ -80,7 +80,7 @@ flowchart LR
 | `worker.yml` · Release · Worker | push touching `worker/src/`, its `wrangler.toml`, `package*.json` or `scripts/` (not this workflow file); by hand | the Worker's tests, then `npm run deploy` (wrangler deploy + the secrets check) of `sre-job-pilotto-bot`: the Telegram bot and the on-time schedules; independent of the desktop release run and of the site | the live Worker | Cloudflare | — |
 | `product-media.yml` · Release · Product media | push to main touching `desktop/renderer/`, `desktop/demo/`, `desktop/scripts/media/` or `extension/`; or by hand (`pieces`) | `npm run media`: records the app (demo mode, dark) and the real extension on a fictional form, zooms and clicks in code from the saved AI plans (no AI in CI), checks each piece | artifact `product-media` (videos, stills, `manifest.json`), pulled by the site's deploy | the Actions page | — |
 | `pr-closed-cancel.yml` · CI · Cancel the runs of a closed PR | a pull request closed or merged (`pull_request_target`, main's copy, never the PR's code) | cancels that branch's queued or running pull_request runs | — (`actions: write` only) | — | — |
-| Triage · private repo `GarryOne/job-pilotto-internal` (`triage.yml`, daily 05:47 UTC) | pulls recurring problems from the site's queue (several installs, or very often) → one issue per problem in the private repo | issues (private) | `telemetry` / `fill-failure` issues there | act on the issue |
+| Triage · private repo `GarryOne/job-pilotto-internal` (`triage.yml`, daily 05:47 UTC) | pulls recurring form-fill failures from the site's queue (the owner's app or an unread question at once, others at 3 installs or 10 reports) → one issue per failing field (site + question + cause) with its extension build; "Seen again" only on a newer build, closed after 14 days unseen. Telemetry problems are not filed since 20 Oct 2026 (owner: Sentry and its fixer handle crashes and failed runs; /admin/app shows the rest) | issues (private) | `fill-failure` issues there, read by `record-applying-sites` and `fix-recorded-sites` | a fix says `Fixes GarryOne/job-pilotto-internal#n` |
 | `product-brain.yml` · Product brain | daily 05:00 UTC; Sunday 16:00 strategy review | reads the owner's 📍 Product Compass, numbers, the website (screenshots), GitHub → ONE action serving the phase; Sunday: proposes Compass changes (Opus, web) | Notion Decisions (+ Compass on ✅) | Brain bot card | ✅ Explore, ✅ Approve, ✅ Update the compass |
 | `daily.yml` · Find jobs | user's private repo (every 4 h) | crawl, score, digest, kits | the user's Notion | Telegram digest | user submits |
 | `scout.yml` · More employers | user's private repo, **optional** (off for new installs); in the app, Find jobs runs the same finder as its last step (at most once a day, and on the first run) | probes public job-feed APIs | the user's employer list | Telegram | — |
