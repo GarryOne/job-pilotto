@@ -106,7 +106,9 @@ class TradeTagsTests(unittest.TestCase):
         """6 Oct 2026: a photographer's shares were all tagged 'other' (the tags knew only IT); the site drops a tag it does not list."""
         import re
         from src import contribute, role_kinds
-        site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()
+        # the tag list moved from site/src/pool.js to site/shared/pool-labels.js (20 Oct 2026, the site's folder split): read whichever the tree has
+        root = Path(__file__).resolve().parents[1] / 'site'
+        site = next(p for p in (root / 'shared' / 'pool-labels.js', root / 'src' / 'pool.js') if p.exists()).read_text()
         accepted = set(re.findall(r"'(\w+)'", re.search(r'export const ROLES = \[([^\]]+)\]', site).group(1)))
         sendable = set(contribute.ROLES) | set(contribute.TRADE_ROLES) | {'other'}
         self.assertEqual(sendable, accepted)
