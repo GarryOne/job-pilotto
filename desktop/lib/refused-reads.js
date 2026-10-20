@@ -5,6 +5,7 @@
 import * as pipeline from './pipeline.js';
 import {engineJson, siteLine, resultMessage} from './visits.js';
 import {log as appLog} from './log.js';
+import * as now from './refused-now.js';
 
 export const settingOn = storage => storage.settings().readRefusedSites !== false;
 export const PASS_MS = 15 * 60 * 1000;   // a pass the extension never finishes (Chrome closed) ends here, with what it brought
@@ -20,7 +21,8 @@ export async function queue(storage, {allowed = true, log = () => {}, run = pipe
   if (!allowed || pass) return {...off, on: true};
   let sites = [];
   try {
-    const {stdout} = await run(storage, ['src.desktop', 'refused-queue']);
+    const asked = now.take();   // Read now: these sites are due at once (src/sources/refused_reads.py queue)
+    const {stdout} = await run(storage, ['src.desktop', 'refused-queue', ...(asked.all ? ['--all'] : []), ...asked.hosts.flatMap(host => ['--now', host])]);
     sites = JSON.parse(String(stdout).trim().split('\n').pop()).sites || [];
   } catch { sites = []; }
   if (!sites.length) return {...off, on: true};

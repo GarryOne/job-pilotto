@@ -7,6 +7,7 @@ import {api, settings} from './flow.js';
 import {ALL_SITES} from './site-allow.js';
 
 export const ALARM = 'refused-reads';
+export const NOW_ALARM = 'refused-reads-now';   // every minute: has the app a Read now waiting? (one cheap call, the engine is not asked)
 export const PERIOD_MIN = 60;
 export const PAUSE_MS = [5000, 12000];   // between sites: gentle, one at a time
 export const MAX_SITES = 12;             // the app's own cap, kept here too
@@ -49,7 +50,19 @@ export async function pass({chrome = globalThis.chrome, call = api, config = nul
   } finally { running = false; }
 }
 
+// Read now: the app says one is waiting (a job opened, Check for new jobs); the pass then reads the due sites at once.
+export async function readNowIfAsked({chrome = globalThis.chrome, call = api, config = null} = {}) {
+  if (running) return {read: 0, skipped: 'running'};
+  const cfg = config || await settings();
+  const asked = await call(cfg, '/extension/refused-pending', {method: 'POST', body: '{}'}).catch(() => null);
+  return asked?.pending ? pass({chrome, call, config: cfg}) : {read: 0};
+}
+
 export function startRefusedReads({chrome = globalThis.chrome} = {}) {
   chrome.alarms.create(ALARM, {delayInMinutes: 3, periodInMinutes: PERIOD_MIN});
-  chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === ALARM) pass({chrome}).catch(() => {}); });
+  chrome.alarms.create(NOW_ALARM, {delayInMinutes: 1, periodInMinutes: 1});
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (alarm.name === ALARM) pass({chrome}).catch(() => {});
+    if (alarm.name === NOW_ALARM) readNowIfAsked({chrome}).catch(() => {});
+  });
 }

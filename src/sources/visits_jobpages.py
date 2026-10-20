@@ -92,7 +92,9 @@ def _read_ok(read):
         return None
     jobs = read.get('jobs')
     return {'outcome': read['outcome'], **({'jobs': jobs} if isinstance(jobs, int) and jobs >= 0 else {}),
-            **({'kinds': role_kinds.valid(read.get('kinds'))} if role_kinds.valid(read.get('kinds')) else {})}
+            **({'kinds': role_kinds.valid(read.get('kinds'))} if role_kinds.valid(read.get('kinds')) else {}),
+            **({'step': read['step']} if read.get('step') in refused_reads.STEPS else {}),
+            **({'route': refused_reads.valid_route(read.get('route'))} if refused_reads.valid_route(read.get('route')) else {})}
 
 
 def _cells(items):

@@ -2,7 +2,7 @@
 // without cookies, one at a time, never a login-wall site even if the app lists one, and every page or failure goes back to the app.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {pass, mayFetch, ALARM, MAX_SITES} from '../../extension/refused-read.js';
+import {pass, mayFetch, readNowIfAsked, ALARM, NOW_ALARM, MAX_SITES} from '../../extension/refused-read.js';
 
 const chromeWith = allowed => ({permissions: {contains: async () => allowed}});
 function harness({on = true, sites = [], allowed = true, pages = {}} = {}) {
@@ -54,4 +54,16 @@ test('a login-wall site the app lists is never fetched, a failed fetch is report
   await many.run();
   assert.equal(many.fetched.length, MAX_SITES);
   assert.equal(ALARM, 'refused-reads');
+});
+
+test('Read now: the extension looks every minute and only reads when the app says one is waiting', async () => {
+  assert.notEqual(NOW_ALARM, ALARM);
+  for (const [pending, reads] of [[true, 1], [false, 0]]) {
+    const paths = [];
+    const call = async (_cfg, path) => { paths.push(path); return path === '/extension/refused-pending' ? {ok: true, pending} : path === '/extension/refused-queue' ? {ok: true, on: true, sites: [{url: 'https://jobs.coop.ch'}]} : {ok: true}; };
+    const fetchPage = async url => ({status: 200, url, text: async () => '<html></html>'});
+    const answer = await readNowIfAsked({chrome: chromeWith(true), call, config: {}, fetchPage, pause: async () => {}});
+    assert.equal(answer.read, reads);
+    assert.equal(paths.includes('/extension/refused-queue'), pending, 'the engine is only asked when a Read now waits');
+  }
 });

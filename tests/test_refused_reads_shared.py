@@ -39,18 +39,18 @@ class SharedOutcomesTest(unittest.TestCase):
 
     def test_an_opened_site_shares_its_job_count_and_kinds_of_work(self):
         refused_reads.outcome('https://jobs.coop.ch', 200, JOBS, 'Careers', now=NOW)
-        self.assertEqual(self.shared()['jobs.coop.ch'], {'outcome': 'opened', 'jobs': 4, 'kinds': MIX})
+        self.assertEqual(self.shared()['jobs.coop.ch'], {'outcome': 'opened', 'jobs': 4, 'kinds': MIX, 'step': 'download'})
 
     def test_a_stop_shares_only_its_fixed_word(self):
         refused_reads.outcome('https://jobs.coop.ch', 403, '', now=NOW)
         refused_reads.outcome('https://jobs.manor.ch', 200, '<html><title>Just a moment...</title>captcha</html>', now=NOW)
-        self.assertEqual(self.shared(), {'jobs.coop.ch': {'outcome': 'refused'}, 'jobs.manor.ch': {'outcome': 'bot'}})
+        self.assertEqual(self.shared(), {'jobs.coop.ch': {'outcome': 'refused', 'step': 'download'}, 'jobs.manor.ch': {'outcome': 'bot', 'step': 'download'}})
 
     def test_nothing_but_the_fixed_shape_leaves(self):
         refused_reads.outcome('https://jobs.coop.ch', 200, JOBS, 'Careers', now=NOW)
         fact = next(f for f in contribute.site_facts() if f['kind'] == 'browser_read')
         self.assertEqual(set(fact), {'host', 'kind', 'read'})
-        self.assertLessEqual(set(fact['read']), {'outcome', 'jobs', 'kinds'})
+        self.assertLessEqual(set(fact['read']), {'outcome', 'jobs', 'kinds', 'step', 'route'})
 
     def serve(self, facts):
         self.index.write_text(json.dumps({'fetched': NOW.isoformat(), 'feeds': [], 'sites': facts}))

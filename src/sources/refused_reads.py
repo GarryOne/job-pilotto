@@ -10,9 +10,10 @@ from datetime import datetime, timedelta, timezone
 
 from ..ai import board_ideas
 from ..paths import load_search_config
-from . import host_pace, render, visits
+from . import ats, host_pace, render, visits
 
-READ_DAYS = 30      # a site is asked once in this many days, whatever it answered
+READ_DAYS = 30      # a site every step stopped at is asked again after this many days (owner, 20 Oct 2026)
+OPENED_DAYS = 7     # a site some step opened is asked again after this many days, starting at the step that worked
 WAIT_DAYS = 1       # ... except a site that asked us to slow down: asked again the next day
 MAX_QUEUE = 12      # sites handed to the extension in one go
 CONCURRENCY = 1     # the extension asks one site at a time, with a pause (extension/refused-read.js)
@@ -35,9 +36,18 @@ def allowed(url):
     return parts.scheme == 'https' and bool(host) and not any(word in f'{host}.' for word in NEVER)
 
 
+STEPS = ('engine', 'download', 'tab')   # the ladder, in order; the step that opened a site is remembered and shared
+
+
+def _days(entry):
+    """How long a site rests after its last read: opened 7, every step stopped 30, "slow down" 1."""
+    state = entry.get('state')
+    return WAIT_DAYS if state == 'waiting' else OPENED_DAYS if state in ('read', 'empty') else READ_DAYS
+
+
 def _recent(kept, host, now):
     entry = kept.get(host) or {}
-    days = WAIT_DAYS if entry.get('state') == 'waiting' else READ_DAYS
+    days = _days(entry)
     return bool(entry.get('at')) and entry['at'] >= (now - timedelta(days=days)).isoformat(timespec='seconds')
 
 
@@ -50,19 +60,22 @@ def _board_url(board, search):
     return board['search_url'].replace('{role}', urllib.parse.quote_plus(terms[0])).replace('{place}', urllib.parse.quote_plus(place))
 
 
-def queue(now=None, limit=MAX_QUEUE):
-    """[{url, name, kind: 'employer'|'board'}]: refused employer sites, then boards marked 'browser', that were not asked in the last READ_DAYS."""
+def queue(now=None, limit=MAX_QUEUE, now_hosts=(), everything=False):
+    """[{url, name, kind: 'employer'|'board', step?}]: refused employer sites, then boards marked 'browser', that are due (see _days). A host in `now_hosts`
+    ("Read now", the person opened a job there or pressed Check for new jobs) is due at once; `step` is where the ladder starts (the one that worked last time)."""
     now = now or _now()
     data = visits._load()
     kept = data.get('refused_reads') or {}
     out, seen = [], set()
+    force = {host.lower().removeprefix('www.') for host in now_hosts}
+    due = lambda host: everything or host.lower().removeprefix('www.') in force or not _recent(kept, host, now)
     pool = visits.pool_facts().get('browser_read') or {}   # what other installs' browsers met there
     elsewhere = lambda host: (pool.get(host.lower().removeprefix('www.')) or {}).get('outcome')
     for site in (data.get('sites') or {}).values():
         host = visits.host_of(site['url'])
-        if allowed(site['url']) and host not in seen and not _recent(kept, host, now) and elsewhere(host) not in STOPPED:
+        if allowed(site['url']) and host not in seen and due(host) and elsewhere(host) not in STOPPED:
             seen.add(host)
-            out.append({'url': site['url'], 'name': site['company'], 'kind': 'employer'})
+            out.append({'url': site['url'], 'name': site['company'], 'kind': 'employer', 'step': (kept.get(host) or {}).get('step') or 'download'})
     out.sort(key=lambda item: elsewhere(visits.host_of(item['url'])) != 'opened')   # opened in another install's browser: asked first
     search = None
     for board in (board_ideas.load().get('boards') or {}).values():
@@ -71,17 +84,18 @@ def queue(now=None, limit=MAX_QUEUE):
         search = search or search_config()
         url = _board_url(board, search)
         host = visits.host_of(url or '')
-        if url and allowed(url) and host not in seen and not _recent(kept, host, now):
+        if url and allowed(url) and host not in seen and due(host):
             seen.add(host)
-            out.append({'url': url, 'name': board.get('name') or host, 'kind': 'board'})
+            out.append({'url': url, 'name': board.get('name') or host, 'kind': 'board', 'step': (kept.get(host) or {}).get('step') or 'download'})
     return out[:limit]
 
 
-def _keep(host, url, state, why, now, jobs=None, kinds=None):
+def _keep(host, url, state, why, now, jobs=None, kinds=None, step=None, route=None):
     with visits.LOCK:
         data = visits._load()
         data.setdefault('refused_reads', {})[host] = {'at': now.isoformat(timespec='seconds'), 'url': url, 'state': state, 'why': why,
-                                                      **({'jobs': jobs} if jobs is not None else {}), **({'kinds': kinds} if kinds else {})}
+                                                      **({'jobs': jobs} if jobs is not None else {}), **({'kinds': kinds} if kinds else {}),
+                                                      **({'step': step} if step in STEPS else {}), **({'route': route} if route else {})}
         visits._save(data)
 
 
@@ -89,6 +103,47 @@ def _keep(host, url, state, why, now, jobs=None, kinds=None):
 # job count and kinds of work. Shared in the daily pool share (src/contribute.py site_facts), served back as pool_facts()['browser_read'].
 OUTCOMES = ('opened', 'refused', 'bot', 'login')
 STOPPED = ('refused', 'bot', 'login')   # the browser was stopped there: not asked again here either
+
+
+ROUTE_SYSTEMS = lambda: sorted(set(ats.FETCHERS) - set(ats.LOCAL_ONLY) - {'careers'})   # the job systems a route can name (src/sources/ats.py)
+
+
+def valid_route(route):
+    """A route in its one shared shape, or None: {system, account} (a job system and its account slug exactly as ats.detect writes it; a Workday
+    account is tenant.wdN.Site) or {feed} (one https address, no query, no fragment). Never a title, a link list or a text (owner, 20 Oct 2026)."""
+    if not isinstance(route, dict):
+        return None
+    system, account, feed = route.get('system'), route.get('account'), route.get('feed')
+    if system in ROUTE_SYSTEMS() and feed is None and set(route) == {'system', 'account'} and isinstance(account, str) and account.strip() == account and ats.detect(_probe(system, account)) == (system, account):
+        return {'system': system, 'account': account}
+    parts = urllib.parse.urlsplit(feed) if isinstance(feed, str) and len(feed) <= 300 else None
+    if parts and parts.scheme == 'https' and parts.hostname and not (parts.query or parts.fragment) and allowed(feed) and not system and not account:
+        return {'feed': feed}
+    return None
+
+
+def _probe(system, account):
+    """A board address of `system` for `account`, to hand back to ats.detect: the slug check is the reader's own, not a second pattern."""
+    if system == 'workday':
+        tenant, _, rest = account.partition('.')
+        cluster, _, site = rest.partition('.')
+        return f'https://{tenant}.{cluster}.myworkdayjobs.com/{site}'
+    return PROBE_URLS.get(system, '').replace('{}', account)
+
+
+PROBE_URLS = {'greenhouse': 'https://boards.greenhouse.io/{}', 'lever': 'https://jobs.lever.co/{}', 'ashby': 'https://jobs.ashbyhq.com/{}',
+              'smartrecruiters': 'https://jobs.smartrecruiters.com/{}', 'workable': 'https://apply.workable.com/{}', 'recruitee': 'https://{}.recruitee.com',
+              'personio': 'https://{}.jobs.personio.de', 'teamtailor': 'https://{}.teamtailor.com', 'join': 'https://join.com/companies/{}',
+              'umantis': 'https://{}.umantis.com'}
+
+
+def route_of(final, html):
+    """The job system and account a page reads from, found in its own address or the addresses it links to (ats.detect), or None. Only that pair is kept."""
+    for url in [final or '', *re.findall(r'(?:href|src|action)=["\']([^"\']{8,300})', (html or '')[:400000])]:
+        found = ats.detect(url)
+        if found and valid_route({'system': found[0], 'account': found[1]}):
+            return {'system': found[0], 'account': found[1]}
+    return None
 
 
 def _word(entry):
@@ -104,7 +159,8 @@ def shared():
     for host, entry in (visits._load().get('refused_reads') or {}).items():
         word = _word(entry or {})
         if word:
-            read = {'outcome': word, **({'jobs': entry['jobs'], **({'kinds': entry['kinds']} if entry.get('kinds') else {})} if word == 'opened' and isinstance(entry.get('jobs'), int) else {})}
+            read = {'outcome': word, **({'jobs': entry['jobs'], **({'kinds': entry['kinds']} if entry.get('kinds') else {})} if word == 'opened' and isinstance(entry.get('jobs'), int) else {}),
+                    **({'step': entry['step']} if entry.get('step') in STEPS else {}), **({'route': entry['route']} if word == 'opened' and valid_route(entry.get('route')) else {})}
             out.append({'host': host.lower().removeprefix('www.'), 'kind': 'browser_read', 'read': read})
     return out
 
@@ -121,7 +177,7 @@ def _stop_why(status, html, final):
     return ''
 
 
-def outcome(url, status, html, title='', final='', now=None):
+def outcome(url, status, html, title='', final='', now=None, step='download'):
     """What the extension's fetch of `url` brought: {ok, state: 'read'|'empty'|'stopped'|'skipped', jobs, why, name, feed}. Every answer is kept so the site is not asked again for READ_DAYS."""
     now = now or _now()
     host = visits.host_of(url)
@@ -133,13 +189,13 @@ def outcome(url, status, html, title='', final='', now=None):
         return {'ok': True, 'state': 'waiting', 'why': 'asked us to slow down', 'name': host}
     why = _stop_why(int(status or 0), html, final)
     if why:
-        _keep(host, url, 'stopped', why, now)
+        _keep(host, url, 'stopped', why, now, step=step)
         print(f'Refused sites: {host} stopped ({why}); not asked again for {READ_DAYS} days')
         return {'ok': True, 'state': 'stopped', 'why': why, 'name': host}
     result = visits.read(url, html or '', None, title or '', now=now)
     state = 'read' if result['jobs'] else 'empty'
     from .. import role_kinds
     titles = [job.get('title') for job in result['jobs'] if isinstance(job, dict)]
-    _keep(host, url, state, '', now, jobs=len(result['jobs']), kinds=role_kinds.mix(titles) if titles else None)
+    _keep(host, url, state, '', now, jobs=len(result['jobs']), kinds=role_kinds.mix(titles) if titles else None, step=step, route=route_of(final, html) if result['jobs'] else None)
     print(f"Refused sites: read {host} in your browser: {len(result['jobs'])} job(s), {result.get('fits', 0)} matching your search")
     return {'ok': True, 'state': state, 'jobs': len(result['jobs']), 'fits': result.get('fits', 0), 'name': result['name'], 'feed': result['feed']}
