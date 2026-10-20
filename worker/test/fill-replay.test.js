@@ -13,6 +13,9 @@ const fixtures = fs.readdirSync(DIR).filter((name) => name.endsWith('.json')).so
   .map((name) => ({ name: name.slice(0, -5), spec: JSON.parse(fs.readFileSync(new URL(name, DIR), 'utf8')),
     html: fs.readFileSync(new URL(name.replace(/\.json$/, '.html'), DIR), 'utf8') }));
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// A question named the same way, give or take the page's trailing marks ("Rendre mon profil visible pour :" is "… pour"; 20 Oct 2026, a read
+// question stayed red on its colon).
+const same = (a, b) => { const plain = (text) => String(text || '').replace(/[\s:*]+$/, '').replace(/\s+/g, ' ').trim(); return plain(a) === plain(b); };
 
 // The field the fill answers, as fill.js names it: the marked element's id/name, a radio group as "radio:<name>".
 function fieldOf(window, spec) {
@@ -53,12 +56,12 @@ async function replay(spec, html) {
     pressed: window.document.querySelector('button[aria-pressed=true]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
     checked: radio ? (radio.labels?.[0]?.textContent || radio.value).replace(/\s+/g, ' ').trim() : null,
     value: input && !/^(radio|checkbox)$/.test(input.type) && input.getAttribute('role') !== 'combobox' ? input.value : null,
-    trace: (summary.trace || []).find((row) => row.label === spec.label) || null,
+    trace: (summary.trace || []).find((row) => same(row.label, spec.label)) || null,
     // The fill's trace names the field by its question (not one of its choices) and knows whether it is required.
-    traced: (summary.trace || []).some((row) => row.label === spec.label),
+    traced: (summary.trace || []).some((row) => same(row.label, spec.label)),
     // Read: traced as a question the reader understood, not as one it missed (a reading failure's fixture is red until fixed).
-    read: (summary.trace || []).some((row) => row.label === spec.label && !/^question (on the page not read|text not found)/.test(row.reason || '')),
-    required: !!(summary.trace || []).find((row) => row.label === spec.label)?.required,
+    read: (summary.trace || []).some((row) => same(row.label, spec.label) && !/^question (on the page not read|text not found)/.test(row.reason || '')),
+    required: !!(summary.trace || []).find((row) => same(row.label, spec.label))?.required,
     error: summary.error || null,
   };
 }

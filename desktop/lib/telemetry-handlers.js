@@ -21,6 +21,15 @@ import * as terminals from './terminals.js';
 import {startTracking} from './tab-expect.js';
 import {causedByPlant} from './planted.js';
 
+// What a run that did not end with 0 reports as failed, or null for a run stopped from outside (no exit code, not the app's watchdog: the
+// person's Stop, quitting the app): 20 Oct 2026, such runs were reported as failed with their last ordinary line as the "error"
+// ("Enriched 100 of 100 job(s); 0 failed", "Shared 0 employer feeds…"). Guard: test/telemetry-run-end.test.js.
+export function runFailure({code, timedOut, tail = []}) {
+  if (code === null && !timedOut) return null;
+  const error = timedOut ? `stopped by the app: ${timedOut}` : [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
+  return {error, ...(timedOut ? {timedOut} : {}), cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' '))};
+}
+
 export function registerTelemetryHandlers(ctx) {
   const {DEMO, app, crashReporter, healthOnce, storage, testerLogsOn, testerOn, track, trackSetup, setTelemetry, setTrail, setAnalytics} = ctx;
   let telemetry = null, analytics = null, staleWarned = '';   // main.js keeps telemetry, trail and analytics too (track() reads them): set through the setters
@@ -92,9 +101,8 @@ export function registerTelemetryHandlers(ctx) {
         if (warning) telemetry.record('run_warning', {job, seconds, warning, count: result.warnings.length});
         return;
       }
-      const error = timedOut ? `stopped by the app: ${timedOut}` : [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
-      telemetry.record('run_failed', {job, code, seconds, error, ...(timedOut ? {timedOut} : {}),
-        cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
+      const failure = runFailure({code, timedOut, tail});
+      if (failure) telemetry.record('run_failed', {job, code, seconds, ...failure, tail: tail.slice(-5)});
     });
     server.setFormIssueHandler(fields => {
       // Claude not answering a form's questions is the AI step failing, not one unfilled field: a warning with its reason.

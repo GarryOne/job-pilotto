@@ -173,11 +173,11 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       if (added) tellWindow('moved', ['open questions']);   // the Jobs page reads the answers page again (it is not re-read on every reload, 6 Oct 2026)
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Jobadabra → Jobs.`, {view: 'jobs'});
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
-      reports.send(storage, run, undefined, sharedLogger).then(report => {  // each field also shows in the app reports (/telemetry)
+      reports.send(storage, run, undefined, sharedLogger, {latest: latestExtension()}).then(report => {  // each field also shows in the app reports (/telemetry)
         // A fill that failed while Chrome ran an older copy than this app ships is explained first, as its own
         // report: otherwise the fields read as "the extension can't fill these", and the cause stays invisible
         // (1 Oct 2026: a Claude session hit exactly that and filled the whole form by hand).
-        const stale = staleExtension(report?.version, latestExtension());
+        const stale = staleExtension(run.debug?.version || '', latestExtension());   // the version Chrome said, not the report's "-dev" build name
         if (stale) formIssue({site: report.site, label: 'Jobadabra extension', type: 'version', reason: stale, version: report.version});
         for (const field of report?.fields || []) formIssue({site: report.site, label: field.label, type: field.type, reason: field.reason, version: report.version});
       }).catch(error => console.error('Fill report:', error.message));

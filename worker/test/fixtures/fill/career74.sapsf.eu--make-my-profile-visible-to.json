@@ -1,0 +1,13 @@
+{
+ "source": "issue #30",
+ "site": "career74.sapsf.eu",
+ "label": "Make My Profile Visible to",
+ "reason": "question on the page not read",
+ "note": "From a fill-failure report (issue #30).",
+ "field": "radio:fbclc_searPref",
+ "answer": "All Recruiters",
+ "expect": {
+  "read": true,
+  "required": true
+ }
+}
