@@ -562,6 +562,24 @@
    "urls": [
     "https://job-boards.greenhouse.io/doctolib/jobs/7517408003"
    ]
+  },
+  {
+   "shape": "Ashby form that may ask a Location combobox (internal#22, public posting 1 of 3)",
+   "urls": [
+    "https://jobs.ashbyhq.com/n8n/49e569f0-503e-4e42-a1ba-7e63684e90d3"
+   ]
+  },
+  {
+   "shape": "Ashby form that may ask a Location combobox (internal#22, public posting 2 of 3)",
+   "urls": [
+    "https://jobs.ashbyhq.com/lovable/cfef6fe1-e0c9-4139-8618-b51bfb1dc683"
+   ]
+  },
+  {
+   "shape": "Ashby form that may ask a Location combobox (internal#22, public posting 3 of 3)",
+   "urls": [
+    "https://jobs.ashbyhq.com/synthesia/497cc4cf-a6e7-4165-852f-e65bc817dc9b"
+   ]
   }
  ]
 }
