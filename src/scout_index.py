@@ -307,6 +307,9 @@ def central_stats(db, feeds_out, market=(), run=None):
             'market': list(market)}
 
 
+MAX_DEAD_ENDS = 10000   # the list reached its old cap of 5,000 on 20 Oct 2026, so the rest was probed again and again; ~1 MB at this size
+
+
 def dead_ends(db, shared=(), days=30):
     """[{key, company, host, last}] to publish: employers installs (shared) or this central scout found with no readable job site in the
     last `days` days. Installs skip them for 30 days (src/employer_index.central_nofeed)."""
@@ -323,7 +326,7 @@ def dead_ends(db, shared=(), days=30):
             host = re.sub(r'^https?://(www\.)?', '', row[1] or '').split('/')[0].lower() or None
             out[key] = {'key': key, 'company': str(row[0])[:120], 'host': host, 'last': str(row[2])[:10],
                         'outcome': row[3] if row[3] in OUTCOMES else 'no_feed'}
-    return list(out.values())[:5000]
+    return sorted(out.values(), key=lambda item: item['last'], reverse=True)[:MAX_DEAD_ENDS]   # past the cap the oldest drop out, not the newest
 
 
 def publish_index(feeds, url, key, send=None, stats=None, nofeed=None, boards=None):
