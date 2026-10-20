@@ -25,7 +25,7 @@ export async function openerOf(tab, waitMs = 250) {
 // which the mark must not follow (tab-pages.js navigationKind). Noted by tab id for a few seconds, then forgotten.
 const ownMoves = new Map();
 export const movedByUs = tabId => ownMoves.has(tabId);
-export async function moveTab(tabId, url) { ownMoves.set(tabId, Date.now()); setTimeout(() => ownMoves.delete(tabId), 15000).unref?.(); return chrome.tabs.update(tabId, {url}); }
+export async function moveTab(tabId, url, api = chrome) { ownMoves.set(tabId, Date.now()); setTimeout(() => ownMoves.delete(tabId), 15000).unref?.(); return api.tabs.update(tabId, {url}); }   // api: a test's fake Chrome (refused-tab.js)
 export const applyPressed = new Map();   // tab id → {at, url}: when and on which page the extension pressed its Apply button
 const pressedAt = new Map();   // tab id → {at}: any other press of the extension (a route, a next step, an account button, a closer look)
 // Said right before the extension clicks something in a tab: a tab that page opens a moment later is the same application's (followOpener below).
