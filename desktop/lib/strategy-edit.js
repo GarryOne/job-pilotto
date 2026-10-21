@@ -1,14 +1,16 @@
 // Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
 // Re-exported by strategy.js. Guarded by desktop/test/strategy-edit-loading.test.js and strategy-targets.test.js.
 import {ADD_ROLES_ATTEMPTS, escapeRegex, publishSearchSettings} from './strategy-settings.js';
+import {editTitles, titlesOf} from './target-roles.js';
 
 // The Strategy page's "What you're targeting", edited in the app (owner, 7 Oct 2026: "Edit preferences" opened the Profile page, where
 // the places shown on the card are not, and he wants to edit here, not in Notion). A fixed set of lists; the window sends, per list,
 // the stored fragments to remove and the words to add. Same loop as retune(): sync the page, change the cache, publish, check it stayed.
 // Each list: [settings file, path in it, stored as written (plain) or as a match fragment]. The search phrases and the languages that hide a
 // job are plain text; the rest are match fragments (owner, 7 Oct 2026: the Strategy page shows and edits everything the setup review has).
-export const EDITABLE_LISTS = {roles: ['search', ['role_keywords']], places: ['search', ['locations', 'top_tier']], country: ['search', ['locations', 'country_wide']],
-  abroad: ['search', ['locations', 'abroad']], searchOverride: ['search', ['locations', 'search_override']], stack: ['search', ['quality_stack_keywords']], queries: ['search', ['jobs_board_search_queries'], true],
+// roles is the one list of titles (lib/target-roles.js: the first five also searched on job boards): plain titles, kept as target_roles.
+export const EDITABLE_LISTS = {roles: ['search', ['target_roles'], true, 'roles'], places: ['search', ['locations', 'top_tier']], country: ['search', ['locations', 'country_wide']],
+  abroad: ['search', ['locations', 'abroad']], searchOverride: ['search', ['locations', 'search_override']], stack: ['search', ['quality_stack_keywords']],
   languages: ['preferences', ['disqualifying_languages'], true], rights: ['preferences', ['work_rights']],
   // What only the ⚙️ Search settings page had (P8, 9 Oct 2026): every store edits them here. A Google Jobs place is stored as
   // {location, language} and edited as "Location · language", as the page writes it (src/notion/search_settings.py 'place').
@@ -31,7 +33,7 @@ const placeOf = text => { const [location, language] = String(text).split(' · '
 const FILES = {search: 'config/search.json', preferences: 'config/preferences.json'};
 const listAt = (data, path) => (path.length === 1 ? data[path[0]] : data[path[0]]?.[path[1]]) || [];
 // A list as text entries (a place as "Location · language"), and back to how its file keeps it.
-const textsAt = (data, name) => listAt(data, EDITABLE_LISTS[name][1]).map(EDITABLE_LISTS[name][3] === 'place' ? placeText : String);
+const textsAt = (data, name) => name === 'roles' ? titlesOf(data) : listAt(data, EDITABLE_LISTS[name][1]).map(EDITABLE_LISTS[name][3] === 'place' ? placeText : String);
 const stored = (name, list) => (EDITABLE_LISTS[name][3] === 'place' ? list.map(placeOf) : list);
 const lowerSet = list => new Set(list.map(item => String(item).toLowerCase()));
 // edits: {list: {add, remove}}, and remote: {set: 'Yes' | 'No'} (the search settings' "Remote jobs").
@@ -60,6 +62,7 @@ export function applyEdits(files, edits) {
   for (const [name, edit] of Object.entries(edits)) {
     if (name === 'remote') { next.search.remote_jobs = [edit.set]; continue; }
     if (SCALARS[name]) { SCALARS[name].apply(next, edit.set); continue; }
+    if (name === 'roles') { next.search = editTitles(next.search, edit); continue; }
     const [file, path] = EDITABLE_LISTS[name], gone = lowerSet(edit.remove), data = next[file];
     const kept = textsAt(data, name).filter(item => !gone.has(String(item).toLowerCase()));
     const have = lowerSet(kept);

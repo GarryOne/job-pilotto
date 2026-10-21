@@ -20,6 +20,15 @@ FILES = {
 }
 
 
+# The roles and the searches as the one list (src/target_roles.py): the searches first, the other role words after, every old keyword still there.
+WITH_ROLES = json.loads(json.dumps(FILES))
+WITH_ROLES['search'].update({
+    'target_roles': [{'title': 'site reliability engineer', 'also': []}, {'title': 'site reliability', 'also': []},
+                     {'title': 'sre', 'also': [], 'fragment': r'\bsre\b'}, {'title': 'platform engineer', 'also': []}],
+    'role_keywords': ['site reliability engineer', 'site reliability', r'\bsre\b', 'platform engineer'],
+    'jobs_board_search_queries': ['site reliability engineer', 'site reliability', 'sre', 'platform engineer']})
+
+
 def page(markdown):  # how Tracker.page_text returns a page: headings as "## …", bullets as "- …"
     return markdown
 
@@ -43,7 +52,7 @@ class SearchSettingsTests(unittest.TestCase):
             (Path(tmp) / 'search.json').write_text(json.dumps(FILES['search']))
             (Path(tmp) / 'preferences.json').write_text(json.dumps(FILES['preferences']))
             files = s.apply(values)
-        self.assertEqual(files, FILES)  # the page never changes what a search matches
+        self.assertEqual(files, WITH_ROLES)  # the page never changes what a search matches: the same keywords, now also the one list of titles
 
     def test_the_locations_kinds_and_the_search_only_override_survive_the_page(self):
         # Locations, one source (17 Oct 2026): relocation yes / no / unspecified and a search-only list are settings too, on every store.
@@ -64,8 +73,8 @@ class SearchSettingsTests(unittest.TestCase):
                 (Path(tmp) / f'{name}.json').write_text(json.dumps({'_comment': 'Example settings, not anyone\'s real search', **FILES[name]}))
             files = s.apply(values)
             written = {name: json.loads((Path(tmp) / f'{name}.json').read_text()) for name in ('search', 'preferences')}
-        self.assertEqual(files, FILES)
-        self.assertEqual(written, FILES)
+        self.assertEqual(files, WITH_ROLES)
+        self.assertEqual(written, WITH_ROLES)
 
     def test_a_first_format_page_is_upgraded_without_changing_meaning_or_losing_edits(self):
         class Page:
@@ -81,7 +90,7 @@ class SearchSettingsTests(unittest.TestCase):
             # Untouched: rebuilt from the cache, so "site reliability" still matches anywhere.
             new = s.upgrade(Page(old), 'p')
             self.assertIn('- site reliability', new)
-            self.assertIn('- "sre"', new)
+            self.assertIn('- sre', new)
             self.assertEqual(s.parse(new), s.parse(s.render(FILES)))
             # Edited (a company added): the edit is kept.
             new = s.upgrade(Page(old.replace('- Acme Corp', '- Acme Corp\n- Initech')), 'p')
@@ -90,8 +99,8 @@ class SearchSettingsTests(unittest.TestCase):
             self.assertIsNone(s.upgrade(Page(new), 'p'))  # current format: nothing to do
 
     def test_a_missing_heading_keeps_the_cache_and_an_empty_one_means_none(self):
-        values = s.parse('## Companies to skip\n## Roles to look for\n- sre\n## Something else\n- ignored')
-        self.assertEqual(values, {('preferences', ('excluded_companies',)): [], ('search', ('role_keywords',)): [r'\bsre\b']})
+        values = s.parse('## Companies to skip\n## Target roles\n- sre\n## Something else\n- ignored')
+        self.assertEqual(values, {('preferences', ('excluded_companies',)): [], ('search', ('target_roles',)): ['sre']})
 
 
 if __name__ == '__main__':
@@ -102,10 +111,10 @@ class DoubledPageTests(unittest.TestCase):
     """1 Oct 2026: two writers published at once, the page showed every section twice, and every list in the config doubled."""
 
     def test_a_page_that_shows_a_section_twice_gives_each_entry_once(self):
-        text = '## Roles to look for\n- sre\n- Platform Engineer\n## Companies to skip\n- Sonar\n## Roles to look for\n- sre\n- platform engineer\n## Companies to skip\n- Sonar\n- sonar\n'
+        text = '## Target roles\n- sre\n- Platform Engineer\n## Companies to skip\n- Sonar\n## Target roles\n- sre\n- platform engineer\n## Companies to skip\n- Sonar\n- sonar\n'
         values = s.parse(text + s.FORMAT)
         self.assertEqual(values[('preferences', ('excluded_companies',))], ['Sonar'])
-        self.assertEqual(len(values[('search', ('role_keywords',))]), 2)
+        self.assertEqual(len(values[('search', ('target_roles',))]), 2)
 
     def test_rendering_a_parsed_doubled_page_is_the_single_page(self):
         single = s.render(FILES, show=s.readable)
@@ -113,7 +122,7 @@ class DoubledPageTests(unittest.TestCase):
         again = {}
         for (name, path), value in s.parse(doubled).items():
             again.setdefault(name, {})[path] = value
-        self.assertEqual(again['search'][('role_keywords',)], s.parse(single)[('search', ('role_keywords',))])
+        self.assertEqual(again['search'][('target_roles',)], s.parse(single)[('search', ('target_roles',))])
 
     def test_the_repos_example_config_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:

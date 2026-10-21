@@ -1,4 +1,4 @@
-// Strategy page, the target cards: Locations and the Advanced ones (job board searches, skills, exclusions, more search settings), their lists (chips,
+// Strategy page, the target cards: Locations and the Advanced ones (skills, exclusions, more search settings), their lists (chips,
 // the remote choice, the digest minimum) as read and in their editor, and renderStrategy. One card's editor at a time, drafts kept per card, one page bar
 // (strategy-cards.js); the Main goals card is main-goals.js. Guarded by: test/strategy-cards.test.js, save-progress, strategy-chips, locations-card tests.
 import {withSaveProgress} from '../save-progress.js';
@@ -12,7 +12,7 @@ import {searchLevel} from '../goal-kinds.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
-import {exclusionGroups, roleFamilies, withTyped} from '../strategy-parts.js';
+import {exclusionGroups, withTyped} from '../strategy-parts.js';
 import {strategyState} from './strategy-state.js';
 import {PLAIN, cardHeader, changed, dirty, drafts, isOpen, cardOf, openCard, redrawCards} from './strategy-cards.js';
 import {renderMainGoals} from './main-goals.js';
@@ -23,14 +23,14 @@ import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
 import {drawOutdated} from './strategy-rescore.js';
 import {chipsOf, folded, loadMeanings, meaningLabels, typoHints} from './strategy-chips.js';
+const SEARCHED = 5;   // lib/target-roles.js: the titles also typed into job boards
 import {GROUPS, asWholeWord, matchGroups, placeLabel, shownGroups, shownWord} from '../match-groups.js';
 
 // ---------- The setup review's cards, with your live settings (owner, 7 Oct 2026). Lists: Edit → the page bar's Save (lib/strategy.js editLists, to
 // ⚙️ Search settings). [card, icon, title, its lists: [list, label or note, what the add field asks]]. Target roles moved to Main goals (owner, 18 Oct
 // 2026, mockup 03); every other list still edits here: Locations beside Job preferences, the rest folded under Advanced search settings.
-export const CARD_TONE = {roles: 'violet', queries: 'violet', places: 'teal', stack: 'info', languages: 'warn', search: 'neutral'};   // the colours of each kind's suggestions
+export const CARD_TONE = {roles: 'violet', places: 'teal', stack: 'info', languages: 'warn', search: 'neutral'};   // the colours of each kind's suggestions
 export const TARGET_CARDS = [
-  ['queries', 'search', 'Job board searches', [['queries', 'What we type into job boards such as jobs.ch. Your target roles decide which job titles count as a match.', 'Add a job board search']]],
   ['places', 'pin', 'Locations', [['places', 'Preferred locations', 'Add a city or region'], ['country', 'Acceptable locations', 'Add a country or region'],
     ['abroad', 'Places you would relocate to', 'Add a city abroad'], ['rights', 'Work rights: where you can work without a visa', 'Add a country or EU']]],
   ['stack', 'layers', 'Skills & experience', [['stack', 'Key skills and tools you want in jobs.', 'Add a skill or tool']]],
@@ -42,8 +42,8 @@ export const TARGET_CARDS = [
 ];
 export const TARGET_LISTS = ['roles', ...TARGET_CARDS.flatMap(([, , , lists]) => lists.map(([name]) => name))];
 // Advanced search settings: two columns that stack on their own (owner, 7 Oct 2026: cards sharing a grid row left tall gaps under the shorter one).
-export const ADVANCED = ['queries', 'stack', 'languages', 'search'];
-const COLUMNS = [['queries', 'stack'], ['languages', 'search']];
+export const ADVANCED = ['stack', 'languages', 'search'];
+const COLUMNS = [['stack'], ['languages', 'search']];
 export const inColumns = cards => COLUMNS.map(keys => {
   const column = el('div', 'target-column');
   column.append(...keys.map(key => cards.find(card => card.dataset.list === key)).filter(Boolean));
@@ -64,8 +64,11 @@ export function listChips(name, placeholder) {
   const stored = entriesOf(strategyState.lastStrategy, name);
   const box = el('div', 'chips');
   const entries = editing ? editedList(stored, edit) : stored;
+  // Target roles: one list, the first five titles are also what job boards are searched for (src/target_roles.py SEARCHED), marked with a magnifier.
+  const searched = name === 'roles' ? new Set(entries.slice(0, SEARCHED)) : new Set();
   const pillOf = entry => {
-    const pill = el('span', `chip${editing ? ' removable' : ''}${entry.added ? ' is-added' : ''}`);
+    const pill = el('span', `chip${editing ? ' removable' : ''}${entry.added ? ' is-added' : ''}${searched.has(entry) ? ' is-searched' : ''}`);
+    if (searched.has(entry)) { pill.title = 'Also searched on job boards'; pill.append(icon('search')); }
     pill.append(el('span', '', name === 'gplaces' ? placeLabel(entry.label) : AS_TYPED.has(name) ? entry.label : titleCase(shownWord(entry.label))));
     if (editing) {
       const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${shownWord(entry.label)}`});
@@ -155,7 +158,7 @@ function minScoreInput() {
   });
   return input;
 }
-const LEADS = {places: 'Where you want to work.', queries: 'What we type into job boards such as jobs.ch.', stack: 'Key skills and tools you want in jobs.',
+const LEADS = {places: 'Where you want to work.', stack: 'Key skills and tools you want in jobs.',
   languages: 'A job that requires one is hidden; one that only prefers it ranks lower.'};
 function targetCard([key, glyph, title, lists]) {
   const open = isOpen(key), card = el('section', `card${open ? ' is-editing' : ''}`);
@@ -215,22 +218,7 @@ async function keepTypo(entry) {
   renderTargets();
   await window.pilot.keepTypo(entry).catch(() => null);
 }
-// What is typed into the job boards, apart from the roles that decide a match (owner, 7 Oct 2026: a magnifier row read as a search box, with no
-// word of what it is for). Its own card under Advanced since the roles moved to Main goals (18 Oct 2026); the roles' families are listed here too.
 const VIEWS = {
-  queries() {
-    const queries = labelsOf('queries'), none = words => el('span', 'muted', words);
-    // Families from the engine (src/role_kinds.py): Retail, Logistics…; spellings and translations fold under "View title variants".
-    const families = roleFamilies(draftEntries('roles')).map(family => {
-      const row = el('div', 'family-row');
-      row.append(el('b', '', family.label), folded(family.entries.map(entry => entry.label), 2, 'View title variants'));
-      return row;
-    });
-    const familyBox = el('div', 'family-rows');
-    familyBox.append(...families);
-    return [readRows([{icon: 'search', label: 'What we type', value: queries.length ? folded(queries, 6, 'Show all') : none('None: your target roles are searched as they are')},
-      {icon: 'target', label: labelWith('Target roles by family', 'edited in Main goals'), value: families.length ? familyBox : none('None'), missing: ''}], {lined: true})];
-  },
   // Roomy (mockup 03): one row per setting, icon · label on its own line over the value (a list's chips or one value) (owner, 18 Oct 2026: "Either
   // we're fully inline, either we're fully on the new line"); every divider full width.
   places() {

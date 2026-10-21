@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {EDITABLE_LISTS, cleanEdits, editLists} from '../lib/strategy.js';
 
 function setup({writeFails = false} = {}) {
-  const files = {'config/search.json': JSON.stringify({role_keywords: ['/vendeu(r|se)/', 'store manager'],
+  const files = {'config/search.json': JSON.stringify({role_keywords: ['vendeu(r|se)', 'store manager'],
     locations: {top_tier: ['geneva', 'switzerland'], country_wide: [], abroad: []}, quality_stack_keywords: ['lightroom'], title_exclude_keywords: ['stage']})};
   const calls = [];
   const storage = {readText: name => files[name] || '', writeText: (name, text) => { files[name] = text; calls.push(['write', name]); },
@@ -22,7 +22,8 @@ test('a place moves from Best places to Anywhere in, a role is added: read first
   const now = search(t.files);
   assert.deepEqual(now.locations.top_tier, ['geneva']);
   assert.deepEqual(now.locations.country_wide, ['switzerland']);
-  assert.deepEqual(now.role_keywords, ['/vendeu(r|se)/', 'store manager', 'verkäufer']);
+  assert.deepEqual(now.target_roles.map(role => role.title), ['/vendeu(r|se)/', 'store manager', 'Verkäufer']);   // one list; role_keywords and the searches follow it
+  assert.deepEqual(now.role_keywords, ['vendeu(r|se)', 'store manager', 'verkäufer']);
   assert.deepEqual(now.title_exclude_keywords, ['stage']);          // other lists untouched
   assert.deepEqual(t.calls.slice(0, 2), [['run', 'sync'], ['write', 'config/search.json']]);
   assert.ok(t.calls.some(call => call[0] === 'publish'));
@@ -36,23 +37,23 @@ test('Notion refusing leaves the cached settings as they were', async () => {
 });
 
 test('only the fixed lists, sane words, escaped as text', () => {
-  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'finders', 'gplaces', 'gqueries', 'languages', 'places', 'queries', 'remoteSkip', 'rights', 'roles', 'searchOverride', 'skip', 'stack', 'titleSkip']);
+  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'finders', 'gplaces', 'gqueries', 'languages', 'places', 'remoteSkip', 'rights', 'roles', 'searchOverride', 'skip', 'stack', 'titleSkip']);
   assert.deepEqual(cleanEdits({title_exclude_keywords: {add: ['x y']}, roles: {add: ['a', 'c++ dev', 'x'.repeat(61), 'two\nlines']}}),
-    {roles: {add: ['c\\+\\+ dev'], remove: []}});
+    {roles: {add: ['c++ dev'], remove: []}});
   assert.deepEqual(cleanEdits({roles: {add: [], remove: []}}), {});
 });
 
 test('search phrases and hidden languages are kept as written, in their own files; remote is a Yes/No', async () => {
   const t = setup();
   t.files['config/preferences.json'] = JSON.stringify({disqualifying_languages: ['english', 'german'], work_rights: [], digest_min_score: 50});
-  const result = await editLists(t.storage, {queries: {add: ['Vendeur Magasin']}, languages: {remove: ['english']}, rights: {add: ['EU']},
+  const result = await editLists(t.storage, {roles: {add: ['Vendeur Magasin']}, languages: {remove: ['english']}, rights: {add: ['EU']},
     remote: {set: 'No'}}, t.deps);
-  assert.deepEqual(result.changed.sort(), ['languages', 'queries', 'remote', 'rights']);
+  assert.deepEqual(result.changed.sort(), ['languages', 'remote', 'rights', 'roles']);
   const prefs = JSON.parse(t.files['config/preferences.json']);
   assert.deepEqual(prefs.disqualifying_languages, ['german']);
   assert.deepEqual(prefs.work_rights, ['eu']);
   assert.equal(prefs.digest_min_score, 50, 'the rest of the preferences untouched');
-  assert.deepEqual(search(t.files).jobs_board_search_queries, ['Vendeur Magasin']);
+  assert.deepEqual(search(t.files).jobs_board_search_queries, ['/vendeu(r|se)/', 'store manager', 'Vendeur Magasin']);   // a role title is a job board search too
   assert.deepEqual(search(t.files).remote_jobs, ['No']);
   assert.deepEqual(cleanEdits({remote: {set: 'maybe'}}), {});
 });

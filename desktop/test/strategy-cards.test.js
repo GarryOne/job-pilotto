@@ -77,7 +77,7 @@ test('the one bar is "Save strategy changes" and saves each card to its own home
 
 test('Discard all drops every card\'s draft and writes nothing', () => {
   calls.length = 0;
-  drafts().targetEdits.queries = {add: ['devops'], remove: []};
+  drafts().targetEdits.languages = {add: ['german'], remove: []};
   drafts().goalEdits.seniority = 'Senior';
   changed();
   assert.equal(bar.count(), 2);

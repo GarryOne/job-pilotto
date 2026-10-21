@@ -223,7 +223,7 @@ class StrategyTests(unittest.TestCase):
                     mock.patch.object(desktop.score, 'load', lambda db: fits), mock.patch('src.paths.load_search_config', lambda matching=True: search):
                 data = desktop.strategy(db, tracker)
             db.close()
-        self.assertEqual(data['roles'], ['site reliability'])
+        self.assertEqual(data['roles'], ['site reliability', 'vendeur', 'warehouse'])   # one list: the searches first, the other role words after (src/target_roles.py)
         self.assertEqual(data['locations'], ['zürich', 'switzerland', 'berlin'])
         self.assertEqual(data['stack'], ['k8s'])
         self.assertEqual(data['compensation'], 'Target: CHF 150k')
@@ -232,7 +232,9 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual([e['label'] for e in data['lists']['country']], ['switzerland', 'bern'])
         self.assertEqual(data['lists']['stack'], [{'fragment': r'\bk8s\b', 'label': 'k8s'}])
         # Each role with its family (src/role_kinds.py), for the page's Retail / Logistics groups.
-        self.assertEqual([(e['label'], e['kind']) for e in data['lists']['roles']], [('vendeur', 'sales_retail'), ('warehouse', 'logistics')])
+        self.assertEqual([(e['label'], e['kind']) for e in data['lists']['roles']], [('site reliability', 'software'), ('vendeur', 'sales_retail'), ('warehouse', 'logistics')])
+        self.assertEqual([e['searched'] for e in data['lists']['roles']], [True, True, True])   # the first five titles are also searched on job boards
+        self.assertNotIn('queries', data['texts'])   # no second list
         # What only ⚙️ Search settings showed, for the Strategy page's "More search settings" (desktop/lib/strategy-edit.js).
         self.assertEqual(data['lists']['remoteSkip'], [{'fragment': 'latam', 'label': 'latam'}])
         self.assertEqual([e['label'] for e in data['lists']['finders']], ['devops'])

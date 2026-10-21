@@ -15,7 +15,6 @@ import {dirtyLists, withTyped} from '../strategy-parts.js';
 export const CARDS = {
   goals: {title: 'Main goals', lists: ['roles'], values: [], goals: ['seniority', 'work_mode', 'minimum_salary']},
   places: {title: 'Locations', lists: ['places', 'country', 'abroad', 'rights'], values: ['remote', 'relocation']},
-  queries: {title: 'Job board searches', lists: ['queries'], values: []},
   stack: {title: 'Skills & experience', lists: ['stack'], values: []},
   languages: {title: 'Exclusions & preferences', lists: ['languages'], values: []},
   search: {title: 'More search settings', lists: ['titleSkip', 'skip', 'remoteSkip', 'finders', 'gqueries', 'gplaces'], values: ['level', 'minScore']},
@@ -24,7 +23,7 @@ export const CARDS = {
 };
 export const GOAL_LABELS = {seniority: 'Target level', work_mode: 'Work mode', minimum_salary: 'Minimum salary'};
 export const cardOf = name => Object.keys(CARDS).find(key => CARDS[key].lists.includes(name) || CARDS[key].values.includes(name)) || '';
-export const PLAIN = new Set(['queries', 'languages', 'skip', 'gqueries', 'gplaces']);   // stored as typed, not lower-cased
+export const PLAIN = new Set(['roles', 'languages', 'skip', 'gqueries', 'gplaces']);   // stored as typed, not lower-cased
 
 // The drafts: strategyState.targetEdits (lists and values), strategyState.typed (words still in an add field), strategyState.goalEdits (goal → text).
 export const drafts = () => {

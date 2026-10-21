@@ -6,7 +6,7 @@ import json
 import re
 import sys
 
-from . import digest, levels
+from . import digest, levels, target_roles
 from .ai import locations, score
 from .desktop_jobs import stage_status
 
@@ -132,6 +132,7 @@ def strategy(db, tracker=None, stores=None):
     from .paths import CONFIG, load_search_config
     # The user's own words: with the regions and AI place words the crawl adds, the page listed a regex of every city as one "place".
     search = load_search_config(matching=False)
+    roles = target_roles.view(search)   # the one list: a title is its own key, the first target_roles.SEARCHED are also job board searches
     try:
         prefs = json.loads((CONFIG / 'preferences.json').read_text())
     except (OSError, ValueError):
@@ -195,21 +196,22 @@ def strategy(db, tracker=None, stores=None):
     profile_empty = score.unfilled(own) if own else (score.unfilled(profile) if (tracker or stores.name != 'notion') and profile is not None else False)
     sent = sum(n for stage, n in stages.items() if stage not in ('Saved', 'Kit ready', 'Applying', 'Dismissed', 'Closed', 'Recruiter lead'))
     return {
-        'roles': unique(search.get('jobs_board_search_queries') or search.get('role_keywords')),
+        'roles': unique([role['title'] for role in roles]),
         # The top cities, the country, the cities abroad (the long lists of nearby towns and spellings stay out).
         'locations': unique((places.get('top_tier') or [])[:3] + (places.get('country_wide') or [])[:1] + (places.get('abroad') or [])),
         'stack': unique(search.get('quality_stack_keywords'))[:8],
         # The same lists in full, for editing them on the Strategy page: each entry as stored (removing sends it back) and as words.
         # Roles carry their kind (src/role_kinds.py), so the Strategy page groups them into families (Retail, Logistics…).
-        'lists': {name: [{'fragment': str(item), 'label': _readable(item), **({'kind': role_kinds.kind_of(_readable(item))} if name == 'roles' else {})}
+        'lists': {'roles': [{'fragment': role['title'], 'label': role['title'], 'kind': role_kinds.kind_of(role['title']), 'searched': i < target_roles.SEARCHED}
+                            for i, role in enumerate(roles)],
+                  **{name: [{'fragment': str(item), 'label': _readable(item), **({'kind': role_kinds.kind_of(_readable(item))} if name == 'roles' else {})}
                          for item in items or [] if _readable(item)]
-                  for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
+                  for name, items in (('places', places.get('top_tier')),
                                       ('country', places.get('country_wide')), ('abroad', places.get('abroad')), ('searchOverride', places.get('search_override')),
                                       ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')),
-                                      ('remoteSkip', search.get('remote_excluded_regions')), ('titleSkip', search.get('title_exclude_keywords')), ('finders', search.get('board_discovery_keywords')))},
+                                      ('remoteSkip', search.get('remote_excluded_regions')), ('titleSkip', search.get('title_exclude_keywords')), ('finders', search.get('board_discovery_keywords')))}},
         # Plain lists, shown as written: board search phrases and the languages that hide a job.
-        'texts': {'queries': [str(q) for q in search.get('jobs_board_search_queries') or []],
-                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []],
+        'texts': {'languages': [str(q) for q in prefs.get('disqualifying_languages') or []],
                   # What only the ⚙️ Search settings page showed (desktop/lib/strategy-edit.js edits them): a Google Jobs place as the page writes it.
                   'skip': [str(q) for q in prefs.get('excluded_companies') or []],
                   'gqueries': [str(q) for q in (search.get('google_jobs') or {}).get('queries') or []],

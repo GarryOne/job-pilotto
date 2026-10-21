@@ -1,9 +1,8 @@
 {
   "_comment": "Format example for the strategy draft (a data analyst in Amsterdam and Berlin), not anyone's search and never copied into an install. The shipped defaults are config/search.json: no role, no place. Regex fragments are case-insensitive.",
-  "role_keywords": [
+  "target_roles": [
     "data analyst",
-    "business intelligence",
-    "\\bbi\\b",
+    "business intelligence analyst",
     "analytics engineer",
     "reporting analyst"
   ],
@@ -19,11 +18,6 @@
     "analytics",
     "business intelligence",
     "\\bbi\\b"
-  ],
-  "jobs_board_search_queries": [
-    "data analyst",
-    "business intelligence analyst",
-    "analytics engineer"
   ],
   "quality_stack_keywords": [
     "\\bsql\\b",

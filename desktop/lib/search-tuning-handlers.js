@@ -190,6 +190,7 @@ export function registerSearchTuningHandlers(ctx) {
   ipcMain.handle('strategyData', sharedRead('strategyData', async () => {
     // Demo mode: JOB_PILOTTO_DEMO_STRATEGY_DELAY ms first, to see (and screenshot) the loading state.
     if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));
+    if (!DEMO) await strategy.oneRolesList(storage, settingsDeps()).then(merged => merged && appLog('strategy', 'roles and searches merged into one list')).catch(error => appLog('strategy', 'roles not merged', {error: error.message}));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
     const read = JSON.parse(stdout.trim().split('\n').pop());
