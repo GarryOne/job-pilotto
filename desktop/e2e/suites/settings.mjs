@@ -15,7 +15,6 @@ export const stepNeeds = {'AI engine panel': ['every Settings section renders']}
 export const name = 'settings';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;
-const SECTIONS = ['overview', 'profile', 'automation', 'connections', 'data', 'appearance', 'license', 'advanced'];
 
 export async function run(ctx) {
   const {page, app} = ctx;
@@ -23,6 +22,9 @@ export async function run(ctx) {
   await ensureSetUp(ctx);
   await ctx.run('every Settings section renders', async () => {
     await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');
+    // The sections are the ones the page lists (Profile left Settings on 18 Oct 2026 and a fixed list failed the gate for three days).
+    const SECTIONS = await page.evaluate(() => [...document.querySelectorAll('.settings-nav [data-settings-go]')].map(button => button.dataset.settingsGo));
+    if (SECTIONS.length < 5) throw new Error(`Settings lists ${SECTIONS.length} sections: ${SECTIONS.join()}`);
     for (const section of SECTIONS) {
       // Profile is its own page (UI redesign fix 9, 18 Oct 2026): it hides Settings' list of sections, so the next one is reached through the menu's Settings.
       if (await page.isHidden('.settings-nav')) await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');
