@@ -408,3 +408,22 @@ test('scenario: Fill in Chrome pressed twice on one job with its tab open: one t
   assert.ok(reply.commands.some(command => command.reload), 'the open tab reloads, so its mark fills the form again');
   assert.equal(review.tabOf(first.session.id), 5, 'the session stays on its one tab');
 });
+
+const storageOf = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()});
+
+// #520: start() made a form session per job and then found no browser: the sessions stayed in the Applying page with no tab (applyOne already removes its own).
+test('scenario: Apply to N jobs with no browser installed leaves no form session behind in Applying (#520)', async () => {
+  const real = process.platform, home = {HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA};
+  process.env.HOME = process.env.LOCALAPPDATA = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-home-'));   // the launcher reads a browser's profile folder: never the owner's
+  Object.defineProperty(process, 'platform', {value: 'win32'});   // the only launcher that returns null when no browser is installed
+  const before = terminals.list().map(s => s.id);
+  try {
+    const result = await apply.start(storageOf(), {n: 1, mode: 'chrome'}, () => ({unref() {}}),
+      async () => ({jobs: [{url: 'https://jobs.example.test/nochrome-520', status: 'saved', fit: 60, title: 'SRE', company: 'A', kit: true}]}));
+    assert.equal(result.ok, false);
+    assert.match(result.error, /No supported browser/, 'the test must reach the no-browser branch');
+    const left = terminals.list().filter(s => !before.includes(s.id));
+    left.forEach(s => terminals.remove(s.id));
+    assert.deepEqual(left.map(s => s.url), []);
+  } finally { Object.defineProperty(process, 'platform', {value: real}); Object.assign(process.env, home); }
+});
