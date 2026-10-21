@@ -34,9 +34,14 @@ export async function visit(ctx, views) {
 // The app's narrowest window (main.js minWidth 1024): the sidebar becomes an icon rail under 1180 px, a state the 1280 px default never shows and where
 // the sidebar's text spilled out. Visits `views` there with their own screenshots (<view>-narrow, so the AI review judges them too), then restores the size.
 // Findings are downgraded to warnings: the pass files issues, it does not fail a journey (nor hold a release) the first time it looks.
+// The app opens at 80% on displays up to 1512 pt (lib/zoom.js), so a 1024 px window is 1280 CSS px and no narrow layout shows (#1170). Narrow and sweep passes look at 100%
+// (window px = CSS px) and put the user's factor back; returns that factor.
+const setZoom = (app, factor) => app.evaluate(({BrowserWindow}, f) => { const wc = BrowserWindow.getAllWindows()[0].webContents; const was = wc.getZoomFactor(); wc.setZoomFactor(f); return was; }, factor);
+
 export async function visitNarrow(ctx, views, {width = 1024, height = 640, take = snap} = {}) {   // 640: the app's smallest height (main.js minHeight), where the menu is cut off (owner, 4 Oct 2026)
   const resize = size => ctx.app.evaluate(({BrowserWindow}, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; const was = win.getSize(); win.setSize(w, h); return was; }, size);
   const was = await resize([width, height]);
+  const zoom = await setZoom(ctx.app, 1);
   try {
     const railed = await ctx.page.waitForFunction(() => document.querySelector('.app')?.classList.contains('rail'), null, {timeout: 10000}).then(() => true, () => false);
     if (!railed) ctx.findings.push({view: 'app-chrome', severity: 'warning', kind: 'layout', detail: `the sidebar did not become an icon rail at ${width} px wide (sidebar-rail.js: under 1180 px)`});
@@ -47,6 +52,7 @@ export async function visitNarrow(ctx, views, {width = 1024, height = 640, take 
       for (const finding of ctx.findings.slice(before)) finding.severity = 'warning';
     }
   } finally {
+    await setZoom(ctx.app, zoom);
     await resize(was);
   }
 }
@@ -61,6 +67,7 @@ export async function sweep(ctx, views, {combos = SWEEP, settleFn = settle} = {}
   const theme = value => page.evaluate(choice => window.pilot.setTheme(choice), value).catch(() => null);
   const had = await page.evaluate(async () => (await window.pilot.state()).settings?.theme || 'system').catch(() => 'system');
   const was = await resize([combos[0][0], combos[0][1]]);
+  const zoom = await setZoom(app, 1);
   const told = new Set();
   try {
     for (const [width, height, choice] of combos) {
@@ -79,6 +86,7 @@ export async function sweep(ctx, views, {combos = SWEEP, settleFn = settle} = {}
       }
     }
   } finally {
+    await setZoom(app, zoom);
     await resize(was);
     await theme(had);
   }
