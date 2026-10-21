@@ -80,7 +80,7 @@ test('a name inside a base64 run is cleaned, not refused; Cancel sends nothing; 
 test('the trace switch is on by default and named in plain words in Settings (so ⌘K lists it by its heading) and in the wizard; the bar is explained once', () => {
   const html = read('desktop/renderer/index.html');
   assert.match(html, /<h3>Keep a trace of each form fill<\/h3>/);
-  assert.match(html, /<input type="checkbox" id="welcome-trace" checked>/, 'the wizard has one checkbox, on by default');
+  assert.match(html, /<input type="checkbox" id="welcome-trace" checked aria-label=/, 'the wizard has one checkbox, on by default');
   assert.match(html, /Stays on this Mac, sent only when you press Report in the panel and then Send \(personal details removed automatically first\), never sign-in pages, deleted when the application ends/);
   assert.equal(reportFormOn({settings: () => ({})}), true, 'on for every install that never chose');
   assert.equal(reportFormOn({settings: () => ({reportForm: false})}), false);

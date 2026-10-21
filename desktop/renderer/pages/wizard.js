@@ -77,7 +77,9 @@ export function goStep(name) {
     li.classList.toggle('jump', !!shared.state.settings.setupDone || i < index);
   });
   show($('wizard-exit'), !!shared.state.settings.setupDone);
-  show($('review-mode'), !!shared.state.settings.setupDone);  // setup done before: this is a review, not a redo
+  const done = !!shared.state.settings.setupDone;   // setup done before: this is a review, not a redo
+  show($('review-mode'), done && name !== 'welcome');   // Welcome says it itself, in its own words
+  document.querySelectorAll('.step[data-step="welcome"] [data-when]').forEach(node => show(node, node.dataset.when === (done ? 'done' : 'first')));
   $('draft-save').textContent = shared.state.settings.setupDone ? 'Replace my strategy…' : 'Save strategy & continue';
   if (name === 'cv') refreshCv();
 }

@@ -81,6 +81,11 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 /* Fine print under a step (as Settings → Connections' Keychain note): a line icon, muted text. */
 .step-note { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
 .step-note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+/* Welcome: the trace and technical-reports choices as one card (head row with the standard switch, one line, details folded). */
+.welcome-privacy { display: flex; flex-direction: column; gap: var(--sp-3); }
+.welcome-privacy .welcome-rule { border-top: 1px solid var(--line); }
+.welcome-more summary { cursor: pointer; font-size: var(--fs-sm); color: var(--ink-2); }
+.welcome-more p { margin: var(--sp-2) 0 0; }
 /* Your CV: the file as a row (tile, name, button), then the note. */
 .cv-pick { display: flex; align-items: center; gap: var(--sp-3); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
 .cv-pick:last-child { padding-bottom: 0; border-bottom: 0; }

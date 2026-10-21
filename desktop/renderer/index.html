@@ -57,12 +57,13 @@
       strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings instead.</div></div>
     <div class="step" data-step="welcome">
       <header class="view-head step-head">
-        <div><span class="eyebrow">Check-in · about 5 minutes</span>
-          <h1>Let's set up your job search</h1>
-          <p class="muted subtitle">Jobadabra finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p></div>
+        <div><span class="eyebrow" data-when="first">Check-in · about 5 minutes</span><span class="eyebrow" data-when="done" hidden>Setup complete</span>
+          <h1 data-when="first">Let's set up your job search</h1><h1 data-when="done" hidden>Your job search is set up</h1>
+          <p class="muted subtitle" data-when="first">Jobadabra finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
+          <p class="muted subtitle" data-when="done" hidden>Nothing changes here unless you replace your strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings.</p></div>
         <div class="head-actions">
           <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
-          <button class="primary" data-next>Start</button>
+          <button class="primary" data-next><span data-when="first">Start</span><span data-when="done" hidden>Review the steps</span></button>
         </div>
       </header>
       <section class="card step-card">
@@ -74,12 +75,18 @@
       </section>
       <p class="muted small step-note"><i data-icon="upload"></i><span>Used Jobadabra before, here or on another computer?
         <button class="link" id="welcome-import" data-import>Import an export…</button> It brings back your data and restarts.</span></p>
-      <label class="muted small step-note switch-row" id="welcome-trace-row"><i data-icon="flag"></i><input type="checkbox" id="welcome-trace" checked><span>Keep a trace of each form fill, so you can report a problem and we can fix it. Stays on this Mac, sent only when you press Report in the panel and then Send (personal details removed automatically first), never sign-in pages, deleted when the application ends. Chrome shows a debugging bar while it is kept.</span></label>
-      <p class="muted small step-note"><i data-icon="shield"></i><span>Jobadabra sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
-        interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous
-        shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region),
-        to grow the shared pool of employers. Never your answers, CV, emails or names. Turn either off any time in
-        Settings → Advanced.</span></p>
+      <section class="card step-card welcome-privacy">
+        <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Keep a trace of each form fill</h3></div>
+          <span class="switch"><input type="checkbox" id="welcome-trace" checked aria-label="Keep a trace of each form fill"><span></span></span></div>
+        <p class="muted panel-lead">So you can report a problem and we can fix it. It stays on this Mac unless you send it.</p>
+        <details class="welcome-more"><summary>What is kept and sent</summary>
+          <p class="muted small">Keep a trace of each form fill, so you can report a problem and we can fix it. Stays on this Mac, sent only when you press Report in the panel and then Send (personal details removed automatically first), never sign-in pages, deleted when the application ends. Chrome shows a debugging bar while it is kept.</p></details>
+        <div class="welcome-rule"></div>
+        <div class="summary-head"><i data-icon="shield"></i><h3>Technical reports</h3></div>
+        <p class="muted panel-lead">Anonymous errors and counts, never your answers, CV, emails or names. Turn off any time in Settings → Advanced.</p>
+        <details class="welcome-more"><summary>What is sent</summary>
+          <p class="muted small">Jobadabra sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region), to grow the shared pool of employers. Never your answers, CV, emails or names. Turn either off any time in Settings → Advanced.</p></details>
+      </section>
     </div>
 
     <div class="step" data-step="ai">
