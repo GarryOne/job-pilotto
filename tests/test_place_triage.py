@@ -152,19 +152,20 @@ class PlaceFallbackTests(unittest.TestCase):
 class VagueClient:
     """Places "Switzerland" out (Carouge best); says "Switzerland" names no town; reads postings: the Geneva one best, the silent one unclear."""
     def __init__(self):
-        self.calls = []
+        self.calls, self.vague_calls = [], 0
         self.messages = SimpleNamespace(create=self.create)
 
     def create(self, **kwargs):
         content = kwargs['messages'][0]['content']
         self.calls.append(content)
+        self.vague_calls += kwargs['system'][0]['text'] == place_triage.VAGUE_SYSTEM
         if 'The postings:' in content:
             postings = content.split('The postings:\n', 1)[1].split('\n\n')
             answer = {'jobs': [{'n': n, 'where': 'Geneva' if 'Geneva site' in text else '', 'nearest': 'geneva', 'km': 0,
                                 'answer': 'best' if 'Geneva site' in text else 'unclear'} for n, text in enumerate(postings, 1)]}
         elif 'Countries:' in content:
             answer = {'visa': []}
-        elif content.startswith('The job locations:'):   # the "names no town" question
+        elif kwargs['system'][0]['text'] == place_triage.VAGUE_SYSTEM:   # the "names no town" question
             listed = content.split('The job locations:\n', 1)[1].split('\n')
             answer = {'vague': [int(line.split('.', 1)[0]) for line in listed if line.split('. ', 1)[1] == 'switzerland']}
         else:
@@ -199,7 +200,7 @@ class VagueLocationTests(unittest.TestCase):
         self.assertEqual((named['switzerland'], named['basel'], named['carouge']), ('out:vague', 'out:clear', 'best'),
                          'asked apart, only about the ones outside; the place question is unchanged')
         place_triage.vague(['Switzerland', 'Basel'], SEARCH, client)
-        self.assertEqual(sum(1 for call in client.calls if call.startswith('The job locations:')), 1, 'each asked once')
+        self.assertEqual(client.vague_calls, 1, 'each asked once')
         known = place_triage.read([self.GENEVA, self.NOWHERE], SEARCH, client)
         self.assertEqual(place_triage.read_verdict(self.GENEVA, known), 'best')
         self.assertEqual(place_triage.read_verdict(self.NOWHERE, known), 'unclear')
