@@ -105,7 +105,6 @@
       "icon": "assets/icon.png",
       "extendInfo": {
         "CFBundleDisplayName": "Jobadabra",
-        "CFBundleName": "Jobadabra",
         "NSMicrophoneUsageDescription": "Jobadabra records your interview calls (with everyone's agreement) to transcribe them on this Mac.",
         "NSAudioCaptureUsageDescription": "Jobadabra records the call's audio to transcribe your interviews on this Mac.",
         "NSAppleEventsUsageDescription": "Jobadabra switches Chrome to the application form Claude filled, so you can review it."
