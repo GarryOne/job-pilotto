@@ -35,3 +35,10 @@ test('the give-up message names the processes still running when it can', async 
   await assert.rejects(waitForFolderFree('/p/data', {every: 1, timeout: 5, rename: () => { throw Object.assign(new Error('EPERM x'), {code: 'EPERM'}); }, exists: () => true, who: () => '7 <- 1 pip.exe install --target data'}),
     /stayed held by a process.*processes still running: 7 <- 1 pip\.exe install --target data/);
 });
+
+test('holders also asks for any process whose command line names the folder', async () => {
+  const {holders} = await import('../lib/folder-free.mjs');
+  let script = '';
+  holders({platform: 'win32', dir: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\jp-e2e-Eq7E5e', run: (_shell, args) => { script = args.at(-1); return {stdout: ''}; }});
+  assert.match(script, /CommandLine -like '\*jp-e2e-Eq7E5e\*'/);
+});
