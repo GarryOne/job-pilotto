@@ -15,7 +15,7 @@ import {tabStrip} from '../job-drawer/tabs.js';
 import {$} from './core.js';
 import {shared} from './shared.js';
 
-const state = {url: '', job: null, page: null, tab: 'overview', tabs: new Map(), expanded: false, asked: 0, back: null};
+const state = {url: '', job: null, page: null, stage: 'none', restError: '', tab: 'overview', tabs: new Map(), expanded: false, asked: 0, back: null};
 export const panelUrl = () => state.url;
 
 // The jobs on screen, in order (the list's rows or the board's cards): what previous / next walk through.
@@ -59,10 +59,16 @@ function draw() {
   panel.classList.toggle('is-expanded', state.expanded);
   const tabs = tabStrip(TABS, state.tab, pick);
   const body = el('div', 'jd-body');
-  if (!page) body.append(...skeleton());
-  else if (page.error) {
+  const failed = page?.error || state.restError;
+  if (page?.error) {
     body.append(stateCard({icon: 'alert', tone: 'bad', title: 'Could not read this job', text: page.error,
       actions: [button('Retry', () => load(job))]}));   // Retry only after a failure
+  } else if (state.tab === 'overview' && (state.stage !== 'none' || job.fit != null)) {
+    // The Overview reads the list row's own facts first (matchView), so it is drawn at once; the store's answer only adds to it.
+    body.append(...BODIES.overview({job, page: page || {}, parts: pageParts(page || {}), close: closeJobPanel, pick, reload: () => load(job)}, draw));
+  } else if (state.stage !== 'full') {
+    if (failed) body.append(stateCard({icon: 'alert', tone: 'bad', title: 'Could not read this job', text: state.restError, actions: [button('Retry', () => load(job))]}));
+    else body.append(...skeleton());
   } else body.append(...BODIES[state.tab]({job, page, parts: pageParts(page), close: closeJobPanel, pick, reload: () => load(job)}, draw));
   panel.replaceChildren(head, tabs, body, footer(job, page));
   panel.setAttribute('aria-label', `${job.title}, job details`);
@@ -73,12 +79,33 @@ function go(step) {
   if (next) openJobPanel(next);
 }
 
+// The page arrives in three reads (job-page-handlers.js): core (the header and the Overview), rest (the other tabs), files (screenshots and documents,
+// downloaded, so last). Each one redraws; a later click wins (state.asked).
 async function load(job) {
   state.page = null;
+  state.stage = 'none';
+  state.restError = '';
   draw();
   const asked = ++state.asked;
-  const page = await window.pilot.jobPage(job.url).catch(error => ({error: error.message}));
-  if (asked === state.asked && state.url === job.url) { state.page = page; draw(); }   // a later click wins
+  const current = () => asked === state.asked && state.url === job.url;
+  const ask = (name, ...args) => window.pilot[name](job.url, ...args).catch(error => ({error: error.message}));
+  const core = await ask('jobPageCore');
+  if (!current()) return;
+  if (core?.error) { state.page = core; draw(); return; }
+  state.page = {...core, sections: {}, kit: null, events: [], files: [], interviews: []};
+  state.stage = core.app ? 'core' : 'full';   // no application: nothing more to read
+  draw();
+  if (!core.app) return;
+  const rest = await ask('jobPageRest', core.app.id);
+  if (!current()) return;
+  if (rest?.error) { state.restError = rest.error; draw(); return; }
+  state.page = {...state.page, ...rest};
+  state.stage = 'full';
+  draw();
+  const files = await ask('jobPageFiles', core.app.id);
+  if (!current() || !Array.isArray(files)) return;   // screenshots that fail to read are left out, never a failed page
+  state.page = {...state.page, files};
+  draw();
 }
 
 // Opens (or switches) the drawer on a job; `tab` picks a tab (a kit chip opens Application, the score ring's "Open full details" Match);

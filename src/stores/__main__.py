@@ -14,7 +14,7 @@ import stat
 import sys
 from pathlib import Path
 
-from . import base, open_stores
+from . import base, job_page, open_stores
 
 ENTITIES = ('applications', 'events', 'matches', 'interviews', 'insights', 'employers', 'agent_runs', 'cron_runs',
             'texts')
@@ -57,6 +57,8 @@ def attach_file(stores, kwargs, env=None):
 def call(stores, entity, method, kwargs):
     if (entity, method) == ('applications', 'attach') and 'path' in kwargs and set(kwargs) <= {'app_id', 'name', 'content_type', 'path'}:
         return attach_file(stores, kwargs)
+    if (entity, method) == ('job_page', 'read') and set(kwargs) == {'app_id'}:
+        return job_page.read(stores, kwargs['app_id'])
     if entity not in ENTITIES or method.startswith('_') or method in REFUSED:
         raise PermissionError(f'not callable: {entity}.{method}')
     protocol = getattr(base, ''.join(part.title() for part in entity.split('_')))
