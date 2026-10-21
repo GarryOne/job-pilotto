@@ -9,6 +9,7 @@ import {createSessionFlow} from '../lib/session-flow.js';
 import {createAccountCheck} from '../lib/account-check.js';
 import {STOPPED, journeyStep} from '../lib/application-journey.js';
 import {stopLiveForms} from '../lib/stop-all.js';
+import {classify} from '../lib/real-errors.js';
 import {accountRecordLine} from '../renderer/session-state.js';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -360,6 +361,15 @@ test('scenario: the person presses Stop mid-application (an account page, a fill
   assert.equal(terminals.get('f2').stuck, 'stopped', 'only the reopened one starts');
 });
 
+// #961: the fill the Stop cut short reports "Stopped by you." as its error; the card stays Stopped and the error watcher (Sentry, Telegram) sees no error.
+test('scenario: a fill cut short by Stop reports its error late: the card stays Stopped and no fill error is raised (#961)', () => {
+  const {flow, card} = journeyOf('f1');
+  flow.reported({id: 'f1', url: FORM, total: 9, left: 4});
+  assert.equal(stopLiveForms(terminals), 1);
+  flow.stuck({url: FORM, host: 'apply.example', why: 'error', session: 'f1'});
+  assert.equal(card().needs, STOPPED);
+  assert.equal(classify({kind: 'fill', text: 'the page fill failed', fields: {error: 'Stopped by you.', stopped: true}}), null);
+});
 
 test('scenario: a sign-up fill leaves Captcha, Your password and Repeat Password unanswered: none becomes an "Answer once" question, a real one still does (13 Oct 2026)', async () => {
   const storage = createStorage(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-')), 'x'), {encrypt: v => v, decrypt: v => v});
