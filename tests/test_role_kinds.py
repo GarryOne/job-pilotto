@@ -68,7 +68,7 @@ class KindTests(unittest.TestCase):
 
     @needs_site
     def test_the_website_knows_the_same_kinds(self):
-        site = (ROOT / 'site' / 'src' / 'employers.js').read_text()
+        site = (ROOT / 'api' / 'employers.js').read_text()
         listed = re.search(r'export const KINDS = \[([^\]]+)\]', site).group(1)
         assert_site_accepts(self, role_kinds.KINDS, re.findall(r"'(\w+)'", listed), 'kinds of role')
 

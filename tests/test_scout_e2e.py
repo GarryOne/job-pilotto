@@ -91,9 +91,9 @@ class IndexContract(unittest.TestCase):
     """What Python writes into the employer index, the website's validator (JavaScript) must accept: else a feed vanishes when published."""
 
     def site_clean(self, feeds_in):
-        script = ("import {clean} from './src/employers.js'; const feeds = JSON.parse(process.argv[1]);"
+        script = ("import {clean} from './api/employers.js'; const feeds = JSON.parse(process.argv[1]);"
                   "console.log(JSON.stringify(clean(feeds).map(f => f.ats + ':' + f.slug)));")
-        result = subprocess.run(['node', '--input-type=module', '-e', script, json.dumps(feeds_in)], cwd=ROOT / 'site', capture_output=True, text=True, timeout=60)
+        result = subprocess.run(['node', '--input-type=module', '-e', script, json.dumps(feeds_in)], cwd=ROOT, capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
@@ -108,9 +108,9 @@ class IndexContract(unittest.TestCase):
     def test_the_website_and_the_engine_know_the_same_feed_types(self):
         import re
         for name in ('employers.js', 'pool.js'):
-            text = (ROOT / 'site' / 'src' / name).read_text()
+            text = (ROOT / 'api' / name).read_text()
             listed = set(re.findall(r"'([a-z]+)'", re.search(r'const SYSTEMS = \[(.*?)\]', text, re.S).group(1)))
-            assert_site_accepts(self, set(ats.FETCHERS) - ats.LOCAL_ONLY, listed, f'site/src/{name} SYSTEMS must list every src/sources/ats.py FETCHERS type (local-only excepted)')
+            assert_site_accepts(self, set(ats.FETCHERS) - ats.LOCAL_ONLY, listed, f'api/{name} SYSTEMS must list every src/sources/ats.py FETCHERS type (local-only excepted)')
 
     def test_the_engine_keeps_what_the_index_serves(self):
         served = [{'company': 'Acme AG', 'ats': 'careers', 'slug': 'www.acme.ch__jobs', 'places': ['Zürich']}]
