@@ -9,13 +9,13 @@ import {notCheckedNotice} from '../lib/not-checked-notice.js';
 import {nextMailAt} from '../lib/schedule.js';
 import {activitySource} from './activity-source.js';
 
-const REVOKED = 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)';
+const REVOKED = 'not checked: the Google sign-in expired (Settings → Connections)';
 const zero = 'Gmail check: 0 new email(s) read, 0 update(s) recorded';
 // Every way a Gmail check can end without reading the inbox.
 const CASES = {
   'not connected': {kind: 'mail', ok: true, off: true},
   'sign-in revoked': {kind: 'mail', ok: false, problem: REVOKED, result: zero, report: [zero]},
-  'Claude not ready': {kind: 'mail', ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)', report: [zero]},
+  'Claude not ready': {kind: 'mail', ok: false, problem: 'not checked: Claude Code is not ready (Settings → Connections → AI)', report: [zero]},
 };
 
 test('every not-checked Gmail run: a "Not checked" pill, never "Failed"', () => {

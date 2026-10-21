@@ -200,7 +200,7 @@ function outcomeOf(run) {
   if (!run.ok && !run.problem && !run.live && !run.waiting) return 'Unexpected error';   // no reason recognised: the box says what to do
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
-    if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
+    if (run.off) return 'Gmail not connected (Settings → Connections)';
     if (run.problem) return run.problem;
     if (!run.ok) return 'had problems';
     if (run.updates?.length) return plural(run.updates.length, 'application update');

@@ -18,8 +18,8 @@ EFFORTS = {'low': 'low', 'medium': 'medium', 'high': 'high', 'max': 'high'}
 # Reasoning counts towards OpenAI's output cap; a call's max_tokens was sized for Claude's answer: headroom on top (a cap, not a charge).
 HEADROOM = {None: 2000, 'low': 2000, 'medium': 6000, 'high': 12000}
 LIMIT_TEXT = ('OpenAI: your API account has no credit left or reached its spend limit (platform.openai.com → Billing), so this AI step '
-              'is paused. Add credit there, or switch engines in Settings → AI.')
-KEY_TEXT = 'OpenAI refused the API key (Settings → AI): check it, or switch engines there.'
+              'is paused. Add credit there, or switch engines in Settings → Connections → AI.')
+KEY_TEXT = 'OpenAI refused the API key (Settings → Connections → AI): check it, or switch engines there.'
 
 
 def sdk(action=''):

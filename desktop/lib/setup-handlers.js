@@ -72,6 +72,7 @@ export function registerSetupHandlers(ctx) {
   ipcMain.handle('verifyClaudeCode', () => (DEMO ? DEMO_CLAUDE : claudeCode.verify(storage)));
   ipcMain.handle('setAiEngine', (_, choice, options = {}) => {
     if (!claudeCode.ENGINES.includes(choice)) throw new Error(`Unknown AI engine: ${choice}`);
+    if (choice === 'api') aiFree.leave(storage);   // Free is stored as 'api': pressing the API key card must leave it (#1017)
     storage.saveSettings({aiEngine: choice, ...(choice === 'cli' ? {claudeCodeNotice: true} : {}), ...(choice === 'codex' ? {codexNotice: true} : {}),
       ...('fallback' in options ? {aiFallback: !!options.fallback} : {})});
     return forWindow(storage.settings());

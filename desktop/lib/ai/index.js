@@ -1,4 +1,4 @@
-// The AI engines a user can choose (Settings → AI, the wizard's AI step), each an adapter behind one contract (contract.js), and the one
+// The AI engines a user can choose (Settings → Connections → AI, the wizard's AI step), each an adapter behind one contract (contract.js), and the one
 // factory the app's AI calls go through: client(storage). The app mirror of src/ai/providers/__init__.py. Nothing is chosen for the user
 // and nothing switches by itself: an engine's fallback (another engine of the SAME family, billed) is used only on the user's own tick
 // (settings.aiFallback), never Claude ↔ OpenAI. A new engine is one adapter file plus one row here. Guarded by test/ai-contract.test.js.

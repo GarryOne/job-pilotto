@@ -68,3 +68,27 @@ test('the end-to-end journey sends the app\'s own AI calls to its test proxy, an
   apply({}, real);
   assert.equal(real.ANTHROPIC_BASE_URL, undefined);
 });
+
+// #1017: Free is stored as engine 'api', so pressing the API key card changed nothing and chosen() stayed 'free'.
+test('leave: the API key card pressed on Free leaves it, forgets the Free token, and the chooser then shows the API key', async () => {
+  const {chosen} = await import('../renderer/ai-engine-view.js');
+  const st = storage({aiFree: true, aiEngine: 'api'}); st.setSecret('ANTHROPIC_API_KEY', 'JPF1.inst.tok');
+  assert.equal(chosen(st.settings(), true), 'free');
+  const {leave} = await import('../lib/ai-free.js');
+  assert.equal(leave(st, {}), true);
+  assert.equal(chosen(st.settings(), !!st.secret('ANTHROPIC_API_KEY')), 'api');
+  assert.equal(st.secret('ANTHROPIC_API_KEY'), '');
+});
+
+test('leave keeps the person\'s own key, and does nothing when Free is off', async () => {
+  const {leave} = await import('../lib/ai-free.js');
+  const own = storage({aiFree: true, aiEngine: 'api'}); own.setSecret('ANTHROPIC_API_KEY', 'sk-ant-own');
+  leave(own, {}); assert.equal(own.secret('ANTHROPIC_API_KEY'), 'sk-ant-own');
+  const off = storage({aiEngine: 'api'}); assert.equal(leave(off, {}), false);
+});
+
+test('setAiEngine routes the API key pick through leave', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../lib/setup-handlers.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(choice === 'api'\) aiFree\.leave\(storage\)/);
+});

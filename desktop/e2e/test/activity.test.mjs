@@ -4,7 +4,7 @@ import test from 'node:test';
 import {badSummary, leaks, liveLogProblems} from '../lib/activity.mjs';
 
 test('a good summary line passes', () => {
-  for (const line of ['3 new jobs', 'nothing new', 'Gmail not connected (Settings → Gmail and Calendar)', 'Your Anthropic API spending limit was reached, so 2 jobs weren\'t scored.']) assert.equal(badSummary(line), '');
+  for (const line of ['3 new jobs', 'nothing new', 'Gmail not connected (Settings → Connections)', 'Your Anthropic API spending limit was reached, so 2 jobs weren\'t scored.']) assert.equal(badSummary(line), '');
 });
 test('an empty, programming-value, JSON or stack-trace summary is flagged', () => {
   assert.match(badSummary(''), /empty/);

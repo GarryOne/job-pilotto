@@ -97,7 +97,7 @@ export class Adapter {
       return await this.complete(request);
     } catch (error) {
       if (!(error instanceof AiLimit) || error.final || !this.fallback) throw error;
-      this.log(`Warning: ${error.message} Using ${this.constructor.fallbackLabel} for the rest of this run (Settings → AI).`);
+      this.log(`Warning: ${error.message} Using ${this.constructor.fallbackLabel} for the rest of this run (Settings → Connections → AI).`);
       this.fallen = this.fallback();
       return this.fallen.messages.create(params, options);
     }

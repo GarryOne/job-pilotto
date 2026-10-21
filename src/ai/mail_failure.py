@@ -7,14 +7,14 @@ from . import cost
 NOT_CHECKED = {
     'spend': 'not checked: the Anthropic API spend limit was reached',
     'plan': 'not checked: your Claude usage window is exhausted; it runs again later',
-    'claude': 'not checked: Claude Code is not ready (Settings → AI)',
-    'google': 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)',
+    'claude': 'not checked: Claude Code is not ready (Settings → Connections → AI)',
+    'google': 'not checked: the Google sign-in expired (Settings → Connections)',
 }
 # The same reasons when the chosen engine is OpenAI's (the OpenAI API key or Codex): desktop/lib/run-result.js MAIL_SKIPPED_OPENAI.
 NOT_CHECKED_OPENAI = {
     'spend': 'not checked: the OpenAI API credit or spend limit was reached',
     'plan': "not checked: your ChatGPT plan's Codex limit is reached; it runs again later",
-    'claude': 'not checked: Codex is not ready (Settings → AI)',
+    'claude': 'not checked: Codex is not ready (Settings → Connections → AI)',
     'google': NOT_CHECKED['google'],
 }
 

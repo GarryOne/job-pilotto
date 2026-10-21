@@ -13,8 +13,8 @@ const EFFORTS = {low: 'low', medium: 'medium', high: 'high', max: 'high'};
 // Reasoning counts towards OpenAI's output cap; a call's max_tokens was sized for Claude's answer: headroom on top (a cap, not a charge).
 const HEADROOM = {low: 2000, medium: 6000, high: 12000};
 export const LIMIT_TEXT = 'OpenAI: your API account has no credit left or reached its spend limit (platform.openai.com → Billing), so this AI step '
-  + 'is paused. Add credit there, or switch engines in Settings → AI.';
-export const KEY_TEXT = 'OpenAI refused the API key (Settings → AI): check it, or switch engines there.';
+  + 'is paused. Add credit there, or switch engines in Settings → Connections → AI.';
+export const KEY_TEXT = 'OpenAI refused the API key (Settings → Connections → AI): check it, or switch engines there.';
 
 // The Responses API body for a contract request (src/ai/providers/openai_api.py params_of). action: the AI step, so its calls share a cache.
 export function body(request, {env = process.env, action = ''} = {}) {
@@ -116,7 +116,7 @@ export class OpenAiApi extends Adapter {
 
   async client() {
     if (!this.sdk) {
-      if (!this.apiKey) throw new AiLimit('This needs your OpenAI API key (Settings → AI).', {final: true});
+      if (!this.apiKey) throw new AiLimit('This needs your OpenAI API key (Settings → Connections → AI).', {final: true});
       const {default: OpenAI} = await import('openai');
       this.sdk = new OpenAI({apiKey: this.apiKey});
     }

@@ -26,10 +26,10 @@ const LIMIT = /usage limit|hit your (?:usage )?limit|limit reached|rate.?limit|t
 const SIGNED_OUT = /not logged in|codex login|log ?in again|unauthorized|\b401\b|authentication|token (?:has )?expired|refresh token/i;
 export const LIMIT_TEXT = 'Codex: your ChatGPT plan\'s usage limit is reached, so this AI step is paused; try again later, when the limit resets.';
 export const SIGNED_OUT_TEXT = 'Codex is not signed in on this computer: open Terminal, run `codex login` and sign in with your ChatGPT account, '
-  + 'then try again. Or switch to an OpenAI API key in Settings → AI.';
+  + 'then try again. Or switch to an OpenAI API key in Settings → Connections → AI.';
 export const PDF_TEXT = 'Codex cannot read PDF attachments: the caller must send the PDF as page images and its text.';
 export const MISSING_TEXT = 'Codex was not found on this computer: install it (developers.openai.com/codex) and sign in with `codex login`, '
-  + 'or switch to an OpenAI API key in Settings → AI.';
+  + 'or switch to an OpenAI API key in Settings → Connections → AI.';
 
 // Where the user's Codex may be: PATH, then where its installers put it.
 export function codexSearchDirs(env = process.env, platform = process.platform) {

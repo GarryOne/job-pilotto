@@ -17,7 +17,7 @@ let saved = {state: 'none', text: ''};   // the letter as stored: the buttons an
 let writing = false;                     // "Write my own" pressed: the editor stays open on an empty letter
 let isReading = false;
 let draftSource = null;                 // the typed letter as a draft on Profile's one save bar
-let openAi = () => {};                   // Settings → AI engine, passed in by pages/profile.js (no import of the settings page here)
+let openAi = () => {};                   // Settings → Connections → AI, passed in by pages/profile.js (no import of the settings page here)
 
 // The state as a pill: neutral while none exists (owner, 18 Oct 2026: never a green dot for "not written").
 export function statePill(status) {

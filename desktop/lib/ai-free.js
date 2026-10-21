@@ -52,6 +52,15 @@ export function stop(storage, env = process.env) {
   apply(storage.settings(), env);
 }
 
+// The "API key" card pressed while Free is on (#1017): Free IS the 'api' engine, so the pick alone changes nothing. Leave Free and forget its token,
+// so the key box is empty and waiting for the person's own key. Not on Free: nothing to do. -> true when Free was left.
+export function leave(storage, env = process.env) {
+  if (!isOn(storage.settings())) return false;
+  stop(storage, env);
+  if (isFreeKey(storage.secret('ANTHROPIC_API_KEY'))) storage.setSecret('ANTHROPIC_API_KEY', '');
+  return true;
+}
+
 // The install's token for the free trial's status (GET /api/trial/status, site/src/trial.js), for an install whose Free AI is not on (it has its own key): Always on
 // sends it as a repo secret, so its runs stop new work at the trial's end like the app. Kept under this name; never throws.
 export const TRIAL_KEY = 'JOB_PILOTTO_TRIAL_KEY';

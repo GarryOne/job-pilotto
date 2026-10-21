@@ -125,7 +125,11 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     }
     picked = id;
     if (id === 'free') family = null;   // Free needs no family cards
-    if (context === 'settings') shared.state.settings = await window.pilot.setAiEngine(id === 'free' ? 'api' : id);  // instant, reversible
+    if (context === 'settings') {
+      const wasFree = chosen(shared.state?.settings, hasKey(), context) === 'free';
+      shared.state.settings = await window.pilot.setAiEngine(id === 'free' ? 'api' : id);  // instant, reversible
+      if (wasFree && id === 'api') shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: false};   // leaving Free forgot its token: the key box is empty
+    }
     else if (id === 'cli') shared.state.settings = {...shared.state.settings, claudeCodeNotice: true};
     else if (id === 'codex') shared.state.settings = {...shared.state.settings, codexNotice: true};
     applyAiNames();   // the window's static texts name the new engine at once

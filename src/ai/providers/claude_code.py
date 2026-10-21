@@ -30,12 +30,12 @@ SIGNED_OUT = re.compile(r'not logged in|please run /login|run /login|invalid api
 LIMIT_TEXT = ('Claude Code: your Claude usage window is exhausted (the plan\'s usage limit), so this AI step is paused; '
               'try again later, when the limit resets.')
 SIGNED_OUT_TEXT = ('Claude Code is not signed in on this computer: open Terminal, run `claude` '
-                   'and sign in with your Claude account, then try again. Or switch to an API key in Settings → AI.')
+                   'and sign in with your Claude account, then try again. Or switch to an API key in Settings → Connections → AI.')
 NOT_ANSWERING_TEXT = ('Claude Code did not answer twice in a row (each waited {seconds} s), so this AI step stops instead of waiting for every job. '
                       'It may be signed out or waiting for you: open Terminal, run `claude`, check it answers, then run again. '
-                      'Or switch to an API key in Settings → AI.')
+                      'Or switch to an API key in Settings → Connections → AI.')
 MISSING_TEXT = ('Claude Code was not found on this computer: install it from '
-                'claude.com/claude-code and sign in, or switch to an API key in Settings → AI.')
+                'claude.com/claude-code and sign in, or switch to an API key in Settings → Connections → AI.')
 
 
 def find_binary(env=None, exists=os.path.exists):

@@ -139,7 +139,7 @@ export function paletteCommands() {
     'saved view filter applications active applying in progress kit ready rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
   // Each Reports tab (pages/reports.js), by what it holds.
   for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
-  // The AI engine's choices (pages/ai-engine.js): open Settings → AI and press the card, as by hand.
+  // The AI engine's choices (pages/ai-engine.js): open Settings → Connections → AI and press the card, as by hand.
   const press = (choice, wait) => setTimeout(() => document.querySelector(`#ai-engine-settings [data-choice="${choice}"]`)?.click(), wait);
   for (const [choice, label, hint, words, family] of ENGINE_CHOICES) add('Settings', label, hint, `ai engine ${words}`, () => {
     openSetting('ai'); if (family) press(family, 300); press(choice, family ? 700 : 300);
