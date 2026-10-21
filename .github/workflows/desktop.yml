@@ -215,6 +215,7 @@ jobs:
           GATE_KIND: ${{ (github.event_name == 'schedule' || inputs.nightly) && 'nightly' || 'beta' }}   # a beta by hand runs quality only when what it watches changed
           OVER: ${{ steps.spend.outputs.over }}
         run: |
+          set -o pipefail   # a program piped into tee/cat keeps its exit code (tests/test_workflow_pipefail.py)
           npm ci || npm install
           node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"
           # windows_matrix (from plan-run.mjs): its suites less those the same on every OS (quality), a sharded one as one entry per slice (lib/suite-shards.mjs)
@@ -870,6 +871,7 @@ jobs:
       - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
         env:
           JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        shell: bash -eo pipefail {0}   # a program piped into tee/cat keeps its exit code (tests/test_workflow_pipefail.py)
         run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Release it to Mac beta testers
         env:
@@ -944,16 +946,30 @@ jobs:
       - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
         env:
           JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        shell: bash -eo pipefail {0}   # a program piped into tee/cat keeps its exit code (tests/test_workflow_pipefail.py)
         run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Release it to Windows beta testers
         env:
           E2E_ALREADY_GREEN: '1'   # every Windows suite passed on this commit, in this run
           SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
         run: |
+          set -o pipefail   # a program piped into tee/cat keeps its exit code (tests/test_workflow_pipefail.py)
           tools/beta-approve.sh --windows "$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After both lanes, so
   # tonight's approvals are already written when it decides what to keep.
+  # A gate that was planned but did not start must not end the run green (18-21 Oct 2026: the plan step crashed, E2E and Release were skipped, the run read "success").
+  gate-ran:
+    name: Gate ran?
+    needs: [changes, build, windows, test-mac, test-windows]
+    if: always() && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0' && ((needs.build.result == 'success' && needs.test-mac.result == 'skipped') || (needs.windows.result == 'success' && needs.test-windows.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "### ❌ The E2E gate was planned but did not run: no build was tested or approved. See the 'Plan the E2E suites' step of Anything new?." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::The E2E gate was skipped after a green build."
+          exit 1
+
   prune:
     name: Clean up old builds
     needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]

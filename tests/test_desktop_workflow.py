@@ -160,6 +160,12 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('if: failure()', job('windows'))
         self.assertNotIn('\n  mac-only:\n', WORKFLOW)
         self.assertIn('needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
+    def test_a_planned_gate_that_was_skipped_after_a_green_build_fails_the_run(self):
+        job = WORKFLOW.split('\n  gate-ran:\n')[1].split('\n  prune:\n')[0]
+        self.assertIn("needs.test-mac.result == 'skipped'", job)
+        self.assertIn("needs.test-windows.result == 'skipped'", job)
+        self.assertIn('exit 1', job)
+
 
 if __name__ == '__main__':
     unittest.main()
