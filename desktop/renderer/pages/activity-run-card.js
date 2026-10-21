@@ -3,7 +3,7 @@
 import {el, pill} from '../components.js';
 import {fitTooltip} from '../jobs-view.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {byFit, runItems} from '../run-cards.js';
+import {byFit, runItems, runNewCount} from '../run-cards.js';
 import {searchNumbers} from '../find-card-model.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -56,7 +56,9 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
   let heading, more = null, help = null, secondary = null;
   if (card.kind === 'digest') {
     // The same numbers as the Find jobs card on Jobs (find-card-model.js searchNumbers); the digest's own counts stay as the quiet line under them.
-    const numbers = searchNumbers(run?.log), digestStats = [stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run')];
+    const fresh = runNewCount(run, card);   // this run's own count, as the toast and footer say (#1408); the digest's own number is named for what it counts
+    const numbers = searchNumbers(run?.log), digestStats = [stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(fresh, 'new this run'),
+      ...(card.fresh != null && card.fresh !== fresh ? [stat(card.fresh, 'since your last digest')] : [])];
     if (numbers) {
       stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'scored'), stat(numbers.good, 'strong matches (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting for a score')] : []));
       const facts = el('div', 'run-card-stats muted');
@@ -65,7 +67,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
     } else stats.append(...digestStats);
     // A run that found nothing new lists no jobs: the digest's "top matches" are the best open jobs from any run, and shown here they read as
     // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
-    const nothingNew = card.fresh === 0;
+    const nothingNew = fresh === 0;
     // Only this run's finds: the older jobs that fill the digest's page are not this run's, and stay in Jobs (run-cards.js runItems).
     const items = nothingNew ? [] : runItems(card);
     const onlyNew = items.length < card.items.length || items.some(item => item.section === 'new');
@@ -107,7 +109,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
     });
     // Few new jobs: why, and what would bring more (the Strategy page's suggestions; owner, 6 Oct 2026), as cards under this one: in the
     // run pane its own place (#activity-help), elsewhere after the card.
-    const few = (card.fresh ?? 0) < 3;
+    const few = runNewCount(run, card) < 3;
     more = el('div', 'run-card-foot');
     more.append(view);
     if (few) help = withFewJobsHelp(run?.id ?? card.items.map(item => item.url).join('|'));

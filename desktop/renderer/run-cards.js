@@ -78,12 +78,11 @@ export const runItems = card => {
   const items = card?.items || [];
   return items.some(item => item.section) ? items.filter(item => item.section === 'new') : items;
 };
-// How many new jobs a finished search's "View new job(s)" counts: its card's own "N new this run" when the message has one, so the button and the
-// card never disagree (owner, 7 Oct 2026: "View new job" over "2 new this run"); else the run's record.
-export const newJobsShown = (run, text) => {
-  const card = text ? parseRunMessage(text) : null;
-  return card?.kind === 'digest' && card.fresh != null ? card.fresh : run?.new || 0;
-};
+// The one number for "new this run" (owner, 22 Oct 2026, #1408: the card said 9, the toast and footer 7): the run's own record, the same the toast, the
+// footer, the Find jobs card and the tray read. The digest's "N new" counts jobs first seen since the last digest, which can include earlier runs'
+// jobs: the card shows it as "since your last digest". A run with no record (an old Telegram digest) falls back to the digest's number.
+export const runNewCount = (run, card) => run?.new ?? (card?.kind === 'digest' ? card.fresh : null) ?? 0;
+export const newJobsShown = (run, text) => runNewCount(run, text ? parseRunMessage(text) : null);
 
 // The text a finished run's card is drawn from: its own message (read from its Notion page), else the result the window
 // kept when it watched the run end (renderer/pages/activity.js runResults). A search run recorded on this Mac carries a log
