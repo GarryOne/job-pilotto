@@ -357,9 +357,10 @@ export async function runAll(sites, {hold = false, atOnce = 2, filter = true, te
     active?.tickets.set(key(site.url), ticket);
     lastNews.set(ticket, Date.now());
     let openedAt = Date.now();   // a held board: from the person's Read (release below)
+    let waitTimer = null;   // the wait for the first news; the person's Read is that news
     if (signal?.aborted) return {...site, start: chosen.url, ok: false, why: 'Stopped by you', jobs: 0, added: 0};
     mine.add(ticket);
-    if (hold) { held.set(ticket, () => { openedAt = Date.now(); }); blocked.add(ticket); }   // "Read this board": waits for the person's Read, no clock runs
+    if (hold) { held.set(ticket, () => { openedAt = Date.now(); clearTimeout(waitTimer); }); blocked.add(ticket); }   // "Read this board": waits for the person's Read, no clock runs
     const finished = new Promise(resolve => {
       waiting.set(ticket, resolve);
       const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
@@ -379,7 +380,7 @@ export async function runAll(sites, {hold = false, atOnce = 2, filter = true, te
           resolve({stopped: `it stopped answering (nothing for ${Math.round(quietMs / 1000)} s)${stuck}: skipped, you can close its tab`, jobs: 0, added: 0, quiet: true});
         }
       }, Math.min(5000, quietMs, siteMs));
-      setTimeout(() => {
+      waitTimer = setTimeout(() => {
         if (!waiting.delete(ticket)) return;
         resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Jobadabra page)'
           : 'no answer from the extension in time: is it installed and enabled in Chrome?', jobs: 0, added: 0});
