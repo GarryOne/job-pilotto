@@ -126,6 +126,7 @@
   "nav-click-class.test.mjs",
   "net-record-lost-body.test.mjs",
   "new-steps.test.mjs",
+  "run-lock.test.mjs",
   "no-real-ai.test.mjs",
   "notion-fake.test.mjs",
   "notion-page-lock.test.mjs",
