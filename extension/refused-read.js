@@ -6,6 +6,7 @@
 import {api, settings} from './flow.js';
 import {ALL_SITES} from './site-allow.js';
 import {tabReader} from './refused-tab.js';
+import {show as showHeldCheck, look as lookAtHeldCheck} from './refused-held.js';
 
 export const ALARM = 'refused-reads';
 export const NOW_ALARM = 'refused-reads-now';   // every minute: has the app a Read now waiting? (one cheap call, the engine is not asked)
@@ -70,6 +71,9 @@ export async function readNowIfAsked({chrome = globalThis.chrome, call = api, co
   const cfg = config || await settings();
   const asked = await call(cfg, '/extension/refused-pending', {method: 'POST', body: '{}'}).catch(() => null);
   if (asked?.openDetails) await chrome.tabs.create({url: `chrome://extensions/?id=${chrome.runtime.id}`}).catch(() => {});   // the person pressed "Open Chrome's switch" in the app (the extension may open its own details page)
+  if (asked?.showCheck) await showHeldCheck(chrome).catch(() => {});   // the person pressed "Show the check": the one deliberate focus of the hidden window
+  const solved = await lookAtHeldCheck({chrome, judge: page => call(cfg, '/extension/refused-judge', {method: 'POST', body: JSON.stringify(page)})}).catch(() => null);
+  if (solved) await call(cfg, '/extension/refused-outcome', {method: 'POST', body: JSON.stringify({...solved, step: 'tab'})}).catch(() => null);   // solved by the person, then read like any page
   return asked?.pending ? pass({chrome, call, config: cfg}) : {read: 0};
 }
 

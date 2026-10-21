@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {siteTest} from './site-private.js';
-import {queue, outcome, done, settingOn, passRunning, takeOpenSwitch} from '../lib/refused-reads.js';
+import {queue, outcome, done, settingOn, passRunning, takeOpenSwitch, takeShowCheck} from '../lib/refused-reads.js';
 import * as now from '../lib/refused-now.js';
 
 const storageWith = settings => { const kept = {...settings}; return {settings: () => kept, saveSettings: patch => Object.assign(kept, patch), kept}; };
@@ -140,4 +140,17 @@ test('sites stopped for want of Allow in Incognito are counted by host, cleared 
   assert.equal(takeOpenSwitch(storage), false);
   storage.saveSettings({refusedOpenSwitch: true});
   assert.deepEqual([takeOpenSwitch(storage), takeOpenSwitch(storage)], [true, false]);
+});
+
+test('a captcha held in the extension is listed for Focus, ends when the site is read, and "Show the check" is handed out once', async () => {
+  const answers = [{ok: true, state: 'stopped', why: 'needs a quick check from you', needs_check: true, name: 'Coop'}, {ok: true, state: 'read', name: 'Coop', jobs: 3, fits: 0}];
+  const run = async () => ({stdout: JSON.stringify(answers.shift())});
+  const storage = storageWith({readRefusedSites: true});
+  await outcome(storage, {url: 'https://jobs.coop.ch', status: 200, html: '<html></html>', step: 'tab', captcha: true}, {run});
+  assert.deepEqual(storage.kept.refusedCheckWaiting.map(entry => entry.host), ['jobs.coop.ch']);
+  await outcome(storage, {url: 'https://jobs.coop.ch', status: 200, html: '<html><body>jobs</body></html>', step: 'tab'}, {run});
+  assert.deepEqual(storage.kept.refusedCheckWaiting, [], 'read after the person solved it: nothing waits');
+  assert.equal(takeShowCheck(storage), false);
+  storage.saveSettings({refusedShowCheck: true});
+  assert.deepEqual([takeShowCheck(storage), takeShowCheck(storage)], [true, false]);
 });

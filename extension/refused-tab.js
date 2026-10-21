@@ -6,6 +6,7 @@
 // Runs only when Chrome lets the extension into incognito (Allow in Incognito, once) and the window REPORTS it is incognito; otherwise nothing is opened.
 // At most DAILY_TABS sites a day, never focused. Not a flow file: nothing here touches an application. Guard: desktop/test/extension-refused-tab.test.js.
 import {moveTab} from './tabs.js';
+import {hold} from './refused-held.js';
 export const DAILY_TABS = 5;
 export const WAIT_MS = 15000;
 export const POLL_MS = 3000;
@@ -56,6 +57,11 @@ export function tabReader({chrome = globalThis.chrome, judge, now = Date.now, sl
       page = {url, status: 200, html: String(seen.html || '').slice(0, 3_000_000), title: seen.title || '', final: seen.final || url};
       state = (await judge(page).catch(() => null))?.state || 'refused';
       if (state !== 'passive_check') break;   // waiting is only for a check that clears by itself
+    }
+    if (state === 'captcha') {   // words-ok: the app AI's fixed page_state answer, not a page's words; the check stays in its hidden window for the person to open from the app (refused-held.js); the next site gets a window of its own
+      await hold({chrome, winId: open.id, tabId: open.tabId, url, now});
+      win = null;
+      return {state, page, held: true};
     }
     await moveTab(open.tabId, 'about:blank', chrome).catch(() => {});   // the site's page is gone before the next one
     return {state, page};

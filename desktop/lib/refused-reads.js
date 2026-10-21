@@ -68,6 +68,7 @@ export async function outcome(storage, payload, {run = pipeline.run} = {}) {
   const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500), step: ['engine', 'download', 'tab'].includes(payload.step) ? payload.step : 'download', captcha: payload.captcha === true};   // words-ok: the engine AI's fixed page_state answer, not a page's words
   const answer = await engineJson(storage, 'refused-outcome', body, run).catch(() => null);
   const name = answer?.name || new URL(url).hostname;
+  keepCheckWaiting(storage, url, answer);
   appLog('refused-reads', 'site fetched in your browser', {host: new URL(url).hostname, state: answer?.state || 'failed', jobs: answer?.jobs ?? null});
   if (!pass) return answer || {ok: false};
   const jobs = answer?.jobs || 0;
@@ -93,5 +94,19 @@ export const done = () => pass?.finish();   // the extension's pass ended (some 
 export function takeOpenSwitch(storage) {
   if (!storage.settings().refusedOpenSwitch) return false;
   storage.saveSettings({refusedOpenSwitch: false});
+  return true;
+}
+
+// A captcha is held in the extension's hidden window (extension/refused-held.js): Focus offers "Show the check" while it is (owner, 21 Oct 2026). {host, at} per site; a read of the site ends it.
+export const CHECK_WAIT_MS = 12 * 60 * 1000;   // a little longer than the extension holds the window
+function keepCheckWaiting(storage, url, answer) {
+  const host = now.hostOf(url), kept = (storage.settings().refusedCheckWaiting || []).filter(entry => entry.host !== host && Date.now() - entry.at < CHECK_WAIT_MS);
+  if (answer?.needs_check) kept.push({host, at: Date.now()});
+  if (answer?.needs_check || kept.length !== (storage.settings().refusedCheckWaiting || []).length) storage.saveSettings({refusedCheckWaiting: kept.slice(-20)});
+}
+// The person pressed "Show the check": handed to the extension's one-minute look once.
+export function takeShowCheck(storage) {
+  if (!storage.settings().refusedShowCheck) return false;
+  storage.saveSettings({refusedShowCheck: false});
   return true;
 }
