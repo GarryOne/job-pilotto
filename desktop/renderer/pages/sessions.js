@@ -2,7 +2,7 @@
 import {badgeLabel} from '../badge-label.js';
 import {el, pill} from '../components.js';
 import {avatar} from '../jobs-view.js';
-import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, tickSessionClocks, sessionReview, sessionState} from '../session-state.js';
+import {applyingBadge, dockCounts, dockOrder, firstLine, isLive, isSubmitted, pageLine, sessionDuration, tickSessionClocks, sessionReview, sessionState, sessionsFoot} from '../session-state.js';
 import {shared} from './shared.js';
 import {resumeOffered} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
@@ -73,14 +73,12 @@ const urgency = item => (item.status === 'input' && !sessionReview(item, formRea
 export function bestSession() {
   return [...sessionList].sort((a, b) => urgency(a) - urgency(b) || Date.parse(b.startedAt || 0) - Date.parse(a.startedAt || 0))[0] || null;
 }
-// The menu's foot: "1 session needs you" (amber), "2 applying" (blue), "1 ready to submit" (green), else how many there are.
+// The menu's foot: "1 session needs you" (amber), "2 sessions open" (blue), "1 session filled" (green), else how many there are.
 function renderNavBadge() {
   const open = sessionList.filter(item => !item.endedAt || sessionReview(item, formReady(item)));
   const needs = open.filter(item => urgency(item) <= 1).length, working = open.filter(item => urgency(item) === 2).length;
   const ready = open.filter(item => urgency(item) === 3).length;
-  const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
-  const [text, tone] = needs ? [`${plural(needs, 'session')} need${needs === 1 ? 's' : ''} you`, 'warn']
-    : working ? [`${working} applying`, 'info'] : ready ? [`${ready} ready to submit`, 'good'] : [plural(sessionList.length, 'session'), 'neutral'];
+  const {text, tone} = sessionsFoot(needs, working, ready, sessionList.length);
   const {count, tone: countTone} = applyingBadge(sessionList, urgency);
   Object.assign($('nav-applying-badge'), {hidden: !count, textContent: badgeLabel(count), className: `nav-badge tone-${countTone}`, title: text});
   $('nav-sessions').hidden = !sessionList.length;
