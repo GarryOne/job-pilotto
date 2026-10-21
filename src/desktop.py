@@ -47,6 +47,9 @@ def main(argv=None):
     sub.add_parser('not-submitted').add_argument('url')  # an Applied was wrong: back to Applying (never a stage with evidence)
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('calendar')   # the Calendar's jobs: Applications rows only, no search cache (a fraction of `jobs`)
+    clearing = sub.add_parser('clear-jobs')   # Settings → Clear my job list (src/clear_jobs.py): found and scored jobs go, what you acted on stays
+    clearing.add_argument('--dry-run', action='store_true')   # only the counts
+    clearing.add_argument('--clear-dismissed', action='store_true')   # also the jobs you dismissed yourself (default: kept)
     sub.add_parser('strategy')
     sub.add_parser('rescore-outdated')
     sub.add_parser('refresh-locations').add_argument('--url', default='')   # one job's refresh from its drawer; none = every active one
@@ -317,6 +320,17 @@ def main(argv=None):
         if args.command == 'places-now':
             from .ai import locations
             print(json.dumps({'places': locations.fingerprint_now()}))
+            return 0
+        if args.command == 'clear-jobs':
+            from . import clear_jobs
+            from .store_access import run_stores
+            stores, _ = run_stores(tracker)
+            keep = not args.clear_dismissed
+            try:
+                result = clear_jobs.plan(db, stores, keep) if args.dry_run else {'ok': True, **clear_jobs.clear(db, stores, keep)}
+            except Exception as error:  # noqa: BLE001 — shown to the person; the store is written first, so a refusal changed nothing local
+                result = {'ok': False, 'error': f'Your job list could not be cleared ({type(error).__name__}); nothing changed. Try again.'}
+            print(json.dumps(result, ensure_ascii=False))
             return 0
         if args.command == 'rescore-outdated':   # Strategy's one Re-score: every outdated job once (src/desktop_strategy.py outdated)
             from .desktop_strategy import rescore_outdated

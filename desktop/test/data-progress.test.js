@@ -22,6 +22,20 @@ test('the words: a percent once the total is known, never 100 before the end', (
   assert.equal(progressText({kind: 'backup', done: 1, total: 4}), 'Backing up… 25%');
 });
 
+test('a clear shows its words, has no Cancel and disables its own button', () => {
+  const strip = make('div', {'data-progress': 'clear'}), button = make('button', {id: 'clear-jobs'});
+  strip.hidden = true;
+  startProgress();
+  assert.equal(progressText({kind: 'clear', done: 0, total: null}), 'Clearing your job list…');
+  assert.equal(strip.children[2].hidden, true, 'no Cancel on a clear');
+  listener({kind: 'clear', state: 'running', done: 0, total: null});
+  assert.equal(strip.hidden, false);
+  assert.equal(button.disabled, true);
+  listener({kind: 'clear', state: 'done'});
+  assert.equal(strip.hidden, true);
+  assert.equal(button.disabled, false);
+});
+
 test('busy → done: the matching strips show, the starters are disabled, then everything clears', () => {
   startProgress();
   listener({kind: 'export', state: 'running', done: 42, total: 100});

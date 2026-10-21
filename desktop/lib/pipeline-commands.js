@@ -182,6 +182,11 @@ export const deleteJob = afterWrite(async (storage, url) => {
   const {stdout} = await run(storage, ['src.desktop', 'delete', url]);
   try { return JSON.parse(stdout.trim().split('\n').pop() || '{}'); } catch { return {ok: false, error: 'The app could not read the answer.'}; }
 });
+// Settings → Clear my job list (src/clear_jobs.py): `dryRun` only counts; the person's own dismissals are kept unless `clearDismissed`.
+export const clearJobs = afterWrite(async (storage, {dryRun = false, clearDismissed = false} = {}) => {
+  const {stdout} = await run(storage, ['src.desktop', 'clear-jobs', ...(dryRun ? ['--dry-run'] : []), ...(clearDismissed ? ['--clear-dismissed'] : [])]);
+  try { return JSON.parse(stdout.trim().split('\n').pop() || '{}'); } catch { return {ok: false, error: 'The app could not read the answer.'}; }
+});
 export const setStatus = afterWrite(async (storage, url, status) => {
   const {stdout} = await run(storage, ['src.desktop', 'status', url, status]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{}');

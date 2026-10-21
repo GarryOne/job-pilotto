@@ -183,6 +183,13 @@ class Matches:
     def remove(self, url):
         self.rows.pop(base.url_key(url), None)
 
+    def clear(self, keep_urls=()):
+        keep = {base.url_key(url) for url in keep_urls}
+        gone = [key for key in self.rows if key not in keep]
+        for key in gone:
+            del self.rows[key]
+        return len(gone)
+
     def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
         return matches_sync.sync(self, scored_jobs, applied_urls, open_urls, dismissed_urls, partial)
 
