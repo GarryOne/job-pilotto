@@ -19,6 +19,7 @@ export async function queue(storage, {allowed = true, incognito = true, log = ()
   if (!settingOn(storage)) return off;
   if (!!storage.settings().refusedNeedsAllow === allowed) storage.saveSettings({refusedNeedsAllow: !allowed});   // Settings says "Allow all sites in the extension once"
   if (!!storage.settings().refusedNeedsIncognito === incognito) storage.saveSettings({refusedNeedsIncognito: !incognito});   // Settings says "Allow in Incognito" for the private-window step
+  if (incognito && storage.settings().refusedIncognitoWaiting?.length) storage.saveSettings({refusedIncognitoWaiting: []});   // the switch is on: nothing waits for it
   if (!allowed || pass) return {...off, on: true};
   let sites = [];
   try {
@@ -59,6 +60,11 @@ export async function outcome(storage, payload, {run = pipeline.run} = {}) {
   if (!settingOn(storage)) return {ok: false, error: 'off'};
   const url = String(payload?.url || '');
   if (!/^https:\/\//.test(url)) return {ok: false, error: 'no page address'};
+  if (payload?.tabSkipped === 'incognito') {   // the ladder stopped at the real tab for want of Allow in Incognito: Focus says how many sites wait for that one switch
+    const waiting = new Set(storage.settings().refusedIncognitoWaiting || []);
+    waiting.add(now.hostOf(url));
+    storage.saveSettings({refusedIncognitoWaiting: [...waiting].slice(0, 200)});
+  }
   const body = {url, status: Number(payload.status) || 0, html: String(payload.html || '').slice(0, 3_000_000), title: String(payload.title || '').slice(0, 300), final: String(payload.final || '').slice(0, 500), step: ['engine', 'download', 'tab'].includes(payload.step) ? payload.step : 'download', captcha: payload.captcha === true};   // words-ok: the engine AI's fixed page_state answer, not a page's words
   const answer = await engineJson(storage, 'refused-outcome', body, run).catch(() => null);
   const name = answer?.name || new URL(url).hostname;
@@ -82,3 +88,10 @@ export async function judge(storage, payload, {run = pipeline.run} = {}) {
 }
 
 export const done = () => pass?.finish();   // the extension's pass ended (some sites left unread when Chrome stops)
+
+// The person pressed "Open Chrome's switch" (Settings or Focus): the flag lives in settings, the extension's one-minute look takes it once and opens its own details page.
+export function takeOpenSwitch(storage) {
+  if (!storage.settings().refusedOpenSwitch) return false;
+  storage.saveSettings({refusedOpenSwitch: false});
+  return true;
+}

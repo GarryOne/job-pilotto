@@ -53,6 +53,7 @@ export async function pass({chrome = globalThis.chrome, call = api, config = nul
       if (state !== 'page' && page.status !== 429) {
         const tabbed = await tab.read(site.url).catch(() => ({skipped: 'error'}));
         if (tabbed.page) page = {...tabbed.page, step: 'tab', ...(tabbed.state === 'captcha' ? {captcha: true} : {})};   // words-ok: the app AI's fixed page_state answer, not a page's words
+        else if (tabbed.skipped === 'incognito') page = {...page, tabSkipped: 'incognito'};   // the app tells the person about the one Chrome switch
       }
       await call(cfg, '/extension/refused-outcome', {method: 'POST', body: JSON.stringify(page)}).catch(() => null);
       read++;
@@ -68,6 +69,7 @@ export async function readNowIfAsked({chrome = globalThis.chrome, call = api, co
   if (running) return {read: 0, skipped: 'running'};
   const cfg = config || await settings();
   const asked = await call(cfg, '/extension/refused-pending', {method: 'POST', body: '{}'}).catch(() => null);
+  if (asked?.openDetails) await chrome.tabs.create({url: `chrome://extensions/?id=${chrome.runtime.id}`}).catch(() => {});   // the person pressed "Open Chrome's switch" in the app (the extension may open its own details page)
   return asked?.pending ? pass({chrome, call, config: cfg}) : {read: 0};
 }
 
