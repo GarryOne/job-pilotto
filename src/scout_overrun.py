@@ -2,10 +2,12 @@
 Why: 20 Oct 2026, 2 of 6 central runs were cancelled at the job's 75 minutes with an empty log, so no one could tell which check held them.
 Tests: tests/test_scout_overrun.py."""
 
+import contextlib
 import faulthandler
 import os
 import sys
 import threading
+import time
 
 GRACE_S = 10 * 60   # the budget ends new checks; running ones normally finish well inside this
 
@@ -33,3 +35,18 @@ def leave_if_stuck():
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(0)
+
+
+@contextlib.contextmanager
+def phase(name, out=print):
+    """Says "Scout: <name> took N s" when the step ends (also when it raises): 21 Oct 2026, 37 minutes after the last check had no log line."""
+    began = time.monotonic()
+    try:
+        yield
+    finally:
+        out(f'Scout: {name} took {time.monotonic() - began:.0f} s')
+
+
+def publish_deadline(started, job_s=75 * 60, reserve_s=8 * 60):
+    """Monotonic time after which no new feed check starts, so the index is published before the job's own limit (reserve: upload + cost report)."""
+    return started + job_s - reserve_s
