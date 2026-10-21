@@ -34,6 +34,7 @@ def kept(search, postings, cache=None):
             (Path(data) / 'places.json').write_text(json.dumps(cache))
         shutil.copytree(ROOT / 'config', tmp, dirs_exist_ok=True)
         base = json.loads((ROOT / 'config' / 'search.example.json').read_text())
+        base.pop('target_roles', None)   # the example lists titles as one list; a case here sets role_keywords itself
         base.update({'role_keywords': ['data analyst'], 'title_exclude_keywords': [], 'remote_excluded_regions': [], 'level': [],
                      'locations': {'top_tier': ['zurich'], 'country_wide': [], 'abroad': []}})
         base.update(search)
