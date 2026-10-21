@@ -40,3 +40,16 @@ test('the scan catches the shapes it is for', () => {
   assert.equal(directNavClicks("await page.click('.nav[data-view=\"reports\"]');").length, 1);
   assert.equal(directNavClicks("await page.click('.nav[data-view=\"jobs\"]');").length, 0);
 });
+
+// #1690: Profile is a menu button with data-view="settings" too, so a bare `.nav[data-view="settings"]` pressed Profile and the "settings-narrow" shot showed the Profile page.
+test('goView opens every menu page by one button of its own, Settings never Profile', async () => {
+  const {navSelector} = await import('../lib/go-view.mjs');
+  const views = [...new Set([...html.matchAll(/<button class="nav(?: [^"]*)?"([^>]*)>/g)].map(([, attrs]) => attrs.match(/data-view="([^"]+)"/)?.[1]).filter(Boolean))];
+  assert.ok(views.includes('settings') && views.includes('jobs'));
+  for (const view of views) {
+    const wanted = navSelector(view);
+    const buttons = [...html.matchAll(/<button class="nav(?: [^"]*)?"([^>]*)>/g)].filter(([, attrs]) => attrs.includes(`data-view="${view}"`) && !(wanted.includes(':not([data-settings') && /data-settings=/.test(attrs)));
+    assert.equal(buttons.length, 1, `${wanted} must match exactly one menu button (matched ${buttons.length})`);
+  }
+  assert.match(navSelector('settings'), /:not\(\[data-settings/);
+});
