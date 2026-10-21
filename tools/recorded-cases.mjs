@@ -21,17 +21,21 @@ export const RECORDED_CASE = /^desktop\/e2e\/recorded\/([^/]+)\//;
 
 // The recorded cases (folder names) a push adds or changes.
 // The covered set: what a replay loads, plus every file of the flow.
-// The app modules the offline app merely loads (167 of desktop/lib) are not all "acting on pages" (owner, 22 Oct 2026: run-rows.js, a run record's display, asked for a recorded page).
-// Acting = the flow core's own files and the lib files they import directly; a loaded lib file outside that (a record mapper, a store, a log) only shows or keeps results. By structure, no list.
-const localImports = (root, file) => fs.existsSync(path.join(root, file)) ? [...fs.readFileSync(path.join(root, file), 'utf8').matchAll(/from\s+['"](\.[^'"]+)['"]|import\(['"](\.[^'"]+)['"]\)/g)].map(found => path.posix.normalize(path.posix.join(path.posix.dirname(file), found[1] || found[2]))) : [];
-export function actingAppFiles(root, flowFiles) {
-  const core = flowFiles.filter(file => file.startsWith('desktop/lib/'));
-  return new Set([...core, ...core.flatMap(file => localImports(root, file)).filter(file => file.startsWith('desktop/lib/'))]);
-}
-export const coveredFiles = (root, flowFiles) => {
-  const acting = actingAppFiles(root, flowFiles);
-  return new Set([...replayFiles(root)].filter(file => !file.startsWith('desktop/lib/') || acting.has(file)).concat(flowFiles));
+// A desktop/lib file that only shows or keeps a run's result says so in its first comment: "// Display-only: <why>" (owner, 22 Oct 2026, #1687: run-rows.js asked for a recorded page).
+// Default is covered: an unmarked file, and every file that fills, judges or decides, still needs its page. A marker is checked by structure: a marked file imports only marked files,
+// so one that gains a judging or filling import (ladder/, ai/, a judge) fails displayOnlyProblems, and the gate with it. Guard: desktop/test/recorded-cases.test.js.
+export const DISPLAY_ONLY = /^\/\/\s*Display-only:\s*\S/m;
+const head = (root, file) => { try { return fs.readFileSync(path.join(root, file), 'utf8').split('\n').slice(0, 8).join('\n'); } catch { return ''; } };
+export const isDisplayOnly = (root, file) => file.startsWith('desktop/lib/') && DISPLAY_ONLY.test(head(root, file));
+export const localImports = (root, file) => {
+  try {
+    return [...fs.readFileSync(path.join(root, file), 'utf8').matchAll(/from\s+['"](\.[^'"]+)['"]|import\(['"](\.[^'"]+)['"]\)/g)].map(found => path.posix.normalize(path.posix.join(path.posix.dirname(file), found[1] || found[2])));
+  } catch { return []; }
 };
+// -> the marked files (of `files`) that import an unmarked file, as "file imports other".
+export const displayOnlyProblems = (root, files) => [...files].filter(file => isDisplayOnly(root, file))
+  .flatMap(file => localImports(root, file).filter(other => !isDisplayOnly(root, other)).map(other => `${file} is marked Display-only but imports ${other}`));
+export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), ...flowFiles].filter(file => !isDisplayOnly(root, file)));
 
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
@@ -106,6 +110,8 @@ async function main() {
   } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const covered = coveredFiles(root, FLOW_FILES);
+  const marked = displayOnlyProblems(root, replayFiles(root));
+  if (marked.length) { console.error(`${marked.join('\n')}\nA Display-only file may import only Display-only files; remove the marker (the file then needs its recorded page) or the import.`); return 1; }
   const added = casesOf(git('diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'desktop/e2e/recorded').split('\n').filter(file => file.endsWith('/case.json')));
   const why = missingCase(commits, covered) || untaggedNewCases(added, commits.map(commit => commit.message)) || untaggedActing(commits, covered);
   if (why) { console.error(why); return 1; }
