@@ -125,7 +125,9 @@ export async function runJourneys(ctx, h) {
     if (at?.stage !== 'account') problems.push(`on the sign-up page the session is not at the account step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
     // Every account page gets the normal fill (owner, 12 Oct 2026, 8691f97): the person's details by meaning may be in; what stays the person's or Claude's is the box and the button (the password is account-step.js's, as a password manager's).
     if (await tab.locator('#robot').isChecked()) problems.push('the extension ticked the sign-up page\'s box (it must leave that to the person)');
-    // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed.
+    // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed. While the extension fills, its overlay holds the person's click (c09c6a8,
+    // 19 Oct 2026), so the person waits for it to lift, as a real one would: a click made under it changes nothing.
+    await tab.waitForFunction(() => !document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 60000}).catch(() => { problems.push('the fill overlay never lifted from the sign-up page'); });
     await tab.fill('#signup_email', 'e2e.person@example.com');
     await tab.fill('#signup_username', 'e2e-person');
     await tab.fill('#signup_password', 'Fictional-Pass-1234');
