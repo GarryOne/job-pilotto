@@ -52,7 +52,7 @@ function workspace({oldTitle = 'Jobadabra', rows = 2} = {}) {
 }
 
 // A reset only clears this Mac (owner, 16 Oct 2026: "a reset for sure shouldn't touch the current Notion"). Connecting Notion afterwards is the normal first-time flow.
-test('a reset never reaches Notion: no archive call, no checkbox, no remembered page', () => {
+test('a reset never reaches Notion: no archive call, no checkbox, no remembered page', async () => {
   assert.equal(notion.archiveWorkspace, undefined, 'nothing renames a Notion page any more');
   const here = rel => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
   assert.ok(!/import .*['"]\.\/notion\.js['"]/.test(here('../lib/system-handlers.js')), 'the reset handlers do not import the Notion client');
@@ -106,20 +106,20 @@ test('a connect that is not fresh (this profile already has its workspace) still
   assert.deepEqual(built, []);
 });
 
-test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', () => {
+test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', async () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Jobadabra');
   createStorage(dir, {encrypt: v => v, decrypt: v => v}).saveSettings({setupDone: true});
   const file = path.join(base, 'export.tar.gz');
-  reset.exportTo(dir, file);
-  reset.stageImport(dir, file);
+  await reset.exportTo(dir, file);
+  await reset.stageImport(dir, file);
   assert.ok(!fs.existsSync(path.join(`${dir} (import)`, reset.NOTION_FILE)), 'no Notion copy in a new export');
   fs.writeFileSync(path.join(`${dir} (import)`, reset.NOTION_FILE), '{}');   // as an older export carried it
   assert.equal(reset.applyPending(dir).imported, true);
   assert.ok(!fs.existsSync(path.join(dir, reset.NOTION_FILE)));
 });
 
-test('a reset leaves nothing about Notion for after the restart', () => {
+test('a reset leaves nothing about Notion for after the restart', async () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Jobadabra');
   fs.mkdirSync(dir);

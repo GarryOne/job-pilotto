@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('pilot', {
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), telegramDisconnect: call('telegramDisconnect'), setAutomation: call('setAutomation'), setTheme: call('setTheme'),
   onExperienceStep: callback => ipcRenderer.on('experienceStep', (_, step) => callback(step)),
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
+  dataCancel: call('dataCancel'), showFile: call('showFile'), onDataProgress: callback => ipcRenderer.on('dataProgress', (_, progress) => callback(progress)),
   onStoreMoveProgress: callback => ipcRenderer.on('storeMoveProgress', (_, progress) => callback(progress)),
   onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),

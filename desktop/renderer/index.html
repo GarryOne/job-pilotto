@@ -1439,6 +1439,7 @@
               <div class="summary-head"><i data-icon="database"></i><h3>Automatic backup</h3><span class="ui-pill tone-good" id="backup-on">On</span></div>
               <div class="panel-actions"><button class="secondary" id="backup-now">Back up now</button><button class="arrow-link" id="backup-show">View backups</button></div>
             </div>
+            <div class="data-progress" data-progress="backup" hidden></div>
             <p class="muted panel-lead"><span id="backup-notion-line" data-notion-only>Your CV and tailored CVs are also kept in Notion. </span>Recordings and the rest of this computer's data are backed up once a week (never your keys), the last four kept.</p>
             <div class="fact-row"><div><span class="muted">Last backup</span><b id="backup-last">None yet</b></div>
               <div><span class="muted">Location</span><b id="backup-where"></b></div></div>
@@ -1449,10 +1450,12 @@
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
                 <div><b>Export</b><p class="muted small">Save a copy of everything Jobadabra keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
-                  <button class="secondary" id="export-data">Export data</button></div></div>
+                  <button class="secondary" id="export-data">Export data</button>
+                  <div class="data-progress" data-progress="export" hidden></div></div></div>
               <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
                 <div><b>Import</b><p class="muted small">Restore from a Jobadabra export. Current data is backed up first.</p>
-                  <button class="secondary" id="import-data" data-import>Import data</button></div></div>
+                  <button class="secondary" id="import-data" data-import>Import data</button>
+                  <div class="data-progress" data-progress="import" hidden></div></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
               <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
@@ -1600,6 +1603,7 @@
                     <p class="muted small">Importing the saved file brings everything back.</p>
                     <div class="inline"><button class="secondary" id="reset-export">Export everything</button>
                       <button class="link" id="reset-skip-export">Skip</button><span class="ui-pill" id="reset-export-state" hidden></span></div>
+                    <div class="data-progress" data-progress="export" hidden></div>
                     <label class="check-row"><input type="checkbox" id="reset-export-accounts"><span><span>Include this profile's job-site accounts</span>
                       <span class="muted small">Holds your job-site passwords in plain text: keep the file private.</span></span></label></div></div>
                 <div class="choice-card" id="reset-step-2"><span class="file-tile"><i data-icon="refresh"></i></span>

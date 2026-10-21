@@ -32,10 +32,10 @@ export function due(settings, now = Date.now()) {
 }
 
 // -> {file, removed: [older backups deleted]}
-export function run(storage, {target = folder(), version = '', now = new Date()} = {}) {
+export async function run(storage, {target = folder(), version = '', now = new Date(), onProgress, signal} = {}) {
   fs.mkdirSync(target, {recursive: true});
   const file = path.join(target, `${PREFIX}${now.toISOString().slice(0, 16).replace('T', ' ').replace(':', '.')}.tar.gz`);
-  reset.exportTo(storage.dir, file, {version}, now);
+  await reset.exportTo(storage.dir, file, {version, onProgress, signal}, now);
   const all = fs.readdirSync(target).filter(name => name.startsWith(PREFIX) && name.endsWith('.tar.gz')).sort();
   const removed = all.slice(0, Math.max(0, all.length - KEEP));
   for (const name of removed) fs.rmSync(path.join(target, name), {force: true});

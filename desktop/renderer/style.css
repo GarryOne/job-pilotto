@@ -237,6 +237,14 @@ label.radio input { width: auto; margin-top: 3px; }
   border: 2px solid var(--line-strong); border-top-color: var(--signal); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .found .pending { color: var(--muted); }
+.data-progress { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.data-progress[hidden] { display: none; }
+.data-progress .data-progress-text { font-weight: 600; }
+.data-progress .score-track { grid-column: 1 / -1; grid-row: 2; }
+.data-progress .score-fill { transition: width .15s linear; }
+.data-progress .score-fill.indeterminate { width: 35% !important; animation: ui-pulse 1.2s ease-in-out infinite; }
+body.data-busy { cursor: progress; }
+#data-message:empty { display: none; }   /* no reserved band under Export options until there is a result line */
 .progress { display: grid; gap: 10px; padding: 24px 0; max-width: 640px; }
 .progress-head { display: flex; align-items: center; gap: 10px; }
 .progress-head .muted { margin-left: auto; font-variant-numeric: tabular-nums; }

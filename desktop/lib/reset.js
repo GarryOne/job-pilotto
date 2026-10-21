@@ -4,10 +4,9 @@
 // before anything opens it. An import moves the current data to a backup folder first; a reset deletes it (the person exports first).
 // Outside the folder, a reset touches only the Gmail sign-in (system-handlers.js disconnects it first); the Notion workspace, employer
 // passwords in the Keychain and a GitHub repo stay as they are, and a reset never calls Notion (owner, 16 Oct 2026).
-import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import {tar} from './tar.js';
+import * as archive from './archive.js';
 import * as tracker from './tracker-snapshot.js';
 import {writePrivate} from './private-file.js';
 
@@ -44,7 +43,8 @@ export function exportName({name = '', role = '', at = new Date()} = {}) {
 }
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
-export function exportTo(dir, file, {keys = null, accounts = null, version = ''} = {}, now = new Date()) {
+// Async since 21 Oct 2026 (lib/archive.js): tar runs beside the app, which keeps answering; onProgress({done, total}), signal cancels.
+export async function exportTo(dir, file, {keys = null, accounts = null, version = '', onProgress, signal} = {}, now = new Date()) {
   const extra = [];
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({app: 'Job Pilotto', version, exportedAt: now.toISOString(),
     keys: !!keys, accounts: !!accounts}, null, 1));
@@ -55,7 +55,7 @@ export function exportTo(dir, file, {keys = null, accounts = null, version = ''}
   const snapshot = tracker.take(dir);
   const skip = [...LEFT_OUT_INSIDE, ...(snapshot ? tracker.LIVE_FILES : [])];
   try {
-    execFileSync(tar(), ['-czf', file, ...skip.map(pattern => `--exclude=${pattern}`), '-C', dir, ...exported(dir), ...extra]);
+    await archive.pack(dir, file, {names: [...exported(dir), ...extra], excludes: skip, onProgress, signal});
   } finally {
     for (const name of extra) fs.rmSync(path.join(dir, name), {force: true});
     if (snapshot) fs.rmSync(path.join(dir, snapshot), {force: true});
@@ -64,11 +64,11 @@ export function exportTo(dir, file, {keys = null, accounts = null, version = ''}
 }
 
 // Import: unpack next to the data folder and check it's a Jobadabra export; the swap happens at the next start.
-export function stageImport(dir, file) {
+export async function stageImport(dir, file, {onProgress, signal} = {}) {
   const staged = `${dir} (import)`;
   fs.rmSync(staged, {recursive: true, force: true});
   fs.mkdirSync(staged, {recursive: true});
-  execFileSync(tar(), ['-xzf', file, '-C', staged]);
+  try { await archive.unpack(file, staged, {onProgress, signal}); } catch (error) { fs.rmSync(staged, {recursive: true, force: true}); throw error; }
   tracker.restore(staged);
   let manifest = null;
   try { manifest = JSON.parse(fs.readFileSync(path.join(staged, 'manifest.json'), 'utf8')); } catch {}
