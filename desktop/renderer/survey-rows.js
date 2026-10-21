@@ -130,12 +130,22 @@ export function surveyForm(part, {onChange = () => {}} = {}) {
     row.append(el('b', '', each.label), control, more, note);
     node.append(row);
   }
-  const fold = el('details', 'survey-notes'), notes = [...read.notes.map(each => each.text), ''].map(text => longText(text, NOTES_LABEL, `${NOTES_LABEL} (optional)`, onChange));
+  // One "Notes for the AI" box (no empty twin beside a filled one); "+ Add another note" opens a further box, an empty one is dropped on save (textsFor).
+  const fold = el('details', 'survey-notes'), notes = [], notesBox = el('div', 'survey-notes-boxes');
+  const addNote = text => { const field = longText(text, NOTES_LABEL, `${NOTES_LABEL} (optional)`, onChange); notes.push(field); notesBox.append(field); return field; };
+  (read.notes.length ? read.notes.map(each => each.text) : ['']).forEach(addNote);
+  const another = Object.assign(el('button', 'link small', '+ Add another note'), {type: 'button'});
+  another.addEventListener('click', () => addNote('').focus?.());
   fold.open = read.notes.length > 0;
-  fold.append(el('summary', '', NOTES_LABEL), ...notes);
+  fold.append(el('summary', '', NOTES_LABEL), notesBox, another);
   const others = read.other.map(each => ({index: each.index, field: longText(each.text, 'Line', '', onChange)}));
   node.append(fold);
-  if (others.length) node.append(el('div', 'muted small', 'Other answers (not on a list, kept as written)'), ...others.map(each => each.field));
+  if (others.length) {
+    const box = el('div', 'survey-others'), fields = el('div', 'survey-notes-boxes');
+    fields.append(...others.map(each => each.field));
+    box.append(el('b', '', 'Other answers'), el('div', 'muted small', 'Not on a list, kept as written'), fields);
+    node.append(box);
+  }
   return {node, texts() {
     const texts = textsFor(lines, choices, notes.map(field => field.value));
     for (const each of others) texts[each.index] = each.field.value;

@@ -130,3 +130,13 @@ summary.survey-saved::-webkit-details-marker { display: none; }
 /* A long form question: two lines then "…" (the whole question on hover, and unclamped in the open row). */
 .qa-row .qa-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; }
 .qa-row.is-open .qa-title { display: block; -webkit-line-clamp: unset; }
+/* Fact cards as a summary (fact-summary.js): two columns at most, a short label over a short value; lined up with the title like .fact-cols. */
+.fact-sum { display: grid; gap: var(--sp-3); margin-left: calc(var(--tile-lg) + var(--sp-3)); }
+.fact-sum-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4) var(--sp-6); }
+.fact-sum-grid[hidden] { display: none; }
+.fact-sum-cell { display: grid; gap: 2px; min-width: 0; }
+.fact-sum-label { font-size: var(--fs-md); font-weight: 500; color: var(--muted); }
+.fact-sum-value { font-size: var(--fs-value); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.fact-sum > .link { justify-self: start; }
+.panel.roomy .read-values { margin-left: calc(var(--tile-lg) + var(--sp-3)); }
+@container (max-width: 520px) { .fact-sum, .panel.roomy .read-values { margin-left: 0; } .fact-sum-grid { grid-template-columns: minmax(0, 1fr); } }

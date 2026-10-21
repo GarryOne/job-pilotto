@@ -14,10 +14,17 @@ import {cached} from './question-verdicts.js';
 import {usedInForms} from './form-facts.js';
 
 // Demo mode: fictional lines (the screenshots), one "Which is right?".
-const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Switzerland', value: 'allowed, B permit', kind: 'per_country'}, {label: 'United States', value: 'needs visa', kind: 'per_country'}],
+const AUTH = 'Authorised to work in', SPONSOR = 'No, I will require visa sponsorship';
+const DEMO_FACTS = {eligibility: [{label: 'Nationality', value: 'British'}, {label: 'Switzerland', value: 'allowed, B permit', kind: 'per_country'}, {label: 'United States', value: 'needs visa', kind: 'per_country'},
+    {label: `${AUTH} Switzerland?`, value: 'Yes — B permit, EU citizen (Romania). No sponsorship needed.'}, {label: `${AUTH} Germany / EU?`, value: 'Yes — EU citizen. No sponsorship needed.'},
+    {label: `${AUTH} the UK?`, value: SPONSOR}, {label: `${AUTH} Australia?`, value: SPONSOR}, {label: `${AUTH} the UAE (Dubai)?`, value: SPONSOR},
+    {label: 'Remote from Switzerland for a foreign employer?', value: 'Yes'}, {label: 'Will you now or in the future require visa sponsorship?', value: 'Yes for UK, US, Australia, UAE roles; No for Switzerland and EU roles'}],
   availability: [{label: 'Target', value: '10000 CHF/month net', kind: 'salary', note: 'Treat as a target, not a posted field.'},
     {label: 'Salary expectation, UK', value: '120000 GBP/year', kind: 'salary', note: 'Minimum · Confirmed 26 Sep 2026.'},
-    {label: 'Notice period', value: '1 month, ends at month-end', kind: 'duration', note: 'For a start-date field, give a concrete date.'}],
+    {label: 'Notice period', value: '1 month, ends at month-end', kind: 'duration', note: 'For a start-date field, give a concrete date.'},
+    {label: 'Salary expectation, Switzerland', value: '140000 CHF/year', kind: 'salary'}, {label: 'Salary expectation, Germany', value: '105000 EUR/year', kind: 'salary'},
+    {label: 'Salary expectation, US', value: '150000 USD/year', kind: 'salary'}, {label: 'Earliest start date', value: '1 January 2027'},
+    {label: 'Open to remote work?', value: 'Yes. Remote roles: CHF 140,000, EUR 105,000, GBP 120,000, USD 150,000 per year, depending on the employer\'s country.'}],
   languages: [{label: 'English', value: 'B2', kind: 'language'}, {label: 'Romanian', value: 'native', kind: 'language'}, {label: 'Russian', value: 'B1', kind: 'language'},
     {label: 'Languages I can work in (note)', value: 'No French, German or Italian.'}]};
 const DEMO_WHICH = [{home: 'availability', topic: 'notice period', choices: [{label: 'Notice period', value: '2 months', page: 'profile'}, {label: 'Notice period / earliest start', value: '3 months', page: 'answers'}]}];

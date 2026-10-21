@@ -9,7 +9,7 @@ import {install} from './tiny-dom.js';
 const body = install();
 const read = file => fs.readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8');
 const html = read('index.html');
-const {CONTACT_LINES, contactView, linksView, factRows, initDetailsRead, closeDetailsEditors} = await import('../renderer/pages/details-read.js');
+const {CONTACT_LINES, contactView, linksView, initDetailsRead, closeDetailsEditors} = await import('../renderer/pages/details-read.js');
 const {el} = await import('../renderer/components.js');
 
 // Each Your details card's markup, from its opening line to the next card.
@@ -59,15 +59,6 @@ test('links columns: the site, its address in the link colour, "Not added" when 
   const view = linksView(key => ({linkedin: 'https://www.linkedin.com/in/alex/'})[key] || '', key => key !== 'github');
   assert.deepEqual(view.children.map(col => col.textContent), ['LinkedInlinkedin.com/in/alex', 'WebsiteNot added']);
   assert.equal(view.querySelectorAll('.link-text').length, 1);
-});
-
-test('fact columns: label over value, the note for the AI on hover (never a line under the value), Check as a pill after it, an icon by kind', () => {
-  const cols = factRows([{label: 'Notice period', value: '3 months', note: 'ends at month-end', kind: 'duration'}, {label: 'Salary', value: 'CHF 120k', kind: 'salary', check: true}, {label: '', value: 'x'}]);
-  assert.equal(cols.length, 2, 'a line with no label is not shown');
-  assert.equal(cols[0].note, 'ends at month-end');
-  assert.deepEqual(cols.map(col => col.icon), ['calendar', 'coins']);
-  assert.equal(cols[1].badge.textContent, 'Check');
-  assert.equal(cols[0].badge, null);
 });
 
 test('Edit opens the editor in place; Done closes it only while nothing changed; Save all / Discard all close the unchanged ones', () => {
