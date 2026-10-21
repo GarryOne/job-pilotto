@@ -30,14 +30,20 @@ class RankTest(unittest.TestCase):
         self.assertEqual(job_rank.ranker({})(job('Anything', 'java')), 0)
 
     def test_tens_of_thousands_of_jobs_sort_in_a_few_seconds(self):
-        """CI, 18 Oct 2026: 20,000 postings took 17.5 s (feeds.plain on 4,000 characters each); a first search lists ~60,000."""
+        """CI, 18 Oct 2026: 20,000 postings took 17.5 s (feeds.plain on 4,000 characters each); a first search lists ~60,000.
+        Timed against a plain str.lower() over the same postings in the same process, so parallel shards slow both and the ratio holds (beta run 9, 22 Oct:
+        9.9 s against a fixed 8 s). Measured on one machine: good code 16x and 6.5x the baseline, the 18 Oct slow code 173x and 27.6x."""
         close = job_rank.ranker(SEARCH)
-        for posting in ('Lorem ipsum dolor sit amet, java ' * 200, 'Développeur à Genève, java ' * 200):
+        for posting, most in (('Lorem ipsum dolor sit amet, java ' * 200, 60), ('Développeur à Genève, java ' * 200, 14)):
+            base = time.monotonic()
+            for n in range(20000):
+                posting.lower()
+            base = time.monotonic() - base
             started = time.monotonic()
             for n in range(20000):
                 close(job(f'Engineer {n}', posting))
-            # 14 s: the 18 Oct slow code took 17.5 s on a CI runner, a loaded runner's good code 9.9 s with 8 as the bound (beta run 9, 22 Oct).
-            self.assertLess(time.monotonic() - started, 14, posting[:12])
+            took = time.monotonic() - started
+            self.assertLess(took / base, most, f'{posting[:12]}: {took:.1f} s, {took / base:.0f}x the {base:.2f} s baseline')
 
 
 class BestFirstTest(unittest.TestCase):
