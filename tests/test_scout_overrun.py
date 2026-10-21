@@ -3,6 +3,7 @@ import io
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from src import scout_overrun
@@ -29,6 +30,14 @@ class OverrunTest(unittest.TestCase):
             time.sleep(0.7)
             out.seek(0)
             self.assertEqual(out.read(), '')
+
+    def test_a_central_run_with_a_thread_left_over_leaves_at_once_and_one_without_does_not(self):
+        with mock.patch.object(scout_overrun.os, '_exit') as leave, mock.patch.object(scout_overrun.threading, 'active_count', return_value=3):
+            scout_overrun.leave_if_stuck()
+        leave.assert_called_once_with(0)
+        with mock.patch.object(scout_overrun.os, '_exit') as leave, mock.patch.object(scout_overrun.threading, 'active_count', return_value=1):
+            scout_overrun.leave_if_stuck()
+        leave.assert_not_called()
 
 
 if __name__ == '__main__':
