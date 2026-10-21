@@ -14,6 +14,17 @@ test('a request is the case whose host its url names; with no url, the first liv
   assert.equal(caseForRequest(live, '/extension/other', '{}'), undefined);
 });
 
+test('a request with only titles (pick-upload) gets the answer of the case whose stub names one of them, never another case\'s', () => {
+  const route = '/extension/pick-upload', stub = title => ({'/extension/pick-upload': {ok: true, title}});
+  const import_ = {hosts: ['a.example'], item: {ai: stub('Curriculo *')}, answer: {[route]: () => ({})}};
+  const required = {hosts: ['b.example'], item: {ai: {}}, answer: {}};
+  const titles = JSON.stringify({titles: ['CV', 'Can you please attach your motivational letter?']});
+  // the CV page of `required` sends titles that no stub of `import_` names: not import_'s case
+  assert.equal(caseForRequest([import_, required], route, titles), undefined);
+  assert.equal(caseForRequest([required, import_], route, titles), undefined);
+  assert.equal(caseForRequest([required, import_], route, JSON.stringify({titles: ['Curriculo *', 'Import data from my CV']})), import_);
+});
+
 test('a case whose host is running waits; the next free one goes first', () => {
   const queue = [item('one', 'a.example'), item('two', 'a.example', 'c.example'), item('three', 'd.example')];
   assert.equal(nextRunnable(queue, new Set()), 0);

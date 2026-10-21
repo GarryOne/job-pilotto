@@ -10,10 +10,17 @@ import {answerFor, answerPage, caseDelays, contactOf, caseFiles, caseHosts, case
 const hostOfUrl = url => { try { return new URL(url).host; } catch { return ''; } };
 const hostOf = text => { try { return new URL(JSON.parse(text).url).host; } catch { return ''; } };
 
-// Which of the live cases a request is for: the host of the url it names, else the first live case that answers that route (a request with no url: the case is unknown).
+// A request that names no url but lists titles (pick-upload) belongs to a stub only when the stub's own answer is one of those titles: a stub's pick for another page's slots is not an answer
+// for this one (4 upload cases in one browser, #1267: the import case's pick became the CV choice of the motivation-letter case, whose CV slot then got no file).
+const claims = (state, route, sent) => {
+  let titles; try { titles = JSON.parse(sent || '{}').titles; } catch { return true; }
+  const picked = state.item?.ai?.[route]?.title;
+  return !Array.isArray(titles) || typeof picked !== 'string' || titles.includes(picked);
+};
+// Which of the live cases a request is for: the host of the url it names, else the first live case that answers that route and claims it (a request with no url: the case is unknown).
 export function caseForRequest(live, route, sent) {
   const host = hostOf(sent);
-  return live.find(state => state.hosts.includes(host)) || live.find(state => state.answer[route]);
+  return live.find(state => state.hosts.includes(host)) || live.find(state => state.answer[route] && claims(state, route, sent));
 }
 
 // The applicant details of the live case whose host the page's address names; null: the harness default (a case with no `contact`, or an address no live case owns).
