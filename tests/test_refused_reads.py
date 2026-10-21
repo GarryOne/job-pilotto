@@ -118,6 +118,15 @@ class RefusedReadsTest(unittest.TestCase):
                 self.assertEqual((result['ok'], result['state']), (True, 'stopped'))
                 read.assert_not_called()
 
+    def test_a_failed_load_is_never_read_as_a_page_or_shared_as_opened(self):
+        for status in (0, 404, 500, 502, 503, 410):   # no answer, gone, a server error: a blip, not a page and not a refusal
+            with self.subTest(status=status), mock.patch.object(visits, 'read') as read:
+                result = refused_reads.outcome('https://jobs.coop.ch', status, '', now=NOW)
+                self.assertEqual(result['state'], 'waiting')
+                read.assert_not_called()
+                self.assertEqual([item for item in refused_reads.shared() if item['host'] == 'jobs.coop.ch'], [])
+        self.assertEqual(refused_reads.outcome('https://jobs.coop.ch', 200, '<html></html>', now=NOW)['state'], 'empty')   # a real empty page still counts
+
     def test_a_429_in_the_browser_waits_a_day_never_a_stop(self):
         with mock.patch.object(visits, 'read') as read:
             result = refused_reads.outcome('https://jobs.coop.ch', 429, '', now=NOW)
