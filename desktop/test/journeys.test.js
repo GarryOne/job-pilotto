@@ -24,6 +24,7 @@ import {sharedRead} from '../lib/shared-read.js';
 import {endingOf} from '../e2e/lib/ending.mjs';
 import {stopsOf} from '../e2e/lib/pool-shadow.mjs';
 import {doorLines, runEvents} from '../e2e/lib/pool-gaps.mjs';
+import {pickDismiss} from '../lib/popup-pick.js';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -409,6 +410,8 @@ test('scenario: Fill in Chrome pressed twice on one job with its tab open: one t
   assert.equal(review.tabOf(first.session.id), 5, 'the session stays on its one tab');
 });
 
+const claude = (button, sent = [], effect = 'closes_only') => ({messages: {create: async request => { sent.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({button, effect})}]}; }}});
+const popup = {text: 'Bleiben Sie auf dem Laufenden mit unserem Newsletter!', buttons: ['Jetzt anmelden', 'Nein, danke']};
 const storageOf = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()});
 
 // #520: start() made a form session per job and then found no browser: the sessions stayed in the Applying page with no tab (applyOne already removes its own).
@@ -426,4 +429,17 @@ test('scenario: Apply to N jobs with no browser installed leaves no form session
     left.forEach(s => terminals.remove(s.id));
     assert.deepEqual(left.map(s => s.url), []);
   } finally { Object.defineProperty(process, 'platform', {value: real}); Object.assign(process.env, home); }
+});
+
+// #962: a pick kept before the effect floor (c8e0113) had no effect on record and was pressed anyway for up to 30 days.
+test('scenario: a popup pick kept before the closes_only floor (no effect on record) is asked again, never pressed blind (#962)', async () => {
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }}, sent = [];
+  await pickDismiss(storage, popup, {client: claude('Nein, danke', sent)});
+  const kept = JSON.parse(storage.readText('popup-picks.json')), [key] = Object.keys(kept);
+  assert.equal(kept[key].e, 'closes_only', 'the effect is kept with the pick');
+  delete kept[key].e;   // what an older install holds
+  storage.writeText('popup-picks.json', JSON.stringify(kept));
+  assert.deepEqual(await pickDismiss(storage, popup, {client: claude('Jetzt anmelden', sent, 'declines_consent')}), {button: '', how: 'ai'});
+  assert.equal(sent.length, 2, 'asked again');
+  assert.deepEqual(await pickDismiss(storage, popup, {client: claude('x', sent)}), {button: '', how: 'kept'}, 'a kept "none" needs no effect');
 });

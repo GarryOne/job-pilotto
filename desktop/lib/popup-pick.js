@@ -26,7 +26,8 @@ export async function pickDismiss(storage, {text = '', buttons = []}, {client, l
   if (!choices.length) return {button: '', how: 'none'};
   const kept = readKept(storage, FILE), key = keyOf(text, choices);
   const known = keptValue(kept, key);   // young answers only; a contradicted one was forgotten (lib/kept-decisions.js)
-  if (known.found) return {button: choices.includes(known.value) ? known.value : '', how: 'kept'};
+  // A pick kept before the 'closes_only' floor (c8e0113) carries no effect: it is not trusted, asked again (and kept anew with its effect).
+  if (known.found && (!known.value || kept[key]?.e === 'closes_only')) return {button: choices.includes(known.value) ? known.value : '', how: 'kept'};
   if (!client) return {button: '', how: 'none'};
   const started = Date.now();
   try {
@@ -37,7 +38,7 @@ export async function pickDismiss(storage, {text = '', buttons = []}, {client, l
     if (response.stop_reason === 'max_tokens') throw new Error('answer cut short');
     const answer = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '{}');
     const picked = choices.includes(answer.button) && answer.effect === 'closes_only' ? answer.button : '';   // the floor: a pick whose effect is not a plain close is not pressed, and not kept
-    keep(storage, FILE, kept, key, picked);
+    keep(storage, FILE, kept, key, picked, Date.now(), {e: answer.effect});
     log('extension', picked ? 'popup: a button closes it' : 'popup: left alone', {buttons: choices.length, ms: Date.now() - started});
     return {button: picked, how: 'ai'};
   } catch (error) {

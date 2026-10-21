@@ -14,8 +14,8 @@ export function keptValue(kept, key, {now = Date.now(), maxAge = MAX_AGE_MS} = {
   if (!entry || typeof entry !== 'object' || typeof entry.at !== 'number' || now - entry.at > maxAge) return {found: false, value: ''};
   return {found: true, value: String(entry.v ?? '')};
 }
-export function keep(storage, file, kept, key, value, now = Date.now()) {
-  kept[key] = {v: value, at: now};
+export function keep(storage, file, kept, key, value, now = Date.now(), extra = {}) {
+  kept[key] = {...extra, v: value, at: now};   // extra: facts about the answer a user needs to trust it later (popup-pick: its effect)
   storage.writeText(file, JSON.stringify(kept));
 }
 export function forget(storage, file, key) {
