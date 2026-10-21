@@ -336,3 +336,19 @@ test('a frozen Claude ask yields to a live application-form report of the sessio
   assert.equal(askOutdated(frozen, undefined), false);                         // no report: nothing says it changed
   assert.equal(askOutdated({...frozen, live: true, status: 'input'}, {total: 6}), false);   // Claude is running: its ask is live
 });
+
+// #1433: a form that is ready (Review, 5 of 5 filled) never reads "Filling the application form" next to its "Ready to submit" state.
+test('the stage chip says the form is filled once the session is ready to review', async () => {
+  const {sessionStage} = await import('../renderer/session-state.js');
+  assert.equal(sessionStage({stage: 'form'}, true).text, 'Application form filled');
+  assert.equal(sessionStage({stage: 'form', accountHost: 'jobs.example.ch', accountState: 'created'}, true).text, 'Step 2 of 2 · Account created · Application form filled');
+  assert.equal(sessionStage({stage: 'form'}, false).text, 'Filling the application form');
+});
+
+// #1676: "Applying" and "Ready to submit" are the Jobs list's server rule (ready-rows.js); the menu's foot counts local sessions and says "session(s)".
+test('the menu foot names local sessions, never the Jobs chips\' words', async () => {
+  const {sessionsFoot} = await import('../renderer/session-state.js');
+  const lines = [[3, 0, 0, 5], [0, 10, 0, 10], [0, 0, 2, 2], [0, 0, 0, 1], [1, 0, 0, 1]].map(([needs, working, ready, all]) => sessionsFoot(needs, working, ready, all).text);
+  assert.deepEqual(lines, ['3 sessions need you', '10 sessions open', '2 sessions filled', '1 session', '1 session needs you']);
+  for (const line of lines) assert.doesNotMatch(line, /applying|ready to submit/i);
+});

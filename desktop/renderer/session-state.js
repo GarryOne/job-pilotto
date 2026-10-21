@@ -72,6 +72,13 @@ export function applyingBadge(items, urgency) {
     : items.length && levels.every(level => level === 3) ? 'good' : 'neutral';
   return {count: items.length || '', tone};
 }
+// The menu foot's line for local sessions (#1676): "session" words only; "Applying" and "Ready to submit" are the Jobs list's server rule (pages/ready-rows.js).
+export function sessionsFoot(needs, working, ready, all) {
+  const plural = count => `${count} session${count === 1 ? '' : 's'}`;
+  const [text, tone] = needs ? [`${plural(needs)} need${needs === 1 ? 's' : ''} you`, 'warn']
+    : working ? [`${plural(working)} open`, 'info'] : ready ? [`${plural(ready)} filled`, 'good'] : [plural(all), 'neutral'];
+  return {text, tone};
+}
 const DOCK_ORDER = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
 export const dockOrder = (item, gone = () => false) => gone(item) ? 9 : (DOCK_ORDER[item.status] ?? 5);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the
@@ -103,13 +110,15 @@ export function firstLine(text, limit = 110) {
 
 // Which step of the application the session is at, said plainly (owner, 8 Oct 2026: show whether we are creating the employer
 // account or filling the job's own form). Step numbers only when there was an account step; nothing once it is submitted.
-export function sessionStage(item) {
+export function sessionStage(item, ready = false) {
   if (!item || item.outcome === 'submitted') return null;
   const site = item.accountHost ? ` on ${item.accountHost.replace(/^www\./, '')}` : '';
   if (item.accountState === 'refused') return {step: 1, text: `Step 1 of 2 · Sign-in refused${site}: tried once, not retried`, tone: 'warn'};   // before the account step's own line: that one says "Sign in" as if all were well
   if (item.stage === 'account' || item.stuck === 'account') return {step: 1, text: `Step 1 of 2 · ${item.accountStep === 'sign_in' ? 'Sign in' : 'Creating your account'}${site}`, tone: 'info'};
   if (item.accountState === 'confirm') return {step: 1, text: `Step 1 of 2 · Confirm your email${site}`, tone: 'info'};
-  if (item.stage === 'form') return {step: 2, text: item.accountHost || item.accountState ? `Step 2 of 2 · ${item.accountState === 'created' ? 'Account created · ' : ''}Filling the application form` : 'Filling the application form', tone: 'info'};
+  // ready: the session is at Review (the form says every field is filled): never "Filling" beside "Ready to submit" (#1433).
+  const doing = ready ? 'Application form filled' : 'Filling the application form';
+  if (item.stage === 'form') return {step: 2, text: item.accountHost || item.accountState ? `Step 2 of 2 · ${item.accountState === 'created' ? 'Account created · ' : ''}${doing}` : doing, tone: 'info'};
   return null;
 }
 

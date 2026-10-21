@@ -152,7 +152,7 @@ export function renderNextStep(item) {
     : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : INFORM_STUCK.includes(item.stuck) ? '' : '· nothing filled yet')
     : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
-  const stage = sessionStage(item);
+  const stage = sessionStage(item, review);
   $('ss-stage').replaceChildren(...(stage ? [pill(stage.text, stage.tone, {dot: true})] : []));
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
