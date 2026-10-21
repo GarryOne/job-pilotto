@@ -46,6 +46,7 @@ CLASSIFIED = {
     'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',
     'Pipeline · Find new jobs': 'ignored: product pipeline', 'Pipeline · Gmail and Calendar': 'ignored: product pipeline', 'Pipeline · Find new employers': 'ignored: product pipeline',
     'Product brain · Daily brief': 'ignored: report',
+    'Central scout': "ignored: scheduled every 6 h; a failed run tells the owner on Telegram by itself and must never block a push",
 }
 
 
