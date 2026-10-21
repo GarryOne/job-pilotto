@@ -26,3 +26,8 @@ test('plan-run stages before it loads the suites (every workflow that plans a ga
   assert.ok(body.indexOf('ensureStaged(') > 0 && body.indexOf('ensureStaged(') < body.indexOf("await import('./lib/context.mjs')"));
   assert.equal(typeof suiteFacts, 'function');
 });
+
+test('every suite run stages before it loads the suite (the CI suite jobs stage nothing)', () => {
+  const source = fs.readFileSync(new URL('../lib/suite-main.mjs', import.meta.url), 'utf8');
+  assert.ok(source.indexOf('ensureStaged(') > 0 && source.indexOf('ensureStaged(') < source.indexOf('await import(`../suites/${name}.mjs`)'));
+});

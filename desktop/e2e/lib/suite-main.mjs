@@ -3,6 +3,8 @@
 // It never exits the process: the caller does (a Playwright worker must not be killed from inside).
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {ensureStaged} from './ensure-staged.mjs';
 
 export async function runSuite(name, report = null) {
   const {assertNothingQueued, traceFiles} = await import('./app.mjs');
@@ -10,6 +12,7 @@ export async function runSuite(name, report = null) {
   const {writeFindings, writeReplay, writeSuiteFailures} = await import('./artifacts.mjs');
   const {skipExitCode, skipMessage} = await import('./skip.mjs');
   if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); return {code: 2}; }
+  ensureStaged(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'));   // a suite may import app code that needs desktop/shared/ (apply.mjs: rung2-sketch), which a CI job never staged (21 Oct 2026)
   const suite = await import(`../suites/${name}.mjs`);
   let ctx, code = 0;
   try {
