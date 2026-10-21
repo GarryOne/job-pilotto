@@ -2,9 +2,11 @@
 // Actions + Recent activity when things go WRONG: the AI answering 429, 500, 401, no credit and never answering; the same task asked twice; a Gmail check queued behind a search;
 // quitting the app in the middle of a run. Starts from a set-up install; resets only its own run rows in Notion. The task cards and the Recent activity screen are the
 // activity suite, in parallel, on its own Notion page (this split halves the wall-clock time).
+import path from 'node:path';
 import {badSummary, leaks} from '../lib/activity.mjs';
 import {digestProblems} from '../lib/telegram-fake.mjs';
 import {rows as notionRows} from '../lib/notion.mjs';
+import {waitForRunLock, waitedForLock} from '../lib/run-lock.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {LABEL, appReady, idsNow, noRowStaysRunning, openRun, own, prepare, quiet, runTask, runsData, setFeed, sleep} from '../lib/activity-steps.mjs';
 
@@ -233,6 +235,8 @@ export async function runParts(ctx, parts) {
       // The app stops a run that prints nothing for 15 minutes; this test shortens that to 10 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
       await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '10000'});
       await appReady(ctx);
+      // An earlier step's run may still hold the engine's run lock (#1662: 0.8.6/0.8.7 mixed "check your AI key" with "another search is running"): wait it out, so the 10 s are this run's own silence.
+      await waitForRunLock(path.join(ctx.profile, 'data'));
       setFeed(ctx, ['Lead Platform Engineer, silence']);
       proxy.setMode('hang');
       try {
@@ -243,6 +247,7 @@ export async function runParts(ctx, parts) {
         const problems = [];
         if (fresh.length !== 1) problems.push(`${fresh.length} rows for one click: ${fresh.map(run => `[${run.id} ${run.trigger} ${run.where} ok=${run.ok} start=${run.startedAt} notion=${run.notionUrl.slice(-6)} result="${run.result.slice(0, 50)}" log=${run.log.length}]`).join(' ')}`);
         if (fresh[0].ok) problems.push('a run whose AI never answered ended as a success');
+        if (waitedForLock(`${fresh[0].log.join('\n')} ${opened.log}`)) problems.push('the stopped run waited for another run\'s lock, so it was not the AI\'s silence that was tested');
         if (seconds > 150) problems.push(`it took ${seconds} s to give up (the limit was 30 s)`);
         const bad = badSummary(mine?.result);
         if (bad) problems.push(`the list's words are wrong: ${bad}`);
