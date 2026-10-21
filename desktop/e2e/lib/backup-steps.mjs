@@ -34,7 +34,9 @@ export async function backupNowStep(ctx) {
   const files = backupsIn(dir);
   if (files.length !== 1) throw new Error(`Back up now should leave one backup file in the folder, found ${files.length}: ${files.join(', ')}`);
   const file = path.join(dir, files[0]);
-  if (!slash(said).includes(slash(file))) throw new Error(`the message does not name the file: "${said}"`);
+  // The message names the file, not its folder (the folder path has the person's name in it: pages/data.js savedLine, 21 Oct 2026).
+  if (!said.includes(path.basename(file))) throw new Error(`the message does not name the file: "${said}"`);
+  if (slash(said).includes(slash(dir))) throw new Error(`the message writes the folder path: "${said}"`);
   const last = await page.locator('#backup-last').textContent();
   if (/None yet/.test(last)) throw new Error('"Last backup" still says None yet after a backup');
   if (!(await page.locator('#backup-where').textContent()).trim()) throw new Error('the Location line is empty');
