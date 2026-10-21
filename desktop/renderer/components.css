@@ -6,6 +6,15 @@
   border-radius: var(--r-pill); background: var(--tone-soft); color: var(--tone); white-space: nowrap; line-height: 1.5; }
 .ui-pill.dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 
+/* Live dot (components.js liveDot): before a row of a running list; live pulses, done is still, warn is amber. Also the pill dot of a step that runs (.is-live). */
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.live-dot.is-live { background: var(--info); }
+.live-dot.is-done { background: var(--good-bright); }
+.live-dot.is-warn { background: var(--warn-bright); }
+.live-dot.is-live, .is-live.dot::before { animation: live-pulse 1.2s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .live-dot.is-live, .is-live.dot::before { animation: none; } }
+
 /* Tag: a label; .is-action = a button in the accent colour; .is-busy = work in progress */
 .ui-tag { font: 500 var(--fs-xs) var(--font-sans); padding: 2px 7px; border-radius: var(--r-sm); background: var(--surface-2);
   color: var(--ink-2); border: 1px solid var(--line); white-space: nowrap; }

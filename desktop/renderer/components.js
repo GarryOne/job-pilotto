@@ -21,6 +21,18 @@ export function pill(text, tone = 'neutral', {dot = false, title = ''} = {}) {
   return node;
 }
 
+// Live dot: one dot before a step or row of a running list (owner, 21 Oct 2026: "ticking dots on each row of live update"). state: live (pulses), done (still), warn (still, warning tone).
+export const LIVE_STATES = ['live', 'done', 'warn'];
+export const liveDot = (state = 'done') => Object.assign(el('i', `live-dot is-${state}`), {ariaHidden: 'true'});
+// A list of live rows: the newest is live while `running`, the rest done; a row starting with the engine's own warning marker keeps its warning tone.
+export function liveRows(lines, {running = true, className = 'run-card-row'} = {}) {
+  return lines.map((text, i) => {
+    const warn = /^(⚠|Warning:)/.test(text), row = el('li', className);
+    row.append(liveDot(warn ? 'warn' : running && i === lines.length - 1 ? 'live' : 'done'), el('span', '', text.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '')));   // the dot carries the state: a leading emoji would be a second marker
+    return row;
+  });
+}
+
 // Tag: a label (a skill, a topic). With onClick it's a button, in the accent colour (📝 Kit, 📄 Tailored CV).
 export function tag(text, {title = '', onClick = null, busy = false} = {}) {
   const node = el(onClick ? 'button' : 'span', `ui-tag${onClick ? ' is-action' : ''}${busy ? ' is-busy' : ''}`, text);

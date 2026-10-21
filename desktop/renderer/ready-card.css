@@ -28,9 +28,7 @@
 .ready-clock { font-variant-numeric: tabular-nums; }
 .ready-bar { height: 6px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .ready-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--info); transition: width .6s ease; }
-.ready-progress .is-live.dot::before { animation: ready-pulse 1.2s ease-in-out infinite; }
-@keyframes ready-pulse { 50% { opacity: .25; } }
-@media (prefers-reduced-motion: reduce) { .ready-progress .is-live.dot::before { animation: none; } .ready-bar > i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .ready-bar > i { transition: none; } }
 /* Fill now's yes: the jobs it would fill, as a plain list under the popup's head. */
 .ready-confirm-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }
 /* A row the night works on: its own bar and live line under it (owner, 18 Oct 2026: "2 rows, 2 progress bars", "a line with live updates from each row"). */

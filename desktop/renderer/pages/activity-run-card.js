@@ -58,7 +58,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
     // The same numbers as the Find jobs card on Jobs (find-card-model.js searchNumbers); the digest's own counts stay as the quiet line under them.
     const numbers = searchNumbers(run?.log), digestStats = [stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run')];
     if (numbers) {
-      stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'on your list'), stat(numbers.good, 'strong matches (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting')] : []));
+      stats.append(stat(numbers.found, 'found'), stat(numbers.scored, 'scored'), stat(numbers.good, 'strong matches (70+)'), ...(numbers.waiting ? [stat(numbers.waiting, 'waiting for a score')] : []));
       const facts = el('div', 'run-card-stats muted');
       facts.append(...digestStats);
       secondary = facts;
