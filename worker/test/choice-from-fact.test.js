@@ -41,8 +41,9 @@ test('unsure stays proposed: another country, a value not among the options, a f
   assert.equal(at('Suisse').use, 'fill');
 });
 
-test('a certification is never answered, even on a menu a saved fact seems to cover', async () => {
-  const fields = [menu('cert', 'Je certifie résider en Suisse', ['Oui', 'Non'])];
+test('a certification tick is never answered, even where a saved fact seems to cover it', async () => {
+  // Owner, 20 Oct 2026 ("Ask once, remember"): only a single tick stays the person's; a legal-looking choice among options rests on a saved answer (legal-choice.test.js).
+  const fields = [{ field: 'cert', label: 'Je certifie résider en Suisse', type: 'checkbox', required: true }];
   const { answers } = await answerForm({ ...env }, { url: 'https://example.test/job/1', fields }, client([
     { field: 'cert', value: 'Oui', use: 'fill', fact: 'home_location', category: 'legal', confidence: 'high', note: '' }]));
   assert.deepEqual(answers.map((a) => [a.field, a.value, a.use]), [['cert', '', 'kind']]);
