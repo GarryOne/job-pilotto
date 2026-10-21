@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {LABEL_KEYS, casesOf, commitFiles, coveredFiles, labelOnly, missingCase, untaggedActing, untaggedNewCases} from '../../tools/recorded-cases.mjs';
+import {LABEL_KEYS, casesOf, commitFiles, coveredFiles, displayOnlyProblems, isDisplayOnly, labelOnly, missingCase, untaggedActing, untaggedNewCases} from '../../tools/recorded-cases.mjs';
 import {replayFiles} from '../../tools/replay-files.mjs';
 import {FLOW_FILES} from '../e2e/flows.mjs';
 
@@ -24,13 +24,28 @@ test('a fill or flow change without a case is stopped; a case, a scenario or a s
   assert.equal(missingCase([commit(['extension/fill-flow.js'], 'Log the press\n\nRecorded-unneeded: a log line only')], covered), '');
 });
 
-test('display-only app files need no recorded page; files the flow core owns or imports still do (owner, 22 Oct 2026)', () => {
-  for (const file of ['desktop/lib/run-rows.js', 'desktop/lib/run-history.js', 'desktop/lib/store/sqlite.js']) {
-    assert.ok(loaded.has(file) && !covered.has(file), `${file} is loaded by a replay but only shows or keeps results`);
-    assert.equal(missingCase([commit([file], 'Show a run record')], covered), '', file);
+test('a Display-only marked file needs no recorded page; every file that fills or judges still does (owner, 22 Oct 2026)', () => {
+  assert.ok(loaded.has('desktop/lib/run-rows.js') && !covered.has('desktop/lib/run-rows.js'));
+  assert.equal(missingCase([commit(['desktop/lib/run-rows.js'], 'Show a run record')], covered), '');
+  for (const file of ['desktop/lib/ladder/fill-verify.js', 'desktop/lib/form-judge.js', 'desktop/lib/ai/index.js', 'desktop/lib/ladder/value-class.js', 'desktop/lib/page-kind.js', 'desktop/lib/server.js']) {
+    assert.ok(covered.has(file), `${file} must stay covered`);
+    assert.match(missingCase([commit([file], 'Fix it')], covered), /recorded page/, file);
   }
-  for (const file of FLOW_FILES.filter(one => one.startsWith('desktop/lib/'))) assert.ok(covered.has(file), file);
-  assert.ok(covered.has('desktop/lib/server.js') && covered.has('desktop/lib/ladder/rung2-sketch.js'));
+  // Every marked file keeps its claim: it imports only marked files.
+  assert.deepEqual(displayOnlyProblems(root, loaded), []);
+});
+
+test('a marked file that gains a judging or filling import fails; an unmarked one is covered', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'display-only-'));
+  fs.mkdirSync(path.join(dir, 'desktop/lib/ladder'), {recursive: true});
+  const write = (file, text) => fs.writeFileSync(path.join(dir, file), text);
+  write('desktop/lib/rows.js', "// Display-only: a record's view.\nimport {judge} from './ladder/judge.js';\n");
+  write('desktop/lib/ladder/judge.js', '// Judges a field.\nexport const judge = 1;\n');
+  write('desktop/lib/leaf.js', '// Display-only: a pattern.\nexport const x = 1;\n');
+  assert.deepEqual(displayOnlyProblems(dir, ['desktop/lib/rows.js']), ['desktop/lib/rows.js is marked Display-only but imports desktop/lib/ladder/judge.js']);
+  write('desktop/lib/rows.js', "// Display-only: a record's view.\nimport {x} from './leaf.js';\n");
+  assert.deepEqual(displayOnlyProblems(dir, ['desktop/lib/rows.js']), []);
+  assert.equal(isDisplayOnly(dir, 'desktop/lib/ladder/judge.js'), false);
 });
 
 test('hole 1: every extension file a replay loads is covered, found by structure (the class, not a list)', () => {
