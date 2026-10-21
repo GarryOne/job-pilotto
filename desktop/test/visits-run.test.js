@@ -2,7 +2,7 @@
 // message the app writes is exactly what its card reads.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {done, heardFrom, resultMessage, runAll} from '../lib/visits.js';
+import {done, heardFrom, resultMessage, runAll, stepOf} from '../lib/visits.js';
 import {parseVisits} from '../renderer/visits-card.js';
 
 test('sites open a few at a time, each closes on its report, a silent one stops in time', async () => {
@@ -360,4 +360,18 @@ test('a site whose list has none in your places today counts as read, not failed
   const [result] = await runAll([{name: 'Maison', url: 'https://careers.maison.example'}], {atOnce: 1, openTab, waitMs: 5000, quietMs: 5000, siteMs: 5000});
   assert.equal(result.ok, true);
   assert.match(resultMessage([result]), /^🌐 Sites read\nRead 1 of 1 site/);
+});
+
+// #1067: a held board's 30-minute wait (BOARD_WAIT_MS) kept running after the person pressed Read and cut the read off at 30 minutes from the opening.
+test('a held board whose Read was pressed is not cut off by the wait for the person', async () => {
+  let ticket = '';
+  const openTab = url => {
+    ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    setTimeout(() => stepOf({ticket, words: 'Reading page 1'}), 40);   // the person pressed Read
+    setTimeout(() => done({url: 'https://board.example/jobs', ticket, jobs: 7, added: 2, pages: 1, stopped: 'no next page'}), 200);   // later than the wait
+    return {ok: true};
+  };
+  const [result] = await runAll([{name: 'board', url: 'https://board.example/jobs', kind: 'board'}], {hold: true, atOnce: 1, openTab, waitMs: 120, quietMs: 5000, siteMs: 5000});
+  assert.equal(result.ok, true, result.why);
+  assert.equal(result.jobs, 7);
 });
