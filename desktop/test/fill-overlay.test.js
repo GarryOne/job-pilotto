@@ -37,3 +37,11 @@ test('the magic behind the panel lives inside the layer, only moves transform an
   const markup = read('extension/panel-markup.js');
   assert.match(markup, /@media \(prefers-reduced-motion: reduce\) \{ \.jp\.working \.card \{ animation: none; \} \}/, 'the panel glow stops under reduced motion');
 });
+
+// #1558: a closed panel (its X) has no Stop on the page, so a later step must not dim and hold the page; closing it lifts the overlay.
+test('the panel\'s close lifts the overlay and a step on a hidden panel never turns it on', () => {
+  const review = read('extension/review.js');
+  assert.match(review, /\$\('\.x'\)\.onclick = \(\) => \{[^}]*overlay\.off\(\)/, 'the X lifts the overlay');
+  assert.match(review, /if \(!host\.hidden\) overlay\.on\(\)/, 'overlay.on() only while the panel is shown (the one Stop lives on it)');
+  assert.equal((review.match(/overlay\.on\(/g) || []).length, 1, 'positive control: one place turns it on');
+});

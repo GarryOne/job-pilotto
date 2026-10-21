@@ -9,6 +9,7 @@ export const HOUR = 3600_000;
 const ERROR_LINES = [/^the page fill failed/, /^failed:/, /^the Apply button could not be pressed/, /^uncaught/, /^unhandled rejection/];
 export function isFillError(entry) {
   const kind = String(entry?.kind || ''), text = String(entry?.text || '');
+  if (entry?.fields?.stopped || /^(failed: )?Stopped by you/.test(String(entry?.fields?.error || text.replace(/^failed: /, '')))) return false;   // the person's own Stop ends a fill: not an error (#961)
   if (kind === 'error') return true;
   if (kind !== 'fill') return false;
   return ERROR_LINES.some(line => line.test(text)) || (/^dead end: /.test(text) && !!entry.fields?.error);

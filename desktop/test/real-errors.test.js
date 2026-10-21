@@ -42,3 +42,10 @@ test('the extension turns an uncaught error into a decision line this watcher re
   assert.match(log, /addEventListener\('error'/);
   assert.match(log, /addEventListener\('unhandledrejection'/);
 });
+
+// #961: the person's own Stop is not an error: no Sentry event, no Telegram line, for any of the lines a stop can end.
+test('a fill ended by the person\'s Stop is not an error (the page fill failed, failed:, dead end)', () => {
+  for (const hit of [entry('the page fill failed', {error: 'Stopped by you.'}), entry('failed: Stopped by you.'), entry('dead end: tries', {error: 'Stopped by you.'}),
+    entry('the page fill failed', {error: 'The page helpers did not load; nothing was filled.', stopped: true})]) assert.equal(classify(hit), null, hit.text);
+  assert.ok(classify(failing), 'positive control: a real fill error is still one');
+});

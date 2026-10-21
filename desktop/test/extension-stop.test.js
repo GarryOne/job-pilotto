@@ -144,3 +144,16 @@ test('the Stop button is on every page of the extension: the toolbar popup and t
   assert.match(read('panel-markup.js'), /class="stop-btn"[^]*class="pill-stop"/, 'a Stop in the step row and one beside the pill, so it is one press away open or minimised');
   assert.doesNotMatch(read('background.js'), /panel-stop\.js/, 'the bottom-left chip is gone (owner, 19 Oct 2026): Stop lives in the panel');
 });
+
+// #648 and the class: every message that is the person starting work again (a button they press) clears Stop first; the stopped worker's refusals are only for what starts by itself.
+test('every person-pressed start message clears Stop, Read this board included', async () => {
+  const {createStopMessages} = await import('../../extension/stop-messages.js');
+  const handle = createStopMessages();
+  for (const type of ['panelFill', 'applyHere', 'fillAnyway', 'panelTakeOver', 'visitRead']) {
+    reset();
+    await stop.stopAll('test');
+    assert.equal(stop.isStopped(), true);
+    assert.equal(handle({type}, {tab: {id: 5}}, () => {}), undefined, `${type} is left to its own group`);
+    assert.equal(stop.isStopped(), false, `${type} clears Stop`);
+  }
+});
