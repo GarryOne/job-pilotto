@@ -63,7 +63,9 @@ jobs:
       - name: Restore the scout's candidate list
         uses: actions/cache/restore@v5
         with:
-          path: data/jobs.sqlite
+          path: |
+            data/jobs.sqlite
+            data/cache
           key: central-scout-db-${{ github.run_id }}
           restore-keys: central-scout-db-
       - name: Install the AI library and the headless browser
@@ -74,6 +76,13 @@ jobs:
         run: python ops/discovery/commoncrawl.py --db data/jobs.sqlite
       - name: Rank the queue by each source's measured yield
         run: python ops/discovery/priorities.py --db data/jobs.sqlite
+      - name: Save the candidate list now (Common Crawl's 27 min must not be paid again if this run is cancelled; 22 Oct 2026)
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            data/jobs.sqlite
+            data/cache
+          key: central-scout-db-early-${{ github.run_id }}
       - name: Scout and publish the index
         env:
           INDEX_PUBLISH_KEY: ${{ secrets.INDEX_PUBLISH_KEY }}
@@ -101,5 +110,7 @@ jobs:
         if: always()
         uses: actions/cache/save@v5
         with:
-          path: data/jobs.sqlite
+          path: |
+            data/jobs.sqlite
+            data/cache
           key: central-scout-db-${{ github.run_id }}

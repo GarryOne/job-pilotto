@@ -396,6 +396,7 @@ def main():
             written, failed = sync_employers(db, stores)
         print(f'Employers: {written} written to {where_of(stores)}')   # each one not written said so in its own Warning line
         return 1 if failed and not written else 0
+    started = time.monotonic()
     scout_core.CENTRAL = bool(args.publish_index)   # the central scout: its full lists, published to every install
     if args.export_sources:
         kept, failed = export_sources(employer_store())
@@ -428,7 +429,8 @@ def main():
             scout_core.SHARED_DEAD = employer_index.fresh_nofeed(fetched[1])
         if scout_core.CENTRAL:
             scout_overrun.arm(args.budget or scout_core.CENTRAL_BUDGET_S)   # an empty log at the job's cancel hid what held two runs (20 Oct 2026)
-        summary, results = run(db, args.batch, stores, budget=args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0))
+        with scout_overrun.phase('checking employers'):
+            summary, results = run(db, args.batch, stores, budget=args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0))
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
             written, failed = sync_employers(db, stores)
             if written or failed:
@@ -444,15 +446,21 @@ def main():
             if not key:
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
-            contributions, shared_dead = fetched or fetch_contributions(index_url, key, with_nofeed=True)
+            deadline = scout_overrun.publish_deadline(started)
+            with scout_overrun.phase('reading what installs shared'):
+                contributions, shared_dead = fetched or fetch_contributions(index_url, key, with_nofeed=True)
             swiss_titles = []
-            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
-                                            boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
+            with scout_overrun.phase(f'checking every feed for the index'):
+                feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions, workers=24,
+                                                boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles, deadline=deadline)
             from . import scout_cells
             scout_cells.keep(db, feeds_out)   # the next run's ideas aim at the thinnest kind × country
-            stats = central_stats(db, feeds_out, market_coverage(swiss_titles), run=run_record(summary, results))
-            boards = board_stats(fetch_boards(index_url, key))
-            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)
+            with scout_overrun.phase('market coverage and stats'):
+                stats = central_stats(db, feeds_out, market_coverage(swiss_titles, deadline=deadline), run=run_record(summary, results))
+            with scout_overrun.phase('reading the job boards'):
+                boards = board_stats(fetch_boards(index_url, key))
+            with scout_overrun.phase('uploading the index'):
+                count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)
             print(publish_summary(feeds_out, contributions, boards))
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')

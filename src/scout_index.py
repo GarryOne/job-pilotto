@@ -121,7 +121,7 @@ def fetch_boards(base_url, key, get=None):
         return []
 
 
-def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None):
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None, deadline=None):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
     ensure_tables(db)
@@ -140,6 +140,8 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
 
     def check(item):
         (system, slug), meta = item
+        if deadline is not None and time.monotonic() > deadline:
+            return {'skipped': True}
         try:
             jobs = fetch(system, slug)
             if swiss_titles is not None:   # for the market coverage: the titles of this feed's jobs in Swiss places
@@ -168,7 +170,10 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(check, known.items()))
-    answered = [r for r in results if 'error' not in r]
+    skipped = sum(1 for r in results if r.get('skipped'))
+    if skipped:
+        print(f'Scout: the time for checking feeds ran out; {skipped} of {len(results)} feeds were not checked and are left out of this index')
+    answered = [r for r in results if 'error' not in r and not r.get('skipped')]
     failed = [r for r in results if 'error' in r]
     quiet, fresh = health(db, answered, today, failed)
     kept = sorted(({**r, 'fresh': fresh[(r['ats'], r['slug'])]} for r in answered if (r['ats'], r['slug']) not in quiet),
@@ -221,15 +226,17 @@ MARKET_TERMS = ('software engineer', 'devops', 'data engineer', 'key account', '
                 'buchhaltung', 'sachbearbeiter', 'lehrperson', 'elektriker', 'polymechaniker')
 
 
-def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0):
+def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0, deadline=None):
     """[{term, ours, jobsch}]: open jobs in Swiss places whose title has the word, in our index vs jobs.ch's own total for it (None when
     jobs.ch did not answer). Indicative: jobs.ch also lists agencies and repeats, and our index holds employer feeds only."""
-    import time
     get = get or _get_text
     lowered = [t.lower() for t in titles]
     out = []
     for term in terms:
         jobsch = None
+        if deadline is not None and time.monotonic() > deadline:   # no more waiting for jobs.ch: counts of ours only
+            out.append({'term': term, 'ours': sum(1 for t in lowered if term in t), 'jobsch': None})
+            continue
         try:
             page = get('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': term}))
             found = re.search(r'(\d[\d,\u2019\'.]*)\s+jobs\b', page)
