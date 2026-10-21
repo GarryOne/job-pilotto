@@ -27,7 +27,7 @@ class PrePushCheckTest(PrePushFixture):
         self.commit('Engine change', {'src/ai/x.py': 'x'})
         self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'python']), 'the engine also runs its desktop callers')
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Site only', {'site/p.html': 'x'})
+        self.commit('Site only', {'admin/p.html': 'x'})
         self.assertEqual(self.areas_run()[:2], (0, ['site']))
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Unknown top-level file', {'Makefile': 'x'})

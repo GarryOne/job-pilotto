@@ -68,5 +68,5 @@ test('Settings and the privacy page both say that search counts and times are se
 
 siteTest('the privacy page says that search counts and times are sent', () => {
   const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
-  assert.match(read('../../site/public/privacy.html'), /after each search how many jobs it found in your places/);
+  assert.match(read('../../web/public/privacy.html'), /after each search how many jobs it found in your places/);
 });

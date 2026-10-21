@@ -107,8 +107,8 @@ class TradeTagsTests(unittest.TestCase):
         import re
         from src import contribute, role_kinds
         # the tag list moved from api/pool.js to shared/pool-labels.js (20 Oct 2026, the site's folder split): read whichever the tree has
-        root = Path(__file__).resolve().parents[1] / 'site'
-        site = next(p for p in (root / 'shared' / 'pool-labels.js', root / 'src' / 'pool.js') if p.exists()).read_text()
+        root = Path(__file__).resolve().parents[1]
+        site = next(p for p in (root / 'shared' / 'pool-labels.js', root / 'api' / 'pool.js') if p.exists()).read_text()
         accepted = set(re.findall(r"'(\w+)'", re.search(r'export const ROLES = \[([^\]]+)\]', site).group(1)))
         sendable = set(contribute.ROLES) | set(contribute.TRADE_ROLES) | {'other'}
         assert_site_accepts(self, sendable, accepted, 'role tags')
@@ -136,7 +136,7 @@ class FoundHereTests(unittest.TestCase):
     def test_the_words_the_app_sends_for_how_a_feed_was_found_are_the_ones_the_site_keeps(self):
         assert_site_accepts(self, set(word for _, word in contribute.HOW) | {'index', 'own', 'other'},
                             re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
-                                (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1)),
+                                (Path(__file__).resolve().parents[1] / 'api' / 'pool.js').read_text()).group(1)),
                             'how a feed was found')
 
 

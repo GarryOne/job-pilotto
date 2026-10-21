@@ -8,7 +8,7 @@ import {assertSiteAccepts, siteTest} from './site-private.js';
 const SITE_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];
 
 siteTest('the website counts every setup step', () => {
-  const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
+  const site = fs.readFileSync(new URL('../../shared/telemetry.js', import.meta.url), 'utf8');
   const counted = [...site.match(/SETUP_STEPS = \[([^\]]*)\]/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   assertSiteAccepts(SITE_STEPS, counted, 'setup steps');   // the site may count more (it lands first)
 });
