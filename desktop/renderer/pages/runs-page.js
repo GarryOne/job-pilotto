@@ -5,7 +5,7 @@ import {shared} from './shared.js';
 import {COMMAND_KIND, KIND, TASK_BUTTONS, capital, clockTime, hhmm, kindOf, lastActivity, stepWords, openActivity, outcome, renderActivity} from './activity.js';
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
-import {runPill} from '../run-status.js';
+import {runPill, telegramHealth} from '../run-status.js';
 import {showStop, stopRunning} from '../stop-task.js';
 import {refreshBusy} from '../search-changed.js';
 
@@ -65,7 +65,9 @@ export function renderActionsPage(data) {
   if (!data) return;
   const {running, runs = []} = data;
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
-  $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
+  const blocked = connected && telegramHealth(runs) === 'blocked';   // the last message was refused: a saved token is not a working bot
+  $('actions-telegram').replaceChildren(el('span', `dot ${blocked ? 'is-warn' : connected ? 'is-on' : ''}`),
+    document.createTextNode(blocked ? 'Telegram not delivering' : connected ? 'Telegram connected' : 'Telegram not connected'));
   show($('run-banner'), !!running);
   showStop($('run-banner-stop'), running);
   syncRunButtons([running, ...(data.queued || [])].filter(Boolean).map(kindOf));
