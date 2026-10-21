@@ -16,6 +16,7 @@ import {pageText} from '../lib/notion.mjs';
 import {storeText} from '../lib/seed-texts.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {withRoles} from '../lib/search-roles.mjs';
 
 export const minutes = 15;
 // MANUAL (2 Oct 2026, kept, not deleted): It proves nothing is hard-coded to the owner (Swiss/EU wording, visa flag, currencies): one-time hygiene that costs 15 minutes and two
@@ -78,7 +79,7 @@ function draftOf(profile) {
 `;
   return {summary: `Roles for ${profile.name}.`, goals: {seniority: 'Senior', work_mode: 'On-site, hybrid or remote', minimum_salary: '', languages: profile.languages.join(', ')},
     profile_markdown: markdown, answers_markdown: `# Eligibility\n\n- Work authorisation: ${profile.citizenship} citizen\n`, open_questions: [],
-    search: {role_keywords: profile.roles, title_exclude_keywords: ['\\bintern(ship)?\\b', '\\bsales\\b', 'est[aá]gio', 'designer'], board_discovery_keywords: [profile.board],
+    search: {...withRoles({}, profile.roles), title_exclude_keywords: ['\\bintern(ship)?\\b', '\\bsales\\b', 'est[aá]gio', 'designer'], board_discovery_keywords: [profile.board],
       jobs_board_search_queries: profile.roles.slice(0, 2), quality_stack_keywords: [], locations: profile.places, remote_excluded_regions: [], google_jobs: profile.google},
     preferences: {disqualifying_languages: [], excluded_companies: [], work_rights: profile.work_rights, digest_min_score: 0}, contact: {location: profile.city}};   // digest_min_score 0: every job is shown, so what the digest says about places and visas does not depend on AI scores; the contact details of the first, default-CV setup are replaced by theirs
 }

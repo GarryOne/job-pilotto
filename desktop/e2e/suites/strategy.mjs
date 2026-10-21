@@ -10,7 +10,7 @@ import {closeRunningRows, ensureSection, findPagesBeside, pageSections, restoreS
 import {clearData} from '../lib/start-state.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
-import {view as viewRoles} from '../../lib/target-roles.js';
+import {withRoles} from '../lib/search-roles.mjs';
 
 export const realAi = false;   // every AI call is answered by the stand-in below; the harness fails the run if one reaches a real model
 export const engine = 'api';   // the suite relies on the AI proxy answering scoring calls locally, which needs the API engine (nothing reaches a real model on either turn)
@@ -45,8 +45,6 @@ const START = {   // the page's sections; on this Mac's store the same values go
 const fragment = entry => (entry.length > 2 && entry.startsWith('/') && entry.endsWith('/') ? entry.slice(1, -1)
   : entry.length > 2 && entry.startsWith('"') && entry.endsWith('"') ? `\\b${entry.slice(1, -1)}\\b` : entry);
 // START in the config files' shape (the same SECTIONS map as the engine's): what the page would have written into them.
-// The roles go in as the one list the app keeps (target_roles, 21 Oct 2026, 8c8bd70): the app derives role_keywords from it, so a draft with only role_keywords loses them.
-export const withRoles = (search, fragments) => ({...search, role_keywords: fragments, jobs_board_search_queries: [], target_roles: viewRoles({role_keywords: fragments})});
 export function sqliteStart(search, preferences) {
   const m = list => list.map(fragment);
   return {search: {...withRoles(search, m(START['Roles to look for'])), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),

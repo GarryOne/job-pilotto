@@ -16,6 +16,7 @@ import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, mayBeEmptyFor, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {withRoles} from '../lib/search-roles.mjs';
 import {quiet} from '../lib/activity-steps.mjs';
 
 export const name = 'quality';
@@ -107,8 +108,8 @@ export async function run(ctx) {
       // config/search.json, on Notion into ⚙️ Search settings too, which the engine reads first and which would otherwise keep the setup's places
       // (9 Oct 2026, stand-in: "changed your places: −geneva … −bern" dropped the Geneva and Bern postings, 3008 and 3005).
       const base = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.example.json'), 'utf8'));
-      const search = {...base, role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
-        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})};
+      const roles = persona?.search?.role_keywords || ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'];
+      const search = withRoles({...base, locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})}, roles);
       const saved = await page.evaluate(search => window.pilot.saveStrategy({search, profile_markdown: '', answers_markdown: '', contact: {}}, ['search']), search);
       if (!saved?.ok) throw new Error(`the candidate's search was not saved: ${saved?.error || JSON.stringify(saved)}`);
       const kept = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', 'search.json'), 'utf8')).locations;

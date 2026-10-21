@@ -13,6 +13,7 @@ import {judge, problems as judgeProblems} from '../lib/judge.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {withRoles} from '../lib/search-roles.mjs';
 import {appLogLines} from '../lib/app-log.mjs';
 
 export const minutes = 15;
@@ -231,7 +232,7 @@ export async function run(ctx) {
       const file = path.join(ctx.profile, 'config', 'search.json'), current = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
       const person = JSON.parse(fs.readFileSync(path.join(E2E, 'fixtures', 'feeds', persona.dir, 'person.json'), 'utf8')), roles = person.role_keywords;
       // The roles the Strategy page shows come from the job-board searches first: they must be the persona's too, or the page contradicts the candidate it is judged against.
-      fs.writeFileSync(file, JSON.stringify({...current, role_keywords: roles, locations: person.locations, title_exclude_keywords: person.title_exclude_keywords, jobs_board_search_queries: roles.map(role => role.replace(/\\b/g, '')).filter(role => /^[a-z ]+$/i.test(role))}));
+      fs.writeFileSync(file, JSON.stringify({...withRoles({...current, locations: person.locations, title_exclude_keywords: person.title_exclude_keywords}, roles), jobs_board_search_queries: roles.map(role => role.replace(/\\b/g, '')).filter(role => /^[a-z ]+$/i.test(role))}));
       await ctx.page.reload();
       await ctx.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
       await ctx.page.waitForTimeout(3000);

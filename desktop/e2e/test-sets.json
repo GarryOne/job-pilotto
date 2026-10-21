@@ -231,6 +231,7 @@
   "runner-keep-going.test.mjs",
   "same-cause.test.mjs",
   "scrollbar.test.mjs",
+  "search-roles.test.mjs",
   "seed-data.test.mjs",
   "seed-texts.test.mjs",
   "self-improve.test.mjs",
