@@ -4,7 +4,7 @@ import sqlite3
 import unittest
 from unittest import mock
 
-from src import scout_cells, scout_core, scout_hiring, scout_role_search
+from src import scout_cells, scout_core, scout_hiring, scout_hiring_cells, scout_role_search
 from src.sources import web_search
 
 SEARCH = {'role_keywords': ['chef', 'cook'], 'locations': {'top_tier': ['Munich'], 'country_wide': ['Germany'], 'abroad': []}}
@@ -40,16 +40,40 @@ class HiringSearchTest(unittest.TestCase):
                 mock.patch.object(scout_hiring, 'ask', lambda *a: self.fail('an API-key install must not pay for this search')):
             self.assertEqual(scout_hiring.run(db, SEARCH)['queries'], 0)
 
-    def test_the_central_scout_asks_for_the_thinnest_cell_and_tags_its_kind(self):
+    def test_the_central_scout_asks_role_families_in_cities_of_the_thinnest_cell_and_tags_its_kind(self):
         db, asked = memory_db(), []
         scout_cells.keep(db, [])
         with mock.patch.object(scout_core, 'CENTRAL', True):
             got = scout_hiring.run(db, SEARCH, asker=lambda role, place: asked.append((role, place)) or NAMED)
         kind = scout_cells.AIMED[0]
-        self.assertEqual(asked, [(', '.join(scout_cells.search_for(kind, 'ch')['role_keywords']), 'Switzerland')])
+        self.assertEqual(asked, [('Sales Representative', 'Zurich, Switzerland'), ('Sales Representative', 'Lausanne, Switzerland')], 'the family in each city')
         self.assertTrue(got['candidates'][0]['origin'].startswith(f'Hiring search {kind} '))
         from src.ai import scout_ideas
         self.assertEqual(scout_ideas.origin_kind(got['candidates'][0]['origin']), f'Hiring search {kind}', 'the queue learns its yield per kind')
+
+    def test_a_cell_with_many_pairs_asks_six_a_run_and_moves_on(self):
+        db = memory_db()
+        first = scout_hiring_cells.take(db, 'trades', 'de', ('w', 'Germany'))
+        second = scout_hiring_cells.take(db, 'trades', 'de', ('w', 'Germany'))
+        self.assertEqual((len(first), len(second)), (6, 6))
+        self.assertNotEqual(first, second)
+        self.assertTrue(all(place.endswith(', Germany') for _, place in first + second))
+
+    def test_a_country_without_a_city_in_the_lab_draws_is_asked_country_wide(self):
+        self.assertEqual(scout_hiring_cells.take(memory_db(), 'trades', 'lu', ('welding', 'Luxembourg')), [('welding', 'Luxembourg')])
+
+    def test_every_kind_family_is_a_lab_family(self):
+        ids = {family['id'] for family in scout_hiring_cells.draws()['families']}
+        for kind, families in scout_hiring_cells.FAMILIES.items():
+            self.assertIn(kind, scout_cells.AIMED)
+            self.assertTrue(set(families) <= ids, f'{kind}: {set(families) - ids}')
+
+    def test_a_portal_that_is_a_job_systems_own_board_goes_to_the_probe_and_the_rest_are_dropped(self):
+        db = memory_db()
+        answer = {'employers': NAMED[:1], 'portals': ['https://www.pracuj.pl/', 'https://jobs.lever.co/acme-labs']}
+        with mock.patch.object(scout_core, 'CENTRAL', False):
+            got = scout_hiring.run(db, SEARCH, asker=lambda role, place: answer)
+        self.assertEqual([c['name'] for c in got['candidates']], ['München Klinik', 'Acme Labs'])
 
     def test_the_scout_gets_the_boards_and_the_employers_together_and_one_failing_leaves_the_other(self):
         db = memory_db()
