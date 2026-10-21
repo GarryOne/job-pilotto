@@ -112,7 +112,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     get KNOWLEDGE_TEXT() { return kept('knowledge', ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
-    // The user's own Claude Code answers the form when they chose it (Settings → AI); the API key otherwise.
+    // The user's own Claude Code answers the form when they chose it (Settings → Connections → AI); the API key otherwise.
     get aiClient() { return claudeCode.client(storage, {lane: 'page'}) || keptAnswerClient(storage); },   // the page lane: ahead of side work
     NOTION_TOKEN: notionToken,
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',

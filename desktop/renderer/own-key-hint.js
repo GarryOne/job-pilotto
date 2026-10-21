@@ -1,6 +1,6 @@
 // The one-time hint after a cover letter, application kit or prep kit was written on Free AI: stronger writing comes with the person's own Claude or
 // ChatGPT (owner, 16 Oct 2026). A quality message only: never a number, never "more applications". Shown once, dismissible, with a link to
-// Settings → AI engine. Every place that shows such a result calls hintAfter(host); guard: test/own-key-hint.test.js.
+// Settings → Connections → AI. Every place that shows such a result calls hintAfter(host); guard: test/own-key-hint.test.js.
 import {el} from './components.js';
 import {HINT, hintWanted} from './ai-engine-view.js';
 

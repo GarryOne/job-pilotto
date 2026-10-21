@@ -57,9 +57,9 @@ test('the toast of a finished run agrees with its status: done, done with warnin
 });
 
 test('a failed run says so in its own box, with its reason and the fix the app can open, never "Completed with warnings" (#290)', () => {
-  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
-  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Reconnect Google', view: 'settings'}]);
-  assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
+  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Connections)'});
+  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Connections).', {label: 'Reconnect Google', view: 'settings'}]);
+  assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → Connections → AI)'}).fix.label, 'Open AI settings');
   assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
   assert.deepEqual([failureHead({ok: false, kind: 'search'}).title, failureHead({ok: false}).fix], ['The job search stopped unexpectedly', {label: 'Run again', rerun: true}]);
   const visits = failureHead({ok: false, kind: 'visits', problem: 'Geneva Freeport: it stopped answering (nothing for 30 s)'}, 'Find jobs using your browser');
@@ -72,10 +72,10 @@ test('a failed run says so in its own box, with its reason and the fix the app c
 });
 
 test('a digest Telegram refused is a failed run that says so, with the Telegram settings as the way out (#298); the title says it once, the sentence gives the reason', () => {
-  const blocked = failureHead({ok: false, problem: 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram)'});
-  assert.deepEqual([blocked.title, blocked.summary, blocked.fix], ['Not delivered', 'Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram).', {label: 'Open Telegram settings', view: 'settings'}]);
-  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
-  assert.deepEqual([google.title, google.summary], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).'], 'no "Not checked: Not checked" twice (#295)');
+  const blocked = failureHead({ok: false, problem: 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Connections)'});
+  assert.deepEqual([blocked.title, blocked.summary, blocked.fix], ['Not delivered', 'Telegram blocked the bot (open the chat with it and press Start; Settings → Connections).', {label: 'Open Telegram settings', view: 'settings'}]);
+  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Connections)'});
+  assert.deepEqual([google.title, google.summary], ['Not checked', 'The Google sign-in expired (Settings → Connections).'], 'no "Not checked: Not checked" twice (#295)');
 });
 
 test('a failed run never reads like a success: it says it had problems first, and keeps what its row reported (#301)', () => {

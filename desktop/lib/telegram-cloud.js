@@ -33,7 +33,7 @@ async function cloudflare(token, method, route, body, fetcher = globalThis.fetch
 // What turning it on needs first, as one message for the user (or '' when ready).
 export function missing(storage) {
   const settings = storage.settings();
-  if (!storage.secret('TELEGRAM_BOT_TOKEN') || !settings.telegramChatId) return 'Connect your Telegram bot first (Settings → Telegram).';
+  if (!storage.secret('TELEGRAM_BOT_TOKEN') || !settings.telegramChatId) return 'Connect your Telegram bot first (Settings → Connections).';
   if (!settings.cloud?.repo || !storage.secret('GITHUB_TOKEN')) return 'Turn on Always on first: the buttons start runs there, even when your Mac is off.';
   return '';
 }

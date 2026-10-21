@@ -20,7 +20,7 @@ test("the engine's warning line: a delivery head, the run warned, its steps done
 });
 
 test('the app\'s own "not delivered:" problem, and runs it does not touch', () => {
-  assert.match(deliveryHead({kind: 'search', ok: true, problem: 'not delivered: Telegram refused the bot token (Settings → Telegram)'}).hint, /^Telegram refused the bot token/);
+  assert.match(deliveryHead({kind: 'search', ok: true, problem: 'not delivered: Telegram refused the bot token (Settings → Connections)'}).hint, /^Telegram refused the bot token/);
   assert.equal(deliveryHead({kind: 'search', ok: false, log: [warning]}), null);
   assert.equal(deliveryHead({kind: 'search', ok: true, log: ['Sent 1 Telegram message(s)']}), null);
   assert.equal(phaseStatus({kind: 'search', ok: true, log: ['Warning: 3 jobs not read by AI']}, 1, 1), 'warn');

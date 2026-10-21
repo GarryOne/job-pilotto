@@ -337,7 +337,7 @@ const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
 // Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
 // user agrees once, knowing what that means; the answer is kept in settings.
 // Apply with Claude for one job: the job row's button, the page's "Take over" and an account page the extension reached.
-const startClaude = async (url, details = null) => !claudeFamily(storage) ? {ok: false, error: `Apply with Claude needs a Claude engine; your AI is ${aiNameOf(storage)} (Settings → AI).`}
+const startClaude = async (url, details = null) => !claudeFamily(storage) ? {ok: false, error: `Apply with Claude needs a Claude engine; your AI is ${aiNameOf(storage)} (Settings → Connections → AI).`}
   : allowanceBlock() || (await claudeConsent())
   ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => {
     if (result?.ok) { track('apply_started', {how: 'claude'}); handOverForms(url); } else terminals.dropForm(String(url).split('#')[0]);

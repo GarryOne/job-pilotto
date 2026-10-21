@@ -211,7 +211,7 @@ export function registerApplyHandlers(ctx) {
     if (code === 0 && cloud()) github.updateRepo(storage).catch(error => log(`Google sign-in not sent to GitHub: ${error.message}`));
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
   });
-  // Settings → Gmail and Calendar → ⋯ → Disconnect Gmail (owner, 7 Oct 2026): revoked at Google, forgotten in the Keychain and, with
+  // Settings → Connections → ⋯ → Disconnect Gmail (owner, 7 Oct 2026): revoked at Google, forgotten in the Keychain and, with
   // Always on, in the GitHub repo. Logged: what was asked and what each step did, never the token.
   ipcMain.handle('googleDisconnect', async () => {
     if (DEMO) return {ok: false, error: 'Demo mode: the sign-in is not changed.'};

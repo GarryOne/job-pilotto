@@ -1,6 +1,6 @@
 """The AI engines a user can choose, each an adapter behind one contract (contract.py), and how each is built from the environment.
 
-JOB_PILOTTO_AI_ENGINE names the engine, as the user chose it in the app (Settings → AI). Nothing is chosen for the user and nothing switches
+JOB_PILOTTO_AI_ENGINE names the engine, as the user chose it in the app (Settings → Connections → AI). Nothing is chosen for the user and nothing switches
 by itself: an engine's `fallback` (another engine of the SAME family, billed) is used only on the user's own tick (`fallback_env`).
 A new provider is one adapter file plus one `Engine` row here; engine.py and every AI module stay as they are. Guarded by
 tests/test_ai_providers.py (every engine meets the contract) and tests/test_ai_engine.py.
@@ -29,20 +29,20 @@ class Engine:
 
 ENGINES = {
     'api': Engine('api', 'claude', API, key='ANTHROPIC_API_KEY', label='Anthropic API', limit='the Anthropic API spending limit was reached',
-                  missing='This needs your Anthropic API key (Settings → AI), or choose Claude Code there.'),
+                  missing='This needs your Anthropic API key (Settings → Connections → AI), or choose Claude Code there.'),
     'cli': Engine('cli', 'claude', SUBSCRIPTION, local_only=True, fallback='api', label='Claude Code (your plan)',
                   plan='Claude Code, on your Claude plan',
                   limit='your Claude Code plan limit was reached (or it is signed out)',
                   missing='Claude Code is chosen but not found on this computer: install it (claude.com/claude-code) or switch to '
-                          'an API key in Settings → AI.'),
+                          'an API key in Settings → Connections → AI.'),
     'openai': Engine('openai', 'openai', API, key='OPENAI_API_KEY', label='OpenAI API', who='OpenAI',
                      limit='the OpenAI API credit or spending limit was reached (or the key was refused)',
-                     missing='This needs your OpenAI API key (Settings → AI), or choose Codex there.'),
+                     missing='This needs your OpenAI API key (Settings → Connections → AI), or choose Codex there.'),
     'codex': Engine('codex', 'openai', SUBSCRIPTION, local_only=True, fallback='openai', label='Codex (your ChatGPT plan)', who='Codex',
                     plan='Codex, on your ChatGPT plan',
                     limit='your Codex (ChatGPT plan) limit was reached (or it is signed out)',
                     missing='Codex is chosen but not found on this computer: install it (developers.openai.com/codex) or switch to '
-                            'an OpenAI API key in Settings → AI.'),
+                            'an OpenAI API key in Settings → Connections → AI.'),
 }
 DEFAULT = 'api'
 

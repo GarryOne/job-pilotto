@@ -33,7 +33,7 @@ async function useFree() {
   if (!result.ok) { message('ai-free-message', result.error, 'error'); return; }
   shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
   shared.state.settings = {...shared.state.settings, aiFree: true, aiEngine: 'api'};
-  message('ai-free-message', '✓ Free AI is on. Add your own key any time in Settings → AI engine.', 'ok');
+  message('ai-free-message', '✓ Free AI is on. Add your own key any time in Settings → Connections → AI.', 'ok');
   setTimeout(() => goStep('cv'), 900);
 }
 

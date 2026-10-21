@@ -245,7 +245,7 @@
     "ok": true,
     "new": 0,
     "scored": 12,
-    "problem": "not delivered: Telegram refused the bot token (Settings → Telegram)"
+    "problem": "not delivered: Telegram refused the bot token (Settings → Connections)"
    }
   },
   {

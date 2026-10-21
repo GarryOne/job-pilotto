@@ -33,7 +33,7 @@ test('the words are about quality: no number, never extra applications', () => {
   assert.equal(HINT.text, 'Want stronger letters? Connect your Claude account or ChatGPT.');
 });
 
-test('Settings → AI engine shows the quality line under the Claude / ChatGPT cards', () => {
+test('Settings → Connections → AI shows the quality line under the Claude / ChatGPT cards', () => {
   const src = fs.readFileSync(new URL('../renderer/pages/ai-engine.js', import.meta.url), 'utf8');
   assert.match(src, /familyCards\(\), el\('p', 'muted small engine-quality', TEXT\.ownQuality\)/);
 });

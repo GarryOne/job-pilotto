@@ -27,7 +27,7 @@ export function createAppAllowance(ctx) {
   function allowanceBlock() {
     const state = licenseState();
     // Pro's credit is gone and our AI is the engine: no free fallback, top-up or own key (an application in progress finishes; this guards what starts new).
-    if (!DEMO && state.pro?.warn === 0 && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → AI engine (your own key is unlimited).'};
+    if (!DEMO && state.pro?.warn === 0 && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → Connections → AI (your own key is unlimited).'};
     if (DEMO || !state.ended) return null;
     toWindow('allowance', state);
     return {ok: false, allowance: true, error: 'The free trial is over. See Settings → Plan.'};

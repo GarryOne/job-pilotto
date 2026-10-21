@@ -10,7 +10,7 @@ export const OWN_KEY = 'Your own key is unlimited and saves your AI credit.';
 export const NOTES = {
   30: 'Your AI credit is under 30%. Add credit anytime, or use your own AI key: it is unlimited and saves your credit.',
   10: 'Your AI credit is under 10%. Add credit anytime, or use your own AI key: it is unlimited and saves your credit.',
-  0: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → AI engine (your own key is unlimited).',
+  0: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → Connections → AI (your own key is unlimited).',
 };
 
 // What the Plan card shows for the site's answer: null when the plan is off (nothing about Pro is on screen).

@@ -1,6 +1,6 @@
 """The AI engine every AI step calls through: one factory, `client()`, over the engines in src/ai/providers/.
 
-JOB_PILOTTO_AI_ENGINE picks it, as the user chose it (Settings → AI in the app):
+JOB_PILOTTO_AI_ENGINE picks it, as the user chose it (Settings → Connections → AI in the app):
   api    (default; GitHub / Always on, the Telegram worker, Free AI)  the Anthropic SDK, their key (providers/anthropic_api.py)
   cli    (the app, on the user's Mac)                                           their own Claude Code, Claude plan (providers/claude_code.py)
   openai (the app or Always on)                                                  OpenAI's Responses API, their key (providers/openai_api.py)

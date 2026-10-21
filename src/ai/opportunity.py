@@ -260,7 +260,7 @@ def add_from_text(stores, text, *, client=None, model=DEFAULT_MODEL, source='Man
     if client is None:
         from . import engine
         if not engine.ready():
-            raise ValueError('Reading a recruiter message needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → AI).')
+            raise ValueError('Reading a recruiter message needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → Connections → AI).')
         client = engine.client(action='opportunity')
     lead = extract(client, model, text, stats=stats)
     if not lead.get('is_opportunity'):

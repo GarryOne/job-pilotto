@@ -82,7 +82,7 @@ section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile
 section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());   // about Notion
 section('Locked page', 'notionGate({reasonText, onConnect}): a page that needs Notion, until it is connected', notionGate({reasonText: 'Connect Notion to see what to do next.'}));
 
-section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → AI engine, the setup wizard)',
+section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → Connections → AI, the setup wizard)',
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 

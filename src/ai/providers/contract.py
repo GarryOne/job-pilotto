@@ -200,7 +200,7 @@ class Adapter:
         request = request_from(params)
         if not self.reads_pdf and any(part.kind == 'pdf' for part in request.attachments):
             raise AiError(f'{self.label or self.name} cannot read PDF attachments: the caller must send the PDF as page images '
-                          'and its text (the app does, desktop/lib/ai), or choose another engine in Settings → AI.')
+                          'and its text (the app does, desktop/lib/ai), or choose another engine in Settings → Connections → AI.')
         if self._fallen is not None:
             return self._fallen.messages.create(**params)
         try:
@@ -215,7 +215,7 @@ class Adapter:
         except AiLimit as error:
             if not self.fallback or error.final:
                 raise
-            self.log(f'Warning: {error} Using {self.fallback_label} for the rest of this run (Settings → AI).')
+            self.log(f'Warning: {error} Using {self.fallback_label} for the rest of this run (Settings → Connections → AI).')
             self._fallen = self.fallback()
             return self._fallen.messages.create(**params)
 

@@ -4,8 +4,8 @@ import fs from 'node:fs';
 export const MAIL_SKIPPED = {
   spend: 'not checked: the Anthropic API spend limit was reached',
   plan: 'not checked: your Claude usage window is exhausted; it runs again later',
-  claude: 'not checked: Claude Code is not ready (Settings → AI)',
-  google: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)',
+  claude: 'not checked: Claude Code is not ready (Settings → Connections → AI)',
+  google: 'not checked: the Google sign-in expired (Settings → Connections)',
 };
 
 // null when the file is missing or not this contract. A command that crashed before Python started has no file.
@@ -21,9 +21,9 @@ export function readResult(file) {
 // (a GitHub log from before this contract, or a run whose result file was lost).
 // A digest the Telegram bot could not deliver (#298, 5 Oct 2026: the run was Failed and "1 new job", and nothing said the digest never reached the person). From the log's lines.
 export const DELIVERY_PROBLEMS = [
-  [/bot was blocked by the user|Forbidden: bot was blocked/i, 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram)'],
-  [/chat not found/i, 'not delivered: Telegram cannot find the chat (check the chat id in Settings → Telegram)'],
-  [/Telegram[^\n]*\b(?:Unauthorized|401)\b|\b(?:Unauthorized|401)\b[^\n]*Telegram/i, 'not delivered: Telegram refused the bot token (Settings → Telegram)'],
+  [/bot was blocked by the user|Forbidden: bot was blocked/i, 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Connections)'],
+  [/chat not found/i, 'not delivered: Telegram cannot find the chat (check the chat id in Settings → Connections)'],
+  [/Telegram[^\n]*\b(?:Unauthorized|401)\b|\b(?:Unauthorized|401)\b[^\n]*Telegram/i, 'not delivered: Telegram refused the bot token (Settings → Connections)'],
 ];
 export function deliveryProblem(lines) {
   const text = (Array.isArray(lines) ? lines : [String(lines || '')]).join('\n');
@@ -34,7 +34,7 @@ export function deliveryProblem(lines) {
 export const MAIL_SKIPPED_OPENAI = {
   spend: 'not checked: the OpenAI API credit or spend limit was reached',
   plan: 'not checked: your ChatGPT plan\'s Codex limit is reached; it runs again later',
-  claude: 'not checked: Codex is not ready (Settings → AI)',
+  claude: 'not checked: Codex is not ready (Settings → Connections → AI)',
   google: MAIL_SKIPPED.google,
 };
 

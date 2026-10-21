@@ -31,11 +31,11 @@ LIMIT = re.compile(r'usage limit|hit your (?:usage )?limit|limit reached|rate.?l
 SIGNED_OUT = re.compile(r'not logged in|codex login|log ?in again|unauthorized|\b401\b|authentication|token (?:has )?expired|refresh token', re.I)
 LIMIT_TEXT = ('Codex: your ChatGPT plan\'s usage limit is reached, so this AI step is paused; try again later, when the limit resets.')
 SIGNED_OUT_TEXT = ('Codex is not signed in on this computer: open Terminal, run `codex login` and sign in with your ChatGPT account, '
-                   'then try again. Or switch to an OpenAI API key in Settings → AI.')
+                   'then try again. Or switch to an OpenAI API key in Settings → Connections → AI.')
 NOT_ANSWERING_TEXT = ('Codex did not answer twice in a row (each waited {seconds} s), so this AI step stops instead of waiting for every job. '
-                      'Open Terminal, run `codex`, check it answers, then run again. Or switch to an OpenAI API key in Settings → AI.')
+                      'Open Terminal, run `codex`, check it answers, then run again. Or switch to an OpenAI API key in Settings → Connections → AI.')
 MISSING_TEXT = ('Codex was not found on this computer: install it (developers.openai.com/codex) and sign in with `codex login`, '
-                'or switch to an OpenAI API key in Settings → AI.')
+                'or switch to an OpenAI API key in Settings → Connections → AI.')
 DROP_ENV = ('OPENAI_API_KEY', 'OPENAI_BASE_URL', 'CODEX_API_KEY', 'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL')
 
 
