@@ -10,8 +10,8 @@ const ask = async (fields, answers) => {
 };
 const answer = (over) => ({ field: 'a', value: 'checked', confidence: 'high', note: '', category: 'normal', use: 'fill', fact: 'none', ...over });
 
-test('a legal answer comes back as an empty kind for every field type and every use', async () => {
-  for (const type of ['checkbox', 'radio', 'select', 'text', 'combobox']) for (const use of ['fill', 'propose']) {
+test('a legal answer comes back as an empty kind for a tick or typed text, every use (a choice among options: legal-choice.test.js)', async () => {
+  for (const type of ['checkbox', 'text', 'textarea']) for (const use of ['fill', 'propose']) {
     const got = await ask([{ field: 'a', label: 'Consent', type, required: true, options: ['Yes', 'No'] }], [answer({ category: 'legal', use, value: 'Yes' })]);
     assert.deepEqual(got.map((a) => [a.value, a.category, a.use]), [['', 'legal', 'kind']], `${type} ${use}`);
   }

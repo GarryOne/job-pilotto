@@ -20,7 +20,7 @@ import { FACT_KEYS, FACT_RULE, floorBoxGuess, floorInventedFigure, floorLinkKind
 import { applyPay } from './pay-convert.js';
 import { WRITTEN_RULE, reviewAnswer } from './written-answer.js';
 import { ANSWER_EXAMPLES } from './answer-examples.js';
-import { DECLARATION_RULE } from './answer-declarations.js';
+import { DECLARATION_RULE, LEGAL_CHOICE_RULE, legalChoice } from './answer-declarations.js';
 import { JOB_ANSWERS_SECTION, asKitAnswers, jobAnswersOf } from './job-answers.js';
 
 const KIT_HEADING = '📝 Application kit';
@@ -187,6 +187,7 @@ For each form field you are given its id, label, type, whether it is required, a
 - checkbox: "checked" or "unchecked".
 ${FACT_RULE}
 ${DECLARATION_RULE}
+${LEGAL_CHOICE_RULE}
 Base a proposal on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links, tools, projects, skills, experience or personal details: an experience or skill claim that <profile>, <standard_answers> and the CV facts do not state is not typed (use: "propose"), it is a suggestion the applicant checks. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
 category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; ${WRITTEN_RULE}; normal = anything else.
 ${ANSWER_EXAMPLES}
@@ -270,7 +271,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const paid = await applyPay(Array.isArray(result.answers) ? result.answers : [], result.pay_asks, fields, { fetchFn: env.fetchFn || globalThis.fetch });   // a salary in another currency or period, converted by the code
   const typeOf = Object.fromEntries(fields.map((f) => [f.field, f.type]));
   const optionsOf = Object.fromEntries(fields.map((f) => [f.field, Array.isArray(f.options) ? f.options : []]));
-  const floorsApplied = paid.map((a) => floorInventedFigure(floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test, options: optionsOf[a.field] }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]), labelOf[a.field] || '', given, typeOf[a.field], { test }));
+  const choiceChecked = paid.map((a) => legalChoice(a, typeOf[a.field]));   // a legal-looking choice is asked once, not held (answer-declarations.js)
+  const floorsApplied = choiceChecked.map((a) => floorInventedFigure(floorBoxGuess(floorLinkKind(floorUngrounded(test ? a : typeGuess(a), given, { test, options: optionsOf[a.field] }), labelOf[a.field] || '', given, { test }), test ? '' : typeOf[a.field]), labelOf[a.field] || '', given, typeOf[a.field], { test }));
   // Test harness only (owner-guard.js): an answer that is the owner's own value is never typed, whatever its kind or category; the field stays empty.
   const { answers: all, withheld } = withholdOwner(floorsApplied, labelOf, env.ownerValues);
   await env.onAnswerCall?.({ url, fields, answers: all, withheld });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere

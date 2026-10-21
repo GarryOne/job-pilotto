@@ -340,7 +340,7 @@ test('a legal question comes back as a kind only (no value), so the extension ma
   ];
   const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
-  const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'combobox' }));
+  const fields = answers.map((a) => ({ field: a.field, label: a.field, type: a.category === 'legal' ? 'checkbox' : 'combobox' }));   // a legal choice among options is asked once instead (legal-choice.test.js)
   const traces = [], calls = [];
   const result = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t), onAnswerCall: (c) => calls.push(c) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
   // The app keeps which fields were asked and every answer the AI gave (desktop/lib/live-capture.js captureAnswer strips the values).

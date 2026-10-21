@@ -26,6 +26,6 @@ test('the ask says a declaration of fact is a knockout question, never legal, an
 test('a declaration with no saved fact behind it is only proposed; one resting on a saved fact is typed; a legal one stays an empty kind', async () => {
   assert.equal((await ask([question], [answer({ fact: 'none' })]))[0].use, 'propose');
   assert.equal((await ask([question], [answer({ fact: 'work_permit' })]))[0].use, 'fill');
-  const legal = await ask([question], [answer({ category: 'legal', fact: 'work_permit' })]);
+  const legal = await ask([{ ...question, type: 'checkbox' }], [answer({ category: 'legal', fact: 'work_permit' })]);
   assert.deepEqual(legal.map((a) => [a.value, a.category, a.use]), [['', 'legal', 'kind']]);
 });
