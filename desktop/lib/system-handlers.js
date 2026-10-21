@@ -12,7 +12,7 @@ import {SECRET_NAMES} from './storage.js';
 import {log as appLog} from './log.js';
 
 export function registerSystemHandlers(ctx) {
-  const {DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, getWindow} = ctx;
+  const {DEMO, about, app, backupNow, dataJob, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, getWindow} = ctx;
   const moved = profileAccounts.start(storage, {demo: DEMO});   // before any window or run: the profile's id for Credentials and the engine, old accounts moved by e-mail
   if (moved) appLog('data', 'job-site accounts per profile', moved);   // counts only
   let resetTold = false;   // the window is told once about a reset or import that was applied at start
@@ -46,6 +46,8 @@ export function registerSystemHandlers(ctx) {
   // Told once per app start: a window reload (⌘R) asks again, and must not re-show "Data imported ✓" for an import done long ago.
   ipcMain.handle('lastReset', () => { const done = resetTold ? null : getResetDone(); resetTold = true; return done; });
   // What lives only on this Mac: the weekly automatic backup (lib/backup.js), or now.
+  ipcMain.handle('showFile', (_, file) => { if (typeof file === 'string' && path.isAbsolute(file) && fs.existsSync(file)) shell.showItemInFolder(file); });
+  ipcMain.handle('dataCancel', () => dataJob.cancel());
   ipcMain.handle('backupNow', () => backupNow('button'));
   ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
   ipcMain.handle('backupStatus', () => ({at: storage.settings().lastBackupAt || null, file: storage.settings().lastBackupFile || null,
@@ -64,10 +66,11 @@ export function registerSystemHandlers(ctx) {
     // This Mac's data only: Notion data stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026).
     try {
       const siteAccounts = accounts ? profileAccounts.exportable() : null;   // only this profile's, only when ticked
-      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, accounts: siteAccounts, version: about.label});
+      await dataJob.run('export', options => reset.exportTo(storage.dir, picked.filePath, {keys: secrets, accounts: siteAccounts, version: about.label, ...options}));
       appLog('data', 'exported', {keys: !!secrets, accounts: siteAccounts ? Object.keys(siteAccounts).length : false});
       return {ok: true, file: picked.filePath};
     } catch (error) {
+      if (error.code === 'cancelled') { appLog('data', 'export cancelled'); return {ok: false, cancelled: true}; }
       appLog('data', `export failed: ${error.message}`);
       return {ok: false, error: error.message};
     }
@@ -81,7 +84,8 @@ export function registerSystemHandlers(ctx) {
       message: 'Replace this computer\'s Jobadabra data with the export?',
       detail: 'Your current data here is moved to a backup folder first, then Jobadabra restarts with the imported data. Your Notion workspace is not changed.'});
     if (answer !== 1) return {ok: false};
-    try { reset.stageImport(storage.dir, picked.filePaths[0]); } catch (error) { return {ok: false, error: error.message}; }
+    try { await dataJob.run('import', options => reset.stageImport(storage.dir, picked.filePaths[0], options)); }
+    catch (error) { return error.code === 'cancelled' ? {ok: false, cancelled: true} : {ok: false, error: error.message}; }
     restartApp('import');
     return {ok: true};
   });

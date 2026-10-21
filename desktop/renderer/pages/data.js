@@ -4,6 +4,7 @@ import {openInNotion, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
 import {MOVE_WORDS, movedText} from '../store-move-text.js';
 import {toastMessage} from './startup.js';
+import {startProgress} from './data-progress.js';
 
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
 async function showBackup() {
@@ -11,6 +12,16 @@ async function showBackup() {
   const where = `${status.place} → Jobadabra Backups`;
   $('backup-last').textContent = status.at ? new Date(status.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
   $('backup-where').textContent = where.replace(' → ', ' / ');
+}
+
+// "Exported ✓ <file name>" with Show in Finder: the folder path has the person's name in it, so only the name is written.
+function savedLine(id, words, file) {
+  const line = $(id);
+  line.className = 'message ok';
+  const link = document.createElement('button');
+  link.className = 'arrow-link'; link.textContent = navigator.platform.startsWith('Win') ? 'Show in Explorer' : 'Show in Finder';
+  link.addEventListener('click', () => window.pilot.showFile(file));
+  line.replaceChildren(`${words} ${file.split(/[\\/]/).pop()} `, link);
 }
 
 // ---------- your data: where it lives (lib/store-handlers.js) ----------
@@ -41,6 +52,7 @@ async function showStore() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  startProgress();
   showStore();
   $('store-keep').addEventListener('click', async () => {
     $('store-keep').disabled = true;
@@ -66,26 +78,25 @@ export async function init() {
 
   // ---------- your data: export / import ----------
   $('export-data').addEventListener('click', async () => {
-    $('export-data').disabled = true;
     // Notion data is not exported: it stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026)
     const result = await window.pilot.exportProfile({keys: $('export-keys').checked, accounts: $('export-accounts').checked});
-    $('export-data').disabled = false;
-    if (result.ok) message('data-message', `Exported ✓ ${result.file}`, 'ok');
+    if (result.ok) savedLine('data-message', 'Exported ✓', result.file);
+    else if (result.cancelled) message('data-message', 'Export cancelled.', 'waiting');
     else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');
   });
   // Settings → Your data, and the setup's Welcome (after a reset the app opens at the setup, where Settings is out of reach: 6 Oct 2026).
   document.querySelectorAll('[data-import]').forEach(button => button.addEventListener('click', async () => {
     const result = await window.pilot.importProfile();
+    if (result?.cancelled) { if (button.id === 'import-data') message('data-message', 'Import cancelled.', 'waiting'); return; }
     if (!result?.error) return;
     if (button.id === 'import-data') message('data-message', `Import failed: ${result.error}`, 'error');
     else toastMessage('Import failed', result.error);
   }));
   showBackup();
   $('backup-now').addEventListener('click', async () => {
-    $('backup-now').disabled = true;
     const result = await window.pilot.backupNow();
-    $('backup-now').disabled = false;
-    message('data-message', result.ok ? `Backed up ✓ ${result.file}` : `Backup failed: ${result.error}`, result.ok ? 'ok' : 'error');
+    if (result.ok) savedLine('data-message', 'Backed up ✓', result.file);
+    else message('data-message', result.error === 'cancelled' ? 'Backup cancelled.' : `Backup failed: ${result.error}`, result.error === 'cancelled' ? 'waiting' : 'error');
     showBackup();
   });
   $('backup-show').addEventListener('click', () => window.pilot.showBackups());
@@ -112,9 +123,7 @@ export async function init() {
     $('reset-confirm').disabled = false; syncReset(); $('reset-confirm').focus();
   };
   $('reset-export').addEventListener('click', async () => {
-    $('reset-export').disabled = true;
     const result = await window.pilot.exportProfile({keys: false, accounts: $('reset-export-accounts').checked});
-    $('reset-export').disabled = false;
     if (result?.ok) allowReset(`✓ Saved: ${result.file.split(/[\\/]/).pop()}`, 'tone-good');
     else if (result?.error) message('reset-message', `Export failed: ${result.error}`, 'error');
   });

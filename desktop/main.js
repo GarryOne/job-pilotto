@@ -64,6 +64,7 @@ import {versionLine} from './lib/window-log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as reset from './lib/reset.js';
+import {createDataJob} from './lib/data-job.js';
 import * as files from './lib/files.js';
 import * as letters from './lib/cover-letter.js';
 import * as backup from './lib/backup.js';
@@ -274,7 +275,7 @@ function handlers() {
   registerInterviewHandlers({appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders,
     sharedRead, shell, storage, toWindow, viewCache, getWindow: () => window});   // the Interviews page (lib/interview-handlers.js)
   registerLeadsHandlers({DEMO, aiReady, app, clipboard, ipcMain, log, nativeImage, needsNotion, storage, toWindow});   // lib/leads-handlers.js
-  registerSystemHandlers({DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, getWindow: () => window});   // lib/system-handlers.js
+  registerSystemHandlers({DEMO, about, app, backupNow, dataJob, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, getWindow: () => window});   // lib/system-handlers.js
   zoom.register(ipcMain); registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
   const {prepareKitFor, tailorCv} = registerKitHandlers({DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
@@ -313,10 +314,7 @@ function syncCv() {
   files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
     .catch(error => appLog('cover-letter', 'PDF not saved to Notion', {error: error.message}));
 }
-function backupNow(why = 'button') {
-  try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); appLog('data', 'backup saved', {file: path.basename(done.file), decidedBy: why}); return {ok: true, ...done}; }
-  catch (error) { console.error(`Backup failed: ${error.message}`); appLog('data', 'backup failed', {error: error.message, decidedBy: why}); return {ok: false, error: error.message}; }
-}
+const {dataJob, backupNow} = createDataJob({toWindow, backupWith: options => backup.run(storage, {version: about?.label || '', ...options}), appLog});   // one export, import or backup at a time, its progress for the window (lib/data-job.js)
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); resetDone = {failed: error.message}; }
 
 // An IPC handler whose work quitting must not cut off half-way (lib/critical.js): the quit check names it and offers to wait.

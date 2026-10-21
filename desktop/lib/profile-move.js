@@ -147,7 +147,7 @@ export async function saveCopy(storage, {fetcher, now = new Date(), run = backup
   const dir = path.join(storage.dir, 'before-your-details', now.toISOString().slice(0, 19).replace(/[:T]/g, '-'));
   fs.mkdirSync(dir, {recursive: true});
   for (const name of ['profile', 'answers']) fs.writeFileSync(path.join(dir, `${name}.md`), await opened.page(name).text());
-  const {file} = run(storage, {now});
+  const {file} = await run(storage, {now});
   return {dir, file};
 }
 

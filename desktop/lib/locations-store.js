@@ -37,7 +37,7 @@ async function copyFirst(storage, {fetcher, now, run}) {
   fs.mkdirSync(dir, {recursive: true});
   fs.writeFileSync(path.join(dir, 'profile.md'), await openStore(storage, {fetcher}).page('profile').text());
   fs.writeFileSync(path.join(dir, 'search.json'), storage.readText(SEARCH_FILE));
-  return {dir, file: run(storage, {now}).file};
+  return {dir, file: (await run(storage, {now})).file};
 }
 
 const readBack = (storage, resolved) => {

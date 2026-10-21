@@ -27,11 +27,11 @@ function sqliteProfile() {
   return {base, dir, live};
 }
 
-test('an export carries the records written to the WAL, not yet in the main file, and leaves no snapshot behind', () => {
+test('an export carries the records written to the WAL, not yet in the main file, and leaves no snapshot behind', async () => {
   const {base, dir, live} = sqliteProfile();
   assert.ok(fs.statSync(path.join(dir, 'data', 'tracker.sqlite-wal')).size > 0, 'the setup has unflushed writes');
   const file = path.join(base, 'export.tar.gz');
-  reset.exportTo(dir, file);
+  await reset.exportTo(dir, file);
   live.close();
   const names = execFileSync(tar(), ['-tzf', file]).toString().split(/\r?\n/).map(name => name.trim());   // Windows tar ends lines with \r\n
   assert.ok(names.includes('data/tracker.snapshot.sqlite'));
@@ -40,14 +40,14 @@ test('an export carries the records written to the WAL, not yet in the main file
   assert.ok(!fs.existsSync(path.join(dir, tracker.SNAPSHOT)));
 });
 
-test('an import makes the snapshot the tracker, with every row', () => {
+test('an import makes the snapshot the tracker, with every row', async () => {
   const {base, dir, live} = sqliteProfile();
   const file = path.join(base, 'export.tar.gz');
-  reset.exportTo(dir, file);
+  await reset.exportTo(dir, file);
   live.close();
   const other = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-')), 'Job Pilotto');
   fs.mkdirSync(other);
-  reset.stageImport(other, file);
+  await reset.stageImport(other, file);
   const staged = `${other} (import)`;
   assert.ok(!fs.existsSync(path.join(staged, tracker.SNAPSHOT)));
   const db = new DatabaseSync(path.join(staged, tracker.LIVE));
@@ -55,12 +55,12 @@ test('an import makes the snapshot the tracker, with every row', () => {
   db.close();
 });
 
-test('without a tracker (the Notion store) an export is as before', () => {
+test('without a tracker (the Notion store) an export is as before', async () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Job Pilotto');
   createStorage(dir, fakeCrypto).saveSettings({setupDone: true});
   assert.equal(tracker.take(dir), null);
   const file = path.join(base, 'export.tar.gz');
-  reset.exportTo(dir, file);
+  await reset.exportTo(dir, file);
   assert.ok(!execFileSync(tar(), ['-tzf', file]).toString().includes('tracker'));
 });

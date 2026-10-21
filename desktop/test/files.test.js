@@ -69,12 +69,12 @@ test('a file over Notion\'s 5 MB limit is refused with a clear reason', async ()
   fs.rmSync(big);
 });
 
-test('weekly backup: due after 7 days, keeps the last 4, never the keys', () => {
+test('weekly backup: due after 7 days, keeps the last 4, never the keys', async () => {
   const s = storage();
   s.setSecret('ANTHROPIC_API_KEY', 'sk-secret');
   const target = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-backups-'));
   assert.equal(backup.due({}), true);
-  for (let day = 1; day <= 6; day++) backup.run(s, {target, now: new Date(`2026-09-${String(day).padStart(2, '0')}T10:00:00Z`)});
+  for (let day = 1; day <= 6; day++) await backup.run(s, {target, now: new Date(`2026-09-${String(day).padStart(2, '0')}T10:00:00Z`)});
   const kept = fs.readdirSync(target).sort();
   assert.equal(kept.length, 4);
   assert.match(kept[0], /2026-09-03/);
@@ -85,7 +85,7 @@ test('weekly backup: due after 7 days, keeps the last 4, never the keys', () => 
   assert.equal(backup.folder('/home/x', () => false, {env: {}, platform: 'linux'}), '/home/x/Documents/Job Pilotto Backups');
 });
 
-test('the backup folder: iCloud Drive on a Mac, OneDrive\'s Documents on Windows when they exist, else Documents; a test run names its own', () => {
+test('the backup folder: iCloud Drive on a Mac, OneDrive\'s Documents on Windows when they exist, else Documents; a test run names its own', async () => {
   const mac = {env: {}, platform: 'darwin'}, win = {platform: 'win32'};
   assert.equal(backup.folder('/Users/a', () => true, mac), '/Users/a/Library/Mobile Documents/com~apple~CloudDocs/Job Pilotto Backups');
   assert.equal(backup.folder('/Users/a', () => false, mac), '/Users/a/Documents/Job Pilotto Backups');
