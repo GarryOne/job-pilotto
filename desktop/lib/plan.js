@@ -4,7 +4,7 @@
 // Guards: test/plan.test.js.
 import {installId} from './pool-share.js';
 import {FREE_BASE} from './ai-free.js';
-import {siteIsOff} from './recipes.js';
+import {siteOffForUser} from './recipes.js';
 import {forgetToken, installToken} from './install-token.js';
 
 const SITE = FREE_BASE.replace(/\/api\/ai$/, '');
@@ -14,7 +14,7 @@ export const OFF = {mode: 'off', plan: 'free'};
 
 // `stored`: demo mode (screenshots) shows the answer written in its settings and never asks the site.
 export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Date.now(), stored = false} = {}) {
-  const off = () => siteIsOff() && !stored;
+  const off = () => siteOffForUser() && !stored;
   // This install's own token for the site (the one Free AI uses), whatever engine is chosen: an own-key user has no JPF1 key saved, so it is asked for here.
   async function siteKey() {
     const install = installId(storage);
@@ -33,7 +33,7 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
   }
   // Asks the site (a 404 means the plan is off there); on any failure the last answer stays. -> state()
   async function refresh() {
-    if (siteIsOff()) return stored ? state() : OFF;
+    if (siteOffForUser()) return stored ? state() : OFF;
     try {
       let response = await fetcher(`${SITE}/api/pro/status`, {headers: {'x-api-key': await siteKey()}});
       if (response.status === 401) { forgetToken(storage, 'ai'); response = await fetcher(`${SITE}/api/pro/status`, {headers: {'x-api-key': await siteKey()}}); }
@@ -44,7 +44,7 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
   }
   // A one-time payment for 'pro' or 'topup5' | 'topup10' | 'topup20' -> {ok, url} (the caller opens it in the browser) or {ok: false, error}.
   async function checkout(kind) {
-    if (siteIsOff()) return {ok: false, error: 'Payments are not available in this build.'};
+    if (siteOffForUser()) return {ok: false, error: 'Payments are not available in this build.'};
     try {
       const response = await fetcher(`${SITE}/api/pro/checkout`, {method: 'POST', headers: {'x-api-key': await siteKey(), 'Content-Type': 'application/json'}, body: JSON.stringify({kind})});
       const body = await response.json().catch(() => ({}));
@@ -54,7 +54,7 @@ export function createPlan(storage, {fetcher = globalThis.fetch, now = () => Dat
   // "I have Pro" on this computer: step 'start' mails a code to the address, step 'verify' (email, code, remove?) adds this computer to that Pro account.
   // -> the site's answer {ok, ...} plus status; 'devices' (409) lists the computers to choose one to remove from.
   async function signin(step, body) {
-    if (siteIsOff()) return {ok: false, error: 'Not available in this build.'};
+    if (siteOffForUser()) return {ok: false, error: 'Not available in this build.'};
     try {
       const response = await fetcher(`${SITE}/api/pro/signin/${step}`, {method: 'POST', headers: {'x-api-key': await siteKey(), 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       const answer = await response.json().catch(() => ({}));

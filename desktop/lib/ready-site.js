@@ -2,8 +2,7 @@
 // The install's own key (the one Free AI uses) is the only credential; the site answers 404 or 401 to anyone but the owner, so the card is shown only when `owner` says yes. Guard: test/ready-site.test.js.
 import {FREE_BASE} from './ai-free.js';
 import {UNAVAILABLE, call as callWith, keyOf} from './hosted-search.js';
-import {siteIsOff, siteOffReason} from './recipes.js';
-import {DEV_BUILD} from './telemetry.js';
+import {siteOffForUser, siteOffReason} from './recipes.js';
 import {read as keychainRead} from './keychain.js';
 import {installId} from './pool-share.js';
 import {installToken} from './install-token.js';
@@ -23,8 +22,7 @@ async function keyFor(storage, {fetcher = globalThis.fetch} = {}) {
 let readKeychain = service => keychainRead(service, {account: 'job-pilotto'});
 export const useKeychainReader = fn => { readKeychain = fn; };
 export const ownerSecret = storage => String(storage.secret('READY_OWNER_SECRET') || readKeychain('job-pilotto.ready.owner_secret') || '');
-// devBuild: the owner runs his app from source (18 Oct 2026: the card said "Always on needs a regular install" there); tests, CI and smoke runs stay off the site.
-const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': ownerSecret(storage)}, devBuild: true});
+const call = async (storage, route, options = {}) => callWith(storage, route, {...options, key: await keyFor(storage, options), headers: {'x-ready-owner': ownerSecret(storage)}});
 
 // The server no longer holds the form (a deploy or the container's sleep dropped the held tabs, or the night ended): its 410 "gone", or a 404 that says "held".
 export const GONE_LINE = 'The server no longer holds this filled form (it restarted or the night ended). Press Fill now to fill it again.';
@@ -43,14 +41,14 @@ const clock = at => new Date(at).toLocaleTimeString([], {hour: '2-digit', minute
 // The morning's rows, or why the card cannot work right now, in plain words (the card is always shown and says this; owner, 18 Oct 2026: "show the card always... an error message/status and disabled buttons").
 // -> {ok: true, batch, jobs} or {ok: false, why}.
 export async function status(storage, {now = Date.now, ...options} = {}) {
-  if (siteIsOff() && siteOffReason() !== DEV_BUILD) return {ok: false, why: `Not in ${siteOffReason()}: it never reaches our server.`};
+  if (siteOffForUser()) return {ok: false, why: `Not in ${siteOffReason()}: it never reaches our server.`};
   if (!ownerSecret(storage)) return {ok: false, why: 'Only on the owner\'s install while it is tested.'};
   const key = await keyFor(storage, options);
   if (!key) {
     const wait = storage.settings().siteTokenWait?.ai || 0;
     return {ok: false, why: wait > now() ? `Our site gave this install no token today (its daily limit); asked again at ${clock(wait)}.` : 'Could not get this install\'s token from our site. Check the connection.'};
   }
-  const result = await callWith(storage, '/api/ready/state', {...options, key, headers: {'x-ready-owner': ownerSecret(storage)}, devBuild: true});
+  const result = await callWith(storage, '/api/ready/state', {...options, key, headers: {'x-ready-owner': ownerSecret(storage)}});
   if (result.ok) return result;
   return {ok: false, why: result.status === 401 || result.status === 404 ? 'Our site does not know this install as the owner\'s.' : `Our server did not answer${result.status ? ` (${result.status})` : ''}: ${result.error}`};
 }
@@ -64,7 +62,7 @@ export const deleteAll = async (storage, options) => words(await call(storage, '
 export const handoff = async (storage, job, options) => words(await call(storage, `/api/ready/handoff?job=${encodeURIComponent(job)}`, options));   // -> {ok, url, storage, sessionStorage, snapshot}: Open in my browser
 // Watch the fill: the night's video of one form, as bytes (the site keeps it sealed, deleted with the form's data). -> {ok, bytes} or {ok: false, error}.
 export async function video(storage, job, {fetcher = globalThis.fetch, ...options} = {}) {
-  if (siteIsOff() && siteOffReason() !== DEV_BUILD) return {ok: false, error: `Not in ${siteOffReason()}: it never reaches our server.`};
+  if (siteOffForUser()) return {ok: false, error: `Not in ${siteOffReason()}: it never reaches our server.`};
   const key = await keyFor(storage, {fetcher, ...options});
   if (!key) return {ok: false, error: 'Ready to send is not on for this install.'};
   try {
