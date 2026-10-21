@@ -71,7 +71,7 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
     // Only this run's finds: the older jobs that fill the digest's page are not this run's, and stay in Jobs (run-cards.js runItems).
     const items = nothingNew ? [] : runItems(card);
     const onlyNew = items.length < card.items.length || items.some(item => item.section === 'new');
-    heading = nothingNew ? 'No new jobs this run' : onlyNew ? 'Top new jobs' : 'Top matches';
+    heading = nothingNew ? 'No new jobs this run' : onlyNew ? 'Top new since your last digest' : 'Top matches';
     rows.append(...byFit(items).slice(0, 3).map(item => {   // highest fit first, unscored last
       const row = el('li', 'run-card-row');
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
