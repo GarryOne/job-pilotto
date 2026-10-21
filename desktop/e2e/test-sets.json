@@ -143,6 +143,7 @@
   "own-asks.test.mjs",
   "own-ui-not-read.test.mjs",
   "picture-asks.test.mjs",
+  "ensure-staged.test.mjs",
   "plan-run.test.mjs",
   "plan-windows.test.mjs",
   "plan.test.mjs",
