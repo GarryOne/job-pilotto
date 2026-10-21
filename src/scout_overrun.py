@@ -3,7 +3,9 @@ Why: 20 Oct 2026, 2 of 6 central runs were cancelled at the job's 75 minutes wit
 Tests: tests/test_scout_overrun.py."""
 
 import faulthandler
+import os
 import sys
+import threading
 
 GRACE_S = 10 * 60   # the budget ends new checks; running ones normally finish well inside this
 
@@ -21,3 +23,13 @@ def arm(budget_s, grace_s=GRACE_S, file=None):
 def disarm():
     """The run ended in time: no dump."""
     faulthandler.cancel_dump_traceback_later()
+
+
+def leave_if_stuck():
+    """Everything is saved and published: a check given up on (scout.run, CHECK_LIMIT_S) may still hold its thread, and Python waits for every thread
+    before it exits, so the job would sit until its cancel. Leaves at once when one is left."""
+    if threading.active_count() > 1:
+        print(f'scout: {threading.active_count() - 1} check thread(s) still running after the run; leaving without them', flush=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)

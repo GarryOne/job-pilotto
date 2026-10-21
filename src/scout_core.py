@@ -145,3 +145,6 @@ SHARED_DEAD = set()
 # The central scout's time for names and checks, so it always publishes inside its 75-minute job (central-scout.yml): 20 Oct 2026, 2 of 4 runs
 # were cancelled checking 500 hospital and school sites (slower than job-system boards) and published nothing. Publishing takes ~15 minutes.
 CENTRAL_BUDGET_S = 45 * 60
+# One employer's check may take this long before the run stops waiting for it (21 Oct 2026: 6 checks of Swiss mountain huts held all six workers
+# for up to 30 minutes each; the run was cancelled at 75 minutes, nothing was published, twice). The late one counts as unreachable (rests 7 days).
+CHECK_LIMIT_S = 5 * 60

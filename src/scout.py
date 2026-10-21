@@ -23,7 +23,7 @@ import re
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import timedelta
 from html import escape
 from pathlib import Path
@@ -244,21 +244,28 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     # 7 Oct 2026: "runs for too long"; 91 checks at 20-45 s each took over half an hour). Each one is saved as it ends, so nothing is lost.
     outcomes = [None] * len(candidates)
     may_start = budget_tape.until('scout', deadline)   # a tape's replay starts what its recording did
-    pool = ThreadPoolExecutor(max_workers=workers)
+    pool = ThreadPoolExecutor(max_workers=workers * 4)   # a check that outlives its limit keeps its thread, so there are spare ones
     try:
-        todo, futures = iter(enumerate(candidates)), {}
+        todo, futures, began = iter(enumerate(candidates)), {}, {}
         def more():
             while len(futures) < workers and may_start():
                 nxt = next(todo, None)
                 if nxt is None:
                     return
-                futures[pool.submit(check, nxt[1])] = nxt[0]
+                future = pool.submit(check, nxt[1])
+                futures[future], began[future] = nxt[0], time.monotonic()
         more()
         while futures:
-            future = next(as_completed(futures))
-            i = futures.pop(future)
-            outcomes[i] = future.result()
-            save(candidates[i], outcomes[i])
+            finished, _ = wait(list(futures), timeout=5, return_when=FIRST_COMPLETED)
+            for future in finished:
+                i = futures.pop(future)
+                outcomes[i] = future.result()
+                save(candidates[i], outcomes[i])
+            for future in [f for f in futures if time.monotonic() - began[f] > scout_core.CHECK_LIMIT_S]:   # stop waiting; its thread ends when it ends
+                i = futures.pop(future)
+                print(f"Warning: {candidates[i]['name']} took over {scout_core.CHECK_LIMIT_S // 60} min to check; counted as unreachable, checked again in a week")
+                outcomes[i] = {'status': 'none', 'outcome': 'unreachable'}
+                save(candidates[i], outcomes[i])
             more()
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -463,6 +470,8 @@ def main():
         telegram.to_app(message)  # no Telegram: the desktop app shows the summary
     if logged:
         run_log.log_run(stores, log)
+    if scout_core.CENTRAL:
+        scout_overrun.leave_if_stuck()
 
 
 if __name__ == '__main__':

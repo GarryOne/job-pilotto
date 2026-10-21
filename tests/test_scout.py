@@ -208,6 +208,24 @@ class ScoutTests(unittest.TestCase):
             untried = {r[0] for r in db.execute("SELECT name FROM scout_candidates WHERE status = 'pending' AND name LIKE 'Co%'")}
             self.assertEqual(len(untried), 10 - len(results), 'the rest wait for the next run')
 
+    def test_a_check_that_hangs_is_given_up_on_so_the_run_still_ends(self):
+        """21 Oct 2026: checks of Swiss mountain huts took up to 30 minutes each; all six workers stuck, the central run was cancelled at 75 minutes."""
+        import threading
+        release = threading.Event()
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout_core, 'CENTRAL', True), \
+                mock.patch.object(scout_core, 'CHECK_LIMIT_S', 0.3):
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=90 - i) for i, n in enumerate(['Stuck', 'Fine', 'Also fine'])]])
+            probe = lambda system, slug: release.wait(30) and [] if slug.startswith('stuck') else []   # noqa: E731
+            import time as clock
+            started = clock.monotonic()
+            try:
+                summary, results = scout.run(db, batch=3, harvest_sources=[], probe=probe, workers=2)
+                took = clock.monotonic() - started
+            finally:
+                release.set()
+            self.assertLess(took, 10, 'the run does not wait for the hung check')
+            self.assertEqual(sorted((c['name'], o.get('outcome')) for c, o in results), [('Also fine', 'no_feed'), ('Fine', 'no_feed'), ('Stuck', 'unreachable')])
+
     def test_one_employer_that_fails_does_not_end_the_run(self):
         """7 Oct 2026: a TypeError reading one site's job data ended the run at 90 of 91. Now that one counts as no readable job site."""
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout_core, 'CENTRAL', True):
