@@ -113,6 +113,15 @@ test('5. a session token, CSRF token or credential in a body goes by its field n
   assert.deepEqual(lastGate(out), [], 'nothing is left for the gate');
 });
 
+// #1016: the key list held a bare "sid", a substring of residenceCountry / president / considered, so the person's own answers became <token>.
+test('a field name that merely contains "sid" is not a credential; a real sid, PHPSESSID or session key still is', () => {
+  const body = JSON.stringify({residenceCountry: 'Portugal', president: 'Rosa Alvarez', considered: 'Yes please', secretary: 'Maria Costa', possessionOf: 'a car and a house', sid: 's:AbCdEf0123456789xyz', PHPSESSID: 'abcdef0123456789abcdef', 'connect.sid': 's%3AAbCdEf0123456789xyz'});
+  const record = {bodies: new Map([['a', Buffer.from(body)]]), entries: [entry({url: 'https://jobs.example.test/api/me', type: 'fetch', headers: {'content-type': 'application/json'}, hash: 'a', size: body.length})]};
+  const text = everything(scrubRecord(record));
+  for (const kept of ['Portugal', 'Rosa Alvarez', 'Yes please', 'Maria Costa', 'a car and a house']) assert.ok(text.includes(kept), `lost: ${kept}`);
+  for (const gone of ['AbCdEf0123456789xyz', 'abcdef0123456789abcdef']) assert.ok(!text.includes(gone), `left: ${gone}`);
+});
+
 test('a package version in a CDN address (name@1.142.5) is not an e-mail, a real address still is', () => {
   const cdn = 'https://cdn.example.test/npm/@scope/theme@1.142.5/fonts/72-Regular.woff2';
   assert.deepEqual(personalHits(cdn, {values: new Map()}), []);

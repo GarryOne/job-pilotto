@@ -55,7 +55,7 @@ function blankTyped(html, counts) {
 
 // A session token, CSRF token or credential inside a body (an API answer carrying an auth token, a token in a page's meta tag or boot data), found by the FIELD NAME it sits in and by the shape of a
 // JWT / Bearer value, never by the value's words; it is replaced by <token>. A reported journey crosses more pages and answers, so this runs on every kept text body. Kinds only: counts.tokens.
-const SECRET_KEY = '(?:token|secret|passw(?:or)?d|passwd|csrf|xsrf|nonce|auth(?!or)|session|sid|jwt|bearer|api[_-]?key|access[_-]?key|credential|signature)';   // words-ok: field names of credentials
+const SECRET_KEY = '(?:token|secret(?!ar)|passw(?:or)?d|passwd|csrf|xsrf|nonce|auth(?!or)|(?<!pos|ob)session|sess?id|(?<![a-z])sid(?![a-z])|jwt|bearer|api[_-]?key|access[_-]?key|credential|signature)';   // words-ok: field names of credentials; sid only as its own word (not residenceCountry, president)
 const QUOTED_SECRET = new RegExp(`(["']?[\\w.-]{0,60}${SECRET_KEY}[\\w.-]{0,60}["']?\\s*[:=]\\s*)(["'])((?:(?!\\2)[^\\\\\\n]|\\\\.){6,}?)\\2`, 'gi');
 const BARE_SECRET = new RegExp(`(\\b[\\w.-]{0,60}${SECRET_KEY}[\\w.-]{0,60}=)([A-Za-z0-9._~+/%-]{10,})`, 'gi');   // key=value pairs of a form body or text
 const META_SECRET = new RegExp(`(<meta\\b[^>]*\\bname\\s*=\\s*["'][^"']*${SECRET_KEY}[^"']*["'][^>]*\\bcontent\\s*=\\s*)("[^"]*"|'[^']*')`, 'gi');
