@@ -126,6 +126,12 @@ class PaceTest(PaceCase):
         self.assertGreaterEqual(max(self.clock.slept), host_pace.BURST_GAP)
         self.assertGreater(host_pace._load()[host_pace.domain(self.base)]['gap'], 0)   # the site's pace stays slower
 
+    def test_a_401_after_a_fast_burst_is_never_retried(self):
+        for _ in range(host_pace.BURST_MIN):
+            self.read('/ok')
+        self.assertFalse(host_pace.answer(self.base, 401))   # a sign-in is an immediate no, burst or not
+        self.assertEqual(self.clock.slept, [])
+
     def test_a_403_from_a_site_not_hit_in_a_burst_is_asked_once(self):
         self.read('/ok')
         self.clock.now += 60

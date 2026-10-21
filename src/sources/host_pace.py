@@ -8,7 +8,7 @@ reports the answer (`answer`) when it fetches another way (the headless browser)
   it) and the job waits for the next run. Before 20 Oct 2026 one 429 parked a whole shared job-system host for 7 days.
 - A domain that never asked us to slow down is not waited for at all (START_GAP 0): a gap per domain from the start made a search's
   feed crawl 2-4x slower on its big job systems (measured on the sre/music search tapes, 20 Oct 2026, PR #1610).
-- A 401/403 that comes right after a fast burst (BURST_MIN requests within BURST_WINDOW seconds, no gap yet) is read once as "too fast", not
+- A 403 (never a 401, owner 22 Oct 2026) that comes right after a fast burst (BURST_MIN requests within BURST_WINDOW seconds, no gap yet) is read once as "too fast", not
   as a refusal (the 6 Oct 2026 jobs.ch 403 on a burst, lost when START_GAP went to 0): the gap becomes BURST_GAP, the request is tried again,
   and a 403 after that is the refusal it always was (#1640).
 - After SPEEDUP_AFTER answers in a row without a slow-down, the gap shrinks by SPEEDUP; under MIN_GAP it is dropped (back to no wait).
@@ -143,7 +143,7 @@ def answer(url, status, wait=None):
         state = _load()
         line = _line(state, key)
         now = clock()
-        if status in REFUSED and line['gap'] < BURST_GAP and len([t for t in line.get('recent', []) if t > now - BURST_WINDOW]) >= BURST_MIN:
+        if status == 403 and line['gap'] < BURST_GAP and len([t for t in line.get('recent', []) if t > now - BURST_WINDOW]) >= BURST_MIN:
             slow, wait = True, BURST_GAP   # a refusal right after a fast burst: slow down once before it counts
             line['recent'] = []
         line['at'] = now
