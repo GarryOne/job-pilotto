@@ -2,7 +2,7 @@
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {addressNow, stillOnPage} from './one-fill.js';
 import {KEY} from './tab-identity.js';
-import {attachDebugger, detachDebugger} from './stop-state.js';
+import {attachDebugger, detachDebugger, isStopped} from './stop-state.js';
 import {StepTimeout, within} from './step-bound.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
@@ -373,7 +373,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // The page fill threw or returned nothing (a control it did not expect, or the page went away): said as it is, never read as a result (page/fill.js reports the error and where).
   if (!summary || summary.error) {
     const why = summary?.error || 'the fill failed on this page: the page returned nothing';
-    decide('fill', 'the page fill failed', {error: String(why).slice(0, 200), at: String(summary?.pageError || '').slice(0, 300)}).catch(() => {});
+    if (!summary?.stopped && !isStopped()) decide('fill', 'the page fill failed', {error: String(why).slice(0, 200), at: String(summary?.pageError || '').slice(0, 300)}).catch(() => {});
     return {error: why, pageError: summary?.pageError || '', filled: 0, trace: [], todo: [], usd: 0};
   }
   if (summary?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // a layer opened mid-fill and nothing closed it: nothing more is typed (page/guard-gate.js)

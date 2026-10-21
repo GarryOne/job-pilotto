@@ -46,7 +46,7 @@
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
   $('.min').onclick = () => { userMoved = true; setOpen(false); };   // minimise: back to the pill
-  $('.x').onclick = () => { userMoved = true; setOpen(false); host.hidden = true; };   // close: the panel is out of the way until the page loads again (Stop stays: its own chip)
+  $('.x').onclick = () => { userMoved = true; setOpen(false); host.hidden = true; overlay.off(); };   // close: the panel is out of the way until the page loads again; the overlay goes with it and a later step does not bring it back, as the Stop is on the panel (#1558)
   for (const button of root.querySelectorAll('.stop-btn, .pill-stop')) button.onclick = event => { if (event.isTrusted) { button.disabled = true; button.textContent = 'Stopping…'; send({type: 'stop', reason: 'the Stop button in the panel'}).catch(() => {}); } };   // the one Stop (stop.js): in the live step row and beside the minimised pill
   // "Report", the one entry, in the footer of every state (owner, 16 Oct 2026): a popup on the panel (panel-report.js) that says what goes, takes a note and sends. A page script's click is ignored; a press that cannot open it says why.
   $('.report-btn').onclick = event => {
@@ -194,7 +194,8 @@
     stepped = true;
     $('.step-hint').textContent = /^check/i.test(text) ? 'Checking whether any fields need your input.' : /^(reading this page|putting back)/i.test(text) ? 'Looking for the application on this page.' : /^(apply button|logging in|creating your)/i.test(text) ? 'Taking you to the application form.' : 'Counts update as new fields appear.';   // our own step words, each with its sub-line (mockups 01/02)
     if (steps.at(-1) !== text) { steps.push(text); drawSteps(); }
-    overlay.on(); place(true);
+    if (!host.hidden) overlay.on();
+    place(true);
     const button = $('.fill');
     button.classList.add('is-busy');
     button.setAttribute('aria-busy', 'true');
