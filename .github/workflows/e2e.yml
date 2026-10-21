@@ -156,6 +156,7 @@ jobs:
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
           GATE_TAG: ${{ inputs.gate_tag }}
           OVER: ${{ steps.spend.outputs.over }}
+        shell: bash -eo pipefail {0}   # a program piped into tee/cat keeps its exit code (tests/test_workflow_pipefail.py)
         run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ] || [ -n "$PR_SUITES" ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"   # a pull request: no AI screenshot review
   suite:
     name: ${{ matrix.key }}
