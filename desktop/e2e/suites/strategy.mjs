@@ -10,6 +10,7 @@ import {closeRunningRows, ensureSection, findPagesBeside, pageSections, restoreS
 import {clearData} from '../lib/start-state.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
+import {view as viewRoles} from '../../lib/target-roles.js';
 
 export const realAi = false;   // every AI call is answered by the stand-in below; the harness fails the run if one reaches a real model
 export const engine = 'api';   // the suite relies on the AI proxy answering scoring calls locally, which needs the API engine (nothing reaches a real model on either turn)
@@ -44,9 +45,11 @@ const START = {   // the page's sections; on this Mac's store the same values go
 const fragment = entry => (entry.length > 2 && entry.startsWith('/') && entry.endsWith('/') ? entry.slice(1, -1)
   : entry.length > 2 && entry.startsWith('"') && entry.endsWith('"') ? `\\b${entry.slice(1, -1)}\\b` : entry);
 // START in the config files' shape (the same SECTIONS map as the engine's): what the page would have written into them.
+// The roles go in as the one list the app keeps (target_roles, 21 Oct 2026, 8c8bd70): the app derives role_keywords from it, so a draft with only role_keywords loses them.
+export const withRoles = (search, fragments) => ({...search, role_keywords: fragments, jobs_board_search_queries: [], target_roles: viewRoles({role_keywords: fragments})});
 export function sqliteStart(search, preferences) {
   const m = list => list.map(fragment);
-  return {search: {...search, role_keywords: m(START['Roles to look for']), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),
+  return {search: {...withRoles(search, m(START['Roles to look for'])), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),
     remote_excluded_regions: m(START['Remote jobs: regions to skip']),
     locations: {...search.locations, top_tier: m(START['Best places']), country_wide: m(START['Anywhere in the country']), abroad: m(START['Places abroad'])}},
   preferences: {...preferences, excluded_companies: START['Companies to skip']}};
@@ -209,7 +212,7 @@ export async function run(ctx) {
   if (!onNotion) {   // this Mac's store: the page's two edits made in the app instead; no page to reconnect to
     await ctx.run('a role changed in the app is used by the next check, and a removed role stops matching', async () => {
       const search = read('search.json');
-      await saveInApp({...search, role_keywords: [...search.role_keywords.filter(entry => !has([entry], ROLE)), GIRAFFE]}, read('preferences.json'), ['search']);
+      await saveInApp(withRoles(search, [...search.role_keywords.filter(entry => !has([entry], ROLE)), GIRAFFE]), read('preferences.json'), ['search']);
       addPosting('zebra.json', 3006, 'Senior Zebra Wrangler, Cloud');
       addPosting('zebra.json', 3007, 'Senior Giraffe Keeper, Cloud');
       const jobs = await check();
