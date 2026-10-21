@@ -11,6 +11,7 @@
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import fs from 'node:fs';
 import {replayFiles} from './replay-files.mjs';
 
 export const PROOF = /^desktop\/(e2e\/recorded\/|e2e\/ladder-fixtures\/|test\/journeys\.test\.js$)/;   // a recorded page, a ladder fixture (a decision fix) or a scenario
@@ -20,7 +21,17 @@ export const RECORDED_CASE = /^desktop\/e2e\/recorded\/([^/]+)\//;
 
 // The recorded cases (folder names) a push adds or changes.
 // The covered set: what a replay loads, plus every file of the flow.
-export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), ...flowFiles]);
+// The app modules the offline app merely loads (167 of desktop/lib) are not all "acting on pages" (owner, 22 Oct 2026: run-rows.js, a run record's display, asked for a recorded page).
+// Acting = the flow core's own files and the lib files they import directly; a loaded lib file outside that (a record mapper, a store, a log) only shows or keeps results. By structure, no list.
+const localImports = (root, file) => fs.existsSync(path.join(root, file)) ? [...fs.readFileSync(path.join(root, file), 'utf8').matchAll(/from\s+['"](\.[^'"]+)['"]|import\(['"](\.[^'"]+)['"]\)/g)].map(found => path.posix.normalize(path.posix.join(path.posix.dirname(file), found[1] || found[2]))) : [];
+export function actingAppFiles(root, flowFiles) {
+  const core = flowFiles.filter(file => file.startsWith('desktop/lib/'));
+  return new Set([...core, ...core.flatMap(file => localImports(root, file)).filter(file => file.startsWith('desktop/lib/'))]);
+}
+export const coveredFiles = (root, flowFiles) => {
+  const acting = actingAppFiles(root, flowFiles);
+  return new Set([...replayFiles(root)].filter(file => !file.startsWith('desktop/lib/') || acting.has(file)).concat(flowFiles));
+};
 
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
