@@ -12,9 +12,10 @@ import {renderDock} from './sessions.js';
 import {CHECK_MS} from '../session-state.js';
 import {toastMessage} from './startup.js';
 import {stopRunning} from '../stop-task.js';
-import {showSearchStatus, runButton} from './activity-basics.js';
+import {showSearchStatus} from './activity-basics.js';
 import {renderFindCard} from './jobs-find.js';
 import {showKeptStatusBar} from './activity-results.js';
+import {rerunKind} from './activity-problem-box.js';
 import {lastActivity, PANEL_HEIGHT, setPanelHeight, foldedWarnings, detailRunId, renderActivity, showMoreRuns, setFoldedWarnings} from './activity-render.js';
 import {showJumpToLatest, refreshActivity} from './activity-run-card.js';
 import {filterMenu, openActivity, announceRuns, refreshCv, QUESTIONS, currentAnswers} from './activity-panel.js';
@@ -81,8 +82,7 @@ export async function init() {
   $('activity-warnings-fix').addEventListener('click', event => {
     event.preventDefault();
     const {view, rerun, sites} = event.currentTarget.dataset;
-    if (rerun === 'visits' && sites) shared.visitsPreselect = JSON.parse(sites);   // the dialog ticks this run's sites (pages/actions.js)
-    if (rerun) runButton(rerun)?.click(); else if (view) openView(view);
+    if (rerun) rerunKind(rerun, sites ? JSON.parse(sites) : null); else if (view) openView(view);   // a browser run's dialog ticks this run's sites (pages/actions.js)
   });
   $('log').addEventListener('scroll', showJumpToLatest);
   $('log-latest').addEventListener('click', () => { $('log').scrollTop = $('log').scrollHeight; showJumpToLatest(); });

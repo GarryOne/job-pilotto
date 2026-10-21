@@ -3,16 +3,19 @@
 import {unseenRun, withShown, settledBy} from '../result-seen.js';
 import {el, pill} from '../components.js';
 import {plainMessage} from '../run-cards.js';
-import {runPill} from '../run-status.js';
+import {runPill, noResultHead} from '../run-status.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {clockTime, KIND, kindOf, runResults, capital, outcome, cardFor} from './activity-basics.js';
 import {lastActivity, renderActivity} from './activity-render.js';
 import {renderCardSkeleton, renderNoResult} from './activity-run-card.js';
+import {rerunTask} from './activity-problem-box.js';
+import {openView} from './nav.js';
 import {openActivity} from './activity-panel.js';
-function showActionsResult(run, kind, draw) {
+function showActionsResult(run, kind, draw, {pillOf = null} = {}) {
   show($('command-answer'), false);
-  const [label, tone] = run.ok && !run.off ? runPill(run) : ['Needs a look', 'bad'];
+  // A card with no result says how the run ended with the pill of its cause (Interrupted, Failed, No result); other cards keep "Needs a look" for a run that did not work.
+  const [label, tone] = pillOf ? pillOf : run.ok && !run.off ? runPill(run) : ['Needs a look', 'bad'];
   $('actions-result-head').replaceChildren(el('b', '', `${kind.icon} ${kind.name}`), pill(label, tone), el('span', 'muted', `Finished ${clockTime(run.endedAt || run.startedAt)}`));
   draw($('actions-card'));
   show($('actions-result'));
@@ -47,10 +50,13 @@ export function showAwaitedResult(runs, {opening = false} = {}) {
       return;
     }
     // The same card as in Recent activity (counts, top matches, the report); a run without a message gets what its row says and a plain "No result was saved" with Retry / Log, never skeleton bars.
-    const draw = cardFor(run, message) || (message ? (target => target.replaceChildren(el('p', 'run-card-note', plainMessage(message))))
-      : (target => renderNoResult(capital(outcome(run)), {retry: () => load(),
-        log: () => { shared.selectedRun = run.id; openActivity(true); }}, target)));
-    showActionsResult(run, kind, draw);
+    const card = cardFor(run, message);
+    const noResult = !card && !message;
+    const head = noResult ? noResultHead({...run, kind: kindOf(run)}, kind) : null;
+    const draw = card || (message ? (target => target.replaceChildren(el('p', 'run-card-note', plainMessage(message))))
+      : (target => renderNoResult(head, {log: () => { shared.selectedRun = run.id; openActivity(true); },
+        fix: head.fix?.retry ? () => load() : head.fix?.rerun ? () => rerunTask(run) : head.fix?.view ? () => openView(head.fix.view) : null}, target)));
+    showActionsResult(run, kind, draw, {pillOf: head && (head.pill || runPill({...run, kind: kindOf(run)}))});
     markResultSeen(run.id, settledBy(runs, run));
   };
   // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.

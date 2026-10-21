@@ -1592,12 +1592,14 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-actions { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .activity-panel .ap-detail-actions .activity-notion { margin: 0; }
 .activity-panel .activity-warnings, .activity-panel .activity-job { margin: 0; }
+.actions-result .run-problem { margin: 0; border: 0; border-radius: 0; }   /* the callout IS the card's body (its tint, no frame): no box in a box */
+.run-problem .ap-warn-icon { color: var(--tone); }
 /* The same box as an email card (activity.js mailCardRow): its padding, corners and spacing, in every state. */
-.activity-panel .activity-warnings { padding: var(--sp-4); border-radius: var(--r-lg); }
-.activity-panel .ap-warn-words { display: grid; gap: var(--sp-2); }
-.activity-panel .ap-warn-words > * { margin: 0; }
-.activity-panel .ap-warn-head strong { font-size: var(--fs-lg); }
-.activity-panel .activity-warnings p { margin: 0; }
+.activity-panel .activity-warnings, .run-problem { padding: var(--sp-4); border-radius: var(--r-lg); }
+.activity-panel .ap-warn-words, .run-problem .ap-warn-words { display: grid; gap: var(--sp-2); }
+.activity-panel .ap-warn-words > *, .run-problem .ap-warn-words > * { margin: 0; }
+.activity-panel .ap-warn-head strong, .run-problem .ap-warn-head strong { font-size: var(--fs-lg); }
+.activity-panel .activity-warnings p, .run-problem p { margin: 0; }
 .activity-panel .activity-warnings #activity-warnings-hint { margin-top: 0; color: var(--muted); }
 /* The details under the actions: quiet bullets, one line each, with room between them. */
 .activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); color: var(--ink-2); line-height: 1.5; }
