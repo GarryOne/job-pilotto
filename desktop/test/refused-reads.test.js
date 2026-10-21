@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {siteTest} from './site-private.js';
-import {queue, outcome, done, settingOn, passRunning} from '../lib/refused-reads.js';
+import {queue, outcome, done, settingOn, passRunning, takeOpenSwitch} from '../lib/refused-reads.js';
 import * as now from '../lib/refused-now.js';
 
 const storageWith = settings => { const kept = {...settings}; return {settings: () => kept, saveSettings: patch => Object.assign(kept, patch), kept}; };
@@ -124,4 +124,20 @@ test('a captcha met in the real tab goes to the engine flagged, and the site lin
   assert.deepEqual([sent[0].step, sent[0].captcha], ['tab', true]);
   assert.ok(lines.includes('  ▸ stopped · Coop · needs a quick check from you'), lines.join('|'));
   await done();
+});
+
+test('sites stopped for want of Allow in Incognito are counted by host, cleared once it is on, and Open Chrome\'s switch is handed out once', async () => {
+  const f = fakes(), storage = storageWith({readRefusedSites: true});
+  await queue(storage, {run: f.run, work: f.work, incognito: false, scoreArgs: () => ['src.desktop', 'score']});
+  process.env.__LAST_URL = 'https://jobs.coop.ch';
+  for (const url of ['https://jobs.coop.ch/a', 'https://jobs.coop.ch/b']) await outcome(storage, {url, status: 403, html: '', tabSkipped: 'incognito'}, {run: f.run});
+  assert.deepEqual(storage.kept.refusedIncognitoWaiting, ['jobs.coop.ch'], 'one host once');
+  await outcome(storage, {url: 'https://jobs.coop.ch', status: 403, html: ''}, {run: f.run});
+  await done();
+  await queue(storage, {run: f.run, work: f.work, incognito: true, scoreArgs: () => ['src.desktop', 'score']});
+  assert.deepEqual(storage.kept.refusedIncognitoWaiting, []);
+  await done();
+  assert.equal(takeOpenSwitch(storage), false);
+  storage.saveSettings({refusedOpenSwitch: true});
+  assert.deepEqual([takeOpenSwitch(storage), takeOpenSwitch(storage)], [true, false]);
 });

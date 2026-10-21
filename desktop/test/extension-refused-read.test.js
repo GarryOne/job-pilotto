@@ -93,3 +93,22 @@ test('a 429 is "slow down", never a ladder step: no tab is opened for it', async
   await pass({chrome: chromeWith(true), call, config: {}, fetchPage, tabs: {read: async url => { tabbed.push(url); return {skipped: 'x'}; }, close: async () => {}}, pause: async () => {}});
   assert.deepEqual(tabbed, []);
 });
+
+test('no Allow in Incognito: the page goes back marked, so the app can say which switch to press', async () => {
+  const calls = [];
+  const call = async (_cfg, path, init) => { calls.push([path, init?.body ? JSON.parse(init.body) : null]); return path === '/extension/refused-queue' ? {ok: true, on: true, sites: [{url: 'https://jobs.coop.ch'}]} : {ok: true}; };
+  const fetchPage = async () => ({status: 403, url: 'https://jobs.coop.ch', text: async () => ''});
+  const tabs = {read: async () => ({skipped: 'incognito'}), close: async () => {}};
+  await pass({chrome: chromeWith(true), call, config: {}, fetchPage, tabs, pause: async () => {}});
+  assert.equal(calls.find(([path]) => path === '/extension/refused-outcome')[1].tabSkipped, 'incognito');
+});
+
+test('Open Chrome\'s switch: the extension opens its own details page once, and only when the app asks', async () => {
+  const opened = [];
+  const chrome = {runtime: {id: 'abcdef'}, tabs: {create: async info => { opened.push(info.url); }}, permissions: {contains: async () => true}};
+  for (const [answer, expected] of [[{ok: true, pending: false}, []], [{ok: true, pending: false, openDetails: true}, ['chrome://extensions/?id=abcdef']]]) {
+    opened.length = 0;
+    await readNowIfAsked({chrome, call: async () => answer, config: {}});
+    assert.deepEqual(opened, expected);
+  }
+});
