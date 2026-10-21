@@ -141,5 +141,13 @@ class RefusedReadsTest(unittest.TestCase):
         self.assertEqual((refused_reads.READ_DAYS, refused_reads.MAX_QUEUE, refused_reads.CONCURRENCY), (30, 12, 1))
 
 
+class LongCheckPageTest(unittest.TestCase):
+    def test_a_long_check_page_is_a_bot_check_in_the_download_step_too(self):
+        long_check = '<html><head><title>Just a moment...</title><script>' + 'var a=1;' * 3500 + '</script></head><body>Checking your browser before accessing the site.</body></html>'
+        self.assertGreater(len(long_check), 20000)
+        self.assertEqual(refused_reads._stop_why(200, long_check, 'https://jobs.coop.ch/'), 'a bot check')
+        real = '<html><body>' + 'Offre d emploi ' * 2000 + '</body></html>'
+        self.assertEqual(refused_reads._stop_why(200, real, 'https://jobs.coop.ch/'), '')
+
 if __name__ == '__main__':
     unittest.main()
