@@ -10,7 +10,7 @@ const views = src.slice(src.indexOf('const VIEWS = {'), src.indexOf('const reloa
 const keys = [...src.matchAll(/^  \['(\w+)', '\w+', '[^']+', \[\[/gm)].map(match => match[1]);
 
 test('every target card has a read view, and each one is built from readRows alone', () => {
-  assert.deepEqual(keys.sort(), ['languages', 'places', 'queries', 'search', 'stack']);
+  assert.deepEqual(keys.sort(), ['languages', 'places', 'search', 'stack']);
   for (const key of keys) {
     const start = views.search(new RegExp(`^  ${key}\\(\\) \\{`, 'm'));
     assert.ok(start >= 0, `${key} has a read view`);
@@ -23,7 +23,7 @@ test('every target card has a read view, and each one is built from readRows alo
 
 test('no old row helper is left, and the lead lines sit in the card header', () => {
   assert.doesNotMatch(src, /function settingRow|settingRow\(/);
-  for (const key of ['queries', 'stack', 'languages']) assert.match(src, new RegExp(`LEADS = \\{[^}]*\\b${key}:`), `${key} has its lead in the header`);
+  for (const key of ['stack', 'languages']) assert.match(src, new RegExp(`LEADS = \\{[^}]*\\b${key}:`), `${key} has its lead in the header`);
 });
 
 test('Job preferences uses readRows too (Main goals is tiles, mockup 03)', () => {

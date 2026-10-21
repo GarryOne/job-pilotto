@@ -9,6 +9,7 @@ export const SCORE_USD = 0.015;       // one Sonnet 5 fit score, measured on the
 export const SCORES_PER_SEARCH = 60;  // the app's --score-max
 const FORM_ONLY = /contact|\blinks?\b|application form answers|📎/i;
 import {fragmentWords} from '../renderer/fragment-words.js';
+import {titlesOf} from './target-roles.js';
 export const wordsOf = fragmentWords;   // a crawl pattern as words (one rule for every screen)
 function sections(markdown, skipFormOnly = false) {
   const found = new Map();
@@ -39,8 +40,8 @@ export function rebuildGroups({search = {}, preferences = {}, profile = '', answ
   const next = draft.search || {}, places = search.locations || {}, nextPlaces = next.locations || {};
   const where = [...listChanges('Top cities', places.top_tier, nextPlaces.top_tier), ...listChanges('Country', places.country_wide, nextPlaces.country_wide),
     ...listChanges('Abroad', places.abroad, nextPlaces.abroad), ...listChanges('Remote excluded for', search.remote_excluded_regions, next.remote_excluded_regions)];
-  const searchChanges = [...listChanges('Roles', search.role_keywords, next.role_keywords), ...listChanges('Level', search.level, next.level),
-    ...listChanges('Job board searches', search.jobs_board_search_queries, next.jobs_board_search_queries), ...where,
+  const searchChanges = [...listChanges('Target roles', titlesOf(search), titlesOf(next)), ...listChanges('Level', search.level, next.level),
+    ...where,
     ...listChanges('Excluded titles', search.title_exclude_keywords, next.title_exclude_keywords),
     ...listChanges('Key skills and tools', search.quality_stack_keywords, next.quality_stack_keywords)];
   const prefs = draft.preferences || {};

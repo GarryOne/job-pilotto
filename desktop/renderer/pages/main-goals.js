@@ -62,7 +62,7 @@ function fromDetails() {
 }
 
 function editor() {
-  const rows = [{label: 'Target roles', control: listChips('roles', 'Add a job title'), hint: 'The job titles your search looks for.'}];
+  const rows = [{label: 'Target roles', control: listChips('roles', 'Add a job title'), hint: 'The job titles your search looks for. The first 5 (with the magnifier) are also searched on job boards.'}];
   for (const [key, , label] of TILES.slice(1)) {
     const kind = GOAL_KINDS[key], saved = savedGoals()[key] || '';
     const format = formatFor({marked: {kind: kind.kind, options: kind.options || []}});

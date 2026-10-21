@@ -40,7 +40,7 @@ INTRO = ('What Jobadabra looks for. Edit freely: one entry per bullet; the next 
 # (heading, file, path in that file, kind): 'match' entries become regex fragments; 'text' are used as written;
 # 'number' is one number; 'place' is "Location · language" for Google Jobs.
 SECTIONS = [
-    ('Roles to look for', 'search', ('role_keywords',), 'match'),
+    ('Target roles', 'search', ('target_roles',), 'roles'),   # one list of titles, the first 5 also searched on job boards (src/target_roles.py)
     ('Your level', 'search', ('level',), 'text'),
     ('Job titles to skip', 'search', ('title_exclude_keywords',), 'match'),
     ('Skills that make a job a better match', 'search', ('quality_stack_keywords',), 'match'),
@@ -56,11 +56,11 @@ SECTIONS = [
     ('Languages that rule a job out', 'preferences', ('disqualifying_languages',), 'text'),
     ('Minimum fit score for the digest', 'preferences', ('digest_min_score',), 'number'),
     ('Daily applications target', 'preferences', ('daily_applications_target',), 'number'),
-    ('Job board searches', 'search', ('jobs_board_search_queries',), 'text'),
     ('Words that find new employers', 'search', ('board_discovery_keywords',), 'match'),
     ('Google Jobs searches', 'search', ('google_jobs', 'queries'), 'text'),
     ('Google Jobs places', 'search', ('google_jobs', 'locations'), 'place'),
 ]
+LEGACY = {'roles to look for': ('search', ('role_keywords',), 'match'), 'job board searches': ('search', ('jobs_board_search_queries',), 'text')}
 ACCENTS = {'u': 'ü', 'o': 'ö', 'a': 'ä'}  # Swiss German umlauts: "zürich" also finds "Zurich"
 META = set('\\^$.|?*+()[]{}')
 
@@ -167,6 +167,9 @@ def render(files=None, show=None, intro=None):
     out = [intro or INTRO, '']
     for heading, name, path, kind in SECTIONS:
         value = _get(files[name], path)
+        if kind == 'roles':
+            from .. import target_roles
+            value = target_roles.view(files[name]) or None
         if value is None:
             continue
         out.append(f'## {heading}')
@@ -174,6 +177,8 @@ def render(files=None, show=None, intro=None):
             out.append(f'- {value}')
         elif kind == 'place':
             out += [f"- {p['location']} · {p.get('language', '')}".rstrip(' ·') for p in value]
+        elif kind == 'roles':
+            out += [f"- {role['title']}" for role in value]
         else:
             out += [f'- {show(v) if kind == "match" else v}' for v in value]
         out.append('')
@@ -191,11 +196,12 @@ def _unique(entries):
     return out
 
 
-def parse(text, to_fragment=None):
+def parse(text, to_fragment=None, join_legacy=True):
     """Page text (as Tracker.page_text gives it: "## Heading" and "- entry" lines) -> {(file, path): value}.
     A page without "Format 2" is read with the older whole-word rule, so its meaning never changes silently."""
     to_fragment = to_fragment or (fragment_of if FORMAT in text else fragment_v1)
     by_heading = {heading.lower(): (name, path, kind) for heading, name, path, kind in SECTIONS}
+    by_heading.update(LEGACY)   # a page from before the one list (21 Oct 2026): read, and joined into "Target roles" below
     found, current = {}, None
     for line in text.splitlines():
         line = line.strip()
@@ -220,10 +226,19 @@ def parse(text, to_fragment=None):
                 location, _, language = entry.partition(' · ')
                 places.append({'location': location.strip(), **({'language': language.strip()} if language.strip() else {})})
             values[(name, path)] = [p for i, p in enumerate(places) if p not in places[:i]]
+        elif kind == 'roles':
+            values[(name, path)] = _unique(entries)   # titles as typed; apply() joins them to the variants kept in the cache
         elif kind == 'match':
             values[(name, path)] = _unique([to_fragment(entry) for entry in entries])
         else:
             values[(name, path)] = entries
+    legacy = {path: values.pop((name, path)) for (name, path) in [('search', ('role_keywords',)), ('search', ('jobs_board_search_queries',))] if (name, path) in values}
+    if not join_legacy:
+        values.update({('search', path): value for path, value in legacy.items()})   # sync() decides what a page that still shows the two old lists means
+    elif legacy and ('search', ('target_roles',)) not in values:
+        from .. import target_roles
+        roles = target_roles.view({'role_keywords': legacy.get(('role_keywords',)), 'jobs_board_search_queries': legacy.get(('jobs_board_search_queries',))})
+        values[('search', ('target_roles',))] = roles   # joined to the cached variants by apply()
     return values
 
 
@@ -233,11 +248,25 @@ def _is_tracked_example_dir():
             and 'unittest' not in sys.modules and CONFIG == ROOT / 'config')
 
 
+def _roles_from_titles(search, titles):
+    """The titles of the page's "Target roles" section as the stored list: a title already in the cache keeps its variants and its own fragment."""
+    from .. import target_roles
+    if titles and isinstance(titles[0], dict):
+        return titles   # already the stored list (src/target_roles.py migrate)
+    have = {' '.join(role['title'].split()).lower(): role for role in target_roles.view(search)}
+    return [dict(have.get(' '.join(title.split()).lower()) or {'title': ' '.join(title.split()), 'also': []}, title=' '.join(title.split())) for title in titles]
+
+
 def apply(values, files=None):
     """Merge parsed values into the cached settings and write them; returns the files."""
     files = {name: _without_notes(data) for name, data in (files or load_cached()).items()}   # a "_" key is a note of the example files, never a setting
     for (name, path), value in values.items():
+        if path == ('target_roles',):
+            value = _roles_from_titles(files[name], value)
         _set(files[name], path, value)
+    if ('search', ('target_roles',)) in values:
+        from .. import target_roles
+        files['search'] = target_roles.with_derived(files['search'])   # role_keywords and the searches follow the one list
     if _is_tracked_example_dir():
         # A source checkout with no config folder of its own: config/ here is the example files the repo ships (public). The user's
         # real settings must never be written over them (1 Oct 2026: they were, then nearly committed). The desktop app and the
@@ -263,7 +292,11 @@ def sync(tracker=None, page_id=PAGE_ID):
     if FORMAT not in text:  # first format: wait for `upgrade` (the app runs it) so no meaning changes silently
         print('Search settings: the Notion page is in the older format; using the last copy until the app updates it.')
         return False
-    values = parse(text)
+    stale = '## Target roles' not in text   # a page still showing the two old lists
+    values = parse(text, join_legacy=False)
+    if stale and isinstance(load_cached()['search'].get('target_roles'), list):
+        for path in (('role_keywords',), ('jobs_board_search_queries',)):
+            values.pop(('search', path), None)   # behind the cache, which is merged already: the app republishes the page
     if values:
         before = load_cached()
         apply(values)

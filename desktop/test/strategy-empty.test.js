@@ -19,10 +19,10 @@ function storage() {
   return made;
 }
 const FULL = {summary: 'Senior full-stack roles in Cluj', profile_markdown: '# Hard constraints\n- Cluj-Napoca', answers_markdown: '# Eligibility\n- EU citizen',
-  search: {role_keywords: ['full[- ]?stack', 'backend (engineer|developer)'], jobs_board_search_queries: ['full stack developer'],
+  search: {target_roles: ['full stack developer', 'backend engineer'],
     locations: {top_tier: ['cluj'], country_wide: ['romania'], abroad: []}}};
 const EMPTY = {summary: 'x', profile_markdown: '# Hard constraints', answers_markdown: 'placeholder',
-  search: {role_keywords: [], jobs_board_search_queries: [], locations: {top_tier: [], country_wide: [], abroad: []}}};
+  search: {target_roles: [], locations: {top_tier: [], country_wide: [], abroad: []}}};
 function client(...answers) {
   const seen = [];
   return {seen, messages: {create: async request => {
@@ -36,14 +36,15 @@ test('an empty draft is asked again once, naming what it left empty, and the sec
   const ai = client(EMPTY, FULL);
   const result = await strategy.draft(storage(), {}, 'sk-ant-x', ai);
   assert.equal(ai.seen.length, 2);
-  assert.match(lastText(ai.seen[1]), /left search roles, job board searches empty/);
+  assert.match(lastText(ai.seen[1]), /left target roles empty/);
   assert.equal(ai.seen[1].messages[0].content[0].type, 'document', 'the CV is sent again');
-  assert.deepEqual(result.search.role_keywords, FULL.search.role_keywords);
+  assert.deepEqual(result.search.role_keywords, ['full stack developer', 'backend engineer']);   // the one list gives the engine's two keys
+  assert.deepEqual(result.search.jobs_board_search_queries, ['full stack developer', 'backend engineer']);
   assert.equal(result.usd, 0.1);
 });
 
 test('a draft still empty after the second ask is refused, never saved as a search that matches nothing', async () => {
-  await assert.rejects(strategy.draft(storage(), {}, 'sk-ant-x', client(EMPTY, EMPTY)), /The draft came back without search roles, job board searches; try again/);
+  await assert.rejects(strategy.draft(storage(), {}, 'sk-ant-x', client(EMPTY, EMPTY)), /The draft came back without target roles; try again/);
 });
 
 test('a full draft is asked once', async () => {
@@ -54,10 +55,10 @@ test('a full draft is asked once', async () => {
 
 test('every part the search needs is checked on its own', () => {
   assert.deepEqual(emptyParts(FULL), []);
-  for (const [part, key] of [['search roles', 'role_keywords'], ['job board searches', 'jobs_board_search_queries']]) {
+  for (const [part, key] of [['target roles', 'target_roles']]) {
     assert.ok(part in PARTS, part);
     assert.deepEqual(emptyParts({...FULL, search: {...FULL.search, [key]: []}}), [part]);
   }
-  assert.equal(Object.keys(PARTS).length, 2, 'a new part: add it to the loop above');
+  assert.equal(Object.keys(PARTS).length, 1, 'a new part: add it to the loop above');
   assert.deepEqual(emptyParts({}), Object.keys(PARTS), 'no search at all');
 });

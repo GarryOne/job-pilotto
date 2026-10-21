@@ -47,6 +47,8 @@ def main():
                     print('⏳ Checking your search settings in Notion', file=sys.stderr, flush=True)
                 from .notion import search_settings
                 search_settings.sync_quietly()
+                from . import target_roles
+                target_roles.migrate_quietly()   # an old file's roles and searches become one list (AI groups the short forms once)
                 from . import places
                 places.refresh_quietly()   # "Germany", "Asia": the cities they stand for, worked out once and kept (src/places.py)
                 return importlib.import_module(commands[name]).main() or 0

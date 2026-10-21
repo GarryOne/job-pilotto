@@ -8,6 +8,7 @@ import * as notion from './notion.js';   // Notion-only: the Profile/answers tex
 import * as notionGate from './notion-gate.js';
 import {withoutNotes} from './config-text.js';
 import {writePrivate} from './private-file.js';
+import {dropFragment, editTitles, hasFragment, titlesOf, view as viewRoles, withDerived} from './target-roles.js';
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
 // The Profile and standard answers: the Notion pages once Notion is connected (the only copy). Before that (Trying, see
@@ -70,6 +71,17 @@ export async function publishSearchSettings(storage, {run, ensurePage, writePage
   forgetPageCopy(storage, page);
   return page;
 }
+// Target roles, one list (21 Oct 2026): a settings file that still has the two lists (roles, job board searches) is merged once by the engine, which asks
+// the AI which short forms are the same job (src/target_roles.py, a few cents at most); then the Notion page is rewritten from the file. Returns whether it merged.
+export async function oneRolesList(storage, deps) {
+  let search;
+  try { search = JSON.parse(storage.readText('config/search.json') || '{}'); } catch { return false; }
+  if (Array.isArray(search.target_roles) || !viewRoles(search).length) return false;
+  const {stdout} = await deps.run(storage, ['src.target_roles', 'migrate']);
+  if (!/merged/.test(stdout)) return false;   // no AI now: the two lists keep working, asked again next time
+  await publishSearchSettings(storage, deps);
+  return true;
+}
 // The engine keeps a copy of each Notion page it read (src/notion/client.py _kept_page_text). Just written, that copy is old: dropped, so the next
 // search reads the page itself (7 Oct 2026: a copy from the minute of an earlier save brought "suisse" back on every search).
 export function forgetPageCopy(storage, page) {
@@ -108,9 +120,7 @@ export const ROLE_TERM = /^\p{L}[\p{L}0-9+#.\- ]{1,38}[\p{L}0-9+#]$/iu;   // any
 export const escapeRegex = term => term.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
 export function addRoles(storage, terms, deps) {
   const wanted = [...new Set((Array.isArray(terms) ? terms : []).map(term => String(term).trim().toLowerCase()).filter(term => ROLE_TERM.test(term)))].slice(0, 10);
-  const list = search => search.role_keywords || [];
-  return widen(storage, wanted.map(term => ({label: term, fragment: escapeRegex(term)})), list,
-    (search, entries) => ({...search, role_keywords: [...list(search), ...entries]}), deps);
+  return widen(storage, wanted.map(term => ({label: term, fragment: term})), titlesOf, (search, titles) => editTitles(search, {add: titles}), deps);   // one list of titles (lib/target-roles.js)
 }
 
 // Places the app offered after a search (src/coverage.py PLACE_OPTIONS): the caller passes the offered fragments only. They join
@@ -195,13 +205,13 @@ export async function loosen(storage, {excludes = [], languages = []}, {run, ens
 export function tuned(search, chosen) {
   const has = (list, fragment) => list.some(entry => String(entry).toLowerCase() === fragment.toLowerCase());
   return chosen.every(item => item.kind === 'exclude_title' ? has(search.title_exclude_keywords || [], item.fragment)
-    : !has(item.kind === 'drop_role' ? search.role_keywords || [] : search.locations?.[item.list] || [], item.fragment));
+    : item.kind === 'drop_role' ? !hasFragment(search, item.fragment) : !has(search.locations?.[item.list] || [], item.fragment));
 }
 export function applyTune(search, chosen) {
   const next = {...search, locations: {...search.locations}};
   const without = (list, fragment) => (list || []).filter(entry => String(entry).toLowerCase() !== fragment.toLowerCase());
   for (const item of chosen) {
-    if (item.kind === 'drop_role') next.role_keywords = without(next.role_keywords, item.fragment);
+    if (item.kind === 'drop_role') Object.assign(next, dropFragment(next, item.fragment));
     else if (item.kind === 'drop_place' && ['top_tier', 'country_wide', 'abroad'].includes(item.list)) next.locations[item.list] = without(next.locations[item.list], item.fragment);
     else if (item.kind === 'exclude_title' && !tuned(next, [item])) next.title_exclude_keywords = [...(next.title_exclude_keywords || []), item.fragment];
   }
@@ -240,7 +250,7 @@ export function save(storage, accepted) {
     const current = JSON.parse(storage.readText('config/search.json') || '{}');
     const google = {...(current.google_jobs || {}), ...accepted.search.google_jobs,
       searches_per_run: current.google_jobs?.searches_per_run ?? 1, min_searches_left: current.google_jobs?.min_searches_left ?? 20};
-    storage.writeText('config/search.json', JSON.stringify(withoutNotes({...current, ...accepted.search, google_jobs: google}), null, 2) + '\n');   // a note is never a setting (lib/config-text.js)
+    storage.writeText('config/search.json', JSON.stringify(withoutNotes(withDerived({...current, ...accepted.search, google_jobs: google})), null, 2) + '\n');   // the one list of roles gives role_keywords and the searches   // a note is never a setting (lib/config-text.js)
   }
   if (accepted.preferences) {
     const preferences = JSON.parse(storage.readText('config/preferences.json') || '{}');

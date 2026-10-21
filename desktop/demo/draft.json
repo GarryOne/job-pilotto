@@ -18,12 +18,13 @@
    "What is your notice period?"
   ],
   "search": {
-   "role_keywords": [
-    "site reliability",
-    "\\bsre\\b",
-    "platform engineer",
-    "devops engineer",
-    "infrastructure engineer"
+   "target_roles": [
+    "Site Reliability Engineer",
+    "Platform Engineer",
+    "DevOps Engineer",
+    "Infrastructure Engineer",
+    "Cloud Engineer",
+    "Systems Administrator"
    ],
    "title_exclude_keywords": [
     "intern",
@@ -32,11 +33,6 @@
    "board_discovery_keywords": [
     "devops",
     "sre"
-   ],
-   "jobs_board_search_queries": [
-    "site reliability engineer",
-    "platform engineer",
-    "devops engineer"
    ],
    "quality_stack_keywords": [
     "kubernetes",

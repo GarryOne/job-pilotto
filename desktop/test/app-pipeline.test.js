@@ -10,7 +10,7 @@ import * as strategy from '../lib/strategy.js';
 import {createStorage} from '../lib/storage.js';
 import {cleanSecret} from '../lib/secrets.js';
 
-const SEARCH_LISTS = {role_keywords: ['sre'], jobs_board_search_queries: ['site reliability engineer']};   // every draft has them (lib/strategy-empty.js)
+const SEARCH_LISTS = {target_roles: ['site reliability engineer', 'sre']};   // every draft has them (lib/strategy-empty.js)
 
 // Stand-in for safeStorage: reversible, and obviously not plain text on disk.
 const fakeCrypto = {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()};
@@ -89,8 +89,8 @@ test('strategy draft: CV as a PDF document, structured output; only the search s
   const reply = {
     summary: 'Set up for SRE roles in Zurich.', profile_markdown: '# Hard constraints\n- EU citizen',
     answers_markdown: '# Eligibility\n- No sponsorship', open_questions: ['Salary in EUR?'],
-    search: {role_keywords: ['site reliability'], title_exclude_keywords: ['intern'], board_discovery_keywords: ['devops'],
-      jobs_board_search_queries: ['site reliability engineer'], quality_stack_keywords: ['kubernetes'],
+    search: {target_roles: ['site reliability engineer'], title_exclude_keywords: ['intern'], board_discovery_keywords: ['devops'],
+      quality_stack_keywords: ['kubernetes'],
       locations: {top_tier: ['z[uü]rich'], country_wide: ['switzerland'], abroad: []}, remote_excluded_regions: ['\\busa?\\b'],
       google_jobs: {queries: ['sre'], country: 'ch', locations: [{location: 'Zurich,Zurich,Switzerland', language: 'de'}]}},
     preferences: {disqualifying_languages: ['German'], excluded_companies: ['Acme']},
@@ -108,7 +108,8 @@ test('strategy draft: CV as a PDF document, structured output; only the search s
   strategy.save(storage, result);
   assert.equal(storage.readText('profile.md'), '');  // the Profile goes to Notion, not the Mac
   const search = JSON.parse(storage.readText('config/search.json'));
-  assert.deepEqual(search.role_keywords, ['site reliability']);
+  assert.deepEqual(search.role_keywords, ['site reliability engineer']);   // written from the one list
+  assert.deepEqual(search.jobs_board_search_queries, ['site reliability engineer']);
   assert.equal(search.google_jobs.searches_per_run, 1);
   const preferences = JSON.parse(storage.readText('config/preferences.json'));
   assert.deepEqual(preferences.excluded_companies, ['Acme']);
@@ -172,7 +173,7 @@ test('strategy draft streams: progress names the part being written and grows to
   pipeline.ensureConfig(storage);
   storage.writeText('cv.pdf', '%PDF-1.4 fake');
   const text = JSON.stringify({summary: 'S'.repeat(120), profile_markdown: 'P'.repeat(400), answers_markdown: 'A'.repeat(300), open_questions: [],
-    search: {role_keywords: ['sre'], title_exclude_keywords: [], board_discovery_keywords: [], jobs_board_search_queries: ['sre'],
+    search: {target_roles: ['sre'], title_exclude_keywords: [], board_discovery_keywords: [],
       quality_stack_keywords: [], locations: {top_tier: [], country_wide: [], abroad: []}, remote_excluded_regions: [],
       google_jobs: {queries: [], country: 'ch', locations: []}}, preferences: {disqualifying_languages: [], excluded_companies: []}});
   const client = {messages: {stream: () => {
@@ -284,12 +285,12 @@ test('while the strategy is drafted, the screen lists what Claude has finished s
   const {notes} = await import('../lib/strategy.js');
   const full = JSON.stringify({summary: 'Senior SRE roles in Zurich.', profile_markdown: '# Hard constraints\n- EU citizen\n# Compensation\n- CHF 150k',
     answers_markdown: '# Eligibility\n- No sponsorship', open_questions: ['Notice period?'],
-    search: {role_keywords: ['site reliability', '\\bsre\\b'], locations: {top_tier: ['z[uü]rich'], country_wide: [], abroad: []}},
+    search: {target_roles: ['site reliability', 'sre'], locations: {top_tier: ['z[uü]rich'], country_wide: [], abroad: []}},
     preferences: {disqualifying_languages: ['German']}, contact: {email: 'a@b.c'}});
   const early = notes(full.slice(0, full.indexOf('"answers_markdown"') + 25));
   assert.deepEqual(early, ['Summary: Senior SRE roles in Zurich.', 'Profile: Hard constraints', 'Profile: Compensation', 'Profile written']);
   const all = notes(full);
-  for (const line of ['Standard answers: Eligibility', 'Things for you to check: 1', 'Roles to look for: site reliability, sre',
+  for (const line of ['Standard answers: Eligibility', 'Things for you to check: 1', 'Target roles: site reliability, sre',
     'Best places: zürich', 'Jobs requiring German will be hidden', 'Contact details found in your CV']) assert.ok(all.includes(line), line);
 });
 

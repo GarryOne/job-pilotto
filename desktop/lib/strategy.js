@@ -6,11 +6,12 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {wordsOf} from './strategy-rebuild.js';
-export {DEFAULT_TARGET, ROLE_TERM, SEARCH_SETTINGS_TITLE, addPlaces, addRoles, applyTune, chooseOffered, clampTarget, dailyTarget, dropLocalCopies, forgetPageCopy, keepLocally, loosen, profileTexts, publishSearchSettings, retune, save, saveLocal, setDailyTarget, tuned} from './strategy-settings.js';
+export {DEFAULT_TARGET, ROLE_TERM, SEARCH_SETTINGS_TITLE, addPlaces, addRoles, applyTune, chooseOffered, clampTarget, dailyTarget, dropLocalCopies, forgetPageCopy, keepLocally, loosen, oneRolesList, profileTexts, publishSearchSettings, retune, save, saveLocal, setDailyTarget, tuned} from './strategy-settings.js';
 export {EDITABLE_LISTS, applyEdits, cleanEdits, editLists, edited} from './strategy-edit.js';
 export {SCORES_PER_SEARCH, SCORE_USD, rebuildGroups, wordsOf} from './strategy-rebuild.js';
 import {REPO} from './pipeline.js';
 import {askAgainNote, emptyParts} from './strategy-empty.js';
+import {withDerived} from './target-roles.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override is for the end-to-end journey (desktop/e2e): every step on Haiku
 const PRICE = {input: 2, output: 10}; // USD per million tokens, claude-sonnet-5-5
@@ -28,8 +29,8 @@ export const DRAFT_SCHEMA = object({
   answers_markdown: {type: 'string'},
   open_questions: list,
   search: object({
-    role_keywords: list, level: list, title_exclude_keywords: list, board_discovery_keywords: list,
-    jobs_board_search_queries: list, quality_stack_keywords: list,
+    target_roles: list, level: list, title_exclude_keywords: list, board_discovery_keywords: list,
+    quality_stack_keywords: list,
     locations: object({top_tier: list, country_wide: list, abroad: list}),
     remote_excluded_regions: list,
     google_jobs: object({
@@ -107,7 +108,7 @@ Write:
 0. goals: those proposals in a few words each (seniority, work_mode, minimum_salary, languages). The same values go into the Profile below.
 1. profile_markdown: the user's Profile, following the "Profile — CV and Preferences" template's headings. Facts only from the CV and the note, plus the goals above (keep the template's row names "Work mode", "Languages I can work in", "Minimum seniority" and the Compensation line "Minimum acceptable:", so the user's corrections land in the right place). Keep its "🛂 Work eligibility", "💶 Availability & compensation" and "🗣️ Languages" headings and their line labels as written: each fact goes on its one line there, nowhere else. No contact or links section: the app writes those itself, from the "contact" field. Mark anything else unknown (work permit, notice period…) with ❓ (the app treats ❓ as "ask the user", never as a fact).
 2. answers_markdown: their standard application answers, following the "Application Answers" template, same rule for ❓. Include a short "Cover letter style" section inferred from how the CV is written.
-3. search: what the job crawler looks for. Values in role_keywords, title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer", "registered nurse", "\\\\bhr\\\\b"). level is one word for the seniority they are looking for, "junior", "mid", "senior" or "lead" (from the Level goal above), or an empty list when the CV does not make it clear: it skips postings whose title plainly names another level, so leave it empty rather than guess. locations.top_tier and country_wide may use a region word instead of a list of towns when it fits ("Switzerland", "Romandie", "Deutschschweiz", "Ticino", "Greater Zurich", "Basel region", "Lake Geneva", "Central Switzerland", "Eastern Switzerland", "Mittelland"). Whatever their profession, take the role titles and the skills, tools, systems and certifications from their own CV, not from IT: quality_stack_keywords are the ones that make a job a better match for them ("sql" for an analyst, "bls" for a nurse, "datev" for an accountant). jobs_board_search_queries (3 to 6) are what a job board's search box is asked: each the role title alone, one to three words, in the language job ads in their places use (e.g. "lkw fahrer", "site reliability engineer", "comptable"), with no seniority level, no town, no contract or hours words: the board's own place field and the crawler's role, level and place filters do the narrowing, and a longer phrase makes boards return fewer jobs or unrelated ones. google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
+3. search: what the job crawler looks for. Values in title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer", "registered nurse", "\\\\bhr\\\\b"). level is one word for the seniority they are looking for, "junior", "mid", "senior" or "lead" (from the Level goal above), or an empty list when the CV does not make it clear: it skips postings whose title plainly names another level, so leave it empty rather than guess. locations.top_tier and country_wide may use a region word instead of a list of towns when it fits ("Switzerland", "Romandie", "Deutschschweiz", "Ticino", "Greater Zurich", "Basel region", "Lake Geneva", "Central Switzerland", "Eastern Switzerland", "Mittelland"). Whatever their profession, take the role titles and the skills, tools, systems and certifications from their own CV, not from IT: quality_stack_keywords are the ones that make a job a better match for them ("sql" for an analyst, "bls" for a nurse, "datev" for an accountant). target_roles (6 to 10) are the job titles they look for, most important first, each a real job title alone, one to three words, in the language job ads in their places use (e.g. "lkw fahrer", "site reliability engineer", "comptable"), with no seniority level, no town, no contract or hours words and no regex: every title is matched against posting titles, and the first five are also typed into job boards' search boxes, where a longer phrase makes boards return fewer jobs or unrelated ones (the board's own place field and the crawler's level and place filters do the narrowing). Do not list a short form or spelling of a title as a title of its own. google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
 4. preferences.disqualifying_languages: only languages the CV or note says they can't work in; [] when neither says (a language missing from the CV is not one of them). excluded_companies: companies to skip (their current employer, and any the note names). work_rights: where they can work without a visa, from their citizenship or permits in the CV or note: their own country (a country name, lower case), and \"eu\" when they are an EU citizen; [] when the CV does not say. Never assume it from where they live now.
 5. summary: at most 2 short sentences to the user, addressing them as "you" (never by name, never "I've set up"), saying what you'll search for and what they should check. open_questions: what they should still answer, short.
 Leave out template rows and links that don't fit their kind of work instead of marking them ❓ (e.g. GitHub, On-call and "IC only, or tech lead" for someone outside software); ask with ❓ only what changes which jobs fit them or what a form needs from them. A link the CV does not show but that could still fit them (GitHub, a portfolio) stays as "❓ optional" so it is not counted as missing.
@@ -174,8 +175,8 @@ export function notes(text) {
     const m = text.match(new RegExp(`"${key}"\\s*:\\s*\\[((?:[^\\]"]|"(?:[^"\\\\]|\\\\.)*")*)\\]`));
     return m ? (m[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map(s => s.slice(1, -1).replace(/\\\\b/g, '').replace(/\\\\/g, '').replace(/\[[a-z]([^\]])\]/g, '$1')) : null;
   };
-  const roles = list('role_keywords');
-  if (roles) out.push(`Roles to look for: ${roles.slice(0, 6).join(', ')}${roles.length > 6 ? '…' : ''}`);
+  const roles = list('target_roles');
+  if (roles) out.push(`Target roles: ${roles.slice(0, 6).join(', ')}${roles.length > 6 ? '…' : ''}`);
   const places = list('top_tier');
   if (places) out.push(`Best places: ${places.slice(0, 5).join(', ')}${places.length > 5 ? '…' : ''}`);
   const languages = list('disqualifying_languages');
@@ -260,7 +261,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(withoutUnknownGithub(result.profile_markdown, result.contact), answers);
   result.answers_markdown = withoutUnknownGithub(result.answers_markdown, result.contact);
   if (result.preferences) result.preferences = keepKnown(result.preferences, known);
-  if (result.search) result.search = withRemoteDefaults(result.search);
+  if (result.search) result.search = withDerived(withRemoteDefaults(result.search));   // target_roles (titles) -> the stored list, role_keywords and the job board searches
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
   result.usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;

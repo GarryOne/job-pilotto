@@ -7,8 +7,10 @@ import {test} from 'node:test';
 import {INSTRUCTIONS} from '../lib/strategy.js';
 
 test('board searches are the role title alone: no level, town or contract words', () => {
-  const rule = INSTRUCTIONS.slice(INSTRUCTIONS.indexOf('jobs_board_search_queries'));
-  assert.match(rule, /role title alone/);
+  const rule = INSTRUCTIONS.slice(INSTRUCTIONS.indexOf('target_roles (6 to 10)'));   // one list since 21 Oct 2026: the first five titles are the board searches
+  assert.match(rule, /real job title alone/);
+  assert.match(rule, /the first five are also typed into job boards' search boxes/);
+  assert.doesNotMatch(INSTRUCTIONS, /jobs_board_search_queries|role_keywords/, 'the AI writes one list');
   assert.match(rule, /no seniority level, no town, no contract or hours words/);
   assert.match(rule, /in the language job ads in their places use/);
 });

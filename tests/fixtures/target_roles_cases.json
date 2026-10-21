@@ -1,0 +1,17 @@
+[
+  {"name": "two lists read as one, searches first",
+   "search": {"role_keywords": ["registered nurse", "rn", "staff nurse", "\\bsister\\b"], "jobs_board_search_queries": ["Registered Nurse", "Staff Nurse"]},
+   "titles": ["Registered Nurse", "Staff Nurse", "rn", "sister"],
+   "role_keywords": ["registered nurse", "staff nurse", "rn", "\\bsister\\b"],
+   "queries": ["Registered Nurse", "Staff Nurse", "rn", "sister"]},
+  {"name": "a regex form and an escaped title keep their meaning",
+   "search": {"role_keywords": ["intern(ship)?", "c\\+\\+ developer", "z[uü]rich"], "jobs_board_search_queries": []},
+   "titles": ["/intern(ship)?/", "c++ developer", "zürich"],
+   "role_keywords": ["intern(ship)?", "c\\+\\+ developer", "z[uü]rich"],
+   "queries": ["/intern(ship)?/", "c++ developer", "zürich"]},
+  {"name": "a stored list wins over the old keys",
+   "search": {"target_roles": [{"title": "Ward Nurse", "also": ["wn"]}], "role_keywords": ["old"], "jobs_board_search_queries": ["Old"]},
+   "titles": ["Ward Nurse"],
+   "role_keywords": ["ward nurse", "wn"],
+   "queries": ["Ward Nurse"]}
+]

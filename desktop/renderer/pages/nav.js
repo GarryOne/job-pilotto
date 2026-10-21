@@ -168,9 +168,9 @@ export function paletteCommands() {
   // Strategy → Locations (pages/locations-card.js): preferred, acceptable, relocation, remote work; the reset only while a search-only list is active.
   const locationsCard = () => { openView('strategy'); setTimeout(() => document.querySelector('#strategy-locations [data-list="places"]')?.scrollIntoView({block: 'start'}), 300); };
   // Strategy → Main goals (pages/main-goals.js) opens its editor; Advanced search settings unfolds (owner, 18 Oct 2026, mockup 03).
-  add('Strategy', 'Main goals', 'Target roles, level, work mode and minimum salary', 'goals target roles job titles level seniority work mode remote hybrid minimum salary compensation',
+  add('Strategy', 'Main goals', 'Target roles (also your job board searches), level, work mode and minimum salary', 'goals target roles job titles job board searches search terms level seniority work mode remote hybrid minimum salary compensation',
     () => { openView('strategy'); setTimeout(() => { openCard('goals'); $('strategy-main-goals')?.scrollIntoView({block: 'start'}); }, 300); });
-  add('Strategy', 'Advanced search settings', 'Job board searches, skills, exclusions, companies and titles to skip, the digest minimum', 'advanced job board searches queries skills stack exclusions languages skip companies titles google digest minimum score',
+  add('Strategy', 'Advanced search settings', 'Skills, exclusions, companies and titles to skip, the digest minimum', 'advanced skills stack exclusions languages skip companies titles google digest minimum score',
     () => { openView('strategy'); setTimeout(() => { const box = $('strategy-advanced'); if (box) { box.open = true; box.scrollIntoView({block: 'start'}); } }, 300); });
   add('Strategy', 'Locations', 'Preferred and acceptable places, relocation, remote work', 'locations places cities countries relocation remote preferred acceptable search coverage', locationsCard);
   if (shared.coverageActive) add('Strategy', 'Reset search coverage', 'Searches use your preferences again', 'reset search coverage override custom locations places', locationsCard);

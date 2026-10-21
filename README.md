@@ -771,11 +771,10 @@ don't answer, and rewrites the file.
 
 **`config/search.json` is what makes this a general-purpose job search, not an SRE-in-Switzerland
 one.** It holds every role, location and tech-stack keyword the code uses to decide what counts as
-a relevant job and where: `role_keywords` (job titles you want), `title_exclude_keywords` (titles
+a relevant job and where: `target_roles` (the job titles you want, one list: each is matched against job titles, and the first five are also the job board searches; `role_keywords` and `jobs_board_search_queries` are written from it), `title_exclude_keywords` (titles
 that contain a role keyword but are a different job, such as "Infrastructure Tax Lead" or "SAP ABAP
 Developer"; dropped from feeds, job boards and Google Jobs before any AI step), `board_discovery_keywords`
-(broader terms for jobs.ch discovery), `jobs_board_search_queries` (the literal search terms run
-against jobs.ch), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
+(broader terms for jobs.ch discovery), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
 and `locations.{top_tier,country_wide,abroad}` / `remote_excluded_regions` (your preferred places
 and which "remote" postings don't actually include you). `google_jobs` holds plain (not regex)
 `queries`, the `country` code and `locations` for Google Jobs. Each location is a SerpApi canonical

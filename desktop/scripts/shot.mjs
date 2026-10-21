@@ -14,6 +14,7 @@
 //   --output <file>    a recorded terminal output to show as the session's log (e.g. a real session's)
 //   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
 //   --out <file.png>   where the picture goes (default: $TMPDIR/job-pilotto-shot.png)
+//   --search <json>    written as config/search.json (a state the demo lacks: the strategy's lists)
 //   --settings <json>  merged into the demo's settings.json first (a state the demo lacks: '{"store":"sqlite"}')
 // The full reference set is npm run ui-shots (only after big UI changes, or when asked).
 import {spawnSync} from 'node:child_process';
@@ -54,6 +55,11 @@ for (const file of fs.readdirSync(path.join(desktop, 'demo'))) if (file !== 'job
 if (option('settings')) {
   const file = path.join(data, 'settings.json');
   fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings'))}, null, 2));
+}
+// --search '<json>': written as the demo's config/search.json, so the Strategy cards show lists (the demo folder has no search settings of its own).
+if (option('search')) {
+  fs.mkdirSync(path.join(data, 'config'), {recursive: true});
+  fs.writeFileSync(path.join(data, 'config', 'search.json'), option('search'));
 }
 const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-shot.png'));
 fs.rmSync(`${out}.json`, {force: true});

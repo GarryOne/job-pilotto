@@ -1,5 +1,6 @@
 // Setup step 5: review the drafted strategy.
 import {el, pill} from '../components.js';
+import {icon} from '../icons.js';
 import {hasMark, withoutMark, withPills} from '../no-mark.js';
 import {goalTiles} from '../goal-tiles.js';
 import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
@@ -19,11 +20,10 @@ export {titleCase};   // one place for it: renderer/fragment-words.js
 // The draft's lists, as the cards show them: [draft path, how an entry is shown, how a typed entry is stored].
 const escapeFragment = text => text.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const LISTS = {
-  roles: [['search', 'role_keywords'], readable, escapeFragment],
+  roles: [['search', 'target_roles'], role => role.title ?? role, text => ({title: text.trim().replace(/\s+/g, ' '), also: []})],   // one list of titles: the first five are also searched on job boards (lib/target-roles.js)
   places: [['search', 'locations', 'top_tier'], readable, escapeFragment],
   country: [['search', 'locations', 'country_wide'], readable, escapeFragment],
   abroad: [['search', 'locations', 'abroad'], readable, escapeFragment],
-  queries: [['search', 'jobs_board_search_queries'], text => text, text => text.trim()],
   languages: [['preferences', 'disqualifying_languages'], text => text, text => text.trim()],
   rights: [['preferences', 'work_rights'], readable, escapeFragment],   // citizenship / work rights: where no visa is needed
 };
@@ -49,8 +49,10 @@ function renderList(name, {limit = 0} = {}) {
   const expanded = box.dataset.expanded === '1';
   const visible = limit && !expanded ? items.slice(0, limit) : items;
   box.replaceChildren(...visible.map((item, i) => {
-    const pill = Object.assign(document.createElement('span'), {className: 'chip removable'});
-    const label = Object.assign(document.createElement('span'), {textContent: name === 'roles' || name === 'queries' ? titleCase(show_(item)) : titleCase(show_(item))});
+    const searched = name === 'roles' && i < 5;   // lib/target-roles.js SEARCHED
+    const pill = Object.assign(document.createElement('span'), {className: `chip removable${searched ? ' is-searched' : ''}`, title: searched ? 'Also searched on job boards' : ''});
+    const label = Object.assign(document.createElement('span'), {textContent: titleCase(show_(item))});
+    if (searched) pill.append(icon('search'));
     const remove = Object.assign(document.createElement('button'), {className: 'x', textContent: '×', title: 'Remove'});
     remove.addEventListener('click', () => { listOf(name).splice(i, 1); draftChanged(['search', 'preferences']); renderLists(); });
     pill.append(label, remove);
@@ -65,7 +67,7 @@ function renderList(name, {limit = 0} = {}) {
 }
 function renderLists() {
   renderList('roles', {limit: 10}); renderList('places', {limit: 6}); renderList('country', {limit: 4});
-  renderList('abroad'); renderList('queries', {limit: 8}); renderList('languages'); renderList('rights');
+  renderList('abroad'); renderList('languages'); renderList('rights');
 }
 
 // Markdown (headings, tables, bullets, paragraphs, **bold**) as read-only HTML for the Detailed strategy.

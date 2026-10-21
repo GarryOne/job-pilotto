@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {SECRET_NAMES} from './storage.js';
 import {log as appLog} from './log.js';
+import {titlesOf} from './target-roles.js';
 
 export function registerSystemHandlers(ctx) {
   const {DEMO, about, app, backupNow, dataJob, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, getWindow} = ctx;
@@ -57,7 +58,7 @@ export function registerSystemHandlers(ctx) {
   handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, accounts = false} = {}) => {
     // Whose data and when: the name from the Profile's contact details (3 s at most: never hold the dialog on Notion), the first role searched for.
     const contact = await Promise.race([contactDetails.read(storage).catch(() => ({})), new Promise(done => setTimeout(() => done({}), 3000))]);
-    const role = (() => { try { return JSON.parse(storage.readText('config/search.json') || '{}').jobs_board_search_queries?.[0] || ''; } catch { return ''; } })();
+    const role = (() => { try { return titlesOf(JSON.parse(storage.readText('config/search.json') || '{}'))[0] || ''; } catch { return ''; } })();
     const name = contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ');
     const picked = await dialog.showSaveDialog(getWindow(), {title: 'Export your Jobadabra data',
       defaultPath: path.join(app.getPath('documents'), reset.exportName({name, role})), filters: [{name: 'Jobadabra export', extensions: ['gz']}]});
