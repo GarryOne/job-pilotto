@@ -95,7 +95,7 @@ def scored_fits(db):
 
 
 def run(db, feed_db, sources, profile, hidden, sync, say=print, scan=None, scorer=None, model=None, size=SLICE, first=FIRST_JOBS, boards=None,
-        fits=None):
+        fits=None, import_jobs=None):
     """Read `size` feeds and, at the same time, the first boards (boards(say) -> their jobs as read), import what matches, score `first` jobs at a time (best first) with a sync after every score,
     until one fits FIT+ or MAX_FIRST are scored. -> how many were scored. A failure here never blocks the search: the full run that follows
     does everything the slice did."""
@@ -117,7 +117,7 @@ def run(db, feed_db, sources, profile, hidden, sync, say=print, scan=None, score
             report['jobs'] = [*(report.get('jobs') or []), *(aggregators_kept(feed_db, 'Job boards found', found) if found else [])]
         except Exception as error:  # noqa: BLE001 — the full search reads every board
             say(f'Warning: first job boards not read: {type(error).__name__}: {error}')
-    store.import_watch_report(db, report)
+    (import_jobs or (lambda slice_report: store.import_watch_report(db, slice_report)))(report)   # the search passes SoFar.add: the full crawl then still counts these as new (#1015)
     say(f'First jobs: {len(report.get("jobs") or [])} found')   # the app reads the list again on this line
     from . import time_budget
     order = [job['id'] for job in time_budget.best_first(score.queue(db, to_score(db, hidden), profile))][:MAX_FIRST]

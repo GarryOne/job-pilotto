@@ -121,7 +121,29 @@ class ScenarioTests(unittest.TestCase):
             self.assertEqual(len(real_score.load(db)), 3, 'the other two wait for the full search: a batch, never more AI calls')
 
 
+class FirstRunCountTests(unittest.TestCase):
+    def test_the_slices_jobs_stay_new_in_the_runs_count(self):
+        # #1015: the slice imports its jobs first; the full crawl then sees them as "seen", so a first run said "No new jobs".
+        import tempfile
+        from pathlib import Path
+        from src import jobs_so_far, store as job_store
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            report = {'jobs': [{'company': 'Example', 'id': str(i), 'title': f'SRE {i}', 'location': 'Zurich', 'url': f'https://x.test/{i}',
+                                'description': 'Kubernetes.'} for i in range(4)], 'sources': []}
+            so_far = jobs_so_far.SoFar(db, say=lambda _: None)
+            first_jobs.run(db, None, [feed('Example')], profile='p', hidden=frozenset(), sync=lambda: None, say=lambda _: None,
+                           scan=lambda sources, feed_db: {**report, 'jobs': list(report['jobs'])}, scorer=lambda *a, **k: None, model='m',
+                           boards=lambda *a: [], import_jobs=lambda slice_report: so_far.add(slice_report['jobs'], 'employer sites'))
+            final = so_far.statuses(report, job_store.import_watch_report(db, report))   # the full crawl, as daily_search does
+            self.assertEqual(final, ['new'] * 4)
+
+
 class WiringTests(unittest.TestCase):
+    def test_the_so_far_list_exists_before_the_slice_and_the_slice_imports_through_it(self):
+        source = open(first_jobs.__file__.replace('first_jobs.py', 'daily_search.py')).read()
+        self.assertLess(source.index('so_far = jobs_so_far.SoFar(db)'), source.index('first_jobs.run('))
+        self.assertIn('import_jobs=', source)
+
     def test_the_flag_exists(self):
         self.assertTrue(build_parser('x').parse_args(['--first-jobs']).first_jobs)
         self.assertFalse(build_parser('x').parse_args([]).first_jobs)
