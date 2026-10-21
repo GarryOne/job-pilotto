@@ -19,7 +19,7 @@ from ..paths import JOBS_DB
 from . import cost, engine
 from .seniority import settle
 from .models import SMALL_MODEL
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 4   # 4: responsibilities; 3: contract, deadline, posted (a bump re-reads every job on the next search, newest and best first: the backfill)
@@ -235,7 +235,8 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
                 except transient as error:
                     # Transient after the SDK's own retries: stop and let the next run continue.
                     # A line starting "Warning:": it is how the app and the run row know the run did not fully work (a plain line left it "Completed").
-                    print(f'Warning: API unavailable ({named(error)}), {len(queue) - enriched - failures} job(s) left for the next check')
+                    print(f'Warning: AI unavailable ({reason(error)}), {len(queue) - enriched - failures} job(s) left for the next check')
+                    detail('enrich', error)
                     for pending in futures:
                         pending.cancel()
                     return True

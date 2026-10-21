@@ -15,7 +15,7 @@ import time
 from ..paths import DATA
 from .models import SMALL_MODEL
 from . import batch_scope, providers
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 MODEL = SMALL_MODEL
 BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
@@ -116,7 +116,8 @@ def decide(locations, search, client=None):
     try:   # by country + distance first; a test's client is not asked for the map
         mapped = geo.verdicts(ask, words, client, ask=client is None)
     except Exception as error:  # noqa: BLE001 — the model decides these locations, as before
-        print(f'Warning: map of places not used ({named(error)})', flush=True)
+        print(f'Warning: the map of places was not used ({reason(error)}); the AI placed these locations instead', flush=True)
+        detail('map of places', error)
         mapped = {}
     decided.update(mapped)
     ask = [n for n in ask if n not in mapped]
@@ -170,7 +171,8 @@ def decide(locations, search, client=None):
                 if country.lower() in needs:
                     decided[location] += ':visa'
         except Exception as error:  # noqa: BLE001 — placed without the visa answer; asked with the next new places
-            print(f'Warning: visa needs not answered ({named(error)})', flush=True)
+            print(f'Warning: visa needs were not checked ({reason(error)}); they are asked again with the next new places', flush=True)
+            detail('visa needs', error)
     budget.record('place_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
     _keep(key, decided)
     asked = [loc for loc in ask if loc in decided]

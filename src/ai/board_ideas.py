@@ -10,7 +10,7 @@ import re
 import urllib.parse
 
 from .models import MAIN_MODEL
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 MODEL = MAIN_MODEL   # owner, 18 Oct 2026: the main model; the small one proposed 2 useless boards for a Dutch controller
 MAX_BOARDS = 16
@@ -119,7 +119,8 @@ def ideas(search, client=None):
             raise RuntimeError(f'stopped with {response.stop_reason}')
         answer = json.loads(next(block.text for block in response.content if block.type == 'text')).get('boards') or []
     except Exception as error:  # noqa: BLE001 — the fixed boards and the shared ones still run
-        print(f'Job boards: none proposed this time ({named(error)}); the known boards still run', flush=True)
+        print(f'Job boards: the AI proposed none this time ({reason(error)}); the known boards still run', flush=True)
+        detail('job boards', error)
         return shared
     found = list({b['host']: b for b in (valid(item) for item in answer) if b}.values())[:MAX_BOARDS]
     data.setdefault('ideas', {})[key] = found

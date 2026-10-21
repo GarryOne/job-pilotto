@@ -59,6 +59,20 @@ def named(error):
     return f'{type(error).__name__} ({facts})' if facts else type(error).__name__
 
 
+def reason(error):
+    """Why an AI call failed, as a sentence for the person (warnings are read by people; the class name and facts go to detail())."""
+    if isinstance(error, AiLimit):
+        return 'the AI limit was reached'
+    if isinstance(error, AiUnavailable):
+        return 'the AI service is busy or unavailable'
+    return 'the AI call failed'
+
+
+def detail(what, error):
+    """The technical line behind a plain warning: what was asked and named(error), for the technical log only."""
+    print(f'Technical: {what}: {named(error)}', flush=True)
+
+
 # ---------- the request ----------
 
 @dataclass(frozen=True)
