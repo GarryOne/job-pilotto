@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = ROOT / 'config' / 'meanings_seed.json'
-MIGRATIONS = ROOT / 'site' / 'migrations'
+MIGRATIONS = ROOT / 'db' / 'migrations'
 
 
 def latest_sql():
