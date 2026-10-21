@@ -5,6 +5,7 @@ import * as backup from './backup.js';
 import * as contactDetails from './contact.js';
 import * as pipeline from './pipeline.js';
 import * as reset from './reset.js';
+import * as viewCache from './view-cache.js';
 import * as profileAccounts from './profile-accounts.js';   // job-site accounts per profile: exported when ticked, removed at a reset
 import fs from 'node:fs';
 import path from 'node:path';
@@ -49,6 +50,18 @@ export function registerSystemHandlers(ctx) {
   ipcMain.handle('showFile', (_, file) => { if (typeof file === 'string' && path.isAbsolute(file) && fs.existsSync(file)) shell.showItemInFolder(file); });
   ipcMain.handle('dataCancel', () => dataJob.cancel());
   ipcMain.handle('backupNow', () => backupNow('button'));
+  // Clear my job list (src/clear_jobs.py): the counts first; the clear itself after a backup, and only if the backup was made.
+  ipcMain.handle('clearJobsPlan', (_, options) => DEMO ? {ok: true, clear: options?.clearDismissed ? 87 : 84, keep: options?.clearDismissed ? 9 : 12, dismissed: 3} : pipeline.clearJobs(storage, {...options, dryRun: true}).catch(error => ({ok: false, error: error.message})));
+  handleImportant('clearJobs', 'Clearing your job list', async (_, options) => {
+    if (DEMO) return {ok: true, cleared: 84, kept: 12};
+    const saved = await backupNow('clear job list');   // its own job, shown on the backup strip
+    if (!saved.ok) return {ok: false, error: `The backup before clearing failed (${saved.error}); nothing was cleared.`};
+    // One job at a time like an export; the clear cannot be stopped half-way (the store is written first), so the strip has no Cancel.
+    const result = await dataJob.run('clear', () => pipeline.clearJobs(storage, {...options, dryRun: false})).catch(error => ({ok: false, error: error.message}));
+    appLog('data', result?.ok ? 'job list cleared' : 'job list not cleared', {cleared: result?.cleared, kept: result?.kept, error: result?.ok ? undefined : result?.error, by: 'you'});
+    if (result?.ok) viewCache.jobsCleared(storage);
+    return result;
+  });
   ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
   ipcMain.handle('backupStatus', () => ({at: storage.settings().lastBackupAt || null, file: storage.settings().lastBackupFile || null,
     folder: backup.folder(), place: backup.place(backup.folder())}));

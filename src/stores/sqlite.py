@@ -320,6 +320,13 @@ class Matches:
         with self.db:
             self.db.execute('DELETE FROM matches WHERE url_key = ?', (base.url_key(url),))
 
+    def clear(self, keep_urls=()):
+        keep = {base.url_key(url) for url in keep_urls}
+        gone = [r['url_key'] for r in self.db.execute('SELECT url_key FROM matches') if r['url_key'] not in keep]
+        with self.db:
+            self.db.executemany('DELETE FROM matches WHERE url_key = ?', [(key,) for key in gone])
+        return len(gone)
+
     def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
         return matches_sync.sync(self, scored_jobs, applied_urls, open_urls, dismissed_urls, partial)
 

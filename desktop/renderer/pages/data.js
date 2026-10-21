@@ -92,6 +92,35 @@ export async function init() {
     if (button.id === 'import-data') message('data-message', `Import failed: ${result.error}`, 'error');
     else toastMessage('Import failed', result.error);
   }));
+  // ---------- clear my job list (src/clear_jobs.py): the counts first, then a backup and the clear ----------
+  const clearBox = $('clear-jobs-confirm');
+  const clearOptions = () => ({clearDismissed: $('clear-jobs-dismissed').checked});
+  const showClearCounts = async () => {
+    const plan = await window.pilot.clearJobsPlan(clearOptions());
+    if (plan?.error || plan?.ok === false) { message('data-message', plan.error || 'Could not count your jobs.', 'error'); return false; }
+    const n = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+    $('clear-jobs-counts').textContent = `${n(plan.clear, 'job')} will be cleared and ${n(plan.keep, 'job')} stay. A backup is made first.`;
+    $('clear-jobs-go').disabled = plan.clear === 0;
+    return true;
+  };
+  $('clear-jobs').addEventListener('click', async () => {
+    $('clear-jobs').disabled = true;
+    const ok = await showClearCounts();
+    $('clear-jobs').disabled = false;
+    if (ok) { show($('clear-jobs'), false); show(clearBox, true); }
+  });
+  $('clear-jobs-dismissed').addEventListener('change', showClearCounts);
+  $('clear-jobs-cancel').addEventListener('click', () => { show(clearBox, false); show($('clear-jobs'), true); });
+  $('clear-jobs-go').addEventListener('click', async () => {
+    $('clear-jobs-go').disabled = true;
+    message('data-message', 'Backing up, then clearing your job list…', 'waiting');
+    const result = await window.pilot.clearJobs(clearOptions());
+    show(clearBox, false); show($('clear-jobs'), true);
+    if (!result?.ok) { message('data-message', result?.error || 'Not cleared.', 'error'); return; }
+    message('data-message', `Cleared ✓ ${result.cleared} job${result.cleared === 1 ? '' : 's'}, ${result.kept} kept. Your next search starts fresh.`, 'ok');
+    shared.allJobs = [];
+    toastMessage('Job list cleared', `${result.cleared} removed, ${result.kept} kept. Run Check for new jobs to fill it again.`);
+  });
   showBackup();
   $('backup-now').addEventListener('click', async () => {
     const result = await window.pilot.backupNow();

@@ -264,6 +264,22 @@ class StoreContract:
         self.s.matches.remove(JOB['url'])
         self.assertEqual(self.s.matches.list(), [])
 
+    def test_clear_removes_every_match_but_the_kept_ones_and_a_cleared_job_comes_back_new(self):
+        keep, drop, other = JOB, {**JOB, 'url': 'https://jobs.example/drop'}, {**JOB, 'url': 'https://jobs.example/other'}
+        for job in (keep, drop, other):
+            self.s.matches.upsert({**job, 'fit': 70, 'status': 'Open'})
+        self.s.matches.set_status(other['url'], 'Dismissed')
+        self.s.applications.create(keep, 'Applied')
+        self.s.applications.set_section(self.s.applications.get(keep['url'])['id'], 'Kit', 'my kit')
+        cleared = self.s.matches.clear(keep_urls=[keep['url'] + '/'])    # kept by its key, whatever the slash
+        self.assertEqual(cleared, 2)
+        self.assertEqual([m['url'].rstrip('/') for m in self.s.matches.list()], [keep['url'].rstrip('/')])
+        self.assertEqual(self.s.applications.get(keep['url'])['stage'], 'Applied')
+        self.assertEqual(self.s.applications.sections(self.s.applications.get(keep['url'])['id']), {'Kit': 'my kit'})
+        self.assertEqual(self.s.matches.clear(keep_urls=[keep['url']]), 0, 'nothing left to clear')
+        self.s.matches.upsert({**drop, 'fit': 80, 'status': 'New'})
+        self.assertEqual(self.s.matches.get(drop['url'])['status'], 'New', 'found again, it is new')
+
     def test_a_searchs_scored_jobs_sync_into_matches_with_their_statuses(self):
         import sqlite3
         db = sqlite3.connect(':memory:')

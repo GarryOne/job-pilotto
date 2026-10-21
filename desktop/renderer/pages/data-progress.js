@@ -1,8 +1,8 @@
 // The busy state of an export, import or backup (Settings → Move your data): "Exporting… 42%" over the shared meter with Cancel, on every strip
-// marked data-progress="export|import|backup"; the buttons that start one are disabled while any runs. Fed by main's 'dataProgress' event (lib/data-job.js).
+// marked data-progress="export|import|backup|clear"; the buttons that start one are disabled while any runs. Fed by main's 'dataProgress' event (lib/data-job.js).
 // Guard: desktop/test/data-progress.test.js.
-const WORDS = {export: 'Exporting', import: 'Importing', backup: 'Backing up'};
-const STARTERS = ['#export-data', '#import-data', '#backup-now', '#reset-export', '[data-import]'];
+const WORDS = {export: 'Exporting', import: 'Importing', backup: 'Backing up', clear: 'Clearing your job list'};
+const STARTERS = ['#export-data', '#import-data', '#backup-now', '#reset-export', '[data-import]', '#clear-jobs'];
 
 // -> the strip's text for one event: "Exporting… 42%", or "Exporting…" until the total is known
 export function progressText({kind, done, total}) {
@@ -15,7 +15,7 @@ function build(strip) {
   const text = document.createElement('span'), track = document.createElement('span'), fill = document.createElement('span'), cancel = document.createElement('button');
   text.className = 'data-progress-text';
   track.className = 'score-track'; fill.className = 'score-fill'; track.append(fill);
-  cancel.className = 'ghost'; cancel.textContent = 'Cancel';
+  cancel.className = 'ghost'; cancel.textContent = 'Cancel'; cancel.hidden = strip.dataset.progress === 'clear';   // a clear is not cancellable
   cancel.addEventListener('click', () => { cancel.disabled = true; window.pilot.dataCancel(); });
   strip.setAttribute('role', 'status');
   strip.replaceChildren(text, track, cancel);

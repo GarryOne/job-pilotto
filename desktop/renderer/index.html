@@ -1456,6 +1456,15 @@
                 <div><b>Import</b><p class="muted small">Restore from a Jobadabra export. Current data is backed up first.</p>
                   <button class="secondary" id="import-data" data-import>Import data</button>
                   <div class="data-progress" data-progress="import" hidden></div></div></div>
+              <div class="choice-card is-wide" id="clear-jobs-card"><span class="file-tile"><i data-icon="trash"></i></span>
+                <div><b>Clear my job list</b><p class="muted small" id="clear-jobs-line">Start the next search fresh. Jobs you applied to, saved or dismissed stay, and so do your settings, profile and CVs.</p>
+                  <button class="secondary" id="clear-jobs">Clear my job list</button>
+                  <div class="data-progress" data-progress="clear" hidden></div>
+                  <div class="clear-jobs-confirm" id="clear-jobs-confirm" hidden>
+                    <p class="small" id="clear-jobs-counts"></p>
+                    <label class="check-row"><input type="checkbox" id="clear-jobs-dismissed"><span class="muted small">Also forget the jobs I dismissed myself (they come back as new)</span></label>
+                    <div class="panel-actions"><button class="ghost" id="clear-jobs-cancel">Cancel</button><button class="danger-solid" id="clear-jobs-go">Clear</button></div>
+                  </div></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
               <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>

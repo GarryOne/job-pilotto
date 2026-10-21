@@ -44,6 +44,11 @@ export function jobDeleted(storage, url) {
   saved.result.jobs = saved.result.jobs.filter(item => item.url !== url);
   storage.writeText(file('jobs'), JSON.stringify({at: saved.at, workspace: workspace(storage), result: saved.result}));
 }
+// The job list was cleared (Settings → Clear my job list): the saved list and Focus are dropped, so no start paints the cleared jobs back.
+export function jobsCleared(storage) {
+  readsChanged();
+  for (const name of ['jobs', 'focus']) if (recall(storage, name)) storage.writeText(file(name), '');
+}
 export function statusChanged(storage, url, status, stage) {
   readsChanged();
   const saved = recall(storage, 'jobs');

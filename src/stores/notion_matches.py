@@ -95,6 +95,14 @@ class NotionMatches:
         if page:
             self.tracker.trash_page(page['id'])
 
+    def clear(self, keep_urls=()):
+        """Every row but the kept ones to Notion's trash (restorable there for 30 days), one call each at the tracker's own pace."""
+        keep = {base.url_key(url) for url in keep_urls}
+        gone = [page for page in self._pages() if base.url_key(rows.read(page['properties'].get('Job URL'), 'url')) not in keep]
+        for page in gone:
+            self.tracker.trash_page(page['id'])
+        return len(gone)
+
     def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
         """Today's 🎯 Job Matches sync (src/notion/matches.py), unchanged: every scoring column, its page-id and hash cache in
         `db`, adopting rows it doesn't know by URL (a workspace a move filled through upsert gets no second row)."""

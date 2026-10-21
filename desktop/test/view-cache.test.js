@@ -72,6 +72,15 @@ test('a status write shows in the saved Jobs list and drops the saved Focus: a r
   assert.deepEqual(viewCache.recall(s, 'jobs').result.jobs[1], {url: 'https://x/alder', status: 'saved', stage: ''});
 });
 
+test('clearing the job list drops the saved Jobs list and Focus: no start paints the cleared jobs back', () => {
+  const s = storage();
+  viewCache.remember(s, 'jobs', {jobs: [{url: 'https://x/ember', status: 'unreviewed', stage: ''}]});
+  viewCache.remember(s, 'focus', {ok: true, focus: {}});
+  viewCache.jobsCleared(s);
+  assert.equal(viewCache.recall(s, 'jobs'), null);
+  assert.equal(viewCache.recall(s, 'focus'), null);
+});
+
 // 7 Oct 2026: Strategy's `stale` counts jobs waiting for a new score; a read with one was never kept, so every visit painted a copy
 // from the morning (old places, remote Yes) before the fresh read. Only `stale: true` (a list from the cache) is refused.
 test('a Strategy read with jobs waiting for a new score is kept', () => {
