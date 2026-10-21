@@ -39,6 +39,8 @@ def read(stores, app_id):
         tracker = getattr(part, 'tracker', None)
         if tracker is not None and all(tracker is not other for other in trackers):
             trackers.append(tracker)
+    if not trackers:   # no Notion client: a local store (SQLite's connection refuses another thread; there is no network GET to overlap)
+        return {'sections': stores.applications.sections(app_id), 'events': stores.events.list(app_id=app_id), 'interviews': stores.interviews.list(app_id=app_id)}
     with read_once(trackers), ThreadPoolExecutor(3) as pool:
         sections = pool.submit(stores.applications.sections, app_id)
         events = pool.submit(stores.events.list, app_id=app_id)
