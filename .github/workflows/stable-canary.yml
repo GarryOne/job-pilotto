@@ -3,6 +3,7 @@ name: CI · Stable canary
 # Is what users have right now still working? The release gate (e2e.yml) proves a build BEFORE it becomes stable; this proves it AFTER, once a day, because the world
 # drifts under a frozen build (Notion's API, the job sites' forms, an expired certificate). It runs the e2e journey on the stable tag (no paid AI judge) and:
 #   red   -> one issue labelled `stable-canary` (a regression reached users: decide to fix forward or roll back; it is NOT in the UI loop's backlog and the AI fixer never touches it)
+#   plan job failed (our harness; no suite ran on the build) -> this job fails, no issue, no comment: the build was not tested
 #   green -> that issue, if open, gets a comment and is closed.
 # Skipped when the stable build's own e2e run (the gate) passed in the last 20 hours: nothing could have drifted since.
 on:
@@ -55,7 +56,9 @@ jobs:
           done
           [ -n "$id" ] || { echo "The canary run did not appear on GitHub." >&2; exit 1; }
           echo "run=https://github.com/$REPO/actions/runs/$id" >> "$GITHUB_OUTPUT"
-          if gh run watch "$id" -R "$REPO" --exit-status > /dev/null; then echo "result=green" >> "$GITHUB_OUTPUT"; else echo "result=red" >> "$GITHUB_OUTPUT"; fi
+          if gh run watch "$id" -R "$REPO" --exit-status > /dev/null; then echo "result=green" >> "$GITHUB_OUTPUT"
+          # red = a suite on the stable build failed; harness = only main's own plan job did (unit tests, suite list): no suite ever ran on the build
+          else v=$(gh run view "$id" -R "$REPO" --json jobs | python3 tools/canary_verdict.py); [ "$v" = harness ] && echo "result=harness" >> "$GITHUB_OUTPUT" || echo "result=red" >> "$GITHUB_OUTPUT"; fi
       - name: Alarm, or all clear
         if: steps.stable.outputs.skip == '0' && steps.run.outputs.result != ''
         env:
@@ -66,6 +69,9 @@ jobs:
         run: |
           gh label create stable-canary -R "$REPO" --force --color B60205 --description "The stable release fails the end-to-end journey" > /dev/null
           open=$(gh issue list -R "$REPO" --label stable-canary --state open --json number -q '.[0].number // empty')
+          if [ "$RESULT" = harness ]; then
+            echo "The canary could not test \`$TAG\`: the run's plan job failed before any suite ran on it (main's harness, not the stable build): $RUN" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
           if [ "$RESULT" = red ]; then
             note="The stable build \`$TAG\` (\`${SHA:0:7}\`) FAILED the end-to-end journey: $RUN"
             if [ -n "$open" ]; then gh issue comment "$open" -R "$REPO" --body "Still failing. $note"
