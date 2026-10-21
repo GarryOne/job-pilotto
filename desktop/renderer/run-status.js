@@ -6,11 +6,15 @@ import {AI_BUSY, isSpendingLimit, runWarningLines} from './run-warnings.js';
 // A run that did part of its work: "3 of 5 tailored", "drafted", and a browser run's "Read 2 of 4 sites" (owner, 8 Oct 2026: it read "Completed"
 // with two sites failed). Amber "With warnings", not green.
 export const partialResult = run => { const m = /(\d+) of (\d+) (?:tailored|drafted|sites?\b)/.exec(String(run?.message || '')); return !!m && Number(m[1]) < Number(m[2]); };
+// A Gmail check that read nothing: Gmail not connected (off) or a recorded "not checked: <why>" (a revoked Google sign-in, no AI engine).
+// ONE state for the pill, the result card, the Actions card, the toast and the footer (#605, #540, #1661, #541): not a failure, a connection or setting to fix.
+export const notChecked = run => !!run && (!!run.off || /^not checked:/i.test(String(run.problem || '')));
 export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0 || !!deliveryHead(run) || partialResult(run));
 
 // The title of the toast when a run ends: a run that worked but warned is not "done" with a green check, the detail pane says "Completed with warnings" (#276).
 export function doneTitle(name, run) {
-  if (!run?.ok || run?.off) return `⚠️ ${name} had problems`;
+  if (notChecked(run)) return `⚠️ ${name} not checked`;
+  if (!run?.ok) return `⚠️ ${name} had problems`;
   return runWarned(run) ? `⚠️ ${name} done with warnings` : `✅ ${name} done`;
 }
 
@@ -131,6 +135,7 @@ export function failureHead(run, name = '') {
       summary: 'Jobadabra was closed while this ran. What it saved is kept; run it again to continue.', fix: {label: 'Run again', rerun: true}};
   }
   const problem = String(run.problem || '').trim();
+  if (run.off && !problem) return notConnectedHead(run);   // #1661: Gmail not connected is not "stopped unexpectedly"
   // No reason recognised: say it stopped unexpectedly, offer to run it again and the log (the owner's fix #7, 6 Oct 2026: "Had problems" over a raw log).
   if (!problem) {
     return {problem: 'unexpected', unexpected: true, quiet: true, short: 'Unexpected error', viewLog: true,
@@ -143,7 +148,7 @@ export function failureHead(run, name = '') {
   // A task that failed with its own reason (its first "✗ <what>: <why>" line, lib/pipeline.js failedLine): it did not finish, and runs again
   // (owner, 8 Oct 2026: a browser run read "Not checked", a Gmail title, with no Run again).
   const rerun = !lead && !fix;
-  return {problem, title: lead === 'delivered' ? 'Not delivered' : lead ? 'Not checked' : `${name || 'The run'} did not finish`,
+  return {problem, notChecked: lead === 'checked', title: lead === 'delivered' ? 'Not delivered' : lead ? 'Not checked' : `${name || 'The run'} did not finish`,
     summary: `${reason.replace(/^./, c => c.toUpperCase()).replace(/\.$/, '')}.`, fix: fix ? {label: fix[1], view: fix[2]} : rerun ? {label: 'Run again', rerun: true} : null};
 }
 
@@ -151,7 +156,7 @@ export function failureHead(run, name = '') {
 // `tone`: the box's colour by cause (an interrupted run is not an error; a run with nothing saved is neither a success nor a failure); `pill`: the card header's pill for it.
 export function noResultHead(run, kind) {
   const failed = failureHead(run, kind.name);
-  if (failed) return {...failed, tone: failed.problem === 'interrupted' ? 'warn' : 'bad'};
+  if (failed) return {...failed, tone: failed.problem === 'interrupted' || notChecked(run) ? 'warn' : 'bad'};
   return {tone: 'info', pill: ['No result', 'neutral'], title: `${kind.name} finished`, short: 'No result saved',
     summary: 'Its result was not saved, so there is nothing to show yet. Read it again to try once more.', fix: {label: 'Read again', retry: true}};
 }
@@ -178,7 +183,7 @@ export function phaseStatus(run, i, at) {
 export function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
   if (run.waiting) return ['Queued', 'neutral'];
-  if (run.off) return ['Not checked', 'warn'];   // nothing was checked: not a failure, a connection to make
+  if (notChecked(run)) return ['Not checked', 'warn'];   // nothing was checked: not a failure, a connection to make
   if (run.interrupted) return ['Interrupted', 'warn'];   // the app was closed while it ran (lib/pipeline.js takeQueue)
   if (run.stopped === 'you') return ['Stopped by you', 'neutral'];   // Stop on Actions or Recent activity: not a failure
   if (!run.ok) return stoppedHead(run) ? ['Stopped', 'bad'] : ['Failed', 'bad'];

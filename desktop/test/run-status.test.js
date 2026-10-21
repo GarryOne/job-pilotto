@@ -53,7 +53,7 @@ test('the toast of a finished run agrees with its status: done, done with warnin
   assert.equal(doneTitle('Jobs check', {ok: true}), '✅ Jobs check done');
   assert.equal(doneTitle('Jobs check', {ok: true, warned: true}), '⚠️ Jobs check done with warnings', 'no green check for a run that detail pane calls "Completed with warnings"');
   assert.equal(doneTitle('Jobs check', {ok: false}), '⚠️ Jobs check had problems');
-  assert.equal(doneTitle('Jobs check', {ok: true, off: true}), '⚠️ Jobs check had problems');
+  assert.equal(doneTitle('Gmail check', {ok: true, off: true}), '⚠️ Gmail check not checked', 'nothing was checked: one state, not "had problems" (#605)');
 });
 
 test('a failed run says so in its own box, with its reason and the fix the app can open, never "Completed with warnings" (#290)', () => {
@@ -68,7 +68,7 @@ test('a failed run says so in its own box, with its reason and the fix the app c
   assert.equal(failureHead({ok: true}), null, 'a run that worked has no failure head');
   assert.equal(failureHead({ok: true, warned: true}), null, 'nor one that only warned');
   assert.equal(failureHead({ok: false, live: true}), null, 'nor one still running');
-  assert.equal(failureHead({ok: true, off: true}).unexpected, true, 'a check that is switched off counts as not done (Recent activity shows notConnectedHead first)');
+  assert.deepEqual([failureHead({ok: true, off: true}).title, failureHead({ok: true, off: true}).fix.label], ['Gmail is not connected', 'Connect Gmail'], 'a check that is switched off is "not connected" on every card, never "stopped unexpectedly" (#1661)');
 });
 
 test('a digest Telegram refused is a failed run that says so, with the Telegram settings as the way out (#298); the title says it once, the sentence gives the reason', () => {

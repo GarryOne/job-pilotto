@@ -7,6 +7,7 @@
 //   🎤 How did … go? Send the transcript …                                    → a note
 //   📧 Job emails and calendar / ❓ … / 🗓 …                                    → notes
 //   📧 Gmail checked: no new job emails.                                      → the status line alone
+import {notChecked} from './run-status.js';
 const SCHEDULED = /^🗓\s+(.+?)\s+—\s+(.+?)\s+—\s+(.+)$/;
 const WEAK = /^(?:🏋️\s*)?Answered weakly in past interviews/i;
 // Since the plain layout (src/tgcard.py; mail.prep_message()): "🗓 Interview tomorrow", then "Huxley · Principal SRE · Interview",
@@ -45,7 +46,7 @@ function assessment(line) {
 // makes no claim about it: its status box says why, and a green "No new job emails" beside it was a false all-clear (issue #359).
 // What a failed run did record before it stopped (report rows, updates) is still shown.
 export function mailCardShown(run) {
-  if (!run || run.off) return false;
+  if (!run || notChecked(run)) return false;
   if (run.ok !== false && !run.interrupted) return true;
   return [...(run.report || []), ...(run.updates || [])].some(line => String(line || '').trim());
 }
