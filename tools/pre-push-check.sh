@@ -146,6 +146,14 @@ if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
   sizes="$(cd "$repo" && timed "file size" node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
 $sizes" >&2; exit 2; }
 fi
+# A new file a replay workflow loads must be in that workflow's `pull_request` paths (20 Oct 2026: #1638 opened red on "control tests" and "page cases" because worker/src/answer-declarations.js was
+# missing): the same check the workflows run (tools/replay-files.mjs --check), seconds, before the PR exists. Any push, any area.
+if command -v node >/dev/null && [ -f "$repo/tools/replay-files.mjs" ]; then
+  for wf in control-tests.yml page-cases.yml; do
+    [ -f "$repo/.github/workflows/$wf" ] || continue
+    drift="$(cd "$repo" && timed "workflow paths $wf" node tools/replay-files.mjs --check "$wf" 2>&1)" || { echo "Push blocked: $drift" >&2; exit 2; }
+  done
+fi
 # The cheap checks on commit messages run BEFORE the journey and ladder gates (owner, 11 Oct 2026: a missing "Rung:" line was found only after a
 # 255 s journey gate, three times in one landing): seconds first, minutes last.
 # Never fix the same website twice (owner, 10 Oct 2026): a push changing how the extension acts on pages brings its recorded page (desktop/e2e/recorded) or
