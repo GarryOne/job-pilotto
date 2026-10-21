@@ -13,6 +13,7 @@ import {hhmm} from './activity-basics.js';
 import {lastActivity, renderActivity} from './activity-render.js';
 import {openActivity} from './activity-panel.js';
 import {withFewJobsHelp} from './activity-few-jobs.js';
+import {problemBox} from './activity-problem-box.js';
 export function showJumpToLatest() {
   const log = $('log');
   show($('log-latest'), !!log && $('activity-log').open && !!lastActivity?.running && log.scrollHeight - log.scrollTop - log.clientHeight >= 40);
@@ -180,13 +181,8 @@ export function renderCardSkeleton(target = $('activity-card')) {
 }
 
 
-// A finished run whose page holds no result (the read came back empty after its retries): what the row itself says, plain words that no result was saved,
-// and what a person can do next. Never skeleton bars: those mean a read is in flight (18 Oct 2026, a Find jobs card that never filled).
-export function renderNoResult(outcomeText, {retry, log} = {}, target = $('activity-card')) {
-  const actions = el('div', 'run-card-actions');
-  for (const [label, handler] of [['Retry', retry], ['Log', log]]) {
-    if (!handler) continue;
-    actions.append(Object.assign(el('button', 'link small', label), {type: 'button', onclick: handler}));
-  }
-  target.replaceChildren(el('p', 'run-card-note', outcomeText), el('p', 'run-card-note muted', 'No result was saved for this run.'), actions);
+// A finished run whose page holds no result (the read came back empty after its retries, or the app was closed while it ran): the amber box Recent activity draws
+// for the same outcome, with what a person can do next. Never skeleton bars: those mean a read is in flight (18 Oct 2026, a Find jobs card that never filled).
+export function renderNoResult(head, {fix, log} = {}, target = $('activity-card')) {
+  target.replaceChildren(problemBox(head, {onFix: fix, onLog: log}));
 }

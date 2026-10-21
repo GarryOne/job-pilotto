@@ -85,7 +85,8 @@ export function takeQueue(storage) {
     const rows = lost.map((job, i) => ({id: Date.parse(job.startedAt || job.queuedAt) || Date.now() + i, kind: job.kind, trigger: job.trigger,
       startedAt: job.startedAt || job.queuedAt, endedAt, ok: false, interrupted: true, summary: INTERRUPTED,
       ...(job.notionUrl ? {notionUrl: job.notionUrl} : {}), log: [...(job.log || []), `${INTERRUPTED}.`]}));
-    storage.writeText('runs.json', JSON.stringify([...rows, ...runs(storage)].slice(0, RUN_HISTORY)));
+    const taken = new Set(rows.map(row => row.id));   // one run, one record: an ending the quit already wrote is replaced by this one
+    storage.writeText('runs.json', JSON.stringify([...rows, ...runs(storage).filter(run => !taken.has(run.id))].slice(0, RUN_HISTORY)));
   }
   return jobs.filter(job => job && job.kind && job.resume);
 }
@@ -128,7 +129,8 @@ export function tracked(storage, kind, trigger, onLine, work, resume, summarize,
     waiting = waiting.filter(other => other !== ticket);
     runningTicket = ticket;
     const log = [];
-    const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString(), ...(ticket.note ? {note: ticket.note} : {})};
+    const startedAt = new Date().toISOString();   // the id is this very moment, so a record of the quit (takeQueue: Date.parse(startedAt)) is the same run
+    const record = {id: Date.parse(startedAt), kind, trigger, startedAt, ...(ticket.note ? {note: ticket.note} : {})};
     current = {...record, step: 'Starting', resume, stoppable: true};   // every task the Mac runs can be stopped (Actions banner, Recent activity)
     ticket.children = new Set();
     ticket.abort = new AbortController();
@@ -177,7 +179,9 @@ export function tracked(storage, kind, trigger, onLine, work, resume, summarize,
         Object.assign(record, {ok: false, stopped: 'you', summary: 'Stopped by you. What it saved is kept; the next run continues from there.'});
       }
       if (ticket.note) record.note = ticket.note;   // a click that joined while it ran
-      storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
+      // The quit already listed this run as Interrupted (takeQueue); the ending of the killed run must not list it again under the same id.
+      const earlier = runs(storage);
+      if (!earlier.some(run => run.id === record.id && run.interrupted)) storage.writeText('runs.json', JSON.stringify([record, ...earlier].slice(0, RUN_HISTORY)));
       current = null;
       keepLine = null;
       runningTicket = null;

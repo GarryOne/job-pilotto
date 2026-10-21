@@ -144,7 +144,7 @@ export function renderActivity(fresh) {
   // own column (not part of the sentence), and the rows are grouped Today / Earlier (renderer/run-list.js).
   const recentRow = run => {
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'recent-row'});
-    button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
+    button.classList.toggle('current', run.live ? !shown : shown ? run === shown : run === last && !running);
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
     // Its warnings: from the log (a run on this Mac), else the row's Status in Notion (a GitHub run: no log until opened).
@@ -272,7 +272,7 @@ export function renderActivity(fresh) {
     || (KITS_CARD.has(kindOf(run)) && parseKitsReady(shownText)) || parseVisits(shownText)));
   // A stopped run's box says why in full: the header doesn't repeat it.
   // A box that names what happened in full (stopped, couldn't start, stopped unexpectedly): the header doesn't repeat it.
-  const boxSaysIt = run && (stoppedHead({...run, kind: kindOf(run)}) || waitedHead({...run, kind: kindOf(run)}) || failureHead({...run, kind: kindOf(run)})?.unexpected);
+  const boxSaysIt = run && (stoppedHead({...run, kind: kindOf(run)}) || waitedHead({...run, kind: kindOf(run)}) || ['unexpected', 'interrupted'].includes(failureHead({...run, kind: kindOf(run)})?.problem));
   const said = run && !run.live && !hasCard && !boxSaysIt ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
   // A run that used no AI shows no cost: "$0" on every row was noise.

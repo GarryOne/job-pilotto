@@ -137,6 +137,16 @@ export function failureHead(run, name = '') {
     summary: `${reason.replace(/^./, c => c.toUpperCase()).replace(/\.$/, '')}.`, fix: fix ? {label: fix[1], view: fix[2]} : rerun ? {label: 'Run again', rerun: true} : null};
 }
 
+// What the box says for a run whose card has no result: the interrupted / failed head run-status already words, else a finished run whose result was never saved.
+// `tone`: the box's colour by cause (an interrupted run is not an error; a run with nothing saved is neither a success nor a failure); `pill`: the card header's pill for it.
+export function noResultHead(run, kind) {
+  const failed = failureHead(run, kind.name);
+  if (failed) return {...failed, tone: failed.problem === 'interrupted' ? 'warn' : 'bad'};
+  return {tone: 'info', pill: ['No result', 'neutral'], title: `${kind.name} finished`, short: 'No result saved',
+    summary: 'Its result was not saved, so there is nothing to show yet. Read it again to try once more.', fix: {label: 'Read again', retry: true}};
+}
+
+
 // What a failed run says about itself when no reason was recognised (#301, 5 Oct 2026: a Jobs check that was Failed read "1 new job", like a success, because the result a Notion row
 // carries won). It says it failed first, and keeps what the run did report.
 export function failedOutcome(run) {
