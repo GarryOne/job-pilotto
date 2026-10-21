@@ -99,7 +99,7 @@ class PrBodyTest(unittest.TestCase):
             self.assertEqual(run(ok + images).returncode, 0, screen)
             self.assertEqual(run(ok + 'No screenshots: an API route, nothing drawn changed\n').returncode, 0, screen)
         git(self.repo, 'reset', '-q', '--hard', self.base)
-        (self.repo / 'site' / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'site' / 'test' / 'a.test.js').write_text('x\n')
+        (self.repo / 'test').mkdir(parents=True, exist_ok=True); (self.repo / 'test' / 'a.test.js').write_text('x\n')
         git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a test')
         self.assertEqual(run(ok + 'No visual: a test only\n').returncode, 0, 'a change to no screen needs no image')
 

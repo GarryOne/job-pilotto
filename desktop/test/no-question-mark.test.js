@@ -24,8 +24,8 @@ test('only the listed parsers mention the marker; no html, css or other renderer
 });
 
 test('the website demo pages show no marker', () => {
-  const site = path.join(desktop, '..', 'site');
-  const bad = ['demo', 'public'].flatMap(dir => fs.existsSync(path.join(site, dir)) ? walk(path.join(site, dir)) : [])
+  const site = path.join(desktop, '..');   // the site's folders sit at the top level of the joined tree
+  const bad = ['web/demo', 'web/public'].flatMap(dir => fs.existsSync(path.join(site, dir)) ? walk(path.join(site, dir)) : [])
     .filter(file => /\.(html|js|css)$/.test(file) && fs.readFileSync(file, 'utf8').includes(MARK));
   assert.deepEqual(bad, []);
 });

@@ -136,8 +136,8 @@ class IndexCarriesRecipesTests(unittest.TestCase):
     def test_the_website_accepts_every_recipe_the_engine_accepts(self):
         samples = [{'kind': 'links', 'prefix': '/de/jobs'}, {'kind': 'tag', 'tag': 'h3', 'class': 'job-title'}, {'kind': 'links', 'prefix': '/(a)+'},
                    {'kind': 'tag', 'tag': 'script', 'class': 'x'}, {'kind': 'tag', 'tag': 'h3', 'class': 'job', 'x': 1}]
-        script = ("import {recipeOf} from './src/employers.js'; console.log(JSON.stringify(JSON.parse(process.argv[1]).map(r => !!recipeOf(r))));")
-        out = subprocess.run(['node', '--input-type=module', '-e', script, json.dumps(samples)], cwd=ROOT / 'site', capture_output=True, text=True, timeout=60)
+        script = ("import {recipeOf} from './api/employers.js'; console.log(JSON.stringify(JSON.parse(process.argv[1]).map(r => !!recipeOf(r))));")
+        out = subprocess.run(['node', '--input-type=module', '-e', script, json.dumps(samples)], cwd=ROOT, capture_output=True, text=True, timeout=60)
         site_accepts = json.loads(out.stdout)
         # one way (owner, 21 Oct 2026): a recipe the engine takes, the site takes; the site may take more (it lands first)
         assert_site_accepts(self, [i for i, r in enumerate(samples) if page_recipes.valid(r)], [i for i, ok in enumerate(site_accepts) if ok], 'recipe samples')

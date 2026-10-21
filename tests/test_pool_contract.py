@@ -12,7 +12,7 @@ from pathlib import Path
 from site_private import needs_site
 
 REPO = Path(__file__).resolve().parents[1]
-FIXTURE = REPO / 'site' / 'test' / 'fixtures' / 'pool-payloads.json'
+FIXTURE = REPO / 'test' / 'fixtures' / 'pool-payloads.json'
 
 
 @needs_site

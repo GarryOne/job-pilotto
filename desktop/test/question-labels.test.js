@@ -49,7 +49,7 @@ test('at Submit: what you answered yourself (left vs never read) and what the pa
 
 siteTest('the site accepts every reason word the app sends (shared/knowledge.js)', async () => {
   const {LEFT_REASONS} = await import('../lib/question-labels.js');
-  const site = (await import('node:fs')).readFileSync(new URL('../../site/src/knowledge.js', import.meta.url), 'utf8');
+  const site = (await import('node:fs')).readFileSync(new URL('../../shared/knowledge.js', import.meta.url), 'utf8');
   assertSiteAccepts(LEFT_REASONS, JSON.parse(site.match(/export const LEFT_REASONS = (\[[^\]]*\])/)[1].replace(/'/g, '"')), 'reason words');
 });
 

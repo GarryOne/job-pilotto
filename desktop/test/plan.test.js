@@ -97,7 +97,7 @@ test('the plan card: nothing when off; Upgrade for Free with the price from the 
 });
 
 test('the top-up credits shown here are the site\'s (when the site\'s table is in this checkout)', () => {
-  const file = new URL('../../site/src/pro-pay.js', import.meta.url);
+  const file = new URL('../../api/pro-pay.js', import.meta.url);
   if (!fs.existsSync(file)) return;   // PR 2 (payments) not merged yet: the check starts with it
   const source = fs.readFileSync(file, 'utf8');
   for (const [kind, micro] of [['topup5', 2_800_000], ['topup10', 5_800_000], ['topup20', 11_800_000]]) assert.ok(source.includes(`${kind}: ${micro.toLocaleString('en-US').replaceAll(',', '_')}`), `${kind} credit matches api/pro-pay.js`);

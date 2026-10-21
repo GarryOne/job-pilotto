@@ -81,7 +81,7 @@ test('Settings has the switch, on by default, and Privacy and the rule name the 
 
 siteTest('Privacy names the feature', async () => {   // the page lives in job-pilotto-site
   const fs = await import('node:fs');
-  assert.match(fs.readFileSync(new URL('../../site/public/privacy.html', import.meta.url), 'utf8'), /Read refused sites in my browser/);
+  assert.match(fs.readFileSync(new URL('../../web/public/privacy.html', import.meta.url), 'utf8'), /Read refused sites in my browser/);
 });
 
 test('Read now: a job opened from a site, or Check for new jobs, makes the engine ask for those sites at once', async () => {
