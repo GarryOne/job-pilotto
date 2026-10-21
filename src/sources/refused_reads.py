@@ -154,8 +154,9 @@ def _stop_why(status, html, final):
     """Why this page ends the visit, or ''. A refusal status, a bot check (the page is short and says so) or a login page: a floor, never a judgment of a good page."""
     if status in host_pace.REFUSED:
         return f'HTTP {status}'
+    from . import refused_state
     text = (html or '')[:6000].lower()
-    if len(html or '') < 20000 and any(word in text for word in render.CHALLENGE):
+    if not refused_state.is_long_page(html) and any(word in text for word in render.CHALLENGE):
         return 'a bot check'
     if final and (not allowed(final) or LOGIN_PATH.search(urllib.parse.urlsplit(final).path)):
         return 'a login page'

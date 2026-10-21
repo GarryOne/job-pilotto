@@ -9,6 +9,8 @@ from src.sources import refused_state
 SHORT_CHECK = '<html><title>Just a moment...</title><body>Checking your browser before accessing the site.</body></html>'
 SHORT_CAPTCHA = '<html><body><iframe src="https://challenges.example.net/box"></iframe>Please verify you are human</body></html>'
 LONG = '<html><body>' + 'Offre d emploi ' * 2000 + '</body></html>'
+# A real check page is long in bytes (inline scripts and styles) but says little: measured 21 Oct 2026 on two sites, 29 KB with a few hundred characters of text.
+LONG_CHECK = '<html><head><title>Just a moment...</title><script>' + 'var a=1;' * 3500 + '</script></head><body>Checking your browser before accessing the site.</body></html>'
 
 
 class PageStateTest(unittest.TestCase):
@@ -26,6 +28,12 @@ class PageStateTest(unittest.TestCase):
     def test_a_long_page_is_a_page_and_an_empty_one_is_not(self):
         self.assertEqual(self.state(200, LONG, ai='captcha'), 'page')
         self.assertEqual(self.state(200, '  ', ai='page'), 'refused')
+
+    def test_a_long_page_with_little_to_read_is_not_a_page_by_its_size(self):
+        self.assertGreater(len(LONG_CHECK), refused_state.BIG_PAGE)
+        self.assertEqual(self.state(200, LONG_CHECK), 'passive_check', 'no AI: the word rule, not the size')
+        self.assertEqual(self.state(200, LONG_CHECK, ai='captcha'), 'captcha')
+        self.asked.assert_called()
 
     def test_the_ai_answer_decides_any_language_and_only_a_fixed_answer_counts(self):
         for answer in refused_state.STATES:

@@ -11,7 +11,8 @@ from . import host_pace
 
 STATES = ('page', 'passive_check', 'captcha', 'login', 'refused')
 LOGIN_PATH = re.compile(r'/(?:log-?in|sign-?in|sso|oauth\d*|authorize|uas/login|account/login|auth)(?:[/?#.]|$)', re.I)
-BIG_PAGE = 20000   # a page this long is a real page whatever else it says (the same floor as refused_reads._stop_why)
+BIG_PAGE = 20000   # a page this long (bytes) AND with REAL_TEXT readable characters is a real page whatever else it says (the same floor as refused_reads._stop_why)
+REAL_TEXT = 1500   # a check page is long in bytes (scripts, styles) but has a few hundred characters to read: 29 KB for two sites measured on 21 Oct 2026
 TASK = ('A web page was opened in a browser to read a company\'s job list. Say what it is now: page = the real page (content, a job list, a careers site); '
         'passive_check = a "checking your browser" or "just a moment" wait page that clears by itself without any action by the visitor; '
         'captcha = a page that asks the visitor to tick a box, pick pictures or type characters to prove they are human; '
@@ -23,6 +24,17 @@ def _text(html, title):
     frames = sorted({urllib.parse.urlsplit(src).hostname or '' for src in re.findall(r'(?i)<iframe[^>]+src=["\']([^"\']+)', body)} - {''})[:5]
     words = re.sub(r'\s+', ' ', re.sub(r'(?s)<[^>]+>', ' ', body)).strip()[:400]
     return f'Title: {title or ""}\nFrame hosts: {", ".join(frames)}\nText: {words}'
+
+
+def readable_chars(html):
+    """How many characters of text a person could read on the page: tags, scripts and styles left out."""
+    body = re.sub(r'(?is)<(script|style|noscript)\b.*?</\1>', ' ', html or '')
+    return len(re.sub(r'\s+', ' ', re.sub(r'(?s)<[^>]+>', ' ', body)).strip())
+
+
+def is_long_page(html):
+    """The floor: long in bytes and a lot to read. Size alone is not enough (a check page carries big scripts)."""
+    return len(html or '') >= BIG_PAGE and readable_chars(html) >= REAL_TEXT
 
 
 def _word_rule(html):
@@ -41,7 +53,7 @@ def page_state(status, html, title='', final=''):
         return 'refused'
     if final and (not refused_reads.allowed(final) or LOGIN_PATH.search(urllib.parse.urlsplit(final).path)):
         return 'login'
-    if len(html or '') >= BIG_PAGE:
+    if is_long_page(html):
         return 'page'
     if not (html or '').strip():
         return 'refused'
