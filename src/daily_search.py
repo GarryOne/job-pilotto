@@ -67,13 +67,14 @@ def search(args, stores=None):
             if employer_index.problem:  # said on the run, not only in its log: the check then crawled a small list
                 run['warnings'].append(f'Employer index not downloaded ({employer_index.problem}): this check crawled {len(feed_list)} feeds, not the full list')
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
+                so_far = jobs_so_far.SoFar(db)   # each source's jobs in the list as soon as it is read, not all at the end (owner, 18 Oct 2026); before the slice, so its jobs stay "new" in the count
                 if args.first_jobs and args.score_max and not args.only_visits and (read_first := profile_source(stores)):
                     try:   # a new user's first jobs in seconds: a slice of fast feeds, 3 jobs scored and synced one by one, then the full crawl below
                         first_jobs.run(db, feed_db, feed_list, read_first(), hidden, sync=lambda: stores.matches.sync(
-                            db, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True))
+                            db, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True),
+                                        import_jobs=lambda slice_report: so_far.add(slice_report.get('jobs') or [], 'employer sites'))
                     except Exception as error:  # noqa: BLE001 — the full search does everything the slice did
                         print(f'Warning: first jobs skipped: {type(error).__name__}: {error}', flush=True)
-                so_far = jobs_so_far.SoFar(db)   # each source's jobs in the list as soon as it is read, not all at the end (owner, 18 Oct 2026)
                 from .sources import boards_ahead   # the found boards read beside the employer sites, not after them (owner, 19 Oct 2026)
                 report, ahead = boards_ahead.scan_beside(feed_list, feed_db, load_search_config(), so_far, due=args.mode in ('scheduled', 'run'))
                 crawl_funnel = report.get('funnel')   # not `funnel`: that name is the Notion funnel module used further down
