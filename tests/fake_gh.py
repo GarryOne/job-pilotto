@@ -47,14 +47,17 @@ elif argv[:2] == ['pr', 'list']:
     # without --head: every open PR with its commits (state 'others', for the no-stacking check)
     print(json.dumps(([{'number': 1}] if state.get('state') == 'OPEN' else []) if '--head' in argv else state.get('others', [])))
 elif argv[:2] == ['pr', 'create']:
-    state.update(state='OPEN', head=flag('--head'), auto=False, draft='--draft' in argv)
+    state.update(state='OPEN', head=flag('--head'), auto=False, draft='--draft' in argv, title=flag('--title'))
     print('https://example.test/pull/1')
 elif argv[:2] == ['pr', 'edit']:
     state['body'] = flag('--body') or state.get('body')
+    state['title'] = flag('--title') or state.get('title')
 elif argv[:2] == ['pr', 'ready']:
     state['draft'] = '--undo' in argv
 elif argv[:2] == ['pr', 'merge']:
     state['auto'] = '--auto' in argv
+elif argv[:2] == ['pr', 'view'] and flag('--jq') == '.title':
+    print(state.get('title') or 'My change')
 elif argv[:2] == ['pr', 'view']:
     if state.get('auto') and not pending and state.get('state') == 'OPEN':
         merge()

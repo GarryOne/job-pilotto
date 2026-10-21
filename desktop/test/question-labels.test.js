@@ -1,7 +1,7 @@
 // The questions a form asked that no answer matched are reported as wording only; anything that could be personal stays on this Mac.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {siteTest} from './site-private.js';
+import {assertSiteAccepts, siteTest} from './site-private.js';
 import {cleanLabel, flowState, leftCounts, missedQuestions, submitCounts, unplaced} from '../lib/question-labels.js';
 
 test('a label is lower-cased and tidied, and what could carry personal data is dropped', () => {
@@ -47,10 +47,10 @@ test('at Submit: what you answered yourself (left vs never read) and what the pa
   assert.deepEqual(submitCounts({}), []);
 });
 
-siteTest('the site accepts exactly the reason words the app sends (site/src/knowledge.js)', async () => {
+siteTest('the site accepts every reason word the app sends (site/src/knowledge.js)', async () => {
   const {LEFT_REASONS} = await import('../lib/question-labels.js');
   const site = (await import('node:fs')).readFileSync(new URL('../../site/src/knowledge.js', import.meta.url), 'utf8');
-  assert.deepEqual(JSON.parse(site.match(/export const LEFT_REASONS = (\[[^\]]*\])/)[1].replace(/'/g, '"')), LEFT_REASONS);
+  assertSiteAccepts(LEFT_REASONS, JSON.parse(site.match(/export const LEFT_REASONS = (\[[^\]]*\])/)[1].replace(/'/g, '"')), 'reason words');
 });
 
 test('a proposed answer is its own reason, apart from "no answer" (9 Oct 2026)', async () => {

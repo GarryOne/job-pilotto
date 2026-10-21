@@ -7,7 +7,7 @@ from unittest import mock
 
 from src import pool_tags
 from src.ai import meanings
-from site_private import needs_site
+from site_private import assert_site_accepts, needs_site
 
 
 class PoolTagsTest(unittest.TestCase):
@@ -38,7 +38,7 @@ class PoolTagsTest(unittest.TestCase):
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool-tags.js').read_text()
         for name, table in (('COUNTRIES', pool_tags.COUNTRIES), ('METROS', pool_tags.METROS), ('FAMILIES', pool_tags.FAMILIES), ('EUROPE', pool_tags.EUROPE)):
             listed = re.search(rf'export const {name} = \[(.*?)\];', site).group(1)
-            self.assertEqual(re.findall(r"'([^']+)'", listed), list(table), f'{name}: run the generator in this test file\'s docstring history or edit site/src/pool-tags.js')
+            assert_site_accepts(self, list(table), re.findall(r"'([^']+)'", listed), f'{name}: edit site/src/pool-tags.js')
 
 
 if __name__ == '__main__':

@@ -57,6 +57,11 @@ ship_pr_land() {
     if [ -n "${SHIP_PR_TITLE:-}" ]; then   # --title= on a PR that is already open: its title is replaced (only then)
       who="$(session_name)"; title="$SHIP_PR_TITLE"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"
       gh pr edit "$n" --title "$title" >/dev/null 2>&1 && step "retitled #$n" || step "could not retitle #$n (the old title stays)"
+    else   # no --title: still keep the "[xx]" tag (21 Oct 2026: site#18 and #19 were red for a missing tag, opened or retitled by hand): add it when the title lacks one
+      who="$(session_name)"; title="$(gh pr view "$n" --json title --jq .title 2>/dev/null || true)"
+      if [ "$who" != "?" ] && [ -n "$title" ] && ! printf '%s' "$title" | grep -qE '^\[[^]]+\] '; then
+        gh pr edit "$n" --title "[${who#job-pilotto-}] $title" >/dev/null 2>&1 && step "added the [${who#job-pilotto-}] tag to the title of #$n" || step "could not add the session tag to #$n (the old title stays)"
+      fi
     fi
     if [ -n "${SHIP_PR_DRAFT:-}" ]; then gh pr ready "$n" --undo >/dev/null 2>&1 && step "#$n is a draft again until its new checks are green" || true; fi   # --draft: a new push restarts the checks
   fi

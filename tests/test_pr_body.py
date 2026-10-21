@@ -180,6 +180,17 @@ class PrDescriptionLaidOutTest(unittest.TestCase):
         for part in ('"## " heading', '"---" separator', '"### " section heading'):
             self.assertIn(part, err)
 
+    def test_a_title_without_the_session_tag_is_red_and_names_the_fix(self):
+        # 21 Oct 2026: site#18 and #19 were red for a missing "[xx] " tag
+        laid = subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-format.py'), 'owner/repo'], input=(ROOT / 'tools' / 'pr-body-template.md').read_text(), capture_output=True, text=True).stdout
+        run = lambda title: subprocess.run(['python3', str(ROOT / 'tools' / 'pr-body-check.py')], input=laid, capture_output=True, text=True, env={**os.environ, 'PR_TITLE': title})
+        self.assertEqual(run('[75] Fix the thing').returncode, 0)
+        self.assertEqual(run('').returncode, 0, 'a bot\'s PR sets no title: no check')
+        bad = run('Fix the thing')
+        self.assertEqual(bad.returncode, 1)
+        self.assertIn('tools/ship.sh', bad.stderr)
+        self.assertIn('[xx]', bad.stderr)
+
     def test_the_required_job_checks_the_description_on_an_edit(self):
         # A step of the one required job, never its own workflow (owner, 17 Oct 2026: two extra check lines per PR).
         self.assertFalse((ROOT / '.github' / 'workflows' / 'pr-description.yml').exists())
@@ -187,6 +198,7 @@ class PrDescriptionLaidOutTest(unittest.TestCase):
         self.assertIn('edited', flow)
         self.assertIn('- name: PR description laid out', flow)
         self.assertIn('tools/pr-body-check.py', flow)
+        self.assertIn('PR_TITLE:', flow, 'the same step checks the title tag')
         self.assertIn("github.event.action == 'edited'", flow, 'an edit must not cancel the push run (a cancelled run shows red)')
 
 

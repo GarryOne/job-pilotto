@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src import employer_index, role_kinds  # noqa: E402
 from src.sources import feeds  # noqa: E402
-from site_private import needs_site  # noqa: E402
+from site_private import assert_site_accepts, needs_site  # noqa: E402
 
 PHOTOGRAPHER = {'role_keywords': ['photograph(e|er)?', 'retoucheu?r', 'vendeu(r|se)', 'responsable de (magasin|boutique)', 'magasinier',
                                   r'pr[ée]parateur de commandes'], 'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}}
@@ -70,7 +70,7 @@ class KindTests(unittest.TestCase):
     def test_the_website_knows_the_same_kinds(self):
         site = (ROOT / 'site' / 'src' / 'employers.js').read_text()
         listed = re.search(r'export const KINDS = \[([^\]]+)\]', site).group(1)
-        self.assertEqual(tuple(re.findall(r"'(\w+)'", listed)), role_kinds.KINDS)
+        assert_site_accepts(self, role_kinds.KINDS, re.findall(r"'(\w+)'", listed), 'kinds of role')
 
 
 class RestTests(unittest.TestCase):

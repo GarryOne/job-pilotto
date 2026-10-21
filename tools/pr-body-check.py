@@ -26,8 +26,20 @@ def missing(body):
     return out
 
 
+TAG_FIX = 'the title starts with the opening session\'s tag, e.g. "[75] Fix the thing": tools/ship.sh adds it (re-run it), or `gh pr edit <n> --title "[xx] <title>"`'
+
+
+def title_gap(title):
+    """21 Oct 2026: site#18 and #19 had no "[xx] " tag (opened or retitled by hand). PR_TITLE is set by pr-gate.yml / the site's tests.yml (empty for a bot's PR: no check)."""
+    return None if not title or re.match(r'^\[[^\]]+\] \S', title) else f'the PR title "{title}" has no "[xx] " session tag: {TAG_FIX}'
+
+
 if __name__ == '__main__':
     gaps = missing(sys.stdin.read())
+    gap = title_gap(os.environ.get('PR_TITLE', '').strip())
+    if gap:
+        print('pr-title: ' + gap, file=sys.stderr)
+        sys.exit(1)
     if gaps:
         print('pr-description: ' + '; '.join(gaps) + ': ' + FIX, file=sys.stderr)
         sys.exit(1)
