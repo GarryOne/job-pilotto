@@ -1451,6 +1451,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .actions-telegram { display: inline-flex; align-items: center; gap: var(--sp-2); padding-right: var(--sp-4); border-right: 1px solid var(--line); }
 .actions-telegram .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
 .actions-telegram .dot.is-on { background: var(--good-bright); }
+.actions-telegram .dot.is-warn { background: var(--warn-bright); }
 #actions-automation { text-decoration: none; }
 .run-banner { display: flex; align-items: center; gap: var(--sp-4); background: var(--info-soft); border-color: var(--info-line); }
 .run-banner .spinner { width: 28px; height: 28px; flex: none; }

@@ -89,6 +89,16 @@ export function deliveryHead(run) {
   return {problem: reason, delivery: true, lines, icon: 'send', title: 'Telegram message not delivered',
     summary: `The ${what} completed, but its Telegram message was not sent.`, hint: reason, fix: {label: 'Open Telegram settings', view: 'settings'}};
 }
+// Whether the bot reached the person on the latest run that tried: 'blocked' (refused / not delivered), 'ok' (a message arrived), or null (no run tried).
+// Newest first, as the runs list is. A saved token alone proves neither (#1663).
+export function telegramHealth(runs) {
+  for (const run of runs || []) {
+    if (!run || run.live || run.waiting) continue;
+    if (deliveryHead(run) || /^not sent: Telegram/i.test(run.telegramNote || '')) return 'blocked';
+    if (run.telegram) return 'ok';
+  }
+  return null;
+}
 
 // A Gmail check with Gmail not connected: nothing was checked, the box says so and connects it (the owner's fix #6, 6 Oct 2026).
 export function notConnectedHead(run, connectedNow = null) {

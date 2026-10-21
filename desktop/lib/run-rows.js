@@ -94,5 +94,6 @@ export function fromRecord(row, now = Date.now()) {
   const ok = status !== 'Failed' && status !== 'Running';
   const job = ok && mode === 'add' && row.application ? {pageId: row.application, url: null, title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: stats.new_jobs ?? null, feeds: stats.feeds ?? null, usd: stats.ai_cost_usd || 0,
-    billing: stats.billed_to || null, telegram: !!stats.telegram, result: where === 'cloud' ? summary : result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
+    billing: stats.billed_to || null, telegram: !!stats.telegram && !/^(not sent|nothing)/i.test(String(stats.telegram)),  // other kinds store 1; the search stores words, and 'not sent: …' is no send (#1393)
+    telegramNote: String(stats.telegram || ''), result: where === 'cloud' ? summary : result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
 }
