@@ -27,8 +27,8 @@ const EDITED = ['E2E Hooli', 'E2E Pied Piper', 'E2E Vandelay', 'E2E Globex'], RE
 
 // The start state of every section this suite's steps change (snapshot preseeding, lib/notion.mjs restoreSections). Roles: the persona's own, none of which a fixture
 // posting of this suite matches (so before any change the check keeps neither); places, level and companies empty; regions to skip: the real list, no test word.
-const START = {   // the page's sections; on this Mac's store the same values go into the config files (sqliteStart)
-  'Roles to look for': ['data analyst', 'business intelligence', '"bi"', 'analytics engineer', 'reporting analyst'],
+export const START = {   // the page's sections; on this Mac's store the same values go into the config files (sqliteStart)
+  'Target roles': ['data analyst', 'business intelligence', '"bi"', 'analytics engineer', 'reporting analyst'],
   'Your level': [],
   'Best places': [],
   // The region step keeps only what is in its region: an applicant's strategy may also search the whole country or abroad (the e2e applicant's: all Switzerland).
@@ -47,7 +47,7 @@ const fragment = entry => (entry.length > 2 && entry.startsWith('/') && entry.en
 // START in the config files' shape (the same SECTIONS map as the engine's): what the page would have written into them.
 export function sqliteStart(search, preferences) {
   const m = list => list.map(fragment);
-  return {search: {...withRoles(search, m(START['Roles to look for'])), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),
+  return {search: {...withRoles(search, m(START['Target roles'])), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),
     remote_excluded_regions: m(START['Remote jobs: regions to skip']),
     locations: {...search.locations, top_tier: m(START['Best places']), country_wide: m(START['Anywhere in the country']), abroad: m(START['Places abroad'])}},
   preferences: {...preferences, excluded_companies: START['Companies to skip']}};
@@ -88,8 +88,8 @@ export async function run(ctx) {
     if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
   };
   // Read right after the app rewrote the page, Notion can list it without its headings for a while (7 Oct 2026: "Cannot read properties of undefined
-  // (reading 'filter')" on 'Roles to look for', 14 s after a delete-and-append rewrite). Wait for the headings every step reads, then say which were missing.
-  const HEADINGS = ['Roles to look for', 'Best places', 'Companies to skip'];
+  // (reading 'filter')" on 'Target roles' (named 'Roles to look for' until 21 Oct 2026, 8c8bd70), 14 s after a delete-and-append rewrite). Wait for the headings every step reads, then say which were missing.
+  const HEADINGS = ['Target roles', 'Best places', 'Companies to skip'];
   const sections = async () => {
     const id = await settingsPage();
     let found = {};
@@ -174,7 +174,7 @@ export async function run(ctx) {
     const file = read('search.json'), notion = onNotion ? await sections() : null;
     if (!has(file.role_keywords, ROLE) || !has(file.locations.top_tier, PLACE)) throw new Error(`config/search.json lacks the new role or place (roles: ${file.role_keywords.join(', ')}; places: ${file.locations.top_tier.join(', ')})`);
     if (!notion) return;
-    if (!has(notion['Roles to look for'], ROLE)) throw new Error(`the Notion page lacks the role (it lists: ${(notion['Roles to look for'] || []).join(', ')})`);
+    if (!has(notion['Target roles'], ROLE)) throw new Error(`the Notion page lacks the role (it lists: ${(notion['Target roles'] || []).join(', ')})`);
     if (!has(notion['Best places'], PLACE)) throw new Error(`the Notion page lacks the place (it lists: ${(notion['Best places'] || []).join(', ')})`);
   }, {needs: ctx.needs});
 
@@ -196,7 +196,7 @@ export async function run(ctx) {
     if (!onNotion) return;
     const notion = await sections();
     if (!has(notion['Companies to skip'], SKIP)) throw new Error(`the Notion page lacks the company (it lists: ${(notion['Companies to skip'] || []).join(', ')})`);
-    if (!has(notion['Roles to look for'], ROLE)) throw new Error('saving the companies lost the role added before');
+    if (!has(notion['Target roles'], ROLE)) throw new Error('saving the companies lost the role added before');
   }, {needs: ctx.needs});
 
   await ctx.run('the skipped company is not kept any more, while the same role at the other board still is', async () => {
@@ -238,7 +238,7 @@ export async function run(ctx) {
     const id = await settingsPage();
     const before = await sections();
     // The page is the source of truth: a person adds a role there, and takes the other one out.
-    await setSection(NOTION, id, 'Roles to look for', [...before['Roles to look for'].filter(entry => !has([entry], ROLE)), GIRAFFE]);
+    await setSection(NOTION, id, 'Target roles', [...before['Target roles'].filter(entry => !has([entry], ROLE)), GIRAFFE]);
     addPosting('zebra.json', 3006, 'Senior Zebra Wrangler, Cloud');
     addPosting('zebra.json', 3007, 'Senior Giraffe Keeper, Cloud');
     const jobs = await check();
