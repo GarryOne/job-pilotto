@@ -1,12 +1,12 @@
 // The upload of "Report this form" (spec docs/superpowers/specs/2026-10-15-report-this-form.md §4, §6): the scrubbed record the person approved is packed (JSON, gzip), encrypted on this Mac with a
 // random AES key that is itself wrapped with the owner's public key (lib/report-key.pem, the same key as e2e/net-record.pub.pem; only the owner's Keychain key opens it), and sent to the site with
-// the install's own token for purpose "report". The site stores two opaque objects and cannot read them. Never sent when this run is not a real install (recipes.js siteIsOff: tests, the twin, CI).
+// the install's own token for purpose "report". The site stores two opaque objects and cannot read them. Never sent when this run is not a real install (recipes.js siteOffForUser: tests, the twin, CI).
 // The ids of what was sent are kept (settings.reportsSent) so Settings can delete them. Guard: test/report-upload.test.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {installId} from './pool-share.js';
-import {SITE, siteIsOff} from './recipes.js';
+import {SITE, siteOffForUser} from './recipes.js';
 import {installToken} from './install-token.js';
 
 // The one clear-text label the site sees: a fixed word the app chooses, never the person's note (the site holds counts only; the note is read after decrypting, on the owner's Mac).
@@ -40,7 +40,7 @@ export function createUploader({storage, fetcher = globalThis.fetch, base = SITE
   return {
     // -> {ok, id} | {ok: false, error}. A record is sent only after the person pressed Send and the gate ran a last time (report-handlers.js).
     async send(record, {note = ''} = {}) {
-      if (siteIsOff()) return {ok: false, error: 'This is not a regular install, so nothing is sent.'};
+      if (siteOffForUser()) return {ok: false, error: 'This is not a regular install, so nothing is sent.'};
       const {body, wrapped} = encryptBundle(bundleOf(record, now(), note), pem);
       if (body.length > MAX_BYTES) return {ok: false, error: 'This report is too large to send. Untick the biggest site and try again.'};
       const install = installId(storage);
@@ -54,7 +54,7 @@ export function createUploader({storage, fetcher = globalThis.fetch, base = SITE
     count: () => (storage.settings().reportsSent || []).length,
     // Deletes every report this install sent that the site still holds. -> {ok, deleted}
     async deleteAll() {
-      if (siteIsOff()) return {ok: false, deleted: 0};
+      if (siteOffForUser()) return {ok: false, deleted: 0};
       const install = installId(storage), sent = storage.settings().reportsSent || [], left = [];
       let deleted = 0;
       for (const one of sent) {

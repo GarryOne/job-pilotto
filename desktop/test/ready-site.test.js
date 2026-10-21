@@ -145,7 +145,7 @@ test('the night carries the stored Claude key only when the API key is the engin
   assert.deepEqual(withOwnAi({jobs: []}, ownKeyFor({aiEngine: 'cli'}, keys)), {jobs: []});   // the first night's case: Claude Code + an old key -> Free AI
 });
 
-test('the owner\'s app run from source reaches the site for Ready to send; a test, CI or smoke run never does, and Always on keeps its rule (18 Oct 2026)', async () => {
+test('the owner\'s app run from source reaches the site for Ready to send; a test, CI or smoke run never does, and so does Always on (21 Oct 2026: one rule, recipes.js siteOffForUser)', async () => {
   const owned = {secret: name => (name === 'READY_OWNER_SECRET' ? 'owner-secret' : /TRIAL/.test(name) ? 'JPF1.install.token' : ''), settings: () => ({}), saveSettings() {}, path: name => `/nowhere/${name}`};
   try {
     setSiteOff(DEV_BUILD);
@@ -153,9 +153,9 @@ test('the owner\'s app run from source reaches the site for Ready to send; a tes
     assert.deepEqual(await status(owned, {fetcher: fake.fetcher}), {ok: true, jobs: []});
     await runNow(owned, {fetcher: fake.fetcher});
     assert.deepEqual(fake.seen.map(s => new URL(s.url).pathname), ['/api/ready/state', '/api/ready/run']);
-    const always = site();
-    assert.equal((await hostedCall(owned, '/api/hosted/state', {fetcher: always.fetcher})).ok, false);   // Always on: still not from a development build
-    assert.equal(always.seen.length, 0);
+    const always = site(200, {ok: true});
+    assert.equal((await hostedCall(owned, '/api/hosted/state', {fetcher: always.fetcher})).ok, true);   // Always on: a person presses it, so a development build may too
+    assert.equal(always.seen.length, 1);
     for (const run of ['CI', 'a smoke test', 'the end-to-end journey']) {
       setSiteOff(run);
       const none = site();

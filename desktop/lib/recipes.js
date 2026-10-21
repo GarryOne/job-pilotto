@@ -18,6 +18,7 @@ import {cleanHost} from './host-clean.js';
 import {RESULT_STATES} from './application-result.js';
 import {addAnswer, mergeAnswers} from './answer-counts.js';
 import {log} from './log.js';
+import {DEV_BUILD} from './telemetry.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
 import {counts as ladderCounts, ladderStore} from './ladder/learning.js';
@@ -47,6 +48,9 @@ let siteOff = '';
 export const setSiteOff = reason => { siteOff = reason || ''; };
 export const siteIsOff = () => !!siteOff;
 export const siteOffReason = () => siteOff;
+// For what a person presses (Free AI, Always on, Ready to send, a report, Pro): refused only when the run is a test, the twin, CI or a smoke run. The owner's app
+// run from source (DEV_BUILD) may use them (21 Oct 2026: "I cannot choose Free AI"). The automatic traffic (packs, learning, analytics) keeps `siteIsOff`/`enabled`.
+export const siteOffForUser = () => !!siteOff && siteOff !== DEV_BUILD;
 // An install that opted into beta (Settings → Beta) also tests canary learning (site/src/canary-reach.js, owner 9 Oct 2026).
 export const betaHeader = storage => (storage.settings().betaChannel === true ? {'X-Beta': '1'} : {});
 export const enabled = storage => !siteOff && storage.settings().telemetry !== false;

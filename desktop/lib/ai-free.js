@@ -2,7 +2,7 @@
 // (ANTHROPIC_BASE_URL), which answers with an open model on Cloudflare Workers AI (site/src/free-ai.js). The "API key" is JPF1.<install>.<token>,
 // the install's own token for purpose "ai"; no account, no founder key, nothing on this Mac from Cloudflare. An own key saved later → back to Anthropic directly.
 import {installId} from './pool-share.js';
-import {siteIsOff} from './recipes.js';
+import {siteOffForUser} from './recipes.js';
 import {installToken} from './install-token.js';
 
 export const FREE_BASE = 'https://www.jobpilotto.top/api/ai';
@@ -25,7 +25,7 @@ export function apply(settings, env = process.env) {
 
 // Turn Free AI on: mint this install's token, keep JPF1.<install>.<token> as the Anthropic key. -> {ok, error?}
 export async function start(storage, env = process.env, fetcher = globalThis.fetch) {
-  if (siteIsOff()) return {ok: false, error: 'This is not a regular install, so Free AI is not asked.'};
+  if (siteOffForUser()) return {ok: false, error: 'This is not a regular install, so Free AI is not asked.'};
   const install = installId(storage);
   try {
     const token = await installToken(storage, install, 'ai', {base: FREE_BASE.replace(/\/api\/ai$/, ''), fetcher});
@@ -56,7 +56,7 @@ export function stop(storage, env = process.env) {
 // sends it as a repo secret, so its runs stop new work at the trial's end like the app. Kept under this name; never throws.
 export const TRIAL_KEY = 'JOB_PILOTTO_TRIAL_KEY';
 export async function ensureTrialKey(storage, fetcher = globalThis.fetch) {
-  if (storage.secret(TRIAL_KEY) || /^JPF1\./.test(storage.secret('ANTHROPIC_API_KEY') || '') || siteIsOff()) return;
+  if (storage.secret(TRIAL_KEY) || /^JPF1\./.test(storage.secret('ANTHROPIC_API_KEY') || '') || siteOffForUser()) return;
   const install = installId(storage);
   try {
     const token = await installToken(storage, install, 'ai', {base: FREE_BASE.replace(/\/api\/ai$/, ''), fetcher});
