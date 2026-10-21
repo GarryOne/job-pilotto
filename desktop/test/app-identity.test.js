@@ -1,5 +1,6 @@
 // The Jobadabra rename must not move an existing install's data folder or the Keychain item that seals its tokens (both follow app.name).
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {keepLegacyIdentity, LEGACY_NAME} from '../lib/app-identity.js';
@@ -38,4 +39,12 @@ test('a test or demo folder set afterwards still wins', () => {
   keepLegacyIdentity({app, safeStorage: {}});
   app.setPath('userData', '/tmp/demo');
   assert.equal(app.getPath('userData'), '/tmp/demo');
+});
+
+// Electron finds its "<CFBundleName> Helper" apps by the bundle's CFBundleName; the builder names them after productName. A different CFBundleName
+// (19 Oct 2026, the rename) made every packaged Mac app die at launch with "Unable to find helper app" (the nightly beta's smoke, 20 + 21 Oct).
+test('the Mac bundle name is the product name the helper apps are named after', () => {
+  const build = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).build;
+  const bundleName = build.mac.extendInfo?.CFBundleName;
+  assert.ok(bundleName === undefined || bundleName === build.productName, `CFBundleName ${bundleName} must be absent or ${build.productName}: the helpers are "${build.productName} Helper"`);
 });
