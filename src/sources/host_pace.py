@@ -8,6 +8,9 @@ reports the answer (`answer`) when it fetches another way (the headless browser)
   it) and the job waits for the next run. Before 20 Oct 2026 one 429 parked a whole shared job-system host for 7 days.
 - A domain that never asked us to slow down is not waited for at all (START_GAP 0): a gap per domain from the start made a search's
   feed crawl 2-4x slower on its big job systems (measured on the sre/music search tapes, 20 Oct 2026, PR #1610).
+- A 401/403 that comes right after a fast burst (BURST_MIN requests within BURST_WINDOW seconds, no gap yet) is read once as "too fast", not
+  as a refusal (the 6 Oct 2026 jobs.ch 403 on a burst, lost when START_GAP went to 0): the gap becomes BURST_GAP, the request is tried again,
+  and a 403 after that is the refusal it always was (#1640).
 - After SPEEDUP_AFTER answers in a row without a slow-down, the gap shrinks by SPEEDUP; under MIN_GAP it is dropped (back to no wait).
 - One pace per registrable domain (careers_parse.registrable): every employer on a shared job system shares it, since the limit is on our address.
 - What was learned (gap, calm-until) is kept in data/host_pace.json, only numbers per domain, so the next run starts at it.
@@ -29,6 +32,9 @@ MIN_GAP = 0.25            # a learned gap shrunk below this is dropped
 MAX_GAP = 120.0
 SPEEDUP_AFTER = 10
 SPEEDUP = 0.8
+BURST_MIN = 3             # this many requests within BURST_WINDOW seconds make a burst
+BURST_WINDOW = 2.0
+BURST_GAP = 1.0           # the gap a refusal right after a burst sets; a refusal at this gap or slower is final
 RETRIES = 3               # tries again in the same run after a slow-down
 MAX_WAIT = 10.0           # longer than this and the request waits for the next run (Busy): a search never stalls on one site
 KEEP_DAYS = 30            # a learned pace older than this is forgotten
@@ -110,6 +116,7 @@ def turn(url):
             raise Busy(url, line['calm'])
         at = max(line.get('next', 0), line['calm'], now)
         line['next'] = at + line['gap']
+        line['recent'] = [t for t in line.get('recent', []) if t > at - BURST_WINDOW] + [at]
     if at > now:
         sleep(at - now)
 
@@ -136,6 +143,9 @@ def answer(url, status, wait=None):
         state = _load()
         line = _line(state, key)
         now = clock()
+        if status in REFUSED and line['gap'] < BURST_GAP and len([t for t in line.get('recent', []) if t > now - BURST_WINDOW]) >= BURST_MIN:
+            slow, wait = True, BURST_GAP   # a refusal right after a fast burst: slow down once before it counts
+            line['recent'] = []
         line['at'] = now
         if slow:
             line['gap'] = min(MAX_GAP, max(line['gap'] * 2, 1.0, wait or 0))

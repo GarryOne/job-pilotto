@@ -184,6 +184,10 @@ def outcome(url, status, html, title='', final='', now=None, step='download', ca
         _keep(host, url, 'stopped', why, now, step=step)
         print(f'Refused sites: {host} stopped ({why}); not asked again for {READ_DAYS} days')
         return {'ok': True, 'state': 'stopped', 'why': why, 'name': host}
+    if not 200 <= int(status or 0) < 400:   # no answer (0), gone (404), a server error: a blip, not a page; never read as 'opened' or shared (#1639). Asked again after WAIT_DAYS.
+        _keep(host, url, 'waiting', 'the page did not load', now)
+        print(f'Refused sites: {host} did not load (HTTP {int(status or 0)}); asked again in {WAIT_DAYS} day(s)')
+        return {'ok': True, 'state': 'waiting', 'why': 'the page did not load', 'name': host}
     result = visits.read(url, html or '', None, title or '', now=now)
     state = 'read' if result['jobs'] else 'empty'
     from .. import role_kinds

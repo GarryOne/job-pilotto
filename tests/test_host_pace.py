@@ -115,6 +115,24 @@ class PaceTest(PaceCase):
         self.assertEqual((caught.exception.code, Site.hits['/refuse']), (403, 1))
         self.assertFalse(host_pace.FILE.exists())
 
+    def test_a_403_right_after_a_fast_burst_slows_down_once_then_counts(self):
+        for _ in range(host_pace.BURST_MIN):
+            self.read('/ok')   # a fast burst: no gap, no waiting
+        self.assertEqual(self.clock.slept, [])
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            self.read('/refuse')   # still refused after the one slow-down: it is a refusal
+        self.assertEqual(caught.exception.code, 403)
+        self.assertEqual(Site.hits['/refuse'], 2)   # asked again exactly once
+        self.assertGreaterEqual(max(self.clock.slept), host_pace.BURST_GAP)
+        self.assertGreater(host_pace._load()[host_pace.domain(self.base)]['gap'], 0)   # the site's pace stays slower
+
+    def test_a_403_from_a_site_not_hit_in_a_burst_is_asked_once(self):
+        self.read('/ok')
+        self.clock.now += 60
+        with self.assertRaises(urllib.error.HTTPError):
+            self.read('/refuse')
+        self.assertEqual(Site.hits['/refuse'], 1)
+
     def test_503_only_slows_down_with_retry_after(self):
         self.assertIn(b'driving', self.read('/busy-503'))
         with self.assertRaises(urllib.error.HTTPError):
