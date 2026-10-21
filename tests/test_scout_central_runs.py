@@ -18,9 +18,9 @@ WORKFLOW_MINUTES, PUBLISH_MINUTES = 75, 15   # job-pilotto-internal central-scou
 
 
 class CentralRunsTest(unittest.TestCase):
-    @needs_site   # reads site/src/scouting.js, which lives in job-pilotto-site
+    @needs_site   # reads shared/scouting.js, which lives in job-pilotto-site
     def test_the_site_keeps_the_run_time_shape_the_engine_sends(self):
-        """The engine sent '2026-10-20T01:06+00:00'; site/src/scouting.js keeps only 'YYYY-MM-DDTHH:MM', so every run was dropped."""
+        """The engine sent '2026-10-20T01:06+00:00'; shared/scouting.js keeps only 'YYYY-MM-DDTHH:MM', so every run was dropped."""
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'scouting.js').read_text()
         self.assertIn(r"/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(stats.run.at || '')", site)
 

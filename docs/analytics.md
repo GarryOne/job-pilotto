@@ -17,7 +17,7 @@ each event itself, so only the fields below leave the computer.
 - The engine gets `JOB_PILOTTO_SENTRY_DSN` only when reports are on, and reports unhandled exceptions.
 - Events (PostHog): app_start, page_view, setup_step, search_done, first_search_done, kit_prepared, apply_started, applied, feedback_sent, screen_time, ui_click.
 - **Time and clicks** (13 Oct 2026, owner): `screen_time` = whole seconds on a screen, split active (input in the last 60 s) and idle, sent when the screen changes or the window hides; `ui_click` = a control's own name (data attribute or id, never its label) and its place in the window in whole percents. Not sent from typing fields; never any text (`desktop/renderer/usage-signals.js`, validated in `usageEvent`).
-- Our own telemetry (`site/src/telemetry.js`, private repo `job-pilotto-site`) stays: health, the setup funnel, form and control learning data, GitHub triage.
+- Our own telemetry (`shared/telemetry.js`, private repo `job-pilotto-site`) stays: health, the setup funnel, form and control learning data, GitHub triage.
 
 ## Beta-tester extras (2 Oct 2026; tied to the beta since 0.5, 3 Oct)
 - **Trail:** every Sentry report carries the last 25 step names (the PostHog event names and page names), so "what was the user doing" is on the report.

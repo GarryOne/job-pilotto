@@ -1,5 +1,5 @@
 // A saved local copy of /admin/lab-form-filling's ?json for the session tools (needs-fix-causes, needs-fix-order): fetched at most every 15 minutes, `--refresh` forces a fetch
-// (every live fetch costs the site's D1 budget, 11 Oct 2026). The owner key comes from the Keychain (job-pilotto.site.api_key), never printed. Guard: site/test/needs-fix-causes.test.js.
+// (every live fetch costs the site's D1 budget, 11 Oct 2026). The owner key comes from the Keychain (job-pilotto.site.api_key), never printed. Guard: test/needs-fix-causes.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -19,7 +19,7 @@ export function pageJson({caller = 'page-copy', refresh = false, maxAge = MAX_AG
   return json;
 }
 
-function liveJson(caller) {   // X-Caller names this tool in the Worker's logs (site/src/d1-meter.js)
+function liveJson(caller) {   // X-Caller names this tool in the Worker's logs (workers/www/d1-meter.js)
   const key = execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();   // never printed
   return JSON.parse(execFileSync('curl', ['-s', '--fail', '--max-time', '30', '-H', `Authorization: Bearer ${key}`, '-H', `X-Caller: ${caller}`, SITE], {encoding: 'utf8', maxBuffer: 64 << 20}));
 }

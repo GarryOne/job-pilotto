@@ -6,8 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = ['README.md', 'desktop/package.json', 'extension/manifest.json', 'desktop/renderer/index.html',
-         'site/public/index.html', 'site/public/friends.html', 'site/public/compare.html',
-         'site/public/intelligence.html', 'site/public/platforms.html', 'site/public/pricing.html']
+         'web/public/index.html', 'web/public/friends.html', 'web/public/compare.html',
+         'web/public/intelligence.html', 'web/public/platforms.html', 'web/public/pricing.html']
 # A tech-only pitch: the product is for tech/IT/engineering jobs. One example role among many is fine (the board's STAFF SRE row).
 PITCH = re.compile(
     r'finds (the right )?tech jobs|\btech jobs that fit|for IT, software|IT, software and engineering'

@@ -13,7 +13,7 @@
 post, plan and status also write each message to that log (POST /api/brain/log); a failed log write is said, never fatal.
 
 Nothing here decides or builds: the two approval gates are the owner's taps in the "Job Pilotto Brain" Telegram bot
-(site/src/brain.js). Needs NOTION_BRAIN_TOKEN (a Notion connection that sees only the Decisions database),
+(api/brain.js). Needs NOTION_BRAIN_TOKEN (a Notion connection that sees only the Decisions database),
 BRAIN_DATABASE_ID, BRAIN_BOT_TOKEN, BRAIN_CHAT_ID, JOB_PILOTTO_TELEMETRY_KEY (the site's STATS_KEY) and GH_TOKEN.
 Standard library only.
 """

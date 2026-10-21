@@ -1,6 +1,6 @@
 """The scout end to end on a fixture site, with no network: candidate with a website -> careers page found -> feed registered -> the normal
 crawl reads that feed -> the job is stored. The unit tests cover each piece; this covers the seams between them. Also the contract with the
-website's index validator (site/src/employers.js), which is JavaScript with its own pattern for a feed's slug."""
+website's index validator (api/employers.js), which is JavaScript with its own pattern for a feed's slug."""
 import json
 import os
 import shutil

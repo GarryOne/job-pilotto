@@ -1,4 +1,4 @@
-// The app side of the usage-weighted pool's host check (lib/host-clean.js): the same cases as the site's (site/test/host-cases.json), so the two ends agree.
+// The app side of the usage-weighted pool's host check (lib/host-clean.js): the same cases as the site's (test/host-cases.json), so the two ends agree.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';

@@ -233,7 +233,7 @@ else
     case "$file" in
       *.md|docs/*|LICENSE*|.gitignore|*/.gitignore) ;;
       worker/*) want_worker=1 ;;
-      site/*) want_site=1 ;;
+      site/*|web/*|admin/*|api/*|shared/*|workers/*|db/*|test/*|jobs/*|media/*|preview/*) want_site=1 ;;
       desktop/*|extension/*) want_desktop=1 ;;
       requirements*|pyproject.toml) want_python=1; want_desktop=1; clean_install=--clean-install ;;
       src/*|tests/*) want_python=1; want_desktop=1 ;;
@@ -313,9 +313,9 @@ add_tree() {  # area: its fresh checkout, named in tree_<area> (empty when git c
 verify_area() {  # area [extra check.sh flags]
   local area="$1"; shift
   local name="tree_$area"; local tree="${!name:-}"
-  if [ "$area" = site ] && [ ! -d "$repo/site" ]; then echo "site: lives in the private repo job-pilotto-site (docs/rules/private-site.md): skipped here"; return 0; fi
+  if [ "$area" = site ] && [ ! -d "$repo/admin" ]; then echo "site: lives in the private repo job-pilotto-site (docs/rules/private-site.md): skipped here"; return 0; fi
   [ -n "$tree" ] || { echo "fatal: git could not make a clean checkout for $area"; return 1; }
-  for dir in desktop desktop/e2e worker site; do
+  for dir in desktop desktop/e2e worker; do
     [ -e "$repo/$dir/node_modules" ] && ln -s "$repo/$dir/node_modules" "$tree/$dir/node_modules"
   done
   [ -e "$repo/.venv" ] && ln -s "$repo/.venv" "$tree/.venv"

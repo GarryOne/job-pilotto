@@ -1,4 +1,4 @@
-// Screenshots and a short walkthrough video of the app for the website (site/public/images/app/),
+// Screenshots and a short walkthrough video of the app for the website (web/public/images/app/),
 // made with the fictional demo data in demo/ so no real profile or job ever appears.
 // Run after UI changes: npm run screenshots   (needs ffmpeg for the video: brew install ffmpeg)
 import {execFileSync, spawnSync} from 'node:child_process';

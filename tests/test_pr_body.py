@@ -83,7 +83,7 @@ class PrBodyTest(unittest.TestCase):
         def run(text):
             summary.write_text(text)
             return subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
-        for screen in ('desktop/renderer/pages/jobs.js', 'site/src/applying.js', 'site/public/index.html', 'extension/popup.css', 'desktop/renderer/styles.css'):
+        for screen in ('desktop/renderer/pages/jobs.js', 'admin/applying.js', 'web/public/index.html', 'extension/popup.css', 'desktop/renderer/styles.css'):
             git(self.repo, 'reset', '-q', '--hard', self.base)
             (self.repo / screen).parent.mkdir(parents=True, exist_ok=True); (self.repo / screen).write_text('x\n')
             git(self.repo, 'add', '.'); git(self.repo, 'commit', '-qm', 'Change a screen')

@@ -374,7 +374,7 @@ jobs:
           if-no-files-found: ignore
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
-  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e-report.js) and linked on the run's Summary page.
+  # (uncompressed: the owner's site serves its files straight from the artifact, admin/e2e-report.js) and linked on the run's Summary page.
   report:
     name: HTML report
     needs: [plan, suite]

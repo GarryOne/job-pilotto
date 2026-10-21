@@ -63,11 +63,11 @@ def main():
         t.resize((size, size), Image.LANCZOS).save(BRAND / f'icon-{size}.png')
     (BRAND / 'favicon.svg').write_text(mm.svg('tile', background=True).replace('<rect ', '<rect rx="40" '))
 
-    copies = {'logo-mark-ink.png': ['site/public/images/logo-mark.png'], 'site-logo.png': ['site/public/images/site-logo.png'], 'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
-              'icon-128.png': ['site/public/images/logo.png', 'extension/icons/icon-128.png'],
-              'icon-32.png': ['site/public/favicon-32.png', 'extension/icons/icon-32.png'],
+    copies = {'logo-mark-ink.png': ['web/public/images/logo-mark.png'], 'site-logo.png': ['web/public/images/site-logo.png'], 'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
+              'icon-128.png': ['web/public/images/logo.png', 'extension/icons/icon-128.png'],
+              'icon-32.png': ['web/public/favicon-32.png', 'extension/icons/icon-32.png'],
               'icon-16.png': ['extension/icons/icon-16.png'], 'icon-48.png': ['extension/icons/icon-48.png'],
-              'icon-180.png': ['site/public/apple-touch-icon.png'], 'icon-512.png': ['site/public/images/logo-512.png']}
+              'icon-180.png': ['web/public/apple-touch-icon.png'], 'icon-512.png': ['web/public/images/logo-512.png']}
     for name, targets in copies.items():
         for target in targets:
             shutil.copyfile(BRAND / name, ROOT / target)

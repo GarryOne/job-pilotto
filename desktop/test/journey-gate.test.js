@@ -8,7 +8,7 @@ import {FLOW_CORE, FLOW_FILES, JOURNEY_TESTS} from '../e2e/flows.mjs';
 test('a push touching any flow file is checked, an extension-only one included; one touching none is not', () => {
   assert.deepEqual(touchedFlowFiles(['extension/account-step.js', 'README.md'], FLOW_FILES), ['extension/account-step.js']);
   assert.deepEqual(touchedFlowFiles(['desktop/test/journeys.test.js'], FLOW_FILES), ['desktop/test/journeys.test.js']);
-  assert.deepEqual(touchedFlowFiles(['site/src/index.js', 'docs/x.md'], FLOW_FILES), []);
+  assert.deepEqual(touchedFlowFiles(['workers/www/index.js', 'docs/x.md'], FLOW_FILES), []);
   for (const file of FLOW_CORE) assert.deepEqual(touchedFlowFiles([file], FLOW_FILES), [file], file);
 });
 

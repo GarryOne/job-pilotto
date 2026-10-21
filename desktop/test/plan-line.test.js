@@ -20,7 +20,7 @@ test('the trial-wall dialog says the same plan line, and Pro on points to the Pl
 test('nothing asks for or offers a founder/friend key: no paste field, no "ask Igor", on any screen or page', () => {
   const html = read('../renderer/index.html');
   for (const id of ['license-input', 'license-save', 'allowance-input', 'allowance-unlock', 'license-paste']) assert.doesNotMatch(html, new RegExp(`id="${id}"`), id);
-  const files = ['../renderer/index.html', '../renderer/pages/license.js', '../renderer/plan-line.js', '../renderer/license-chip.js', '../lib/app-allowance.js', '../lib/job-actions-handlers.js'];   // the website pages are checked in site/test/no-key-offers.test.js (its suite runs on site/ changes)
+  const files = ['../renderer/index.html', '../renderer/pages/license.js', '../renderer/plan-line.js', '../renderer/license-chip.js', '../lib/app-allowance.js', '../lib/job-actions-handlers.js'];   // the website pages are checked in test/no-key-offers.test.js (its suite runs on site/ changes)
   for (const file of files) assert.doesNotMatch(read(file).replace(/\/\/.*$/gm, ''), /Have a key|got from Igor|Ask Igor|founder key|Paste (?:a|your) license key|Settings → License|Founder keys/i, `${file} offers a key`);
   assert.doesNotMatch(read('../renderer/index.html'), />License</, 'the Settings item and page are called Plan');
 });

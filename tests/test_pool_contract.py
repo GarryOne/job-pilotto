@@ -1,4 +1,4 @@
-"""The pool's engine-site contract: site/test/fixtures/pool-payloads.json holds the bodies the engine's own code sends (made by tools/pool_e2e.py),
+"""The pool's engine-site contract: test/fixtures/pool-payloads.json holds the bodies the engine's own code sends (made by tools/pool_e2e.py),
 and the site's contract test posts exactly those. This fails when the engine's bodies change and the fixture was not made again, so the site
 test can never pass on bodies the engine no longer sends (7 Oct 2026)."""
 import json
@@ -25,7 +25,7 @@ class PoolContractTest(unittest.TestCase):
                                  capture_output=True, text=True, timeout=120)
             self.assertTrue(out.exists(), f'tools/pool_e2e.py made no payloads: {run.stderr[-500:]}')
             self.assertEqual(json.loads(out.read_text()), json.loads(FIXTURE.read_text()),
-                             'the engine sends other bodies now: run POOL_PAYLOADS_OUT=site/test/fixtures/pool-payloads.json python3 tools/pool_e2e.py')
+                             'the engine sends other bodies now: run POOL_PAYLOADS_OUT=test/fixtures/pool-payloads.json python3 tools/pool_e2e.py')
 
 
 if __name__ == '__main__':

@@ -315,7 +315,7 @@ test('each fill\'s record and what Submit added go in the batch, with the board;
   assert.deepEqual(await reporter.flush(), {sent: 0});
 });
 
-// Owner, 9 Oct 2026: a beta install also tests canary learning; the app says so in a header (site/src/canary-reach.js).
+// Owner, 9 Oct 2026: a beta install also tests canary learning; the app says so in a header (api/canary-reach.js).
 test('a beta install asks for recipes with X-Beta: 1; any other install without it', async () => {
   for (const beta of [true, false]) {
     const storage = tempStorage();

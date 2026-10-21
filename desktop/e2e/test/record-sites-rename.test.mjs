@@ -48,7 +48,7 @@ test('the recording command is npm run record-sites; npm run smoke only says so'
 // and the site's `smoke` upload source: renaming those would orphan data or mean something else.
 const SETTINGS = ['PAIRED', 'KEEP_CANDIDATES', 'REPORTS', 'CANDIDATES', 'CAPTURES', 'SITES', 'MAX_ROWS', 'MAX_USD', 'ELIGIBILITY', 'SHARE', 'SECONDS', 'ELECTRON_LEG', 'NO_ELECTRON', 'ELECTRON'];
 const gitGrep = (pattern, ...excluded) => {
-  try { return execFileSync('git', ['grep', '-n', '-P', pattern, '--', '.', ':!docs/superpowers', ':!site/migrations', ...excluded.map(file => `:!${file}`)], {cwd: ROOT, encoding: 'utf8'}).split('\n').filter(Boolean); } catch (error) { if (error.status !== 1) throw error; return []; }   // 1 = no match
+  try { return execFileSync('git', ['grep', '-n', '-P', pattern, '--', '.', ':!docs/superpowers', ':!db/migrations', ...excluded.map(file => `:!${file}`)], {cwd: ROOT, encoding: 'utf8'}).split('\n').filter(Boolean); } catch (error) { if (error.status !== 1) throw error; return []; }   // 1 = no match
 };
 
 test('no file, script or doc names smoke.mjs or the SMOKE_ settings any more', () => {

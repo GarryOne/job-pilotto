@@ -22,7 +22,7 @@ if [ -n "$summary" ] && [ -s "$summary" ]; then
   done
   # A PR that changes a screen opens WITH its before/after images (owner, 28 Sep and 13 Oct 2026; #774 opened without them, 14 Oct): an image in the body, or a line
   # "No screenshots: <why>" when nothing visible changed (an API route in site/src). Screens: the app's window, the site's pages, the extension's pages and styles.
-  screens="$(git diff --name-only "$base"..HEAD | grep -E '^(desktop/renderer/|site/src/|site/public/)|^(desktop|extension)/.*\.(html|css)$' | head -3 | paste -sd ' ' - || true)"
+  screens="$(git diff --name-only "$base"..HEAD | grep -E '^(desktop/renderer/|admin/|api/|shared/|workers/www/|web/public/)|^(desktop|extension)/.*\.(html|css)$' | head -3 | paste -sd ' ' - || true)"
   if [ -n "$screens" ] && ! grep -qiE '!\[[^]]*\]\([^)]+\.(png|jpe?g|gif|webp)\)|<img |^No screenshots: .{8,}' "$summary"; then
     echo "pr-body: this PR changes a screen ($screens) but the summary has no before/after image: add them (memory feedback-ui-pr-before-after: `node tools/pr-assets.mjs pr-assets-<branch> <png>...` publishes a git tag, NEVER a release), or a line \"No screenshots: <why>\" when nothing visible changed" >&2; exit 2
   fi

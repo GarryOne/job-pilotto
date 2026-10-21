@@ -1,9 +1,9 @@
-// A test that reads files of the website, which lives in the private repo job-pilotto-site: it is skipped here and runs there, where site/ is laid over this repo.
+// A test that reads files of the website, which lives in the private repo job-pilotto-site: it is skipped here and runs there, where its folders (web/, admin/, api/, shared/, workers/ …) are laid over this repo.
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
 
-export const hasSite = existsSync(new URL('../../site/', import.meta.url));
+export const hasSite = existsSync(new URL('../../admin/', import.meta.url));
 export const siteTest = hasSite ? test : (name, ...rest) => test.skip(`${name} (runs in job-pilotto-site)`, ...rest);
 
 // The contract between the two repos is one way (owner, 21 Oct 2026): the site lands first and may know MORE than public lists; it must never know LESS.
