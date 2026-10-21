@@ -289,7 +289,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     location: job.location || '', workMode: job.workMode || ''}));
   const toOpen = chosen.map((job, index) => [job, owners[index]]).filter(([, owner]) => !reuseOpenTab(owner.id, focus, appLog));   // a job whose tab is open keeps it
   const chrome = toOpen.length ? chromeCommand(toOpen.map(([job, owner]) => sessionTabUrl(job.url, owner.id)), process.platform, process.env, fs.existsSync, extensionBrowser()) : [];
-  if (!chrome) return {ok: false, error: NO_CHROME};
+  if (!chrome) { toOpen.forEach(([, owner]) => terminals.remove(owner.id)); return {ok: false, error: NO_CHROME}; }   // no tab will carry these sessions' ids (applyOne does the same); a reused tab keeps its session
   if (toOpen.length) open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),
     message: `${drafted ? `Drafted ${drafted} kit${drafted === 1 ? '' : 's'} first. ` : ''}Opened ${chosen.length} job(s) in Chrome; each fills itself in a few seconds. Review every tab and submit yourself. ` +
