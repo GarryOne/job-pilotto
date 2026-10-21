@@ -14,7 +14,7 @@ from src import scout, scout_cells, scout_core, scout_hiring
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from site_private import needs_site  # noqa: E402
 
-WORKFLOW_MINUTES, PUBLISH_MINUTES = 75, 15   # job-pilotto-internal central-scout.yml timeout; the 20 Oct 01:06 run published in 15 min
+WORKFLOW_MINUTES, PUBLISH_MINUTES = 75, 15   # .github/workflows/central-scout.yml timeout-minutes; the 20 Oct 01:06 run published in 15 min
 
 
 class CentralRunsTest(unittest.TestCase):

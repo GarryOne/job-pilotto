@@ -1,0 +1,105 @@
+# Job Pilotto — the central scout (21 Oct 2026: moved here from the private job-pilotto-internal, whose Actions minutes were not payable;
+# public repos run free). It reads the private seed lists and discovery scripts from job-pilotto-internal with the CI GitHub App's token.
+# Its log is public: employer names and counts only. Runs the PUBLIC engine's source scout once a day with no user's data (no Notion,
+# no Telegram), verifies every known feed and uploads the employer index to the website worker
+# (PUT https://www.jobpilotto.workers.dev/api/index). Apps and Always-on runs download it (GET /api/index).
+# Secrets: CENTRAL_SCOUT_ANTHROPIC_KEY (Keychain job-pilotto.anthropic.internal_key), CI_APP_ID/CI_APP_PRIVATE_KEY (read of the private repo), INDEX_PUBLISH_KEY (= the website worker's secret of the same name; Keychain job-pilotto.site.index_publish_key).
+# The large-scale discovery is private and lives here (3 Oct 2026): every job board Common Crawl has seen (discovery/commoncrawl.py) and the
+# queue ranked by each source's measured yield (discovery/priorities.py). With ANTHROPIC_API_KEY, the public engine's AI steps also run here,
+# once for everyone: ideas for new employers (every third day) and reading careers pages the rules cannot (capped per run); the recipes they
+# learn travel to every install in the index. Without the key they are simply skipped.
+name: Central scout
+run-name: central scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
+
+on:
+  schedule:
+    - cron: '20 4,10,16,22 * * *'   # UTC, every 6 h (7 Oct 2026: installs check hourly and share as they find); 04:20 before the users' mornings
+  workflow_dispatch:
+    inputs:
+      batch: {description: 'candidates to probe this run', required: false, default: '500'}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-scout
+  cancel-in-progress: false
+
+env:
+  # No user is behind this run: nothing of Notion, Telegram or the AI can start, even if a variable leaks in.
+  JOB_PILOTTO_DISABLE: notion,telegram,mail,google_jobs,enrich,score,auto_kits,insights,index
+  # Worldwide places (not one user's search): the index serves users everywhere; each app filters by its own search.
+  JOB_PILOTTO_LOCATIONS_FILE: config/central_locations.json
+
+jobs:
+  scout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read access to the private seed lists (the CI App, this repo only)
+        id: ops_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: job-pilotto-internal
+      - name: The private repo (the curated seed lists and the discovery)
+        uses: actions/checkout@v5
+        with:
+          repository: GarryOne/job-pilotto-internal
+          token: ${{ steps.ops_token.outputs.token }}
+          path: ops
+      - name: Load the private seed lists and starter feeds
+        # The starter feeds live here since 6 Oct 2026 (the public config/sources.json is empty): the central index carries them to every
+        # install with their places and role mix, so an install never crawls a list baked into it.
+        run: |
+          cp ops/config/scout_seeds.json config/scout_seeds.json
+          cp ops/config/starter_sources.json config/sources.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Restore the scout's candidate list
+        uses: actions/cache/restore@v5
+        with:
+          path: data/jobs.sqlite
+          key: central-scout-db-${{ github.run_id }}
+          restore-keys: central-scout-db-
+      - name: Install the AI library and the headless browser
+        continue-on-error: true
+        run: pip install --quiet -r requirements.txt -r requirements-render.txt && playwright install --with-deps chromium
+      - name: Every job board Common Crawl has seen (once per new crawl)
+        continue-on-error: true   # the archive being slow must never cost the day's index
+        run: python ops/discovery/commoncrawl.py --db data/jobs.sqlite
+      - name: Rank the queue by each source's measured yield
+        run: python ops/discovery/priorities.py --db data/jobs.sqlite
+      - name: Scout and publish the index
+        env:
+          INDEX_PUBLISH_KEY: ${{ secrets.INDEX_PUBLISH_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.CENTRAL_SCOUT_ANTHROPIC_KEY }}   # the Internal workspace's key (own spend limit), not this repo's ANTHROPIC_API_KEY
+          BATCH: ${{ inputs.batch || '500' }}
+          JOB_PILOTTO_AI_COST_FILE: ${{ runner.temp }}/ai-cost.json
+        run: python -m src scout --batch "$BATCH" --publish-index
+      - name: Report the AI cost to /ai-cost
+        if: always()
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node desktop/e2e/ai-cost-report.mjs --job central-scout --file "$RUNNER_TEMP/ai-cost.json"
+      - name: Tell the owner when it fails
+        if: failure()
+        env:
+          BOT: ${{ secrets.BRAIN_BOT_TOKEN }}
+          CHAT: ${{ secrets.BRAIN_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$BOT" ] && [ -n "$CHAT" ] || exit 0
+          curl -fsS "https://api.telegram.org/bot${BOT}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT}" \
+            --data-urlencode "text=❌ Central scout failed, the employer index is not updated: ${RUN_URL}" > /dev/null
+      - name: Save the scout's candidate list
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: data/jobs.sqlite
+          key: central-scout-db-${{ github.run_id }}
