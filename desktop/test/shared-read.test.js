@@ -75,5 +75,5 @@ test('the write handlers that change what reads show close the join: view-cache 
     assert.match(fs.readFileSync(new URL(`../lib/${file}.js`, import.meta.url), 'utf8'), new RegExp(`writeHandle\\('${channel}'`), `${channel} closes the join`);
   }
   const cache = fs.readFileSync(new URL('../lib/view-cache.js', import.meta.url), 'utf8');
-  assert.equal((cache.match(/readsChanged\(\)/g) || []).length, 2, 'jobDeleted and statusChanged');
+  assert.equal((cache.match(/readsChanged\(\)/g) || []).length, 3, 'jobDeleted, jobsCleared and statusChanged');
 });
