@@ -5,7 +5,7 @@ import * as server from './server.js';
 import * as now from './refused-now.js';
 
 export function registerRefusedReadsHandlers({allowanceBlock, log, storage}) {
-  server.setVisitRoute('/extension/refused-pending', () => ({ok: true, pending: refused.settingOn(storage) && now.pending() && !refused.passRunning(), openDetails: refused.takeOpenSwitch(storage)}));   // the extension's one-minute look: a Read now waits for it
+  server.setVisitRoute('/extension/refused-pending', () => ({ok: true, pending: refused.settingOn(storage) && now.pending() && !refused.passRunning(), openDetails: refused.takeOpenSwitch(storage), showCheck: refused.takeShowCheck(storage)}));   // the extension's one-minute look: a Read now waits for it
   server.setVisitRoute('/extension/refused-queue', payload => refused.queue(storage, {allowed: payload?.allowed !== false, incognito: payload?.incognito !== false, log, allowanceBlock}));
   server.setVisitRoute('/extension/refused-judge', payload => refused.judge(storage, payload));
   server.setVisitRoute('/extension/refused-outcome', payload => refused.outcome(storage, payload));
