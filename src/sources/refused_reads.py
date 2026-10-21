@@ -109,32 +109,17 @@ ROUTE_SYSTEMS = lambda: sorted(set(ats.FETCHERS) - set(ats.LOCAL_ONLY) - {'caree
 
 
 def valid_route(route):
-    """A route in its one shared shape, or None: {system, account} (a job system and its account slug exactly as ats.detect writes it; a Workday
-    account is tenant.wdN.Site) or {feed} (one https address, no query, no fragment). Never a title, a link list or a text (owner, 20 Oct 2026)."""
+    """A route in its one shared shape, or None: {system, account} (a job system and its account slug, checked by ats.slug_ok, the readers' own rule per system; a Workday
+    account is tenant.wdN.Site, an Oracle one tenant.region.SITE, a Phenom or SuccessFactors one the site's host) or {feed} (one https address, no query, no fragment). Never a title, a link list or a text (owner, 20 Oct 2026)."""
     if not isinstance(route, dict):
         return None
     system, account, feed = route.get('system'), route.get('account'), route.get('feed')
-    if system in ROUTE_SYSTEMS() and feed is None and set(route) == {'system', 'account'} and isinstance(account, str) and account.strip() == account and ats.detect(_probe(system, account)) == (system, account):
+    if system in ROUTE_SYSTEMS() and feed is None and set(route) == {'system', 'account'} and isinstance(account, str) and account.strip() == account and ats.slug_ok(system, account):
         return {'system': system, 'account': account}
     parts = urllib.parse.urlsplit(feed) if isinstance(feed, str) and len(feed) <= 300 else None
     if parts and parts.scheme == 'https' and parts.hostname and not (parts.query or parts.fragment) and allowed(feed) and not system and not account:
         return {'feed': feed}
     return None
-
-
-def _probe(system, account):
-    """A board address of `system` for `account`, to hand back to ats.detect: the slug check is the reader's own, not a second pattern."""
-    if system == 'workday':
-        tenant, _, rest = account.partition('.')
-        cluster, _, site = rest.partition('.')
-        return f'https://{tenant}.{cluster}.myworkdayjobs.com/{site}'
-    return PROBE_URLS.get(system, '').replace('{}', account)
-
-
-PROBE_URLS = {'greenhouse': 'https://boards.greenhouse.io/{}', 'lever': 'https://jobs.lever.co/{}', 'ashby': 'https://jobs.ashbyhq.com/{}',
-              'smartrecruiters': 'https://jobs.smartrecruiters.com/{}', 'workable': 'https://apply.workable.com/{}', 'recruitee': 'https://{}.recruitee.com',
-              'personio': 'https://{}.jobs.personio.de', 'teamtailor': 'https://{}.teamtailor.com', 'join': 'https://join.com/companies/{}',
-              'umantis': 'https://{}.umantis.com'}
 
 
 def route_of(final, html):

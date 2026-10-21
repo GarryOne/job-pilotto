@@ -88,13 +88,19 @@ class RefusedReadsTest(unittest.TestCase):
         self.assertNotIn('jobs.coop.ch', {i['url'].split('/')[2] for i in refused_reads.queue(now=NOW + timedelta(days=29))}, 'not asked again by itself for 30 days')
 
     def test_a_route_is_a_job_system_and_its_account_or_a_plain_feed_nothing_else(self):
-        good = [{'system': 'greenhouse', 'account': 'acme'}, {'system': 'workday', 'account': 'acme.wd3.Careers'}, {'feed': 'https://acme.com/jobs.xml'}]
+        good = [{'system': 'greenhouse', 'account': 'acme'}, {'system': 'workday', 'account': 'acme.wd3.Careers'}, {'system': 'phenom', 'account': 'careers.acme.com'},
+                {'system': 'eightfold', 'account': 'acme.eightfold.ai'}, {'feed': 'https://acme.com/jobs.xml'}]
         for route in good:
             self.assertEqual(refused_reads.valid_route(route), route)
         for route in [{'system': 'visit', 'account': 'x'}, {'system': 'greenhouse', 'account': 'a b'}, {'system': 'workday', 'account': 'acme'},
                       {'feed': 'http://acme.com/j'}, {'feed': 'https://acme.com/j?q=nurse'}, {'feed': 'https://www.linkedin.com/jobs/x'},
                       {'system': 'greenhouse', 'account': 'acme', 'title': 'Nurse'}, {'system': 'lever', 'account': 'acme', 'feed': 'https://a.com/x'}, None, 'x']:
             self.assertIsNone(refused_reads.valid_route(route), route)
+
+    def test_every_route_system_asks_the_readers_own_slug_rule(self):
+        for system in refused_reads.ROUTE_SYSTEMS():
+            with self.subTest(system=system):
+                self.assertIsNone(refused_reads.valid_route({'system': system, 'account': 'not a slug!'}))
 
     def test_an_opened_page_that_links_to_a_job_system_shares_that_route_and_only_that(self):
         page = JOBS.replace('</body>', '<a href="https://boards.greenhouse.io/coopch/jobs/123">Apply</a></body>')
