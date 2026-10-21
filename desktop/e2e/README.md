@@ -110,7 +110,7 @@ Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in t
 - **The Playwright HTML report** (owner's choice, 6 Oct 2026): every suite runs inside Playwright's test runner (`lib/report.mjs` → `report/suite.spec.mjs`, the suite's logic
   in `lib/suite-main.mjs`); each step is a report step with a screenshot when it ends, the failure's screenshot, the trace (opens inline) and `app.log`/`engine.log`.
   Local: `artifacts/<suite>/report/` (`npx playwright show-report artifacts/<suite>/report`). CI: a blob per suite, merged by the workflow's `report` job into the
-  `e2e-report` artifact; the run's Summary page and each suite's table link to it through `/admin/e2e/run/<run>/report` (the site serves it, `site/src/e2e-report.js`).
+  `e2e-report` artifact; the run's Summary page and each suite's table link to it through `/admin/e2e/run/<run>/report` (the site serves it, `admin/e2e-report.js`).
   Exit codes are the suite's own (skip 3, fail 1). `E2E_REPORT=0` runs a suite directly, without Playwright's runner.
 - The runs page `/admin/e2e` was dropped on 15 Oct 2026 (it redirects to `/admin/self-healing`); only the report links above stay. Each suite still uploads an `e2e-view-<suite>` artifact (`steps.json` + traces) for download.
 - **The run's Summary page** has one table per suite (`lib/step-summary.mjs`): every step ✅/❌/⏭️, its time, the failure in plain words and the screenshot it left.

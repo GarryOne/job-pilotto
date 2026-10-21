@@ -280,7 +280,7 @@ jobs:
           if-no-files-found: ignore
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
-  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e-report.js) and linked on the run's Summary page.
+  # (uncompressed: the owner's site serves its files straight from the artifact, admin/e2e-report.js) and linked on the run's Summary page.
   report:
     name: Windows HTML report
     needs: [plan, suite]
@@ -310,7 +310,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'
         with:
-          name: e2e-report-windows   # its own name: in the release run it sits beside the Mac + Linux gate's e2e-report (site/src/e2e-report.js reads both)
+          name: e2e-report-windows   # its own name: in the release run it sits beside the Mac + Linux gate's e2e-report (admin/e2e-report.js reads both)
           path: e2e-report
           compression-level: 0
       - name: The link on the run's Summary page

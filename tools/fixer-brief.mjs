@@ -1,5 +1,5 @@
 // Builds the fixer brief for one cause from the By-cause groups: a ready, self-contained prompt (pure: fed the groups and a capture-folder listing, no network, no disk).
-// Used by tools/needs-fix-causes.mjs --brief "<cause>". The recipe it prints is docs/rules/rounds.md step 3-4 and skill fix-recorded-sites section 0a. Guard: site/test/needs-fix-causes.test.js.
+// Used by tools/needs-fix-causes.mjs --brief "<cause>". The recipe it prints is docs/rules/rounds.md step 3-4 and skill fix-recorded-sites section 0a. Guard: test/needs-fix-causes.test.js.
 
 const slugOf = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const when = at => (at ? new Date(at).toISOString().slice(0, 16).replace('T', ' ') : 'never run');

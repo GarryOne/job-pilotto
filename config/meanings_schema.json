@@ -1,5 +1,5 @@
 {
- "_doc": "The meanings pack's skeleton: each topic and the only answers it may have (src/ai/meanings_pack.py, site/src/meanings.js, desktop/lib/aliases.js). 'share': the wording comes from a public page (a posting's location, a form's question, a button), so an install's AI answer may go to the site; never for the user's own words (their places, roles, interview names: only fixed ids leave the machine) or anything from their mail or calendar. 'many': a text may name several answers (every matching pattern counts); otherwise the first match in order wins.",
+ "_doc": "The meanings pack's skeleton: each topic and the only answers it may have (src/ai/meanings_pack.py, api/meanings.js, desktop/lib/aliases.js). 'share': the wording comes from a public page (a posting's location, a form's question, a button), so an install's AI answer may go to the site; never for the user's own words (their places, roles, interview names: only fixed ids leave the machine) or anything from their mail or calendar. 'many': a text may name several answers (every matching pattern counts); otherwise the first match in order wins.",
  "calendar-event": {
   "answers": [
    "job_interview",

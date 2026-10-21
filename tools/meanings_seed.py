@@ -1,9 +1,9 @@
 """Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
 from pinned commits, so a Swiss or English user gets exactly the answers they got before, offline and without AI (owner, 8 Oct 2026:
 "I'd like my experience as Swiss/english to not worsen by a bit. Just to improve"). The same seed is loaded into the site's meanings
-table (site/migrations) and shipped with the app as the offline floor; the site's learned rows are added on top.
+table (db/migrations) and shipped with the app as the offline floor; the site's learned rows are added on top.
 
-    python3 tools/meanings_seed.py          write config/meanings_seed.json and, when the seed changed, a new site/migrations/NNNN_meanings_seed.sql
+    python3 tools/meanings_seed.py          write config/meanings_seed.json and, when the seed changed, a new db/migrations/NNNN_meanings_seed.sql
     python3 tools/meanings_seed.py --check  exit 1 when the files are not what the sources give (tests/test_meanings_pack.py)
 """
 import ast
@@ -129,7 +129,7 @@ def main():
         return 1 if stale else 0
     SEED.write_text(text)
     latest = latest_sql()
-    shipped = subprocess.run(['git', 'cat-file', '-e', f'origin/main:site/migrations/{latest.name}'], cwd=ROOT, capture_output=True).returncode == 0
+    shipped = subprocess.run(['git', 'cat-file', '-e', f'origin/main:db/migrations/{latest.name}'], cwd=ROOT, capture_output=True).returncode == 0
     target = latest if latest.read_text() == sql(seed) or not shipped else next_sql()   # an unshipped migration is rewritten, a shipped one never
     target.write_text(sql(seed))
     print(f'{len(seed)} seed patterns -> {SEED.relative_to(ROOT)}, {target.relative_to(ROOT)}')

@@ -231,7 +231,7 @@ jobs:
         run: |
           node desktop/e2e/pool-moves.mjs "$RECORD_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
           node desktop/e2e/pool-endings.mjs "$RECORD_REPORTS"   # each row's ending: main's feed /admin/lab-form-filling's Resolution tile (phase 1a)
-          # A recording run is how the pool's table moves (owner, 14 Oct 2026): the site refuses any branch but main (site/src/applying-ci-rows.js).
+          # A recording run is how the pool's table moves (owner, 14 Oct 2026): the site refuses any branch but main (admin/applying-ci-rows.js).
           [ "$GITHUB_REF" = "refs/heads/main" ] && node desktop/e2e/pool-ci-rows.mjs "$RECORD_REPORTS" || echo "ci rows report: not sent (not a run on main)"
       - name: Report the run's AI spend to /admin/ai-cost (never fails the job)
         if: always()

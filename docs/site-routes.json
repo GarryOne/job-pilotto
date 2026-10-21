@@ -1,5 +1,5 @@
 {
- "_about": "Every route the website answers for anything outside itself, listed in public so the app, extension and engine can be audited and tested without the site code. kind: app = called by shipped code (desktop, extension, engine, hosted container, Telegram worker); ci = called by our own CI/tools with a key; webhook = a provider calls it; page = a link or beacon from our own pages; owner = the owner only (Bearer or browser login). Checked by desktop/test/site-routes.test.js (public) and site/test/site-routes.test.js (the site).",
+ "_about": "Every route the website answers for anything outside itself, listed in public so the app, extension and engine can be audited and tested without the site code. kind: app = called by shipped code (desktop, extension, engine, hosted container, Telegram worker); ci = called by our own CI/tools with a key; webhook = a provider calls it; page = a link or beacon from our own pages; owner = the owner only (Bearer or browser login). Checked by desktop/test/site-routes.test.js (public) and test/site-routes.test.js (the site).",
  "routes": [
   {
    "path": "/api/account/email",

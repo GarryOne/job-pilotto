@@ -78,7 +78,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
    - **Decision Log** (Notion): a row only for an owner decision that changes what agents may do; read it on demand, never at start.
    - **Bug Tracker** (Notion, read by the UI Finder in CI): a row only for a UI bug a person found that the Finder missed.
    - **Technical Reference** is the owner's design page, not agent input: a big feature's spec checklist may include updating it.
-   - **Intelligence page** (`site/public/intelligence.html` in the private repo `job-pilotto-site`, its teaser, the README "AI at every step"): only when a user-visible AI step changes.
+   - **Intelligence page** (`web/public/intelligence.html` in the private repo `job-pilotto-site`, its teaser, the README "AI at every step"): only when a user-visible AI step changes.
    - The to-do list: after a finished task, not per commit.
 6. **Big changes** (a feature, migration, refactor): spec with a `## Progress` checklist, safety net first, ONE full run at landing, 1-3 commits
    ([docs/rules/change-loop.md](docs/rules/change-loop.md)).

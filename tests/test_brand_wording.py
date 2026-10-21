@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 USER_FACING = [
     'desktop/renderer/**/*.html', 'desktop/renderer/**/*.js', 'desktop/lib/**/*.js', 'desktop/main.js', 'desktop/preload.cjs', 'desktop/start.js',
     'extension/*.html', 'extension/*.js', 'extension/manifest.json',
-    'site/public/*.html', 'site/src/mail*.js', 'site/src/install.js', 'site/src/notion.js', 'site/src/linkedin.js', 'site/src/free-ai.js',
+    'web/public/*.html', 'site/src/mail*.js', 'api/install.js', 'api/notion.js', 'api/linkedin.js', 'shared/free-ai.js',
     'worker/src/*.js', 'src/tgcard.py', 'src/digest.py', 'src/notify.py', 'src/doctor.py', 'src/focus_items.py', 'src/ai/mail_lines.py',
 ]
 # Internal names that stay (backend, moved later): a line is allowed when it matches one of these.

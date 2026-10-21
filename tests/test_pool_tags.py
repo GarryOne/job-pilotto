@@ -38,7 +38,7 @@ class PoolTagsTest(unittest.TestCase):
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool-tags.js').read_text()
         for name, table in (('COUNTRIES', pool_tags.COUNTRIES), ('METROS', pool_tags.METROS), ('FAMILIES', pool_tags.FAMILIES), ('EUROPE', pool_tags.EUROPE)):
             listed = re.search(rf'export const {name} = \[(.*?)\];', site).group(1)
-            assert_site_accepts(self, list(table), re.findall(r"'([^']+)'", listed), f'{name}: edit site/src/pool-tags.js')
+            assert_site_accepts(self, list(table), re.findall(r"'([^']+)'", listed), f'{name}: edit shared/pool-tags.js')
 
 
 if __name__ == '__main__':

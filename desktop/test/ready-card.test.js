@@ -405,7 +405,7 @@ test('every form the night works on has a Stop, at every step, and the night has
   assert.ok(card.querySelector('.ready-stop-all'));
 });
 
-// Waiting forms say why (owner, 19 Oct 2026: three forms sat on "Waiting its turn" for 2 h). One loop over every reason the site gives (site/src/ready-why.js).
+// Waiting forms say why (owner, 19 Oct 2026: three forms sat on "Waiting its turn" for 2 h). One loop over every reason the site gives (api/ready-why.js).
 const WHY = [   // [site's why, night state, the words, its badge]
   [{kind: 'later', at: '2026-10-20T00:00:00.000Z'}, 'queued', /Set for \d\d:\d\d.*Fill now starts it at once/, 'waiting'],
   [{kind: 'soon'}, 'queued', /within 5 minutes/, 'waiting'],

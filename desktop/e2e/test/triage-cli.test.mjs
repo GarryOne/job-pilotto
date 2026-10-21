@@ -9,7 +9,7 @@ const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, 
 
 test('a fix may touch the window, the app logic or the engine with a test of its side; never workflows, main.js or secrets', () => {
   for (const file of ['desktop/renderer/pages/jobs.js', 'desktop/test/jobs-view.test.js', 'src/sources/careers.py', 'tests/test_careers.py', 'desktop/lib/run-history.js']) assert.equal(allowedPath(file), true, file);
-  for (const file of ['desktop/main.js', 'src/secret_store.py', 'desktop/lib/notion-oauth.js', 'src/licensing/license.py', '.github/workflows/e2e.yml', 'site/src/index.js', 'tools/x.sh',
+  for (const file of ['desktop/main.js', 'src/secret_store.py', 'desktop/lib/notion-oauth.js', 'src/licensing/license.py', '.github/workflows/e2e.yml', 'workers/www/index.js', 'tools/x.sh',
     'extension/content.js', 'desktop/e2e/lib/triage.mjs', 'desktop/renderer/../main.js', 'desktop/test/helper.js', 'tests/helper.py']) assert.equal(allowedPath(file), false, file);
   assert.equal(checkChange(['desktop/renderer/pages/jobs.js']).ok, false);
   assert.equal(checkChange(['desktop/renderer/pages/jobs.js', 'desktop/test/jobs-view.test.js']).ok, true);

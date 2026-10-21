@@ -849,7 +849,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''
         with:
-          name: e2e-report   # site/src/e2e-report.js serves it
+          name: e2e-report   # admin/e2e-report.js serves it
           path: e2e-report
           compression-level: 0
       - name: Not released on Mac, an E2E suite failed
@@ -923,7 +923,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''
         with:
-          name: e2e-report-windows   # site/src/e2e-report.js serves it
+          name: e2e-report-windows   # admin/e2e-report.js serves it
           path: e2e-report
           compression-level: 0
       - name: Not released on Windows, an E2E suite failed

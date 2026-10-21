@@ -142,11 +142,11 @@ class GateCacheTest(unittest.TestCase):
     def test_nothing_on_the_ignore_list_is_read_by_a_test(self):
         names = [line.strip() for line in IGNORE.read_text().splitlines() if line.strip() and not line.startswith('#')]
         self.assertTrue(names)
-        tests = [p for folder in ('tests', 'desktop/test', 'desktop/e2e/test', 'worker/test', 'site/test') for p in (ROOT / folder).rglob('*')
+        tests = [p for folder in ('tests', 'desktop/test', 'desktop/e2e/test', 'worker/test', 'test') for p in (ROOT / folder).rglob('*')
                  if p.is_file() and p.suffix in ('.py', '.js', '.mjs') and p != Path(__file__).resolve()]
         for name in names:
             for test in tests:
-                self.assertNotIn(name, test.read_text(errors='replace'), f'{test} reads {name}: take it off the ignore list')   # a folder keeps its '/', so the workflow file site-next.yml is not read as the folder site-next/
+                self.assertNotIn(name, test.read_text(errors='replace'), f'{test} reads {name}: take it off the ignore list')   # a folder keeps its '/', so the workflow file site-next.yml is not read as the folder preview/
 
     def test_both_hooks_use_the_cache_and_the_stop_hook_counts_uncommitted_files(self):
         push = (ROOT / 'tools' / 'pre-push-check.sh').read_text()

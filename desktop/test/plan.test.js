@@ -100,7 +100,7 @@ test('the top-up credits shown here are the site\'s (when the site\'s table is i
   const file = new URL('../../site/src/pro-pay.js', import.meta.url);
   if (!fs.existsSync(file)) return;   // PR 2 (payments) not merged yet: the check starts with it
   const source = fs.readFileSync(file, 'utf8');
-  for (const [kind, micro] of [['topup5', 2_800_000], ['topup10', 5_800_000], ['topup20', 11_800_000]]) assert.ok(source.includes(`${kind}: ${micro.toLocaleString('en-US').replaceAll(',', '_')}`), `${kind} credit matches site/src/pro-pay.js`);
+  for (const [kind, micro] of [['topup5', 2_800_000], ['topup10', 5_800_000], ['topup20', 11_800_000]]) assert.ok(source.includes(`${kind}: ${micro.toLocaleString('en-US').replaceAll(',', '_')}`), `${kind} credit matches api/pro-pay.js`);
 });
 
 test('warnings are said once each (30, 10, used up) and start over when the credit is above 30% again', () => {

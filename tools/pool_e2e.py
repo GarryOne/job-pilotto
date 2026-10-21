@@ -237,7 +237,7 @@ def main():
         return '20 min: cache; 70 min: one 304'
     check('The central list is checked about hourly, by its publish time, and kept on 304', hourly)
 
-    if os.getenv('POOL_PAYLOADS_OUT'):   # the bodies the engine really sent: the site's contract test posts exactly these (site/test/pool-contract.test.js)
+    if os.getenv('POOL_PAYLOADS_OUT'):   # the bodies the engine really sent: the site's contract test posts exactly these (test/pool-contract.test.js)
         Path(os.environ['POOL_PAYLOADS_OUT']).write_text(json.dumps(POSTS, indent=1, ensure_ascii=False, sort_keys=True) + '\n')
     server.shutdown()
     shutil.rmtree(WORK, ignore_errors=True)

@@ -23,7 +23,7 @@ test('the CI pool\'s run parser reads every signal that hands a page on', () => 
 });
 
 siteTest('the site\'s admin parser reads every signal that hands a page on', () => {
-  assertSiteAccepts(HANDED_ON, listIn('site/src/applying.js'), 'signals');   // the site may know more (it lands first)
+  assertSiteAccepts(HANDED_ON, listIn('admin/applying.js'), 'signals');   // the site may know more (it lands first)
 });
 
 test('the ladder fixtures\' field note names the same signals', () => {
