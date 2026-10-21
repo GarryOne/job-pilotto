@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {TABS} from '../../renderer/job-page-view.js';
 import {goView} from '../lib/go-view.mjs';
 
 export const name = 'stores';
@@ -131,7 +132,7 @@ export async function run(ctx) {
     await page.waitForSelector('#job-panel:not([hidden]) [data-job-tab]', {timeout: 30000})
       .catch(async () => { throw new Error(`the job page has no tabs: ${await page.evaluate(() => document.getElementById('job-panel')?.textContent.slice(0, 200))}`); });
     const tabs = await page.evaluate(() => [...document.querySelectorAll('#job-panel [data-job-tab]')].map(tab => tab.dataset.jobTab));
-    if (tabs.join() !== 'overview,match,description,application,interviews,review,messages,timeline') throw new Error(`tabs: ${tabs.join()}`);
+    if (tabs.join() !== TABS.map(([key]) => key).join()) throw new Error(`tabs: ${tabs.join()}`);
     // A tab fills in after its click (a loading skeleton first: 12 Oct 2026 the slower Windows runner read the page text while it still showed it), so each check waits for its words.
     const shown = async (tab, words) => {
       await page.click(`#job-panel [data-job-tab="${tab}"]`);
