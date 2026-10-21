@@ -2,7 +2,7 @@
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {billingLabel} from '../ai-engine-view.js';
 import {groupWarnings, limitedJobs, newDetails, runWarningLines, stepNote} from '../run-warnings.js';
-import {aiLimitHead, barState, failureHead, phaseStatus, runPill, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, stepCount} from '../run-status.js';
+import {aiLimitHead, barState, failureHead, phaseStatus, runPill, runWarned, stoppedHead, deliveryHead, notConnectedHead, notChecked, waitedHead, stepCount} from '../run-status.js';
 import {el, moreButton, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage} from '../run-cards.js';
@@ -102,7 +102,8 @@ export function renderActivity(fresh) {
   $('activity').dataset.state = barState(running, lastSearch || lastMail || last);
   const liveLines = running ? shared.logLines : null;
   const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
-  const mailNote = lastMail ? `Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
+  const mailNote = lastMail ? `Gmail ${notChecked(lastMail) ? 'not checked' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
+    : gmailConnected() === false ? 'Gmail not checked · not connected'   // #541: no "due now" for a check that cannot run
     : nextMailAt ? `First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
   if (running) {
     const kind = KIND[kindOf(running)];

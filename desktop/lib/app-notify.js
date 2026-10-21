@@ -7,6 +7,7 @@ import * as notifyChannel from './notify-channel.js';
 import * as notifyWatch from './notify-watch.js';
 import * as pipeline from './pipeline.js';
 import * as runHistory from './run-history.js';
+import {notCheckedNotice} from './not-checked-notice.js';
 import * as telegram from './telegram.js';
 import {cloudNextAt, nextAt, nextMailAt} from './schedule.js';
 import {log as appLog} from './log.js';
@@ -73,7 +74,7 @@ export function createAppNotify(ctx) {
       if (Date.now() - Date.parse(run.endedAt || run.startedAt) > 5 * 60000) continue;
       if (getWindow()?.isFocused()) continue;
       if (run.kind === 'prepare' && run.where === 'mac') continue;  // prepareKit gives its own ("Press Apply…")
-      const note = runHistory.notice(run);
+      const note = notCheckedNotice(run) || runHistory.notice(run);
       if (note) notify(note.title, note.body, note.target);   // a click opens that run's result
     }
     nudgeFewJobs(runs);
