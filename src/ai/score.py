@@ -22,7 +22,7 @@ from .. import paths as _paths  # noqa: F401 (import side effect: loads .env bef
 from .. import run_counts, store
 from . import cost, engine, hints, locations, score_not_a_job
 from .models import MAIN_MODEL
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
@@ -424,7 +424,8 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                         continue
                     data, usage = result
                 except transient as error:
-                    print(f'Warning: API unavailable ({named(error)}), {len(todo) - scored - failures} job(s) left for the next check')
+                    print(f'Warning: AI unavailable ({reason(error)}), {len(todo) - scored - failures} job(s) left for the next check')
+                    detail('score', error)
                     for pending in futures:
                         pending.cancel()
                     halted = True

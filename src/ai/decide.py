@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from .. import budget_tape
 from . import cost, engine
 from .models import SMALL_MODEL
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 MODEL = SMALL_MODEL
 BATCH = 50
@@ -96,7 +96,8 @@ def decide(topic, items, answers, instructions, client=None, db=None):
                     raise RuntimeError(f'stopped with {response.stop_reason}')
                 results = json.loads(next(block.text for block in response.content if block.type == 'text')).get('results') or []
             except Exception as error:  # noqa: BLE001 — the caller's rule decides this time
-                print(f'Warning: AI could not decide {topic} ({named(error)}); the rule decides this time', flush=True)
+                print(f'Warning: the AI could not judge some items this time ({reason(error)}); the built-in rules decided them instead', flush=True)
+                detail(f'decide {topic}', error)
                 return out or None
             for result in results:
                 index, answer = result.get('index', -1), result.get('answer')

@@ -17,7 +17,7 @@ from . import ats, posting_text
 from .. import coverage, run_counts
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
 from ..ai import batch_scope, providers
-from ..ai.providers.contract import named
+from ..ai.providers.contract import detail, reason
 
 DESCRIPTION_LIMIT = 12000
 _SEARCH = load_search_config()
@@ -90,7 +90,8 @@ def triage(jobs):
         from ..ai import title_triage
         _triaged().update(title_triage.decide(titles, _SEARCH))
     except Exception as error:  # noqa: BLE001 — not sorted this run: the exact words only, said
-        print(f'Warning: job titles not sorted by {providers.who()} ({named(error)}): only your role words match this run')
+        print(f'Warning: job titles not sorted by {providers.who()} ({reason(error)}): only your role words match this run')
+        detail('sources', error)
 
 
 def excluded_title(title):
@@ -241,7 +242,8 @@ def triage_places(jobs):
         placed().update(place_triage.decide(ordered, _SEARCH))
         placed().update(place_triage.vague(ordered, _SEARCH))   # of the ones outside: which name no town of their own
     except Exception as error:  # noqa: BLE001 — not placed this run: the place words decide, said
-        print(f'Warning: job locations not placed by {providers.who()} ({named(error)}): your place words decide this run')
+        print(f'Warning: job locations not placed by {providers.who()} ({reason(error)}): your place words decide this run')
+        detail('sources', error)
 
 
 def placing():
@@ -275,7 +277,8 @@ def place_open_jobs(db):
         from ..ai import place_triage
         read_places().update(place_triage.read(vague, _SEARCH))
     except Exception as error:  # noqa: BLE001 — read next refresh; until then these jobs stay open
-        print(f'Warning: postings not read for their place ({named(error)}); they stay open until the next refresh')
+        print(f'Warning: postings not read for their place ({reason(error)}); they stay open until the next refresh')
+        detail('sources', error)
 
 
 def wanted_location(job):

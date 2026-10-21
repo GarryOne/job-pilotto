@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from ..paths import DATA, keyword_regex
 from .models import MAIN_MODEL, SMALL_MODEL
 from . import providers
-from .providers.contract import named
+from .providers.contract import detail, reason
 
 MODEL = MAIN_MODEL
 MAX_IDEAS = 8
@@ -130,7 +130,8 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
             STORE.parent.mkdir(parents=True, exist_ok=True)
             STORE.write_text(json.dumps({key: data[key]}, ensure_ascii=False))
         except Exception as error:  # noqa: BLE001 — counted by their word this time
-            print(f'Roles: not counted by {providers.who()} ({named(error)}); counting the title word', flush=True)
+            print(f'Roles: {providers.who()} could not count them ({reason(error)}); counting the title word', flush=True)
+            detail('role counts', error)
             counted = {}
     counts = counted.get('counts') or {}
     out = [{**i, 'count': counts[i['word']] if i['word'] in counts else count(i['word'], titles)} for i in shown]

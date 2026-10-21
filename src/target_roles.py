@@ -132,8 +132,9 @@ def migrate_quietly():
         print(f'Target roles: your roles and searches are one list now ({len(done["target_roles"])} titles).', flush=True)
         return True
     except Exception as error:  # noqa: BLE001 — the two old lists keep working
-        from .ai.providers.contract import named
-        print(f'Warning: roles not merged ({named(error)}); keeping your two lists for now.', flush=True)
+        from .ai.providers.contract import detail, reason
+        print(f'Warning: roles not merged ({reason(error)}); keeping your two lists for now.', flush=True)
+        detail('target roles', error)
         return False
 
 

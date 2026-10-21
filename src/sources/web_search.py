@@ -11,7 +11,7 @@ import urllib.request
 from ..features import disabled
 from . import careers
 from ..ai.models import SMALL_MODEL
-from ..ai.providers.contract import named
+from ..ai.providers.contract import detail, reason
 
 BRAVE_URL = 'https://api.search.brave.com/res/v1/web/search'
 SERP_URL = 'https://serpapi.com/search.json'
@@ -140,7 +140,8 @@ def only_job_lists(company, site, urls, client=None):
         cost.side(PICK_MODEL, response.usage)
         keep = [int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('keep') or [] if str(n).isdigit()]
     except Exception as error:  # noqa: BLE001 — the addresses as found
-        print(f'Warning: job page not checked by AI for {company} ({named(error)})')
+        print(f'Warning: job page not checked by AI for {company} ({reason(error)})')
+        detail('web search', error)
         return urls
     picked = [urls[n - 1] for n in dict.fromkeys(keep) if 1 <= n <= len(urls)]
     left = [url for url in urls if url not in picked]
