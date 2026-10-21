@@ -381,3 +381,14 @@ test('scenario: a sign-up fill leaves Captcha, Your password and Repeat Password
   assert.equal(await questions.collect(storage, {trace}, 'Move UP SA', fetcher), 1);
   assert.doesNotMatch(JSON.stringify(added), /captcha|password/i);
 });
+
+test('scenario: Free is on, the person presses the API key card: Free is left, its token forgotten, the chooser shows the API key and an empty key box (#1017)', async () => {
+  const {leave} = await import('../lib/ai-free.js');
+  const {chosen} = await import('../renderer/ai-engine-view.js');
+  let settings = {aiFree: true, aiEngine: 'api'}; const secrets = {ANTHROPIC_API_KEY: 'JPF1.inst.tok'};
+  const storage = {settings: () => settings, saveSettings: p => { settings = {...settings, ...p}; }, secret: n => secrets[n] || '', setSecret: (n, v) => { secrets[n] = v; }};
+  assert.equal(chosen(settings, !!secrets.ANTHROPIC_API_KEY), 'free');
+  leave(storage, {});
+  assert.equal(chosen(settings, !!secrets.ANTHROPIC_API_KEY), 'api');
+  assert.equal(secrets.ANTHROPIC_API_KEY, '');
+});
