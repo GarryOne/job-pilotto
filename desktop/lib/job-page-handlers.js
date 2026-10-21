@@ -1,7 +1,7 @@
 // A job's page in the app (Jobs → a row → the side panel, renderer/pages/job-panel.js): the job's record, its sections (kit, prep, review,
 // record, messages, description) and its events, from the active store through the engine (lib/store/engine.js), so it reads the same on
 // every store. "Open in Notion" only when the store has pages to open (caps LINKS). Demo mode: demo/job-pages.json (fictional).
-// Guarded by test/job-page-handlers.test.js.
+// Guarded by test/job-page-handlers.test.js and test/job-page-timing.test.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,22 +13,36 @@ import {KIT_SECTION, kitOf} from './store/extension-store.js';
 import {jobFiles} from './store/files.js';
 import {demoPath} from './demo.js';
 
-// {app, match, sections, kit, events, files, links} or {error}; app null when the job has no application yet (a match nobody acted on). match:
-// the search's 🎯 Job Matches record (its facts: the Match tab), null for a job added by hand. files: the job's files as data: URLs
-// (lib/store/files.js: screenshots of logged messages, a tailored CV), shown under Messages.
-export async function jobPage(storage, url, {call = engine.call, links = false, placesNow = askPlacesNow} = {}) {
+// The page in three reads, so the drawer can draw as each lands (renderer/pages/job-panel.js): the CORE (app, match, today's places: what the
+// header and the Overview need), the REST (sections, events, interviews, in one engine call that reads the page's blocks once, src/stores/job_page.py)
+// and the FILES (screenshots, a tailored CV: their bytes are downloaded, so they come last and only when asked). jobPage() is all three at once.
+// core -> {app, match, links, placesNow?}; app null when the job has no application yet (a match nobody acted on). match: the search's
+// 🎯 Job Matches record (its facts: the Match tab), null for a job added by hand.
+export async function jobCore(storage, url, {call = engine.call, links = false, placesNow = askPlacesNow} = {}) {
   const [app, match] = await Promise.all([call(storage, 'applications', 'get', {url: String(url || '')}),
     call(storage, 'matches', 'get', {url: String(url || '')}).catch(() => null)]);   // no match is no Match tab, never a failed page
   // With a match: today's places, so the drawer can say a score used older ones (lib/places-now.js); failing to ask is not failing the page.
   const places = match ? {placesNow: await placesNow(storage).catch(() => '')} : {};
-  if (!app?.id) return {app: null, match: match || null, sections: {}, kit: null, events: [], files: [], interviews: [], links, ...places};
-  const [sections, events, files, interviews] = await Promise.all([
-    call(storage, 'applications', 'sections', {app_id: app.id}),
-    call(storage, 'events', 'list', {app_id: app.id}),
-    jobFiles(storage, app.id, {call}),
-    call(storage, 'interviews', 'list', {app_id: app.id}).catch(() => []),   // the job's recorded and practised interviews; none is not a failed page
-  ]);
-  return {app, match: match || null, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, interviews: interviews || [], links, ...places};
+  return {app: app?.id ? app : null, match: match || null, links, ...places};
+}
+
+// rest -> {sections, kit, events, interviews}. Interviews and events none are not a failed page.
+export async function jobRest(storage, appId, {call = engine.call} = {}) {
+  if (!appId) return {sections: {}, kit: null, events: [], interviews: []};
+  const found = await call(storage, 'job_page', 'read', {app_id: String(appId)});
+  const sections = found?.sections || {};
+  return {sections, kit: kitOf(sections[KIT_SECTION]), events: found?.events || [], interviews: found?.interviews || []};
+}
+
+// files -> [{name, type, size, tooLarge, url}] (lib/store/files.js: screenshots of logged messages, a tailored CV, as data: URLs), shown under Messages and Documents.
+export const jobFilesOf = (storage, appId, {call = engine.call} = {}) => jobFiles(storage, appId, {call});
+
+// {app, match, sections, kit, events, files, interviews, links} or {error}: all three reads, for the callers that want a whole page.
+export async function jobPage(storage, url, {call = engine.call, links = false, placesNow = askPlacesNow} = {}) {
+  const core = await jobCore(storage, url, {call, links, placesNow});
+  if (!core.app) return {...core, sections: {}, kit: null, events: [], files: [], interviews: []};
+  const [rest, files] = await Promise.all([jobRest(storage, core.app.id, {call}), jobFilesOf(storage, core.app.id, {call})]);
+  return {...core, ...rest, files};
 }
 
 // A file of the job's page saved where the person picks (its data: URL from lib/store/files.js): only data: URLs, only after the dialog.
@@ -67,11 +81,47 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
       return {ok: false, error: error.message, failed: true};
     }
   });
+  const demoPage = url => {
+    const pages = JSON.parse(fs.readFileSync(demoPath(here, 'job-pages.json'), 'utf8'));
+    return pages[url] || {app: null, sections: {}, events: []};
+  };
+  // The three reads of the drawer (see jobCore). A failure is an answer {error}, logged, never a thrown IPC.
+  const timed = (name, work) => async (_, ...args) => {
+    const started = Date.now();
+    try {
+      const answer = await work(...args);
+      log('jobs', `${name} read`, {ms: Date.now() - started});
+      return answer;
+    } catch (error) {
+      log('jobs', `${name} not read`, {error: error.message, ms: Date.now() - started});
+      return {error: error.message};
+    }
+  };
+  ipcMain.handle('jobPageCore', timed('job core', async url => {
+    if (DEMO) {
+      const page = demoPage(url);
+      // Demo fixtures for the states a screenshot needs: __error answers {error}, __delay_ms waits first (the loading state), as a slow store would.
+      if (page.__delay) await new Promise(resolve => setTimeout(resolve, page.__delay));
+      if (page.__error) return {error: page.__error};
+      return {app: page.app || null, match: page.match || null, links: false, ...(page.placesNow ? {placesNow: page.placesNow} : {})};
+    }
+    return jobCore(storage, url, {call, links: store.openStore(storage).caps.has(store.LINKS)});
+  }));
+  ipcMain.handle('jobPageRest', timed('job rest', async (url, appId) => {
+    if (DEMO) {
+      const page = demoPage(url);
+      return {sections: page.sections || {}, kit: kitOf(page.sections?.[KIT_SECTION]), events: page.events || [], interviews: page.interviews || []};
+    }
+    return jobRest(storage, appId, {call});
+  }));
+  ipcMain.handle('jobPageFiles', timed('job files', async (url, appId) => {
+    if (DEMO) return demoPage(url).files || [];
+    return jobFilesOf(storage, appId, {call});
+  }));
+  // The whole page at once (callers that want it whole).
   ipcMain.handle('jobPage', async (_, url) => {
     if (DEMO) {
-      const pages = JSON.parse(fs.readFileSync(demoPath(here, 'job-pages.json'), 'utf8'));
-      const page = pages[url] || {app: null, sections: {}, events: []};
-      // Demo fixtures for the states a screenshot needs: __error answers {error}, __delay_ms waits first (the loading state), as a slow store would.
+      const page = demoPage(url);
       if (page.__delay) await new Promise(resolve => setTimeout(resolve, page.__delay));
       if (page.__error) return {error: page.__error};
       return {...page, kit: kitOf(page.sections?.[KIT_SECTION]), links: false};
