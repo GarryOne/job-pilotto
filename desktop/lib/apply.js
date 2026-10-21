@@ -17,6 +17,8 @@ import {browserCommand, browserOf} from './browser-launch.js';
 import * as extensionInstall from './extension-install.js';
 import {log as appLog} from './log.js';
 import {expectTab} from './tab-expect.js';
+import * as review from './review.js';
+import {openFormTab} from './form-tab.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -78,10 +80,22 @@ export function formTabsAtHandOver(sessions, url, filled = () => 0) {
     .map(session => ({id: session.id, close: !(filled(session.id) > 0), why: filled(session.id) > 0 ? 'answers filled there' : 'nothing filled'}));
 }
 
+// A job keeps one tab (22 Oct 2026: a second press opened a second tab with the same mark, the two flipped as the session's tab and the fill stalled).
+// When the session's tab is open (the extension's tab reports), bring it to the front and have it reload: its mark starts the fill again. True when reused.
+function reuseOpenTab(session, focus, log) {
+  if (review.tabOpen(session) !== true) return false;
+  review.queueReload(session);
+  Promise.resolve(focus({id: session, boundTab: review.tabOf(session)})).catch(() => {});
+  log('apply', 'the job\'s tab is open: focused it and asked it to fill again, no second tab', {session});
+  return true;
+}
+
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
-export function openOne(url, {session = '', open = spawn, log = appLog} = {}) {
+// `reuse`: the job's own form (not another address, like a confirmation link) goes to its open tab instead of a second one.
+export function openOne(url, {session = '', open = spawn, log = appLog, reuse = false, focus = openFormTab} = {}) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   if (!session) return {ok: false, error: 'A form tab is opened for a session; none was given.'};   // every tab the app opens is owned from its first page (spec 2026-10-12-tab-owned.md)
+  if (reuse && reuseOpenTab(session, focus, log)) return {ok: true, reused: true};
   const chrome = chromeCommand([sessionTabUrl(formUrl(url), session)], process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) { log('apply', 'no browser found to open the form tab', {platform: process.platform}); return {ok: false, error: NO_CHROME}; }
   const child = open(...chrome, {detached: true, stdio: 'ignore'});
@@ -96,13 +110,13 @@ export function openOne(url, {session = '', open = spawn, log = appLog} = {}) {
 // The Apply button: the form tab, and a form session for it in the Applying page (the job goes to Applying in Notion, like an
 // Apply with Claude session). The session shows what is left in the form from the extension's reports and moves to Applied
 // when the extension sees the submit. Pressing Apply on a job that already has an open form session reopens only the tab.
-export async function applyOne(storage, url, details = {}, {open = spawn, term = terminals, run = pipeline.run, id = () => crypto.randomUUID().slice(0, 8)} = {}) {
+export async function applyOne(storage, url, details = {}, {open = spawn, term = terminals, run = pipeline.run, id = () => crypto.randomUUID().slice(0, 8), focus = openFormTab} = {}) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const fresh = !term.list().some(s => s.url === url.split('#')[0] && s.kind === 'form' && !s.outcome);
   // The session first (an open one on this job is reused), then its tab, which carries the session's id.
   const session = term.startForm({id: id(), url: url.split('#')[0], title: details?.title || '', company: details?.company || '',
     location: details?.location || '', workMode: details?.workMode || ''});
-  const opened = openOne(url, {session: session.id, open});
+  const opened = openOne(url, {session: session.id, open, focus, reuse: true});
   if (!opened.ok) { if (fresh) term.remove(session.id); return opened; }
   if (fresh) run(storage, ['src.ai.apply_batch', '--mark-applying', url.split('#')[0]]).then(readsChanged).catch(() => {});   // a stage write: reads after it start their own
   return {ok: true, session};
@@ -238,7 +252,7 @@ export async function resumeSession(storage, id, binary = claudeBinary) {
 }
 
 // `prepare` drafts a missing kit (the app's prepareKit): with it, a batch with fewer than N ready jobs drafts the rest first.
-export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits, prepare = null, report = () => {}) {
+export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits, prepare = null, report = () => {}, {focus = openFormTab} = {}) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {
     const ready = claudeReady(storage);
@@ -273,9 +287,10 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
   // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel. Each job gets its own form session first, so each tab carries its id.
   const owners = chosen.map(job => terminals.startForm({id: crypto.randomUUID().slice(0, 8), url: job.url.split('#')[0], title: job.title || '', company: job.company || '',
     location: job.location || '', workMode: job.workMode || ''}));
-  const chrome = chromeCommand(chosen.map((job, index) => sessionTabUrl(job.url, owners[index].id)), process.platform, process.env, fs.existsSync, extensionBrowser());
+  const toOpen = chosen.map((job, index) => [job, owners[index]]).filter(([, owner]) => !reuseOpenTab(owner.id, focus, appLog));   // a job whose tab is open keeps it
+  const chrome = toOpen.length ? chromeCommand(toOpen.map(([job, owner]) => sessionTabUrl(job.url, owner.id)), process.platform, process.env, fs.existsSync, extensionBrowser()) : [];
   if (!chrome) return {ok: false, error: NO_CHROME};
-  open(...chrome, {detached: true, stdio: 'ignore'}).unref();
+  if (toOpen.length) open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),
     message: `${drafted ? `Drafted ${drafted} kit${drafted === 1 ? '' : 's'} first. ` : ''}Opened ${chosen.length} job(s) in Chrome; each fills itself in a few seconds. Review every tab and submit yourself. ` +
       '(If a form sits behind an "Apply" button, open it and click ✈️ → Fill with AI.)'};
