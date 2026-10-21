@@ -24,9 +24,18 @@ test('a fill or flow change without a case is stopped; a case, a scenario or a s
   assert.equal(missingCase([commit(['extension/fill-flow.js'], 'Log the press\n\nRecorded-unneeded: a log line only')], covered), '');
 });
 
-test('hole 1: every file a replay loads is covered, found by structure (the class, not a list)', () => {
+test('display-only app files need no recorded page; files the flow core owns or imports still do (owner, 22 Oct 2026)', () => {
+  for (const file of ['desktop/lib/run-rows.js', 'desktop/lib/run-history.js', 'desktop/lib/store/sqlite.js']) {
+    assert.ok(loaded.has(file) && !covered.has(file), `${file} is loaded by a replay but only shows or keeps results`);
+    assert.equal(missingCase([commit([file], 'Show a run record')], covered), '', file);
+  }
+  for (const file of FLOW_FILES.filter(one => one.startsWith('desktop/lib/'))) assert.ok(covered.has(file), file);
+  assert.ok(covered.has('desktop/lib/server.js') && covered.has('desktop/lib/ladder/rung2-sketch.js'));
+});
+
+test('hole 1: every extension file a replay loads is covered, found by structure (the class, not a list)', () => {
   // The files the old gate missed: the consent, popup and dialog scripts and a desktop/lib rung the replay's app runs.
-  for (const file of ['extension/consent.js', 'extension/popup-guard.js', 'extension/dialog-after-fill.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/server.js']) {
+  for (const file of ['extension/consent.js', 'extension/popup-guard.js', 'extension/dialog-after-fill.js', 'desktop/lib/ladder/rung2-sketch.js']) {
     assert.ok(covered.has(file), `${file} is loaded by a replay and must be covered`);
     assert.match(missingCase([commit([file], 'Fix it')], covered), /recorded page/, file);
   }
