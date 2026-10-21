@@ -66,9 +66,9 @@ test('Messages: a filter with counts, folding email cards, Add note, and Gmail-n
   assert.match(read('pages/job-panel.js'), /close: closeJobPanel/);
 });
 
-test('Timeline: a filter with counts, entries with the way to their detail, Add note; the capture script covers every tab', () => {
+test('Timeline: one plain list with no filter, entries with the way to their detail, Add note; the capture script covers every tab', () => {
   const source = read('job-drawer/tab-timeline.js');
-  assert.match(source, /choice\(options, active/);
+  assert.doesNotMatch(source, /choice\(|jd-filter/, 'no subtabs in the Timeline');
   assert.match(source, /timelineOf\(page\?\.events, job, page\?\.match, parts\)/);
   assert.match(source, /openLogFor\(job\.url, job\.title\)/);
   assert.match(source, /showSubmitted\(job\.url\); pick\(tab\)/, 'View snapshot opens what was sent');

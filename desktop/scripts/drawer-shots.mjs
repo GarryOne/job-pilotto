@@ -47,7 +47,6 @@ const CASES = [
   ['18-messages-none', open(3, 'messages')],
   ['19-messages-gmail-off', open(2, 'messages', '', GMAIL_OFF)],
   ['20-timeline-all', open(1, 'timeline')],
-  ['21-timeline-interviews-filter', open(1, 'timeline', click('.jd-choice button', 'Interviews'))],
   ['22-timeline-only-discovered', open(3, 'timeline')],
   ['23-loading', `window.__jp.openJob('https://example.com/jobs/6', 'overview'); ${wait(500)}`],
   ['24-error', open(7, 'overview')],
