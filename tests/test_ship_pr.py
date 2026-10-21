@@ -78,6 +78,16 @@ class ShipPrTest(ShipFixture):
         self.pr_ship(open_pr, '--title=Better words')
         self.assertIn('pr edit 1 --title Better words', ' | '.join(self.calls()))
 
+    def test_a_reship_adds_the_session_tag_to_an_open_pr_that_lacks_it(self):
+        # 21 Oct 2026: site#18 and #19 were opened or retitled by hand without the "[xx] " tag
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        open_pr = {'state': 'OPEN', 'head': 'topic', 'title': 'Hand made title'}
+        self.pr_ship(open_pr, JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertIn('pr edit 1 --title [9f] Hand made title', ' | '.join(self.calls()))
+        self.change(self.tree, 'more.txt', 'z\n', 'More')
+        self.pr_ship({'state': 'OPEN', 'head': 'topic', 'title': '[9f] Tagged already'}, JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertNotIn('Tagged already', ' | '.join(c for c in self.calls() if 'pr edit' in c), 'a tagged title is left alone')
+
     def test_a_branch_carrying_another_open_prs_commit_is_refused_before_any_push(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
         oid = git(self.tree, 'rev-parse', 'HEAD')

@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src import employer_index, scout  # noqa: E402
 from src.sources import ats, careers, feeds  # noqa: E402
-from site_private import needs_site  # noqa: E402
+from site_private import assert_site_accepts, needs_site  # noqa: E402
 
 # The title and the places match the example search (data analyst; Amsterdam) and the owner's own (site reliability; Zürich) alike,
 # so the test is the same in CI and on a machine whose terminal follows the Desktop App's settings.
@@ -110,7 +110,7 @@ class IndexContract(unittest.TestCase):
         for name in ('employers.js', 'pool.js'):
             text = (ROOT / 'site' / 'src' / name).read_text()
             listed = set(re.findall(r"'([a-z]+)'", re.search(r'const SYSTEMS = \[(.*?)\]', text, re.S).group(1)))
-            self.assertEqual(listed, set(ats.FETCHERS) - ats.LOCAL_ONLY, f'site/src/{name} SYSTEMS and src/sources/ats.py FETCHERS must be the same list (local-only types excepted)')
+            assert_site_accepts(self, set(ats.FETCHERS) - ats.LOCAL_ONLY, listed, f'site/src/{name} SYSTEMS must list every src/sources/ats.py FETCHERS type (local-only excepted)')
 
     def test_the_engine_keeps_what_the_index_serves(self):
         served = [{'company': 'Acme AG', 'ats': 'careers', 'slug': 'www.acme.ch__jobs', 'places': ['Zürich']}]

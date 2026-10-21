@@ -11,7 +11,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import contribute  # noqa: E402
 from src.stores import memory  # noqa: E402
-from site_private import needs_site  # noqa: E402
+from site_private import assert_site_accepts, needs_site  # noqa: E402
 
 NOW = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
 SEARCH = {'role_keywords': ['site reliability', '\\bsre\\b', 'platform engineer', 'security engineer'],
@@ -111,7 +111,7 @@ class TradeTagsTests(unittest.TestCase):
         site = next(p for p in (root / 'shared' / 'pool-labels.js', root / 'src' / 'pool.js') if p.exists()).read_text()
         accepted = set(re.findall(r"'(\w+)'", re.search(r'export const ROLES = \[([^\]]+)\]', site).group(1)))
         sendable = set(contribute.ROLES) | set(contribute.TRADE_ROLES) | {'other'}
-        self.assertEqual(sendable, accepted)
+        assert_site_accepts(self, sendable, accepted, 'role tags')
         self.assertEqual(set(contribute.TRADE_ROLES), set(role_kinds.KINDS) - {'software', 'other'})
         roles, _ = contribute.tags({'role_keywords': ['vendeu(r|se)', 'magasinier', 'photograph(e|er)?'], 'locations': {'top_tier': ['geneva']}})
         self.assertEqual(roles, ['creative_media', 'logistics', 'sales_retail'])
@@ -134,10 +134,10 @@ class FoundHereTests(unittest.TestCase):
 
     @needs_site
     def test_the_words_the_app_sends_for_how_a_feed_was_found_are_the_ones_the_site_keeps(self):
-        self.assertEqual(set(word for _, word in contribute.HOW) | {'index', 'own', 'other'},
-                         set(re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
-                             (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1))),
-                         'the words the app sends are the words the site keeps')
+        assert_site_accepts(self, set(word for _, word in contribute.HOW) | {'index', 'own', 'other'},
+                            re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
+                                (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1)),
+                            'how a feed was found')
 
 
 class DeadEndTests(unittest.TestCase):

@@ -107,3 +107,7 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
   Now a declaration of fact is `knockout`: typed from a saved answer, otherwise left so the app asks once and keeps it (his answer: "Leave it, ask once, remember"). `legal` stays a consent, terms, a privacy notice or a certification.
 
 - **A legal-looking choice is asked once** (owner, 20 Oct 2026, internal#40): even with a worked example the AI kept calling "Have you been a Public Official…?" (a required dropdown) legal, so it was never asked or filled. His answer to "What should happen with a question the AI calls legal?": "Ask once, remember". A legal answer on a field with options goes the Answer-once path (typed from a saved answer, else asked once); only a lone consent or attestation tick stays the person's. Structure (the field's type) decides, never the words. Relaxes the 8 Oct rule for an attestation worded as a Yes/No menu.
+
+## Cross-repo reds (21 Oct 2026)
+- 75 red PR checks in two days; most were a public/private pair waiting on each other (site#18, #21 ×3, #22, #23: a route or feed type public listed before the Worker had it, or the site had before public listed it), two were a missing "[xx]" title tag (site#18, #19). Real catches stayed red (#1628/#1629 import cycle, #1631, #1638).
+- Rule: the site half lands first; contract tests are one way (`assert_site_accepts` / `assertSiteAccepts`); `tools/ship.sh` adds the tag to an open PR too and the "PR description laid out" step names the fix. Detail: docs/rules/private-site.md.

@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from src import employer_index  # noqa: E402
 from src.ai import page_reader  # noqa: E402
 from src.sources import ats, careers, page_recipes  # noqa: E402
-from site_private import needs_site  # noqa: E402
+from site_private import assert_site_accepts, needs_site  # noqa: E402
 
 LISTING = ('<nav><a href="/de/about">Über uns</a><a href="/de/jobs">Jobs</a></nav>'
            '<ul><li><a href="/de/jobs/devops-engineer">DevOps Engineer 80-100%</a></li><li><a href="/de/jobs/sre">Site Reliability Engineer</a></li>'
@@ -133,12 +133,14 @@ class IndexCarriesRecipesTests(unittest.TestCase):
 
     @needs_site
     @unittest.skipUnless(shutil.which('node'), 'node is not installed')
-    def test_the_website_accepts_exactly_the_recipes_the_engine_accepts(self):
+    def test_the_website_accepts_every_recipe_the_engine_accepts(self):
         samples = [{'kind': 'links', 'prefix': '/de/jobs'}, {'kind': 'tag', 'tag': 'h3', 'class': 'job-title'}, {'kind': 'links', 'prefix': '/(a)+'},
                    {'kind': 'tag', 'tag': 'script', 'class': 'x'}, {'kind': 'tag', 'tag': 'h3', 'class': 'job', 'x': 1}]
         script = ("import {recipeOf} from './src/employers.js'; console.log(JSON.stringify(JSON.parse(process.argv[1]).map(r => !!recipeOf(r))));")
         out = subprocess.run(['node', '--input-type=module', '-e', script, json.dumps(samples)], cwd=ROOT / 'site', capture_output=True, text=True, timeout=60)
-        self.assertEqual(json.loads(out.stdout), [page_recipes.valid(r) for r in samples])
+        site_accepts = json.loads(out.stdout)
+        # one way (owner, 21 Oct 2026): a recipe the engine takes, the site takes; the site may take more (it lands first)
+        assert_site_accepts(self, [i for i, r in enumerate(samples) if page_recipes.valid(r)], [i for i, ok in enumerate(site_accepts) if ok], 'recipe samples')
 
 
 if __name__ == '__main__':
