@@ -141,3 +141,14 @@ for (const [name, html, expected] of [
     assert.equal(window.__jobPilottoReadBack.holds(el), expected === 'committed');
   });
 }
+
+// 21 Oct 2026: 12c8427 listed every <button aria-haspopup=listbox> as a custom dropdown; Workday's Phone Device Type button sits with its own text input, which is the field.
+// The extra row left the fill and the panel disagreeing and main red (phone-split-picker-1, picker-chip-beside-search-1).
+test('a custom dropdown trigger is listed unless its own wrapper holds the real field', {skip: !JSDOM}, () => {
+  const window = openPage(JSDOM, `<form>
+    <div><div id="alone" role="combobox" aria-controls="l">Choose</div></div>
+    <div><button id="beside" aria-haspopup="listbox" type="button">Mobile</button><input type="text"></div>
+  </form>`);
+  const listed = window.__jobPilottoReadBack.customSelects(() => true).map(el => el.id);
+  assert.equal(listed.join(), 'alone');
+});

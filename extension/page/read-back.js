@@ -154,7 +154,7 @@
   // Custom dropdowns that are no input (<div role=combobox>, <button aria-haspopup=listbox>): fields the form reader and the audit both list, shown and not wrapping a real control
   // (a combobox that holds its own input is read through the input). The list they open sits in the page, named by aria-controls or beside the trigger.
   const customSelects = shown => [...document.querySelectorAll('div[role=combobox], button[role=combobox], button[aria-haspopup=listbox]')]
-    .filter(el => shown(el) && !el.disabled && !hiddenAway(el) && !el.querySelector('input:not([type=hidden]), select, textarea'));
+    .filter(el => shown(el) && !el.disabled && !hiddenAway(el) && !el.querySelector('input:not([type=hidden]), select, textarea') && !el.parentElement?.querySelector('input:not([type=hidden]), select, textarea'));   // nor one whose own wrapper holds the real field (Workday's Phone Device Type button + its text input): that input is the question
   const choicesOf = el => {
     const list = (el.getAttribute('aria-controls') && document.getElementById(el.getAttribute('aria-controls'))) || el.parentElement?.parentElement?.querySelector('[role=listbox]');
     return Array.from(list?.querySelectorAll('[role=option]') || [], o => String(o.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 80);
