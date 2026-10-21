@@ -1,9 +1,10 @@
 // Your details read first (owner's review, 18 Oct 2026, item 5: "a readable profile, not an expanded questionnaire"; UI redesign A): Contact, Professional links,
 // Work eligibility, Availability & compensation and Languages each show a compact summary drawn from their editor's own boxes (so drafts, CV proposals and
 // saving stay exactly as they were), a quiet Edit opens the editor in place, and Done leaves an editor with no change; with changes the Profile page's one
-// bar decides, and Save all / Discard all close the editors. Each reads as columns (mockup 05): icon · small grey label · value. Guarded by test/details-read.test.js.
-import {CARD_EDIT, el, pill} from '../components.js';
-import {doneButton, factColumns, isEditing, setEditing} from '../card-shell.js';
+// bar decides, and Save all / Discard all close the editors. Contact and Links read as columns (mockup 05: icon · small grey label · value); the fact cards as a calm two-column summary (renderer/fact-summary.js). Guarded by test/details-read.test.js.
+import {CARD_EDIT, el} from '../components.js';
+import {chipLine, doneButton, factColumns, isEditing, setEditing} from '../card-shell.js';
+import {checkBadge, checkCount, languagesView, summaryView} from '../fact-summary.js';
 import {icon} from '../icons.js';
 import {factOf} from '../fact-line.js';
 
@@ -53,12 +54,6 @@ export function linksView(read = value, visible = shown) {
   }));
 }
 
-// A fact section's lines as columns: label over value; the note for the AI is the value's hover (an info mark), "Check" a pill after the value.
-const KIND_ICONS = {salary: 'coins', range: 'coins', duration: 'calendar'};
-export function factRows(lines) {
-  return lines.filter(line => line.label).map(line => ({label: line.label, value: line.value, note: line.note || '', icon: KIND_ICONS[line.kind] || '',
-    badge: line.check && line.value ? pill('Check', 'warn', {title: 'Saved as you wrote it; pick the parts to make it exact'}) : null}));
-}
 const linesOf = key => [...(document.querySelector(`[data-facts="${key}"]`)?.querySelectorAll('.fact-line') || [])]
   .map(row => ({...factOf(row), check: Boolean(row.querySelector('.ui-pill'))}));
 
@@ -66,7 +61,12 @@ function drawFacts(key) {
   const into = document.querySelector(`[data-facts-read="${key}"]`);
   if (!into || into.dataset.loading) return;
   const lines = linesOf(key).filter(line => line.label);
-  into.replaceChildren(lines.length ? factColumns(factRows(lines)) : el('p', 'muted', 'Nothing yet. Edit to add a line.'));
+  into.replaceChildren(!lines.length ? el('p', 'muted', 'Nothing yet. Edit to add a line.') : key === 'languages' ? languagesView(lines, chipLine) : summaryView(lines));
+  // One count in the card's title, not a mark on every line.
+  const heading = into.closest('.panel')?.querySelector('.card-words h3');
+  heading?.querySelector('.fact-check')?.remove();
+  const badge = checkBadge(checkCount(lines));
+  if (badge) { badge.classList.add('fact-check'); heading?.append(badge); }
 }
 
 // The cards, their read boxes and how many of their own fields differ (for Done). The counts come from pages/details-drafts.js through initDetailsRead

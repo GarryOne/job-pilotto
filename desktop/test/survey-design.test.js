@@ -31,7 +31,7 @@ test('a saved note and every leftover line sit in a wrapping box tall enough for
   }
 });
 
-test('the note is folded behind "+ note" until it has text; the lists are sized to their choices by CSS', () => {
+test('the note is folded behind "+ note" until it has text; the lists share one aligned column by CSS', () => {
   const {node} = surveyForm({lines: [{id: 'a', text: lineOf('gender', 'Man', 'or Male')}]});
   const rows = all(node).filter(box => box.className === 'survey-row');
   const gender = rows[1], age = rows[0];
@@ -40,6 +40,6 @@ test('the note is folded behind "+ note" until it has text; the lists are sized 
   assert.equal(all(age).find(box => box.textContent === '+ note').hidden, false);
   const css = fs.readFileSync(new URL('../renderer/question-review.css', import.meta.url), 'utf8');
   assert.match(css, /\.survey-rows textarea \{[^}]*field-sizing: content/);
-  assert.match(css, /\.survey-rows select \{ width: auto;/);
-  assert.match(css, /grid-template-columns: 200px max-content minmax\(0, 1fr\)/);
+  assert.match(css, /\.survey-rows select \{ width: 100%;/);
+  assert.match(css, /grid-template-columns: 200px 260px minmax\(0, 1fr\)/);
 });
