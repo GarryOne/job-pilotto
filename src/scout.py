@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import budget_tape, contribute, employer_index, scout_need, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
+from . import budget_tape, contribute, employer_index, scout_need, scout_overrun, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -419,7 +419,10 @@ def main():
         if args.publish_index and scout_core.CENTRAL and os.getenv('INDEX_PUBLISH_KEY'):
             fetched = fetch_contributions(os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL, os.environ['INDEX_PUBLISH_KEY'], with_nofeed=True)
             scout_core.SHARED_DEAD = employer_index.fresh_nofeed(fetched[1])
-        summary, results = run(db, args.batch, stores, budget=args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0))
+        budget = args.budget or (scout_core.CENTRAL_BUDGET_S if scout_core.CENTRAL else 0)
+        if scout_core.CENTRAL:
+            scout_overrun.arm(budget)   # an empty log at the job's cancel hid what held two runs (20 Oct 2026)
+        summary, results = run(db, args.batch, stores, budget=budget)
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
             written, failed = sync_employers(db, stores)
             if written or failed:
