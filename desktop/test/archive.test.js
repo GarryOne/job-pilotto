@@ -39,11 +39,14 @@ test('a big export reports progress, ends ok, and the event loop keeps answering
   const file = path.join(base, 'export.tar.gz');
   const events = [];
   let last = Date.now(), worst = 0, ticks = 0;
+  const started = Date.now();
   const ping = setInterval(() => { const now = Date.now(); worst = Math.max(worst, now - last); last = now; ticks++; }, 10);
   await reset.exportTo(dir, file, {version: 'test', onProgress: event => events.push(event)});
   clearInterval(ping);
+  const elapsed = Date.now() - started;
   assert.ok(fs.statSync(file).size > 60 * 1024 * 1024, 'the archive was written');
-  assert.ok(ticks > 3 && worst < 250, `the loop answered during the export (ticks ${ticks}, worst gap ${worst} ms)`);
+  // A blocked loop (the old execFileSync tar: worst gap 1.7 s, 9 ticks in 1.8 s) fails both bounds; a loaded CI runner's 250-300 ms hiccup (beta run 6) passes both.
+  assert.ok(ticks > 3 && worst < 1000 && ticks > elapsed / 100, `the loop answered during the export (ticks ${ticks} in ${elapsed} ms, worst gap ${worst} ms)`);
   assert.ok(events.length >= 2, 'progress was told');
   assert.deepEqual(events.at(-1), {done: events.at(-1).total, total: events.at(-1).total}, 'ends at 100%');
   assert.ok(events.at(-1).total >= 14, 'counted the folder, the files and the manifest');
