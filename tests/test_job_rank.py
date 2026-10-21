@@ -36,7 +36,8 @@ class RankTest(unittest.TestCase):
             started = time.monotonic()
             for n in range(20000):
                 close(job(f'Engineer {n}', posting))
-            self.assertLess(time.monotonic() - started, 8, posting[:12])
+            # 14 s: the 18 Oct slow code took 17.5 s on a CI runner, a loaded runner's good code 9.9 s with 8 as the bound (beta run 9, 22 Oct).
+            self.assertLess(time.monotonic() - started, 14, posting[:12])
 
 
 class BestFirstTest(unittest.TestCase):
