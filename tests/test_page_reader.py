@@ -65,6 +65,26 @@ class ReaderTests(unittest.TestCase):
         self.assertIn('Site Reliability Engineer (100%) -> https://acme.ch/jobs/sre-zh', call['messages'][0]['content'])
         self.assertEqual(call['output_config']['format']['schema']['required'], ['page', 'jobs'])
 
+    def test_the_central_scout_reads_any_careers_page_within_its_own_limit(self):
+        # 21 Oct 2026: its example search names tech roles, so a hospital's page shared a 10-read allowance while tech pages had 25.
+        from src import scout_core
+        ward = '<html><body><h1>Kariera</h1><a href="/oferta/1">Pielęgniarka oddziałowa</a><a href="/oferta/2">Salowa</a></body></html>'
+        client = FakeClient({'page': 'jobs', 'jobs': [{'name': 'Pielęgniarka oddziałowa', 'place': 'Gdańsk', 'link': '/oferta/1', 'employer': ''}]})
+        with mock.patch.object(scout_core, 'CENTRAL', False):
+            self.assertIsNone(page_reader.read('https://szpital.pl/kariera', ward, client, self.db), 'an install reads only pages naming its roles')
+            page_reader._reads['any_language'] = 0
+            self.assertEqual(len(page_reader.read('https://szpital.pl/kariera', ward, client, self.db, careers_page=True)), 1)
+            self.assertEqual(page_reader._reads, {'any_language': 1})
+        page_reader._reads.clear()
+        with mock.patch.object(scout_core, 'CENTRAL', True):
+            self.assertEqual(len(page_reader.read('https://szpital2.pl/kariera', ward, client, self.db, careers_page=True)), 1)
+            self.assertEqual(page_reader._reads, {'n': 1}, 'counted with the other reads, not the small allowance')
+            self.assertEqual(page_reader.reads_limit(), page_reader.CENTRAL_READS_PER_RUN)
+            page_reader._reads['n'] = page_reader.CENTRAL_READS_PER_RUN
+            self.assertIsNone(page_reader.read('https://szpital3.pl/kariera', ward + ' ', client, self.db, careers_page=True))
+        self.assertEqual(page_reader.reads_limit(), page_reader.MAX_READS_PER_RUN)
+        self.assertGreater(page_reader.CENTRAL_READS_PER_RUN, page_reader.MAX_READS_PER_RUN)
+
     def test_a_process_stops_asking_after_its_limit_but_keeps_earlier_answers(self):
         client = FakeClient()
         page_reader.read('https://acme.ch/k', PAGE, client, self.db)
