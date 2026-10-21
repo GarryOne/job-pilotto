@@ -132,7 +132,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     appLog('review', `tab gone ${old.id}: ${reset ? 'cleared the closed tab\'s state, reopening' : 'nothing to clear, reopening'}`, {kind: old.kind});
     reopenedAt.set(old.id, Date.now());
     // From the first step, the job posting (owner, 16 Oct 2026: a form's saved address lost its site session and showed an error): its Apply leads to the form again.
-    const opened = apply.openOne(old.url, {session: old.id});   // the same session: its new tab carries its id
+    const opened = apply.openOne(old.url, {session: old.id, reuse: true});   // the same session: its new tab carries its id
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});
     return opened.ok ? {ok: true, reset} : {ok: false, error: opened.error};
   });
