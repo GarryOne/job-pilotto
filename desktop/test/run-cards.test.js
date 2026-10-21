@@ -1,7 +1,7 @@
 // Recent activity: Today's list and Find new employers as small cards (renderer/run-cards.js).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {byFit, newJobsShown, parseRunMessage, runItems} from '../renderer/run-cards.js';
+import {byFit, newJobsShown, parseRunMessage, runItems, runNewCount} from '../renderer/run-cards.js';
 
 test("Today's list: counts and one line per match", () => {
   const card = parseRunMessage(`✈️ Job Pilotto · 🆕 0 new · top 10 of 37
@@ -113,7 +113,8 @@ test('top matches: highest fit first, the unscored after them, in their own orde
 test('"View new job(s)" counts what the card says, else the run\'s record', () => {
   const digest = `✈️ Job Pilotto · 🆕 2 new · top 10 of 105
 105 open · 91 🇨🇭 · 0 applied`;
-  assert.equal(newJobsShown({new: 1}, digest), 2, 'the card says 2 new this run: the button says jobs, not job');
+  assert.equal(newJobsShown({new: 1}, digest), 1, 'the run\'s own count, not the digest\'s 2 (#1408)');
+  assert.equal(newJobsShown({}, digest), 2, 'a run with no record: the digest\'s number');
   assert.equal(newJobsShown({new: 3}, 'Search done.'), 3, 'no card: the run\'s own count');
   assert.equal(newJobsShown({}, null), 0);
 });
@@ -130,4 +131,18 @@ test('a digest card lists the jobs this run found, not the older ones that fill 
   // an older message with no headings: every job it lists
   assert.equal(runItems({items: [{title: 'a', section: ''}, {title: 'b', section: ''}]}).length, 2);
   assert.deepEqual(runItems(parseRunMessage(text.replace('New since your last run · 1 job', 'Best matches · 1 job'))), []);
+});
+
+// #1408 (22 Oct 2026): the card said "9 new this run" (the digest's count since its last send), the toast and footer "7" (the run's own). Every place
+// that draws a run's new count reads run.new through runNewCount; the sources below must not read the digest's `.fresh` for it.
+test('every place showing a run\'s new count reads the run\'s own number', async () => {
+  const run = {new: 7}, digest = parseRunMessage('✈️ Job Pilotto · 🆕 9 new · top 10 of 105\n105 open · 91 🇨🇭 · 0 applied');
+  assert.equal(digest.fresh, 9);
+  assert.equal(runNewCount(run, digest), 7);
+  assert.equal(newJobsShown(run, '✈️ Job Pilotto · 🆕 9 new · top 10 of 105\n105 open'), 7);
+  const {readFileSync} = await import('node:fs');
+  const card = readFileSync(new URL('../renderer/pages/activity-run-card.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(card, /stat\(card\.fresh, 'new this run'\)/);
+  assert.doesNotMatch(card, /card\.fresh (===|<)/, 'nothing-new and few-new decide on the run\'s count');
+  assert.match(card, /stat\(fresh, 'new this run'\)/);
 });
