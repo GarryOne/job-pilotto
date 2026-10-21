@@ -189,7 +189,19 @@ VAGUE_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['v
 VAGUE_SYSTEM = """You get a numbered list of job locations as postings write them. Answer the numbers of the ones that name no town or city \
 of their own: only a country ("Switzerland", "CH"), a large region or area ("Romandie", "Canton of Vaud", "Europe"), several places at once \
 without one town ("Several locations"), or nothing usable. A location naming a town, a city district or an address is not one of them, \
-even with its country ("Zug, Switzerland"); neither is a plain "Remote"."""
+even with its country ("Zug, Switzerland"); neither is a plain "Remote". You also get the job seeker's places: a country or region that \
+cannot contain any of their places ("USA - Remote" for someone who picked only a town in Moldova) is not one of them: it is a real place \
+outside."""
+
+
+def excluded_remote(location, search):
+    """True for a location that says remote and names a region the user cannot work from (their own setting, remote_excluded_regions):
+    a floor under the AI's answers, so a weak or missing one never keeps "USA - Remote" for a user who skipped it (21 Oct 2026)."""
+    from ..paths import place_regex
+    from ..sources.feeds import _REMOTE_SYNONYMS
+    import re
+    regions = [r for r in search.get('remote_excluded_regions') or [] if str(r).strip()]
+    return bool(regions and re.search(_REMOTE_SYNONYMS, location or '', re.I) and place_regex(regions).search(location or ''))
 
 
 def vague(locations, search, client=None):
@@ -198,10 +210,16 @@ def vague(locations, search, client=None):
     from .. import time_budget as budget
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(n for n in (norm(loc) for loc in locations) if decided.get(n) == 'out'))
+    floor = [n for n in ask if excluded_remote(n, search)]   # a real place outside, whatever the AI would say
+    decided.update({n: 'out:clear' for n in floor})
+    ask = [n for n in ask if n not in floor]
+    if floor and not ask:
+        _save(key, decided)
     ask = ask[:budget.in_calls('place_vague', len(ask), VAGUE_BATCH, engine.PARALLEL)]
     if not ask:
         return decided
     client = client or engine.client(action='place_vague')
+    places = {k: v for k, v in places_words(search).items() if k in ('best_places', 'anywhere_in', 'cities_abroad')}
     batches = [ask[start:start + VAGUE_BATCH] for start in range(0, len(ask), VAGUE_BATCH)]
     lock, done = threading.Lock(), [0]
 
@@ -210,7 +228,7 @@ def vague(locations, search, client=None):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': VAGUE_SYSTEM}],
-                                          messages=[{'role': 'user', 'content': f'The job locations:\n{listed}'}],
+                                          messages=[{'role': 'user', 'content': f'Their places (JSON): {json.dumps(places, ensure_ascii=False)}\nThe job locations:\n{listed}'}],
                                           output_config=engine.structured(VAGUE_SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)
         numbers = {int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('vague') or [] if str(n).isdigit()}

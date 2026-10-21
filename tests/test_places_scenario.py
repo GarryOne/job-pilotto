@@ -48,7 +48,7 @@ class Geography:
             answer = {'jobs': [{'n': n, 'where': 'Geneva' if 'Geneva site' in text else '', 'nearest': 'geneva', 'km': 0,
                                 'answer': ('best' if 'geneva' in best else 'out') if 'Geneva site' in text else 'unclear'}
                                for n, text in enumerate(postings, 1)]}
-        elif content.startswith('The job locations:'):
+        elif kwargs['system'][0]['text'].startswith('You get a numbered list of job locations'):
             lines = content.split('The job locations:\n', 1)[1].split('\n')
             answer = {'vague': [int(line.split('.', 1)[0]) for line in lines if GEO.get(line.split('. ', 1)[1], 0) is None]}
         elif 'Countries:' in content:

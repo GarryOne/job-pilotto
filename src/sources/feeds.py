@@ -195,8 +195,11 @@ def read_places():
 def _verdict(job):
     """Claude's full answer for this job: its location's, or for a vague location (only a country, no place) the posting's own words';
     'vague' while those are not read yet; None when it has not placed the location."""
+    from ..ai import place_triage
     from ..ai.place_triage import norm, read_verdict
     verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+    if verdict == 'out:vague' and place_triage.excluded_remote(job.get('location'), _SEARCH):
+        return 'out'   # remote limited to a region you skip: outside, whatever an earlier answer said (21 Oct 2026)
     if verdict == 'out:vague':   # names no town: the posting's own words (src/ai/place_triage.py read)
         read = read_verdict(job, read_places())
         return 'vague' if read is None else 'out' if read == 'unclear' else read
