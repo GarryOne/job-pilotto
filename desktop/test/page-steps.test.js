@@ -74,6 +74,6 @@ test('both dead ends of a broken page go through it, and the app reopens a close
   const flow = read('extension/fill-flow.js');
   assert.match(flow, /if \(other && await restartFromPosting\(tab, jobUrl, \{decide\}\)\) return;/);
   assert.match(flow, /report: async need => \(await restartFromPosting\(tab, jobUrl, \{decide\}\)\) \|\| deadEndHere\(tab, jobUrl, host, 'site_broken'/);
-  assert.match(read('desktop/lib/session-handlers.js'), /const opened = apply\.openOne\(old\.url, \{session: old\.id\}\);/);
+  assert.match(read('desktop/lib/session-handlers.js'), /const opened = apply\.openOne\(old\.url, \{session: old\.id, reuse: true\}\);/);
   assert.doesNotMatch(read('desktop/lib/session-handlers.js'), /formUrl/);
 });
