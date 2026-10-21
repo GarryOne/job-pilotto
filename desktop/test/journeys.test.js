@@ -416,8 +416,8 @@ const storageOf = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pil
 
 // #520: start() made a form session per job and then found no browser: the sessions stayed in the Applying page with no tab (applyOne already removes its own).
 test('scenario: Apply to N jobs with no browser installed leaves no form session behind in Applying (#520)', async () => {
-  const real = process.platform, home = {HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA};
-  process.env.HOME = process.env.LOCALAPPDATA = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-home-'));   // the launcher reads a browser's profile folder: never the owner's
+  const real = process.platform, home = {HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA, ProgramFiles: process.env.ProgramFiles, 'ProgramFiles(x86)': process.env['ProgramFiles(x86)']};
+  process.env.HOME = process.env.LOCALAPPDATA = process.env.ProgramFiles = process.env['ProgramFiles(x86)'] = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-home-'));   // a Windows runner has Chrome under Program Files   // the launcher reads a browser's profile folder: never the owner's
   Object.defineProperty(process, 'platform', {value: 'win32'});   // the only launcher that returns null when no browser is installed
   const before = terminals.list().map(s => s.id);
   try {
@@ -428,7 +428,7 @@ test('scenario: Apply to N jobs with no browser installed leaves no form session
     const left = terminals.list().filter(s => !before.includes(s.id));
     left.forEach(s => terminals.remove(s.id));
     assert.deepEqual(left.map(s => s.url), []);
-  } finally { Object.defineProperty(process, 'platform', {value: real}); Object.assign(process.env, home); }
+  } finally { Object.defineProperty(process, 'platform', {value: real}); for (const [name, value] of Object.entries(home)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; } }
 });
 
 // #962: a pick kept before the effect floor (c8e0113) had no effect on record and was pressed anyway for up to 30 days.
