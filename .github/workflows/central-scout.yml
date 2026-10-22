@@ -35,7 +35,11 @@ jobs:
   scout:
     runs-on: ubuntu-24.04
     timeout-minutes: 75
+    env:
+      PYTHONUNBUFFERED: '1'   # 22 Oct 2026: a cancelled run lost every line the scout had printed but not flushed ("no log line for 37 min")
     steps:
+      - name: When this job started (the scout's deadline counts from here)
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v5
       - name: Read access to the private seed lists (the CI App, this repo only)
         id: ops_token
