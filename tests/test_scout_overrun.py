@@ -69,3 +69,17 @@ class PhaseAndDeadlineTest(unittest.TestCase):
         self.assertLess(time.monotonic() - began, 3)   # un-bounded this takes 10 s
         self.assertEqual(failed, [])
         self.assertTrue(0 < len(feeds) < 400)
+
+
+class JobClockTest(unittest.TestCase):
+    def test_the_deadline_counts_from_the_jobs_start_not_the_processs(self):
+        got = scout_overrun.publish_deadline(0, job_s=600, reserve_s=60, wall=lambda: 1000, job_started_at=700)   # 300 s of the job are gone
+        self.assertAlmostEqual(got - time.monotonic(), 600 - 60 - 300, delta=1)
+
+    def test_stacks_repeat_so_a_late_cancel_still_leaves_one(self):
+        with tempfile.TemporaryDirectory() as folder, open(Path(folder) / 'log.txt', 'w+') as out:
+            scout_overrun.arm(0.1, grace_s=0.1, file=out)
+            time.sleep(0.9)
+            scout_overrun.disarm()
+            out.seek(0)
+            self.assertGreaterEqual(out.read().count('most recent call first'), 2)
