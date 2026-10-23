@@ -10,7 +10,6 @@ import {fileURLToPath} from 'node:url';
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(desktop, '..', 'site', 'public', 'images', 'app');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
-const profile = fs.readFileSync(path.join(desktop, 'demo', 'profile.md'), 'utf8');
 
 // Page scripts: show a wizard step with sample input (as a user would have filled it), or open a view.
 const step = (name, then = '') => `(() => {
@@ -29,12 +28,7 @@ const FRAMES = [
   {name: 'wizard-cv', fresh: true, js: step('cv', `$('cv-name').textContent = '✓ CV_Alex_Morgan.pdf'; $('cv-next').disabled = false;`)},
   {name: 'wizard-strategy', fresh: true, js: step('draft', `$('draft-loading').hidden = true; $('draft-view').hidden = false;
     $('draft-summary').textContent = 'Senior SRE and platform roles in Zurich first, then Switzerland and remote in Europe. Jobs that need fluent German or French are hidden.';
-    const chips = (id, items) => $(id).replaceChildren(...items.map(t => Object.assign(document.createElement('span'), {className: 'chip', textContent: t})));
-    chips('chips-roles', ['site reliability', 'sre', 'platform engineer', 'devops', 'infrastructure']);
-    chips('chips-places', ['Zurich', 'Switzerland', 'Remote (Europe)']);
-    chips('chips-queries', ['site reliability engineer', 'platform engineer', 'devops engineer']);
-    chips('chips-languages', ['German (fluent)', 'French (fluent)']);
-    $('draft-profile').value = ${JSON.stringify(profile)}; $('draft-save').disabled = false;`)},
+    $('draft-save').disabled = false;`)},
   {name: 'wizard-extras', fresh: true, js: step('extras')},
   {name: 'jobs', js: `(async () => { ${view('jobs')} await new Promise(r => setTimeout(r, 1500)); })()`},  // the app opens on Focus
   {name: 'actions', js: view('actions')},

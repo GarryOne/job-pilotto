@@ -79,8 +79,9 @@ export async function runWizard(ctx) {
   await ctx.run('the strategy is built from the CV and shows roles to search for', async () => {
     await page.click('#draft-build');
     await page.locator('#draft-view').waitFor({state: 'visible', timeout: 300000});
-    const roles = await page.locator('#chips-roles > *').count();
-    if (!roles) throw new Error('the strategy has no roles to search for');
+    // The cards are the Strategy page's own (pages/setup-strategy.js): Main goals names the roles, Locations the places.
+    const goals = await page.locator('#setup-strategy-slot #strategy-main-goals .main-goals').innerText();
+    if (!goals || /No roles yet/.test(goals)) throw new Error('the strategy has no roles to search for');
     await page.click('#draft-save');
     await ctx.expectStep('hosted', 180000);   // the daily-searches step (pages/hosted.js): Skip leaves hosted off, the extras step follows
     await page.click('#hosted-skip');

@@ -13,6 +13,7 @@ import {goalNote, roleFamilies, salaryWords, detailsLine} from '../strategy-part
 import {$} from './core.js';
 import {openSetting} from './settings.js';
 import {titleCase} from './strategy-review.js';
+import {inDraft} from '../strategy-sink.js';
 import {strategyState} from './strategy-state.js';
 import {GOAL_LABELS, cardHeader, changed, drafts, isOpen} from './strategy-cards.js';
 import {draftEntries, listChips} from './strategy-targets.js';
@@ -58,7 +59,9 @@ function fromDetails() {
   const details = strategyState.lastStrategy?.details, words = detailsLine(details, savedGoals().languages);
   if (!words) return null;
   const section = details?.languages?.length || savedGoals().languages ? 'languages' : 'eligibility';   // the first fact the line names
-  return referenceRow({text: words, open: () => openSetting(section)});
+  const row = referenceRow({text: words, open: () => openSetting(section)});
+  if (inDraft()) row.querySelector('button')?.remove();   // setup: the draft's languages, no Your details to open yet
+  return row;
 }
 
 function editor() {

@@ -7,6 +7,7 @@ import {$, message, savedAgo, show} from './core.js';
 import {bone} from './focus.js';
 import {guardLeave, openView} from './nav.js';
 import {toastMessage} from './startup.js';
+import {inDraft, reloadDraft} from '../strategy-sink.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {ADVANCED, CARD_TONE, TARGET_CARDS, entriesOf, inColumns, renderCards, renderStrategy} from './strategy-targets.js';
 import {strategyBar} from './strategy-cards.js';
@@ -17,6 +18,7 @@ export {TARGET_CARDS, TARGET_LISTS, editedList} from './strategy-targets.js';
 export {reviewSuggestion, loadCoverage} from './strategy-suggestions.js';
 
 export async function loadStrategy() {
+  if (inDraft()) { reloadDraft(); return; }   // setup step 3 draws these cards from the draft (pages/setup-strategy.js)
   shared.state = await window.pilot.state();
   message('strategy-message', '');
   loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows

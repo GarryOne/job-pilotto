@@ -1,39 +1,22 @@
-// Setup step 5: review the drafted strategy.
+// Setup step 3: the drafted strategy. The cards are the Strategy page's own (pages/setup-strategy.js moves them in and feeds them the draft); this file
+// owns what only the setup has: the AI draft note, Regenerate draft and Replace my strategy. Guarded by test/setup-strategy.test.js.
 import {el, pill} from '../components.js';
-import {icon} from '../icons.js';
-import {hasMark, withoutMark, withPills} from '../no-mark.js';
-import {goalTiles} from '../goal-tiles.js';
-import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
 import {shared} from './shared.js';
 import {buildDraft, currentAnswers, showSearchStatus} from './activity.js';
-import {$, message, osText, readable, show} from './core.js';
+import {$, message, osText, show} from './core.js';
 import {loadJobs} from './jobs.js';
 import {openView} from './nav.js';
 import {openSetting} from './settings.js';
+import {hideCards, showCards} from './setup-strategy.js';
 import {toastMessage} from './startup.js';
 import {goStep, saveState} from './wizard.js';
 import {byStore} from '../store-words.js';
 import {titleCase} from '../fragment-words.js';
 export {titleCase};   // one place for it: renderer/fragment-words.js
 
-// ---------- step 5: review the drafted strategy ----------
-// The draft's lists, as the cards show them: [draft path, how an entry is shown, how a typed entry is stored].
-const escapeFragment = text => text.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const LISTS = {
-  roles: [['search', 'target_roles'], role => role.title ?? role, text => ({title: text.trim().replace(/\s+/g, ' '), also: []})],   // one list of titles: the first five are also searched on job boards (lib/target-roles.js)
-  places: [['search', 'locations', 'top_tier'], readable, escapeFragment],
-  country: [['search', 'locations', 'country_wide'], readable, escapeFragment],
-  abroad: [['search', 'locations', 'abroad'], readable, escapeFragment],
-  languages: [['preferences', 'disqualifying_languages'], text => text, text => text.trim()],
-  rights: [['preferences', 'work_rights'], readable, escapeFragment],   // citizenship / work rights: where no visa is needed
-};
-// The list at its draft path; a draft saved before a list existed gets it, so an added entry is kept.
-const listOf = name => {
-  const path = LISTS[name][0], parent = path.slice(0, -1).reduce((node, key) => node?.[key], shared.draft);
-  return parent ? (parent[path.at(-1)] ||= []) : [];
-};
+// ---------- step 3: review the drafted strategy ----------
 let draftSavedTimer, editsTimer;
-function draftChanged(fields) {
+export function draftChanged(fields) {
   clearTimeout(editsTimer);
   editsTimer = setTimeout(async () => {
     await window.pilot.cacheDraftEdits(Object.fromEntries(fields.map(field => [field, shared.draft[field]])));
@@ -41,187 +24,6 @@ function draftChanged(fields) {
     draftSavedTimer = setTimeout(() => show($('draft-saved'), false), 2500);
   }, 300);
 }
-function renderList(name, {limit = 0} = {}) {
-  const [, show_, ] = LISTS[name];
-  const box = $(`chips-${name}`);
-  if (!box) return;
-  const items = listOf(name);
-  const expanded = box.dataset.expanded === '1';
-  const visible = limit && !expanded ? items.slice(0, limit) : items;
-  box.replaceChildren(...visible.map((item, i) => {
-    const searched = name === 'roles' && i < 5;   // lib/target-roles.js SEARCHED
-    const pill = Object.assign(document.createElement('span'), {className: `chip removable${searched ? ' is-searched' : ''}`, title: searched ? 'Also searched on job boards' : ''});
-    const label = Object.assign(document.createElement('span'), {textContent: titleCase(show_(item))});
-    if (searched) pill.append(icon('search'));
-    const remove = Object.assign(document.createElement('button'), {className: 'x', textContent: '×', title: 'Remove'});
-    remove.addEventListener('click', () => { listOf(name).splice(i, 1); draftChanged(['search', 'preferences']); renderLists(); });
-    pill.append(label, remove);
-    return pill;
-  }));
-  if (limit && items.length > limit && !expanded) {
-    const more = Object.assign(document.createElement('button'), {className: 'chip more', textContent: `+ ${items.length - limit} more`});
-    more.addEventListener('click', () => { box.dataset.expanded = '1'; renderLists(); });
-    box.append(more);
-  }
-  if (!items.length) box.append(Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'None'}));
-}
-function renderLists() {
-  renderList('roles', {limit: 10}); renderList('places', {limit: 6}); renderList('country', {limit: 4});
-  renderList('abroad'); renderList('languages'); renderList('rights');
-}
-
-// Markdown (headings, tables, bullets, paragraphs, **bold**) as read-only HTML for the Detailed strategy.
-// Values are edited in place: click a cell, a bullet or a paragraph (Enter or click away saves, Esc cancels).
-// edit(lineIndex, newLine) puts the change back into the markdown.
-function markdownView(markdown, edit) {
-  const box = document.createDocumentFragment();
-  const inline = text => {
-    const span = document.createElement('span');
-    text.split(/(\*\*[^*]+\*\*)/).forEach(part => span.append(...(part.startsWith('**') ? [Object.assign(document.createElement('b'), {textContent: part.slice(2, -2)})] : withPills(part))));
-    return span;
-  };
-  // The element shows the formatted text; while editing, its raw markdown (so **bold** survives).
-  const editable = (element, raw, save) => {
-    element.classList.add('editable');
-    element.title = 'Click to edit';
-    element.addEventListener('click', () => {
-      if (element.isContentEditable) return;
-      const shownRaw = withoutMark(raw);   // the store's not-answered marker is never shown, not even while typing: start without it
-      element.textContent = shownRaw;
-      element.contentEditable = 'plaintext-only';
-      element.focus();
-      getSelection().selectAllChildren(element); getSelection().collapseToEnd();
-      let done = false;
-      const finish = keep => {
-        if (done) return;
-        done = true;
-        element.contentEditable = 'false';
-        const text = element.textContent;
-        if (keep && text.trim() !== shownRaw) save(text.trim() || '❓');
-        else renderDocs();
-      };
-      // The "to answer" colour follows the text as it's typed, not only after saving.
-      const mark = () => element.classList.toggle('ask', hasMark(raw) && element.textContent.trim() === shownRaw);
-      mark();
-      element.addEventListener('input', mark);
-      element.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); finish(true); }
-        if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-      });
-      element.addEventListener('blur', () => finish(true), {once: true});
-    });
-  };
-  const lines = markdown.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const heading = line.match(/^(#{1,3})\s+(.*)$/);
-    if (heading) { const h = document.createElement(`h${Math.min(4, heading[1].length + 2)}`); h.append(inline(heading[2])); box.append(h); continue; }
-    if (line.startsWith('|')) {
-      const table = document.createElement('table');
-      let header = true;
-      for (; i < lines.length && lines[i].trim().startsWith('|'); i++) {
-        const cells = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
-        if (cells.every(cell => /^:?-{2,}:?$/.test(cell))) continue;
-        const row = table.insertRow();
-        const index = i, source = lines[i];
-        cells.forEach((cell, c) => {
-          const td = row.insertCell();
-          td.append(inline(cell));
-          if (hasMark(cell)) td.classList.add('ask');
-          if (!header && edit) editable(td, cell, text => edit(index, replaceCell(source, c, text)));
-        });
-        header = false;
-      }
-      i--;
-      box.append(table);
-      continue;
-    }
-    if (/^[-*]\s/.test(line)) {
-      const ul = document.createElement('ul');
-      for (; i < lines.length && /^\s*[-*]\s/.test(lines[i]); i++) {
-        const li = document.createElement('li');
-        const raw = lines[i].trim().slice(2), index = i, source = lines[i];
-        li.append(inline(raw));
-        if (hasMark(raw)) li.classList.add('ask');
-        if (edit) editable(li, raw, text => edit(index, replaceLine(source, text)));
-        ul.append(li);
-      }
-      i--;
-      box.append(ul);
-      continue;
-    }
-    const p = document.createElement('p'); p.append(inline(line));
-    if (hasMark(line)) p.classList.add('ask');
-    const index = i, source = lines[i];
-    if (edit) editable(p, line, text => edit(index, replaceLine(source, text)));
-    box.append(p);
-  }
-  return box;
-}
-function renderDocs() {
-  for (const [doc, field] of [['profile', 'profile_markdown'], ['answers', 'answers_markdown']]) {
-    $(`doc-${doc}`).replaceChildren(markdownView(shared.draft[field], (index, line) => {
-      shared.draft[field] = withLine(shared.draft[field], index, line);
-      draftChanged([field]);
-      renderDocs();
-    }));
-  }
-  $('draft-profile').value = shared.draft.profile_markdown;
-  $('draft-answers').value = shared.draft.answers_markdown;
-}
-
-// Open questions: answer inline (added to the standard answers), or skip.
-function renderQuestions() {
-  const questions = shared.draft.open_questions;
-  show($('open-questions'), questions.length > 0);
-  $('open-count').textContent = `${questions.length} detail${questions.length === 1 ? '' : 's'} need${questions.length === 1 ? 's' : ''} your answer`;
-  const box = $('open-list');
-  const expanded = box.dataset.expanded === '1';
-  const shown = expanded ? questions : questions.slice(0, 3);
-  box.replaceChildren(...shown.map((question, i) => {
-    const row = Object.assign(document.createElement('div'), {className: 'q-row'});
-    const text = Object.assign(document.createElement('span'), {className: 'q-text', textContent: question});
-    const answer = Object.assign(document.createElement('button'), {className: 'secondary small-btn', textContent: 'Answer'});
-    const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip'});
-    answer.addEventListener('click', () => {
-      const input = Object.assign(document.createElement('input'), {placeholder: 'Your answer, then Enter'});
-      input.addEventListener('keydown', event => {
-        if (event.key !== 'Enter' || !input.value.trim()) return;
-        const heading = '# Answered during setup';
-        if (!shared.draft.answers_markdown.includes(heading)) shared.draft.answers_markdown = `${shared.draft.answers_markdown.trim()}\n\n${heading}\n`;
-        shared.draft.answers_markdown = `${shared.draft.answers_markdown.trimEnd()}\n- ${question} — ${input.value.trim()}\n`;
-        shared.draft.open_questions.splice(shared.draft.open_questions.indexOf(question), 1);
-        draftChanged(['answers_markdown', 'open_questions']);
-        renderQuestions(); renderDocs();
-      });
-      row.replaceChildren(text, input);
-      input.focus();
-    });
-    skip.addEventListener('click', () => { shared.draft.open_questions.splice(shared.draft.open_questions.indexOf(question), 1); draftChanged(['open_questions']); renderQuestions(); });
-    row.append(text, answer, skip);
-    return row;
-  }));
-  const more = $('open-more');
-  show(more, questions.length > 3);
-  more.textContent = expanded ? 'Show fewer' : `Show ${questions.length - 3} more`;
-}
-
-// The goals the AI proposed from the CV, as tiles; a click edits one (Enter or click away saves, Esc cancels). The
-// correction goes into the drafted Profile (markdown-edit.js applyGoal), which is what's saved to Notion.
-// A draft from before goals were proposed (a whole questionnaire then) shows the questionnaire's answers, read-only. The rows are
-// goal-tiles.js, shared with the Strategy page.
-function renderGoals() {
-  const goals = shared.draft.goals, old = shared.state.settings.questionnaire || {};
-  $('draft-tiles').replaceChildren(...goalTiles(goals || old, goals ? (key, text) => {
-    goals[key] = text;
-    shared.draft.profile_markdown = applyGoal(shared.draft.profile_markdown, key, text);
-    draftChanged(['goals', 'profile_markdown']);
-    renderDocs();
-    renderGoals();
-  } : null));
-}
-
 // The note to the AI is one field (#q-more, what currentAnswers reads): a card on its own before building, folded
 // under "Your note to the AI" in the review, next to Regenerate draft (which sends it too).
 function placeNote(where) {
@@ -235,6 +37,7 @@ function noteSummary() {
 }
 // Before a draft exists, after a failed one, or on Rebuild from CV: what the user wants, then Build my strategy.
 export function showDraftIntro() {
+  hideCards();
   placeNote('intro');
   show($('draft-intro')); show($('draft-actions'), false);
   show($('draft-loading'), false); show($('draft-view'), false); show($('draft-error'), false); show($('draft-stale'), false);
@@ -253,12 +56,7 @@ export function renderDraft() {
   show($('draft-cost'));
   $('draft-summary').textContent = shared.draft.summary;
   $('draft-summary').title = 'Click to show all';
-  renderGoals();
-  document.querySelectorAll('.review .chips').forEach(box => { box.dataset.expanded = ''; });
-  renderLists();
-  $('open-list').dataset.expanded = '';
-  renderQuestions();
-  renderDocs();
+  showCards({changed: draftChanged});   // Main goals, Locations, Job preferences and Advanced search settings: the Strategy page's cards, reading the draft
   $('draft-save').disabled = false;
 }
 // The strategy step. No draft yet, a first setup whose CV changed since the draft, or Rebuild from CV: the note and
@@ -287,7 +85,7 @@ async function saveDraft(parts = null) {
   show(document.querySelector('[data-save-step="snapshot"]'), replacing);
   if (!replacing) saveState.snapshot = 1;  // nothing to keep on a first setup
   if (!$('save-dialog').open) $('save-dialog').showModal();
-  const result = await window.pilot.saveStrategy({...shared.draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value}, parts);
+  const result = await window.pilot.saveStrategy(shared.draft, parts);
   if (!result.ok) {
     $('save-title').textContent = byStore('Not saved to Notion yet', 'Not saved yet');
     message('save-message', osText(`${result.error} Your strategy is kept on this computer: try again.`), 'error');
@@ -301,7 +99,7 @@ async function saveDraft(parts = null) {
   setTimeout(() => {
     $('save-dialog').close();
     // The Strategy page read again: it still showed the strategy from before (7 Oct 2026: "Your Profile is empty" stayed after a rebuild filled it).
-    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); import('./strategy.js').then(page => page.loadStrategy()); toastMessage('Strategy replaced ✓', byStore('The previous one is kept in Notion as “🗂 Previous strategy”.', 'The previous one is kept as “🗂 Previous strategy”.')); }
+    if (replacing) { hideCards(); show($('wizard'), false); show($('app')); loadJobs(); import('./strategy.js').then(page => page.loadStrategy()); toastMessage('Strategy replaced ✓', byStore('The previous one is kept in Notion as “🗂 Previous strategy”.', 'The previous one is kept as “🗂 Previous strategy”.')); }
     else goStep('hosted');
   }, 900);
 }
@@ -310,7 +108,7 @@ async function openRebuildReview() {
   $('rebuild-total').textContent = '';
   $('replace-go').disabled = true;
   $('replace-dialog').showModal();
-  const current = {...shared.draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value};
+  const current = shared.draft;
   $('rebuild-draft-cost').textContent = shared.draft?.usd ? `This draft cost $${shared.draft.usd.toFixed(2)} (already spent). ` : '';
   const result = await window.pilot.rebuildImpact(current);
   if (!result.ok) { $('rebuild-groups').replaceChildren(el('p', 'message error', result.error)); return; }
@@ -351,6 +149,7 @@ const outside = (dialog, event) => {
   return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
 };
 async function finishSetup() {
+  hideCards();
   shared.state.settings = await window.pilot.saveSettings({setupDone: true});
   show($('wizard'), false); show($('app'));
   loadJobs();
@@ -362,38 +161,9 @@ async function finishSetup() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  // ✎ on a card: a small input to add an entry (Enter adds, Esc closes).
-  document.querySelectorAll('#draft-view [data-edit]').forEach(button => button.addEventListener('click', () => {
-    const card = button.closest('[data-list]');
-    let input = card.querySelector('input.add');
-    if (input) { input.remove(); return; }
-    const name = card.dataset.list;
-    input = Object.assign(document.createElement('input'), {className: 'add', placeholder: name === 'places' ? 'Add a place, then Enter' : name === 'rights' ? 'Add a country or EU, then Enter' : 'Add, then Enter'});
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Escape') input.remove();
-      if (event.key !== 'Enter' || !input.value.trim()) return;
-      listOf(name).push(LISTS[name][2](input.value));
-      input.value = '';
-      draftChanged(['search', 'preferences']);
-      renderLists();
-    });
-    card.append(input);
-    input.focus();
-  }));
   $('draft-summary').addEventListener('click', () => $('draft-summary').classList.toggle('open'));
   document.querySelectorAll('[data-goto-step]').forEach(button => button.addEventListener('click', () => goStep(button.dataset.gotoStep)));
-  document.querySelectorAll('.doc-edit').forEach(button => button.addEventListener('click', () => {
-    const doc = button.dataset.doc, area = $(`draft-${doc}`), view = $(`doc-${doc}`);
-    const editing = area.hidden;
-    show(area, editing); show(view, !editing);
-    button.textContent = editing ? 'Done editing' : 'Edit as text';
-    if (!editing) renderDocs();
-  }));
-  $('open-more').addEventListener('click', () => { const box = $('open-list'); box.dataset.expanded = box.dataset.expanded === '1' ? '' : '1'; renderQuestions(); });
   $('draft-redraft').addEventListener('click', () => { show($('draft-stale'), false); buildDraft(); });
-  for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answers', 'answers_markdown']]) {
-    $(id).addEventListener('input', () => { shared.draft[field] = $(id).value; draftChanged([field]); });
-  }
   $('cv-next').addEventListener('click', toDraft);
   $('draft-again').addEventListener('click', buildDraft);
   $('draft-build').addEventListener('click', buildDraft);

@@ -13,6 +13,7 @@ import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {exclusionGroups, withTyped} from '../strategy-parts.js';
+import {inDraft, sink} from '../strategy-sink.js';
 import {strategyState} from './strategy-state.js';
 import {PLAIN, cardHeader, changed, dirty, drafts, isOpen, cardOf, openCard, redrawCards} from './strategy-cards.js';
 import {renderMainGoals} from './main-goals.js';
@@ -104,7 +105,7 @@ export function listChips(name, placeholder) {
       event.preventDefault();   // Enter adds a chip; it never saves the strategy
       delete typed[name];
       redrawCards();
-      document.querySelector(`.strategy-page input.add[data-list="${name}"]`)?.focus();
+      document.querySelector(`.strategy-live input.add[data-list="${name}"]`)?.focus();
     });
     box.append(input);
     if (whole) { const label = el('label', 'check-row muted small'); label.append(whole, el('span', '', 'Add as a whole word only')); box.append(label); }   // the shared checkbox row
@@ -208,7 +209,7 @@ function withHints(name, draw) {
 async function fixTypo(name, entry, suggestion, button) {
   const stored = entriesOf(strategyState.lastStrategy, name).find(item => item.label === entry);
   const edits = {[name]: {add: [suggestion], remove: stored ? [stored.fragment] : []}};
-  const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(edits)).catch(error => ({ok: false, error: error.message}));
+  const result = await withSaveProgress(words => { button.textContent = words; }, () => sink.editTargets(edits)).catch(error => ({ok: false, error: error.message}));
   if (!result.ok) { toastMessage('Not fixed', result.error || 'Try again.'); renderTargets(); return; }
   toastMessage({title: `"${suggestion}" saved ✓`, body: 'Refresh your jobs to search with it.', action: refreshAction});
   await reloadTargets();
@@ -281,7 +282,7 @@ export function renderTargets() {
   $('strategy-locations').replaceChildren(...cards.filter(card => card.dataset.card === 'places'));
   $('strategy-targets').replaceChildren(...inColumns(cards.filter(card => ADVANCED.includes(card.dataset.card))));
   changed();
-  if (!strategyState.editing && strategyState.lastStrategy) loadMeanings(savedLabels, renderTargets);   // once per set of lists; redraws when they come
+  if (!strategyState.editing && strategyState.lastStrategy && !inDraft()) loadMeanings(savedLabels, renderTargets);   // once per set of lists; redraws when they come
 }
 // Main goals, the target cards and Job preferences, from the drafts (strategy-cards.js redraws through this).
 export function renderCards() {

@@ -14,6 +14,7 @@ import {NOTE_LABEL, noteText, showWorkload} from '../preferences-review-model.js
 import {lineInput, outlineTab} from './outline-tab.js';
 import {reviewCard, textsOf} from './preferences-review.js';
 import {input, labelled, select} from './website-rules.js';
+import {inDraft} from '../strategy-sink.js';
 import {CARDS, barFor, cardHeader, isOpen} from './strategy-cards.js';
 
 const TEXT = 'profile';
@@ -169,7 +170,7 @@ async function readFields(view, again = false) {
 
 function draw(view, into) {
   const read = readProfile(view.items[TEXT] || []);
-  if (!review.asked && window.pilot.preferencesParse) setTimeout(() => readFields(view), 0);
+  if (!review.asked && window.pilot.preferencesParse && !inDraft()) setTimeout(() => readFields(view), 0);   // never an automatic AI read of a draft
   lastView = view;
   const reviewNode = reviewCard({fields: drawn(read.fields), state: review, handled, redraw: view.redraw,
     apply: (field, item, text) => binding(view, field, item, read.anchor).set(text),

@@ -3,6 +3,7 @@
 import {el} from '../components.js';
 import {RELOCATION, coverage, relocationNow, resetCoverage} from '../locations-model.js';
 import {strategyState} from './strategy-state.js';
+import {sink} from '../strategy-sink.js';
 import {toastMessage} from './startup.js';
 
 // The search-only list is active: say where the crawlers look instead, and offer the one-click way back. Nothing when it is not set.
@@ -13,7 +14,7 @@ export function coverageLine(reload) {
   const reset = Object.assign(el('button', 'link', 'Reset to preferences'), {type: 'button'});
   reset.addEventListener('click', async () => {
     reset.disabled = true;
-    const result = await window.pilot.editTargets(resetCoverage(now)).catch(error => ({ok: false, error: error.message}));
+    const result = await sink.editTargets(resetCoverage(now)).catch(error => ({ok: false, error: error.message}));
     if (!result.ok) { reset.disabled = false; toastMessage('Not reset', result.error || 'Try again.'); return; }
     toastMessage('Search coverage reset ✓', 'Searches use your preferred and acceptable locations again.');
     await reload();
