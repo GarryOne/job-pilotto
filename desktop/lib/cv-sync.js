@@ -8,7 +8,7 @@ export function createCvSync({DEMO, getStorage}) {
   return function syncCv() {
     if (DEMO) return;
     const storage = getStorage();
-    files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))
+    files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))   // about Notion
       .catch(error => console.error(`CV not saved to Notion: ${error.message}`));
     // The approved cover letter too, once per version (lib/files.js): one approved with the data on this Mac reaches Notion after a move.
     files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))   // about Notion
