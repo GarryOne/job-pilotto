@@ -192,8 +192,14 @@ VAGUE_SYSTEM = """You get a numbered list of job locations as postings write the
 of their own: only a country ("Switzerland", "CH"), a large region or area ("Romandie", "Canton of Vaud", "Europe"), several places at once \
 without one town ("Several locations"), or nothing usable. A location naming a town, a city district or an address is not one of them, \
 even with its country ("Zug, Switzerland"); neither is a plain "Remote". You also get the job seeker's places: a country or region that \
-cannot contain any of their places ("USA - Remote" for someone who picked only a town in Moldova) is not one of them: it is a real place \
-outside."""
+cannot contain any of their places ("USA - Remote", "Canada" or "Poland" for someone who picked only a town in Moldova) is never one of them, \
+however little else it says: it is a real place outside."""
+
+
+def cannot_hold_places(location, search):
+    """True for a country-only location in a country none of the user's places is in (the map's answers, no model call): never "vague"."""
+    from .. import geo
+    return geo.cannot_hold(location, places_words(search))
 
 
 def excluded_remote(location, search):
@@ -210,9 +216,11 @@ def vague(locations, search, client=None):
     """Of these locations answered "out", ask which name no town of their own (a batch this refresh can finish); returns all known."""
     from . import cost, engine
     from .. import time_budget as budget
+    from .. import geo
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(n for n in (norm(loc) for loc in locations) if decided.get(n) == 'out'))
-    floor = [n for n in ask if excluded_remote(n, search)]   # a real place outside, whatever the AI would say
+    words = places_words(search)
+    floor = [n for n in ask if excluded_remote(n, search) or geo.cannot_hold(n, words)]   # a real place outside, whatever the AI would say
     decided.update({n: 'out:clear' for n in floor})
     ask = [n for n in ask if n not in floor]
     if floor and not ask:
