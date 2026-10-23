@@ -115,7 +115,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The release's bundles, still encrypted
         env:
           GH_TOKEN: ${{ github.token }}
@@ -172,7 +172,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The pool's newest records (14 days), decrypted on the runner only
         working-directory: desktop/e2e
         env:
@@ -282,7 +282,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: Replay the worse rows again
         working-directory: desktop/e2e
         env:

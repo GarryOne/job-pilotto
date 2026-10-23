@@ -39,7 +39,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The release's bundles, still encrypted
         env:
           GH_TOKEN: ${{ github.token }}

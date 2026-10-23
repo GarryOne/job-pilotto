@@ -117,7 +117,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The release's bundles, still encrypted
         env:
           GH_TOKEN: ${{ github.token }}
@@ -215,7 +215,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: Every recorded row, the estimate, the caps (main)
         id: pickmain
         if: inputs.pr == ''
@@ -298,7 +298,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The pool's newest records, decrypted on the runner only
         working-directory: desktop/e2e
         env:
@@ -400,7 +400,7 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The records now, each refilled memo merged in (old answers never changed)
         if: steps.packs.outputs.packs != '0'
         working-directory: desktop/e2e
