@@ -66,6 +66,10 @@ export function afterClick({picked = null, family = null} = {}, id) {
   }
   return family && FAMILY_CARDS[family].includes(id) ? {picked: id, family} : {picked, family};
 }
+// A provider click also picks its method (owner, 24 Oct 2026: a click on a card should leave that family with one engine selected): the engine already
+// saved for that family, else the subscription when its CLI is ready, else the API key.
+export const defaultMethod = (family, {saved = null, cliUsable = false} = {}) =>
+  saved && FAMILY_CARDS[family].includes(saved) ? saved : cliUsable ? CLI_OF[family] : API_OF[family];
 // What is drawn selected for a state: the card ids, the one key box (the wizard's and Settings' API key steps) and the CLI note.
 export function selection({picked = null, family = null} = {}) {
   const cards = [];

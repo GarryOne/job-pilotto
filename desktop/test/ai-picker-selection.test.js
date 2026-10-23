@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {FAMILY_CARDS, afterClick, selection} from '../renderer/ai-engine-view.js';
+import {FAMILY_CARDS, afterClick, defaultMethod, selection} from '../renderer/ai-engine-view.js';
 
 const read = rel => fs.readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 const CLICKS = ['free', 'family-claude', 'family-openai', ...Object.values(FAMILY_CARDS).flat()];
@@ -50,4 +50,17 @@ test('the picker draws from that model and asks nothing before selecting a card'
   // every screen that draws it mounts this one component
   for (const page of ['wizard.js']) assert.match(read(`../renderer/pages/${page}`), /mountEngine\(/);
   assert.match(src, /showEngineSettings/);
+});
+
+test('a provider click also picks a method: the saved one, else the subscription when ready, else the API key; then exactly one method card has the check', () => {
+  assert.equal(defaultMethod('claude', {saved: 'api', cliUsable: true}), 'api');
+  assert.equal(defaultMethod('claude', {saved: 'openai', cliUsable: true}), 'cli', 'a pick saved for the other family is not this family\'s');
+  assert.equal(defaultMethod('openai', {cliUsable: true}), 'codex');
+  assert.equal(defaultMethod('openai'), 'openai');
+  for (const start of START) for (const family of ['claude', 'openai']) for (const cliUsable of [true, false]) {
+    const opened = afterClick(start, `family-${family}`), after = afterClick(opened, defaultMethod(family, {saved: start.picked, cliUsable}));
+    const methods = selection(after).cards.filter(id => !id.startsWith('family-') && id !== 'free');
+    assert.equal(methods.length, 1, `${JSON.stringify(start)} -> ${family}: ${methods}`);
+  }
+  assert.match(read('../renderer/pages/ai-engine.js'), /pick\(defaultMethod\(/);
 });

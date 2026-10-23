@@ -6,7 +6,7 @@
 import {refreshClaudeHelp} from '../claude-help.js';
 import {choiceCards, el, pill} from '../components.js';
 import {icon} from '../icons.js';
-import {API_OF, CLI_OF, FAMILY_CARDS, TEXT, afterClick, chosen, cliStatus, familyOf, fallbackOn, selection, showFallback} from '../ai-engine-view.js';
+import {API_OF, CLI_OF, FAMILY_CARDS, TEXT, afterClick, chosen, cliStatus, defaultMethod, familyOf, fallbackOn, selection, showFallback} from '../ai-engine-view.js';
 import {applyAiNames} from '../ai-name.js';
 import {shared} from './shared.js';
 
@@ -30,7 +30,10 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     const cards = choiceCards(Object.entries(TEXT.families).map(([id, title]) => ({id: `family-${id}`, logo: COMPANY_LOGO[id], title, size: 'compact',
       text: TEXT.familyHint[id]})), {selected: family && `family-${family}`, label: TEXT.ownAccount, onPick: choice => {
       const id = choice.replace('family-', '');
-      if (family !== id) { ({picked, family} = afterClick({picked, family}, choice)); problem = ''; render(); onChange(picked); }   // one selection: Free and the other family's pick let go
+      if (family !== id) {
+        ({picked, family} = afterClick({picked, family}, choice)); problem = ''; render();
+        pick(defaultMethod(id, {saved: chosen(shared.state?.settings, hasKey(), context), cliUsable: cliStatus(statusOf(), id).usable}));   // and its method, so one card carries the check
+      }   // one selection: Free and the other family's pick let go
     }});
     cards.classList.add('is-pair');
     return cards;
