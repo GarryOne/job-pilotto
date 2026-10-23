@@ -94,3 +94,20 @@ test('a throwing beforeExit is logged and the restart still happens', () => {
   assert.deepEqual(calls, ['relaunch', 'exit']);
   assert.ok(logs.some(line => /stopping runs failed: boom/.test(line)));
 });
+
+test('an exit restart waits for an async beforeExit (the data job\'s tar) before it relaunches and exits', async () => {
+  const app = new EventEmitter(), calls = [];
+  app.relaunch = () => calls.push('relaunch'); app.exit = () => calls.push('exit');
+  let release;
+  createRestarter({app, beforeExit: () => new Promise(resolve => { release = resolve; }).then(() => calls.push('stopped'))}).restart('import', undefined, {how: 'exit'});
+  assert.deepEqual(calls, []);
+  release(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, ['stopped', 'relaunch', 'exit']);
+});
+test('a rejecting async beforeExit is logged and the restart still happens', async () => {
+  const app = new EventEmitter(), calls = [], logs = [];
+  app.relaunch = () => calls.push('relaunch'); app.exit = () => calls.push('exit');
+  createRestarter({app, log: message => logs.push(message), beforeExit: () => Promise.reject(new Error('slow'))}).restart('reset', undefined, {how: 'exit'});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, ['relaunch', 'exit']); assert.ok(logs.some(line => /slow/.test(line)));
+});

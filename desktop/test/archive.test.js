@@ -94,3 +94,44 @@ test('the data job runs one at a time, tells the window each state, and passes t
   await assert.rejects(cancelled);
   assert.equal(sent.at(-1)[1].state, 'cancelled');
 });
+
+// Quitting must never leave a tar child holding the data folder (Windows settings suite: "the data folder is held after the app exits").
+import {liveTars} from '../lib/archive.js';
+import * as critical from '../lib/critical.js';
+
+test('dataJob.stop cancels a running export, awaits its tar, and leaves no child process and no half file', async () => {
+  const {base, dir} = bigFolder(12);
+  const file = path.join(base, 'export.tar.gz');
+  const events = [];
+  const job = createDataJob({toWindow: (_, event) => events.push(event)}).dataJob;
+  const running = job.run('export', options => reset.exportTo(dir, file, {version: 'test', ...options})).catch(error => error);
+  for (let waited = 0; liveTars() === 0 && waited < 5000; waited += 20) await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(liveTars(), 1, 'tar is running');
+  assert.deepEqual(critical.labels(), ['Exporting your data'], 'quit would ask about it');
+  assert.equal(job.running(), 'export');
+  assert.equal(await job.stop(), true);
+  assert.equal(liveTars(), 0, 'no tar child remains once stop() returned');
+  assert.equal((await running).code, 'cancelled');
+  assert.equal(fs.existsSync(file), false, 'the half-written file is removed');
+  assert.equal(job.running(), null);
+  assert.deepEqual(critical.labels(), []);
+  assert.equal(await job.stop(), false, 'nothing to stop');
+  fs.rmSync(base, {recursive: true, force: true});   // the folder is free (Windows would refuse while a tar held it)
+  assert.equal(fs.existsSync(base), false);
+});
+
+test('a cancelled import leaves the data folder as it was and nothing staged', async () => {
+  const {base, dir} = bigFolder(8);
+  const file = path.join(base, 'export.tar.gz');
+  await reset.exportTo(dir, file, {version: 'test'});
+  const before = fs.readdirSync(dir).sort();
+  const job = createDataJob({toWindow: () => {}}).dataJob;
+  const running = job.run('import', options => reset.stageImport(dir, file, options)).catch(error => error);
+  for (let waited = 0; liveTars() === 0 && waited < 5000; waited += 10) await new Promise(resolve => setTimeout(resolve, 10));
+  await job.stop();
+  assert.equal((await running).code, 'cancelled');
+  assert.equal(liveTars(), 0);
+  assert.deepEqual(fs.readdirSync(dir).sort(), before, 'no marker, nothing replaced');
+  assert.equal(fs.existsSync(`${dir} (import)`), false);
+  fs.rmSync(base, {recursive: true, force: true});
+});

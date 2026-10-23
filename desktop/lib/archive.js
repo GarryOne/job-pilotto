@@ -9,6 +9,23 @@ import {tar} from './tar.js';
 
 const EVERY_MS = 120;   // progress is told at most this often
 export const CANCELLED = 'cancelled';
+const KILL_AFTER_MS = 3000;   // a tar that ignored the polite stop is killed hard after this
+const live = new Set();       // tar children running now: none may outlive the app (it would keep the data folder open, Windows)
+
+// Starts tar tracked, and stopped (politely, then hard) when `signal` fires.
+function startTar(args, stdio, signal) {
+  const child = spawn(tar(), args, {stdio});
+  live.add(child);
+  child.on('close', () => live.delete(child));
+  const stop = () => { child.kill(); setTimeout(() => { if (live.has(child)) child.kill('SIGKILL'); }, KILL_AFTER_MS).unref(); };
+  signal?.addEventListener('abort', stop, {once: true});
+  if (signal?.aborted) stop();
+  return child;
+}
+// How many tar children are alive, and a last resort that kills them all at once (the app is exiting).
+export const liveTars = () => live.size;
+export const killAllTars = () => { for (const child of live) child.kill('SIGKILL'); };
+process.on('exit', killAllTars);
 
 // -> how many entries (files and folders) `names` hold under dir, not counting what `skip` (tar --exclude patterns, only "*.lock" and exact relative paths) leaves out
 export async function countEntries(dir, names, skip = [], signal) {
@@ -56,12 +73,10 @@ export async function pack(dir, file, {names, excludes = [], onProgress, signal}
   tell(0, null, true);
   const total = await countEntries(dir, names, excludes, signal);
   let done = 0;
-  const child = spawn(tar(), ['-czvf', file, ...excludes.map(pattern => `--exclude=${pattern}`), '-C', dir, ...names], {stdio: ['ignore', 'pipe', 'pipe']});
+  const child = startTar(['-czvf', file, ...excludes.map(pattern => `--exclude=${pattern}`), '-C', dir, ...names], ['ignore', 'pipe', 'pipe'], signal);
   const count = chunk => { done += String(chunk).split('\n').length - 1; tell(Math.min(done, total), total); };
   child.stdout.on('data', count);   // GNU tar lists the entries on stdout, bsdtar on stderr
   child.stderr.on('data', count);
-  signal?.addEventListener('abort', () => child.kill(), {once: true});
-  if (signal?.aborted) child.kill();
   try { await finish(child, signal, 'tar'); } catch (error) { fs.rmSync(file, {force: true}); throw error; }
   tell(total, total, true);
 }
@@ -72,14 +87,12 @@ export async function unpack(file, into, {onProgress, signal} = {}) {
   const total = fs.statSync(file).size;
   tell(0, total, true);
   let done = 0;
-  const child = spawn(tar(), ['-xzf', '-', '-C', into], {stdio: ['pipe', 'ignore', 'pipe']});
+  const child = startTar(['-xzf', '-', '-C', into], ['pipe', 'ignore', 'pipe'], signal);
   const source = fs.createReadStream(file);
   source.on('data', chunk => { done += chunk.length; tell(done, total); });
   source.on('error', () => child.kill());
   child.stdin.on('error', () => {});   // tar stopped early (a bad file): its exit code says so
   source.pipe(child.stdin);
-  signal?.addEventListener('abort', () => child.kill(), {once: true});
-  if (signal?.aborted) child.kill();
   await finish(child, signal, 'tar');
   tell(total, total, true);
 }

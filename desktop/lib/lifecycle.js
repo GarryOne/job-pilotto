@@ -24,11 +24,20 @@ export function startWhenReady({app, firstCopy, start, getWindows, createWindow}
   });
 }
 
-export function installQuitHandling({app, platform, state, pipeline, terminals, critical = {labels: () => [], whenDone: () => Promise.resolve()}, shouldAskOnQuit,
+export function installQuitHandling({app, platform, state, pipeline, terminals, critical = {labels: () => [], whenDone: () => Promise.resolve()}, stopDataJob = () => Promise.resolve(), dataRunning = () => false, shouldAskOnQuit,
   askWhyLeaving, showDialog, icon, getWindows, toWindow, notify, later = setTimeout, log = () => {}, onCancel = () => {}}) {
   let quitting = false;
   app.on('window-all-closed', () => { if (platform !== 'darwin') app.quit(); });
-  app.on('will-quit', () => terminals.shutdown());
+  // Any quit, asked or not (update install, last window): an export, import or backup still running is stopped and its tar awaited first, then the quit goes on.
+  let dataStopped = false;
+  const stopDataThenQuit = () => {
+    dataStopped = true;   // once: a job that will not stop does not hold the quit again
+    Promise.resolve().then(stopDataJob).catch(error => log('window', `stopping the data job failed: ${error.message}`)).then(() => app.quit());
+  };
+  app.on('will-quit', event => {
+    if (!dataStopped && dataRunning()) { event.preventDefault(); stopDataThenQuit(); return; }   // the quit comes back here once the job is gone
+    terminals.shutdown();
+  });
   const beforeQuit = event => {
     const {storage, window, telemetry, demo, smoke} = state();
     if (quitting || demo || smoke) return;
@@ -66,7 +75,8 @@ export function installQuitHandling({app, platform, state, pipeline, terminals, 
     if (choice === 1) {
       pipeline.freezeQueue(storage);
       pipeline.stopRunning();
-      app.quit();
+      if (dataRunning()) stopDataThenQuit();   // the data job's tar is gone before the app goes
+      else app.quit();
       return;
     }
     notify('Jobadabra will quit when done', dialog.detail);
