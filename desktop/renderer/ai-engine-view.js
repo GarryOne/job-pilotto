@@ -55,6 +55,27 @@ export const FAMILY_CARDS = {claude: ['cli', 'api'], openai: ['codex', 'openai']
 export const API_OF = {claude: 'api', openai: 'openai'};
 export const CLI_OF = {claude: 'cli', openai: 'codex'};
 
+// The picker's one selection (owner, 24 Oct 2026: "2 boxes get selected", "the old key box stays", "clicking a card should select it"). State is {picked, family}:
+// Free is selected only with no provider open; a provider card is selected while its family is open; a method card only while it is the picked engine of
+// that family. Switching provider drops the other family's pick, so its key box and CLI note go with it. Pure: pages/ai-engine.js draws it.
+export function afterClick({picked = null, family = null} = {}, id) {
+  if (id === 'free') return {picked: 'free', family: null};
+  if (id.startsWith('family-')) {
+    const next = id.slice('family-'.length);
+    return next === family ? {picked, family} : {picked: picked && picked !== 'free' && familyOf(picked) === next ? picked : null, family: next};
+  }
+  return family && FAMILY_CARDS[family].includes(id) ? {picked: id, family} : {picked, family};
+}
+// What is drawn selected for a state: the card ids, the one key box (the wizard's and Settings' API key steps) and the CLI note.
+export function selection({picked = null, family = null} = {}) {
+  const cards = [];
+  if (picked === 'free' && !family) cards.push('free');
+  if (family) cards.push(`family-${family}`);
+  const method = family && FAMILY_CARDS[family].includes(picked) ? picked : null;
+  if (method) cards.push(method);
+  return {cards, keyBox: method && Object.values(API_OF).includes(method) ? method : null, note: method === CLI_OF[family] ? method : null};
+}
+
 // Who pays for an AI action, one quiet line before it runs and after it ran (owner, 18 Oct 2026, the cover letter's Draft with AI): never a guessed amount
 // or time; after, the real cost only when one is known, an unknown one never "$0". The same three words as lib/cover-letter.js paidByOf.
 export const PAID_BY = {free: 'credits', api: 'api', openai: 'api', cli: 'plan', codex: 'plan'};

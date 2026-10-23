@@ -6,7 +6,7 @@
 import {refreshClaudeHelp} from '../claude-help.js';
 import {choiceCards, el, pill} from '../components.js';
 import {icon} from '../icons.js';
-import {API_OF, CLI_OF, FAMILY_CARDS, TEXT, chosen, cliStatus, familyOf, fallbackOn, needsNotice, showFallback} from '../ai-engine-view.js';
+import {API_OF, CLI_OF, FAMILY_CARDS, TEXT, afterClick, chosen, cliStatus, familyOf, fallbackOn, selection, showFallback} from '../ai-engine-view.js';
 import {applyAiNames} from '../ai-name.js';
 import {shared} from './shared.js';
 
@@ -21,7 +21,7 @@ const CLI = {claude: {name: 'Claude Code CLI', short: 'Claude Code', status: () 
 
 // mountEngine(box, {context: 'wizard' | 'settings', onChange(picked)}) -> {picked(), refresh()}
 export function mountEngine(box, {context = 'settings', onChange = () => {}} = {}) {
-  let picked = chosen(shared.state?.settings, hasKey(), context), busy = false, notice = null, problem = '';
+  let picked = chosen(shared.state?.settings, hasKey(), context), busy = false, problem = '';
   let family = picked && picked !== 'free' ? familyOf(picked) : null;   // null: no family open (Free picked, or nothing yet)
   const statuses = {claude: null, openai: null};   // each family's CLI, found and verified separately
   const statusOf = () => statuses[family];   // family is null while Free leads: nothing to read
@@ -30,29 +30,30 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     const cards = choiceCards(Object.entries(TEXT.families).map(([id, title]) => ({id: `family-${id}`, logo: COMPANY_LOGO[id], title, size: 'compact',
       text: TEXT.familyHint[id]})), {selected: family && `family-${family}`, label: TEXT.ownAccount, onPick: choice => {
       const id = choice.replace('family-', '');
-      if (family !== id) { family = id; problem = ''; notice = null; render(); onChange(picked); }
+      if (family !== id) { ({picked, family} = afterClick({picked, family}, choice)); problem = ''; render(); onChange(picked); }   // one selection: Free and the other family's pick let go
     }});
     cards.classList.add('is-pair');
     return cards;
   };
   const render = () => {
     const cli = cliStatus(family && statusOf(), family || 'claude');
-    const status = family && statusOf();   // (the offer banner "run these tasks on your own Claude Code" is gone: the subscription card is first now)
+    const status = family && statusOf();
+    const chosenCards = selection({picked, family}).cards;   // (the offer banner "run these tasks on your own Claude Code" is gone: the subscription card is first now)
     // Free leads: one big card (owner, 16 Oct 2026: most early users are not technical), in the wizard and in Settings.
     const free = choiceCards([{id: 'free', icon: 'sparkle', title: TEXT.free.title, size: 'hero', text: context === 'settings' ? TEXT.free.short : TEXT.free.text}],
-      {selected: picked, onPick: pick, label: TEXT.free.title});
+      {selected: chosenCards.includes('free') ? 'free' : null, onPick: pick, label: TEXT.free.title});
     free.classList.add('is-single');
     // The engine cards of the open family (API key / its own CLI), only once a family is open.
     const cards = family ? choiceCards(FAMILY_CARDS[family].map(id => ({id, icon: ICONS[id], title: TEXT[id].title, text: context === 'settings' ? TEXT[id].short : TEXT[id].text,
-      note: id === CLI_OF[family] && status && !status.installed ? 'Not found on this Mac' : ''})), {selected: picked, onPick: pick, label: TEXT.title}) : null;
+      note: id === CLI_OF[family] && status && !status.installed ? 'Not found on this Mac' : ''})), {selected: chosenCards.find(id => FAMILY_CARDS[family].includes(id)), onPick: pick, label: TEXT.title}) : null;
     // Settings: the key box under the chooser shows only for the API key card of the open family (owner, 16 Oct 2026: hide technical details until asked).
-    if (context === 'settings') for (const foot of document.querySelectorAll('#setting-ai [data-family]')) foot.hidden = !family || foot.dataset.family !== family || picked !== API_OF[family];
+    if (context === 'settings') for (const foot of document.querySelectorAll('#setting-ai [data-family]')) foot.hidden = selection({picked, family}).keyBox !== API_OF[foot.dataset.family] || foot.dataset.family !== family;
     const head = el('div', 'engine-head');
     head.append(el('h3', '', TEXT.title), el('p', 'muted small', context === 'settings' ? TEXT.settingsSubtitle : TEXT.subtitle));
     const parts = [head];
     parts.push(free, el('p', 'muted small engine-own', TEXT.ownAccount), familyCards(), el('p', 'muted small engine-quality', TEXT.ownQuality));
     if (cards) parts.push(cards);
-    if (notice) parts.push(notice);
+    if (selection({picked, family}).note) parts.push(cliNote());   // what the old confirm said, now a note under the selected card
     // Only the picked subscription card says more: one line (ready, or what is missing), the rest folded under "More about this".
     const aboutCli = !!family && picked === CLI_OF[family];
     if (aboutCli) parts.push(statusBlock(cli));
@@ -91,18 +92,12 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     label.append(box, words);
     return label;
   };
-  // The first time a CLI (Claude Code, Codex) is picked: what it means, then the user confirms.
-  const askNotice = id => new Promise(resolve => {
-    notice = el('div', 'alert tone-warn engine-notice');
-    const text = el('div');
-    text.append(el('strong', '', `Use your own ${CLI[familyOf(id)].name}?`), el('p', '', id === 'codex' ? TEXT.codexNotice : TEXT.notice));
-    const yes = el('button', 'primary', `Use ${CLI[familyOf(id)].name}`), no = el('button', 'ghost', 'Cancel');
-    yes.dataset.notice = 'yes';   // the e2e steps press it by this, whichever CLI it names
-    yes.addEventListener('click', () => { notice = null; resolve(true); });
-    no.addEventListener('click', () => { notice = null; render(); resolve(false); });
-    notice.append(icon('info'), text, no, yes);
-    render();
-  });
+  // The CLI card's words, under the selected card (owner, 24 Oct 2026: a click selects, it is not a gate).
+  const cliNote = () => {
+    const note = el('div', 'alert tone-warn engine-notice');
+    note.append(icon('info'), el('p', '', family === 'openai' ? TEXT.codexNotice : TEXT.notice));
+    return note;
+  };
   async function check() {
     busy = true; problem = ''; render();
     const which = family;
@@ -115,16 +110,15 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
   async function pick(id) {
     problem = '';
     if (id === 'cli' || id === 'codex') {
-      if (needsNotice(shared.state?.settings, id) && !(await askNotice(id))) return;
-      if (!cliStatus(statusOf(), family).usable && !(await check())) { render(); return; }
+      ({picked, family} = afterClick({picked, family}, id)); render();   // selected at once; Settings saves it only once it can run
+      if (!cliStatus(statusOf(), family).usable && !(await check())) { render(); onChange(picked); return; }
     }
     if (id === 'free' && context === 'settings') {   // Free needs this install's token first; the wizard does it on Continue
       const started = await window.pilot.startFreeAi();
       if (!started.ok) { problem = started.error; render(); return; }
       shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
     }
-    picked = id;
-    if (id === 'free') family = null;   // Free needs no family cards
+    ({picked, family} = afterClick({picked, family}, id));
     if (context === 'settings') {
       const wasFree = chosen(shared.state?.settings, hasKey(), context) === 'free';
       shared.state.settings = await window.pilot.setAiEngine(id === 'free' ? 'api' : id);  // instant, reversible

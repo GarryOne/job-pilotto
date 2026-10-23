@@ -47,19 +47,17 @@ export async function run(ctx) {
     await page.locator('#conn-on .service-card, #conn-off .service-card').filter({hasText: 'Claude or OpenAI'}).first().getByRole('button').click();
     const card = id => `#ai-engine-settings [data-choice="${id}"]`;
     await page.locator(card(pair.cli)).waitFor({state: 'visible', timeout: 15000});
-    // Choosing the CLI asks first (a notice whose confirm button carries data-notice="yes"); the engine only switches on the confirm. Then back to the API key, which switches at once.
+    // Choosing the CLI selects its card at once and shows a note under it (no confirm); the engine is saved once it can run. Then back to the API key, which switches at once.
     // A CI runner has no Claude Code or Codex (6 Oct 2026, the first real CI run of this suite): there the app must refuse the switch and say why; on a Mac with it, switch.
     const installed = (await page.evaluate(status => window.pilot[status](), pair.status))?.installed;
     await page.locator(card(pair.cli)).click();
     if (!installed) {
-      await page.locator('[data-notice="yes"]').click().catch(() => {});   // the confirm may not be offered at all without it
       await page.waitForFunction(() => /not installed|not found/i.test(document.getElementById('ai-engine-settings')?.textContent || ''), null, {timeout: 15000})
         .catch(() => { throw new Error(`without ${pair.name} the panel does not say it is not installed`); });
-      if (await page.evaluate(selector => document.querySelector(selector)?.getAttribute('aria-checked'), card(pair.cli)) === 'true') throw new Error(`the app switched to ${pair.name} although it is not installed`);
+      if ((await page.evaluate(() => window.pilot.state())).settings.aiEngine === pair.cli) throw new Error(`the app saved ${pair.name} as the engine although it is not installed`);
       await snap(ctx, `settings-engine-${pair.cli}-missing`, {view: 'settings', situation: `${pair.name} chosen on a computer where it is not installed: the API key stays the engine`});
       return;
     }
-    await page.locator('[data-notice="yes"]').click();
     await page.waitForFunction(selector => document.querySelector(selector)?.getAttribute('aria-checked') === 'true', card(pair.cli), {timeout: 15000});
     await page.waitForTimeout(800);
     await snap(ctx, `settings-engine-${pair.cli}-chosen`, {view: 'settings', situation: `${pair.name} is the chosen engine, and an ${openai ? 'OpenAI' : 'Anthropic'} API key is saved`});

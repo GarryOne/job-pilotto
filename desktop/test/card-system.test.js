@@ -17,7 +17,6 @@ const NOT_A_CARD = {
   'gallery.js': 'the component gallery shows every button kind',
   'claude-offer.js': 'Cancel a pending Claude offer, a row of the session page',
   'pages/actions-board.js': 'Cancel a queued task on the Actions board',
-  'pages/ai-engine.js': 'the switch-engine confirm dialog',
   'pages/ready-confirm.js': 'the Fill now confirm dialog',
   'pages/ready-pick.js': 'the Fill now count dialog',
   'pages/employers-paste.js': 'the Add employers dialog',
