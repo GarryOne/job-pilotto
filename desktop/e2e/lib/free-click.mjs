@@ -1,3 +1,4 @@
+/* global document */
 // A person's click on a page the extension is filling: wait for its overlay to lift, click, and click again if the overlay came back in between (c09c6a8 holds trusted clicks).
 const GONE = () => !document.getElementById('jobpilotto-fill-overlay');
 
