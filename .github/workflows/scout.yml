@@ -109,7 +109,12 @@ jobs:
         # Optional (src/sources/render.py): careers pages that only exist after JavaScript runs. A failure here never stops the scout.
         if: vars.JOB_PILOTTO_RENDER != '0'
         continue-on-error: true
-        run: pip install --quiet -r requirements-render.txt && playwright install --with-deps chromium
+        run: pip install --quiet -r requirements-render.txt
+      - name: Chromium for the render (cached)
+        if: vars.JOB_PILOTTO_RENDER != '0'
+        continue-on-error: true
+        uses: ./.github/actions/playwright-browser
+        with: {runtime: python, mode: both}
       - name: Scout new sources
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

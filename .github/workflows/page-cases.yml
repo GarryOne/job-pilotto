@@ -97,6 +97,7 @@ on:
       - 'desktop/package.json'
       - 'desktop/package-lock.json'
       - '.github/workflows/page-cases.yml'
+      - '.github/actions/playwright-browser/**'
   workflow_dispatch:
     inputs:
       window:
@@ -138,8 +139,8 @@ jobs:
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
       - name: Chromium (the real extension needs the full browser, not the headless shell)
-        working-directory: desktop/e2e
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/playwright-browser
+        with: {working-directory: desktop/e2e}
       - name: The files this pull request changes (a slow case runs on it only if it touches that case's folder)
         id: changed
         if: github.event_name == 'pull_request'

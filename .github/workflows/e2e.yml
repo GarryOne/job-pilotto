@@ -128,8 +128,8 @@ jobs:
       # A few of them open a headless Chromium (test/upload-slot.test.mjs: each upload-slot shape on a fixture page, 8 Oct 2026).
       - name: A headless browser for the tests' own tests
         if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
-        working-directory: desktop/e2e
-        run: npx playwright install --with-deps chromium --only-shell
+        uses: ./.github/actions/playwright-browser
+        with: {working-directory: desktop/e2e, mode: shell}
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
         working-directory: desktop/e2e

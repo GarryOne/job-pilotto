@@ -65,6 +65,7 @@ on:
       - 'desktop/package.json'
       - 'desktop/package-lock.json'
       - '.github/workflows/control-tests.yml'
+      - '.github/actions/playwright-browser/**'
   workflow_dispatch:
 
 concurrency:   # newest wins (owner, 15 Oct 2026): a newer push replaces the PR's older run, and a newer push to main cancels the older commit's run (the newest commit's run decides); a by-hand run is its own group and never cancelled
@@ -94,8 +95,8 @@ jobs:
         working-directory: desktop
         run: node scripts/stage.mjs --files-only
       - name: Chromium (the real extension needs the full browser, not the headless shell)
-        working-directory: desktop/e2e
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/playwright-browser
+        with: {working-directory: desktop/e2e}
       - name: Replay the control pages
         working-directory: desktop/e2e
         env:

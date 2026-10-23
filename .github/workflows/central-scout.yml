@@ -74,7 +74,11 @@ jobs:
           restore-keys: central-scout-db-
       - name: Install the AI library and the headless browser
         continue-on-error: true
-        run: pip install --quiet -r requirements.txt -r requirements-render.txt && playwright install --with-deps chromium
+        run: pip install --quiet -r requirements.txt -r requirements-render.txt
+      - name: Chromium for the render (cached)
+        continue-on-error: true
+        uses: ./.github/actions/playwright-browser
+        with: {runtime: python, mode: both}
       - name: Every job board Common Crawl has seen (once per new crawl)
         continue-on-error: true   # the archive being slow must never cost the day's index
         timeout-minutes: 8   # 21 Oct 2026: its index answered 504 to every query and the retries took 27 min, twice; the crawl is only marked read when every query answers

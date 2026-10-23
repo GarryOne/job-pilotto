@@ -140,7 +140,12 @@ jobs:
         # run, never in the app's installer. A failure never stops the search: those pages stay "open it yourself" visits.
         if: (env.MODE == 'scheduled' || env.MODE == 'run') && vars.JOB_PILOTTO_RENDER != '0'
         continue-on-error: true
-        run: pip install --quiet -r requirements-render.txt && playwright install --with-deps chromium
+        run: pip install --quiet -r requirements-render.txt
+      - name: Chromium for the render (cached)
+        if: (env.MODE == 'scheduled' || env.MODE == 'run') && vars.JOB_PILOTTO_RENDER != '0'
+        continue-on-error: true
+        uses: ./.github/actions/playwright-browser
+        with: {runtime: python, mode: both}
       - name: Discover employers on job boards
         if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python -m src discover --pages 5 --max-companies 80   # pages: the most read per search; a short page ends it
