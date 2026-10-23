@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="ready-card.css">
 <link rel="stylesheet" href="menu.css">
 <link rel="stylesheet" href="actions-layout.css">
+<link rel="stylesheet" href="magic.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
@@ -56,25 +57,27 @@
       <div><strong>Your setup is done.</strong> You're looking at it: nothing changes here unless you replace your
       strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings instead.</div></div>
     <div class="step" data-step="welcome">
-      <header class="view-head step-head">
-        <div><span class="eyebrow" data-when="first">Check-in · about 5 minutes</span><span class="eyebrow" data-when="done" hidden>Setup complete</span>
-          <h1 data-when="first">Let's set up your job search</h1><h1 data-when="done" hidden>Your job search is set up</h1>
-          <p class="muted subtitle" data-when="first">Jobadabra finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
-          <p class="muted subtitle" data-when="done" hidden>Nothing changes here unless you replace your strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings.</p></div>
-        <div class="head-actions">
-          <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
-          <button class="primary" data-next><span data-when="first">Start</span><span data-when="done" hidden>Review the steps</span></button>
-        </div>
-      </header>
-      <section class="card step-card">
-        <ul class="checks">
-          <li><span class="ui-tile tone-signal"><i data-icon="zap"></i></span>Connect your AI</li>
-          <li><span class="ui-tile tone-signal"><i data-icon="file"></i></span>Choose your CV</li>
-          <li><span class="ui-tile tone-signal"><i data-icon="target"></i></span>Check the goals and strategy it proposes from your CV</li>
+      <div class="magic-stage">
+      <div class="magic" data-magic>
+        <span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span><span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span><span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span>
+        <span class="ui-tile tone-signal" aria-hidden="true"><i data-icon="sparkle"></i></span>
+        <span class="eyebrow" data-when="first">Check-in · about 5 minutes</span><span class="eyebrow" data-when="done" hidden>Setup complete</span>
+        <h1 class="magic-title" data-when="first">Help me find a job</h1><h1 class="magic-title" data-when="done" hidden>Your job search is set up</h1>
+        <p class="muted subtitle magic-sub" data-when="first">Jobadabra finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
+        <p class="muted subtitle magic-sub" data-when="done" hidden>Nothing changes here unless you replace your strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings.</p>
+        <ul class="magic-steps">
+          <li><i data-icon="zap"></i>Connect your AI</li>
+          <li><i data-icon="file"></i>Choose your CV</li>
+          <li><i data-icon="target"></i>Check the strategy it proposes</li>
         </ul>
-      </section>
-      <p class="muted small step-note"><i data-icon="upload"></i><span>Used Jobadabra before, here or on another computer?
-        <button class="link" id="welcome-import" data-import>Import an export…</button> It brings back your data and restarts.</span></p>
+        <button class="primary magic-go" data-next><span data-when="first">Start</span><span data-when="done" hidden>Review the steps</span></button>
+      </div>
+      <div class="magic-side">
+        <section class="card magic-mini"><div><b>Just exploring?</b><p class="muted small">See the app with a fictional candidate and jobs. Nothing of yours is used or sent.</p></div>
+          <button class="secondary" data-look-around="welcome">Look around first (demo data)</button></section>
+        <section class="card magic-mini"><div><b>Used Jobadabra before?</b><p class="muted small">Bring back your data from this or another computer. The app restarts.</p></div>
+          <button class="secondary" id="welcome-import" data-import>Import an export…</button></section>
+      </div>
       <section class="card step-card welcome-privacy">
         <div class="panel-top"><div class="summary-head"><i data-icon="flag"></i><h3>Keep a trace of each form fill</h3></div>
           <span class="switch"><input type="checkbox" id="welcome-trace" checked aria-label="Keep a trace of each form fill"><span></span></span></div>
@@ -82,11 +85,13 @@
         <details class="welcome-more"><summary>What is kept and sent</summary>
           <p class="muted small">Keep a trace of each form fill, so you can report a problem and we can fix it. Stays on this Mac, sent only when you press Report in the panel and then Send (personal details removed automatically first), never sign-in pages, deleted when the application ends. Chrome shows a debugging bar while it is kept.</p></details>
         <div class="welcome-rule"></div>
-        <div class="summary-head"><i data-icon="shield"></i><h3>Technical reports</h3></div>
+        <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Technical reports</h3></div>
+          <span class="switch"><input type="checkbox" id="welcome-telemetry" checked aria-label="Send technical reports"><span></span></span></div>
         <p class="muted panel-lead">Anonymous errors and counts, never your answers, CV, emails or names. Turn off any time in Settings → Advanced.</p>
         <details class="welcome-more"><summary>What is sent</summary>
           <p class="muted small">Jobadabra sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region), to grow the shared pool of employers. Never your answers, CV, emails or names. Turn either off any time in Settings → Advanced.</p></details>
       </section>
+      </div>
     </div>
 
     <div class="step" data-step="ai">
