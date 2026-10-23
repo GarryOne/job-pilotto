@@ -42,7 +42,7 @@ export function registerApplyHandlers(ctx) {
     const agents = options?.mode === 'agents';
     const blocked = needsNotion('apply') || allowanceBlock() || (agents ? null : needExtension());   // (an earlier one-line form sent these answers through the "Claude is off" branch)
     if (blocked) return blocked;
-    if (agents && !SHOW_RESUME_CLAUDE) return {ok: false, error: 'Claude does not apply for you in this version. Use Fill in Chrome.'};
+    if (agents && !SHOW_RESUME_CLAUDE) return {ok: false, error: 'Applying by session is not available in this version. Use Fill in Chrome.'};
     if (agents && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
     return apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}), text => toWindow('applyProgress', text));
   });

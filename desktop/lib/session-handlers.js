@@ -68,7 +68,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   // extension fills it) or with Claude, as the person chose. Start again never starts Claude by itself.
   const details = old => ({title: old.title, company: old.company, location: old.location, workMode: old.workMode});
   const restartAs = async (old, how) => {
-    if (how === 'claude' && !SHOW_RESUME_CLAUDE) return {ok: false, error: 'Claude does not apply for you in this version. Use Fill in Chrome.'};
+    if (how === 'claude' && !SHOW_RESUME_CLAUDE) return {ok: false, error: 'Applying by session is not available in this version. Use Fill in Chrome.'};
     if (how === 'claude' && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
     const missing = how === 'claude' || DEMO ? null : extensionGate();   // a Chrome form with no extension to fill it: install it first
     if (missing) return missing;
