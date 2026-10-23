@@ -5,6 +5,7 @@ import {$, STEPS, message, show} from './core.js';
 import {init as hostedInit} from './hosted.js';
 import {loadJobs} from './jobs.js';
 import {toDraft} from './strategy-review.js';
+import {hideCards} from './setup-strategy.js';
 import {mountEngine} from './ai-engine.js';
 import {canContinue} from '../ai-engine-view.js';
 
@@ -70,6 +71,7 @@ export function goStep(name) {
     if (!chooser) chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
     aiStep();
   }
+  if (name !== 'draft') hideCards();   // the Strategy page's cards go back home
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
     li.classList.toggle('current', i === index);
@@ -97,7 +99,7 @@ export async function init() {
     if (li.dataset.step === 'draft') toDraft(); else goStep(li.dataset.step);
   }));
   // Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
-  $('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
+  $('wizard-exit').addEventListener('click', () => { hideCards(); show($('wizard'), false); show($('app')); loadJobs(); });
   // A key already there (e.g. Free AI already on): no AI step to do.
   document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(aiDone() ? 'cv' : 'ai')));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {

@@ -191,39 +191,12 @@
       <div class="stale-draft" id="draft-stale" hidden><span id="draft-stale-text"></span>
         <button class="secondary small-btn" id="draft-redraft">Redraft</button></div>
       <div id="draft-view" class="review" hidden>
+        <!-- The summary the AI wrote and Change CV; below it the Strategy page's own cards (pages/setup-strategy.js moves #strategy-live in here). -->
         <section class="card overview">
           <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
             <button class="link with-icon" data-goto-step="cv"><i data-icon="edit"></i><span>Change CV</span></button></div>
-          <p class="muted small goals-hint">Your goals, proposed from your CV. Anything off? Click a value or its pencil to correct it.</p>
-          <dl class="target-rows goal-rows" id="draft-tiles"></dl>
         </section>
-        <div class="review-grid">
-          <section class="card" data-list="roles"><div class="card-head"><h3><i data-icon="briefcase"></i>Target roles</h3><button class="icon-button" data-edit title="Add a job title" aria-label="Add a job title"><i data-icon="edit"></i></button></div>
-            <p class="sub">Job titles your search looks for. The first 5 are also searched on job boards.</p><div class="chips" id="chips-roles"></div></section>
-          <section class="card" data-list="places"><div class="card-head"><h3><i data-icon="pin"></i>Locations</h3><button class="icon-button" data-edit title="Add a place" aria-label="Add a place"><i data-icon="edit"></i></button></div>
-            <div class="priority"><b>Preferred</b><div class="chips" id="chips-places"></div></div>
-            <p class="sub">Acceptable</p><div class="chips" id="chips-country"></div>
-            <p class="sub">Would relocate to</p><div class="chips" id="chips-abroad"></div></section>
-          <section class="card" data-list="languages"><div class="card-head"><h3><i data-icon="alert"></i>Excluded requirements</h3><button class="icon-button" data-edit title="Add a language" aria-label="Add a language"><i data-icon="edit"></i></button></div>
-            <p class="sub">Hide jobs that require these languages.</p><div class="chips bad" id="chips-languages"></div></section>
-          <section class="card" data-list="rights"><div class="card-head"><h3><i data-icon="shield"></i>Citizenship / work rights</h3><button class="icon-button" data-edit title="Add a country" aria-label="Add a country"><i data-icon="edit"></i></button></div>
-            <p class="sub">Where you can work without a visa. Jobs elsewhere in your places abroad are flagged "visa sponsorship needed".</p><div class="chips" id="chips-rights"></div></section>
-        </div>
-        <section class="card questions-card" id="open-questions" hidden>
-          <div class="card-head"><div><h3><span class="bang">!</span> <span id="open-count"></span></h3>
-            <p class="muted small">They make applications more accurate. You can skip any of them; they stay marked "Not answered yet" in your answers.</p></div>
-            <button class="link" id="open-more" hidden></button></div>
-          <div id="open-list"></div>
-        </section>
-        <div class="card-head detailed-head"><div><h2>Detailed strategy</h2><p class="muted small">What jobs are scored against, and your standard answers for forms.</p></div></div>
-        <details class="doc" open><summary><b>Job scoring profile</b> <span class="muted">what jobs are scored against</span></summary>
-          <div class="doc-view" id="doc-profile"></div>
-          <textarea id="draft-profile" rows="16" hidden></textarea>
-          <button class="link doc-edit" data-doc="profile">Edit as text</button></details>
-        <details class="doc"><summary><b>Standard application answers</b> <span class="muted">used to fill forms</span></summary>
-          <div class="doc-view" id="doc-answers"></div>
-          <textarea id="draft-answers" rows="16" hidden></textarea>
-          <button class="link doc-edit" data-doc="answers">Edit as text</button></details>
+        <div id="setup-strategy-slot" class="strategy-page"></div>
         <details class="doc note-box" id="note-box"><summary><b>Your note to the AI</b> <span class="muted" id="note-summary">used when you regenerate</span></summary>
           <div id="note-slot"></div></details>
       </div>

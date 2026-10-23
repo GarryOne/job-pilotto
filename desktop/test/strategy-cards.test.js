@@ -16,7 +16,7 @@ const {CARDS, cardOf, cardHeader, cardCount, changed, closeCard, drafts, isOpen,
 const {strategyState} = await import('../renderer/pages/strategy-state.js');
 
 // A page with one card per key, drawn like the real ones: the header from cardHeader, data-card on the section.
-const page = el('div', 'strategy-page'), host = el('div');
+const page = el('div', 'strategy-live'), host = el('div');
 host.id = 'strategy-bar-host';
 globalThis.document.body.append(page, host);
 let reloads = 0;

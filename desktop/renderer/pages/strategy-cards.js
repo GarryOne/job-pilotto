@@ -10,6 +10,7 @@ import {pageSaveBar} from '../save-bar.js';
 import {$} from './core.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {dirtyLists, withTyped} from '../strategy-parts.js';
+import {inDraft, sink} from '../strategy-sink.js';
 
 // card key → what its draft holds: lists and one-value settings (Search settings, lib/strategy-edit.js) and goals (the Profile, lib/goals.js).
 export const CARDS = {
@@ -46,7 +47,7 @@ export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = ''
   badge.hidden = !cardCount(key);
   let action;
   if (isOpen(key)) {
-    action = doneButton(card, () => cardCount(key));
+    action = doneButton(card, () => (inDraft() ? 0 : cardCount(key)));   // while drafting (setup) Done applies the card's edits to the draft
     action.addEventListener('click', closeCard);
   } else action = cardEdit('Edit', title.toLowerCase(), () => openCard(key));
   return cardHead({glyph, tone, title, lead, badge, action});
@@ -55,22 +56,25 @@ export function cardHeader(key, glyph, tone, title = CARDS[key].title, lead = ''
 let redraw = () => {};   // strategy.js: Main goals + the target cards (strategy-targets.js renderCards)
 export const redrawCards = () => redraw();
 export function openCard(key) {
+  // Setup (drafting): another card's edits are applied to the draft first, there is no page bar to hold them.
+  if (inDraft() && strategyState.editing && strategyState.editing !== key && bar?.count()) { bar.saveAll().then(() => openCard(key)); return; }
   drafts();
   strategyState.editing = key;
   redraw();
-  const card = document.querySelector(`.strategy-page [data-card="${key}"]`);
+  const card = document.querySelector(`.strategy-live [data-card="${key}"]`);
   if (card?.closest('details')) card.closest('details').open = true;
   setEditing(card, true);
   card?.querySelector('input, select, textarea, button.chip, .segmented button')?.focus({preventScroll: true});
 }
 export function closeCard() {
   if (!strategyState.editing) return;
+  if (inDraft() && bar?.count()) { bar.saveAll(); return; }   // the draft takes the card's edits; a save closes the editor
   strategyState.editing = '';
   redraw();
 }
 // Typing redraws only the badges and the bar, so a field keeps its focus.
 export function changed() {
-  for (const card of document.querySelectorAll('.strategy-page [data-card]')) {
+  for (const card of document.querySelectorAll('.strategy-live [data-card]')) {
     const badge = card.querySelector('.unsaved-badge');
     if (badge) badge.hidden = !cardCount(card.dataset.card);
     card.querySelector('.card-done')?.sync?.();
@@ -103,12 +107,12 @@ export function strategyBar(deps) {
       async save() {
         const lists = edits();
         if (Object.keys(lists).length) {
-          const result = await window.pilot.editTargets(lists).catch(error => ({ok: false, error: error.message}));
+          const result = await sink.editTargets(lists).catch(error => ({ok: false, error: error.message}));
           if (!result?.ok) return {ok: false, error: result?.error || 'try again'};
           forget(names);
         }
         for (const goal of (card.goals || []).filter(each => each in drafts().goalEdits)) {
-          const result = await window.pilot.editGoal(goal, drafts().goalEdits[goal]).catch(error => ({ok: false, error: error.message}));
+          const result = await sink.editGoal(goal, drafts().goalEdits[goal]).catch(error => ({ok: false, error: error.message}));
           if (!result?.ok) return {ok: false, field: GOAL_LABELS[goal], error: result?.error || 'try again'};
           delete drafts().goalEdits[goal];
         }
@@ -127,7 +131,7 @@ export function strategyBar(deps) {
   // Esc closes the open editor (its draft stays); a menu or dialog open over the page keeps its own Esc.
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || !strategyState.editing || event.defaultPrevented || document.querySelector('dialog[open]')) return;
-    if (document.querySelector('.view[data-view=strategy]')?.hidden) return;
+    if (!inDraft() && document.querySelector('.view[data-view=strategy]')?.hidden) return;
     closeCard();
   });
   return bar;

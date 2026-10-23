@@ -56,6 +56,6 @@ test('every list the AI reads is drawn one chip per meaning with its "Did you me
   assert.match(views, /withHints\(name, draw\)/, 'the search card rows go through withHints');
   assert.match(page, /shownGroups\(entriesOf\(strategyState\.lastStrategy, name\), shownOf\(name\)\)/, 'withHints draws one chip per meaning, in groups');
   assert.doesNotMatch(views, /chipsOf\((places|regions|rights|stack)\)/, 'a list drawn from its raw labels');
-  assert.match(page, /if \(!strategyState\.editing && strategyState\.lastStrategy\) loadMeanings\(savedLabels, renderTargets\)/, 'asked for the saved lists, never while editing');
+  assert.match(page, /if \(!strategyState\.editing && strategyState\.lastStrategy && !inDraft\(\)\) loadMeanings\(savedLabels, renderTargets\)/, 'asked for the saved lists, never while editing, never for a setup draft');
   assert.match(page, /const shownOf = name => meaningLabels\(name, savedLabels\(name\)\)/, 'meanings are of what is saved, never a draft');
 });

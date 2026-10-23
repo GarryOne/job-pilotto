@@ -88,6 +88,7 @@ import {registerJobActionsHandlers} from './lib/job-actions-handlers.js';
 import {registerCloudHandlers} from './lib/cloud-handlers.js';
 import {registerJobsHandlers} from './lib/jobs-handlers.js';
 import {registerStrategyDraftHandlers} from './lib/strategy-draft-handlers.js';
+import {registerDraftEditHandlers} from './lib/draft-edit-handlers.js';
 import {registerSetupHandlers} from './lib/setup-handlers.js';
 import {registerExtServerHandlers} from './lib/ext-server-handlers.js';
 import {registerBackgroundHandlers} from './lib/background-handlers.js';
@@ -262,6 +263,7 @@ function handlers() {
   registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window, keepLook, toWindow,
     setNotionFrom: value => { notionFrom = value; }});   // lib/setup-handlers.js
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
+  registerDraftEditHandlers({ipcMain});   // lib/draft-edit-handlers.js: the draft edited through the Strategy cards
   registerJobPageHandlers({ipcMain, storage, DEMO, here, dialog, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
   registerTextHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/text-handlers.js: Settings → Profile's texts
   registerReportsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/reports-handlers.js: Reports → insights

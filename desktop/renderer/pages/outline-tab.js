@@ -6,6 +6,7 @@
 import {el, loadingCard} from '../components.js';
 import {keep, swr} from '../swr.js';
 import {pageSaveBar} from '../save-bar.js';
+import {inDraft, sink} from '../strategy-sink.js';
 import {changeFor, shown} from '../answers-model.js';
 import {input, labelled} from './website-rules.js';
 
@@ -21,6 +22,7 @@ export function outlineTab(id, names, body, draw, {onReset = () => {}, onChange 
   let state = {items: {}, store: '', link: {}};
   const size = () => names.reduce((sum, name) => sum + pending[name].size, 0);
   let source = null;
+  const cacheKey = () => `outline:${names.join('+')}${inDraft() ? ':draft' : ''}`;   // the setup's draft Profile never shares the saved one's cached read
   const follow = () => { source?.changed(); onChange(size()); };
 
   const view = () => ({...state, redraw, dirty: size,
@@ -33,8 +35,8 @@ export function outlineTab(id, names, body, draw, {onReset = () => {}, onChange 
   async function saveTexts() {
     const errors = [];
     for (const name of names.filter(each => pending[each].size)) {
-      const answer = await window.pilot.textEdit(name, [...pending[name].values()]).catch(error => ({ok: false, error: error.message}));
-      if (answer.items) { state.items[name] = answer.items; pending[name].clear(); keep(`outline:${names.join('+')}`, {ok: true, results: names.map(each => ({ok: true, items: state.items[each], store: state.store, link: state.link[each]}))}); }
+      const answer = await sink.textEdit(name, [...pending[name].values()]).catch(error => ({ok: false, error: error.message}));
+      if (answer.items) { state.items[name] = answer.items; pending[name].clear(); keep(cacheKey(), {ok: true, results: names.map(each => ({ok: true, items: state.items[each], store: state.store, link: state.link[each]}))}); }
       if (!answer.ok) errors.push(answer.error);
     }
     if (!errors.length) onReset();
@@ -52,8 +54,8 @@ export function outlineTab(id, names, body, draw, {onReset = () => {}, onChange 
         if (kept) clear();
         if (!size()) redraw();   // a refresh never redraws under the person's edits
       };
-      await swr(`outline:${names.join('+')}`, async () => {
-        const results = await Promise.all(names.map(name => window.pilot.textOutline(name).catch(error => ({ok: false, error: error.message}))));
+      await swr(cacheKey(), async () => {
+        const results = await Promise.all(names.map(name => sink.textOutline(name).catch(error => ({ok: false, error: error.message}))));
         const failed = results.find(result => !result.ok);
         return failed ? {ok: false, error: failed.error} : {ok: true, results};
       }, {
