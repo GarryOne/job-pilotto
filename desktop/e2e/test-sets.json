@@ -145,6 +145,7 @@
   "picture-asks.test.mjs",
   "plan-run.test.mjs",
   "plan-gate-real.test.mjs",
+  "key-preflight.test.mjs",
   "plan-windows.test.mjs",
   "plan.test.mjs",
   "planted.test.mjs",
