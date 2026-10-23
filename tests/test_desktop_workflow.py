@@ -166,6 +166,10 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn("needs.test-windows.result == 'skipped'", job)
         self.assertIn('exit 1', job)
 
+    def test_a_gate_that_planned_zero_suites_also_fails_the_run(self):
+        job = WORKFLOW.split('\n  gate-ran:\n')[1].split('\n  prune:\n')[0]
+        self.assertNotIn("count != '0'", job.split('steps:')[0], 'a zero-suite plan skips test-mac, which is the failure this job exists for')
+
 
 if __name__ == '__main__':
     unittest.main()
