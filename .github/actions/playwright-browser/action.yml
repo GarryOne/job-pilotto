@@ -1,0 +1,38 @@
+name: Playwright browser
+description: >-
+  Chromium for Playwright in seconds: the browser and the apt packages it needs come from the GitHub cache (keyed by the Playwright
+  version and the runner image), a stalled mirror is cut after ~90 s and retried, and only the build the caller uses is downloaded.
+inputs:
+  mode:
+    description: "full = Chrome for Testing only (the real extension), shell = headless shell only, both = Playwright's default"
+    default: full
+  runtime:
+    description: node (npx playwright, run in working-directory) or python (the playwright command on PATH)
+    default: node
+  working-directory:
+    description: Where `npx playwright` finds its package (node only)
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Which Playwright and which runner image
+      id: which
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh" key "${{ inputs.runtime }}" "${{ inputs.mode }}"
+    - name: Cached browser
+      if: runner.os == 'Linux'
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/ms-playwright
+        key: pw-browser-${{ steps.which.outputs.key }}
+    - name: Cached system packages
+      if: runner.os == 'Linux'
+      uses: actions/cache@v5
+      with:
+        path: /var/cache/pw-apt
+        key: pw-apt-${{ steps.which.outputs.image }}-${{ steps.which.outputs.key }}
+    - name: Install the browser
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh" install "${{ inputs.runtime }}" "${{ inputs.mode }}"

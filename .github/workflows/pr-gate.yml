@@ -75,7 +75,10 @@ jobs:
         run: |
           (cd desktop/e2e && npm ci)
           (cd desktop && npm ci --omit=dev --ignore-scripts)
-          (cd desktop/e2e && npx playwright install --with-deps chromium)   # full Chromium: the replay loads the real extension
+      - name: Chromium for the replay (the full browser, it loads the real extension)
+        if: ${{ !cancelled() && steps.which.outputs.cases != '' }}
+        uses: ./.github/actions/playwright-browser
+        with: {working-directory: desktop/e2e}
       - name: New test pages fail on the old build
         if: ${{ !cancelled() }}
         env:

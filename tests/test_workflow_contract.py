@@ -90,7 +90,7 @@ class HeadlessBrowserTests(unittest.TestCase):
             with self.subTest(workflow=path.name):
                 text = path.read_text()
                 self.assertIn('pip install --quiet -r requirements-render.txt', text)
-                self.assertIn('playwright install', text)
+                self.assertIn('./.github/actions/playwright-browser', text)   # the shared cached install (tests/test_playwright_install_action.py)
 
 
 

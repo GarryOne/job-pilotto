@@ -86,8 +86,19 @@ jobs:
         continue-on-error: true   # the brief still runs on the page source
         run: |
           mkdir -p "$RUNNER_TEMP/shots" && cp tools/site-shots.mjs "$RUNNER_TEMP/shots/"
-          cd "$RUNNER_TEMP/shots" && npm init -y >/dev/null && npm i -s playwright@1 && npx playwright install --with-deps chromium >/dev/null
-          node site-shots.mjs https://www.jobpilotto.top/ "$GITHUB_WORKSPACE/.brain"
+          cd "$RUNNER_TEMP/shots" && npm init -y >/dev/null && npm i -s playwright@1
+      - name: Chromium for the screenshots (cached)
+        if: env.STEP != 'skip' && env.STEP != 'approve' && env.STEP != 'sync'
+        continue-on-error: true
+        uses: ./.github/actions/playwright-browser
+        with:
+          working-directory: ${{ runner.temp }}/shots
+          mode: full
+      - name: Screenshots
+        if: env.STEP != 'skip' && env.STEP != 'approve' && env.STEP != 'sync'
+        continue-on-error: true
+        run: |
+          node "$RUNNER_TEMP/shots/site-shots.mjs" https://www.jobpilotto.top/ "$GITHUB_WORKSPACE/.brain"
 
       - name: Claude picks today's one action
         if: env.STEP == 'brief' || env.STEP == 'another'

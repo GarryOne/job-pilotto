@@ -63,7 +63,12 @@ jobs:
         run: |
           (cd desktop/e2e && (npm ci || npm install))
           (cd desktop && (npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts) && node scripts/stage.mjs --files-only)
-          (cd desktop/e2e && npx playwright install --with-deps chromium)
+      - name: Chromium for the replays (cached)
+        id: replay-chromium
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/playwright-browser
+        with: {working-directory: desktop/e2e}
       - name: Suite · page cases (every recorded case)
         id: pages
         continue-on-error: true
@@ -101,7 +106,7 @@ jobs:
       - name: Every suite passed
         if: always()
         env:
-          RESULTS: python=${{ steps.python.outcome }} worker=${{ steps.worker.outcome }} desktop=${{ steps.desktop.outcome }} replay-install=${{ steps.replay-install.outcome }} page-cases=${{ steps.pages.outcome }}
+          RESULTS: python=${{ steps.python.outcome }} worker=${{ steps.worker.outcome }} desktop=${{ steps.desktop.outcome }} replay-install=${{ steps.replay-install.outcome }} replay-chromium=${{ steps.replay-chromium.outcome }} page-cases=${{ steps.pages.outcome }}
           WARNINGS: page-cases-report=${{ steps.pages-report.outcome }} control-tests=${{ steps.zoo.outcome }}
         run: |
           red=""

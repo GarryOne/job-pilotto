@@ -91,7 +91,7 @@ export function pathEntries(files) {
 }
 
 // A workflow's `on: pull_request: paths:` as written (the install files beside the generated list: package.json/lock, the workflow itself).
-export const INSTALL = /^(desktop\/(e2e\/)?package(-lock)?\.json|\.github\/workflows\/[\w-]+\.yml)$/;
+export const INSTALL = /^(desktop\/(e2e\/)?package(-lock)?\.json|\.github\/workflows\/[\w-]+\.yml|\.github\/actions\/playwright-browser\/\*\*)$/;
 export function listedPaths(workflow, root = ROOT) {
   const text = fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8');
   const start = text.indexOf('  pull_request:'), end = text.slice(start).search(/\n  [a-z_]+:/);
