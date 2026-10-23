@@ -48,11 +48,11 @@ jobs:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: GarryOne
-          repositories: job-pilotto-internal
+          repositories: jobadabra-lab
       - name: The private repo (the curated seed lists and the discovery)
         uses: actions/checkout@v5
         with:
-          repository: GarryOne/job-pilotto-internal
+          repository: GarryOne/jobadabra-lab
           token: ${{ steps.ops_token.outputs.token }}
           path: ops
       - name: Load the private seed lists and starter feeds
