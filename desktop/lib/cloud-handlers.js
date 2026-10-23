@@ -15,7 +15,7 @@ export function registerCloudHandlers(ctx) {
   // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
   handleImportant('cloudConnect', 'Setting up Always on', async (_, chosen = '') => {
-    if (DEMO) return {ok: true, repo: storage.settings().cloud?.repo || 'alexmorgan/job-pilotto-private', existing: null,
+    if (DEMO) return {ok: true, repo: storage.settings().cloud?.repo || 'alexmorgan/jobadabra-personal-always-on', existing: null,
       secrets: ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'], variables: []};  // never the real GitHub
     const gate = needsNotion('cloud');
     if (gate) return gate;

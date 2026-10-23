@@ -50,7 +50,7 @@ def app_folder():
 
 
 def workspace_repo(folder=None):
-    """The repository that holds the workspace: 'owner/job-pilotto-private', or how far the Desktop App got.
+    """The repository that holds the workspace: 'owner/jobadabra-personal-always-on' (older: job-pilotto-private), or how far the Desktop App got.
 
     The scheduled runs and a Gmail check need this repo's NOTION_* variables and secrets (the app writes them
     when Always on is set up); this engine repo has none. Anything that dispatches a workflow or asks GitHub
