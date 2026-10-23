@@ -131,16 +131,22 @@ export async function runApply(ctx, parts) {
   // The person's click on a job's Apply button; the form opens in the browser with the extension, which fills it by itself. -> the tab, once the fill is over.
   async function apply(form, {viaApi = false} = {}) {
     const opened = ctx.browser.opened.length;
+    // A job whose form tab is still open keeps it (22 Oct 2026, 0e359e1): the app has that tab reload and fill again instead of opening a second one, so a reload of an open tab counts as the open.
+    const reloaded = [];
+    for (const open of ctx.browser.context.pages()) open.once('load', () => reloaded.push(open));
     await page.click('.nav[data-view="jobs"]');
     // viaApi: the same call the button makes ("Fill in Chrome" in the ⋯ menu), for a job whose button now says "View session".
     if (viaApi) await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: 'Zurich, Switzerland', workMode: ''}), form);
     else await page.locator('article.job-row').filter({hasText: form.company}).first().locator('.row-main').click();
     const deadline = Date.now() + 30000;
-    while (ctx.browser.opened.length === opened && Date.now() < deadline) await pause(250);
-    if (ctx.browser.opened.length === opened) throw new Error(`Apply did not open ${form.title} in the browser (the app's open command was never called)`);
-    const url = ctx.browser.opened.at(-1);
-    if (!/#jobpilotto-fill=[A-Za-z0-9_-]+$/.test(url)) throw new Error(`Apply opened ${url} without the fill marker that names its session (every tab the app opens carries one: lib/session-tab.js)`);
-    const tab = ctx.browser.pages[url.split('#')[0]];
+    while (ctx.browser.opened.length === opened && !reloaded.length && Date.now() < deadline) await pause(250);
+    if (ctx.browser.opened.length === opened && !reloaded.length) throw new Error(`Apply did not open ${form.title} in the browser (the app's open command was never called, and no open tab reloaded)`);
+    let tab = reloaded[0];
+    if (ctx.browser.opened.length !== opened) {
+      const url = ctx.browser.opened.at(-1);
+      if (!/#jobpilotto-fill=[A-Za-z0-9_-]+$/.test(url)) throw new Error(`Apply opened ${url} without the fill marker that names its session (every tab the app opens carries one: lib/session-tab.js)`);
+      tab = ctx.browser.pages[url.split('#')[0]];
+    }
     for (let waited = 0; waited < 90000; waited += 500) {
       const state = await fillState(tab).catch(() => null);
       if (state?.state === 'done' || state?.state === 'error') return {tab, state};
