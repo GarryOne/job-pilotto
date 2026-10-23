@@ -173,7 +173,7 @@ jobs:
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
       # had never run (no token) and showed ✓. Forks have no secrets: they still skip with a warning.
-      E2E_REQUIRE_SECRETS: ${{ github.repository == 'GarryOne/job-pilotto' && '1' || '' }}
+      E2E_REQUIRE_SECRETS: ${{ github.repository_owner == 'GarryOne' && '1' || '' }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}   # the OpenAI family's turn (odd runs; desktop/e2e/lib/engine.mjs pickFamily)
       E2E_AI_FAMILY: ${{ (inputs.family == 'claude' || inputs.family == 'openai') && inputs.family || '' }}   # a manual run pinned to one family; else alternate

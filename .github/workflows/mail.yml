@@ -87,7 +87,7 @@ jobs:
               --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" --data-urlencode "text=${text}"
           fi
       # A Gmail check reads and writes the user's Notion workspace: without its NOTION_* variables (set by the
-      # Desktop App in the private job-pilotto-private repo) there is nothing to read, and Notion answers 400.
+      # Desktop App in the private Always-on repo) there is nothing to read, and Notion answers 400.
       # Say so and skip instead of dying in a traceback (1 Oct 2026: the post-application watcher dispatched this
       # workflow in the public engine repo, so every submitted application queued a failing check).
       - name: No workspace in this repository
@@ -95,7 +95,7 @@ jobs:
         run: |
           echo "::notice::No Job Pilotto workspace in ${GITHUB_REPOSITORY} (NOTION_APPLICATIONS_DB is empty)."
           echo "A Gmail check needs the workspace the Desktop App writes to your private repo; nothing to do here."
-          echo "It runs from your private job-pilotto-private repo's schedule, or as 'Check Gmail now' in the app."
+          echo "It runs from your private Always-on repo's schedule, or as 'Check Gmail now' in the app."
       - uses: actions/checkout@v5
         if: env.GOOGLE_REFRESH_TOKEN != '' && env.NOTION_APPLICATIONS_DB != ''
         # Called from a private repo (templates/github-actions): run this repo's code there.

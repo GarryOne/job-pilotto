@@ -16,12 +16,16 @@ import {cadence, crons, withSchedule} from './cadence.js';
 import {MODELS, REPO} from './pipeline.js';
 import {tar} from './tar.js';
 import {channelsOf} from './notify-channel.js';
+import {pinned, resolveEngineRepo} from './engine-repo.js';
+export {setEngineRef, resolveEngineRepo, currentEngineRepo, ENGINE_REPO} from './engine-repo.js';
 
 // The Job Pilotto GitHub App (public identifiers; device flow needs no client secret). Its permissions,
 // on the one repository it's installed on: Actions, Contents, Secrets, Variables and Workflows (write).
 export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'Iv23liEIBvK1hG0oejDr';
 export const APP_SLUG = process.env.JOB_PILOTTO_GITHUB_APP || 'job-pilotto';
-export const REPO_NAME = 'job-pilotto-private';
+// New repos are named jobadabra-personal-always-on (owner, 24 Oct 2026); repos made before keep job-pilotto-private and are still found.
+export const REPO_NAME = 'jobadabra-personal-always-on';
+export const REPO_NAMES = [REPO_NAME, 'job-pilotto-private'];
 export const STARTER = 'GarryOne/job-pilotto-starter';
 // Step 1: a new private repo from the starter template. Step 2: install the app on it only.
 export const CREATE_URL = `https://github.com/new?template_name=${STARTER.split('/')[1]}&template_owner=${STARTER.split('/')[0]}&name=${REPO_NAME}&visibility=private`;
@@ -34,13 +38,6 @@ export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NOTION_TOKE
 // main.js sets the reader; they go to the repo with the rest, so a Gmail check on GitHub can sign in.
 let extraSecrets = () => ({});
 export const setExtraSecrets = read => { extraSecrets = read; };
-// Which Job Pilotto code the user's repo runs: an installed app sets its own release tag (desktop-v<version>), so
-// the GitHub runs match the app and its Notion schema, and move on together when the app updates (the files are
-// rewritten at each start). A source checkout (the owner's) keeps "main".
-let engineRef = 'main';
-export const setEngineRef = ref => { engineRef = ref || 'main'; };
-const pinned = yaml => (engineRef === 'main' ? yaml
-  : yaml.replace(/(GarryOne\/job-pilotto\/\.github\/workflows\/[\w.-]+\.yml)@main/g, `$1@${engineRef}`).replace(/code_ref: main\b/g, `code_ref: ${engineRef}`));
 const MODEL_VARIABLES = {
   JOB_PILOTTO_ENRICH_MODEL: 'enrich', JOB_PILOTTO_SCORE_MODEL: 'score', JOB_PILOTTO_KIT_MODEL: 'kit',
   JOB_PILOTTO_INSIGHT_MODEL: 'insight', JOB_PILOTTO_MAIL_MODEL: 'enrich', JOB_PILOTTO_SMALL_MODEL: 'small',
@@ -93,7 +90,7 @@ export function client(token, fetcher = globalThis.fetch) {
   };
 }
 
-// The repo the user installed the app on: the one called job-pilotto-private, else the only one.
+// The repo the user installed the app on: the one with one of our names (REPO_NAMES), else the only one.
 // Throws needsRepo when there's none yet, so the app can show the two setup steps.
 export async function findRepo(api, chosen = '') {
   const {login} = await api('GET', '/user');
@@ -103,7 +100,7 @@ export async function findRepo(api, chosen = '') {
     const {repositories = []} = await api('GET', `/user/installations/${installation.id}/repositories?per_page=100`);
     repos.push(...repositories);
   }
-  const repo = repos.find(r => r.full_name === chosen) || repos.find(r => r.name === REPO_NAME) || (repos.length === 1 ? repos[0] : null);
+  const repo = repos.find(r => r.full_name === chosen) || repos.find(r => REPO_NAMES.includes(r.name)) || (repos.length === 1 ? repos[0] : null);
   if (!repo && repos.length > 1) {
     throw Object.assign(new Error('Choose which repository Jobadabra should use.'),
       {needsChoice: true, repos: repos.filter(r => r.private).map(r => r.full_name)});
@@ -349,6 +346,7 @@ export async function updateRepo(storage, {fetcher} = {}) {
   const cloud = storage.settings().cloud || {};
   if (!cloud.repo || !storage.secret('GITHUB_TOKEN')) return [];
   const api = client(storage.secret('GITHUB_TOKEN'), fetcher);
+  await resolveEngineRepo(fetcher);   // the workflow files name the engine as GitHub names it now
   const {files, secrets, variables, removed} = payload(storage);
   const changed = [];
   for (const [file, content] of Object.entries(files)) {

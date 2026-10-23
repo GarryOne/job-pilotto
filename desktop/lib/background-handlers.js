@@ -122,6 +122,12 @@ export function registerBackgroundHandlers(ctx) {
       for (const row of closed) appLog('run', 'closed the row of a run the app stopped', {kind: row.kind, started: row.startedAt, decidedBy: 'orphan watchdog'});
     }});   // an engine run left behind by a restart, stuck: stop it (lib/orphans.js)
     setTimeout(remind, 15000);
+    // The engine repo renamed while the app runs (lib/engine-repo.js): the user's workflows get the new name within 6 hours, not at the next start.
+    if (!DEMO) setInterval(async () => {
+      if (!cloud() || !await github.resolveEngineRepo()) return;
+      github.updateRepo(storage).then(changed => appLog('cloud', 'repo follows the engine\'s new name', {engine: github.currentEngineRepo(), what: changed.join(', '), decidedBy: 'engine renamed'}),
+        error => appLog('cloud', 'repo not updated', {error: error.message}));
+    }, 6 * 3600 * 1000);
     // The user's side kept in step with this app (lib/github.js updateRepo, lib/telegram-cloud.js refresh): names only, never a value.
     if (cloud()) github.updateRepo(storage).then(changed => {
       if (changed.length) { log(`Updated in your GitHub repo: ${changed.join(', ')}`); appLog('cloud', 'repo brought in step with this app', {changed: changed.length, what: changed.join(', '), decidedBy: 'app start'}); }

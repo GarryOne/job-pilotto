@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
-# which users "Use this template" on to create their private job-pilotto-private. Run after changing the
+# which users "Use this template" on to create their private jobadabra-personal-always-on. Run after changing the
 # templates. Needs gh signed in as the repo owner.
 set -euo pipefail
 repo=GarryOne/job-pilotto-starter
