@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from src import daily, desktop, digest, geo
+from src import daily, desktop, digest, geo, source_yield
 from src import store as job_store
 from src.ai import place_triage
 from src.sources import feeds
@@ -74,6 +74,7 @@ class ForeignCountryNotUnclearTests(unittest.TestCase):
         listers = {
             'Jobs list': lambda: [r['url'] for r in desktop.jobs(self.db, notion_jobs=[], hide_unscored=True)['jobs']],
             'Telegram digest': lambda: [u for u in urls.values() if u in ''.join(digest.build_digest(self.db, seed=1)[0])],
+            'waiting count': lambda: [] if desktop.jobs(self.db, notion_jobs=[], hide_unscored=True)['waiting'] == 0 else ['waiting'],
             'to score': lambda: [j['url'] for j in daily.to_score(self.db, set())],
         }
         for name, listed in listers.items():
@@ -81,8 +82,24 @@ class ForeignCountryNotUnclearTests(unittest.TestCase):
                 shown = listed()
                 for location in FOREIGN:
                     self.assertNotIn(urls[location], shown)
+                if name == 'waiting count':
+                    continue
                 if name != 'to score':   # an unread vague job is never scored, but is listed
                     self.assertIn(urls['Moldova'], shown)
+
+    def test_the_yield_count_leaves_them_out_of_in_your_places(self):
+        job_store.close_elsewhere(self.db, feeds.keep_open)
+        counted = sum(row['in_places'] for row in source_yield.measure(self.db, '2000-01-01T00:00:00'))
+        self.assertEqual(counted, 1, 'only the Moldova job is "in your places"')
+
+    def test_a_user_who_accepts_remote_keeps_them_as_before(self):
+        accepting = {**SEARCH, 'remote_jobs': ['Yes']}
+        with mock.patch.object(feeds, '_SEARCH', accepting):
+            for location in FOREIGN:
+                with self.subTest(location):
+                    job = self.jobs()[location]
+                    self.assertEqual(feeds.place_of(job), 'vague')
+                    self.assertTrue(digest.place_unclear(job))
 
     def test_a_weak_vague_answer_is_cleared_without_asking(self):
         norms = [place_triage.norm(loc) for loc in [*FOREIGN, 'Moldova']]
