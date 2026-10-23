@@ -144,6 +144,7 @@
   "panel-theme-stop.test.mjs",
   "picture-asks.test.mjs",
   "plan-run.test.mjs",
+  "pr-suites.test.mjs",
   "plan-gate-real.test.mjs",
   "plan-windows.test.mjs",
   "plan.test.mjs",
