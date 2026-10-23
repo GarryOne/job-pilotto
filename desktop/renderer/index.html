@@ -265,7 +265,7 @@
         <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="search"></i></span>
           <span class="service-text"><b>Google Jobs</b><span class="muted small">Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</span></span>
           <button class="secondary" data-goto-settings="serpapi">Add key</button></div>
-        <div class="service-card is-row is-wide" id="claude-extra"><span class="ui-tile tone-signal"><i data-icon="bot"></i></span>
+        <div class="service-card is-row is-wide" id="claude-extra" hidden><span class="ui-tile tone-signal"><i data-icon="bot"></i></span>
           <span class="service-text"><b>Apply with Claude</b><span class="muted small">Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</span>
             <ul class="prereqs" id="claude-prereqs"></ul></span>
           </div>
@@ -1323,7 +1323,7 @@
       </div>
       <div class="setting conn-panel" id="setting-google" hidden>
         <div><h3>📧 Gmail and Calendar</h3><p class="muted status-line" id="google-status">Checking…</p>
-          <p class="muted small">Read-only. Tracks replies and interviews, and lets Apply with Claude read a sign-up's confirmation email. Nothing is ever sent or changed.</p></div>
+          <p class="muted small">Read-only. Tracks replies and interviews. Nothing is ever sent or changed.</p></div>
         <div class="inline"><button class="secondary" id="google-connect">Connect Google</button><span id="google-more" hidden></span></div>
         <p class="message" id="google-message"></p>
         <details class="conn-setup plain" id="alerts-guide"><summary>Get LinkedIn, jobs.ch and Indeed jobs from your job alerts</summary>
@@ -1791,7 +1791,7 @@
     <div><b id="cv-dialog-name"></b><small id="cv-dialog-sub"></small></div></div>
   <ul class="cv-rows">
     <li class="cv-row"><i data-icon="user"></i>
-      <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
+      <div><b>New applications</b><p>The extension uses your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
     <li class="cv-row cv-profile">
       <div class="cv-profile-head"><i data-icon="file-text"></i><b>Your Profile</b><span id="cv-profile-pill"></span></div>
       <p id="cv-profile-text"><span data-ai>Claude</span> compares the two CVs and suggests only the lines to change. You pick which.</p>
@@ -2295,7 +2295,7 @@
     <input id="apply-n" type="number" min="1" max="10" value="3">
     <fieldset>
       <legend>How to fill them</legend>
-      <label class="radio"><input type="radio" name="apply-mode" value="agents">
+      <label class="radio" hidden><input type="radio" name="apply-mode" value="agents">
         <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and <span data-about-notion>Notion</span>.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="chrome">
         <span><b>Fill in Chrome with the extension</b> <span class="badge-recommended">Recommended</span><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
