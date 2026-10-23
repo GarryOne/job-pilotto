@@ -51,12 +51,12 @@ class RecordsTokenApp(unittest.TestCase):
                 step = body[body.rfind('      - ', 0, mint):]
                 step = step[:step.find('\n      - ', 5)] if '\n      - ' in step[5:] else step
                 for want in ('uses: actions/create-github-app-token@v2', 'app-id: ${{ secrets.CI_APP_ID }}', 'private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}',
-                             'owner: GarryOne', 'repositories: job-pilotto-internal', 'continue-on-error: true', "steps.records_app_key.outputs.set == 'true'"):
+                             'owner: GarryOne', 'repositories: jobadabra-lab', 'continue-on-error: true', "steps.records_app_key.outputs.set == 'true'"):
                     if want not in step:
                         bad.append(f'{where}: the records_app step lacks `{want}`')
                 if 'id: records_app_key' not in body[:mint]:
                     bad.append(f'{where}: no records_app_key step (the key-set check) before the mint')
-        self.assertGreater(seen, 8, 'the lint saw the workflows that read job-pilotto-internal')
+        self.assertGreater(seen, 8, 'the lint saw the workflows that read jobadabra-lab')
         self.assertEqual(bad, [], '\n'.join(bad))
 
     def test_the_lint_catches_a_job_that_kept_the_old_secret_alone(self):
