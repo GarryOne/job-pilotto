@@ -62,6 +62,11 @@ test('a burst is a fixed number of sparkles spread around the point', () => {
   assert.equal(new Set(sparks.map(s => `${Math.round(s.dx)},${Math.round(s.dy)}`)).size > 1, true, 'not all on one spot');
 });
 
+test('the small cards\' buttons are tinted, not plain white', () => {
+  assert.match(css, /\.magic-mini button\.secondary \{[^}]*background: var\(--teal-soft\)/);
+  assert.match(welcome, /id="welcome-import"/);
+});
+
 test('the shared part is loaded by the window and started by the wizard', () => {
   assert.match(html, /<link rel="stylesheet" href="magic\.css">/);
   assert.match(read('pages/wizard.js'), /initMagic\(/);
